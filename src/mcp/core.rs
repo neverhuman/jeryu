@@ -150,11 +150,10 @@ impl McpCore {
     ) {
         if method == "notifications/initialized" {
             state.initialized = true;
-            if let Some(Value::Object(map)) = params {
-                if let Some(Value::String(description)) = map.get("description") {
+            if let Some(Value::Object(map)) = params
+                && let Some(Value::String(description)) = map.get("description") {
                     state.client_actor = description.clone();
                 }
-            }
         }
     }
 

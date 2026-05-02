@@ -184,16 +184,14 @@ pub(crate) async fn handle_mcp_post(
         let Some(name_header) = header_value(&headers, "Mcp-Name") else {
             return http_error(StatusCode::BAD_REQUEST, "Mcp-Name header is required");
         };
-        if let Some(params) = request.params.as_ref() {
-            if let Some(name) = params.get("name").and_then(Value::as_str) {
-                if name != name_header {
+        if let Some(params) = request.params.as_ref()
+            && let Some(name) = params.get("name").and_then(Value::as_str)
+                && name != name_header {
                     return http_error(
                         StatusCode::BAD_REQUEST,
                         "Mcp-Name header does not match body",
                     );
                 }
-            }
-        }
     }
 
     let mut sessions = state.sessions.lock().await;
@@ -217,18 +215,17 @@ fn validate_mcp_http_headers(
     headers: &HeaderMap,
     allow_body: bool,
 ) -> std::result::Result<(), Response> {
-    if let Some(origin) = header_value(headers, header::ORIGIN.as_str()) {
-        if !is_loopback_origin(origin) {
+    if let Some(origin) = header_value(headers, header::ORIGIN.as_str())
+        && !is_loopback_origin(origin) {
             return Err(http_error(
                 StatusCode::FORBIDDEN,
                 "non-loopback Origin rejected",
             ));
         }
-    }
 
-    if !allow_body {
-        if let Some(method) = headers.get(header::CONTENT_TYPE) {
-            if method
+    if !allow_body
+        && let Some(method) = headers.get(header::CONTENT_TYPE)
+            && method
                 .to_str()
                 .map(|s| s.starts_with("application/json"))
                 .unwrap_or(false)
@@ -238,8 +235,6 @@ fn validate_mcp_http_headers(
                     "DELETE does not accept a JSON body",
                 ));
             }
-        }
-    }
 
     Ok(())
 }
@@ -285,11 +280,10 @@ fn http_jsonrpc_response(
         header::HeaderName::from_static("mcp-protocol-version"),
         HeaderValue::from_static(MCP_PROTOCOL_VERSION),
     );
-    if let Some((name, value)) = extra_header {
-        if let Ok(value) = HeaderValue::from_str(&value) {
+    if let Some((name, value)) = extra_header
+        && let Ok(value) = HeaderValue::from_str(&value) {
             response.headers_mut().insert(name, value);
         }
-    }
     response
 }
 
