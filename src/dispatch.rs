@@ -192,9 +192,31 @@ pub(crate) async fn run(cli: Cli) -> Result<()> {
         Commands::Git { args } => {
             // Find system git but avoid infinite recursion if aliased.
             let git_path = std::env::var("JERYU_SYSTEM_GIT").unwrap_or_else(|_| "/usr/bin/git".into());
-            let status = std::process::Command::new(git_path)
+            
+            // Auto-Shadow: Intercept push command
+            let is_push = args.first().map(|s| s.as_str()) == Some("push");
+            
+            let status = std::process::Command::new(&git_path)
                 .args(&args)
                 .status()?;
+                
+            if is_push && status.success() {
+                // Determine if 'shadow' remote exists
+                let remotes = std::process::Command::new(&git_path)
+                    .args(["remote"])
+                    .output();
+                    
+                if let Ok(out) = remotes {
+                    let remote_str = String::from_utf8_lossy(&out.stdout);
+                    if remote_str.lines().any(|l| l.trim() == "shadow") {
+                        println!("🪄 JeRyu: Automatically pushing to local shadow pipeline...");
+                        let _ = std::process::Command::new(&git_path)
+                            .args(["push", "shadow", "HEAD"])
+                            .status();
+                    }
+                }
+            }
+                
             std::process::exit(status.code().unwrap_or(1));
         }
 

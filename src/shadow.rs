@@ -1,11 +1,10 @@
 //! Owner: Shadow Remote Mirroring
 //! Proof: `cargo test -p jeryu -- shadow`
-//! Invariants: Mirror operations are idempotent; push failures do not block the primary pipeline; git2 errors are always surfaced via anyhow context
+//! Invariants: Mirror operations are idempotent; push failures do not block the primary pipeline; git commands are used natively.
 
 use crate::gitlab_client::GitlabClient;
 use crate::state::{Db, ShadowSyncConfig};
 use anyhow::{Context, Result, bail};
-use git2::{Cred, PushOptions, RemoteCallbacks, Repository};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -30,36 +29,10 @@ pub struct ShadowStatus {
 }
 
 pub fn status(repo: Option<&Path>, target_remote: &str) -> Result<ShadowStatus> {
-    let repo = open_repo(repo)?;
-    let repo_root = repo
-        .workdir()
-        .or_else(|| repo.path().parent())
-        .context("failed to resolve repository root")?
-        .to_path_buf();
-    let head_branch = repo
-        .head()
-        .ok()
-        .and_then(|head| head.shorthand().map(str::to_string));
-    let remotes = repo
-        .remotes()
-        .context("failed to list remotes")?
-        .iter()
-        .flatten()
-        .map(|name| {
-            let remote = repo
-                .find_remote(name)
-                .with_context(|| format!("failed to inspect remote '{name}'"))?;
-            Ok(RemoteStatus {
-                name: name.to_string(),
-                fetch_url: remote.url().map(str::to_string),
-                push_url: remote
-                    .pushurl()
-                    .or_else(|| remote.url())
-                    .unwrap_or("(none)")
-                    .to_string(),
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let repo_root = open_repo(repo)?;
+    let head_branch = get_head_branch(&repo_root).ok();
+    
+    let remotes = list_remotes(&repo_root).unwrap_or_default();
     let target_exists = remotes.iter().any(|remote| remote.name == target_remote);
 
     Ok(ShadowStatus {
@@ -72,17 +45,15 @@ pub fn status(repo: Option<&Path>, target_remote: &str) -> Result<ShadowStatus> 
 }
 
 pub fn ensure_remote(repo: Option<&Path>, name: &str, url: &str) -> Result<()> {
-    let repo = open_repo(repo)?;
-    let repo_root = repo
-        .workdir()
-        .or_else(|| repo.path().parent())
-        .context("failed to resolve repository root")?;
-    if repo.find_remote(name).is_ok() {
-        run_git(repo_root, ["remote", "set-url", name, url])?;
+    let repo_root = open_repo(repo)?;
+    
+    let remotes = list_remotes(&repo_root).unwrap_or_default();
+    if remotes.iter().any(|r| r.name == name) {
+        run_git(&repo_root, ["remote", "set-url", name, url])?;
     } else {
-        run_git(repo_root, ["remote", "add", name, url])?;
+        run_git(&repo_root, ["remote", "add", name, url])?;
     }
-    run_git(repo_root, ["remote", "set-url", "--push", name, url])?;
+    run_git(&repo_root, ["remote", "set-url", "--push", name, url])?;
     Ok(())
 }
 
@@ -92,33 +63,99 @@ pub fn push_remote(
     branch: Option<&str>,
     mirror: bool,
 ) -> Result<()> {
-    let repo = open_repo(repo)?;
-    let repo_root = repo
-        .workdir()
-        .or_else(|| repo.path().parent())
-        .context("failed to resolve repository root")?;
+    let repo_root = open_repo(repo)?;
     if mirror {
-        run_git(repo_root, ["push", "--mirror", name])?;
+        run_git(&repo_root, ["push", "--mirror", name])?;
         return Ok(());
     }
 
     let branch_name = match branch {
         Some(branch) => branch.to_string(),
-        None => repo
-            .head()
-            .ok()
-            .and_then(|head| head.shorthand().map(str::to_string))
-            .context("detached HEAD; pass --branch explicitly")?,
+        None => get_head_branch(&repo_root).context("detached HEAD; pass --branch explicitly")?,
     };
     let refspec = format!("HEAD:refs/heads/{branch_name}");
-    run_git(repo_root, ["push", name, &refspec])?;
+    run_git(&repo_root, ["push", name, &refspec])?;
     Ok(())
 }
 
-fn open_repo(repo: Option<&Path>) -> Result<Repository> {
+fn open_repo(repo: Option<&Path>) -> Result<PathBuf> {
     let path = repo.unwrap_or_else(|| Path::new("."));
-    Repository::discover(path)
-        .with_context(|| format!("failed to discover git repository from {}", path.display()))
+    let output = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .current_dir(path)
+        .output()
+        .context("failed to discover git repository")?;
+        
+    if !output.status.success() {
+        bail!("failed to discover git repository from {}", path.display());
+    }
+    
+    let root = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(PathBuf::from(root))
+}
+
+fn get_head_branch(repo_root: &Path) -> Result<String> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(repo_root)
+        .output()?;
+        
+    if !output.status.success() {
+        bail!("Failed to resolve HEAD branch");
+    }
+    let head = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if head == "HEAD" {
+        bail!("Detached HEAD");
+    }
+    Ok(head)
+}
+
+fn list_remotes(repo_root: &Path) -> Result<Vec<RemoteStatus>> {
+    let output = Command::new("git")
+        .args(["remote", "-v"])
+        .current_dir(repo_root)
+        .output()?;
+        
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+    
+    let out_str = String::from_utf8_lossy(&output.stdout);
+    let mut names = std::collections::HashSet::new();
+    let mut remotes = Vec::new();
+    
+    for line in out_str.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 2 {
+            names.insert(parts[0].to_string());
+        }
+    }
+    
+    for name in names {
+        // Find fetch url
+        let mut fetch_url = None;
+        let mut push_url = None;
+        for line in out_str.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 && parts[0] == name {
+                if parts[2] == "(fetch)" {
+                    fetch_url = Some(parts[1].to_string());
+                } else if parts[2] == "(push)" {
+                    push_url = Some(parts[1].to_string());
+                }
+            }
+        }
+        
+        let push_url = push_url.or_else(|| fetch_url.clone()).unwrap_or_else(|| "(none)".to_string());
+        
+        remotes.push(RemoteStatus {
+            name,
+            fetch_url,
+            push_url,
+        });
+    }
+    
+    Ok(remotes)
 }
 
 fn run_git<const N: usize>(repo_root: &Path, args: [&str; N]) -> Result<()> {
@@ -208,7 +245,6 @@ pub async fn run_shadow_loop(db: Db, client: GitlabClient) {
 }
 
 async fn sync_once(_db: &Db, client: &GitlabClient, config: &mut ShadowSyncConfig) -> Result<bool> {
-    // We use tokio::task::spawn_blocking because git2 blocks the thread.
     let source_dir = config.source_dir.clone();
     let target_branch = config.target_branch.clone();
     let target_project_id = config.target_project_id;
@@ -221,14 +257,19 @@ async fn sync_once(_db: &Db, client: &GitlabClient, config: &mut ShadowSyncConfi
     let status = config.status.clone();
 
     tokio::task::spawn_blocking(move || -> Result<ShadowPushOutcome> {
-        let repo = Repository::open(&source_dir).context("failed to open local repository")?;
-
-        // Resolve HEAD
-        let head = repo.head().context("failed to resolve HEAD")?;
-        let head_commit = head
-            .peel_to_commit()
-            .context("failed to peel HEAD to commit")?;
-        let head_sha = head_commit.id().to_string();
+        let repo_root = PathBuf::from(&source_dir);
+        
+        let output = std::process::Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(&repo_root)
+            .output()
+            .context("failed to run git rev-parse")?;
+            
+        if !output.status.success() {
+            bail!("failed to resolve HEAD in {}", source_dir);
+        }
+        
+        let head_sha = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         if let Some(ref pushed_sha) = last_pushed_sha
             && pushed_sha == &head_sha
@@ -239,28 +280,36 @@ async fn sync_once(_db: &Db, client: &GitlabClient, config: &mut ShadowSyncConfi
         }
 
         // We need to push to shadow server
-        let mut remote = repo.remote_anonymous(&remote_url)?;
+        let push_url = if let Some(pat) = &pat_opt {
+            if remote_url.starts_with("http://") {
+                remote_url.replace("http://", &format!("http://oauth2:{}@", pat))
+            } else if remote_url.starts_with("https://") {
+                remote_url.replace("https://", &format!("https://oauth2:{}@", pat))
+            } else {
+                remote_url.clone()
+            }
+        } else {
+            remote_url.clone()
+        };
 
-        let mut callbacks = RemoteCallbacks::new();
-        if let Some(pat) = &pat_opt {
-            let pat_clone = pat.clone();
-            callbacks.credentials(move |_url, _username_from_url, _allowed_types| {
-                Cred::userpass_plaintext("oauth2", &pat_clone)
-            });
+        let output = std::process::Command::new("git")
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .current_dir(&repo_root)
+            .output()?;
+        let head_branch_name = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let head_name = if head_branch_name == "HEAD" { "HEAD" } else { &head_branch_name };
+
+        let refspec = format!("+{}:refs/heads/{}", head_name, target_branch);
+
+        let push_status = std::process::Command::new("git")
+            .args(["push", &push_url, &refspec])
+            .current_dir(&repo_root)
+            .status()
+            .context("failed to execute push command")?;
+            
+        if !push_status.success() {
+            bail!("failed to push to shadow remote");
         }
-
-        let mut push_options = PushOptions::new();
-        push_options.remote_callbacks(callbacks);
-
-        let refspec = format!(
-            "+{}:refs/heads/{}",
-            head.name().unwrap_or("HEAD"),
-            target_branch
-        );
-
-        remote
-            .push(&[&refspec], Some(&mut push_options))
-            .context("failed to push to remote")?;
 
         // Also push upstream if configured!
         let mut upstream_res = None;
@@ -342,8 +391,6 @@ pub async fn compute_summary(db: &Db) -> Result<Option<ShadowSyncSummary>> {
         if let Some(url) = crate::settings::get().shadow.upstream_url.clone() {
             summary.upstream_url = Some(url);
 
-            // Calculate commit gap heuristically (number of commits ahead of upstream).
-            // We do a fast count if we have the local sha and upstream sha.
             if let (Some(head), Some(up)) = (&c.last_pushed_sha, &c.upstream_last_pushed_sha) {
                 if head == up {
                     summary.upstream_gap = Some(0);
