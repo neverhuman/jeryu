@@ -11,6 +11,8 @@ use super::TOOL_PREFIX;
 pub(crate) enum ToolKind {
     FetchCapsule,
     GetSystemSnapshot,
+    GetPipelineJobs,
+    GetCiBottlenecks,
     ExplainBlockers,
     PlanValidation,
     RunTests,
@@ -49,6 +51,18 @@ impl ToolDefinition {
                 job_id: args.get("job_id")?.as_i64()?,
             }),
             ToolKind::GetSystemSnapshot => Some(AgentIntent::GetSystemSnapshot),
+            ToolKind::GetPipelineJobs => Some(AgentIntent::GetPipelineJobs {
+                project_id: args.get("project_id")?.as_i64()?,
+                pipeline_id: args.get("pipeline_id")?.as_i64()?,
+            }),
+            ToolKind::GetCiBottlenecks => Some(AgentIntent::GetCiBottlenecks {
+                project_id: args.get("project_id")?.as_i64()?,
+                ref_name: args
+                    .get("ref_name")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                limit: args.get("limit").and_then(Value::as_i64),
+            }),
             ToolKind::ExplainBlockers => Some(AgentIntent::ExplainBlockers {
                 entity_type: args.get("entity_type")?.as_str()?.to_string(),
                 entity_id: args.get("entity_id")?.as_i64()?,
@@ -114,6 +128,18 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(true, false, true, false),
             ToolKind::GetSystemSnapshot,
         ),
+        "get_pipeline_jobs" => (
+            "Pipeline jobs",
+            "Fetch the downstream-expanded job list for a pipeline.",
+            tool_annotations(true, false, true, false),
+            ToolKind::GetPipelineJobs,
+        ),
+        "get_ci_bottlenecks" => (
+            "CI bottlenecks",
+            "Return historical CI bottlenecks for a project and optional ref.",
+            tool_annotations(true, false, true, false),
+            ToolKind::GetCiBottlenecks,
+        ),
         "explain_blockers" => (
             "Explain blockers",
             "Explain why a job, release, or merge is blocked.",
@@ -156,6 +182,21 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
     let input_schema = match action_id {
         "fetch_capsule" => object_schema(&["job_id"], &[("job_id", integer_schema())]),
         "get_system_snapshot" => object_schema(&[], &[]),
+        "get_pipeline_jobs" => object_schema(
+            &["project_id", "pipeline_id"],
+            &[
+                ("project_id", integer_schema()),
+                ("pipeline_id", integer_schema()),
+            ],
+        ),
+        "get_ci_bottlenecks" => object_schema(
+            &["project_id"],
+            &[
+                ("project_id", integer_schema()),
+                ("ref_name", string_schema_optional()),
+                ("limit", integer_schema()),
+            ],
+        ),
         "explain_blockers" => object_schema(
             &["entity_type", "entity_id"],
             &[

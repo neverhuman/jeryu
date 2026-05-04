@@ -57,12 +57,14 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
                         .map(|value| format!("{value:.1}s"))
                         .unwrap_or_else(|| "-".to_string());
                     println!(
-                        "  {:<34} {:<10} stage={:<14} run={:>8} queue={:>8} start={} finish={}",
+                        "  {:<34} {:<10} stage={:<14} run={:>8} queue={:>8} pipe={:<8} root={:<8} start={} finish={}",
                         run.job_name,
                         run.status,
                         run.stage,
                         dur,
                         queue,
+                        run.pipeline_id,
+                        run.root_pipeline_id,
                         run.started_at.as_deref().unwrap_or("-"),
                         run.finished_at.as_deref().unwrap_or("-")
                     );

@@ -375,9 +375,15 @@ pub struct PipelineDoctorJob {
     pub started_at: Option<String>,
     pub duration_secs: Option<f64>,
     pub queued_duration_secs: Option<f64>,
+    pub historical_avg_duration_secs: Option<f64>,
+    pub historical_max_duration_secs: Option<f64>,
+    pub historical_runs: Option<i64>,
+    pub slow_factor: Option<f64>,
+    pub queue_factor: Option<f64>,
     pub trace_bytes: Option<usize>,
     pub trace_tail: Option<String>,
     pub stuck_suspected: bool,
+    pub stale_trace_suspected: bool,
     pub recommendation: String,
 }
 
@@ -2315,6 +2321,13 @@ pub async fn build_pipeline_doctor_report(
     let jobs = client
         .list_pipeline_jobs_with_downstream(project_id, pipeline_id)
         .await?;
+    let historical_bottlenecks = match Db::open().await {
+        Ok(db) => db
+            .ci_job_bottlenecks(project_id, Some(&pipeline.ref_name), 500)
+            .await
+            .unwrap_or_default(),
+        Err(_) => Vec::new(),
+    };
     let schema_pools = schema
         .jobs
         .iter()
@@ -2334,6 +2347,15 @@ pub async fn build_pipeline_doctor_report(
             .get(&canonical_name)
             .cloned()
             .unwrap_or_else(|| "unknown".to_string());
+        let historical = historical_bottlenecks
+            .iter()
+            .filter(|row| row.job_name == canonical_name)
+            .max_by_key(|row| {
+                (
+                    row.runner_pool.as_deref() == Some(runner_pool.as_str()),
+                    row.runs,
+                )
+            });
         let mut trace_bytes = None;
         let mut trace_tail = None;
         if job.status == "running"
@@ -2355,19 +2377,46 @@ pub async fn build_pipeline_doctor_report(
         }
         let duration = job.duration.or(job.queued_duration);
         let trace_empty = trace_bytes == Some(0) || trace_tail.as_deref().unwrap_or("").is_empty();
+        let historical_avg_duration_secs = historical.map(|row| row.avg_duration_secs);
+        let historical_max_duration_secs = historical.and_then(|row| row.max_duration_secs);
+        let historical_runs = historical.map(|row| row.runs);
+        let slow_factor = historical_avg_duration_secs
+            .filter(|avg| *avg > 0.0)
+            .and_then(|avg| duration.map(|current| current / avg));
+        let queue_factor = historical_avg_duration_secs
+            .filter(|avg| *avg > 0.0)
+            .and_then(|avg| job.queued_duration.map(|queued| queued / avg));
+        let stale_trace_suspected = job.status == "running"
+            && trace_empty
+            && (slow_factor.map(|factor| factor >= 1.5).unwrap_or(false)
+                || duration.unwrap_or(0.0) > 900.0);
         let stuck_suspected = match job.status.as_str() {
-            "running" => duration.unwrap_or(0.0) > 600.0 && trace_empty,
-            "pending" | "created" | "waiting_for_resource" | "preparing" => {
-                job.queued_duration.unwrap_or(0.0) > 600.0
+            "running" => {
+                stale_trace_suspected
+                    || slow_factor
+                        .map(|factor| factor >= 2.0)
+                        .unwrap_or(duration.unwrap_or(0.0) > 600.0)
             }
+            "pending" | "created" | "waiting_for_resource" | "preparing" => queue_factor
+                .map(|factor| factor >= 2.0)
+                .unwrap_or(job.queued_duration.unwrap_or(0.0) > 600.0),
             _ => false,
         };
-        let recommendation = if stuck_suspected && job.status == "running" {
-            "cancel/retry this job or recycle its runner; it has no fresh trace signal".to_string()
+        let recommendation = if stale_trace_suspected {
+            let avg = historical_avg_duration_secs
+                .map(|value| format!("{value:.1}s"))
+                .unwrap_or_else(|| "n/a".to_string());
+            let slow = slow_factor
+                .map(|value| format!("{value:.2}x"))
+                .unwrap_or_else(|| "n/a".to_string());
+            "trace looks stale relative to historical runtime; recycle the runner or retry after checking trace capture".to_string()
+                + &format!(" (avg={}, slow={})", avg, slow)
+        } else if stuck_suspected && job.status == "running" {
+            "cancel/retry this job or recycle its runner; it is materially slower than historical timing".to_string()
         } else if stuck_suspected {
-            "check runner capacity and tags for this pool".to_string()
+            "check runner capacity and tags for this pool; queue time is materially above historical timing".to_string()
         } else if job.status == "running" {
-            "job is running; inspect trace if it exceeds its normal duration".to_string()
+            "job is running; compare runtime against historical avg/max and inspect trace if it remains slow".to_string()
         } else {
             "waiting for eligible runner".to_string()
         };
@@ -2382,9 +2431,15 @@ pub async fn build_pipeline_doctor_report(
             started_at: job.started_at,
             duration_secs: job.duration,
             queued_duration_secs: job.queued_duration,
+            historical_avg_duration_secs,
+            historical_max_duration_secs,
+            historical_runs,
+            slow_factor,
+            queue_factor,
             trace_bytes,
             trace_tail,
             stuck_suspected,
+            stale_trace_suspected,
             recommendation,
         });
     }
@@ -2426,14 +2481,56 @@ pub fn render_pipeline_doctor_text(report: &PipelineDoctorReport) -> String {
                 .trace_bytes
                 .map(|bytes| format!("{bytes}b trace"))
                 .unwrap_or_else(|| "trace n/a".to_string());
+            let current = job
+                .duration_secs
+                .map(|value| format!("{value:.1}s"))
+                .unwrap_or_else(|| "-".to_string());
+            let queue = job
+                .queued_duration_secs
+                .map(|value| format!("{value:.1}s"))
+                .unwrap_or_else(|| "-".to_string());
+            let avg = job
+                .historical_avg_duration_secs
+                .map(|value| format!("{value:.1}s"))
+                .unwrap_or_else(|| "-".to_string());
+            let max = job
+                .historical_max_duration_secs
+                .map(|value| format!("{value:.1}s"))
+                .unwrap_or_else(|| "-".to_string());
+            let slow = job
+                .slow_factor
+                .map(|value| format!("{value:.2}x"))
+                .unwrap_or_else(|| "-".to_string());
+            let queue_factor = job
+                .queue_factor
+                .map(|value| format!("{value:.2}x"))
+                .unwrap_or_else(|| "-".to_string());
             let marker = if job.stuck_suspected { "!" } else { "-" };
             let _ = writeln!(
                 out,
-                "    {} {} #{} [{} / {} / {}] {}",
-                marker, job.canonical_name, job.id, job.runner_pool, job.stage, job.status, trace
+                "    {} {} #{} [{} / {} / {}] run={} avg={} max={} slow={} queue={} qslow={} trace={}",
+                marker,
+                job.canonical_name,
+                job.id,
+                job.runner_pool,
+                job.stage,
+                job.status,
+                current,
+                avg,
+                max,
+                slow,
+                queue,
+                queue_factor,
+                trace
             );
             if job.stuck_suspected {
+                if let Some(runs) = job.historical_runs {
+                    let _ = writeln!(out, "      history: {} runs", runs);
+                }
                 let _ = writeln!(out, "      recommendation: {}", job.recommendation);
+            }
+            if job.stale_trace_suspected {
+                let _ = writeln!(out, "      trace: stale compared with historical timing");
             }
         }
     }

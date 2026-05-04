@@ -39,6 +39,16 @@ fn manifest_includes_capability_tools() {
             .iter()
             .any(|tool| tool["name"] == "jeryu.fetch_capsule")
     );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.get_pipeline_jobs")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.get_ci_bottlenecks")
+    );
 }
 
 #[test]

@@ -49,6 +49,15 @@ pub enum AgentIntent {
         entity_id: i64,
     },
     GetSystemSnapshot,
+    GetPipelineJobs {
+        project_id: i64,
+        pipeline_id: i64,
+    },
+    GetCiBottlenecks {
+        project_id: i64,
+        ref_name: Option<String>,
+        limit: Option<i64>,
+    },
     ListAllowedActions,
     PlanValidation {
         project_id: i64,
@@ -670,6 +679,76 @@ pub(crate) async fn execute_intent(
                     "recent_failures": capsule_summary,
                     "generated_at": chrono::Utc::now().to_rfc3339(),
                 })),
+            }
+        }
+
+        // ── GetPipelineJobs ──────────────────────────────────────────────────
+        AgentIntent::GetPipelineJobs {
+            project_id,
+            pipeline_id,
+        } => match client
+            .list_pipeline_jobs_with_downstream(project_id, pipeline_id)
+            .await
+        {
+            Ok(jobs) => {
+                let jobs = jobs
+                    .into_iter()
+                    .map(|job| {
+                        serde_json::json!({
+                            "id": job.id,
+                            "name": job.name,
+                            "status": job.status,
+                            "stage": job.stage,
+                            "allow_failure": job.allow_failure,
+                            "pipeline_id": job.pipeline_id,
+                            "ref": job.ref_name,
+                            "web_url": job.web_url,
+                            "queued_duration": job.queued_duration,
+                            "duration": job.duration,
+                            "started_at": job.started_at,
+                            "finished_at": job.finished_at,
+                            "runner": job.runner.and_then(|runner| runner.description),
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                CapabilityResponse {
+                    success: true,
+                    message: format!("{} jobs fetched for pipeline {}", jobs.len(), pipeline_id),
+                    data: Some(serde_json::json!({
+                        "project_id": project_id,
+                        "pipeline_id": pipeline_id,
+                        "job_count": jobs.len(),
+                        "jobs": jobs,
+                    })),
+                }
+            }
+            Err(error) => err(&format!("pipeline jobs: {}", error)),
+        },
+
+        // ── GetCiBottlenecks ─────────────────────────────────────────────────
+        AgentIntent::GetCiBottlenecks {
+            project_id,
+            ref_name,
+            limit,
+        } => {
+            let Ok(db) = crate::state::Db::open().await else {
+                return err("database unavailable");
+            };
+            match db
+                .ci_job_bottlenecks(project_id, ref_name.as_deref(), limit.unwrap_or(25))
+                .await
+            {
+                Ok(rows) => CapabilityResponse {
+                    success: true,
+                    message: format!("{} bottlenecks fetched", rows.len()),
+                    data: Some(serde_json::json!({
+                        "project_id": project_id,
+                        "ref_name": ref_name,
+                        "limit": limit.unwrap_or(25),
+                        "rows": rows,
+                    })),
+                },
+                Err(error) => err(&format!("ci bottlenecks: {}", error)),
             }
         }
 

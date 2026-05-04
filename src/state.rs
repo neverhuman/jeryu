@@ -83,6 +83,7 @@ pub struct CiJobRun {
     pub job_id: i64,
     pub project_id: i64,
     pub pipeline_id: i64,
+    pub root_pipeline_id: i64,
     pub pipeline_sha: String,
     pub ref_name: String,
     pub job_name: String,
@@ -904,6 +905,7 @@ impl Db {
                 job_id                 INTEGER PRIMARY KEY,
                 project_id             INTEGER NOT NULL,
                 pipeline_id            INTEGER NOT NULL,
+                root_pipeline_id       INTEGER NOT NULL,
                 pipeline_sha           TEXT NOT NULL,
                 ref_name               TEXT NOT NULL,
                 job_name               TEXT NOT NULL,
@@ -1405,6 +1407,22 @@ impl Db {
             sqlx::query("ALTER TABLE release_attempts ADD COLUMN production_pipeline_status TEXT;")
                 .execute(&self.pool)
                 .await;
+        let _ = sqlx::query(
+            "ALTER TABLE ci_job_runs ADD COLUMN root_pipeline_id INTEGER NOT NULL DEFAULT 0;",
+        )
+        .execute(&self.pool)
+        .await;
+        let _ = sqlx::query(
+            "UPDATE ci_job_runs SET root_pipeline_id = pipeline_id WHERE root_pipeline_id = 0",
+        )
+        .execute(&self.pool)
+        .await;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_ci_job_runs_root_pipeline
+                ON ci_job_runs(project_id, root_pipeline_id)",
+        )
+        .execute(&self.pool)
+        .await?;
         // Migrate selector_misses.plan_id from NOT NULL to nullable.
         // SQLite cannot ALTER COLUMN, so we rename → recreate → copy → drop.
         let has_old_schema: bool = sqlx::query_scalar::<_, String>(
@@ -1739,13 +1757,14 @@ impl Db {
     pub async fn upsert_ci_job_run(&self, run: &CiJobRun) -> Result<()> {
         let sql = self.sql(
             r#"INSERT INTO ci_job_runs
-               (job_id, project_id, pipeline_id, pipeline_sha, ref_name, job_name,
+               (job_id, project_id, pipeline_id, root_pipeline_id, pipeline_sha, ref_name, job_name,
                 stage, status, runner, runner_pool, queued_duration_secs, duration_secs,
                 started_at, finished_at, web_url, observed_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(job_id) DO UPDATE SET
                 project_id = excluded.project_id,
                 pipeline_id = excluded.pipeline_id,
+                root_pipeline_id = excluded.root_pipeline_id,
                 pipeline_sha = excluded.pipeline_sha,
                 ref_name = excluded.ref_name,
                 job_name = excluded.job_name,
@@ -1764,6 +1783,7 @@ impl Db {
             .bind(run.job_id)
             .bind(run.project_id)
             .bind(run.pipeline_id)
+            .bind(run.root_pipeline_id)
             .bind(&run.pipeline_sha)
             .bind(&run.ref_name)
             .bind(&run.job_name)
@@ -1796,11 +1816,12 @@ impl Db {
     ) -> Result<Vec<CiJobRun>> {
         let sql = self.sql(
             r#"SELECT * FROM ci_job_runs
-               WHERE project_id = ? AND pipeline_id = ?
+               WHERE project_id = ? AND (pipeline_id = ? OR root_pipeline_id = ?)
                ORDER BY stage, job_name"#,
         );
         sqlx::query_as::<_, CiJobRun>(&sql)
             .bind(project_id)
+            .bind(pipeline_id)
             .bind(pipeline_id)
             .fetch_all(&self.pool)
             .await
@@ -3595,6 +3616,7 @@ mod tests {
             job_id: 9001,
             project_id: 77,
             pipeline_id: 7001,
+            root_pipeline_id: 7001,
             pipeline_sha: "0123456789abcdef0123456789abcdef01234567".into(),
             ref_name: format!("refs/heads/agent/{suffix}"),
             job_name: "unit".into(),
@@ -3751,6 +3773,63 @@ mod tests {
     async fn open_memory_uses_sqlite_fallback() -> Result<()> {
         let db = setup_db().await?;
         assert_eq!(db.backend(), StateBackend::Sqlite);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn sqlite_migration_adds_root_pipeline_id_before_index() -> Result<()> {
+        install_default_drivers();
+        let dir = tempfile::tempdir()?;
+        let db_path = dir.path().join("legacy.db");
+        let database_url = format!("sqlite:{}?mode=rwc", db_path.display());
+        let pool = AnyPoolOptions::new()
+            .max_connections(1)
+            .connect(&database_url)
+            .await?;
+        sqlx::query(
+            r#"CREATE TABLE ci_job_runs (
+                job_id                 INTEGER PRIMARY KEY,
+                project_id             INTEGER NOT NULL,
+                pipeline_id            INTEGER NOT NULL,
+                pipeline_sha           TEXT NOT NULL,
+                ref_name               TEXT NOT NULL,
+                job_name               TEXT NOT NULL,
+                stage                  TEXT NOT NULL,
+                status                 TEXT NOT NULL,
+                runner                 TEXT,
+                runner_pool            TEXT,
+                queued_duration_secs   REAL,
+                duration_secs          REAL,
+                started_at             TEXT,
+                finished_at            TEXT,
+                web_url                TEXT,
+                observed_at            TEXT NOT NULL
+            )"#,
+        )
+        .execute(&pool)
+        .await?;
+        pool.close().await;
+
+        let db = Db::open_url(&database_url).await?;
+        let root_column: Option<(String,)> =
+            sqlx::query_as("SELECT name FROM pragma_table_info('ci_job_runs') WHERE name = ?")
+                .bind("root_pipeline_id")
+                .fetch_optional(&db.pool)
+                .await?;
+        assert_eq!(
+            root_column.as_ref().map(|row| row.0.as_str()),
+            Some("root_pipeline_id")
+        );
+
+        let root_index: Option<(String,)> =
+            sqlx::query_as("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+                .bind("idx_ci_job_runs_root_pipeline")
+                .fetch_optional(&db.pool)
+                .await?;
+        assert_eq!(
+            root_index.as_ref().map(|row| row.0.as_str()),
+            Some("idx_ci_job_runs_root_pipeline")
+        );
         Ok(())
     }
 
@@ -4078,10 +4157,11 @@ mod tests {
     async fn test_ci_job_runs_feed_bottlenecks() -> Result<()> {
         let db = setup_db().await?;
         let observed_at = "2026-04-23T00:00:00Z".to_string();
-        let run = CiJobRun {
+        let root_run = CiJobRun {
             job_id: 42,
             project_id: 2,
             pipeline_id: 433,
+            root_pipeline_id: 433,
             pipeline_sha: "abc123".to_string(),
             ref_name: "main".to_string(),
             job_name: "compile-workspace".to_string(),
@@ -4096,14 +4176,37 @@ mod tests {
             web_url: Some("http://localhost/root/dougx/-/jobs/42".to_string()),
             observed_at,
         };
-        db.upsert_ci_job_run(&run).await?;
+        db.upsert_ci_job_run(&root_run).await?;
+        db.upsert_ci_job_run(&CiJobRun {
+            job_id: 43,
+            project_id: 2,
+            pipeline_id: 434,
+            root_pipeline_id: 433,
+            pipeline_sha: "abc123".to_string(),
+            ref_name: "main".to_string(),
+            job_name: "test-rust-nextest-1".to_string(),
+            stage: "test".to_string(),
+            status: "success".to_string(),
+            runner: Some("jeryu-build".to_string()),
+            runner_pool: Some("build".to_string()),
+            queued_duration_secs: Some(0.5),
+            duration_secs: Some(9.0),
+            started_at: Some("2026-04-23T00:00:10Z".to_string()),
+            finished_at: Some("2026-04-23T00:00:19Z".to_string()),
+            web_url: Some("http://localhost/root/dougx/-/jobs/43".to_string()),
+            observed_at: "2026-04-23T00:00:10Z".to_string(),
+        })
+        .await?;
 
         let runs = db.list_ci_job_runs(2, 433).await?;
-        assert_eq!(runs.len(), 1);
+        assert_eq!(runs.len(), 2);
         assert_eq!(runs[0].job_name, "compile-workspace");
+        assert_eq!(runs[0].root_pipeline_id, 433);
+        assert_eq!(runs[1].job_name, "test-rust-nextest-1");
+        assert_eq!(runs[1].root_pipeline_id, 433);
 
         let bottlenecks = db.ci_job_bottlenecks(2, Some("main"), 10).await?;
-        assert_eq!(bottlenecks.len(), 1);
+        assert_eq!(bottlenecks.len(), 2);
         assert_eq!(bottlenecks[0].job_name, "compile-workspace");
         assert_eq!(bottlenecks[0].runs, 1);
         assert_eq!(bottlenecks[0].latest_duration_secs, Some(12.5));

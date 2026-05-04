@@ -8,6 +8,7 @@
 
 use anyhow::{Context, Result};
 use reqwest::Client;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -272,6 +273,61 @@ impl GitlabClient {
         format!("{}/api/v4{}", self.base_url, path)
     }
 
+    async fn get_paginated_json<T>(&self, path: &str, pat: &str) -> Result<Vec<T>>
+    where
+        T: DeserializeOwned,
+    {
+        let mut page = 1_u32;
+        let per_page = 100_u32;
+        let mut items = Vec::new();
+
+        loop {
+            let url = self.paginated_url(path, page, per_page);
+            let resp = self
+                .client
+                .get(&url)
+                .header("PRIVATE-TOKEN", pat)
+                .send()
+                .await?
+                .error_for_status()?;
+            let next_page = resp
+                .headers()
+                .get("x-next-page")
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| {
+                    let trimmed = value.trim();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        trimmed.parse::<u32>().ok()
+                    }
+                });
+            let batch: Vec<T> = resp.json().await?;
+            let batch_len = batch.len();
+            items.extend(batch);
+            match next_page {
+                Some(next_page) if next_page > page => {
+                    page = next_page;
+                }
+                _ if batch_len == per_page as usize => {
+                    page += 1;
+                }
+                _ => break,
+            }
+        }
+
+        Ok(items)
+    }
+
+    fn paginated_url(&self, path: &str, page: u32, per_page: u32) -> String {
+        let url = self.api_url(path);
+        if url.contains('?') {
+            format!("{url}&per_page={per_page}&page={page}")
+        } else {
+            format!("{url}?per_page={per_page}&page={page}")
+        }
+    }
+
     fn pat_value(&self) -> Result<String> {
         self.pat
             .clone()
@@ -391,21 +447,13 @@ impl GitlabClient {
 
     pub async fn list_jobs(&self, project_id: i64, scopes: &[&str]) -> Result<Vec<Job>> {
         let pat = self.pat_value()?;
-        let mut url = self.api_url(&format!("/projects/{}/jobs", project_id));
+        let mut path = format!("/projects/{}/jobs", project_id);
         if !scopes.is_empty() {
             let scope_params: Vec<String> =
                 scopes.iter().map(|s| format!("scope[]={}", s)).collect();
-            url = format!("{}?{}", url, scope_params.join("&"));
+            path = format!("{}?{}", path, scope_params.join("&"));
         }
-        let jobs: Vec<Job> = self
-            .client
-            .get(&url)
-            .header("PRIVATE-TOKEN", &pat)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+        let jobs: Vec<Job> = self.get_paginated_json(&path, &pat).await?;
         Ok(jobs)
     }
 
@@ -527,13 +575,7 @@ impl GitlabClient {
     pub async fn list_projects(&self) -> Result<Vec<Project>> {
         let pat = self.pat_value()?;
         let projects: Vec<Project> = self
-            .client
-            .get(self.api_url("/projects?membership=true&per_page=100"))
-            .header("PRIVATE-TOKEN", &pat)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
+            .get_paginated_json("/projects?membership=true", &pat)
             .await?;
         Ok(projects)
     }
@@ -961,37 +1003,21 @@ impl GitlabClient {
         ref_name: Option<&str>,
     ) -> Result<Vec<Pipeline>> {
         let pat = self.pat_value()?;
-        let mut url = self.api_url(&format!("/projects/{}/pipelines?per_page=100", project_id));
+        let mut path = format!("/projects/{}/pipelines", project_id);
         if let Some(ref_name) = ref_name {
-            url.push_str(&format!("&ref={}", urlencoding::encode(ref_name)));
+            path.push_str(&format!("?ref={}", urlencoding::encode(ref_name)));
         }
-
-        let pipelines: Vec<Pipeline> = self
-            .client
-            .get(&url)
-            .header("PRIVATE-TOKEN", &pat)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-
+        let pipelines: Vec<Pipeline> = self.get_paginated_json(&path, &pat).await?;
         Ok(pipelines)
     }
 
     pub async fn list_pipeline_jobs(&self, project_id: i64, pipeline_id: i64) -> Result<Vec<Job>> {
         let pat = self.pat_value()?;
         let mut jobs: Vec<Job> = self
-            .client
-            .get(self.api_url(&format!(
-                "/projects/{}/pipelines/{}/jobs?per_page=100",
-                project_id, pipeline_id
-            )))
-            .header("PRIVATE-TOKEN", &pat)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
+            .get_paginated_json(
+                &format!("/projects/{}/pipelines/{}/jobs", project_id, pipeline_id),
+                &pat,
+            )
             .await?;
         for job in &mut jobs {
             job.pipeline_id = Some(pipeline_id);
@@ -1006,16 +1032,10 @@ impl GitlabClient {
     ) -> Result<Vec<PipelineBridge>> {
         let pat = self.pat_value()?;
         let bridges: Vec<PipelineBridge> = self
-            .client
-            .get(self.api_url(&format!(
-                "/projects/{}/pipelines/{}/bridges?per_page=100",
-                project_id, pipeline_id
-            )))
-            .header("PRIVATE-TOKEN", &pat)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
+            .get_paginated_json(
+                &format!("/projects/{}/pipelines/{}/bridges", project_id, pipeline_id),
+                &pat,
+            )
             .await?;
         Ok(bridges)
     }

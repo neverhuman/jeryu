@@ -170,6 +170,7 @@ const TUI: &[Surface] = &[Surface::Tui];
 const CLI_TUI: &[Surface] = &[Surface::Cli, Surface::Tui];
 const ALL: &[Surface] = &[Surface::Cli, Surface::Tui, Surface::Capability];
 const CAP_CLI: &[Surface] = &[Surface::Capability, Surface::Cli];
+const CAP_ONLY: &[Surface] = &[Surface::Capability];
 
 pub static REGISTRY: &[ActionEntry] = &[
     ActionEntry {
@@ -234,6 +235,24 @@ pub static REGISTRY: &[ActionEntry] = &[
         surfaces: CAP_CLI,
         dry_run: false,
         description: "Get a full system state summary: pools, pipelines, release, cache",
+    },
+    ActionEntry {
+        id: "get_pipeline_jobs",
+        label: "Pipeline jobs",
+        key_hint: None,
+        risk_tier: RiskTier::ReadOnly,
+        surfaces: CAP_ONLY,
+        dry_run: false,
+        description: "Fetch the downstream-expanded job list for a pipeline",
+    },
+    ActionEntry {
+        id: "get_ci_bottlenecks",
+        label: "CI bottlenecks",
+        key_hint: None,
+        risk_tier: RiskTier::ReadOnly,
+        surfaces: CAP_ONLY,
+        dry_run: false,
+        description: "Return historical CI timing bottlenecks for a project/ref",
     },
     ActionEntry {
         id: "propose_patch",
