@@ -908,7 +908,7 @@ Logs are polled every 650ms, syntax-highlighted, and tail-following. The Flow Bo
 
 `JERYU_GITLAB_INSECURE_TLS=1` allows invalid GitLab TLS certificates for development-only self-signed HTTPS setups. The default is certificate validation enabled.
 
-**State test override:** `JERYU_TEST_POSTGRES_URL` enables optional Postgres integration smoke tests; normal test runs use in-memory SQLite and skip the Postgres smoke when unset. `just postgres-state-proof` starts a disposable `postgres:16-alpine` container, sets the URL, runs the core state/cache smoke, and removes the container unless `JERYU_KEEP_POSTGRES_PROOF=1`.
+**State test override:** `JERYU_TEST_POSTGRES_URL` enables optional Postgres integration smoke tests; normal test runs use in-memory SQLite and skip the Postgres smoke when unset. `jeryu repo postgres-state-proof` starts a disposable `postgres:16-alpine` container, sets the URL, runs the core state/cache smoke, and removes the container unless `JERYU_KEEP_POSTGRES_PROOF=1`.
 
 **Vault:** `JERYU_VAULT_ADDR`, `JERYU_VAULT_TOKEN`, `JERYU_VAULT_MOUNT`, `JERYU_VAULT_PREFIX`.
 

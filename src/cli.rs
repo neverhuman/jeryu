@@ -5,7 +5,7 @@
 //! Pure data: clap struct/enum definitions for the `jeryu` CLI.
 //! No logic lives here — dispatch is in `dispatch.rs`.
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,104 @@ pub(crate) struct Cli {
     pub command: Commands,
 }
 
+fn parse_expanded_path(input: &str) -> Result<PathBuf, String> {
+    Ok(jeryu::install::expand_tilde(input))
+}
+
+#[derive(Args)]
+pub(crate) struct InstallCommand {
+    #[arg(
+        long,
+        global = true,
+        default_value = "~/.jeryu/bin",
+        value_parser = parse_expanded_path
+    )]
+    pub prefix: PathBuf,
+    #[arg(long, global = true, default_value_t = false)]
+    pub dry_run: bool,
+    #[arg(long, global = true, default_value_t = false)]
+    pub json: bool,
+    #[arg(long, global = true, default_value_t = false)]
+    pub yes: bool,
+    #[arg(long, global = true, default_value_t = false)]
+    pub install_deps: bool,
+    #[arg(long, global = true, default_value_t = false)]
+    pub allow_sudo: bool,
+    #[command(subcommand)]
+    pub action: Option<InstallActionCommands>,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum InstallActionCommands {
+    /// Inspect the current install target without mutating the machine.
+    Doctor,
+    /// Install into a throwaway prefix and verify the result.
+    Smoke,
+    /// Install the binary, verify Docker, and run `jeryu init`.
+    Server,
+    /// Remove the installed binary.
+    Uninstall,
+    /// Render the deterministic install GIF.
+    RenderDemo {
+        #[arg(long, value_parser = parse_expanded_path)]
+        output: PathBuf,
+        #[arg(long, value_parser = parse_expanded_path)]
+        png: Option<PathBuf>,
+    },
+}
+
+#[derive(Args)]
+pub(crate) struct RemoteCommand {
+    #[arg(long, global = true, default_value_t = false)]
+    pub dry_run: bool,
+    #[arg(long, global = true, default_value_t = false)]
+    pub json: bool,
+    #[arg(long, global = true, default_value_t = false)]
+    pub yes: bool,
+    #[command(subcommand)]
+    pub action: RemoteActionCommands,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum RemoteActionCommands {
+    /// Provision a remote host and save its metadata under ~/.jeryu/remotes.
+    Install {
+        target: String,
+        #[arg(long)]
+        alias: Option<String>,
+        #[arg(long, default_value_t = false)]
+        setup_key: bool,
+        #[arg(long, value_parser = parse_expanded_path)]
+        identity: Option<PathBuf>,
+    },
+    /// Re-upload the current binary and refresh the remote service.
+    Update { alias: String },
+    /// Inspect remote health.
+    Doctor { alias: String },
+    /// Show remote service status.
+    Status { alias: String },
+    /// Tail remote logs.
+    Logs { alias: String },
+    /// Restart the remote service.
+    Restart { alias: String },
+    /// Stop the remote service.
+    Stop { alias: String },
+    /// Start the remote service.
+    Start { alias: String },
+    /// Open an interactive SSH session.
+    Ssh { alias: String },
+    /// Run a remote command through the installed binary.
+    Run {
+        alias: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        command: Vec<String>,
+    },
+    /// Open the standard SSH port tunnels.
+    Tunnel { alias: String },
+    /// Remove the remote binary and service.
+    Uninstall { alias: String },
+}
+
 #[derive(Subcommand)]
 pub(crate) enum Commands {
     /// Initialize the entire jeryu environment (GitLab + DB + Runners).
@@ -34,6 +132,12 @@ pub(crate) enum Commands {
 
     /// Start all pools at their min_warm and run the background daemon.
     Serve,
+
+    /// Local binary install, validation, and server bootstrap.
+    Install(InstallCommand),
+
+    /// Remote SSH setup and day-two management.
+    Remote(RemoteCommand),
 
     /// Launch the interactive terminal UI.
     Tui {
@@ -283,6 +387,102 @@ mod tests {
         match cli.command {
             Commands::Release(ReleaseCommands::Watch { ref_name, .. }) => {
                 assert_eq!(ref_name, "main");
+            }
+            _ => panic!("unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn install_render_demo_is_nested_under_install() {
+        let cli = Cli::parse_from([
+            "jeryu",
+            "install",
+            "render-demo",
+            "--output",
+            "assets/install-demo.gif",
+        ]);
+        match cli.command {
+            Commands::Install(InstallCommand {
+                action: Some(InstallActionCommands::RenderDemo { output, png }),
+                ..
+            }) => {
+                assert!(output.ends_with("assets/install-demo.gif"));
+                assert!(png.is_none());
+            }
+            _ => panic!("unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn install_smoke_accepts_common_flags_after_action() {
+        let cli = Cli::parse_from(["jeryu", "install", "smoke", "--dry-run"]);
+        match cli.command {
+            Commands::Install(InstallCommand {
+                dry_run,
+                action: Some(InstallActionCommands::Smoke),
+                ..
+            }) => {
+                assert!(dry_run);
+            }
+            _ => panic!("unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn remote_install_parses_alias_and_setup_key() {
+        let cli = Cli::parse_from([
+            "jeryu",
+            "remote",
+            "install",
+            "xbabe1",
+            "--alias",
+            "lab",
+            "--setup-key",
+        ]);
+        match cli.command {
+            Commands::Remote(RemoteCommand {
+                action:
+                    RemoteActionCommands::Install {
+                        target,
+                        alias,
+                        setup_key,
+                        ..
+                    },
+                ..
+            }) => {
+                assert_eq!(target, "xbabe1");
+                assert_eq!(alias.as_deref(), Some("lab"));
+                assert!(setup_key);
+            }
+            _ => panic!("unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn remote_install_accepts_common_flags_after_action() {
+        let cli = Cli::parse_from([
+            "jeryu",
+            "remote",
+            "install",
+            "xbabe1",
+            "--dry-run",
+            "--yes",
+            "--setup-key",
+        ]);
+        match cli.command {
+            Commands::Remote(RemoteCommand {
+                dry_run,
+                yes,
+                action:
+                    RemoteActionCommands::Install {
+                        target, setup_key, ..
+                    },
+                ..
+            }) => {
+                assert_eq!(target, "xbabe1");
+                assert!(dry_run);
+                assert!(yes);
+                assert!(setup_key);
             }
             _ => panic!("unexpected command parsed"),
         }
@@ -902,6 +1102,11 @@ pub(crate) enum HostCommands {
         #[arg(long, default_value_t = false)]
         apply: bool,
     },
+    /// Install the jeryu-gc systemd timer from ops/ci.
+    InstallGcTimer {
+        #[arg(long, default_value_t = false)]
+        allow_sudo: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -915,5 +1120,12 @@ pub(crate) enum RepoCommands {
     AuditAgentSurface {
         #[arg(long, default_value_t = false)]
         json: bool,
+    },
+    /// Run the Postgres-backed state proof in a disposable container.
+    PostgresStateProof,
+    /// Capture the canonical TUI screenshots used in docs.
+    CaptureTuiScreenshots {
+        #[arg(long, value_parser = parse_expanded_path)]
+        output_dir: Option<PathBuf>,
     },
 }

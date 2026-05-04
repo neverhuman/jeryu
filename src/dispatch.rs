@@ -153,6 +153,16 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
             println!("\nShutting down engine...");
         }
 
+        // ---- Install ----------------------------------------------------
+        Commands::Install(subcmd) => {
+            return crate::commands::install::execute_install_command(subcmd).await;
+        }
+
+        // ---- Remote -----------------------------------------------------
+        Commands::Remote(subcmd) => {
+            return crate::commands::remote::execute_remote_command(subcmd).await;
+        }
+
         // ---- Tui ---------------------------------------------------------
         Commands::Tui {
             once,
@@ -524,17 +534,14 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
         }
 
         // ---- Repo --------------------------------------------------------
-        Commands::Repo(subcmd) => match subcmd {
-            RepoCommands::RenderAgentIndex { check } => {
-                agent_surface::render_agent_index(check)?;
-            }
-            RepoCommands::AuditAgentSurface { json } => {
-                agent_surface::audit_agent_surface(json)?;
-            }
-        },
+        Commands::Repo(subcmd) => {
+            return crate::commands::repo::execute_repo_commands(subcmd).await;
+        }
 
         // ---- Host --------------------------------------------------------
-        Commands::Host(subcmd) => crate::commands::host::execute_host_commands(subcmd).await?,
+        Commands::Host(subcmd) => {
+            return crate::commands::host::execute_host_commands(subcmd).await;
+        }
 
         // ---- Exec --------------------------------------------------------
         Commands::Exec(subcmd) => match subcmd {

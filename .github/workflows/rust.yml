@@ -53,6 +53,23 @@ jobs:
       - name: Build workspace
         run: cargo build --verbose
 
+  install-smoke:
+    name: Install Smoke
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Run install commands
+        run: |
+          cargo run -p jeryu -- install --dry-run --json --prefix /tmp/jeryu-install-test
+          cargo run -p jeryu -- install smoke --dry-run
+          cargo run -p jeryu -- install render-demo --output target/jeryu-install-demo.gif --png target/jeryu-install-demo.png
+          cargo run -p jeryu -- remote install xbabe1 --dry-run --yes --setup-key
+
   test-select:
     name: VTI Test Selection
     runs-on: ubuntu-latest
@@ -84,19 +101,21 @@ jobs:
           # Extract the combined nextest -E filter expression from all unit_filter entries.
           # The plan stores full commands like: cargo nextest run -E 'test(/pool|docker/)'
           # We extract just the expression part and OR them together.
-          UNIT_FILTER_EXPR=$(python3 - <<'PYEOF'
-import json, sys
-plan = json.load(open("target/jeryu/test-plan.json"))
-exprs = []
-for t in plan.get("selected_tests", []):
-    if t.get("kind") == "unit_filter":
-        cmd = t.get("command", "")
-        prefix = "cargo nextest run -E '"
-        if cmd.startswith(prefix) and cmd.endswith("'"):
-            exprs.append(cmd[len(prefix):-1])
-print(" | ".join(exprs))
-PYEOF
-)
+          UNIT_FILTER_EXPR=""
+          while IFS= read -r expr; do
+            [[ -n "$expr" ]] || continue
+            if [[ -z "$UNIT_FILTER_EXPR" ]]; then
+              UNIT_FILTER_EXPR="$expr"
+            else
+              UNIT_FILTER_EXPR="$UNIT_FILTER_EXPR | $expr"
+            fi
+          done < <(
+            jq -r '
+              .selected_tests[]
+              | select(.kind == "unit_filter")
+              | .command
+            ' target/jeryu/test-plan.json | sed -e "s/^cargo nextest run -E '//" -e "s/'$//"
+          )
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "unit_filter_expr=$UNIT_FILTER_EXPR" >> "$GITHUB_OUTPUT"
           echo "VTI mode: $MODE"

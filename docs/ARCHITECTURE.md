@@ -375,7 +375,7 @@ Loops toward a 70% target watermark and records `disk_pressure_gc`, `disk_pressu
 
 Postgres is the primary durable coordination layer for concurrent agent-first operation. `Db::open()` loads `~/.jeryu/jeryu.env`, selects `JERYU_DATABASE_URL` when present, runs migrations, and exposes typed query methods over a backend-neutral `sqlx::AnyPool`. Fresh bootstrap writes a local Postgres URL and Docker Compose includes a `jeryu-postgres` service on `127.0.0.1:15432`; SQLite remains the embedded fallback when no database URL is configured. State SQL passes through a backend placeholder normalizer for Postgres-bound operations so the same typed methods can run in either mode. The schema is append-friendly and stores both operational state and audit state.
 
-For proof, `just postgres-state-proof` launches a disposable local Postgres container and runs the core state smoke against pools, managers, job/event tracking, VTI plan records, cache verdicts, action-cache writes, epoch bumps, taint propagation, CacheBrain hit/deny decisions, capability grants, and admission decisions.
+For proof, `jeryu repo postgres-state-proof` launches a disposable local Postgres container and runs the core state smoke against pools, managers, job/event tracking, VTI plan records, cache verdicts, action-cache writes, epoch bumps, taint propagation, CacheBrain hit/deny decisions, capability grants, and admission decisions.
 
 ### 8.1 Table Groups
 

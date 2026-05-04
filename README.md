@@ -4,79 +4,113 @@
 
 <div align="center">
   <pre>
-      __     ___                 
-   _ / /___ / _ \__ __ __ __     
-  // // -_) |   / // // // /     
- \___/\__/__|_\_\_, / \_,_/      
-               /___/             
+      __     ___
+   _ / /___ / _ \__ __ __ __
+  // // -_) |   / // // // /
+ \___/\__/__|_\_\_, / \_,_/
+               /___/
   </pre>
   <h3>The Git-Compatible Version Control Layer for the AI Era</h3>
 </div>
 
 ---
 
-`JeRyu` is a single-binary Rust control plane that seamlessly wraps Git, injecting autonomous AI orchestration without breaking your existing muscle memory or tooling. It provides a phased migration path from traditional Git workflows to an intelligent, agent-driven CI/CD ecosystem.
+`JeRyu` is a single-binary Rust control plane that wraps Git first, then adds agent-aware CI/CD tooling, smart test selection, runner orchestration, and remote server management.
 
-## 🚀 The JeRyu Promise
+![JeRyu install demo](assets/install-demo.gif)
 
-The product strategy is simple: **JeRyu wraps Git first, then replaces it.**
-
-1. **Passthrough Layer**: Type `git status` or `git commit`. The command flows through JeRyu, wrapping the system's Git binary securely. Your muscle memory is preserved.
-2. **Native Wrappers**: Start using `jeryu save` (add + commit), `jeryu sync` (pull --rebase + push), and `jeryu undo`.
-3. **Dual-Use Sync**: Type `jeryu ship` to instantly push to your normal origin remote AND a local `shadow` CI remote simultaneously, kicking off isolated AI pipelines effortlessly.
-
-## ⚡ Quickstart
-
-Get your autonomous environment running in less than 60 seconds.
-
-Our interactive installer works flawlessly on macOS and Linux. It will automatically check for dependencies (Git, Rust, Build Tools) and offer to install them for you.
+## Local install
 
 ```bash
-# Clone the repository
-git clone git@github.com:jeppsontaylor/JeRyu.git
+git clone https://github.com/jeppsontaylor/JeRyu.git
 cd JeRyu
-
-# Run the interactive installer
-chmod +x install.sh
-./install.sh
+cargo run -p jeryu -- install --yes
 ```
 
-During installation, you will be prompted to select a global installation (`/usr/local/bin`) or a local one (`~/.cargo/bin`).
-
-### 🛠 The Shell Shim
-
-To achieve the seamless Git compatibility layer, add this shim to your `~/.bashrc` or `~/.zshrc`:
+Useful modes:
 
 ```bash
-git() {
-    if command -v jeryu >/dev/null 2>&1; then
-        command jeryu git "$@"
-    else
-        command git "$@"
-    fi
-}
+cargo run -p jeryu -- install server --yes
+cargo run -p jeryu -- install --dry-run --yes --prefix ~/.jeryu/bin
+cargo run -p jeryu -- install doctor --json
 ```
 
-Reload your shell (`source ~/.bashrc`) and type `git status`. You're now running JeRyu!
+The installer:
 
-## 🪄 Magic Commands Reference
+- installs the currently running `jeryu` binary into `~/.jeryu/bin/jeryu` by default;
+- verifies `jeryu --version` after the atomic replacement;
+- stays in user space unless you explicitly ask for `--install-deps --allow-sudo` on the server path;
+- does not touch shell startup files;
+- can run `jeryu init` on the server path after Docker checks pass.
 
-JeRyu introduces several "magic" commands designed to simplify version control into a fast, intent-driven experience:
+## Remote SSH server
 
-- `jeryu save "message"`: Instantly stages all changes and commits them locally.
-- `jeryu sync`: Pulls from remote with rebase, and pushes local changes back up.
-- `jeryu undo`: Rolls back the last commit but keeps all changes staged and ready.
-- `jeryu ship`: Pushes your branch to your primary `origin` remote AND automatically promotes it to your local runner's `shadow` remote to execute AI validation logic.
-- `jeryu system`: Opens the JeRyu system dashboard to monitor runner pools, Vault, and the GitLab control plane.
-- `jeryu tui`: Launches the powerful JeRyu Terminal User Interface for live pipeline monitoring.
+The remote manager provisions a Linux host over SSH and stores metadata in `~/.jeryu/remotes/<alias>.toml`.
 
-## 🏗 Architecture
+```bash
+cargo run -p jeryu -- remote install xbabe1 --alias xbabe1 --setup-key --yes
+```
 
-JeRyu isn't just a CLI; it's a massive autonomous control plane built on a modern async Rust stack:
+That example:
 
-- **Tokio**: High-concurrency runtime.
-- **SQLx + Postgres/SQLite**: State persistence for concurrent agent fleets.
-- **Agent Intelligence**: VTI smart test selection, shadow remotes, and risk-gated merge decisions.
-- **Fail-Closed Sandbox**: Strict network isolation using `bwrap`/`unshare` to isolate untrusted AI tasks safely.
+1. creates a dedicated `~/.ssh/jeryu_xbabe1_ed25519` key when requested;
+2. installs the public key on the remote host;
+3. uploads the current `jeryu` binary to `~/.jeryu/bin/jeryu`;
+4. runs `jeryu init` on the remote host during install;
+5. writes `~/.jeryu/remotes/xbabe1.toml`;
+6. enables the remote `jeryu.service` user unit when systemd is available.
 
-For a full breakdown of the engine, read our [Architecture Guide](docs/ARCHITECTURE.md).
+Day-two commands:
+
+```bash
+cargo run -p jeryu -- remote status xbabe1
+cargo run -p jeryu -- remote logs xbabe1
+cargo run -p jeryu -- remote ssh xbabe1
+cargo run -p jeryu -- remote run xbabe1 -- system
+cargo run -p jeryu -- remote tunnel xbabe1
+```
+
+Tunnel ports:
+
+| Local | Remote |
+| --- | --- |
+| `127.0.0.1:8929` | GitLab HTTP |
+| `127.0.0.1:2224` | GitLab SSH |
+| `127.0.0.1:18200` | Vault |
+| `127.0.0.1:9777` | JeRyu webhook listener |
+
+## Demo GIF
+
+The README demo asset is generated by Rust, not Python:
+
+```bash
+cargo run -p jeryu -- install render-demo --output assets/install-demo.gif
+```
+
+If you also want a PNG snapshot:
+
+```bash
+cargo run -p jeryu -- install render-demo --output assets/install-demo.gif --png assets/install-demo.png
+```
+
+## Validation
+
+Run the installer and remote-manager checks:
+
+```bash
+cargo run -p jeryu -- install --dry-run --json
+cargo run -p jeryu -- install smoke --dry-run
+cargo run -p jeryu -- remote install xbabe1 --dry-run --yes --setup-key
+```
+
+This keeps the install surface in Rust, exercises the dry-run plans, and renders the deterministic demo GIF.
+
+## Troubleshooting
+
+If the remote helper cannot reach the host, check the SSH target first:
+
+```bash
+ssh xbabe1
+```
+
+If Docker is missing on the remote host, rerun the remote install with Docker enabled or install Docker manually on that machine.

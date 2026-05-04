@@ -291,8 +291,8 @@ const DOUX_MAIN_JOBS: &[&str] = &[
     "test-rust-nht-crypto",
     "test-frontend-warp",
     "test-frontend-nht",
-    "test-python-public-pip",
-    "test-python-security",
+    "test-public-deps",
+    "test-security-hardening",
     "test-governance-retirement",
     "test-shell-container-parity",
     "test-security-ip-leak",
@@ -539,7 +539,7 @@ pub fn emit_external_gitlab_yaml(plan: &ExternalTestPlan, workspace: Option<&Pat
                 materialized_jobs(plan).join(",")
             ));
             yaml.push_str(
-                "stages:\n  - lint\n  - compile\n  - package\n  - test-rust\n  - test-python\n  - test-shell\n  - test-security\n  - test-e2e\n  - audit\n  - audit-seed-data\n  - deploy\n  - report\n\n",
+                "stages:\n  - lint\n  - compile\n  - package\n  - test-rust\n  - test-tools\n  - test-shell\n  - test-security\n  - test-e2e\n  - audit\n  - audit-seed-data\n  - deploy\n  - report\n\n",
             );
             yaml.push_str(&emit_child_plan_context(plan));
 

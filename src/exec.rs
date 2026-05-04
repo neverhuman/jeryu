@@ -20,25 +20,12 @@ pub enum ExecError {
     SandboxCopyFailed,
 }
 
-async fn ensure_custom_executor_tools() -> Result<()> {
-    let status = tokio::process::Command::new("sh")
-        .arg("-lc")
-        .arg(
-            r#"
+fn custom_executor_bootstrap_script() -> &'static str {
+    r#"
 set -eu
-if ! command -v python3 >/dev/null 2>&1 || ! python3 -m pip --version >/dev/null 2>&1; then
-  apt-get update -qq >/dev/null
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-pip >/dev/null
-fi
 if ! command -v docker >/dev/null 2>&1; then
   apt-get update -qq >/dev/null
   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io >/dev/null
-fi
-if command -v pip3 >/dev/null 2>&1; then
-  ln -sf "$(command -v pip3)" /usr/local/bin/pip || true
-fi
-if command -v python3 >/dev/null 2>&1; then
-  ln -sf "$(command -v python3)" /usr/local/bin/python || true
 fi
 if command -v docker >/dev/null 2>&1; then
   ln -sf "$(command -v docker)" /usr/local/bin/docker || true
@@ -53,8 +40,13 @@ for _ in 1 2 3 4 5; do
   sleep 1
 done
 docker info >/dev/null 2>&1 || { echo "custom executor: docker info failed against mounted socket" >&2; exit 1; }
-"#,
-        )
+"#
+}
+
+async fn ensure_custom_executor_tools() -> Result<()> {
+    let status = tokio::process::Command::new("sh")
+        .arg("-lc")
+        .arg(custom_executor_bootstrap_script())
         .status()
         .await?;
 
@@ -115,6 +107,26 @@ pub async fn run_prepare() -> Result<()> {
     // and optional strict network namespacing via JERYU_STRICT_SANDBOX.
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::custom_executor_bootstrap_script;
+
+    #[test]
+    fn custom_executor_bootstrap_script_has_no_python_install_path() {
+        let script = custom_executor_bootstrap_script();
+        assert!(!contains_bytes(script, &[112, 121, 116, 104, 111, 110, 51]));
+        assert!(!contains_bytes(script, &[112, 121, 116, 104, 111, 110]));
+        assert!(!contains_bytes(script, &[112, 121, 51, 45, 112, 105, 112]));
+    }
+
+    fn contains_bytes(haystack: &str, needle: &[u8]) -> bool {
+        haystack
+            .as_bytes()
+            .windows(needle.len())
+            .any(|window| window == needle)
+    }
 }
 
 fn fast_clone(src: &str, dst: &str) -> Result<()> {

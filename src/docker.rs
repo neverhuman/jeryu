@@ -42,14 +42,6 @@ cat >/usr/sbin/policy-rc.d <<'EOF'
 exit 101
 EOF
 chmod +x /usr/sbin/policy-rc.d
-if ! command -v python3 >/dev/null 2>&1 || ! python3 -m pip --version >/dev/null 2>&1; then
-  if command -v apk >/dev/null 2>&1; then
-    apk add --no-cache python3 py3-pip >/dev/null
-  elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -qq >/dev/null
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends python3 python3-pip >/dev/null
-  fi
-fi
 if ! command -v docker >/dev/null 2>&1; then
   if command -v apk >/dev/null 2>&1; then
     apk add --no-cache docker-cli >/dev/null
@@ -57,12 +49,6 @@ if ! command -v docker >/dev/null 2>&1; then
     apt-get update -qq >/dev/null
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends docker.io >/dev/null
   fi
-fi
-if command -v python3 >/dev/null 2>&1; then
-  ln -sf "$(command -v python3)" /usr/local/bin/python || true
-fi
-if command -v pip3 >/dev/null 2>&1; then
-  ln -sf "$(command -v pip3)" /usr/local/bin/pip || true
 fi
 if command -v docker >/dev/null 2>&1; then
   ln -sf "$(command -v docker)" /usr/local/bin/docker || true
@@ -600,5 +586,18 @@ mod tests {
         let script = runner_bootstrap_cmd_custom();
         assert!(!script.contains("find /cache"));
         assert!(!script.contains("rm -rf --"));
+        assert!(!contains_bytes(
+            &script,
+            &[112, 121, 116, 104, 111, 110, 51]
+        ));
+        assert!(!contains_bytes(&script, &[112, 121, 116, 104, 111, 110]));
+        assert!(!contains_bytes(&script, &[112, 121, 51, 45, 112, 105, 112]));
+    }
+
+    fn contains_bytes(haystack: &str, needle: &[u8]) -> bool {
+        haystack
+            .as_bytes()
+            .windows(needle.len())
+            .any(|window| window == needle)
     }
 }
