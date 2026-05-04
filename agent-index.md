@@ -1,6 +1,6 @@
 # Agent Index
 
-Generated: `2026-05-04T02:09:19.907278398+00:00`
+Generated: `2026-05-04T06:27:09.384845098+00:00`
 
 | Module | Change Type | Proof Commands | Owner |
 |---|---|---|---|
@@ -18,12 +18,15 @@ Generated: `2026-05-04T02:09:19.907278398+00:00`
 | `src/cli.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | CLI Definitions |
 | `src/commands/git.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | CLI Git wrappers |
 | `src/commands/host.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | - |
+| `src/commands/install.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | Install command wrappers |
 | `src/commands/job.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | - |
 | `src/commands/mirror.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | Mirror command wrappers |
 | `src/commands/mod.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | - |
 | `src/commands/pipeline.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | - |
 | `src/commands/pool.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | - |
 | `src/commands/release.rs` | `release-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | - |
+| `src/commands/remote.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | Remote command wrappers |
+| `src/commands/repo.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | Repo-local maintenance command wrappers |
 | `src/commands/secrets.rs` | `security-relevant` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1<br>cargo test -p jeryu -- secrets exec honeypot admission | - |
 | `src/commands/settings.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | Settings repair/reset commands |
 | `src/commands/system.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | - |
@@ -56,7 +59,10 @@ Generated: `2026-05-04T02:09:19.907278398+00:00`
 | `src/git/system.rs` | `cross-module` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1<br>cargo nextest run -p jeryu | System Git resolution |
 | `src/gitlab_client.rs` | `cross-module` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1<br>cargo nextest run -p jeryu | GitLab REST Client subsystem |
 | `src/honeypot.rs` | `security-relevant` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1<br>cargo test -p jeryu -- secrets exec honeypot admission | Supply-Chain Detonation / Honey Token Detection |
+| `src/host.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | - |
 | `src/impact.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | Change Impact Analysis |
+| `src/install.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | Local installer and guided bootstrap UX |
+| `src/install_demo.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | Install demo renderer |
 | `src/lib.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | jeryu crate root (see module map below) |
 | `src/local.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | Local agent command wrappers |
 | `src/logs.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | Logging & Observability subsystem |
@@ -71,6 +77,8 @@ Generated: `2026-05-04T02:09:19.907278398+00:00`
 | `src/reclaim.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | Storage Audit & GC |
 | `src/redact.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | cross-cutting redaction helpers |
 | `src/release.rs` | `release-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | Release Pipeline |
+| `src/remote.rs` | `api-change` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1 | Remote SSH install and day-two management UX |
+| `src/repo.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | - |
 | `src/sandbox.rs` | `security-relevant` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1<br>cargo test -p jeryu -- secrets exec honeypot admission | Workload Sandbox (Network-Namespace Isolation) |
 | `src/sccache_mgr.rs` | `leaf-bugfix` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib | sccache Management subsystem |
 | `src/secrets.rs` | `security-relevant` | cargo check -p jeryu --message-format=json<br>cargo nextest run -p jeryu --lib<br>cargo test -p jeryu --test '*' -- --test-threads=1<br>cargo test -p jeryu -- secrets exec honeypot admission | Secrets & Vault Lifecycle |

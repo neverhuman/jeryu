@@ -12,6 +12,10 @@ pub(crate) async fn execute_remote_command(cmd: RemoteCommand) -> Result<i32> {
         dry_run: cmd.dry_run,
         json: cmd.json,
         yes: cmd.yes,
+        color: cmd.color,
+        interactive: cmd.interactive,
+        service_mode: cmd.service_mode,
+        verbose: cmd.verbose,
     };
     let action = match cmd.action {
         RemoteActionCommands::Install {

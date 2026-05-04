@@ -127,6 +127,7 @@ The crate root (`src/lib.rs`) exports these modules:
 | `agent` | Autonomous agent branch/MR/task workflow and risk-gated merge. |
 | `agent_surface` | Generated agent routing index and surface audit. |
 | `bootstrap` | First-run environment, GitLab, DB, runners, and smoke setup. |
+| `install` | Guided local installer, path management, and verification. |
 | `buildkit` | Per-trust/namespace BuildKit configuration. |
 | `cache` | SmartCache supervisor, status, doctor, GC, host doctor. |
 | `cache_brain` | Build-unit cache decisions using epoch, taint, trust, witness data. |
@@ -149,6 +150,7 @@ The crate root (`src/lib.rs`) exports these modules:
 | `pool` | Runner pool scaling, pause/resume, drain, deletion, token rotation. |
 | `reclaim` | Storage audit, aggressive reclaim, auto-GC. |
 | `release` | Pipeline explain/doctor/progress/preflight, canary, release, prod promotion. |
+| `remote` | Remote SSH install, service management, and remote day-two operations. |
 | `sandbox` | Strict executor sandbox configuration. |
 | `sccache_mgr` | sccache management for CI jobs. |
 | `secrets` | Vault init/status, release secret rotation/finalization/recovery. |

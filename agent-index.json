@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-04T02:09:19.907278398+00:00",
+  "generated_at": "2026-05-04T06:27:09.384845098+00:00",
   "repo_root": "/home/ubuntu/JeRyu",
   "token_budget_path": "token-budget.toml",
   "entries": [
@@ -250,6 +250,25 @@
       "widening_rules": []
     },
     {
+      "id": "commands::install",
+      "path": "src/commands/install.rs",
+      "owner": "Install command wrappers",
+      "proof": "`cargo test -p jeryu -- install`",
+      "invariants": "Install commands stay user-space by default and avoid shell scripts.",
+      "default_change_type": "api-change",
+      "proof_lanes": [
+        "check",
+        "unit",
+        "integration"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib",
+        "cargo test -p jeryu --test '*' -- --test-threads=1"
+      ],
+      "widening_rules": []
+    },
+    {
       "id": "commands::job",
       "path": "src/commands/job.rs",
       "owner": "",
@@ -354,6 +373,42 @@
         "cargo check -p jeryu --message-format=json",
         "cargo nextest run -p jeryu --lib",
         "cargo test -p jeryu --test '*' -- --test-threads=1"
+      ],
+      "widening_rules": []
+    },
+    {
+      "id": "commands::remote",
+      "path": "src/commands/remote.rs",
+      "owner": "Remote command wrappers",
+      "proof": "`cargo test -p jeryu -- remote`",
+      "invariants": "Remote commands orchestrate SSH and remote bootstrap from Rust only.",
+      "default_change_type": "api-change",
+      "proof_lanes": [
+        "check",
+        "unit",
+        "integration"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib",
+        "cargo test -p jeryu --test '*' -- --test-threads=1"
+      ],
+      "widening_rules": []
+    },
+    {
+      "id": "commands::repo",
+      "path": "src/commands/repo.rs",
+      "owner": "Repo-local maintenance command wrappers",
+      "proof": "`cargo test -p jeryu -- repo`",
+      "invariants": "Repo-local maintenance paths stay in Rust and avoid shell helpers.",
+      "default_change_type": "leaf-bugfix",
+      "proof_lanes": [
+        "check",
+        "unit"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib"
       ],
       "widening_rules": []
     },
@@ -1008,6 +1063,23 @@
       ]
     },
     {
+      "id": "host",
+      "path": "src/host.rs",
+      "owner": "",
+      "proof": "",
+      "invariants": "",
+      "default_change_type": "leaf-bugfix",
+      "proof_lanes": [
+        "check",
+        "unit"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib"
+      ],
+      "widening_rules": []
+    },
+    {
       "id": "impact",
       "path": "src/impact.rs",
       "owner": "Change Impact Analysis",
@@ -1025,6 +1097,42 @@
       "widening_rules": [
         "test intelligence changes widen to planner and release validation"
       ]
+    },
+    {
+      "id": "install",
+      "path": "src/install.rs",
+      "owner": "Local installer and guided bootstrap UX",
+      "proof": "`cargo test -p jeryu -- install`",
+      "invariants": "Local installs remain user-space by default, avoid shell mutations unless requested, and never require sudo for the default path.",
+      "default_change_type": "api-change",
+      "proof_lanes": [
+        "check",
+        "unit",
+        "integration"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib",
+        "cargo test -p jeryu --test '*' -- --test-threads=1"
+      ],
+      "widening_rules": []
+    },
+    {
+      "id": "install_demo",
+      "path": "src/install_demo.rs",
+      "owner": "Install demo renderer",
+      "proof": "`cargo test -p jeryu --lib install_demo::tests::demo_renderer_is_deterministic`",
+      "invariants": "The demo renderer must stay deterministic and avoid non-Rust tooling.",
+      "default_change_type": "leaf-bugfix",
+      "proof_lanes": [
+        "check",
+        "unit"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib"
+      ],
+      "widening_rules": []
     },
     {
       "id": "lib",
@@ -1267,6 +1375,42 @@
         "cargo check -p jeryu --message-format=json",
         "cargo nextest run -p jeryu --lib",
         "cargo test -p jeryu --test '*' -- --test-threads=1"
+      ],
+      "widening_rules": []
+    },
+    {
+      "id": "remote",
+      "path": "src/remote.rs",
+      "owner": "Remote SSH install and day-two management UX",
+      "proof": "`cargo test -p jeryu -- remote`",
+      "invariants": "Remote install dry-runs stay side-effect free; network mutations happen only after confirmation.",
+      "default_change_type": "api-change",
+      "proof_lanes": [
+        "check",
+        "unit",
+        "integration"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib",
+        "cargo test -p jeryu --test '*' -- --test-threads=1"
+      ],
+      "widening_rules": []
+    },
+    {
+      "id": "repo",
+      "path": "src/repo.rs",
+      "owner": "",
+      "proof": "",
+      "invariants": "",
+      "default_change_type": "leaf-bugfix",
+      "proof_lanes": [
+        "check",
+        "unit"
+      ],
+      "proof_commands": [
+        "cargo check -p jeryu --message-format=json",
+        "cargo nextest run -p jeryu --lib"
       ],
       "widening_rules": []
     },

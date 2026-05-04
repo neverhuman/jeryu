@@ -1,7 +1,7 @@
 # API.md — JeRyu / jeryu Complete Agent and Control Surface Reference
 
-> Version: 5.0.0
-> Last updated: 2026-04-26
+> Version: 5.0.1
+> Last updated: 2026-05-04
 > Verified against: `src/cli.rs`, `src/dispatch.rs`, `src/engine.rs`, `src/capability.rs`, `src/state.rs`, `src/release.rs`, `src/gitlab_client.rs`, `src/settings.rs`, `src/tui/action_registry.rs`
 > Audience: External agents, reviewers, and contributors requiring complete API context.
 
@@ -103,7 +103,21 @@ Shows GitLab readiness, Vault status, pool state, managed Docker containers, rec
 
 Launches the Ratatui dashboard. `--once` renders a single frame with optional GitLab auth and exits. `--capture` renders a deterministic Ratatui frame to a PNG file without entering an interactive terminal; accepted tabs are `mission`, `release`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, and `secrets`. See `docs/JERYU_TUI.md`.
 
-### 4.2 Pool Management
+### 4.2 Install and Remote Provisioning
+
+#### `jeryu install [--color auto|always|never] [--interactive auto|always|never] [--path-mode advise|update|skip] [--verbose]`
+
+Guided local installer for Linux and macOS. Installs the running `jeryu` binary into `~/.jeryu/bin/jeryu` by default, renders a step-by-step plan, prompts before mutation unless `--yes`, verifies `jeryu --version`, and prints shell-specific PATH advice when the prefix is not already on `PATH`.
+
+#### `jeryu install server [--install-deps --allow-sudo]`
+
+Server bootstrap path. Verifies Docker first, then runs `jeryu init`. On Linux, Docker package installation is only attempted when `--install-deps --allow-sudo` is present. On macOS, missing Docker is explained rather than auto-installed.
+
+#### `jeryu remote install <target> [--alias <alias>] [--setup-key] [--service-mode auto|user|manual] [--verbose]`
+
+Guided SSH provisioning for a remote host. The install plan covers local SSH prerequisites, remote OS and Docker/systemd probes, binary upload, remote `--version` verification, service setup, and metadata persistence. `--dry-run --json` emits the full plan without any network mutation.
+
+### 4.3 Pool Management
 
 #### `jeryu pool list`
 
@@ -133,7 +147,7 @@ Drains, deletes local pool record, unregisters GitLab runner.
 
 Resets GitLab runner auth token, updates DB, rolls manager configuration.
 
-### 4.3 Job Management
+### 4.4 Job Management
 
 #### `jeryu job list <project_id> [--status running,pending]`
 
@@ -163,7 +177,7 @@ Reads the latest structured evidence capsule for the job from the state database
 
 Clears local job and pipeline history from the state database.
 
-### 4.4 Pipeline Inspection and Control
+### 4.5 Pipeline Inspection and Control
 
 #### `jeryu pipeline explain <pipeline_id> [--project-id 2] [--json]`
 
@@ -189,7 +203,7 @@ Cancels a pipeline in GitLab.
 
 Reports historical slow CI jobs from `ci_job_runs`.
 
-### 4.5 Cache Management
+### 4.6 Cache Management
 
 #### `jeryu cache enable`
 

@@ -13,6 +13,10 @@ pub(crate) async fn execute_install_command(cmd: InstallCommand) -> Result<i32> 
         dry_run: cmd.dry_run,
         json: cmd.json,
         yes: cmd.yes,
+        color: cmd.color,
+        interactive: cmd.interactive,
+        path_mode: cmd.path_mode,
+        verbose: cmd.verbose,
         install_deps: cmd.install_deps,
         allow_sudo: cmd.allow_sudo,
     };

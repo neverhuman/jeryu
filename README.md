@@ -19,6 +19,8 @@
 
 ![JeRyu install demo](assets/install-demo.gif)
 
+Full install guide: [`docs/INSTALL.md`](docs/INSTALL.md)
+
 ## Local install
 
 ```bash
@@ -30,6 +32,7 @@ cargo run -p jeryu -- install --yes
 Useful modes:
 
 ```bash
+cargo run -p jeryu -- install --color always --interactive always --path-mode advise
 cargo run -p jeryu -- install server --yes
 cargo run -p jeryu -- install --dry-run --yes --prefix ~/.jeryu/bin
 cargo run -p jeryu -- install doctor --json
@@ -56,9 +59,10 @@ That example:
 1. creates a dedicated `~/.ssh/jeryu_xbabe1_ed25519` key when requested;
 2. installs the public key on the remote host;
 3. uploads the current `jeryu` binary to `~/.jeryu/bin/jeryu`;
-4. runs `jeryu init` on the remote host during install;
-5. writes `~/.jeryu/remotes/xbabe1.toml`;
-6. enables the remote `jeryu.service` user unit when systemd is available.
+4. verifies `jeryu --version` on the remote host;
+5. runs `jeryu init` on the remote host during install;
+6. writes `~/.jeryu/remotes/xbabe1.toml`;
+7. enables the remote `jeryu.service` user unit when systemd is available.
 
 Day-two commands:
 
@@ -69,6 +73,12 @@ cargo run -p jeryu -- remote ssh xbabe1
 cargo run -p jeryu -- remote run xbabe1 -- system
 cargo run -p jeryu -- remote tunnel xbabe1
 ```
+
+Remote service modes:
+
+- `auto` uses systemd user units when available;
+- `user` requires systemd user support;
+- `manual` keeps the host in binary-only mode and prints `serve` guidance.
 
 Tunnel ports:
 

@@ -1,3 +1,7 @@
+//! Owner: Install demo renderer
+//! Proof: `cargo test -p jeryu --lib install_demo::tests::demo_renderer_is_deterministic`
+//! Invariants: The demo renderer must stay deterministic and avoid non-Rust tooling.
+
 use std::env;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -97,35 +101,35 @@ pub fn print_help() {
 fn demo_frames() -> Vec<FrameSpec> {
     vec![
         FrameSpec {
-            title: "JeRyu installer",
-            subtitle: "local install on macOS or Linux",
+            title: "JeRyu guided installer",
+            subtitle: "plan, confirm, install, verify",
             lines: vec![
-                line("$ jeryu install", BLUE),
-                line("› Checking prefix, current binary, and version", MUTED),
-                line("› Writing ~/.jeryu/bin/jeryu atomically", MUTED),
-                line("✓ Verified jeryu --version", GREEN),
-                line("✓ No shell profile edits, no sudo by default", GREEN),
+                line("$ jeryu install --path-mode advise", BLUE),
+                line("PLAN  local install on macOS or Linux", MUTED),
+                line("RUN   replace ~/.jeryu/bin/jeryu atomically", MUTED),
+                line("OK    verify jeryu --version", GREEN),
+                line("OK    shell profile stays untouched unless requested", GREEN),
             ],
         },
         FrameSpec {
             title: "Remote SSH provisioning",
-            subtitle: "Mac managing xbabe1 over SSH",
+            subtitle: "preflight, upload, verify, service",
             lines: vec![
-                line("$ jeryu remote install xbabe1 --setup-key", BLUE),
-                line("› Generating ~/.ssh/jeryu_xbabe1_ed25519", MUTED),
-                line("› Uploading the current jeryu binary", MUTED),
-                line("› Saving ~/.jeryu/remotes/xbabe1.toml", MUTED),
-                line("✓ Remote service ready for day-two commands", GREEN),
+                line("$ jeryu remote install xbabe1 --setup-key --yes", BLUE),
+                line("PLAN  ssh, ssh-keygen, docker, systemd, disk", MUTED),
+                line("RUN   upload the current jeryu binary", MUTED),
+                line("OK    verify remote --version", GREEN),
+                line("OK    save ~/.jeryu/remotes/xbabe1.toml", GREEN),
             ],
         },
         FrameSpec {
             title: "Remote status",
-            subtitle: "commands stay in Rust on both ends",
+            subtitle: "manual guidance if systemd is unavailable",
             lines: vec![
                 line("$ jeryu remote status xbabe1", BLUE),
                 line("system: healthy", GREEN),
                 line("docker: ready", GREEN),
-                line("service: active (jeryu.service)", GREEN),
+                line("service: active or manual serve instructions", GREEN),
                 line("tunnel: 8929 / 2224 / 18200 / 9777", YELLOW),
             ],
         },

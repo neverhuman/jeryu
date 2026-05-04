@@ -8,6 +8,9 @@
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
+use jeryu::install::{ColorMode, InteractiveMode, PathMode};
+use jeryu::remote::ServiceMode;
+
 // ---------------------------------------------------------------------------
 // CLI definition
 // ---------------------------------------------------------------------------
@@ -42,6 +45,14 @@ pub(crate) struct InstallCommand {
     pub json: bool,
     #[arg(long, global = true, default_value_t = false)]
     pub yes: bool,
+    #[arg(long, global = true, value_enum, default_value_t = ColorMode::Auto)]
+    pub color: ColorMode,
+    #[arg(long, global = true, value_enum, default_value_t = InteractiveMode::Auto)]
+    pub interactive: InteractiveMode,
+    #[arg(long, global = true, value_enum, default_value_t = PathMode::Advise)]
+    pub path_mode: PathMode,
+    #[arg(long, global = true, default_value_t = false)]
+    pub verbose: bool,
     #[arg(long, global = true, default_value_t = false)]
     pub install_deps: bool,
     #[arg(long, global = true, default_value_t = false)]
@@ -77,6 +88,14 @@ pub(crate) struct RemoteCommand {
     pub json: bool,
     #[arg(long, global = true, default_value_t = false)]
     pub yes: bool,
+    #[arg(long, global = true, value_enum, default_value_t = ColorMode::Auto)]
+    pub color: ColorMode,
+    #[arg(long, global = true, value_enum, default_value_t = InteractiveMode::Auto)]
+    pub interactive: InteractiveMode,
+    #[arg(long, global = true, value_enum, default_value_t = ServiceMode::Auto)]
+    pub service_mode: ServiceMode,
+    #[arg(long, global = true, default_value_t = false)]
+    pub verbose: bool,
     #[command(subcommand)]
     pub action: RemoteActionCommands,
 }
@@ -429,6 +448,38 @@ mod tests {
     }
 
     #[test]
+    fn install_accepts_new_ui_flags_before_action() {
+        let cli = Cli::parse_from([
+            "jeryu",
+            "install",
+            "--color",
+            "always",
+            "--interactive",
+            "never",
+            "--path-mode",
+            "update",
+            "--verbose",
+            "doctor",
+        ]);
+        match cli.command {
+            Commands::Install(InstallCommand {
+                color,
+                interactive,
+                path_mode,
+                verbose,
+                action: Some(InstallActionCommands::Doctor),
+                ..
+            }) => {
+                assert_eq!(color, ColorMode::Always);
+                assert_eq!(interactive, InteractiveMode::Never);
+                assert_eq!(path_mode, PathMode::Update);
+                assert!(verbose);
+            }
+            _ => panic!("unexpected command parsed"),
+        }
+    }
+
+    #[test]
     fn remote_install_parses_alias_and_setup_key() {
         let cli = Cli::parse_from([
             "jeryu",
@@ -483,6 +534,40 @@ mod tests {
                 assert!(dry_run);
                 assert!(yes);
                 assert!(setup_key);
+            }
+            _ => panic!("unexpected command parsed"),
+        }
+    }
+
+    #[test]
+    fn remote_install_accepts_service_and_ui_flags() {
+        let cli = Cli::parse_from([
+            "jeryu",
+            "remote",
+            "--color",
+            "never",
+            "--interactive",
+            "always",
+            "--service-mode",
+            "manual",
+            "--verbose",
+            "install",
+            "xbabe1",
+        ]);
+        match cli.command {
+            Commands::Remote(RemoteCommand {
+                color,
+                interactive,
+                service_mode,
+                verbose,
+                action: RemoteActionCommands::Install { target, .. },
+                ..
+            }) => {
+                assert_eq!(target, "xbabe1");
+                assert_eq!(color, ColorMode::Never);
+                assert_eq!(interactive, InteractiveMode::Always);
+                assert_eq!(service_mode, ServiceMode::Manual);
+                assert!(verbose);
             }
             _ => panic!("unexpected command parsed"),
         }

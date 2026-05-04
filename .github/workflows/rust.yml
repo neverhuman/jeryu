@@ -55,8 +55,11 @@ jobs:
 
   install-smoke:
     name: Install Smoke
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     needs: [build]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust
@@ -65,10 +68,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Run install commands
         run: |
-          cargo run -p jeryu -- install --dry-run --json --prefix /tmp/jeryu-install-test
+          cargo run -p jeryu -- install --dry-run --json --color never --prefix /tmp/jeryu-install-test
+          PREFIX="$(mktemp -d)"
+          cargo run -p jeryu -- install --yes --prefix "$PREFIX" --path-mode skip
+          cargo run -p jeryu -- install doctor --prefix "$PREFIX"
           cargo run -p jeryu -- install smoke --dry-run
           cargo run -p jeryu -- install render-demo --output target/jeryu-install-demo.gif --png target/jeryu-install-demo.png
-          cargo run -p jeryu -- remote install xbabe1 --dry-run --yes --setup-key
+          cargo run -p jeryu -- remote install xbabe1 --dry-run --yes --setup-key --json
 
   test-select:
     name: VTI Test Selection
