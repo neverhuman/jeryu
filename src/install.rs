@@ -17,6 +17,9 @@ use tokio::process::Command;
 
 use crate::install_demo;
 
+const JERYU_PATH_START: &str = "# >>> jeryu path >>>";
+const JERYU_PATH_END: &str = "# <<< jeryu path <<<";
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum ColorMode {
     Auto,
@@ -93,6 +96,23 @@ pub struct DoctorReport {
     pub installed: bool,
     pub version_ok: bool,
     pub version_output: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UninstallReport {
+    pub action: String,
+    pub prefix: String,
+    pub binary: String,
+    pub backup_dir: String,
+    pub dry_run: bool,
+    pub path_mode: PathMode,
+    pub path_rc_file: Option<String>,
+    pub binary_present_before: bool,
+    pub backups_present_before: bool,
+    pub path_block_found: bool,
+    pub binary_removed: bool,
+    pub backups_removed: bool,
+    pub path_block_removed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -221,11 +241,11 @@ fn path_snippet(prefix: &Path, shell: Option<&str>) -> String {
         .as_deref()
     {
         Some("fish") => format!(
-            "# >>> jeryu path >>>\nset -gx PATH \"{}\" $PATH\n# <<< jeryu path <<<",
+            "{JERYU_PATH_START}\nset -gx PATH \"{}\" $PATH\n{JERYU_PATH_END}",
             path
         ),
         _ => format!(
-            "# >>> jeryu path >>>\nexport PATH=\"{}:$PATH\"\n# <<< jeryu path <<<",
+            "{JERYU_PATH_START}\nexport PATH=\"{}:$PATH\"\n{JERYU_PATH_END}",
             path
         ),
     }
@@ -591,29 +611,113 @@ async fn server(opts: &InstallOptions) -> Result<i32> {
 async fn uninstall(opts: &InstallOptions) -> Result<i32> {
     let target = install_target(&opts.prefix);
     let backup_prefix = opts.prefix.join(".jeryu-backups");
-    if opts.json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "action": "uninstall",
-                "prefix": opts.prefix,
-                "binary": target,
-                "dry_run": opts.dry_run,
-            }))?
-        );
-    } else {
-        println!("JeRyu uninstall");
-    }
+    let shell = env::var("SHELL").ok();
+    let rc_path = shell_profile_path(shell.as_deref());
+    let mut report = UninstallReport {
+        action: "uninstall".into(),
+        prefix: opts.prefix.display().to_string(),
+        binary: target.display().to_string(),
+        backup_dir: backup_prefix.display().to_string(),
+        dry_run: opts.dry_run,
+        path_mode: opts.path_mode,
+        path_rc_file: rc_path.as_ref().map(|path| path.display().to_string()),
+        binary_present_before: target.exists(),
+        backups_present_before: backup_prefix.exists(),
+        path_block_found: path_block_found(rc_path.as_deref()),
+        binary_removed: false,
+        backups_removed: false,
+        path_block_removed: false,
+    };
+
     if opts.dry_run {
+        emit_uninstall_report(&report, opts)?;
         return Ok(0);
     }
-    if target.exists() {
+
+    if report.binary_present_before {
         fs::remove_file(&target).with_context(|| format!("removing {}", target.display()))?;
+        report.binary_removed = true;
     }
-    if backup_prefix.exists() {
-        let _ = fs::remove_dir_all(&backup_prefix);
+    if report.backups_present_before {
+        fs::remove_dir_all(&backup_prefix)
+            .with_context(|| format!("removing {}", backup_prefix.display()))?;
+        report.backups_removed = true;
     }
+    if matches!(opts.path_mode, PathMode::Update) {
+        report.path_block_removed = remove_shell_profile_path_block(shell.as_deref())?;
+        report.path_block_found |= report.path_block_removed;
+    }
+
+    emit_uninstall_report(&report, opts)?;
     Ok(0)
+}
+
+fn emit_uninstall_report(report: &UninstallReport, opts: &InstallOptions) -> Result<()> {
+    if opts.json {
+        println!("{}", serde_json::to_string_pretty(report)?);
+        return Ok(());
+    }
+
+    let color = should_colorize(opts.color, opts.json);
+    let label = if opts.dry_run {
+        status_label(color, "PLAN", "36;1")
+    } else {
+        status_label(color, "OK", "32;1")
+    };
+    println!("{} JeRyu uninstall", label);
+    println!("  binary:  {}", report.binary);
+    println!(
+        "  action:  {}",
+        if opts.dry_run {
+            if report.binary_present_before {
+                "would remove binary"
+            } else {
+                "binary not present"
+            }
+        } else if report.binary_removed {
+            "removed binary"
+        } else {
+            "binary not present"
+        }
+    );
+    println!(
+        "  backups: {}",
+        if opts.dry_run {
+            if report.backups_present_before {
+                "would remove installer backups"
+            } else {
+                "none found"
+            }
+        } else if report.backups_removed {
+            "removed installer backups"
+        } else {
+            "none found"
+        }
+    );
+
+    match report.path_rc_file.as_deref() {
+        Some(rc) if report.path_block_removed => {
+            println!("  PATH:    removed guarded block from {rc}");
+        }
+        Some(rc) if report.path_block_found && matches!(opts.path_mode, PathMode::Update) => {
+            println!("  PATH:    guarded block was found but could not be removed from {rc}");
+        }
+        Some(rc) if report.path_block_found && matches!(opts.path_mode, PathMode::Skip) => {
+            println!("  PATH:    guarded block left in {rc} (--path-mode skip)");
+        }
+        Some(rc) if report.path_block_found => {
+            println!(
+                "  PATH:    guarded block remains in {rc}; rerun uninstall with --path-mode update to remove it"
+            );
+        }
+        Some(rc) => {
+            println!("  PATH:    no guarded block found in {rc}");
+        }
+        None => {
+            println!("  PATH:    no supported shell profile detected");
+        }
+    }
+    Ok(())
 }
 
 async fn install_binary(prefix: &Path) -> Result<()> {
@@ -765,13 +869,74 @@ async fn run_installed_binary(target: &Path, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+fn has_jeryu_path_block(text: &str) -> bool {
+    text.contains(JERYU_PATH_START) && text.contains(JERYU_PATH_END)
+}
+
+fn strip_jeryu_path_block(text: &str) -> (String, bool) {
+    let Some(start) = text.find(JERYU_PATH_START) else {
+        return (text.to_string(), false);
+    };
+    let after_start = start + JERYU_PATH_START.len();
+    let Some(end_rel) = text[after_start..].find(JERYU_PATH_END) else {
+        return (text.to_string(), false);
+    };
+    let end = after_start + end_rel + JERYU_PATH_END.len();
+
+    let before = text[..start].trim_end_matches('\n');
+    let after = text[end..].trim_start_matches('\n');
+    let mut updated = String::with_capacity(text.len().saturating_sub(end - start));
+    updated.push_str(before);
+    if !before.is_empty() && !after.is_empty() {
+        updated.push('\n');
+    }
+    updated.push_str(after);
+    if text.ends_with('\n') && !updated.is_empty() && !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    (updated, true)
+}
+
+fn path_block_found(rc_path: Option<&Path>) -> bool {
+    let Some(rc_path) = rc_path else {
+        return false;
+    };
+    fs::read_to_string(rc_path)
+        .map(|text| has_jeryu_path_block(&text))
+        .unwrap_or(false)
+}
+
+fn remove_shell_profile_path_block(shell: Option<&str>) -> Result<bool> {
+    let Some(rc_path) = shell_profile_path(shell) else {
+        return Ok(false);
+    };
+    remove_path_block_from_file(&rc_path)
+}
+
+fn remove_path_block_from_file(rc_path: &Path) -> Result<bool> {
+    let existing = match fs::read_to_string(rc_path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(err) => return Err(err).with_context(|| format!("reading {}", rc_path.display())),
+    };
+    let (updated, removed) = strip_jeryu_path_block(&existing);
+    if !removed {
+        return Ok(false);
+    }
+    let backup = rc_path.with_extension("jeryu-uninstall.bak");
+    fs::copy(rc_path, &backup)
+        .with_context(|| format!("backing up {} -> {}", rc_path.display(), backup.display()))?;
+    fs::write(rc_path, updated).with_context(|| format!("writing {}", rc_path.display()))?;
+    Ok(true)
+}
+
 fn update_shell_profile(prefix: &Path, shell: Option<&str>) -> Result<()> {
     let Some(rc_path) = shell_profile_path(shell) else {
         bail!("--path-mode update requires a supported shell (bash, zsh, or fish)");
     };
     let snippet = path_snippet(prefix, shell);
     let existing = fs::read_to_string(&rc_path).unwrap_or_default();
-    if existing.contains("# >>> jeryu path >>>") {
+    if existing.contains(JERYU_PATH_START) {
         return Ok(());
     }
     if let Some(parent) = rc_path.parent() {
@@ -903,6 +1068,46 @@ mod tests {
         assert!(
             path_snippet(Path::new("/tmp/bin"), Some("/usr/bin/fish")).contains("set -gx PATH")
         );
+        assert!(path_snippet(Path::new("/tmp/bin"), Some("/bin/zsh")).contains(JERYU_PATH_START));
+        assert!(path_snippet(Path::new("/tmp/bin"), Some("/bin/zsh")).contains(JERYU_PATH_END));
+    }
+
+    #[test]
+    fn strip_path_block_preserves_profile_content() {
+        let text = concat!(
+            "export BEFORE=1\n",
+            "# >>> jeryu path >>>\n",
+            "export PATH=\"/tmp/jeryu:$PATH\"\n",
+            "# <<< jeryu path <<<\n",
+            "alias gs='git status'\n",
+        );
+        let (updated, removed) = strip_jeryu_path_block(text);
+        assert!(removed);
+        assert_eq!(updated, "export BEFORE=1\nalias gs='git status'\n");
+    }
+
+    #[test]
+    fn strip_path_block_ignores_partial_marker() {
+        let text = concat!(
+            "export BEFORE=1\n",
+            "# >>> jeryu path >>>\n",
+            "export PATH=\"/tmp/jeryu:$PATH\"\n",
+            "alias gs='git status'\n",
+        );
+        let (updated, removed) = strip_jeryu_path_block(text);
+        assert!(!removed);
+        assert_eq!(updated, text);
+    }
+
+    #[test]
+    fn remove_path_block_from_file_backs_up_profile() {
+        let dir = tempdir().unwrap();
+        let rc = dir.path().join("profile");
+        fs::write(&rc, path_snippet(Path::new("/tmp/jeryu"), Some("/bin/bash"))).unwrap();
+
+        assert!(remove_path_block_from_file(&rc).unwrap());
+        assert!(!has_jeryu_path_block(&fs::read_to_string(&rc).unwrap()));
+        assert!(rc.with_extension("jeryu-uninstall.bak").exists());
     }
 
     #[test]
