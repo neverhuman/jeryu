@@ -46,7 +46,7 @@ if ! command -v docker >/dev/null 2>&1; then
   if command -v apk >/dev/null 2>&1; then
     apk add --no-cache docker-cli >/dev/null
   elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -qq >/dev/null
+    apt-get -qq update>/dev/null
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends docker.io >/dev/null
   fi
 fi
@@ -546,7 +546,7 @@ impl DockerCtl {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
         {
-            anyhow::bail!("refusing to delete dir with unexpected name: {dir_name}");
+            anyhow::bail!("refusing to remove dir with unexpected name: {dir_name}");
         }
         let output = tokio::process::Command::new("docker")
             .args([

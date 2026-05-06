@@ -374,7 +374,10 @@ pub(crate) async fn execute_intent(
                 Err(e) => return err(&format!("commit_actions: {}", e)),
             };
 
-            let title = mr_title.unwrap_or_else(|| commit_message.clone());
+            let title = match mr_title {
+                Some(t) => t,
+                None => commit_message.clone(),
+            };
             match client
                 .create_merge_request(project_id, &branch_name, &base_ref, &title, "")
                 .await
@@ -645,14 +648,23 @@ pub(crate) async fn execute_intent(
                 return err("database unavailable");
             };
 
-            let pools = db.list_pools().await.unwrap_or_default();
-            let metrics = db.get_cache_metrics().await.unwrap_or_default();
+            let pools = match db.list_pools().await {
+                Ok(v) => v,
+                Err(_) => Vec::new(),
+            };
+            let metrics = match db.get_cache_metrics().await {
+                Ok(m) => m,
+                Err(_) => crate::state::CacheMetrics::default(),
+            };
             let since_1h = chrono::Utc::now()
                 .checked_sub_signed(chrono::Duration::hours(1))
                 .unwrap_or(chrono::Utc::now())
                 .to_rfc3339();
             let miss_count = db.count_selector_misses_since(&since_1h).await.unwrap_or(0);
-            let recent_capsules = db.recent_evidence_all(5).await.unwrap_or_default();
+            let recent_capsules = match db.recent_evidence_all(5).await {
+                Ok(v) => v,
+                Err(_) => Vec::new(),
+            };
 
             let pool_summary: Vec<serde_json::Value> = pools
                 .iter()
