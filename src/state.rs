@@ -2573,6 +2573,27 @@ impl Db {
         Ok(events)
     }
 
+    pub async fn record_git_ref_change(
+        &self,
+        request_id: String,
+        ref_name: String,
+        before_sha: Option<String>,
+        after_sha: Option<String>,
+        status: String,
+        created_at: String,
+    ) -> Result<i64> {
+        let record = GitRefUpdate {
+            id: 0,
+            request_id,
+            ref_name,
+            before_sha,
+            after_sha,
+            status,
+            created_at,
+        };
+        self.record_git_ref_update(&record).await
+    }
+
     pub async fn record_git_ref_update(&self, update: &GitRefUpdate) -> Result<i64> {
         let sql = self.sql(
             r#"INSERT INTO git_ref_updates

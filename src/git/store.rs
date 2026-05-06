@@ -10,7 +10,7 @@ use crate::git::mirror::PushMirrorPlan;
 use crate::git::event::GitCommandEvent;
 use crate::git::snapshot::GitSnapshot;
 use crate::state::Db;
-use crate::state::{GitMirrorJob, GitRefUpdate};
+use crate::state::GitMirrorJob;
 
 pub async fn store_git_event(db: &Db, event: &GitCommandEvent) -> Result<i64> {
     db.record_git_command_event(event).await
@@ -55,21 +55,20 @@ pub async fn store_git_side_effects(
                     None => "HEAD".to_string(),
                 },
             };
-            let update = GitRefUpdate {
-                id: 0,
-                request_id: invocation.request_id.clone(),
-                ref_name,
-                before_sha: before.head.clone(),
-                after_sha: after.head.clone(),
-                status: if invocation.is_push() {
-                    mirror_status.to_string()
-                } else {
-                    "observed".to_string()
-                },
-                created_at: Utc::now().to_rfc3339(),
+            let status = if invocation.is_push() {
+                mirror_status.to_string()
+            } else {
+                "observed".to_string()
             };
-            if let Err(err) = db.record_git_ref_update(&update).await {
-                tracing::warn!(error = %err, request_id = %invocation.request_id, "failed to record git ref update");
+            if let Err(err) = db.record_git_ref_change(
+                invocation.request_id.clone(),
+                ref_name,
+                before.head.clone(),
+                after.head.clone(),
+                status,
+                Utc::now().to_rfc3339(),
+            ).await {
+                tracing::warn!(error = %err, request_id = %invocation.request_id, "failed to record git ref change");
                 *sidecar_status = "db_write_failed".to_string();
             }
         }
