@@ -234,7 +234,7 @@ fn validate_mcp_http_headers(
     {
         return Err(http_error(
             StatusCode::METHOD_NOT_ALLOWED,
-            "DELETE does not accept a JSON body",
+            "JSON body not accepted for this method",
         ));
     }
 

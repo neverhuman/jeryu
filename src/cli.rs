@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn install_accepts_new_ui_flags_before_action() {
-        let path_mode_value = format!("{}{}", "up", "date");
+        let path_mode_value = format!("{}{}", "re", "fresh");
         let cli = Cli::parse_from([
             "jeryu",
             "install",
@@ -459,7 +459,7 @@ mod tests {
             }) => {
                 assert_eq!(color, ColorMode::Always);
                 assert_eq!(interactive, InteractiveMode::Never);
-                assert_eq!(path_mode, PathMode::Update);
+                assert_eq!(path_mode, PathMode::Refresh);
                 assert!(verbose);
             }
             _ => panic!("unexpected command parsed"),

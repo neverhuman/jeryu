@@ -6,6 +6,7 @@ use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::future::Future;
 use std::env;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
@@ -194,48 +195,70 @@ pub async fn execute_remote(action: RemoteAction, opts: RemoteCommonOptions) -> 
             remote_install(cfg, setup_key, &opts).await
         }
         RemoteAction::Refresh { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_refresh(&cfg, &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_refresh(&cfg, opts).await
+            })
+            .await
         }
         RemoteAction::Doctor { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_doctor(&cfg, &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_doctor(&cfg, opts).await
+            })
+            .await
         }
         RemoteAction::Status { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_status(&cfg, &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_status(&cfg, opts).await
+            })
+            .await
         }
         RemoteAction::Logs { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_logs(&cfg, &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_logs(&cfg, opts).await
+            })
+            .await
         }
         RemoteAction::Restart { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_service(&cfg, "restart", &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_service(&cfg, "restart", opts).await
+            })
+            .await
         }
         RemoteAction::Stop { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_service(&cfg, "stop", &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_service(&cfg, "stop", opts).await
+            })
+            .await
         }
         RemoteAction::Start { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_service(&cfg, "start", &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_service(&cfg, "start", opts).await
+            })
+            .await
         }
         RemoteAction::Ssh { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_ssh(&cfg, &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_ssh(&cfg, opts).await
+            })
+            .await
         }
         RemoteAction::Run { alias, command } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_run(&cfg, command, &opts).await
+            with_remote_config(&alias, &opts, move |cfg, opts| async move {
+                remote_run(&cfg, command, opts).await
+            })
+            .await
         }
         RemoteAction::Tunnel { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_tunnel(&cfg, &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_tunnel(&cfg, opts).await
+            })
+            .await
         }
         RemoteAction::Uninstall { alias } => {
-            let cfg = load_remote_config(&alias)?;
-            remote_uninstall(&cfg, &opts).await
+            with_remote_config(&alias, &opts, |cfg, opts| async move {
+                remote_uninstall(&cfg, opts).await
+            })
+            .await
         }
     }
 }
@@ -262,6 +285,19 @@ fn load_remote_config(alias: &str) -> Result<RemoteConfig> {
         .with_context(|| format!("loading remote config {}", path.display()))?;
     let cfg = toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
     Ok(cfg)
+}
+
+async fn with_remote_config<F, Fut>(
+    alias: &str,
+    opts: &RemoteCommonOptions,
+    f: F,
+) -> Result<i32>
+where
+    F: FnOnce(RemoteConfig, RemoteCommonOptions) -> Fut,
+    Fut: Future<Output = Result<i32>>,
+{
+    let cfg = load_remote_config(alias)?;
+    f(cfg, opts.clone()).await
 }
 
 fn save_remote_config(cfg: &RemoteConfig) -> Result<()> {
@@ -325,6 +361,24 @@ fn status_label(enabled: bool, label: &str, code: &str) -> String {
     format!("[{}]", color_text(enabled, code, label))
 }
 
+fn make_remote_step(
+    id: &str,
+    label: &str,
+    detail: String,
+    command: Option<String>,
+    requires_network: bool,
+    estimated_seconds: Option<u64>,
+) -> RemoteStep {
+    RemoteStep {
+        id: id.into(),
+        label: label.into(),
+        detail,
+        command,
+        requires_network,
+        estimated_seconds,
+    }
+}
+
 fn build_remote_plan(
     cfg: &RemoteConfig,
     setup_key: bool,
@@ -340,30 +394,30 @@ fn build_remote_plan(
         remote_disk_free_gb: None,
     };
     let mut steps = vec![
-        RemoteStep {
-            id: "preflight".into(),
-            label: "check local and remote prerequisites".into(),
-            detail: "verify ssh, ssh-keygen, remote OS, docker, and systemd user support".into(),
-            command: Some("ssh -p <port> host 'uname -s; uname -m; command -v docker; docker info; command -v systemctl; df -Pk $HOME'".into()),
-            requires_network: true,
-            estimated_seconds: Some(2),
-        },
-        RemoteStep {
-            id: "binary".into(),
-            label: "upload the current binary".into(),
-            detail: format!("stream {} to {}", current_exe_string(), cfg.remote_bin),
-            command: Some(format!("ssh {} cat > {}", cfg.target, cfg.remote_bin)),
-            requires_network: true,
-            estimated_seconds: Some(3),
-        },
-        RemoteStep {
-            id: "verify".into(),
-            label: "verify remote --version".into(),
-            detail: "run the uploaded binary to confirm execution".into(),
-            command: Some(format!("ssh {} {} --version", cfg.target, cfg.remote_bin)),
-            requires_network: true,
-            estimated_seconds: Some(1),
-        },
+        make_remote_step(
+            "preflight",
+            "check local and remote prerequisites",
+            "verify ssh, ssh-keygen, remote OS, docker, and systemd user support".into(),
+            Some("ssh -p <port> host 'uname -s; uname -m; command -v docker; docker info; command -v systemctl; df -Pk $HOME'".into()),
+            true,
+            Some(2),
+        ),
+        make_remote_step(
+            "binary",
+            "upload the current binary",
+            format!("stream {} to {}", current_exe_string(), cfg.remote_bin),
+            Some(format!("ssh {} cat > {}", cfg.target, cfg.remote_bin)),
+            true,
+            Some(3),
+        ),
+        make_remote_step(
+            "verify",
+            "verify remote --version",
+            "run the uploaded binary to confirm execution".into(),
+            Some(format!("ssh {} {} --version", cfg.target, cfg.remote_bin)),
+            true,
+            Some(1),
+        ),
     ];
     let service_detail = match opts.service_mode {
         ServiceMode::Auto => {
@@ -373,24 +427,22 @@ fn build_remote_plan(
         ServiceMode::User => "force user systemd setup".to_string(),
         ServiceMode::Manual => "skip systemd and print manual serve guidance".to_string(),
     };
-    steps.push(RemoteStep {
-        id: "service".into(),
-        label: "configure the remote service".into(),
-        detail: service_detail,
-        command: Some(
-            "systemctl --user enable --now jeryu.service || print manual instructions".into(),
-        ),
-        requires_network: true,
-        estimated_seconds: Some(2),
-    });
-    steps.push(RemoteStep {
-        id: "save".into(),
-        label: "save the remote metadata".into(),
-        detail: "write ~/.jeryu/remotes/<alias>.toml after verification".into(),
-        command: Some(format!("write {}", config_path(&cfg.alias).display())),
-        requires_network: false,
-        estimated_seconds: Some(1),
-    });
+    steps.push(make_remote_step(
+        "service",
+        "configure the remote service",
+        service_detail,
+        Some("systemctl --user enable --now jeryu.service || print manual instructions".into()),
+        true,
+        Some(2),
+    ));
+    steps.push(make_remote_step(
+        "save",
+        "save the remote metadata",
+        "write ~/.jeryu/remotes/<alias>.toml after verification".into(),
+        Some(format!("write {}", config_path(&cfg.alias).display())),
+        false,
+        Some(1),
+    ));
     RemoteInstallPlan {
         action: "remote-install".into(),
         alias: cfg.alias.clone(),
@@ -604,6 +656,13 @@ async fn remote_refresh(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Resul
     }
 }
 
+fn print_action_envelope(opts: &RemoteCommonOptions, payload: serde_json::Value) -> Result<()> {
+    if opts.json {
+        println!("{}", serde_json::to_string_pretty(&payload)?);
+    }
+    Ok(())
+}
+
 fn print_remote_report(label: &str, report: &RemoteReport, opts: &RemoteCommonOptions) -> Result<()> {
     if opts.json {
         println!("{}", serde_json::to_string_pretty(report)?);
@@ -642,16 +701,14 @@ async fn remote_status(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result
 }
 
 async fn remote_logs(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result<i32> {
-    if opts.json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "alias": cfg.alias,
-                "target": cfg.target,
-                "action": "logs",
-            }))?
-        );
-    }
+    print_action_envelope(
+        opts,
+        serde_json::json!({
+            "alias": cfg.alias,
+            "target": cfg.target,
+            "action": "logs",
+        }),
+    )?;
     match resolve_service_mode(cfg).await? {
         ServiceMode::User => {
             let cmd = "journalctl --user -u jeryu -n 100 --no-pager";
@@ -694,14 +751,7 @@ async fn remote_ssh(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result<i3
         println!("dry-run: ssh {}", cfg.target);
         return Ok(0);
     }
-    command.stdin(Stdio::inherit());
-    command.stdout(Stdio::inherit());
-    command.stderr(Stdio::inherit());
-    let status = command.status().await.context("opening ssh session")?;
-    if !status.success() {
-        bail!("ssh exited with {}", status.code().unwrap_or(-1));
-    }
-    Ok(0)
+    run_interactive_ssh(command, "ssh", "opening ssh session").await
 }
 
 async fn remote_run(
@@ -721,14 +771,7 @@ async fn remote_run(
     cmd.arg(&cfg.target);
     cmd.arg(&cfg.remote_bin);
     cmd.args(&command);
-    cmd.stdin(Stdio::inherit());
-    cmd.stdout(Stdio::inherit());
-    cmd.stderr(Stdio::inherit());
-    let status = cmd.status().await.context("running remote command")?;
-    if !status.success() {
-        bail!("remote command exited with {}", status.code().unwrap_or(-1));
-    }
-    Ok(0)
+    run_interactive_ssh(cmd, "remote command", "running remote command").await
 }
 
 async fn remote_tunnel(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result<i32> {
@@ -750,49 +793,32 @@ async fn remote_tunnel(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result
     let mut cmd = Command::new("ssh");
     cmd.args(ssh_args(cfg));
     cmd.arg("-N");
-    cmd.arg("-L");
-    cmd.arg(format!(
-        "127.0.0.1:{}:127.0.0.1:{}",
-        cfg.local_http_port, DEFAULT_HTTP_PORT
-    ));
-    cmd.arg("-L");
-    cmd.arg(format!(
-        "127.0.0.1:{}:127.0.0.1:{}",
-        cfg.local_ssh_port, DEFAULT_SSH_PORT
-    ));
-    cmd.arg("-L");
-    cmd.arg(format!(
-        "127.0.0.1:{}:127.0.0.1:{}",
-        cfg.local_vault_port, DEFAULT_VAULT_PORT
-    ));
-    cmd.arg("-L");
-    cmd.arg(format!(
-        "127.0.0.1:{}:127.0.0.1:{}",
-        cfg.local_webhook_port, DEFAULT_WEBHOOK_PORT
-    ));
+    push_local_forward(&mut cmd, cfg.local_http_port, DEFAULT_HTTP_PORT);
+    push_local_forward(&mut cmd, cfg.local_ssh_port, DEFAULT_SSH_PORT);
+    push_local_forward(&mut cmd, cfg.local_vault_port, DEFAULT_VAULT_PORT);
+    push_local_forward(&mut cmd, cfg.local_webhook_port, DEFAULT_WEBHOOK_PORT);
     cmd.arg(&cfg.target);
-    cmd.stdin(Stdio::inherit());
-    cmd.stdout(Stdio::inherit());
-    cmd.stderr(Stdio::inherit());
-    let status = cmd.status().await.context("opening ssh tunnel")?;
-    if !status.success() {
-        bail!("ssh tunnel exited with {}", status.code().unwrap_or(-1));
-    }
-    Ok(0)
+    run_interactive_ssh(cmd, "ssh tunnel", "opening ssh tunnel").await
+}
+
+fn push_local_forward(cmd: &mut Command, local_port: u16, remote_port: u16) {
+    cmd.arg("-L");
+    cmd.arg(format!(
+        "127.0.0.1:{}:127.0.0.1:{}",
+        local_port, remote_port
+    ));
 }
 
 async fn remote_uninstall(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result<i32> {
-    if opts.json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "action": "remote-uninstall",
-                "alias": cfg.alias,
-                "target": cfg.target,
-                "dry_run": opts.dry_run,
-            }))?
-        );
-    }
+    print_action_envelope(
+        opts,
+        serde_json::json!({
+            "action": "remote-uninstall",
+            "alias": cfg.alias,
+            "target": cfg.target,
+            "dry_run": opts.dry_run,
+        }),
+    )?;
     if opts.dry_run {
         return Ok(0);
     }
@@ -980,6 +1006,21 @@ async fn run_remote_binary(
             output.status.code().unwrap_or(-1)
         );
     }
+}
+
+async fn run_interactive_ssh(
+    mut cmd: Command,
+    label: &'static str,
+    context_msg: &'static str,
+) -> Result<i32> {
+    cmd.stdin(Stdio::inherit());
+    cmd.stdout(Stdio::inherit());
+    cmd.stderr(Stdio::inherit());
+    let status = cmd.status().await.context(context_msg)?;
+    if !status.success() {
+        bail!("{} exited with {}", label, status.code().unwrap_or(-1));
+    }
+    Ok(0)
 }
 
 fn ssh_bash_command(cfg: &RemoteConfig, script: &str) -> Command {

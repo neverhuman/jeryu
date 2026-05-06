@@ -2409,7 +2409,7 @@ impl Db {
 
     // -- Retry decisions ---------------------------------------------------
 
-    pub async fn insert_retry_decision(
+    pub async fn insert_recovery_decision(
         &self,
         project_id: i64,
         job_id: i64,
@@ -2437,7 +2437,7 @@ impl Db {
         Ok(row.0)
     }
 
-    pub async fn count_retry_decisions(&self, project_id: i64, job_id: i64) -> Result<i64> {
+    pub async fn count_recovery_decisions(&self, project_id: i64, job_id: i64) -> Result<i64> {
         let row: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM retry_decisions WHERE project_id = ? AND job_id = ?",
         )
@@ -4110,9 +4110,9 @@ mod tests {
         let active = db.list_active_pipelines_for_ref(42, "main").await?;
         assert_eq!(active.len(), 1);
 
-        db.insert_retry_decision(42, 99, "abc", "main", "retry_once", "transient network")
+        db.insert_recovery_decision(42, 99, "abc", "main", "retry_once", "transient network")
             .await?;
-        assert_eq!(db.count_retry_decisions(42, 99).await?, 1);
+        assert_eq!(db.count_recovery_decisions(42, 99).await?, 1);
 
         Ok(())
     }

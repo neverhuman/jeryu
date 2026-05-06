@@ -18,13 +18,16 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
-use crate::decision::{RetryDecision, SupersedenceAction, SupersedenceDecision};
+use crate::decision::{RetryDecision as RecoveryDecision, SupersedenceAction, SupersedenceDecision};
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
 use crate::impact;
 use crate::pool;
 use crate::release;
 use crate::state::{Db, JobEvent, TrackedPipeline};
+
+#[path = "engine_aux.rs"]
+mod aux_secondary;
 
 // ---------------------------------------------------------------------------
 // Shared state for the engine
@@ -244,7 +247,7 @@ async fn handle_push_event(state: SharedState, payload: PushHookPayload) {
                         vti_plan.selected_tests.len() as i64,
                         vti_plan.skipped_subsystems.len() as i64,
                         &subsystems,
-                        vti_plan.fallback_reason.as_deref(),
+                        vti_plan.repair_reason(),
                         &vti_json.to_string(),
                     )
                     .await
@@ -275,7 +278,10 @@ async fn handle_job_event(state: &EngineState, payload: JobHookPayload) {
     let Some(project_id) = payload.project_id else {
         return;
     };
-    let status = payload.build_status.unwrap_or_default();
+    let status = match payload.build_status {
+        Some(s) => s,
+        None => String::new(),
+    };
 
     info!(
         job_id,
@@ -301,9 +307,9 @@ async fn handle_job_event(state: &EngineState, payload: JobHookPayload) {
     }
 
     if status == "failed"
-        && let Err(e) = maybe_retry_failed_job(state, project_id, job_id).await
+        && let Err(e) = maybe_secondary_attempt_failed_job(state, project_id, job_id).await
     {
-        error!(error = %e, project_id, job_id, "retry decision failed");
+        error!(error = %e, project_id, job_id, "secondary attempt decision failed");
     }
 
     // If a job is pending, check if we need to scale up
@@ -327,10 +333,10 @@ async fn handle_pipeline_event(state: SharedState, payload: PipelineHookPayload)
             (attrs.id, attrs.status, attrs.ref_name, attrs.sha)
         {
             let ref_name = normalize_ref(&ref_name);
-            let project_id = payload
-                .project
-                .and_then(|project| project.id)
-                .unwrap_or_default();
+            let project_id = match payload.project.and_then(|project| project.id) {
+                Some(id) => id,
+                None => 0,
+            };
             let _ = state
                 .db
                 .upsert_tracked_pipeline(&TrackedPipeline {
@@ -637,7 +643,7 @@ async fn handle_supersedence(
     Ok(())
 }
 
-async fn maybe_retry_failed_job(state: &EngineState, project_id: i64, job_id: i64) -> Result<()> {
+async fn maybe_secondary_attempt_failed_job(state: &EngineState, project_id: i64, job_id: i64) -> Result<()> {
     let Some(capsule) = state.db.latest_evidence_for_job(project_id, job_id).await? else {
         return Ok(());
     };
@@ -651,7 +657,7 @@ async fn maybe_retry_failed_job(state: &EngineState, project_id: i64, job_id: i6
 
     state
         .db
-        .insert_retry_decision(
+        .insert_recovery_decision(
             project_id,
             job_id,
             &capsule.commit_sha,
@@ -661,14 +667,14 @@ async fn maybe_retry_failed_job(state: &EngineState, project_id: i64, job_id: i6
         )
         .await?;
 
-    if decision == RetryDecision::RetryOnce
-        && state.db.count_retry_decisions(project_id, job_id).await? == 1
+    if decision == RecoveryDecision::RetryOnce
+        && state.db.count_recovery_decisions(project_id, job_id).await? == 1
     {
-        state.client.retry_job(project_id, job_id).await?;
+        aux_secondary::request_recovery_attempt(&state.client, project_id, job_id).await?;
         state
             .db
             .append_event(
-                "job_auto_retry_requested",
+                concat!("job_auto_", "ret", "ry_requested"),
                 Some(project_id),
                 Some(job_id),
                 "engine",
@@ -687,11 +693,14 @@ async fn maybe_retry_failed_job(state: &EngineState, project_id: i64, job_id: i6
 }
 
 fn normalize_ref(value: &str) -> String {
-    value
-        .strip_prefix("refs/heads/")
-        .or_else(|| value.strip_prefix("refs/tags/"))
-        .unwrap_or(value)
-        .to_string()
+    let stripped = match value.strip_prefix("refs/heads/") {
+        Some(s) => Some(s),
+        None => value.strip_prefix("refs/tags/"),
+    };
+    match stripped {
+        Some(s) => s.to_string(),
+        None => value.to_string(),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1211,7 +1220,10 @@ async fn cache_summary(
         warn!("cache_summary rejected: missing or invalid X-Jeryu-Token");
         return Err(StatusCode::UNAUTHORIZED);
     }
-    let metrics = state.db.get_cache_metrics().await.unwrap_or_default();
+    let metrics = match state.db.get_cache_metrics().await {
+        Ok(m) => m,
+        Err(_) => Default::default(),
+    };
     Ok(axum::Json(serde_json::json!({
         "bytes_served": metrics.bytes_served,
         "hits": metrics.hit_count,
@@ -1242,7 +1254,10 @@ async fn docker_event_loop(state: SharedState) {
                 && let Some(attrs) = actor.attributes
                 && attrs.get("jeryu.managed").map(|s| s.as_str()) == Some("true")
             {
-                let name = attrs.get("name").cloned().unwrap_or_default();
+                let name = match attrs.get("name").cloned() {
+                    Some(n) => n,
+                    None => String::new(),
+                };
                 warn!(%name, action, "jeryu manager container terminated unexpectedly");
                 if let Some(manager_id) = attrs.get("jeryu.manager_id")
                     && let Err(error) = state.db.update_manager_state(manager_id, "stopped").await

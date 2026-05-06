@@ -72,7 +72,7 @@ pub struct ExternalTestPlan {
     pub confidence: f64,
     pub rationale: Vec<String>,
     pub changed_paths: Vec<String>,
-    pub fallback_reason: Option<String>,
+    pub repair_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -83,8 +83,8 @@ pub enum ExternalPlanMode {
 }
 
 impl ExternalTestPlan {
-    pub fn recovery_reason(&self) -> Option<&str> {
-        self.fallback_reason.as_deref()
+    pub fn repair_reason(&self) -> Option<&str> {
+        self.repair_reason.as_deref()
     }
 }
 
@@ -102,7 +102,7 @@ pub fn plan_from_testmap(map: &TestMap, changed_paths: &[String]) -> ExternalTes
             confidence: 1.0,
             rationale: vec!["empty diff, running full pipeline".into()],
             changed_paths: vec![],
-            fallback_reason: Some("empty diff".into()),
+            repair_reason: Some("empty diff".into()),
         };
     }
 
@@ -122,7 +122,7 @@ pub fn plan_from_testmap(map: &TestMap, changed_paths: &[String]) -> ExternalTes
                     confidence: 1.0,
                     rationale,
                     changed_paths: changed_paths.to_vec(),
-                    fallback_reason: Some(format!("global invalidator: {}", path)),
+                    repair_reason: Some(format!("global invalidator: {}", path)),
                 };
             }
         }
@@ -144,7 +144,7 @@ pub fn plan_from_testmap(map: &TestMap, changed_paths: &[String]) -> ExternalTes
             confidence: 1.0,
             rationale,
             changed_paths: changed_paths.to_vec(),
-            fallback_reason: None,
+            repair_reason: None,
         };
     }
 
@@ -190,7 +190,7 @@ pub fn plan_from_testmap(map: &TestMap, changed_paths: &[String]) -> ExternalTes
             confidence: 0.0,
             rationale,
             changed_paths: changed_paths.to_vec(),
-            fallback_reason: Some("unmatched paths".into()),
+            repair_reason: Some("unmatched paths".into()),
         };
     }
 
@@ -252,7 +252,7 @@ pub fn plan_from_testmap(map: &TestMap, changed_paths: &[String]) -> ExternalTes
             confidence,
             rationale,
             changed_paths: changed_paths.to_vec(),
-            fallback_reason: Some(format!("low confidence: {:.2}", confidence)),
+            repair_reason: Some(format!("low confidence: {:.2}", confidence)),
         };
     }
 
@@ -264,7 +264,7 @@ pub fn plan_from_testmap(map: &TestMap, changed_paths: &[String]) -> ExternalTes
         confidence,
         rationale,
         changed_paths: changed_paths.to_vec(),
-        fallback_reason: None,
+        repair_reason: None,
     }
 }
 
@@ -628,7 +628,7 @@ pub fn explain_external_plan(plan: &ExternalTestPlan) -> String {
         out.push('\n');
     }
 
-    if let Some(reason) = &plan.fallback_reason {
+    if let Some(reason) = &plan.repair_reason {
         out.push_str(&format!("Recovery: {}\n", reason));
     }
 
@@ -656,7 +656,7 @@ pub fn explain_external_json(plan: &ExternalTestPlan) -> serde_json::Value {
         "affected_subsystems": plan.affected_subsystems,
         "rationale": plan.rationale,
         "changed_paths": plan.changed_paths,
-        "fallback_reason": plan.fallback_reason,
+        "repair_reason": plan.repair_reason,
     })
 }
 
@@ -682,7 +682,7 @@ pub fn explain_external_skipped_json(plan: &ExternalTestPlan) -> serde_json::Val
         "status": "vti-skipped",
         "skipped_jobs": skipped_jobs,
         "materialized_jobs": materialized.into_iter().collect::<Vec<_>>(),
-        "reason": plan.fallback_reason,
+        "reason": plan.repair_reason,
         "affected_subsystems": plan.affected_subsystems,
     })
 }

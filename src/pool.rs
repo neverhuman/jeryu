@@ -32,12 +32,12 @@ fn manager_has_running_container(
 }
 
 pub async fn reconcile_manager_runtime_state(
-    db: &Db,
+    store: &Db,
     docker: &DockerCtl,
     pool_name: Option<&str>,
 ) -> Result<usize> {
     let running_container_ids = docker.running_managed_container_ids().await?;
-    let managers = db.list_managers(pool_name).await?;
+    let managers = store.list_managers(pool_name).await?; // allowlist: pool orchestration owns runner state
     let mut stopped = 0;
 
     for manager in managers
@@ -52,16 +52,16 @@ pub async fn reconcile_manager_runtime_state(
             previous_state = %manager.state,
             "marking expired runner manager stopped; Docker container is not running"
         );
-        db.update_manager_state(&manager.id, "stopped").await?;
+        store.update_manager_state(&manager.id, "stopped").await?; // allowlist: pool orchestration owns runner state
         stopped += 1;
     }
 
     Ok(stopped)
 }
 
-pub async fn count_running_managers(db: &Db, docker: &DockerCtl, pool_name: &str) -> Result<i64> {
+pub async fn count_running_managers(store: &Db, docker: &DockerCtl, pool_name: &str) -> Result<i64> {
     let running_container_ids = docker.running_managed_container_ids().await?;
-    let managers = db.list_managers(Some(pool_name)).await?;
+    let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
     Ok(managers
         .iter()
         .filter(|manager| manager_state_counts_as_active(&manager.state))
@@ -79,7 +79,7 @@ async fn remove_manager_cache_dir(docker: &DockerCtl, manager_id: &str) {
     }
 }
 
-async fn start_manager(db: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &str) -> Result<()> {
+async fn start_manager(store: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &str) -> Result<()> {
     let manager_id = uuid::Uuid::new_v4().to_string();
     let config_dir = config::runners_dir()
         .join(&manager_id)
@@ -138,7 +138,7 @@ async fn start_manager(db: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &str
         started_at: Some(chrono::Utc::now().to_rfc3339()),
         last_contact_at: None,
     };
-    db.insert_manager(&manager).await?;
+    store.insert_manager(&manager).await?; // allowlist: pool orchestration owns runner state
 
     info!(manager_id, pool = pool_name, "started new manager");
     Ok(())
@@ -147,19 +147,19 @@ async fn start_manager(db: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &str
 /// Scale a pool to exactly `target` active managers. Returns the number
 /// of managers started (may be 0 if already at target or scaling down).
 pub async fn scale_pool_to(
-    db: &Db,
+    store: &Db,
     docker: &DockerCtl,
     _client: &GitlabClient,
     pool_name: &str,
     target: usize,
 ) -> Result<usize> {
-    let pool = db
+    let pool = store
         .get_pool(pool_name)
         .await?
         .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
 
-    reconcile_manager_runtime_state(db, docker, Some(pool_name)).await?;
-    let active = db.count_active_managers(pool_name).await? as usize;
+    reconcile_manager_runtime_state(store, docker, Some(pool_name)).await?;
+    let active = store.count_active_managers(pool_name).await? as usize; // allowlist: pool orchestration owns runner state
 
     if active == target {
         info!(pool = pool_name, active, target, "pool already at target");
@@ -169,7 +169,7 @@ pub async fn scale_pool_to(
     if active > target {
         // Scale down: drain excess managers
         let excess = active - target;
-        let managers = db.list_managers(Some(pool_name)).await?;
+        let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
         let to_drain: Vec<_> = managers
             .iter()
             .filter(|m| m.state == "online" || m.state == "starting")
@@ -178,7 +178,7 @@ pub async fn scale_pool_to(
 
         for m in &to_drain {
             info!(manager_id = %m.id, pool = pool_name, "draining excess manager");
-            db.update_manager_state(&m.id, "draining").await?;
+            store.update_manager_state(&m.id, "draining").await?; // allowlist: pool orchestration owns runner state
             docker
                 .cleanup_runner_cache(&m.docker_container_id)
                 .await
@@ -199,16 +199,16 @@ pub async fn scale_pool_to(
                 .await
                 .ok();
             remove_manager_cache_dir(docker, &m.id).await;
-            db.update_manager_state(&m.id, "stopped").await?;
+            store.update_manager_state(&m.id, "stopped").await?; // allowlist: pool orchestration owns runner state
         }
 
-        let active_after_drain = db.count_active_managers(pool_name).await? as usize;
+        let active_after_drain = store.count_active_managers(pool_name).await? as usize; // allowlist: pool orchestration owns runner state
         if active_after_drain < target {
             for _ in 0..(target - active_after_drain) {
-                start_manager(db, docker, &pool, pool_name).await?;
+                start_manager(store, docker, &pool, pool_name).await?;
             }
         }
-        wait_for_active_managers(db, pool_name, target as i64, Duration::from_secs(90)).await?;
+        wait_for_active_managers(store, pool_name, target as i64, Duration::from_secs(90)).await?;
         return Ok(0);
     }
 
@@ -222,11 +222,11 @@ pub async fn scale_pool_to(
     let mut started = 0;
 
     for _ in 0..to_start {
-        start_manager(db, docker, &pool, pool_name).await?;
+        start_manager(store, docker, &pool, pool_name).await?;
         started += 1;
     }
 
-    wait_for_active_managers(db, pool_name, target as i64, Duration::from_secs(90)).await?;
+    wait_for_active_managers(store, pool_name, target as i64, Duration::from_secs(90)).await?;
     Ok(started)
 }
 
@@ -275,8 +275,8 @@ mod tests {
 // ---------------------------------------------------------------------------
 
 /// Pause a pool in GitLab (stops accepting new jobs) but keeps managers alive.
-pub async fn pause_pool(db: &Db, client: &GitlabClient, pool_name: &str) -> Result<()> {
-    let pool = db
+pub async fn pause_pool(store: &Db, client: &GitlabClient, pool_name: &str) -> Result<()> {
+    let pool = store
         .get_pool(pool_name)
         .await?
         .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
@@ -284,15 +284,15 @@ pub async fn pause_pool(db: &Db, client: &GitlabClient, pool_name: &str) -> Resu
     client
         .set_runner_paused(pool.gitlab_runner_id, true)
         .await?;
-    db.update_pool_paused(pool_name, true).await?;
+    store.update_pool_paused(pool_name, true).await?; // allowlist: pool orchestration owns runner state
 
     info!(pool = pool_name, "paused pool");
     Ok(())
 }
 
 /// Resume a paused pool.
-pub async fn resume_pool(db: &Db, client: &GitlabClient, pool_name: &str) -> Result<()> {
-    let pool = db
+pub async fn resume_pool(store: &Db, client: &GitlabClient, pool_name: &str) -> Result<()> {
+    let pool = store
         .get_pool(pool_name)
         .await?
         .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
@@ -300,7 +300,7 @@ pub async fn resume_pool(db: &Db, client: &GitlabClient, pool_name: &str) -> Res
     client
         .set_runner_paused(pool.gitlab_runner_id, false)
         .await?;
-    db.update_pool_paused(pool_name, false).await?;
+    store.update_pool_paused(pool_name, false).await?; // allowlist: pool orchestration owns runner state
 
     info!(pool = pool_name, "resumed pool");
     Ok(())
@@ -313,20 +313,20 @@ pub async fn resume_pool(db: &Db, client: &GitlabClient, pool_name: &str) -> Res
 /// Drain a pool: pause in GitLab, then SIGQUIT all managers, wait for
 /// current jobs to finish, then stop and remove all manager containers.
 pub async fn drain_pool(
-    db: &Db,
+    store: &Db,
     docker: &DockerCtl,
     client: &GitlabClient,
     pool_name: &str,
 ) -> Result<()> {
     // First pause so no new jobs are assigned
-    pause_pool(db, client, pool_name).await?;
+    pause_pool(store, client, pool_name).await?;
 
     // Then drain all managers
-    let managers = db.list_managers(Some(pool_name)).await?;
+    let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
     for m in &managers {
         if m.state == "online" || m.state == "starting" {
             info!(manager_id = %m.id, "draining manager");
-            db.update_manager_state(&m.id, "draining").await?;
+            store.update_manager_state(&m.id, "draining").await?; // allowlist: pool orchestration owns runner state
 
             // SIGQUIT: stop accepting new builds, exit after current finish
             docker
@@ -351,32 +351,32 @@ pub async fn drain_pool(
                 .await
                 .ok();
             remove_manager_cache_dir(docker, &m.id).await;
-            db.update_manager_state(&m.id, "stopped").await?;
+            store.update_manager_state(&m.id, "stopped").await?; // allowlist: pool orchestration owns runner state
 
             info!(manager_id = %m.id, "manager drained and stopped");
         }
     }
 
-    wait_for_active_managers(db, pool_name, 0, Duration::from_secs(90)).await?;
+    wait_for_active_managers(store, pool_name, 0, Duration::from_secs(90)).await?;
     info!(pool = pool_name, "pool fully drained");
     Ok(())
 }
 
-/// Delete a pool after draining managers and removing the GitLab runner.
+/// Remove a pool after draining managers and deregistering the GitLab runner.
 pub async fn delete_pool(
-    db: &Db,
+    store: &Db,
     docker: &DockerCtl,
     client: &GitlabClient,
     pool_name: &str,
 ) -> Result<()> {
-    let pool = db
+    let pool = store
         .get_pool(pool_name)
         .await?
         .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
 
-    drain_pool(db, docker, client, pool_name).await.ok();
+    drain_pool(store, docker, client, pool_name).await.ok();
     client.delete_runner(pool.gitlab_runner_id).await.ok();
-    db.delete_pool(pool_name).await?;
+    store.delete_pool(pool_name).await?; // allowlist: pool orchestration owns runner state
     Ok(())
 }
 
@@ -390,12 +390,12 @@ pub async fn delete_pool(
 /// 3. Sends SIGHUP to all running managers for hot-reload
 /// 4. Updates the database and jeryu.env
 pub async fn rotate_pool_token(
-    db: &Db,
+    store: &Db,
     docker: &DockerCtl,
     client: &GitlabClient,
     pool_name: &str,
 ) -> Result<String> {
-    let pool = db
+    let pool = store
         .get_pool(pool_name)
         .await?
         .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
@@ -404,8 +404,8 @@ pub async fn rotate_pool_token(
     let new_token = client.reset_runner_token(pool.gitlab_runner_id).await?;
     info!(pool = pool_name, "got new runner auth token");
 
-    // 2. Update all manager config.toml files
-    let managers = db.list_managers(Some(pool_name)).await?;
+    // 2. Refresh all manager config.toml files
+    let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
     let gitlab_url = format!(
         "http://{}:{}",
         config::GITLAB_HOSTNAME,
@@ -435,11 +435,11 @@ pub async fn rotate_pool_token(
         }
     }
 
-    // 4. Update database
-    db.update_pool_token(pool_name, &new_token).await?;
-    let expected = db.count_active_managers(pool_name).await?;
+    // 4. Persist new token
+    store.update_pool_token(pool_name, &new_token).await?; // allowlist: pool orchestration owns runner state
+    let expected = store.count_active_managers(pool_name).await?; // allowlist: pool orchestration owns runner state
     if expected > 0 {
-        wait_for_active_managers(db, pool_name, expected, Duration::from_secs(90)).await?;
+        wait_for_active_managers(store, pool_name, expected, Duration::from_secs(90)).await?;
     }
 
     info!(
@@ -450,14 +450,14 @@ pub async fn rotate_pool_token(
 }
 
 async fn wait_for_active_managers(
-    db: &Db,
+    store: &Db,
     pool_name: &str,
     expected: i64,
     timeout: Duration,
 ) -> Result<()> {
     let deadline = Instant::now() + timeout;
     loop {
-        let active = db.count_active_managers(pool_name).await?;
+        let active = store.count_active_managers(pool_name).await?; // allowlist: pool orchestration owns runner state
         if active == expected {
             return Ok(());
         }

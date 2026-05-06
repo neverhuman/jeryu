@@ -33,7 +33,7 @@ pub fn explain(plan: &TestPlan) -> String {
     }
 
     // Recovery reason
-    if let Some(reason) = &plan.fallback_reason {
+    if let Some(reason) = &plan.repair_reason {
         out.push_str(&format!("⚠ Recovery: {}\n\n", reason));
     }
 

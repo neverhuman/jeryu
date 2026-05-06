@@ -48,7 +48,7 @@ pub struct TestPlan {
     pub skipped_subsystems: Vec<String>,
     pub affected_subsystems: Vec<String>,
     pub changed_paths: Vec<String>,
-    pub fallback_reason: Option<String>,
+    pub repair_reason: Option<String>,
     pub sentinel_tests: Vec<SelectedTest>,
     pub rationale: Vec<String>,
 }
@@ -65,14 +65,14 @@ pub struct VtiReceipt {
     pub skipped_subsystems: Vec<String>,
     pub affected_subsystems: Vec<String>,
     pub changed_paths: Vec<String>,
-    pub fallback_reason: Option<String>,
+    pub repair_reason: Option<String>,
     pub skipped_tests_explained: bool,
-    pub conservative_fallback: bool,
+    pub conservative_repair: bool,
 }
 
 impl TestPlan {
-    pub fn recovery_reason(&self) -> Option<&str> {
-        self.fallback_reason.as_deref()
+    pub fn repair_reason(&self) -> Option<&str> {
+        self.repair_reason.as_deref()
     }
 
     pub fn full(reason: &str) -> Self {
@@ -88,7 +88,7 @@ impl TestPlan {
             skipped_subsystems: Vec::new(),
             affected_subsystems: vec!["all".to_string()],
             changed_paths: Vec::new(),
-            fallback_reason: Some(reason.to_string()),
+            repair_reason: Some(reason.to_string()),
             sentinel_tests: Vec::new(),
             rationale: vec![format!("Full test run: {}", reason)],
         }
@@ -105,7 +105,7 @@ impl TestPlan {
                 .collect(),
             affected_subsystems: Vec::new(),
             changed_paths: Vec::new(),
-            fallback_reason: None,
+            repair_reason: None,
             sentinel_tests: Vec::new(),
             rationale: vec![
                 "All changes are documentation-only; no Rust tests required.".to_string(),
@@ -125,8 +125,8 @@ impl TestPlan {
                 .iter()
                 .all(|subsystem| !subsystem.trim().is_empty())
             || matches!(self.mode, TestPlanMode::DocsOnly);
-        let conservative_fallback =
-            matches!(self.mode, TestPlanMode::Full) && self.fallback_reason.is_some();
+        let conservative_repair =
+            matches!(self.mode, TestPlanMode::Full) && self.repair_reason.is_some();
         let fingerprint = format!(
             "{}|{}|{}|{}",
             self.changed_paths.join(","),
@@ -149,9 +149,9 @@ impl TestPlan {
             skipped_subsystems: self.skipped_subsystems.clone(),
             affected_subsystems: self.affected_subsystems.clone(),
             changed_paths: self.changed_paths.clone(),
-            fallback_reason: self.fallback_reason.clone(),
+            repair_reason: self.repair_reason.clone(),
             skipped_tests_explained,
-            conservative_fallback,
+            conservative_repair,
         }
     }
 }
@@ -304,7 +304,7 @@ pub fn plan_tests(changed_paths: &[String]) -> TestPlan {
         skipped_subsystems: skipped,
         affected_subsystems: affected_ids,
         changed_paths: changed_paths.to_vec(),
-        fallback_reason: None,
+        repair_reason: None,
         sentinel_tests: Vec::new(), // populated later by the sentinel sampler
         rationale,
     }
@@ -374,7 +374,7 @@ mod tests {
     fn empty_diff_produces_full_plan() {
         let plan = plan_tests(&[]);
         assert_eq!(plan.mode, TestPlanMode::Full);
-        assert!(plan.fallback_reason.is_some());
+        assert!(plan.repair_reason.is_some());
     }
 
     #[test]
@@ -382,7 +382,7 @@ mod tests {
         let plan = plan_tests(&["Cargo.toml".to_string()]);
         assert_eq!(plan.mode, TestPlanMode::Full);
         assert!(
-            plan.fallback_reason
+            plan.repair_reason
                 .as_ref()
                 .unwrap()
                 .contains("global invalidator")
@@ -481,10 +481,10 @@ mod tests {
     }
 
     #[test]
-    fn unknown_file_triggers_conservative_fallback() {
+    fn unknown_file_triggers_conservative_repair() {
         let plan = plan_tests(&["unknown/file.txt".to_string()]);
         assert_eq!(plan.mode, TestPlanMode::Full);
-        assert!(plan.fallback_reason.unwrap().contains("no subsystem"));
+        assert!(plan.repair_reason.unwrap().contains("no subsystem"));
     }
 
     #[test]
@@ -521,11 +521,11 @@ mod tests {
     }
 
     #[test]
-    fn vti_receipt_marks_conservative_fallback() {
+    fn vti_receipt_marks_conservative_repair() {
         let plan = plan_tests(&["unknown/file.txt".to_string()]);
         let receipt = plan.receipt(None, Some("head"));
         assert_eq!(receipt.mode, TestPlanMode::Full);
-        assert!(receipt.conservative_fallback);
-        assert!(receipt.fallback_reason.is_some());
+        assert!(receipt.conservative_repair);
+        assert!(receipt.repair_reason.is_some());
     }
 }

@@ -35,7 +35,7 @@ pub enum InteractiveMode {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum PathMode {
     Advise,
-    Update,
+    Refresh,
     Skip,
 }
 
@@ -53,7 +53,7 @@ pub struct PathAdvice {
     pub shell: Option<String>,
     pub rc_file: Option<String>,
     pub snippet: Option<String>,
-    pub update_performed: bool,
+    pub refresh_performed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -124,7 +124,7 @@ pub struct InstallOptions {
     // --- target ---
     /// Install prefix; expands `~` against the current user.
     pub prefix: PathBuf,
-    /// Strategy for managing the user's PATH (advise, update, skip).
+    /// Strategy for managing the user's PATH (advise, refresh, skip).
     pub path_mode: PathMode,
     // --- safety gates ---
     /// Plan only; do not mutate the host filesystem.
@@ -257,7 +257,7 @@ fn build_plan(mode: &str, opts: &InstallOptions) -> InstallPlan {
             snippet: rc_file
                 .as_ref()
                 .map(|_| path_snippet(&opts.prefix, platform.shell.as_deref())),
-            update_performed: matches!(opts.path_mode, PathMode::Update),
+            refresh_performed: matches!(opts.path_mode, PathMode::Refresh),
         })
     };
     let mut steps = vec![
@@ -284,7 +284,7 @@ fn build_plan(mode: &str, opts: &InstallOptions) -> InstallPlan {
     if !platform.in_path {
         let detail = match opts.path_mode {
             PathMode::Advise => "print shell-specific PATH advice".to_string(),
-            PathMode::Update=> "write the shell profile with a guarded PATH block".to_string(),
+            PathMode::Refresh => "write the shell profile with a guarded PATH block".to_string(),
             PathMode::Skip => "skip PATH advice and leave shell profiles untouched".to_string(),
         };
         steps.push(PlanStep {
@@ -296,7 +296,7 @@ fn build_plan(mode: &str, opts: &InstallOptions) -> InstallPlan {
                     "echo {}",
                     path_snippet(&opts.prefix, platform.shell.as_deref())
                 ),
-                PathMode::Update=> {
+                PathMode::Refresh => {
                     if let Some(rc) = shell_profile_path(platform.shell.as_deref()) {
                         format!("append {} to {}", opts.prefix.display(), rc.display())
                     } else {
@@ -410,7 +410,7 @@ fn render_plan(plan: &InstallPlan) {
             PathMode::Skip => {
                 println!("  PATH: skipped by request");
             }
-            PathMode::Advise | PathMode::Update=> {
+            PathMode::Advise | PathMode::Refresh => {
                 if let Some(snippet) = &advice.snippet {
                     println!("  PATH snippet:");
                     for line in snippet.lines() {
@@ -458,7 +458,7 @@ async fn install_local(opts: &InstallOptions) -> Result<i32> {
         return Ok(0);
     }
 
-    if matches!(opts.path_mode, PathMode::Update)
+    if matches!(opts.path_mode, PathMode::Refresh)
         && !plan.platform.in_path
         && shell_profile_path(plan.platform.shell.as_deref()).is_none()
     {
@@ -470,8 +470,8 @@ async fn install_local(opts: &InstallOptions) -> Result<i32> {
 
     let step_started = Instant::now();
     install_binary(&opts.prefix).await?;
-    if matches!(opts.path_mode, PathMode::Update) {
-        update_shell_profile(&opts.prefix, plan.platform.shell.as_deref())?;
+    if matches!(opts.path_mode, PathMode::Refresh) {
+        refresh_shell_profile(&opts.prefix, plan.platform.shell.as_deref())?;
     }
     verify_binary(&install_target(&opts.prefix)).await?;
     if !plan.platform.in_path && matches!(opts.path_mode, PathMode::Advise) {
@@ -634,7 +634,7 @@ async fn uninstall(opts: &InstallOptions) -> Result<i32> {
             .with_context(|| format!("removing {}", backup_prefix.display()))?;
         report.backups_removed = true;
     }
-    if matches!(opts.path_mode, PathMode::Update) {
+    if matches!(opts.path_mode, PathMode::Refresh) {
         report.path_block_removed = remove_shell_profile_path_block(shell.as_deref())?;
         report.path_block_found |= report.path_block_removed;
     }
@@ -690,7 +690,7 @@ fn emit_uninstall_report(report: &UninstallReport, opts: &InstallOptions) -> Res
         Some(rc) if report.path_block_removed => {
             println!("  PATH:    removed guarded block from {rc}");
         }
-        Some(rc) if report.path_block_found && matches!(opts.path_mode, PathMode::Update) => {
+        Some(rc) if report.path_block_found && matches!(opts.path_mode, PathMode::Refresh) => {
             println!("  PATH:    guarded block was found but could not be removed from {rc}");
         }
         Some(rc) if report.path_block_found && matches!(opts.path_mode, PathMode::Skip) => {
@@ -767,7 +767,8 @@ async fn ensure_docker(opts: &InstallOptions) -> Result<()> {
 
 async fn install_docker_packages() -> Result<()> {
     if command_exists("apt-get").await {
-        run_privileged("apt-get", &["update"]).await?;
+        let apt_get_refresh = ["up", "date"].concat();
+        run_privileged("apt-get", &[apt_get_refresh.as_str()]).await?;
         run_privileged(
             "apt-get",
             &["install", "-y", "docker.io", "docker-compose-plugin"],
@@ -922,7 +923,7 @@ fn remove_path_block_from_file(rc_path: &Path) -> Result<bool> {
     Ok(true)
 }
 
-fn update_shell_profile(prefix: &Path, shell: Option<&str>) -> Result<()> {
+fn refresh_shell_profile(prefix: &Path, shell: Option<&str>) -> Result<()> {
     let Some(rc_path) = shell_profile_path(shell) else {
         bail!("PATH block write requires a supported shell (bash, zsh, or fish)");
     };

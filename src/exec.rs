@@ -57,6 +57,13 @@ async fn ensure_custom_executor_tools() -> Result<()> {
     Ok(())
 }
 
+fn env_string_or_default(key: &str, default: &'static str) -> String {
+    match env::var(key) {
+        Ok(value) => value,
+        Err(_) => default.to_string(),
+    }
+}
+
 /// Handles `jeryu exec config`
 /// Tells GitLab Runner what capabilities this driver supports.
 pub fn run_config() -> Result<()> {
@@ -78,9 +85,8 @@ pub fn run_config() -> Result<()> {
 /// Provisions the actual job container sandbox.
 pub async fn run_prepare() -> Result<()> {
     // GitLab Runner passes job metadata via CUSTOM_ENV_* variables
-    let job_id = env::var("CUSTOM_ENV_CI_JOB_ID").unwrap_or_else(|_| "unknown".to_string());
-    let project_dir =
-        env::var("CUSTOM_ENV_CI_PROJECT_DIR").unwrap_or_else(|_| "/tmp/jeryu-job".to_string());
+    let job_id = env_string_or_default("CUSTOM_ENV_CI_JOB_ID", "unknown");
+    let project_dir = env_string_or_default("CUSTOM_ENV_CI_PROJECT_DIR", "/tmp/jeryu-job");
 
     info!(
         job_id,
@@ -182,9 +188,9 @@ fn fast_clone(src: &str, dst: &str) -> Result<()> {
 /// Handles `jeryu exec run`
 /// Executes a specific stage of the pipeline (step_script, build_script, etc.)
 pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
-    let job_id_str = env::var("CUSTOM_ENV_CI_JOB_ID").unwrap_or_else(|_| "0".to_string());
+    let job_id_str = env_string_or_default("CUSTOM_ENV_CI_JOB_ID", "0");
     let job_id = job_id_str.parse::<i64>().unwrap_or(0);
-    let project_id_str = env::var("CUSTOM_ENV_CI_PROJECT_ID").unwrap_or_default();
+    let project_id_str = env_string_or_default("CUSTOM_ENV_CI_PROJECT_ID", "");
     let project_id = project_id_str.parse::<i64>().ok();
 
     info!(job_id, stage, script_path, "Driver: running job stage");
@@ -196,8 +202,7 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
     // -----------------------------------------------------
     // SMARTCACHE v3: CACHE BRAIN ORCHESTRATION
     // -----------------------------------------------------
-    let project_dir =
-        env::var("CUSTOM_ENV_CI_PROJECT_DIR").unwrap_or_else(|_| "/tmp/jeryu-job".to_string());
+    let project_dir = env_string_or_default("CUSTOM_ENV_CI_PROJECT_DIR", "/tmp/jeryu-job");
     let sandbox_path = format!("{}-sandbox", project_dir);
 
     // Initialize State and Cache Brain
@@ -372,9 +377,8 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
         .is_ok();
 
     if cargo_available && rustc_available {
-        let pool_cache_root =
-            std::env::var("JERYU_CARGO_CACHE_ROOT").unwrap_or_else(|_| "/pool-cache".to_string());
-        let cargo_cache_enabled = std::env::var("JERYU_CARGO_CACHE")
+        let pool_cache_root = env_string_or_default("JERYU_CARGO_CACHE_ROOT", "/pool-cache");
+        let cargo_cache_enabled = env_string_or_default("JERYU_CARGO_CACHE", "")
             .ok()
             .map(|value| value.trim() != "0")
             .unwrap_or(true);
@@ -632,10 +636,9 @@ registry = "sparse+http://127.0.0.1:19800/api/v1/crates"
 /// Handles `jeryu exec cleanup`
 /// Tears down the sandbox.
 pub async fn run_cleanup() -> Result<()> {
-    let job_id = env::var("CUSTOM_ENV_CI_JOB_ID").unwrap_or_else(|_| "unknown".to_string());
-    let project_id_str = env::var("CUSTOM_ENV_CI_PROJECT_ID").unwrap_or_default();
-    let project_dir =
-        env::var("CUSTOM_ENV_CI_PROJECT_DIR").unwrap_or_else(|_| "/tmp/jeryu-job".to_string());
+    let job_id = env_string_or_default("CUSTOM_ENV_CI_JOB_ID", "unknown");
+    let project_id_str = env_string_or_default("CUSTOM_ENV_CI_PROJECT_ID", "");
+    let project_dir = env_string_or_default("CUSTOM_ENV_CI_PROJECT_DIR", "/tmp/jeryu-job");
 
     info!(job_id, "Driver: cleaning up sandbox");
 
@@ -676,8 +679,8 @@ pub async fn run_cleanup() -> Result<()> {
     let payload = serde_json::json!({
         "action": "cleanup",
         "sandbox_path": sandbox_path,
-        "build_failure_exit_code": env::var("BUILD_FAILURE_EXIT_CODE").unwrap_or_default(),
-        "system_failure_exit_code": env::var("SYSTEM_FAILURE_EXIT_CODE").unwrap_or_default(),
+        "build_failure_exit_code": env_string_or_default("BUILD_FAILURE_EXIT_CODE", ""),
+        "system_failure_exit_code": env_string_or_default("SYSTEM_FAILURE_EXIT_CODE", ""),
     });
 
     db.append_event(

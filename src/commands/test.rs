@@ -421,8 +421,8 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 println!("  Receipt:    {}", receipt.receipt_id);
                 println!("  Selected:   {} test commands", plan.selected_tests.len());
                 println!("  Skipped:    {} subsystems", plan.skipped_subsystems.len());
-                if let Some(reason) = plan.recovery_reason() {
-                    println!("  Recovery:   {}", reason);
+                if let Some(reason) = plan.repair_reason() {
+                    println!("  Repair:     {}", reason);
                 }
                 println!();
                 for test in &plan.selected_tests {
@@ -492,8 +492,8 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 println!("  Confidence:{:.2}", plan.confidence);
                 println!("  Selected:  {} CI jobs", plan.selected_jobs.len());
                 println!("  Skipped:   {} CI jobs", plan.skipped_jobs.len());
-                if let Some(reason) = plan.recovery_reason() {
-                    println!("  Recovery:  {}", reason);
+                if let Some(reason) = plan.repair_reason() {
+                    println!("  Repair:    {}", reason);
                 }
                 println!();
                 for job in &plan.selected_jobs {
