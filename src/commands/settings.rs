@@ -21,9 +21,14 @@ async fn repair_settings() -> Result<()> {
         }
         Err(err) => {
             let path = jeryu::settings::settings_path();
-            let backup = newest_backup(&path).ok_or_else(|| {
-                anyhow::anyhow!("settings.json is corrupt and no backup was found: {}", err)
-            })?;
+            let backup = if let Some(backup) = newest_backup(&path) {
+                backup
+            } else {
+                return Err(anyhow::anyhow!(
+                    "settings.json is corrupt and no backup was found: {}",
+                    err
+                ));
+            };
             fs::copy(&backup, &path)?;
             let _ = jeryu::settings::load()?;
             println!("✅ restored settings.json from backup {}", backup.display());

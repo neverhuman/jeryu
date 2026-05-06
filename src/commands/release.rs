@@ -119,11 +119,11 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
                     },
                 )
                 .await?;
-                report
-                    .latest
-                    .as_ref()
-                    .map(|v| v.attempt.version.clone())
-                    .ok_or_else(|| anyhow::anyhow!("no known release version; use --version"))?
+                if let Some(latest) = report.latest.as_ref() {
+                    latest.attempt.version.clone()
+                } else {
+                    return Err(anyhow::anyhow!("no known release version; use --version"));
+                }
             };
             let report = release::release_doctor(&ver, preflight).await;
             if json {

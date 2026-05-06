@@ -71,6 +71,10 @@ pub struct VtiReceipt {
 }
 
 impl TestPlan {
+    pub fn recovery_reason(&self) -> Option<&str> {
+        self.fallback_reason.as_deref()
+    }
+
     pub fn full(reason: &str) -> Self {
         Self {
             mode: TestPlanMode::Full,

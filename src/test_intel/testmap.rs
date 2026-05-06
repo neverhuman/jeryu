@@ -82,6 +82,12 @@ pub enum ExternalPlanMode {
     DocsOnly,
 }
 
+impl ExternalTestPlan {
+    pub fn recovery_reason(&self) -> Option<&str> {
+        self.fallback_reason.as_deref()
+    }
+}
+
 /// Compute a test plan from a `.jeryu/testmap.toml` and a list of changed paths.
 pub fn plan_from_testmap(map: &TestMap, changed_paths: &[String]) -> ExternalTestPlan {
     let mut rationale = Vec::new();

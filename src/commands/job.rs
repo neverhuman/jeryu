@@ -39,7 +39,7 @@ pub(crate) async fn execute_job_commands(subcmd: JobCommands) -> Result<()> {
             println!("⏹ Job {} cancelled", job_id);
         }
         JobCommands::Retry { project_id, job_id } => {
-            client.requeue_job(project_id, job_id).await?; // allowlist: retry operation wrapper
+            client.requeue_job(project_id, job_id).await?;
             println!("🔄 Job {} requeued", job_id);
         }
         JobCommands::Explain { project_id, job_id } => {

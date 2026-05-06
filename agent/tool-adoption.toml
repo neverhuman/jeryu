@@ -29,5 +29,5 @@ id = "rust-witness"
 mode = "auto"
 
 [[tools]]
-id = "input-boundary"
+id = "agent-tool-supply"
 mode = "auto"

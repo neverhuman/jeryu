@@ -48,14 +48,14 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             } else {
                 println!("Pipeline {} — {} jobs", pipeline_id, runs.len());
                 for run in &runs {
-                    let dur = run
-                        .duration_secs
-                        .map(|value| format!("{value:.1}s"))
-                        .unwrap_or_else(|| "-".to_string());
-                    let queue = run
-                        .queued_duration_secs
-                        .map(|value| format!("{value:.1}s"))
-                        .unwrap_or_else(|| "-".to_string());
+                    let dur = match run.duration_secs {
+                        Some(value) => format!("{value:.1}s"),
+                        None => "-".to_string(),
+                    };
+                    let queue = match run.queued_duration_secs {
+                        Some(value) => format!("{value:.1}s"),
+                        None => "-".to_string(),
+                    };
                     println!(
                         "  {:<34} {:<10} stage={:<14} run={:>8} queue={:>8} pipe={:<8} root={:<8} start={} finish={}",
                         run.job_name,
@@ -110,12 +110,14 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
                         "  {:<34} avg={:>7.1}s latest={:>7} max={:>7} runs={:<4} stage={} pool={}",
                         row.job_name,
                         row.avg_duration_secs,
-                        row.latest_duration_secs
-                            .map(|value| format!("{value:.1}s"))
-                            .unwrap_or_else(|| "-".to_string()),
-                        row.max_duration_secs
-                            .map(|value| format!("{value:.1}s"))
-                            .unwrap_or_else(|| "-".to_string()),
+                        match row.latest_duration_secs {
+                            Some(value) => format!("{value:.1}s"),
+                            None => "-".to_string(),
+                        },
+                        match row.max_duration_secs {
+                            Some(value) => format!("{value:.1}s"),
+                            None => "-".to_string(),
+                        },
                         row.runs,
                         row.stage,
                         row.runner_pool.as_deref().unwrap_or("-")

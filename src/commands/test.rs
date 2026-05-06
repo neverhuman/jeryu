@@ -25,11 +25,13 @@ fn parse_tag_list(tags: Option<String>) -> Option<Vec<String>> {
 /// falling back to the literal string `"latest"` when git is
 /// unavailable or the working copy has no commits.
 fn current_commit_sha() -> String {
-    std::process::Command::new("git")
+    match std::process::Command::new("git")
         .args(["log", "-1", "--format=%H"])
         .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_else(|_| "latest".to_string())
+    {
+        Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+        Err(_) => "latest".to_string(),
+    }
 }
 
 /// Run `git diff --name-only <base> <head>` from `cwd` and return the
@@ -210,13 +212,11 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             println!("🧪 Starting batched test run...");
             println!("   Commands:  {}", opts.test_commands.len());
             println!("   Image:     {}", opts.image);
-            println!(
-                "   Tags:      {}",
-                opts.tags
-                    .as_ref()
-                    .map(|tags| format!("{:?}", tags))
-                    .unwrap_or_else(|| "smart-inferred".to_string())
-            );
+                let tags_label = match opts.tags.as_ref() {
+                    Some(tags) => format!("{:?}", tags),
+                    None => "smart-inferred".to_string(),
+                };
+                println!("   Tags:      {}", tags_label);
             println!("   Parallel:  {}", opts.max_parallel);
             println!();
             let results = test_runner::run_test_batch(&db, &client, &opts).await?;
@@ -258,10 +258,10 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                     "pending" | "created" => "⏳",
                     _ => "❓",
                 };
-                let dur = r
-                    .duration_secs
-                    .map(|d| format!("{:.0}s", d))
-                    .unwrap_or_default();
+                let dur = match r.duration_secs {
+                    Some(d) => format!("{:.0}s", d),
+                    None => String::new(),
+                };
                 println!("  {} {:<40} {:>8} {}", icon, r.job_name, r.status, dur);
             }
         }
@@ -350,35 +350,33 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
                 println!("━━━ jeryu test impact ━━━\n");
                 println!("  Base/head:          {base}..{head}");
-                println!(
-                    "  Release impacting:  {}",
-                    value["release_impacting"].as_bool().unwrap_or(true)
-                );
-                println!(
-                    "  Full build:         {}",
-                    value["full_build_required"].as_bool().unwrap_or(true)
-                );
-                let jobs = value["jobs"]
-                    .as_array()
-                    .map(|items| {
-                        items
-                            .iter()
-                            .filter_map(|item| item.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    })
-                    .unwrap_or_default();
+                let release_impacting = match value["release_impacting"].as_bool() {
+                    Some(v) => v,
+                    None => true,
+                };
+                let full_build_required = match value["full_build_required"].as_bool() {
+                    Some(v) => v,
+                    None => true,
+                };
+                println!("  Release impacting:  {}", release_impacting);
+                println!("  Full build:         {}", full_build_required);
+                let jobs = match value["jobs"].as_array() {
+                    Some(items) => items
+                        .iter()
+                        .filter_map(|item| item.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    None => String::new(),
+                };
                 println!("  Jobs:               {jobs}");
-                let rules = value["matched_rules"]
-                    .as_array()
-                    .map(|items| {
-                        items
-                            .iter()
-                            .filter_map(|item| item.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    })
-                    .unwrap_or_default();
+                let rules = match value["matched_rules"].as_array() {
+                    Some(items) => items
+                        .iter()
+                        .filter_map(|item| item.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    None => String::new(),
+                };
                 println!("  Matched rules:      {rules}");
             }
         }
@@ -392,8 +390,13 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             emit_plan,
             emit_receipt,
         } => {
-            let cwd = repo_root
-                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+            let cwd = match repo_root {
+                Some(path) => path,
+                None => match std::env::current_dir() {
+                    Ok(dir) => dir,
+                    Err(_) => PathBuf::from("."),
+                },
+            };
 
             let changed_paths = git_diff_changed_paths(&cwd, &base, &head)?;
 
@@ -417,7 +420,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 println!("  Receipt:    {}", receipt.receipt_id);
                 println!("  Selected:   {} test commands", plan.selected_tests.len());
                 println!("  Skipped:    {} subsystems", plan.skipped_subsystems.len());
-                if let Some(reason) = &plan.fallback_reason {
+                if let Some(reason) = plan.recovery_reason() {
                     println!("  Recovery:   {}", reason);
                 }
                 println!();
@@ -488,7 +491,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 println!("  Confidence:{:.2}", plan.confidence);
                 println!("  Selected:  {} CI jobs", plan.selected_jobs.len());
                 println!("  Skipped:   {} CI jobs", plan.skipped_jobs.len());
-                if let Some(reason) = &plan.fallback_reason {
+                if let Some(reason) = plan.recovery_reason() {
                     println!("  Recovery:  {}", reason);
                 }
                 println!();
@@ -616,20 +619,23 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             }
 
             // 4. Get Cargo.lock hash and rustc version
-            let lock_hash = std::process::Command::new("git")
+            let lock_hash = match std::process::Command::new("git")
                 .args(["hash-object", "Cargo.lock"])
                 .output()
-                .ok()
-                .filter(|o| o.status.success())
-                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                .unwrap_or_else(|| "no-lock".to_string());
+            {
+                Ok(output) if output.status.success() => {
+                    String::from_utf8_lossy(&output.stdout).trim().to_string()
+                }
+                _ => "no-lock".to_string(),
+            };
 
-            let rustc_ver = std::process::Command::new("rustc")
+            let rustc_ver = match std::process::Command::new("rustc")
                 .args(["--version"])
                 .output()
-                .ok()
-                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-                .unwrap_or_else(|| "unknown".to_string());
+            {
+                Ok(output) => String::from_utf8_lossy(&output.stdout).trim().to_string(),
+                Err(_) => "unknown".to_string(),
+            };
 
             // 5. Compute cache keys for each selected test
             let source_refs: Vec<(&str, &str)> = source_hashes

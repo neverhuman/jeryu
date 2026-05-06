@@ -8,7 +8,6 @@ members = [
     "crates/arc-bench",
     "crates/tui-capture",
     "crates/adapters/cache-brain",
-    "crates/adapters/epoch",
 ]
 resolver = "2"
 
@@ -126,7 +125,6 @@ libc = "0.2"
 walkdir = "2"
 witness-rt = { path = "crates/witness-rt" }
 cache-brain-adapter = { path = "crates/adapters/cache-brain" }
-epoch-adapter = { path = "crates/adapters/epoch" }
 async-trait = "0.1"
 
 [dev-dependencies]

@@ -24,7 +24,10 @@ pub async fn execute_down() -> Result<()> {
 
 pub fn execute_status() -> Result<()> {
     println!("━━━ JeRyu Status ━━━\n");
-    let git_path = std::env::var("JERYU_SYSTEM_GIT").unwrap_or_else(|_| "/usr/bin/git".into());
+    let git_path = match std::env::var("JERYU_SYSTEM_GIT") {
+        Ok(path) => path,
+        Err(_) => "/usr/bin/git".into(),
+    };
     std::process::Command::new(&git_path)
         .args(["status"])
         .status()?;
@@ -69,10 +72,14 @@ pub async fn execute_system_status() -> Result<()> {
     println!("  Pools:   {}", pools.len());
 
     for p in &pools {
-        let active = db.count_active_managers(&p.name).await.unwrap_or(0);
-        let running = pool::count_running_managers(&db, &docker_ctl, &p.name)
-            .await
-            .unwrap_or(0);
+        let active = match db.count_active_managers(&p.name).await {
+            Ok(value) => value,
+            Err(_) => 0,
+        };
+        let running = match pool::count_running_managers(&db, &docker_ctl, &p.name).await {
+            Ok(value) => value,
+            Err(_) => 0,
+        };
         let state_str = if p.paused { "⏸ paused" } else { "▶ active" };
         let manager_status = format!("{running}/{active}/{}", p.max_managers);
         println!(
@@ -81,23 +88,27 @@ pub async fn execute_system_status() -> Result<()> {
         );
     }
 
-    let managed = docker_ctl
-        .list_managed_containers()
-        .await
-        .unwrap_or_default();
+    let managed = match docker_ctl.list_managed_containers().await {
+        Ok(value) => value,
+        Err(_) => Vec::new(),
+    };
     println!("\n  Docker containers (jeryu-managed): {}", managed.len());
     for c in &managed {
-        let name = c
-            .names
-            .as_ref()
-            .and_then(|n| n.first())
-            .map(|s| s.as_str())
-            .unwrap_or("?");
-        let state = c.state.as_deref().unwrap_or("?");
+        let name = match c.names.as_ref().and_then(|n| n.first()).map(|s| s.as_str()) {
+            Some(value) => value,
+            None => "?",
+        };
+        let state = match c.state.as_deref() {
+            Some(value) => value,
+            None => "?",
+        };
         println!("    {} [{}]", name, state);
     }
 
-    let events = db.recent_job_events(5).await.unwrap_or_default();
+    let events = match db.recent_job_events(5).await {
+        Ok(value) => value,
+        Err(_) => Vec::new(),
+    };
     if !events.is_empty() {
         println!("\n  Recent job events:");
         for e in &events {

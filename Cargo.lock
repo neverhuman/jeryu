@@ -918,17 +918,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "epoch-adapter"
-version = "3.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "sqlx",
- "tracing",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1762,7 +1751,6 @@ dependencies = [
  "dashmap",
  "dirs",
  "dotenvy",
- "epoch-adapter",
  "font8x8",
  "futures-util",
  "gif",

@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:e20d6b6653c5e2ccae76e5d503ed601c4bc8b0e00b2caae6e80fe40ba9733a8e",
-  "input_fingerprint": "sha256:c8f7907de8217780bd3357851100b4af85b2fcb7f8dc310b6f2791ddb58258c6",
+  "report_fingerprint": "sha256:c386c233e95802602f6dd1c7c8c9285ff1fbf66c9ab55295994ccf4bfd30abab",
+  "input_fingerprint": "sha256:445cee8499721db9abb6a37d12a56ec2b9cd9aea3a13bdbf53a457ef210c882e",
   "policy_fingerprint": "sha256:396aa94b1d9d3e43a5531652f3c52172e9b5e57cc1b5de44febdc48207e3f918",
   "manifest_fingerprints": {
     "owner_map": "sha256:8a15e0d3457b4a4476fe23ee9b16f87b6bbc4e025ec982ce8dfd6cd60cc3e69f",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:8218ee450313a74e73eb990aaadedecba61d4c0d48ada0b6f368b4f7bf2fd9de"
   },
   "dirty_worktree": true,
-  "generated_at": "1778074381",
+  "generated_at": "1778074707",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.8.0",
@@ -24,14 +24,15 @@
   "observed_conformance_level": "HL2",
   "conformance_decision": "block",
   "conformance_blockers": [
-    "HLT-000-SCORE-DIMENSION:vibe on crates/adapters/epoch/src/lib.rs",
-    "HLT-001-DEAD-MARKER on src/commands/job.rs",
-    "HLT-006-DIRECT-DB-WRONG-LAYER on src/exec.rs"
+    "HLT-024-AGENT-TOOL-SUPPLY-GAP on agent/repo-score.json",
+    "HLT-001-DEAD-MARKER on src/commands/test.rs",
+    "HLT-006-DIRECT-DB-WRONG-LAYER on src/gateway/git.rs",
+    "HLT-000-SCORE-DIMENSION:vibe on src/release.rs"
   ],
   "repo": ".",
-  "run_id": "1778074381",
-  "started_at": "1778074381",
-  "elapsed_ms": 404,
+  "run_id": "1778074707",
+  "started_at": "1778074707",
+  "elapsed_ms": 398,
   "scope": {
     "mode": "full",
     "paths": []
@@ -42,8 +43,8 @@
     "status": "fail",
     "minimum_score": 85,
     "passed": false,
-    "hard_findings": 3,
-    "soft_findings": 8,
+    "hard_findings": 4,
+    "soft_findings": 4,
     "ratchet": {
       "baseline_score": 66,
       "allowed_drop": 0,
@@ -58,7 +59,7 @@
     }
   },
   "git": {
-    "head": "a23e940",
+    "head": "6e4ad0a",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -85,7 +86,8 @@
   "caps_applied": [
     "fallback-soup-in-product-code",
     "severe-duplication-in-product-code",
-    "direct-db-access-from-wrong-layer"
+    "direct-db-access-from-wrong-layer",
+    "agent-tool-supply-chain-gap"
   ],
   "hard_rules": [
     {
@@ -261,8 +263,8 @@
     {
       "name": "Ownership and navigation surface",
       "weight": 13,
-      "score": 98,
-      "weighted_points": 12.74,
+      "score": 100,
+      "weighted_points": 13.0,
       "evidence": [
         "root `AGENTS.md` present",
         "`CODEOWNERS` present",
@@ -270,21 +272,20 @@
         "test/proof routing map present",
         "local `AGENTS.md` file(s)",
         "reference-profile cell `adapters` is canonical",
+        "reference-profile cell `adapters` has local AGENTS.md guidance",
         "reference-profile cell `contracts` is canonical",
+        "reference-profile cell `contracts` has local AGENTS.md guidance",
         "reference-profile cell `db` is canonical",
+        "reference-profile cell `db` has local AGENTS.md guidance",
         "reference-profile cell `ops` is canonical",
+        "reference-profile cell `ops` has local AGENTS.md guidance",
         "root `README.md` routes to workspace layout",
         "owner map covers audited paths",
         "test map covers audited paths",
         "authored code file exceeds 500 LOC",
         "authored code file exceeds 1000 LOC"
       ],
-      "notes": [
-        "reference-profile cell `adapters` lacks local AGENTS.md guidance",
-        "reference-profile cell `contracts` lacks local AGENTS.md guidance",
-        "reference-profile cell `db` lacks local AGENTS.md guidance",
-        "reference-profile cell `ops` lacks local AGENTS.md guidance"
-      ]
+      "notes": []
     },
     {
       "name": "Contract and boundary integrity",
@@ -335,7 +336,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 935",
+        "rust bad-behavior advisory signals: 931",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
@@ -353,7 +354,7 @@
         "code file exceeds 1000 LOC",
         "duplicate code block marker found",
         "fallback soup marker found",
-        "rust bad-behavior advisory signals: 935",
+        "rust bad-behavior advisory signals: 931",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
@@ -370,7 +371,7 @@
         "structured db boundary manifest present",
         "migration directory present",
         "data access appears compartmentalized",
-        "strict DB boundary violation: src/exec.rs"
+        "strict DB boundary violation: src/gateway/git.rs"
       ],
       "notes": [
         "direct DB access leaks out of the data boundary"
@@ -825,15 +826,15 @@
         "category": "security",
         "mode": "auto",
         "applicable": true,
-        "status": "configured",
+        "status": "missing",
         "replaced_tools": [
           "manual unsafe sink review"
         ],
         "evidence": [
-          "mode=auto",
-          "tool-adoption config entry present"
+          "mode=auto"
         ],
         "missing": [
+          "agent/tool-adoption.toml entry",
           "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
@@ -848,15 +849,15 @@
         "category": "security",
         "mode": "auto",
         "applicable": true,
-        "status": "missing",
+        "status": "configured",
         "replaced_tools": [
           "manual MCP/tool trust review"
         ],
         "evidence": [
-          "mode=auto"
+          "mode=auto",
+          "tool-adoption config entry present"
         ],
         "missing": [
-          "agent/tool-adoption.toml entry",
           "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
@@ -954,7 +955,7 @@
         "db-migration-analyze",
         "contract-drift",
         "rust-witness",
-        "input-boundary"
+        "agent-tool-supply"
       ],
       "control_plane_present": true
     },
@@ -993,7 +994,7 @@
     "applicable_count": 4,
     "canonical_count": 4,
     "noncanonical_count": 0,
-    "guidance_missing_count": 4,
+    "guidance_missing_count": 0,
     "cells": [
       {
         "id": "web",
@@ -1072,10 +1073,10 @@
           "infra/",
           "integrations/"
         ],
-        "guidance_status": "missing",
+        "guidance_status": "present",
         "owner": "crates/adapters",
         "proof_lane": "adapter integration tests",
-        "agent_fix": "add `crates/adapters/AGENTS.md` with owns / forbidden / proof lane guidance"
+        "agent_fix": "keep `crates/adapters/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "workers",
@@ -1108,10 +1109,10 @@
           "json-schema/",
           "generated/"
         ],
-        "guidance_status": "missing",
+        "guidance_status": "present",
         "owner": "contracts",
         "proof_lane": "generation / drift checks",
-        "agent_fix": "add `contracts/AGENTS.md` with owns / forbidden / proof lane guidance"
+        "agent_fix": "keep `contracts/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "db",
@@ -1126,10 +1127,10 @@
           "constraints/",
           "sql/"
         ],
-        "guidance_status": "missing",
+        "guidance_status": "present",
         "owner": "db",
         "proof_lane": "migration / constraint tests",
-        "agent_fix": "add `db/AGENTS.md` with owns / forbidden / proof lane guidance"
+        "agent_fix": "keep `db/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "python-ai",
@@ -1167,10 +1168,10 @@
           "observability/",
           "security/"
         ],
-        "guidance_status": "missing",
+        "guidance_status": "present",
         "owner": "ops",
         "proof_lane": "security lane / workflow lint",
-        "agent_fix": "add `ops/AGENTS.md` with owns / forbidden / proof lane guidance"
+        "agent_fix": "keep `ops/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       }
     ],
     "evidence": {
@@ -1182,7 +1183,7 @@
           "detected_paths": [
             "crates/adapters"
           ],
-          "guidance_status": "missing",
+          "guidance_status": "present",
           "id": "adapters",
           "status": "canonical"
         },
@@ -1191,7 +1192,7 @@
           "detected_paths": [
             "contracts"
           ],
-          "guidance_status": "missing",
+          "guidance_status": "present",
           "id": "contracts",
           "status": "canonical"
         },
@@ -1200,7 +1201,7 @@
           "detected_paths": [
             "db"
           ],
-          "guidance_status": "missing",
+          "guidance_status": "present",
           "id": "db",
           "status": "canonical"
         },
@@ -1211,12 +1212,12 @@
             ".github/workflows",
             "ops"
           ],
-          "guidance_status": "missing",
+          "guidance_status": "present",
           "id": "ops",
           "status": "canonical"
         }
       ],
-      "guidance_missing_count": 4,
+      "guidance_missing_count": 0,
       "noncanonical_count": 0
     }
   },
@@ -1294,74 +1295,28 @@
       "owner": "agent"
     },
     {
-      "severity": "medium",
-      "category": "context",
-      "path": "contracts/",
-      "problem": "reference-profile cell `contracts` lacks local AGENTS.md guidance",
-      "agent_fix": "add `contracts/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "evidence": [
-        "canonical_path=contracts/",
-        "detected_paths=contracts",
-        "guidance_status=missing",
-        "owner=contracts",
-        "proof_lane=generation / drift checks"
-      ],
-      "check_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP:context",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:618abb68caec5dbf4620aa55e5c4fb6539090dc1061fc991cebbad176a9f9a11",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "contracts"
-    },
-    {
-      "severity": "medium",
-      "category": "context",
-      "path": "crates/adapters/",
-      "problem": "reference-profile cell `adapters` lacks local AGENTS.md guidance",
-      "agent_fix": "add `crates/adapters/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "evidence": [
-        "canonical_path=crates/adapters/",
-        "detected_paths=crates/adapters",
-        "guidance_status=missing",
-        "owner=crates/adapters",
-        "proof_lane=adapter integration tests"
-      ],
-      "check_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP:context",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:b957fd2879d2d225d8743aa7366872cbec01ed6dba92e960d4dba48cb7c914ae",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "tools"
-    },
-    {
       "severity": "high",
-      "category": "vibe",
-      "path": "crates/adapters/epoch/src/lib.rs",
-      "problem": "duplicated product code block detected",
-      "agent_fix": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
+      "category": "security",
+      "path": "agent/repo-score.json",
+      "problem": "agent tool or configuration trust surface requires supply-chain evidence",
+      "agent_fix": "pin and review agent tools, MCP servers, hooks, and rule files; keep untrusted tool output separate from trusted policy",
       "evidence": [
-        "duplicate block also appears at crates/adapters/cache-brain/src/lib.rs:1"
+        "\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"src/commands/test.rs:32 .unwrap_or_else(|_| \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"latest\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\".to_string())\\\\\\\\\\\\\\\"\\\\\\\"\\\"\""
       ],
-      "check_id": "HLT-000-SCORE-DIMENSION:vibe",
+      "check_id": "HLT-024-AGENT-TOOL-SUPPLY-GAP:security",
       "hardness": "hard",
       "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:e352a726a3692c6548814dfe529f18806b8c94a7e303fae7467ab409c0f5a7f6",
-      "tlr": "Entropy",
-      "lane": "fast",
-      "owner": "tools",
-      "line": 1
+      "evidence_kind": "policy-manifest",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:371c50605043a1e39a10d162934c2b2149e2c98bef9d970bebc1f3359736148f",
+      "rule_id": "HLT-024-AGENT-TOOL-SUPPLY-GAP",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/audit-rubric.md#top-level-risk-mapping",
+      "owner": "agent",
+      "line": 1304,
+      "matched_term": "agent tool supply",
+      "reason": "agent tool supply-chain changes alter execution authority"
     },
     {
       "severity": "medium",
@@ -1388,81 +1343,31 @@
       "owner": "data"
     },
     {
-      "severity": "medium",
-      "category": "context",
-      "path": "db/",
-      "problem": "reference-profile cell `db` lacks local AGENTS.md guidance",
-      "agent_fix": "add `db/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "evidence": [
-        "canonical_path=db/",
-        "detected_paths=db",
-        "guidance_status=missing",
-        "owner=db",
-        "proof_lane=migration / constraint tests"
-      ],
-      "check_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP:context",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:6135e5d13eb5b4fe2b2a0e399b79552b144c635bdfaeebdbda66bf1289eae38a",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "data"
-    },
-    {
-      "severity": "medium",
-      "category": "context",
-      "path": "ops/",
-      "problem": "reference-profile cell `ops` lacks local AGENTS.md guidance",
-      "agent_fix": "add `ops/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "evidence": [
-        "canonical_path=ops/",
-        "detected_paths=.github, .github/workflows, ops",
-        "guidance_status=missing",
-        "owner=ops",
-        "proof_lane=security lane / workflow lint"
-      ],
-      "check_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP:context",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:a26aa21c41a661e5636601d50d6a226eb3c4835b8bcc5915a6801e829cab40b1",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "ops"
-    },
-    {
       "severity": "high",
       "category": "vibe",
-      "path": "src/commands/job.rs",
+      "path": "src/commands/test.rs",
       "problem": "fallback soup detected in product code",
       "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
       "evidence": [
-        "src/commands/job.rs:42 client.requeue_job(project_id, job_id).await?; // allowlist: retry operation wrapper"
+        "src/commands/test.rs:278 test_runner::retry_job_by_name(&client, project_id, pipeline_id, &job_name).await?;"
       ],
       "check_id": "HLT-001-DEAD-MARKER:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:00c9b1ba5821a4d225aefa4d883299c2d8abf6bac27bb49129070c90e27b294c",
+      "fingerprint": "sha256:34d35878c2e211c07dee32866d5681d06eae80e4e70fe01d61a05a3b26d6d1cc",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "workspace",
-      "line": 42
+      "line": 278
     },
     {
       "severity": "high",
       "category": "data",
-      "path": "src/exec.rs",
+      "path": "src/gateway/git.rs",
       "problem": "direct database access appears in a wrong layer",
       "agent_fix": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
       "evidence": [
@@ -1473,18 +1378,38 @@
       "confidence": 0.95,
       "evidence_kind": "sql",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:77114059b58e07b530a6323d8c48524e333273c119bfe9cfac2ed20f8d167920",
+      "fingerprint": "sha256:bc9848eaecc78d0f4b34b01dcb9e01d395e4e7043370a9f0629957717a494d33",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
       "lane": "db",
       "docs_url": "docs/audit-rubric.md#required-shape",
       "owner": "workspace",
       "line": 1
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/release.rs",
+      "problem": "duplicated product code block detected",
+      "agent_fix": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
+      "evidence": [
+        "duplicate block also appears at src/release.rs:1"
+      ],
+      "check_id": "HLT-000-SCORE-DIMENSION:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:0751a667ea9f1fd7a787e5e0e2c32408274606371bb3c2d1eea5501857d1d74a",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "line": 1
     }
   ],
   "agent_fix_queue": [
     {
-      "path": "src/exec.rs",
+      "path": "src/gateway/git.rs",
       "priority": "high",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
@@ -1514,56 +1439,17 @@
       "why": "`Data truth and workflow safety` scored 70 below the standard floor of 85"
     },
     {
-      "path": "contracts/",
-      "priority": "medium",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "contracts",
-      "task": "add `contracts/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "why": "reference-profile cell `contracts` lacks local AGENTS.md guidance"
-    },
-    {
-      "path": "crates/adapters/",
-      "priority": "medium",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "tools",
-      "task": "add `crates/adapters/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "why": "reference-profile cell `adapters` lacks local AGENTS.md guidance"
-    },
-    {
-      "path": "db/",
-      "priority": "medium",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "data",
-      "task": "add `db/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "why": "reference-profile cell `db` lacks local AGENTS.md guidance"
-    },
-    {
-      "path": "ops/",
-      "priority": "medium",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add `ops/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "why": "reference-profile cell `ops` lacks local AGENTS.md guidance"
-    },
-    {
-      "path": "crates/adapters/epoch/src/lib.rs",
+      "path": "agent/repo-score.json",
       "priority": "high",
-      "tlr": "Entropy",
-      "lane": "fast",
-      "owner": "tools",
-      "task": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
-      "why": "duplicated product code block detected"
+      "rule_id": "HLT-024-AGENT-TOOL-SUPPLY-GAP",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "agent",
+      "task": "pin and review agent tools, MCP servers, hooks, and rule files; keep untrusted tool output separate from trusted policy",
+      "why": "agent tool or configuration trust surface requires supply-chain evidence"
     },
     {
-      "path": "src/commands/job.rs",
+      "path": "src/commands/test.rs",
       "priority": "high",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
@@ -1571,6 +1457,15 @@
       "owner": "workspace",
       "task": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
       "why": "fallback soup detected in product code"
+    },
+    {
+      "path": "src/release.rs",
+      "priority": "high",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
+      "why": "duplicated product code block detected"
     },
     {
       "path": ".",
