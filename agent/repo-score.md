@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-postgres-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1778072352`
-- Started at: `1778072352`
-- Elapsed: `437` ms
+- Run ID: `1778072589`
+- Started at: `1778072589`
+- Elapsed: `390` ms
 - Scope: `full`
 - Raw score: `73`
 - Final score: `66`
@@ -180,7 +180,7 @@ No audited runtime boundary reclassifications declared.
    Rerun: `just fast`
    Fingerprint: `sha256:797626defaf57a01e560f1c092dc342b7dc719b9c2e7cc39a3b006c227f3a359`
    Evidence: database surface present, migration directory present, data access appears compartmentalized, strict DB boundary violation: src/capability.rs
-6. `high` `vibe` `src/agent.rs:121`
+6. `high` `vibe` `src/agent_surface.rs:92`
    Rule: `HLT-001-DEAD-MARKER`
    Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `tools`
@@ -188,8 +188,8 @@ No audited runtime boundary reclassifications declared.
    Reason: fallback soup detected in product code
    Fix: collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Rerun: `just fast`
-   Fingerprint: `sha256:8ca33543dca0389f7273c0818cd8b8b4f822b82e5fcf6f63fde5a8018b518f77`
-   Evidence: src/agent.rs:121 pub(crate) async fn create_agent_branch_with_retry(
+   Fingerprint: `sha256:b19eaf8eee7725030353f86ef36839530896c8484fb2bc6373647369ce8b9f81`
+   Evidence: src/agent_surface.rs:92 let json_current = fs::read_to_string(&json_path).unwrap_or_default();
 7. `high` `data` `src/capability.rs:1`
    Rule: `HLT-006-DIRECT-DB-WRONG-LAYER`
    Check: `HLT-006-DIRECT-DB-WRONG-LAYER:data` `hard` confidence `0.95`
@@ -200,14 +200,14 @@ No audited runtime boundary reclassifications declared.
    Rerun: `just fast`
    Fingerprint: `sha256:7fa9f6e59a6d5593b908e3ff83ad1b2dc6a030dbc2c93c568319e696284b40bd`
    Evidence: DB marker in non-adapter layer
-8. `high` `vibe` `src/gateway/oci.rs:1`
+8. `high` `vibe` `src/gitlab_client.rs:1`
    Check: `HLT-000-SCORE-DIMENSION:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `tools`
    Reason: duplicated product code block detected
    Fix: extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Rerun: `just fast`
-   Fingerprint: `sha256:416c2b66f5e24a29e233dc4c6109693d8c5bf434bdc1a8c367aa6ddb21fbe3af`
-   Evidence: duplicate block also appears at src/gateway/npm.rs:1
+   Fingerprint: `sha256:3758f6965cbe9849712f70ffb21b8be0f3eaf663ff9d6c40bdb4cf4155fdc62a`
+   Evidence: duplicate block also appears at src/gitlab_client.rs:1
 
 ## Policy
 
@@ -225,9 +225,9 @@ No audited runtime boundary reclassifications declared.
    Route: `Contracts/data`/`db`
 4. `medium` `HLT-018-PERF-CONCURRENCY-DRIFT` `Justfile` - add fast deterministic build/test targets, caches, and narrow proof lanes for agent iteration
    Route: `Verification`/`fast`
-5. `high` `HLT-001-DEAD-MARKER` `src/agent.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
+5. `high` `HLT-001-DEAD-MARKER` `src/agent_surface.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Route: `Entropy`/`fast`
-6. `high` `src/gateway/oci.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
+6. `high` `src/gitlab_client.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Route: `Entropy`/`fast`
 7. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
    Route: `Entropy`/`fast`

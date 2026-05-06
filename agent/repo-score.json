@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:90dfdf60814c42e562ead012b79e4510d9dce16ddf7c87f526b2d56995fb7073",
-  "input_fingerprint": "sha256:226d78f8ff51e42ff2c57db8e6d5711490a1a52f85764ba6a49baeed06339e71",
+  "report_fingerprint": "sha256:5c113160b6150376eded4ddf96a882017c35700db0bcb339b9530b8d046ca51d",
+  "input_fingerprint": "sha256:8be4ffa987d175640c091ccb91d1dececd934da6eaefb5157bf854e8c0cdeb7c",
   "policy_fingerprint": "sha256:396aa94b1d9d3e43a5531652f3c52172e9b5e57cc1b5de44febdc48207e3f918",
   "manifest_fingerprints": {
     "owner_map": "sha256:c5fde96b1057db935ec2dbbd0e3c9176b98c69dc0d9a98bad1d299607724ba72",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:8218ee450313a74e73eb990aaadedecba61d4c0d48ada0b6f368b4f7bf2fd9de"
   },
   "dirty_worktree": true,
-  "generated_at": "1778072352",
+  "generated_at": "1778072583",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.8.0",
@@ -24,14 +24,14 @@
   "observed_conformance_level": "HL2",
   "conformance_decision": "block",
   "conformance_blockers": [
-    "HLT-001-DEAD-MARKER on src/agent.rs",
+    "HLT-001-DEAD-MARKER on src/agent_surface.rs",
     "HLT-006-DIRECT-DB-WRONG-LAYER on src/capability.rs",
-    "HLT-000-SCORE-DIMENSION:vibe on src/gateway/oci.rs"
+    "HLT-000-SCORE-DIMENSION:vibe on src/gitlab_client.rs"
   ],
   "repo": ".",
-  "run_id": "1778072352",
-  "started_at": "1778072352",
-  "elapsed_ms": 437,
+  "run_id": "1778072583",
+  "started_at": "1778072583",
+  "elapsed_ms": 389,
   "scope": {
     "mode": "full",
     "paths": []
@@ -58,7 +58,7 @@
     }
   },
   "git": {
-    "head": "5a0ddad",
+    "head": "c07bd79",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -326,7 +326,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 930",
+        "rust bad-behavior advisory signals: 928",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
@@ -344,7 +344,7 @@
         "code file exceeds 1000 LOC",
         "duplicate code block marker found",
         "fallback soup marker found",
-        "rust bad-behavior advisory signals: 930",
+        "rust bad-behavior advisory signals: 928",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
@@ -1101,24 +1101,24 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/agent.rs",
+      "path": "src/agent_surface.rs",
       "problem": "fallback soup detected in product code",
       "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
       "evidence": [
-        "src/agent.rs:121 pub(crate) async fn create_agent_branch_with_retry("
+        "src/agent_surface.rs:92 let json_current = fs::read_to_string(&json_path).unwrap_or_default();"
       ],
       "check_id": "HLT-001-DEAD-MARKER:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:8ca33543dca0389f7273c0818cd8b8b4f822b82e5fcf6f63fde5a8018b518f77",
+      "fingerprint": "sha256:b19eaf8eee7725030353f86ef36839530896c8484fb2bc6373647369ce8b9f81",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "tools",
-      "line": 121
+      "line": 92
     },
     {
       "severity": "high",
@@ -1145,18 +1145,18 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/gateway/oci.rs",
+      "path": "src/gitlab_client.rs",
       "problem": "duplicated product code block detected",
       "agent_fix": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
       "evidence": [
-        "duplicate block also appears at src/gateway/npm.rs:1"
+        "duplicate block also appears at src/gitlab_client.rs:1"
       ],
       "check_id": "HLT-000-SCORE-DIMENSION:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:416c2b66f5e24a29e233dc4c6109693d8c5bf434bdc1a8c367aa6ddb21fbe3af",
+      "fingerprint": "sha256:3758f6965cbe9849712f70ffb21b8be0f3eaf663ff9d6c40bdb4cf4155fdc62a",
       "tlr": "Entropy",
       "lane": "fast",
       "owner": "tools",
@@ -1205,7 +1205,7 @@
       "why": "`Build speed signals` scored 70 below the standard floor of 85"
     },
     {
-      "path": "src/agent.rs",
+      "path": "src/agent_surface.rs",
       "priority": "high",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
@@ -1215,7 +1215,7 @@
       "why": "fallback soup detected in product code"
     },
     {
-      "path": "src/gateway/oci.rs",
+      "path": "src/gitlab_client.rs",
       "priority": "high",
       "tlr": "Entropy",
       "lane": "fast",
