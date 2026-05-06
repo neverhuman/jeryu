@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:2bfe08754235f042a0c5195f6632268ff2a142123d58838afd5fcdddcf9ce1e9",
-  "input_fingerprint": "sha256:88aade4384b4df2755d91d3f4ca6b03e1758a8bb14cefdb1b54e879cccfd5342",
+  "report_fingerprint": "sha256:f6f8e8941e8edc5ac5da069bb5621ea2de71d4dbaa9b5353c76f84ff451af95c",
+  "input_fingerprint": "sha256:72a18d55ae305d618443a33dae24ae9b30740d9ab9afada84bb68c309bbca6e5",
   "policy_fingerprint": "sha256:396aa94b1d9d3e43a5531652f3c52172e9b5e57cc1b5de44febdc48207e3f918",
   "manifest_fingerprints": {
     "owner_map": "sha256:8a15e0d3457b4a4476fe23ee9b16f87b6bbc4e025ec982ce8dfd6cd60cc3e69f",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:8218ee450313a74e73eb990aaadedecba61d4c0d48ada0b6f368b4f7bf2fd9de"
   },
   "dirty_worktree": true,
-  "generated_at": "1778073664",
+  "generated_at": "1778073904",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.8.0",
@@ -24,20 +24,20 @@
   "observed_conformance_level": "HL2",
   "conformance_decision": "block",
   "conformance_blockers": [
-    "HLT-001-DEAD-MARKER on src/capsule.rs",
-    "HLT-006-DIRECT-DB-WRONG-LAYER on src/engine.rs",
-    "HLT-000-SCORE-DIMENSION:vibe on src/mcp/tests.rs"
+    "HLT-001-DEAD-MARKER on src/cargo_cache.rs",
+    "HLT-006-DIRECT-DB-WRONG-LAYER on src/epoch.rs",
+    "HLT-000-SCORE-DIMENSION:vibe on src/reclaim.rs"
   ],
   "repo": ".",
-  "run_id": "1778073664",
-  "started_at": "1778073664",
-  "elapsed_ms": 390,
+  "run_id": "1778073904",
+  "started_at": "1778073904",
+  "elapsed_ms": 392,
   "scope": {
     "mode": "full",
     "paths": []
   },
   "score": 66,
-  "raw_score": 73,
+  "raw_score": 74,
   "decision": {
     "status": "fail",
     "minimum_score": 85,
@@ -58,7 +58,7 @@
     }
   },
   "git": {
-    "head": "7e06665",
+    "head": "dbcd8e9",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -326,7 +326,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 932",
+        "rust bad-behavior advisory signals: 931",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
@@ -344,7 +344,7 @@
         "code file exceeds 1000 LOC",
         "duplicate code block marker found",
         "fallback soup marker found",
-        "rust bad-behavior advisory signals: 932",
+        "rust bad-behavior advisory signals: 931",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
@@ -360,7 +360,7 @@
         "database surface present",
         "migration directory present",
         "data access appears compartmentalized",
-        "strict DB boundary violation: src/engine.rs"
+        "strict DB boundary violation: src/epoch.rs"
       ],
       "notes": [
         "direct DB access leaks out of the data boundary"
@@ -403,12 +403,12 @@
     {
       "name": "Jankurai tool adoption and CI replacement",
       "weight": 7,
-      "score": 31,
-      "weighted_points": 2.17,
+      "score": 32,
+      "weighted_points": 2.24,
       "evidence": [
         "control-plane files present",
         "applicable=16",
-        "configured=6",
+        "configured=7",
         "ci_evidence=3",
         "artifact_verified=3"
       ],
@@ -478,7 +478,7 @@
   "tool_adoption": {
     "control_plane_present": true,
     "applicable_count": 16,
-    "configured_count": 6,
+    "configured_count": 7,
     "ci_evidence_count": 3,
     "artifact_verified_count": 3,
     "replaced_count": 3,
@@ -815,15 +815,15 @@
         "category": "security",
         "mode": "auto",
         "applicable": true,
-        "status": "missing",
+        "status": "configured",
         "replaced_tools": [
           "manual unsafe sink review"
         ],
         "evidence": [
-          "mode=auto"
+          "mode=auto",
+          "tool-adoption config entry present"
         ],
         "missing": [
-          "agent/tool-adoption.toml entry",
           "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
@@ -936,14 +936,15 @@
         "rust-witness"
       ],
       "config_present": true,
-      "configured_count": 6,
+      "configured_count": 7,
       "configured_tools": [
         "audit-ci",
         "proof-routing",
         "security",
         "db-migration-analyze",
         "contract-drift",
-        "rust-witness"
+        "rust-witness",
+        "input-boundary"
       ],
       "control_plane_present": true
     },
@@ -1061,14 +1062,14 @@
         "database surface present",
         "migration directory present",
         "data access appears compartmentalized",
-        "strict DB boundary violation: src/engine.rs"
+        "strict DB boundary violation: src/epoch.rs"
       ],
       "check_id": "HLT-006-DIRECT-DB-WRONG-LAYER:data",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "sql",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:14cd7b8b70cb72bb628eeb53de1d50e067362dc73df6493bd7f0832cd11844ab",
+      "fingerprint": "sha256:dc9211aa367e7a125dbd855585d3cbdb74a41d6d836a6e30f694fc8845bb2b20",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
       "lane": "db",
@@ -1078,29 +1079,29 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/capsule.rs",
+      "path": "src/cargo_cache.rs",
       "problem": "fallback soup detected in product code",
       "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
       "evidence": [
-        "src/capsule.rs:49 env::var(\"CUSTOM_ENV_CI_COMMIT_SHA\").unwrap_or_else(|_| \"HEAD\".to_string());"
+        "src/cargo_cache.rs:102 .unwrap_or_else(|| \"0\".to_string());"
       ],
       "check_id": "HLT-001-DEAD-MARKER:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:46b91967cc2bb505bc8ffc85e043efd06ad655da880ff979501e44d3a0976445",
+      "fingerprint": "sha256:0d9c19b9dcc68e94764a417cb32af012bc588197085826ad72789e6e742e996d",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "workspace",
-      "line": 49
+      "line": 102
     },
     {
       "severity": "high",
       "category": "data",
-      "path": "src/engine.rs",
+      "path": "src/epoch.rs",
       "problem": "direct database access appears in a wrong layer",
       "agent_fix": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
       "evidence": [
@@ -1111,7 +1112,7 @@
       "confidence": 0.95,
       "evidence_kind": "sql",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:241f6796858c8bf2d839a24261ac6c515745dee4a834258a2e918be24479cfad",
+      "fingerprint": "sha256:09685189e54758d2eebadf5dd138011df41b39b6e05885ee20379078a05ff2f8",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
       "lane": "db",
@@ -1122,18 +1123,18 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/mcp/tests.rs",
+      "path": "src/reclaim.rs",
       "problem": "duplicated product code block detected",
       "agent_fix": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
       "evidence": [
-        "duplicate block also appears at src/mcp/tests.rs:1"
+        "duplicate block also appears at src/reclaim.rs:1"
       ],
       "check_id": "HLT-000-SCORE-DIMENSION:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:5d5732fed09a88e211e48479b1b18cf0940398bd516b4d7bcd122644caa4e223",
+      "fingerprint": "sha256:f77370d858989db99dc0fbbe04056a0c4453afeec3b7d45de396f450647ece0c",
       "tlr": "Entropy",
       "lane": "fast",
       "owner": "workspace",
@@ -1142,7 +1143,7 @@
   ],
   "agent_fix_queue": [
     {
-      "path": "src/engine.rs",
+      "path": "src/epoch.rs",
       "priority": "high",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
@@ -1172,7 +1173,7 @@
       "why": "`Data truth and workflow safety` scored 65 below the standard floor of 85"
     },
     {
-      "path": "src/capsule.rs",
+      "path": "src/cargo_cache.rs",
       "priority": "high",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
@@ -1182,7 +1183,7 @@
       "why": "fallback soup detected in product code"
     },
     {
-      "path": "src/mcp/tests.rs",
+      "path": "src/reclaim.rs",
       "priority": "high",
       "tlr": "Entropy",
       "lane": "fast",

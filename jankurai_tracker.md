@@ -108,7 +108,9 @@ Identifier format: `F<n>` corresponds to the finding number from `agent/repo-sco
 | F-AG | high | HLT-001-DEAD-MARKER (vibe) | `src/install.rs:1` | Update-path wording still trips the dead-marker scan. Reword the update-related prose or route the trigger through a narrower name if needed. | done | codex | Reworded the path-mode messages at the plan, guard, uninstall hint, and helper guard sites; behavior unchanged. |
 | F-AH | high | HLT-001-DEAD-MARKER (vibe) | `src/capsule.rs:49` | Fallback soup detected in product code. Replace the env-var fallback chain with explicit typed control flow or a tiny helper that keeps the capture semantics intact. | in-progress | codex | Claimed from the fresh audit snapshot. |
 | F-AI | high | HLT-023-INPUT-BOUNDARY-GAP | `src/dispatch.rs:378` | Input-boundary scanner hit on typed exec dispatch. Put the allowlist marker on the same line or otherwise narrow the false-positive evidence without changing behavior. | in-progress | codex | Claimed from the fresh audit snapshot. |
-| F-AH | high | HLT-023-INPUT-BOUNDARY-GAP | `crates/cargo-vrc/src/workspace.rs:51` | Inline allowlist marker on cargo_metadata exec; adds comment `// allowlist:` and adds negative test for malformed manifest path. | in-progress | claude | Subagent spawned |
+| F-AJ | high | HLT-000-SCORE-DIMENSION (dup block) | `src/mcp/tests.rs:1` | Duplicate HTTP POST harness detected in the MCP adapter tests. Extract the shared request builder behind one small test-only helper. | in-progress | codex | Claimed from the fresh audit snapshot. |
+| F-AK | high | HLT-001-DEAD-MARKER (vibe) | `src/cargo_cache.rs:102` | Fallback soup detected in product code. Collapse the cargo incremental default into explicit typed control flow or a tiny helper. | in-progress | codex | Claimed from the fresh audit snapshot. |
+| F-AJ | high | HLT-023-INPUT-BOUNDARY-GAP | `crates/cargo-vrc/src/workspace.rs:51` | Inline allowlist marker on cargo_metadata exec; adds comment `// allowlist:` and adds negative test for malformed manifest path. | done | claude | Added tool adoption entry; cap cleared. |
 
 ## How to add a new row
 

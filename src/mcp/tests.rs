@@ -49,6 +49,21 @@ async fn initialize_session(
     (resp, session)
 }
 
+fn authenticated_post<'a>(
+    client: &'a reqwest::Client,
+    base: &str,
+    origin: &str,
+    session: &str,
+    method: &str,
+) -> reqwest::RequestBuilder {
+    client
+        .post(format!("{base}/mcp"))
+        .header("Origin", origin)
+        .header("Mcp-Session-Id", session)
+        .header("MCP-Protocol-Version", MCP_PROTOCOL_VERSION)
+        .header("Mcp-Method", method)
+}
+
 /// Spawn a test HTTP server, create an HTTP client, perform an MCP initialize
 /// handshake, and return `(base_url, client, session_id, server_handle)`.
 async fn setup_authenticated_session()
@@ -176,12 +191,7 @@ async fn http_transport_initializes_and_executes_tools() {
     let (base, client, session, server) = setup_authenticated_session().await;
     let origin = base.clone();
 
-    let list_resp = client
-        .post(format!("{base}/mcp"))
-        .header("Origin", &origin)
-        .header("Mcp-Session-Id", &session)
-        .header("MCP-Protocol-Version", MCP_PROTOCOL_VERSION)
-        .header("Mcp-Method", "tools/list")
+    let list_resp = authenticated_post(&client, &base, &origin, &session, "tools/list")
         .json(&json!({
             "jsonrpc": "2.0",
             "id": 2,
@@ -195,12 +205,7 @@ async fn http_transport_initializes_and_executes_tools() {
     let list_body: serde_json::Value = list_resp.json().await.unwrap();
     assert!(list_body["result"]["tools"].is_array());
 
-    let call_resp = client
-        .post(format!("{base}/mcp"))
-        .header("Origin", &origin)
-        .header("Mcp-Session-Id", &session)
-        .header("MCP-Protocol-Version", MCP_PROTOCOL_VERSION)
-        .header("Mcp-Method", "tools/call")
+    let call_resp = authenticated_post(&client, &base, &origin, &session, "tools/call")
         .header("Mcp-Name", "jeryu.explain_blockers")
         .json(&json!({
             "jsonrpc": "2.0",
@@ -255,12 +260,7 @@ async fn http_transport_rejects_unknown_tools() {
     let (base, client, session, server) = setup_authenticated_session().await;
     let origin = base.clone();
 
-    let resp = client
-        .post(format!("{base}/mcp"))
-        .header("Origin", &origin)
-        .header("Mcp-Session-Id", &session)
-        .header("MCP-Protocol-Version", MCP_PROTOCOL_VERSION)
-        .header("Mcp-Method", "tools/call")
+    let resp = authenticated_post(&client, &base, &origin, &session, "tools/call")
         .header("Mcp-Name", "jeryu.not_a_real_tool")
         .json(&json!({
             "jsonrpc": "2.0",

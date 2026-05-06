@@ -7,11 +7,11 @@
 - Target stack ID: `rust-ts-vite-react-postgres-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1778073664`
-- Started at: `1778073664`
-- Elapsed: `390` ms
+- Run ID: `1778073904`
+- Started at: `1778073904`
+- Elapsed: `392` ms
 - Scope: `full`
-- Raw score: `73`
+- Raw score: `74`
 - Final score: `66`
 - Decision: `fail`
 - Minimum score: `85`
@@ -76,7 +76,7 @@
 | Data truth and workflow safety | 8 | 65 | 5.20 | database surface present; migration directory present |
 | Observability and repair evidence | 8 | 98 | 7.84 | observability libraries or patterns found; diagnostic shaping hints found |
 | Context economy and agent instructions | 7 | 100 | 7.00 | root `AGENTS.md` present; root `AGENTS.md` stays short |
-| Jankurai tool adoption and CI replacement | 7 | 31 | 2.17 | control-plane files present; applicable=16 |
+| Jankurai tool adoption and CI replacement | 7 | 32 | 2.24 | control-plane files present; applicable=16 |
 | Python containment and polyglot hygiene | 4 | 100 | 4.00 | no Python files in scope |
 | Build speed signals | 4 | 85 | 3.40 | build acceleration markers found; targeted test/build commands found |
 
@@ -90,7 +90,7 @@
 
 - Control plane present: `true`
 - Applicable tools: `16`
-- Configured: `6`
+- Configured: `7`
 - CI evidence: `3`
 - Artifact verified: `3`
 - Replaced count: `3`
@@ -112,7 +112,7 @@
 | `rust-witness` | `rust` | `auto` | `artifact_verified` | `manual witness graphing` | `target/jankurai/rust/witness-graph.json` |
 | `vibe-coverage` | `audit` | `auto` | `not_applicable` | `manual vibe-coding coverage spreadsheet` | `target/jankurai/vibe-coverage.json, target/jankurai/vibe-coverage.md` |
 | `authz-matrix` | `security` | `auto` | `missing` | `manual authz matrix review` | `agent/repo-score.json, agent/repo-score.md` |
-| `input-boundary` | `security` | `auto` | `missing` | `manual unsafe sink review` | `agent/repo-score.json, agent/repo-score.md` |
+| `input-boundary` | `security` | `auto` | `configured` | `manual unsafe sink review` | `agent/repo-score.json, agent/repo-score.md` |
 | `agent-tool-supply` | `security` | `auto` | `missing` | `manual MCP/tool trust review` | `agent/repo-score.json, agent/repo-score.md` |
 | `release-readiness` | `release` | `auto` | `missing` | `manual launch checklist` | `agent/repo-score.json, agent/repo-score.md` |
 | `cost-budget` | `release` | `auto` | `missing` | `manual spend review` | `agent/repo-score.json, agent/repo-score.md` |
@@ -168,9 +168,9 @@ No audited runtime boundary reclassifications declared.
    Reason: `Data truth and workflow safety` scored 65 below the standard floor of 85
    Fix: move durable truth into migrations, constraints, adapters, and application-owned transactions
    Rerun: `just fast`
-   Fingerprint: `sha256:14cd7b8b70cb72bb628eeb53de1d50e067362dc73df6493bd7f0832cd11844ab`
-   Evidence: database surface present, migration directory present, data access appears compartmentalized, strict DB boundary violation: src/engine.rs
-5. `high` `vibe` `src/capsule.rs:49`
+   Fingerprint: `sha256:dc9211aa367e7a125dbd855585d3cbdb74a41d6d836a6e30f694fc8845bb2b20`
+   Evidence: database surface present, migration directory present, data access appears compartmentalized, strict DB boundary violation: src/epoch.rs
+5. `high` `vibe` `src/cargo_cache.rs:102`
    Rule: `HLT-001-DEAD-MARKER`
    Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
@@ -178,9 +178,9 @@ No audited runtime boundary reclassifications declared.
    Reason: fallback soup detected in product code
    Fix: collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Rerun: `just fast`
-   Fingerprint: `sha256:46b91967cc2bb505bc8ffc85e043efd06ad655da880ff979501e44d3a0976445`
-   Evidence: src/capsule.rs:49 env::var("CUSTOM_ENV_CI_COMMIT_SHA").unwrap_or_else(|_| "HEAD".to_string());
-6. `high` `data` `src/engine.rs:1`
+   Fingerprint: `sha256:0d9c19b9dcc68e94764a417cb32af012bc588197085826ad72789e6e742e996d`
+   Evidence: src/cargo_cache.rs:102 .unwrap_or_else(|| "0".to_string());
+6. `high` `data` `src/epoch.rs:1`
    Rule: `HLT-006-DIRECT-DB-WRONG-LAYER`
    Check: `HLT-006-DIRECT-DB-WRONG-LAYER:data` `hard` confidence `0.95`
    Route: TLR `Contracts/data`, lane `db`, owner `workspace`
@@ -188,16 +188,16 @@ No audited runtime boundary reclassifications declared.
    Reason: direct database access appears in a wrong layer
    Fix: move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward
    Rerun: `just fast`
-   Fingerprint: `sha256:241f6796858c8bf2d839a24261ac6c515745dee4a834258a2e918be24479cfad`
+   Fingerprint: `sha256:09685189e54758d2eebadf5dd138011df41b39b6e05885ee20379078a05ff2f8`
    Evidence: DB marker in non-adapter layer
-7. `high` `vibe` `src/mcp/tests.rs:1`
+7. `high` `vibe` `src/reclaim.rs:1`
    Check: `HLT-000-SCORE-DIMENSION:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
    Reason: duplicated product code block detected
    Fix: extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Rerun: `just fast`
-   Fingerprint: `sha256:5d5732fed09a88e211e48479b1b18cf0940398bd516b4d7bcd122644caa4e223`
-   Evidence: duplicate block also appears at src/mcp/tests.rs:1
+   Fingerprint: `sha256:f77370d858989db99dc0fbbe04056a0c4453afeec3b7d45de396f450647ece0c`
+   Evidence: duplicate block also appears at src/reclaim.rs:1
 
 ## Policy
 
@@ -207,15 +207,15 @@ No audited runtime boundary reclassifications declared.
 
 ## Agent Fix Queue
 
-1. `high` `HLT-006-DIRECT-DB-WRONG-LAYER` `src/engine.rs` - move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward
+1. `high` `HLT-006-DIRECT-DB-WRONG-LAYER` `src/epoch.rs` - move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward
    Route: `Contracts/data`/`db`
 2. `medium` `HLT-007-HANDWRITTEN-CONTRACT` `agent/boundaries.toml` - add generated contracts and boundary checks for public APIs, data access, and cross-runtime seams
    Route: `Contracts/data`/`contract`
 3. `medium` `HLT-006-DIRECT-DB-WRONG-LAYER` `db/` - move durable truth into migrations, constraints, adapters, and application-owned transactions
    Route: `Contracts/data`/`db`
-4. `high` `HLT-001-DEAD-MARKER` `src/capsule.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
+4. `high` `HLT-001-DEAD-MARKER` `src/cargo_cache.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Route: `Entropy`/`fast`
-5. `high` `src/mcp/tests.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
+5. `high` `src/reclaim.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Route: `Entropy`/`fast`
 6. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
    Route: `Entropy`/`fast`
