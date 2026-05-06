@@ -585,7 +585,7 @@ async fn remote_refresh(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Resul
             }))?
         );
     } else {
-        println!("Remote update for {}", cfg.alias);
+        println!("Remote refresh for {}", cfg.alias);
     }
     if opts.dry_run {
         return Ok(0);

@@ -901,10 +901,10 @@ pub(crate) async fn df_usage(path: &str) -> Result<FsUsage> {
         );
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let line = stdout
-        .lines()
-        .nth(1)
-        .ok_or_else(|| anyhow::anyhow!("df output missing data row"))?;
+    let line = match stdout.lines().nth(1) {
+        Some(l) => l,
+        None => anyhow::bail!("df output missing data row"),
+    };
     let fields: Vec<&str> = line.split_whitespace().collect();
     if fields.len() < 6 {
         return Err(CacheError::UnexpectedDfOutput(line.to_string()).into());
@@ -962,14 +962,14 @@ fn json_string(value: &serde_json::Value, key: &str) -> String {
     value
         .get(key)
         .and_then(|v| v.as_str())
-        .unwrap_or_default()
+        .unwrap_or("")
         .to_string()
 }
 
 fn json_u64(value: &serde_json::Value, key: &str) -> Option<u64> {
-    value.get(key).and_then(|v| {
-        v.as_u64()
-            .or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok()))
+    value.get(key).and_then(|v| match v.as_u64() {
+        Some(n) => Some(n),
+        None => v.as_str().and_then(|s| s.parse::<u64>().ok()),
     })
 }
 
@@ -986,7 +986,7 @@ fn pool_target_lease_recovery_ttl() -> Duration {
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok())
         .map(Duration::from_secs)
-        .unwrap_or_else(|| Duration::from_secs(POOL_TARGET_LEASE_RECOVERY_TTL_SECS))
+        .unwrap_or(Duration::from_secs(POOL_TARGET_LEASE_RECOVERY_TTL_SECS))
 }
 
 fn path_lease_scan(path: &Path) -> crate::cargo_cache::CargoLeaseScan {
