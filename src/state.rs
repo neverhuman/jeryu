@@ -3607,7 +3607,7 @@ mod tests {
     async fn sqlite_migration_adds_root_pipeline_id_before_index() -> Result<()> {
         install_default_drivers();
         let dir = tempfile::tempdir()?;
-        let db_path = dir.path().join("legacy.db");
+        let db_path = dir.path().join(".db");
         let database_url = format!("sqlite:{}?mode=rwc", db_path.display());
         let pool = AnyPoolOptions::new()
             .max_connections(1)

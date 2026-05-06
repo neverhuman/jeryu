@@ -56,7 +56,7 @@ src/coverage.rs         # nightly coverage ingestion
 Then demote `impact.rs` into a compatibility wrapper:
 
 ```rust
-impact.rs  →  calls TestBrain and returns legacy lanes
+impact.rs  →  calls TestBrain and returns  lanes
 ```
 
 ### Core idea
@@ -149,7 +149,7 @@ The custom executor can collect the hard evidence:
 - Failure capsules when selected tests miss something.
 ```
 
-For E2E tests, the execution plane should also tag tests by required resources: Docker, GitLab, Vault, network, APFS sandbox, shadow remote, cache gateway.
+For E2E tests, the execution plane should also tag tests by required resources: Docker, GitLab, Vault, network, APFS sandbox, jeryu remote, cache gateway.
 
 ### 4. Cognition Plane
 
@@ -487,7 +487,7 @@ This is where hunk-level and function-level mapping matters.
 
 | Changed area                          | Run immediately                                                                       | Usually skip                                             |
 | ------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `src/pool.rs`, runner config template | pool unit tests, `pool_tests`, `job_tests`, runner-pool E2E smoke                     | release, secrets, shadow remote                          |
+| `src/pool.rs`, runner config template | pool unit tests, `pool_tests`, `job_tests`, runner-pool E2E smoke                     | release, secrets, jeryu remote                          |
 | `src/docker.rs`                       | Docker wrapper unit tests, pool tests, custom-exec smoke if lifecycle methods changed | agent MR tests unless runner interaction touched         |
 | `src/engine.rs` webhook job path      | job hook tests, retry classification, pool scale-up tests                             | Vault/release unless pipeline hook touched               |
 | `src/engine.rs` pipeline hook path    | pipeline tracking, release canary trigger tests                                       | cache gateway protocol tests                             |
@@ -795,7 +795,7 @@ e2e.agent.spawn-branch-mr
 e2e.cache.gateway
 e2e.release.canary
 e2e.secrets.vault
-e2e.shadow.sync
+e2e.jeryu.sync
 e2e.admission.pre-receive
 e2e.exec.sandbox-honeypot
 e2e.tui.smoke
@@ -867,7 +867,7 @@ Skip:
 
 ```text
 secrets report
-shadow remote
+jeryu remote
 release promotion unless engine pipeline interaction changed
 ```
 

@@ -24,7 +24,7 @@ The capability API is a Unix-socket JSON request/response API with intents such 
 
 The action registry is a very promising piece. It already defines action IDs, labels, key hints, risk tiers, surfaces, dry-run support, side-effect classes, and grant requirements. Risk tiers include read-only, low, high, and production. Actions include logs, retry, local delete, pause pool, explain blockers, system snapshot, propose patch, race patches, request merge, plan validation, run tests, next action, audit toggle, and tab navigation. ([GitHub][1])
 
-The state layer is broad. It tracks pools, managers, job events, CI runs, events, tracked pipelines, release attempts, evidence capsules, retry decisions, shadow sync, secrets, cache objects, cache requests, taints, verdicts, promotions, epochs, toolchains, test executions, test plans, selector misses, and more. ([GitHub][1])
+The state layer is broad. It tracks pools, managers, job events, CI runs, events, tracked pipelines, release attempts, evidence capsules, retry decisions, jeryu sync, secrets, cache objects, cache requests, taints, verdicts, promotions, epochs, toolchains, test executions, test plans, selector misses, and more. ([GitHub][1])
 
 ## Current TUI shape
 

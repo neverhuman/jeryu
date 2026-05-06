@@ -14,7 +14,7 @@ The biggest issue: a lot of the “world-class agent-first forge” vision is pr
 The architecture splits the system into interface, control, state, execution, and intelligence planes, with agents expected to operate through typed commands, GitLab MRs/pipelines, capability intents, or hooks. That is much better than a random collection of scripts because it creates a real control surface for autonomous work. ([GitHub][2])
 
 **2. The API surface is unusually agent-friendly.**
-The CLI exposes lifecycle, pool, job, pipeline, cache, logs, agent, shadow sync, test/VTI, release, secrets, progress, next-action, blocker explanation, action-list, repo-agent-surface, host, custom-executor, server-hook, and capability commands. The API docs explicitly cover CLI, TUI, webhook server, Unix-socket capability API, Git server hook, custom executor, action registry, state API, settings API, GitLab REST wrapper, release API, and secrets API. ([GitHub][3])
+The CLI exposes lifecycle, pool, job, pipeline, cache, logs, agent, jeryu sync, test/VTI, release, secrets, progress, next-action, blocker explanation, action-list, repo-agent-surface, host, custom-executor, server-hook, and capability commands. The API docs explicitly cover CLI, TUI, webhook server, Unix-socket capability API, Git server hook, custom executor, action registry, state API, settings API, GitLab REST wrapper, release API, and secrets API. ([GitHub][3])
 
 **3. The capability API is the right primitive.**
 `AgentIntent` includes `ProposePatch`, `RacePatches`, `RunTests`, `FetchCapsule`, `RequestMerge`, `ExplainBlockers`, `GetSystemSnapshot`, `ListAllowedActions`, and `PlanValidation`. That is exactly the kind of small, typed, auditable interface agents need instead of “here is a PAT, good luck.” ([GitHub][4])
@@ -29,7 +29,7 @@ The `capsule` module captures structured failure evidence: environment, log snip
 The VTI docs describe a subsystem-aware planner that maps changed files to selected tests, supports external `.jeryu/testmap.toml`, emits GitLab child pipeline YAML and plan JSON, and has a nightly oracle for selector misses. It also defaults to full execution on failure modes, which is the right safety posture. ([GitHub][7])
 
 **7. The state/audit model is ambitious and mostly right.**
-The state layer supports Postgres-primary with SQLite fallback and stores runner state, jobs/pipelines, audit events, release attempts, failure capsules, shadow sync, secrets, cache state, test plans, and selector misses. For agent fleets, durable state plus append-friendly ledgers is mandatory. ([GitHub][8])
+The state layer supports Postgres-primary with SQLite fallback and stores runner state, jobs/pipelines, audit events, release attempts, failure capsules, jeryu sync, secrets, cache state, test plans, and selector misses. For agent fleets, durable state plus append-friendly ledgers is mandatory. ([GitHub][8])
 
 **8. SmartCache / gateway / singleflight is a strong performance direction.**
 The repo has cache modules for registry proxying, CAS, cache brain decisions, taint, epoch invalidation, gateway adapters for Cargo/Git/npm/OCI, and singleflight request coalescing. This is exactly the sort of infra that makes agent-led CI feel instant instead of “wait 20 minutes every patch.” ([GitHub][9])

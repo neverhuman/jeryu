@@ -25,7 +25,7 @@ Production promotion is not a shell command. It is a GitLab pipeline product tri
 Agents operate through branches, MRs, risk gates, typed capability intents, test runners, and GitLab pipelines. That is much safer than giving an agent raw shell and PAT access.
 
 **3. SQLite as durable coordination is a good choice.**
-The DB gives the system a memory: pools, managers, releases, retries, evidence, cache verdicts, selector misses, test runs, shadow sync state, and audit events.
+The DB gives the system a memory: pools, managers, releases, retries, evidence, cache verdicts, selector misses, test runs, jeryu sync state, and audit events.
 
 **4. The custom executor/caching/security boundary is thoughtful.**
 Trust tiers, honeypots, taint, witness data, BuildKit isolation, cache verdicts, and cold-execution downgrades are all the right kinds of mechanisms for agent-operated CI.
@@ -65,7 +65,7 @@ A dream TUI should expose nearly every safe action:
 * test plan/run/select/retry/failed
 * pool scale/pause/resume/drain/rotate
 * agent spawn/list/merge
-* shadow status/sync/push
+* jeryu status/sync/push
 * repo audit-agent-surface
 
 But these actions should not be dumped into menus blindly. They need an **action inspector** that shows:
@@ -358,7 +358,7 @@ And quick switching:
 * latest failed pipeline
 * latest release attempt
 * agent task branches
-* shadow branch
+* jeryu branch
 
 The TUI should make the current project/ref/SHA context impossible to miss.
 
@@ -1659,7 +1659,7 @@ Agents
   list
   merge
 
-Shadow
+Jeryu
   status
   enable
   disable

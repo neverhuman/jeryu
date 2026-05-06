@@ -38,7 +38,7 @@ JeRyu introduces a phased migration model from standard Git to AI-driven version
 
 1. **Passthrough Layer (`jeryu git <args>`)**: JeRyu wraps the system Git binary seamlessly. This allows users to alias `git="jeryu git"` without breaking muscle memory or tooling.
 2. **Native Wrappers (`jeryu status`, `jeryu save`, `jeryu undo`)**: Higher-level CLI commands that combine multiple Git operations or add AI context (e.g. `save` runs `add` + `commit`).
-3. **Hook-Driven Shadow Git Path (`jeryu git <args>`)**: The remaining shadow-git meaning lives in the hook-driven passthrough and mirror-enforcement path. `jeryu git` wraps the system Git binary, `jeryu save` stages and commits, `jeryu sync` rebases and pushes, and `jeryu undo` rewinds the last commit. The removed `ship`/`shadow` CLI path no longer owns a separate control plane.
+3. **Hook-Driven Jeryu Git Path (`jeryu git <args>`)**: The remaining jeryu-git meaning lives in the hook-driven passthrough and mirror-enforcement path. `jeryu git` wraps the system Git binary, `jeryu save` stages and commits, `jeryu sync` rebases and pushes, and `jeryu undo` rewinds the last commit. The removed `ship`/`jeryu` CLI path no longer owns a separate control plane.
 
 ---
 

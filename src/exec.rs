@@ -87,7 +87,7 @@ pub async fn run_prepare() -> Result<()> {
         project_dir, "Driver: preparing custom execution sandbox"
     );
 
-    // We create a shadow worktree directory next to the original
+    // We create a jeryu worktree directory next to the original
     let sandbox_path = format!("{}-sandbox", project_dir);
 
     // Attempt 0-latency Copy-on-Write clone

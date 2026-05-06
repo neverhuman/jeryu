@@ -562,7 +562,7 @@ Vault: SEALED/OK
 Runners: 6/8 online
 Cache: healthy, 82% hit ratio
 Disk: 71%, warning at 75%
-Shadow sync: clean / behind / failed
+Jeryu sync: clean / behind / failed
 ```
 
 ## 2. What is actively running

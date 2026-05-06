@@ -23,7 +23,7 @@ async fn push_mirror_failure_does_not_fail_primary_push() {
     let log_path = temp.path().join("invocations.log");
     let git_path = temp.path().join("fake-git.sh");
     let script = format!(
-        "#!/usr/bin/env sh\nprintf '%s\\n' \"$*\" >> \"{}\"\nif [ \"$1\" = \"push\" ] && [ \"$2\" = \"shadow\" ]; then\n  exit 12\nfi\nexit 0\n",
+        "#!/usr/bin/env sh\nprintf '%s\\n' \"$*\" >> \"{}\"\nif [ \"$1\" = \"push\" ] && [ \"$2\" = \"jeryu\" ]; then\n  exit 12\nfi\nexit 0\n",
         log_path.display()
     );
     fs::write(&git_path, script).unwrap();
@@ -51,10 +51,10 @@ async fn push_mirror_failure_does_not_fail_primary_push() {
     let invocations = fs::read_to_string(&log_path).unwrap();
     assert_eq!(invocations.lines().count(), 2);
     assert!(invocations.contains("push origin HEAD"));
-    assert!(invocations.contains("push shadow HEAD"));
+    assert!(invocations.contains("push jeryu HEAD"));
     let jobs = db.recent_git_mirror_jobs(10).await.unwrap();
     assert_eq!(jobs.len(), 1);
-    assert_eq!(jobs[0].remote_name, "shadow");
+    assert_eq!(jobs[0].remote_name, "jeryu");
     assert_eq!(jobs[0].status, "mirror_failed");
 }
 
@@ -65,7 +65,7 @@ async fn strict_mirror_failure_fails_primary_push_result() {
     let log_path = temp.path().join("invocations.log");
     let git_path = temp.path().join("fake-git.sh");
     let script = format!(
-        "#!/usr/bin/env sh\nprintf '%s\\n' \"$*\" >> \"{}\"\nif [ \"$1\" = \"push\" ] && [ \"$2\" = \"shadow\" ]; then\n  exit 12\nfi\nexit 0\n",
+        "#!/usr/bin/env sh\nprintf '%s\\n' \"$*\" >> \"{}\"\nif [ \"$1\" = \"push\" ] && [ \"$2\" = \"jeryu\" ]; then\n  exit 12\nfi\nexit 0\n",
         log_path.display()
     );
     fs::write(&git_path, script).unwrap();
@@ -94,7 +94,7 @@ async fn strict_mirror_failure_fails_primary_push_result() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn mirror_disabled_skips_shadow_push() {
+async fn mirror_disabled_skips_jeryu_push() {
     let _guard = ENV_LOCK.lock().unwrap();
     let temp = tempfile::tempdir().unwrap();
     let log_path = temp.path().join("invocations.log");

@@ -54,7 +54,7 @@ That is much better than a normal CI dashboard for supervising agents. A human o
 
 ### 8. The state model is richer than typical CLI tooling
 
-The architecture doc describes Postgres-primary with SQLite fallback, typed DB methods, operational state, audit state, and tables for runner fleet, jobs/pipelines, events, releases, evidence/retry, shadow sync, secrets, cache, tests, selector misses, capability grants, and admission decisions. ([GitHub][1])
+The architecture doc describes Postgres-primary with SQLite fallback, typed DB methods, operational state, audit state, and tables for runner fleet, jobs/pipelines, events, releases, evidence/retry, jeryu sync, secrets, cache, tests, selector misses, capability grants, and admission decisions. ([GitHub][1])
 
 That is the right shape for an autonomous delivery system: do not leave critical facts scattered across GitLab APIs, logs, local files, and shell history.
 

@@ -958,14 +958,14 @@ The API lifecycle section says `jeryu init` starts GitLab, but the architecture 
 
 This should be reconciled. Since Vault is central to secrets, the lifecycle docs should be precise.
 
-### 2. `shadow sync-now` is a placeholder
+### 2. `jeryu sync-now` is a placeholder
 
 The command exists but tells users to ensure `jeryu serve` is running. That is surprising for a command named `sync-now`.
 
 Either implement it or rename it to something like:
 
 ```text
-jeryu shadow request-sync
+jeryu jeryu request-sync
 ```
 
 Better: add a DB-backed sync request queue that the daemon consumes.
@@ -1054,7 +1054,7 @@ secret.*
 admission.*
 executor.*
 host.*
-shadow.*
+jeryu.*
 tui.*
 ```
 
@@ -1113,7 +1113,7 @@ The TUI already marks Flow stale. Extend this concept everywhere:
 * release evidence stale
 * cache metrics stale
 * logs stale
-* shadow sync stale
+* jeryu sync stale
 
 A dream console makes freshness obvious.
 

@@ -14,7 +14,7 @@ The current API surface is mostly three things:
 2. **Capability API** through a structured `AgentIntent` enum.
 3. **Action registry** used by CLI/TUI/capability surfaces.
 
-The CLI is fairly rich: it has `Tui`, `Pool`, `Job`, `Pipeline`, `Cache`, `Agent`, `Shadow`, `Test`, `Release`, `Secrets`, `Progress`, `Repo`, `Host`, hidden custom executor hooks, hidden server hooks, and hidden capability server commands. The TUI command supports one-frame smoke rendering and deterministic PNG capture by tab, which is a very good testability feature. ([GitHub][2])
+The CLI is fairly rich: it has `Tui`, `Pool`, `Job`, `Pipeline`, `Cache`, `Agent`, `Jeryu`, `Test`, `Release`, `Secrets`, `Progress`, `Repo`, `Host`, hidden custom executor hooks, hidden server hooks, and hidden capability server commands. The TUI command supports one-frame smoke rendering and deterministic PNG capture by tab, which is a very good testability feature. ([GitHub][2])
 
 The capability API currently supports `ProposePatch`, `RacePatches`, `RunTests`, `FetchCapsule`, `RequestMerge`, `ExplainBlockers`, `GetSystemSnapshot`, `ListAllowedActions`, and `PlanValidation`. That is a good start, but it is action-oriented rather than mission/resource/event-oriented. ([GitHub][3])
 

@@ -113,16 +113,16 @@ pub(crate) struct CapabilityContext {
     request_id: String,
     actor: String,
     protocol_version: String,
-    legacy: bool,
+    compat: bool,
 }
 
 impl CapabilityContext {
-    pub(crate) fn legacy() -> Self {
+    pub(crate) fn compat() -> Self {
         Self {
-            request_id: format!("legacy-{}", uuid::Uuid::new_v4()),
-            actor: "legacy-capability-client".to_string(),
-            protocol_version: "legacy-agent-intent".to_string(),
-            legacy: true,
+            request_id: format!("compat-{}", uuid::Uuid::new_v4()),
+            actor: "compat-capability-client".to_string(),
+            protocol_version: "compat-agent-intent".to_string(),
+            compat: true,
         }
     }
 
@@ -131,7 +131,7 @@ impl CapabilityContext {
             request_id,
             actor,
             protocol_version,
-            legacy: false,
+            compat: false,
         }
     }
 }
@@ -139,7 +139,7 @@ impl CapabilityContext {
 #[derive(Debug)]
 enum ParsedCapabilityRequest {
     Enveloped(Box<AgentActionRequest>),
-    Legacy(AgentIntent),
+    Compat(AgentIntent),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -232,7 +232,7 @@ pub async fn start_capability_server(
                                     request_id = %ctx.request_id,
                                     actor = %ctx.actor,
                                     protocol_version = %ctx.protocol_version,
-                                    legacy = ctx.legacy,
+                                    compat = ctx.compat,
                                     "capability request accepted"
                                 );
                                 execute_intent(intent, &ctx, &client).await
@@ -858,7 +858,7 @@ async fn record_branch_capability_grant(
         "protocol_version": ctx.protocol_version,
         "request_id": ctx.request_id,
         "actor": ctx.actor,
-        "legacy": ctx.legacy,
+        "compat": ctx.compat,
         "scope": {
             "project_id": project_id,
             "ref_name": ref_name,
@@ -921,14 +921,14 @@ fn parse_capability_request(bytes: &[u8]) -> anyhow::Result<ParsedCapabilityRequ
     }
 
     let intent = serde_json::from_slice::<AgentIntent>(bytes)?;
-    Ok(ParsedCapabilityRequest::Legacy(intent))
+    Ok(ParsedCapabilityRequest::Compat(intent))
 }
 
 fn validate_capability_request(
     parsed: ParsedCapabilityRequest,
 ) -> anyhow::Result<(AgentIntent, CapabilityContext)> {
     match parsed {
-        ParsedCapabilityRequest::Legacy(intent) => Ok((intent, CapabilityContext::legacy())),
+        ParsedCapabilityRequest::Compat(intent) => Ok((intent, CapabilityContext::compat())),
         ParsedCapabilityRequest::Enveloped(request) => {
             if request.protocol_version != CAPABILITY_PROTOCOL_VERSION {
                 anyhow::bail!(
@@ -971,7 +971,7 @@ fn validate_capability_request(
                 request_id: request.request_id,
                 actor: request.actor,
                 protocol_version: request.protocol_version,
-                legacy: false,
+                compat: false,
             };
             Ok((request.intent, ctx))
         }
@@ -1018,7 +1018,7 @@ mod tests {
         let parsed = parse_capability_request(&framed).unwrap();
         let (intent, ctx) = validate_capability_request(parsed).unwrap();
         assert!(matches!(intent, AgentIntent::ListAllowedActions));
-        assert!(!ctx.legacy);
+        assert!(!ctx.compat);
         assert_eq!(ctx.actor, "agent:test");
     }
 

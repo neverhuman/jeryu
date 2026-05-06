@@ -18,7 +18,7 @@ The `lib.rs` module map is also clean. It separates engine, release, state, exec
 
 ### 2. Agent-facing control surfaces are real, not an afterthought
 
-The CLI includes lifecycle commands, pool/job/pipeline/cache controls, agent commands, shadow sync, test planning/running, release commands, capability server, and hidden server-hook/custom-executor commands. The API docs describe every major surface—CLI, TUI, webhooks, Unix capability API, Git server hook, custom executor, action registry, state, settings, GitLab client, release, and secrets. ([GitHub][4])
+The CLI includes lifecycle commands, pool/job/pipeline/cache controls, agent commands, jeryu sync, test planning/running, release commands, capability server, and hidden server-hook/custom-executor commands. The API docs describe every major surface—CLI, TUI, webhooks, Unix capability API, Git server hook, custom executor, action registry, state, settings, GitLab client, release, and secrets. ([GitHub][4])
 
 That is a huge positive. The big problem with GitHub/GitLab for agents is that agents have to infer state from slow, human-shaped APIs. JeRyu is already thinking in terms of **machine-facing surfaces**: `jeryu next`, `explain-blocker`, `job explain`, `pipeline doctor`, `test plan`, capability intents, and JSON outputs. ([GitHub][5])
 

@@ -26,7 +26,7 @@ The action registry is also a strong foundation. It defines actions with IDs, la
 
 ## Current TUI strengths
 
-The TUI is built with Ratatui/crossterm, has an event loop, polls input, and keeps a state snapshot from GitLab, Docker, the DB, release state, cache state, tests, shadow sync, logs, and other internal state. The docs describe nine tabs: Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets. ([GitHub][2])
+The TUI is built with Ratatui/crossterm, has an event loop, polls input, and keeps a state snapshot from GitLab, Docker, the DB, release state, cache state, tests, jeryu sync, logs, and other internal state. The docs describe nine tabs: Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets. ([GitHub][2])
 
 It already has background workers for flow collection, live log polling, and general snapshot sync. The docs describe a general refresh around 1500ms, flow refresh around 1500ms, and live log polling around 650ms. It also has anti-blanking behavior so stale flow/log state is preserved rather than flashing empty. ([GitHub][2])
 

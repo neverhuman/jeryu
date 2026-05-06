@@ -16,7 +16,7 @@ For an “agent’s dream” repo, the priority should be: **less hype, more pro
 
 The system is aimed at the correct missing layer: not replacing Git, but owning orchestration, policy, runner control, test selection, release flow, and evidence capture around Git/GitLab. The docs make production deployment mediated by GitLab pipelines and release gates, not ad hoc shell commands, which is the right safety posture for agent-controlled systems. ([GitHub][1])
 
-The serve lifecycle is also credible: load client and state, connect Docker, bring up compose, install hooks, start SmartCache, scale pools, spawn the engine, and run shadow sync. That is a real control-plane skeleton, not just a thin CLI wrapper. ([GitHub][1])
+The serve lifecycle is also credible: load client and state, connect Docker, bring up compose, install hooks, start SmartCache, scale pools, spawn the engine, and run jeryu sync. That is a real control-plane skeleton, not just a thin CLI wrapper. ([GitHub][1])
 
 ### 2. The repo is already agent-navigable
 
@@ -32,13 +32,13 @@ The nightly oracle concept is especially important. Selector misses are defined 
 
 ### 4. The CLI surface is broad and agent-useful
 
-The API doc exposes lifecycle, pools, jobs, pipeline inspection, cache, agents, shadow sync, VTI, release, secrets, progress, next action, blocker explanation, host operations, hidden executor commands, hidden server hooks, and capability API. The test controls are particularly relevant: `test run`, `test plan`, `test batch`, `test results`, `test retry`, `test failed`, `test impact`, `test select`, `test select-external`, `test audit`, `test learn`, and `test cache-status`. ([GitHub][6])
+The API doc exposes lifecycle, pools, jobs, pipeline inspection, cache, agents, jeryu sync, VTI, release, secrets, progress, next action, blocker explanation, host operations, hidden executor commands, hidden server hooks, and capability API. The test controls are particularly relevant: `test run`, `test plan`, `test batch`, `test results`, `test retry`, `test failed`, `test impact`, `test select`, `test select-external`, `test audit`, `test learn`, and `test cache-status`. ([GitHub][6])
 
 That is much closer to what agents need than a normal Git hosting repo, because agents need direct access to logs, test selection, runner state, retries, blockers, and release status.
 
 ### 5. There is a real state/evidence model beginning
 
-SQLite is positioned as the durable coordination layer, with tables for runner fleet, jobs/pipelines, events, releases, evidence capsules, retries, shadow sync, secrets, cache, and VTI/test plans. The architecture declares state changes should go through `Db` methods and the event ledger should be append-only by convention. ([GitHub][1])
+SQLite is positioned as the durable coordination layer, with tables for runner fleet, jobs/pipelines, events, releases, evidence capsules, retries, jeryu sync, secrets, cache, and VTI/test plans. The architecture declares state changes should go through `Db` methods and the event ledger should be append-only by convention. ([GitHub][1])
 
 That “durable local truth” matters. Agent systems fail when they only rely on transient logs or chat context. JeRyu is already moving toward a real operational memory.
 
@@ -78,7 +78,7 @@ Also, `ListAllowedActions` is hardcoded in `capability.rs`, which will drift fro
 
 `API.md` documents only a smaller `AgentIntent` enum for the capability API, while `capability.rs` contains a larger set of active intents. ([GitHub][6])
 
-The README lists `jeryu shadow ensure`, while the API/CLI surface uses `shadow-remote ensure`. ([GitHub][10])
+The README lists `jeryu jeryu ensure`, while the API/CLI surface uses `jeryu-remote ensure`. ([GitHub][10])
 
 Architecture/settings say webhook bind defaults to `127.0.0.1:9777`, while the API section says the engine server binds `0.0.0.0:9777`. ([GitHub][1])
 

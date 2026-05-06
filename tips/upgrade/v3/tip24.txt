@@ -18,7 +18,7 @@ That separation matters. An agent-first Git system should not be “one bot that
 
 ### 2. The CLI/API surface is broad and agent-aware
 
-The CLI has commands for pools, jobs, pipelines, cache, agents, shadow branches, tests, release, secrets, host maintenance, repo indexing, custom executor hooks, server hooks, and capability socket actions. It also has TUI capture modes and named tabs like mission, release, jobs, agents, tests, pools, cache, evidence, and secrets. ([GitHub][3])
+The CLI has commands for pools, jobs, pipelines, cache, agents, jeryu branches, tests, release, secrets, host maintenance, repo indexing, custom executor hooks, server hooks, and capability socket actions. It also has TUI capture modes and named tabs like mission, release, jobs, agents, tests, pools, cache, evidence, and secrets. ([GitHub][3])
 
 That is a very good sign. GitHub/GitLab APIs are usually too fragmented for agents: jobs over here, logs over there, merge requirements elsewhere, test history somewhere else. JeRyu is trying to centralize the things an agent needs.
 
@@ -698,7 +698,7 @@ Release should show:
 * Error budget.
 * Rollback target.
 * Deployment windows.
-* Shadow comparison.
+* Jeryu comparison.
 * Production gates.
 * Human approvals.
 * Automatic rollback conditions.
@@ -913,7 +913,7 @@ agent/untrusted/*
 agent/trusted/*
 agent/race/*
 agent/release/*
-shadow/*
+jeryu/*
 ```
 
 Each namespace gets different permissions, proof requirements, cache access, and merge behavior.
@@ -1029,7 +1029,7 @@ Goal: agents can ship safely.
 
 * Artifact provenance.
 * Canary gates.
-* Shadow deploys.
+* Jeryu deploys.
 * Auto rollback.
 * Release risk model.
 * Production approval policy.
@@ -1066,7 +1066,7 @@ JeRyu’s opportunity is to become the thing agents actually need:
 
 > **A fast, secure, evidence-producing, policy-enforcing autonomous software delivery control plane.**
 
-The repo already has many of the right nouns: pools, proof lanes, capsules, capabilities, action registry, VTI, cache brain, release gates, shadow branches, TUI. The next step is to make those nouns **real, enforced, authenticated, observable, and SHA-bound**.
+The repo already has many of the right nouns: pools, proof lanes, capsules, capabilities, action registry, VTI, cache brain, release gates, jeryu branches, TUI. The next step is to make those nouns **real, enforced, authenticated, observable, and SHA-bound**.
 
 [1]: https://github.com/jeppsontaylor/JeRyu "GitHub - jeppsontaylor/JeRyu: Git sucks, making it better · GitHub"
 [2]: https://github.com/jeppsontaylor/JeRyu/raw/refs/heads/main/docs/ARCHITECTURE.md "raw.githubusercontent.com"

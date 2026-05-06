@@ -101,7 +101,7 @@ That creates avoidable failure modes:
 
 For an agent, “fetch failure evidence” should be one of the most reliable operations in the whole system.
 
-I would change `FetchCapsule` to query `evidence_capsules` first, probably through `latest_evidence_for_job`, then optionally fall back to the event ledger for legacy data.
+I would change `FetchCapsule` to query `evidence_capsules` first, probably through `latest_evidence_for_job`, then optionally fall back to the event ledger for  data.
 
 ---
 
@@ -388,16 +388,16 @@ Keep the socket for control messages, not bulk transfer.
 
 ---
 
-## 2.11 `shadow sync-now` is a placeholder
+## 2.11 `jeryu sync-now` is a placeholder
 
-The API documents `shadow sync-now` as a CLI trigger placeholder that tells the user to ensure `jeryu serve` is running.
+The API documents `jeryu sync-now` as a CLI trigger placeholder that tells the user to ensure `jeryu serve` is running.
 
 That is surprising. A command named `sync-now` should either:
 
 * actually request a sync through the daemon,
 * enqueue a sync request in SQLite,
 * call the sync implementation directly,
-* or be renamed to something like `shadow poke`.
+* or be renamed to something like `jeryu poke`.
 
 This matters because agents will absolutely try to use `sync-now` as an action.
 
@@ -877,7 +877,7 @@ These are the ones I would fix before adding more UI glamour.
 | Invisible TUI panes still have actions        | Users can act on hidden selections       | Align focus with visible UI or show target preview                   |
 | Unauthenticated `/cache/summary` on `0.0.0.0` | Possible telemetry leak                  | Add auth, bind local, or reduce detail                               |
 | Stringly release states                       | Gate logic and UI can drift              | Use typed enums and render labels separately                         |
-| `shadow sync-now` placeholder                 | Misleading command                       | Implement, enqueue, or rename                                        |
+| `jeryu sync-now` placeholder                 | Misleading command                       | Implement, enqueue, or rename                                        |
 | Audit tab placeholder                         | Audit data exists but is invisible       | Build real event/audit browser                                       |
 
 ---
@@ -1902,7 +1902,7 @@ That is the developer dream.
 3. Align TUI focus with visible panes.
 4. Add real Audit tab from event ledger.
 5. Add auth or local-only assumptions for `/cache/summary`.
-6. Implement or rename `shadow sync-now`.
+6. Implement or rename `jeryu sync-now`.
 7. Add production gate checklist to Release Watch.
 
 ## Stage 2: Make the TUI operationally complete

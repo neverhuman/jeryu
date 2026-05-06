@@ -196,7 +196,7 @@ impl Default for MirrorSettings {
     fn default() -> Self {
         Self {
             enabled: true,
-            remote: "shadow".into(),
+            remote: "jeryu".into(),
         }
     }
 }
@@ -248,7 +248,7 @@ impl Default for SccacheSettings {
 impl Default for ReleaseSettings {
     fn default() -> Self {
         Self {
-            repo_root: None,
+            repo_root: Some("/home/ubuntu/dougx".into()),
             default_project_id: 2,
         }
     }
@@ -344,7 +344,8 @@ mod tests {
         let s2: Settings = serde_json::from_str(&json).unwrap();
         assert_eq!(s2.gitlab.http_port, 8929);
         assert_eq!(s2.git.mode, "after_success");
-        assert_eq!(s2.mirror.remote, "shadow");
+        assert_eq!(s2.mirror.remote, "jeryu");
+        assert_eq!(s2.release.repo_root.as_deref(), Some("/home/ubuntu/dougx"));
         assert_eq!(s2.webhook.bind, "127.0.0.1:9777");
         assert_eq!(s2.mcp.bind, "127.0.0.1:9778");
         assert_eq!(s2.pool.runner_shutdown_timeout_secs, 3600);

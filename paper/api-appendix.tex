@@ -12,7 +12,7 @@
 
 This appendix is the agent-facing contract for the V3.01 repository. It is grounded in the active \apicode{jeryu} binary, the Unix-socket capability API, the native MCP server, the engine HTTP routes, the GitLab Runner custom executor protocol, the Git server admission hook, and the canonical action registry. The MCP surface is not a parallel authority system: it is a standards-compatible transport for the same policy, evidence, grant, and merge/release checks exposed through the existing capability model.
 
-Git compatibility is handled through \apicode{jeryu git <args>} passthrough plus the native \apicode{jeryu save}, \apicode{jeryu sync}, and \apicode{jeryu undo} wrappers. The removed \apicode{ship} command and the old repo-mirror entrypoints no longer own a separate shadow-git control plane.
+Git compatibility is handled through \apicode{jeryu git <args>} passthrough plus the native \apicode{jeryu save}, \apicode{jeryu sync}, and \apicode{jeryu undo} wrappers. The removed \apicode{ship} command and the old repo-mirror entrypoints no longer own a separate jeryu-git control plane.
 
 \subsection{Surface Map}
 
@@ -63,7 +63,7 @@ All command names are kebab-case at the shell. Defaults below match the current 
 \apicmd{jeryu serve} & daemon & Start Docker/GitLab orchestration, hook install, cache supervisor, runner warmup, engine, and background workers.\\
 \apicmd{jeryu down} & mutating & Drain runner managers and stop the GitLab stack.\\
 \apicmd{jeryu status} & read & Show GitLab, Vault, pools, managed containers, jobs, release, and secret state.\\
-\apicmd{jeryu git <args>} & mixed & Pass through to the system Git binary and preserve the hook-driven shadow-git path.\\
+\apicmd{jeryu git <args>} & mixed & Pass through to the system Git binary and preserve the hook-driven jeryu-git path.\\
 \apicmd{jeryu save|sync|undo} & mixed & Convenience wrappers for add/commit, rebase+push, and soft reset.\\
 \apicmd{jeryu tui [--once]} & UI/read & Launch the Ratatui dashboard or render one smoke frame.\\
 \apicmd{jeryu tui --capture --tab <tab> --output <png>} & read/artifact & Deterministic Ratatui PNG capture. Tabs: mission, release, jobs, agents, tests, pools, cache, evidence, secrets.\\
@@ -110,7 +110,7 @@ All command names are kebab-case at the shell. Defaults below match the current 
 \end{center}
 
 \clearpage
-\apitabletitle{Agent, Shadow, Test/VTI, Release, Secret, and Repo Commands}
+\apitabletitle{Agent, Jeryu, Test/VTI, Release, Secret, and Repo Commands}
 \begin{center}
 \small
 \begin{tabular}{@{}p{0.33\linewidth}p{0.13\linewidth}p{0.50\linewidth}@{}}
@@ -258,7 +258,7 @@ jeryu capability serve <socket-path>
 
 \subsection{Capability Socket Protocol}
 
-The capability API is a local Unix domain socket service. It accepts either a legacy tagged \apicode{AgentIntent} JSON document or the V3.01 \apicode{AgentActionRequest} envelope. New agents should use the envelope. The server also accepts an optional 4-byte big-endian length prefix before the JSON body. Responses use \apicode{CapabilityResponse}.
+The capability API is a local Unix domain socket service. It accepts either a  tagged \apicode{AgentIntent} JSON document or the V3.01 \apicode{AgentActionRequest} envelope. New agents should use the envelope. The server also accepts an optional 4-byte big-endian length prefix before the JSON body. Responses use \apicode{CapabilityResponse}.
 
 \begin{lstlisting}[style=api,language=rust,caption={V3.01 capability envelope}]
 struct AgentActionRequest {
@@ -308,7 +308,7 @@ struct CapabilityResponse {
 \apicode{expires\_at} & Optional RFC3339 timestamp; expired requests are rejected.\\
 \apicode{budget} & Optional caller-declared time/branch/pipeline limits.\\
 \apicode{grant} & Optional proof payload. Current code validates envelope shape and records grants for successful branch-writing intents; signed grant enforcement remains future hardening.\\
-Legacy requests & Accepted for compatibility, tagged as \apicode{legacy-capability-client}.\\
+Legacy requests & Accepted for compatibility, tagged as \apicode{-capability-client}.\\
 \bottomrule
 \end{tabular}
 \end{center}

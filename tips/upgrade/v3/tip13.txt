@@ -12,7 +12,7 @@ My high-level read: **this is an ambitious and unusually strong skeleton for age
 
 ### 1. It has the right architecture for agent-first Git
 
-The project wisely treats GitLab as the backing Git/CI substrate and builds a Rust “agent hypervisor” around it. The repo’s command surface is broad: `init`, `serve`, `tui`, pools, jobs, pipelines, cache, logs, agents, shadow sync, tests, release, secrets, repo, host, custom executor, server hooks, capabilities, next actions, blockers, and action metadata are all represented in `src/cli.rs`. ([GitHub][2])
+The project wisely treats GitLab as the backing Git/CI substrate and builds a Rust “agent hypervisor” around it. The repo’s command surface is broad: `init`, `serve`, `tui`, pools, jobs, pipelines, cache, logs, agents, jeryu sync, tests, release, secrets, repo, host, custom executor, server hooks, capabilities, next actions, blockers, and action metadata are all represented in `src/cli.rs`. ([GitHub][2])
 
 That is the right mental model: agents do not need another web dashboard first. They need a **fast, structured, deterministic control plane** with programmable actions, evidence, gating, rollback, and state.
 
@@ -48,7 +48,7 @@ For an agent-first system, cache correctness and explainability are huge. Agents
 
 ### 7. Evidence, failure capsules, and quarantine are the right primitives
 
-The executor path captures evidence capsules, failure capsules, cache evidence, retry records, and honeypot/quarantine signals. The state store has records for CI job runs, bottlenecks, tracked pipelines, release attempts, evidence records, retry records, shadow sync configs, secret audit events, capability intents, and capability grants. ([GitHub][8])
+The executor path captures evidence capsules, failure capsules, cache evidence, retry records, and honeypot/quarantine signals. The state store has records for CI job runs, bottlenecks, tracked pipelines, release attempts, evidence records, retry records, jeryu sync configs, secret audit events, capability intents, and capability grants. ([GitHub][8])
 
 This is exactly what GitHub/GitLab are weak at today. They produce logs and check results, but not a first-class, queryable, signed, task-to-release evidence chain designed for autonomous decision-making.
 

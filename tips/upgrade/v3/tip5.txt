@@ -18,7 +18,7 @@ That is the right thesis. Most “AI coding platform” attempts are basically c
 
 ### 2. It has many real agent surfaces, not just a CLI
 
-The API docs define multiple surfaces: CLI, TUI, webhook receiver, capability socket, Git hooks, custom executor, action registry, state/settings, GitLab integration, release, and secrets. The CLI is also broad: `agent`, `shadow`, `test`, `release`, `secrets`, `progress`, `repo`, `host`, `exec`, `server-hook`, `capability`, `next`, `explain`, and `action`. ([GitHub][3])
+The API docs define multiple surfaces: CLI, TUI, webhook receiver, capability socket, Git hooks, custom executor, action registry, state/settings, GitLab integration, release, and secrets. The CLI is also broad: `agent`, `jeryu`, `test`, `release`, `secrets`, `progress`, `repo`, `host`, `exec`, `server-hook`, `capability`, `next`, `explain`, and `action`. ([GitHub][3])
 
 That breadth matters. Agents need both low-level programmatic access and high-level “what should I do next?” guidance. The repo is already moving toward a unified surface area instead of scattering logic across scripts.
 

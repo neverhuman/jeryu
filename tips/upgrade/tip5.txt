@@ -390,12 +390,12 @@ Maybe this is acceptable on the local network, but it is still an exposed operat
 
 At minimum, the TUI/host doctor should warn if the engine is bound broadly with unauthenticated operational endpoints.
 
-## 14. Shadow `sync-now` is a placeholder
+## 14. Jeryu `sync-now` is a placeholder
 
 A command named:
 
 ```bash
-jeryu shadow sync-now
+jeryu jeryu sync-now
 ```
 
 that only tells the user to ensure `jeryu serve` is running is surprising.
@@ -403,7 +403,7 @@ that only tells the user to ensure `jeryu serve` is running is surprising.
 Either implement it, rename it, or make it explicitly:
 
 ```bash
-jeryu shadow request-sync
+jeryu jeryu request-sync
 ```
 
 with a clear event recorded in SQLite.

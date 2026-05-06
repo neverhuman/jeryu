@@ -16,7 +16,7 @@ The API should be redesigned around that. Right now the TUI pulls from DB, GitLa
 
 ## Current API surface
 
-The repo’s API doc describes several surfaces: CLI, TUI, webhook server, Unix-socket capability API, server hook, custom executor, action registry, state API, settings, GitLab client wrapper, release controls, and secrets controls. The CLI includes lifecycle, pools, jobs, pipelines, cache, agents, shadow sync, tests/VTI, release, secrets, progress, next action, explain blocker, action list, repo audit, host ops, hidden executor hooks, server hooks, and capability server commands. ([GitHub][1])
+The repo’s API doc describes several surfaces: CLI, TUI, webhook server, Unix-socket capability API, server hook, custom executor, action registry, state API, settings, GitLab client wrapper, release controls, and secrets controls. The CLI includes lifecycle, pools, jobs, pipelines, cache, agents, jeryu sync, tests/VTI, release, secrets, progress, next action, explain blocker, action list, repo audit, host ops, hidden executor hooks, server hooks, and capability server commands. ([GitHub][1])
 
 The current HTTP server API is tiny: `GET /health`, `POST /hooks`, and `GET /cache/summary`. The webhook handler supports Job, Pipeline, Push, and Merge Request hooks, but MR hooks are currently logged with no active behavior. Push hooks cancel superseded pipelines, run impact analysis, and persist VTI plans. ([GitHub][1])
 
@@ -30,7 +30,7 @@ The current TUI source defines nine tabs: `Mission`, `Release`, `Jobs`, `Agents`
 
 The TUI uses Ratatui/crossterm, raw mode, alternate screen, mouse capture, a 250 ms draw/input/tick loop, background workers, and deterministic `--capture` PNG output. The CLI supports `jeryu tui --once` and `jeryu tui --capture --tab ... --output ... --width ... --height ...`. ([GitHub][2])
 
-The TUI app state is broad: pools, GitLab readiness, containers, jobs, pipelines, flow snapshot, live logs, shadow summary, cache metrics, taints, detonation breaches, storage, release status, test bottlenecks, evidence, secret audit events, agent pipelines, audit events, selections, log target, command palette state, and async channels. ([GitHub][3])
+The TUI app state is broad: pools, GitLab readiness, containers, jobs, pipelines, flow snapshot, live logs, jeryu summary, cache metrics, taints, detonation breaches, storage, release status, test bottlenecks, evidence, secret audit events, agent pipelines, audit events, selections, log target, command palette state, and async channels. ([GitHub][3])
 
 The refresh model has three background workers: a general snapshot worker, a flow collector, and a live log worker. The general and flow workers refresh around every 1500 ms, while logs are polled from GitLab job traces every 650 ms. There is no WebSocket/log streaming implementation today. ([GitHub][2])
 
@@ -67,7 +67,7 @@ That requires API changes first, then UI changes.
 
 ## 1. No unified real-time TUI API
 
-The TUI currently pulls from local DB, GitLab, Docker, filesystem checks, release state, cache metrics, taints, test history, and shadow sync directly. That works locally, but it makes the UI tightly coupled to internals and forces each pane to assemble its own truth. ([GitHub][2])
+The TUI currently pulls from local DB, GitLab, Docker, filesystem checks, release state, cache metrics, taints, test history, and jeryu sync directly. That works locally, but it makes the UI tightly coupled to internals and forces each pane to assemble its own truth. ([GitHub][2])
 
 A world-class TUI should consume a stable API:
 

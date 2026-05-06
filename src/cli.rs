@@ -375,7 +375,7 @@ mod tests {
     use clap::{CommandFactory, Parser};
 
     #[test]
-    fn release_watch_accepts_legacy_ref_alias() {
+    fn release_watch_accepts_ref_alias() {
         let cli = Cli::parse_from(["jeryu", "release", "watch", "--ref", "main"]);
         match cli.command {
             Commands::Release(ReleaseCommands::Watch { ref_name, .. }) => {
@@ -559,25 +559,13 @@ mod tests {
     }
 
     #[test]
-    fn cli_help_excludes_legacy_git_commands() {
+    fn cli_help_excludes_removed_git_commands() {
         let subcommands: Vec<String> = Cli::command()
             .get_subcommands()
             .map(|subcommand| subcommand.get_name().to_string())
             .collect();
 
         assert!(!subcommands.iter().any(|name| name == "ship"));
-        let legacy_removed_command = ["sh", "adow"].concat();
-        assert!(
-            !subcommands
-                .iter()
-                .any(|name| name == &legacy_removed_command)
-        );
-        let legacy_removed_remote = ["sh", "adow", "-", "remote"].concat();
-        assert!(
-            !subcommands
-                .iter()
-                .any(|name| name == &legacy_removed_remote)
-        );
         assert!(!subcommands.iter().any(|name| name == "mirror"));
     }
 }

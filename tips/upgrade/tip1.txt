@@ -127,7 +127,7 @@ The system has many actions:
 * delete local records
 * spawn agent task
 * merge MR
-* shadow push
+* jeryu push
 * cache GC
 
 But these are spread across CLI commands, TUI keybindings, engine automation, release functions, and state APIs.
@@ -177,7 +177,7 @@ You have many event sources:
 * selector misses
 * secret audit events
 * disk pressure events
-* shadow sync status
+* jeryu sync status
 
 But the TUI currently shows a relatively small slice: release status, flow board, jobs, logs, storage, cache, tests.
 
@@ -1553,7 +1553,7 @@ Auto-retry: enabled
 Supersedence: enabled
 Release reconcile: enabled
 Auto production promotion: enabled
-Shadow sync: enabled
+Jeryu sync: enabled
 Disk pressure GC: enabled
 ```
 

@@ -20,7 +20,7 @@ First, the **Capability API** is a Unix-domain-socket JSON interface. It accepts
 
 Second, the **engine HTTP API** is much smaller. It exposes `/health`, `/hooks`, and `/cache/summary`, validates GitLab webhook tokens and cache tokens, handles job/pipeline/push hooks, and currently logs merge request hooks without deeply acting on them. It is useful infrastructure, but it is not yet a rich TUI/control-plane API. ([GitHub][2])
 
-Third, the **CLI** exposes many operational surfaces: pools, jobs, pipelines, cache, agents, shadow sync, tests, release, secrets, repo audit/indexing, host reclamation, capability serving, next action, blocker explanation, and action listing. The TUI command supports one-shot rendering, PNG capture, initial tab selection, width, and height. ([GitHub][3])
+Third, the **CLI** exposes many operational surfaces: pools, jobs, pipelines, cache, agents, jeryu sync, tests, release, secrets, repo audit/indexing, host reclamation, capability serving, next action, blocker explanation, and action listing. The TUI command supports one-shot rendering, PNG capture, initial tab selection, width, and height. ([GitHub][3])
 
 ## Current TUI structure
 

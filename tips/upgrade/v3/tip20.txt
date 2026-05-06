@@ -32,7 +32,7 @@ The best part is the self-auditing idea: smart test selection is dangerous unles
 
 ### 4. The state ledger is broad and agent-useful
 
-From the downloaded `state.rs`, the database schema already tracks pools, managers, job events, CI job runs, events, capability intents/grants, admission decisions, tracked pipelines, release attempts, evidence capsules, retry decisions, shadow sync config, secret authorities, release secret sets, secret audit events, cache objects/requests/hot entries, build/image signatures, force refresh rules, resolved refs, cache taints, cache leases/verdicts/promotions, material objects/aliases, action cache, cache epochs, toolchain fingerprints, test executions, test plans/items, and selector misses.
+From the downloaded `state.rs`, the database schema already tracks pools, managers, job events, CI job runs, events, capability intents/grants, admission decisions, tracked pipelines, release attempts, evidence capsules, retry decisions, jeryu sync config, secret authorities, release secret sets, secret audit events, cache objects/requests/hot entries, build/image signatures, force refresh rules, resolved refs, cache taints, cache leases/verdicts/promotions, material objects/aliases, action cache, cache epochs, toolchain fingerprints, test executions, test plans/items, and selector misses.
 
 That is the kind of durable, queryable state agents need. The platform should not force agents to scrape logs, infer state from UI, or retry randomly. It should expose “why blocked,” “what proof is missing,” “what changed,” and “what action is safe next.”
 

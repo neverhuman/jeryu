@@ -324,7 +324,7 @@ The header is always visible, including maximized log mode. It shows:
 - Product title: `jeryu Mission Control`
 - GitLab connectivity: `ONLINE` or `OFF/BOOTING`
 - Active container count
-- Shadow sync summary when available
+- Jeryu sync summary when available
 - Upstream remote display and gap when available
 - Release identity: ref, version, and canary state when available
 - Tab selector labels

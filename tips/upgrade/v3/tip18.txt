@@ -30,7 +30,7 @@ The dream agent platform needs exactly this: not “run all tests every time” 
 
 ### 4. The state/evidence model is headed in the right direction
 
-The state layer tracks pools, managers, jobs, pipelines, releases, evidence capsules, retry decisions, shadow sync, secrets, cache objects, cache taints, action cache, test executions, VTI plans, and selector misses. That is the right kind of durable substrate for autonomous coding because agents need persistent memory of what failed, what was retried, what was skipped, what was promoted, and why. ([GitHub][4])
+The state layer tracks pools, managers, jobs, pipelines, releases, evidence capsules, retry decisions, jeryu sync, secrets, cache objects, cache taints, action cache, test executions, VTI plans, and selector misses. That is the right kind of durable substrate for autonomous coding because agents need persistent memory of what failed, what was retried, what was skipped, what was promoted, and why. ([GitHub][4])
 
 The append-only event ledger, evidence capsules, retry decisions, and release attempts are all high-leverage. A real agent-first Git system should make every state transition inspectable and replayable.
 

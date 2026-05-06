@@ -146,15 +146,15 @@ mod tests {
 
     #[test]
     fn push_without_args_mirrors_head() {
-        let plan = parse_push_mirror_plan(&argv(&["push"]), "shadow").unwrap();
-        assert_eq!(plan.git_args, argv(&["push", "shadow", "HEAD"]));
+        let plan = parse_push_mirror_plan(&argv(&["push"]), "jeryu").unwrap();
+        assert_eq!(plan.git_args, argv(&["push", "jeryu", "HEAD"]));
         assert_eq!(plan.ref_name.as_deref(), Some("HEAD"));
     }
 
     #[test]
-    fn push_origin_head_mirrors_head_to_shadow() {
-        let plan = parse_push_mirror_plan(&argv(&["push", "origin", "HEAD"]), "shadow").unwrap();
-        assert_eq!(plan.git_args, argv(&["push", "shadow", "HEAD"]));
+    fn push_origin_head_mirrors_head_to_jeryu() {
+        let plan = parse_push_mirror_plan(&argv(&["push", "origin", "HEAD"]), "jeryu").unwrap();
+        assert_eq!(plan.git_args, argv(&["push", "jeryu", "HEAD"]));
     }
 
     #[test]
@@ -175,12 +175,12 @@ mod tests {
 
     #[test]
     fn tags_all_and_refspecs_are_preserved() {
-        let tags = parse_push_mirror_plan(&argv(&["push", "--tags", "origin"]), "shadow").unwrap();
-        assert_eq!(tags.git_args, argv(&["push", "--tags", "shadow"]));
-        let all = parse_push_mirror_plan(&argv(&["push", "origin", "--all"]), "shadow").unwrap();
-        assert_eq!(all.git_args, argv(&["push", "--all", "shadow"]));
+        let tags = parse_push_mirror_plan(&argv(&["push", "--tags", "origin"]), "jeryu").unwrap();
+        assert_eq!(tags.git_args, argv(&["push", "--tags", "jeryu"]));
+        let all = parse_push_mirror_plan(&argv(&["push", "origin", "--all"]), "jeryu").unwrap();
+        assert_eq!(all.git_args, argv(&["push", "--all", "jeryu"]));
         let refspec =
-            parse_push_mirror_plan(&argv(&["push", "origin", "main:main"]), "shadow").unwrap();
-        assert_eq!(refspec.git_args, argv(&["push", "shadow", "main:main"]));
+            parse_push_mirror_plan(&argv(&["push", "origin", "main:main"]), "jeryu").unwrap();
+        assert_eq!(refspec.git_args, argv(&["push", "jeryu", "main:main"]));
     }
 }

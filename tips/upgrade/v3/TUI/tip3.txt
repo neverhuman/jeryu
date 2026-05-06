@@ -9,7 +9,7 @@ JeRyu currently exposes four main “API” surfaces:
 3. **Capability Unix socket API** for structured agent intents.
 4. **Action registry** that partially unifies CLI/TUI/capability actions.
 
-The CLI surface is broad. It includes `init`, `serve`, `tui`, `down`, `status`, pool/job/pipeline/cache/log/agent/shadow/test/release/secrets/progress/repo/host commands, hidden custom executor commands, hidden server-hook commands, hidden capability commands, `next`, `explain-blocker`, and `action list`. The TUI command supports `--once`, `--capture`, `--tab`, output path, width, and height, which is useful for deterministic UI smoke tests and screenshots. ([GitHub][1])
+The CLI surface is broad. It includes `init`, `serve`, `tui`, `down`, `status`, pool/job/pipeline/cache/log/agent/jeryu/test/release/secrets/progress/repo/host commands, hidden custom executor commands, hidden server-hook commands, hidden capability commands, `next`, `explain-blocker`, and `action list`. The TUI command supports `--once`, `--capture`, `--tab`, output path, width, and height, which is useful for deterministic UI smoke tests and screenshots. ([GitHub][1])
 
 The test CLI is one of the more agent-relevant areas: it supports single test runs, planning, batch parallel runs, pipeline results, retrying failed jobs, showing failed traces, impact analysis, smart test selection, explanation of plans, external workspace selection, selector audit/learning, and test cache status. ([GitHub][1])
 
@@ -25,7 +25,7 @@ The action registry is one of the best current pieces. It defines risk tiers, su
 
 The TUI has nine tabs: **Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, Secrets**. The top-level draw path renders a two-line header/tab bar, main content, a bottom event console, and footer; maximized logs replace the main content with a full log view. ([GitHub][5])
 
-The app state pulls together pools, GitLab readiness, active containers, recent jobs, tracked pipelines, flow snapshots, live logs, shadow summary, cache metrics, proxy/registry health, taint/breach counts, storage breakdown, release status, test bottlenecks, evidence capsules, secret audit events, agent pipelines, and recent audit events. It runs background sync loops, including a flow collector, live log polling around every 650ms, and broader snapshot refresh around every 1500ms. ([GitHub][5])
+The app state pulls together pools, GitLab readiness, active containers, recent jobs, tracked pipelines, flow snapshots, live logs, jeryu summary, cache metrics, proxy/registry health, taint/breach counts, storage breakdown, release status, test bottlenecks, evidence capsules, secret audit events, agent pipelines, and recent audit events. It runs background sync loops, including a flow collector, live log polling around every 650ms, and broader snapshot refresh around every 1500ms. ([GitHub][5])
 
 The header shows GitLab status, active container count, active/total pools, release state, stale-data warning, and numbered tabs. The event console currently emphasizes recent evidence capsules. Keyboard help includes `Ctrl-K` for palette, tab cycling, number-key tab switching, job log opening, retry, delete, pause, and quit. ([GitHub][6])
 

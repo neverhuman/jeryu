@@ -384,14 +384,14 @@ That would be extremely valuable.
 
 ---
 
-## P1: `shadow sync-now` being a placeholder should be fixed or renamed
+## P1: `jeryu sync-now` being a placeholder should be fixed or renamed
 
 A command named `sync-now` that tells the user to ensure `jeryu serve` is running is likely to confuse both humans and agents.
 
 I would either:
 
 * implement an actual one-shot sync, or
-* rename it to something like `shadow nudge`, or
+* rename it to something like `jeryu nudge`, or
 * mark it explicitly as unsupported/deferred with a non-zero status for automation
 
 Agents especially need commands to mean what they say.

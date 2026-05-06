@@ -28,7 +28,7 @@ The VTI design has the right conservative instincts: global invalidators, docs-o
 The GitHub workflow includes fmt, clippy, build, VTI test-select, library tests, integration tests, TUI smoke, cargo-deny, witness graph, VRC map/plan, AER audit, and scheduled hardening. That signals the project already cares about validation lanes and agent-specific correctness, not just “cargo test.” ([GitHub][6])
 
 **6. The system has the beginnings of a real state ledger.**
-The SQLite layer tracks pools, jobs, CI runs, tracked pipelines, release state, evidence, retry/shadow records, secrets, cache, test plans, selector misses, and related events. That is essential. A world-class agent system needs durable memory of what happened and why, not just logs that disappear when the runner exits. ([GitHub][7])
+The SQLite layer tracks pools, jobs, CI runs, tracked pipelines, release state, evidence, retry/jeryu records, secrets, cache, test plans, selector misses, and related events. That is essential. A world-class agent system needs durable memory of what happened and why, not just logs that disappear when the runner exits. ([GitHub][7])
 
 ---
 

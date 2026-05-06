@@ -14,7 +14,7 @@ The idea is excellent. The strongest parts are: typed agent capability surfaces,
 The repo is organized around clear planes: interface, control, state, execution, and intelligence. The architecture doc explicitly maps CLI/TUI/hooks/capability socket, webhook reconciliation, state, custom executor/sandbox/cache, and intelligence modules such as risk gates, impact planning, failure classification, and test selection. That is exactly the right shape for an agent-native code platform. ([GitHub][2])
 
 **2. The command/API surface is unusually agent-friendly.**
-The CLI exposes lifecycle, pool, job, pipeline, cache, logs, agent, shadow sync, tests, release, secrets, progress, repo, host, executor, server-hook, capability, next-action, blocker explanation, and action registry commands. That gives agents many direct operational levers instead of forcing them through a web UI. ([GitHub][3])
+The CLI exposes lifecycle, pool, job, pipeline, cache, logs, agent, jeryu sync, tests, release, secrets, progress, repo, host, executor, server-hook, capability, next-action, blocker explanation, and action registry commands. That gives agents many direct operational levers instead of forcing them through a web UI. ([GitHub][3])
 
 **3. The capability API is the right primitive.**
 The Unix-domain socket `AgentIntent` enum supports `ProposePatch`, `RacePatches`, `RunTests`, `FetchCapsule`, `RequestMerge`, `ExplainBlockers`, `GetSystemSnapshot`, `ListAllowedActions`, and `PlanValidation`. The implementation deserializes typed JSON intents rather than executing raw strings, which is a critical design choice for supervised local agents. ([GitHub][4])
@@ -32,7 +32,7 @@ VTI maps changed files to subsystems, selects minimal tests, supports external `
 The release module tracks upstream, release-execution, canary, and production pipeline state; checks gate artifacts; explains pipeline eligibility; runs preflight checks; and promotes production only after canary/E2E and handoff validation. ([GitHub][8])
 
 **8. The state layer is appropriately rich.**
-The state API uses Postgres as the preferred concurrent backend with SQLite fallback, and the schema tracks runner pools, managers, jobs, pipelines, event ledger, release attempts, evidence capsules, retry decisions, shadow sync, secrets, cache objects, cache taints, cache verdicts, test plans, test executions, and selector misses. ([GitHub][9])
+The state API uses Postgres as the preferred concurrent backend with SQLite fallback, and the schema tracks runner pools, managers, jobs, pipelines, event ledger, release attempts, evidence capsules, retry decisions, jeryu sync, secrets, cache objects, cache taints, cache verdicts, test plans, test executions, and selector misses. ([GitHub][9])
 
 **9. Cache trust/taint design is pointed in the right direction.**
 `CacheBrain` refuses hits on missing cache, epoch mismatch, tainted objects, or trust namespace mismatch. `TaintManager` propagates taint through downstream cache verdicts, and BuildKit config is separated by trust namespace. This is the correct security model for agent-driven build reuse. ([GitHub][10])

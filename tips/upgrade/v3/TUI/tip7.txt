@@ -10,7 +10,7 @@ My overall take: **JeRyu already has a strong skeleton for an agent-first Git TU
 
 The current API docs describe a broad surface: CLI, TUI, webhook HTTP API, capability API, Git server hook/admission API, executor API, action registry, state API, settings, GitLab REST client wrapper, release operations, and secrets API. The docs say API.md is versioned `5.0.0` and was verified against the code on April 26, 2026. ([GitHub][1])
 
-The CLI is large and agent-oriented. It supports lifecycle commands, TUI launch/capture, status, pools, jobs, pipelines, cache, logs, agents, shadow sync, tests/VTI, releases, secrets, progress, repo/host helpers, server-hook, capability API, next-action, explain-blocker, and action-list commands. The TUI command supports `--once`, `--capture`, `--tab`, output path, width, and height, which is great for regression testing and demos. ([GitHub][2])
+The CLI is large and agent-oriented. It supports lifecycle commands, TUI launch/capture, status, pools, jobs, pipelines, cache, logs, agents, jeryu sync, tests/VTI, releases, secrets, progress, repo/host helpers, server-hook, capability API, next-action, explain-blocker, and action-list commands. The TUI command supports `--once`, `--capture`, `--tab`, output path, width, and height, which is great for regression testing and demos. ([GitHub][2])
 
 The current TUI is Ratatui/crossterm-based, has nine tabs — Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, Secrets — and uses a draw/input/tick loop with a 250ms interval. It keeps its own `App` state, clients, snapshots, flow state, selected job/log state, command palette state, and background refresh workers. ([GitHub][3])
 

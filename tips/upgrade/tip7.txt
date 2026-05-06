@@ -427,15 +427,15 @@ This reduces accidental misuse.
 
 ---
 
-## 2.12 Shadow sync has a placeholder command
+## 2.12 Jeryu sync has a placeholder command
 
-`jeryu shadow sync-now --source <dir>` currently tells the user to ensure `jeryu serve` is running.
+`jeryu jeryu sync-now --source <dir>` currently tells the user to ensure `jeryu serve` is running.
 
 For an operator console, that is unsatisfying. Manual sync is a natural power-user action.
 
 **Fix:** implement actual sync-now semantics:
 
-* load the shadow config
+* load the jeryu config
 * run one sync cycle
 * return pushed SHA / no-op / conflict / error
 * append audit event
@@ -1413,7 +1413,7 @@ Press `/` or `Ctrl-P` and get a fuzzy command palette:
   reconcile release
   promote production
   rotate release secrets
-  shadow sync now
+  jeryu sync now
   reclaim storage plan
 ```
 
@@ -1935,7 +1935,7 @@ For every thing in the system:
 * runner pool
 * cache object
 * secret set
-* shadow sync
+* jeryu sync
 * host reclaim plan
 
 The TUI, CLI, and capability API should all expose that same structure.

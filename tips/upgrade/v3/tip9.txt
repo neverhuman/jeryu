@@ -38,7 +38,7 @@ The workspace is also more than one binary. It includes `cargo-witness`, `witnes
 
 ## 3. Very rich CLI surface
 
-The CLI already exposes a broad operations surface: init/bootstrap, serve, TUI capture, pool management, job trace/play/cancel/retry/explain, pipeline explain/doctor/bottlenecks, cache controls, logs, agent spawn/race/list/merge, shadow sync, tests, release, secrets, host reclaim/doctor, executor hooks, capability server, next action, explain-blocker, and action registry commands. ([GitHub][9])
+The CLI already exposes a broad operations surface: init/bootstrap, serve, TUI capture, pool management, job trace/play/cancel/retry/explain, pipeline explain/doctor/bottlenecks, cache controls, logs, agent spawn/race/list/merge, jeryu sync, tests, release, secrets, host reclaim/doctor, executor hooks, capability server, next action, explain-blocker, and action registry commands. ([GitHub][9])
 
 That is a real strength. Agent-first platforms need **low-friction machine-callable operations**, and this repo is already moving beyond a web UI.
 

@@ -6,7 +6,7 @@ The biggest opportunity is to turn `jeryu` from a powerful control plane with a 
 
 The most important missing abstraction is an **object-action graph**:
 
-> Every object in the system — job, pipeline, MR, pool, runner, release attempt, secret set, cache object, agent task, shadow sync, gate artifact — should have:
+> Every object in the system — job, pipeline, MR, pool, runner, release attempt, secret set, cache object, agent task, jeryu sync, gate artifact — should have:
 >
 > 1. current state,
 > 2. freshness/source,
@@ -734,7 +734,7 @@ The current TUI is a dashboard. The dream version is a **mission control console
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────┐
-│ jeryu GOD MODE  GitLab●  DB●  Vault●  Runners●  Cache●  Disk 71%  Webhook●  Shadow▲  Prod⏳ │
+│ jeryu GOD MODE  GitLab●  DB●  Vault●  Runners●  Cache●  Disk 71%  Webhook●  Jeryu▲  Prod⏳ │
 │ Profile: dougx/main  SHA fa51a52  Version ci-fa51a52  Release: Canary E2E running  ETA 3m  │
 ├───────────────┬──────────────────────────────────────────────────────────────┬───────────────┤
 │ NAV / OBJECTS │                         FLOW GRAPH                            │ INSPECTOR     │
@@ -788,7 +788,7 @@ Runners ●
 Cache ●
 Mirror ●
 Disk 71%
-Shadow ▲
+Jeryu ▲
 Agents 3
 Release ⏳
 Prod —
@@ -1532,7 +1532,7 @@ GitLab
 Docker
 filesystem
 release artifacts
-shadow sync
+jeryu sync
 cache metrics
 live log worker
 flow collector

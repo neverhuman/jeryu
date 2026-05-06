@@ -116,7 +116,7 @@ Current useful intents include:
 - `ListAllowedActions`
 - `PlanValidation`
 
-V3.01 makes the action registry canonical so API, CLI, and TUI surfaces do not drift. It also adds a V3 capability request envelope with request id, actor, nonce, expiry, optional budget, optional grant proof, and framed JSON transport while keeping legacy `AgentIntent` clients working. The next step is schema generation, peer-credential actor binding, signed grant verification, and contract tests.
+V3.01 makes the action registry canonical so API, CLI, and TUI surfaces do not drift. It also adds a V3 capability request envelope with request id, actor, nonce, expiry, optional budget, optional grant proof, and framed JSON transport while keeping  `AgentIntent` clients working. The next step is schema generation, peer-credential actor binding, signed grant verification, and contract tests.
 
 The intended authority model is an intent ledger:
 
@@ -261,7 +261,7 @@ V3.01 should turn implicit behavior into contracts:
 
 ## Public Pain Points
 
-The paper now cites public evidence that legacy Git/CI surfaces are under pressure:
+The paper now cites public evidence that  Git/CI surfaces are under pressure:
 
 - GitHub documents Copilot cloud agent as a GitHub-centered pull-request task flow with documented task/PR constraints.
 - GitHub community reports describe Actions workflows stuck queued for long periods.
@@ -288,7 +288,7 @@ The LaTeX paper now includes a full-page single-column API appendix. It document
 - CLI commands for lifecycle, pools, jobs, pipelines, cache, agents, git, VTI/tests, release, secrets, host, repo, and action discovery
 - exact CLI grammar from `src/cli.rs`, including all current flag-bearing forms and hidden protocol calls
 - hidden protocol entrypoints: custom executor, server hook, and capability server
-- Unix-socket capability protocol: V3.01 envelope, legacy `AgentIntent`, response shape, nonce/expiry behavior, and grant metadata
+- Unix-socket capability protocol: V3.01 envelope,  `AgentIntent`, response shape, nonce/expiry behavior, and grant metadata
 - capability intents: `ProposePatch`, `RacePatches`, `RunTests`, `FetchCapsule`, `RequestMerge`, `ExplainBlockers`, `GetSystemSnapshot`, `ListAllowedActions`, and `PlanValidation`
 - native MCP server: stdio JSON-RPC and loopback Streamable HTTP `initialize`, `notifications/initialized`, `ping`, `tools/list`, and `tools/call` routed through the same capability policy
 - HTTP engine routes: `GET /health`, `POST /hooks`, and `GET /cache/summary`

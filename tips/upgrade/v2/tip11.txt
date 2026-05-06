@@ -176,7 +176,7 @@ Missing pieces:
 * Test duration optimization.
 * Confidence scoring.
 * Selector-miss severity model.
-* Shadow mode before enforcement.
+* Jeryu mode before enforcement.
 * Per-repo VTI schema validation.
 * Language-specific plugins.
 * Test ownership metadata.
@@ -412,7 +412,7 @@ I would evolve it in this order:
 5. **Make selector misses scoped**
    A selector miss should be tied to repo, ref, SHA, changed files, selected tests, skipped tests, and testmap version.
 
-6. **Add shadow mode**
+6. **Add jeryu mode**
    For new repos, VTI should run selected tests but also periodically run full tests and measure miss rate before it is allowed to gate merges.
 
 7. **Treat VTI changes as high risk**

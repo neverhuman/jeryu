@@ -50,7 +50,7 @@ The anti-blanking behavior is particularly good: when fresh flow data is missing
 
 ### 7. The state ledger is broad and ambitious
 
-`state.rs` is positioned as Postgres-primary with SQLite fallback and an append-only event log. It models pools, managers, job events, CI job runs, tracked pipelines, release attempts, evidence records, retry records, shadow sync, secret authorities, release secret sets, secret audit events, capability intents/grants, admission decisions, cache objects, cache taints, test plans, selector misses, and more. ([GitHub][9])
+`state.rs` is positioned as Postgres-primary with SQLite fallback and an append-only event log. It models pools, managers, job events, CI job runs, tracked pipelines, release attempts, evidence records, retry records, jeryu sync, secret authorities, release secret sets, secret audit events, capability intents/grants, admission decisions, cache objects, cache taints, test plans, selector misses, and more. ([GitHub][9])
 
 That is the right instinct. Autonomous systems need durable memory. They cannot just “look at current status”; they need histories of decisions, failures, retries, flakes, taints, grants, evidence, and releases.
 

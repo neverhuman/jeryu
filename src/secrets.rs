@@ -43,7 +43,7 @@ pub enum SecretError {
     CommandFailed(String, Option<i32>),
 }
 
-const DEFAULT_REPO_ROOT: &str = ".";
+const DEFAULT_REPO_ROOT: &str = "/home/ubuntu/dougx";
 const OPS_POLICY_NAME: &str = "jeryu-release-ops";
 const OPS_DISPLAY_NAME: &str = "jeryu-release-control-plane";
 
@@ -142,11 +142,18 @@ struct VaultAuth {
 }
 
 fn repo_root() -> PathBuf {
-    crate::settings::get()
-        .release
-        .repo_root
-        .as_deref()
+    std::env::var("JERYU_RELEASE_REPO_ROOT")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
         .map(PathBuf::from)
+        .or_else(|| {
+            crate::settings::get()
+                .release
+                .repo_root
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .map(PathBuf::from)
+        })
         .unwrap_or_else(|| PathBuf::from(DEFAULT_REPO_ROOT))
 }
 

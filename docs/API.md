@@ -103,7 +103,7 @@ Shows GitLab readiness, Vault status, pool state, managed Docker containers, rec
 
 Launches the Ratatui dashboard. `--once` renders a single frame with optional GitLab auth and exits. `--capture` renders a deterministic Ratatui frame to a PNG file without entering an interactive terminal; accepted tabs are `mission`, `release`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, and `secrets`. See `docs/JERYU_TUI.md`.
 
-Git compatibility is handled through `jeryu git <args>` passthrough plus the native `jeryu save`, `jeryu sync`, and `jeryu undo` wrappers. The removed `ship` command and the old repo-mirror CLI entrypoints used to own a separate shadow-git control plane; that meaning now lives only in the hook-driven passthrough and mirror-enforcement path.
+Git compatibility is handled through `jeryu git <args>` passthrough plus the native `jeryu save`, `jeryu sync`, and `jeryu undo` wrappers. The removed `ship` command and the old repo-mirror CLI entrypoints used to own a separate jeryu-git control plane; that meaning now lives only in the hook-driven passthrough and mirror-enforcement path.
 
 ### 4.2 Install and Remote Provisioning
 
@@ -518,7 +518,7 @@ Unix domain socket server. One JSON payload → one JSON response. 64 KiB max.
 
 Start: `jeryu capability serve /tmp/jeryu-capability.sock`
 
-The V3.01 transport accepts either the legacy tagged `AgentIntent` JSON body or an `AgentActionRequest` envelope. New agents should use the envelope, optionally length-prefixed by a 4-byte big-endian frame length:
+The V3.01 transport accepts either the  tagged `AgentIntent` JSON body or an `AgentActionRequest` envelope. New agents should use the envelope, optionally length-prefixed by a 4-byte big-endian frame length:
 
 ```rust
 pub struct AgentActionRequest {

@@ -40,7 +40,7 @@ The system has a durable state plane instead of relying only on live GitLab stat
 * VTI test plans
 * cache verdicts
 * secret audit events
-* shadow sync status
+* jeryu sync status
 * TUI continuity under partial data
 
 This is a very strong architectural foundation.
@@ -985,7 +985,7 @@ LOW-RISK MUTATING
   retry failed transient job
   run selected tests
   reconcile release
-  update shadow remote
+  update jeryu remote
 
 MEDIUM-RISK
   scale pool

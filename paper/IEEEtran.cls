@@ -6295,44 +6295,44 @@ between column types.}%
 |xdef|@IEEEbackslash{\}}
 
 
-% hook to allow easy disabling of all legacy warnings
-\def\@IEEElegacywarn#1#2{\typeout{** ATTENTION: \@IEEEbackslash #1 is deprecated (line \the\inputlineno).
+% hook to allow easy disabling of all  warnings
+\def\@IEEEcompatwarn#1#2{\typeout{** ATTENTION: \@IEEEbackslash #1 is deprecated (line \the\inputlineno).
 Use \@IEEEbackslash #2 instead.}}
 
 
-% provide some legacy IEEEtran commands
-\def\IEEEcompsoctitleabstractindextext{\@IEEElegacywarn{IEEEcompsoctitleabstractindextext}{IEEEtitleabstractindextext}\IEEEtitleabstractindextext}
-\def\IEEEdisplaynotcompsoctitleabstractindextext{\@IEEElegacywarn{IEEEdisplaynotcompsoctitleabstractindextext}{IEEEdisplaynontitleabstractindextext}\IEEEdisplaynontitleabstractindextext}
-% provide some legacy IEEEtran environments
+% provide some  IEEEtran commands
+\def\IEEEcompsoctitleabstractindextext{\@IEEEcompatwarn{IEEEcompsoctitleabstractindextext}{IEEEtitleabstractindextext}\IEEEtitleabstractindextext}
+\def\IEEEdisplaynotcompsoctitleabstractindextext{\@IEEEcompatwarn{IEEEdisplaynotcompsoctitleabstractindextext}{IEEEdisplaynontitleabstractindextext}\IEEEdisplaynontitleabstractindextext}
+% provide some  IEEEtran environments
 
 
-% V1.8a no more support for these legacy commands
-%\def\authorblockA{\@IEEElegacywarn{authorblockA}{IEEEauthorblockA}\IEEEauthorblockA}
-%\def\authorblockN{\@IEEElegacywarn{authorblockN}{IEEEauthorblockN}\IEEEauthorblockN}
-%\def\authorrefmark{\@IEEElegacywarn{authorrefmark}{IEEEauthorrefmark}\IEEEauthorrefmark}
-%\def\PARstart{\@IEEElegacywarn{PARstart}{IEEEPARstart}\IEEEPARstart}
-%\def\pubid{\@IEEElegacywarn{pubid}{IEEEpubid}\IEEEpubid}
-%\def\pubidadjcol{\@IEEElegacywarn{pubidadjcol}{IEEEpubidadjcol}\IEEEpubidadjcol}
-%\def\specialpapernotice{\@IEEElegacywarn{specialpapernotice}{IEEEspecialpapernotice}\IEEEspecialpapernotice}
+% V1.8a no more support for these  commands
+%\def\authorblockA{\@IEEEcompatwarn{authorblockA}{IEEEauthorblockA}\IEEEauthorblockA}
+%\def\authorblockN{\@IEEEcompatwarn{authorblockN}{IEEEauthorblockN}\IEEEauthorblockN}
+%\def\authorrefmark{\@IEEEcompatwarn{authorrefmark}{IEEEauthorrefmark}\IEEEauthorrefmark}
+%\def\PARstart{\@IEEEcompatwarn{PARstart}{IEEEPARstart}\IEEEPARstart}
+%\def\pubid{\@IEEEcompatwarn{pubid}{IEEEpubid}\IEEEpubid}
+%\def\pubidadjcol{\@IEEEcompatwarn{pubidadjcol}{IEEEpubidadjcol}\IEEEpubidadjcol}
+%\def\specialpapernotice{\@IEEEcompatwarn{specialpapernotice}{IEEEspecialpapernotice}\IEEEspecialpapernotice}
 % and environments
-%\def\keywords{\@IEEElegacywarn{keywords}{IEEEkeywords}\IEEEkeywords}
+%\def\keywords{\@IEEEcompatwarn{keywords}{IEEEkeywords}\IEEEkeywords}
 %\def\endkeywords{\endIEEEkeywords}
-% V1.8 no more support for legacy IED list commands
+% V1.8 no more support for  IED list commands
 %\let\labelindent\IEEElabelindent
-%\def\calcleftmargin{\@IEEElegacywarn{calcleftmargin}{IEEEcalcleftmargin}\IEEEcalcleftmargin}
-%\def\setlabelwidth{\@IEEElegacywarn{setlabelwidth}{IEEEsetlabelwidth}\IEEEsetlabelwidth}
-%\def\usemathlabelsep{\@IEEElegacywarn{usemathlabelsep}{IEEEusemathlabelsep}\IEEEusemathlabelsep}
-%\def\iedlabeljustifyc{\@IEEElegacywarn{iedlabeljustifyc}{IEEEiedlabeljustifyc}\IEEEiedlabeljustifyc}
-%\def\iedlabeljustifyl{\@IEEElegacywarn{iedlabeljustifyl}{IEEEiedlabeljustifyl}\IEEEiedlabeljustifyl}
-%\def\iedlabeljustifyr{\@IEEElegacywarn{iedlabeljustifyr}{IEEEiedlabeljustifyr}\IEEEiedlabeljustifyr}
+%\def\calcleftmargin{\@IEEEcompatwarn{calcleftmargin}{IEEEcalcleftmargin}\IEEEcalcleftmargin}
+%\def\setlabelwidth{\@IEEEcompatwarn{setlabelwidth}{IEEEsetlabelwidth}\IEEEsetlabelwidth}
+%\def\usemathlabelsep{\@IEEEcompatwarn{usemathlabelsep}{IEEEusemathlabelsep}\IEEEusemathlabelsep}
+%\def\iedlabeljustifyc{\@IEEEcompatwarn{iedlabeljustifyc}{IEEEiedlabeljustifyc}\IEEEiedlabeljustifyc}
+%\def\iedlabeljustifyl{\@IEEEcompatwarn{iedlabeljustifyl}{IEEEiedlabeljustifyl}\IEEEiedlabeljustifyl}
+%\def\iedlabeljustifyr{\@IEEEcompatwarn{iedlabeljustifyr}{IEEEiedlabeljustifyr}\IEEEiedlabeljustifyr}
 % V1.8 no more support for QED and proof stuff
-%\def\QED{\@IEEElegacywarn{QED}{IEEEQED}\IEEEQED}
-%\def\QEDclosed{\@IEEElegacywarn{QEDclosed}{IEEEQEDclosed}\IEEEQEDclosed}
-%\def\QEDopen{\@IEEElegacywarn{QEDopen}{IEEEQEDopen}\IEEEQEDopen}
-%\AtBeginDocument{\def\proof{\@IEEElegacywarn{proof}{IEEEproof}\IEEEproof}\def\endproof{\endIEEEproof}}
+%\def\QED{\@IEEEcompatwarn{QED}{IEEEQED}\IEEEQED}
+%\def\QEDclosed{\@IEEEcompatwarn{QEDclosed}{IEEEQEDclosed}\IEEEQEDclosed}
+%\def\QEDopen{\@IEEEcompatwarn{QEDopen}{IEEEQEDopen}\IEEEQEDopen}
+%\AtBeginDocument{\def\proof{\@IEEEcompatwarn{proof}{IEEEproof}\IEEEproof}\def\endproof{\endIEEEproof}}
 % V1.8 no longer support biography or biographynophoto
-%\def\biography{\@IEEElegacywarn{biography}{IEEEbiography}\IEEEbiography}
-%\def\biographynophoto{\@IEEElegacywarn{biographynophoto}{IEEEbiographynophoto}\IEEEbiographynophoto}
+%\def\biography{\@IEEEcompatwarn{biography}{IEEEbiography}\IEEEbiography}
+%\def\biographynophoto{\@IEEEcompatwarn{biographynophoto}{IEEEbiographynophoto}\IEEEbiographynophoto}
 %\def\endbiography{\endIEEEbiography}
 %\def\endbiographynophoto{\endIEEEbiographynophoto}
 % V1.7 and later no longer supports \overrideIEEEmargins
@@ -6344,4 +6344,3 @@ Use \@IEEEbackslash #2 instead.}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% End of IEEEtran.cls  %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % That's all folks!
-

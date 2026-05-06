@@ -326,12 +326,12 @@ Audit events: 4
 
 This should appear in Release and Audit views.
 
-## N. `shadow sync-now` being a placeholder is likely to confuse agents
+## N. `jeryu sync-now` being a placeholder is likely to confuse agents
 
 The docs clearly say it is a placeholder, but the command name implies action. For agents, placeholder commands are risky. I would either implement it or rename the output very explicitly:
 
 ```text
-shadow sync-now is not implemented as a direct trigger.
+jeryu sync-now is not implemented as a direct trigger.
 No sync was performed.
 Run `jeryu serve` to allow the background sync loop to process this source.
 ```
@@ -388,7 +388,7 @@ Returns:
 * cache health
 * disk pressure
 * Vault status
-* shadow sync status
+* jeryu sync status
 * pending approvals
 * agent task state
 
@@ -1091,7 +1091,7 @@ Critical operational information:
 * Vault health
 * admission hook installed/healthy
 * webhook health
-* shadow sync lag
+* jeryu sync lag
 
 ---
 

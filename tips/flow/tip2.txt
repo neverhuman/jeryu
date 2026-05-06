@@ -246,7 +246,7 @@ The graph should always use a stable delivery vocabulary, even when the actual G
 
 | Column           | Meaning                                     | Source                                      |
 | ---------------- | ------------------------------------------- | ------------------------------------------- |
-| **Source**       | Push, branch, MR, agent branch, shadow sync | push hook, tracked pipeline, agent metadata |
+| **Source**       | Push, branch, MR, agent branch, jeryu sync | push hook, tracked pipeline, agent metadata |
 | **Admission**    | Server hook / policy / trust tier           | admission events, event ledger              |
 | **Impact**       | Full, Unit, Integration, DocsOnly           | impact analysis event                       |
 | **Pipeline**     | GitLab pipeline status                      | `tracked_pipelines`, GitLab API             |

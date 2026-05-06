@@ -102,7 +102,7 @@ The hook only denies agent writes without a ledger when enforcement is enabled. 
 
 ### 8. Hard-coded `main` appears in places that should query the default branch
 
-The test runner creates scratch branches from `"main"` directly. `spawn_agent` also falls back around main/master and returns `target_branch: "main"`. That is fragile for real GitLab/GitHub compatibility, especially with legacy repos, trunk names, protected branches, and monorepos with release branches. ([GitHub][7])
+The test runner creates scratch branches from `"main"` directly. `spawn_agent` also falls back around main/master and returns `target_branch: "main"`. That is fragile for real GitLab/GitHub compatibility, especially with  repos, trunk names, protected branches, and monorepos with release branches. ([GitHub][7])
 
 ### 9. Runner scaling is too coarse
 

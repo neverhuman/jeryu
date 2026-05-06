@@ -411,16 +411,16 @@ This would make the system feel trustworthy. Operators want to know not only wha
 
 ---
 
-## 1.10 Shadow sync appears underpowered
+## 1.10 Jeryu sync appears underpowered
 
-`shadow sync-now` is currently a placeholder that tells the user to make sure `jeryu serve` is running. That is a red flag for a command surface that sounds imperative.
+`jeryu sync-now` is currently a placeholder that tells the user to make sure `jeryu serve` is running. That is a red flag for a command surface that sounds imperative.
 
 I would either:
 
-1. make `shadow sync-now` actually trigger sync, or
+1. make `jeryu sync-now` actually trigger sync, or
 2. rename it to something less action-like until implemented.
 
-For agent workflows, shadow sync should be first-class:
+For agent workflows, jeryu sync should be first-class:
 
 * show pending local changes
 * show last seen SHA
@@ -564,7 +564,7 @@ An agent would want controlled write actions:
 * request production promotion
 * request secret rotation
 * trigger release reconcile
-* trigger shadow sync
+* trigger jeryu sync
 * scale pool with dry-run
 * pause/resume pool with reason
 * quarantine cache object
@@ -649,7 +649,7 @@ Selected failed job -> Repair with Agent -> Preview Plan -> Start
 | Log polling is per-TUI-client                          | Can increase GitLab pressure and feels less realtime                            | Centralize log polling/streaming through engine                                |
 | Cache/taint state is visible but not actionable enough | Cache issues can block or distort execution                                     | Add cache action panel: explain verdict, quarantine, clear with proof, GC plan |
 | Test tab is bottleneck-focused only                    | Developers need selected tests, skipped tests, failures, history, flake signals | Add VTI plan and test-result drilldown                                         |
-| Shadow sync manual trigger is placeholder              | A command named sync-now should sync                                            | Implement or rename                                                            |
+| Jeryu sync manual trigger is placeholder              | A command named sync-now should sync                                            | Implement or rename                                                            |
 | Release project/ref hardcoded in TUI                   | Limits reuse beyond project 2/main                                              | Add selectable project/ref profile                                             |
 | Secret lifecycle is not richly visualized              | Release secret state matters for prod handoff                                   | Add redacted secret-set status and finalization view                           |
 | Docker storage details are approximate                 | Storage tab may feel less trustworthy                                           | Label approximations clearly or parse richer Docker stats asynchronously       |
@@ -1254,7 +1254,7 @@ For a true command center, the following should be visible or one keystroke away
 * registry health
 * disk pressure
 * runner manager health
-* shadow sync health
+* jeryu sync health
 
 ## 8.2 Current release truth
 
@@ -1520,7 +1520,7 @@ If nine tabs is too many, group them:
 Where:
 
 * Work = Jobs, Tests, Agents
-* Infra = Pools, Cache, Storage, Shadow
+* Infra = Pools, Cache, Storage, Jeryu
 * Evidence = Audit, Capsules, Incidents, Secrets
 
 For a power user, I prefer more explicit tabs.
@@ -1593,7 +1593,7 @@ A typed command console would be especially powerful for users who already know 
 
 ## 12.1 Add a TUI view model layer
 
-Right now the TUI composes data from DB, GitLab, Docker, filesystem, release, cache, and shadow modules.
+Right now the TUI composes data from DB, GitLab, Docker, filesystem, release, cache, and jeryu modules.
 
 I would add a domain-level view model service:
 

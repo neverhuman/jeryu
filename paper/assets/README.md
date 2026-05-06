@@ -23,7 +23,7 @@ fallback and captures the alternate screen before the TUI exits.
 just tui-screenshot-smoke
 ```
 
-For deterministic, non-interactive CI comparisons, the legacy deterministic
+For deterministic, non-interactive CI comparisons, the  deterministic
 renderer remains available as:
 
 ```bash

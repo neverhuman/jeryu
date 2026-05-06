@@ -526,12 +526,12 @@ Db::latest_evidence_for_job
 
 Capability `FetchCapsule` should query the evidence table directly. Scanning event rows can fail when the event ledger is busy.
 
-## 3.11 `shadow sync-now` is a placeholder
+## 3.11 `jeryu sync-now` is a placeholder
 
 A command named:
 
 ```bash
-jeryu shadow sync-now --source <dir>
+jeryu jeryu sync-now --source <dir>
 ```
 
 that only tells the user to ensure `jeryu serve` is running is likely to disappoint both humans and agents.
@@ -539,10 +539,10 @@ that only tells the user to ensure `jeryu serve` is running is likely to disappo
 Either implement it or rename it to something like:
 
 ```bash
-jeryu shadow request-sync
+jeryu jeryu request-sync
 ```
 
-If implemented, it should append a sync request event that the shadow loop consumes.
+If implemented, it should append a sync request event that the jeryu loop consumes.
 
 ## 3.12 Release state naming needs canonical enums
 
@@ -934,7 +934,7 @@ Replace numeric-only tabs with a permanent left rail:
   Security
   Secrets
   Audit
-  Shadow
+  Jeryu
 ```
 
 Keyboard shortcuts can remain:

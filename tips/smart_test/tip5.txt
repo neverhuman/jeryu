@@ -659,7 +659,7 @@ Split E2E into rings:
 | Ring               | When it runs                                                                                                                          |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **E2E smoke**      | Changes to bootstrap, pool, Docker, GitLab client, engine webhook handling, runner config, custom executor, or random audit sampling. |
-| **E2E targeted**   | Specific modules: agent lifecycle, release lifecycle, Vault, cache gateway, shadow sync.                                              |
+| **E2E targeted**   | Specific modules: agent lifecycle, release lifecycle, Vault, cache gateway, jeryu sync.                                              |
 | **E2E full**       | Nightly, release candidate, selector changes, global invalidators, or manual force.                                                   |
 | **E2E detonation** | Dependency/lockfile changes, untrusted agent changes, custom executor/sandbox changes, supply-chain risk.                             |
 

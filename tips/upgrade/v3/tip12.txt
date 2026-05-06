@@ -18,7 +18,7 @@ The main gap: it needs to harden from “very cool local agent lab/control plane
 
 The repo’s architecture doc splits the system into interface, control, state, execution, and intelligence planes. That is exactly the right mental model for agent-first Git: agents should not talk directly to GitLab like random users; they should operate through a control plane that can observe, throttle, authorize, replay, and explain their behavior. ([GitHub][2])
 
-The module map is also broad: `engine`, `pool`, `release`, `shadow`, `state`, `settings`, `exec`, `sandbox`, `honeypot`, `cache_brain`, `taint`, `witness`, `buildkit`, `agent`, `decision`, `impact`, `test_intel`, `capsule`, `test_runner`, and `explain`. That is a much more agent-native surface than normal GitLab/GitHub, where an agent has to stitch together Issues, PRs, CI logs, branch protection, Actions, and random APIs manually. ([GitHub][2])
+The module map is also broad: `engine`, `pool`, `release`, `jeryu`, `state`, `settings`, `exec`, `sandbox`, `honeypot`, `cache_brain`, `taint`, `witness`, `buildkit`, `agent`, `decision`, `impact`, `test_intel`, `capsule`, `test_runner`, and `explain`. That is a much more agent-native surface than normal GitLab/GitHub, where an agent has to stitch together Issues, PRs, CI logs, branch protection, Actions, and random APIs manually. ([GitHub][2])
 
 ## 2. The API surface is agent-aware, not just human-wrapper CLI
 
@@ -406,7 +406,7 @@ A true autonomous release room:
 * Rollback readiness.
 * User-impact estimate.
 * Signed release proof.
-* “Promote,” “hold,” “rollback,” “shadow only.”
+* “Promote,” “hold,” “rollback,” “jeryu only.”
 
 ## P4: Make releases autonomous but accountable
 
@@ -560,7 +560,7 @@ Add a `.jeryu/` policy layer:
 
 Agents should read the constitution before touching code.
 
-## 8. Shadow mode for every agent action
+## 8. Jeryu mode for every agent action
 
 Before an agent mutates anything:
 

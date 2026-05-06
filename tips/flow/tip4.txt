@@ -79,7 +79,7 @@ Use these canonical columns:
 
 | Column          | Meaning                                 | Data source                                                 |
 | --------------- | --------------------------------------- | ----------------------------------------------------------- |
-| `Source`        | branch, SHA, shadow sync, push event    | `tracked_pipelines`, `shadow_sync_configs`, GitLab pipeline |
+| `Source`        | branch, SHA, jeryu sync, push event    | `tracked_pipelines`, `jeryu_sync_configs`, GitLab pipeline |
 | `Admission`     | pre-receive hook, policy, trust tier    | `events`, admission records                                 |
 | `Impact`        | full/unit/integration/docs-only lane    | `impact.rs` events                                          |
 | `Pipeline`      | current GitLab pipeline state           | `tracked_pipelines`, GitLab REST                            |

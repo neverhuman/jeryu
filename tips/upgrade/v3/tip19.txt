@@ -20,7 +20,7 @@ That is the heart of an agent-first Git platform.
 
 The repo’s own mission says Git should be treated as the ledger, GitLab as the substrate, Rust as the orchestration/policy/safety layer, and agents as bounded actors that propose, inspect, recover, and escalate. That is exactly the correct decomposition. GitHub/GitLab are still largely human-first collaboration products with CI bolted on. An agent-first platform needs a durable decision layer above Git, CI, artifacts, policies, tests, and releases. ([GitHub][2])
 
-The top-level workspace backs this up. It is not just a CLI toy: the `src` tree includes modules for admission, agents, capability, cache, cache brain, BuildKit, decision, dispatch, engine, execution, GitLab client, honeypot, impact, policy, pools, reclaim, release, sandbox, secrets, shadow, state, taint, telemetry, test runner, witness, and TUI. ([GitHub][3])
+The top-level workspace backs this up. It is not just a CLI toy: the `src` tree includes modules for admission, agents, capability, cache, cache brain, BuildKit, decision, dispatch, engine, execution, GitLab client, honeypot, impact, policy, pools, reclaim, release, sandbox, secrets, jeryu, state, taint, telemetry, test runner, witness, and TUI. ([GitHub][3])
 
 ## 2. The repo is unusually agent-legible
 
@@ -30,7 +30,7 @@ The Rust workspace is also well segmented. Besides the main binary, it contains 
 
 ## 3. The CLI surface is broad and agent-oriented
 
-The `jeryu` CLI exposes commands for initialization, serving, TUI, status, pool/job/pipeline operations, cache, logs, agents, shadow branches, tests, releases, secrets, progress, repo/host introspection, hidden executor/server hooks, capabilities, next-action selection, blocker explanation, and action listing. That is the correct shape for a system that wants both humans and agents to use the same operational substrate. ([GitHub][6])
+The `jeryu` CLI exposes commands for initialization, serving, TUI, status, pool/job/pipeline operations, cache, logs, agents, jeryu branches, tests, releases, secrets, progress, repo/host introspection, hidden executor/server hooks, capabilities, next-action selection, blocker explanation, and action listing. That is the correct shape for a system that wants both humans and agents to use the same operational substrate. ([GitHub][6])
 
 The test command tree is also promising: `run`, `plan`, `batch`, `results`, `retry`, `failed`, `impact`, `select`, `select-external`, `audit`, `learn`, and `cache-status`. That is much more agent-friendly than the usual “run CI and parse logs” workflow. ([GitHub][6])
 
@@ -40,7 +40,7 @@ The roadmap calls out the right platform primitives: supersedence policy, impact
 
 ## 5. The state ledger is ambitious
 
-The database schema is trying to model far more than “jobs and statuses.” It includes pools, managers, job events, CI runs, events, capability intents, grants, admission decisions, tracked pipelines, release attempts, evidence capsules, retry decisions, shadow sync configs, secret state, cache state, resolved refs, taints, leases, verdicts, promotions, material objects, action cache entries, epochs, toolchain fingerprints, test executions, test plans, plan items, and selector misses. That is exactly the sort of durable event and evidence substrate an autonomous system needs. ([GitHub][7])
+The database schema is trying to model far more than “jobs and statuses.” It includes pools, managers, job events, CI runs, events, capability intents, grants, admission decisions, tracked pipelines, release attempts, evidence capsules, retry decisions, jeryu sync configs, secret state, cache state, resolved refs, taints, leases, verdicts, promotions, material objects, action cache entries, epochs, toolchain fingerprints, test executions, test plans, plan items, and selector misses. That is exactly the sort of durable event and evidence substrate an autonomous system needs. ([GitHub][7])
 
 ## 6. Agent workflows are real enough to be interesting
 

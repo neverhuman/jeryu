@@ -43,13 +43,13 @@ That is exactly the kind of culture an agent-first system needs. Agents should n
 
 ### 4. The CLI surface is broad and agent-relevant
 
-The CLI exposes commands for init/bootstrap, serving, TUI, pool management, jobs, pipelines, cache, logs, agents, shadow sync, tests, releases, secrets, progress, repo, host, capability, next actions, blocker explanation, and action execution. ([GitHub][6]) The job and pipeline commands include list, trace, play, cancel, retry, explain, doctor, ingest jobs, and bottlenecks. ([GitHub][7]) The test command family includes run, plan, batch, results, retry failed tests, impact selection, plan explanation, audit, learn, and cache status. ([GitHub][7])
+The CLI exposes commands for init/bootstrap, serving, TUI, pool management, jobs, pipelines, cache, logs, agents, jeryu sync, tests, releases, secrets, progress, repo, host, capability, next actions, blocker explanation, and action execution. ([GitHub][6]) The job and pipeline commands include list, trace, play, cancel, retry, explain, doctor, ingest jobs, and bottlenecks. ([GitHub][7]) The test command family includes run, plan, batch, results, retry failed tests, impact selection, plan explanation, audit, learn, and cache status. ([GitHub][7])
 
 That is a good sign. Agent-first platforms need the boring operational verbs. The CLI is already shaped like something a human, an agent, or a higher-level orchestrator could drive.
 
 ### 5. It has real event/state machinery
 
-The state layer supports SQLite/Postgres and uses an append-only event-log style for system activity. ([GitHub][8]) It also defines records for release attempts, evidence, retries, shadow sync, capability admission, test UI tracking, cache metrics, build records, and image signatures. ([GitHub][8]) ([GitHub][8])
+The state layer supports SQLite/Postgres and uses an append-only event-log style for system activity. ([GitHub][8]) It also defines records for release attempts, evidence, retries, jeryu sync, capability admission, test UI tracking, cache metrics, build records, and image signatures. ([GitHub][8]) ([GitHub][8])
 
 The engine exposes webhook handling for GitLab job, pipeline, push, and merge-request events, records events, retries failed jobs based on failure classification, scales pools on pending jobs, and performs supersedence by canceling older in-flight pipelines for the same ref. ([GitHub][9]) ([GitHub][9]) ([GitHub][9])
 

@@ -9,10 +9,10 @@ Important limitation: I tried to clone it into the sandbox, but the container co
 ## What it already does well
 
 **1. The repo has the right macro-shape: agent-first control plane, not just another Git UI.**
-The source tree is broad: it has dedicated modules for agents, capability handling, admissions, capsules, sandboxing, execution, GitLab API access, cache brain/proxy, release, secrets, shadow sync, tainting, telemetry, test runners, witness/proof logic, and TUI surfaces. That breadth matters because a real autonomous coding platform needs “the whole loop,” not just issue creation or CI triggering. ([GitHub][2])
+The source tree is broad: it has dedicated modules for agents, capability handling, admissions, capsules, sandboxing, execution, GitLab API access, cache brain/proxy, release, secrets, jeryu sync, tainting, telemetry, test runners, witness/proof logic, and TUI surfaces. That breadth matters because a real autonomous coding platform needs “the whole loop,” not just issue creation or CI triggering. ([GitHub][2])
 
 **2. The CLI surface is unusually agent-relevant.**
-The CLI includes commands for bootstrap/init/serve/status, pools, jobs, pipelines, cache, logs, agents, shadow sync, tests, release, secrets, repo agent-index/audit, host reclaim, capabilities, “next action,” blocker explanation, and actions. The `Test` subcommands are especially relevant: plan, batch, impact, select, audit, learn, explain-plan, retry failed, cache status, and external selection. ([GitHub][3])
+The CLI includes commands for bootstrap/init/serve/status, pools, jobs, pipelines, cache, logs, agents, jeryu sync, tests, release, secrets, repo agent-index/audit, host reclaim, capabilities, “next action,” blocker explanation, and actions. The `Test` subcommands are especially relevant: plan, batch, impact, select, audit, learn, explain-plan, retry failed, cache status, and external selection. ([GitHub][3])
 
 **3. The Rust workspace and dependency choices fit the mission.**
 The project is a Rust 2024 workspace with subcrates for witness/runtime tooling and benchmarking, and it uses Tokio, Axum, Bollard, SQLx, Git2, Ratatui, crossterm, notify, dashmap, cargo metadata, and tracing. That is the right stack for a fast local daemon plus Docker/Git/CI orchestration plus a TUI. ([GitHub][4])

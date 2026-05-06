@@ -2,7 +2,7 @@ I tried to clone it locally, but the execution sandbox could not resolve GitHub 
 
 ## Executive verdict
 
-**JeRyu / `jeryu` has a very strong product thesis:** a Rust control plane that makes local GitLab, runners, logs, test selection, caches, releases, sandboxes, and agent actions programmable without touching the GitLab UI. The README frames it exactly that way: a “single-binary Rust control plane” for turning local GitLab into an orchestration engine for AI agents, with commands for runners, release state, shadow remotes, agent spawning, test impact, test runs, batch tests, and release automation. ([GitHub][1])
+**JeRyu / `jeryu` has a very strong product thesis:** a Rust control plane that makes local GitLab, runners, logs, test selection, caches, releases, sandboxes, and agent actions programmable without touching the GitLab UI. The README frames it exactly that way: a “single-binary Rust control plane” for turning local GitLab into an orchestration engine for AI agents, with commands for runners, release state, jeryu remotes, agent spawning, test impact, test runs, batch tests, and release automation. ([GitHub][1])
 
 The **best parts are the architecture and ambition**: the docs separate interface/control/state/execution/intelligence planes, define agent-facing action registries, include VTI/test selection, release gates, evidence capsules, cache intelligence, custom executor hooks, and TUI surfaces. ([GitHub][2])
 
@@ -18,7 +18,7 @@ My strongest advice: **make the capability layer, test/log feedback loop, risk g
 
 The core idea is right: agents should not be scraping CI pages or guessing test status. They need a close, typed relationship with Git, CI, runners, logs, evidence, test selection, caches, and merge/release gates. This repo is pointed at that exact opportunity.
 
-The command surface already thinks like an agent operator: `test plan`, `test impact`, `test run`, `test batch`, `job trace`, `job retry`, `pipeline explain`, `release status`, `release watch`, `shadow push`, `agent spawn`, pool management, cache status, and TUI views. ([GitHub][3])
+The command surface already thinks like an agent operator: `test plan`, `test impact`, `test run`, `test batch`, `job trace`, `job retry`, `pipeline explain`, `release status`, `release watch`, `jeryu push`, `agent spawn`, pool management, cache status, and TUI views. ([GitHub][3])
 
 ### 2. The architecture document is unusually good
 

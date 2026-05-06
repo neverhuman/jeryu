@@ -301,7 +301,7 @@ This would be incredibly useful for agents, TUI command palettes, docs validatio
 
 Examples:
 
-* `jeryu shadow sync-now` is currently a placeholder.
+* `jeryu jeryu sync-now` is currently a placeholder.
 * MR Hook is logged but has no active behavior.
 * Audit TUI tab is placeholder.
 * Capability `ProposePatch`, `RacePatches`, `RequestMerge` are deferred.

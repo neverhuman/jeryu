@@ -109,7 +109,7 @@ Concrete dream capabilities:
 
 | Capability                | Purpose                                                                                            |
 | ------------------------- | -------------------------------------------------------------------------------------------------- |
-| `GetSituation`            | Full summarized state: GitLab, pools, pipelines, jobs, release, cache, disk, secrets, shadow sync. |
+| `GetSituation`            | Full summarized state: GitLab, pools, pipelines, jobs, release, cache, disk, secrets, jeryu sync. |
 | `GetObject`               | Fetch one job/pipeline/release/MR/pool/test/cache object with normalized fields.                   |
 | `ListAvailableActions`    | Return safe actions for a selected object.                                                         |
 | `ExplainBlockers`         | Explain why a pipeline/release/merge/promotion cannot proceed.                                     |
@@ -522,20 +522,20 @@ There appears to be a possible inconsistency:
 
 That should be clarified. Operators need to know whether Vault is started by `jeryu init`, `jeryu secrets init`, or both.
 
-## 4.14 `shadow sync-now` Is a Placeholder
+## 4.14 `jeryu sync-now` Is a Placeholder
 
 A command named `sync-now` that only tells the user to ensure `jeryu serve` is running will surprise both humans and agents.
 
 I would either implement it or rename it to something explicit like:
 
 ```text
-jeryu shadow request-sync
+jeryu jeryu request-sync
 ```
 
 or:
 
 ```text
-jeryu shadow sync-now
+jeryu jeryu sync-now
 # should enqueue a sync request consumed by serve
 ```
 
@@ -1167,7 +1167,7 @@ Selected tests:
 Skipped tests:
   tui
   cache
-  shadow
+  jeryu
 
 Reasons:
   release.rs maps to release lane
@@ -1311,7 +1311,7 @@ These are the first things I would fix.
 4. Add confirmation for destructive TUI actions.
 5. Rename TUI local DB deletion to “forget local record.”
 6. Resolve the Vault bootstrap documentation conflict.
-7. Implement or rename `shadow sync-now`.
+7. Implement or rename `jeryu sync-now`.
 8. Make release gate artifacts validated by digest/source/SHA, not just existence.
 9. Add correlation IDs across events.
 10. Make hidden/no-op/action limitations visible in `repo audit-agent-surface`.

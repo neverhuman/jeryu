@@ -57,7 +57,7 @@ This is another excellent direction. For agents, test selection is not just abou
 
 ## 1.6 The TUI is a serious operational console, not a toy
 
-The TUI docs describe nine tabs: Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets. The state snapshot includes pools, GitLab readiness, Docker containers, recent jobs, pipelines, flow, live logs, shadow state, cache usage, proxy/registry health, taints, detonation breaches, CAS bytes, release state, and bottlenecks. ([GitHub][7])
+The TUI docs describe nine tabs: Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets. The state snapshot includes pools, GitLab readiness, Docker containers, recent jobs, pipelines, flow, live logs, jeryu state, cache usage, proxy/registry health, taints, detonation breaches, CAS bytes, release state, and bottlenecks. ([GitHub][7])
 
 That is exactly the kind of surface an agent-first system needs. A user should not have to dig through five web UIs, logs, and CI pages to understand what their agents are doing. The TUI should become the command center.
 
@@ -145,7 +145,7 @@ This should become a **real capability security model**, not just an action rout
 
 The sandbox module comments describe strict network isolation using `unshare`/`bwrap`, but the visible implementation path appears to run a shell command with sandbox environment variables, while relying on Docker executor pools, honeypots, and proxies for isolation. ([GitHub][13])
 
-The custom executor also depends on Docker availability and uses shadow worktrees, honeypot seeding, cache/proxy environment injection, tripwire capture, failure capsules, and CAS archival. ([GitHub][14])
+The custom executor also depends on Docker availability and uses jeryu worktrees, honeypot seeding, cache/proxy environment injection, tripwire capture, failure capsules, and CAS archival. ([GitHub][14])
 
 That is not enough for hostile or compromised agent-generated code. Honeypots are useful detection, not containment. For a world-class agent-first system, strict sandbox mode must be real.
 
@@ -204,7 +204,7 @@ That is good, but the dream system should not infer too much from job names. It 
 
 ## 2.9 State is powerful but needs stronger migration/HA/retention discipline
 
-The repo has a large state surface: pools, managers, job events, CI job runs, release attempts, evidence, retry state, shadow state, secret authority, audit events, capability intents/grants, admission decisions, test plans, selector misses, cache objects, metrics, leases, verdicts, promotions, and more. The state module is explicitly documented as supporting Postgres/SQLite-backed stores. ([GitHub][17])
+The repo has a large state surface: pools, managers, job events, CI job runs, release attempts, evidence, retry state, jeryu state, secret authority, audit events, capability intents/grants, admission decisions, test plans, selector misses, cache objects, metrics, leases, verdicts, promotions, and more. The state module is explicitly documented as supporting Postgres/SQLite-backed stores. ([GitHub][17])
 
 This is good, but for production-grade use it needs:
 

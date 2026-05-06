@@ -30,15 +30,22 @@ pub enum ReleaseError {
     CiSchemaFailed { stderr: String },
 }
 
-const DEFAULT_REPO_ROOT: &str = ".";
+const DEFAULT_REPO_ROOT: &str = "/home/ubuntu/dougx";
 pub const DEFAULT_RELEASE_PROJECT_ID: i64 = 2;
 
 fn repo_root() -> PathBuf {
-    crate::settings::get()
-        .release
-        .repo_root
-        .as_deref()
+    std::env::var("JERYU_RELEASE_REPO_ROOT")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
         .map(PathBuf::from)
+        .or_else(|| {
+            crate::settings::get()
+                .release
+                .repo_root
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .map(PathBuf::from)
+        })
         .unwrap_or_else(|| PathBuf::from(DEFAULT_REPO_ROOT))
 }
 
@@ -2060,11 +2067,8 @@ pub async fn trigger_production_promotion(
     let mut trigger_vars = vec![
         ("CI_PIPELINE_PRODUCT", "production-promotion"),
         ("JERYU_PROD_APPROVED", "1"),
-        ("SHADOW_PROD_APPROVED", "1"),
         ("JERYU_RELEASE_SHA", sha.as_str()),
-        ("SHADOW_RELEASE_SHA", sha.as_str()),
         ("JERYU_RELEASE_VERSION", release_version.as_str()),
-        ("SHADOW_RELEASE_VERSION", release_version.as_str()),
     ];
     if !release_pipeline_id_str.is_empty() {
         trigger_vars.push((
@@ -2072,7 +2076,7 @@ pub async fn trigger_production_promotion(
             release_pipeline_id_str.as_str(),
         ));
         trigger_vars.push((
-            "SHADOW_RELEASE_PIPELINE_ID",
+            "JERYU_RELEASE_PIPELINE_ID",
             release_pipeline_id_str.as_str(),
         ));
     }
@@ -2275,7 +2279,7 @@ async fn pipeline_matches_release_sha(
         Ok(variables) => Ok(variables.iter().any(|variable| {
             matches!(
                 variable.key.as_str(),
-                "SHADOW_RELEASE_SHA" | "JERYU_RELEASE_SHA"
+                "JERYU_RELEASE_SHA"
             ) && variable.value == release_sha
         })),
         Err(err) => {
@@ -3059,17 +3063,12 @@ pub async fn launch_canary_for_green_pipeline(
             let mut variables = vec![
                 ("CI_PIPELINE_PRODUCT", "release-execution"),
                 ("JERYU_CANARY_APPROVED", "1"),
-                ("SHADOW_CANARY_APPROVED", "1"),
                 ("JERYU_UPSTREAM_PIPELINE_ID", upstream_pipeline_id.as_str()),
-                ("SHADOW_UPSTREAM_PIPELINE_ID", upstream_pipeline_id.as_str()),
                 ("JERYU_RELEASE_SHA", sha),
-                ("SHADOW_RELEASE_SHA", sha),
                 ("JERYU_RELEASE_VERSION", version.as_str()),
-                ("SHADOW_RELEASE_VERSION", version.as_str()),
             ];
             if let Some(job_id) = upstream_build_job_id.as_deref() {
                 variables.push(("JERYU_UPSTREAM_BUILD_JOB_ID", job_id));
-                variables.push(("SHADOW_UPSTREAM_BUILD_JOB_ID", job_id));
             }
             if let Some(image_ref) = upstream_enclave_image_ref.as_deref() {
                 variables.push(("VEOX_PUBLISH_ENCLAVE_REF", image_ref));

@@ -24,13 +24,13 @@ That is exactly the right thesis. GitHub/GitLab today are still mostly designed 
 
 ## 2. The module surface is broad and ambitious
 
-The root `src` layout includes modules for admission, agents, agent surface, cache, cache brain, cache proxy, capability, decision, dispatch, engine, exec, explain, GitLab client, honeypot, impact, policy, pool, release, sandbox, secrets, shadow, state, taint, telemetry, test runner, witness, plus gateway/test intelligence/TUI submodules. ([GitHub][3])
+The root `src` layout includes modules for admission, agents, agent surface, cache, cache brain, cache proxy, capability, decision, dispatch, engine, exec, explain, GitLab client, honeypot, impact, policy, pool, release, sandbox, secrets, jeryu, state, taint, telemetry, test runner, witness, plus gateway/test intelligence/TUI submodules. ([GitHub][3])
 
 That breadth matters. A real agent-first Git platform cannot be “just an MCP server,” “just a CI wrapper,” or “just a bot.” It needs to control the whole loop: repo state, CI state, test selection, evidence, capability boundaries, merge gates, release gates, and human visibility.
 
 ## 3. It has a serious CLI/API surface already
 
-The docs expose lifecycle commands, pool/job/pipeline/cache commands, agent commands, shadow sync, VTI commands, release commands, secrets, progress, next-action, explain, action registry, repo audit, host ops, hidden executor commands, webhook APIs, and capability intents. The capability API includes intents like `ProposePatch`, `RacePatches`, `RunTests`, `FetchCapsule`, `RequestMerge`, `ExplainBlockers`, `GetSystemSnapshot`, `ListAllowedActions`, and `PlanValidation`. ([GitHub][4])
+The docs expose lifecycle commands, pool/job/pipeline/cache commands, agent commands, jeryu sync, VTI commands, release commands, secrets, progress, next-action, explain, action registry, repo audit, host ops, hidden executor commands, webhook APIs, and capability intents. The capability API includes intents like `ProposePatch`, `RacePatches`, `RunTests`, `FetchCapsule`, `RequestMerge`, `ExplainBlockers`, `GetSystemSnapshot`, `ListAllowedActions`, and `PlanValidation`. ([GitHub][4])
 
 That is a strong foundation. The key improvement is to make this surface more formal, safer, streaming, and eventually agent-consumable through REST/gRPC/MCP-style protocols.
 
@@ -56,7 +56,7 @@ That is the right safety posture for agent-led coding: accelerate only when evid
 
 ## 7. The state/evidence model is a strong base
 
-The architecture docs describe Postgres primary with SQLite fallback, DB schema groups for pools/managers/jobs/pipelines/releases/cache/evidence/agents/policies/shadow/progress/test intelligence, and invariants around append-heavy events and typed DB access. ([GitHub][9])
+The architecture docs describe Postgres primary with SQLite fallback, DB schema groups for pools/managers/jobs/pipelines/releases/cache/evidence/agents/policies/jeryu/progress/test intelligence, and invariants around append-heavy events and typed DB access. ([GitHub][9])
 
 For agents, this is critical. A good agent platform needs a **durable memory of what happened**, not just transient logs. Every flaky test, retry decision, failed release, selector miss, cache taint, and merge gate should become part of the system’s future intelligence.
 

@@ -20,7 +20,7 @@ The architecture docs split the system into five planes: interface, control, sta
 
 ### 2. The CLI surface is unusually rich for an agent substrate
 
-The CLI includes lifecycle, TUI, pool/job/pipeline/cache/logs, agent spawning, shadow sync, test intelligence, release, secrets, progress, repo/host actions, server hooks, capability server, next-action, explain-blocker, and action-list commands. The test command surface is especially good: `plan`, `batch`, `results`, `retry`, `failed`, `impact`, `select`, `select-external`, `audit`, `learn`, and `cache-status`. ([GitHub][3])
+The CLI includes lifecycle, TUI, pool/job/pipeline/cache/logs, agent spawning, jeryu sync, test intelligence, release, secrets, progress, repo/host actions, server hooks, capability server, next-action, explain-blocker, and action-list commands. The test command surface is especially good: `plan`, `batch`, `results`, `retry`, `failed`, `impact`, `select`, `select-external`, `audit`, `learn`, and `cache-status`. ([GitHub][3])
 
 That is a major strength. Agents need small, deterministic, composable commands with JSON output, not human-only dashboards.
 

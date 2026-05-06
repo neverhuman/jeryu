@@ -26,13 +26,13 @@ That is a fantastic direction. GitHub/GitLab still mostly expose “run CI and r
 
 ## 3. The product surface is broad and ambitious
 
-The source tree covers admission control, agent API, bootstrap, BuildKit, cache brain, cache proxy, capability intents, capsules, CLI, Docker, engine, epoch, executor, explanation, GitLab client, honeypot, impact, logs, policy, pools, reclaim, release, sandbox, sccache, secrets, settings, shadow remotes, state, taint, telemetry, test runner, witness, gateway modules, test intelligence, and TUI modules. ([GitHub][3])
+The source tree covers admission control, agent API, bootstrap, BuildKit, cache brain, cache proxy, capability intents, capsules, CLI, Docker, engine, epoch, executor, explanation, GitLab client, honeypot, impact, logs, policy, pools, reclaim, release, sandbox, sccache, secrets, settings, jeryu remotes, state, taint, telemetry, test runner, witness, gateway modules, test intelligence, and TUI modules. ([GitHub][3])
 
 That breadth matters. The right agent-first Git product is not “Git + chatbot.” It is a full control loop: task intake → planning → branch/worktree creation → patching → targeted tests → evidence capture → retry/repair → review → merge → canary → rollback → learning.
 
 ## 4. The CLI is unusually complete for an agent-control-plane prototype
 
-The command surface includes initialization, serving, TUI, pools, jobs, pipelines, cache, logs, shadow remotes, tests, release operations, and more. The CLI code explicitly claims to be data-only and keep business logic out of parsing, which is a good architectural invariant even if some surrounding dispatch code needs cleanup. ([GitHub][4])
+The command surface includes initialization, serving, TUI, pools, jobs, pipelines, cache, logs, jeryu remotes, tests, release operations, and more. The CLI code explicitly claims to be data-only and keep business logic out of parsing, which is a good architectural invariant even if some surrounding dispatch code needs cleanup. ([GitHub][4])
 
 The job/pipeline commands are particularly agent-relevant: explain a job, retry, cancel, diagnose pipeline bottlenecks, ingest pipeline state, plan tests, run targeted test batches, inspect failed tests, and compute impact.
 
@@ -56,7 +56,7 @@ That is exactly the right instinct. Agent-led development will create many specu
 
 ## 8. The TUI already has the bones of “mission control”
 
-The TUI state snapshot includes pools, GitLab status, containers, jobs, pipelines, flow information, live logs, shadow summary, cache metrics, taint/detonation status, storage breakdown, ETA/progress, release status, test bottlenecks, evidence, secret audit events, agent pipelines, and recent audit events. Its tabs include Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets. ([GitHub][8])
+The TUI state snapshot includes pools, GitLab status, containers, jobs, pipelines, flow information, live logs, jeryu summary, cache metrics, taint/detonation status, storage breakdown, ETA/progress, release status, test bottlenecks, evidence, secret audit events, agent pipelines, and recent audit events. Its tabs include Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets. ([GitHub][8])
 
 That is very close to the right UX direction. A human supervising autonomous coding should not stare at a raw pipeline table. They need a cockpit: what is blocked, why, who is acting, what changed, what is risky, what evidence exists, and what needs authorization.
 

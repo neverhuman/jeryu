@@ -2,7 +2,7 @@ I couldn’t complete a local `git clone`/build in this sandbox because DNS reso
 
 ## Executive verdict
 
-**JeRyu has the right soul.** The strongest idea is not “another CI helper,” but an **agent-native GitLab control plane**: agents get direct surfaces for test selection, runner orchestration, evidence capture, failure capsules, release gating, cache intelligence, and merge/release decisions. The repo’s own README frames `jeryu` as a Rust single-binary control plane for turning local GitLab into an orchestration engine for autonomous AI agents, with commands for agents, pools, test planning, impact analysis, cache, releases, and shadow/canary/prod workflows. ([GitHub][1])
+**JeRyu has the right soul.** The strongest idea is not “another CI helper,” but an **agent-native GitLab control plane**: agents get direct surfaces for test selection, runner orchestration, evidence capture, failure capsules, release gating, cache intelligence, and merge/release decisions. The repo’s own README frames `jeryu` as a Rust single-binary control plane for turning local GitLab into an orchestration engine for autonomous AI agents, with commands for agents, pools, test planning, impact analysis, cache, releases, and jeryu/canary/prod workflows. ([GitHub][1])
 
 The biggest gap is that the project currently feels like a **powerful prototype with production-shaped vocabulary**, not yet a production-grade agent platform. The docs describe an ambitious hypervisor, while the implementation has several places where features are partial, repo-specific, hard-coded, or not yet wired into durable autonomous loops. The core opportunity is to turn it from “agent can call commands” into “agent can safely own the development loop end-to-end.”
 

@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.1] - 2026-04-27
 ### Added
-- V3.01 capability request envelope with request id, actor, nonce, expiry, optional budget, optional grant proof, and length-prefixed JSON framing support while retaining legacy `AgentIntent` compatibility.
+- V3.01 capability request envelope with request id, actor, nonce, expiry, optional budget, optional grant proof, and length-prefixed JSON framing support while retaining  `AgentIntent` compatibility.
 - VTI proof receipts for internal plans plus `jeryu test select --emit-receipt`.
 - Merge-gate VTI receipt enforcement so smart-skipped validation cannot satisfy the default policy without a proof receipt.
 - Explicit strict sandbox backend reporting with fail-closed behavior when strict isolation is requested but no `bwrap` or `unshare` backend is available.

@@ -16,7 +16,7 @@ The current API reference documents a large control surface: CLI, TUI, webhook s
 
 The TUI itself has moved toward a nine-tab product shape: Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets. The CLI supports `jeryu tui --once` plus deterministic PNG capture with `--capture`, `--tab`, width, and height options, which is excellent for visual regression tests, papers, and demo automation. ([GitHub][2])
 
-The application state is also richer than a normal terminal app. The `TuiStateSnapshot` includes pools, GitLab readiness, containers, jobs, pipelines, flow snapshot, live log state, shadow sync, cache metrics, taints, storage, release status, test bottlenecks, recent evidence, secret audit events, agent pipelines, and recent audit events. ([GitHub][3])
+The application state is also richer than a normal terminal app. The `TuiStateSnapshot` includes pools, GitLab readiness, containers, jobs, pipelines, flow snapshot, live log state, jeryu sync, cache metrics, taints, storage, release status, test bottlenecks, recent evidence, secret audit events, agent pipelines, and recent audit events. ([GitHub][3])
 
 The flow system is promising. It has a `FlowSnapshot`, `PipelineFlow`, `FlowGraph`, columns, lanes, nodes, and edges. The graph builder classifies jobs into stages like Admission, Impact, Build, Tests, Security, Package, Gates, Canary, and Production; it also computes stage-ordering edges and a critical path. ([GitHub][4])
 

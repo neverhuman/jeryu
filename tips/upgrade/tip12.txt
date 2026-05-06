@@ -533,12 +533,12 @@ But “success” should not imply action.
 
 ---
 
-## Issue 5: `shadow sync-now` is a placeholder
+## Issue 5: `jeryu sync-now` is a placeholder
 
 The CLI has:
 
 ```bash
-jeryu shadow sync-now --source <dir>
+jeryu jeryu sync-now --source <dir>
 ```
 
 But it only tells the user to ensure `jeryu serve` is running.
@@ -550,7 +550,7 @@ Recommendation:
 Either implement it or rename it to something like:
 
 ```bash
-jeryu shadow request-sync
+jeryu jeryu request-sync
 ```
 
 with explicit behavior.

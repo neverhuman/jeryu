@@ -26,7 +26,7 @@ That sort of **agent index** is a genuinely good idea. For an autonomous coder, 
 
 ## 3. The CLI surface is broad and agent-friendly
 
-The CLI already exposes the right categories: lifecycle commands, pool controls, job controls, pipeline commands, cache commands, logs, agent operations, shadow execution, tests, release controls, secrets, progress, repo/host helpers, hidden executor/server-hook commands, capability commands, blocker explanation, and generic actions. ([GitHub][4])
+The CLI already exposes the right categories: lifecycle commands, pool controls, job controls, pipeline commands, cache commands, logs, agent operations, jeryu execution, tests, release controls, secrets, progress, repo/host helpers, hidden executor/server-hook commands, capability commands, blocker explanation, and generic actions. ([GitHub][4])
 
 That is a strong foundation. The next level is to make every one of those commands emit **stable JSON**, include **idempotency keys**, support **dry-run**, and return **evidence objects** that agents can feed into later decisions.
 

@@ -24,7 +24,7 @@ The current source also maps capture aliases such as `jobs|flow`, `tests|vti`, a
 
 The TUI app state tracks pools, GitLab readiness, active containers, recent jobs, tracked pipelines, flow snapshots, live logs, cache metrics, taints, disk/storage metrics, release status, test bottlenecks, evidence, secret audit events, agent pipelines, and audit events. It also keeps selection state, command-palette state, log state, and test/evidence view modes. ([GitHub][3])
 
-The app has three main background data streams: a general snapshot worker, a flow snapshot worker, and a live log worker. The TUI docs say the general worker refreshes pools, Docker containers, GitLab jobs, DB job events, tracked pipelines, shadow sync, release state, cache health, storage, and test bottlenecks; the flow collector emits snapshots about every 1500 ms, and the live log worker polls GitLab traces about every 650 ms. ([GitHub][4])
+The app has three main background data streams: a general snapshot worker, a flow snapshot worker, and a live log worker. The TUI docs say the general worker refreshes pools, Docker containers, GitLab jobs, DB job events, tracked pipelines, jeryu sync, release state, cache health, storage, and test bottlenecks; the flow collector emits snapshots about every 1500 ms, and the live log worker polls GitLab traces about every 650 ms. ([GitHub][4])
 
 ## Current tab behavior
 

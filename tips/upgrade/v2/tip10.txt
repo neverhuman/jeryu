@@ -35,7 +35,7 @@ That is the right shape. An agent-first repo manager should not merely “run te
 
 ### 3. The system has the beginnings of an evidence-first workflow
 
-SQLite is documented as the durable coordination layer for runner state, job/pipeline state, audit events, release attempts, evidence capsules, retry decisions, shadow sync, secrets, test plans, selector misses, and cache metadata. ([GitHub][2])
+SQLite is documented as the durable coordination layer for runner state, job/pipeline state, audit events, release attempts, evidence capsules, retry decisions, jeryu sync, secrets, test plans, selector misses, and cache metadata. ([GitHub][2])
 
 This matters because agents need **structured evidence**, not raw logs alone. The project already has concepts like failure capsules, retry decisions, `explain-blocker`, `next`, cache verdicts, selector misses, and release-gate status. Those are the right primitives for “agent as repo operator.”
 
@@ -386,7 +386,7 @@ The local GitLab angle is strong, but the broader product should be a repo contr
 
 * Local GitLab CE.
 * Existing GitLab SaaS/self-managed.
-* GitHub mirror/shadow mode.
+* GitHub mirror/jeryu mode.
 * Multi-repo workspaces.
 * Monorepos.
 * Language-specific adapters.

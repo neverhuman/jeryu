@@ -64,7 +64,7 @@ That is critical for agent-led development. Agents iterate quickly; if every sma
 
 ## 5. It has a serious state model, not just ad hoc scripts
 
-The state API tracks pools, managers, job events, CI runs, bottlenecks, event logs, tracked pipelines, release attempts, evidence capsules, retry decisions, shadow sync configs, secret authorities, release secret sets, cache metadata, cache leases, cache verdicts, action cache, cache epochs, toolchain fingerprints, test executions, test plans, and selector misses. ([GitHub][7])
+The state API tracks pools, managers, job events, CI runs, bottlenecks, event logs, tracked pipelines, release attempts, evidence capsules, retry decisions, jeryu sync configs, secret authorities, release secret sets, cache metadata, cache leases, cache verdicts, action cache, cache epochs, toolchain fingerprints, test executions, test plans, and selector misses. ([GitHub][7])
 
 That is exactly the kind of state substrate needed for autonomous coding. An agent can only be reliable if the platform remembers:
 

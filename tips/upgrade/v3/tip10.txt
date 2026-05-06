@@ -20,7 +20,7 @@ The architecture docs divide the system into interface, control, state, executio
 
 ### 2. The CLI surface is broad and agent-useful
 
-The `jeryu` command surface covers lifecycle, pool management, jobs, pipelines, cache, logs, agents, shadow remotes, tests, release, secrets, progress, next-action recommendation, blocker explanation, action listing, repo agent-surface generation, host operations, custom executor hooks, server hooks, and a capability socket. The API docs explicitly document both public and hidden/internal surfaces because hooks and agent operations are part of the control surface. ([GitHub][4])
+The `jeryu` command surface covers lifecycle, pool management, jobs, pipelines, cache, logs, agents, jeryu remotes, tests, release, secrets, progress, next-action recommendation, blocker explanation, action listing, repo agent-surface generation, host operations, custom executor hooks, server hooks, and a capability socket. The API docs explicitly document both public and hidden/internal surfaces because hooks and agent operations are part of the control surface. ([GitHub][4])
 
 That is a major positive. Most GitHub/GitLab agent workflows are stuck scraping UI, shelling out, polling flaky APIs, or inventing conventions. JeRyu’s direction is better: make the system itself expose “agent things” as first-class operations.
 
@@ -64,7 +64,7 @@ JeRyu already has the vocabulary for that.
 
 ### 7. The TUI is unusually ambitious
 
-The TUI is not just a dashboard. It has tabs for Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets; it keeps a `TuiStateSnapshot` with GitLab readiness, containers, jobs, pipelines, flow state, logs, shadow sync, cache metrics, taints, release state, test bottlenecks, evidence, secret audits, agent pipelines, and recent audit events. ([GitHub][9])
+The TUI is not just a dashboard. It has tabs for Mission, Release, Jobs, Agents, Tests, Pools, Cache, Evidence, and Secrets; it keeps a `TuiStateSnapshot` with GitLab readiness, containers, jobs, pipelines, flow state, logs, jeryu sync, cache metrics, taints, release state, test bottlenecks, evidence, secret audits, agent pipelines, and recent audit events. ([GitHub][9])
 
 The docs also describe deterministic PNG capture for non-interactive review, which is a great idea for papers, audits, CI snapshots, and agent-visible UI state. ([GitHub][9])
 

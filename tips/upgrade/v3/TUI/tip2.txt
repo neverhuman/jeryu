@@ -37,7 +37,7 @@ That breadth is very good. It means the TUI can become much more than a terminal
 
 ## CLI/API commands that matter for the TUI
 
-The CLI includes lifecycle, status, pool, job, pipeline, cache, logs, agent, shadow, test, release, secrets, progress, next-action, explain-blocker, action list, host, custom executor, server hook, and capability commands. The TUI command itself supports `--once` and deterministic `--capture` PNG output with tabs such as `mission`, `release`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, and `secrets`. ([GitHub][2])
+The CLI includes lifecycle, status, pool, job, pipeline, cache, logs, agent, jeryu, test, release, secrets, progress, next-action, explain-blocker, action list, host, custom executor, server hook, and capability commands. The TUI command itself supports `--once` and deterministic `--capture` PNG output with tabs such as `mission`, `release`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, and `secrets`. ([GitHub][2])
 
 That screenshot/capture mode is a really good idea. It should become a first-class “share state with humans/agents” API.
 
