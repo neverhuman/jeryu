@@ -645,6 +645,32 @@ fn apply_vti_selected_omissions(
     }
 }
 
+/// Fetch, aggregate, and VTI-normalize job statuses for a single pipeline,
+/// returning a `HashMap<job_id, status>`. Returns an empty map when `pipeline`
+/// is `None`.
+async fn collect_pipeline_statuses(
+    client: &GitlabClient,
+    project_id: i64,
+    schema_jobs: &[CiSchemaJob],
+    pipeline: Option<&Pipeline>,
+) -> Result<HashMap<String, String>> {
+    let Some(pipeline) = pipeline else {
+        return Ok(HashMap::new());
+    };
+    let mut aggregated = aggregate_pipeline_jobs(
+        client
+            .list_pipeline_jobs_with_downstream(project_id, pipeline.id)
+            .await?,
+    );
+    let vti_metadata =
+        apply_vti_skipped_statuses(client, project_id, pipeline.id, &mut aggregated).await?;
+    apply_vti_selected_omissions(schema_jobs, &vti_metadata, &mut aggregated);
+    Ok(aggregated
+        .into_iter()
+        .map(|(name, state)| (name, state.status))
+        .collect())
+}
+
 async fn latest_pipeline_for_ref(
     client: &GitlabClient,
     project_id: i64,
@@ -1376,39 +1402,12 @@ pub async fn build_progress_report(
     let winning_pipeline =
         latest_release_candidate_pipeline_for_ref(client, project_id, ref_name).await?;
 
-    let latest_statuses = if let Some(pipeline) = &latest_pipeline {
-        let mut aggregated = aggregate_pipeline_jobs(
-            client
-                .list_pipeline_jobs_with_downstream(project_id, pipeline.id)
-                .await?,
-        );
-        let vti_metadata =
-            apply_vti_skipped_statuses(client, project_id, pipeline.id, &mut aggregated).await?;
-        apply_vti_selected_omissions(&schema.jobs, &vti_metadata, &mut aggregated);
-        aggregated
-            .into_iter()
-            .map(|(name, state)| (name, state.status))
-            .collect::<HashMap<_, _>>()
-    } else {
-        HashMap::new()
-    };
-
-    let winning_statuses = if let Some(pipeline) = &winning_pipeline {
-        let mut aggregated = aggregate_pipeline_jobs(
-            client
-                .list_pipeline_jobs_with_downstream(project_id, pipeline.id)
-                .await?,
-        );
-        let vti_metadata =
-            apply_vti_skipped_statuses(client, project_id, pipeline.id, &mut aggregated).await?;
-        apply_vti_selected_omissions(&schema.jobs, &vti_metadata, &mut aggregated);
-        aggregated
-            .into_iter()
-            .map(|(name, state)| (name, state.status))
-            .collect::<HashMap<_, _>>()
-    } else {
-        HashMap::new()
-    };
+    let latest_statuses =
+        collect_pipeline_statuses(client, project_id, &schema.jobs, latest_pipeline.as_ref())
+            .await?;
+    let winning_statuses =
+        collect_pipeline_statuses(client, project_id, &schema.jobs, winning_pipeline.as_ref())
+            .await?;
 
     let winning_sha = winning_pipeline
         .as_ref()
