@@ -78,10 +78,10 @@ pub fn parse_push_mirror_plan(argv: &[String], remote_name: &str) -> Option<Push
     Some(PushMirrorPlan {
         remote_name: remote_name.to_string(),
         git_args,
-        ref_name: refspecs
-            .first()
-            .cloned()
-            .or_else(|| Some("HEAD".to_string())),
+        ref_name: Some(match refspecs.first().cloned() {
+            Some(value) => value,
+            None => "HEAD".to_string(),
+        }),
     })
 }
 
@@ -104,14 +104,20 @@ pub fn mirror_push(
         args.push(remote_name.to_string());
     } else {
         args.push(remote_name.to_string());
-        args.push(branch.unwrap_or("HEAD").to_string());
+        args.push(match branch {
+            Some(name) => name.to_string(),
+            None => "HEAD".to_string(),
+        });
     }
     mirror_push_plan(
         cwd,
         &PushMirrorPlan {
             remote_name: remote_name.to_string(),
             git_args: args,
-            ref_name: branch.map(str::to_string).or_else(|| Some("HEAD".into())),
+            ref_name: Some(match branch {
+                Some(name) => name.to_string(),
+                None => "HEAD".into(),
+            }),
         },
     )
 }

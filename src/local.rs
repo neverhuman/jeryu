@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use tokio::process::Command;
 
 use crate::cargo_cache;
+use crate::exec::run_status_check;
 
 fn cargo_cache_enabled() -> bool {
     std::env::var("JERYU_CARGO_CACHE")
@@ -35,21 +36,8 @@ pub async fn run_cargo(repo: PathBuf, cargo_args: Vec<String>) -> Result<()> {
     let mut command = Command::new("cargo");
     command.current_dir(&repo).args(&cargo_args);
     command.envs(layout.env.iter());
-    command.stdin(std::process::Stdio::inherit());
-    command.stdout(std::process::Stdio::inherit());
-    command.stderr(std::process::Stdio::inherit());
 
-    let status = command.status().await.context("running cargo")?;
-    if !status.success() {
-        anyhow::bail!(
-            "cargo exited with status {}",
-            status
-                .code()
-                .map(|code| code.to_string())
-                .unwrap_or_else(|| "signal".to_string())
-        );
-    }
-    Ok(())
+    run_status_check(&mut command, "running cargo").await
 }
 
 pub fn cargo_env(repo: PathBuf) -> Result<cargo_cache::CargoCacheLayout> {

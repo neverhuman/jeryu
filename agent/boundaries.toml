@@ -27,7 +27,7 @@ generated_contract_paths = ["contracts/generated"]
 generated_paths = ["contracts/generated"]
 
 [db]
-root_paths = ["db"]
+root_paths = ["db", "src/state.rs", "src/taint.rs"]
 allowed_truth_paths = ["python/ai-service"]
 
 [queues]

@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-postgres-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1778076317`
-- Started at: `1778076317`
-- Elapsed: `402` ms
+- Run ID: `1778076490`
+- Started at: `1778076490`
+- Elapsed: `380` ms
 - Scope: `full`
 - Raw score: `75`
 - Final score: `66`
@@ -139,7 +139,7 @@
 - Path: `agent/boundaries.toml`
 - Stack: `rust-ts-vite-react-postgres-bounded-python` · version: `0.4.0`
 - Queue path counts — adapter: `2`, event_contract: `1`, generated_type: `1`, client_marker: `7`, streaming_exception: `1`
-- Content fingerprint: `sha256:95d1600c7b05b133e96277cf5e528c45148bcd765ed233a8444f6138375b61d8`
+- Content fingerprint: `sha256:f287c716d609226e4c7eb8b0b883901346e44fbce7c216b500f34441b02b5dc1`
 
 ## Boundary Reclassifications
 
@@ -187,7 +187,7 @@ No audited runtime boundary reclassifications declared.
    Rerun: `just fast`
    Fingerprint: `sha256:f855856de7c0ff9d64ef1ee4de6f0fc8cde87f79b8dc47769b55f46bbc35d71f`
    Evidence: database surface present, structured db boundary manifest present, migration directory present, data access appears compartmentalized
-5. `high` `vibe` `src/git/mirror.rs:84`
+5. `high` `vibe` `src/git/system.rs:19`
    Rule: `HLT-001-DEAD-MARKER`
    Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
@@ -195,8 +195,8 @@ No audited runtime boundary reclassifications declared.
    Reason: fallback soup detected in product code
    Fix: collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Rerun: `just fast`
-   Fingerprint: `sha256:91f0aa267e343a154699345d71dd65a7b6c8581f73501c61af19d47c8e487afc`
-   Evidence: src/git/mirror.rs:84 .or_else(|| Some("HEAD".to_string())),
+   Fingerprint: `sha256:8007e9ee6b07feaafcf89d4f7d7187b6e75948fc13542ab4b22170232814039d`
+   Evidence: src/git/system.rs:19 .or_else(|| crate::settings::get().git.system_git.clone())
 6. `high` `vibe` `src/remote.rs:1`
    Check: `HLT-000-SCORE-DIMENSION:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
@@ -230,7 +230,7 @@ No audited runtime boundary reclassifications declared.
    Route: `Contracts/data`/`contract`
 3. `medium` `HLT-006-DIRECT-DB-WRONG-LAYER` `db/` - move durable truth into migrations, constraints, adapters, and application-owned transactions
    Route: `Contracts/data`/`db`
-4. `high` `HLT-001-DEAD-MARKER` `src/git/mirror.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
+4. `high` `HLT-001-DEAD-MARKER` `src/git/system.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Route: `Entropy`/`fast`
 5. `high` `src/remote.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Route: `Entropy`/`fast`

@@ -55,5 +55,8 @@ pub fn capture(cwd: &Path) -> Result<GitSnapshot> {
 }
 
 pub fn snapshot_or_empty(cwd: &Path) -> GitSnapshot {
-    capture(cwd).unwrap_or_else(|_| GitSnapshot::empty())
+    match capture(cwd) {
+        Ok(snapshot) => snapshot,
+        Err(_) => GitSnapshot::empty(),
+    }
 }

@@ -142,18 +142,11 @@ pub async fn capture_tui_screenshots(output_dir: Option<PathBuf>) -> Result<i32>
         .and_then(|value| value.parse().ok())
         .unwrap_or(300_u64);
 
-    let status = Command::new("cargo")
+    let mut build = Command::new("cargo");
+    build
         .args(["build", "--release", "-p", "jeryu", "-p", "tui-capture"])
-        .current_dir(&root)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .await
-        .context("building tui-capture assets")?;
-    if !status.success() {
-        bail!("cargo build failed");
-    }
+        .current_dir(&root);
+    crate::exec::run_status_check(&mut build, "building tui-capture assets").await?;
 
     let shots = [
         ("mission", output_dir.join("jeryu-tui-mission.png")),
@@ -189,16 +182,7 @@ pub async fn capture_tui_screenshots(output_dir: Option<PathBuf>) -> Result<i32>
         cmd.arg("--screenshot");
         cmd.arg("--tab").arg(tab);
         cmd.arg("--screenshot-hold-ms").arg("10000");
-        cmd.stdin(Stdio::inherit());
-        cmd.stdout(Stdio::inherit());
-        cmd.stderr(Stdio::inherit());
-        let status = cmd
-            .status()
-            .await
-            .with_context(|| format!("capturing {tab}"))?;
-        if !status.success() {
-            bail!("tui capture failed for {tab}");
-        }
+        crate::exec::run_status_check(&mut cmd, &format!("tui capture failed for {tab}")).await?;
         if !ready_file.path().exists() {
             bail!("TUI did not signal readiness for {tab}");
         }

@@ -195,47 +195,36 @@ pub async fn execute_remote(action: RemoteAction, opts: RemoteCommonOptions) -> 
         }
         RemoteAction::Refresh { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Refresh).await
-            .await
         }
         RemoteAction::Doctor { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Doctor).await
-            .await
         }
         RemoteAction::Status { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Status).await
-            .await
         }
         RemoteAction::Logs { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Logs).await
-            .await
         }
         RemoteAction::Restart { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Restart).await
-            .await
         }
         RemoteAction::Stop { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Stop).await
-            .await
         }
         RemoteAction::Start { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Start).await
-            .await
         }
         RemoteAction::Ssh { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Ssh).await
-            .await
         }
         RemoteAction::Run { alias, command } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Run(command)).await
-            .await
         }
         RemoteAction::Tunnel { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Tunnel).await
-            .await
         }
         RemoteAction::Uninstall { alias } => {
             dispatch_remote_action(&alias, &opts, RemoteOp::Uninstall).await
-            .await
         }
     }
 }
