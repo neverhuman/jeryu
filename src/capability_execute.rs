@@ -85,7 +85,7 @@ pub(crate) async fn propose_patch(
     branch_name: String,
     base_ref: String,
     commit_message: String,
-    modifications: Vec<Modification>,
+    modifications: Vec<FileModification>,
     mr_title: Option<String>,
     ctx: &CapabilityContext,
     client: &crate::gitlab_client::GitlabClient,

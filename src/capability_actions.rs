@@ -53,10 +53,9 @@ pub(crate) async fn execute_intent(
             target_branch,
         } => execute::request_merge(project_id, mr_iid, source_branch, target_branch, client).await,
         AgentIntent::ExplainBlockers {
-            project_id,
-            ref_name,
-            sha,
-        } => inspect::explain_blockers(project_id, ref_name, sha, client).await,
+            entity_type,
+            entity_id,
+        } => inspect::explain_blockers(entity_type, entity_id, client).await,
         AgentIntent::GetSystemSnapshot => inspect::get_system_snapshot(client).await,
         AgentIntent::GetPipelineJobs {
             project_id,
