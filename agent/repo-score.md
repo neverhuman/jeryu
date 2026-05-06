@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-postgres-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1778072289`
-- Started at: `1778072289`
-- Elapsed: `399` ms
+- Run ID: `1778072352`
+- Started at: `1778072352`
+- Elapsed: `437` ms
 - Scope: `full`
 - Raw score: `73`
 - Final score: `66`
@@ -122,7 +122,7 @@
 - Path: `agent/boundaries.toml`
 - Stack: `rust-ts-vite-react-postgres-bounded-python` · version: `0.4.0`
 - Queue path counts — adapter: `2`, event_contract: `1`, generated_type: `1`, client_marker: `7`, streaming_exception: `1`
-- Content fingerprint: `sha256:cbc1f6f5b74d8c5c64ef51881535ee936571269ef286bddaf6f259f2ed046cea`
+- Content fingerprint: `sha256:b8c3767aad904c5a72f510397f22ac3de48a4d712fa3d74f8930585323057b0f`
 
 ## Boundary Reclassifications
 

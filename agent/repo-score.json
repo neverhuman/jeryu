@@ -1,17 +1,17 @@
 {
-  "report_fingerprint": "sha256:55411366b20731e04b85a733ce760e5efd67fa5503fe7e6352521414c8c4ac58",
-  "input_fingerprint": "sha256:628a399abe12643e95fe2a46aa731d81f4149195320586603e11982d69c1e2f1",
+  "report_fingerprint": "sha256:90dfdf60814c42e562ead012b79e4510d9dce16ddf7c87f526b2d56995fb7073",
+  "input_fingerprint": "sha256:226d78f8ff51e42ff2c57db8e6d5711490a1a52f85764ba6a49baeed06339e71",
   "policy_fingerprint": "sha256:396aa94b1d9d3e43a5531652f3c52172e9b5e57cc1b5de44febdc48207e3f918",
   "manifest_fingerprints": {
     "owner_map": "sha256:c5fde96b1057db935ec2dbbd0e3c9176b98c69dc0d9a98bad1d299607724ba72",
     "test_map": "sha256:03161a5e97cf67686f52a5c6c1ba6df7785985f7bf494e5bfd2bf54a3d0980d7",
     "generated_zones": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "boundaries": "sha256:cbc1f6f5b74d8c5c64ef51881535ee936571269ef286bddaf6f259f2ed046cea",
+    "boundaries": "sha256:b8c3767aad904c5a72f510397f22ac3de48a4d712fa3d74f8930585323057b0f",
     "proof_lanes": "sha256:87630d6fe9b678ce7cfeff446c6e1bf1cdf75bc48c8669929914d2fb5d7e07e8",
     "standard_version": "sha256:8218ee450313a74e73eb990aaadedecba61d4c0d48ada0b6f368b4f7bf2fd9de"
   },
   "dirty_worktree": true,
-  "generated_at": "1778072289",
+  "generated_at": "1778072352",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.8.0",
@@ -29,9 +29,9 @@
     "HLT-000-SCORE-DIMENSION:vibe on src/gateway/oci.rs"
   ],
   "repo": ".",
-  "run_id": "1778072289",
-  "started_at": "1778072289",
-  "elapsed_ms": 399,
+  "run_id": "1778072352",
+  "started_at": "1778072352",
+  "elapsed_ms": 437,
   "scope": {
     "mode": "full",
     "paths": []
@@ -966,7 +966,7 @@
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
-      "content_fingerprint": "sha256:cbc1f6f5b74d8c5c64ef51881535ee936571269ef286bddaf6f259f2ed046cea",
+      "content_fingerprint": "sha256:b8c3767aad904c5a72f510397f22ac3de48a4d712fa3d74f8930585323057b0f",
       "stack_id": "rust-ts-vite-react-postgres-bounded-python",
       "stack_version": "0.4.0",
       "adapter_path_count": 2,

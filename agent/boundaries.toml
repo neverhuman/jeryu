@@ -24,6 +24,7 @@ forbidden_domain_imports = [
 web_paths = ["apps/web", "packages/web", "packages/ui"]
 forbidden_web_imports = ["sqlx", "pg", "postgres", "mysql", "better-sqlite3", "@aws-sdk/client-s3"]
 generated_contract_paths = ["contracts/generated"]
+generated_paths = ["contracts/generated"]
 
 [python]
 allowed_truth_paths = ["python/ai-service"]
@@ -32,6 +33,7 @@ allowed_truth_paths = ["python/ai-service"]
 adapter_paths = ["crates/adapters/queues", "crates/adapters/src/queues"]
 event_contract_paths = ["contracts/events"]
 generated_type_paths = ["contracts/generated"]
+generated_paths = ["contracts/generated"]
 client_markers = ["rdkafka", "kafkajs", "tansu", "iggy", "fluvio", "nats", "redis streams"]
 
 [[streaming_exception]]
