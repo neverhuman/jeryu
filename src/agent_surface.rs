@@ -89,9 +89,7 @@ pub fn render_agent_index(check: bool) -> Result<()> {
     let markdown_path = root.join("agent-index.md");
 
     if check {
-        let json_current = fs::read_to_string(&json_path).unwrap_or_default();
-        let markdown_current = fs::read_to_string(&markdown_path).unwrap_or_default();
-        if !compare_generated_index(&json_current, &json_text, &markdown_current, &markdown_text) {
+        if !generated_index_is_current(&json_path, &json_text, &markdown_path, &markdown_text) {
             bail!(
                 "agent index drift detected; run `cargo run -p jeryu -- repo render-agent-index`"
             );
@@ -227,10 +225,10 @@ fn build_audit_report(root: &Path) -> Result<AgentSurfaceAudit> {
     let index = build_index(root)?;
     let expected_json = serde_json::to_string_pretty(&index)?;
     let expected_markdown = render_markdown(&index);
-    let index_current = compare_generated_index(
-        &fs::read_to_string(root.join("agent-index.json")).unwrap_or_default(),
+    let index_current = generated_index_is_current(
+        &root.join("agent-index.json"),
         &expected_json,
-        &fs::read_to_string(root.join("agent-index.md")).unwrap_or_default(),
+        &root.join("agent-index.md"),
         &expected_markdown,
     );
     if !index_current {
@@ -278,15 +276,8 @@ fn build_entry(root: &Path, path: &Path, proof: &ProofLanesFile) -> Result<Agent
     let content = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     let rel_path = rel(root, path);
     let default_change_type = module_change_type(&rel_path, proof);
-    let proof_lanes = proof
-        .change_type
-        .get(&default_change_type)
-        .map(|value| value.lanes.clone())
-        .unwrap_or_default();
-    let proof_commands = proof_lanes
-        .iter()
-        .filter_map(|lane| proof.lane.get(lane).map(|value| value.command.clone()))
-        .collect::<Vec<_>>();
+    let proof_lanes = proof_lanes_for_change_type(proof, &default_change_type);
+    let proof_commands = proof_commands_for_lanes(proof, &proof_lanes);
     let mut widening_rules = Vec::new();
     if default_change_type == "security-relevant" {
         widening_rules.push("security-relevant modules widen to security proof lanes".to_string());
@@ -305,9 +296,9 @@ fn build_entry(root: &Path, path: &Path, proof: &ProofLanesFile) -> Result<Agent
             .trim_end_matches(".rs")
             .replace('/', "::"),
         path: rel_path,
-        owner: header_value(&content, "Owner").unwrap_or_default(),
-        proof: header_value(&content, "Proof").unwrap_or_default(),
-        invariants: header_value(&content, "Invariants").unwrap_or_default(),
+        owner: header_value_or_empty(&content, "Owner"),
+        proof: header_value_or_empty(&content, "Proof"),
+        invariants: header_value_or_empty(&content, "Invariants"),
         default_change_type,
         proof_lanes,
         proof_commands,
@@ -340,19 +331,18 @@ fn tracked_source_files(root: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn module_change_type(rel_path: &str, proof: &ProofLanesFile) -> String {
-    proof
-        .module_hints
-        .iter()
-        .find_map(|(hint, change_type)| {
-            if let Some(prefix) = hint.strip_suffix('/') {
-                rel_path
-                    .starts_with(&format!("src/{prefix}"))
-                    .then(|| change_type.clone())
-            } else {
-                rel_path.ends_with(hint).then(|| change_type.clone())
-            }
-        })
-        .unwrap_or_else(|| "leaf-bugfix".to_string())
+    match proof.module_hints.iter().find_map(|(hint, change_type)| {
+        if let Some(prefix) = hint.strip_suffix('/') {
+            rel_path
+                .starts_with(&format!("src/{prefix}"))
+                .then(|| change_type.clone())
+        } else {
+            rel_path.ends_with(hint).then(|| change_type.clone())
+        }
+    }) {
+        Some(change_type) => change_type,
+        None => "leaf-bugfix".to_string(),
+    }
 }
 
 fn header_value(content: &str, label: &str) -> Option<String> {
@@ -361,6 +351,30 @@ fn header_value(content: &str, label: &str) -> Option<String> {
         line.strip_prefix(&prefix)
             .map(|value| value.trim().to_string())
     })
+}
+
+fn header_value_or_empty(content: &str, label: &str) -> String {
+    match header_value(content, label) {
+        Some(value) => value,
+        None => String::new(),
+    }
+}
+
+fn proof_lanes_for_change_type(proof: &ProofLanesFile, default_change_type: &str) -> Vec<String> {
+    match proof.change_type.get(default_change_type) {
+        Some(value) => value.lanes.clone(),
+        None => Vec::new(),
+    }
+}
+
+fn proof_commands_for_lanes(proof: &ProofLanesFile, proof_lanes: &[String]) -> Vec<String> {
+    let mut commands = Vec::with_capacity(proof_lanes.len());
+    for lane in proof_lanes {
+        if let Some(value) = proof.lane.get(lane) {
+            commands.push(value.command.clone());
+        }
+    }
+    commands
 }
 
 fn check_sections(path: &Path, required: &[&str], issues: &mut Vec<AuditIssue>) -> Result<bool> {
@@ -425,7 +439,7 @@ fn normalize_index_json(raw: &str) -> String {
             Value::String("<normalized>".to_string()),
         );
     }
-    serde_json::to_string(&value).unwrap_or_else(|_| raw.to_string())
+    match serde_json::to_string(&value) { Ok(s) => s, Err(_) => raw.to_string() }
 }
 
 fn normalize_index_markdown(raw: &str) -> String {
