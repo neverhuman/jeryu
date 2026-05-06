@@ -983,8 +983,40 @@ fn release_identity_ok(version: &str, expected_sha: &str) -> bool {
         && json_release_identity_ok(&contract_json, version, expected_sha)
 }
 
+#[derive(Debug, Clone, Copy)]
+struct CanaryGateFiles {
+    remote: bool,
+    telemetry: bool,
+    e2e: bool,
+    validation: bool,
+    handoff: bool,
+    telemetry_diag: bool,
+}
+
+impl CanaryGateFiles {
+    fn canary_complete(self) -> bool {
+        self.remote && self.telemetry && self.e2e && self.validation
+    }
+
+    fn promotion_ready(self) -> bool {
+        self.canary_complete() && self.handoff
+    }
+}
+
+fn canary_gate_files(version: &str) -> CanaryGateFiles {
+    CanaryGateFiles {
+        remote: gate_remote_canary_path(version).is_file(),
+        telemetry: gate_canary_telemetry_path(version).is_file(),
+        e2e: gate_canary_e2e_path(version).is_file(),
+        validation: c_validation_path(version).is_file(),
+        handoff: c_handoff_path(version).is_file(),
+        telemetry_diag: telemetry_diag_path(version).is_file(),
+    }
+}
+
 fn release_evidence(version: &str, expected_sha: &str) -> Result<ReleaseEvidence> {
     let state_value = parse_state_json(version)?;
+    let gate_files = canary_gate_files(version);
     Ok(ReleaseEvidence {
         state_phase: state_value
             .as_ref()
@@ -1001,12 +1033,12 @@ fn release_evidence(version: &str, expected_sha: &str) -> Result<ReleaseEvidence
             .and_then(|value| value.get("detail"))
             .and_then(|value| value.as_str())
             .map(ToOwned::to_owned),
-        has_remote_gate: gate_remote_canary_path(version).is_file(),
-        has_telemetry_gate: gate_canary_telemetry_path(version).is_file(),
-        has_e2e_gate: gate_canary_e2e_path(version).is_file(),
-        has_c_validation: c_validation_path(version).is_file(),
-        has_c_handoff: c_handoff_path(version).is_file(),
-        has_telemetry_diag: telemetry_diag_path(version).is_file(),
+        has_remote_gate: gate_files.remote,
+        has_telemetry_gate: gate_files.telemetry,
+        has_e2e_gate: gate_files.e2e,
+        has_c_validation: gate_files.validation,
+        has_c_handoff: gate_files.handoff,
+        has_telemetry_diag: gate_files.telemetry_diag,
         release_identity_ok: release_identity_ok(version, expected_sha),
     })
 }
@@ -2135,14 +2167,13 @@ pub async fn maybe_trigger_production_promotion(
     };
 
     // Sync CI artifacts to local disk if release pipeline succeeded and gate files are missing.
+    let gate_files_before_sync = canary_gate_files(&view.attempt.version);
     if view.attempt.release_pipeline_status.as_deref() == Some("success")
         && let Some(release_pipeline_id) = view.attempt.release_pipeline_id
-        && (!gate_canary_e2e_path(&view.attempt.version).is_file()
-            || !c_handoff_path(&view.attempt.version).is_file()
-            || !c_validation_path(&view.attempt.version).is_file()
-            || !release_dir(&view.attempt.version)
-                .join("release.json")
-                .is_file()
+        && (!gate_files_before_sync.e2e
+            || !gate_files_before_sync.handoff
+            || !gate_files_before_sync.validation
+            || !release_dir(&view.attempt.version).join("release.json").is_file()
             || !release_dir(&view.attempt.version)
                 .join("release-contract.json")
                 .is_file())
@@ -2163,11 +2194,8 @@ pub async fn maybe_trigger_production_promotion(
     }
 
     // Re-evaluate gate file presence after potential artifact sync.
-    let gate_files_ok = c_handoff_path(&view.attempt.version).is_file()
-        && c_validation_path(&view.attempt.version).is_file()
-        && gate_remote_canary_path(&view.attempt.version).is_file()
-        && gate_canary_telemetry_path(&view.attempt.version).is_file()
-        && gate_canary_e2e_path(&view.attempt.version).is_file();
+    let gate_files = canary_gate_files(&view.attempt.version);
+    let gate_files_ok = gate_files.promotion_ready();
     let identity_ok = release_identity_ok(&view.attempt.version, &view.attempt.sha);
 
     if !gate_files_ok
@@ -3383,34 +3411,31 @@ pub async fn release_doctor(version: &str, run_preflight: bool) -> DoctorReport 
     let mut gates = std::collections::HashMap::new();
 
     // Check gate files
-    let gate_remote = gate_remote_canary_path(version).exists();
-    let gate_telemetry = gate_canary_telemetry_path(version).exists();
-    let gate_e2e = gate_canary_e2e_path(version).exists();
+    let gate_files = canary_gate_files(version);
     let gate_prod = gate_prod_promotion_path(version).exists();
-    let gate_validation = c_validation_path(version).exists();
-    gates.insert("remote".to_string(), gate_remote);
-    gates.insert("telemetry".to_string(), gate_telemetry);
-    gates.insert("e2e".to_string(), gate_e2e);
+    gates.insert("remote".to_string(), gate_files.remote);
+    gates.insert("telemetry".to_string(), gate_files.telemetry);
+    gates.insert("e2e".to_string(), gate_files.e2e);
     gates.insert("prod".to_string(), gate_prod);
-    gates.insert("c_validation".to_string(), gate_validation);
+    gates.insert("c_validation".to_string(), gate_files.validation);
 
-    let canary_complete = gate_remote && gate_telemetry && gate_e2e && gate_validation;
+    let canary_complete = gate_files.canary_complete();
     let prod_complete = gate_prod;
 
     // Check missing gates
     for (name, present, path) in [
         (
             "gate-remote-canary",
-            gate_remote,
+            gate_files.remote,
             gate_remote_canary_path(version),
         ),
         (
             "gate-canary-telemetry",
-            gate_telemetry,
+            gate_files.telemetry,
             gate_canary_telemetry_path(version),
         ),
-        ("gate-canary-e2e", gate_e2e, gate_canary_e2e_path(version)),
-        ("c-validation", gate_validation, c_validation_path(version)),
+        ("gate-canary-e2e", gate_files.e2e, gate_canary_e2e_path(version)),
+        ("c-validation", gate_files.validation, c_validation_path(version)),
     ] {
         if !present {
             blockers.push(DoctorBlocker {
@@ -3650,6 +3675,27 @@ mod tests {
             canary_public_url: Some("https://example.invalid".into()),
         };
         assert!(!should_trigger_production_promotion_with_gate(&view, true));
+    }
+
+    #[test]
+    fn canary_gate_files_capture_complete_and_promotion_readiness() {
+        let complete = CanaryGateFiles {
+            remote: true,
+            telemetry: true,
+            e2e: true,
+            validation: true,
+            handoff: true,
+            telemetry_diag: false,
+        };
+        assert!(complete.canary_complete());
+        assert!(complete.promotion_ready());
+
+        let incomplete = CanaryGateFiles {
+            validation: false,
+            ..complete
+        };
+        assert!(!incomplete.canary_complete());
+        assert!(!incomplete.promotion_ready());
     }
 
     #[test]
