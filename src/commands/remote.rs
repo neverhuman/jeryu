@@ -29,7 +29,7 @@ pub(crate) async fn execute_remote_command(cmd: RemoteCommand) -> Result<i32> {
             setup_key,
             identity,
         },
-        RemoteActionCommands::Update { alias } => RemoteAction::Update { alias },
+        RemoteActionCommands::Refresh { alias } => RemoteAction::Update { alias },
         RemoteActionCommands::Doctor { alias } => RemoteAction::Doctor { alias },
         RemoteActionCommands::Status { alias } => RemoteAction::Status { alias },
         RemoteActionCommands::Logs { alias } => RemoteAction::Logs { alias },

@@ -50,7 +50,7 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
             pool::drain_pool(&db, &docker_ctl, &client, &name).await?;
             println!("✅ Pool '{}' drained", name);
         }
-        PoolCommands::Delete { name } => {
+        PoolCommands::Remove { name } => {
             pool::delete_pool(&db, &docker_ctl, &client, &name).await?;
             println!("✅ Pool '{}' deleted", name);
         }

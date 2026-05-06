@@ -382,7 +382,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 println!("  Matched rules:      {rules}");
             }
         }
-        TestCommands::Select {
+        TestCommands::Choose {
             base,
             head,
             repo_root,

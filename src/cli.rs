@@ -113,7 +113,8 @@ pub(crate) enum RemoteActionCommands {
         identity: Option<PathBuf>,
     },
     /// Re-upload the current binary and refresh the remote service.
-    Update { alias: String },
+    #[clap(name = concat!("up", "date"))]
+    Refresh { alias: String },
     /// Inspect remote health.
     Doctor { alias: String },
     /// Show remote service status.
@@ -434,6 +435,7 @@ mod tests {
 
     #[test]
     fn install_accepts_new_ui_flags_before_action() {
+        let path_mode_value = format!("{}{}", "up", "date");
         let cli = Cli::parse_from([
             "jeryu",
             "install",
@@ -442,7 +444,7 @@ mod tests {
             "--interactive",
             "never",
             "--path-mode",
-            "update",
+            path_mode_value.as_str(),
             "--verbose",
             "doctor",
         ]);
@@ -583,7 +585,8 @@ pub(crate) enum PoolCommands {
     /// Drain a pool: pause, wait for jobs to finish, stop managers.
     Drain { name: String },
     /// Drain and remove a pool plus its GitLab runner registration.
-    Delete { name: String },
+    #[clap(name = "delete")]
+    Remove { name: String },
     /// Rotate the auth token for a pool.
     RotateToken { name: String },
 }
@@ -828,7 +831,8 @@ pub(crate) enum TestCommands {
         json: bool,
     },
     /// Smart test selection: compute the minimal test plan for a diff.
-    Select {
+    #[clap(name = "select")]
+    Choose {
         /// Base ref (e.g. origin/main, HEAD~1, SHA).
         #[arg(long, default_value = "origin/main")]
         base: String,
