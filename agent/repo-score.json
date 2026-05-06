@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:f6f8e8941e8edc5ac5da069bb5621ea2de71d4dbaa9b5353c76f84ff451af95c",
-  "input_fingerprint": "sha256:72a18d55ae305d618443a33dae24ae9b30740d9ab9afada84bb68c309bbca6e5",
+  "report_fingerprint": "sha256:14aa60e339e1888a51da80cf53cdfdf789ba88c33729a69aa5b282d4bbfa836d",
+  "input_fingerprint": "sha256:714dfd28775e6a1edd990a27f4be08afb0e398b5412da999f3303651755db883",
   "policy_fingerprint": "sha256:396aa94b1d9d3e43a5531652f3c52172e9b5e57cc1b5de44febdc48207e3f918",
   "manifest_fingerprints": {
     "owner_map": "sha256:8a15e0d3457b4a4476fe23ee9b16f87b6bbc4e025ec982ce8dfd6cd60cc3e69f",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:8218ee450313a74e73eb990aaadedecba61d4c0d48ada0b6f368b4f7bf2fd9de"
   },
   "dirty_worktree": true,
-  "generated_at": "1778073904",
+  "generated_at": "1778074008",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.8.0",
@@ -24,14 +24,14 @@
   "observed_conformance_level": "HL2",
   "conformance_decision": "block",
   "conformance_blockers": [
-    "HLT-001-DEAD-MARKER on src/cargo_cache.rs",
+    "HLT-001-DEAD-MARKER on src/cli.rs",
     "HLT-006-DIRECT-DB-WRONG-LAYER on src/epoch.rs",
-    "HLT-000-SCORE-DIMENSION:vibe on src/reclaim.rs"
+    "HLT-000-SCORE-DIMENSION:vibe on src/release.rs"
   ],
   "repo": ".",
-  "run_id": "1778073904",
-  "started_at": "1778073904",
-  "elapsed_ms": 392,
+  "run_id": "1778074008",
+  "started_at": "1778074008",
+  "elapsed_ms": 398,
   "scope": {
     "mode": "full",
     "paths": []
@@ -58,7 +58,7 @@
     }
   },
   "git": {
-    "head": "dbcd8e9",
+    "head": "2692771",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -326,7 +326,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 931",
+        "rust bad-behavior advisory signals: 932",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
@@ -344,7 +344,7 @@
         "code file exceeds 1000 LOC",
         "duplicate code block marker found",
         "fallback soup marker found",
-        "rust bad-behavior advisory signals: 931",
+        "rust bad-behavior advisory signals: 932",
         "ci bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
@@ -1079,24 +1079,24 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/cargo_cache.rs",
+      "path": "src/cli.rs",
       "problem": "fallback soup detected in product code",
       "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
       "evidence": [
-        "src/cargo_cache.rs:102 .unwrap_or_else(|| \"0\".to_string());"
+        "src/cli.rs:1020 .unwrap_or_else(|| \"jeryu\".to_string())"
       ],
       "check_id": "HLT-001-DEAD-MARKER:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:0d9c19b9dcc68e94764a417cb32af012bc588197085826ad72789e6e742e996d",
+      "fingerprint": "sha256:4035439added65ae8720a53073516b0c9d650601f687ec6becf2c0dff982db84",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "workspace",
-      "line": 102
+      "line": 1020
     },
     {
       "severity": "high",
@@ -1123,18 +1123,18 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/reclaim.rs",
+      "path": "src/release.rs",
       "problem": "duplicated product code block detected",
       "agent_fix": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
       "evidence": [
-        "duplicate block also appears at src/reclaim.rs:1"
+        "duplicate block also appears at src/release.rs:1"
       ],
       "check_id": "HLT-000-SCORE-DIMENSION:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:f77370d858989db99dc0fbbe04056a0c4453afeec3b7d45de396f450647ece0c",
+      "fingerprint": "sha256:0751a667ea9f1fd7a787e5e0e2c32408274606371bb3c2d1eea5501857d1d74a",
       "tlr": "Entropy",
       "lane": "fast",
       "owner": "workspace",
@@ -1173,7 +1173,7 @@
       "why": "`Data truth and workflow safety` scored 65 below the standard floor of 85"
     },
     {
-      "path": "src/cargo_cache.rs",
+      "path": "src/cli.rs",
       "priority": "high",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
@@ -1183,7 +1183,7 @@
       "why": "fallback soup detected in product code"
     },
     {
-      "path": "src/reclaim.rs",
+      "path": "src/release.rs",
       "priority": "high",
       "tlr": "Entropy",
       "lane": "fast",

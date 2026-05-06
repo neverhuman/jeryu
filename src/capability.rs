@@ -300,12 +300,12 @@ pub(crate) async fn execute_intent(
                     project_id,
                     &branch,
                     &format!("DAG injection for {}", test_scope),
-                    &[("update", ".gitlab-ci.yml", yaml.as_str())],
+                    &[("update", ".gitlab-ci.yml", yaml.as_str())], // allowlist: not a DB query
                 )
                 .await
             {
                 Ok(sha) => sha,
-                Err(e) => return err(&format!("update_file: {}", e)),
+                Err(e) => return err(&format!("update_file: {}", e)), // allowlist: not a DB query
             };
             let pipeline_id = match client.trigger_pipeline(project_id, &branch, vec![]).await {
                 Ok(pipeline_id) => pipeline_id,
@@ -448,7 +448,7 @@ pub(crate) async fn execute_intent(
                 let tuples: Vec<(&str, &str, &str)> = h
                     .modifications
                     .iter()
-                    .map(|m| ("update", m.file_path.as_str(), m.content.as_str()))
+                    .map(|m| ("update", m.file_path.as_str(), m.content.as_str())) // allowlist: not a DB query
                     .collect();
                 let Ok(commit_sha) = client
                     .commit_actions_with_sha(project_id, &branch, &commit_message, &tuples)

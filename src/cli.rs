@@ -1014,10 +1014,13 @@ pub(crate) enum ReleaseCommands {
 }
 
 pub fn infer_repo_name() -> String {
-    std::env::current_dir()
-        .ok()
-        .and_then(|p| p.file_name().map(|s| s.to_string_lossy().to_string()))
-        .unwrap_or_else(|| "jeryu".to_string())
+    match std::env::current_dir() {
+        Ok(path) => match path.file_name() {
+            Some(name) => name.to_string_lossy().to_string(),
+            None => "jeryu".to_string(),
+        },
+        Err(_) => "jeryu".to_string(),
+    }
 }
 
 #[derive(Subcommand)]

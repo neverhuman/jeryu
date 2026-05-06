@@ -97,9 +97,10 @@ pub fn build_cargo_cache_layout(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string);
-    let cargo_incremental = incremental_override
-        .clone()
-        .unwrap_or_else(|| "0".to_string());
+    let cargo_incremental: String = match incremental_override.as_deref() {
+        Some(value) => value.to_string(),
+        None => "0".to_string(),
+    };
 
     let mut env = BTreeMap::new();
     env.insert(
@@ -520,6 +521,32 @@ mod tests {
         assert!(layout.env.contains_key("CARGO_TARGET_DIR"));
         assert_eq!(layout.env["CARGO_INCREMENTAL"], "1");
         assert!(!layout.env.contains_key("RUSTC_WRAPPER"));
+
+        match original_path {
+            Some(value) => set_env_var("PATH", value),
+            None => remove_env_var("PATH"),
+        }
+    }
+
+    #[test]
+    fn layout_defaults_incremental_to_zero() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let path_dir = make_test_bin_dir(false, true, false);
+        let original_path = std::env::var_os("PATH");
+        set_env_var("PATH", path_dir.path());
+
+        let layout = build_cargo_cache_layout(
+            Path::new("/tmp/jeryu-cache"),
+            "targets",
+            "repo-key",
+            true,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(layout.env["CARGO_INCREMENTAL"], "0");
+        assert!(layout.incremental_override.is_none());
 
         match original_path {
             Some(value) => set_env_var("PATH", value),

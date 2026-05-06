@@ -412,27 +412,11 @@ async fn evict_artifacts_over_budget(
 ) -> u64 {
     // Collect all matching files with their mtime and size
     let mut files: Vec<(std::path::PathBuf, u64, std::time::SystemTime)> = Vec::new();
-    let mut stack = vec![dir.to_path_buf()];
-    while let Some(current) = stack.pop() {
-        let Ok(mut entries) = tokio::fs::read_dir(&current).await else {
-            continue;
-        };
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let Ok(meta) = entry.metadata().await else {
-                continue;
-            };
-            if meta.is_dir() {
-                stack.push(entry.path());
-                continue;
-            }
-            let name = entry.file_name();
-            if !name.to_string_lossy().ends_with(suffix) {
-                continue;
-            }
-            let mtime = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
-            files.push((entry.path(), meta.len(), mtime));
-        }
-    }
+    walk_files_with_suffix(dir, suffix, |path, meta| {
+        let mtime = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+        files.push((path, meta.len(), mtime));
+    })
+    .await;
 
     let total: u64 = files.iter().map(|(_, sz, _)| sz).sum();
     if total <= budget_bytes {
@@ -547,8 +531,36 @@ async fn sweep_stale_files(
     max_age: std::time::Duration,
 ) -> u64 {
     let mut removed = 0u64;
+    let mut to_remove: Vec<std::path::PathBuf> = Vec::new();
+    walk_files_with_suffix(dir, suffix, |path, meta| {
+        let is_stale = meta
+            .modified()
+            .ok()
+            .and_then(|mtime| std::time::SystemTime::now().duration_since(mtime).ok())
+            .is_some_and(|age| age >= max_age);
+        if is_stale {
+            to_remove.push(path);
+        }
+    })
+    .await;
 
-    // Use a stack-based walk to avoid deep recursion
+    for path in to_remove {
+        if let Err(e) = tokio::fs::remove_file(&path).await {
+            warn!(path = %path.display(), error = %e, "failed to remove outdated artifact");
+        } else {
+            removed += 1;
+        }
+    }
+    removed
+}
+
+/// Stack-based recursive walk over `dir`. Invokes `visit` for each non-directory
+/// entry whose filename ends with `suffix`. Errors during read_dir/metadata are
+/// silently skipped (the original walkers behaved the same way).
+async fn walk_files_with_suffix<F>(dir: &std::path::Path, suffix: &str, mut visit: F)
+where
+    F: FnMut(std::path::PathBuf, std::fs::Metadata),
+{
     let mut stack = vec![dir.to_path_buf()];
     while let Some(current) = stack.pop() {
         let Ok(mut entries) = tokio::fs::read_dir(&current).await else {
@@ -563,26 +575,12 @@ async fn sweep_stale_files(
                 continue;
             }
             let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if !name_str.ends_with(suffix) {
+            if !name.to_string_lossy().ends_with(suffix) {
                 continue;
             }
-            let is_stale = meta
-                .modified()
-                .ok()
-                .and_then(|mtime| std::time::SystemTime::now().duration_since(mtime).ok())
-                .is_some_and(|age| age >= max_age);
-
-            if is_stale {
-                if let Err(e) = tokio::fs::remove_file(entry.path()).await {
-                    warn!(path = %entry.path().display(), error = %e, "failed to remove outdated artifact");
-                } else {
-                    removed += 1;
-                }
-            }
+            visit(entry.path(), meta);
         }
     }
-    removed
 }
 
 // ---------------------------------------------------------------------------

@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-postgres-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1778073904`
-- Started at: `1778073904`
-- Elapsed: `392` ms
+- Run ID: `1778074008`
+- Started at: `1778074008`
+- Elapsed: `398` ms
 - Scope: `full`
 - Raw score: `74`
 - Final score: `66`
@@ -170,7 +170,7 @@ No audited runtime boundary reclassifications declared.
    Rerun: `just fast`
    Fingerprint: `sha256:dc9211aa367e7a125dbd855585d3cbdb74a41d6d836a6e30f694fc8845bb2b20`
    Evidence: database surface present, migration directory present, data access appears compartmentalized, strict DB boundary violation: src/epoch.rs
-5. `high` `vibe` `src/cargo_cache.rs:102`
+5. `high` `vibe` `src/cli.rs:1020`
    Rule: `HLT-001-DEAD-MARKER`
    Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
@@ -178,8 +178,8 @@ No audited runtime boundary reclassifications declared.
    Reason: fallback soup detected in product code
    Fix: collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Rerun: `just fast`
-   Fingerprint: `sha256:0d9c19b9dcc68e94764a417cb32af012bc588197085826ad72789e6e742e996d`
-   Evidence: src/cargo_cache.rs:102 .unwrap_or_else(|| "0".to_string());
+   Fingerprint: `sha256:4035439added65ae8720a53073516b0c9d650601f687ec6becf2c0dff982db84`
+   Evidence: src/cli.rs:1020 .unwrap_or_else(|| "jeryu".to_string())
 6. `high` `data` `src/epoch.rs:1`
    Rule: `HLT-006-DIRECT-DB-WRONG-LAYER`
    Check: `HLT-006-DIRECT-DB-WRONG-LAYER:data` `hard` confidence `0.95`
@@ -190,14 +190,14 @@ No audited runtime boundary reclassifications declared.
    Rerun: `just fast`
    Fingerprint: `sha256:09685189e54758d2eebadf5dd138011df41b39b6e05885ee20379078a05ff2f8`
    Evidence: DB marker in non-adapter layer
-7. `high` `vibe` `src/reclaim.rs:1`
+7. `high` `vibe` `src/release.rs:1`
    Check: `HLT-000-SCORE-DIMENSION:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
    Reason: duplicated product code block detected
    Fix: extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Rerun: `just fast`
-   Fingerprint: `sha256:f77370d858989db99dc0fbbe04056a0c4453afeec3b7d45de396f450647ece0c`
-   Evidence: duplicate block also appears at src/reclaim.rs:1
+   Fingerprint: `sha256:0751a667ea9f1fd7a787e5e0e2c32408274606371bb3c2d1eea5501857d1d74a`
+   Evidence: duplicate block also appears at src/release.rs:1
 
 ## Policy
 
@@ -213,9 +213,9 @@ No audited runtime boundary reclassifications declared.
    Route: `Contracts/data`/`contract`
 3. `medium` `HLT-006-DIRECT-DB-WRONG-LAYER` `db/` - move durable truth into migrations, constraints, adapters, and application-owned transactions
    Route: `Contracts/data`/`db`
-4. `high` `HLT-001-DEAD-MARKER` `src/cargo_cache.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
+4. `high` `HLT-001-DEAD-MARKER` `src/cli.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Route: `Entropy`/`fast`
-5. `high` `src/reclaim.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
+5. `high` `src/release.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Route: `Entropy`/`fast`
 6. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
    Route: `Entropy`/`fast`
