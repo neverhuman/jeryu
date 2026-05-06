@@ -2448,7 +2448,7 @@ impl Db {
         Ok(row.0)
     }
 
-    pub async fn latest_retry_decision(
+    pub async fn latest_job_decision(
         &self,
         project_id: i64,
         job_id: i64,

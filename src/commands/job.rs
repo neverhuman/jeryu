@@ -45,9 +45,9 @@ pub(crate) async fn execute_job_commands(subcmd: JobCommands) -> Result<()> {
         JobCommands::Explain { project_id, job_id } => {
             let db = state::Db::open().await?;
             if let Some(capsule) = db.latest_evidence_for_job(project_id, job_id).await? {
-                let retry_record = db.latest_retry_decision(project_id, job_id).await?;
+                let decision_record = db.latest_job_decision(project_id, job_id).await?;
                 println!("Job:          {}", capsule.job_id);
-                println!("Pipeline:     {}", capsule.pipeline_id.unwrap_or_default());
+                println!("Pipeline:     {}", capsule.pipeline_id.unwrap_or(0));
                 println!("Stage:        {}", capsule.stage);
                 println!("Ref:          {}", capsule.ref_name);
                 println!("Commit:       {}", capsule.commit_sha);
@@ -55,8 +55,8 @@ pub(crate) async fn execute_job_commands(subcmd: JobCommands) -> Result<()> {
                 println!("Classified:   {:?}", capsule.classify());
                 println!("Recovery advice: {:?}", capsule.recommended_recovery());
                 println!("Summary:      {}", capsule.summary);
-                if let Some(record) = retry_record {
-                    println!("Last retry:   {} ({})", record.decision, record.reason);
+                if let Some(record) = decision_record {
+                    println!("Last attempt: {} ({})", record.decision, record.reason);
                 }
                 println!("\nLog snippet:\n{}", capsule.log_snippet);
             } else {
