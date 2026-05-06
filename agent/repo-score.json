@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:66d4cc3e6d10d1d8e61ff51167b820ce11ba13b9bc898d314c6206dcdc65de47",
-  "input_fingerprint": "sha256:f1ab99c7df78314d9a050f3a35d05662cb46392686b052fd49d5a8410ebb8360",
+  "report_fingerprint": "sha256:9b8a031bd87045733a788a137283c63c953cf3b9750c8042475ac9fb155282b5",
+  "input_fingerprint": "sha256:4c8e1f46cd658f1a0f9da892b8e3e2c05df7358d8ed1ee6eb049bb37c4ed224e",
   "policy_fingerprint": "sha256:396aa94b1d9d3e43a5531652f3c52172e9b5e57cc1b5de44febdc48207e3f918",
   "manifest_fingerprints": {
     "owner_map": "sha256:8a15e0d3457b4a4476fe23ee9b16f87b6bbc4e025ec982ce8dfd6cd60cc3e69f",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:8218ee450313a74e73eb990aaadedecba61d4c0d48ada0b6f368b4f7bf2fd9de"
   },
   "dirty_worktree": true,
-  "generated_at": "1778072948",
+  "generated_at": "1778073154",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.8.0",
@@ -24,14 +24,15 @@
   "observed_conformance_level": "HL2",
   "conformance_decision": "block",
   "conformance_blockers": [
-    "HLT-001-DEAD-MARKER on src/bootstrap.rs",
-    "HLT-006-DIRECT-DB-WRONG-LAYER on src/cli.rs",
-    "HLT-000-SCORE-DIMENSION:vibe on src/gitlab_client.rs"
+    "HLT-001-DEAD-MARKER on src/cache.rs",
+    "HLT-006-DIRECT-DB-WRONG-LAYER on src/commands/remote.rs",
+    "HLT-023-INPUT-BOUNDARY-GAP on src/dispatch.rs",
+    "HLT-000-SCORE-DIMENSION:vibe on src/install.rs"
   ],
   "repo": ".",
-  "run_id": "1778072948",
-  "started_at": "1778072948",
-  "elapsed_ms": 429,
+  "run_id": "1778073154",
+  "started_at": "1778073154",
+  "elapsed_ms": 433,
   "scope": {
     "mode": "full",
     "paths": []
@@ -42,7 +43,7 @@
     "status": "fail",
     "minimum_score": 85,
     "passed": false,
-    "hard_findings": 3,
+    "hard_findings": 4,
     "soft_findings": 4,
     "ratchet": {
       "baseline_score": 66,
@@ -58,7 +59,7 @@
     }
   },
   "git": {
-    "head": "7df20e7",
+    "head": "7142805",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -85,7 +86,8 @@
   "caps_applied": [
     "fallback-soup-in-product-code",
     "severe-duplication-in-product-code",
-    "direct-db-access-from-wrong-layer"
+    "direct-db-access-from-wrong-layer",
+    "input-boundary-gap"
   ],
   "hard_rules": [
     {
@@ -339,7 +341,7 @@
       "score": 0,
       "weighted_points": 0.0,
       "evidence": [
-        "largest authored code file: src/state.rs (4424 LOC)",
+        "largest authored code file: src/state.rs (4426 LOC)",
         "code file exceeds 500 LOC",
         "code file exceeds 1000 LOC",
         "duplicate code block marker found",
@@ -360,7 +362,7 @@
         "database surface present",
         "migration directory present",
         "data access appears compartmentalized",
-        "strict DB boundary violation: src/cli.rs"
+        "strict DB boundary violation: src/commands/remote.rs"
       ],
       "notes": [
         "direct DB access leaks out of the data boundary"
@@ -986,7 +988,7 @@
       "problem": "`Code shape and semantic surface` scored 0 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/state.rs (4424 LOC)",
+        "largest authored code file: src/state.rs (4426 LOC)",
         "code file exceeds 500 LOC",
         "code file exceeds 1000 LOC",
         "duplicate code block marker found"
@@ -996,7 +998,7 @@
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:02b6c1336ab55ccf517fe7f22024ea56ba73027343ddfb15c9a2e87c728dde1d",
+      "fingerprint": "sha256:84da0d7d6495b1cda4cc3883a5ada0165fd5c2dd53b8072093e619750d2c6fa3",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
@@ -1061,14 +1063,14 @@
         "database surface present",
         "migration directory present",
         "data access appears compartmentalized",
-        "strict DB boundary violation: src/cli.rs"
+        "strict DB boundary violation: src/commands/remote.rs"
       ],
       "check_id": "HLT-006-DIRECT-DB-WRONG-LAYER:data",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "sql",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:aca47fbe71cf389d6d921b828fd3f14674cdc0091a1a51cf6b1f5d22f36f172b",
+      "fingerprint": "sha256:3e028f0cb66b8cd278669ddc3466db432bb9d0e98362a63ed98016980059300a",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
       "lane": "db",
@@ -1078,29 +1080,29 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/bootstrap.rs",
+      "path": "src/cache.rs",
       "problem": "fallback soup detected in product code",
       "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
       "evidence": [
-        "src/bootstrap.rs:298 let pools = db.list_pools().await.unwrap_or_default();"
+        "src/cache.rs:683 docker: docker_storage_summary().await.unwrap_or_default(),"
       ],
       "check_id": "HLT-001-DEAD-MARKER:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:b12f65e745faa9b1056fa0dbe0048f81f5f6101153e965af25c3706405fcb82a",
+      "fingerprint": "sha256:54b8b994631a3bca413fc391b5c4365943b19c295e8120b9ebc6d5cf2e9e9323",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "workspace",
-      "line": 298
+      "line": 683
     },
     {
       "severity": "high",
       "category": "data",
-      "path": "src/cli.rs",
+      "path": "src/commands/remote.rs",
       "problem": "direct database access appears in a wrong layer",
       "agent_fix": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
       "evidence": [
@@ -1111,7 +1113,7 @@
       "confidence": 0.95,
       "evidence_kind": "sql",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:325f4437620bbb395bdf8421be5d88704db775cfaefd55933ef4dcbfaceb0b4f",
+      "fingerprint": "sha256:87736f2b3aae126a7ed8ab4f9f5cb37ae0948883e40a30b3220aba83b5273c2b",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
       "lane": "db",
@@ -1121,19 +1123,43 @@
     },
     {
       "severity": "high",
+      "category": "security",
+      "path": "src/dispatch.rs",
+      "problem": "unsafe or unvalidated input boundary marker appears in product code",
+      "agent_fix": "replace unsafe sinks with typed schemas, parameterized APIs, allowlists, or sandboxed execution plus negative tests",
+      "evidence": [
+        "Commands::Exec(subcmd) => match subcmd {"
+      ],
+      "check_id": "HLT-023-INPUT-BOUNDARY-GAP:security",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:e587e2f7c3948da196f7bf8cf606320c2571f5d0d212f5397bbae74de03c1beb",
+      "rule_id": "HLT-023-INPUT-BOUNDARY-GAP",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/audit-rubric.md#top-level-risk-mapping",
+      "owner": "workspace",
+      "line": 378,
+      "matched_term": "shell execution",
+      "reason": "input handling risk needs deterministic negative tests"
+    },
+    {
+      "severity": "high",
       "category": "vibe",
-      "path": "src/gitlab_client.rs",
+      "path": "src/install.rs",
       "problem": "duplicated product code block detected",
       "agent_fix": "extract the duplicated behavior behind one named boundary and add focused tests before changing behavior",
       "evidence": [
-        "duplicate block also appears at src/gitlab_client.rs:1"
+        "duplicate block also appears at src/cli.rs:1"
       ],
       "check_id": "HLT-000-SCORE-DIMENSION:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:3758f6965cbe9849712f70ffb21b8be0f3eaf663ff9d6c40bdb4cf4155fdc62a",
+      "fingerprint": "sha256:e100083a8916fe4bc087b238c4e9516d8a137494904dc075e836dfc70899f533",
       "tlr": "Entropy",
       "lane": "fast",
       "owner": "workspace",
@@ -1142,7 +1168,7 @@
   ],
   "agent_fix_queue": [
     {
-      "path": "src/cli.rs",
+      "path": "src/commands/remote.rs",
       "priority": "high",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
@@ -1172,7 +1198,7 @@
       "why": "`Data truth and workflow safety` scored 65 below the standard floor of 85"
     },
     {
-      "path": "src/bootstrap.rs",
+      "path": "src/cache.rs",
       "priority": "high",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
@@ -1182,7 +1208,17 @@
       "why": "fallback soup detected in product code"
     },
     {
-      "path": "src/gitlab_client.rs",
+      "path": "src/dispatch.rs",
+      "priority": "high",
+      "rule_id": "HLT-023-INPUT-BOUNDARY-GAP",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "workspace",
+      "task": "replace unsafe sinks with typed schemas, parameterized APIs, allowlists, or sandboxed execution plus negative tests",
+      "why": "unsafe or unvalidated input boundary marker appears in product code"
+    },
+    {
+      "path": "src/install.rs",
       "priority": "high",
       "tlr": "Entropy",
       "lane": "fast",

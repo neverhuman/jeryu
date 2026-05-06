@@ -211,7 +211,8 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
             crate::state::StateBackend::Postgres => cache_brain_adapter::AdapterBackend::Postgres,
         },
     );
-    let cache_brain = crate::cache_brain::CacheBrain::with_store(epoch_manager, taint_manager, store);
+    let cache_brain =
+        crate::cache_brain::CacheBrain::with_store(epoch_manager, taint_manager, store);
 
     // Compute build_unit outside the conditional so it's available for post-execution recording
     let mut build_unit: Option<crate::cache_brain::BuildUnit> = None;

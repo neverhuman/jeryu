@@ -692,11 +692,14 @@ impl GitlabClient {
         content: &str,
         commit_message: &str,
     ) -> Result<()> {
-        self.commit_actions(
+        const ACTION: &str = "create";
+        self.commit_file(
             project_id,
             branch,
+            file_path,
+            content,
             commit_message,
-            &[("create", file_path, content)],
+            ACTION,
         )
         .await
     }
@@ -709,11 +712,13 @@ impl GitlabClient {
         content: &str,
         commit_message: &str,
     ) -> Result<()> {
-        self.commit_actions(
+        self.commit_file(
             project_id,
             branch,
+            file_path,
+            content,
             commit_message,
-            &[("update", file_path, content)],
+            "update",
         )
         .await
     }

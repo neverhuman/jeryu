@@ -3562,7 +3562,9 @@ mod tests {
             db.pool(),
             match db.backend() {
                 crate::state::StateBackend::Sqlite => cache_brain_adapter::AdapterBackend::Sqlite,
-                crate::state::StateBackend::Postgres => cache_brain_adapter::AdapterBackend::Postgres,
+                crate::state::StateBackend::Postgres => {
+                    cache_brain_adapter::AdapterBackend::Postgres
+                }
             },
         );
         let cache_brain =

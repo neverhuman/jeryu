@@ -450,8 +450,10 @@ mod tests {
 
     #[test]
     fn merge_gate_allows_clean_trusted_ref() {
-        let proof =
-            evaluate_merge_gate(merge_gate_input_fixture(), &RequiredEvidencePolicy::default());
+        let proof = evaluate_merge_gate(
+            merge_gate_input_fixture(),
+            &RequiredEvidencePolicy::default(),
+        );
         assert_eq!(proof.decision, RiskGateDecision::Allow);
         assert!(proof.blockers.is_empty());
     }

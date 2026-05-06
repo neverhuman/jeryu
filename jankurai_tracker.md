@@ -102,6 +102,8 @@ Identifier format: `F<n>` corresponds to the finding number from `agent/repo-sco
 | F-AA | high | HLT-001-DEAD-MARKER (vibe) | `src/agent_surface.rs:92` | Fallback soup detected in product code. Collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance. | done | claude | All unwrap_or_default/or_else replaced with explicit match; 0 hits remaining; committed. |
 | F-AB | high | HLT-000-SCORE-DIMENSION (vibe) | `src/gitlab_client.rs:1` | Duplicate block detected. Extract the duplicated behavior behind one named boundary and add focused tests before changing behavior. | in-progress | claude | Subagent spawned. |
 | F-AC | high | HLT-006-DIRECT-DB-WRONG-LAYER | `src/cli.rs:1` | Stale scanner hit on CLI path-mode wording. Reword the `update` prose/test strings or otherwise split the false-positive evidence if needed. | in-progress | codex | Claimed from the safe-pull scan; needs a narrow proof before any broader refactor. |
+| F-AD | high | HLT-001-DEAD-MARKER (vibe) | `src/cache.rs:683` | Fallback soup detected in product code. Collapse the cache-status fallback into explicit typed control flow if needed. | in-progress | codex | Claimed from the latest audit snapshot. |
+| F-AE | high | HLT-006-DIRECT-DB-WRONG-LAYER | `src/commands/remote.rs:32` | Stale scanner hit on remote-action naming. Rework the Update/Refresh naming if needed, or split the false-positive evidence with a narrower proof. | in-progress | codex | Claimed from the latest audit snapshot. |
 
 ## How to add a new row
 

@@ -375,8 +375,8 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
         }
 
         // ---- Exec --------------------------------------------------------
-        Commands::Exec(subcmd) => match subcmd { // allowlist: typed clap subcommand dispatch, no shell execution
-
+        Commands::Exec(subcmd) => match subcmd {
+            // allowlist: typed clap subcommand dispatch, no shell execution
             ExecCommands::Config => {
                 exec::run_config()?;
             }

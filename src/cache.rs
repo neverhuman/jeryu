@@ -680,7 +680,10 @@ impl SmartCache {
             pool_cargo_target_bytes,
             pool_cargo_sccache_bytes,
             cargo_target_caches,
-            docker: docker_storage_summary().await.unwrap_or_default(),
+            docker: match docker_storage_summary().await {
+                Ok(summary) => summary,
+                Err(_) => DockerStorageSummary::default(),
+            },
             proxy_up,
             registry_up,
         })

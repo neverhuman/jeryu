@@ -125,11 +125,12 @@ pub(crate) async fn create_agent_branch_with_master_attempt(
 ) -> Result<&'static str> {
     match client.create_branch(project_id, branch_name, "main").await {
         Ok(()) => Ok("main"),
-        Err(_) => match client.create_branch(project_id, branch_name, "master").await {
+        Err(_) => match client
+            .create_branch(project_id, branch_name, "master")
+            .await
+        {
             Ok(()) => Ok("master"),
-            Err(e) => {
-                Err(e).context("creating agent branch (tried both 'main' and 'master')")
-            }
+            Err(e) => Err(e).context("creating agent branch (tried both 'main' and 'master')"),
         },
     }
 }
@@ -177,9 +178,15 @@ async fn finalize_linear_agent_task(
          _This issue is managed by jeryu agent._",
         task_description, branch_name, bot.name
     );
-    let issue =
-        create_tracking_issue_for_agent(client, project_id, &title, &body, &["agent:pending"], &bot)
-            .await?;
+    let issue = create_tracking_issue_for_agent(
+        client,
+        project_id,
+        &title,
+        &body,
+        &["agent:pending"],
+        &bot,
+    )
+    .await?;
     info!(
         project_id,
         issue_iid = issue.iid,

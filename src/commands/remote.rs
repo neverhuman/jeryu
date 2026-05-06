@@ -7,7 +7,7 @@ use anyhow::Result;
 use crate::cli::{RemoteActionCommands, RemoteCommand};
 use jeryu::remote::{self, RemoteAction, RemoteCommonOptions};
 
-pub(crate) async fn execute_remote_command(cmd: RemoteCommand) -> Result<i32> {
+fn map_remote_command(cmd: RemoteCommand) -> (RemoteAction, RemoteCommonOptions) {
     let opts = RemoteCommonOptions {
         dry_run: cmd.dry_run,
         json: cmd.json,
@@ -29,7 +29,7 @@ pub(crate) async fn execute_remote_command(cmd: RemoteCommand) -> Result<i32> {
             setup_key,
             identity,
         },
-        RemoteActionCommands::Refresh { alias } => RemoteAction::Update { alias },
+        RemoteActionCommands::Refresh { alias } => RemoteAction::Refresh { alias },
         RemoteActionCommands::Doctor { alias } => RemoteAction::Doctor { alias },
         RemoteActionCommands::Status { alias } => RemoteAction::Status { alias },
         RemoteActionCommands::Logs { alias } => RemoteAction::Logs { alias },
@@ -41,5 +41,37 @@ pub(crate) async fn execute_remote_command(cmd: RemoteCommand) -> Result<i32> {
         RemoteActionCommands::Tunnel { alias } => RemoteAction::Tunnel { alias },
         RemoteActionCommands::Uninstall { alias } => RemoteAction::Uninstall { alias },
     };
+    (action, opts)
+}
+
+pub(crate) async fn execute_remote_command(cmd: RemoteCommand) -> Result<i32> {
+    let (action, opts) = map_remote_command(cmd);
     remote::execute_remote(action, opts).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jeryu::install::{ColorMode, InteractiveMode};
+    use jeryu::remote::ServiceMode;
+
+    #[test]
+    fn refresh_command_maps_to_refresh_action() {
+        let (action, opts) = map_remote_command(RemoteCommand {
+            dry_run: true,
+            json: false,
+            yes: false,
+            color: ColorMode::Auto,
+            interactive: InteractiveMode::Auto,
+            service_mode: ServiceMode::Auto,
+            verbose: false,
+            action: RemoteActionCommands::Refresh {
+                alias: "xbabe1".into(),
+            },
+        });
+
+        assert!(matches!(action, RemoteAction::Refresh { alias } if alias == "xbabe1"));
+        assert!(opts.dry_run);
+        assert!(!opts.json);
+    }
 }

@@ -515,7 +515,7 @@ pub(crate) async fn execute_intent(
 
             let mut blockers: Vec<String> = Vec::new();
 
-            // Check 1: selector miss count since branch creation
+            // Check 1: miss count since branch creation
             let since_24h = chrono::Utc::now()
                 .checked_sub_signed(chrono::Duration::hours(24))
                 .unwrap_or(chrono::Utc::now())

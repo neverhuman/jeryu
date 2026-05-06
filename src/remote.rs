@@ -119,7 +119,7 @@ pub enum RemoteAction {
         setup_key: bool,
         identity: Option<PathBuf>,
     },
-    Update {
+    Refresh {
         alias: String,
     },
     Doctor {
@@ -193,9 +193,9 @@ pub async fn execute_remote(action: RemoteAction, opts: RemoteCommonOptions) -> 
             };
             remote_install(cfg, setup_key, &opts).await
         }
-        RemoteAction::Update { alias } => {
+        RemoteAction::Refresh { alias } => {
             let cfg = load_remote_config(&alias)?;
-            remote_update(&cfg, &opts).await
+            remote_refresh(&cfg, &opts).await
         }
         RemoteAction::Doctor { alias } => {
             let cfg = load_remote_config(&alias)?;
@@ -574,7 +574,7 @@ async fn remote_install(
     Ok(0)
 }
 
-async fn remote_update(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result<i32> {
+async fn remote_refresh(cfg: &RemoteConfig, opts: &RemoteCommonOptions) -> Result<i32> {
     if opts.json {
         println!(
             "{}",

@@ -295,7 +295,10 @@ smoke_test:
     println!("  Runner configs: {}", config::runners_dir().display());
     println!();
     println!("  Pools:");
-    let pools = db.list_pools().await.unwrap_or_default();
+    let pools = match db.list_pools().await {
+        Ok(v) => v,
+        Err(_) => Vec::new(),
+    };
     for p in &pools {
         let active = db.count_active_managers(&p.name).await.unwrap_or(0);
         println!(
