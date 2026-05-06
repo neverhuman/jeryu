@@ -6,10 +6,31 @@
 //! as `executor = "custom"`. It handles the lifecycle of the actual job execution:
 //! configuration, provisioning the sandbox, running the user script, and cleaning up.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::env;
 use thiserror::Error;
 use tracing::info;
+
+/// Run a command with inherited stdio and bail with `error_message` on failure.
+///
+/// Centralizes the `Stdio::inherit + .status().await + bail! on !success` pattern
+/// shared across `host`, `remote`, `install`, and `repo` modules.
+pub async fn run_status_check(
+    cmd: &mut tokio::process::Command,
+    error_message: &str,
+) -> Result<()> {
+    let status = cmd
+        .stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .status()
+        .await
+        .with_context(|| error_message.to_string())?;
+    if !status.success() {
+        anyhow::bail!("{} (exit code: {:?})", error_message, status.code());
+    }
+    Ok(())
+}
 
 /// Typed errors for custom executor sandbox operations.
 #[derive(Debug, Error)]
@@ -57,10 +78,27 @@ async fn ensure_custom_executor_tools() -> Result<()> {
     Ok(())
 }
 
-fn env_string_or_default(key: &str, default: &'static str) -> String {
-    match env::var(key) {
+fn env_string_or_default(name: &str, default: &str) -> String {
+    match env::var(name) {
         Ok(value) => value,
         Err(_) => default.to_string(),
+    }
+}
+
+fn env_i64_or_default(name: &str, default: i64) -> i64 {
+    match env::var(name) {
+        Ok(value) => match value.parse::<i64>() {
+            Ok(parsed) => parsed,
+            Err(_) => default,
+        },
+        Err(_) => default,
+    }
+}
+
+fn env_bool_or_default(key: &str, default: bool) -> bool {
+    match env::var(key) {
+        Ok(value) => value.trim() != "0",
+        Err(_) => default,
     }
 }
 
@@ -188,8 +226,7 @@ fn fast_clone(src: &str, dst: &str) -> Result<()> {
 /// Handles `jeryu exec run`
 /// Executes a specific stage of the pipeline (step_script, build_script, etc.)
 pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
-    let job_id_str = env_string_or_default("CUSTOM_ENV_CI_JOB_ID", "0");
-    let job_id = job_id_str.parse::<i64>().unwrap_or(0);
+    let job_id = env_i64_or_default("CUSTOM_ENV_CI_JOB_ID", 0);
     let project_id_str = env_string_or_default("CUSTOM_ENV_CI_PROJECT_ID", "");
     let project_id = project_id_str.parse::<i64>().ok();
 
@@ -223,7 +260,7 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
     let mut build_unit: Option<crate::cache_brain::BuildUnit> = None;
 
     if stage == "build_script"
-        && std::env::var("CUSTOM_ENV_JERYU_FORCE_REFRESH").unwrap_or_default() != "1"
+        && env::var("CUSTOM_ENV_JERYU_FORCE_REFRESH").ok().as_deref() != Some("1")
     {
         let is_rust_build = script_path.contains("cargo build")
             && !script_path.contains("cargo test")
@@ -244,8 +281,7 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
                         stage: "build".into(),
                     },
                     input_signature: witness.key,
-                    environment_signature: std::env::var("DOCKER_DEFAULT_PLATFORM")
-                        .unwrap_or_default(),
+                    environment_signature: env_string_or_default("DOCKER_DEFAULT_PLATFORM", ""),
                     scope: format!("project:{}", project_id.unwrap_or(0)),
                     trust_tier: crate::policy::TrustTier::Untrusted,
                 })
@@ -272,7 +308,7 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
                         features: "".into(),
                     },
                     input_signature: witness.key,
-                    environment_signature: std::env::var("RUSTFLAGS").unwrap_or_default(),
+                    environment_signature: env_string_or_default("RUSTFLAGS", ""),
                     scope: format!("project:{}", project_id.unwrap_or(0)),
                     trust_tier: crate::policy::TrustTier::Untrusted,
                 })
@@ -289,7 +325,10 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
 
             // Record the verdict to cache_verdicts for audit trail and taint CTE
             let verdict_str = format!("{:?}", verdict);
-            let reasons_str = serde_json::to_string(&verdict).unwrap_or_default();
+            let reasons_str = match serde_json::to_string(&verdict) {
+                Ok(s) => s,
+                Err(_) => String::new(),
+            };
             let _ = db
                 .store_test_verdict(
                     job_id,
@@ -378,22 +417,19 @@ pub async fn run_stage(script_path: &str, stage: &str) -> Result<()> {
 
     if cargo_available && rustc_available {
         let pool_cache_root = env_string_or_default("JERYU_CARGO_CACHE_ROOT", "/pool-cache");
-        let cargo_cache_enabled = env_string_or_default("JERYU_CARGO_CACHE", "")
-            .ok()
-            .map(|value| value.trim() != "0")
-            .unwrap_or(true);
-        let project_scope = std::env::var("CUSTOM_ENV_CI_PROJECT_PATH_SLUG")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
-            .or_else(|| {
-                std::env::var("CUSTOM_ENV_CI_PROJECT_DIR")
-                    .ok()
-                    .and_then(|project_dir| {
-                        crate::cargo_cache::canonical_repo_key(std::path::Path::new(&project_dir))
-                            .ok()
-                    })
-            })
-            .unwrap_or_else(|| "unknown-project".to_string());
+        let cargo_cache_enabled = env_bool_or_default("JERYU_CARGO_CACHE", true);
+        let project_scope = match env::var("CUSTOM_ENV_CI_PROJECT_PATH_SLUG") {
+            Ok(value) if !value.trim().is_empty() => value,
+            _ => match env::var("CUSTOM_ENV_CI_PROJECT_DIR") {
+                Ok(project_dir) => match crate::cargo_cache::canonical_repo_key(
+                    std::path::Path::new(&project_dir),
+                ) {
+                    Ok(value) if !value.trim().is_empty() => value,
+                    _ => "unknown-project".to_string(),
+                },
+                Err(_) => "unknown-project".to_string(),
+            },
+        };
         let isolate_job =
             if std::env::var("JERYU_CARGO_TARGET_ISOLATE").ok().as_deref() == Some("job") {
                 std::env::var("CUSTOM_ENV_CI_JOB_ID").ok()
@@ -508,7 +544,10 @@ registry = "sparse+http://127.0.0.1:19800/api/v1/crates"
     let is_quarantined = quarantine_marker.exists();
 
     if is_quarantined {
-        let reason = std::fs::read_to_string(&quarantine_marker).unwrap_or_default();
+        let reason = match std::fs::read_to_string(&quarantine_marker) {
+            Ok(text) => text,
+            Err(_) => String::new(),
+        };
         let log_snippet = String::from_utf8_lossy(&log_buffer_cloned.lock().unwrap()).to_string();
         let capsule = crate::capsule::FailureCapsule::capture(
             job_id,

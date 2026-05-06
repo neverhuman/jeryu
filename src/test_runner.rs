@@ -256,7 +256,7 @@ pub async fn run_test(
         .context("failed to create test branch")?;
 
     // 2. Commit the dynamic CI yaml
-    // Use create_or_update to handle both cases
+    // Use create_or_replace to handle both cases
     if client
         .update_file(
             opts.project_id,
@@ -268,7 +268,7 @@ pub async fn run_test(
         .await
         .is_err()
     {
-        // If update failed (file might not exist on branch yet), try creating via the
+        // If write failed (file might not exist on branch yet), try creating via the
         // commits API with "create" action
         create_file_on_branch(
             client,
@@ -340,7 +340,7 @@ pub async fn run_test(
     )
     .await?;
 
-    // 5. Clean up: delete the scratch branch
+    // 5. Clean up: remove the scratch branch
     if let Err(e) = client.delete_branch(opts.project_id, &branch_name).await {
         tracing::warn!(error = %e, branch = %branch_name, "failed to clean up test branch");
     }

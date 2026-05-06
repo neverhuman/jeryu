@@ -71,13 +71,7 @@ pub async fn postgres_state_proof() -> Result<i32> {
                     "--nocapture",
                 ]);
                 test.env("JERYU_TEST_POSTGRES_URL", &url);
-                test.stdin(Stdio::inherit());
-                test.stdout(Stdio::inherit());
-                test.stderr(Stdio::inherit());
-                let status = test.status().await.context("running postgres proof test")?;
-                if !status.success() {
-                    bail!("postgres proof test failed");
-                }
+                crate::exec::run_status_check(&mut test, "running postgres proof test").await?;
                 return Ok(());
             }
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;

@@ -1,8 +1,9 @@
 use anyhow::{Context, Result, bail};
 use std::fs;
 use std::path::PathBuf;
-use std::process::Stdio;
 use tokio::process::Command;
+
+use crate::exec::run_status_check;
 
 pub async fn install_gc_timer(allow_sudo: bool) -> Result<i32> {
     let unit_dir = PathBuf::from("/etc/systemd/system");
@@ -50,33 +51,13 @@ fn is_root() -> bool {
 }
 
 async fn run_sudo_copy(src: &PathBuf, dst: &PathBuf) -> Result<()> {
-    let status = Command::new("sudo")
-        .args(["install", "-m", "0644"])
-        .arg(src)
-        .arg(dst)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .await
-        .context("copying systemd unit with sudo")?;
-    if !status.success() {
-        bail!("sudo install failed");
-    }
-    Ok(())
+    let mut cmd = Command::new("sudo");
+    cmd.args(["install", "-m", "0644"]).arg(src).arg(dst);
+    run_status_check(&mut cmd, "copying systemd unit with sudo").await
 }
 
 async fn run_systemctl(args: &[&str]) -> Result<()> {
-    let status = Command::new("systemctl")
-        .args(args)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .await
-        .context("running systemctl")?;
-    if !status.success() {
-        bail!("systemctl {:?} failed", args);
-    }
-    Ok(())
+    let mut cmd = Command::new("systemctl");
+    cmd.args(args);
+    run_status_check(&mut cmd, "running systemctl").await
 }

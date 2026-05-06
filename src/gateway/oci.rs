@@ -7,10 +7,13 @@ use reqwest::Client;
 use std::{sync::Arc, time::Duration};
 
 pub(crate) fn build_http_client(timeout_secs: u64) -> Client {
-    Client::builder()
+    match Client::builder()
         .timeout(Duration::from_secs(timeout_secs))
         .build()
-        .unwrap_or_default()
+    {
+        Ok(client) => client,
+        Err(_) => Client::new(),
+    }
 }
 
 #[derive(Clone)]

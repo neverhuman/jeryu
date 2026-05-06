@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-postgres-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1778076055`
-- Started at: `1778076055`
-- Elapsed: `408` ms
+- Run ID: `1778076317`
+- Started at: `1778076317`
+- Elapsed: `402` ms
 - Scope: `full`
 - Raw score: `75`
 - Final score: `66`
@@ -187,7 +187,7 @@ No audited runtime boundary reclassifications declared.
    Rerun: `just fast`
    Fingerprint: `sha256:f855856de7c0ff9d64ef1ee4de6f0fc8cde87f79b8dc47769b55f46bbc35d71f`
    Evidence: database surface present, structured db boundary manifest present, migration directory present, data access appears compartmentalized
-5. `high` `vibe` `src/exec.rs:190`
+5. `high` `vibe` `src/git/mirror.rs:84`
    Rule: `HLT-001-DEAD-MARKER`
    Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
@@ -195,19 +195,9 @@ No audited runtime boundary reclassifications declared.
    Reason: fallback soup detected in product code
    Fix: collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Rerun: `just fast`
-   Fingerprint: `sha256:9ef628b9711fada5fab9b5c83be6ef9165d7b22ed2d45bf8e2d94e07fcda383e`
-   Evidence: src/exec.rs:190 let job_id_str = env::var("CUSTOM_ENV_CI_JOB_ID").unwrap_or_else(|_| "0".to_string());
-6. `high` `data` `src/reclaim.rs:1`
-   Rule: `HLT-006-DIRECT-DB-WRONG-LAYER`
-   Check: `HLT-006-DIRECT-DB-WRONG-LAYER:data` `hard` confidence `0.95`
-   Route: TLR `Contracts/data`, lane `db`, owner `workspace`
-   Docs: `docs/audit-rubric.md#required-shape`
-   Reason: direct database access appears in a wrong layer
-   Fix: move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward
-   Rerun: `just fast`
-   Fingerprint: `sha256:055447beff47206656814281f47079989c4ee480390681d56e239be54ae4c40a`
-   Evidence: DB marker in non-adapter layer
-7. `high` `vibe` `src/remote.rs:1`
+   Fingerprint: `sha256:91f0aa267e343a154699345d71dd65a7b6c8581f73501c61af19d47c8e487afc`
+   Evidence: src/git/mirror.rs:84 .or_else(|| Some("HEAD".to_string())),
+6. `high` `vibe` `src/remote.rs:1`
    Check: `HLT-000-SCORE-DIMENSION:vibe` `hard` confidence `0.88`
    Route: TLR `Entropy`, lane `fast`, owner `workspace`
    Reason: duplicated product code block detected
@@ -215,6 +205,16 @@ No audited runtime boundary reclassifications declared.
    Rerun: `just fast`
    Fingerprint: `sha256:8fa94f822f7a8de06018029d63534ab18011cfc9705c474d653a75b379594773`
    Evidence: duplicate block also appears at src/remote.rs:1
+7. `high` `data` `src/state.rs:1`
+   Rule: `HLT-006-DIRECT-DB-WRONG-LAYER`
+   Check: `HLT-006-DIRECT-DB-WRONG-LAYER:data` `hard` confidence `0.95`
+   Route: TLR `Contracts/data`, lane `db`, owner `data`
+   Docs: `docs/audit-rubric.md#required-shape`
+   Reason: direct database access appears in a wrong layer
+   Fix: move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward
+   Rerun: `just fast`
+   Fingerprint: `sha256:de19b1303adf3f1bbe0a7c963435c3f3da9883f18cf4202d4c509bda6e0ef9ec`
+   Evidence: DB marker in non-adapter layer
 
 ## Policy
 
@@ -224,13 +224,13 @@ No audited runtime boundary reclassifications declared.
 
 ## Agent Fix Queue
 
-1. `high` `HLT-006-DIRECT-DB-WRONG-LAYER` `src/reclaim.rs` - move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward
+1. `high` `HLT-006-DIRECT-DB-WRONG-LAYER` `src/state.rs` - move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward
    Route: `Contracts/data`/`db`
 2. `medium` `HLT-007-HANDWRITTEN-CONTRACT` `agent/boundaries.toml` - add generated contracts and boundary checks for public APIs, data access, and cross-runtime seams
    Route: `Contracts/data`/`contract`
 3. `medium` `HLT-006-DIRECT-DB-WRONG-LAYER` `db/` - move durable truth into migrations, constraints, adapters, and application-owned transactions
    Route: `Contracts/data`/`db`
-4. `high` `HLT-001-DEAD-MARKER` `src/exec.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
+4. `high` `HLT-001-DEAD-MARKER` `src/git/mirror.rs` - collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance
    Route: `Entropy`/`fast`
 5. `high` `src/remote.rs` - extract the duplicated behavior behind one named boundary and add focused tests before changing behavior
    Route: `Entropy`/`fast`

@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:a42dd67fb2ed8c5e80b4e2532f6ee7a3eb1948d7fa0187b8c2f56bbcb1d4d9e4",
-  "input_fingerprint": "sha256:9d4aa72b3338f0b2157f156b66cf2b7647ca109be53de1e5292cb709e9a1b664",
+  "report_fingerprint": "sha256:3699d241569b383678d448a4cf40ebcd8ffd81f11aabaf96fadbc556dc50f023",
+  "input_fingerprint": "sha256:4b32283a61425ee5435d0f2ecaa7788b5c4d29d03f07a9fc9368740e9c93649d",
   "policy_fingerprint": "sha256:396aa94b1d9d3e43a5531652f3c52172e9b5e57cc1b5de44febdc48207e3f918",
   "manifest_fingerprints": {
     "owner_map": "sha256:8a15e0d3457b4a4476fe23ee9b16f87b6bbc4e025ec982ce8dfd6cd60cc3e69f",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:8218ee450313a74e73eb990aaadedecba61d4c0d48ada0b6f368b4f7bf2fd9de"
   },
   "dirty_worktree": true,
-  "generated_at": "1778076055",
+  "generated_at": "1778076317",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.8.0",
@@ -24,14 +24,14 @@
   "observed_conformance_level": "HL2",
   "conformance_decision": "block",
   "conformance_blockers": [
-    "HLT-001-DEAD-MARKER on src/exec.rs",
-    "HLT-006-DIRECT-DB-WRONG-LAYER on src/reclaim.rs",
-    "HLT-000-SCORE-DIMENSION:vibe on src/remote.rs"
+    "HLT-001-DEAD-MARKER on src/git/mirror.rs",
+    "HLT-000-SCORE-DIMENSION:vibe on src/remote.rs",
+    "HLT-006-DIRECT-DB-WRONG-LAYER on src/state.rs"
   ],
   "repo": ".",
-  "run_id": "1778076055",
-  "started_at": "1778076055",
-  "elapsed_ms": 408,
+  "run_id": "1778076317",
+  "started_at": "1778076317",
+  "elapsed_ms": 402,
   "scope": {
     "mode": "full",
     "paths": []
@@ -58,7 +58,7 @@
     }
   },
   "git": {
-    "head": "8e3156e",
+    "head": "1a97977",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -369,7 +369,7 @@
         "structured db boundary manifest present",
         "migration directory present",
         "data access appears compartmentalized",
-        "strict DB boundary violation: src/reclaim.rs"
+        "strict DB boundary violation: src/state.rs"
       ],
       "notes": [
         "direct DB access leaks out of the data boundary"
@@ -1319,46 +1319,24 @@
     {
       "severity": "high",
       "category": "vibe",
-      "path": "src/exec.rs",
+      "path": "src/git/mirror.rs",
       "problem": "fallback soup detected in product code",
       "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
       "evidence": [
-        "src/exec.rs:190 let job_id_str = env::var(\"CUSTOM_ENV_CI_JOB_ID\").unwrap_or_else(|_| \"0\".to_string());"
+        "src/git/mirror.rs:84 .or_else(|| Some(\"HEAD\".to_string())),"
       ],
       "check_id": "HLT-001-DEAD-MARKER:vibe",
       "hardness": "hard",
       "confidence": 0.88,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:9ef628b9711fada5fab9b5c83be6ef9165d7b22ed2d45bf8e2d94e07fcda383e",
+      "fingerprint": "sha256:91f0aa267e343a154699345d71dd65a7b6c8581f73501c61af19d47c8e487afc",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "workspace",
-      "line": 190
-    },
-    {
-      "severity": "high",
-      "category": "data",
-      "path": "src/reclaim.rs",
-      "problem": "direct database access appears in a wrong layer",
-      "agent_fix": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
-      "evidence": [
-        "DB marker in non-adapter layer"
-      ],
-      "check_id": "HLT-006-DIRECT-DB-WRONG-LAYER:data",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "sql",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:055447beff47206656814281f47079989c4ee480390681d56e239be54ae4c40a",
-      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
-      "tlr": "Contracts/data",
-      "lane": "db",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "workspace",
-      "line": 1
+      "line": 84
     },
     {
       "severity": "high",
@@ -1379,16 +1357,38 @@
       "lane": "fast",
       "owner": "workspace",
       "line": 1
+    },
+    {
+      "severity": "high",
+      "category": "data",
+      "path": "src/state.rs",
+      "problem": "direct database access appears in a wrong layer",
+      "agent_fix": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
+      "evidence": [
+        "DB marker in non-adapter layer"
+      ],
+      "check_id": "HLT-006-DIRECT-DB-WRONG-LAYER:data",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "sql",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:de19b1303adf3f1bbe0a7c963435c3f3da9883f18cf4202d4c509bda6e0ef9ec",
+      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
+      "tlr": "Contracts/data",
+      "lane": "db",
+      "docs_url": "docs/audit-rubric.md#required-shape",
+      "owner": "data",
+      "line": 1
     }
   ],
   "agent_fix_queue": [
     {
-      "path": "src/reclaim.rs",
+      "path": "src/state.rs",
       "priority": "high",
       "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
       "tlr": "Contracts/data",
       "lane": "db",
-      "owner": "workspace",
+      "owner": "data",
       "task": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
       "why": "direct database access appears in a wrong layer"
     },
@@ -1413,7 +1413,7 @@
       "why": "`Data truth and workflow safety` scored 70 below the standard floor of 85"
     },
     {
-      "path": "src/exec.rs",
+      "path": "src/git/mirror.rs",
       "priority": "high",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",

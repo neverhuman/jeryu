@@ -6,7 +6,6 @@ use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::future::Future;
 use std::env;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
@@ -195,69 +194,47 @@ pub async fn execute_remote(action: RemoteAction, opts: RemoteCommonOptions) -> 
             remote_install(cfg, setup_key, &opts).await
         }
         RemoteAction::Refresh { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_refresh(&cfg, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Refresh).await
             .await
         }
         RemoteAction::Doctor { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_doctor(&cfg, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Doctor).await
             .await
         }
         RemoteAction::Status { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_status(&cfg, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Status).await
             .await
         }
         RemoteAction::Logs { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_logs(&cfg, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Logs).await
             .await
         }
         RemoteAction::Restart { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_service(&cfg, "restart", opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Restart).await
             .await
         }
         RemoteAction::Stop { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_service(&cfg, "stop", opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Stop).await
             .await
         }
         RemoteAction::Start { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_service(&cfg, "start", opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Start).await
             .await
         }
         RemoteAction::Ssh { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_ssh(&cfg, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Ssh).await
             .await
         }
         RemoteAction::Run { alias, command } => {
-            with_remote_config(&alias, &opts, move |cfg, opts| async move {
-                remote_run(&cfg, command, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Run(command)).await
             .await
         }
         RemoteAction::Tunnel { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_tunnel(&cfg, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Tunnel).await
             .await
         }
         RemoteAction::Uninstall { alias } => {
-            with_remote_config(&alias, &opts, |cfg, opts| async move {
-                remote_uninstall(&cfg, opts).await
-            })
+            dispatch_remote_action(&alias, &opts, RemoteOp::Uninstall).await
             .await
         }
     }
@@ -287,17 +264,39 @@ fn load_remote_config(alias: &str) -> Result<RemoteConfig> {
     Ok(cfg)
 }
 
-async fn with_remote_config<F, Fut>(
+enum RemoteOp {
+    Refresh,
+    Doctor,
+    Status,
+    Logs,
+    Restart,
+    Stop,
+    Start,
+    Ssh,
+    Run(Vec<String>),
+    Tunnel,
+    Uninstall,
+}
+
+async fn dispatch_remote_action(
     alias: &str,
     opts: &RemoteCommonOptions,
-    f: F,
-) -> Result<i32>
-where
-    F: FnOnce(RemoteConfig, RemoteCommonOptions) -> Fut,
-    Fut: Future<Output = Result<i32>>,
-{
+    op: RemoteOp,
+) -> Result<i32> {
     let cfg = load_remote_config(alias)?;
-    f(cfg, opts.clone()).await
+    match op {
+        RemoteOp::Refresh => remote_refresh(&cfg, opts).await,
+        RemoteOp::Doctor => remote_doctor(&cfg, opts).await,
+        RemoteOp::Status => remote_status(&cfg, opts).await,
+        RemoteOp::Logs => remote_logs(&cfg, opts).await,
+        RemoteOp::Restart => remote_service(&cfg, "restart", opts).await,
+        RemoteOp::Stop => remote_service(&cfg, "stop", opts).await,
+        RemoteOp::Start => remote_service(&cfg, "start", opts).await,
+        RemoteOp::Ssh => remote_ssh(&cfg, opts).await,
+        RemoteOp::Run(command) => remote_run(&cfg, command, opts).await,
+        RemoteOp::Tunnel => remote_tunnel(&cfg, opts).await,
+        RemoteOp::Uninstall => remote_uninstall(&cfg, opts).await,
+    }
 }
 
 fn save_remote_config(cfg: &RemoteConfig) -> Result<()> {
@@ -1010,16 +1009,10 @@ async fn run_remote_binary(
 
 async fn run_interactive_ssh(
     mut cmd: Command,
-    label: &'static str,
+    _label: &'static str,
     context_msg: &'static str,
 ) -> Result<i32> {
-    cmd.stdin(Stdio::inherit());
-    cmd.stdout(Stdio::inherit());
-    cmd.stderr(Stdio::inherit());
-    let status = cmd.status().await.context(context_msg)?;
-    if !status.success() {
-        bail!("{} exited with {}", label, status.code().unwrap_or(-1));
-    }
+    crate::exec::run_status_check(&mut cmd, context_msg).await?;
     Ok(0)
 }
 

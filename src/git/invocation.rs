@@ -22,7 +22,10 @@ impl GitInvocation {
         let class = classify_argv(&argv);
         Self {
             request_id: uuid::Uuid::new_v4().to_string(),
-            actor: std::env::var("USER").unwrap_or_else(|_| "unknown".into()),
+            actor: match std::env::var("USER") {
+                Ok(value) if !value.trim().is_empty() => value,
+                _ => "unknown".into(),
+            },
             cwd: cwd.into(),
             argv,
             risk: class.risk(),

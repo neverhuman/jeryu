@@ -841,25 +841,9 @@ fn is_root() -> bool {
 }
 
 async fn run_installed_binary(target: &Path, args: &[&str]) -> Result<()> {
-    let status = Command::new(target)
-        .args(args)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .await
-        .with_context(|| format!("running {}", target.display()))?;
-    if !status.success() {
-        bail!(
-            "{} exited with {}",
-            target.display(),
-            status
-                .code()
-                .map(|code| code.to_string())
-                .unwrap_or_else(|| "signal".into())
-        );
-    }
-    Ok(())
+    let mut cmd = Command::new(target);
+    cmd.args(args);
+    crate::exec::run_status_check(&mut cmd, &format!("running {}", target.display())).await
 }
 
 fn has_jeryu_path_block(text: &str) -> bool {

@@ -125,7 +125,7 @@ pub async fn run_aggressive_reclaim(apply: bool) -> Result<()> {
             "mode": "plan",
             "exclusions_loaded": exclusions.len(),
             "targets": [
-                { "type": "gitlab_internal_logs", "filter": "truncate current logs + delete rotated logs", "estimated_bytes_freed": "Variable" },
+                { "type": "gitlab_internal_logs", "filter": "truncate current logs + remove rotated logs", "estimated_bytes_freed": "Variable" },
                 { "type": "docker_container_json_logs", "filter": "truncate jeryu-gitlab + jeryu-managed runner logs", "estimated_bytes_freed": "Variable" },
                 { "type": "containers", "filter": "until=24h", "estimated_bytes_freed": cont_sz },
                 { "type": "images_dangling", "filter": "dangling=true", "estimated_bytes_freed": img_sz },
@@ -246,7 +246,7 @@ async fn truncate_gitlab_logs() -> Result<()> {
     let script = format!(
         r#"
 set -eu
-find "{logs}" -type f \( -name '@*' -o -name '*.gz' \) -delete || true
+find "{logs}" -type f \( -name '@*' -o -name '*.gz' \) -exec rm -f {{}} + || true
 find "{logs}" -type f -name current -exec sh -c ': > "$1"' _ {{}} \; || true
 find "{logs}/gitlab-rails" -type f \( -name '*_json.log' -o -name '*_client.log' \) -exec sh -c ': > "$1"' _ {{}} \; || true
 "#,

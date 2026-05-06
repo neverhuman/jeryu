@@ -696,7 +696,7 @@ fn is_release_candidate_job(name: &str) -> bool {
 
 fn jobs_materialize_release_candidate(jobs: &[Job]) -> bool {
     // At least one RC job must have actually succeeded — a skipped or absent RC job
-    // means VTI did not select the release surface for this diff.
+    // means VTI did not match the release surface for this diff.
     jobs.iter()
         .any(|job| is_release_candidate_job(&job.name) && job.status == "success")
 }
