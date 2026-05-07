@@ -35,27 +35,23 @@ fn tui_demo_recording() -> anyhow::Result<()> {
     // Wait 3 seconds on the default Workflow tab
     std::thread::sleep(Duration::from_millis(3000));
 
-    // Go to Mission tab
+    // Go to Mission tab (1)
     page.press(Key::Tab)?;
     std::thread::sleep(Duration::from_millis(3000));
 
-    // Go to Mission tab
+    // Go to Release tab (2)
     page.press(Key::Tab)?;
     std::thread::sleep(Duration::from_millis(3000));
 
-    // Go to Release tab
+    // Go to Jobs tab (3)
     page.press(Key::Tab)?;
     std::thread::sleep(Duration::from_millis(3000));
 
-    // Go to Jobs tab
+    // Go to Agents tab (4)
     page.press(Key::Tab)?;
     std::thread::sleep(Duration::from_millis(3000));
 
-    // Go to Agents tab
-    page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(3000));
-
-    // Go to Tests tab
+    // Go to Tests tab (5)
     page.press(Key::Tab)?;
     std::thread::sleep(Duration::from_millis(1500));
 
@@ -63,6 +59,22 @@ fn tui_demo_recording() -> anyhow::Result<()> {
     page.press(Key::Down)?;
     std::thread::sleep(Duration::from_millis(1500));
     page.press(Key::Down)?;
+    std::thread::sleep(Duration::from_millis(3000));
+
+    // Go to Pools tab (6)
+    page.press(Key::Tab)?;
+    std::thread::sleep(Duration::from_millis(3000));
+
+    // Go to Cache tab (7)
+    page.press(Key::Tab)?;
+    std::thread::sleep(Duration::from_millis(3000));
+
+    // Go to Evidence tab (8)
+    page.press(Key::Tab)?;
+    std::thread::sleep(Duration::from_millis(3000));
+
+    // Go to Secrets tab (9)
+    page.press(Key::Tab)?;
     std::thread::sleep(Duration::from_millis(3000));
 
     // Save the GIF
