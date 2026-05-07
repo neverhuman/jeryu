@@ -34,33 +34,33 @@ fn tui_demo_recording() -> anyhow::Result<()> {
 
     // Go to Workflow tab
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Mission tab
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Release tab
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Jobs tab
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Agents tab
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Tests tab
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(1500));
 
     // Scroll through the tests
     page.press(Key::Down)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(1500));
     page.press(Key::Down)?;
-    std::thread::sleep(Duration::from_millis(2500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Save the GIF
     let gif_options = GifOptions {
