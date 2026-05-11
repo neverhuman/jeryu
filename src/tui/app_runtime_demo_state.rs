@@ -63,7 +63,7 @@ pub(crate) fn build_demo_state(
             error: None,
             outdated: false,
         },
-        jankurai: crate::tui::jankurai::load_snapshot(),
+        jankurai: demo_jankurai_snapshot(now),
         hot_cache_usage_bytes: 2_340_000_000,
         cache_hits: 1_102,
         cache_objects_count: 2_900,
@@ -313,3 +313,106 @@ pub(crate) fn build_demo_state(
         event_ticker_offset: 0,
     }
 }
+
+fn demo_jankurai_snapshot(now: chrono::DateTime<chrono::Utc>) -> crate::tui::jankurai::JankuraiSnapshot {
+    use crate::tui::jankurai::{
+        JankuraiDimension, JankuraiEntry, JankuraiEntryKind, JankuraiHistoryPoint, JankuraiScan,
+        JankuraiSnapshot,
+    };
+    
+    let hist1 = now - chrono::Duration::hours(48);
+    let hist2 = now - chrono::Duration::hours(24);
+    let hist3 = now;
+
+    JankuraiSnapshot {
+        installed: true,
+        history: vec![
+            JankuraiHistoryPoint {
+                generated_at: hist1,
+                score: 85,
+                raw_score: Some(85),
+                decision: Some("advisory".into()),
+            },
+            JankuraiHistoryPoint {
+                generated_at: hist2,
+                score: 92,
+                raw_score: Some(92),
+                decision: Some("pass".into()),
+            },
+            JankuraiHistoryPoint {
+                generated_at: hist3,
+                score: 95,
+                raw_score: Some(95),
+                decision: Some("pass".into()),
+            },
+        ],
+        dimensions: vec![
+            JankuraiDimension {
+                name: "Agent Capability".into(),
+                weight: 40,
+                score: 100,
+                weighted_points: 40.0,
+                evidence: vec!["all required caps enabled".into()],
+                notes: vec![],
+            },
+            JankuraiDimension {
+                name: "Testing Coverage".into(),
+                weight: 30,
+                score: 90,
+                weighted_points: 27.0,
+                evidence: vec!["missing e2e coverage".into()],
+                notes: vec![],
+            },
+            JankuraiDimension {
+                name: "Documentation".into(),
+                weight: 30,
+                score: 93,
+                weighted_points: 28.0,
+                evidence: vec!["JANKURAI_STANDARD.md exists".into()],
+                notes: vec![],
+            },
+        ],
+        entries: vec![
+            JankuraiEntry {
+                kind: JankuraiEntryKind::Cap,
+                label: "cap-agent-execution".into(),
+                severity: None,
+                hardness: None,
+                path: None,
+                rule: None,
+                lane: None,
+                owner: None,
+                problem: None,
+                evidence: vec!["applied in JANKURAI_STANDARD.md".into()],
+                suggested_fix: None,
+            },
+            JankuraiEntry {
+                kind: JankuraiEntryKind::Finding,
+                label: "rule-missing-e2e".into(),
+                severity: Some("medium".into()),
+                hardness: Some("soft".into()),
+                path: Some("tests/e2e/".into()),
+                rule: Some("REQ-TEST-E2E".into()),
+                lane: Some("slow".into()),
+                owner: Some("qa".into()),
+                problem: Some("E2E tests not found".into()),
+                evidence: vec!["no tests matched in tests/e2e/".into()],
+                suggested_fix: Some("Add at least one E2E test".into()),
+            },
+        ],
+        last_scan: Some(JankuraiScan {
+            generated_at: Some(now),
+            score: 95,
+            raw_score: 95,
+            minimum_score: 90,
+            decision: "pass".into(),
+            score_status: "passing".into(),
+            finding_count: 1,
+            hard_findings: 0,
+            soft_findings: 1,
+            caps_applied: vec!["cap-agent-execution".into(), "cap-secure-build".into()],
+        }),
+        error: None,
+    }
+}
+
