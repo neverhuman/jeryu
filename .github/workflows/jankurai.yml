@@ -63,6 +63,20 @@ jobs:
         run: cargo run -p cargo-vrc -- map --output-dir .
       - name: AER scan
         run: cargo run -p cargo-aer -- scan --output target/jankurai/aer-findings.json
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: "22"
+      - name: Checkout UX QA tool
+        run: git clone --depth 1 https://github.com/neverhuman/jankurai target/jankurai-ux-qa-tool
+      - name: Install UX QA dependencies
+        working-directory: target/jankurai-ux-qa-tool
+        run: npm ci
+      - name: Install UX QA browsers
+        working-directory: target/jankurai-ux-qa-tool
+        run: npx playwright install chromium --with-deps
+      - name: Build UX QA tool
+        working-directory: target/jankurai-ux-qa-tool
+        run: npm run ux-qa:build
       - name: language-bad-behavior
         run: cargo test -p jeryu --test language_bad_behavior
       - name: ci-bad-behavior
@@ -91,7 +105,7 @@ jobs:
       - name: Migration analyze
         run: jankurai migrate . --analyze --out target/jankurai/migration-report.json
       - name: UX QA smoke
-        run: jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
+        run: node target/jankurai-ux-qa-tool/packages/ux-qa/dist/cli.js audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
       - name: Security lane proof
         run: jankurai security run . --out target/jankurai/security/evidence.json
       - name: Generate CycloneDX SBOM
@@ -99,10 +113,8 @@ jobs:
         run: |
           mkdir -p target/jankurai/sbom
           cargo cyclonedx --format json --override-filename sbom
-          # Move any generated SBOMs into the jankurai output directory.
-          while IFS= read -r f; do
-            mv "$f" target/jankurai/sbom/
-          done < <(find . -maxdepth 4 -name 'sbom.cdx.json' -not -path './target/jankurai/*')
+          mv sbom.json target/jankurai/sbom/
+          test -f target/jankurai/sbom/sbom.json
 
       - name: Attest build provenance
         if: always()

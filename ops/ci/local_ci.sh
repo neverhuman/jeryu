@@ -22,6 +22,30 @@ require cargo
 require just
 require jankurai
 require docker
+require git
+require npm
+require npx
+
+cleanup_generated_sboms() {
+    find "$ROOT" -path '*/sbom.json' -delete
+}
+
+trap cleanup_generated_sboms EXIT
+
+prepare_ux_qa_cli() {
+    local tool_dir
+    tool_dir="$(mktemp -d)"
+    git clone --depth 1 https://github.com/neverhuman/jankurai "$tool_dir/jankurai" >/dev/null 2>&1
+    (
+        cd "$tool_dir/jankurai"
+        npm ci >/dev/null 2>&1
+        npx playwright install chromium --with-deps >/dev/null 2>&1
+        npm run ux-qa:build >/dev/null 2>&1
+    )
+    printf '%s\n' "$tool_dir/jankurai/packages/ux-qa/dist/cli.js"
+}
+
+UX_QA_CLI="$(prepare_ux_qa_cli)"
 
 run "cargo fmt --all -- --check" cargo fmt --all -- --check
 run "cargo clippy --workspace --exclude jeryu --all-targets --all-features -- -D warnings" \
@@ -38,4 +62,6 @@ run "cargo test --test tui_recording -- --ignored --exact tui_demo_recording" \
     cargo test --test tui_recording -- --ignored --exact tui_demo_recording
 run "fixture project validation" bash -lc 'cd tests/fixtures/fixture_project && cargo test --verbose'
 run "bash tools/security-lane.sh ." bash tools/security-lane.sh .
+run "UX QA smoke" bash -lc "cd '$ROOT' && node '$UX_QA_CLI' audit --config agent/ux-qa.toml --out target/ci-local/ux-qa.json"
+run "Generate CycloneDX SBOM" bash -lc 'mkdir -p target/ci-local/sbom && cargo cyclonedx --format json --override-filename sbom && mv sbom.json target/ci-local/sbom/ && test -f target/ci-local/sbom/sbom.json'
 run "jankurai audit" jankurai audit . --mode advisory --json target/ci-local/repo-score.json --md target/ci-local/repo-score.md
