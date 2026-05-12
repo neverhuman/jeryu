@@ -169,6 +169,7 @@ impl RepairPacket {
     /// the panic hook fills those in later when it processes the emitted
     /// packet against the cell registry.
     #[doc(hidden)]
+    #[allow(clippy::too_many_arguments)]
     pub fn for_assert(
         code: String,
         message: String,

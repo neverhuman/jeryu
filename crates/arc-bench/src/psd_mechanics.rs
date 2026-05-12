@@ -193,10 +193,8 @@ fn witness_metrics(root: &Path, witness_loop: &ScenarioReport) -> Result<(f64, u
             .find(|result| result.variant == witnessed_variant)
             .context("missing witnessed witness-loop result")?;
 
-        let observed_classification = match extract_note_value(&witnessed.notes, "Classification") {
-            Some(value) => value,
-            None => "",
-        };
+        let observed_classification =
+            extract_note_value(&witnessed.notes, "Classification").unwrap_or_default();
         let observed_escalation = extract_note_value(&witnessed.notes, "Escalated")
             .map(|value| value == "true")
             .unwrap_or(false);
@@ -224,24 +222,18 @@ fn witness_metrics(root: &Path, witness_loop: &ScenarioReport) -> Result<(f64, u
 }
 
 fn repo_shape_delta(report: &ScenarioReport) -> RepoShapeDelta {
-    let monolith = match report
+    let monolith = report
         .results
         .iter()
         .find(|result| result.variant == "monolith")
         .and_then(|result| result.context_bytes)
-    {
-        Some(value) => value,
-        None => 0,
-    };
-    let arcified = match report
+        .unwrap_or_default();
+    let arcified = report
         .results
         .iter()
         .find(|result| result.variant == "arcified")
         .and_then(|result| result.context_bytes)
-    {
-        Some(value) => value,
-        None => 0,
-    };
+        .unwrap_or_default();
     let ratio = if arcified == 0 {
         0.0
     } else {

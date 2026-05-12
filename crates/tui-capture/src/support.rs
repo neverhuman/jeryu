@@ -1,7 +1,6 @@
 use anyhow::{Result, bail};
 use image::{Rgba, RgbaImage};
 use rusttype::{Font, PositionedGlyph, Scale, point};
-use std::fs;
 use std::path::PathBuf;
 use vt100::{Color as VtColor, Screen};
 
@@ -390,6 +389,7 @@ pub(crate) fn validate_required_glyphs(font: &Font<'_>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn hex_color_parser_accepts_hash() {

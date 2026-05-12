@@ -88,6 +88,5 @@ pub fn incomplete_records(workspace_root: &Path) -> Result<Vec<Finding>> {
 fn parse_record(path: &Path) -> Result<AerRecord> {
     let contents =
         fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
-    Ok(serde_yaml::from_str(&contents)
-        .with_context(|| format!("failed to parse {}", path.display()))?)
+    serde_yaml::from_str(&contents).with_context(|| format!("failed to parse {}", path.display()))
 }

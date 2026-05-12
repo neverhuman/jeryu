@@ -44,7 +44,7 @@ pub fn load_workspace(manifest_path: Option<&Path>) -> Result<WorkspaceSnapshot>
     if let Some(path) = manifest_path {
         metadata_query.manifest_path(&normalize_manifest_path(path)?);
     } else {
-        metadata_query.manifest_path(&workspace_root()?.join("Cargo.toml"));
+        metadata_query.manifest_path(workspace_root()?.join("Cargo.toml"));
     }
     // Structured subprocess invocation through `cargo_metadata::MetadataCommand`
     // (not a shell string); the manifest path is path-validated above.
