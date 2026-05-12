@@ -45,8 +45,6 @@ pub(crate) fn save_remote_config(cfg: &RemoteConfig) -> Result<()> {
 
 pub(crate) fn ssh_args(cfg: &RemoteConfig) -> Vec<String> {
     let mut args = vec![
-        "-p".to_string(),
-        cfg.ssh_port.to_string(),
         "-o".to_string(),
         "StrictHostKeyChecking=accept-new".to_string(),
         "-o".to_string(),

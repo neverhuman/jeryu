@@ -111,7 +111,7 @@ pub(crate) fn build_demo_state(
                 count: 24,
             },
             crate::state::TestBottleneck {
-                test_name: "integration::large_batch_completes_under_10ms".into(),
+                test_name: "integration::large_batch_completes_under_25ms".into(),
                 avg_duration_ms: 18_000.0,
                 latest_duration_ms: 18_720,
                 count: 4,
@@ -119,7 +119,7 @@ pub(crate) fn build_demo_state(
         ],
         test_bottlenecks_latest: vec![
             crate::state::TestBottleneck {
-                test_name: "integration::large_batch_completes_under_10ms".into(),
+                test_name: "integration::large_batch_completes_under_25ms".into(),
                 avg_duration_ms: 18_000.0,
                 latest_duration_ms: 18_720,
                 count: 4,

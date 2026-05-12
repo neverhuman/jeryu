@@ -45,7 +45,7 @@ impl ExecutorSandbox {
     /// Strict mode never silently downgrades to soft local execution.
     pub fn spawn_script(&self, script_path: &str) -> Result<Child> {
         let mut cmd = match self.selected_backend() {
-            SandboxBackend::SoftLocal => Command::new("bash"),
+            SandboxBackend::SoftLocal => bash_command(),
             SandboxBackend::Bubblewrap => {
                 let mut c = Command::new("bwrap");
                 c.arg("--die-with-parent")
@@ -97,6 +97,16 @@ impl ExecutorSandbox {
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
         cmd.spawn().context("Failed to spawn sandboxed script")
+    }
+}
+
+fn bash_command() -> Command {
+    if command_exists("bash") {
+        Command::new("bash")
+    } else if std::path::Path::new("/usr/bin/bash").is_file() {
+        Command::new("/usr/bin/bash")
+    } else {
+        Command::new("/bin/bash")
     }
 }
 

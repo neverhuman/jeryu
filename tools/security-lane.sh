@@ -9,6 +9,12 @@ fi
 out_dir="$repo_root/target/jankurai/security"
 mkdir -p "$out_dir"
 
+docker_repo_path() {
+  local path="$1"
+  local rel="${path#"$repo_root"/}"
+  printf '/repo/%s' "$rel"
+}
+
 json_string() {
   local value="${1//\\/\\\\}"
   value="${value//\"/\\\"}"
@@ -46,7 +52,8 @@ if command -v gitleaks >/dev/null 2>&1; then
     gitleaks_status=$?
   fi
 elif command -v docker >/dev/null 2>&1; then
-  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.0 git --no-banner --redact --report-format sarif --report-path "$gitleaks_report" . >"$gitleaks_log" 2>&1; then
+  gitleaks_report_docker="$(docker_repo_path "$gitleaks_report")"
+  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.0 git --no-banner --redact --report-format sarif --report-path "$gitleaks_report_docker" . >"$gitleaks_log" 2>&1; then
     gitleaks_status=0
   else
     gitleaks_status=$?
@@ -69,7 +76,8 @@ if command -v syft >/dev/null 2>&1; then
     sbom_status=$?
   fi
 elif command -v docker >/dev/null 2>&1; then
-  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/anchore/syft:v1.40.0 dir:. -o spdx-json="$sbom_report" >"$syft_log" 2>&1; then
+  sbom_report_docker="$(docker_repo_path "$sbom_report")"
+  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/anchore/syft:v1.40.0 dir:. -o spdx-json="$sbom_report_docker" >"$syft_log" 2>&1; then
     sbom_status=0
   else
     sbom_status=$?

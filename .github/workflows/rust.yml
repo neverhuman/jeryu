@@ -44,6 +44,8 @@ jobs:
           components: clippy
       - name: Install clippy
         run: rustup component add clippy
+      - name: Install mold
+        run: sudo apt-get install -y mold
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Run clippy
