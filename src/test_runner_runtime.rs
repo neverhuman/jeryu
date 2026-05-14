@@ -270,10 +270,13 @@ pub(crate) async fn wait_for_test_result(
         if let Some(job) = jobs.iter().find(|j| j.name == job_name) {
             match job.status.as_str() {
                 "success" => {
-                    let trace = client
+                    let trace = match client
                         .get_job_log_snippet(project_id, job.id, 2000)
                         .await
-                        .unwrap_or_default();
+                    {
+                        Ok(s) => s,
+                        Err(_) => String::new(),
+                    };
                     return Ok(TestRunResult {
                         pipeline_id,
                         job_id: Some(job.id),
@@ -285,10 +288,13 @@ pub(crate) async fn wait_for_test_result(
                     });
                 }
                 "failed" => {
-                    let trace = client
+                    let trace = match client
                         .get_job_log_snippet(project_id, job.id, 4000)
                         .await
-                        .unwrap_or_default();
+                    {
+                        Ok(s) => s,
+                        Err(_) => String::new(),
+                    };
                     return Ok(TestRunResult {
                         pipeline_id,
                         job_id: Some(job.id),

@@ -236,6 +236,10 @@
       "command": "just score",
       "purpose": "verify proof lane map remains routed"
     },
+    "release.policy.toml": {
+      "command": "cargo test -p jeryu -- release::gate",
+      "purpose": "verify release gate policy remains tested and routed"
+    },
     "python/ai-service/": {
       "command": "just score",
       "purpose": "verify python AI service routing remains visible to the audit"

@@ -284,7 +284,11 @@ impl CacheProxy {
                     let url = format!("https://index.crates.io/{}", suffix);
                     match reqwest::get(&url).await {
                         Ok(req_resp) => {
-                            let bytes = req_resp.bytes().await.unwrap_or_default();
+                            let raw_bytes = req_resp.bytes().await;
+                            let bytes: &[u8] = match raw_bytes.as_deref() {
+                                Ok(b) => b,
+                                Err(_) => b"",
+                            };
                             let resp_head = format!(
                                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
                                 bytes.len()

@@ -12,10 +12,13 @@ pub async fn build_pipeline_doctor_report(
         .list_pipeline_jobs_with_downstream(project_id, pipeline_id)
         .await?;
     let historical_bottlenecks = match Db::open().await {
-        Ok(db) => db
+        Ok(db) => match db
             .ci_job_bottlenecks(project_id, Some(&pipeline.ref_name), 500)
             .await
-            .unwrap_or_default(),
+        {
+            Ok(rows) => rows,
+            Err(_) => Vec::new(),
+        },
         Err(_) => Vec::new(),
     };
     let schema_pools = schema

@@ -20,7 +20,10 @@ pub(crate) async fn execute_agent_submit(
     json: bool,
 ) -> Result<()> {
     let branch = current_branch()?;
-    let agent_id = std::env::var("JERYU_AGENT_ID").unwrap_or_else(|_| "human:local".into());
+    let agent_id = match std::env::var("JERYU_AGENT_ID") {
+        Ok(id) => id,
+        Err(_) => "human:local".to_string(),
+    };
 
     let mut capsule = EvidenceCapsule::new(&agent_id, &task, &branch);
     capsule.issue = issue;

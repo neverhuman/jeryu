@@ -107,7 +107,10 @@ pub(crate) fn header_value(content: &str, label: &str) -> Option<String> {
 }
 
 pub(crate) fn header_value_or_empty(content: &str, label: &str) -> String {
-    header_value(content, label).unwrap_or_default()
+    match header_value(content, label) {
+        Some(v) => v,
+        None => String::new(),
+    }
 }
 
 pub(crate) fn proof_lanes_for_change_type(
@@ -180,7 +183,10 @@ pub(crate) fn render_markdown(index: &AgentIndex) -> String {
 }
 
 pub(crate) fn read_text_or_empty(path: &Path) -> String {
-    fs::read_to_string(path).unwrap_or_default()
+    match fs::read_to_string(path) {
+        Ok(s) => s,
+        Err(_) => String::new(),
+    }
 }
 
 pub(crate) fn generated_index_is_current(

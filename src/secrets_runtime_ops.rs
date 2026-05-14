@@ -71,7 +71,10 @@ pub async fn rotate_release_secrets(
         detail: format!(
             "Vault {} {}",
             vault_env.addr,
-            runtime_secret_vault_path.clone().unwrap_or_default()
+            match runtime_secret_vault_path.clone() {
+                Some(p) => p,
+                None => String::new(),
+            }
         ),
         created_at: now,
     })

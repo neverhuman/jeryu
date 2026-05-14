@@ -48,10 +48,10 @@ pub(crate) async fn handle_pipeline_event(state: SharedState, payload: PipelineH
             (attrs.id, attrs.status, attrs.ref_name, attrs.sha)
         {
             let ref_name = normalize_ref(&ref_name);
-            let project_id = payload
-                .project
-                .and_then(|project| project.id)
-                .unwrap_or_default();
+            let project_id = match payload.project.and_then(|project| project.id) {
+                Some(id) => id,
+                None => 0,
+            };
             let _ = state
                 .db
                 .upsert_tracked_pipeline(&TrackedPipeline {

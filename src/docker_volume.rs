@@ -47,7 +47,10 @@ impl DockerCtl {
             .await
             .context("listing docker volumes")?;
 
-        let all_volumes = resp.volumes.unwrap_or_default();
+        let all_volumes = match resp.volumes {
+            Some(v) => v,
+            None => Vec::new(),
+        };
         let mut removed: u64 = 0;
 
         for vol in &all_volumes {

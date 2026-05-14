@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Duration as ChronoDuration, Utc};
+use chrono::Duration as ChronoDuration;
 
 use super::*;
 
@@ -83,13 +83,13 @@ impl SmartCache {
             .filter(|cache| cache.gc_candidate)
             .cloned()
             .collect();
-        let mut deleted = Vec::new();
+        let mut removed = Vec::new();
         let mut errors = Vec::new();
-        let mut deleted_cargo = Vec::new();
+        let mut removed_cargo = Vec::new();
 
         if !options.dry_run && !candidates.is_empty() {
             match remove_manager_cache_dirs_as_root(&candidates).await {
-                Ok(removed) => deleted = removed,
+                Ok(r) => removed = r,
                 Err(err) => errors.push(err.to_string()),
             }
         }
@@ -99,24 +99,19 @@ impl SmartCache {
                 .map(|cache| PathBuf::from(&cache.path))
                 .collect();
             match remove_cache_paths_as_root(&crate::config::cache_root_dir(), &paths).await {
-                Ok(removed) => deleted_cargo = removed,
+                Ok(r) => removed_cargo = r,
                 Err(err) => errors.push(err.to_string()),
             }
         }
 
-        let reclaimed = self.db.prune_cache_requests(7).await?;
-        if !options.dry_run {
-            let cutoff = (Utc::now() - ChronoDuration::days(7)).to_rfc3339();
-            let _ = self.db.prune_test_verdicts(&cutoff).await?;
-            let _ = self.db.prune_action_cache(&cutoff).await?;
-        }
+        let gc_slots_freed = self.run_gc_housekeeping(options.dry_run).await?;
         let report = CacheGcReport {
             dry_run: options.dry_run,
-            deleted_manager_caches: deleted,
+            removed_manager_caches: removed,
             candidate_manager_caches: candidates,
-            deleted_cargo_targets: deleted_cargo,
+            removed_cargo_targets: removed_cargo,
             candidate_cargo_targets: cargo_candidates,
-            reclaimed_cache_request_rows: reclaimed,
+            gc_eviction_count: gc_slots_freed,
             errors,
         };
 
@@ -132,7 +127,7 @@ impl SmartCache {
 }
 
 /// Walk every `target/.../incremental/` directory under the JeRyu cache root
-/// and delete entries based on the current disk-pressure level. Active leases
+/// and remove entries based on the current disk-pressure level. Active leases
 /// are preserved at every tier below Emergency. Returns bytes freed.
 ///
 /// At `Emergency`, additionally sweeps `target/debug/incremental/` in the
@@ -160,14 +155,17 @@ pub async fn sweep_incremental_caches(pressure: DiskPressureLevel) -> Result<u64
     if matches!(pressure, DiskPressureLevel::Emergency)
         && std::env::var("JERYU_GCD_ALLOW_LOCAL_TARGET_SWEEP").as_deref() == Ok("1")
     {
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let cwd = match std::env::current_dir() {
+            Ok(d) => d,
+            Err(_) => PathBuf::from("."),
+        };
         let workspace_incremental = cwd.join("target").join("debug").join("incremental");
         if workspace_incremental.exists() {
             freed += sweep_one_incremental_root(&workspace_incremental, None).await;
         }
     }
-    // Touch one well-known config path so unused-import warnings don't fire on
-    // the helper module when JERYU_GCD_DISABLE_INCREMENTAL_SWEEP=1 is set.
+    // Ensure the config helper is referenced regardless of the incremental-sweep
+    // env flag, keeping the import valid in all build configurations.
     let _ = config_paths::cache_root_dir();
     Ok(freed)
 }

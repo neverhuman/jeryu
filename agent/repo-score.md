@@ -7,13 +7,13 @@
 - Target stack ID: `rust-ts-vite-react-postgres-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1778721687`
-- Started at: `1778721687`
-- Elapsed: `7361` ms
+- Run ID: `1778798569`
+- Started at: `1778798569`
+- Elapsed: `7821` ms
 - Scope: `full`
-- Raw score: `91`
-- Final score: `91`
-- Decision: `advisory`
+- Raw score: `89`
+- Final score: `89`
+- Decision: `pass`
 - Minimum score: `85`
 - Caps applied: `none`
 
@@ -70,9 +70,9 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`25` files=`306`
+- Status: `review` hard=`0` warning=`23` files=`339`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
-- Duplicate volume: lines=`55` tokens=`149` bytes=`1538`
+- Duplicate volume: lines=`34` tokens=`76` bytes=`807`
 
 - Notes:
   - hard classes are limited to exact active-source file matches and substantial exact same-name units
@@ -81,29 +81,27 @@
 
 | Kind | Severity | Language | Lines | Tokens | Instances | Reason |
 | --- | --- | --- | ---: | ---: | --- | --- |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose.rs:179-180, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:105-106, src/api/entity.rs:114-115, src/api/entity.rs:137-138, src/api/entity.rs:147-148, src/api/snapshot.rs:90-91, src/api/snapshot.rs:143-144, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107, src/tui/workflow/model.rs:79-80` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose.rs:179-180, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:105-106, src/api/entity.rs:114-115, src/api/entity.rs:137-138, src/api/entity.rs:147-148, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107, src/tui/workflow/model.rs:79-80` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1471-1472, db/state.rs:1534-1535, db/state.rs:1625-1626, db/state.rs:1638-1639, db/state.rs:1677-1678, db/state.rs:2599-2600, db/state.rs:2626-2627, db/state.rs:2653-2654, db/state.rs:2672-2673, db/state.rs:3104-3105` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 7 | 18 | `src/tui/widgets/attention.rs:99-106, src/tui/widgets/timeline.rs:69-76` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `src/tui/widgets/status_badge.rs:83-84, src/tui/widgets/status_badge.rs:92-93, src/tui/widgets/status_badge.rs:101-102, src/tui/widgets/status_badge.rs:108-109, src/tui/widgets/status_badge.rs:115-116, src/tui/widgets/status_badge.rs:124-125, src/tui/widgets/status_badge.rs:133-134, src/tui/widgets/status_badge.rs:142-143` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 6 | 29 | `src/secrets_runtime.rs:146-152, src/secrets_runtime.rs:154-160` | `same body appears under different names across files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 6 | 13 | `crates/arc-bench/src/exceptions.rs:130-136, crates/arc-bench/src/witness_loop.rs:154-160` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:105-106, src/api/entity.rs:137-138, src/api/snapshot.rs:143-144, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107, src/tui/workflow/model.rs:79-80` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 6 | 8 | `src/capability_execute.rs:266-272, src/capability_inspect.rs:244-250` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 5 | 12 | `src/install_support.rs:7-12, src/remote_support.rs:244-249` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 8 | 9 | `crates/tuiwright/src/render.rs:26-34, crates/tuiwright/src/render.rs:38-46` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `src/tui/widgets/status_badge.rs:87-88, src/tui/widgets/status_badge.rs:96-97, src/tui/widgets/status_badge.rs:105-106, src/tui/widgets/status_badge.rs:112-113, src/tui/widgets/status_badge.rs:119-120, src/tui/widgets/status_badge.rs:128-129, src/tui/widgets/status_badge.rs:137-138, src/tui/widgets/status_badge.rs:146-147` | `same body appears under different names across files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:105-106, src/api/entity.rs:137-138, src/api/snapshot.rs:140-141, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107, src/tui/workflow/model.rs:79-80` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 6 | `crates/tuiwright/src/expect.rs:28-29, crates/tuiwright/src/expect.rs:48-49, crates/tuiwright/src/expect.rs:67-68, crates/tuiwright/src/expect.rs:110-111, crates/tuiwright/src/expect.rs:131-132, crates/tuiwright/src/expect.rs:151-152` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:3374-3375, db/state.rs:3384-3385, db/state.rs:3394-3395, db/state.rs:3411-3412, db/state.rs:3420-3421` | `same body appears under different names across files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 4 | 14 | `src/cargo_cache_helpers.rs:64-68, src/cargo_cache_layout.rs:223-227` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:1910-1911, db/state.rs:2699-2700, db/state.rs:2737-2738, db/state.rs:2839-2840` | `same body appears under different names across files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:114-115, src/api/entity.rs:147-148, src/api/snapshot.rs:90-91` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:114-115, src/api/entity.rs:147-148, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 4 | `src/mcp/tools_schema.rs:29-31, src/mcp/tools_schema.rs:33-35` | `same body appears under different names across files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `crates/arc-bench/src/exceptions.rs:130-132, crates/arc-bench/src/witness_loop.rs:154-156` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `src/capability_execute.rs:267-269, src/capability_inspect.rs:244-246` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/api/entity.rs:178-179, src/gateway/singleflight.rs:64-65, src/tui/workflow/model.rs:234-235` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 1 | `crates/cargo-aer/src/lib.rs:152-154, crates/cargo-witness/src/graph.rs:161-163` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/tui/widgets/status_badge.rs:68-69, src/tui/widgets/status_badge.rs:77-78` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/tui/widgets/status_badge.rs:72-73, src/tui/widgets/status_badge.rs:81-82` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:1812-1813, db/state.rs:2442-2443` | `same body appears under different names across files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `crates/arc-bench/src/psd_mechanics.rs:329-330, crates/arc-bench/src/repo_shape.rs:104-105` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `crates/arc-bench/src/psd_mechanics.rs:344-345, crates/arc-bench/src/repo_shape.rs:104-105` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/tui/graph.rs:45-46, src/tui/graph.rs:76-77` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/tui/widgets/status_badge.rs:156-157, src/tui/widgets/status_badge.rs:168-169` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/secrets.rs:238-239, src/secrets.rs:264-265` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/tui/ui_panels_body_tail_extra_tail_help.rs:94-95, src/tui/ui_panels_mission_extra.rs:3-4` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/tui/widgets/status_badge.rs:160-161, src/tui/widgets/status_badge.rs:172-173` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/secrets.rs:234-235, src/secrets.rs:260-261` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/tui/ui_panels_body_tail_extra_tail_help.rs:95-96, src/tui/ui_panels_mission_extra.rs:3-4` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:647-648, db/state.rs:654-655` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `db/state.rs:706-707, db/state.rs:773-774` | `same body appears under different names across files` |
 
@@ -115,7 +113,7 @@
 | Contract and boundary integrity | 13 | 93 | 12.09 | contract surface found; generated contract artifacts found |
 | Proof lanes and test routing | 12 | 100 | 12.00 | one-command setup/validation lane found; deterministic fast lane found |
 | Security and supply-chain posture | 12 | 86 | 10.32 | lockfile present; secret or dependency scan tooling found |
-| Code shape and semantic surface | 12 | 100 | 12.00 | largest authored code file: src/tui/ui_panels_body_more.rs (350 LOC); most code files stay under 300 LOC |
+| Code shape and semantic surface | 12 | 80 | 9.60 | largest authored code file: src/tui/app_runtime_sync.rs (360 LOC); most code files stay under 300 LOC |
 | Data truth and workflow safety | 8 | 95 | 7.60 | database surface present; structured db boundary manifest present |
 | Observability and repair evidence | 8 | 98 | 7.84 | observability libraries or patterns found; diagnostic shaping hints found |
 | Context economy and agent instructions | 7 | 100 | 7.00 | root `AGENTS.md` present; root `AGENTS.md` stays short |
@@ -184,7 +182,7 @@
 - Path: `agent/boundaries.toml`
 - Stack: `rust-ts-vite-react-postgres-bounded-python` · version: `0.4.0`
 - Queue path counts — adapter: `2`, event_contract: `1`, generated_type: `1`, client_marker: `7`, streaming_exception: `1`
-- Content fingerprint: `sha256:b99d3c83e4f3d21beaa379241bd9a36d99f10187fd09d7a24bab733aa8c70729`
+- Content fingerprint: `sha256:45434b4e539727661dfd8c5f11df3a0d30795b6c19fd91bbb77d17d9a5a22a8e`
 
 ## Boundary Reclassifications
 
@@ -192,7 +190,16 @@ No audited runtime boundary reclassifications declared.
 
 ## Findings
 
-No findings.
+1. `medium` `shape` `.`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:shape` `soft` confidence `0.76`
+   Route: TLR `Entropy`, lane `fast`, owner `tools`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: `Code shape and semantic surface` scored 80 below the standard floor of 85
+   Fix: split large or ambiguous authored code into smaller semantic modules with focused tests
+   Rerun: `just fast`
+   Fingerprint: `sha256:b25508b63f694b28d6cf52c19eb9058682582cc6cdd5a40508af1782a52b3ab7`
+   Evidence: largest authored code file: src/tui/app_runtime_sync.rs (360 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 23 (advisory only, no score impact), rust bad-behavior advisory signals: 979
 
 ## Policy
 
@@ -202,4 +209,5 @@ No findings.
 
 ## Agent Fix Queue
 
-No queued fixes.
+1. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
+   Route: `Entropy`/`fast`

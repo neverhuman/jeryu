@@ -98,8 +98,8 @@ pub fn print_cache_gc_report(report: &CacheGcReport) {
             cache.reason
         );
     }
-    if !report.deleted_manager_caches.is_empty() {
-        println!("Deleted: {}", report.deleted_manager_caches.len());
+    if !report.removed_manager_caches.is_empty() {
+        println!("Removed: {}", report.removed_manager_caches.len());
     }
     if !report.candidate_cargo_targets.is_empty() {
         println!("Cargo candidates: {}", report.candidate_cargo_targets.len());
@@ -112,14 +112,11 @@ pub fn print_cache_gc_report(report: &CacheGcReport) {
             );
         }
     }
-    if !report.deleted_cargo_targets.is_empty() {
-        println!("Cargo deleted: {}", report.deleted_cargo_targets.len());
+    if !report.removed_cargo_targets.is_empty() {
+        println!("Cargo removed: {}", report.removed_cargo_targets.len());
     }
-    if report.reclaimed_cache_request_rows > 0 {
-        println!(
-            "Pruned cache request rows: {}",
-            report.reclaimed_cache_request_rows
-        );
+    if report.gc_eviction_count > 0 {
+        println!("GC evictions: {}", report.gc_eviction_count);
     }
     for err in &report.errors {
         println!("Warning: {err}");

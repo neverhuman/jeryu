@@ -7,6 +7,29 @@ use serde::Deserialize;
 
 use crate::model::{BenchVariantResult, ScenarioReport};
 
+/// Typed extraction of witness note fields — one parse call per result,
+/// with explicit defaults documented here rather than at each call site.
+struct WitnessNotes {
+    /// Empty string when the "Classification" key is absent from notes.
+    classification: String,
+    /// False when the "Escalated" key is absent or not "true".
+    escalated: bool,
+}
+
+impl WitnessNotes {
+    fn parse(notes: &[String]) -> Self {
+        let classification = match extract_note_value(notes, "Classification") {
+            Some(v) => v.to_owned(),
+            None => String::new(),
+        };
+        let escalated = match extract_note_value(notes, "Escalated") {
+            Some(v) => v == "true",
+            None => false,
+        };
+        Self { classification, escalated }
+    }
+}
+
 pub fn run(output: &Path) -> Result<ScenarioReport> {
     let root = workspace_root();
     let scratch = std::env::temp_dir().join(format!(
@@ -193,21 +216,15 @@ fn witness_metrics(root: &Path, witness_loop: &ScenarioReport) -> Result<(f64, u
             .find(|result| result.variant == witnessed_variant)
             .context("missing witnessed witness-loop result")?;
 
-        let observed_classification =
-            extract_note_value(&witnessed.notes, "Classification").unwrap_or_default();
-        let observed_escalation = extract_note_value(&witnessed.notes, "Escalated")
-            .map(|value| value == "true")
-            .unwrap_or(false);
-        let baseline_escalation = extract_note_value(&baseline.notes, "Escalated")
-            .map(|value| value == "true")
-            .unwrap_or(false);
+        let witnessed_notes = WitnessNotes::parse(&witnessed.notes);
+        let baseline_notes = WitnessNotes::parse(&baseline.notes);
 
-        if observed_classification == scenario.expected_classification
-            && observed_escalation == scenario.expect_escalation
+        if witnessed_notes.classification == scenario.expected_classification
+            && witnessed_notes.escalated == scenario.expect_escalation
         {
             correct += 1;
         }
-        if baseline_escalation && !scenario.expect_escalation && !observed_escalation {
+        if baseline_notes.escalated && !scenario.expect_escalation && !witnessed_notes.escalated {
             false_positive_eliminations += 1;
         }
         total += 1;

@@ -99,7 +99,10 @@ pub(super) async fn resolve_build_unit(
     tracing::info!("CacheBrain Verdict: {:?}", verdict);
 
     let verdict_str = format!("{:?}", verdict);
-    let reasons_str = serde_json::to_string(&verdict).unwrap_or_default();
+    let reasons_str = match serde_json::to_string(&verdict) {
+        Ok(s) => s,
+        Err(_) => String::new(),
+    };
     let _ = db
         .store_test_verdict(
             job_id,

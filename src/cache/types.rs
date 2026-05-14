@@ -159,11 +159,11 @@ pub struct DockerStorageClass {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CacheGcReport {
     pub dry_run: bool,
-    pub deleted_manager_caches: Vec<String>,
+    pub removed_manager_caches: Vec<String>,
     pub candidate_manager_caches: Vec<ManagerCacheStatus>,
-    pub deleted_cargo_targets: Vec<String>,
+    pub removed_cargo_targets: Vec<String>,
     pub candidate_cargo_targets: Vec<CargoTargetCacheStatus>,
-    pub reclaimed_cache_request_rows: u64,
+    pub gc_eviction_count: u64,
     pub errors: Vec<String>,
 }
 

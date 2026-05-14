@@ -1,5 +1,11 @@
 use super::*;
 
+#[path = "ui_panels_jankurai_helpers.rs"]
+mod ui_panels_jankurai_helpers;
+
+#[path = "ui_panels_jankurai_panels.rs"]
+mod ui_panels_jankurai_panels;
+
 pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
@@ -24,31 +30,94 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
 
     let scan = app.state.jankurai.last_scan.as_ref();
     let history = &app.state.jankurai.history;
-    let score_text = scan_text(scan, |scan| scan.score.to_string(), "n/a");
-    let raw_score_text = scan_text(scan, |scan| scan.raw_score.to_string(), "n/a");
-    let minimum_score_text = scan_text(scan, |scan| scan.minimum_score.to_string(), "n/a");
-    let decision_text = scan_text(scan, |scan| scan.decision.clone(), "n/a");
-    let score_status_text = scan_text(scan, |scan| scan.score_status.clone(), "n/a");
+
+    // ── Summary block (top-left) ────────────────────────────────────────
+    render_summary_block(f, top_cols[0], scan, history);
+
+    // ── Status block (top-right) ────────────────────────────────────────
+    render_status_block(f, top_cols[1], app);
+
+    // ── Score history chart (middle-left) ───────────────────────────────
+    render_score_chart(f, middle_cols[0], history);
+
+    // ── Dimension breakdown (middle-right) ──────────────────────────────
+    let breakdown_block = Block::default()
+        .title(" [ Last Scan Dimensions ] ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let breakdown_inner = breakdown_block.inner(middle_cols[1]);
+    f.render_widget(breakdown_block, middle_cols[1]);
+    ui_panels_jankurai_panels::render_breakdown_panel(
+        f,
+        middle_cols[1],
+        &app.state.jankurai.dimensions,
+        breakdown_inner,
+    );
+
+    // ── Caps / Findings list (bottom-left) ──────────────────────────────
+    let issues_block = Block::default()
+        .title(" [ Caps / Findings ] ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    let issues_inner = issues_block.inner(bottom_cols[0]);
+    f.render_widget(issues_block, bottom_cols[0]);
+    ui_panels_jankurai_panels::render_issues_panel(
+        f,
+        bottom_cols[0],
+        &app.state.jankurai.entries,
+        app.selected_jankurai_index,
+        issues_inner,
+    );
+
+    // ── Entry detail (bottom-right) ─────────────────────────────────────
+    let detail_block = Block::default()
+        .title(" [ Entry Detail ] ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let detail_inner = detail_block.inner(bottom_cols[1]);
+    f.render_widget(detail_block, bottom_cols[1]);
+    if let Some(entry) = app.selected_jankurai_entry() {
+        ui_panels_jankurai_panels::render_entry_detail(f, bottom_cols[1], entry, detail_inner);
+    } else {
+        f.render_widget(
+            Paragraph::new("  No Jankurai entry selected.")
+                .style(Style::default().fg(Color::DarkGray)),
+            detail_inner,
+        );
+    }
+}
+
+fn render_summary_block(
+    f: &mut Frame,
+    area: Rect,
+    scan: Option<&crate::tui::jankurai::JankuraiScan>,
+    history: &[crate::tui::jankurai::JankuraiHistoryPoint],
+) {
+    use ui_panels_jankurai_helpers::scan_text;
+
+    let score_text = scan_text(scan, |s| s.score.to_string(), "n/a");
+    let raw_score_text = scan_text(scan, |s| s.raw_score.to_string(), "n/a");
+    let minimum_score_text = scan_text(scan, |s| s.minimum_score.to_string(), "n/a");
+    let decision_text = scan_text(scan, |s| s.decision.clone(), "n/a");
+    let score_status_text = scan_text(scan, |s| s.score_status.clone(), "n/a");
     let generated_at_text = match scan {
-        Some(scan) => match &scan.generated_at {
-            Some(generated_at) => format_timestamp(generated_at),
+        Some(s) => match &s.generated_at {
+            Some(ts) => ui_panels_jankurai_helpers::format_timestamp(ts),
             None => "n/a".into(),
         },
         None => "n/a".into(),
     };
-    let finding_count_text = scan_text(scan, |scan| scan.finding_count.to_string(), "0");
-    let hard_findings_text = scan_text(scan, |scan| scan.hard_findings.to_string(), "0");
-    let soft_findings_text = scan_text(scan, |scan| scan.soft_findings.to_string(), "0");
-    let cap_count_text = scan_text(scan, |scan| scan.caps_applied.len().to_string(), "0");
+    let finding_count_text = scan_text(scan, |s| s.finding_count.to_string(), "0");
+    let hard_findings_text = scan_text(scan, |s| s.hard_findings.to_string(), "0");
+    let soft_findings_text = scan_text(scan, |s| s.soft_findings.to_string(), "0");
+    let cap_count_text = scan_text(scan, |s| s.caps_applied.len().to_string(), "0");
 
     let summary_lines = vec![
         Line::from(vec![
             Span::styled("score:   ", Style::default().fg(Color::DarkGray)),
             Span::styled(
                 score_text,
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
             ),
             Span::styled("   raw: ", Style::default().fg(Color::DarkGray)),
             Span::styled(raw_score_text, Style::default().fg(Color::White)),
@@ -59,25 +128,22 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
             Span::styled("   decision: ", Style::default().fg(Color::DarkGray)),
             Span::styled(
                 decision_text,
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(vec![
-            Span::styled("score gate: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(score_status_text, Style::default().fg(Color::White)),
+            Span::styled("status:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(score_status_text, Style::default().fg(Color::Cyan)),
             Span::styled("   at: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(generated_at_text, Style::default().fg(Color::Gray)),
+            Span::styled(generated_at_text, Style::default().fg(Color::DarkGray)),
         ]),
         Line::from(vec![
-            Span::styled("findings: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(finding_count_text, Style::default().fg(Color::White)),
-            Span::styled(" total / ", Style::default().fg(Color::DarkGray)),
+            Span::styled("findings:", Style::default().fg(Color::DarkGray)),
+            Span::styled(finding_count_text, Style::default().fg(Color::Red)),
+            Span::styled(" hard:", Style::default().fg(Color::DarkGray)),
             Span::styled(hard_findings_text, Style::default().fg(Color::Red)),
-            Span::styled(" hard / ", Style::default().fg(Color::DarkGray)),
-            Span::styled(soft_findings_text, Style::default().fg(Color::Yellow)),
             Span::styled(" soft", Style::default().fg(Color::DarkGray)),
+            Span::styled(soft_findings_text, Style::default().fg(Color::Yellow)),
         ]),
         Line::from(vec![
             Span::styled("caps:    ", Style::default().fg(Color::DarkGray)),
@@ -91,10 +157,12 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
         .title(" [ Jankurai Summary ] ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
-    let summary_inner = summary_block.inner(top_cols[0]);
-    f.render_widget(summary_block, top_cols[0]);
+    let summary_inner = summary_block.inner(area);
+    f.render_widget(summary_block, area);
     f.render_widget(Paragraph::new(summary_lines), summary_inner);
+}
 
+fn render_status_block(f: &mut Frame, area: Rect, app: &App) {
     let status_block = Block::default()
         .title(" [ Jankurai Status ] ")
         .borders(Borders::ALL)
@@ -103,8 +171,9 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
         } else {
             Color::DarkGray
         }));
-    let status_inner = status_block.inner(top_cols[1]);
-    f.render_widget(status_block, top_cols[1]);
+    let status_inner = status_block.inner(area);
+    f.render_widget(status_block, area);
+
     if let Some(error) = &app.state.jankurai.error {
         f.render_widget(
             Paragraph::new(vec![
@@ -122,18 +191,12 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
             status_inner,
         );
     } else {
-        let installed = if app.jankurai_available() {
-            "installed"
-        } else {
-            "not installed"
-        };
+        let installed = if app.jankurai_available() { "installed" } else { "not installed" };
         f.render_widget(
             Paragraph::new(vec![
                 Line::from(Span::styled(
                     "Jankurai",
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
                 )),
                 Line::from(""),
                 Line::from(vec![
@@ -142,28 +205,43 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
                 ]),
                 Line::from(vec![
                     Span::styled("points: ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(history.len().to_string(), Style::default().fg(Color::Green)),
+                    Span::styled(
+                        app.state.jankurai.history.len().to_string(),
+                        Style::default().fg(Color::Green),
+                    ),
                 ]),
             ])
             .wrap(Wrap { trim: false }),
             status_inner,
         );
     }
+}
+
+fn render_score_chart(
+    f: &mut Frame,
+    area: Rect,
+    history: &[crate::tui::jankurai::JankuraiHistoryPoint],
+) {
+    use ui_panels_jankurai_helpers::{chart_labels, y_axis_labels};
 
     let chart_block = Block::default()
         .title(" [ Score History ] ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-    let chart_inner = chart_block.inner(middle_cols[0]);
-    f.render_widget(chart_block, middle_cols[0]);
+    let chart_inner = chart_block.inner(area);
+    f.render_widget(chart_block, area);
+
     if history.is_empty() {
         f.render_widget(
             Paragraph::new("  No Jankurai history found")
                 .style(Style::default().fg(Color::DarkGray)),
             chart_inner,
         );
-    } else if chart_inner.width < 40 || chart_inner.height < 6 {
-        let scores: Vec<i64> = history.iter().map(|point| point.score).collect();
+        return;
+    }
+
+    if chart_inner.width < 40 || chart_inner.height < 6 {
+        let scores: Vec<i64> = history.iter().map(|p| p.score).collect();
         let spark = crate::tui::widgets::sparkline::spark_i64(
             &scores,
             chart_inner.width.saturating_sub(4) as usize,
@@ -189,365 +267,44 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
             ]),
             chart_inner,
         );
-    } else {
-        let data: Vec<(f64, f64)> = history
-            .iter()
-            .enumerate()
-            .map(|(index, point)| (index as f64, point.score as f64))
-            .collect();
-        let labels = chart_labels(history);
-        // Zoom Y-axis to the actual score range so the trend line is clearly visible
-        // instead of appearing as a flat line at the top of a 0-100 scale.
-        let y_min = data.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
-        let y_max = data
-            .iter()
-            .map(|(_, y)| *y)
-            .fold(f64::NEG_INFINITY, f64::max);
-        let y_pad = ((y_max - y_min) * 0.3).max(5.0);
-        let y_lo = (y_min - y_pad).max(0.0);
-        let y_hi = (y_max + y_pad).min(100.0);
-        let chart = Chart::new(vec![
-            Dataset::default()
-                .name("score")
-                .marker(Marker::Braille)
-                .graph_type(GraphType::Line)
-                .style(Style::default().fg(Color::Cyan))
-                .data(&data),
-        ])
-        .block(Block::default())
-        .x_axis(
-            Axis::default()
-                .title("time")
-                .style(Style::default().fg(Color::DarkGray))
-                .bounds([0.0, (data.len().saturating_sub(1)).max(1) as f64])
-                .labels(labels.0),
-        )
-        .y_axis(
-            Axis::default()
-                .title("score")
-                .style(Style::default().fg(Color::DarkGray))
-                .bounds([y_lo, y_hi])
-                .labels(y_axis_labels(y_lo, y_hi)),
-        );
-        f.render_widget(chart, chart_inner);
+        return;
     }
 
-    let breakdown_block = Block::default()
-        .title(" [ Last Scan Dimensions ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-    let breakdown_inner = breakdown_block.inner(middle_cols[1]);
-    f.render_widget(breakdown_block, middle_cols[1]);
-    if app.state.jankurai.dimensions.is_empty() {
-        f.render_widget(
-            Paragraph::new("  No dimension breakdown available")
-                .style(Style::default().fg(Color::DarkGray)),
-            breakdown_inner,
-        );
-    } else {
-        let lines = app
-            .state
-            .jankurai
-            .dimensions
-            .iter()
-            .map(|dimension| {
-                let notes = if dimension.notes.is_empty() {
-                    String::new()
-                } else {
-                    format!(" notes: {}", short_text(&dimension.notes.join("; "), 40))
-                };
-                Line::from(vec![
-                    Span::styled(
-                        format!("{:>3} ", dimension.score),
-                        Style::default().fg(if dimension.score >= 90 {
-                            Color::Green
-                        } else if dimension.score >= 75 {
-                            Color::Yellow
-                        } else {
-                            Color::Red
-                        }),
-                    ),
-                    Span::styled(
-                        format!("w{:>2} ", dimension.weight),
-                        Style::default().fg(Color::Cyan),
-                    ),
-                    Span::styled(
-                        short_text(
-                            &dimension.name,
-                            breakdown_inner.width.saturating_sub(16) as usize,
-                        ),
-                        Style::default().fg(Color::White),
-                    ),
-                    Span::styled(notes, Style::default().fg(Color::DarkGray)),
-                ])
-            })
-            .collect::<Vec<_>>();
-        f.render_widget(
-            Paragraph::new(lines).wrap(Wrap { trim: false }),
-            breakdown_inner,
-        );
-    }
-
-    let issues_block = Block::default()
-        .title(" [ Caps / Findings ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
-    let issues_inner = issues_block.inner(bottom_cols[0]);
-    f.render_widget(issues_block, bottom_cols[0]);
-
-    let (visible_start, visible_end) = visible_entry_window(
-        app.state.jankurai.entries.len(),
-        app.selected_jankurai_index,
-        issues_inner.height as usize,
-    );
-    let items: Vec<ListItem> = app
-        .state
-        .jankurai
-        .entries
+    let data: Vec<(f64, f64)> = history
         .iter()
         .enumerate()
-        .skip(visible_start)
-        .take(visible_end.saturating_sub(visible_start))
-        .enumerate()
-        .map(|(visible_index, (entry_index, entry))| {
-            let index = visible_start + visible_index;
-            debug_assert_eq!(index, entry_index);
-            let selected = index == app.selected_jankurai_index;
-            let style = if selected {
-                Style::default().bg(Color::DarkGray)
-            } else {
-                Style::default()
-            };
-            let (badge, badge_color) = match entry.kind {
-                crate::tui::jankurai::JankuraiEntryKind::Cap => ("CAP", Color::Magenta),
-                crate::tui::jankurai::JankuraiEntryKind::Finding => match entry.severity.as_deref()
-                {
-                    Some("high") => ("HIGH", Color::Red),
-                    Some("medium") => ("MED", Color::Yellow),
-                    Some("low") => ("LOW", Color::Green),
-                    _ => ("INFO", Color::Gray),
-                },
-            };
-            let line = Line::from(vec![
-                Span::styled(
-                    format!(" {:<5} ", badge),
-                    Style::default()
-                        .fg(badge_color)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled(
-                    format!(
-                        "{:<18} ",
-                        short_text(entry.path.as_deref().unwrap_or(""), 18)
-                    ),
-                    Style::default().fg(Color::DarkGray),
-                ),
-                Span::styled(
-                    short_text(
-                        entry.problem.as_deref().unwrap_or(&entry.label),
-                        issues_inner.width.saturating_sub(32) as usize,
-                    ),
-                    Style::default().fg(Color::White),
-                ),
-            ]);
-            ListItem::new(line).style(style)
-        })
+        .map(|(i, p)| (i as f64, p.score as f64))
         .collect();
-
-    if items.is_empty() {
-        f.render_widget(
-            Paragraph::new("  No caps or findings recorded.")
-                .style(Style::default().fg(Color::DarkGray)),
-            issues_inner,
-        );
-    } else {
-        f.render_widget(List::new(items), issues_inner);
-    }
-
-    let detail_block = Block::default()
-        .title(" [ Entry Detail ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-    let detail_inner = detail_block.inner(bottom_cols[1]);
-    f.render_widget(detail_block, bottom_cols[1]);
-
-    if let Some(entry) = app.selected_jankurai_entry() {
-        let mut lines = vec![
-            Line::from(vec![
-                Span::styled("kind:    ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    match entry.kind {
-                        crate::tui::jankurai::JankuraiEntryKind::Cap => "cap",
-                        crate::tui::jankurai::JankuraiEntryKind::Finding => "finding",
-                    },
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("rule:    ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    entry.rule.as_deref().unwrap_or("n/a"),
-                    Style::default().fg(Color::White),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("path:    ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    entry.path.as_deref().unwrap_or("n/a"),
-                    Style::default().fg(Color::White),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("lane:    ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    entry.lane.as_deref().unwrap_or("n/a"),
-                    Style::default().fg(Color::White),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("owner:   ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    entry.owner.as_deref().unwrap_or("n/a"),
-                    Style::default().fg(Color::White),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("severity:", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    entry.severity.as_deref().unwrap_or("n/a"),
-                    Style::default().fg(Color::White),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("hardness:", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    entry.hardness.as_deref().unwrap_or("n/a"),
-                    Style::default().fg(Color::White),
-                ),
-            ]),
-            Line::from(Span::styled(
-                "────────────────────────",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(vec![
-                Span::styled("problem: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    short_text(
-                        entry.problem.as_deref().unwrap_or("n/a"),
-                        detail_inner.width.saturating_sub(11) as usize,
-                    ),
-                    Style::default().fg(Color::White),
-                ),
-            ]),
-            Line::from(vec![
-                Span::styled("fix:     ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    short_text(
-                        entry.suggested_fix.as_deref().unwrap_or("n/a"),
-                        detail_inner.width.saturating_sub(11) as usize,
-                    ),
-                    Style::default().fg(Color::Yellow),
-                ),
-            ]),
-        ];
-
-        if !entry.evidence.is_empty() {
-            lines.push(Line::from(Span::styled(
-                "evidence:",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )));
-            for item in &entry.evidence {
-                lines.push(Line::from(Span::styled(
-                    format!(
-                        "  - {}",
-                        short_text(item, detail_inner.width.saturating_sub(6) as usize)
-                    ),
-                    Style::default().fg(Color::DarkGray),
-                )));
-            }
-        }
-
-        f.render_widget(
-            Paragraph::new(lines).wrap(Wrap { trim: false }),
-            detail_inner,
-        );
-    } else {
-        f.render_widget(
-            Paragraph::new("  No Jankurai entry selected.")
-                .style(Style::default().fg(Color::DarkGray)),
-            detail_inner,
-        );
-    }
-}
-
-fn visible_entry_window(
-    entry_count: usize,
-    selected_index: usize,
-    row_count: usize,
-) -> (usize, usize) {
-    if entry_count == 0 || row_count == 0 {
-        return (0, 0);
-    }
-    let visible_count = row_count.min(entry_count);
-    let selected = selected_index.min(entry_count - 1);
-    let mut start = selected.saturating_sub(visible_count / 2);
-    if start + visible_count > entry_count {
-        start = entry_count - visible_count;
-    }
-    (start, start + visible_count)
-}
-
-fn scan_text(
-    scan: Option<&crate::tui::jankurai::JankuraiScan>,
-    value: impl FnOnce(&crate::tui::jankurai::JankuraiScan) -> String,
-    absent: &'static str,
-) -> String {
-    match scan {
-        Some(scan) => value(scan),
-        None => absent.into(),
-    }
-}
-
-fn chart_labels(
-    history: &[crate::tui::jankurai::JankuraiHistoryPoint],
-) -> (Vec<Span<'static>>, Vec<Span<'static>>) {
-    let start = match history.first() {
-        Some(point) => format_timestamp(&point.generated_at),
-        None => "start".into(),
-    };
-    let end = match history.last() {
-        Some(point) => format_timestamp(&point.generated_at),
-        None => "end".into(),
-    };
-    (
-        vec![
-            Span::styled(start, Style::default().fg(Color::DarkGray)),
-            Span::styled(end, Style::default().fg(Color::DarkGray)),
-        ],
-        // Y-axis labels are now generated dynamically by y_axis_labels()
-        vec![],
+    let labels = chart_labels(history);
+    // Zoom Y-axis to the actual score range so the trend line is clearly visible
+    // instead of appearing as a flat line at the top of a 0-100 scale.
+    let y_min = data.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
+    let y_max = data.iter().map(|(_, y)| *y).fold(f64::NEG_INFINITY, f64::max);
+    let y_pad = ((y_max - y_min) * 0.3).max(5.0);
+    let y_lo = (y_min - y_pad).max(0.0);
+    let y_hi = (y_max + y_pad).min(100.0);
+    let chart = Chart::new(vec![
+        Dataset::default()
+            .name("score")
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(Color::Cyan))
+            .data(&data),
+    ])
+    .block(Block::default())
+    .x_axis(
+        Axis::default()
+            .title("time")
+            .style(Style::default().fg(Color::DarkGray))
+            .bounds([0.0, (data.len().saturating_sub(1)).max(1) as f64])
+            .labels(labels.0),
     )
-}
-
-fn y_axis_labels(lo: f64, hi: f64) -> Vec<Span<'static>> {
-    let mid = ((lo + hi) / 2.0).round() as i64;
-    vec![
-        Span::styled(
-            format!("{}", lo.round() as i64),
-            Style::default().fg(Color::DarkGray),
-        ),
-        Span::styled(format!("{}", mid), Style::default().fg(Color::DarkGray)),
-        Span::styled(
-            format!("{}", hi.round() as i64),
-            Style::default().fg(Color::DarkGray),
-        ),
-    ]
-}
-
-fn format_timestamp(value: &chrono::DateTime<chrono::Utc>) -> String {
-    value.format("%Y-%m-%d %H:%M").to_string()
+    .y_axis(
+        Axis::default()
+            .title("score")
+            .style(Style::default().fg(Color::DarkGray))
+            .bounds([y_lo, y_hi])
+            .labels(y_axis_labels(y_lo, y_hi)),
+    );
+    f.render_widget(chart, chart_inner);
 }

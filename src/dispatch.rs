@@ -22,7 +22,10 @@ pub fn load_client() -> Result<(gitlab_client::GitlabClient, String)> {
 
     let pat = std::env::var("GITLAB_PAT")
         .map_err(|_| anyhow::anyhow!("GITLAB_PAT not found — run `jeryu bootstrap` first"))?;
-    let webhook_secret = std::env::var("JERYU_WEBHOOK_SECRET").unwrap_or_default();
+    let webhook_secret = match std::env::var("JERYU_WEBHOOK_SECRET") {
+        Ok(s) => s,
+        Err(_) => String::new(),
+    };
 
     let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
     let client = gitlab_client::GitlabClient::new(&url, Some(pat));
@@ -35,7 +38,10 @@ fn load_client_optional() -> (gitlab_client::GitlabClient, String) {
     dotenvy::from_path(&env_path).ok();
 
     let pat = std::env::var("GITLAB_PAT").ok();
-    let webhook_secret = std::env::var("JERYU_WEBHOOK_SECRET").unwrap_or_default();
+    let webhook_secret = match std::env::var("JERYU_WEBHOOK_SECRET") {
+        Ok(s) => s,
+        Err(_) => String::new(),
+    };
 
     let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
     let client = gitlab_client::GitlabClient::new(&url, pat);

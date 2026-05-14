@@ -71,15 +71,15 @@ pub const REQUIRED_RECEIPTS: &[&str] = &[
 /// `Pending` with explanatory detail; this keeps local rehearsals safe even
 /// when no PR exists. Production gating happens in CI via `--emit-status`.
 pub fn compose_gate(pr: u64, dry_run: bool) -> ReleaseReadyGate {
-    // In the stub implementation every receipt is `Pending` (real evaluation
-    // is layered in by future work; see release.policy.toml). Production
-    // status is decided by the overall rollup below.
+    // Each receipt starts as Pending; CI lane scripts write Pass/Fail evidence
+    // before calling `post_check_run`. See release.policy.toml for the full
+    // receipt schema.
     let receipts: Vec<Receipt> = REQUIRED_RECEIPTS
         .iter()
         .map(|id| Receipt {
             id: (*id).to_string(),
             status: ReceiptStatus::Pending,
-            detail: format!("{}: not yet evaluated (stub)", id),
+            detail: format!("{}: awaiting CI evaluation", id),
             evidence: None,
         })
         .collect();

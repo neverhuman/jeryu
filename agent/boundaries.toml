@@ -4,6 +4,7 @@ constraint_paths = ["db/constraints"]
 migration_paths = ["db/migrations"]
 root_paths = [
     "db",
+    "src/cache/",
     "src/state.rs",
     "src/taint.rs",
 ]

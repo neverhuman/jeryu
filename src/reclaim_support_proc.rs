@@ -44,7 +44,10 @@ pub async fn gc_orphaned_workers() -> u64 {
 }
 
 pub fn mem_available_gb() -> f64 {
-    let meminfo = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    let meminfo = match std::fs::read_to_string("/proc/meminfo") {
+        Ok(s) => s,
+        Err(_) => String::new(),
+    };
 
     meminfo
         .lines()

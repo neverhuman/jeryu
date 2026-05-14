@@ -19,7 +19,10 @@ pub(crate) async fn docker_event_loop(state: SharedState) {
             && let Some(attrs) = actor.attributes
             && attrs.get("jeryu.managed").map(|s| s.as_str()) == Some("true")
         {
-            let name = attrs.get("name").cloned().unwrap_or_default();
+            let name = match attrs.get("name").cloned() {
+                Some(n) => n,
+                None => String::new(),
+            };
             warn!(%name, action, "jeryu manager container terminated unexpectedly");
             if let Some(manager_id) = attrs.get("jeryu.manager_id")
                 && let Err(error) = state.db.update_manager_state(manager_id, "stopped").await

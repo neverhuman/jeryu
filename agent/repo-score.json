@@ -1,17 +1,17 @@
 {
-  "report_fingerprint": "sha256:f6e3047fb8e4066a35783f18796469d96a1257d8e1ac13205dfcc2a4e90686a1",
-  "input_fingerprint": "sha256:63da72bfea67fdbe973cfb16e8395d92f2f4538a1d67c5be03e75ffb5ef02b61",
+  "report_fingerprint": "sha256:00a1bfa699369914627bc0190c3d1cb78b238e041947e81afa4b84767c28de14",
+  "input_fingerprint": "sha256:33f0765e07800100a39c1b92c9b2e4f827b6476b73a9976c2c4139d51696dc9c",
   "policy_fingerprint": "sha256:0e277c50d1190cb289cfc6203cd8c7037a4c046999a34104afd9359cfcff225b",
   "manifest_fingerprints": {
-    "owner_map": "sha256:526fd28657e4e82228063081f113d2e7c8dc98c2d487e1484b03618c41a1d427",
-    "test_map": "sha256:f58da4a3a50099e7c552be5a0ea17be018c403071f8be41a75ae259852d41e88",
+    "owner_map": "sha256:08886a8a6a24639df4b681a14bb91501f1eea1767e5332698da38690e2a60335",
+    "test_map": "sha256:183ad1e704b3924330c260fab7caf9ab97ca1cbd467c6b5c8e2796cd000fd80d",
     "generated_zones": "sha256:5dfe809251017a95ec5a27320d48c17b4abacd36c2b66eee287f4f70fcfb7772",
-    "boundaries": "sha256:b99d3c83e4f3d21beaa379241bd9a36d99f10187fd09d7a24bab733aa8c70729",
+    "boundaries": "sha256:45434b4e539727661dfd8c5f11df3a0d30795b6c19fd91bbb77d17d9a5a22a8e",
     "proof_lanes": "sha256:87630d6fe9b678ce7cfeff446c6e1bf1cdf75bc48c8669929914d2fb5d7e07e8",
     "standard_version": "sha256:7453c97b6b9ed3c9535b03655eddbe5cfc52f46ab15339264de93534d2db94c5"
   },
   "dirty_worktree": true,
-  "generated_at": "1778721687",
+  "generated_at": "1778798569",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,23 +25,23 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1778721687",
-  "started_at": "1778721687",
-  "elapsed_ms": 7361,
+  "run_id": "1778798569",
+  "started_at": "1778798569",
+  "elapsed_ms": 7821,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 91,
-  "raw_score": 91,
+  "score": 89,
+  "raw_score": 89,
   "decision": {
-    "status": "advisory",
+    "status": "pass",
     "minimum_score": 85,
     "passed": true,
     "hard_findings": 0,
-    "soft_findings": 0,
+    "soft_findings": 1,
     "ratchet": {
-      "baseline_score": 91,
+      "baseline_score": 89,
       "allowed_drop": 0,
       "passed": true,
       "score_delta": 0,
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "8a8d0c0",
+    "head": "20b4533",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -71,7 +71,7 @@
       "medium",
       "low"
     ],
-    "mode": "advisory",
+    "mode": "standard",
     "standard_version": "0.9.0",
     "auditor_version": "1.3.0",
     "schema_version": "1.9.0",
@@ -352,8 +352,8 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 815",
-        "ci bad-behavior advisory signals: 2",
+        "rust bad-behavior advisory signals: 979",
+        "ci bad-behavior advisory signals: 3",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
       ],
@@ -362,15 +362,14 @@
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 100,
-      "weighted_points": 12.0,
+      "score": 80,
+      "weighted_points": 9.6,
       "evidence": [
-        "largest authored code file: src/tui/ui_panels_body_more.rs (350 LOC)",
+        "largest authored code file: src/tui/app_runtime_sync.rs (360 LOC)",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 25 (advisory only, no score impact)",
-        "authored code stays below hard LOC limits with no shape markers",
-        "rust bad-behavior advisory signals: 815",
-        "ci bad-behavior advisory signals: 2",
+        "copy-code advisory classes found: 23 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 979",
+        "ci bad-behavior advisory signals: 3",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
       ],
@@ -479,7 +478,8 @@
       "accessibility": [
         "agent/repo-score.json",
         "agent/repo-score.md",
-        "apps/web/ux-qa.ts"
+        "apps/web/ux-qa.ts",
+        "ops/releases/v1.0.0/jankurai-score.json"
       ],
       "api_mocks": [
         "apps/web/ux-qa.ts"
@@ -504,11 +504,14 @@
       ],
       "playwright_visual": [
         "apps/web/ux-qa.ts",
+        "crates/tuiwright/src/lib.rs",
+        "crates/tuiwright/tests/smoke.rs",
         "tests/tui_tuiwright.rs"
       ],
       "storybook": [
         "agent/repo-score.json",
-        "apps/web/ux-qa.ts"
+        "apps/web/ux-qa.ts",
+        "ops/releases/v1.0.0/jankurai-score.json"
       ],
       "visual_review": [
         "apps/web/ux-qa.ts"
@@ -1060,7 +1063,7 @@
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
-      "content_fingerprint": "sha256:b99d3c83e4f3d21beaa379241bd9a36d99f10187fd09d7a24bab733aa8c70729",
+      "content_fingerprint": "sha256:45434b4e539727661dfd8c5f11df3a0d30795b6c19fd91bbb77d17d9a5a22a8e",
       "stack_id": "rust-ts-vite-react-postgres-bounded-python",
       "stack_version": "0.4.0",
       "adapter_path_count": 2,
@@ -1074,7 +1077,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-14T01:21:20.170789606+00:00",
+    "generated_at": "2026-05-14T22:42:41.902905708+00:00",
     "repo": ".",
     "auditor_version": "1.3.0",
     "status": "review",
@@ -1112,20 +1115,20 @@
       ]
     },
     "summary": {
-      "files_scanned": 531,
-      "files_considered": 306,
-      "active_files": 306,
+      "files_scanned": 590,
+      "files_considered": 339,
+      "active_files": 339,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 25,
+      "warning_classes": 23,
       "hard_instances": 0,
       "warning_instances": 87,
-      "duplicate_lines": 55,
-      "duplicate_tokens": 149,
-      "duplicate_bytes": 1538,
-      "total_redundant_lines": 92,
-      "total_redundant_tokens": 244,
-      "total_redundant_bytes": 2361
+      "duplicate_lines": 34,
+      "duplicate_tokens": 76,
+      "duplicate_bytes": 807,
+      "total_redundant_lines": 75,
+      "total_redundant_tokens": 195,
+      "total_redundant_bytes": 1842
     },
     "classes": [
       {
@@ -1199,15 +1202,15 @@
           {
             "path": "src/api/snapshot.rs",
             "language": "rust",
-            "start_line": 90,
-            "end_line": 91,
+            "start_line": 87,
+            "end_line": 88,
             "unit_name": "glyph"
           },
           {
             "path": "src/api/snapshot.rs",
             "language": "rust",
-            "start_line": 143,
-            "end_line": 144,
+            "start_line": 140,
+            "end_line": 141,
             "unit_name": "label"
           },
           {
@@ -1325,37 +1328,37 @@
         ]
       },
       {
-        "id": "copy-code-body-rust-ed5071ee87a98a82",
+        "id": "copy-code-body-rust-0ec64920552a2bb1",
         "kind": "exact_unit_different_name",
         "severity": "warning",
         "confidence": "medium",
         "language": "rust",
-        "duplicate_lines": 7,
-        "duplicate_tokens": 18,
-        "duplicate_bytes": 200,
+        "duplicate_lines": 8,
+        "duplicate_tokens": 9,
+        "duplicate_bytes": 144,
         "instance_count": 2,
-        "total_redundant_lines": 7,
-        "total_redundant_tokens": 18,
-        "total_redundant_bytes": 200,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 9,
+        "total_redundant_bytes": 144,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "9e1d676036332b7a",
+        "fingerprint": "eddcd8ce5c05b566",
         "reason": "same body appears under different names across files",
         "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
         "instances": [
           {
-            "path": "src/tui/widgets/attention.rs",
+            "path": "crates/tuiwright/src/render.rs",
             "language": "rust",
-            "start_line": 99,
-            "end_line": 106,
-            "unit_name": "severity_color"
+            "start_line": 26,
+            "end_line": 34,
+            "unit_name": "default"
           },
           {
-            "path": "src/tui/widgets/timeline.rs",
+            "path": "crates/tuiwright/src/render.rs",
             "language": "rust",
-            "start_line": 69,
-            "end_line": 76,
-            "unit_name": "severity_theme_color"
+            "start_line": 38,
+            "end_line": 46,
+            "unit_name": "ci"
           }
         ]
       },
@@ -1381,129 +1384,58 @@
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 83,
-            "end_line": 84,
+            "start_line": 87,
+            "end_line": 88,
             "unit_name": "vti_accelerated_badge"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 92,
-            "end_line": 93,
+            "start_line": 96,
+            "end_line": 97,
             "unit_name": "vti_skipped_badge"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 101,
-            "end_line": 102,
+            "start_line": 105,
+            "end_line": 106,
             "unit_name": "vti_selected_badge"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 108,
-            "end_line": 109,
+            "start_line": 112,
+            "end_line": 113,
             "unit_name": "cache_hit_badge"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 115,
-            "end_line": 116,
+            "start_line": 119,
+            "end_line": 120,
             "unit_name": "cache_taint_badge"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 124,
-            "end_line": 125,
+            "start_line": 128,
+            "end_line": 129,
             "unit_name": "flake_badge"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 133,
-            "end_line": 134,
+            "start_line": 137,
+            "end_line": 138,
             "unit_name": "agent_badge"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 142,
-            "end_line": 143,
-            "unit_name": "production_badge"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-ae92aec0f5e14638",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 6,
-        "duplicate_tokens": 29,
-        "duplicate_bytes": 286,
-        "instance_count": 2,
-        "total_redundant_lines": 6,
-        "total_redundant_tokens": 29,
-        "total_redundant_bytes": 286,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "dfee3c169e0f48c3",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "src/secrets_runtime.rs",
-            "language": "rust",
             "start_line": 146,
-            "end_line": 152,
-            "unit_name": "run_secrets_init"
-          },
-          {
-            "path": "src/secrets_runtime.rs",
-            "language": "rust",
-            "start_line": 154,
-            "end_line": 160,
-            "unit_name": "vault_status"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-rust-7b868f4df660d38b",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "workspace_root",
-        "duplicate_lines": 6,
-        "duplicate_tokens": 13,
-        "duplicate_bytes": 162,
-        "instance_count": 2,
-        "total_redundant_lines": 6,
-        "total_redundant_tokens": 13,
-        "total_redundant_bytes": 162,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "2e223983f458e4c5",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "crates/arc-bench/src/exceptions.rs",
-            "language": "rust",
-            "start_line": 130,
-            "end_line": 136,
-            "unit_name": "workspace_root"
-          },
-          {
-            "path": "crates/arc-bench/src/witness_loop.rs",
-            "language": "rust",
-            "start_line": 154,
-            "end_line": 160,
-            "unit_name": "workspace_root"
+            "end_line": 147,
+            "unit_name": "production_badge"
           }
         ]
       },
@@ -1551,8 +1483,8 @@
           {
             "path": "src/api/snapshot.rs",
             "language": "rust",
-            "start_line": 143,
-            "end_line": 144,
+            "start_line": 140,
+            "end_line": 141,
             "unit_name": "label"
           },
           {
@@ -1579,74 +1511,65 @@
         ]
       },
       {
-        "id": "copy-code-unit-rust-e67484b667805e3e",
-        "kind": "exact_unit_same_name",
+        "id": "copy-code-body-rust-f4834069c044042b",
+        "kind": "exact_unit_different_name",
         "severity": "warning",
-        "confidence": "high",
+        "confidence": "medium",
         "language": "rust",
-        "unit_name": "err",
-        "duplicate_lines": 6,
-        "duplicate_tokens": 8,
-        "duplicate_bytes": 110,
-        "instance_count": 2,
-        "total_redundant_lines": 6,
-        "total_redundant_tokens": 8,
-        "total_redundant_bytes": 110,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "4e9a15ed9c9db247",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "src/capability_execute.rs",
-            "language": "rust",
-            "start_line": 266,
-            "end_line": 272,
-            "unit_name": "err"
-          },
-          {
-            "path": "src/capability_inspect.rs",
-            "language": "rust",
-            "start_line": 244,
-            "end_line": 250,
-            "unit_name": "err"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-rust-695c3abc03729d95",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "current_exe_string",
-        "duplicate_lines": 5,
-        "duplicate_tokens": 12,
-        "duplicate_bytes": 128,
-        "instance_count": 2,
+        "duplicate_lines": 1,
+        "duplicate_tokens": 6,
+        "duplicate_bytes": 53,
+        "instance_count": 6,
         "total_redundant_lines": 5,
-        "total_redundant_tokens": 12,
-        "total_redundant_bytes": 128,
+        "total_redundant_tokens": 30,
+        "total_redundant_bytes": 265,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "ae42535442fe25fc",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "fingerprint": "175658d332afeb5e",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
         "instances": [
           {
-            "path": "src/install_support.rs",
+            "path": "crates/tuiwright/src/expect.rs",
             "language": "rust",
-            "start_line": 7,
-            "end_line": 12,
-            "unit_name": "current_exe_string"
+            "start_line": 28,
+            "end_line": 29,
+            "unit_name": "to_contain_text"
           },
           {
-            "path": "src/remote_support.rs",
+            "path": "crates/tuiwright/src/expect.rs",
             "language": "rust",
-            "start_line": 244,
-            "end_line": 249,
-            "unit_name": "current_exe_string"
+            "start_line": 48,
+            "end_line": 49,
+            "unit_name": "not_to_contain_text"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 67,
+            "end_line": 68,
+            "unit_name": "to_match_regex"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 110,
+            "end_line": 111,
+            "unit_name": "to_be_visible"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 131,
+            "end_line": 132,
+            "unit_name": "not_to_be_visible"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 151,
+            "end_line": 152,
+            "unit_name": "to_have_text"
           }
         ]
       },
@@ -1703,42 +1626,6 @@
             "start_line": 3420,
             "end_line": 3421,
             "unit_name": "count_cache_misses"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-rust-e3a8c09a83833be4",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "short_hash",
-        "duplicate_lines": 4,
-        "duplicate_tokens": 14,
-        "duplicate_bytes": 116,
-        "instance_count": 2,
-        "total_redundant_lines": 4,
-        "total_redundant_tokens": 14,
-        "total_redundant_bytes": 116,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "9033f3087a5fbb9a",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "src/cargo_cache_helpers.rs",
-            "language": "rust",
-            "start_line": 64,
-            "end_line": 68,
-            "unit_name": "short_hash"
-          },
-          {
-            "path": "src/cargo_cache_layout.rs",
-            "language": "rust",
-            "start_line": 223,
-            "end_line": 227,
-            "unit_name": "short_hash"
           }
         ]
       },
@@ -1835,8 +1722,8 @@
           {
             "path": "src/api/snapshot.rs",
             "language": "rust",
-            "start_line": 90,
-            "end_line": 91,
+            "start_line": 87,
+            "end_line": 88,
             "unit_name": "glyph"
           }
         ]
@@ -1873,6 +1760,78 @@
             "start_line": 33,
             "end_line": 35,
             "unit_name": "string_schema_optional"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-fb6d6c73a1c24f2a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "workspace_root",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 38,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 38,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "775c8bb84db95c3d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/arc-bench/src/exceptions.rs",
+            "language": "rust",
+            "start_line": 130,
+            "end_line": 132,
+            "unit_name": "workspace_root"
+          },
+          {
+            "path": "crates/arc-bench/src/witness_loop.rs",
+            "language": "rust",
+            "start_line": 154,
+            "end_line": 156,
+            "unit_name": "workspace_root"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-b6cdcfeb5575d6b6",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "err",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 36,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 36,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a23c0e3cedf9e431",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/capability_execute.rs",
+            "language": "rust",
+            "start_line": 267,
+            "end_line": 269,
+            "unit_name": "err"
+          },
+          {
+            "path": "src/capability_inspect.rs",
+            "language": "rust",
+            "start_line": 244,
+            "end_line": 246,
+            "unit_name": "err"
           }
         ]
       },
@@ -1976,15 +1935,15 @@
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 68,
-            "end_line": 69,
+            "start_line": 72,
+            "end_line": 73,
             "unit_name": "badge_span"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 77,
-            "end_line": 78,
+            "start_line": 81,
+            "end_line": 82,
             "unit_name": "glyph_span"
           }
         ]
@@ -2047,8 +2006,8 @@
           {
             "path": "crates/arc-bench/src/psd_mechanics.rs",
             "language": "rust",
-            "start_line": 329,
-            "end_line": 330,
+            "start_line": 344,
+            "end_line": 345,
             "unit_name": "workspace_root"
           },
           {
@@ -2117,15 +2076,15 @@
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 156,
-            "end_line": 157,
+            "start_line": 160,
+            "end_line": 161,
             "unit_name": "badges_use_correct_theme_colors"
           },
           {
             "path": "src/tui/widgets/status_badge.rs",
             "language": "rust",
-            "start_line": 168,
-            "end_line": 169,
+            "start_line": 172,
+            "end_line": 173,
             "unit_name": "unknown_status_maps_to_info"
           }
         ]
@@ -2152,15 +2111,15 @@
           {
             "path": "src/secrets.rs",
             "language": "rust",
-            "start_line": 238,
-            "end_line": 239,
+            "start_line": 234,
+            "end_line": 235,
             "unit_name": "create_ops_token"
           },
           {
             "path": "src/secrets.rs",
             "language": "rust",
-            "start_line": 264,
-            "end_line": 265,
+            "start_line": 260,
+            "end_line": 261,
             "unit_name": "token_is_usable"
           }
         ]
@@ -2187,8 +2146,8 @@
           {
             "path": "src/tui/ui_panels_body_tail_extra_tail_help.rs",
             "language": "rust",
-            "start_line": 94,
-            "end_line": 95,
+            "start_line": 95,
+            "end_line": 96,
             "unit_name": "help_row"
           },
           {
@@ -2576,6 +2535,42 @@
       "noncanonical_count": 0
     }
   },
-  "findings": [],
-  "agent_fix_queue": []
+  "findings": [
+    {
+      "severity": "medium",
+      "category": "shape",
+      "path": ".",
+      "problem": "`Code shape and semantic surface` scored 80 below the standard floor of 85",
+      "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "evidence": [
+        "largest authored code file: src/tui/app_runtime_sync.rs (360 LOC)",
+        "most code files stay under 300 LOC",
+        "copy-code advisory classes found: 23 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 979"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:shape",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:b25508b63f694b28d6cf52c19eb9058682582cc6cdd5a40508af1782a52b3ab7",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "tools"
+    }
+  ],
+  "agent_fix_queue": [
+    {
+      "path": ".",
+      "priority": "medium",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "tools",
+      "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "why": "`Code shape and semantic surface` scored 80 below the standard floor of 85"
+    }
+  ]
 }

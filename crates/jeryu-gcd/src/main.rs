@@ -39,12 +39,11 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
+    let log_filter = match tracing_subscriber::EnvFilter::try_from_default_env() {
+        Ok(f) => f,
+        Err(_) => tracing_subscriber::EnvFilter::new("info"),
+    };
+    tracing_subscriber::fmt().with_env_filter(log_filter).init();
 
     let cli = Cli::parse();
     info!(
@@ -57,9 +56,10 @@ async fn main() -> Result<()> {
 
     sd_notify_ready();
 
-    let mut last_nominal_sweep = Instant::now()
-        .checked_sub(DEFAULT_NOMINAL_SWEEP_INTERVAL)
-        .unwrap_or_else(Instant::now);
+    let mut last_nominal_sweep = match Instant::now().checked_sub(DEFAULT_NOMINAL_SWEEP_INTERVAL) {
+        Some(t) => t,
+        None => Instant::now(),
+    };
 
     loop {
         if let Err(e) = run_tick(&cli, &mut last_nominal_sweep).await {
@@ -170,17 +170,21 @@ fn sd_notify(msg: &str) -> std::io::Result<()> {
     };
     let sock = UnixDatagram::unbound()?;
     let bytes = msg.as_bytes();
-    sock.send_to(bytes, &socket).map(|_| ()).or_else(|_| {
-        // Abstract namespace addresses start with `\0`; convert and retry.
-        if let Some(stripped) = socket.strip_prefix('@') {
-            let mut path = vec![0u8];
-            path.extend(stripped.as_bytes());
-            sock.send_to(bytes, std::str::from_utf8(&path).unwrap_or("/dev/null"))
-                .map(|_| ())
-        } else {
-            Ok(())
+    // Abstract namespace sockets start with `@` and must be sent as `\0`-prefixed.
+    match sock.send_to(bytes, &socket) {
+        Ok(_) => {}
+        Err(_) => {
+            if let Some(stripped) = socket.strip_prefix('@') {
+                let mut path = vec![0u8];
+                path.extend(stripped.as_bytes());
+                let addr = match std::str::from_utf8(&path) {
+                    Ok(a) => a,
+                    Err(_) => "/dev/null",
+                };
+                let _ = sock.send_to(bytes, addr);
+            }
         }
-    })?;
+    }
     std::io::stderr().flush().ok();
     Ok(())
 }

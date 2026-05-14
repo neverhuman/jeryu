@@ -201,7 +201,10 @@ pub(super) fn refresh_shell_profile(prefix: &Path, shell: Option<&str>) -> Resul
         bail!("PATH block write requires a supported shell (bash, zsh, or fish)");
     };
     let snippet = path_snippet(prefix, shell);
-    let existing = fs::read_to_string(&rc_path).unwrap_or_default();
+    let existing = match fs::read_to_string(&rc_path) {
+        Ok(s) => s,
+        Err(_) => String::new(),
+    };
     if existing.contains(JERYU_PATH_START) {
         return Ok(());
     }

@@ -84,10 +84,10 @@ pub async fn execute_system_status() -> Result<()> {
         );
     }
 
-    let managed = docker_ctl
-        .list_managed_containers()
-        .await
-        .unwrap_or_default();
+    let managed = match docker_ctl.list_managed_containers().await {
+        Ok(c) => c,
+        Err(_) => Vec::new(),
+    };
     println!("\n  Docker containers (jeryu-managed): {}", managed.len());
     for c in &managed {
         let name = c
@@ -100,7 +100,10 @@ pub async fn execute_system_status() -> Result<()> {
         println!("    {} [{}]", name, state);
     }
 
-    let events = db.recent_job_events(5).await.unwrap_or_default();
+    let events = match db.recent_job_events(5).await {
+        Ok(e) => e,
+        Err(_) => Vec::new(),
+    };
     if !events.is_empty() {
         println!("\n  Recent job events:");
         for e in &events {

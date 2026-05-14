@@ -128,10 +128,10 @@ pub(crate) fn build_globset(patterns: &[String]) -> Result<GlobSet> {
 
 pub(crate) fn boundary_trigger(path: &str, package: &PackageSnapshot) -> bool {
     let path = Path::new(path);
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or_default();
+    let file_name = match path.file_name().and_then(|n| n.to_str()) {
+        Some(name) => name,
+        None => "",
+    };
     file_name == "Cargo.toml"
         || (package.agent.public_api && (file_name == "lib.rs" || file_name == "mod.rs"))
         || path

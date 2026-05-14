@@ -194,7 +194,10 @@ registry = "sparse+http://127.0.0.1:19800/api/v1/crates"
     let is_quarantined = quarantine_marker.exists();
 
     if is_quarantined {
-        let reason = std::fs::read_to_string(&quarantine_marker).unwrap_or_default();
+        let reason = match std::fs::read_to_string(&quarantine_marker) {
+            Ok(r) => r,
+            Err(_) => String::new(),
+        };
         let log_snippet = String::from_utf8_lossy(&log_buffer_cloned.lock().unwrap()).to_string();
         let capsule = crate::capsule::FailureCapsule::capture(
             job_id,
