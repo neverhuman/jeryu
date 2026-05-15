@@ -108,30 +108,36 @@ jobs:
         run: |
           mkdir -p target/jeryu
           cargo build --bin jeryu
-          ./target/debug/jeryu test select \
+          if ./target/debug/jeryu test select \
             --base origin/main \
             --head HEAD \
             --explain \
-            --emit-plan target/jeryu/test-plan.json
-          MODE=$(jq -r '.mode' target/jeryu/test-plan.json)
-          # Extract the combined nextest -E filter expression from all unit_filter entries.
-          # The plan stores full commands like: cargo nextest run -E 'test(/pool|docker/)'
-          # We extract just the expression part and OR them together.
-          UNIT_FILTER_EXPR=""
-          while IFS= read -r expr; do
-            [[ -n "$expr" ]] || continue
-            if [[ -z "$UNIT_FILTER_EXPR" ]]; then
-              UNIT_FILTER_EXPR="$expr"
-            else
-              UNIT_FILTER_EXPR="$UNIT_FILTER_EXPR | $expr"
-            fi
-          done < <(
-            jq -r '
-              .selected_tests[]
-              | select(.kind == "unit_filter")
-              | .command
-            ' target/jeryu/test-plan.json | sed -e "s/^cargo nextest run -E '//" -e "s/'$//"
-          )
+            --emit-plan target/jeryu/test-plan.json 2>/dev/null; then
+            MODE=$(jq -r '.mode' target/jeryu/test-plan.json)
+            # Extract the combined nextest -E filter expression from all unit_filter entries.
+            # The plan stores full commands like: cargo nextest run -E 'test(/pool|docker/)'
+            # We extract just the expression part and OR them together.
+            UNIT_FILTER_EXPR=""
+            while IFS= read -r expr; do
+              [[ -n "$expr" ]] || continue
+              if [[ -z "$UNIT_FILTER_EXPR" ]]; then
+                UNIT_FILTER_EXPR="$expr"
+              else
+                UNIT_FILTER_EXPR="$UNIT_FILTER_EXPR | $expr"
+              fi
+            done < <(
+              jq -r '
+                .selected_tests[]
+                | select(.kind == "unit_filter")
+                | .command
+              ' target/jeryu/test-plan.json | sed -e "s/^cargo nextest run -E '//" -e "s/'$//"
+            )
+          else
+            echo "VTI not available (no GITLAB_PAT or GitLab unreachable) — using full mode"
+            echo '{"mode":"full","selected_tests":[]}' > target/jeryu/test-plan.json
+            MODE="full"
+            UNIT_FILTER_EXPR=""
+          fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "unit_filter_expr=$UNIT_FILTER_EXPR" >> "$GITHUB_OUTPUT"
           echo "VTI mode: $MODE"
@@ -228,7 +234,9 @@ jobs:
       - name: Install cargo-deny
         uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny
       - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Security lane proof
         run: bash tools/security-lane.sh .
       - name: Dependency review

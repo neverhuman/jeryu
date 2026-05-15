@@ -171,7 +171,7 @@ except Exception as e:
 " 2>/dev/null; then
         ok "Plan JSON structure valid"
     else
-        if grep -q '\"action\"' \"\$PLAN_FILE\" && grep -q '\"steps\"' \"\$PLAN_FILE\"; then
+        if grep -q '"action"' "$PLAN_FILE" && grep -q '"steps"' "$PLAN_FILE"; then
             ok "Plan JSON structure valid (string check)"
         else
             fail "Plan JSON structure invalid"

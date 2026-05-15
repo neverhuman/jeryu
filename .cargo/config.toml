@@ -7,7 +7,7 @@ sc = "check --message-format=json"
 
 [target.x86_64-unknown-linux-gnu]
 linker = "cc"
-rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [target.x86_64-unknown-linux-musl]
 # mold not used for musl enclave builds — keep default linker

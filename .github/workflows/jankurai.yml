@@ -29,9 +29,13 @@ jobs:
       - name: Install cargo-cyclonedx
         uses: taiki-e/install-action@8b2082c2d404d46ed01b1ea6ba5d10e26788c99e # cargo-cyclonedx
       - name: Install actionlint
-        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Install jankurai
-        run: cargo install jankurai --locked
+        run: |
+          git clone --depth 1 https://github.com/jeppsontaylor/jankurai.git /tmp/jankurai-src
+          cargo install --path /tmp/jankurai-src --locked
       - run: jankurai --version
       - name: Workflow lint
         run: actionlint .github/workflows/*.yml
