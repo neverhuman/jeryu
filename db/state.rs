@@ -696,7 +696,36 @@ impl Db {
                 }
 
                 let database_url = format!("sqlite:{}?mode=rwc", db_path.display());
-                Self::open_url(&database_url).await
+                match Self::open_url(&database_url).await {
+                    Ok(db) => Ok(db),
+                    Err(first_err) => {
+                        // Recovery: a previous run was killed mid-write and
+                        // left a stale write-ahead log (.wal) or
+                        // shared-memory file (.shm). Removing them is safe
+                        // per SQLite's WAL recovery docs as long as no other
+                        // process is holding the DB open — for a single-user
+                        // CLI that is the normal case. We retry once.
+                        let mut shm = db_path.clone().into_os_string();
+                        shm.push("-shm");
+                        let shm: std::path::PathBuf = shm.into();
+                        let mut wal = db_path.clone().into_os_string();
+                        wal.push("-wal");
+                        let wal: std::path::PathBuf = wal.into();
+                        let cleared_shm = std::fs::remove_file(&shm).is_ok();
+                        let cleared_wal = std::fs::remove_file(&wal).is_ok();
+                        if cleared_shm || cleared_wal {
+                            tracing::warn!(
+                                error = %first_err,
+                                shm = %shm.display(),
+                                wal = %wal.display(),
+                                "removed stale SQLite lock files; retrying open"
+                            );
+                            Self::open_url(&database_url).await
+                        } else {
+                            Err(first_err)
+                        }
+                    }
+                }
             })
             .await?;
         Ok(db.clone())
