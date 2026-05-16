@@ -75,6 +75,41 @@ if [ ! -x "$JERYU_BIN" ]; then
     exit 1
 fi
 
+# ── Step 1b: Cross-compile Linux binary when running on macOS ─────────────
+# upload_current_binary honours JERYU_REMOTE_BINARY_PATH if set; without it
+# the running Mac binary (Mach-O) is uploaded into the Linux container and
+# exits with 126.  Build a native Linux binary via Docker instead.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    case "$(uname -m)" in
+        arm64)  LINUX_PLATFORM="linux/arm64" ;;
+        x86_64) LINUX_PLATFORM="linux/amd64" ;;
+        *)      LINUX_PLATFORM="linux/amd64" ;;
+    esac
+    step "macOS host — cross-compiling $LINUX_PLATFORM binary for container"
+    LINUX_BIN_DIR="$REPO_ROOT/target/linux-remote"
+    mkdir -p "$LINUX_BIN_DIR"
+    # Ensure cargo home dirs exist before mounting (Docker may not create them).
+    mkdir -p "$HOME/.cargo/registry" "$HOME/.cargo/git"
+    # Use rust:bookworm (has build-essential/gcc). Install cmake for libgit2.
+    # RUSTUP_TOOLCHAIN=stable overrides rust-toolchain.toml so we skip the
+    # 1.92.0 toolchain download inside the container.
+    docker run --rm \
+        --platform "$LINUX_PLATFORM" \
+        -e RUSTUP_TOOLCHAIN=stable \
+        -e DEBIAN_FRONTEND=noninteractive \
+        -v "$REPO_ROOT:/workspace" \
+        -v "$HOME/.cargo/registry:/root/.cargo/registry" \
+        -v "$HOME/.cargo/git:/root/.cargo/git" \
+        -w /workspace \
+        rust:bookworm \
+        bash -c "set -euo pipefail
+apt-get update -qq >/dev/null 2>&1
+apt-get install -y -qq cmake pkg-config >/dev/null 2>&1
+cargo build --release -p jeryu --target-dir /workspace/target/linux-remote"
+    export JERYU_REMOTE_BINARY_PATH="$LINUX_BIN_DIR/release/jeryu"
+    ok "Linux binary: $JERYU_REMOTE_BINARY_PATH"
+fi
+
 # ── Step 2: Build the sshd Docker image ────────────────────────────────────
 step "Building sshd Docker image"
 docker build -t "$IMAGE_NAME" -f "$REPO_ROOT/ops/ci/Dockerfile.sshd-test" "$REPO_ROOT" 2>&1 | tail -3

@@ -118,7 +118,10 @@ impl App {
             state.active_feed_index = self.state.active_feed_index;
             state.feed_cycle_tick = self.state.feed_cycle_tick;
             state.feed_auto_cycle = self.state.feed_auto_cycle;
-            state.pipeline_progress_view = self.state.pipeline_progress_view.clone();
+            // Only preserve demo/manually-set view when background sync found nothing
+            if state.pipeline_progress_view.is_none() {
+                state.pipeline_progress_view = self.state.pipeline_progress_view.clone();
+            }
             state.event_ticker_offset = self.state.event_ticker_offset;
             self.state = state;
         }
@@ -357,4 +360,97 @@ async fn dir_size_bytes(path: &std::path::Path) -> i64 {
         }
     }
     total
+}
+
+pub(crate) fn build_stage_progress_from_ci_runs(
+    runs: &[crate::state::CiJobRun],
+) -> Vec<StageProgress> {
+    use std::collections::HashMap;
+    let mut stage_order: Vec<String> = Vec::new();
+    let mut stage_map: HashMap<String, StageProgress> = HashMap::new();
+
+    for run in runs {
+        if !stage_map.contains_key(&run.stage) {
+            stage_order.push(run.stage.clone());
+            stage_map.insert(
+                run.stage.clone(),
+                StageProgress {
+                    stage_name: run.stage.clone(),
+                    ..Default::default()
+                },
+            );
+        }
+        let entry = stage_map.get_mut(&run.stage).unwrap();
+        entry.total_jobs += 1;
+        match run.status.as_str() {
+            "success" => entry.completed_jobs += 1,
+            "running" => entry.running_jobs += 1,
+            "failed" | "canceled" => entry.failed_jobs += 1,
+            _ => {}
+        }
+    }
+
+    stage_order
+        .into_iter()
+        .map(|name| {
+            let mut s = stage_map.remove(&name).unwrap();
+            s.status = stage_status_str(&s);
+            s
+        })
+        .collect()
+}
+
+pub(crate) fn build_stage_progress_from_events(
+    events: &[crate::state::JobEvent],
+    pipeline_id: i64,
+) -> Vec<StageProgress> {
+    use std::collections::HashMap;
+    let mut stage_order: Vec<String> = Vec::new();
+    let mut stage_map: HashMap<String, StageProgress> = HashMap::new();
+
+    for event in events.iter().filter(|e| e.pipeline_id == Some(pipeline_id)) {
+        let stage = event
+            .pool_name
+            .clone()
+            .unwrap_or_else(|| "default".to_string());
+        if !stage_map.contains_key(&stage) {
+            stage_order.push(stage.clone());
+            stage_map.insert(
+                stage.clone(),
+                StageProgress {
+                    stage_name: stage.clone(),
+                    ..Default::default()
+                },
+            );
+        }
+        let entry = stage_map.get_mut(&stage).unwrap();
+        entry.total_jobs += 1;
+        match event.status.as_str() {
+            "success" => entry.completed_jobs += 1,
+            "running" => entry.running_jobs += 1,
+            "failed" | "canceled" => entry.failed_jobs += 1,
+            _ => {}
+        }
+    }
+
+    stage_order
+        .into_iter()
+        .map(|name| {
+            let mut s = stage_map.remove(&name).unwrap();
+            s.status = stage_status_str(&s);
+            s
+        })
+        .collect()
+}
+
+fn stage_status_str(s: &StageProgress) -> String {
+    if s.failed_jobs > 0 {
+        "failed".into()
+    } else if s.running_jobs > 0 {
+        "running".into()
+    } else if s.completed_jobs == s.total_jobs && s.total_jobs > 0 {
+        "success".into()
+    } else {
+        "pending".into()
+    }
 }

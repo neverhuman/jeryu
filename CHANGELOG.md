@@ -364,3 +364,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unknown file changes now conservatively select full validation instead of docs-only validation.
 - API and TUI docs now describe the current nine-tab TUI and screenshot capture path.
 - Shared state upserts now use portable `ON CONFLICT` SQL instead of SQLite-only `INSERT OR REPLACE` forms.
+
+
+## [1.0.1] - 2026-05-14
+### Fixed
+- **[2:Release] tab now shows live pipeline progress** even when no formal release attempt exists. Previously the tab was blank whenever the release lifecycle had not been invoked, because rendering was gated entirely on a `release_attempts` DB row.
+- `pipeline_progress_view` was never populated in the real sync path (only in demo mode). The background sync now builds it from `ci_job_runs` (proper stage names) with a fallback to `job_events` grouped by `pool_name`.
+- `tick()` preserved the old `pipeline_progress_view` unconditionally, preventing background-sync values from propagating. Fixed to only preserve when background sync found nothing (demo mode parity maintained).
+
+### Changed
+- **Release tab visual redesign**: left panel now splits vertically — gate matrix on top (12 rows when an attempt is active, 4 rows when waiting), live pipeline progress bars (`████▓░`) below with per-stage breakdown, ETA, and overall %.
+- Right panel replaced plain-text inspector with a color-coded **job list** filtered to the active pipeline: ● green=success, ◉ cyan=running, ✕ red=failed, ○ yellow=pending.
+- Gate matrix badge color `[RUN]` changed from Blue to Cyan for better terminal contrast.
+
+### Added
+- `build_stage_progress_from_ci_runs` — groups `ci_job_runs` by stage, computes per-stage counts and derived status.
+- `build_stage_progress_from_events` — fallback that groups `job_events` by `pool_name` when `ci_job_runs` is empty.
+- 5 new unit tests covering stage grouping, insertion-order preservation, pipeline-id filtering, status derivation, and the weighted-running progress formula.
+
+## [1.0.0] - 2026-05-07
+_Parallel release line from `main` branch — separate from the v3.x line above._

@@ -191,6 +191,72 @@ pub(crate) fn start_background_sync(app: &App) {
                 snap.pipelines = pipe_metrics;
                 snap.pipeline_progress = max_progress;
                 snap.pipeline_eta = latest_eta;
+
+                // Build PipelineProgressView for Release tab — try ci_job_runs first
+                // (has real stage names), fall back to job_events grouped by pool_name.
+                let active_opt = snap
+                    .pipelines
+                    .iter()
+                    .find(|pm| {
+                        matches!(
+                            pm.pipeline.status.as_str(),
+                            "running" | "pending" | "created"
+                        )
+                    })
+                    .or_else(|| snap.pipelines.first())
+                    .map(|pm| {
+                        (
+                            pm.pipeline.pipeline_id,
+                            pm.pipeline.project_id,
+                            pm.pipeline.ref_name.clone(),
+                            pm.pipeline.sha.clone(),
+                        )
+                    });
+
+                if let Some((pid, project_id, ref_name, sha)) = active_opt {
+                    let stages = {
+                        let mut s = Vec::new();
+                        if let Ok(runs) = store.list_ci_job_runs(project_id, pid).await {
+                            if !runs.is_empty() {
+                                s = build_stage_progress_from_ci_runs(&runs);
+                            }
+                        }
+                        if s.is_empty() {
+                            if let Ok(events) = store.recent_job_events(100).await {
+                                s = build_stage_progress_from_events(&events, pid);
+                            }
+                        }
+                        s
+                    };
+
+                    if !stages.is_empty() {
+                        let total: usize = stages.iter().map(|s| s.total_jobs).sum();
+                        let completed: usize = stages.iter().map(|s| s.completed_jobs).sum();
+                        let running: usize = stages.iter().map(|s| s.running_jobs).sum();
+                        let overall_pct = if total > 0 {
+                            ((completed as f64 + running as f64 * 0.5) / total as f64 * 100.0)
+                                as u16
+                        } else {
+                            0
+                        };
+                        let remaining = total.saturating_sub(completed);
+                        snap.pipeline_progress_view = Some(PipelineProgressView {
+                            pipeline_id: pid,
+                            ref_name,
+                            sha_short: sha.get(..8).unwrap_or(&sha).to_string(),
+                            stages,
+                            overall_pct,
+                            eta_remaining_secs: if remaining > 0 {
+                                Some(remaining as u64 * 45)
+                            } else {
+                                None
+                            },
+                            eta_confidence: "est".into(),
+                            wall_clock_secs: 0,
+                            started_at: None,
+                        });
+                    }
+                }
             }
 
             snap.gitlab_ready = gitlab.is_ready().await;

@@ -213,7 +213,11 @@ pub(crate) async fn ensure_remote_key(cfg: &RemoteConfig, setup_key: bool) -> Re
 }
 
 pub(crate) async fn upload_current_binary(cfg: &RemoteConfig) -> Result<()> {
-    let local = std::env::current_exe().context("locating current executable")?;
+    let local = if let Ok(override_path) = std::env::var("JERYU_REMOTE_BINARY_PATH") {
+        std::path::PathBuf::from(override_path)
+    } else {
+        std::env::current_exe().context("locating current executable")?
+    };
     let script = r#"mkdir -p "$HOME/.jeryu/bin" && cat > "$HOME/.jeryu/bin/jeryu.tmp" && install -m 0755 "$HOME/.jeryu/bin/jeryu.tmp" "$HOME/.jeryu/bin/jeryu" && rm -f "$HOME/.jeryu/bin/jeryu.tmp""#;
     let started = Instant::now();
     println!("uploading {} to {}...", local.display(), cfg.target);
