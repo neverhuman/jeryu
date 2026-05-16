@@ -7,8 +7,8 @@
     <a href="agent/repo-score.md">
       <img alt="jankurai score 91" src="https://img.shields.io/badge/jankurai-91-brightgreen" />
     </a>
-    <a href="https://github.com/jeppsontaylor/JeRyu/actions/workflows/rust.yml">
-      <img alt="CI" src="https://github.com/jeppsontaylor/JeRyu/actions/workflows/rust.yml/badge.svg" />
+    <a href="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml">
+      <img alt="CI" src="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml/badge.svg" />
     </a>
     <img alt="Rust" src="https://img.shields.io/badge/language-Rust-orange" />
     <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
@@ -147,7 +147,7 @@ JeRyu stays in user space by default and won't touch your shell startup files wi
 Clone, build, and install JeRyu into user space:
 
 ```bash
-git clone https://github.com/jeppsontaylor/JeRyu.git
+git clone https://github.com/neverhuman/jeryu.git
 cd JeRyu
 
 # Preview the install plan without making changes

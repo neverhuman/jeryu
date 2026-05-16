@@ -447,7 +447,7 @@ jobs:
         run: |
           # Create a dummy path to the jankurai repo since tuiwright expects it via path
           mkdir -p ../jankurai/crates
-          git clone --depth 1 https://github.com/jeppsontaylor/jankurai.git ../jankurai \
+          git clone --depth 1 https://github.com/neverhuman/jankurai.git ../jankurai \
             || { echo "jankurai clone skipped — using stub path already created"; mkdir -p ../jankurai/crates; }
           
           # tui_recording is marked #[ignore], so we run it explicitly

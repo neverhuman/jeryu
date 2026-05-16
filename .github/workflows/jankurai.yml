@@ -34,7 +34,7 @@ jobs:
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Install jankurai
         run: |
-          git clone --depth 1 https://github.com/jeppsontaylor/jankurai.git /tmp/jankurai-src
+          git clone --depth 1 https://github.com/neverhuman/jankurai.git /tmp/jankurai-src
           cargo install --path /tmp/jankurai-src --locked
       - run: jankurai --version
       - name: Workflow lint
