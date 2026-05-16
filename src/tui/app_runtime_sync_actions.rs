@@ -405,6 +405,75 @@ impl App {
         self.workflow_inspect_open = !self.workflow_inspect_open;
     }
 
+    /// Jump selection to the first blocker (failing/blocked node) in the
+    /// current PR's pipeline. No-op when nothing is blocked.
+    pub fn workflow_jump_to_blocker(&mut self) {
+        use crate::tui::workflow::intelligence::compute_first_blocker;
+        if let Some(node) = compute_first_blocker(&self.workflow_snapshot)
+            && let Some((pi, ni)) = self.workflow_snapshot.locate_node(&node.id)
+        {
+            self.workflow_nav.phase_idx = pi;
+            self.workflow_nav.node_idx = ni;
+            self.workflow_nav
+                .ensure_selected_visible(self.last_dag_h(), self.last_dag_w());
+        }
+    }
+
+    /// Jump selection to the tail (furthest-out) node on the critical path.
+    pub fn workflow_jump_to_critical_head(&mut self) {
+        use crate::tui::workflow::intelligence::compute_critical_path;
+        let path = compute_critical_path(&self.workflow_snapshot);
+        if let Some(tail) = path.last()
+            && let Some((pi, ni)) = self.workflow_snapshot.locate_node(tail)
+        {
+            self.workflow_nav.phase_idx = pi;
+            self.workflow_nav.node_idx = ni;
+            self.workflow_nav
+                .ensure_selected_visible(self.last_dag_h(), self.last_dag_w());
+        }
+    }
+
+    /// Cycle to the next pull request in the Delivery view.
+    pub fn delivery_next_pr(&mut self) {
+        self.delivery_snapshot.next_pr();
+        // Mirror the new PR's pipeline and reset nav to its current node.
+        if let Some(pr) = self.delivery_snapshot.selected() {
+            self.workflow_snapshot = pr.snapshot.clone();
+            self.workflow_nav.phase_idx = 0;
+            self.workflow_nav.node_idx = 0;
+            self.workflow_nav
+                .compute_canvas_size(&self.workflow_snapshot);
+            if let Some(cn) = pr.current_node_id.clone()
+                && let Some((pi, ni)) = self.workflow_snapshot.locate_node(&cn)
+            {
+                self.workflow_nav.phase_idx = pi;
+                self.workflow_nav.node_idx = ni;
+            }
+            self.workflow_nav
+                .ensure_selected_visible(self.last_dag_h(), self.last_dag_w());
+        }
+    }
+
+    /// Cycle to the previous pull request in the Delivery view.
+    pub fn delivery_prev_pr(&mut self) {
+        self.delivery_snapshot.prev_pr();
+        if let Some(pr) = self.delivery_snapshot.selected() {
+            self.workflow_snapshot = pr.snapshot.clone();
+            self.workflow_nav.phase_idx = 0;
+            self.workflow_nav.node_idx = 0;
+            self.workflow_nav
+                .compute_canvas_size(&self.workflow_snapshot);
+            if let Some(cn) = pr.current_node_id.clone()
+                && let Some((pi, ni)) = self.workflow_snapshot.locate_node(&cn)
+            {
+                self.workflow_nav.phase_idx = pi;
+                self.workflow_nav.node_idx = ni;
+            }
+            self.workflow_nav
+                .ensure_selected_visible(self.last_dag_h(), self.last_dag_w());
+        }
+    }
+
     /// Rebuild the workflow snapshot from the collector (called on tick).
     pub fn refresh_workflow_snapshot(&mut self) {
         self.refresh_delivery_snapshot();

@@ -185,7 +185,8 @@ fn draw_no_pr_state(f: &mut Frame, area: Rect, theme: &Theme) {
 }
 
 fn draw_delivery_footer(f: &mut Frame, area: Rect, _delivery: &DeliverySnapshot, theme: &Theme) {
-    let hint = " ↑↓←→ select · [ ] PR · b blocker · c crit · / search · f follow · z zoom · Enter inspect · r rollback";
+    let hint =
+        " ↑↓←→ move · </> PR · []/PgUp/PgDn pan · f follow · b blocker · c crit · Enter inspect · r rollback · ? help";
     let line = Line::from(Span::styled(hint, theme.muted()));
     f.render_widget(Paragraph::new(line), area);
 }
@@ -365,7 +366,7 @@ fn draw_phase_row(
 
             let card_rect = Rect::new(render_x, cards_y, cw, cards_h.min(NODE_CARD_H - 1));
             let is_selected = phase_idx == nav.phase_idx && ni == nav.node_idx;
-            draw_node_card(f, card_rect, node, is_selected, theme, tick);
+            draw_node_card(f, card_rect, node, is_selected, snap, theme, tick);
         }
     }
 }
@@ -375,6 +376,7 @@ fn draw_node_card(
     area: Rect,
     node: &WorkflowNode,
     is_selected: bool,
+    snap: &WorkflowSnapshot,
     theme: &Theme,
     tick: u64,
 ) {
@@ -448,6 +450,29 @@ fn draw_node_card(
     }
     if let Some(eta) = node.eta_secs {
         badge_spans.push(Span::styled(format!(" eta:{}s", eta), theme.muted()));
+    }
+    // Intelligence chip: failed/blocked nodes show "blocks N · reason".
+    if matches!(node.status, WorkflowStatus::Error | WorkflowStatus::Blocked) {
+        let downstream =
+            crate::tui::workflow::intelligence::compute_downstream_impact(snap, &node.id);
+        let reason_excerpt = node
+            .reason
+            .as_deref()
+            .map(|r| {
+                let max = area.width.saturating_sub(20) as usize;
+                r.chars().take(max.max(6)).collect::<String>()
+            })
+            .unwrap_or_default();
+        let chip = if downstream > 0 {
+            format!(" ⚠ blocks {}", downstream)
+        } else {
+            " ⚠".into()
+        };
+        badge_spans.push(Span::styled(chip, theme.bold(theme.fail)));
+        if !reason_excerpt.is_empty() {
+            badge_spans.push(Span::raw(" "));
+            badge_spans.push(Span::styled(reason_excerpt, theme.muted()));
+        }
     }
     if badge_spans.len() > 1 {
         lines.push(Line::from(badge_spans));

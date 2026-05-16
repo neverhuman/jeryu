@@ -99,6 +99,23 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             app.workflow_toggle_follow();
             Ok(Some(false))
         }
+        KeyCode::Char('b') if app.active_tab == ActiveTab::Workflow && !app.maximize_logs => {
+            app.workflow_jump_to_blocker();
+            Ok(Some(false))
+        }
+        KeyCode::Char('c') if app.active_tab == ActiveTab::Workflow && !app.maximize_logs => {
+            app.workflow_jump_to_critical_head();
+            Ok(Some(false))
+        }
+        // Cycle pull requests: '<' previous, '>' next (or shift+arrows-style intent).
+        KeyCode::Char('<') if app.active_tab == ActiveTab::Workflow && !app.maximize_logs => {
+            app.delivery_prev_pr();
+            Ok(Some(false))
+        }
+        KeyCode::Char('>') if app.active_tab == ActiveTab::Workflow && !app.maximize_logs => {
+            app.delivery_next_pr();
+            Ok(Some(false))
+        }
 
         // ─── General keys (non-workflow) ───────────────────────────
         KeyCode::Tab if app.active_tab != ActiveTab::Workflow => {

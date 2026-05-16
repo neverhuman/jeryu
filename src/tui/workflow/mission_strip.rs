@@ -14,6 +14,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+use super::intelligence::{compute_critical_path, compute_downstream_impact, compute_first_blocker, compute_ship_readiness};
 use super::model::*;
 use crate::tui::theme::Theme;
 
@@ -60,13 +61,13 @@ fn build_lines<'a>(
 ) -> Vec<Line<'a>> {
     let mut lines = Vec::with_capacity(2);
 
-    // Line 1: selected PR identity.
+    // Line 1: selected PR identity + ship readiness + blocker + critical path.
     if let Some(pr) = snap.selected() {
         let title = pr.short_title(60);
         let phase_label = pr.phase.title();
         let status_glyph = pr.status.glyph();
         let status_label = pr.status.label();
-        let ship_pct = pr.ci_summary.overall_pct;
+        let ship_pct = compute_ship_readiness(&pr.snapshot);
         let mut spans = vec![
             Span::styled(
                 format!(" {} PR #{} ", status_glyph, pr.number),
@@ -83,7 +84,7 @@ fn build_lines<'a>(
                 theme.muted(),
             ),
             Span::raw("  ·  "),
-            Span::styled(format!("{}", status_label), theme.bold(banner_color)),
+            Span::styled(status_label.to_string(), theme.bold(banner_color)),
             Span::raw("  ·  "),
             Span::styled(format!("at {}", phase_label), theme.secondary()),
             Span::raw("  ·  "),
@@ -92,15 +93,38 @@ fn build_lines<'a>(
                 theme.bold(banner_color),
             ),
         ];
-        if let Some(node_id) = &pr.current_node_id
-            && let Some(n) = pr.snapshot.node(node_id)
-            && let Some(reason) = &n.reason
-            && pr.status == PrStatus::Blocked
-        {
+        // Blocker (intelligence): label + downstream count.
+        if let Some(blocker) = compute_first_blocker(&pr.snapshot) {
+            let downstream = compute_downstream_impact(&pr.snapshot, &blocker.id);
             spans.push(Span::raw("  ·  "));
             spans.push(Span::styled(
-                format!("blocked: {}", reason.chars().take(40).collect::<String>()),
+                format!(
+                    "blocker: {} (blocks {})",
+                    blocker.label.chars().take(28).collect::<String>(),
+                    downstream
+                ),
                 theme.bold(theme.fail),
+            ));
+        }
+        // Critical-path tail readout (only when work remains).
+        let critical = compute_critical_path(&pr.snapshot);
+        if let Some(tail) = critical.last()
+            && let Some(node) = pr.snapshot.node(tail)
+            && pr.status != PrStatus::Merged
+        {
+            let total_eta: u64 = critical
+                .iter()
+                .filter_map(|id| pr.snapshot.node(id))
+                .filter_map(|n| n.eta_secs)
+                .sum();
+            spans.push(Span::raw("  ·  "));
+            spans.push(Span::styled(
+                format!(
+                    "crit: {} (~{}s)",
+                    node.label.chars().take(22).collect::<String>(),
+                    total_eta
+                ),
+                theme.bold(theme.warning),
             ));
         }
         lines.push(Line::from(spans));
