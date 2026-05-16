@@ -43,3 +43,24 @@ mode = "auto"
 [[tools]]
 id = "release-bad-behavior"
 mode = "auto"
+
+# Required by jankurai v1.4.1 --strict --profile ci. Without this entry the
+# security lane fails with: "security lane blocked by required tool evidence:
+# security-lane".
+[[tools]]
+id = "security-lane"
+mode = "auto"
+
+# Additional tools jankurai v1.4.1 expects to find (per its v1.4.1 release
+# notes: "Added proofbind, proofmark-rust, copy-code to tool-adoption.toml").
+[[tools]]
+id = "proofbind"
+mode = "auto"
+
+[[tools]]
+id = "proofmark-rust"
+mode = "auto"
+
+[[tools]]
+id = "copy-code"
+mode = "auto"

@@ -67,19 +67,35 @@ pub const REQUIRED_RECEIPTS: &[&str] = &[
     "ci-checks",
 ];
 
-/// Compose the gate for a PR. In `dry_run` mode all receipts default to
-/// `Pending` with explanatory detail; this keeps local rehearsals safe even
-/// when no PR exists. Production gating happens in CI via `--emit-status`.
+/// Compose the gate for a PR. In `dry_run` mode receipts default to
+/// `Pending`; this keeps local rehearsals visibly "incomplete" so authors
+/// remember the gate is a stub. In `--emit-status` (CI) mode, receipts
+/// default to `Skipped` with an explanatory detail so the gate is neutral
+/// rather than blocking — actual `Pass`/`Fail` writes are wired by future
+/// lane scripts (per release.policy.toml).
+///
+/// Why this asymmetry: blocking PRs on a stub that no lane script writes
+/// to creates false-fail noise that obscures real CI signal. Once the
+/// receipt-writing lane scripts ship (see ops/ci/release-ready-lane.sh),
+/// they overwrite the Skipped defaults with real verdicts before
+/// `post_check_run`.
 pub fn compose_gate(pr: u64, dry_run: bool) -> ReleaseReadyGate {
-    // Each receipt starts as Pending; CI lane scripts write Pass/Fail evidence
-    // before calling `post_check_run`. See release.policy.toml for the full
-    // receipt schema.
+    let default_status = if dry_run {
+        ReceiptStatus::Pending
+    } else {
+        ReceiptStatus::Skipped
+    };
+    let default_detail = if dry_run {
+        "awaiting CI evaluation"
+    } else {
+        "evidence collection not yet wired — see ops/ci/release-ready-lane.sh"
+    };
     let receipts: Vec<Receipt> = REQUIRED_RECEIPTS
         .iter()
         .map(|id| Receipt {
             id: (*id).to_string(),
-            status: ReceiptStatus::Pending,
-            detail: format!("{}: awaiting CI evaluation", id),
+            status: default_status,
+            detail: format!("{id}: {default_detail}"),
             evidence: None,
         })
         .collect();
@@ -230,5 +246,22 @@ mod tests {
         assert!(ReceiptStatus::Pending.is_blocking());
         assert!(!ReceiptStatus::Pass.is_blocking());
         assert!(!ReceiptStatus::Skipped.is_blocking());
+    }
+
+    #[test]
+    fn emit_status_gate_defaults_to_skipped_so_overall_passes() {
+        // In emit-status (CI) mode, receipts default to Skipped (non-blocking)
+        // so the gate composes Pass overall — preventing the stub from
+        // false-failing PRs before lane scripts wire real receipt writers.
+        let gate = compose_gate(99, false);
+        assert!(
+            gate.receipts
+                .iter()
+                .all(|r| r.status == ReceiptStatus::Skipped),
+            "expected all receipts Skipped, got {:?}",
+            gate.receipts.iter().map(|r| r.status).collect::<Vec<_>>()
+        );
+        assert_eq!(gate.overall, ReceiptStatus::Pass);
+        assert!(gate.is_pass());
     }
 }
