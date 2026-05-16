@@ -53,10 +53,35 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             // for the legacy nav helpers.
             app.refresh_workflow_snapshot();
             let theme = crate::tui::theme::Theme::dark();
+
+            use crate::tui::workflow::inspector::{
+                draw_inspector_pane, INSPECTOR_MIN_TERM_W, INSPECTOR_W,
+            };
+            let main_area = chunks[1];
+            // Show the side-pane inspector when open AND there's room. Otherwise
+            // fall back to the legacy modal overlay (rendered below).
+            let inline_pane = app.workflow_inspect_open
+                && main_area.width >= INSPECTOR_MIN_TERM_W
+                && !app.delivery_snapshot.pull_requests.is_empty();
+            let (delivery_area, inspector_area) = if inline_pane {
+                let canvas_w = main_area.width.saturating_sub(INSPECTOR_W);
+                (
+                    Rect::new(main_area.x, main_area.y, canvas_w, main_area.height),
+                    Some(Rect::new(
+                        main_area.x + canvas_w,
+                        main_area.y,
+                        INSPECTOR_W,
+                        main_area.height,
+                    )),
+                )
+            } else {
+                (main_area, None)
+            };
+
             if app.delivery_snapshot.pull_requests.is_empty() {
                 crate::tui::workflow::widget::draw_workflow_tab(
                     f,
-                    chunks[1],
+                    delivery_area,
                     &app.workflow_snapshot,
                     &app.workflow_nav,
                     &theme,
@@ -65,7 +90,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             } else {
                 crate::tui::workflow::widget::draw_delivery_tab(
                     f,
-                    chunks[1],
+                    delivery_area,
                     &app.delivery_snapshot,
                     &app.workflow_nav,
                     &theme,
@@ -73,8 +98,22 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 );
             }
 
-            // Inspect overlay: expanded view of the selected node.
-            if app.workflow_inspect_open {
+            if let Some(area) = inspector_area {
+                let selected_id = app
+                    .workflow_nav
+                    .selected_node_id(&app.workflow_snapshot)
+                    .map(str::to_string);
+                draw_inspector_pane(
+                    f,
+                    area,
+                    &app.delivery_snapshot,
+                    selected_id.as_deref(),
+                    app.inspector_tab,
+                    &app.state.live_log,
+                    &theme,
+                );
+            } else if app.workflow_inspect_open {
+                // Narrow-terminal fallback: legacy modal overlay.
                 draw_workflow_inspect_overlay(f, app);
             }
         }

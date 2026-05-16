@@ -405,6 +405,14 @@ impl App {
         self.workflow_inspect_open = !self.workflow_inspect_open;
     }
 
+    pub fn inspector_cycle_next(&mut self) {
+        self.inspector_tab = self.inspector_tab.next();
+    }
+
+    pub fn inspector_cycle_prev(&mut self) {
+        self.inspector_tab = self.inspector_tab.prev();
+    }
+
     /// Jump selection to the first blocker (failing/blocked node) in the
     /// current PR's pipeline. No-op when nothing is blocked.
     pub fn workflow_jump_to_blocker(&mut self) {

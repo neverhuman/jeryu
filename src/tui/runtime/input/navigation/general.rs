@@ -62,7 +62,17 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             Ok(Some(false))
         }
         KeyCode::Tab if app.active_tab == ActiveTab::Workflow && !app.maximize_logs => {
-            app.workflow_tab_next();
+            if app.workflow_inspect_open {
+                app.inspector_cycle_next();
+            } else {
+                app.workflow_tab_next();
+            }
+            Ok(Some(false))
+        }
+        KeyCode::BackTab if app.active_tab == ActiveTab::Workflow && !app.maximize_logs => {
+            if app.workflow_inspect_open {
+                app.inspector_cycle_prev();
+            }
             Ok(Some(false))
         }
         KeyCode::Enter if app.active_tab == ActiveTab::Workflow && !app.maximize_logs => {
