@@ -335,6 +335,8 @@ pub struct App {
     // Delivery view (multi-PR canonical pipeline):
     pub delivery_snapshot: crate::tui::workflow::model::DeliverySnapshot,
     pub inspector_tab: crate::tui::workflow::inspector::InspectorTab,
+    pub delivery_hit_map: crate::tui::workflow::hit_map::DeliveryHitMap,
+    pub drag_origin: Option<(u16, u16)>,
 
     sync_rx: mpsc::Receiver<TuiStateSnapshot>,
     sync_tx: mpsc::Sender<TuiStateSnapshot>,

@@ -5,6 +5,7 @@
 pub mod builder;
 pub mod collector;
 pub mod delivery;
+pub mod hit_map;
 pub mod inspector;
 pub mod intelligence;
 pub mod minimap;

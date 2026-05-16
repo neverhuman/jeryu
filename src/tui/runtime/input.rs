@@ -3,6 +3,7 @@
 //! Proof: `cargo nextest run -p jeryu -- tui`
 //! Invariants: Event handling stays bounded, policy-gated, and independent from rendering helpers. // allowlist: DB access via App is permitted in UI input layer
 
+mod mouse;
 mod navigation;
 mod palette;
 
@@ -32,17 +33,22 @@ pub(crate) async fn run_loop(
     loop {
         terminal.draw(|f| ui::draw(f, app))?;
 
-        if crossterm::event::poll(tick_rate)?
-            && let Event::Key(key) = event::read()?
-        {
-            if app.command_palette_open {
-                palette::handle_palette_key(app, key);
-                app.tick().await;
-                continue;
-            }
-
-            if navigation::handle_navigation_key(app, key).await? {
-                return Ok(());
+        if crossterm::event::poll(tick_rate)? {
+            match event::read()? {
+                Event::Key(key) => {
+                    if app.command_palette_open {
+                        palette::handle_palette_key(app, key);
+                        app.tick().await;
+                        continue;
+                    }
+                    if navigation::handle_navigation_key(app, key).await? {
+                        return Ok(());
+                    }
+                }
+                Event::Mouse(m) if app.active_tab == crate::tui::app::ActiveTab::Workflow => {
+                    mouse::handle_delivery_mouse(app, m);
+                }
+                _ => {}
             }
         }
 

@@ -52,6 +52,8 @@ impl App {
             workflow_inspect_open: false,
             delivery_snapshot: crate::tui::workflow::model::DeliverySnapshot::empty(),
             inspector_tab: crate::tui::workflow::inspector::InspectorTab::default(),
+            delivery_hit_map: crate::tui::workflow::hit_map::DeliveryHitMap::default(),
+            drag_origin: None,
             sync_rx,
             sync_tx,
             log_rx,

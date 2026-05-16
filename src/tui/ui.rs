@@ -87,7 +87,10 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     &theme,
                     app.tick_count,
                 );
+                app.delivery_hit_map =
+                    crate::tui::workflow::hit_map::DeliveryHitMap::default();
             } else {
+                let mut hit_map = crate::tui::workflow::hit_map::DeliveryHitMap::default();
                 crate::tui::workflow::widget::draw_delivery_tab(
                     f,
                     delivery_area,
@@ -95,7 +98,10 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     &app.workflow_nav,
                     &theme,
                     app.tick_count,
+                    &mut hit_map,
                 );
+                hit_map.inspector = inspector_area;
+                app.delivery_hit_map = hit_map;
             }
 
             if let Some(area) = inspector_area {
