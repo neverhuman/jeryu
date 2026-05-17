@@ -5,14 +5,21 @@ pub(super) fn ssh_bash_command(cfg: &RemoteConfig, script: &str) -> Command {
     cmd.args(ssh_args(cfg));
     cmd.arg(&cfg.target);
     // SSH joins all remaining args with spaces and passes them as ONE shell
-    // command string to the remote sh. If we send `bash -lc <script>` as
+    // command string to the remote sh. If we send `bash -c <script>` as
     // three args, the remote sh sees:
-    //     bash -lc <first-word-of-script> <rest-positional-args>
+    //     bash -c <first-word-of-script> <rest-positional-args>
     // — bash only treats the first word as the command. So a script like
     // `mkdir -p $HOME/x && cat > $HOME/y` runs `mkdir` with no operands.
-    // Wrap the whole `bash -lc <script>` in a single argument with the
+    // Wrap the whole `bash -c <script>` in a single argument with the
     // script quoted, so the remote shell re-parses it as one bash invocation.
-    cmd.arg(format!("bash -lc {}", shell_single_quote(script)));
+    //
+    // We use `-c` (not `-lc`): the prior `-l` (login shell) sourced
+    // /etc/profile on the remote, which on some images triggers init
+    // logic (e.g., the docker-installer's profile fragment can launch
+    // a docker compose pull). We don't need login mode — these scripts
+    // either set their own env (uploads, install) or invoke a self-
+    // contained binary that needs no shell init.
+    cmd.arg(format!("bash -c {}", shell_single_quote(script)));
     cmd
 }
 
