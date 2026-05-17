@@ -242,20 +242,31 @@ pub(crate) async fn run_remote_binary(
     args: &[&str],
     allow_fail: bool,
 ) -> Result<Option<String>> {
-    let mut cmd = Command::new("ssh");
-    cmd.args(ssh_args(cfg));
-    cmd.arg(&cfg.target);
-    cmd.arg(&cfg.remote_bin);
-    cmd.args(args);
+    // Wrap in bash -lc so a tilde-prefixed remote_bin (e.g. ~/.jeryu/bin/jeryu)
+    // gets word-split with tilde expansion. Without this, ssh hands
+    // `~/.jeryu/bin/jeryu --version` to the remote sh as a literal command,
+    // and POSIX sh only expands `~` at specific syntactic positions —
+    // when not expanded, the binary path doesn't exist and exec fails.
+    let script = format!(
+        "{} {}",
+        cfg.remote_bin,
+        args.iter()
+            .map(|a| shell_single_quote(a))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+    let mut cmd = ssh_bash_command(cfg, &script);
     let output = cmd.output().await.context("running remote binary")?;
     if output.status.success() {
         Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
     } else if allow_fail {
         Ok(None)
     } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
         bail!(
-            "remote binary exited with {}",
-            output.status.code().unwrap_or(-1)
+            "remote binary exited with {}: {}",
+            output.status.code().unwrap_or(-1),
+            stderr.trim()
         );
     }
 }
