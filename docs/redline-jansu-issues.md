@@ -150,7 +150,9 @@ let rows: Vec<_> = stmt.query(params![&filter.kind])?.collect();  // sync iterat
 ### R-2: RedlineDB requires Rust 1.95 + edition 2024
 
 **Date:** 2026-05-16
-**Status:** open (need to verify)
+**Status:** RESOLVED (Wave 11.C Phase 3)
+
+Toolchain bumped to rustc 1.95.0 in jeryu v3.3.1 — see jeryu PR #3 (commit `4d14b6e`). Edition 2024 became stable in 1.95, so this unblocks both RedlineDB v1.0.x and Jansu v0.6.x. New clippy lints introduced in 1.93–1.95 are allowed at crate root with a TODO to revisit in a focused refactor PR.
 
 **What:** `crates/redlinedb/Cargo.toml` declares `rust-version.workspace = true`
 and the workspace declares `rust-version = "1.95"` + `edition = "2024"`.
@@ -192,7 +194,7 @@ Closes J-3 (scope was webhook dispatch only — done) and supersedes J-2
 ### J-1: Jansu has no tagged GitHub release
 
 **Date:** 2026-05-16
-**Status:** open — still pending upstream tag publish; jeryu pins by commit SHA in the interim
+**Status:** open (workaround in place) — pinned by commit SHA `3e270dc` on the v0.6.1 feature branch; flip to `tag = "v0.6.1"` once neverhuman/jansu cuts the release tag. Upstream PR #11 (jansu-embedded crate) is open and awaiting merge — the tag publish will happen as part of that workflow.
 
 **What:** `https://github.com/neverhuman/jansu/releases` returns empty.
 The `Cargo.toml` workspace declares `version = "0.6.0"` but no git tag exists
@@ -214,7 +216,7 @@ commit SHA is acceptable but loses semantic versioning.
 ### J-2: Jansu requires rustc 1.95 (same blocker as RedlineDB R-2)
 
 **Date:** 2026-05-16
-**Status:** **open — blocks integration on current toolchain**
+**Status:** RESOLVED (Wave 11.C Phase 3) — see R-2 above; same fix unblocks both.
 
 **What:** `https://github.com/neverhuman/jansu/blob/main/rust-toolchain.toml`
 declares `channel = "1.95"`. jeryu's workspace currently declares
@@ -280,7 +282,7 @@ issuing the next fetch).
 ### J-3: Jansu integration scope decision
 
 **Date:** 2026-05-16
-**Status:** deferred (per J-2)
+**Status:** RESOLVED (Wave 11.C Phase 5) — webhook dispatch landed in jeryu PR #4 with three integration tests (jobs roundtrip, consumer resume, three-topics isolation); 19/19 CI checks green.
 
 **What:** Per user direction in plan approval, jansu is scoped to **webhook
 event dispatch only** for this PR:

@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.2",
-  "cargo_workspace_version": "3.3.2",
+  "version": "3.3.3",
+  "cargo_workspace_version": "3.3.3",
   "release_line": "V3.3",
   "status": "released",
   "date": "2026-05-17",
   "tag_policy": {
-    "release_candidate": "v3.3.2-rc.N after required proof lanes pass",
-    "stable": "v3.3.2 after release and security lanes pass"
+    "release_candidate": "v3.3.3-rc.N after required proof lanes pass",
+    "stable": "v3.3.3 after release and security lanes pass"
   },
-  "headline": "Wave 11.C Phase 5 — embedded Jansu broker dispatches webhook events through an in-process producer/consumer pipeline, decoupling the HTTP handler from the inline event work."
+  "headline": "Wave 11.C Phase 6 — docs + tracker resolution, ci-parity covers the jansu messaging path and the --no-default-features canary, autonomous-deployment.md reflects the as-built event-bus stack."
 }
