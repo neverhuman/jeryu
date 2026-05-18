@@ -4,7 +4,7 @@ My blunt read: **the idea is excellent and unusually well aimed at agent-first d
 
 ## What is done well
 
-The project has a compelling core thesis: a single Rust control plane over GitLab, GitLab Runner, Docker, Vault, SQLite, smart test selection, cache, failure evidence, release gates, and a TUI. The architecture doc splits the system into interface, control, state, execution, and intelligence planes, which is the right mental model for agent-first dev infrastructure. It also explicitly says production deployment should be mediated by GitLab pipelines and release gates rather than ad hoc shell commands, which is exactly the right instinct. ([GitHub][1])
+The project has a compelling core thesis: a single Rust control plane over GitLab, GitLab Runner, Docker, Vault, RedlineDB, smart test selection, cache, failure evidence, release gates, and a TUI. The architecture doc splits the system into interface, control, state, execution, and intelligence planes, which is the right mental model for agent-first dev infrastructure. It also explicitly says production deployment should be mediated by GitLab pipelines and release gates rather than ad hoc shell commands, which is exactly the right instinct. ([GitHub][1])
 
 The API surface is also more agent-aware than most repos. It documents CLI, TUI, webhook server, Unix-socket capability API, Git server hook, custom executor, action registry, state API, GitLab REST wrapper, release API, secrets API, and test-intelligence controls. That is a good foundation for agents because it means agents can ask for typed operations rather than scraping GitLab UI state or parsing raw shell output. ([GitHub][2])
 
@@ -24,7 +24,7 @@ The raw `src/engine.rs` I inspected contains `Some(¬e)` inside a call to `finis
 
 ### 2. The “admission controller” does not currently enforce admission
 
-`src/admission.rs` installs a pre-receive hook, parses push lines, and logs the push, but the enforcement logic is TODO. The comments explicitly say it should verify agent identity and check the SQLite event ledger, but it currently accepts everything. For an agent-first Git manager, this is a critical trust gap: if the hook is supposed to be the boundary between authorized agent intent and arbitrary Git writes, it cannot be logging-only. ([GitHub][7])
+`src/admission.rs` installs a pre-receive hook, parses push lines, and logs the push, but the enforcement logic is TODO. The comments explicitly say it should verify agent identity and check the RedlineDB event ledger, but it currently accepts everything. For an agent-first Git manager, this is a critical trust gap: if the hook is supposed to be the boundary between authorized agent intent and arbitrary Git writes, it cannot be logging-only. ([GitHub][7])
 
 **Fix:** Implement the admission controller as a real policy gate. Every agent push should require a signed or ledger-backed `intent_id`, actor identity, allowed branch pattern, expected base SHA, expected file scope, and policy version. Reject pushes that lack a matching approved intent.
 

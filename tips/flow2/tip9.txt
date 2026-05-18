@@ -388,7 +388,7 @@ Rules:
    acceptance  → acc
    performance → perf
    regression  → regr
-   postgres    → pg
+   redline    → pg
    kubernetes  → k8s
    migration   → mig
    deployment  → deploy

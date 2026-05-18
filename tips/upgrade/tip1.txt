@@ -11,7 +11,7 @@ Below is my strongest feedback.
 The architecture is strong because it has several properties many agentic delivery systems lack:
 
 1. **Typed control surfaces** rather than only shell access.
-2. **Durable state** in SQLite instead of ephemeral logs.
+2. **Durable state** in RedlineDB instead of ephemeral logs.
 3. **Risk gates** for merges and production.
 4. **A release pipeline model** that separates upstream CI, canary/release execution, and production promotion.
 5. **Failure capsules** that can drive retry decisions and agent reasoning.
@@ -933,7 +933,7 @@ It should check:
 
 * `jeryu.env` permissions
 * Vault bootstrap files
-* SQLite permissions
+* RedlineDB permissions
 * capability socket permissions
 * runner config token exposure
 * logs containing PATs/tokens

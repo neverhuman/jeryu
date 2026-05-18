@@ -1720,9 +1720,9 @@ mod cli_foundry_tests {
         install_default_drivers();
         let pool = AnyPoolOptions::new()
             .max_connections(1)
-            .connect("sqlite::memory:")
+            .connect("redline::memory:")
             .await
-            .expect("connect in-memory sqlite");
+            .expect("connect in-memory redline");
         for stmt in [
             "CREATE TABLE foundry_candidates (
                 id            TEXT PRIMARY KEY,

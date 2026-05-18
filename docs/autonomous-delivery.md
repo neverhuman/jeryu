@@ -265,17 +265,18 @@ unweakened quorum gate.
 
 The reviewer agents use whatever LLM provider is configured. The
 project is provider-agnostic and ships a per-role failover chain in
-`.autonomy/providers/llm.yml`. The default chain is
-`openrouter → groq → nvidia` (three independent providers across
-three independent backbones, all live-verified working on 2026-05-16).
+`.autonomy/providers/llm.yml`. The default profile is free-only
+OpenRouter: `nvidia/nemotron-3-super-120b-a12b:free` and
+`openai/gpt-oss-120b:free` in role-specific fallback chains.
 
 Key properties of the chain:
 
 - **Secrets are never in the policy file.** Each entry references an
   environment variable name. The router resolves the value via a
   six-tier secrets chain (CLI flag, env, `~/.jeryu/secrets/llm.env`,
-  `~/llm.env` legacy, `.env.local`, CI secret). CI mode refuses local
-  files.
+  `~/llm.env` legacy, `.env.local`, CI secret). The canonical user
+  home for LLM keys is `~/.jeryu/secrets/llm.env`. CI mode refuses
+  local files.
 - **Per-role chain.** Each reviewer role has its own ordered chain.
 - **Failover is deterministic.** On rate limit, timeout, or upstream
   error, the router walks to the next entry. The `Doctor` sub-command
@@ -593,12 +594,11 @@ bad pattern (e.g. "always pass anything that adds telemetry").
    `src/autonomy/conditions.rs:181-197` and the Judge rejects, even
    if the other two reviewers pass. Three colluding "yes" votes
    cannot outvote one valid "no."
-2. **Diverse providers across roles.** The default chain in
-   `.autonomy/providers/llm.yml` deliberately spans different models
-   and backbones per role (NVIDIA Nemotron for primary, OpenAI
-   GPT-OSS for fallback, Llama on Groq as further fallback). A
-   collusion attack would need to manipulate three independent
-   providers simultaneously.
+2. **Diverse models across roles.** The default chain in
+   `.autonomy/providers/llm.yml` deliberately spans different free
+   models per role (NVIDIA Nemotron and OpenAI GPT-OSS). A collusion
+   attack would need to manipulate multiple independent model
+   backends simultaneously.
 
 The Judge itself is pure Rust, no LLM, so the collusion attack does
 not extend to the fusion step.
@@ -638,7 +638,7 @@ real code in `/home/ubuntu/jeryu`.
 - An LLM provider key in one of: `--llm-key` flag, environment
   variable, `~/.jeryu/secrets/llm.env`, `~/llm.env`, repo
   `.env.local` (gitignored), or CI secret. `OPENROUTER_API_KEY` is
-  the default and gets the broadest model coverage.
+  the default and gets the broadest free-model coverage.
 - `just` if you want the convenience recipes.
 
 ### 12.2 Probe your provider configuration
@@ -659,10 +659,9 @@ Equivalent recipe:
 just autonomy-doctor
 ```
 
-A live sweep on 2026-05-16 against `~/llm.env`:
-`openrouter OK (5.2s)`, `groq OK (131 ms)`, `nvidia OK (442 ms)`,
-`gemini rate-limited`, `cerebras auth failed`, `fireworks suspended`.
-The default chain `openrouter → groq → nvidia` is provably resilient.
+The current live profile stays on OpenRouter free models only:
+`nvidia/nemotron-3-super-120b-a12b:free` and
+`openai/gpt-oss-120b:free`.
 
 ### 12.3 Run one reviewer against a diff
 

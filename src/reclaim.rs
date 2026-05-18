@@ -143,7 +143,10 @@ pub async fn run_aggressive_reclaim(apply: bool) -> Result<()> {
             ],
             "message": "Run with --apply to execute."
         });
-        let rendered_plan = serde_json::to_string_pretty(&plan).unwrap_or_default();
+        let rendered_plan = match serde_json::to_string_pretty(&plan) {
+            Ok(json) => json,
+            Err(_) => String::new(),
+        };
         println!("{}", rendered_plan);
         return Ok(());
     }

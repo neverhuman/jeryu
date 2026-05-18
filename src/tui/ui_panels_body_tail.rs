@@ -94,7 +94,7 @@ pub(crate) fn draw_flow_board(f: &mut Frame, app: &App, area: Rect) {
 
 #[allow(dead_code)]
 pub(crate) fn draw_jobs(f: &mut Frame, app: &App, area: Rect) {
-    let active = app.active_pane == ActivePane::Jobs;
+    let active = app.active_tab == ActiveTab::Jobs;
     let now = chrono::Utc::now();
     let items: Vec<ListItem> = app
         .state
@@ -204,7 +204,7 @@ pub(crate) fn draw_jobs(f: &mut Frame, app: &App, area: Rect) {
                 app.state.recent_jobs.len()
             ))
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(pane_border(ActivePane::Jobs, app))),
+            .border_style(focus::border_style(app, PaneId::JobsRunnerFeed)),
     );
     f.render_widget(list, area);
 }
@@ -240,13 +240,7 @@ pub(crate) fn draw_logs(f: &mut Frame, app: &mut App, area: Rect) {
             job_name, title_state, follow_state
         ))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(if app.maximize_logs {
-            Color::Cyan
-        } else if log_state.outdated || log_state.error.is_some() {
-            Color::Yellow
-        } else {
-            pane_border(ActivePane::Jobs, app)
-        }));
+        .border_style(focus::border_style(app, PaneId::JobsInspector));
 
     let inner_area = outer_block.inner(area);
     f.render_widget(outer_block, area);
@@ -304,7 +298,7 @@ pub(crate) fn draw_logs(f: &mut Frame, app: &mut App, area: Rect) {
 
     let parsed_text = if !log_state.text.is_empty() {
         render_log_text(&log_state.text)
-    } else if app.active_pane == ActivePane::Jobs {
+    } else if app.active_tab == ActiveTab::Jobs {
         Text::raw("Choose a live, failed, or recent job. Fetching...")
     } else {
         Text::raw("Focus Jobs pane to tail logs...")

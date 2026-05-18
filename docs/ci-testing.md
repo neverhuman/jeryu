@@ -10,7 +10,7 @@ The tests are located primarily in the `tests/` directory:
 - **`tests/e2e.rs`**: Full lifecycle tests. Protests the system by spinning up ephemeral GitLab runners, dynamically creating projects, committing test `.gitlab-ci.yml` files, scaling runner pools, and validating log trace outputs to ensure runners correctly pick up and execute jobs.
 - **`tests/agent_tests.rs`**: Tests the Autonomous Agent flow. Verifies that `jeryu` can spawn an AI agent task, create a separate branch, commit code, and open a Merge Request back to `main`.
 - **`tests/pool_tests.rs`** & **`tests/job_tests.rs`**: Validates runner pool limits, ephemeral pool teardowns, and job specific queue logic.
-- **`tests/cache_integration_test.rs`**: Tests the `Jeryu SmartCache` mechanics to ensure pipeline data is correctly tracked and cached locally using SQLite and Docker.
+- **`tests/cache_integration_test.rs`**: Tests the `Jeryu SmartCache` mechanics to ensure pipeline data is correctly tracked and cached locally using RedlineDB and Docker.
 
 ### Local Execution Strategy
 To run these environments locally, the following commands are used:

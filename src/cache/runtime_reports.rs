@@ -83,6 +83,9 @@ impl SmartCache {
         }
         let manager_root = crate::config::cache_root_dir().join("managers");
         let mut manager_caches = Vec::new();
+        let mut manager_cargo_targets = Vec::new();
+        let mut manager_cargo_target_bytes = 0_u64;
+        let mut manager_cargo_sccache_bytes = 0_u64;
 
         if manager_root.is_dir() {
             for entry in std::fs::read_dir(&manager_root)
@@ -97,6 +100,34 @@ impl SmartCache {
                 let active = active_managers.contains(&manager_id);
                 let bytes = du_bytes(&path).await.unwrap_or(0);
                 let sccache_bytes = du_bytes(&path.join("sccache")).await.unwrap_or(0);
+                manager_cargo_sccache_bytes =
+                    manager_cargo_sccache_bytes.saturating_add(sccache_bytes);
+                let mut statuses = scan_cargo_target_dirs(
+                    &path.join("cargo-targets"),
+                    &format!("manager:{manager_id}"),
+                )
+                .await?;
+                if active {
+                    for status in &mut statuses {
+                        if status.active {
+                            continue;
+                        }
+                        let ttl = pool_target_lease_recovery_ttl().as_secs();
+                        let recovery_active = !status.lease_observed
+                            && status.age_seconds.map(|age| age <= ttl).unwrap_or(true);
+                        if recovery_active {
+                            status.active = true;
+                            status.reason =
+                                "active manager cargo cache recovery path (lease absent)"
+                                    .to_string();
+                        } else if !status.lease_observed {
+                            status.reason = "manager cargo cache without lease".to_string();
+                        }
+                    }
+                }
+                manager_cargo_target_bytes = manager_cargo_target_bytes
+                    .saturating_add(statuses.iter().map(|status| status.bytes).sum::<u64>());
+                manager_cargo_targets.extend(statuses);
                 let age_seconds = path_age_seconds(&path);
                 manager_caches.push(ManagerCacheStatus {
                     manager_id,
@@ -129,6 +160,7 @@ impl SmartCache {
             .unwrap_or(0);
 
         let mut cargo_target_caches = local_cargo_targets;
+        cargo_target_caches.extend(manager_cargo_targets);
         let pool_root = crate::config::cache_root_dir().join("pools");
         let mut pool_cargo_target_bytes = 0_u64;
         let mut pool_cargo_sccache_bytes = 0_u64;
@@ -187,6 +219,8 @@ impl SmartCache {
             manager_cache_bytes,
             manager_cache_budget_bytes: budget_bytes,
             manager_caches,
+            manager_cargo_target_bytes,
+            manager_cargo_sccache_bytes,
             local_cargo_target_bytes,
             local_cargo_sccache_bytes,
             pool_cargo_target_bytes,

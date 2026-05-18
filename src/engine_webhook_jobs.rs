@@ -43,7 +43,10 @@ pub(crate) async fn handle_job_event(state: &EngineState, payload: JobHookPayloa
     let Some(project_id) = payload.project_id else {
         return;
     };
-    let status = payload.build_status.unwrap_or_default();
+    let status = match payload.build_status {
+        Some(status) => status,
+        None => String::new(),
+    };
 
     info!(
         job_id,

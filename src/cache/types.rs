@@ -97,6 +97,8 @@ pub struct CacheStatusReport {
     pub manager_cache_bytes: u64,
     pub manager_cache_budget_bytes: Option<u64>,
     pub manager_caches: Vec<ManagerCacheStatus>,
+    pub manager_cargo_target_bytes: u64,
+    pub manager_cargo_sccache_bytes: u64,
     pub local_cargo_target_bytes: u64,
     pub local_cargo_sccache_bytes: u64,
     pub pool_cargo_target_bytes: u64,

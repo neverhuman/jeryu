@@ -112,7 +112,7 @@ The action registry is a good source of truth, but the command palette should ev
 
 ### 6. State and migrations need production hardening
 
-The state store is very broad, but it is also large and monolithic. It supports Postgres primary and SQLite fallback, but the migration approach appears to be an in-code schema string with manual backend conversion behavior. ([GitHub][8])
+The state store is very broad, but it is also large and monolithic. It supports RedlineDB primary and RedlineDB fallback, but the migration approach appears to be an in-code schema string with manual backend conversion behavior. ([GitHub][8])
 
 For a serious agent control plane, state migration needs to be boring, testable, versioned, reversible where possible, and safe under concurrent upgrades.
 

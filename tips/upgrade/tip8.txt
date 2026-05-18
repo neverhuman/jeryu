@@ -14,13 +14,13 @@ Below is my best feedback, split into clear gaps, agent dream capabilities, issu
 The architecture has several excellent instincts:
 
 1. **Everything important is mediated through typed surfaces.**
-   CLI, TUI, webhook server, capability socket, GitLab client, SQLite state, custom executor, release API, and secrets API are all documented as intentional surfaces.
+   CLI, TUI, webhook server, capability socket, GitLab client, RedlineDB state, custom executor, release API, and secrets API are all documented as intentional surfaces.
 
 2. **Production deployment is pipeline-mediated, not shell-mediated.**
    This is a very strong safety model. Canary and production promotion are GitLab pipeline products with explicit variables and gates, not ad hoc operator commands.
 
 3. **State is durable and audit-oriented.**
-   SQLite acts as a coordination layer, not just a cache. The event ledger, release attempts, evidence capsules, retry decisions, test plans, cache taints, and secret audit events are exactly the kind of state an agent needs.
+   RedlineDB acts as a coordination layer, not just a cache. The event ledger, release attempts, evidence capsules, retry decisions, test plans, cache taints, and secret audit events are exactly the kind of state an agent needs.
 
 4. **The execution model understands trust.**
    Trusted, privileged, and untrusted pools are separated. The custom executor, sandbox, honeypot, taint, witness, BuildKit, and cache-brain modules form a real supply-chain boundary.
@@ -379,7 +379,7 @@ Or:
 {
   "intent": "ProposePatch",
   "payload": {
-    "artifact_ref": "sqlite:agent_artifacts:123"
+    "artifact_ref": "redline:agent_artifacts:123"
   }
 }
 ```
@@ -395,7 +395,7 @@ The API documents `jeryu sync-now` as a CLI trigger placeholder that tells the u
 That is surprising. A command named `sync-now` should either:
 
 * actually request a sync through the daemon,
-* enqueue a sync request in SQLite,
+* enqueue a sync request in RedlineDB,
 * call the sync implementation directly,
 * or be renamed to something like `jeryu poke`.
 

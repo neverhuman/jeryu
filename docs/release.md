@@ -53,7 +53,7 @@ The default release repo root is `/home/ubuntu/dougx`, unless overridden by
 - Release process notes: `docs/release.md`
 - Release evidence: `ops/releases/<version>/`
 - Security evidence: `target/jankurai/security/evidence.json`
-- Backup evidence: `just postgres-state-proof`
+- Backup evidence: `just state-proof`
 - Monitoring evidence: `target/jankurai/ux-qa.json`
 - Abuse-control evidence: `src/admission.rs`, `src/secrets.rs`, `agent/security-policy.toml`
 
@@ -81,7 +81,7 @@ patch instead.
 ## Launch gates
 
 - Security gate: secret scan, dependency review, and SBOM evidence must be green.
-- Backup gate: the Postgres state proof must pass before a release attempt is promoted.
+- Backup gate: the state proof must pass before a release attempt is promoted.
 - Monitoring gate: the release canary and UX smoke output must be available for the current version.
 - Abuse-control gate: admission policy and secrets rotation must still pass before any prod handoff.
 

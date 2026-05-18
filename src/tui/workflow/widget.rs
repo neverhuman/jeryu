@@ -140,7 +140,7 @@ pub fn draw_dag_canvas_with_hits(
     }
 
     for (pi, phase) in snapshot.phases.iter().enumerate() {
-        let virtual_y = nav.phase_virtual_y(pi) - BANNER_H as i32;
+        let virtual_y = nav.phase_virtual_y(pi);
         let phase_h = PHASE_HEADER_H as i32 + NODE_CARD_H as i32;
         let screen_y = virtual_y - nav.viewport_y;
         if screen_y + phase_h + EDGE_GUTTER_H as i32 <= 0 || screen_y >= dag_h as i32 {
@@ -256,7 +256,7 @@ pub fn draw_dag_canvas(
 
     // Render phases with viewport clipping.
     for (pi, phase) in snapshot.phases.iter().enumerate() {
-        let virtual_y = nav.phase_virtual_y(pi) - BANNER_H as i32; // relative to DAG start
+        let virtual_y = nav.phase_virtual_y(pi); // DAG-relative
         let phase_h = PHASE_HEADER_H as i32 + NODE_CARD_H as i32;
 
         // Check if this phase is visible in the viewport.
@@ -620,14 +620,10 @@ fn draw_node_card(
     if matches!(node.status, WorkflowStatus::Error | WorkflowStatus::Blocked) {
         let downstream =
             crate::tui::workflow::intelligence::compute_downstream_impact(snap, &node.id);
-        let reason_excerpt = node
-            .reason
-            .as_deref()
-            .map(|r| {
-                let max = area.width.saturating_sub(20) as usize;
-                r.chars().take(max.max(6)).collect::<String>()
-            })
-            .unwrap_or_default();
+        let reason_excerpt = node.reason.as_deref().map_or_else(String::new, |r| {
+            let max = area.width.saturating_sub(20) as usize;
+            r.chars().take(max.max(6)).collect::<String>()
+        });
         let chip = if downstream > 0 {
             format!(" ⚠ blocks {}", downstream)
         } else {

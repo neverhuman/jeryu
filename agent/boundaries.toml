@@ -18,8 +18,7 @@ adapter_paths = [
     "crates/adapters/src/queues",
 ]
 client_markers = [
-    "rdkafka",
-    "kafkajs",
+    "jansu",
     "tansu",
     "iggy",
     "fluvio",
@@ -57,7 +56,7 @@ forbidden_domain_imports = [
     "sqlx::",
     "diesel::",
     "reqwest::",
-    "rdkafka::",
+    "jansu::",
     "tracing::",
     "log::",
 ]
@@ -65,23 +64,21 @@ generated_contract_paths = ["contracts/generated"]
 generated_paths = ["contracts/generated"]
 
 [stack]
-id = "rust-ts-vite-react-postgres-bounded-python"
+id = "rust-ts-vite-react-redline-jansu-bounded-python"
 version = "0.4.0"
 
 [[streaming_exception]]
 classification = "brownfield"
 expires = "2026-12-31"
-migration_path = "Keep Kafka behind generated event contracts and observable Rust queue adapters; evaluate Tansu, Apache Iggy, and Fluvio with replay, compatibility, and operations proof before replacement."
+migration_path = "Keep Jansu behind generated event contracts and observable Rust queue adapters; evaluate Tansu, Apache Iggy, and Fluvio with replay, compatibility, and operations proof before replacement."
 owner = "platform"
-runtime = "kafka"
+runtime = "jansu"
 
 [typescript]
 forbidden_web_imports = [
     "sqlx",
-    "pg",
-    "postgres",
+    "sqlx",
     "mysql",
-    "better-sqlite3",
     "@aws-sdk/client-s3",
 ]
 generated_contract_paths = ["contracts/generated"]

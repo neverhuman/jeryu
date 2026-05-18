@@ -6,7 +6,7 @@ The best architecture is:
 
 > **Changed files/hunks → dependency graph → test graph → cached evidence check → selected CI child pipeline → nightly teacher run → self-repair.**
 
-AI should participate, but it should **not** be the root decision-maker. AI should propose missing mappings, generate explanations, and suggest tests. The deterministic Rust planner should make the final test-selection decision, record it in SQLite, emit an auditable plan, and fail closed when it is unsure.
+AI should participate, but it should **not** be the root decision-maker. AI should propose missing mappings, generate explanations, and suggest tests. The deterministic Rust planner should make the final test-selection decision, record it in RedlineDB, emit an auditable plan, and fail closed when it is unsure.
 
 This matches jeryu’s philosophy perfectly: Rust owns policy and orchestration; Git is the ledger; GitLab Runner executes; AI searches and proposes.
 
@@ -124,7 +124,7 @@ For untrusted agents, allow fewer skips. For trusted humans/agents, allow more c
 
 ### 2. Control Plane
 
-SQLite becomes the memory of test impact. The event ledger records:
+RedlineDB becomes the memory of test impact. The event ledger records:
 
 ```text
 test.plan.created

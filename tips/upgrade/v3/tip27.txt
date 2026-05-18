@@ -2,7 +2,7 @@ I attempted a direct clone/download in the sandbox, but DNS resolution to GitHub
 
 ## Executive verdict
 
-JeRyu / `jeryu` is a **very promising agent-first GitLab control plane**, but based on the code and docs I reviewed, it is **not really a GitLab fork yet**. It is closer to a Rust “hypervisor” around a local GitLab CE + GitLab Runner + Docker/Vault/Postgres/SQLite stack. The README describes it as a single-binary Rust control plane for a local GitLab instance with “God Mode” CI control, sandboxing, custom executor, ephemeral bot users, semantic CI/CD, and memory tuning. ([GitHub][1]) The architecture docs say it turns local GitLab/Runner/Docker/Vault/Postgres/SQLite into an agent-operable delivery system with runner state, webhooks, custom executor, release automation, SmartCache, VTI test intelligence, Vault release secrets, evidence, action registry, settings, and a Ratatui TUI. ([GitHub][2])
+JeRyu / `jeryu` is a **very promising agent-first GitLab control plane**, but based on the code and docs I reviewed, it is **not really a GitLab fork yet**. It is closer to a Rust “hypervisor” around a local GitLab CE + GitLab Runner + Docker/Vault/RedlineDB/RedlineDB stack. The README describes it as a single-binary Rust control plane for a local GitLab instance with “God Mode” CI control, sandboxing, custom executor, ephemeral bot users, semantic CI/CD, and memory tuning. ([GitHub][1]) The architecture docs say it turns local GitLab/Runner/Docker/Vault/RedlineDB/RedlineDB into an agent-operable delivery system with runner state, webhooks, custom executor, release automation, SmartCache, VTI test intelligence, Vault release secrets, evidence, action registry, settings, and a Ratatui TUI. ([GitHub][2])
 
 The big win: the repo is thinking about the **right primitives** for autonomous coding: capability-gated agent actions, ephemeral bot identities, proof lanes, failure capsules, test intelligence, race-style parallel hypotheses, cache tainting, release gates, and a TUI. That is already much more agent-native than “GitHub Actions plus a chatbot.”
 
@@ -115,7 +115,7 @@ JeRyu has the skeleton for this.
 
 ### 1. It currently looks like a GitLab control plane, not a GitLab fork
 
-The docs repeatedly describe a system that controls a local GitLab instance, GitLab Runner, Docker, Vault, Postgres, and SQLite. ([GitHub][1]) That is fine, but it matters strategically.
+The docs repeatedly describe a system that controls a local GitLab instance, GitLab Runner, Docker, Vault, RedlineDB, and RedlineDB. ([GitHub][1]) That is fine, but it matters strategically.
 
 If the goal is “the world’s #1 agent-first Git option,” there are two paths:
 
@@ -1010,7 +1010,7 @@ This is the full autonomous SDLC loop.
 * Warm runner pools.
 * Remote CAS.
 * Signed cache manifests.
-* Robust Postgres migrations.
+* Robust RedlineDB migrations.
 * GitLab API pagination/backoff.
 * Webhook/event-driven status instead of polling.
 * Historical ETA and flake models.

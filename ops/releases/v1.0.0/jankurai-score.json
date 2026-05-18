@@ -18,8 +18,8 @@
   "auditor_version": "0.8.0",
   "schema_version": "1.5.0",
   "paper_edition": "2026.05-ed8",
-  "target_stack_id": "rust-ts-vite-react-postgres-bounded-python",
-  "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
+  "target_stack_id": "rust-ts-vite-react-redline-bounded-python",
+  "target_stack": "Rust core + TypeScript/React/Vite + RedlineDB + generated contracts + exception-only Python AI/data service",
   "claimed_conformance_level": "HL3",
   "observed_conformance_level": "HL3",
   "conformance_decision": "pass",
@@ -76,7 +76,7 @@
     "auditor_version": "1.0.0",
     "schema_version": "1.7.0",
     "paper_edition": "2026.05-ed8",
-    "target_stack": "rust-ts-vite-react-postgres-bounded-python"
+    "target_stack": "rust-ts-vite-react-redline-bounded-python"
   },
   "caps_applied": [],
   "hard_rules": [
@@ -1037,7 +1037,7 @@
     "artifact": {
       "path": "agent/boundaries.toml",
       "content_fingerprint": "sha256:3576da495134b252ca6cdfa69ff4c777cc70c4497991a3b9f0131cd85f9428f9",
-      "stack_id": "rust-ts-vite-react-postgres",
+      "stack_id": "rust-ts-vite-react-redline",
       "stack_version": "0.4.0",
       "adapter_path_count": 2,
       "event_contract_path_count": 1,

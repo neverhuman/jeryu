@@ -25,6 +25,7 @@ pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
         ActiveTab::Pools => "Pools",
         ActiveTab::Cache => "Cache",
         ActiveTab::Evidence => "Evidence",
+        ActiveTab::LLMs => "LLMs",
         ActiveTab::Git => "Git",
         ActiveTab::Secrets => "Secrets",
     };
@@ -37,7 +38,7 @@ pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
-        help_row("1-0", "Switch to tab N"),
+        help_row("1-0", "Switch to numbered tab"),
         help_row("Tab", "Cycle to next tab"),
         help_row("Ctrl-K", "Open command palette"),
         help_row("?", "Toggle this help overlay"),
@@ -72,6 +73,9 @@ pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
         }
         ActiveTab::Evidence => {
             lines.push(help_row("a", "Toggle capsules/audit ledger"));
+        }
+        ActiveTab::LLMs => {
+            lines.push(help_row("F5", "Refresh model policy and key sources"));
         }
         _ => {
             lines.push(help_row("↑↓", "Navigate items"));

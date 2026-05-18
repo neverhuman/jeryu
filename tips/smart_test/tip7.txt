@@ -9,7 +9,7 @@ The target design I would build is:
 
 ## 1. What best practice says
 
-Regression Test Selection is the established name for this. The key concept is: re-run only tests that can change behavior because of the current code change. Research literature defines the ideal selector as **safe** if it does not miss affected tests, and **precise** if it avoids running unaffected tests. Typical RTS systems collect dependencies for each test and select tests whose dependencies changed. That maps almost perfectly to what jeryu is already trying to do with `impact.rs`, `test_runner.rs`, `decision.rs`, and the SQLite ledger. 
+Regression Test Selection is the established name for this. The key concept is: re-run only tests that can change behavior because of the current code change. Research literature defines the ideal selector as **safe** if it does not miss affected tests, and **precise** if it avoids running unaffected tests. Typical RTS systems collect dependencies for each test and select tests whose dependencies changed. That maps almost perfectly to what jeryu is already trying to do with `impact.rs`, `test_runner.rs`, `decision.rs`, and the RedlineDB ledger.
 
 The strongest industry patterns are:
 
@@ -29,7 +29,7 @@ For Rust specifically, `cargo nextest` should become the default executor for se
 
 The closest existing build-system models are Pants and Bazel. Pants has a `--changed-since` + `--changed-dependents=transitive` workflow for running checks/tests affected by changed files and their dependents. ([Pants][4]) Bazel exposes dependency graph queries, and tools like `bazel-diff` compute impacted targets between Git revisions, with a strong warning that an untrusted affected-target selector destroys CI confidence. ([Bazel][5])
 
-So the best plan is: **borrow the principles, but implement the selector inside jeryu** because jeryu already owns GitLab orchestration, policy, caches, runners, SQLite, release gates, failure capsules, and agent capabilities.
+So the best plan is: **borrow the principles, but implement the selector inside jeryu** because jeryu already owns GitLab orchestration, policy, caches, runners, RedlineDB, release gates, failure capsules, and agent capabilities.
 
 ---
 
@@ -66,7 +66,7 @@ Git diff
   → run plan
   → dynamic child pipeline
   → nextest / cargo / e2e execution
-  → SQLite evidence
+  → RedlineDB evidence
   → nightly audit updates selector
 ```
 
@@ -425,7 +425,7 @@ agent-risk-gate:
     - cargo nextest run -E 'test(agent_merge_risk_gate)' --profile ci
 ```
 
-One caveat: GitLab notes that combining reports from child pipelines into parent pipelines is not fully supported for `artifacts:reports`, so jeryu should ingest JUnit/plan artifacts itself through the GitLab API and record them in SQLite rather than relying only on GitLab’s MR UI aggregation. ([GitLab Docs][9])
+One caveat: GitLab notes that combining reports from child pipelines into parent pipelines is not fully supported for `artifacts:reports`, so jeryu should ingest JUnit/plan artifacts itself through the GitLab API and record them in RedlineDB rather than relying only on GitLab’s MR UI aggregation. ([GitLab Docs][9])
 
 ---
 
@@ -437,7 +437,7 @@ Your current test suite should be split into lanes like this:
 | ------------------------------------------------------------------------ | ------------------------------------------: | --------------------------------------------------: | -------------------------------------: |
 | `src/decision.rs`                                                        |                         decision unit tests | agent merge risk-gate tests, retry classifier tests |                   trust policy changed |
 | `src/impact.rs`                                                          |                           impact unit tests |                           selector regression tests |             selector algorithm changed |
-| `src/state.rs`                                                           |                           SQLite unit tests |               cache/release/state integration tests |               schema migration changed |
+| `src/state.rs`                                                           |                           RedlineDB unit tests |               cache/release/state integration tests |               schema migration changed |
 | `src/pool.rs`                                                            |                 pool unit/integration tests |                         Docker runner-manager smoke |      scaling/drain/token paths changed |
 | `src/docker.rs`                                                          |                        Docker wrapper tests |                                          pool tests |       runner container anatomy changed |
 | `src/gitlab_client.rs`                                                   |                       client contract tests |                                one GitLab API smoke |       endpoint auth/pagination changed |
@@ -504,7 +504,7 @@ Agents should not decide test sufficiency themselves. They ask jeryu for a plan;
 
 ---
 
-## 9. SQLite schema additions
+## 9. RedlineDB schema additions
 
 Your existing `test_executions` table is a good seed, but it is not enough. Add:
 
@@ -901,7 +901,7 @@ changed file → owning package → reverse dependents → package tests
 
 This prevents under-testing shared code.
 
-### Phase 3 — nextest inventory and SQLite evidence
+### Phase 3 — nextest inventory and RedlineDB evidence
 
 Use:
 
@@ -1062,4 +1062,3 @@ That is how jeryu gets radically faster without becoming reckless.
 [12]: https://docs.gitlab.com/ci/pipelines/settings/ "Customize pipeline configuration | GitLab Docs"
 [13]: https://nexte.st/docs/machine-readable/list/ "Test and binary lists - cargo-nextest"
 [14]: https://nexte.st/docs/features/retries/ "Retries and flaky tests - cargo-nextest"
-

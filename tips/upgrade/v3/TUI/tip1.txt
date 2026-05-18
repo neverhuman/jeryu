@@ -82,7 +82,7 @@ GET /v1/tui/flow/{pipeline_id}
 GET /v1/tui/proof/{entity}
 ```
 
-The TUI should not need to know whether a field came from GitLab, Postgres, Docker, Vault, a release artifact, or an agent event. The API should return the current value, source, timestamp, confidence, and stale status.
+The TUI should not need to know whether a field came from GitLab, RedlineDB, Docker, Vault, a release artifact, or an agent event. The API should return the current value, source, timestamp, confidence, and stale status.
 
 ## 2. No event stream for the whole UI
 

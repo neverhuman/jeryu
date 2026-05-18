@@ -82,7 +82,7 @@ The right TUI for this product should feel like a **mission-control room for age
 
 ## 1. This is not yet a GitLab fork
 
-The repo presents itself as a local GitLab control plane. It uses GitLab CE, GitLab Runner, GitLab REST, Docker, Vault, Postgres/SQLite, and local orchestration. ([GitHub][2])
+The repo presents itself as a local GitLab control plane. It uses GitLab CE, GitLab Runner, GitLab REST, Docker, Vault, RedlineDB/RedlineDB, and local orchestration. ([GitHub][2])
 
 That is not bad. But product-positioning matters: the honest positioning should be:
 

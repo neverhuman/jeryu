@@ -24,7 +24,7 @@ The architecture has several unusually good decisions:
 
 * **Production is pipeline-mediated.** Production promotion is not an ad hoc shell action. It goes through `release.rs`, GitLab variables, canary/E2E gates, and artifact checks. That is exactly the right safety model.
 
-* **State is durable and audit-oriented.** SQLite is not just config storage; it holds job events, release attempts, evidence capsules, retries, test plans, cache verdicts, secret audit events, and tracked pipelines. That gives you the raw material for brilliant observability.
+* **State is durable and audit-oriented.** RedlineDB is not just config storage; it holds job events, release attempts, evidence capsules, retries, test plans, cache verdicts, secret audit events, and tracked pipelines. That gives you the raw material for brilliant observability.
 
 * **The engine owns real orchestration.** Webhooks trigger supersedence, scale-up, VTI planning, canary launch, retry decisions, and production promotion checks. This is much better than a purely human-operated dashboard.
 
@@ -406,7 +406,7 @@ Either implement it, rename it, or make it explicitly:
 jeryu jeryu request-sync
 ```
 
-with a clear event recorded in SQLite.
+with a clear event recorded in RedlineDB.
 
 ## 15. There is no obvious global “issues queue”
 
@@ -1220,7 +1220,7 @@ Do these first:
 
 ## Phase 4: Make it truly real-time
 
-1. Add event streaming from SQLite/engine to TUI.
+1. Add event streaming from RedlineDB/engine to TUI.
 2. Add incremental log tail support or smarter trace diffing.
 3. Reduce heavy polling.
 4. Add confidence-scored ETAs from historical state.

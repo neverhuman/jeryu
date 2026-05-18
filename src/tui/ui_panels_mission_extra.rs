@@ -88,7 +88,7 @@ pub(crate) fn draw_attention_queue(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Attention Queue ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(focus::border_style(app, PaneId::MissionAttention)),
         ),
         area,
     );
@@ -188,7 +188,7 @@ pub(crate) fn draw_proof_lanes(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Proof Stack ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(focus::border_style(app, PaneId::MissionProofLanes)),
         ),
         area,
     );
@@ -268,7 +268,7 @@ pub(crate) fn draw_action_stack(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Next Actions ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(focus::border_style(app, PaneId::MissionActions)),
         ),
         area,
     );

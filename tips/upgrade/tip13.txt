@@ -4,7 +4,7 @@ This is already a serious control plane, not a toy CLI. The strongest design cho
 
 1. **Production is pipeline-mediated**, not shell-mediated. That is exactly right.
 2. **State is durable and typed enough** to support agents, TUI, retry logic, release gates, cache policy, and audit.
-3. **The system separates operational surfaces**: CLI, TUI, webhooks, custom executor, capability socket, GitLab wrapper, SQLite state.
+3. **The system separates operational surfaces**: CLI, TUI, webhooks, custom executor, capability socket, GitLab wrapper, RedlineDB state.
 4. **The security model is explicit**: trust-tiered runners, custom executor sandboxing, taint, honeypots, Vault, risk gates, release gates.
 5. **The TUI already has the right instinct**: keep useful state visible under partial data rather than flickering to empty.
 

@@ -4,7 +4,7 @@ pub(crate) fn draw_pipeline_progress(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(" [ Pipeline Progress ] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(focus::border_style(app, PaneId::JobsProgress));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -129,7 +129,7 @@ pub(crate) fn draw_job_matrix(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(" [ Job Matrix ] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(focus::border_style(app, PaneId::JobsMatrix));
     let inner = block.inner(area);
     f.render_widget(block, area);
 

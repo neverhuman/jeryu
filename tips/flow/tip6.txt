@@ -191,7 +191,7 @@ ratatui = "0.30"
 crossterm = "0.29"
 ansi-to-tui = "8.0"
 tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls"] }
+sqlx = { version = "0.8", features = ["redline", "runtime-tokio-rustls"] }
 chrono = "0.4"
 unicode-width = "0.2"
 textwrap = "0.16"
@@ -731,7 +731,7 @@ Normalize job names so matrix jobs group together:
 ```text
 unit-linux-x86_64 → unit-linux-*
 unit-linux-aarch64 → unit-linux-*
-test[postgres] → test[*]
+test[redline] → test[*]
 ```
 
 ## 12.2 Remaining Time for Running Job

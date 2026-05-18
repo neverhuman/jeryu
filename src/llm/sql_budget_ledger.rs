@@ -9,7 +9,7 @@
 //!
 //! Invariants:
 //!   - `llm_budget_ledger` is APPEND-ONLY. The Rust API has no update /
-//!     delete; SQLite `BEFORE UPDATE` / `BEFORE DELETE` triggers installed
+//!     delete; RedlineDB `BEFORE UPDATE` / `BEFORE DELETE` triggers installed
 //!     by `db/state.rs::migrate` enforce it at the storage layer (mirror of
 //!     the `launch_ledger` defense-in-depth pattern from Wave 1.1).
 //!   - `snapshot()` only counts rows with `recorded_at >= midnight UTC of

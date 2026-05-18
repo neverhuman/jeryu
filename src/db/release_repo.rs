@@ -176,13 +176,13 @@ fn decode_candidate(row: &AnyRow) -> Result<ReleaseCandidate> {
 
 #[cfg(test)]
 pub(crate) async fn fresh_release_pool() -> AnyPool {
-    use sqlx::any::{AnyPoolOptions, install_default_drivers};
+    use crate::db::{AnyPoolOptions, install_default_drivers};
     install_default_drivers();
     let pool = AnyPoolOptions::new()
         .max_connections(1)
-        .connect("sqlite::memory:")
+        .connect("redline::memory:")
         .await
-        .expect("connect in-memory sqlite");
+        .expect("connect in-memory redline");
     for stmt in release_schema_ddl() {
         sqlx::query(stmt).execute(&pool).await.unwrap();
     }
@@ -190,11 +190,11 @@ pub(crate) async fn fresh_release_pool() -> AnyPool {
 }
 
 /// Shared-cache pool for the concurrent-write test. Each
-/// `sqlite::memory:` connection has its own DB unless `cache=shared`
+/// `redline::memory:` connection has its own DB unless `cache=shared`
 /// is set.
 #[cfg(test)]
 pub(crate) async fn fresh_release_pool_shared() -> AnyPool {
-    use sqlx::any::{AnyPoolOptions, install_default_drivers};
+    use crate::db::{AnyPoolOptions, install_default_drivers};
     install_default_drivers();
     // Use a file-backed temp DB instead of `:memory:` with shared-cache. The
     // `mode=memory&cache=shared` combo in sqlx's any-pool doesn't reliably
@@ -203,14 +203,14 @@ pub(crate) async fn fresh_release_pool_shared() -> AnyPool {
     // commits. A file-backed temp DB guarantees all connections in the pool
     // see the same on-disk schema.
     let tmp = tempfile::NamedTempFile::new().expect("tempfile for shared release pool");
-    let url = format!("sqlite:{}?mode=rwc", tmp.path().display());
+    let url = format!("redline:{}?mode=rwc", tmp.path().display());
     let pool = AnyPoolOptions::new()
         .max_connections(4)
         .connect(&url)
         .await
-        .expect("connect file-backed shared sqlite");
+        .expect("connect file-backed shared redline");
     // Leak the tempfile so it lives for the duration of the test process —
-    // SQLite needs the underlying file to stay valid while connections hold it.
+    // RedlineDB needs the underlying file to stay valid while connections hold it.
     std::mem::forget(tmp);
     let _ = sqlx::query("DROP TABLE IF EXISTS foundry_candidates")
         .execute(&pool)

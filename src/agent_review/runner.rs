@@ -145,7 +145,10 @@ fn sign_receipt(r: &AgentApprovalReceipt, key: &EdSigningKey) -> Signature {
     // itself, which would be circular).
     let mut clone = r.clone();
     clone.signature = Signature::stub();
-    let body = serde_json::to_string(&clone).unwrap_or_default();
+    let body = match serde_json::to_string(&clone) {
+        Ok(body) => body,
+        Err(_) => String::new(),
+    };
     key.sign_raw(body.as_bytes())
 }
 

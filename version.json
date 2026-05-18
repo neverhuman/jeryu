@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.5",
-  "cargo_workspace_version": "3.3.5",
+  "version": "3.3.6",
+  "cargo_workspace_version": "3.3.6",
   "release_line": "V3.3",
-  "status": "released",
+  "status": "stable",
   "date": "2026-05-18",
   "tag_policy": {
-    "release_candidate": "v3.3.5-rc.N after required proof lanes pass",
-    "stable": "v3.3.5 after release and security lanes pass"
+    "rc": "v3.3.6-rc.N",
+    "stable": "v3.3.6"
   },
-  "headline": "Bump jansu-embedded rev to pick up the upstream J-4 Consumer batch-tail redelivery fix (jansu PR #11 commit 9f61c0d). Revert the J-4 workaround in jansu_consumer_resumes_after_restart.rs back to exact-sequence assertion."
+  "headline": "Ship JeRyu v3.3.6 with the RedlineDB serve cleanup, the pinned upstream redlinedb-sqlx dependency, and the Redline-backed state-storage rollout."
 }

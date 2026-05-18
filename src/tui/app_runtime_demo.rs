@@ -184,6 +184,8 @@ pub(crate) fn apply_demo_fixture(app: &mut App) {
     app.selected_test_index = 0;
     app.selected_test_history = None;
     app.selected_evidence_index = 0;
+    app.selected_secret_index = 0;
+    app.selected_git_index = 0;
     app.test_view_mode = TestViewMode::Average;
     app.evidence_view_mode = EvidenceViewMode::Capsules;
     app.maximize_logs = false;
@@ -192,6 +194,7 @@ pub(crate) fn apply_demo_fixture(app: &mut App) {
     app.command_palette_open = false;
     app.command_palette_query.clear();
     app.selected_palette_index = 0;
+    app.focus.set_tab(app.active_tab);
     app.tick_count = 0;
     app.log_target = Some(LogTarget {
         project_id: release::DEFAULT_RELEASE_PROJECT_ID,

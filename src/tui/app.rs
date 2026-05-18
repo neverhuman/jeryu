@@ -8,6 +8,7 @@ use crate::{
     state::{JobEvent, Pool, TrackedPipeline, TuiSession}, // allowlist: TUI session import
 };
 use anyhow::Result;
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 
@@ -23,7 +24,7 @@ const LIVE_LOG_MAX_BYTES: usize = 160_000;
 const FEED_MAX_LINES: usize = 80;
 const FEED_CYCLE_TICKS: u64 = 20;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum ActiveTab {
     #[default]
     Workflow,
@@ -36,6 +37,7 @@ pub enum ActiveTab {
     Pools,
     Cache,
     Evidence,
+    LLMs,
     Git,
     Secrets,
 }
@@ -287,9 +289,11 @@ pub struct PendingApproval {
 }
 
 pub struct App {
-    pub store: TuiSession,
+    pub store: Option<TuiSession>,
     pub docker: DockerCtl,
     pub gitlab: GitlabClient,
+    pub autonomy_dir: PathBuf,
+    pub llm_secret_resolver: Option<crate::llm::SecretResolver>,
     pub state: TuiStateSnapshot,
 
     pub active_tab: ActiveTab,
@@ -300,6 +304,8 @@ pub struct App {
     pub selected_pipeline_index: usize,
     pub selected_job_index: usize,
     pub selected_job_id: Option<i64>,
+    pub selected_secret_index: usize,
+    pub selected_git_index: usize,
 
     pub maximize_logs: bool,
     pub log_scroll_offset: u16,
@@ -314,6 +320,8 @@ pub struct App {
     pub command_palette_open: bool,
     pub command_palette_query: String,
     pub evidence_view_mode: EvidenceViewMode,
+    pub focus: crate::tui::focus::FocusState,
+    pub focus_map: crate::tui::focus::FocusMap,
 
     pub tick_count: u64,
 

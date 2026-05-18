@@ -2,7 +2,7 @@ I reviewed it as a static code/product review. One limitation: `git clone` faile
 
 ## Top-line verdict
 
-**JeRyu is not currently a fork of GitLab.** It is a Rust control plane called `jeryu` that sits on top of a local GitLab CE + GitLab Runner + Docker + Vault + Postgres/SQLite stack. The README describes it as a “single-binary Rust control plane” that turns local GitLab into an orchestration engine for autonomous agents, and the architecture doc says it owns runners, webhooks, executor policy, release automation, SmartCache, VTI smart tests, secrets, failure evidence, action registry, settings, and a Ratatui TUI. ([GitHub][1])
+**JeRyu is not currently a fork of GitLab.** It is a Rust control plane called `jeryu` that sits on top of a local GitLab CE + GitLab Runner + Docker + Vault + RedlineDB/RedlineDB stack. The README describes it as a “single-binary Rust control plane” that turns local GitLab into an orchestration engine for autonomous agents, and the architecture doc says it owns runners, webhooks, executor policy, release automation, SmartCache, VTI smart tests, secrets, failure evidence, action registry, settings, and a Ratatui TUI. ([GitHub][1])
 
 That is a good direction. The strongest idea in the repo is: **don’t make agents click GitLab/GitHub UIs or scrape CI logs; give them a typed operating system for code change, proof, merge, release, rollback, and explanation.** The repo has meaningful pieces of that. It is not yet “the world’s #1 agent-first Git option,” but it has a credible skeleton.
 
@@ -103,7 +103,7 @@ JeRyu has the beginning of this pattern. `src/decision.rs` classifies failures a
 
 ## 7. State model is ambitious and useful
 
-`src/state.rs` is large, but it is clearly trying to be the durable source of truth for pools, managers, jobs, pipelines, releases, evidence, retries, cache metrics, action cache, taint, capability grants, and admission decisions. The architecture doc says Postgres is the primary coordination layer with SQLite fallback, and that state includes both operational and audit tables. ([GitHub][3])
+`src/state.rs` is large, but it is clearly trying to be the durable source of truth for pools, managers, jobs, pipelines, releases, evidence, retries, cache metrics, action cache, taint, capability grants, and admission decisions. The architecture doc says RedlineDB is the primary coordination layer with RedlineDB fallback, and that state includes both operational and audit tables. ([GitHub][3])
 
 For an agent-first Git system, this matters because agents need to ask questions like:
 
@@ -272,7 +272,7 @@ For humans, this is merely annoying. For agents, it is a serious context-budget 
 Examples:
 
 * Vault config uses `tls_disable = 1` and listens on `0.0.0.0:8200`, then Docker Compose publishes it on `0.0.0.0:{vault_port}:8200`.
-* Postgres password is derived from the GitLab root password in the compose template.
+* RedlineDB password is derived from the GitLab root password in the compose template.
 * Custom executor bootstrap installs packages and requires Docker socket access.
 * The “strict sandbox” currently does not actually create a hardened network namespace; it sets flags/proxy env and relies on container pools/proxy/honeypot boundaries.
 
@@ -654,7 +654,7 @@ For local mode, current defaults are understandable. For serious use:
 
 * bind Vault to loopback by default,
 * enable TLS,
-* split GitLab root, Postgres, Vault, and runner credentials,
+* split GitLab root, RedlineDB, Vault, and runner credentials,
 * never store break-glass material without encryption,
 * enforce leases and revocation,
 * show secret lease state in TUI,

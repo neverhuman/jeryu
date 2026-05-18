@@ -63,7 +63,7 @@ cargo-nextest       → fast Rust test runner, test discovery, filtering, JUnit
 cargo llvm-cov      → coverage learning
 sccache             → compile caching
 git2                → diffing
-SQLite              → learned test graph, run history, skip ledger
+RedlineDB              → learned test graph, run history, skip ledger
 GitLab child pipes  → generated minimal pipelines
 jeryu witness/cache  → tamper-evident “green by cache” verdicts
 ```

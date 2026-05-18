@@ -568,7 +568,7 @@ Collect:
 
 | Source          | Calls                                                                                                                                     |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| SQLite          | `list_pools`, `list_managers`, `recent_job_events`, `recent_tracked_pipelines`, `recent_release_attempts`, `recent_events`, cache metrics |
+| RedlineDB          | `list_pools`, `list_managers`, `recent_job_events`, `recent_tracked_pipelines`, `recent_release_attempts`, `recent_events`, cache metrics |
 | GitLab          | `get_pipeline`, `list_pipelines`, `list_pipeline_jobs`, selected `job_trace` only                                                         |
 | Docker          | managed containers, runner liveness                                                                                                       |
 | Release manager | status/reconcile data                                                                                                                     |

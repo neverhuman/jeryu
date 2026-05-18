@@ -17,6 +17,18 @@ fn capture_buffer(app: &mut App) -> Result<Buffer> {
     Ok(terminal.backend().buffer().clone())
 }
 
+fn buffer_lines(buffer: &Buffer) -> Vec<String> {
+    let width = buffer.area.width as usize;
+    let height = buffer.area.height as usize;
+    (0..height)
+        .map(|y| {
+            (0..width)
+                .map(|x| buffer[(x as u16, y as u16)].symbol())
+                .collect::<String>()
+        })
+        .collect()
+}
+
 fn job(job_id: i64, status: &str) -> crate::state::JobEvent {
     crate::state::JobEvent {
         job_id,
@@ -46,10 +58,23 @@ async fn renders_all_primary_tabs_with_empty_state() -> Result<()> {
         crate::tui::app::ActiveTab::Cache,
         crate::tui::app::ActiveTab::Evidence,
         crate::tui::app::ActiveTab::Secrets,
+        crate::tui::app::ActiveTab::LLMs,
         crate::tui::app::ActiveTab::Git,
     ] {
         app.active_tab = tab;
-        draw_once(&mut app)?;
+        let buffer = capture_buffer(&mut app)?;
+        let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+        assert!(
+            rendered.contains("Activity / Logs"),
+            "tab {:?} should render the activity/logs pane",
+            tab
+        );
+        let footer = match buffer_lines(&buffer).last().cloned() {
+            Some(line) => line,
+            None => String::new(),
+        };
+        assert!(footer.contains("Tab/Shift+Tab:tabs"));
+        assert!(footer.contains("q:quit"));
     }
     Ok(())
 }
@@ -92,9 +117,23 @@ async fn renders_approvals_tab_with_pending_pr() -> Result<()> {
 #[tokio::test]
 async fn renders_maximized_logs_empty_state() -> Result<()> {
     let mut app = crate::tui::app::test_app().await?;
-    app.active_pane = crate::tui::app::ActivePane::Jobs;
-    app.maximize_logs = true;
-    draw_once(&mut app)?;
+    app.active_tab = crate::tui::app::ActiveTab::Workflow;
+    app.focus.fullscreen = Some(crate::tui::focus::PaneId::ActivityLog(
+        crate::tui::app::ActiveTab::Workflow,
+    ));
+    let buffer = capture_buffer(&mut app)?;
+    let lines = buffer_lines(&buffer);
+    assert!(
+        lines
+            .get(3)
+            .map(|line| line.contains("Activity / Logs"))
+            .unwrap_or(false),
+        "fullscreen activity view should sit directly under the header"
+    );
+    assert!(
+        lines.iter().any(|line| line.contains("[esc]")),
+        "fullscreen activity view should expose the esc affordance"
+    );
     Ok(())
 }
 
@@ -136,8 +175,49 @@ async fn renders_jobs_tab_with_live_jobs_and_no_empty_message() -> Result<()> {
     let buffer = capture_buffer(&mut app)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
     assert!(rendered.contains("test-job-1"));
-    assert!(rendered.contains("WAIT"));
+    assert!(rendered.contains("○"));
     assert!(!rendered.contains("Waiting for active pipelines"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn renders_llms_tab_with_redacted_secret_values() -> Result<()> {
+    let td = tempfile::tempdir()?;
+    let autonomy_dir = td.path().join(".autonomy");
+    std::fs::create_dir_all(autonomy_dir.join("providers"))?;
+    std::fs::write(
+        autonomy_dir.join("providers").join("llm.yml"),
+        r#"
+schema: vibegate.providers.v1
+default_role_chain: [security]
+chains:
+  security:
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
+      api_key_secret: LLM_TEST_KEY
+      data_use: no_train
+"#,
+    )?;
+    let mut app = crate::tui::app::test_app().await?;
+    app.autonomy_dir = autonomy_dir;
+    app.llm_secret_resolver = Some(crate::llm::SecretResolver {
+        cli_overrides: std::collections::HashMap::from([(
+            "LLM_TEST_KEY".to_string(),
+            "super-secret-value".to_string(),
+        )]),
+        repo_root: None,
+        ci_mode: true,
+    });
+    app.active_tab = crate::tui::app::ActiveTab::LLMs;
+
+    let buffer = capture_buffer(&mut app)?;
+    let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+    assert!(rendered.contains("nvidia/nemotron-3-super-120b-a12b:free"));
+    assert!(rendered.contains("cli"));
+    assert!(rendered.contains("ready"));
+    assert!(!rendered.contains("super-secret-value"));
+
     Ok(())
 }
 
@@ -165,6 +245,8 @@ async fn navigation_cycles_tabs_and_panes() -> Result<()> {
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Evidence);
     app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Secrets);
+    app.cycle_tab_next();
+    assert_eq!(app.active_tab, crate::tui::app::ActiveTab::LLMs);
     app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Git);
     app.cycle_tab_next();

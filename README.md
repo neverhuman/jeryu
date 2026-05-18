@@ -34,7 +34,7 @@ JeRyu isn't just a headless orchestrator. It comes with a blazing-fast, proof-ri
 
 Visualize live pipeline execution, monitor remote runner pools, inspect test bottlenecks, and review agent capabilities—all in one place without digging through raw, disconnected logs.
 
-**9 operational tabs**: Mission · Release · Jobs · Agents · Tests · Pools · Cache · Evidence · Secrets
+**10 operational tabs**: Mission · Release · Jobs · Agents · Tests · Pools · Cache · Evidence · Secrets · LLMs
 
 ```bash
 # Launch the interactive TUI
@@ -521,7 +521,7 @@ jeryu action list --json
 | `9777` | JeRyu Webhook/API | Configurable via `settings.webhook.bind` |
 | `9778` | MCP HTTP | Configurable via `settings.mcp.bind` |
 | `18200` | Vault | Configurable via `settings.vault.http_port` |
-| `15432` | PostgreSQL | State database (when using Postgres backend) |
+| `15432` | RedlineDB | State database |
 | `19800` | SmartCache proxy | Crates.io singleflight proxy |
 | `19801` | OCI registry mirror | Local container image cache |
 

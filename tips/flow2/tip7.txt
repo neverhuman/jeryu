@@ -92,7 +92,7 @@ Crossterm supports mouse event capture, and its mouse event kinds include drag, 
 │ L3 TEST MATRIX     ┌──────────────▼───────────────┐ ┌─────────▼────────────┐ │
 │                    │ ⏸ integ-api                   │ │ ⛔ e2e-checkout        │ │
 │                    │ blocked by build-web          │ │ blocked by build-web   │ │
-│                    │ db, redis, kafka              │ │ chrome, payments       │ │
+│                    │ db, redis, jansu              │ │ chrome, payments       │ │
 │                    └──────────────────────────────┘ └──────────────────────┘ │
 │                                                                              │
 │                                                       minimap ▌▌▌▌█▌░░░       │
@@ -304,7 +304,7 @@ Do not simply truncate from the right. Use semantic abbreviation.
 Examples:
 
 ```text
-integration-tests-payments-postgres  →  integ payments pg
+integration-tests-payments-redline  →  integ payments pg
 test_backend_auth_refresh_token      →  test auth refresh
 deploy_canary_us_east_1              →  canary us-e1
 terraform_plan_production            →  tf plan prod

@@ -4,11 +4,14 @@
 
 use super::*;
 
-pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &App, area: Rect) {
+pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &mut App, area: Rect) {
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(area);
+
+    focus::register_pane(app, PaneId::ApprovalsQueue, cols[0]);
+    focus::register_pane(app, PaneId::ApprovalsInspector, cols[1]);
 
     let queue = &app.state.approvals_queue;
     let selected = app
@@ -67,7 +70,7 @@ pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(format!(" [ Awaiting approval ({}) ] ", queue.len()))
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow)),
+            .border_style(focus::border_style(app, PaneId::ApprovalsQueue)),
     );
     f.render_widget(left, cols[0]);
 
@@ -75,7 +78,7 @@ pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &App, area: Rect) {
     let right_block = Block::default()
         .title(" [ Inspector ] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(focus::border_style(app, PaneId::ApprovalsInspector));
     let right_inner = right_block.inner(cols[1]);
     f.render_widget(right_block, cols[1]);
 

@@ -4,7 +4,7 @@ I tried to clone the repo normally, but the sandbox DNS could not resolve GitHub
 
 ## Executive verdict
 
-This is a **very cool foundation**. The best way to describe it today is not “a GitLab fork” yet, but **a Rust agent-control plane wrapped around local GitLab CE, GitLab Runner, Docker, Vault, Postgres/SQLite, smart test selection, cache control, release gates, and a supervisory TUI**. The docs themselves frame `jeryu` as a Rust control plane that turns a local GitLab instance plus runner/cache/secrets/release systems into an agent-operable delivery system. ([GitHub][1])
+This is a **very cool foundation**. The best way to describe it today is not “a GitLab fork” yet, but **a Rust agent-control plane wrapped around local GitLab CE, GitLab Runner, Docker, Vault, RedlineDB/RedlineDB, smart test selection, cache control, release gates, and a supervisory TUI**. The docs themselves frame `jeryu` as a Rust control plane that turns a local GitLab instance plus runner/cache/secrets/release systems into an agent-operable delivery system. ([GitHub][1])
 
 The strongest idea is that it treats agents as first-class operators instead of just “bots using CI.” It has proof lanes, file/module ownership, a generated agent index, evidence capsules, action registry concepts, capability intents, smart test selection, cache tainting, release gates, and a TUI that exposes operational state. That is exactly the right direction for the world’s best agent-first Git platform. ([GitHub][2])
 
@@ -58,7 +58,7 @@ The direction is right. The implementation needs to become much stricter.
 
 ### 1. This is not yet a true GitLab fork/replacement
 
-The README pitches “Headless GitLab & Autonomous Agent Hypervisor,” and the implementation uses GitLab CE, GitLab Runner, Docker, Vault, SQLx/SQLite/Postgres, Git2-RS, Axum, and Bollard. ([GitHub][8])
+The README pitches “Headless GitLab & Autonomous Agent Hypervisor,” and the implementation uses GitLab CE, GitLab Runner, Docker, Vault, SQLx/RedlineDB/RedlineDB, Git2-RS, Axum, and Bollard. ([GitHub][8])
 
 That is a powerful control plane, but it is not yet a GitLab fork in the product sense. A world-class agent-first Git option needs either:
 
@@ -553,7 +553,7 @@ The human TUI and agent API should be two views of the same state/action system.
 * Replace live log polling with event streaming or at least long-poll trace deltas.
 * Batch GitLab API calls where possible.
 * Cache pipeline/job snapshots with version counters.
-* Add SQLite WAL defaults and explicit DB read/write separation.
+* Add RedlineDB WAL defaults and explicit DB read/write separation.
 * Split giant state queries by tab so the TUI only fetches what it renders.
 * Make `jeryu status`, `progress`, `pipeline explain`, and `next` all sub-100ms when using local DB state.
 

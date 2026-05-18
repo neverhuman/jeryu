@@ -81,7 +81,7 @@ That is great. Agents will generate far more validation requests than humans. Wi
 
 ## 2.1 It is not yet a GitLab fork; it is a control plane dependent on GitLab
 
-The README and architecture describe a local GitLab instance plus Rust control plane, not a reimplementation or fork of GitLab’s core server. The default services include GitLab CE, Runner, Docker, Vault, Postgres/SQLite, and cache ports. ([GitHub][1])
+The README and architecture describe a local GitLab instance plus Rust control plane, not a reimplementation or fork of GitLab’s core server. The default services include GitLab CE, Runner, Docker, Vault, RedlineDB/RedlineDB, and cache ports. ([GitHub][1])
 
 That is not necessarily bad. It may be the smarter path. But the product positioning should be honest:
 
@@ -204,7 +204,7 @@ That is good, but the dream system should not infer too much from job names. It 
 
 ## 2.9 State is powerful but needs stronger migration/HA/retention discipline
 
-The repo has a large state surface: pools, managers, job events, CI job runs, release attempts, evidence, retry state, jeryu state, secret authority, audit events, capability intents/grants, admission decisions, test plans, selector misses, cache objects, metrics, leases, verdicts, promotions, and more. The state module is explicitly documented as supporting Postgres/SQLite-backed stores. ([GitHub][17])
+The repo has a large state surface: pools, managers, job events, CI job runs, release attempts, evidence, retry state, jeryu state, secret authority, audit events, capability intents/grants, admission decisions, test plans, selector misses, cache objects, metrics, leases, verdicts, promotions, and more. The state module is explicitly documented as supporting RedlineDB/RedlineDB-backed stores. ([GitHub][17])
 
 This is good, but for production-grade use it needs:
 

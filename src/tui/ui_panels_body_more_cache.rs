@@ -4,7 +4,7 @@ use super::*;
 // Tab 7 — Cache (existing dashboard, preserved)
 // ---------------------------------------------------------------------------
 
-pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
+pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
     let outer = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(5), Constraint::Min(8)])
@@ -27,6 +27,12 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(chunks[1]);
 
+    focus::register_pane(app, PaneId::CacheDisk, outer[0]);
+    focus::register_pane(app, PaneId::CacheStorage, top_chunks[0]);
+    focus::register_pane(app, PaneId::CacheGateway, top_chunks[1]);
+    focus::register_pane(app, PaneId::CacheSingleflight, bottom_chunks[0]);
+    focus::register_pane(app, PaneId::CacheTaint, bottom_chunks[1]);
+
     let objects_str = format!(
         "\n  Total Cached Objects: {}\n  Hot Cache Bandwidth:  {} MB\n  Exact Hits:  {} / {} ({:.1}%)\n  Misses:      {}\n\n  CAS Disk:    {} MiB\n  Crate Cache: {} MiB",
         app.state.cache_objects_count,
@@ -43,7 +49,7 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Storage Overview ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Gray)),
+                .border_style(focus::border_style(app, PaneId::CacheStorage)),
         ),
         top_chunks[0],
     );
@@ -67,7 +73,7 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Gateway Health ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Gray)),
+                .border_style(focus::border_style(app, PaneId::CacheGateway)),
         ),
         top_chunks[1],
     );
@@ -82,7 +88,7 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Singleflight Analytics ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Green)),
+                .border_style(focus::border_style(app, PaneId::CacheSingleflight)),
         ),
         bottom_chunks[0],
     );
@@ -103,11 +109,7 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Trust & Taint Boundaries ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(if app.state.active_taint_count > 0 {
-                    Color::Magenta
-                } else {
-                    Color::LightRed
-                })),
+                .border_style(focus::border_style(app, PaneId::CacheTaint)),
         ),
         bottom_chunks[1],
     );
@@ -126,14 +128,14 @@ fn draw_disk_pressure_panel(f: &mut Frame, app: &App, area: Rect) {
     const CRIT_GIB: u64 = 60;
     const EMERG_GIB: u64 = 40;
 
-    let (label, color) = if free_gib < EMERG_GIB {
-        ("EMERGENCY", Color::Red)
+    let label = if free_gib < EMERG_GIB {
+        "EMERGENCY"
     } else if free_gib < CRIT_GIB {
-        ("CRITICAL", Color::LightRed)
+        "CRITICAL"
     } else if free_gib < WARN_GIB {
-        ("WARNING", Color::Yellow)
+        "WARNING"
     } else {
-        ("NOMINAL", Color::Green)
+        "NOMINAL"
     };
 
     let body = format!(
@@ -146,7 +148,7 @@ fn draw_disk_pressure_panel(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Disk Pressure ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(color)),
+                .border_style(focus::border_style(app, PaneId::CacheDisk)),
         ),
         area,
     );

@@ -27,8 +27,8 @@ pub(super) async fn resolve_build_unit(
     let store = cache_brain_adapter::create_action_store(
         db.pool(),
         match db.backend() {
-            crate::state::StateBackend::Sqlite => cache_brain_adapter::AdapterBackend::Sqlite,
-            crate::state::StateBackend::Postgres => cache_brain_adapter::AdapterBackend::Postgres,
+            crate::state::StateBackend::RedlineDb => cache_brain_adapter::AdapterBackend::RedlineDb,
+            crate::state::StateBackend::CompatSql => cache_brain_adapter::AdapterBackend::CompatSql,
         },
     );
     let cache_brain =

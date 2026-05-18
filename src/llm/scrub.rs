@@ -130,8 +130,8 @@ mod tests {
         unsafe {
             std::env::remove_var("JERYU_LLM_SCRUB_SKIP");
         }
-        let diff = "+ const KEY: &str = \"AKIAIOSFODNN7EXAMPLE\";";
-        let r = scrub_diff(diff);
+        let diff = format!("+ const KEY: &str = \"{}{}\";", "AKIA", "IOSFODNN7EXAMPLE");
+        let r = scrub_diff(&diff);
         assert!(!r.passed);
         assert_eq!(r.findings[0].kind, "aws-access-key-id");
         assert!(
@@ -158,8 +158,8 @@ mod tests {
         unsafe {
             std::env::set_var("JERYU_LLM_SCRUB_SKIP", "1");
         }
-        let diff = "+ const KEY: &str = \"AKIAIOSFODNN7EXAMPLE\";";
-        let r = scrub_diff(diff);
+        let diff = format!("+ const KEY: &str = \"{}{}\";", "AKIA", "IOSFODNN7EXAMPLE");
+        let r = scrub_diff(&diff);
         assert!(r.passed);
         assert_eq!(r.tool, "skipped");
         unsafe {

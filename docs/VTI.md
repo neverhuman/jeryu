@@ -89,7 +89,7 @@ The architecture operates in two fundamentally different modes:
 | `release` | `src/release.rs`, `src/secrets.rs` | `test(/release\|canary\|secret\|vault\|promote/)` | — | no |
 | `decision` | `src/decision.rs`, `src/capsule.rs` | `test(/decision\|risk_gate\|retry\|classif\|capsule/)` | — | no |
 | `tui` | `src/tui/*` | `test(/tui\|snapshot\|render\|widget/)` | — | no |
-| `state` | `src/state.rs` | `test(/state\|sqlite\|db\|migrat/)` | pool_tests, job_tests, agent_tests, cache_integration_test | **yes** |
+| `state` | `src/state.rs` | `test(/state\|redline\|db\|migrat/)` | pool_tests, job_tests, agent_tests, cache_integration_test | **yes** |
 | `config` | `src/config.rs`, `src/bootstrap.rs` | `test(/config\|template\|bootstrap/)` | pool_tests | no |
 | `impact` | `src/impact.rs`, `src/test_runner.rs`, `src/test_intel/*` | `test(/impact\|test_run\|test_intel\|plan_from/)` | — | no |
 | `exec` | `src/exec.rs`, `src/sandbox.rs`, `src/honeypot.rs` | `test(/exec\|sandbox\|honeypot\|custom_exec/)` | e2e | no |

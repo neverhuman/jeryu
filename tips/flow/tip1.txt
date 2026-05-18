@@ -536,7 +536,7 @@ src/tui/
     └── keymap.rs         # flow-specific input handling
 ```
 
-Keep rendering pure. The widget should take a `FlowSnapshot` and render. It should not call GitLab or SQLite directly.
+Keep rendering pure. The widget should take a `FlowSnapshot` and render. It should not call GitLab or RedlineDB directly.
 
 ---
 

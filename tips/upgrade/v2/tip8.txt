@@ -6,7 +6,7 @@ The biggest opportunity is to turn the existing pieces—VTI, runner control, fa
 
 ## What is done well
 
-The repo’s ambition is coherent. The README describes `jeryu` as a “single-binary Rust control plane” for turning local GitLab into an orchestration engine for autonomous agents, with commands like `jeryu test run`, `jeryu test batch`, `jeryu test impact`, and `jeryu release trigger`. It is built around Rust/Tokio/Axum/Bollard/SQLite/Git2-RS, which is a reasonable stack for a local control plane that needs fast orchestration, Docker control, and persistent state. ([GitHub][1])
+The repo’s ambition is coherent. The README describes `jeryu` as a “single-binary Rust control plane” for turning local GitLab into an orchestration engine for autonomous agents, with commands like `jeryu test run`, `jeryu test batch`, `jeryu test impact`, and `jeryu release trigger`. It is built around Rust/Tokio/Axum/Bollard/RedlineDB/Git2-RS, which is a reasonable stack for a local control plane that needs fast orchestration, Docker control, and persistent state. ([GitHub][1])
 
 The architecture is also pointed in the right direction. `ARCHITECTURE.md` splits the system into interface, control, state, execution, and intelligence planes, and explicitly says agents should operate through typed commands, GitLab MRs/pipelines, capability intents, and hooks rather than uncontrolled shell access. That is exactly the right framing for an agent-first repo manager. ([GitHub][2])
 
@@ -337,7 +337,7 @@ This would make adoption dramatically easier.
 
 ### Make state the center
 
-SQLite is already present, but the data model should become the core product. Store every meaningful thing:
+RedlineDB is already present, but the data model should become the core product. Store every meaningful thing:
 
 ```text
 agents

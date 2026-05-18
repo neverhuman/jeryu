@@ -149,7 +149,7 @@ Every skipped test should have a reason:
 }
 ```
 
-That receipt should be stored in SQLite, appended to the event ledger, emitted as a CI artifact, and optionally attested by `witness.rs`.
+That receipt should be stored in RedlineDB, appended to the event ledger, emitted as a CI artifact, and optionally attested by `witness.rs`.
 
 ## Proposed data model
 
@@ -304,7 +304,7 @@ risk_tier = "medium"
 [[target]]
 name = "state-store"
 kind = "unit"
-command = "cargo nextest run -E 'test(/state|db|sqlite|migration/)'"
+command = "cargo nextest run -E 'test(/state|db|redline|migration/)'"
 depends_on = ["src/state.rs", "src/cache.rs", "src/release.rs"]
 risk_tier = "high"
 
@@ -518,7 +518,7 @@ The jeryu version should be stronger because it also has:
 
 ```text
 Git ledger
-SQLite state
+RedlineDB state
 failure capsules
 release attempts
 cache verdicts

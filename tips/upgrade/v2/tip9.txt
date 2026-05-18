@@ -2,7 +2,7 @@ I attempted a direct local clone, but this environment could not resolve `github
 
 ## Bottom line
 
-JeRyu / `jeryu` has a genuinely strong concept: it treats GitLab, runners, tests, logs, sandboxes, cache, secrets, release gates, and agent actions as one agent-operable control plane. That is the right direction. The docs describe a five-plane architecture — interface, control, state, execution, intelligence — and a Rust control plane around local GitLab CE, GitLab Runner, Docker, Vault, SQLite, VTI, SmartCache, TUI, evidence, and agent actions. ([GitHub][1])
+JeRyu / `jeryu` has a genuinely strong concept: it treats GitLab, runners, tests, logs, sandboxes, cache, secrets, release gates, and agent actions as one agent-operable control plane. That is the right direction. The docs describe a five-plane architecture — interface, control, state, execution, intelligence — and a Rust control plane around local GitLab CE, GitLab Runner, Docker, Vault, RedlineDB, VTI, SmartCache, TUI, evidence, and agent actions. ([GitHub][1])
 
 The biggest issue is that the repo currently reads like **a powerful prototype whose documentation has outrun its trust boundary**. The agent-first ideas are excellent; the security, policy, capability, and merge-control layers are not yet strong enough for a system that lets autonomous agents mutate repositories, run CI, access logs, manage runners, and request merges.
 

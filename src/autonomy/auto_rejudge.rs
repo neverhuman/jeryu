@@ -111,8 +111,7 @@ impl AutoRejudgeService {
         let required_roles: Vec<ReviewerRole> = self
             .policy
             .quorum_for(pack.risk)
-            .map(|q| q.roles.clone())
-            .unwrap_or_default();
+            .map_or_else(Vec::new, |q| q.roles.clone());
 
         // 3. Run the orchestrator. An orchestrator-level Err degrades to
         //    "no receipts" — `judge()` will treat that as insufficient

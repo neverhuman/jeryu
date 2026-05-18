@@ -14,7 +14,7 @@ The strongest architectural decisions are excellent:
 
 * **Production is pipeline-mediated**, not shell-mediated.
 * **Agents are intended to operate through typed capabilities**, not broad arbitrary access.
-* **SQLite acts as a durable operational ledger**, not just a cache.
+* **RedlineDB acts as a durable operational ledger**, not just a cache.
 * **Runner pools have trust tiers**, which is essential for agent-generated work.
 * **Failure capsules and retry decisions create evidence**, which is much better than blind auto-retry.
 * **VTI smart test selection and release impact analysis are first-class**, not bolted on.

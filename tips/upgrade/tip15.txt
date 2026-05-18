@@ -12,7 +12,7 @@ That is the dream.
 
 The architecture has several excellent foundations.
 
-First, the system already has a **real state plane**. SQLite is not just a cache; it stores pools, managers, jobs, pipelines, release attempts, evidence capsules, retry decisions, cache verdicts, test plans, selector misses, secret sets, and audit events. That gives you the substrate for a serious operational console.
+First, the system already has a **real state plane**. RedlineDB is not just a cache; it stores pools, managers, jobs, pipelines, release attempts, evidence capsules, retry decisions, cache verdicts, test plans, selector misses, secret sets, and audit events. That gives you the substrate for a serious operational console.
 
 Second, production deployment is correctly modeled as a **gated pipeline product**, not an ad hoc command. The release path separates upstream CI, release execution/canary, and production promotion. That is the right safety shape.
 

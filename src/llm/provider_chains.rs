@@ -273,7 +273,7 @@ chains:
   security:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
 "#,
@@ -283,10 +283,7 @@ chains:
         let sec = cfg.chains.get("security").unwrap();
         assert_eq!(sec.len(), 1);
         assert_eq!(sec[0].provider, "openrouter");
-        assert_eq!(
-            sec[0].model_id,
-            "nvidia/llama-3.1-nemotron-70b-instruct:free"
-        );
+        assert_eq!(sec[0].model_id, "nvidia/nemotron-3-super-120b-a12b:free");
     }
 
     // --- 3. five-chain yaml --------------------------------------------------
@@ -299,22 +296,29 @@ chains:
   security:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
-    - provider: groq
-      base_url: https://api.groq.com/openai/v1
-      model_id: llama-3.1-70b-versatile
-      api_key_secret: GROQ_API_KEY
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: openai/gpt-oss-120b:free
+      api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
   test_integrity:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: meta-llama/llama-3.1-70b-instruct:free
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: openai/gpt-oss-120b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
@@ -325,18 +329,45 @@ chains:
       model_id: openai/gpt-oss-120b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
   lockfile:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: openai/gpt-oss-120b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
   nightwatch:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: openai/gpt-oss-120b:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
 "#
     }
 
@@ -451,10 +482,7 @@ chains:
         let td = tempfile::tempdir().unwrap();
         write_yaml(td.path(), full_five_chain_yaml());
         let cfg = load_providers_config(td.path()).unwrap();
-        let resolver = fake_resolver(&[
-            ("OPENROUTER_API_KEY", "test-or-key"),
-            ("GROQ_API_KEY", "test-groq-key"),
-        ]);
+        let resolver = fake_resolver(&[("OPENROUTER_API_KEY", "test-or-key")]);
         let router = build_router_from_config(&cfg, &resolver).unwrap();
         for role in [
             "security",
@@ -576,7 +604,7 @@ chains:
     fn build_router_for_roles_succeeds_when_all_roles_have_chains() {
         let td = tempfile::tempdir().unwrap();
         write_yaml(td.path(), full_five_chain_yaml());
-        let resolver = fake_resolver(&[("OPENROUTER_API_KEY", "or"), ("GROQ_API_KEY", "g")]);
+        let resolver = fake_resolver(&[("OPENROUTER_API_KEY", "or")]);
         let router = build_router_for_roles(
             td.path(),
             &[
@@ -712,6 +740,69 @@ chains:
         }
     }
 
+    /// The live file must stay a free-only OpenRouter profile. This catches
+    /// paid or mixed-tier regressions even if the YAML still parses cleanly.
+    #[test]
+    fn actual_yml_is_free_only_openrouter_profile() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let autonomy = root.join(".autonomy");
+        let cfg = load_providers_config(&autonomy).expect("parse");
+        let expected = [
+            (
+                "security",
+                [
+                    "nvidia/nemotron-3-super-120b-a12b:free",
+                    "openai/gpt-oss-120b:free",
+                ],
+            ),
+            (
+                "test_integrity",
+                [
+                    "nvidia/nemotron-3-super-120b-a12b:free",
+                    "openai/gpt-oss-120b:free",
+                ],
+            ),
+            (
+                "runtime",
+                [
+                    "openai/gpt-oss-120b:free",
+                    "nvidia/nemotron-3-super-120b-a12b:free",
+                ],
+            ),
+            (
+                "lockfile",
+                [
+                    "openai/gpt-oss-120b:free",
+                    "nvidia/nemotron-3-super-120b-a12b:free",
+                ],
+            ),
+            (
+                "nightwatch",
+                [
+                    "nvidia/nemotron-3-super-120b-a12b:free",
+                    "openai/gpt-oss-120b:free",
+                ],
+            ),
+        ];
+        for (role, models) in expected {
+            let entries = cfg.chains.get(role).expect("role chain");
+            assert_eq!(entries.len(), models.len(), "{role} chain length changed");
+            for (entry, model_id) in entries.iter().zip(models) {
+                assert_eq!(entry.provider, "openrouter", "{role} provider changed");
+                assert_eq!(
+                    entry.api_key_secret, "OPENROUTER_API_KEY",
+                    "{role} key changed"
+                );
+                assert_eq!(entry.model_id, model_id, "{role} model changed");
+                assert!(
+                    entry.model_id.ends_with(":free"),
+                    "{role} model is not free-tier: {}",
+                    entry.model_id
+                );
+            }
+        }
+    }
+
     /// Defensive: the security chain MUST have a fallback entry so a single
     /// provider outage can't take down the highest-priority reviewer.
     #[test]
@@ -723,20 +814,13 @@ chains:
             .chains
             .get("security")
             .expect("security chain must exist");
-        assert!(
-            sec.len() >= 2,
-            "security chain must have primary + fallback (>=2 entries), got {}",
-            sec.len()
-        );
-        // Primary and fallback must come from *different* providers — a
-        // same-provider fallback offers ~zero fault tolerance.
-        let providers: std::collections::HashSet<&str> =
-            sec.iter().map(|e| e.provider.as_str()).collect();
-        assert!(
-            providers.len() >= 2,
-            "security chain entries must span >=2 distinct providers, got: {:?}",
-            providers
-        );
+        assert_eq!(sec.len(), 2, "security chain must stay 2-deep");
+        assert_eq!(sec[0].provider, "openrouter");
+        assert_eq!(sec[1].provider, "openrouter");
+        assert_eq!(sec[0].api_key_secret, "OPENROUTER_API_KEY");
+        assert_eq!(sec[1].api_key_secret, "OPENROUTER_API_KEY");
+        assert_eq!(sec[0].model_id, "nvidia/nemotron-3-super-120b-a12b:free");
+        assert_eq!(sec[1].model_id, "openai/gpt-oss-120b:free");
     }
 
     /// `default_role_chain` should at least name `security` so callers that

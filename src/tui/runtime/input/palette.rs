@@ -50,6 +50,7 @@ fn execute_palette_action(app: &mut App) {
         "tab_pools" => app.active_tab = crate::tui::app::ActiveTab::Pools,
         "tab_cache" => app.active_tab = crate::tui::app::ActiveTab::Cache,
         "tab_evidence" => app.active_tab = crate::tui::app::ActiveTab::Evidence,
+        "tab_llms" => app.active_tab = crate::tui::app::ActiveTab::LLMs,
         "tab_secrets" => app.active_tab = crate::tui::app::ActiveTab::Secrets,
         "tab_git" => app.active_tab = crate::tui::app::ActiveTab::Git,
         "toggle_audit_ledger" => {

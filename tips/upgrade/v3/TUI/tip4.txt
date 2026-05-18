@@ -16,7 +16,7 @@ That requires both API and TUI changes. The API needs to become event-driven and
 
 ## Current API shape
 
-The API documentation describes a broad control-plane surface: CLI, TUI, webhook HTTP server, Unix-socket capability API, server hook, custom executor, action registry, state API, settings API, GitLab REST client, release API, and secrets API. Defaults include local GitLab, Vault, Postgres, webhook port `9777`, and release/project defaults such as project `2`. ([GitHub][1])
+The API documentation describes a broad control-plane surface: CLI, TUI, webhook HTTP server, Unix-socket capability API, server hook, custom executor, action registry, state API, settings API, GitLab REST client, release API, and secrets API. Defaults include local GitLab, Vault, RedlineDB, webhook port `9777`, and release/project defaults such as project `2`. ([GitHub][1])
 
 The webhook HTTP server is narrow: `GET /health`, `POST /hooks`, and `GET /cache/summary`. Webhook handling covers job, pipeline, push, and merge request events, but merge request hooks are currently logged with no active behavior. ([GitHub][1])
 

@@ -2,7 +2,7 @@
 
 JeRyu is a seriously ambitious Rust control plane for “agent-first GitLab,” and it already has several excellent primitives: runner pools, capability-style agent actions, proof lanes, SmartCache/Test Intel concepts, release gates, a TUI, evidence capsules, and GitLab webhook/custom-executor integration. The README frames `jeryu` as a “Headless GitLab & Autonomous Agent Hypervisor” that orchestrates a local GitLab stack, runner pools, ephemeral identities, copy-on-write sandboxes, semantic CI, and release workflows. ([GitHub][1])
 
-The biggest correction: **this does not look like a fork of GitLab itself**. It looks like a Rust sidecar/control plane that runs around GitLab CE, GitLab Runner, Docker, Vault, Postgres/SQLite, and GitLab APIs. That is not bad; in fact, it may be the better path. But the positioning should be precise: **“agent-first GitLab control plane / autonomous delivery hypervisor”**, not “GitLab fork,” unless you plan to actually fork GitLab Rails/Gitaly/Workhorse.
+The biggest correction: **this does not look like a fork of GitLab itself**. It looks like a Rust sidecar/control plane that runs around GitLab CE, GitLab Runner, Docker, Vault, RedlineDB/RedlineDB, and GitLab APIs. That is not bad; in fact, it may be the better path. But the positioning should be precise: **“agent-first GitLab control plane / autonomous delivery hypervisor”**, not “GitLab fork,” unless you plan to actually fork GitLab Rails/Gitaly/Workhorse.
 
 My honest read: **the vision is unusually strong; the current implementation is more prototype/control-plane than production-grade autonomous platform.** The most important gaps are not “add more AI.” They are: real isolation, real agent execution loops, SHA-bound proof/merge gates, authenticated capability APIs, robust GitLab client behavior, trustworthy caches, and a TUI that becomes a live command center instead of a pretty status board.
 
@@ -173,13 +173,13 @@ For a world-class platform:
 * Use ETags or conditional requests where useful.
 * Avoid broad PAT usage when narrower tokens or job tokens suffice.
 
-### 7. Postgres-primary state has a likely SQL placeholder bug
+### 7. RedlineDB-primary state has a likely SQL placeholder bug
 
-The state layer supports Postgres and SQLite, with placeholder rewriting for general query paths. ([GitHub][14]) But the telemetry actor inserts cache request rows using `?` placeholders directly through the pool path, which looks incompatible with Postgres unless rewritten elsewhere. ([GitHub][14])
+The state layer supports RedlineDB and RedlineDB, with placeholder rewriting for general query paths. ([GitHub][14]) But the telemetry actor inserts cache request rows using `?` placeholders directly through the pool path, which looks incompatible with RedlineDB unless rewritten elsewhere. ([GitHub][14])
 
-That is exactly the kind of bug that causes “works in SQLite dev, fails in Postgres prod.”
+That is exactly the kind of bug that causes “works in RedlineDB dev, fails in RedlineDB prod.”
 
-Recommendation: use query builders or backend-specific query functions consistently. Also add integration tests that run every state path against both SQLite and Postgres.
+Recommendation: use query builders or backend-specific query functions consistently. Also add integration tests that run every state path against both RedlineDB and RedlineDB.
 
 ### 8. Docs and code disagree on disk pressure thresholds
 
@@ -261,7 +261,7 @@ These should come first because they affect everything else.
 
 4. **Bind merge gates to exact SHAs.** Every merge/release decision should cite the exact commit, pipeline, jobs, artifacts, evidence capsules, approvals, and policy version.
 
-5. **Fix Postgres/SQLite parity.** Add a real Postgres integration test path and fix direct `?` placeholder usage in Postgres-bound queries. ([GitHub][14])
+5. **Fix RedlineDB/RedlineDB parity.** Add a real RedlineDB integration test path and fix direct `?` placeholder usage in RedlineDB-bound queries. ([GitHub][14])
 
 6. **Add GitLab API pagination and retry policy.** Agents cannot be reliable if they only see the first page of jobs or fail on transient API errors. ([GitHub][13])
 
@@ -970,7 +970,7 @@ Then use that reputation in policy.
 
 4. **Replace broad `anyhow` at boundaries.** Internal use is fine, but APIs/actions should expose typed errors.
 
-5. **Add backend matrix tests.** SQLite and Postgres should both run in CI.
+5. **Add backend matrix tests.** RedlineDB and RedlineDB should both run in CI.
 
 6. **Add executor integration tests.** Especially cache restore, cache archive, honeypot trip, process kill, failed job capsule, successful job capsule, network-denied job.
 
@@ -994,7 +994,7 @@ Goal: agents can run code safely.
 * Secure GitLab client.
 * Authenticated capability API.
 * Exact-SHA proof gates.
-* Postgres parity.
+* RedlineDB parity.
 * Immutable audit.
 * Typed failure capsules.
 * No untrusted Docker socket.

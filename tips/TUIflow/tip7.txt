@@ -947,7 +947,7 @@ PLAN
   ↓
 cargo check -p jeryu --message-format=json
   ↓
-cargo nextest run -E 'test(/state|sqlite|db|migrat/)'
+cargo nextest run -E 'test(/state|redline|db|migrat/)'
   ↓
 serial integration group:
   cargo test -p jeryu --test '*' -- --test-threads=1

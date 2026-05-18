@@ -224,6 +224,15 @@ pub static REGISTRY: &[ActionEntry] = &[
         description: "Switch to Vault / Secrets lifecycle tab",
     },
     ActionEntry {
+        id: "tab_llms",
+        label: "Go to LLMs tab",
+        key_hint: None,
+        risk_tier: RiskTier::ReadOnly,
+        surfaces: TUI,
+        dry_run: false,
+        description: "Switch to LLM provider and key-source policy tab",
+    },
+    ActionEntry {
         id: "toggle_audit_ledger",
         label: "Toggle audit ledger view",
         key_hint: Some("a"),

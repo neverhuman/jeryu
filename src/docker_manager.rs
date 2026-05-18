@@ -22,6 +22,10 @@ use docker_manager_support::{
     current_exe_mount_source, runner_bootstrap_cmd_custom, runner_bootstrap_cmd_docker,
 };
 
+fn compose_up_targets() -> [&'static str; 2] {
+    ["gitlab", "vault"]
+}
+
 impl DockerCtl {
     /// Start a new runner-manager container for a pool.
     /// Returns the Docker container ID.
@@ -256,7 +260,8 @@ impl DockerCtl {
     pub async fn compose_up(&self) -> Result<()> {
         let data_dir = config::data_dir();
         let output = tokio::process::Command::new("docker")
-            .args(["compose", "up", "-d"])
+            .args(["compose", "up", "-d", "--no-deps"])
+            .args(compose_up_targets())
             .current_dir(&data_dir)
             .output()
             .await
@@ -272,7 +277,7 @@ impl DockerCtl {
     pub async fn compose_up_service(&self, service: &str) -> Result<()> {
         let data_dir = config::data_dir();
         let output = tokio::process::Command::new("docker")
-            .args(["compose", "up", "-d", service])
+            .args(["compose", "up", "-d", "--no-deps", service])
             .current_dir(&data_dir)
             .output()
             .await

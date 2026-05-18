@@ -10,7 +10,7 @@ Below is my best feedback, organized by gaps, agent dreams, risks, and a dream T
 
 The system is strong because it has three things many internal developer platforms lack:
 
-1. **A real state plane.** SQLite is not just incidental storage; it is the coordination and evidence layer.
+1. **A real state plane.** RedlineDB is not just incidental storage; it is the coordination and evidence layer.
 2. **A typed control philosophy.** GitLab, Docker, Vault, runners, tests, releases, agents, cache, and secrets are not random shell scripts. They are mostly mediated through domain modules.
 3. **A production safety model.** Production promotion is deliberately pipeline-mediated, evidence-backed, and release-gated.
 
@@ -24,7 +24,7 @@ Right now, jeryu has a lot of truth, but the user has to infer too much:
 * Which jobs are release-critical?
 * What can I safely do next?
 * What is the agent doing?
-* Which action will mutate GitLab, SQLite, Vault, Docker, or production?
+* Which action will mutate GitLab, RedlineDB, Vault, Docker, or production?
 * Which evidence proves the system is safe to proceed?
 
 The “dream” version of this system is not just a TUI with prettier panels. It is a **high-contrast operational command console** where every pipeline, agent, runner, cache decision, release gate, and available action is visible, explainable, and safely executable.
@@ -51,7 +51,7 @@ This should be preserved aggressively.
 
 ## 2.2 The state model is unusually valuable
 
-The SQLite state model gives jeryu a memory of:
+The RedlineDB state model gives jeryu a memory of:
 
 * runner pools
 * job events

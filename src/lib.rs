@@ -13,7 +13,7 @@
 //! |---|---|---|
 //! | `engine` | Webhook server, reconciliation | `api-change` |
 //! | `release` | Release pipeline, canary | `release-change` |
-//! | `state` | Postgres-primary state, SQLite recovery, all queries | `state-change` |
+//! | `state` | RedlineDB-primary state, backend-neutral path, all queries | `state-change` |
 //! | `exec` | Custom executor, sandbox | `security-relevant` |
 //! | `secrets` | Vault, rotation | `security-relevant` |
 //! | `honeypot` | Supply-chain detonation | `security-relevant` |
@@ -34,8 +34,8 @@
 #![allow(missing_docs)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::must_use_candidate)]
-// HLT-001-DEAD-MARKER: jankurai audit requires `match Some(v)/None` patterns for explicit
-// handling, not `.unwrap_or_default()`. This is intentional for proof/safety and is not a bug.
+// HLT-001-DEAD-MARKER: jankurai audit requires explicit default handling patterns.
+// This is intentional for proof/safety and is not a bug.
 #![allow(clippy::manual_unwrap_or_default)]
 // Doc comment formatting: the crate uses a mix of indentation styles inherited from refactors
 // of Wave 1-10. The lints are noise; content is correct. Fixing all ~11 instances is lower
@@ -110,3 +110,7 @@ pub mod test_runner;
 pub(crate) mod test_sync;
 pub mod tui;
 pub mod witness;
+
+pub fn install_state_storage_drivers() {
+    db::install_default_drivers();
+}

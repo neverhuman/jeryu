@@ -26,22 +26,38 @@ pub fn env_file() -> PathBuf {
     workspace_path(&["jeryu.env"])
 }
 
-/// Where the SQLite database lives.
+/// Where the RedlineDB database lives.
 pub fn db_path() -> PathBuf {
     workspace_path(&["jeryu.db"])
 }
 
-/// Persistent data root for the jeryu state Postgres service.
-pub fn postgres_data_dir() -> PathBuf {
-    workspace_path(&["postgres"])
+/// Persistent data root for the jeryu RedlineDB service.
+pub fn redline_data_dir() -> PathBuf {
+    workspace_path(&["redline"])
 }
 
-/// Database URL override used for production Postgres or explicit SQLite paths.
+/// Database URL override used for RedlineDB or explicit compatibility paths.
 pub fn database_url() -> Option<String> {
     match std::env::var("JERYU_DATABASE_URL").ok() {
-        Some(value) if !value.trim().is_empty() => Some(value),
+        Some(value) if !value.trim().is_empty() => {
+            let value = value.trim();
+            if is_legacy_redline_service_url(value) {
+                Some(format!("redline:{}?mode=rwc", db_path().display()))
+            } else {
+                Some(value.to_string())
+            }
+        }
         _ => None,
     }
+}
+
+fn is_legacy_redline_service_url(value: &str) -> bool {
+    let value = value.to_ascii_lowercase();
+    (value.starts_with("redline://") || value.starts_with("redlineql://"))
+        && (value.contains("@127.0.0.1")
+            || value.contains("@localhost")
+            || value.contains("://127.0.0.1")
+            || value.contains("://localhost"))
 }
 
 /// Where runner config directories are created (one per manager).

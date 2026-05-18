@@ -1,7 +1,7 @@
 id: aer.jeryu.mega-file.state
 class_id: mega-file
 rule: "Files should stay below the house budget unless locality would be harmed."
-exception: "src/state.rs is the single SQLite schema + accessor boundary for all of jeryu's persistent state."
+exception: "src/state.rs is the single RedlineDB schema + accessor boundary for all of jeryu's persistent state."
 reason: "All state mutations are required to go through state::Db methods (invariant in package.metadata.agent). Splitting across files creates implicit coupling and makes transaction boundary review harder. The file size is proportional to the number of domain entities, not to complexity."
 risk: medium
 owner: jeryu-core
