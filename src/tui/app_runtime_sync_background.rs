@@ -145,10 +145,14 @@ pub(crate) fn start_background_sync(app: &App) {
     });
 
     // TUI snapshot sync loop
+    let mut last_good_pools = app.state.pools.clone();
     tokio::spawn(async move {
         loop {
             let mut snap = TuiStateSnapshot::default();
-            App::hydrate_core_snapshot(&mut snap, &store, &docker, &gitlab).await;
+            App::hydrate_core_snapshot(&mut snap, &store, &docker, &gitlab, &last_good_pools).await;
+            if snap.pool_sync_error.is_none() {
+                last_good_pools = snap.pools.clone();
+            }
 
             if let Ok(pipes) = store.list_tracked_pipelines(10).await {
                 let mut pipe_metrics = Vec::new();

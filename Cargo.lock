@@ -102,7 +102,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -113,7 +113,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "arc-bench"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "anyhow",
  "cargo-aer",
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "cache-brain-adapter"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-aer"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -606,7 +606,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-vrc"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -621,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-witness"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -1337,7 +1337,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2473,7 +2473,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2529,7 +2529,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-gcd"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3760,7 +3760,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4017,8 +4017,8 @@ dependencies = [
 
 [[package]]
 name = "redlinedb"
-version = "1.0.6"
-source = "git+https://github.com/neverhuman/RedlineDB.git?rev=6b346280f2d0740673e457d777d924e7a22301f7#6b346280f2d0740673e457d777d924e7a22301f7"
+version = "1.0.8"
+source = "git+https://github.com/neverhuman/RedlineDB.git?rev=3e73556fe57c32800046082cba826f17b6751284#3e73556fe57c32800046082cba826f17b6751284"
 dependencies = [
  "libc",
  "redlinedb-kernel",
@@ -4030,13 +4030,13 @@ dependencies = [
 
 [[package]]
 name = "redlinedb-domain"
-version = "1.0.6"
-source = "git+https://github.com/neverhuman/RedlineDB.git?rev=6b346280f2d0740673e457d777d924e7a22301f7#6b346280f2d0740673e457d777d924e7a22301f7"
+version = "1.0.8"
+source = "git+https://github.com/neverhuman/RedlineDB.git?rev=3e73556fe57c32800046082cba826f17b6751284#3e73556fe57c32800046082cba826f17b6751284"
 
 [[package]]
 name = "redlinedb-kernel"
-version = "1.0.6"
-source = "git+https://github.com/neverhuman/RedlineDB.git?rev=6b346280f2d0740673e457d777d924e7a22301f7#6b346280f2d0740673e457d777d924e7a22301f7"
+version = "1.0.8"
+source = "git+https://github.com/neverhuman/RedlineDB.git?rev=3e73556fe57c32800046082cba826f17b6751284#3e73556fe57c32800046082cba826f17b6751284"
 dependencies = [
  "arc-swap",
  "crc32fast",
@@ -4050,8 +4050,8 @@ dependencies = [
 
 [[package]]
 name = "redlinedb-sql"
-version = "1.0.6"
-source = "git+https://github.com/neverhuman/RedlineDB.git?rev=6b346280f2d0740673e457d777d924e7a22301f7#6b346280f2d0740673e457d777d924e7a22301f7"
+version = "1.0.8"
+source = "git+https://github.com/neverhuman/RedlineDB.git?rev=3e73556fe57c32800046082cba826f17b6751284#3e73556fe57c32800046082cba826f17b6751284"
 dependencies = [
  "arc-swap",
  "parking_lot",
@@ -4065,8 +4065,8 @@ dependencies = [
 
 [[package]]
 name = "redlinedb-sqlx"
-version = "1.0.6"
-source = "git+https://github.com/neverhuman/RedlineDB.git?rev=6b346280f2d0740673e457d777d924e7a22301f7#6b346280f2d0740673e457d777d924e7a22301f7"
+version = "1.0.8"
+source = "git+https://github.com/neverhuman/RedlineDB.git?rev=3e73556fe57c32800046082cba826f17b6751284#3e73556fe57c32800046082cba826f17b6751284"
 dependencies = [
  "futures-core",
  "futures-util",
@@ -4389,7 +4389,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4448,7 +4448,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4896,7 +4896,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5153,7 +5153,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5258,7 +5258,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5702,7 +5702,7 @@ checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
 
 [[package]]
 name = "tui-capture"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "anyhow",
  "clap",
@@ -6656,7 +6656,7 @@ dependencies = [
 
 [[package]]
 name = "witness-rt"
-version = "3.3.6"
+version = "3.3.7"
 dependencies = [
  "chrono",
  "serde",

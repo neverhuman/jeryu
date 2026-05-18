@@ -8,7 +8,14 @@ impl App {
     pub async fn refresh_now(&mut self) {
         let mut snap = TuiStateSnapshot::default();
         if let Some(store) = self.store.as_ref() {
-            Self::hydrate_core_snapshot(&mut snap, store, &self.docker, &self.gitlab).await;
+            Self::hydrate_core_snapshot(
+                &mut snap,
+                store,
+                &self.docker,
+                &self.gitlab,
+                &self.state.pools,
+            )
+            .await;
         }
         self.state = snap;
     }
@@ -36,10 +43,14 @@ impl App {
         store: &TuiSession,
         docker: &DockerCtl,
         gitlab: &GitlabClient,
+        last_good_pools: &[Pool],
     ) {
-        if let Ok(pools) = store.list_pools().await {
-            snap.pools = pools;
-        }
+        merge_pool_sync_result(
+            &mut snap.pools,
+            &mut snap.pool_sync_error,
+            last_good_pools,
+            store.list_pools().await,
+        );
 
         if let Ok(managed) = docker.list_managed_containers().await {
             snap.active_containers = managed.len();
@@ -324,6 +335,50 @@ impl App {
             status,
             jobs,
         ))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PoolSyncMerge {
+    Fresh,
+    Stale,
+}
+
+pub(crate) fn merge_pool_sync_result(
+    snapshot_pools: &mut Vec<Pool>,
+    pool_sync_error: &mut Option<String>,
+    last_good_pools: &[Pool],
+    result: Result<Vec<Pool>>,
+) -> PoolSyncMerge {
+    match result {
+        Ok(pools) => {
+            *snapshot_pools = pools;
+            *pool_sync_error = None;
+            PoolSyncMerge::Fresh
+        }
+        Err(error) => {
+            *snapshot_pools = last_good_pools.to_vec();
+            *pool_sync_error = Some(compact_pool_sync_error(error));
+            PoolSyncMerge::Stale
+        }
+    }
+}
+
+fn compact_pool_sync_error(error: anyhow::Error) -> String {
+    const MAX_DETAIL_CHARS: usize = 96;
+    let detail = format!("{error:#}")
+        .lines()
+        .next()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .unwrap_or("unavailable")
+        .to_string();
+    let mut chars = detail.chars();
+    let short = chars.by_ref().take(MAX_DETAIL_CHARS).collect::<String>();
+    if chars.next().is_some() {
+        format!("pool sync failed: {short}...")
+    } else {
+        format!("pool sync failed: {short}")
     }
 }
 

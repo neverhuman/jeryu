@@ -30,6 +30,7 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     let pool_active = app.state.pools.iter().filter(|p| !p.paused).count();
     let pool_total = app.state.pools.len();
+    let pool_sync_stale = app.state.pool_sync_error.is_some();
     let running_jobs = app
         .state
         .recent_jobs
@@ -82,6 +83,11 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .min(100);
     let (headline, headline_color, next_action) = top_attention(app);
     let (_, outdated_color, outdated_label) = outdated_indicator(app);
+    let runners_readiness = if pool_sync_stale {
+        format!("{pool_active}/{pool_total} cached")
+    } else {
+        format!("{pool_active}/{pool_total} active")
+    };
 
     f.render_widget(
         Paragraph::new(vec![
@@ -150,8 +156,10 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
             ),
             readiness_line(
                 "Runners",
-                &format!("{pool_active}/{pool_total} active"),
-                if pool_active == pool_total {
+                &runners_readiness,
+                if pool_sync_stale {
+                    Color::LightRed
+                } else if pool_active == pool_total {
                     Color::Green
                 } else {
                     Color::Yellow

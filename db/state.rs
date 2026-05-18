@@ -601,14 +601,18 @@ pub enum StateBackend {
 
 impl StateBackend {
     fn from_url(database_url: &str) -> Result<Self> {
-        if database_url.starts_with("redline://") || database_url.starts_with("redlineql://") {
-            Ok(Self::CompatSql)
-        } else if database_url.starts_with("redline:") {
-            Ok(Self::RedlineDb)
-        } else {
-            anyhow::bail!(
-                "unsupported JERYU_DATABASE_URL scheme; expected redline://, redlineql://, or redline:"
-            )
+        let scheme = database_url
+            .split_once(':')
+            .map(|(scheme, _)| scheme.to_ascii_lowercase())
+            .unwrap_or_default();
+        match scheme.as_str() {
+            "redline" | "redlinedb" => Ok(Self::RedlineDb),
+            "redlineql" => Ok(Self::CompatSql),
+            _ => {
+                anyhow::bail!(
+                    "unsupported JERYU_DATABASE_URL scheme; expected redline://, redlinedb://, redlineDB://, redline:, or redlineql://"
+                )
+            }
         }
     }
 }
@@ -3863,11 +3867,23 @@ mod tests {
     fn state_backend_detects_supported_urls() -> Result<()> {
         assert_eq!(
             StateBackend::from_url("redline://jeryu:secret@127.0.0.1/jeryu")?,
-            StateBackend::CompatSql
+            StateBackend::RedlineDb
         );
         assert_eq!(
             StateBackend::from_url("redlineql://jeryu:secret@127.0.0.1/jeryu")?,
             StateBackend::CompatSql
+        );
+        assert_eq!(
+            StateBackend::from_url("redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB")?,
+            StateBackend::RedlineDb
+        );
+        assert_eq!(
+            StateBackend::from_url("redlinedb:///tmp/jeryu/target/jeryu/autonomy.redlineDB")?,
+            StateBackend::RedlineDb
+        );
+        assert_eq!(
+            StateBackend::from_url("redlineDB:///tmp/jeryu/target/jeryu/autonomy.redlineDB")?,
+            StateBackend::RedlineDb
         );
         assert_eq!(
             StateBackend::from_url("redline:/tmp/jeryu.db?mode=rwc")?,
