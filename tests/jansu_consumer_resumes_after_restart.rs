@@ -49,10 +49,7 @@ async fn jansu_consumer_resumes_from_remembered_offset() {
     // With the upstream J-4 fix (jansu PR #11 commit 9f61c0d), Consumer::next
     // advances self.offset on every pop — including the early-return buffered
     // path — so the cursor reports next-to-read, not last-read.
-    assert_eq!(
-        remembered, 2,
-        "consumer cursor reports next-to-read offset"
-    );
+    assert_eq!(remembered, 2, "consumer cursor reports next-to-read offset");
 
     // Second consumer resumes at the remembered cursor (already next-to-read)
     // and sees offsets [2, 3, 4] exactly — no batch-tail redelivery.
