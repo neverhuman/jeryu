@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.5] - 2026-05-18
+
+### Changed
+
+- **`jansu-embedded` + `jansu-sans-io` rev pin bumped** from `3e270dc` to
+  `9f61c0d` to pick up the upstream J-4 fix (jansu PR #11 commit
+  `9f61c0d`). The fix: `Consumer::next` now advances `self.offset` on every
+  pop, not just the post-fetch path — closes the batch-tail redelivery loop.
+
+### Fixed
+
+- `tests/jansu_consumer_resumes_after_restart.rs` — assertion reverted from
+  the J-4 workaround (set semantics, `BTreeSet<offset>`) back to the
+  intended exact-sequence form (`vec![2, 3, 4]`). With the upstream fix the
+  consumer reads each remaining offset exactly once, no batch-tail
+  duplicates.
+
+### Resolved
+
+- **J-4 (jansu Consumer batch-tail redelivery)** marked RESOLVED in
+  `docs/redline-jansu-issues.md`. Closes the loop end-to-end: upstream
+  source fix (jansu PR #11) → jeryu rev-pin bump (this PR) → integration
+  test asserts exact sequence (no workaround).
+
+### Verified
+
+- `cargo test --features jansu-broker --test jansu_*` — 4 tests, all green
+  on the new jansu rev.
+
 ## [3.3.4] - 2026-05-18
 
 ### Fixed

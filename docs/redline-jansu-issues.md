@@ -240,8 +240,8 @@ declares `channel = "1.95"`. jeryu's workspace currently declares
 
 ### J-4: jansu-embedded Consumer redelivers batch tails on resume
 
-**Date:** 2026-05-17
-**Status:** open — consumer-side dedup mitigates; upstream fix planned in v0.6.2
+**Date:** 2026-05-17 (filed), 2026-05-18 (fixed upstream)
+**Status:** RESOLVED — upstream fix landed in jansu PR #11 as commit `9f61c0d`. Jeryu v3.3.5 (PR-F) bumps the `jansu-embedded` rev pin to pick it up, and the `jansu_consumer_resumes_after_restart` test assertion was reverted from set-semantics back to exact-sequence `[2, 3, 4]`. The fix: `Consumer::next` now advances `self.offset` on every pop, not just the post-fetch path.
 
 **What:** When a `Consumer` is rebuilt at `start_offset = N` (mid-stream), the
 fetch path returns *the entire surrounding batch*, so the consumer observes

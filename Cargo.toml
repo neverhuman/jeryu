@@ -13,7 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.4"
+version = "3.3.5"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -140,13 +140,14 @@ cache-brain-adapter = { path = "crates/adapters/cache-brain" }
 async-trait = "0.1"
 
 # Jansu — in-process embedded Kafka-like broker, used for webhook event
-# dispatch. URL-pinned to the v0.6.1 feature branch tip; switch to
-# `tag = "v0.6.1"` once neverhuman/jansu cuts the release tag.
+# dispatch. URL-pinned to the v0.6.1 feature branch tip including the J-4
+# Consumer batch-tail redelivery fix (jansu PR #11 commit 9f61c0d). Switch
+# to `tag = "v0.6.1"` once neverhuman/jansu cuts the release tag.
 # Optional + default-on so downstream consumers can `--no-default-features`
 # to drop the heavyweight jansu transitives (object_store, rama, etc.) if
 # they don't need the webhook broker path.
-jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "3e270dc", optional = true }
-jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "3e270dc", optional = true }
+jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", optional = true }
+jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", optional = true }
 url = { version = "2", optional = true }
 
 [features]
