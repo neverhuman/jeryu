@@ -172,6 +172,7 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
 
     let pools_total = app.state.pools.len();
     let pools_active = app.state.pools.iter().filter(|p| !p.paused).count();
+    let pools_stale = app.state.pool_sync_error.is_some();
 
     let release_span = if let Some(ref rel) = app.state.release_status {
         let short_sha = rel.attempt.sha.get(..8).unwrap_or(rel.attempt.sha.as_str());
@@ -226,8 +227,14 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
             Style::default().fg(Color::Gray),
         ),
         Span::styled(
-            format!(" pools:{}/{}", pools_active, pools_total),
-            Style::default().fg(if pools_active == pools_total {
+            if pools_stale {
+                format!(" pools:{}/{} stale", pools_active, pools_total)
+            } else {
+                format!(" pools:{}/{}", pools_active, pools_total)
+            },
+            Style::default().fg(if pools_stale {
+                Color::LightRed
+            } else if pools_active == pools_total {
                 Color::Green
             } else {
                 Color::Yellow

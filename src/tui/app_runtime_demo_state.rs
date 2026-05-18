@@ -41,6 +41,7 @@ pub(crate) fn build_demo_state(
                 trust_tier: "restricted".into(),
             },
         ],
+        pool_sync_error: None,
         gitlab_ready: true,
         active_containers: 11,
         recent_jobs: flow_jobs,

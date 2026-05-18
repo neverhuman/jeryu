@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.7] - 2026-05-18
+
+### Fixed
+
+- The TUI now preserves the last known runner pool snapshot when
+  `list_pools()` fails, and marks the chrome and Pools tab as stale instead of
+  collapsing the count to a misleading zero-pool state.
+
 ## [3.3.6] - 2026-05-18
 
 ### Changed

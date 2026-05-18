@@ -42,25 +42,41 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let pools_title = if app.state.pool_sync_error.is_some() {
+        format!(
+            " [ Runner Pools ({} cached) stale ] ",
+            app.state.pools.len()
+        )
+    } else {
+        format!(" [ Runner Pools ({}) ] ", app.state.pools.len())
+    };
+
     let list = List::new(items).block(
         Block::default()
-            .title(format!(" [ Runner Pools ({}) ] ", app.state.pools.len()))
+            .title(pools_title)
             .borders(Borders::ALL)
             .border_style(focus::border_style(app, PaneId::PoolsList)),
     );
     f.render_widget(list, cols[0]);
 
     // Right: pool detail
-    let detail = if let Some(pool) = app.state.pools.get(app.selected_pool_index) {
+    let detail_body = if let Some(pool) = app.state.pools.get(app.selected_pool_index) {
         format!(
-            "\n  Name:      {}\n  Status:    {}\n  Min Warm:  {}\n  Max:       {}\n\n  [p] Toggle pause/resume",
+            "  Name:      {}\n  Status:    {}\n  Min Warm:  {}\n  Max:       {}\n\n  [p] Toggle pause/resume",
             pool.name,
             if pool.paused { "[PAUSED]" } else { "[ACTIVE]" },
             pool.min_warm,
             pool.max_managers,
         )
+    } else if app.state.pool_sync_error.is_some() {
+        "  No cached pool selected.".to_string()
     } else {
-        "\n  No pool selected.".to_string()
+        "  No pool selected.".to_string()
+    };
+    let detail = if let Some(error) = app.state.pool_sync_error.as_deref() {
+        format!("\n  Pool sync stale: {error}\n\n{detail_body}")
+    } else {
+        format!("\n{detail_body}")
     };
 
     f.render_widget(

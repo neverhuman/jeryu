@@ -1,4 +1,4 @@
-use super::{LiveLogState, TuiStateSnapshot};
+use super::{LiveLogState, PoolSyncMerge, TuiStateSnapshot};
 use crate::state::JobEvent;
 use crate::tui::flow::{FlowGraph, FlowSnapshot, PipelineFlow};
 use crate::tui::live::live_job_status_rank;
@@ -25,6 +25,22 @@ fn job_without_pipeline(job_id: i64, status: &str, received_at: &str) -> JobEven
     }
 }
 
+fn pool(name: &str, paused: bool) -> crate::state::Pool {
+    crate::state::Pool {
+        name: name.into(),
+        gitlab_runner_id: 1,
+        auth_token: "token".into(),
+        tags: "linux".into(),
+        executor: "docker".into(),
+        min_warm: 1,
+        max_managers: 4,
+        concurrent: 2,
+        request_concurrency: 1,
+        paused,
+        trust_tier: "trusted".into(),
+    }
+}
+
 fn pipeline_flow(pipeline_id: i64) -> PipelineFlow {
     PipelineFlow {
         pipeline_id,
@@ -38,6 +54,70 @@ fn pipeline_flow(pipeline_id: i64) -> PipelineFlow {
         eta: None,
         progress_pct: 50,
     }
+}
+
+#[test]
+fn pool_sync_success_replaces_pools_and_clears_error() {
+    let previous = vec![pool("cached", false)];
+    let mut snapshot_pools = Vec::new();
+    let mut sync_error = Some("old failure".to_string());
+
+    let outcome = super::merge_pool_sync_result(
+        &mut snapshot_pools,
+        &mut sync_error,
+        &previous,
+        Ok(vec![pool("fresh", false), pool("paused", true)]),
+    );
+
+    assert_eq!(outcome, PoolSyncMerge::Fresh);
+    assert_eq!(
+        snapshot_pools
+            .iter()
+            .map(|pool| pool.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["fresh", "paused"]
+    );
+    assert!(sync_error.is_none());
+}
+
+#[test]
+fn pool_sync_success_with_empty_list_is_a_real_empty_cluster() {
+    let previous = vec![pool("cached", false)];
+    let mut snapshot_pools = previous.clone();
+    let mut sync_error = Some("old failure".to_string());
+
+    let outcome =
+        super::merge_pool_sync_result(&mut snapshot_pools, &mut sync_error, &previous, Ok(vec![]));
+
+    assert_eq!(outcome, PoolSyncMerge::Fresh);
+    assert!(snapshot_pools.is_empty());
+    assert!(sync_error.is_none());
+}
+
+#[test]
+fn pool_sync_failure_preserves_cached_pools_and_records_error() {
+    let previous = vec![pool("cached-a", false), pool("cached-b", true)];
+    let mut snapshot_pools = Vec::new();
+    let mut sync_error = None;
+
+    let outcome = super::merge_pool_sync_result(
+        &mut snapshot_pools,
+        &mut sync_error,
+        &previous,
+        Err(anyhow::anyhow!("redline pool scan timeout")),
+    );
+
+    assert_eq!(outcome, PoolSyncMerge::Stale);
+    assert_eq!(
+        snapshot_pools
+            .iter()
+            .map(|pool| pool.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["cached-a", "cached-b"]
+    );
+    let sync_error = sync_error.expect("pool sync failure should be recorded");
+    assert!(sync_error.contains("pool sync failed"));
+    assert!(sync_error.contains("redline pool scan timeout"));
 }
 
 #[test]

@@ -43,6 +43,22 @@ fn job(job_id: i64, status: &str) -> crate::state::JobEvent {
     }
 }
 
+fn pool(name: &str, paused: bool) -> crate::state::Pool {
+    crate::state::Pool {
+        name: name.into(),
+        gitlab_runner_id: 1,
+        auth_token: "token".into(),
+        tags: "linux".into(),
+        executor: "docker".into(),
+        min_warm: 1,
+        max_managers: 4,
+        concurrent: 2,
+        request_concurrency: 1,
+        paused,
+        trust_tier: "trusted".into(),
+    }
+}
+
 #[tokio::test]
 async fn renders_all_primary_tabs_with_empty_state() -> Result<()> {
     let mut app = crate::tui::app::test_app().await?;
@@ -177,6 +193,25 @@ async fn renders_jobs_tab_with_live_jobs_and_no_empty_message() -> Result<()> {
     assert!(rendered.contains("test-job-1"));
     assert!(rendered.contains("○"));
     assert!(!rendered.contains("Waiting for active pipelines"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn renders_cached_pools_with_pool_sync_warning() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.active_tab = crate::tui::app::ActiveTab::Pools;
+    app.state.pools = vec![pool("linux-large", false), pool("linux-paused", true)];
+    app.state.pool_sync_error = Some("pool sync failed: redline unavailable".into());
+
+    let buffer = capture_buffer(&mut app)?;
+    let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+
+    assert!(rendered.contains("pools:1/2 stale"));
+    assert!(rendered.contains("Runner Pools (2 cached) stale"));
+    assert!(rendered.contains("linux-large"));
+    assert!(rendered.contains("Pool sync stale"));
+    assert!(!rendered.contains("Runner Pools (0)"));
+    assert!(!rendered.contains("No pool selected."));
     Ok(())
 }
 

@@ -191,6 +191,7 @@ pub struct PipelineProgressView {
 #[derive(Default)]
 pub struct TuiStateSnapshot {
     pub pools: Vec<Pool>,
+    pub pool_sync_error: Option<String>,
     pub gitlab_ready: bool,
     pub active_containers: usize,
     pub recent_jobs: Vec<JobEvent>,
