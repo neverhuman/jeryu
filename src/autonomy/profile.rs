@@ -375,7 +375,7 @@ mod tests {
 
     // --- fixtures ----------------------------------------------------------
 
-    /// In-memory SQLite pool. Schema installer lives in the db boundary
+    /// In-memory RedlineDB pool. Schema installer lives in the db boundary
     /// (closes HLT-006); this module routes through the typed repo only.
     async fn fresh_pool() -> AnyPool {
         fresh_autonomy_pool().await

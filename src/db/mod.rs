@@ -25,7 +25,11 @@ pub mod release_repo;
 // Re-exports so callers can name the canonical pool type as
 // `crate::db::AnyPool` without re-introducing a `use sqlx::` line.
 pub use sqlx::AnyPool;
-pub use sqlx::any::{AnyPoolOptions, install_default_drivers};
+pub use sqlx::any::AnyPoolOptions;
+
+pub fn install_default_drivers() {
+    redlinedb_sqlx::install_default_drivers();
+}
 
 /// Re-export of `sqlx::query` so test fixtures that install DDL through
 /// the db boundary do not have to import `sqlx::` themselves.

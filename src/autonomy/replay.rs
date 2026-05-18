@@ -104,10 +104,7 @@ pub fn render_human(report: &ReplayReport) -> String {
                     .payload_excerpt
                     .get("decision")
                     .and_then(|v| v.as_str())
-                    .map(|s| format!("   {s}"))
-                    // Default::default() is the documented empty semantic here:
-                    // missing decision field → no trailing text.
-                    .unwrap_or_default(),
+                    .map_or_else(String::new, |s| format!("   {s}")),
                 _ => String::new(),
             };
             out.push_str(&format!(

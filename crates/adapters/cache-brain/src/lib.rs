@@ -16,8 +16,8 @@ pub use sqlx::AnyPool;
 /// Backend kind for SQL bind-parameter dialect rewriting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdapterBackend {
-    Sqlite,
-    Postgres,
+    Qmark,
+    DollarNumbered,
 }
 
 /// A row in the `action_cache` table mapped to its trust namespace.
@@ -29,7 +29,7 @@ pub struct ActionCacheEntry {
 /// Adapter trait the application uses to query the action_cache.
 ///
 /// Implementations are responsible for any DB-specific dialect handling
-/// (e.g. rewriting `?` to `$N` for Postgres) and for the actual SQL.
+/// (e.g. rewriting `?` to `$N` where a driver requires it) and for the actual SQL.
 #[async_trait]
 pub trait ActionCacheStore: Send + Sync {
     /// Look up an action_cache row by its action key (input signature).
@@ -40,7 +40,7 @@ pub trait ActionCacheStore: Send + Sync {
 ///
 /// Holds an `sqlx::AnyPool` and emits the canonical
 /// `SELECT namespace, created_at FROM action_cache WHERE action_key = ?`
-/// query, rewriting bind parameters for Postgres when needed.
+/// query, rewriting bind parameters when needed.
 pub struct SqlxActionCacheStore {
     pool: sqlx::AnyPool,
     backend: AdapterBackend,
@@ -72,7 +72,7 @@ pub fn create_action_store(
     SqlxActionCacheStore::boxed(pool, backend)
 }
 
-fn postgres_bind_params(sql: &str) -> String {
+fn dollar_numbered_bind_params(sql: &str) -> String {
     let mut converted = String::with_capacity(sql.len() + 16);
     let mut next = 1;
     let mut in_single = false;
@@ -110,8 +110,8 @@ impl ActionCacheStore for SqlxActionCacheStore {
     async fn lookup(&self, action_key: &str) -> Result<Option<ActionCacheEntry>> {
         let base = "SELECT namespace, created_at FROM action_cache WHERE action_key = ?";
         let sql = match self.backend {
-            AdapterBackend::Sqlite => base.to_string(),
-            AdapterBackend::Postgres => postgres_bind_params(base),
+            AdapterBackend::Qmark => base.to_string(),
+            AdapterBackend::DollarNumbered => dollar_numbered_bind_params(base),
         };
         let row: Option<(String, String)> = sqlx::query_as(&sql)
             .bind(action_key)
@@ -134,8 +134,8 @@ pub async fn count_active_cache_taints(pool: &sqlx::AnyPool) -> Result<i64> {
 
 fn dialect_sql(backend: AdapterBackend, sql: &str) -> String {
     match backend {
-        AdapterBackend::Sqlite => sql.to_string(),
-        AdapterBackend::Postgres => postgres_bind_params(sql),
+        AdapterBackend::Qmark => sql.to_string(),
+        AdapterBackend::DollarNumbered => dollar_numbered_bind_params(sql),
     }
 }
 
@@ -194,13 +194,13 @@ pub async fn upsert_epoch_for(
 #[cfg(test)]
 mod epoch_tests {
     use super::*;
-    use sqlx::any::{AnyPoolOptions, install_default_drivers};
+    use sqlx::any::AnyPoolOptions;
 
     async fn setup_pool() -> sqlx::AnyPool {
-        install_default_drivers();
+        redlinedb_sqlx::install_default_drivers();
         let pool = AnyPoolOptions::new()
             .max_connections(1)
-            .connect("sqlite::memory:")
+            .connect("redline:///:memory:")
             .await
             .unwrap();
         sqlx::query(
@@ -221,7 +221,7 @@ mod epoch_tests {
     #[tokio::test]
     async fn current_epoch_defaults_to_zero() {
         let pool = setup_pool().await;
-        let v = current_epoch_for(&pool, AdapterBackend::Sqlite, "scope:x")
+        let v = current_epoch_for(&pool, AdapterBackend::Qmark, "scope:x")
             .await
             .unwrap();
         assert_eq!(v, 0);
@@ -232,7 +232,7 @@ mod epoch_tests {
         let pool = setup_pool().await;
         upsert_epoch_for(
             &pool,
-            AdapterBackend::Sqlite,
+            AdapterBackend::Qmark,
             "scope:x",
             7,
             "2026-01-01T00:00:00Z",
@@ -241,7 +241,7 @@ mod epoch_tests {
         )
         .await
         .unwrap();
-        let v = current_epoch_for(&pool, AdapterBackend::Sqlite, "scope:x")
+        let v = current_epoch_for(&pool, AdapterBackend::Qmark, "scope:x")
             .await
             .unwrap();
         assert_eq!(v, 7);
@@ -249,7 +249,7 @@ mod epoch_tests {
         // ON CONFLICT branch
         upsert_epoch_for(
             &pool,
-            AdapterBackend::Sqlite,
+            AdapterBackend::Qmark,
             "scope:x",
             8,
             "2026-01-01T00:00:01Z",
@@ -258,7 +258,7 @@ mod epoch_tests {
         )
         .await
         .unwrap();
-        let v = current_epoch_for(&pool, AdapterBackend::Sqlite, "scope:x")
+        let v = current_epoch_for(&pool, AdapterBackend::Qmark, "scope:x")
             .await
             .unwrap();
         assert_eq!(v, 8);

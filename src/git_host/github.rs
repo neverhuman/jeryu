@@ -42,6 +42,13 @@ fn decision_label(decision: GateDecision) -> &'static str {
     }
 }
 
+async fn response_text_or_empty(response: reqwest::Response) -> String {
+    match response.text().await {
+        Ok(text) => text,
+        Err(_) => String::new(),
+    }
+}
+
 #[derive(Clone)]
 pub struct GitHubClient {
     token: String,
@@ -150,7 +157,7 @@ impl GitHubClient {
             return Ok(None);
         }
         if !status.is_success() {
-            let body = r.text().await.unwrap_or_default();
+            let body = response_text_or_empty(r).await;
             return Err(map_http_err(status, &headers, body));
         }
         let entries: Vec<ContentsDirEntry> = r
@@ -189,7 +196,7 @@ impl GitHubClient {
                 let fstatus = fr.status();
                 let fheaders = fr.headers().clone();
                 if !fstatus.is_success() {
-                    let fbody = fr.text().await.unwrap_or_default();
+                    let fbody = response_text_or_empty(fr).await;
                     return Err(map_http_err(fstatus, &fheaders, fbody));
                 }
                 let parsed: ContentsFileResp = fr
@@ -232,7 +239,7 @@ impl GitHubClient {
         let status = r.status();
         let headers = r.headers().clone();
         if !status.is_success() {
-            let body = r.text().await.unwrap_or_default();
+            let body = response_text_or_empty(r).await;
             return Err(map_http_err(status, &headers, body));
         }
         r.text()
@@ -412,7 +419,7 @@ impl From<PullResp> for PrSummary {
             mr_iid: p.number.to_string(),
             head_sha: p.head.sha,
             target_branch: p.base.ref_name,
-            author: p.user.map(|u| u.login).unwrap_or_default(),
+            author: p.user.map_or_else(String::new, |u| u.login),
             title: p.title,
             draft: p.draft.unwrap_or(false),
             labels: p.labels.into_iter().map(|l| l.name).collect(),
@@ -447,7 +454,7 @@ impl GitHost for GitHubClient {
         let status = r.status();
         let headers = r.headers().clone();
         if !status.is_success() {
-            let body = r.text().await.unwrap_or_default();
+            let body = response_text_or_empty(r).await;
             return Err(map_http_err(status, &headers, body));
         }
         let body: UserResp = r
@@ -492,7 +499,7 @@ impl GitHost for GitHubClient {
         let status_code = r.status();
         let headers = r.headers().clone();
         if !status_code.is_success() {
-            let text = r.text().await.unwrap_or_default();
+            let text = response_text_or_empty(r).await;
             return Err(map_http_err(status_code, &headers, text));
         }
         let resp: CheckRunResp = r
@@ -526,7 +533,7 @@ impl GitHost for GitHubClient {
         let status = r.status();
         let headers = r.headers().clone();
         if !status.is_success() {
-            let text = r.text().await.unwrap_or_default();
+            let text = response_text_or_empty(r).await;
             return Err(map_http_err(status, &headers, text));
         }
         let parsed: IssueCommentResp = r
@@ -559,7 +566,7 @@ impl GitHost for GitHubClient {
         let status = r.status();
         let headers = r.headers().clone();
         if !status.is_success() {
-            let body = r.text().await.unwrap_or_default();
+            let body = response_text_or_empty(r).await;
             return Err(map_http_err(status, &headers, body));
         }
         let body: Vec<PullResp> = r
@@ -581,7 +588,7 @@ impl GitHost for GitHubClient {
         let status = r.status();
         let headers = r.headers().clone();
         if !status.is_success() {
-            let body = r.text().await.unwrap_or_default();
+            let body = response_text_or_empty(r).await;
             return Err(map_http_err(status, &headers, body));
         }
         let body: PullResp = r
@@ -645,7 +652,7 @@ impl GitHost for GitHubClient {
         let status = r.status();
         let headers = r.headers().clone();
         if !status.is_success() {
-            let body = r.text().await.unwrap_or_default();
+            let body = response_text_or_empty(r).await;
             return Err(map_http_err(status, &headers, body));
         }
         let body: Vec<PullFileResp> = r

@@ -15,6 +15,10 @@ mod dispatch_back;
 // ---------------------------------------------------------------------------
 // Helpers
 
+fn env_var_or_empty(name: &str) -> String {
+    std::env::var(name).unwrap_or_else(|_| String::new())
+}
+
 /// Load secrets from jeryu.env and build a GitlabClient.
 pub fn load_client() -> Result<(gitlab_client::GitlabClient, String)> {
     let env_path = config::env_file();
@@ -22,7 +26,7 @@ pub fn load_client() -> Result<(gitlab_client::GitlabClient, String)> {
 
     let pat = std::env::var("GITLAB_PAT")
         .map_err(|_| anyhow::anyhow!("GITLAB_PAT not found — run `jeryu bootstrap` first"))?;
-    let webhook_secret = std::env::var("JERYU_WEBHOOK_SECRET").unwrap_or_default();
+    let webhook_secret = env_var_or_empty("JERYU_WEBHOOK_SECRET");
 
     let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
     let client = gitlab_client::GitlabClient::new(&url, Some(pat));
@@ -35,7 +39,7 @@ fn load_client_optional() -> (gitlab_client::GitlabClient, String) {
     dotenvy::from_path(&env_path).ok();
 
     let pat = std::env::var("GITLAB_PAT").ok();
-    let webhook_secret = std::env::var("JERYU_WEBHOOK_SECRET").unwrap_or_default();
+    let webhook_secret = env_var_or_empty("JERYU_WEBHOOK_SECRET");
 
     let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
     let client = gitlab_client::GitlabClient::new(&url, pat);
@@ -181,15 +185,6 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
             } else {
                 load_client()?
             };
-            let db = if once || capture || screenshot || demo {
-                // Screenshot/capture/demo modes use demo fixtures; use in-memory DB if disk DB unavailable.
-                match state::Db::open().await {
-                    Ok(db) => db,
-                    Err(_) => state::Db::open_memory().await?,
-                }
-            } else {
-                state::Db::open().await?
-            };
             let docker_ctl = if once || capture || screenshot || demo {
                 // Screenshot/capture/demo modes never interact with Docker.
                 match docker::DockerCtl::connect() {
@@ -198,6 +193,14 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
                 }
             } else {
                 docker::DockerCtl::connect()?
+            };
+            let db = if once || capture || screenshot || demo {
+                match state::Db::open().await {
+                    Ok(db) => db,
+                    Err(_) => state::Db::open_memory().await?,
+                }
+            } else {
+                state::Db::open().await?
             };
 
             if capture {

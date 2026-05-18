@@ -28,7 +28,8 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = "0.1"
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "postgres", "any"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "any", "derive"] }
 
 [dev-dependencies]
+redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", branch = "fix/sqlite-ddl-parity-jeryu" }
 tokio = { workspace = true }

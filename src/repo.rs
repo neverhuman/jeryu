@@ -1,110 +1,42 @@
 use anyhow::{Context, Result, bail};
 use std::fs;
 use std::path::PathBuf;
-use std::process::Stdio;
+use std::process;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::process::Command;
 
-pub async fn postgres_state_proof() -> Result<i32> {
-    let container = match std::env::var("JERYU_POSTGRES_PROOF_CONTAINER") {
-        Ok(value) => value,
-        Err(_) => "jeryu-postgres-proof".to_string(),
+pub async fn redline_state_proof() -> Result<i32> {
+    let unique = match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(duration) => duration.as_nanos().to_string(),
+        Err(_) => process::id().to_string(),
     };
-    let port = match std::env::var("JERYU_POSTGRES_PROOF_PORT") {
-        Ok(value) => value,
-        Err(_) => "15439".to_string(),
-    };
-    let db = match std::env::var("JERYU_POSTGRES_PROOF_DB") {
-        Ok(value) => value,
-        Err(_) => "jeryu_test".to_string(),
-    };
-    let user = match std::env::var("JERYU_POSTGRES_PROOF_USER") {
-        Ok(value) => value,
-        Err(_) => "jeryu".to_string(),
-    };
-    let password = match std::env::var("JERYU_POSTGRES_PROOF_PASSWORD") {
-        Ok(value) => value,
-        Err(_) => "jeryu_test".to_string(),
-    };
-    let image = match std::env::var("JERYU_POSTGRES_PROOF_IMAGE") {
-        Ok(value) => value,
-        Err(_) => "postgres:16-alpine".to_string(),
-    };
-    let url = format!("postgres://{user}:{password}@127.0.0.1:{port}/{db}");
+    let proof_dir = std::env::temp_dir().join(format!("jeryu-redline-proof-{unique}"));
+    fs::create_dir_all(&proof_dir).with_context(|| format!("creating {}", proof_dir.display()))?;
+    let url = format!(
+        "redline:{}?mode=rwc",
+        proof_dir.join("state-proof.redline").display()
+    );
 
-    let _ = Command::new("docker")
-        .args(["rm", "-f", &container])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .await;
-
-    let mut run = Command::new("docker");
-    run.args([
-        "run",
-        "--rm",
-        "-d",
-        "--name",
-        &container,
-        "-e",
-        &format!("POSTGRES_DB={db}"),
-        "-e",
-        &format!("POSTGRES_USER={user}"),
-        "-e",
-        &format!("POSTGRES_PASSWORD={password}"),
+    let mut test = Command::new("cargo");
+    test.args([
+        "test",
         "-p",
-        &format!("127.0.0.1:{port}:5432"),
-        &image,
+        "jeryu",
+        "state::tests::redline_backend_smoke_test_when_configured",
+        "--",
+        "--nocapture",
     ]);
-    let status = run
-        .status()
-        .await
-        .context("starting postgres proof container")?;
-    if !status.success() {
-        bail!("docker run failed");
-    }
+    test.env("JERYU_TEST_REDLINE_URL", &url);
+    let result = crate::exec::run_status_check(&mut test, "running RedlineDB proof test").await;
 
-    let cleanup = container.clone();
-    let keep = match std::env::var("JERYU_KEEP_POSTGRES_PROOF") {
+    let keep = match std::env::var("JERYU_KEEP_REDLINE_PROOF") {
         Ok(value) => value == "1",
         Err(_) => false,
     };
-    let result = async {
-        for _ in 0..30 {
-            let ready = Command::new("docker")
-                .args(["exec", &container, "pg_isready", "-U", &user, "-d", &db])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .await
-                .context("probing postgres readiness")?;
-            if ready.success() {
-                let mut test = Command::new("cargo");
-                test.args([
-                    "test",
-                    "-p",
-                    "jeryu",
-                    "state::tests::postgres_backend_smoke_test_when_configured",
-                    "--",
-                    "--nocapture",
-                ]);
-                test.env("JERYU_TEST_POSTGRES_URL", &url);
-                crate::exec::run_status_check(&mut test, "running postgres proof test").await?;
-                return Ok(());
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        }
-        bail!("postgreSQL proof container did not become ready");
-    }
-    .await;
-
     if !keep {
-        let _ = Command::new("docker")
-            .args(["rm", "-f", &cleanup])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .await;
+        let _ = fs::remove_dir_all(&proof_dir);
     }
+
     result?;
     Ok(0)
 }

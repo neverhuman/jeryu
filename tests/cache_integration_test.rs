@@ -74,7 +74,7 @@ async fn test_cache_brain_rejection_no_namespace() -> Result<()> {
     let taint_mgr = TaintManager::new(db.pool());
     let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
         db.pool(),
-        cache_brain_adapter::AdapterBackend::Sqlite,
+        cache_brain_adapter::AdapterBackend::Qmark,
     );
     let brain = CacheBrain::with_store(epoch_mgr, taint_mgr, store);
 
@@ -112,7 +112,7 @@ async fn test_action_cache_roundtrip_hit() -> Result<()> {
     let taint_mgr = TaintManager::new(db.pool());
     let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
         db.pool(),
-        cache_brain_adapter::AdapterBackend::Sqlite,
+        cache_brain_adapter::AdapterBackend::Qmark,
     );
     let brain = CacheBrain::with_store(epoch_mgr, taint_mgr, store);
 
@@ -166,7 +166,7 @@ async fn test_taint_propagation_blocks_cache_hit() -> Result<()> {
     let taint_mgr = TaintManager::new(db.pool());
     let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
         db.pool(),
-        cache_brain_adapter::AdapterBackend::Sqlite,
+        cache_brain_adapter::AdapterBackend::Qmark,
     );
     let brain = CacheBrain::with_store(epoch_mgr, taint_mgr.clone(), store);
 

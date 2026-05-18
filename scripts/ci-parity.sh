@@ -72,7 +72,7 @@ if [[ "$FAST" == "0" ]]; then
 fi
 
 # ─── 6. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
-run "TUI Smoke (1-frame render)" cargo run --quiet -- tui --once
+run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL=redline::memory: cargo run --quiet -- tui --once
 
 # ─── 7. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
 PARITY_PREFIX="/tmp/jeryu-ci-parity-$$"
@@ -101,6 +101,7 @@ fi
 if [[ "$NO_AUDIT" == "0" ]] && command -v jankurai >/dev/null 2>&1; then
     mkdir -p target/ci-parity
     run "Jankurai Audit" jankurai audit . \
+        --full \
         --mode advisory \
         --json target/ci-parity/repo-score.json \
         --md target/ci-parity/repo-score.md

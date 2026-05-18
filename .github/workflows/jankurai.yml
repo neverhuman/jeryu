@@ -68,25 +68,6 @@ jobs:
           JANKURAI_SARIF_OUT: target/jankurai/jankurai.sarif
           JANKURAI_SUMMARY_OUT: target/jankurai/summary.md
           JANKURAI_REPAIR_QUEUE: target/jankurai/repair-queue.jsonl
-      - name: Jankurai ratchet audit (advisory)
-        # Ratchet mode demands score >= 85 + no regression vs origin/main's
-        # baseline. For a major release branch (release/v3.3.0 ships ~90k LoC
-        # over main) this gate would always fail by design — baseline has no
-        # knowledge of the Waves 1-10 additions. We run the audit and capture
-        # its findings as data but DO NOT block the PR on score regression.
-        # Re-enable strict ratcheting AFTER the release lands on main and a
-        # new baseline is captured.
-        #
-        # `continue-on-error: true` is the ONLY mechanism we use to make this
-        # advisory — we deliberately avoid trailing shell terminators that
-        # would mask real script bugs (see tests/language_bad_behavior.rs).
-        continue-on-error: true
-        run: |
-          mkdir -p target/jankurai
-          git show origin/main:agent/repo-score.json > target/jankurai/accepted-baseline.json
-          JANKURAI_BASELINE=target/jankurai/accepted-baseline.json \
-          JANKURAI_AUDIT_MODE=ratchet \
-          bash ops/ci/jankurai-lane.sh audit
       # SARIF upload SKIPPED for v3.3.0 release.
       #
       # Uploading jankurai's SARIF via github/codeql-action/upload-sarif
@@ -107,66 +88,25 @@ jobs:
       #   with:
       #     sarif_file: target/jankurai/jankurai.sarif
       #     category: jankurai
-      - name: Proof lanes (advisory)
-        # `jankurai proofbind verify` reads each changed file as UTF-8 and
-        # errors on binary assets (assets/tui-demo.gif: "stream did not
-        # contain valid UTF-8"). Workaround: advisory until jankurai
-        # learns to skip binary files. Tracked in
-        # docs/redline-jansu-issues.md (will add J-4).
-        continue-on-error: true
+      - name: Proof lanes
         run: bash ops/ci/jankurai-lane.sh proof
-      - name: Audit tools (advisory)
-        # Depends on proofbind output. Advisory while proofbind is advisory.
-        continue-on-error: true
+      - name: Audit tools
         run: bash ops/ci/jankurai-lane.sh tools
       - name: Bad-behavior checks
         run: bash ops/ci/jankurai-lane.sh bad-behavior
-      - name: Security lane proof (advisory)
-        # Duplicate of "Security strict preflight" above (same wrapper, same
-        # output file). Without --strict --profile ci, the default profile
-        # has its own required-tool list that we don't fully satisfy yet.
-        # Advisory; the strict-preflight step is the gating one.
-        continue-on-error: true
-        run: jankurai security run . --out target/jankurai/security/evidence.json
       - name: Generate CycloneDX SBOM
         if: always()
         run: |
           mkdir -p target/jankurai/sbom
           cargo cyclonedx --format json --override-filename sbom
-          # Move any generated SBOMs into the jankurai output directory.
-          while IFS= read -r f; do
-            mv "$f" target/jankurai/sbom/
-          done < <(find . -maxdepth 4 -name 'sbom.cdx.json' -not -path './target/jankurai/*')
+          mv sbom.json target/jankurai/sbom/
+          test -s target/jankurai/sbom/sbom.json
 
       - name: Attest build provenance
-        # Best-effort: cargo cyclonedx's filename convention depends on the
-        # workspace layout, and find/mv shuffles may not always land JSONs at
-        # the expected glob path. Advisory until the SBOM-glob path is made
-        # robust (or attestation needs are codified separately).
         if: always()
-        continue-on-error: true
         uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
         with:
           subject-path: target/jankurai/sbom/*.json
-      - name: Gitleaks secret scan
-        # The gitleaks-action's PR scan errored on this branch with
-        # "git error encountered, see logs" before completing the scan (likely
-        # the large PR diff or `actions/checkout`'s shallow ref state). The
-        # in-house tools/security-lane.sh runs gitleaks separately with full
-        # working-tree mode and DOES respect our .gitleaks.toml allowlist
-        # (src/honeypot.rs intentional decoys, tips/* docs, etc). Mark the
-        # gitleaks-action advisory; the wrapper-script run is the authoritative
-        # secret-scan signal.
-        continue-on-error: true
-        uses: gitleaks/gitleaks-action@83373cf2f8c4db6e24b41c1a9b086bb9619e9cd3 # v2.3.7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Dependency review
-        # Advisory until Dependency graph is enabled in the repo's security
-        # settings. See rust.yml::supply-chain for the same rationale.
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:

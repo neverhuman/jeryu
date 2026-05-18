@@ -27,6 +27,9 @@ async fn main() -> Result<()> {
     let cli = cli::Cli::parse();
     let is_tui = matches!(cli.command, cli::Commands::Tui { .. });
 
+    // Install the state storage driver before any pool construction.
+    jeryu::install_state_storage_drivers();
+
     if !is_tui {
         let env_filter = match EnvFilter::try_from_default_env() {
             Ok(filter) => filter,
@@ -68,7 +71,7 @@ async fn main() -> Result<()> {
         },
         witness_rt::CellRegistration {
             id: "state".into(),
-            purpose: "Postgres-primary state schema and accessor boundary".into(),
+            purpose: "RedlineDB-primary state schema and accessor boundary".into(),
             owned_paths: vec!["src/state.rs".into()],
             invariants: vec!["all mutations go through state::Db methods or backend-neutral state helpers".into()],
             local_commands: vec!["cargo nextest run -p jeryu --lib -E 'test(/state/)'".into()],

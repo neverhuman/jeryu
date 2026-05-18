@@ -283,7 +283,10 @@ impl EscalationDispatcher for ReqwestDispatcher {
             .map_err(|e| EscalationError::Transport(e.to_string()))?;
         let status = resp.status().as_u16();
         if !(200..300).contains(&status) {
-            let body = resp.text().await.unwrap_or_default();
+            let body = match resp.text().await {
+                Ok(body) => body,
+                Err(_) => String::new(),
+            };
             return Err(EscalationError::HttpStatus { code: status, body });
         }
         Ok(status)

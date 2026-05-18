@@ -220,8 +220,9 @@ pub(crate) enum RepoCommands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
-    /// Run the Postgres-backed state proof in a disposable container.
-    PostgresStateProof,
+    /// Run the RedlineDB-backed state proof against a disposable local database.
+    #[command(name = "redline-state-proof")]
+    RedlineStateProof,
     /// Capture the canonical TUI screenshots used in docs.
     CaptureTuiScreenshots {
         #[arg(long, value_parser = parse_expanded_path)]

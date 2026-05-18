@@ -463,7 +463,7 @@ mod tests {
     use crate::db::autonomy_repo::fresh_autonomy_pool;
     use chrono::{Duration, Utc};
 
-    /// In-memory SQLite pool. Schema installer lives in the db boundary
+    /// In-memory RedlineDB pool. Schema installer lives in the db boundary
     /// (closes HLT-006): this file no longer imports `sqlx::`.
     async fn fresh_db() -> AnyPool {
         fresh_autonomy_pool().await

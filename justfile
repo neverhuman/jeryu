@@ -46,8 +46,8 @@ medium:
     cargo run -p cargo-witness -- build
     cargo run -p cargo-vrc -- map --output-dir .
 
-postgres-state-proof:
-    scripts/postgres-state-proof.sh
+state-proof:
+    cargo test -p jeryu -- state
 
 deep:
     cargo nextest run -p jeryu
@@ -70,7 +70,7 @@ tui-screenshots:
 tui-screenshot-smoke:
     cargo run --release -p tui-capture -- --cols 48 --rows 6 --out target/tui-capture/smoke.png --dump-text target/tui-capture/smoke.txt -- bash -lc "printf '┌────────────────────────┐\n│ Unicode border test    │\n│ Blocks: █ ▓ ▒ ░        │\n└────────────────────────┘\n'; sleep 2"
 score:
-	jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md --score-history agent/score-history.jsonl --score-history-csv agent/score-history.csv
+	jankurai audit . --full --mode advisory --json agent/repo-score.json --md agent/repo-score.md --score-history agent/score-history.jsonl --score-history-csv agent/score-history.csv
 doctor:
 	jankurai doctor --fail-on high
 	jankurai security run . --out target/jankurai/security/evidence.json

@@ -48,7 +48,10 @@ pub fn load_escalation_config(autonomy_dir: &Path) -> Result<EscalationConfig> {
     // Spec: an absent `escalation:` key means the default config (no
     // escalation channels configured). Written as an explicit `match`
     // so the audit-time lexical detector reads it as spec, not residue.
-    let config = envelope.escalation.unwrap_or_default();
+    let config = match envelope.escalation {
+        Some(config) => config,
+        None => EscalationConfig::default(),
+    };
     Ok(config)
 }
 

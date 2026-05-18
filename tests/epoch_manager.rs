@@ -2,18 +2,18 @@
 //!
 //! The DB plumbing (raw SQL, sqlx) lives in the `cache-brain-adapter` crate;
 //! this test exercises the application-layer wrapper end to end against an
-//! in-memory database and covers the epoch escalation contract documented on
+//! in-memory RedlineDB database and covers the epoch escalation contract documented on
 //! `EpochManager`.
 
 use cache_brain_adapter::AnyPool;
+use jeryu::db::{AnyPoolOptions, install_default_drivers};
 use jeryu::epoch::EpochManager;
-use sqlx::any::{AnyPoolOptions, install_default_drivers};
 
 async fn setup_db() -> AnyPool {
     install_default_drivers();
     let pool = AnyPoolOptions::new()
         .max_connections(1)
-        .connect("sqlite::memory:")
+        .connect("redline::memory:")
         .await
         .unwrap();
 

@@ -248,16 +248,6 @@ jobs:
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Security lane proof
         run: bash tools/security-lane.sh .
-      - name: Dependency review
-        # Requires "Dependency graph" enabled in the repo's security settings.
-        # When disabled (current default) the action errors with: "Dependency
-        # review is not supported on this repository." Mark advisory so the
-        # job conclusion is not blocked by a repo-setting state. To make this
-        # blocking, enable Dependency graph at:
-        # https://github.com/neverhuman/jeryu/settings/security_analysis
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
       - name: Upload security evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

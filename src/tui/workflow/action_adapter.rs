@@ -5,7 +5,7 @@
 //!     never imports `GitHubClient` or `KillBell` directly — those concrete
 //!     types live behind [`ProductionActionAdapter`]. This keeps the action
 //!     handler unit-testable against [`FakeActionAdapter`] without any
-//!     network, FS, or SQLite dependency.
+//!     network, FS, or embedded-database dependency.
 //!   - Every public method returns `Result<_, String>` so failures surface as
 //!     `ActionOutcome::Failed(msg)` in the TUI without exposing the underlying
 //!     error type (which would otherwise leak `reqwest`/`anyhow` into the
@@ -297,10 +297,13 @@ impl ActionAdapter for FakeActionAdapter {
     async fn append_ledger(&self, entry: LaunchLedgerEntry) -> Result<(), String> {
         // Mirror SqlLedger's snake_case kind serialization without depending
         // on the private helper.
-        let kind = serde_json::to_value(entry.kind)
+        let kind = match serde_json::to_value(entry.kind)
             .ok()
             .and_then(|v| v.as_str().map(str::to_string))
-            .unwrap_or_default();
+        {
+            Some(kind) => kind,
+            None => String::new(),
+        };
         self.record(RecordedCall::AppendLedger {
             kind,
             actor: entry.actor.clone(),
@@ -814,14 +817,14 @@ mod tests {
         let prev_db = std::env::var("JERYU_DATABASE_URL").ok();
 
         // `Db::open` memoizes the first successful pool in a global
-        // OnceCell. Use a tempfile-backed SQLite so the multi-connection
+        // OnceCell. Use a tempfile-backed RedlineDB so the multi-connection
         // pool (`open_url` uses max_connections=4) sees a shared schema
         // after migration, instead of the per-connection isolation that
-        // `sqlite::memory:` would create. Safe to set even if the
+        // `redline::memory:` would create. Safe to set even if the
         // singleton was already initialized — the call just reuses the
         // cached pool.
         let tmp = tempfile::NamedTempFile::new().expect("tempfile");
-        let db_url = format!("sqlite:{}?mode=rwc", tmp.path().display());
+        let db_url = format!("redline:{}?mode=rwc", tmp.path().display());
         // Rust 2024 marks `std::env::set_var` as unsafe because it
         // races with other threads reading env. Test runs single-threaded
         // via `cargo test -- --test-threads=1` (see scripts/pre-pr.sh) and
@@ -932,9 +935,9 @@ mod tests {
             install_default_drivers();
             let pool = AnyPoolOptions::new()
                 .max_connections(1)
-                .connect("sqlite::memory:")
+                .connect("redline::memory:")
                 .await
-                .expect("in-memory sqlite pool");
+                .expect("in-memory redline pool");
             ProductionActionAdapter::new(
                 Arc::new(GitHubClient::new("ghp_test_kind")),
                 pool,

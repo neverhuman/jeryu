@@ -125,8 +125,7 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
             required_reviews: inputs
                 .policy
                 .quorum_for(inputs.pack.risk)
-                .map(|q| q.roles.clone())
-                .unwrap_or_default(),
+                .map_or_else(Vec::new, |q| q.roles.clone()),
             approval_receipts: receipt_refs,
             decision: GateDecision::Reject,
             valid_for_head_sha_only: true,
@@ -170,8 +169,7 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
         required_reviews: inputs
             .policy
             .quorum_for(inputs.pack.risk)
-            .map(|q| q.roles.clone())
-            .unwrap_or_default(),
+            .map_or_else(Vec::new, |q| q.roles.clone()),
         approval_receipts: receipt_refs,
         decision,
         valid_for_head_sha_only: true,

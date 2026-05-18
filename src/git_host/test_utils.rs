@@ -251,13 +251,11 @@ impl GitHost for FakeGitHost {
         }
         // Unknown repos return an empty list — gracefully, since "no PRs"
         // is a legitimate poll outcome and forces consumers to handle it.
-        Ok(self
-            .open_prs
-            .lock()
-            .unwrap()
-            .get(&repo.slug())
-            .cloned()
-            .unwrap_or_default())
+        let open_prs = self.open_prs.lock().unwrap();
+        Ok(match open_prs.get(&repo.slug()).cloned() {
+            Some(prs) => prs,
+            None => Vec::new(),
+        })
     }
 
     async fn get_pr_state(&self, repo: &RepoRef, mr_iid: &str) -> Result<PrLiveState, HostError> {

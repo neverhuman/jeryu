@@ -33,6 +33,7 @@ run_audit() {
   [ -n "${JANKURAI_SUMMARY_OUT:-}"  ] && extra+=(--github-step-summary "$JANKURAI_SUMMARY_OUT")
   [ -n "${JANKURAI_REPAIR_QUEUE:-}" ] && extra+=(--repair-queue-jsonl  "$JANKURAI_REPAIR_QUEUE")
   jankurai audit . \
+    --full \
     --mode "$mode" \
     --baseline "$baseline" \
     --json target/jankurai/repo-score.json \
@@ -50,15 +51,103 @@ run_proof() {
   jankurai rust witness build .
 }
 
+prepare_ux_qa_cli() {
+  require_tool git
+  require_tool node
+  require_tool npm
+  require_tool npx
+
+  local tool_root="${JANKURAI_UX_QA_TOOL_DIR:-target/jankurai/ux-qa-tool}"
+  local checkout="$tool_root/jankurai"
+  local cli="$checkout/packages/ux-qa/dist/cli.js"
+  if [ ! -f "$cli" ]; then
+    rm -rf "$tool_root"
+    mkdir -p "$tool_root"
+    git clone --branch v1.4.1 --depth 1 https://github.com/neverhuman/jankurai "$checkout" >/dev/null 2>&1
+    (
+      cd "$checkout"
+      npm ci >/dev/null 2>&1
+      npm run ux-qa:build >/dev/null 2>&1
+    )
+  fi
+  (
+    cd "$checkout"
+    npx playwright install chromium --with-deps >/dev/null 2>&1 \
+      || npx playwright install chromium >/dev/null 2>&1
+  )
+  printf '%s\n' "$cli"
+}
+
+prepare_ux_qa_smoke_config() {
+  local smoke_dir="target/jankurai/ux-qa-smoke"
+  mkdir -p "$smoke_dir"
+  cat >"$smoke_dir/index.html" <<'HTML'
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jankurai UX QA Smoke</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #f6f7fb; color: #151923; }
+    main { width: min(560px, calc(100vw - 48px)); padding: 32px; border: 1px solid #d9deea; background: #fff; }
+    h1 { margin: 0 0 12px; font-size: 2rem; line-height: 1.1; }
+    p { margin: 0 0 18px; color: #455166; line-height: 1.5; }
+    button { border: 0; padding: 12px 18px; font: inherit; font-weight: 700; background: #153d6f; color: #fff; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 id="state-label">Loading</h1>
+    <p id="state-copy">The smoke page exercises required rendered states.</p>
+    <button type="button">Primary action</button>
+  </main>
+  <script>
+    const state = new URLSearchParams(location.search).get("state") ?? "loading";
+    const copy = {
+      loading: ["Loading", "The page is waiting on data."],
+      empty: ["Empty", "The page has no records to show."],
+      error: ["Error", "The page encountered a recoverable failure."],
+      success: ["Success", "The page loaded successfully."],
+      "permission-denied": ["Permission denied", "The user lacks access to this view."]
+    }[state] ?? [state, "Unknown state."];
+    document.getElementById("state-label").textContent = copy[0];
+    document.getElementById("state-copy").textContent = copy[1];
+  </script>
+</body>
+</html>
+HTML
+  cat >"$smoke_dir/ux-qa.toml" <<EOF
+artifactRoot = "target/jankurai/ux-qa"
+readyState = "domcontentloaded"
+timeoutMs = 15000
+screenshotRequired = true
+ariaSnapshotRequired = true
+accessibilityScanRequired = true
+requiredStates = ["loading", "empty", "error", "success", "permission-denied"]
+stateQueryParam = "state"
+
+[[routes]]
+id = "ux-qa-smoke"
+url = "file://$REPO_ROOT/target/jankurai/ux-qa-smoke/index.html"
+states = ["loading", "empty", "error", "success", "permission-denied"]
+EOF
+  printf '%s\n' "$smoke_dir/ux-qa.toml"
+}
+
 run_tools() {
   log "workspace map (VRC)"
   cargo run -p cargo-vrc -- map --output-dir .
   log "AER structural scan"
   cargo run -p cargo-aer -- scan --output target/jankurai/aer-findings.json
   log "migration analyze"
-  jankurai migrate . --analyze --json target/jankurai/migration-report.json
+  jankurai migrate . --analyze --out target/jankurai/migration-report.json
   log "UX QA smoke"
-  jankurai ux audit --config agent/ux-qa.toml \
+  local ux_cli ux_config
+  ux_cli="$(prepare_ux_qa_cli)"
+  ux_config="$(prepare_ux_qa_smoke_config)"
+  node "$ux_cli" audit --config "$ux_config" \
     --out target/jankurai/ux-qa.json
 }
 
