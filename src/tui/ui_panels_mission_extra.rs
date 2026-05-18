@@ -84,12 +84,11 @@ pub(crate) fn draw_attention_queue(f: &mut Frame, app: &App, area: Rect) {
         )));
     }
     f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .title(" [ Attention Queue ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionAttention)),
-        ),
+        Paragraph::new(lines).block(focus::pane_block(
+            app,
+            PaneId::MissionAttention,
+            " [ Attention Queue ] ",
+        )),
         area,
     );
 }
@@ -184,12 +183,11 @@ pub(crate) fn draw_proof_lanes(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
     f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .title(" [ Proof Stack ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionProofLanes)),
-        ),
+        Paragraph::new(lines).block(focus::pane_block(
+            app,
+            PaneId::MissionProofLanes,
+            " [ Proof Stack ] ",
+        )),
         area,
     );
 }
@@ -264,12 +262,11 @@ pub(crate) fn draw_action_stack(f: &mut Frame, app: &App, area: Rect) {
         )),
     ];
     f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .title(" [ Next Actions ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionActions)),
-        ),
+        Paragraph::new(lines).block(focus::pane_block(
+            app,
+            PaneId::MissionActions,
+            " [ Next Actions ] ",
+        )),
         area,
     );
 }

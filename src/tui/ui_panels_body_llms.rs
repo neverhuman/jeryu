@@ -129,8 +129,8 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(68), Constraint::Percentage(32)])
         .split(area);
 
-    focus::register_pane(app, PaneId::LLMsPolicyMatrix, cols[0]);
-    focus::register_pane(app, PaneId::LLMsPolicySplit, cols[1]);
+    focus::register_focus_pane(app, PaneId::LLMsPolicyMatrix, cols[0]);
+    focus::register_focus_pane(app, PaneId::LLMsPolicySplit, cols[1]);
 
     let policy_path = app.autonomy_dir.join("providers").join("llm.yml");
     let resolver = app
@@ -235,10 +235,7 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
         }
     };
 
-    let list_block = Block::default()
-        .title(header_title)
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::LLMsPolicyMatrix));
+    let list_block = focus::pane_block(app, PaneId::LLMsPolicyMatrix, header_title);
 
     let list_inner = list_block.inner(cols[0]);
     f.render_widget(list_block, cols[0]);
@@ -314,19 +311,15 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
     };
 
     f.render_widget(
-        List::new(table_lines).block(
-            Block::default()
-                .title(" [ LLM Role Wiring ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::LLMsPolicyMatrix)),
-        ),
+        List::new(table_lines).block(focus::pane_block(
+            app,
+            PaneId::LLMsPolicyMatrix,
+            " [ LLM Role Wiring ] ",
+        )),
         list_inner,
     );
 
-    let detail_block = Block::default()
-        .title(" [ Model Policy Split ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::LLMsPolicySplit));
+    let detail_block = focus::pane_block(app, PaneId::LLMsPolicySplit, " [ Model Policy Split ] ");
     let detail_inner = detail_block.inner(cols[1]);
     f.render_widget(detail_block, cols[1]);
 

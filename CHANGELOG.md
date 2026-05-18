@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.7] - 2026-05-18
+
+### Changed
+
+- Extended the TUI focus model so pane borders, drill-down state, and `[esc]`
+  affordances are shared across the whole pane model instead of only the
+  activity/log view.
+- Added exhaustive tuiwright coverage for every tab and pane in
+  `PaneId::panes_for_tab()`, including arrow navigation and drill-down/escape
+  behavior.
+- Verified the release binary install path locally and confirmed `jeryu
+  --version` resolves from `PATH`.
+
 ## [3.3.6] - 2026-05-18
 
 ### Changed

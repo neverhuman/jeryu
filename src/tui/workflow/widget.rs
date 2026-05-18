@@ -20,7 +20,11 @@ use super::nav::{
 use super::phase_rail::draw_phase_rail;
 use super::pr_rail::draw_pr_rail;
 use super::regions::{DeliveryRegions, compute_regions};
-use crate::tui::theme::Theme;
+use crate::tui::{
+    app::App,
+    focus::{self, PaneId},
+    theme::Theme,
+};
 
 /// Height of one full phase row on the virtual canvas
 /// (header + card body + edge gutter below).
@@ -34,18 +38,21 @@ pub fn draw_workflow_tab(
     area: Rect,
     snapshot: &WorkflowSnapshot,
     nav: &WorkflowNav,
+    app: &mut App,
     theme: &Theme,
     tick: u64,
 ) {
     if snapshot.phases.is_empty() {
-        draw_empty_state(f, area, snapshot, theme);
+        focus::register_focus_pane(app, PaneId::WorkflowCanvas, area);
+        draw_empty_state(f, app, area, snapshot, theme);
         return;
     }
 
     // --- Summary banner (always visible at top) ---
     let banner_h = BANNER_H.min(area.height);
     let banner_area = Rect::new(area.x, area.y, area.width, banner_h);
-    draw_summary_banner(f, banner_area, snapshot, nav, theme);
+    focus::register_focus_pane(app, PaneId::WorkflowMissionStrip, banner_area);
+    draw_summary_banner(f, app, banner_area, snapshot, nav, theme);
 
     // --- Scrollable DAG area below banner ---
     let dag_y = area.y + banner_h;
@@ -54,7 +61,8 @@ pub fn draw_workflow_tab(
         return;
     }
     let dag_area = Rect::new(area.x, dag_y, area.width, dag_h);
-    draw_dag_canvas(f, dag_area, snapshot, nav, theme, tick);
+    focus::register_focus_pane(app, PaneId::WorkflowCanvas, dag_area);
+    draw_dag_canvas(f, &*app, dag_area, snapshot, nav, theme, tick);
 }
 
 /// Render the Delivery view — mission strip, PR rail, phase rail, DAG canvas,
@@ -66,6 +74,7 @@ pub fn draw_delivery_tab(
     area: Rect,
     delivery: &DeliverySnapshot,
     nav: &WorkflowNav,
+    app: &mut App,
     theme: &Theme,
     tick: u64,
     hit_map: &mut DeliveryHitMap,
@@ -79,21 +88,26 @@ pub fn draw_delivery_tab(
     hit_map.cards.clear();
 
     if DeliveryRegions::is_visible(regions.mission) {
-        draw_mission_strip(f, regions.mission, delivery, theme);
+        focus::register_focus_pane(app, PaneId::WorkflowMissionStrip, regions.mission);
+        draw_mission_strip(f, &*app, regions.mission, delivery, theme);
     }
     if DeliveryRegions::is_visible(regions.pr_rail) {
-        draw_pr_rail(f, regions.pr_rail, delivery, theme);
+        focus::register_focus_pane(app, PaneId::WorkflowPrRail, regions.pr_rail);
+        draw_pr_rail(f, &*app, regions.pr_rail, delivery, theme);
     }
     if DeliveryRegions::is_visible(regions.phase_rail) {
-        draw_phase_rail(f, regions.phase_rail, delivery, theme);
+        focus::register_focus_pane(app, PaneId::WorkflowPhaseRail, regions.phase_rail);
+        draw_phase_rail(f, &*app, regions.phase_rail, delivery, theme);
     }
     if DeliveryRegions::is_visible(regions.canvas) {
+        focus::register_focus_pane(app, PaneId::WorkflowCanvas, regions.canvas);
         if let Some(pr) = delivery.selected() {
             if pr.snapshot.phases.is_empty() {
-                draw_empty_state(f, regions.canvas, &pr.snapshot, theme);
+                draw_empty_state(f, app, regions.canvas, &pr.snapshot, theme);
             } else {
                 draw_dag_canvas_with_hits(
                     f,
+                    &*app,
                     regions.canvas,
                     &pr.snapshot,
                     nav,
@@ -103,11 +117,12 @@ pub fn draw_delivery_tab(
                 );
             }
         } else {
-            draw_no_pr_state(f, regions.canvas, theme);
+            draw_no_pr_state(f, app, regions.canvas, theme);
         }
     }
     if DeliveryRegions::is_visible(regions.minimap) {
-        draw_minimap(f, regions.minimap, delivery, nav, theme);
+        focus::register_focus_pane(app, PaneId::WorkflowMinimap, regions.minimap);
+        draw_minimap(f, &*app, regions.minimap, delivery, nav, theme);
     }
     if DeliveryRegions::is_visible(regions.footer) {
         draw_delivery_footer(f, regions.footer, delivery, theme);
@@ -127,6 +142,7 @@ fn visible(r: Rect) -> Option<Rect> {
 #[allow(clippy::too_many_arguments)]
 pub fn draw_dag_canvas_with_hits(
     f: &mut Frame,
+    app: &App,
     dag_area: Rect,
     snapshot: &WorkflowSnapshot,
     nav: &WorkflowNav,
@@ -134,6 +150,10 @@ pub fn draw_dag_canvas_with_hits(
     tick: u64,
     hit_map: &mut DeliveryHitMap,
 ) {
+    let canvas_area = dag_area;
+    let canvas = focus::pane_block(app, PaneId::WorkflowCanvas, " Canvas ");
+    let dag_area = canvas.inner(canvas_area);
+    f.render_widget(canvas, canvas_area);
     let dag_h = dag_area.height;
     if dag_h == 0 {
         return;
@@ -243,12 +263,17 @@ fn draw_phase_row_with_hits(
 /// legacy workflow tab and the new Delivery view.
 pub fn draw_dag_canvas(
     f: &mut Frame,
+    app: &App,
     dag_area: Rect,
     snapshot: &WorkflowSnapshot,
     nav: &WorkflowNav,
     theme: &Theme,
     tick: u64,
 ) {
+    let canvas_area = dag_area;
+    let canvas = focus::pane_block(app, PaneId::WorkflowCanvas, " Canvas ");
+    let dag_area = canvas.inner(canvas_area);
+    f.render_widget(canvas, canvas_area);
     let dag_h = dag_area.height;
     if dag_h == 0 {
         return;
@@ -299,7 +324,10 @@ pub fn draw_dag_canvas(
     draw_viewport_indicator(f, dag_area, nav, theme);
 }
 
-fn draw_no_pr_state(f: &mut Frame, area: Rect, theme: &Theme) {
+fn draw_no_pr_state(f: &mut Frame, app: &App, area: Rect, theme: &Theme) {
+    let canvas = focus::pane_block(app, PaneId::WorkflowCanvas, " Canvas ");
+    let inner = canvas.inner(area);
+    f.render_widget(canvas, area);
     let lines = vec![
         Line::from(""),
         Line::from(Span::styled(
@@ -312,14 +340,7 @@ fn draw_no_pr_state(f: &mut Frame, area: Rect, theme: &Theme) {
             theme.muted(),
         )),
     ];
-    f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(theme.border_subtle)),
-        ),
-        area,
-    );
+    f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_delivery_footer(f: &mut Frame, area: Rect, _delivery: &DeliverySnapshot, theme: &Theme) {
@@ -328,7 +349,16 @@ fn draw_delivery_footer(f: &mut Frame, area: Rect, _delivery: &DeliverySnapshot,
     f.render_widget(Paragraph::new(line), area);
 }
 
-fn draw_empty_state(f: &mut Frame, area: Rect, _snapshot: &WorkflowSnapshot, theme: &Theme) {
+fn draw_empty_state(
+    f: &mut Frame,
+    app: &App,
+    area: Rect,
+    _snapshot: &WorkflowSnapshot,
+    theme: &Theme,
+) {
+    let canvas = focus::pane_block(app, PaneId::WorkflowCanvas, " Canvas ");
+    let inner = canvas.inner(area);
+    f.render_widget(canvas, area);
     let lines = vec![
         Line::from(""),
         Line::from(Span::styled(
@@ -346,19 +376,12 @@ fn draw_empty_state(f: &mut Frame, area: Rect, _snapshot: &WorkflowSnapshot, the
         )),
     ];
 
-    f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .title(" [ 0:Workflow ] ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(theme.border_subtle)),
-        ),
-        area,
-    );
+    f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_summary_banner(
     f: &mut Frame,
+    app: &App,
     area: Rect,
     snap: &WorkflowSnapshot,
     nav: &WorkflowNav,
@@ -416,12 +439,11 @@ fn draw_summary_banner(
     ];
 
     f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .title(" [ 0:Workflow ] ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(overall_color)),
-        ),
+        Paragraph::new(lines).block(focus::pane_block(
+            app,
+            PaneId::WorkflowMissionStrip,
+            " [ 0:Workflow ] ",
+        )),
         area,
     );
 }

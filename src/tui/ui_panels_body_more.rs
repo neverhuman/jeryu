@@ -9,7 +9,7 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         ])
         .split(area);
 
-    focus::register_pane(app, PaneId::AgentsSessions, cols[0]);
+    focus::register_focus_pane(app, PaneId::AgentsSessions, cols[0]);
 
     let items: Vec<ListItem> = app
         .state
@@ -46,15 +46,11 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .title(format!(
-                " [ Agent Sessions ({}) ] ",
-                app.state.agent_pipelines.len()
-            ))
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::AgentsSessions)),
-    );
+    let list = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::AgentsSessions,
+        format!(" [ Agent Sessions ({}) ] ", app.state.agent_pipelines.len()),
+    ));
     f.render_widget(list, cols[0]);
 
     let rows = Layout::default()
@@ -62,14 +58,11 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Length(13), Constraint::Min(8)])
         .split(cols[1]);
 
-    focus::register_pane(app, PaneId::AgentsCockpit, rows[0]);
-    focus::register_pane(app, PaneId::AgentsTimeline, rows[1]);
-    focus::register_pane(app, PaneId::AgentsActions, cols[2]);
+    focus::register_focus_pane(app, PaneId::AgentsCockpit, rows[0]);
+    focus::register_focus_pane(app, PaneId::AgentsTimeline, rows[1]);
+    focus::register_focus_pane(app, PaneId::AgentsActions, cols[2]);
 
-    let detail_block = Block::default()
-        .title(" [ Agent Cockpit ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::AgentsCockpit));
+    let detail_block = focus::pane_block(app, PaneId::AgentsCockpit, " [ Agent Cockpit ] ");
     let detail_inner = detail_block.inner(rows[0]);
     f.render_widget(detail_block, rows[0]);
 
@@ -149,10 +142,7 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         );
     }
 
-    let cap_block = Block::default()
-        .title(" [ Agent Timeline ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::AgentsTimeline));
+    let cap_block = focus::pane_block(app, PaneId::AgentsTimeline, " [ Agent Timeline ] ");
     let cap_inner = cap_block.inner(rows[1]);
     f.render_widget(cap_block, rows[1]);
 
@@ -220,8 +210,8 @@ pub(crate) fn draw_tests_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
-    focus::register_pane(app, PaneId::TestsBottlenecks, chunks[0]);
-    focus::register_pane(app, PaneId::TestsHistory, chunks[1]);
+    focus::register_focus_pane(app, PaneId::TestsBottlenecks, chunks[0]);
+    focus::register_focus_pane(app, PaneId::TestsHistory, chunks[1]);
 
     let (bottlenecks, label) = match app.test_view_mode {
         crate::tui::app::TestViewMode::Average => (&app.state.test_bottlenecks_avg, "Average"),
@@ -286,18 +276,18 @@ pub(crate) fn draw_tests_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(format!(" [ Bottlenecks ({}) - 'v' to toggle ] ", label))
-            .border_style(focus::border_style(app, PaneId::TestsBottlenecks)),
-    );
+    let list = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::TestsBottlenecks,
+        format!(" [ Bottlenecks ({}) - 'v' to toggle ] ", label),
+    ));
     f.render_widget(list, chunks[0]);
 
-    let history_block = Block::default()
-        .borders(Borders::ALL)
-        .title(" [ History Drill-Down - Enter to load ] ")
-        .border_style(focus::border_style(app, PaneId::TestsHistory));
+    let history_block = focus::pane_block(
+        app,
+        PaneId::TestsHistory,
+        " [ History Drill-Down - Enter to load ] ",
+    );
 
     if let Some(hist) = &app.selected_test_history {
         let h_items: Vec<ListItem> = hist

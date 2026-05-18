@@ -10,8 +10,8 @@ pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(area);
 
-    focus::register_pane(app, PaneId::ApprovalsQueue, cols[0]);
-    focus::register_pane(app, PaneId::ApprovalsInspector, cols[1]);
+    focus::register_focus_pane(app, PaneId::ApprovalsQueue, cols[0]);
+    focus::register_focus_pane(app, PaneId::ApprovalsInspector, cols[1]);
 
     let queue = &app.state.approvals_queue;
     let selected = app
@@ -66,19 +66,15 @@ pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let left = List::new(items).block(
-        Block::default()
-            .title(format!(" [ Awaiting approval ({}) ] ", queue.len()))
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::ApprovalsQueue)),
-    );
+    let left = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::ApprovalsQueue,
+        format!(" [ Awaiting approval ({}) ] ", queue.len()),
+    ));
     f.render_widget(left, cols[0]);
 
     // Right: detail card for the selected PR.
-    let right_block = Block::default()
-        .title(" [ Inspector ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::ApprovalsInspector));
+    let right_block = focus::pane_block(app, PaneId::ApprovalsInspector, " [ Inspector ] ");
     let right_inner = right_block.inner(cols[1]);
     f.render_widget(right_block, cols[1]);
 

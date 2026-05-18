@@ -27,11 +27,11 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(chunks[1]);
 
-    focus::register_pane(app, PaneId::CacheDisk, outer[0]);
-    focus::register_pane(app, PaneId::CacheStorage, top_chunks[0]);
-    focus::register_pane(app, PaneId::CacheGateway, top_chunks[1]);
-    focus::register_pane(app, PaneId::CacheSingleflight, bottom_chunks[0]);
-    focus::register_pane(app, PaneId::CacheTaint, bottom_chunks[1]);
+    focus::register_focus_pane(app, PaneId::CacheDisk, outer[0]);
+    focus::register_focus_pane(app, PaneId::CacheStorage, top_chunks[0]);
+    focus::register_focus_pane(app, PaneId::CacheGateway, top_chunks[1]);
+    focus::register_focus_pane(app, PaneId::CacheSingleflight, bottom_chunks[0]);
+    focus::register_focus_pane(app, PaneId::CacheTaint, bottom_chunks[1]);
 
     let objects_str = format!(
         "\n  Total Cached Objects: {}\n  Hot Cache Bandwidth:  {} MB\n  Exact Hits:  {} / {} ({:.1}%)\n  Misses:      {}\n\n  CAS Disk:    {} MiB\n  Crate Cache: {} MiB",
@@ -45,12 +45,11 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         app.state.crate_cache_disk_bytes / 1024 / 1024
     );
     f.render_widget(
-        Paragraph::new(objects_str).block(
-            Block::default()
-                .title(" [ Storage Overview ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheStorage)),
-        ),
+        Paragraph::new(objects_str).block(focus::pane_block(
+            app,
+            PaneId::CacheStorage,
+            " [ Storage Overview ] ",
+        )),
         top_chunks[0],
     );
 
@@ -69,12 +68,11 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         proxy_str, reg_str, app.state.ca_mounted
     );
     f.render_widget(
-        Paragraph::new(services_str).block(
-            Block::default()
-                .title(" [ Gateway Health ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheGateway)),
-        ),
+        Paragraph::new(services_str).block(focus::pane_block(
+            app,
+            PaneId::CacheGateway,
+            " [ Gateway Health ] ",
+        )),
         top_chunks[1],
     );
 
@@ -84,12 +82,11 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         app.state.singleflight_requests * 5
     );
     f.render_widget(
-        Paragraph::new(sf_str).block(
-            Block::default()
-                .title(" [ Singleflight Analytics ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheSingleflight)),
-        ),
+        Paragraph::new(sf_str).block(focus::pane_block(
+            app,
+            PaneId::CacheSingleflight,
+            " [ Singleflight Analytics ] ",
+        )),
         bottom_chunks[0],
     );
 
@@ -105,12 +102,11 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         }
     );
     f.render_widget(
-        Paragraph::new(taint_str).block(
-            Block::default()
-                .title(" [ Trust & Taint Boundaries ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheTaint)),
-        ),
+        Paragraph::new(taint_str).block(focus::pane_block(
+            app,
+            PaneId::CacheTaint,
+            " [ Trust & Taint Boundaries ] ",
+        )),
         bottom_chunks[1],
     );
 }
@@ -144,12 +140,11 @@ fn draw_disk_pressure_panel(f: &mut Frame, app: &App, area: Rect) {
     );
 
     f.render_widget(
-        Paragraph::new(body).block(
-            Block::default()
-                .title(" [ Disk Pressure ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheDisk)),
-        ),
+        Paragraph::new(body).block(focus::pane_block(
+            app,
+            PaneId::CacheDisk,
+            " [ Disk Pressure ] ",
+        )),
         area,
     );
 }

@@ -57,13 +57,11 @@ pub(crate) fn draw_live_runner_feed(f: &mut Frame, app: &App, area: Rect) {
         format!("runner {}/{}", active_idx + 1, feeds.len())
     };
 
-    let block = Block::default()
-        .title(format!(
-            " Live Runner Feed ── {} ── {} ",
-            cycle_label, runner_label
-        ))
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsRunnerFeed));
+    let block = focus::pane_block(
+        app,
+        PaneId::JobsRunnerFeed,
+        format!(" Live Runner Feed ── {} ── {} ", cycle_label, runner_label),
+    );
     let inner = block.inner(area);
     f.render_widget(block, area);
 

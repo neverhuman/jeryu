@@ -32,20 +32,12 @@ pub(crate) fn draw_pipeline_nav(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .title(" Pipelines ")
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::JobsProgress)),
-    );
+    let list = List::new(items).block(focus::pane_block(app, PaneId::JobsProgress, " Pipelines "));
     f.render_widget(list, area);
 }
 
 pub(crate) fn draw_job_inspector_panel(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::default()
-        .title(" [ Inspector ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsInspector));
+    let block = focus::pane_block(app, PaneId::JobsInspector, " [ Inspector ] ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 

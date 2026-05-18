@@ -252,6 +252,7 @@ impl App {
             return;
         }
         self.focus.push();
+        self.focus.fullscreen = Some(pane);
         match (self.active_tab, pane) {
             (ActiveTab::Release, crate::tui::focus::PaneId::ReleaseSelector) => {
                 self.release_subpane = self.release_subpane.next();

@@ -71,12 +71,11 @@ pub(crate) fn draw_agent_actions(f: &mut Frame, app: &App, area: Rect) {
     ];
     f.render_widget(
         Paragraph::new(lines)
-            .block(
-                Block::default()
-                    .title(" [ Actions / Grants ] ")
-                    .borders(Borders::ALL)
-                    .border_style(focus::border_style(app, PaneId::AgentsActions)),
-            )
+            .block(focus::pane_block(
+                app,
+                PaneId::AgentsActions,
+                " [ Actions / Grants ] ",
+            ))
             .wrap(Wrap { trim: false }),
         area,
     );
@@ -98,8 +97,8 @@ pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
         .split(area);
 
-    focus::register_pane(app, PaneId::EvidenceList, cols[0]);
-    focus::register_pane(app, PaneId::EvidenceDetail, cols[1]);
+    focus::register_focus_pane(app, PaneId::EvidenceList, cols[0]);
+    focus::register_focus_pane(app, PaneId::EvidenceDetail, cols[1]);
 
     // Left: evidence record list
     let items: Vec<ListItem> = app
@@ -146,22 +145,18 @@ pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .title(format!(
-                " [ Evidence Capsules ({}) — 'a': audit ledger ] ",
-                app.state.recent_evidence.len()
-            ))
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::EvidenceList)),
-    );
+    let list = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::EvidenceList,
+        format!(
+            " [ Evidence Capsules ({}) — 'a': audit ledger ] ",
+            app.state.recent_evidence.len()
+        ),
+    ));
     f.render_widget(list, cols[0]);
 
     // Right: capsule detail
-    let detail_block = Block::default()
-        .title(" [ Capsule Detail ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::EvidenceDetail));
+    let detail_block = focus::pane_block(app, PaneId::EvidenceDetail, " [ Capsule Detail ] ");
     let detail_inner = detail_block.inner(cols[1]);
     f.render_widget(detail_block, cols[1]);
 

@@ -21,12 +21,12 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
         ])
         .split(rows[2]);
 
-    focus::register_pane(app, PaneId::MissionTopSignal, headline_cols[0]);
-    focus::register_pane(app, PaneId::MissionReadiness, headline_cols[1]);
-    focus::register_pane(app, PaneId::MissionMetrics, rows[1]);
-    focus::register_pane(app, PaneId::MissionAttention, body_cols[0]);
-    focus::register_pane(app, PaneId::MissionProofLanes, body_cols[1]);
-    focus::register_pane(app, PaneId::MissionActions, body_cols[2]);
+    focus::register_focus_pane(app, PaneId::MissionTopSignal, headline_cols[0]);
+    focus::register_focus_pane(app, PaneId::MissionReadiness, headline_cols[1]);
+    focus::register_focus_pane(app, PaneId::MissionMetrics, rows[1]);
+    focus::register_focus_pane(app, PaneId::MissionAttention, body_cols[0]);
+    focus::register_focus_pane(app, PaneId::MissionProofLanes, body_cols[1]);
+    focus::register_focus_pane(app, PaneId::MissionActions, body_cols[2]);
 
     let pool_active = app.state.pools.iter().filter(|p| !p.paused).count();
     let pool_total = app.state.pools.len();
@@ -124,12 +124,11 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
                 ),
             ]),
         ])
-        .block(
-            Block::default()
-                .title(" [ Mission Control ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionTopSignal)),
-        ),
+        .block(focus::pane_block(
+            app,
+            PaneId::MissionTopSignal,
+            " [ Mission Control ] ",
+        )),
         headline_cols[0],
     );
 
@@ -184,12 +183,11 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
                 Color::Cyan,
             ),
         ])
-        .block(
-            Block::default()
-                .title(" [ Readiness ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionReadiness)),
-        ),
+        .block(focus::pane_block(
+            app,
+            PaneId::MissionReadiness,
+            " [ Readiness ] ",
+        )),
         headline_cols[1],
     );
 

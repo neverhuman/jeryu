@@ -12,20 +12,20 @@ pub(crate) fn draw_release_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Length(2), Constraint::Min(8)])
         .split(area);
 
-    focus::register_pane(app, PaneId::ReleaseSelector, split[0]);
+    focus::register_focus_pane(app, PaneId::ReleaseSelector, split[0]);
     draw_release_subpane_tabs(f, app, split[0]);
 
     match app.release_subpane {
         ReleaseSubPane::Pipeline => {
-            focus::register_pane(app, PaneId::ReleasePipeline, split[1]);
+            focus::register_focus_pane(app, PaneId::ReleasePipeline, split[1]);
             draw_release_pipeline_pane(f, app, split[1])
         }
         ReleaseSubPane::Evidence => {
-            focus::register_pane(app, PaneId::ReleaseInspector, split[1]);
+            focus::register_focus_pane(app, PaneId::ReleaseInspector, split[1]);
             draw_release_evidence_pane(f, app, split[1])
         }
         ReleaseSubPane::Rollback => {
-            focus::register_pane(app, PaneId::ReleaseRollback, split[1]);
+            focus::register_focus_pane(app, PaneId::ReleaseRollback, split[1]);
             draw_release_rollback_pane(f, app, split[1])
         }
     }
@@ -65,7 +65,11 @@ fn draw_release_subpane_tabs(f: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(Color::DarkGray),
     ));
     f.render_widget(
-        Paragraph::new(Line::from(spans)).block(Block::default()),
+        Paragraph::new(Line::from(spans)).block(focus::pane_block(
+            app,
+            PaneId::ReleaseSelector,
+            " release ",
+        )),
         area,
     );
 }
@@ -106,12 +110,7 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
                 ]))
             })
             .collect();
-        let list = List::new(items).block(
-            Block::default()
-                .title(title)
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::ReleasePipeline)),
-        );
+        let list = List::new(items).block(focus::pane_block(app, PaneId::ReleasePipeline, title));
         f.render_widget(list, cols[i]);
     }
 }
@@ -134,20 +133,16 @@ fn draw_release_rollback_pane(f: &mut Frame, app: &App, area: Rect) {
             ]))
         })
         .collect();
-    let list = List::new(items).block(
-        Block::default()
-            .title(" [ Rollback ladder ] ")
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::ReleaseRollback)),
-    );
+    let list = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::ReleaseRollback,
+        " [ Rollback ladder ] ",
+    ));
     f.render_widget(list, area);
 }
 
 pub(crate) fn draw_release_inspector(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::default()
-        .title(" [ Inspector ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::ReleaseInspector));
+    let block = focus::pane_block(app, PaneId::ReleaseInspector, " [ Inspector ] ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -188,7 +183,7 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .split(area);
 
     // Left column: Live Runner Feed
-    focus::register_pane(app, PaneId::JobsRunnerFeed, cols[0]);
+    focus::register_focus_pane(app, PaneId::JobsRunnerFeed, cols[0]);
     draw_live_runner_feed(f, app, cols[0]);
 
     // Right column: Pipeline Progress on top, Job Matrix below, Inspector at bottom
@@ -201,9 +196,9 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
         ])
         .split(cols[1]);
 
-    focus::register_pane(app, PaneId::JobsProgress, right_rows[0]);
-    focus::register_pane(app, PaneId::JobsMatrix, right_rows[1]);
-    focus::register_pane(app, PaneId::JobsInspector, right_rows[2]);
+    focus::register_focus_pane(app, PaneId::JobsProgress, right_rows[0]);
+    focus::register_focus_pane(app, PaneId::JobsMatrix, right_rows[1]);
+    focus::register_focus_pane(app, PaneId::JobsInspector, right_rows[2]);
 
     draw_pipeline_progress(f, app, right_rows[0]);
     draw_job_matrix(f, app, right_rows[1]);

@@ -1,10 +1,7 @@
 use super::*;
 
 pub(crate) fn draw_pipeline_progress(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::default()
-        .title(" [ Pipeline Progress ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsProgress));
+    let block = focus::pane_block(app, PaneId::JobsProgress, " [ Pipeline Progress ] ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -126,10 +123,7 @@ pub(crate) fn draw_pipeline_progress(f: &mut Frame, app: &App, area: Rect) {
 // ---------------------------------------------------------------------------
 
 pub(crate) fn draw_job_matrix(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::default()
-        .title(" [ Job Matrix ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsMatrix));
+    let block = focus::pane_block(app, PaneId::JobsMatrix, " [ Job Matrix ] ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 

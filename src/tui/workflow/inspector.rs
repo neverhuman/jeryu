@@ -23,6 +23,7 @@ use ratatui::{
 
 use super::model::*;
 use crate::tui::app::LiveLogState;
+use crate::tui::focus::{self, PaneId};
 use crate::tui::theme::Theme;
 
 /// Recommended width of the inspector pane in cols.
@@ -84,6 +85,7 @@ pub fn draw_inspector_pane(
     area: Rect,
     delivery: &DeliverySnapshot,
     nav_node_id: Option<&str>,
+    app: &crate::tui::app::App,
     tab: InspectorTab,
     live_log: &LiveLogState,
     action_message: Option<&str>,
@@ -93,20 +95,33 @@ pub fn draw_inspector_pane(
         return;
     }
 
+    let pane = focus::pane_block(app, PaneId::WorkflowInspector, " Inspector ");
+    let pane_inner = pane.inner(area);
+    f.render_widget(pane, area);
+
     let Some(pr) = delivery.selected() else {
-        f.render_widget(empty_block(theme, " Inspect "), area);
+        f.render_widget(
+            Paragraph::new("  No delivery snapshot selected.")
+                .style(Style::default().fg(theme.border_subtle)),
+            pane_inner,
+        );
         return;
     };
     let node = nav_node_id.and_then(|id| pr.snapshot.node(id));
 
     // Header (tab strip) + content split.
     let header_h: u16 = 3;
-    let header_area = Rect::new(area.x, area.y, area.width, header_h.min(area.height));
+    let header_area = Rect::new(
+        pane_inner.x,
+        pane_inner.y,
+        pane_inner.width,
+        header_h.min(pane_inner.height),
+    );
     let content_area = Rect::new(
-        area.x,
-        area.y + header_h,
-        area.width,
-        area.height.saturating_sub(header_h),
+        pane_inner.x,
+        pane_inner.y + header_h,
+        pane_inner.width,
+        pane_inner.height.saturating_sub(header_h),
     );
 
     draw_tab_strip(f, header_area, pr, node, tab, theme);
@@ -122,13 +137,6 @@ pub fn draw_inspector_pane(
         InspectorTab::Evidence => draw_evidence(f, content_area, node, theme),
         InspectorTab::Actions => draw_actions(f, content_area, node, action_message, theme),
     }
-}
-
-fn empty_block<'a>(theme: &Theme, title: &'a str) -> Block<'a> {
-    Block::default()
-        .title(title)
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_subtle))
 }
 
 fn draw_tab_strip(
@@ -477,6 +485,13 @@ fn row<'a>(label: &str, value: &str, value_style: Style, theme: &Theme) -> Line<
         Span::styled(format!("  {:<10}", label), theme.muted()),
         Span::styled(value.to_string(), value_style),
     ])
+}
+
+fn empty_block<'a>(theme: &Theme, title: &'a str) -> Block<'a> {
+    Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(theme.border_accent))
 }
 
 #[cfg(test)]

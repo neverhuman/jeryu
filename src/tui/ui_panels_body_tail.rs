@@ -19,19 +19,18 @@ pub(crate) fn draw_release_banner(f: &mut Frame, app: &App, area: Rect) {
         " No release attempts yet.  Waiting for the first green main pipeline.".to_string()
     };
 
-    let color = if let Some(ref release) = app.state.release_status {
+    let _color = if let Some(ref release) = app.state.release_status {
         release_color(&release.canary_state)
     } else {
         Color::DarkGray
     };
 
     let panel = Paragraph::new(body)
-        .block(
-            Block::default()
-                .title(" [ Release Watch ] ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(color)),
-        )
+        .block(focus::pane_block(
+            app,
+            PaneId::ReleasePipeline,
+            " [ Release Watch ] ",
+        ))
         .wrap(Wrap { trim: false });
     f.render_widget(panel, area);
 }
@@ -53,15 +52,12 @@ pub(crate) fn draw_flow_board(f: &mut Frame, app: &App, area: Rect) {
     } else {
         " FLOW BOARD ".to_string()
     };
-    let border_color = if flow_outdated {
+    let _border_color = if flow_outdated {
         outdated_color
     } else {
         Color::DarkGray
     };
-    let block = Block::default()
-        .title(title)
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(border_color));
+    let block = focus::pane_block(app, PaneId::WorkflowCanvas, title);
     let inner_area = block.inner(area);
     f.render_widget(block, area);
 
@@ -196,16 +192,15 @@ pub(crate) fn draw_jobs(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .title(format!(
-                " [{}] Live Jobs ({}) ",
-                if active { "*" } else { " " },
-                app.state.recent_jobs.len()
-            ))
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::JobsRunnerFeed)),
-    );
+    let list = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::JobsRunnerFeed,
+        format!(
+            " [{}] Live Jobs ({}) ",
+            if active { "*" } else { " " },
+            app.state.recent_jobs.len()
+        ),
+    ));
     f.render_widget(list, area);
 }
 
@@ -234,13 +229,11 @@ pub(crate) fn draw_logs(f: &mut Frame, app: &mut App, area: Rect) {
         "manual"
     };
 
-    let outer_block = Block::default()
-        .title(format!(
-            " Log: {} [{} | {}] ",
-            job_name, title_state, follow_state
-        ))
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsInspector));
+    let outer_block = focus::pane_block(
+        app,
+        PaneId::JobsInspector,
+        format!(" Log: {} [{} | {}] ", job_name, title_state, follow_state),
+    );
 
     let inner_area = outer_block.inner(area);
     f.render_widget(outer_block, area);

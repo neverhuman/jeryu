@@ -2,6 +2,8 @@ use crate::tui::app::{ActiveTab, App};
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -440,11 +442,16 @@ pub fn is_active(app: &App, pane: PaneId) -> bool {
 }
 
 pub fn should_show_esc(app: &App, pane: PaneId) -> bool {
-    is_active(app, pane) || app.focus.stack.last().copied() == Some(pane)
+    app.focus.fullscreen == Some(pane) || app.focus.stack.last().copied() == Some(pane)
 }
 
 pub fn register_pane(app: &mut App, pane: PaneId, rect: Rect) {
     app.focus_map.register(pane, rect);
+}
+
+pub fn register_focus_pane(app: &mut App, pane: PaneId, rect: Rect) {
+    register_pane(app, pane, rect);
+    register_esc_hotspot(app, pane, rect);
 }
 
 pub fn register_esc_hotspot(app: &mut App, pane: PaneId, rect: Rect) {
@@ -461,6 +468,20 @@ pub fn esc_label(active: bool) -> &'static str {
     if active { " [esc] " } else { "" }
 }
 
+pub fn pane_block<'a, T>(app: &App, pane: PaneId, title: T) -> Block<'a>
+where
+    T: Into<Line<'a>>,
+{
+    let mut title_line: Line<'a> = title.into();
+    if should_show_esc(app, pane) {
+        title_line.spans.push(Span::raw(" [esc]"));
+    }
+    Block::default()
+        .title(title_line)
+        .borders(Borders::ALL)
+        .border_style(border_style(app, pane))
+}
+
 fn center_x(rect: Rect) -> u16 {
     rect.x + rect.width.saturating_div(2)
 }
@@ -471,4 +492,68 @@ fn center_y(rect: Rect) -> u16 {
 
 fn rect_contains(rect: Rect, x: u16, y: u16) -> bool {
     x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn panes_for_tab_have_stable_defaults_and_neighbor_links() {
+        let tabs = [
+            ActiveTab::Workflow,
+            ActiveTab::Mission,
+            ActiveTab::Release,
+            ActiveTab::Approvals,
+            ActiveTab::Jobs,
+            ActiveTab::Agents,
+            ActiveTab::Tests,
+            ActiveTab::Pools,
+            ActiveTab::Cache,
+            ActiveTab::Evidence,
+            ActiveTab::Secrets,
+            ActiveTab::LLMs,
+            ActiveTab::Git,
+        ];
+
+        for tab in tabs {
+            let panes = PaneId::panes_for_tab(tab);
+            assert!(
+                !panes.is_empty(),
+                "every tab should expose at least one focusable pane"
+            );
+            assert_eq!(
+                PaneId::default_for_tab(tab).tab(),
+                tab,
+                "default pane should belong to the tab it activates"
+            );
+            assert!(
+                panes.contains(&PaneId::default_for_tab(tab)),
+                "default pane should be present in the pane list for {tab:?}"
+            );
+
+            let mut map = FocusMap::default();
+            map.clear_for_tab(tab);
+            for (idx, pane) in panes.iter().copied().enumerate() {
+                map.register(pane, Rect::new(4 + idx as u16 * 12, 2, 10, 4));
+            }
+
+            for window in panes.windows(2) {
+                assert_eq!(
+                    map.neighbor(window[0], NavDirection::Right),
+                    Some(window[1]),
+                    "right arrow should move from {:?} to {:?} on {tab:?}",
+                    window[0],
+                    window[1]
+                );
+                assert_eq!(
+                    map.neighbor(window[1], NavDirection::Left),
+                    Some(window[0]),
+                    "left arrow should move from {:?} to {:?} on {tab:?}",
+                    window[1],
+                    window[0]
+                );
+            }
+        }
+    }
 }

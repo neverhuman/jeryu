@@ -91,22 +91,28 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             };
 
             if app.delivery_snapshot.pull_requests.is_empty() {
+                let workflow_snapshot = app.workflow_snapshot.clone();
+                let workflow_nav = app.workflow_nav.clone();
                 crate::tui::workflow::widget::draw_workflow_tab(
                     f,
                     delivery_area,
-                    &app.workflow_snapshot,
-                    &app.workflow_nav,
+                    &workflow_snapshot,
+                    &workflow_nav,
+                    app,
                     &theme,
                     app.tick_count,
                 );
                 app.delivery_hit_map = crate::tui::workflow::hit_map::DeliveryHitMap::default();
             } else {
+                let delivery_snapshot = app.delivery_snapshot.clone();
+                let workflow_nav = app.workflow_nav.clone();
                 let mut hit_map = crate::tui::workflow::hit_map::DeliveryHitMap::default();
                 crate::tui::workflow::widget::draw_delivery_tab(
                     f,
                     delivery_area,
-                    &app.delivery_snapshot,
-                    &app.workflow_nav,
+                    &delivery_snapshot,
+                    &workflow_nav,
+                    app,
                     &theme,
                     app.tick_count,
                     &mut hit_map,
@@ -115,15 +121,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 app.delivery_hit_map = hit_map;
             }
 
-            let regions = crate::tui::workflow::regions::compute_regions(delivery_area);
-            focus::register_pane(app, PaneId::WorkflowMissionStrip, regions.mission);
-            focus::register_pane(app, PaneId::WorkflowPrRail, regions.pr_rail);
-            focus::register_pane(app, PaneId::WorkflowPhaseRail, regions.phase_rail);
-            focus::register_pane(app, PaneId::WorkflowCanvas, regions.canvas);
-            focus::register_pane(app, PaneId::WorkflowMinimap, regions.minimap);
             if let Some(area) = inspector_area {
-                focus::register_pane(app, PaneId::WorkflowInspector, area);
-                focus::register_esc_hotspot(app, PaneId::WorkflowInspector, area);
+                focus::register_focus_pane(app, PaneId::WorkflowInspector, area);
             }
 
             if let Some(area) = inspector_area {
@@ -136,6 +135,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     area,
                     &app.delivery_snapshot,
                     selected_id.as_deref(),
+                    app,
                     app.inspector_tab,
                     &app.state.live_log,
                     app.delivery_action_message.as_deref(),

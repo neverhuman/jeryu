@@ -7,21 +7,28 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
 };
 
 use super::model::*;
-use crate::tui::theme::Theme;
+use crate::tui::{
+    app::App,
+    focus::{self, PaneId},
+    theme::Theme,
+};
 
-pub fn draw_phase_rail(f: &mut Frame, area: Rect, delivery: &DeliverySnapshot, theme: &Theme) {
+pub fn draw_phase_rail(
+    f: &mut Frame,
+    app: &App,
+    area: Rect,
+    delivery: &DeliverySnapshot,
+    theme: &Theme,
+) {
     if area.width == 0 || area.height == 0 {
         return;
     }
 
-    let block = Block::default()
-        .title(" Phase ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_subtle));
+    let block = focus::pane_block(app, PaneId::WorkflowPhaseRail, " Phase ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 

@@ -11,16 +11,26 @@ use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
 };
 
 use super::intelligence::{
     compute_critical_path, compute_downstream_impact, compute_first_blocker, compute_ship_readiness,
 };
 use super::model::*;
-use crate::tui::theme::Theme;
+use crate::tui::{
+    app::App,
+    focus::{self, PaneId},
+    theme::Theme,
+};
 
-pub fn draw_mission_strip(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
+pub fn draw_mission_strip(
+    f: &mut Frame,
+    app: &App,
+    area: Rect,
+    snap: &DeliverySnapshot,
+    theme: &Theme,
+) {
     if area.width == 0 || area.height == 0 {
         return;
     }
@@ -29,12 +39,11 @@ pub fn draw_mission_strip(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, th
     let lines = build_lines(snap, theme, banner_color);
 
     f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .title(" [ 0:Delivery — CI Mission Control ] ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(banner_color)),
-        ),
+        Paragraph::new(lines).block(focus::pane_block(
+            app,
+            PaneId::WorkflowMissionStrip,
+            " [ 0:Delivery — CI Mission Control ] ",
+        )),
         area,
     );
 }

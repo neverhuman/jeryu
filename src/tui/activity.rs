@@ -7,26 +7,18 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Paragraph, Wrap},
 };
 
 pub fn draw_activity_pane(f: &mut Frame, app: &mut App, area: Rect) {
     let pane = PaneId::ActivityLog(app.active_tab);
-    focus::register_pane(app, pane, area);
-    focus::register_esc_hotspot(app, pane, area);
+    focus::register_focus_pane(app, pane, area);
 
     if area.width == 0 || area.height == 0 {
         return;
     }
 
-    let title = format!(
-        " Activity / Logs{} ",
-        focus::esc_label(focus::is_active(app, pane))
-    );
-    let block = Block::default()
-        .title(title)
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, pane));
+    let block = focus::pane_block(app, pane, " Activity / Logs ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 

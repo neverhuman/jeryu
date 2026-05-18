@@ -10,8 +10,8 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(area);
 
-    focus::register_pane(app, PaneId::PoolsList, cols[0]);
-    focus::register_pane(app, PaneId::PoolsDetail, cols[1]);
+    focus::register_focus_pane(app, PaneId::PoolsList, cols[0]);
+    focus::register_focus_pane(app, PaneId::PoolsDetail, cols[1]);
 
     // Left: pools list
     let active = app.active_tab == ActiveTab::Pools;
@@ -42,12 +42,11 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .title(format!(" [ Runner Pools ({}) ] ", app.state.pools.len()))
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::PoolsList)),
-    );
+    let list = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::PoolsList,
+        format!(" [ Runner Pools ({}) ] ", app.state.pools.len()),
+    ));
     f.render_widget(list, cols[0]);
 
     // Right: pool detail
@@ -65,12 +64,11 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     f.render_widget(
         Paragraph::new(detail)
-            .block(
-                Block::default()
-                    .title(" [ Pool Detail ] ")
-                    .borders(Borders::ALL)
-                    .border_style(focus::border_style(app, PaneId::PoolsDetail)),
-            )
+            .block(focus::pane_block(
+                app,
+                PaneId::PoolsDetail,
+                " [ Pool Detail ] ",
+            ))
             .wrap(Wrap { trim: false }),
         cols[1],
     );

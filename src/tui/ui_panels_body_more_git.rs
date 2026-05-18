@@ -5,10 +5,11 @@ use super::*;
 // ---------------------------------------------------------------------------
 
 pub(crate) fn draw_audit_ledger(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::default()
-        .title(" [ Audit Ledger — 'a': capsule view ] ")
-        .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::EvidenceDetail));
+    let block = focus::pane_block(
+        app,
+        PaneId::EvidenceDetail,
+        " [ Audit Ledger — 'a': capsule view ] ",
+    );
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -91,8 +92,8 @@ pub(crate) fn draw_secrets_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(area);
 
-    focus::register_pane(app, PaneId::SecretsList, cols[0]);
-    focus::register_pane(app, PaneId::SecretsDetail, cols[1]);
+    focus::register_focus_pane(app, PaneId::SecretsList, cols[0]);
+    focus::register_focus_pane(app, PaneId::SecretsDetail, cols[1]);
 
     let items: Vec<ListItem> = app
         .state
@@ -120,25 +121,19 @@ pub(crate) fn draw_secrets_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .title(format!(
-                " [ Secret Audit Events ({}) ] ",
-                app.state.secret_audit_events.len()
-            ))
-            .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::SecretsList)),
-    );
+    let list = List::new(items).block(focus::pane_block(
+        app,
+        PaneId::SecretsList,
+        format!(
+            " [ Secret Audit Events ({}) ] ",
+            app.state.secret_audit_events.len()
+        ),
+    ));
     f.render_widget(list, cols[0]);
 
     f.render_widget(
         Paragraph::new("\n  Vault integration active.\n\n  Events appear here as secrets\n  are rotated, fetched, or revoked.\n\n  [RISK] = Security event requiring review.")
-            .block(
-            Block::default()
-                .title(" [ Vault Status ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::SecretsDetail)),
-            )
+            .block(focus::pane_block(app, PaneId::SecretsDetail, " [ Vault Status ] "))
             .style(Style::default().fg(Color::White))
             .wrap(Wrap { trim: false }),
         cols[1],
@@ -183,7 +178,7 @@ pub(crate) fn draw_git_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    focus::register_pane(app, PaneId::GitLedger, area);
+    focus::register_focus_pane(app, PaneId::GitLedger, area);
 
     let body = if rows.is_empty() {
         List::new(vec![ListItem::new("  No git commands recorded yet.")])
@@ -192,15 +187,14 @@ pub(crate) fn draw_git_tab(f: &mut Frame, app: &mut App, area: Rect) {
     };
 
     f.render_widget(
-        body.block(
-            Block::default()
-                .title(format!(
-                    " [ Git Command Ledger ({}) ] ",
-                    app.state.recent_git_events.len()
-                ))
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::GitLedger)),
-        ),
+        body.block(focus::pane_block(
+            app,
+            PaneId::GitLedger,
+            format!(
+                " [ Git Command Ledger ({}) ] ",
+                app.state.recent_git_events.len()
+            ),
+        )),
         area,
     );
 }

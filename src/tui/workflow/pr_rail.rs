@@ -7,25 +7,26 @@ use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
 };
 
 use super::model::*;
-use crate::tui::theme::Theme;
+use crate::tui::{
+    app::App,
+    focus::{self, PaneId},
+    theme::Theme,
+};
 
 /// Width of each PR chip including 1 column of spacing.
 pub const CHIP_W: u16 = 30;
 const TITLE_MAX: usize = 22;
 
-pub fn draw_pr_rail(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
+pub fn draw_pr_rail(f: &mut Frame, app: &App, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
     if area.width == 0 || area.height == 0 {
         return;
     }
 
-    let block = Block::default()
-        .title(" PRs ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_subtle));
+    let block = focus::pane_block(app, PaneId::WorkflowPrRail, " PRs ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 

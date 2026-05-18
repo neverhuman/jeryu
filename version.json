@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.6",
-  "cargo_workspace_version": "3.3.6",
+  "version": "3.3.7",
+  "cargo_workspace_version": "3.3.7",
   "release_line": "V3.3",
   "status": "stable",
   "date": "2026-05-18",
   "tag_policy": {
-    "rc": "v3.3.6-rc.N",
-    "stable": "v3.3.6"
+    "rc": "v3.3.7-rc.N",
+    "stable": "v3.3.7"
   },
-  "headline": "Ship JeRyu v3.3.6 with the RedlineDB serve cleanup, the pinned upstream redlinedb-sqlx dependency, and the Redline-backed state-storage rollout."
+  "headline": "Ship JeRyu v3.3.7 with the TUI drill-down coverage, shared focus highlighting, and global binary install verification."
 }

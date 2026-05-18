@@ -7,15 +7,20 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
 };
 
 use super::model::*;
 use super::nav::WorkflowNav;
-use crate::tui::theme::Theme;
+use crate::tui::{
+    app::App,
+    focus::{self, PaneId},
+    theme::Theme,
+};
 
 pub fn draw_minimap(
     f: &mut Frame,
+    app: &App,
     area: Rect,
     delivery: &DeliverySnapshot,
     nav: &WorkflowNav,
@@ -24,10 +29,7 @@ pub fn draw_minimap(
     if area.width == 0 || area.height == 0 {
         return;
     }
-    let block = Block::default()
-        .title(" Map ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_subtle));
+    let block = focus::pane_block(app, PaneId::WorkflowMinimap, " Map ");
     let inner = block.inner(area);
     f.render_widget(block, area);
 

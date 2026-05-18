@@ -6,14 +6,11 @@ pub(super) fn draw_release_evidence_pane(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Min(40), Constraint::Length(34)])
         .split(area);
 
-    let gate_color = match app.state.release_status.as_ref() {
+    let _gate_color = match app.state.release_status.as_ref() {
         Some(r) => release_color(&r.canary_state),
         None => Color::DarkGray,
     };
-    let gate_block = Block::default()
-        .title(" [ Release Gate Matrix ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(gate_color));
+    let gate_block = focus::pane_block(app, PaneId::ReleaseInspector, " [ Release Gate Matrix ] ");
     let gate_inner = gate_block.inner(cols[0]);
     f.render_widget(gate_block, cols[0]);
 
