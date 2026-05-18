@@ -23,6 +23,8 @@ jeryu is a **single-binary CI/CD control plane** that orchestrates autonomous re
 - **Release Pipeline**: A batching train system that groups commits into release candidates, applies approval gates, and promotes to production.
 - **Kill Bell**: A global pause mechanism that instantly freezes all deployments when security or operational issues are detected.
 - **Ledger**: An append-only event log of all decisions, approvals, and deployments for audit and forensics.
+- **Event bus**: Embedded [Jansu](https://github.com/neverhuman/jansu) broker decouples the HTTP webhook handler from inline event work. The webhook handler returns `202 Accepted` after enqueueing; a consumer loop in the autonomy daemon drains records into the existing dispatch path. In-process by design — no separate Kafka/queue infra to operate. Set `JERYU_WEBHOOK_SYNC=1` to force the legacy synchronous path for ops/debug. Compile with `--no-default-features` to drop the broker entirely.
+- **Storage**: SQLite via [sqlx](https://github.com/launchbadge/sqlx) today, migrating to [RedlineDB](https://github.com/neverhuman/RedlineDB) (100% Rust SQLite-compatible engine) in staged Wave 11.C+ work. The async wrapper crate [`redlinedb-tokio`](https://github.com/neverhuman/RedlineDB/pull/7) is the migration foundation — see `docs/redline-jansu-issues.md::R-1` for the staged plan.
 
 ### Key Components
 
@@ -30,8 +32,17 @@ jeryu is a **single-binary CI/CD control plane** that orchestrates autonomous re
 ┌─────────────────────────────────────────────────────────────┐
 │                    Webhook Entry Point                      │
 │         (GitHub Push / Merge / GitLab Pipeline)            │
+│   POST /hooks → returns 202 Accepted after enqueueing       │
 └──────────────────────┬──────────────────────────────────────┘
                        │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│         Embedded Jansu Broker (in-process, no TCP)          │
+│  Topics: jeryu.webhook.{jobs,pipelines,pushes}              │
+│  Message key: X-Gitlab-Webhook-UUID (idempotent redelivery) │
+│  Feature: jansu-broker (default-on, see Cargo.toml)         │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ consumer-loop drains records
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │           Evidence Collector (Autonomy Module)              │

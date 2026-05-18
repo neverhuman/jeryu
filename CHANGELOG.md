@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.3] - 2026-05-17
+
+### Changed
+
+- **`scripts/ci-parity.sh`** now exercises the jansu messaging path and a
+  `--no-default-features` canary as final steps. Both run by default; both
+  are skipped under `--fast`. Local + remote CI parity now covers feature-flag
+  regressions.
+- **`docs/autonomous-deployment.md` Architecture Overview** updated to show
+  the embedded jansu broker between the webhook entry and the evidence
+  collector. Adds bullet entries for the in-process event bus and the
+  RedlineDB storage roadmap so readers see the as-built stack, not the
+  pre-Wave-11.C view.
+
+### Resolved
+
+- **`docs/redline-jansu-issues.md` tracker sweep**:
+  - **R-2** (RedlineDB requires rustc 1.95 + edition 2024) → RESOLVED by
+    Wave 11.C Phase 3 (jeryu v3.3.1 toolchain bump, PR #3 commit `4d14b6e`).
+  - **J-2** (Jansu requires rustc 1.95) → RESOLVED by the same toolchain bump.
+  - **J-3** (Jansu integration scope decision) → RESOLVED — webhook dispatch
+    landed in jeryu v3.3.2 (PR #4) with three integration tests; 19/19 CI
+    checks green.
+  - **J-1** (no Jansu tagged release) — still open; workaround is pinning by
+    commit SHA. Flip to `tag = "v0.6.1"` once jansu cuts the tag.
+  - **R-1**, **J-4**, **K-1** — see entries for current status + mitigation.
+
 ## [3.3.2] - 2026-05-17
 
 ### Added

@@ -115,7 +115,24 @@ else
     printf '%s⊘ cargo-deny not installed locally — skipped (remote CI will check)%s\n' "$DIM" "$RESET"
 fi
 
+# ─── 13. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
+# Validates that the embedded broker + consumer-loop wire correctly. Skipped
+# automatically when --no-default-features builds drop jansu-embedded.
+if [[ "$FAST" == "0" ]]; then
+    run "Jansu Messaging Smoke" \
+        cargo test --features jansu-broker \
+            --test jansu_webhook_jobs_roundtrip \
+            --test jansu_consumer_resumes_after_restart \
+            --test jansu_three_topics_no_crosstalk \
+            -- --test-threads=1
+fi
+
+# ─── 14. No-default-features compile (canary for feature gating regressions) ─
+if [[ "$FAST" == "0" ]]; then
+    run "No-default-features Check" cargo check --no-default-features
+fi
+
 printf '\n%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n' "$GREEN" "$RESET"
 printf '%s✓ CI parity: ALL checks passed%s\n' "$GREEN" "$RESET"
-printf '%sYou can push to PR #2 with full confidence.%s\n' "$GREEN" "$RESET"
+printf '%sYou can push the current branch with full confidence.%s\n' "$GREEN" "$RESET"
 printf '%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n\n' "$GREEN" "$RESET"
