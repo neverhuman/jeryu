@@ -11,109 +11,13 @@ use anyhow::Result;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 
-fn demo_pool(
-    name: &str,
-    gitlab_runner_id: i64,
-    auth_token: &str,
-    tags: &str,
-    min_warm: i64,
-    max_managers: i64,
-    concurrent: i64,
-    request_concurrency: i64,
-    trust_tier: &str,
-) -> Pool {
-    Pool {
-        name: name.into(),
-        gitlab_runner_id,
-        auth_token: auth_token.into(),
-        tags: tags.into(),
-        executor: "docker".into(),
-        min_warm,
-        max_managers,
-        concurrent,
-        request_concurrency,
-        paused: false,
-        trust_tier: trust_tier.into(),
-    }
-}
+// ---------------------------------------------------------------------------
+// Demo data helpers (extracted)
+// ---------------------------------------------------------------------------
 
-fn demo_pipeline(pipeline_id: i64, status: &str, updated_at: String) -> TrackedPipeline {
-    TrackedPipeline {
-        pipeline_id,
-        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
-        ref_name: "main".into(),
-        sha: "9c3f2d4e0b9f5d1d7cc8".into(),
-        status: status.into(),
-        updated_at,
-    }
-}
-
-fn demo_job_event(
-    job_id: i64,
-    status: &str,
-    job_name: &str,
-    pool_name: &str,
-    system_id: &str,
-    queued_duration: Option<f64>,
-    received_at: String,
-) -> JobEvent {
-    JobEvent {
-        job_id,
-        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
-        pipeline_id: Some(8_013),
-        status: status.into(),
-        job_name: Some(job_name.into()),
-        pool_name: Some(pool_name.into()),
-        system_id: Some(system_id.into()),
-        queued_duration,
-        received_at,
-    }
-}
-
-fn demo_evidence_record(
-    id: i64,
-    event_type: &str,
-    job_id: i64,
-    stage: &str,
-    classification: &str,
-    payload: &str,
-    created_at: String,
-) -> crate::state::EvidenceRecord {
-    crate::state::EvidenceRecord {
-        id,
-        event_type: event_type.into(),
-        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
-        job_id,
-        pipeline_id: Some(8_013),
-        commit_sha: "9c3f2d4e0b9f5d1d7cc8".into(),
-        ref_name: "main".into(),
-        stage: stage.into(),
-        exit_code: 0,
-        failure_kind: "none".into(),
-        classification: classification.into(),
-        created_at,
-        payload: payload.into(),
-    }
-}
-
-fn demo_secret_audit_event(
-    id: i64,
-    target: &str,
-    action: &str,
-    detail: &str,
-    created_at: String,
-) -> crate::state::SecretAuditEvent {
-    crate::state::SecretAuditEvent {
-        id: Some(id),
-        repo_name: "jeryu".into(),
-        version: "v3.0.1".into(),
-        target: target.into(),
-        action: action.into(),
-        status: "ok".into(),
-        detail: detail.into(),
-        created_at,
-    }
-}
+#[path = "app_demo.rs"]
+mod app_demo;
+pub(crate) use app_demo::*;
 
 const LIVE_LOG_MAX_BYTES: usize = 160_000;
 const FEED_MAX_LINES: usize = 80;
@@ -125,6 +29,7 @@ pub enum ActiveTab {
     Workflow,
     Mission,
     Release,
+    Approvals,
     Jobs,
     Agents,
     Tests,
@@ -133,7 +38,6 @@ pub enum ActiveTab {
     Evidence,
     Git,
     Secrets,
-    Jank,
 }
 
 impl ActiveTab {
@@ -142,14 +46,47 @@ impl ActiveTab {
             0 => Some(Self::Workflow),
             1 => Some(Self::Mission),
             2 => Some(Self::Release),
-            3 => Some(Self::Jobs),
-            4 => Some(Self::Agents),
-            5 => Some(Self::Tests),
-            6 => Some(Self::Pools),
-            7 => Some(Self::Cache),
-            8 => Some(Self::Evidence),
-            9 => Some(Self::Secrets),
+            3 => Some(Self::Approvals),
+            4 => Some(Self::Jobs),
+            5 => Some(Self::Agents),
+            6 => Some(Self::Tests),
+            7 => Some(Self::Pools),
+            8 => Some(Self::Cache),
+            9 => Some(Self::Evidence),
             _ => None,
+        }
+    }
+}
+
+/// Sub-pane within the Release tab. See docs/release-policy.md § TUI surface.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ReleaseSubPane {
+    #[default]
+    Pipeline,
+    Evidence,
+    Rollback,
+}
+
+impl ReleaseSubPane {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Pipeline => Self::Evidence,
+            Self::Evidence => Self::Rollback,
+            Self::Rollback => Self::Pipeline,
+        }
+    }
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Pipeline => Self::Rollback,
+            Self::Evidence => Self::Pipeline,
+            Self::Rollback => Self::Evidence,
+        }
+    }
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Pipeline => "Pipeline",
+            Self::Evidence => "Evidence",
+            Self::Rollback => "Rollback",
         }
     }
 }
@@ -258,7 +195,6 @@ pub struct TuiStateSnapshot {
     pub pipelines: Vec<PipelineMetrics>,
     pub flow: crate::tui::flow::FlowSnapshot,
     pub live_log: LiveLogState,
-    pub jankurai: crate::tui::jankurai::JankuraiSnapshot,
     pub hot_cache_usage_bytes: i64,
     pub cache_hits: i64,
     pub cache_objects_count: i64,
@@ -300,6 +236,54 @@ pub struct TuiStateSnapshot {
     pub pipeline_progress_view: Option<PipelineProgressView>,
     // TUI v2 — event ticker:
     pub event_ticker_offset: usize,
+    // Agent-first release process:
+    pub release_stages: ReleaseStageSnapshot,
+    pub approvals_queue: Vec<PendingApproval>,
+    // TUI connection status: true if state was fetched within the last 10s
+    pub agent_connected: bool,
+}
+
+/// Counts of in-flight items per stage of the release funnel. Sourced from
+/// the state DB + `ops/releases/draft/`. Rendered by the Release → Pipeline
+/// sub-pane in the TUI.
+#[derive(Debug, Clone, Default)]
+pub struct ReleaseStageSnapshot {
+    pub plan: Vec<ReleaseStageCard>,
+    pub build: Vec<ReleaseStageCard>,
+    pub proof: Vec<ReleaseStageCard>,
+    pub canary: Vec<ReleaseStageCard>,
+    pub stable: Vec<ReleaseStageCard>,
+}
+
+impl ReleaseStageSnapshot {
+    pub fn total(&self) -> usize {
+        self.plan.len()
+            + self.build.len()
+            + self.proof.len()
+            + self.canary.len()
+            + self.stable.len()
+    }
+}
+
+/// One in-flight unit at a stage. Typically a PR; for the Stable column it is
+/// the currently-pointed-to version.
+#[derive(Debug, Clone)]
+pub struct ReleaseStageCard {
+    pub label: String,
+    pub agent_id: String,
+    pub age: String,
+}
+
+/// One PR awaiting human approval after CI green. Rendered by the Approvals tab.
+#[derive(Debug, Clone)]
+pub struct PendingApproval {
+    pub pr_number: u64,
+    pub title: String,
+    pub agent_id: String,
+    pub risk_tier: u8,
+    pub ci_status: String,
+    pub age: String,
+    pub head_sha: String,
 }
 
 pub struct App {
@@ -310,11 +294,12 @@ pub struct App {
 
     pub active_tab: ActiveTab,
     pub active_pane: ActivePane,
+    pub release_subpane: ReleaseSubPane,
+    pub selected_approval_index: usize,
     pub selected_pool_index: usize,
     pub selected_pipeline_index: usize,
     pub selected_job_index: usize,
     pub selected_job_id: Option<i64>,
-    pub selected_jankurai_index: usize,
 
     pub maximize_logs: bool,
     pub log_scroll_offset: u16,
@@ -329,7 +314,6 @@ pub struct App {
     pub command_palette_open: bool,
     pub command_palette_query: String,
     pub evidence_view_mode: EvidenceViewMode,
-    pub workflow_nav: crate::tui::workflow::nav::WorkflowNav,
 
     pub tick_count: u64,
 
@@ -344,6 +328,34 @@ pub struct App {
     pub search_active: bool,
     pub search_query: String,
     pub help_overlay_open: bool,
+
+    // Workflow DAG state:
+    pub workflow_nav: crate::tui::workflow::nav::WorkflowNav,
+    pub workflow_snapshot: crate::tui::workflow::model::WorkflowSnapshot,
+    pub workflow_inspect_open: bool,
+
+    // Delivery view (multi-PR canonical pipeline):
+    pub delivery_snapshot: crate::tui::workflow::model::DeliverySnapshot,
+    pub inspector_tab: crate::tui::workflow::inspector::InspectorTab,
+    pub delivery_hit_map: crate::tui::workflow::hit_map::DeliveryHitMap,
+    pub drag_origin: Option<(u16, u16)>,
+    /// Feedback line from the most-recent delivery action (rollback, rerun,
+    /// etc.). Shown in the Inspector's Actions tab; cleared after a few ticks.
+    pub delivery_action_message: Option<String>,
+
+    /// Mission Control action pane (Wave 5 — Evidence Gate). Holds focus,
+    /// pending-input buffer, and last-result summary so the cockpit can
+    /// surface Approve/Block/Repair/Freeze/KillBell verdicts without a
+    /// terminal drop-out.
+    pub action_pane: crate::tui::workflow::actions::ActionPaneState,
+
+    /// Side-effect surface for the Mission Control action buttons (Wave
+    /// 6.A). Defaults to `FakeActionAdapter` so existing code paths (and
+    /// unit tests) keep working without a database; production builds
+    /// replace this at startup via [`App::try_install_production_adapter`]
+    /// which wires the SQL pool, GitHub client, and signing key behind the
+    /// same `ActionAdapter` trait seam.
+    pub action_adapter: std::sync::Arc<dyn crate::tui::workflow::action_adapter::ActionAdapter>,
 
     sync_rx: mpsc::Receiver<TuiStateSnapshot>,
     sync_tx: mpsc::Sender<TuiStateSnapshot>,

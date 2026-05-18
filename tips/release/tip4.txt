@@ -1,0 +1,506 @@
+## My recommendation for JeRyu
+
+**Use PRs for every code change. Use release workflows/environments for every production promotion. Let agents do the work, but do not let agent claims replace mechanical gates.**
+
+For JeRyu specifically, the best canonical standard is:
+
+```text
+Issue / request
+  → agent branch
+  → draft PR
+  → JeRyu evidence + GitHub Actions checks
+  → CODEOWNER / reviewer approval
+  → merge queue into protected main
+  → dev/staging deploy or artifact
+  → canary / release-candidate channel
+  → production release
+  → monitored rollback path
+```
+
+That is not bureaucracy. It is the control plane that makes agent work safe at high volume.
+
+JeRyu’s own mission already points in this direction: it describes itself as a Git-compatible, agent-native control plane that adds agent-aware CI/CD, smart test selection, runner orchestration, remote management, evidence, and deterministic human governance on top of Git. It also already has release docs requiring green upstream pipelines, release reconciliation, preflight checks, canary evidence, handoff artifacts, and production promotion only after those artifacts exist. ([GitHub][1])
+
+## The big correction: agents do not remove CI or release gates
+
+I would **not** say, “because JeRyu works directly with the agent, we do not need CI or release gates.”
+
+I would say:
+
+**Agents may run the tests, choose the tests, explain the tests, repair failures, and generate evidence. GitHub/JeRyu must still enforce the gates.**
+
+The reason is simple: agents are contributors. They are not the source of truth. GitHub’s own Copilot agent model follows the same pattern: the agent creates branches and PRs, works in an Actions-powered environment, but branch protections, audit logs, human review, and CI/CD controls remain in force. GitHub’s agent docs also explicitly describe agent PRs as requiring review and applying existing branch protections. ([The GitHub Blog][2])
+
+That matters even more for JeRyu because the repo is trying to become an agent-native release/control layer. If JeRyu weakens its own gates, it teaches the wrong standard.
+
+## PRs: yes, for code. Not for every release action.
+
+Think of the GitHub objects this way:
+
+| Thing                           | Purpose                                                    |
+| ------------------------------- | ---------------------------------------------------------- |
+| **Issue**                       | Bug report, feature request, task, investigation request   |
+| **Branch**                      | Isolated workspace for one agent or human                  |
+| **Pull Request**                | Proposed code change, review record, proof/evidence bundle |
+| **Merge queue**                 | Safe serialization of many concurrent PRs                  |
+| **`main`**                      | Protected trunk; always releasable                         |
+| **Tag / GitHub Release**        | Immutable shipped version                                  |
+| **Environment**                 | Deployment target: dev, canary, prod                       |
+| **Feature flag / release flag** | Limit exposure without changing code                       |
+| **Rollback record**             | Proof of how to return to a known-good state               |
+
+So the answer is:
+
+**All code changes should go through PRs.**
+**All production promotions should go through release workflows and GitHub Environments.**
+**All shipped artifacts should be tied to immutable tags/releases.**
+
+That gives you traceability: who/what proposed the change, what tests ran, who approved it, what SHA shipped, what artifact was built, what evidence exists, and how to roll it back.
+
+## Recommended branch and merge model
+
+Use **trunk-based development**:
+
+```text
+main                  protected, always releasable
+agent/<id>/<issue>    short-lived agent branches
+fix/<issue>-slug      human or agent bugfix branches
+feat/<issue>-slug     feature branches
+release/vX.Y.Z        optional, only for version-bump/release-prep PRs
+```
+
+Do **not** use long-lived `dev`, `staging`, `prod`, or `release` branches as your main process. Long-lived branches cause delayed feedback, large merges, and hidden drift. DORA’s guidance favors short-lived branches, frequent integration to trunk, small batches, and automated tests after each change. ([Dora][3])
+
+For JeRyu, the clean model is:
+
+```text
+agent branch → PR → protected main → release workflow → dev/canary/prod environments
+```
+
+Use a `release/vX.Y.Z` branch only when you need a short-lived release-prep PR that updates `VERSION`, `Cargo.toml`, `version.json`, `CHANGELOG`, docs, and release evidence.
+
+## Required GitHub protections for `main`
+
+Configure a GitHub ruleset or branch protection rule for `main` with these requirements:
+
+1. **Require pull requests before merging.**
+2. **Require required status checks.**
+3. **Require CODEOWNER review.**
+4. **Require all conversations resolved.**
+5. **Require linear history.**
+6. **Disable force pushes and branch deletion.**
+7. **Apply rules to admins.**
+8. **Restrict who can push directly to `main`.**
+9. **Require deployments to succeed before merge when relevant.**
+10. **Enable merge queue once agent PR volume grows.**
+
+GitHub’s branch protection docs support exactly these controls: required PR reviews, status checks, signed/linear history options, merge queues, deployment requirements, no-bypass rules, push restrictions, and force-push/deletion protections. Merge queue is especially important when many agents submit PRs at once because it tests the PR as it will land, not merely as it passed earlier on a stale base. ([GitHub Docs][4])
+
+## The canonical JeRyu release ladder
+
+Use three release levels:
+
+```text
+main merge
+  → dev / staging
+  → canary / release candidate
+  → production
+```
+
+### 1. Dev / staging
+
+Every merge to `main` should create an internal artifact or deploy to an internal environment.
+
+For JeRyu, this can mean:
+
+```text
+cargo build
+cargo test
+install smoke test
+JeRyu evidence generation
+internal dogfood binary
+internal runner-pool test
+```
+
+This is not a “release” yet. It is proof that the trunk is still healthy.
+
+### 2. Canary / release candidate
+
+For a server, canary usually means sending a small percentage of production traffic to the new version. Google SRE describes canarying as exposing only a subset of production traffic first, evaluating whether the new version is good or bad, and integrating that evaluation into the release process. AWS similarly describes canary deployment as a phased release where a small canary group receives the new version before broader rollout. ([Google SRE][5])
+
+For JeRyu, which appears to be a Rust CLI/control-plane project, canary should probably mean:
+
+```text
+vX.Y.Z-rc.1
+canary install channel
+internal agent runners only
+selected maintainer machines
+limited remote-runner pool
+release doctor
+install smoke
+real agent workflow smoke
+rollback rehearsal
+```
+
+Canary should answer:
+
+```text
+Can this version install?
+Can it run the core commands?
+Can it handle agent PR/test/release workflows?
+Can it operate without leaking secrets?
+Can it generate evidence?
+Can we roll back cleanly?
+```
+
+### 3. Production
+
+Production should only happen after:
+
+```text
+green main SHA
+release preflight
+security gate
+SBOM/provenance
+canary evidence
+rollback plan
+prod environment approval
+immutable tag
+GitHub Release
+registry publish, if applicable
+```
+
+GitHub Environments are the right primitive here. A job that references an environment must satisfy its protection rules before running or accessing secrets, and environments can require reviewers, wait timers, no self-review, and custom deployment protection rules. ([GitHub Docs][6])
+
+## Release gates JeRyu should enforce
+
+Use this gate stack:
+
+### Gate 1: Source gate
+
+A release candidate must come from a commit already merged to protected `main`.
+
+No direct release from an arbitrary agent branch.
+
+### Gate 2: PR gate
+
+Every code-changing PR needs:
+
+```text
+linked issue
+clear summary
+risk level
+test/evidence lane
+rollback note
+agent identity
+reviewer / CODEOWNER approval
+```
+
+JeRyu already has a PR template and CODEOWNERS file. The template currently asks for description, motivation, type, docs, formatting, clippy, and tests; CODEOWNERS already assigns maintainers for source, crates, tests, tooling, ops, agents, instructions, docs, mission, and paper areas. ([GitHub][7])
+
+I would extend the PR template with:
+
+```text
+Risk tier:
+Proof lane:
+Commands run:
+Evidence artifacts:
+Rollback plan:
+Feature flag / kill switch:
+Security impact:
+Secrets impact:
+Migration impact:
+Agent used:
+Human owner:
+```
+
+### Gate 3: Test-selection gate
+
+JeRyu should absolutely use its smart test selection to move faster. But the rule should be:
+
+```text
+VTI selects the smallest safe lane.
+Low confidence, unmapped paths, security changes, release changes, or CI changes escalate to broader/full validation.
+```
+
+That matches JeRyu’s own testing docs: change types map to check/unit/integration/security/full lanes, VTI owns diff-to-test selection, selector misses are recorded, and unmapped or low-confidence changes escalate. ([GitHub][8])
+
+### Gate 4: CI hardening gate
+
+For agent PRs, add one hard rule:
+
+**Any PR that weakens CI is blocked by default.**
+
+GitHub’s recent guidance on reviewing agent PRs calls out “CI gaming” as a major red flag: agents may remove tests, skip lint, weaken conditions, or add `|| true` to get green checks. For JeRyu, that should be a release-blocking class of change unless explicitly approved by a human maintainer. ([The GitHub Blog][9])
+
+### Gate 5: Security and supply-chain gate
+
+Require:
+
+```text
+secret scan
+dependency review
+cargo-deny / advisory scan
+SBOM generation
+artifact provenance / attestations
+least-privilege GitHub token permissions
+no long-lived production secrets in PR jobs
+```
+
+GitHub recommends least-privilege `GITHUB_TOKEN` permissions, keeping default token scopes minimal and raising permissions per job only where needed. GitHub Dependency Review can fail PRs that introduce vulnerable dependencies, and artifact attestations establish build provenance for generated artifacts. ([GitHub Docs][10])
+
+For JeRyu, this is not optional. The product is literally about agent control, releases, secrets, and evidence.
+
+### Gate 6: Evidence gate
+
+JeRyu already has the right concept: proof, witness, VRC/AER, release evidence, release doctor, canary evidence, handoff artifacts. Its release docs list sources of truth such as `VERSION`, `CHANGELOG`, `ops/releases/<version>/`, security evidence, backup evidence, monitoring evidence, and abuse-control evidence. ([GitHub][11])
+
+Make that mandatory:
+
+```text
+No evidence → no release.
+No rollback note → no release.
+No canary proof → no prod.
+```
+
+### Gate 7: Production environment approval
+
+Production should require a protected GitHub Environment named something like:
+
+```text
+prod
+```
+
+with:
+
+```text
+required reviewer: maintainer or release manager
+prevent self-review: enabled
+environment secrets: prod-only
+wait timer: optional
+custom deployment rule: optional JeRyu release doctor
+```
+
+That gives you a clean separation:
+
+```text
+agents can prepare
+CI can validate
+release workflow can build
+environment gate controls final promotion
+```
+
+## Specific issue I found in JeRyu’s current release workflow
+
+JeRyu already has strong release infrastructure, but I would fix one important thing before trusting production releases.
+
+The current `release.yml` has a dry-run input, release preflight, security gate, build, provenance, publish, release evidence, and rollback-check jobs. But the audit job appears conditioned on `dry_run != 'false'`, meaning it runs for dry-runs, not real production publishes. Also, the publish job depends on `preflight`, `security`, and `build`, but not obviously on audit, provenance, release evidence, or rollback-check. ([GitHub][12])
+
+I would change production release dependencies to this shape:
+
+```yaml
+publish:
+  needs:
+    - preflight
+    - audit
+    - security
+    - build
+    - provenance
+    - release-evidence
+    - canary-evidence
+```
+
+And I would make audit/evidence run for both dry-run and real release.
+
+Also, if you enable GitHub merge queue, add `merge_group` triggers to the workflows. JeRyu’s Rust workflow currently triggers on push, pull request, and scheduled runs; merge queue requires checks to run against the queued merge group so GitHub can validate the exact merged result. ([GitHub][13])
+
+## Agent submission and review standard
+
+Because you expect many agents to submit bugs and features, separate intake from merge authority.
+
+### Agents may do this
+
+```text
+create issues
+label obvious area/type
+deduplicate likely duplicates
+propose acceptance criteria
+open draft PRs
+run tests
+generate evidence
+respond to review comments
+propose release notes
+suggest risk tier
+```
+
+### Agents may not do this alone
+
+```text
+merge to main
+bypass branch protection
+approve their own PR
+weaken CI without explicit approval
+access prod secrets from PR context
+publish production releases
+close security issues without human review
+delete rollback artifacts
+```
+
+GitHub’s own agent model follows this security posture: coding agents can push to their own branches, open PRs, run in restricted environments, and rely on existing org policies and branch protections; they do not get unrestricted direct control over protected branches. ([The GitHub Blog][2])
+
+## Risk tiers for JeRyu PRs
+
+Use an explicit approval matrix.
+
+```text
+Tier 0 — docs, README, typo, non-behavioral
+  Checks: docs/build smoke if relevant
+  Approval: 1 maintainer or trusted auto-merge
+
+Tier 1 — small bugfix, no API/security/release impact
+  Checks: fmt, clippy, selected tests, install smoke if CLI touched
+  Approval: 1 maintainer or CODEOWNER
+
+Tier 2 — feature, API, behavior, test-intel, runner, MCP, orchestration
+  Checks: selected + integration + relevant smoke
+  Approval: CODEOWNER + maintainer
+
+Tier 3 — secrets, auth, release, deployment, CI, policy, dependency, security
+  Checks: full test/security/evidence lane
+  Approval: CODEOWNER + security/ops/release owner
+
+Tier 4 — emergency prod fix
+  Checks: smallest safe emergency gate, then full post-fix validation
+  Approval: release owner
+  Rule: rollback first when possible, then fix forward
+```
+
+This lets you move fast without pretending every change is equal.
+
+## Rollback standard
+
+JeRyu’s release docs already say the right thing: if `release doctor` or preflight fails, stop; prefer promoting the previous known-good release over ad hoc manual fixes; keep previous artifacts until the next release is proven safe; and record rollback reason/evidence. ([GitHub][11])
+
+Use three rollback paths:
+
+### 1. Feature-flag rollback
+
+Best for features.
+
+```text
+turn off flag
+verify health
+leave code in place
+open cleanup/fix PR
+```
+
+Feature flags decouple deploy from release: code can be deployed but not exposed, and a broken feature can be disabled without rolling back a whole release. ([LaunchDarkly][14])
+
+### 2. Artifact rollback
+
+Best for broken release.
+
+```text
+promote previous known-good version
+verify install/runtime
+record rollback evidence
+open revert/fix PR
+```
+
+Blue/green-style release thinking is useful here: keep the old known-good version available so rollback is a traffic/channel/artifact switch, not a panicked rebuild. ([AWS Documentation][15])
+
+### 3. Code rollback
+
+Best for cleaning up `main`.
+
+```text
+git revert <bad_commit>
+PR review
+merge queue
+new patch release
+```
+
+Do not rely on code rollback as the fastest production mitigation. First stop the blast radius; then clean the repo.
+
+## Canary strategy for JeRyu
+
+For JeRyu, I would implement canary as an **opt-in release channel**, not as a fake “prod branch.”
+
+Example:
+
+```text
+stable:  v1.2.3
+canary:  v1.2.4-rc.1
+nightly: main SHA artifacts
+```
+
+Canary acceptance should require:
+
+```text
+install command succeeds
+jeryu doctor succeeds
+jeryu release preflight succeeds
+core CLI smoke succeeds
+agent PR workflow smoke succeeds
+selected real repo dogfood succeeds
+no secret leakage
+no unexpected network/tool access
+rollback rehearsal documented
+```
+
+Then production promotion is not “merge something.” It is:
+
+```text
+approve prod environment
+publish immutable release
+publish registry package if applicable
+archive evidence
+monitor
+```
+
+## The best standard in one sentence
+
+**Agents create branches and PRs; JeRyu selects/runs evidence; GitHub enforces protected merges; merge queue serializes concurrent agent work; releases promote immutable artifacts through dev → canary → prod; rollback uses flags or previous known-good artifacts before code reverts.**
+
+## Concrete setup checklist for JeRyu
+
+I would implement this exact checklist:
+
+```text
+1. Protect main with required PRs, CODEOWNERS, required checks, no force push, no delete.
+2. Enable merge queue once agent PR volume grows.
+3. Add merge_group triggers to CI workflows.
+4. Add top-level least-privilege workflow permissions.
+5. Create GitHub Environments: dev, canary, prod.
+6. Require prod reviewer and prevent self-review.
+7. Update PR template with risk tier, proof lane, rollback, evidence, agent identity.
+8. Add issue forms for bug, feature, security-sensitive request, release request.
+9. Make JeRyu VTI the selector, not the final authority.
+10. Escalate low-confidence, CI, release, secrets, and security changes to full validation.
+11. Fix release.yml so audit/provenance/evidence gate real production publishes.
+12. Require SBOM + artifact provenance for release binaries.
+13. Publish canary/RC before stable production.
+14. Keep previous known-good artifacts available.
+15. Add a rollback drill to every release.
+```
+
+The final cultural rule is the most important:
+
+**For low-risk changes, automate aggressively. For high-risk changes, require explicit ownership. For production, never trust an agent’s statement; trust the recorded evidence, protected branch, release artifact, and rollback path.**
+
+[1]: https://github.com/neverhuman/jeryu "GitHub - neverhuman/jeryu: Agent-first git, Gitlab fork with full agent support and TUI · GitHub"
+[2]: https://github.blog/ai-and-ml/github-copilot/github-copilot-coding-agent-101-getting-started-with-agentic-workflows-on-github/ "GitHub Copilot coding agent 101: Getting started with agentic workflows on GitHub - The GitHub Blog"
+[3]: https://dora.dev/capabilities/trunk-based-development/ "DORA | Capabilities: Trunk-based development"
+[4]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches "About protected branches - GitHub Docs"
+[5]: https://sre.google/workbook/canarying-releases/ "Google SRE - Canary Release: Deployment Safety and Efficiency"
+[6]: https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment "Managing environments for deployment - GitHub Docs"
+[7]: https://github.com/neverhuman/jeryu/blob/main/.github/PULL_REQUEST_TEMPLATE.md "jeryu/.github/PULL_REQUEST_TEMPLATE.md at main · neverhuman/jeryu · GitHub"
+[8]: https://github.com/neverhuman/jeryu/blob/main/docs/testing.md "jeryu/docs/testing.md at main · neverhuman/jeryu · GitHub"
+[9]: https://github.blog/ai-and-ml/generative-ai/agent-pull-requests-are-everywhere-heres-how-to-review-them/ "Agent pull requests are everywhere. Here's how to review them. - The GitHub Blog"
+[10]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+[11]: https://github.com/neverhuman/jeryu/blob/main/docs/release.md "jeryu/docs/release.md at main · neverhuman/jeryu · GitHub"
+[12]: https://raw.githubusercontent.com/neverhuman/jeryu/refs/heads/main/.github/workflows/release.yml "raw.githubusercontent.com"
+[13]: https://github.com/neverhuman/jeryu/blob/main/.github/workflows/rust.yml "jeryu/.github/workflows/rust.yml at main · neverhuman/jeryu · GitHub"
+[14]: https://launchdarkly.com/blog/what-are-feature-flags/ "Feature Flags 101: Use Cases, Benefits, and Best Practices | LaunchDarkly"
+[15]: https://docs.aws.amazon.com/whitepapers/latest/blue-green-deployments/introduction.html "Introduction - Blue/Green Deployments on AWS"
+

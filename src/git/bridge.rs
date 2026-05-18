@@ -8,7 +8,7 @@ use std::path::Path;
 pub fn render_git_bridge(system_git: &Path) -> String {
     format!(
         "#!/usr/bin/env sh\nexec {} \"$@\"\n",
-        shell_escape::unix::escape(system_git.display().to_string().into())
+        shell_escape::unix::escape(system_git.display().to_string())
     )
 }
 

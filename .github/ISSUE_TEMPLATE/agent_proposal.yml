@@ -1,0 +1,92 @@
+name: Agent Proposal
+description: Agent-filed proposal for a bug, feature, improvement, or IP-upgrade. Humans may use this too.
+title: "[AGENT] "
+labels: ["agent-proposal", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template is used by agents (and humans) to file new work for the
+        agent-first release process. See `docs/release-policy.md`.
+  - type: input
+    id: agent_id
+    attributes:
+      label: Authoring agent / human
+      description: e.g. claude-opus-4-7, gpt-5, codex, human:@alice
+      placeholder: claude-opus-4-7
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - bug
+        - feature
+        - improvement
+        - ip-upgrade
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is wrong, missing, or improvable?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen after this proposal lands?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Bulleted list of verifiable conditions for success.
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk tier
+      description: See risk_tier in release.policy.toml
+      options:
+        - "0 — docs / typo / non-behavioral"
+        - "1 — small bugfix, no API/security/release impact"
+        - "2 — feature, API, behavior, TUI surface"
+        - "3 — secrets, release, CI, workflow, agent policy, dependency, security"
+        - "4 — emergency production fix"
+    validations:
+      required: true
+  - type: dropdown
+    id: change_type
+    attributes:
+      label: Change type (proof-lanes)
+      options:
+        - docs-only
+        - leaf-bugfix
+        - state-change
+        - api-change
+        - release-change
+        - cross-module
+        - security-relevant
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback expectation
+      description: If this is shipped and goes wrong, how do we undo it?
+    validations:
+      required: true
+  - type: input
+    id: grant
+    attributes:
+      label: Agent grant requested
+      description: Which capability grant is needed? (e.g. write-branch, propose-patch, request-merge, none)
+    validations:
+      required: false

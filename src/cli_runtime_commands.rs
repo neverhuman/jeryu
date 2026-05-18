@@ -175,6 +175,24 @@ pub(crate) enum AgentCommands {
         #[arg(long, default_value = "trusted")]
         trust_tier: String,
     },
+    /// Agent-first GitHub PR submission: run proof, write evidence capsule, open draft PR.
+    Submit {
+        /// Short description of the work (used in branch slug + PR title).
+        #[arg(short, long)]
+        task: String,
+        /// Linked issue number (#N). Optional but strongly recommended.
+        #[arg(long)]
+        issue: Option<u64>,
+        /// Risk tier (0..=4). If omitted, inferred from touched paths via release.policy.toml.
+        #[arg(long)]
+        risk_tier: Option<u8>,
+        /// Skip actually opening the PR; only produce the evidence capsule. Default false.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+        /// Emit the assembled capsule as JSON to stdout.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -188,158 +206,6 @@ pub(crate) enum SettingsCommands {
     },
 }
 
-#[derive(Subcommand)]
-pub(crate) enum ReleaseCommands {
-    /// Show the latest release attempts and canary state.
-    Status {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
-        #[arg(long = "ref-name", alias = "ref", default_value = "main")]
-        ref_name: String,
-        #[arg(long)]
-        sha: Option<String>,
-        #[arg(long, default_value = "5")]
-        limit: usize,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Continuously refresh the latest release status.
-    Watch {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
-        #[arg(long = "ref-name", alias = "ref", default_value = "main")]
-        ref_name: String,
-        #[arg(long)]
-        sha: Option<String>,
-        #[arg(long, default_value = "5")]
-        limit: usize,
-        #[arg(long, default_value = "5")]
-        interval_secs: u64,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Reconcile release attempts against the latest successful upstream pipeline.
-    Reconcile {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
-        #[arg(long = "ref-name", alias = "ref", default_value = "main")]
-        ref_name: String,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Trigger approved A/B production promotion for a passed canary.
-    PromoteProd {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
-        #[arg(long = "ref-name", alias = "ref", default_value = "main")]
-        ref_name: String,
-        #[arg(long)]
-        version: Option<String>,
-    },
-    /// Check SSH, Vault, registry, and disk before launching canary.
-    Preflight {
-        #[arg(long)]
-        ssh_host: Option<String>,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Diagnose what is blocking canary or production for a release version.
-    Doctor {
-        #[arg(long)]
-        version: Option<String>,
-        /// Also run live preflight checks (SSH/Vault/registry/disk).
-        #[arg(long, default_value_t = true)]
-        preflight: bool,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum SecretsCommands {
-    /// Bootstrap and initialize the jeryu-managed Vault.
-    Init,
-    /// Show Vault health and the latest tracked secret rotation state.
-    Status {
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Rotate release-scoped secrets and render release envs.
-    Rotate {
-        #[arg(long, default_value_t = infer_repo_name())]
-        repo: String,
-        #[arg(long)]
-        version: String,
-        #[arg(long)]
-        target: String,
-    },
-    /// Finalize a previously rotated secret set after promotion succeeds.
-    Finalize {
-        #[arg(long, default_value_t = infer_repo_name())]
-        repo: String,
-        #[arg(long)]
-        version: String,
-        #[arg(long)]
-        target: String,
-    },
-    /// Regenerate the release handoff report from current artifacts.
-    Report {
-        #[arg(long, default_value_t = infer_repo_name())]
-        repo: String,
-        #[arg(long)]
-        version: String,
-    },
-    /// Print recovery instructions for a release bundle.
-    Recover {
-        #[arg(long, default_value_t = infer_repo_name())]
-        repo: String,
-        #[arg(long)]
-        version: String,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum HostCommands {
-    /// Perform a storage audit on the host.
-    StorageAudit,
-    /// Check host, GitLab, Docker, and runner-cache health.
-    Doctor {
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Run an aggressive reclaim operation.
-    Reclaim {
-        #[arg(long)]
-        mode: String,
-        #[arg(long, default_value_t = false)]
-        plan: bool,
-        #[arg(long, default_value_t = false)]
-        apply: bool,
-    },
-    /// Install the jeryu-gc systemd timer from ops/ci.
-    InstallGcTimer {
-        #[arg(long, default_value_t = false)]
-        allow_sudo: bool,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum RepoCommands {
-    /// Generate the machine-readable agent routing index for jeryu.
-    RenderAgentIndex {
-        #[arg(long, default_value_t = false)]
-        check: bool,
-    },
-    /// Audit agent-facing routing, docs, and generated index freshness.
-    AuditAgentSurface {
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Run the Postgres-backed state proof in a disposable container.
-    PostgresStateProof,
-    /// Capture the canonical TUI screenshots used in docs.
-    CaptureTuiScreenshots {
-        #[arg(long, value_parser = parse_expanded_path)]
-        output_dir: Option<PathBuf>,
-    },
-}
+#[path = "cli_runtime_commands_ext.rs"]
+mod cli_runtime_commands_ext;
+pub(crate) use cli_runtime_commands_ext::*;

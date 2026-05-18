@@ -1,0 +1,13 @@
+schema: vibegate.agent.v1
+id: reviewer-security
+version: 1
+role: security
+chain_ref: reviewer-security
+prompt_path: prompts/reviewer-security.md
+output_schema: schemas/agent-approval-receipt.schema.json
+signing_key_pub: keys/reviewer-security.ed25519.pub
+required_for_tiers: ["R2", "R3"]
+forbidden_provider_data_use: ["train_on_input"]
+deterministic: true
+max_diff_bytes: 600000
+on_oversize_diff: chunk_and_summarize

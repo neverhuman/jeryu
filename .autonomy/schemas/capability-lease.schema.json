@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.capability_lease.v1",
+  "title": "CapabilityLease",
+  "description": "Short-lived, scope-limited authority grant for one agent task.",
+  "type": "object",
+  "required": ["schema", "id", "intent_id", "agent_id", "scope", "ttl_seconds", "issued_at", "expires_at", "policy_sha", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.capability_lease.v1" },
+    "id": { "type": "string", "pattern": "^lease_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "intent_id": { "type": "string", "pattern": "^intent_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "agent_id": { "type": "string" },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_actions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names from src/capability.rs::AgentIntent (e.g. ProposePatch, RunTests, RequestMerge, MintReceipt)."
+        },
+        "denied_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "allowed_write_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Git refspec patterns the agent may push to. NEVER includes protected branches."
+        },
+        "denied_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "ttl_seconds": { "type": "integer", "minimum": 60, "maximum": 14400 },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "policy_sha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "type": "string", "description": "Typically 'autonomy-control-plane'." },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

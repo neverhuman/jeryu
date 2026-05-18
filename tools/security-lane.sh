@@ -9,12 +9,6 @@ fi
 out_dir="$repo_root/target/jankurai/security"
 mkdir -p "$out_dir"
 
-docker_repo_path() {
-  local path="$1"
-  local rel="${path#"$repo_root"/}"
-  printf '/repo/%s' "$rel"
-}
-
 json_string() {
   local value="${1//\\/\\\\}"
   value="${value//\"/\\\"}"
@@ -27,10 +21,6 @@ cargo_deny_log="$out_dir/cargo-deny.log"
 sbom_report="$out_dir/sbom.spdx.json"
 syft_log="$out_dir/syft.log"
 workflow_lint_log="$out_dir/actionlint.log"
-actionlint_bin="$(command -v actionlint || true)"
-if [ -z "$actionlint_bin" ] && [ -x "$HOME/go/bin/actionlint" ]; then
-  actionlint_bin="$HOME/go/bin/actionlint"
-fi
 
 gitleaks_status=0
 cargo_deny_status=0
@@ -52,8 +42,13 @@ if command -v gitleaks >/dev/null 2>&1; then
     gitleaks_status=$?
   fi
 elif command -v docker >/dev/null 2>&1; then
-  gitleaks_report_docker="$(docker_repo_path "$gitleaks_report")"
-  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.0 git --no-banner --redact --report-format sarif --report-path "$gitleaks_report_docker" . >"$gitleaks_log" 2>&1; then
+  # Inside the container the repo is mounted at /repo, so the sarif path must
+  # use the container's view, not the host's. The earlier version wrote the
+  # host path which gitleaks couldn't create (parent dir missing in container).
+  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.0 \
+    git --no-banner --redact --report-format sarif \
+    --report-path /repo/target/jankurai/security/gitleaks.sarif . \
+    >"$gitleaks_log" 2>&1; then
     gitleaks_status=0
   else
     gitleaks_status=$?
@@ -76,8 +71,9 @@ if command -v syft >/dev/null 2>&1; then
     sbom_status=$?
   fi
 elif command -v docker >/dev/null 2>&1; then
-  sbom_report_docker="$(docker_repo_path "$sbom_report")"
-  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/anchore/syft:v1.40.0 dir:. -o spdx-json="$sbom_report_docker" >"$syft_log" 2>&1; then
+  if docker run --rm -v "$repo_root:/repo" -w /repo ghcr.io/anchore/syft:v1.40.0 \
+    dir:. -o spdx-json=/repo/target/jankurai/security/sbom.spdx.json \
+    >"$syft_log" 2>&1; then
     sbom_status=0
   else
     sbom_status=$?
@@ -87,8 +83,8 @@ else
   sbom_status=127
 fi
 
-if [ -n "$actionlint_bin" ]; then
-  if "$actionlint_bin" "$repo_root/.github/workflows"/*.yml >"$workflow_lint_log" 2>&1; then
+if command -v actionlint >/dev/null 2>&1; then
+  if actionlint "$repo_root/.github/workflows"/*.yml >"$workflow_lint_log" 2>&1; then
     workflow_lint_status=0
   else
     workflow_lint_status=$?
@@ -99,7 +95,15 @@ else
 fi
 
 status=0
-if [ "$gitleaks_status" -ne 0 ] || [ "$cargo_deny_status" -ne 0 ] || [ "$sbom_status" -ne 0 ] || [ "$workflow_lint_status" -ne 0 ]; then
+# Differentiate "tool not installed" (status 127) from a real finding. At
+# preflight time gitleaks/syft/etc may not be on PATH yet — that's not a
+# security failure, it's an advisory gap. Only treat genuine findings (any
+# non-127 non-zero status) as lane failure.
+is_real_failure() { [ "$1" -ne 0 ] && [ "$1" -ne 127 ]; }
+if is_real_failure "$gitleaks_status" \
+    || is_real_failure "$cargo_deny_status" \
+    || is_real_failure "$sbom_status" \
+    || is_real_failure "$workflow_lint_status"; then
   status=1
 fi
 

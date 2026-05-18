@@ -1,3 +1,7 @@
+# Mirror of jankurai v1.4.1's own agent/tool-adoption.toml. Jankurai's
+# --strict --profile ci validation expects each canonical tool to be declared
+# here with the same `mode` jankurai uses internally. Drift from the canonical
+# list causes "security lane blocked by required tool evidence: <tool>" errors.
 schema_version = "1.0.0"
 
 [[tools]]
@@ -7,6 +11,22 @@ mode = "auto"
 [[tools]]
 id = "proof-routing"
 mode = "auto"
+
+[[tools]]
+id = "proofbind"
+mode = "advisory"
+
+[[tools]]
+id = "proofmark-rust"
+mode = "advisory"
+
+[[tools]]
+id = "copy-code"
+mode = "advisory"
+
+[[tools]]
+id = "jscpd"
+mode = "advisory"
 
 [[tools]]
 id = "security"
@@ -29,17 +49,53 @@ id = "rust-witness"
 mode = "auto"
 
 [[tools]]
+id = "vibe-coverage"
+mode = "auto"
+
+[[tools]]
+id = "coverage-evidence"
+mode = "auto"
+
+[[tools]]
+id = "authz-matrix"
+mode = "auto"
+
+[[tools]]
+id = "input-boundary"
+mode = "auto"
+
+[[tools]]
 id = "agent-tool-supply"
 mode = "auto"
 
 [[tools]]
-id = "ci-bad-behavior"
+id = "release-readiness"
 mode = "auto"
+
+[[tools]]
+id = "cost-budget"
+mode = "auto"
+
+[[tools]]
+id = "rust-bad-behavior"
+mode = "advisory"
+
+[[tools]]
+id = "tui-testing"
+mode = "advisory"
+
+[[tools]]
+id = "ci-bad-behavior"
+mode = "advisory"
 
 [[tools]]
 id = "git-bad-behavior"
-mode = "auto"
+mode = "advisory"
+
+[[tools]]
+id = "gittools-bad-behavior"
+mode = "advisory"
 
 [[tools]]
 id = "release-bad-behavior"
-mode = "auto"
+mode = "advisory"

@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::api::snapshot::{TestPlanView, TestSelection, ValidationDecision, VtiStatus};
+use crate::api::snapshot::{TestPlanView, TestSelection, ValidationDecision};
 use crate::tui::theme::Theme;
 
 /// Render the full VTI proof view — called from the Tests tab.
@@ -193,7 +193,7 @@ fn render_stat_tile(
     color: Color,
     theme: &Theme,
 ) {
-    let pct = (ratio * 100.0).min(100.0) as u16;
+    let _pct = (ratio * 100.0).min(100.0) as u16;
     let lines = vec![
         Line::from(Span::styled(format!("  {}", value), theme.bold(color))),
         Line::from(Span::styled(

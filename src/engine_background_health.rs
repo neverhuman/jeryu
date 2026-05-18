@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use tracing::{debug, error, info, warn};
 
-use super::{EngineState, SharedState};
+use super::SharedState;
 use crate::pool;
 
 pub(crate) async fn system_health_loop(state: SharedState) {

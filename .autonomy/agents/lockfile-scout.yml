@@ -1,0 +1,17 @@
+schema: vibegate.agent.v1
+id: lockfile-scout
+version: 1
+role: lockfile
+chain_ref: lockfile-scout
+prompt_path: prompts/lockfile-scout.md
+output_schema: schemas/agent-approval-receipt.schema.json
+signing_key_pub: keys/lockfile-scout.ed25519.pub
+required_for_tiers: ["R3"]
+forbidden_provider_data_use: []
+deterministic: true
+static_checks:
+  - cargo_deny: { commands: ["check", "advisories", "bans", "licenses"] }
+  - lockfile_only_change: { auto_escalate_to: "R3" }
+  - new_registry_source: { auto_escalate_to: "R4" }
+  - yanked_package: { auto_block: true }
+llm_only_if_static_pass: true

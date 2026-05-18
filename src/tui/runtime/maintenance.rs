@@ -75,13 +75,11 @@ pub(crate) async fn cache_maintenance_loop(docker_ctl: crate::docker::DockerCtl)
                 {
                     error!(error = %e, "background cache GC failed");
                 }
-                return;
             }
             Err(e) => {
                 error!(error = %e, "failed to check disk usage");
-                return;
             }
-        };
+        }
     }
 
     run_pass(&docker_ctl).await;

@@ -25,7 +25,7 @@ pub fn draw_inspector(
             "success" => Color::Green,
             "running" => Color::Blue,
             "failed" => Color::Red,
-            "pending" | "created" => Color::Yellow,
+            "pending" | "created" | "waiting_for_resource" | "preparing" => Color::Yellow,
             "canceled" => Color::DarkGray,
             _ => Color::Gray,
         };
@@ -123,23 +123,23 @@ pub fn draw_inspector(
         }
 
         // Flake probability
-        if let Some(flake) = n.flake_probability {
-            if flake > 0.01 {
-                let flake_color = if flake > 0.15 {
-                    Color::Red
-                } else if flake > 0.05 {
-                    Color::Yellow
-                } else {
-                    Color::DarkGray
-                };
-                lines.push(Line::from(vec![
-                    Span::styled("  Flake:  ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(
-                        format!("{:.1}%", flake * 100.0),
-                        Style::default().fg(flake_color),
-                    ),
-                ]));
-            }
+        if let Some(flake) = n.flake_probability
+            && flake > 0.01
+        {
+            let flake_color = if flake > 0.15 {
+                Color::Red
+            } else if flake > 0.05 {
+                Color::Yellow
+            } else {
+                Color::DarkGray
+            };
+            lines.push(Line::from(vec![
+                Span::styled("  Flake:  ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("{:.1}%", flake * 100.0),
+                    Style::default().fg(flake_color),
+                ),
+            ]));
         }
 
         // Agent badge

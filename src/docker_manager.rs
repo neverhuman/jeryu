@@ -16,75 +16,11 @@ use tracing::{debug, info, warn};
 use super::DockerCtl;
 use crate::config;
 
-fn runner_bootstrap_cmd_docker() -> String {
-    let ver = &crate::settings::get().sccache.binary_version;
-    format!(
-        r#"
-set -eu
-if ! command -v sccache >/dev/null 2>&1; then
-  curl -fsSL https://github.com/mozilla/sccache/releases/download/{ver}/sccache-{ver}-x86_64-unknown-linux-musl.tar.gz \
-    | tar -xz --strip-components=1 -C /usr/local/bin sccache-{ver}-x86_64-unknown-linux-musl/sccache 2>/dev/null || true
-fi
-exec gitlab-runner run
-"#
-    )
-}
-
-fn runner_bootstrap_cmd_custom() -> String {
-    let ver = &crate::settings::get().sccache.binary_version;
-    format!(
-        r#"
-set -eu
-cat >/usr/sbin/policy-rc.d <<'EOF'
-#!/bin/sh
-exit 101
-EOF
-chmod +x /usr/sbin/policy-rc.d
-if ! command -v docker >/dev/null 2>&1; then
-  if command -v apk >/dev/null 2>&1; then
-    apk add --no-cache docker-cli >/dev/null
-  elif command -v apt-get >/dev/null 2>&1; then
-    apt-get -qq update>/dev/null
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends docker.io >/dev/null
-  fi
-fi
-if command -v docker >/dev/null 2>&1; then
-  ln -sf "$(command -v docker)" /usr/local/bin/docker || true
-fi
-for _ in 1 2 3 4 5; do
-  [ -S /var/run/docker.sock ] && break
-  sleep 1
-done
-[ -S /var/run/docker.sock ] || {{
-  echo "jeryu custom executor bootstrap: docker socket is missing" >&2
-  rm -f /usr/sbin/policy-rc.d
-  exit 1
-}}
-for _ in 1 2 3 4 5; do
-  docker info >/dev/null 2>&1 && break
-  sleep 1
-done
-docker info >/dev/null 2>&1 || {{
-  echo "jeryu custom executor bootstrap: docker info failed against mounted socket" >&2
-  rm -f /usr/sbin/policy-rc.d
-  exit 1
-}}
-rm -f /usr/sbin/policy-rc.d
-if ! command -v sccache >/dev/null 2>&1; then
-  curl -fsSL https://github.com/mozilla/sccache/releases/download/{ver}/sccache-{ver}-x86_64-unknown-linux-musl.tar.gz \
-    | tar -xz --strip-components=1 -C /usr/local/bin sccache-{ver}-x86_64-unknown-linux-musl/sccache 2>/dev/null || true
-fi
-exec gitlab-runner run
-"#
-    )
-}
-
-fn current_exe_mount_source(result: std::io::Result<PathBuf>) -> PathBuf {
-    match result {
-        Ok(path) => path,
-        Err(_) => PathBuf::from("/usr/local/bin/jeryu"),
-    }
-}
+#[path = "docker_manager_support.rs"]
+mod docker_manager_support;
+use docker_manager_support::{
+    current_exe_mount_source, runner_bootstrap_cmd_custom, runner_bootstrap_cmd_docker,
+};
 
 impl DockerCtl {
     /// Start a new runner-manager container for a pool.
@@ -367,45 +303,4 @@ impl DockerCtl {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn docker_runner_bootstrap_preserves_shared_cache_mount() {
-        let script = runner_bootstrap_cmd_docker();
-        assert!(!script.contains("find /cache"));
-        assert!(!script.contains("rm -rf --"));
-    }
-
-    #[test]
-    fn custom_runner_bootstrap_preserves_shared_cache_mount() {
-        let script = runner_bootstrap_cmd_custom();
-        assert!(!script.contains("find /cache"));
-        assert!(!script.contains("rm -rf --"));
-        assert!(!contains_bytes(
-            &script,
-            &[112, 121, 116, 104, 111, 110, 51]
-        ));
-        assert!(!contains_bytes(&script, &[112, 121, 116, 104, 111, 110]));
-        assert!(!contains_bytes(&script, &[112, 121, 51, 45, 112, 105, 112]));
-    }
-
-    #[test]
-    fn current_exe_mount_source_uses_existing_path() {
-        let path = current_exe_mount_source(Ok(PathBuf::from("/tmp/jeryu")));
-        assert_eq!(path, PathBuf::from("/tmp/jeryu"));
-    }
-
-    #[test]
-    fn current_exe_mount_source_falls_back_to_default() {
-        let path = current_exe_mount_source(Err(std::io::Error::other("missing exe")));
-        assert_eq!(path, PathBuf::from("/usr/local/bin/jeryu"));
-    }
-
-    fn contains_bytes(haystack: &str, needle: &[u8]) -> bool {
-        haystack
-            .as_bytes()
-            .windows(needle.len())
-            .any(|window| window == needle)
-    }
-}
+mod docker_manager_tests;

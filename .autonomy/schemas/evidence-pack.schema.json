@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.evidence_pack.v1",
+  "title": "EvidencePack",
+  "description": "Machine-readable proof bundle for one MR/PR. Center of the Evidence Gate design.",
+  "type": "object",
+  "required": ["schema", "id", "repo", "source_branch", "target_branch", "head_sha", "base_sha", "policy_sha", "risk", "tests", "security", "supply_chain", "rollback", "created_at", "evidence_digest"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.evidence_pack.v1" },
+    "id": { "type": "string", "pattern": "^evp_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "intent_id": { "type": ["string", "null"] },
+    "repo": { "type": "string" },
+    "source_branch": { "type": "string" },
+    "target_branch": { "type": "string" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "policy_sha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$", "description": "SHA of the target-branch policy bundle. Tip1 Law 3 (policy from target, never PR branch)." },
+    "author_agent": { "type": ["string", "null"] },
+    "risk": { "enum": ["R0", "R1", "R2", "R3", "R4", "R5"] },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "risk_tags", "lines_added", "lines_removed"],
+        "properties": {
+          "path": { "type": "string" },
+          "risk_tags": { "type": "array", "items": { "type": "string" } },
+          "lines_added": { "type": "integer", "minimum": 0 },
+          "lines_removed": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "claims": { "type": "array", "items": { "type": "string", "maxLength": 280 } },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targeted": { "type": "array", "items": { "type": "string" } },
+        "full_required": { "type": "boolean" },
+        "skipped": { "type": "array", "items": { "type": "string" } },
+        "coverage_delta": { "type": ["number", "null"] }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sast": { "enum": ["passed", "failed", "skipped", "missing"] },
+        "dependency_scan": { "enum": ["passed", "failed", "skipped", "missing"] },
+        "secret_scan": { "enum": ["passed", "failed", "skipped", "missing"] }
+      }
+    },
+    "supply_chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dependency_changes": { "type": "array", "items": { "type": "object" } },
+        "external_code_sources": { "type": "array", "items": { "type": "string" } },
+        "lockfile_only_change": { "type": "boolean", "default": false }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": { "enum": ["revert_commit", "feature_flag", "data_migration_reverse", "redeploy_previous", "manual"] },
+        "feature_flag": { "type": ["string", "null"] },
+        "data_migration_reversible": { "type": ["boolean", "null"] }
+      }
+    },
+    "legacy_receipts": {
+      "type": "array",
+      "description": "Slice carrying the existing src/release/gate.rs::Receipt entries verbatim, so the system back-compats with release.policy.toml.",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "detail"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "enum": ["pass", "fail", "skipped", "pending"] },
+          "detail": { "type": "string" },
+          "evidence": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "evidence_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "type": "string" },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

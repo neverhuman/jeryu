@@ -9,7 +9,10 @@ impl GitlabClient {
                 scopes.iter().map(|s| format!("scope[]={}", s)).collect();
             path = format!("{}?{}", path, scope_params.join("&"));
         }
-        let jobs: Vec<Job> = self.get_paginated_json(&path).await?;
+        let mut jobs: Vec<Job> = self.get_paginated_json(&path).await?;
+        for job in &mut jobs {
+            job.pipeline_id = job.effective_pipeline_id();
+        }
         Ok(jobs)
     }
 

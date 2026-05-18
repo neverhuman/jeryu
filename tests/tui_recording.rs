@@ -29,69 +29,53 @@ fn tui_demo_recording() -> anyhow::Result<()> {
     // Wait for initial render
     std::thread::sleep(Duration::from_millis(1500));
 
-    // Jump to Jank before recording so the GIF preview opens on the score/history tab.
-    page.press(Key::Char('j'))?;
-    std::thread::sleep(Duration::from_millis(3000));
-
     // Start recording GIF
     page.start_recording()?;
 
-    // Hold on Jank so the first recorded frame is stable.
-    std::thread::sleep(Duration::from_millis(1500));
-
-    // Wrap back to Workflow, then continue the tab tour.
-    page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    // Wait 3 seconds on the default Workflow tab
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Mission tab (1)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Release tab (2)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Jobs tab (3)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Agents tab (4)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Tests tab (5)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(750));
+    std::thread::sleep(Duration::from_millis(1500));
 
     // Scroll through the tests
     page.press(Key::Down)?;
-    std::thread::sleep(Duration::from_millis(750));
-    page.press(Key::Down)?;
     std::thread::sleep(Duration::from_millis(1500));
+    page.press(Key::Down)?;
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Pools tab (6)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Cache tab (7)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Evidence tab (8)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Go to Secrets tab (9)
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
-
-    // Go to Git tab (10)
-    page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(1500));
-
-    // Go to Jank tab (11)
-    page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(2000));
+    std::thread::sleep(Duration::from_millis(3000));
 
     // Save the GIF
     let gif_options = GifOptions {

@@ -2,6 +2,11 @@ use super::*;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::TempDir;
 
+// Use the crate-wide PATH_ENV_LOCK so we serialize against EVERY test that
+// touches PATH (sandbox::tests::test_sandbox_proxy_injection,
+// remote_shell_tests::*, etc.), not just other tests inside this file.
+use crate::test_sync::PATH_ENV_LOCK as ENV_LOCK;
+
 fn set_env_var<K: AsRef<std::ffi::OsStr>, V: AsRef<std::ffi::OsStr>>(key: K, value: V) {
     // SAFETY: these tests serialize environment mutation with ENV_LOCK and
     // restore previous values before releasing the lock.
@@ -21,16 +26,11 @@ fn remove_env_var<K: AsRef<std::ffi::OsStr>>(key: K) {
 fn make_test_bin_dir(include_cargo: bool, include_rustc: bool, include_sccache: bool) -> TempDir {
     let dir = TempDir::new().unwrap();
     let resolve = |name: &str| -> String {
-        let Some(path) = std::env::var_os("PATH") else {
-            return String::new();
-        };
-        for dir in std::env::split_paths(&path) {
-            let candidate = dir.join(name);
-            if candidate.is_file() {
-                return candidate.display().to_string();
-            }
-        }
-        String::new()
+        let output = std::process::Command::new("which")
+            .arg(name)
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
     };
     let cargo_path = resolve("cargo");
     let rustc_path = resolve("rustc");
@@ -69,7 +69,7 @@ fn repo_key_is_deterministic() {
 
 #[test]
 fn layout_uses_expected_segments() {
-    let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK.lock().unwrap();
     let path_dir = make_test_bin_dir(false, true, false);
     let original_path = std::env::var_os("PATH");
     set_env_var("PATH", path_dir.path());
@@ -98,7 +98,7 @@ fn layout_uses_expected_segments() {
 
 #[test]
 fn layout_defaults_incremental_to_zero() {
-    let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK.lock().unwrap();
     let path_dir = make_test_bin_dir(false, true, false);
     let original_path = std::env::var_os("PATH");
     set_env_var("PATH", path_dir.path());
@@ -152,7 +152,7 @@ fn shell_exports_quote_values() {
 
 #[test]
 fn layout_adds_sccache_when_usable() {
-    let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK.lock().unwrap();
     let path_dir = make_test_bin_dir(false, true, true);
     let original_path = std::env::var_os("PATH");
     set_env_var("PATH", path_dir.path());
@@ -176,7 +176,7 @@ fn layout_adds_sccache_when_usable() {
 
 #[test]
 fn concurrent_leases_do_not_remove_each_other() {
-    let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK.lock().unwrap();
     let path_dir = make_test_bin_dir(false, true, false);
     let original_path = std::env::var_os("PATH");
     set_env_var("PATH", path_dir.path());
@@ -251,7 +251,7 @@ fn scan_target_leases_cleans_stale_files_but_keeps_active_lease() {
 
 #[test]
 fn runner_pre_build_script_sets_target_dir_without_sccache() {
-    let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK.lock().unwrap();
     let path_dir = make_test_bin_dir(true, true, false);
     let original_path = std::env::var_os("PATH");
     set_env_var("PATH", path_dir.path());
@@ -281,7 +281,7 @@ fn runner_pre_build_script_sets_target_dir_without_sccache() {
 
 #[test]
 fn runner_pre_build_script_missing_rust_tools_does_not_short_circuit_job() {
-    let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+    let _guard = ENV_LOCK.lock().unwrap();
     let path_dir = TempDir::new().unwrap();
     let original_path = std::env::var_os("PATH");
     set_env_var("PATH", path_dir.path());

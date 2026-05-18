@@ -10,6 +10,7 @@ pub(crate) fn readiness_line(label: &str, value: &str, color: Color) -> Line<'st
     ])
 }
 
+#[allow(dead_code)] // kept for re-introduction in upcoming mission-redesign work
 pub(crate) fn draw_metric_tile(
     f: &mut Frame,
     area: Rect,

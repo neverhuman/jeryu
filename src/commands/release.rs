@@ -2,6 +2,11 @@ use crate::cli::ReleaseCommands;
 use crate::dispatch::load_client;
 use anyhow::Result;
 use jeryu::{release, state};
+use std::path::PathBuf;
+
+#[path = "release_ops.rs"]
+mod release_ops;
+use release_ops::*;
 
 pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<()> {
     match subcmd {
@@ -54,12 +59,14 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
         ReleaseCommands::Reconcile {
             project_id,
             ref_name,
+            fresh,
             json,
         } => {
             let (client, _) = load_client()?;
             let db = state::Db::open().await?;
             let report =
-                release::reconcile_release_for_ref(&db, &client, project_id, &ref_name).await?;
+                release::reconcile_release_for_ref(&db, &client, project_id, &ref_name, fresh)
+                    .await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
@@ -83,20 +90,14 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
-                let status = if report.ok { "PASS" } else { "FAIL" };
-                println!("Preflight: {status}");
-                for (k, v) in &report.checks {
-                    println!("  {k}: {v}");
+                println!(
+                    "Preflight {}: {} blocker(s)",
+                    if report.ok { "PASS" } else { "FAIL" },
+                    report.blockers.len()
+                );
+                for b in &report.blockers {
+                    println!("  [{}] {} — {}", b.code, b.detail, b.recommended_action);
                 }
-                if !report.blockers.is_empty() {
-                    println!("\nBlockers:");
-                    for b in &report.blockers {
-                        println!("  [{}] {} — {}", b.code, b.detail, b.recommended_action);
-                    }
-                }
-            }
-            if !report.ok {
-                std::process::exit(1);
             }
         }
         ReleaseCommands::Doctor {
@@ -108,7 +109,6 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             let ver = if let Some(v) = version {
                 v
             } else {
-                // Use latest known version from release status
                 let report = release::build_release_status_report(
                     &db,
                     release::ReleaseStatusQuery {
@@ -152,8 +152,94 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
                 if !report.blockers.is_empty() {
                     println!("\nBlockers:");
                     for b in &report.blockers {
-                        println!("  [{}] {} — {}", b.code, b.detail, b.recommended_action);
+                        println!("  - {:?}", b);
                     }
+                }
+            }
+        }
+        ReleaseCommands::Ready {
+            pr,
+            emit_status,
+            dry_run,
+            json,
+        } => {
+            let gate = release::compose_gate(pr, dry_run);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&gate)?);
+            } else {
+                print!("{}", release::render_gate_text(&gate));
+            }
+            if emit_status && !dry_run {
+                let repo = std::env::var("GITHUB_REPOSITORY")
+                    .map_err(|_| anyhow::anyhow!("GITHUB_REPOSITORY env not set"))?;
+                let sha = std::env::var("GITHUB_SHA")
+                    .map_err(|_| anyhow::anyhow!("GITHUB_SHA env not set"))?;
+                let resp = release::post_check_run(&gate, &repo, &sha)?;
+                if !json {
+                    println!(
+                        "\nCheck Run posted. Response head: {}",
+                        trim_head(&resp, 200)
+                    );
+                }
+            }
+            if !gate.is_pass() && !dry_run {
+                std::process::exit(1);
+            }
+        }
+        ReleaseCommands::DryRun { version, json } => {
+            let report = run_release_dry_run(&version).await;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!("Release dry-run for {}", report.version);
+                for (k, v) in &report.checks {
+                    println!("  {k}: {v}");
+                }
+                if !report.blockers.is_empty() {
+                    println!("\nBlockers:");
+                    for b in &report.blockers {
+                        println!("  - {b}");
+                    }
+                }
+            }
+            if !report.blockers.is_empty() {
+                std::process::exit(1);
+            }
+        }
+        ReleaseCommands::Submit {
+            version,
+            force,
+            dry_run,
+        } => {
+            run_release_submit(&version, force, dry_run).await?;
+        }
+        ReleaseCommands::Approve {
+            pr,
+            as_user,
+            dry_run,
+        } => {
+            run_release_approve(pr, as_user, dry_run).await?;
+        }
+        ReleaseCommands::Rollback {
+            version,
+            reason,
+            dry_run,
+            json,
+        } => {
+            let report = release::build_report(&version, &reason, dry_run);
+            let dir = PathBuf::from(format!("ops/releases/{version}"));
+            let written = release::write_evidence(&report, dir)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!(
+                    "Rollback {} for {} — {}",
+                    report.final_status, report.version, report.reason
+                );
+                println!("Evidence: {}", written.display());
+                for s in &report.steps {
+                    let suffix = s.detail.as_deref().unwrap_or("");
+                    println!("  [{}] {} — {} ({})", s.n, s.kind, s.description, suffix);
                 }
             }
         }

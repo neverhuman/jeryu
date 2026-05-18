@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::entity::{ActionRef, EntityKind, EntityRef};
+use super::entity::{EntityKind, EntityRef};
 use crate::tui::action_registry::{GrantRequirement, RiskTier, SideEffectClass};
 
 // ── Action Context ──────────────────────────────────────────────────────

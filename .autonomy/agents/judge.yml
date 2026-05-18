@@ -1,0 +1,14 @@
+schema: vibegate.agent.v1
+id: judge
+version: 1
+role: judge
+# Judge is NOT an LLM. It fuses signed reviewer receipts with target-branch
+# policy and emits a VibeGate Verdict. No code reading, no prompt-injection
+# surface. Implementation: src/agent_review/judge.rs.
+chain_ref: judge
+prompt_path: null
+output_schema: schemas/vibegate-verdict.schema.json
+signing_key_pub: keys/judge.ed25519.pub
+load_policy_from: target_branch
+verdict_ttl_seconds: 3600
+rebind_on_train: true

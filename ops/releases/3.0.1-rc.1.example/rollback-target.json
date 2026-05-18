@@ -1,0 +1,12 @@
+{
+  "previous_known_good": "3.0.0",
+  "previous_sha": "0000000000000000000000000000000000000000",
+  "rollback_path": ["feature-flag", "channel", "revert-pr"],
+  "feature_flags": [],
+  "channel_pointer_path": "ops/releases/stable/CURRENT",
+  "rehearsal": {
+    "performed_at": "1970-01-01T00:00:00Z",
+    "performed_by": "@veox-ai/jeryu-ops",
+    "result": "example"
+  }
+}

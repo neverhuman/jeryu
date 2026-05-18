@@ -225,23 +225,12 @@ impl ComponentHealth {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RunnerHealth {
     pub online: u32,
     pub busy: u32,
     pub idle: u32,
     pub degraded: u32,
-}
-
-impl Default for RunnerHealth {
-    fn default() -> Self {
-        Self {
-            online: 0,
-            busy: 0,
-            idle: 0,
-            degraded: 0,
-        }
-    }
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────

@@ -1,7 +1,6 @@
 use super::*;
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 use thiserror::Error;
 
 /// Typed errors for SmartCache lifecycle.
@@ -103,8 +102,6 @@ pub struct CacheStatusReport {
     pub pool_cargo_target_bytes: u64,
     pub pool_cargo_sccache_bytes: u64,
     pub cargo_target_caches: Vec<CargoTargetCacheStatus>,
-    pub pip_cache_bytes: u64,
-    pub pip_caches: Vec<PipCacheStatus>,
     pub docker: DockerStorageSummary,
     pub proxy_up: bool,
     pub registry_up: bool,
@@ -143,16 +140,6 @@ pub struct CargoTargetCacheStatus {
     pub reason: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PipCacheStatus {
-    pub path: String,
-    pub bytes: u64,
-    pub active: bool,
-    pub age_seconds: Option<u64>,
-    pub gc_candidate: bool,
-    pub reason: String,
-}
-
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DockerStorageSummary {
     pub images: Option<DockerStorageClass>,
@@ -172,13 +159,11 @@ pub struct DockerStorageClass {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CacheGcReport {
     pub dry_run: bool,
-    pub deleted_manager_caches: Vec<String>,
+    pub removed_manager_caches: Vec<String>,
     pub candidate_manager_caches: Vec<ManagerCacheStatus>,
-    pub deleted_cargo_targets: Vec<String>,
+    pub removed_cargo_targets: Vec<String>,
     pub candidate_cargo_targets: Vec<CargoTargetCacheStatus>,
-    pub deleted_pip_caches: Vec<String>,
-    pub candidate_pip_caches: Vec<PipCacheStatus>,
-    pub reclaimed_cache_request_rows: u64,
+    pub gc_eviction_count: u64,
     pub errors: Vec<String>,
 }
 

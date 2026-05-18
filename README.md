@@ -5,10 +5,10 @@
 <div align="left">
   <p>
     <a href="agent/repo-score.md">
-      <img alt="jankurai score 95" src="https://img.shields.io/badge/jankurai-95-brightgreen" />
+      <img alt="jankurai score 91" src="https://img.shields.io/badge/jankurai-91-brightgreen" />
     </a>
-    <a href="https://github.com/jeppsontaylor/JeRyu/actions/workflows/rust.yml">
-      <img alt="CI" src="https://github.com/jeppsontaylor/JeRyu/actions/workflows/rust.yml/badge.svg" />
+    <a href="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml">
+      <img alt="CI" src="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml/badge.svg" />
     </a>
     <img alt="Rust" src="https://img.shields.io/badge/language-Rust-orange" />
     <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
@@ -34,9 +34,7 @@ JeRyu isn't just a headless orchestrator. It comes with a blazing-fast, proof-ri
 
 Visualize live pipeline execution, monitor remote runner pools, inspect test bottlenecks, and review agent capabilities—all in one place without digging through raw, disconnected logs.
 
-If `jankurai` is on `PATH`, JeRyu also shows an optional `Jank` tab that reads the generated repo-score artifacts and score history. Install or inspect it at https://github.com/neverhuman/jankurai.
-
-**9 operational tabs** plus optional `Jank`: Mission · Release · Jobs · Agents · Tests · Pools · Cache · Evidence · Secrets
+**9 operational tabs**: Mission · Release · Jobs · Agents · Tests · Pools · Cache · Evidence · Secrets
 
 ```bash
 # Launch the interactive TUI
@@ -149,7 +147,7 @@ JeRyu stays in user space by default and won't touch your shell startup files wi
 Clone, build, and install JeRyu into user space:
 
 ```bash
-git clone https://github.com/jeppsontaylor/JeRyu.git
+git clone https://github.com/neverhuman/jeryu.git
 cd JeRyu
 
 # Preview the install plan without making changes

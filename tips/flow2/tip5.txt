@@ -1,0 +1,1510 @@
+# Engineering Spec: JeRyu Workflow Mission Control TUI
+
+## 0. Product vision
+
+Build the **developer’s dream CI/CD mission-control TUI**: one terminal-native, keyboard-and-mouse-driven surface that answers the question:
+
+> “Where exactly is my change on the path from PR to production, what is blocking it, what is risky, and what should I inspect next?”
+
+This should not feel like a GitLab/GitHub pipeline table translated into a terminal. It should feel like a **flight instrument for software delivery**: every test, gate, dependency, environment, and deployment step represented as a live DAG from local/PR checks through merge, full test, canary, and production.
+
+The strongest product concept is:
+
+> **Top-to-bottom time/progression, left-to-right parallelism.**
+
+Vertical movement means “later in the workflow.” Horizontal movement means “parallel work at the same layer.” The user should be able to pan through an enormous pipeline and instantly see the current bottleneck.
+
+Ratatui is a good fit for this because its rendering model is based on drawing frames into terminal buffers and rectangular areas; coordinates run left-to-right/top-to-bottom, and widgets render into `Rect` areas on the frame buffer. ([Ratatui][1]) Ratatui’s `Terminal` also maintains current/previous buffers and writes only changes between frames, which supports frequent live redraws for status and pulse effects without treating the whole terminal as a static screen. ([Docs.rs][2])
+
+---
+
+## 1. North-star user experience
+
+### The default view: “PR → Prod runway”
+
+The Workflow tab should show one continuous delivery runway:
+
+```text
+╔══════════════════════════════════════════════════════════════════════════════╗
+║ PR #1842  feature/agent-first-tests → main       confidence 94%   VTI: ON  ║
+║ Progress: 37/54 nodes done   4 running   1 blocked   ETA 7m12s   CP 11m03s ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+L0  LOCAL / PRE-FLIGHT
+    ╭─✓ fmt─────────────── HIT ╮   ╭─✓ clippy──────────── OK ╮   ╭─✓ local unit────── OK ╮
+    │ 0.4s  cached             │   │ 2.1s                   │   │ 31 tests              │
+    │ no deps                  │   │ deps: fmt              │   │ changed packages      │
+    ╰──────────────────────────╯   ╰────────────────────────╯   ╰──────────────────────╯
+             │                              │                              │
+
+L1  PR GATES
+    ╭─✓ vti-select──────── 94% ╮   ╭─▶ build-api────── RUN 72% ╮   ╭─… build-ui──── WAIT ╮
+    │ selected 18/71 tests     │   │ █████████░ ETA 1m18s      │   │ needs: vti-select    │
+    │ saved 48m estimated      │   │ runner: r17              │   │ queued 00:42         │
+    ╰──────────────────────────╯   ╰───────[SEL]──────────────╯   ╰──────────────────────╯
+                                            │
+                         ┌──────────────────┴──────────────────┐
+
+L2  PARALLEL TEST MATRIX
+    ╭─▶ api shard 01──── RUN ╮ ╭─✓ api shard 02──── OK ╮ ╭─✕ api shard 03── FAIL ╮
+    │ 184/240 tests          │ │ 240/240 2m10s         │ │ test_login_retry      │
+    │ flaky: 0               │ │ artifacts: junit      │ │ first failed 00:03ago │
+    ╰────────────────────────╯ ╰───────────────────────╯ ╰──────────────────────╯
+
+L3  MERGE / MAINLINE
+    ╭─⏸ merge gate──── BLOCKED ╮
+    │ blocked by api shard 03   │
+    │ action: inspect / retry   │
+    ╰───────────────────────────╯
+
+L4  CANARY
+    ╭─… staging deploy── WAIT ╮   ╭─… canary 5%──── WAIT ╮   ╭─… canary 50%── WAIT ╮
+    ╰─────────────────────────╯   ╰──────────────────────╯   ╰────────────────────╯
+
+L5  PRODUCTION
+    ╭─… prod gate────── WAIT ╮    ╭─… prod rollout── WAIT ╮
+    ╰───────────────────────╯     ╰──────────────────────╯
+
+┌ viewport: y 18/92 x 0/188 ─────────────────────────────────────────────────┐
+│ keys: ↑↓←→ select  PgUp/PgDn/[ ] pan  mouse drag pan  Enter inspect  / find │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+The selected node should be unmissable. It gets a semantic selected accent, a `[SEL]` marker, and optionally a brighter border. The current user complaint that selected state is invisible should be treated as a critical UX bug.
+
+---
+
+## 2. Non-negotiable product promises
+
+### 2.1 The user always knows the pipeline’s current truth
+
+The top summary banner should answer:
+
+```text
+What is done? What is running? What is blocked? What failed? What is next?
+```
+
+Required banner fields:
+
+| Field             | Purpose                                                           |
+| ----------------- | ----------------------------------------------------------------- |
+| Pipeline title    | PR/MR number, branch, commit, target branch                       |
+| Current phase     | “PR checks”, “full suite”, “canary”, “prod gate”                  |
+| Overall status    | Running, blocked, failed, ready to merge, deploying, prod healthy |
+| Completion        | `done / total nodes`, phase progress, critical path progress      |
+| Failure summary   | first failing node, count of failing nodes                        |
+| Blocker summary   | node currently blocking forward progress                          |
+| ETA               | global ETA plus selected critical-path ETA                        |
+| VTI confidence    | confidence, selected/full mode, estimated saved work              |
+| Environment state | local, PR, mainline, staging, canary, prod                        |
+
+### 2.2 Parallelism must be visible, not implied
+
+Parallel tests in the same phase must be fixed-width cards side by side. The current issue where cards stretch to full terminal width should be fixed first.
+
+Hard rule:
+
+```rust
+NODE_CARD_W = 34
+```
+
+A 34-column card should be the atomic unit of the Workflow DAG. The terminal viewport may be narrow, but the virtual canvas should be wide. Users can pan horizontally with `[` / `]`, mouse drag, touchpad horizontal scroll, or Shift-wheel where available.
+
+### 2.3 The stall must be discoverable in one glance
+
+A blocked production path should visually backtrace to the blocking failure.
+
+Example:
+
+```text
+api shard 03 FAIL  ─────╮
+                         ╰── merge gate BLOCKED ─── staging WAIT ─── prod WAIT
+```
+
+When a downstream node is blocked, its card should say **why**:
+
+```text
+blocked by: api shard 03
+unsatisfied: 1/7 deps
+```
+
+### 2.4 Every card is readable at rest, inspectable on demand
+
+Compact cards should have enough information to be useful without opening overlays. Expanded inspection should show full logs, command, dependencies, artifacts, retry actions, and VTI/cache reasoning.
+
+### 2.5 The view never lies
+
+The display must distinguish:
+
+| State          | Meaning                                         |
+| -------------- | ----------------------------------------------- |
+| Waiting        | Not ready because dependencies are incomplete   |
+| Queued         | Ready but no runner yet                         |
+| Running        | Actively executing                              |
+| Ran / OK       | Completed successfully                          |
+| Error / Failed | Completed unsuccessfully                        |
+| Blocked        | Cannot proceed because a dependency/gate failed |
+| Skipped        | Deliberately not run                            |
+| Cached         | Output reused                                   |
+| Manual         | Requires human approval                         |
+| Unknown        | Missing or stale data                           |
+
+Do not collapse these into generic “pending.”
+
+---
+
+## 3. Visual design language
+
+### 3.1 Overall look
+
+The Workflow tab should feel like:
+
+> **A high-signal cockpit: dense, legible, electric, but not noisy.**
+
+Use semantic colors only through `Theme`; do not hardcode `Color::*` in workflow widgets. The design can still specify intent:
+
+| Visual role          | Theme source                                           |
+| -------------------- | ------------------------------------------------------ |
+| Success              | `theme.ok` / `theme.status_color(Ran)`                 |
+| Running              | `theme.running`                                        |
+| Waiting              | `theme.waiting` / muted                                |
+| Failure              | `theme.fail`                                           |
+| Blocked              | `theme.blocked`                                        |
+| Skipped              | muted / dim                                            |
+| Selected             | `theme.primary()` or dedicated semantic selected style |
+| Critical path        | `theme.vti_fire` or semantic critical accent           |
+| Edge normal          | muted border                                           |
+| Edge active          | running/accent                                         |
+| Edge failed/blocking | fail/blocking                                          |
+
+### 3.2 Card anatomy
+
+Compact card, 34 columns wide, 5 rows high:
+
+```text
+╭─▶ api shard 07──── RUN 72%╮
+│ █████████░ ETA 1m18s      │
+│ needs: build-api  HIT     │
+╰ crit +2 deps    2m41s     ╯
+```
+
+Recommended row structure:
+
+| Row          | Content                                                       |
+| ------------ | ------------------------------------------------------------- |
+| Border/title | status glyph, truncated label, status badge, optional percent |
+| Detail 1     | progress bar, ETA, duration, queue time                       |
+| Detail 2     | dependency reason, cache/VTI badge, runner, shard             |
+| Footer       | critical path marker, dependency count, elapsed/duration      |
+| Border       | selected marker may appear here or in title                   |
+
+For failed card:
+
+```text
+╭─✕ api shard 03──── FAIL ╮
+│ test_login_retry        │
+│ first fail 00:03 ago    │
+╰ blocks merge + prod     ╯
+```
+
+For blocked card:
+
+```text
+╭─⏸ merge gate── BLOCKED ╮
+│ by: api shard 03       │
+│ unsatisfied: 1/7 deps  │
+╰ press Enter to trace   ╯
+```
+
+For skipped/VTI card:
+
+```text
+╭─⊘ legacy e2e── SKIPPED ╮
+│ VTI: unaffected        │
+│ reason: no touched dep │
+╰ saved est. 14m32s      ╯
+```
+
+### 3.3 Glyph grammar
+
+Use the existing `Theme::status_glyph()` concept and extend consistently:
+
+| Concept       | Example glyph               |
+| ------------- | --------------------------- |
+| Running       | `▶`                         |
+| OK            | `✓`                         |
+| Fail          | `✕`                         |
+| Waiting       | `…`                         |
+| Blocked       | `⏸`                         |
+| Cached        | `◆`                         |
+| Skipped       | `⊘`                         |
+| Manual        | `!`                         |
+| Deploy        | `⇡`                         |
+| Canary        | `◐`                         |
+| Prod          | `⬢`                         |
+| Critical path | `🔥` or ASCII fallback `CP` |
+
+Support a Unicode mode and an ASCII fallback mode:
+
+```text
+Unicode: ╭─▶ api shard 07──── RUN ╮
+ASCII:   +->[RUN] api shard 07----+
+```
+
+This matters for terminal compatibility and for high-density CI environments.
+
+---
+
+## 4. DAG layout spec
+
+### 4.1 Coordinate model
+
+The workflow canvas is virtual. The terminal shows a clipped viewport into it.
+
+```rust
+canvas_x = screen_x + nav.viewport_x - dag_area.x
+canvas_y = screen_y + nav.viewport_y - dag_area.y
+```
+
+Ratatui’s coordinate system starts at `(0, 0)` in the top-left, with x increasing rightward and y increasing downward. ([Ratatui][1]) That maps perfectly to:
+
+```text
+y-axis: workflow depth / time / delivery progression
+x-axis: parallelism / suites / services / shards
+```
+
+### 4.2 Phase rows
+
+Each `WorkflowPhase` gets:
+
+```text
+phase header
+node row(s)
+edge gutter
+```
+
+Baseline:
+
+```rust
+PHASE_HEADER_H = 1
+NODE_CARD_H = 5
+EDGE_GUTTER_H = 3
+```
+
+But the spec should allow future dynamic heights:
+
+```rust
+enum CardDensity {
+    Tiny,      // 1-line chips, overview mode
+    Compact,   // 34x5 default
+    Expanded,  // 34x8 or 48x10 for selected card
+}
+```
+
+### 4.3 Fixed-width card placement
+
+Within a phase:
+
+```rust
+let card_w = NODE_CARD_W;
+let gap_x = 3;
+let phase_label_w = 10;
+let card_x = phase_label_w + lane_idx * (card_w + gap_x);
+```
+
+No card may be rendered wider than `NODE_CARD_W` in compact mode.
+
+Acceptance test:
+
+```text
+Given terminal width 140
+And a phase with 3 parallel nodes
+Then there are 3 separate 34-col cards
+And no card consumes full width
+```
+
+### 4.4 Stable lane assignment
+
+Cards should not jump around every refresh. Stable positioning is more important than perfect packing.
+
+Recommended lane key order:
+
+```rust
+lane_key = (
+    node.service,
+    node.suite,
+    node.shard_group,
+    node.kind,
+    original_topological_order,
+)
+```
+
+Special overlays:
+
+1. Failed nodes get a visual emphasis, not necessarily a new lane.
+2. Running nodes pulse in place.
+3. Critical path can get a highlighted edge/card treatment.
+4. Selected card can be centered through navigation, not by changing layout order.
+
+### 4.5 Handling huge test matrices
+
+For very large pipelines, support three visual densities:
+
+| Mode     | Behavior                                                                                |
+| -------- | --------------------------------------------------------------------------------------- |
+| Full     | Every test node appears as an individual 34-wide card on the virtual canvas             |
+| Dense    | Completed OK shards compress into chips, active/failing/blocked nodes remain full cards |
+| Overview | Suites collapse into aggregate cards with explicit counts                               |
+
+Important: the default “full DAG” mode must preserve the user’s ability to see every test. Aggregation is a user-controlled lens, not silent hiding.
+
+Aggregate card example:
+
+```text
+╭─✓ api unit matrix──── OK ╮
+│ 47 shards  11m42s       │
+│ p95 shard: 2m14s        │
+╰ Enter expands all       ╯
+```
+
+---
+
+## 5. Edge rendering spec
+
+### 5.1 Edge types
+
+The current data model already includes edge concepts like GitLab needs, artifact dependency, stage order, VTI skip, blocked, and child pipeline. That is excellent. GitLab’s `needs` keyword explicitly lets jobs start as soon as dependencies finish instead of waiting for whole stages, which is exactly why the visualization should show a real DAG rather than only stage columns. ([GitLab Docs][3])
+
+Represent edge semantics visually:
+
+| Edge kind       | Visual treatment               |
+| --------------- | ------------------------------ |
+| `GitlabNeeds`   | solid line                     |
+| `ArtifactDep`   | solid line with artifact badge |
+| `StageOrder`    | faint/background line          |
+| `VtiSkipped`    | dashed/dim line                |
+| `Blocked`       | failure/blocking color         |
+| `ChildPipeline` | fork/portal connector          |
+| Manual gate     | thick/attention connector      |
+
+### 5.2 Edge layers
+
+Render in this order:
+
+1. Background clear
+2. Phase headers
+3. Edge gutters
+4. Cards
+5. Selected card overlay
+6. Viewport/minimap overlay
+7. Inspect overlay
+
+Edges should appear behind cards but above empty background.
+
+### 5.3 Edge gutters
+
+Between phase `N` and phase `N+1`, reserve a gutter:
+
+```text
+        │       │       │
+        ├───────┼───────╮
+        │       │       │
+```
+
+Draw direct edges only when both source and target are inside or near the viewport. For edges where one endpoint is offscreen, draw continuation markers:
+
+```text
+← 7 upstream deps offscreen
+13 downstream deps →
+```
+
+### 5.4 Edge bundling
+
+In large graphs, individual edges become spaghetti. Use bundling:
+
+```text
+build-api ─┬─ api shard 01
+           ├─ api shard 02
+           ├─ api shard 03
+           ╰─ api shard 04
+```
+
+If more than `N` edges share the same source and target phase, draw a bus:
+
+```text
+build-api ═══════════════╗
+                         ╠═ 24 test shards
+                         ╚═ selected shard
+```
+
+### 5.5 Trace mode
+
+Press `t` on any node:
+
+| Trace view    | Result                                                 |
+| ------------- | ------------------------------------------------------ |
+| Ancestors     | Highlight everything required for selected node        |
+| Descendants   | Highlight everything blocked by selected node          |
+| Critical path | Highlight longest path to production                   |
+| Failure cone  | Highlight failed node and all blocked downstream nodes |
+
+This is the fastest way to answer:
+
+```text
+Why is this waiting?
+What will this failure block?
+What has to finish before prod?
+```
+
+---
+
+## 6. Navigation and interaction spec
+
+### 6.1 Keyboard
+
+Keep current bindings, but refine behavior:
+
+| Key            | Action                                  |
+| -------------- | --------------------------------------- |
+| `↑ / k`        | Previous phase                          |
+| `↓ / j`        | Next phase                              |
+| `← / h`        | Previous node in phase                  |
+| `→ / l`        | Next node in phase                      |
+| `Tab`          | Next visible node                       |
+| `Shift+Tab`    | Previous visible node                   |
+| `Enter`        | Open inspect overlay                    |
+| `Esc`          | Close overlay / clear search            |
+| `PgUp`         | Pan up 50% of viewport                  |
+| `PgDn` / Space | Pan down 50%                            |
+| `[`            | Pan left 50%                            |
+| `]`            | Pan right 50%                           |
+| `Home`         | Top-left of DAG                         |
+| `End`          | Bottom / current final production phase |
+| `f`            | Follow active node                      |
+| `/`            | Search nodes                            |
+| `b`            | Jump to current blocker                 |
+| `c`            | Jump to critical path                   |
+| `r`            | Retry selected node, if supported       |
+| `v`            | Toggle VTI/cache lens                   |
+| `m`            | Toggle minimap                          |
+| `z`            | Cycle density: full / dense / overview  |
+
+### 6.2 Mouse
+
+Mouse interaction should be first-class.
+
+Crossterm supports mouse capture and mouse events, but mouse/focus events are not enabled by default; they must be enabled with `EnableMouseCapture`. ([Docs.rs][4]) Crossterm’s mouse event model includes drag, moved, scroll up/down, and scroll left/right, which is enough for terminal-native panning and click selection. ([Docs.rs][5])
+
+Required mouse behavior:
+
+| Mouse action                | Behavior                    |
+| --------------------------- | --------------------------- |
+| Wheel up/down               | Pan viewport vertically     |
+| Horizontal wheel / touchpad | Pan viewport horizontally   |
+| Shift + wheel               | Horizontal pan fallback     |
+| Left click node             | Select node                 |
+| Double click node           | Open inspect overlay        |
+| Left drag empty canvas      | Pan both x/y                |
+| Right click node            | Open action/context palette |
+| Click minimap               | Jump viewport               |
+| Drag minimap viewport       | Fast pan                    |
+
+Implementation additions:
+
+```rust
+pub struct WorkflowMouseState {
+    pub dragging: bool,
+    pub drag_origin_screen: Option<(u16, u16)>,
+    pub drag_origin_viewport: Option<(i32, i32)>,
+    pub last_click_node_id: Option<String>,
+    pub last_click_at: Option<Instant>,
+}
+```
+
+Because some platforms may not report the exact button for `Up` and `Drag` events, treat active drag state as authoritative once drag starts. Crossterm documents this platform caveat for mouse button reporting. ([Docs.rs][5])
+
+### 6.3 Hit testing
+
+Add layout metrics independent of rendering:
+
+```rust
+pub struct WorkflowRenderMetrics {
+    pub dag_area: Rect,
+    pub canvas_width: i32,
+    pub canvas_height: i32,
+    pub viewport_width: i32,
+    pub viewport_height: i32,
+    pub node_hitboxes: Vec<NodeHitbox>,
+    pub phase_hitboxes: Vec<PhaseHitbox>,
+}
+
+pub struct NodeHitbox {
+    pub node_id: String,
+    pub phase_idx: usize,
+    pub node_idx: usize,
+    pub canvas_rect: Rect,
+}
+```
+
+The widget should remain pure. Therefore:
+
+1. Extract a pure layout engine.
+2. Render uses layout metrics.
+3. Mouse input uses the same layout metrics for hit-testing.
+4. App may cache the last metrics, but the render function should not mutate app state.
+
+Recommended new file:
+
+```text
+src/tui/workflow/layout.rs
+```
+
+---
+
+## 7. Inspect overlay spec
+
+The inspect overlay should feel like opening the black box recorder for a node.
+
+### 7.1 Default inspect layout
+
+```text
+╔═ api shard 03 ───────────────────────────── FAIL ─────────────────────────╗
+║ Kind: Test       Phase: Parallel Test Matrix       Critical: yes          ║
+║ Status: failed   Duration: 2m41s                   Runner: r17           ║
+║ Blocks: merge gate, staging deploy, canary, prod gate                    ║
+╠═ Failure ────────────────────────────────────────────────────────────────╣
+║ test_login_retry::handles_429_backoff                                    ║
+║ assertion failed: expected 200, got 429                                  ║
+╠═ Dependencies ───────────────────────────────────────────────────────────╣
+║ ✓ build-api       ✓ vti-select       ✓ test-fixtures                     ║
+╠═ Downstream impact ──────────────────────────────────────────────────────╣
+║ merge gate BLOCKED → staging WAIT → canary WAIT → prod WAIT              ║
+╠═ Recent logs ────────────────────────────────────────────────────────────╣
+║ ... last 20 lines ...                                                    ║
+╠═ Actions ────────────────────────────────────────────────────────────────╣
+║ [r] retry   [l] logs   [a] artifacts   [t] trace   [o] open remote       ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+```
+
+### 7.2 Inspect sections
+
+| Section           | Contents                                                |
+| ----------------- | ------------------------------------------------------- |
+| Header            | node label, status, phase, critical-path marker         |
+| Execution         | command, runner, queue time, started/finished, duration |
+| Progress          | percent, ETA, live log heartbeat                        |
+| Dependencies      | upstream statuses, unsatisfied deps                     |
+| Downstream impact | blocked descendants                                     |
+| VTI/cache         | selection reason, cache verdict, saved time             |
+| Failure           | failing test name, error snippet, first bad line        |
+| Artifacts         | JUnit, coverage, screenshots, logs                      |
+| Actions           | retry, cancel, skip, approve manual gate, open remote   |
+| History           | previous durations, flake rate, last failures           |
+
+### 7.3 Detail panes inside inspect
+
+Use tabs:
+
+```text
+[Summary] [Logs] [Deps] [Artifacts] [History] [Actions]
+```
+
+Keyboard within overlay:
+
+| Key   | Action             |
+| ----- | ------------------ |
+| `←/→` | Switch overlay tab |
+| `↑/↓` | Scroll content     |
+| `/`   | Search logs/deps   |
+| `r`   | Retry, if allowed  |
+| `Esc` | Close              |
+
+---
+
+## 8. Workflow data model upgrades
+
+Current `WorkflowSnapshot`, `WorkflowNode`, `WorkflowEdge`, `WorkflowPhase`, and `WorkflowSummary` are a strong base. Add fields that support the dream experience without making rendering infer too much.
+
+### 8.1 `WorkflowNode` additions
+
+```rust
+pub struct WorkflowNode {
+    pub id: String,
+    pub label: String,
+    pub kind: NodeKind,
+    pub status: WorkflowStatus,
+
+    // Existing useful fields
+    pub deps: Vec<String>,
+    pub command: Option<String>,
+    pub reason: Option<String>,
+    pub tags: Vec<String>,
+    pub vti_status: Option<VtiStatus>,
+    pub cache_verdict: Option<CacheVerdict>,
+    pub critical_path: bool,
+    pub progress_pct: Option<u16>,
+    pub eta_secs: Option<u64>,
+    pub duration_secs: Option<f64>,
+
+    // Proposed
+    pub phase_id: Option<String>,
+    pub lane_key: Option<String>,
+    pub service: Option<String>,
+    pub suite: Option<String>,
+    pub shard: Option<u32>,
+    pub total_shards: Option<u32>,
+    pub runner_id: Option<String>,
+    pub queue_secs: Option<f64>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub environment: Option<EnvironmentKind>,
+    pub failure: Option<FailureSummary>,
+    pub artifacts: Vec<ArtifactRef>,
+    pub remote_url: Option<String>,
+    pub retryable: bool,
+    pub cancelable: bool,
+    pub manual_action: Option<ManualAction>,
+}
+```
+
+### 8.2 `WorkflowEdge` additions
+
+```rust
+pub struct WorkflowEdge {
+    pub from: String,
+    pub to: String,
+    pub kind: EdgeKind,
+
+    pub satisfied: bool,
+    pub blocking: bool,
+    pub artifact_name: Option<String>,
+    pub reason: Option<String>,
+    pub latency_secs: Option<f64>,
+}
+```
+
+### 8.3 `WorkflowPhase` additions
+
+```rust
+pub struct WorkflowPhase {
+    pub id: String,
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub nodes: Vec<String>,
+
+    pub depth: usize,
+    pub phase_kind: WorkflowPhaseKind,
+    pub environment: Option<EnvironmentKind>,
+    pub complete_pct: Option<u16>,
+    pub active_count: usize,
+    pub failed_count: usize,
+    pub blocked_count: usize,
+}
+```
+
+Recommended phase kinds:
+
+```rust
+pub enum WorkflowPhaseKind {
+    Local,
+    PrGate,
+    Build,
+    UnitTest,
+    IntegrationTest,
+    E2E,
+    Security,
+    MergeGate,
+    Mainline,
+    Staging,
+    Canary,
+    Production,
+    Rollback,
+    Manual,
+    Unknown,
+}
+```
+
+### 8.4 `WorkflowSummary` additions
+
+```rust
+pub struct WorkflowSummary {
+    pub total_nodes: usize,
+    pub done_nodes: usize,
+    pub running_nodes: usize,
+    pub failed_nodes: usize,
+    pub blocked_nodes: usize,
+    pub skipped_nodes: usize,
+    pub cached_nodes: usize,
+
+    pub current_blocker_id: Option<String>,
+    pub first_failure_id: Option<String>,
+    pub critical_path_node_id: Option<String>,
+    pub critical_path_eta_secs: Option<u64>,
+    pub global_eta_secs: Option<u64>,
+
+    pub vti_selected_count: Option<usize>,
+    pub vti_total_count: Option<usize>,
+    pub estimated_time_saved_secs: Option<u64>,
+
+    pub prod_readiness: ProdReadiness,
+}
+```
+
+---
+
+## 9. PR → merge → tests → canary → prod model
+
+The visualization should support the whole software delivery lifecycle, not just CI jobs.
+
+GitLab supports downstream pipelines, including parent-child and multi-project pipelines, and downstream pipelines can run independently and concurrently from the upstream pipeline. ([GitLab Docs][6]) Canary deployments update only a portion of the fleet first, which makes canary state a first-class thing to visualize rather than just another generic job. ([GitLab Docs][7])
+
+### 9.1 Recommended canonical phases
+
+```text
+L0  Local / Pre-flight
+    fmt, lint, typecheck, local unit, affected-package detection
+
+L1  PR / MR Gates
+    VTI selection, approvals, required checks, build plan, policy checks
+
+L2  Build
+    backend build, frontend build, image build, dependency scan
+
+L3  Test Matrix
+    unit shards, integration shards, e2e shards, browser matrix, platform matrix
+
+L4  Quality / Security
+    coverage, SAST, dependency audit, license, performance smoke
+
+L5  Merge Gate
+    merge queue, branch protection, rebase status, required approvals
+
+L6  Mainline / Full Suite
+    post-merge full test, release candidate build, artifact promotion
+
+L7  Staging
+    deploy staging, smoke tests, migrations dry-run
+
+L8  Canary
+    canary 1%, 5%, 25%, 50%, health checks, automated rollback guard
+
+L9  Production
+    prod gate, rollout, post-deploy checks, synthetic monitors, final healthy state
+```
+
+### 9.2 Environment cards
+
+Deployments need a different visual grammar than tests.
+
+```text
+╭─⇡ staging deploy── RUN ╮
+│ service: api           │
+│ image: sha256:ab12     │
+╰ health: 97.8%          ╯
+
+╭─◐ canary 5%───── HOLD ╮
+│ error budget: ok       │
+│ p95 latency: +1.8%     │
+╰ promote in 04:12       ╯
+
+╭─⬢ prod rollout── WAIT ╮
+│ waiting on canary 50%  │
+│ rollback: available    │
+╰────────────────────────╯
+```
+
+### 9.3 Production safety rail
+
+A right-side rail, when terminal width allows, should show:
+
+```text
+PROD READINESS
+✓ required PR checks
+✓ full suite
+✓ staging smoke
+▶ canary 5%
+… canary 50%
+… prod gate
+… prod rollout
+
+Current blocker:
+api shard 03 failed
+
+Risk:
+low confidence? no
+flake suspected? yes
+rollback ready? yes
+```
+
+---
+
+## 10. Supported Rust TUI concepts to exploit
+
+### 10.1 Immediate redraw with diffed terminal buffers
+
+Use regular redraw ticks for status updates, pulse animation, progress bars, and log-tail changes. Ratatui’s terminal draw path accumulates changes in the current buffer and compares with the previous buffer, flushing only changed cells. ([Docs.rs][2])
+
+### 10.2 Pure widget rendering
+
+Preserve the current invariant:
+
+```text
+App state → UI dispatch → pure widget render → Frame buffer
+```
+
+Ratatui applications are responsible for application state, event loop, and redraw orchestration; Ratatui itself focuses on rendering and delegates input to libraries like Crossterm. ([Ratatui][8]) This fits the current architecture well.
+
+### 10.3 Direct buffer drawing for edges
+
+Keep using:
+
+```rust
+f.buffer_mut()[(x, y)]
+```
+
+for edge drawing. Cards can use normal widgets; connectors need direct cell-level control.
+
+### 10.4 Layout engine separate from widget
+
+Create a pure layout stage:
+
+```rust
+pub fn compute_workflow_layout(
+    snapshot: &WorkflowSnapshot,
+    nav: &WorkflowNav,
+    area: Rect,
+    density: WorkflowDensity,
+) -> WorkflowLayout
+```
+
+Then:
+
+```rust
+pub fn draw_workflow_tab(
+    f: &mut Frame,
+    area: Rect,
+    snapshot: &WorkflowSnapshot,
+    nav: &WorkflowNav,
+    theme: &Theme,
+    layout: &WorkflowLayout,
+)
+```
+
+This solves:
+
+1. Fixed card sizing.
+2. Hit testing.
+3. Mouse panning.
+4. Accurate viewport indicators.
+5. Accurate `last_dag_h()` / `last_dag_w()`.
+6. Golden rendering tests.
+
+### 10.5 Crossterm mouse capture
+
+Enable mouse capture during TUI setup and disable it on teardown. Ratatui’s component template shows setup/teardown patterns with `EnterAlternateScreen`, `EnableMouseCapture`, `HideCursor`, and matching cleanup with `DisableMouseCapture`. ([Ratatui][9])
+
+---
+
+## 11. Current bug fixes as first implementation milestone
+
+### Fix 1: Fixed-width cards
+
+Problem: cards stretch to terminal width.
+
+Spec:
+
+```rust
+let card_rect = Rect::new(screen_x, screen_y, NODE_CARD_W, NODE_CARD_H);
+frame.render_widget(card, card_rect);
+```
+
+Do not render cards into a full-row `Rect`.
+
+Acceptance:
+
+```text
+Given 3 nodes in the same phase
+Then 3 boxes are visible side-by-side on a wide terminal
+And each is exactly 34 columns wide
+```
+
+### Fix 2: Edge connectors visible
+
+Likely root causes:
+
+1. Edge gutter y-coordinate is wrong.
+2. Edges are drawn before a later widget clears/overwrites them.
+3. Viewport clipping calculation drops the edge cells.
+4. Gutter overlaps phase header or card area.
+
+Spec:
+
+```text
+draw phase background
+draw phase headers
+draw edge gutters
+draw cards
+draw overlays
+```
+
+Add debug mode:
+
+```text
+WFD_DEBUG_LAYOUT=1
+```
+
+It draws faint gutter bounds and card bounds.
+
+### Fix 3: Selected highlight
+
+Selected card must have:
+
+1. Selected border style.
+2. `[SEL]` badge.
+3. Optional inverse/bright title.
+4. Footer marker if title is too crowded.
+
+Example:
+
+```text
+╭─▶ build-api──── RUN [SEL]╮
+│ ███████░ ETA 1m18s       │
+│ runner r17 cache MISS    │
+╰ critical path            ╯
+```
+
+### Fix 4: Real viewport dimensions
+
+Replace hardcoded:
+
+```rust
+last_dag_h() -> 30
+last_dag_w() -> 120
+```
+
+with render/layout metrics:
+
+```rust
+nav.viewport_height = dag_area.height as i32;
+nav.viewport_width = dag_area.width as i32;
+nav.canvas_height = layout.canvas_height;
+nav.canvas_width = layout.canvas_width;
+```
+
+If widget purity prevents mutation during render, compute layout metrics in `ui.rs` before rendering and pass them to both nav and widget.
+
+### Fix 5: Snapshot refresh throttling
+
+Do not rebuild the workflow snapshot every render frame.
+
+Recommended:
+
+```rust
+pub struct WorkflowSnapshotCache {
+    pub snapshot: WorkflowSnapshot,
+    pub source_rev: u64,
+    pub built_at: Instant,
+    pub ttl: Duration,
+}
+```
+
+Refresh when:
+
+1. Upstream job/session revision changes.
+2. Manual refresh key pressed.
+3. TTL expires.
+4. Demo animation tick mutates job state.
+
+### Fix 6: Viewport indicator
+
+Always render viewport indicator last, above DAG content:
+
+```text
+y 18/92  x 36/188  zoom full
+```
+
+Also add a minimap toggle.
+
+### Fix 7: Demo animation
+
+Demo mode should mutate underlying job/session state or produce a new `WorkflowSnapshot` revision. Do not animate only the Flow tab.
+
+Sequence:
+
+```text
+Waiting → Queued → Running → Ran
+                      └────→ Error
+Error → Blocked downstream
+```
+
+---
+
+## 12. File-by-file implementation plan
+
+### `src/tui/workflow/model.rs`
+
+Add richer metadata fields but keep backwards compatibility. Introduce:
+
+```rust
+EnvironmentKind
+WorkflowPhaseKind
+FailureSummary
+ArtifactRef
+ManualAction
+ProdReadiness
+```
+
+### `src/tui/workflow/nav.rs`
+
+Add real viewport dimensions and mouse-aware panning helpers:
+
+```rust
+pub fn pan_by(&mut self, dx: i32, dy: i32)
+pub fn pan_to(&mut self, x: i32, y: i32)
+pub fn center_on_node(&mut self, rect: Rect)
+pub fn clamp_viewport(&mut self)
+```
+
+Add selected-by-ID support:
+
+```rust
+pub selected_node_id: Option<String>
+```
+
+This prevents selection from breaking when node order changes.
+
+### `src/tui/workflow/layout.rs` — new
+
+Pure layout computation:
+
+```rust
+WorkflowLayout
+PhaseLayout
+NodeLayout
+EdgeLayout
+NodeHitbox
+```
+
+This file becomes the source of truth for card positions.
+
+### `src/tui/workflow/widget.rs`
+
+Refactor into layers:
+
+```rust
+draw_summary_banner()
+draw_phase_headers()
+draw_edge_layer()
+draw_node_cards()
+draw_minimap()
+draw_viewport_indicator()
+draw_inspect_overlay()
+```
+
+Do not compute ad hoc positions in many places. Use `WorkflowLayout`.
+
+### `src/tui/workflow/builder.rs`
+
+Improve snapshot construction:
+
+1. Assign stable phase IDs.
+2. Assign stable lane keys.
+3. Compute blocked descendants.
+4. Compute critical path.
+5. Fill VTI/cache reason strings.
+6. Add PR → prod synthetic nodes where needed.
+
+### `src/tui/workflow/collector.rs`
+
+Collect:
+
+1. GitLab job state.
+2. Child/downstream pipeline state.
+3. Environment/deployment status.
+4. Artifacts and JUnit summaries.
+5. Runner/queue timing.
+6. Log preview handles.
+
+### `app.rs`
+
+Add:
+
+```rust
+pub workflow_render_metrics: Option<WorkflowRenderMetrics>,
+pub workflow_mouse: WorkflowMouseState,
+pub workflow_density: WorkflowDensity,
+pub workflow_lens: WorkflowLens,
+pub workflow_snapshot_cache: Option<WorkflowSnapshotCache>,
+```
+
+### `app_runtime_sync_actions.rs`
+
+Add actions:
+
+```rust
+workflow_mouse_scroll(dx, dy)
+workflow_mouse_drag_start(x, y)
+workflow_mouse_drag_move(x, y)
+workflow_mouse_drag_end()
+workflow_select_at_screen_pos(x, y)
+workflow_jump_to_blocker()
+workflow_jump_to_critical_path()
+workflow_toggle_density()
+workflow_toggle_minimap()
+workflow_trace_selected()
+```
+
+### `runtime/input/navigation/general.rs`
+
+Extend workflow input handling for new keys.
+
+Mouse handling may belong in the main input dispatch rather than keyboard navigation, but route final actions into `App` methods to preserve separation.
+
+### `ui.rs`
+
+Do not call `refresh_workflow_snapshot()` blindly every frame. Use cache-aware refresh.
+
+---
+
+## 13. Lenses and modes
+
+### 13.1 Monitor lens
+
+Default. Shows everything.
+
+```text
+Goal: where are we from PR to prod?
+```
+
+### 13.2 Failure lens
+
+Shows failing nodes, blocked descendants, and immediate upstream context.
+
+```text
+Goal: why are we red?
+```
+
+### 13.3 Critical path lens
+
+Highlights the longest remaining path.
+
+```text
+Goal: what determines ETA?
+```
+
+### 13.4 VTI lens
+
+Highlights selected, skipped, cached, accelerated, and full-suite nodes.
+
+```text
+Goal: what did intelligent test selection do?
+```
+
+### 13.5 Deployment lens
+
+Emphasizes staging/canary/prod environment progression.
+
+```text
+Goal: are we safe to promote?
+```
+
+### 13.6 Runner lens
+
+Groups/renders by runner, queue, and resource bottlenecks.
+
+```text
+Goal: are we blocked by infra capacity?
+```
+
+---
+
+## 14. Search and command palette
+
+Add `/` search:
+
+```text
+/api shard
+/status:failed
+/kind:deploy
+/service:payments
+/tag:e2e
+/blocks:prod
+```
+
+Add command palette with `:`:
+
+```text
+:jump blocker
+:jump prod
+:trace selected
+:density overview
+:lens failure
+:retry selected
+:open logs
+```
+
+The TUI should feel power-user native.
+
+---
+
+## 15. Minimap spec
+
+The minimap should sit bottom-right or right-side depending on space.
+
+```text
+┌─ DAG MAP ─┐
+│ ██░░░░░░  │  L0 local
+│ ████░░░░  │  L1 PR
+│ ▓▓▓▓▓▓░░  │  L2 tests
+│   X       │  failure
+│   B       │  blocked
+│     ◐     │  canary
+│      ⬢    │  prod
+└───────────┘
+```
+
+Rules:
+
+1. Current viewport is a box.
+2. Failure appears as `X`.
+3. Running appears as animated/bright.
+4. Blocked appears as `B`.
+5. Critical path appears as a thin line.
+6. Mouse click in minimap jumps viewport.
+
+---
+
+## 16. Performance requirements
+
+### 16.1 Render complexity
+
+Target:
+
+```text
+O(visible nodes + visible edges + visible overlay)
+```
+
+Avoid rendering every node if the canvas has hundreds/thousands of tests and most are offscreen.
+
+### 16.2 Layout caching
+
+Cache layout by:
+
+```rust
+(snapshot.revision, terminal_area, density, lens)
+```
+
+Recompute only when one changes.
+
+### 16.3 String truncation cache
+
+Node labels, reason strings, and badges should be truncated predictably. Cache where useful.
+
+### 16.4 Edge clipping
+
+Do not draw long offscreen edges cell-by-cell. Clip to viewport/gutter first.
+
+### 16.5 Animation
+
+Use a small frame counter or tick timestamp:
+
+```rust
+pulse_phase = app.frame_idx % 4
+```
+
+Animation should not require rebuilding the snapshot.
+
+---
+
+## 17. Acceptance criteria
+
+### 17.1 Visual
+
+1. Parallel nodes render as separate 34-column cards.
+2. Selected node has visible selected styling and `[SEL]`.
+3. Edge connectors are visible between phases.
+4. Blocked downstream path is clear.
+5. Viewport indicator is visible.
+6. Large DAG can be panned vertically and horizontally.
+7. Running nodes visibly pulse.
+8. Failed nodes are unmistakable.
+9. Skipped/cached/VTI nodes are visually distinct.
+10. Production path is visible from top-to-bottom through phases.
+
+### 17.2 Interaction
+
+1. Arrow and Vim keys select nodes predictably.
+2. `Tab` cycles through nodes.
+3. `PgUp/PgDn` pan by 50% of actual viewport height.
+4. `[` / `]` pan by 50% of actual viewport width.
+5. Mouse wheel pans vertically.
+6. Horizontal scroll or Shift-wheel pans horizontally.
+7. Mouse drag pans canvas.
+8. Mouse click selects a node.
+9. Double-click or Enter opens inspect.
+10. `b` jumps to current blocker.
+11. `c` jumps to critical path.
+12. `/` searches nodes.
+
+### 17.3 Data correctness
+
+1. A blocked node lists its unsatisfied dependency.
+2. A skipped node lists VTI/cache reason.
+3. A failed node lists failure summary.
+4. A deploy node lists target environment.
+5. A canary node lists percent/health when available.
+6. A downstream/child pipeline appears as a connected subgraph.
+7. Demo mode animates workflow states over time.
+8. Snapshot refresh is cache-aware, not every render frame.
+
+### 17.4 Tests
+
+Add tests for:
+
+```text
+workflow layout fixed card width
+workflow layout stable lane assignment
+workflow layout canvas dimensions
+workflow nav panning clamps
+workflow nav 50% page movement
+workflow selected visibility
+workflow edge visibility
+workflow mouse hit testing
+workflow blocked-descendant calculation
+workflow critical path calculation
+workflow snapshot cache refresh policy
+workflow demo animation transitions
+```
+
+Run:
+
+```bash
+cargo check -p jeryu
+cargo nextest run -p jeryu -- tui::workflow
+cargo nextest run -p jeryu -- tui
+cargo install --path . --force
+jeryu tui --demo
+```
+
+---
+
+## 18. Implementation roadmap
+
+### Milestone 1: Make the existing DAG real
+
+Priority: fix trust-breaking basics.
+
+1. Fixed-width cards.
+2. Visible edges.
+3. Visible selected state.
+4. Real viewport dimensions.
+5. Viewport indicator.
+6. Snapshot refresh cache.
+7. Demo animation.
+
+### Milestone 2: Make navigation excellent
+
+1. Layout metrics.
+2. Mouse wheel pan.
+3. Mouse drag pan.
+4. Click-to-select.
+5. Double-click inspect.
+6. Jump to blocker.
+7. Jump to critical path.
+8. Search.
+
+### Milestone 3: Make investigation excellent
+
+1. Rich inspect overlay.
+2. Dependency trace mode.
+3. Failure cone mode.
+4. Downstream impact.
+5. Log preview.
+6. Artifact/JUnit summary.
+7. Retry/cancel actions where supported.
+
+### Milestone 4: Make it PR-to-prod
+
+1. Add local/pre-flight nodes.
+2. Add PR/MR gates.
+3. Add merge gate.
+4. Add downstream/child pipelines.
+5. Add staging/canary/prod environment nodes.
+6. Add deployment safety rail.
+
+### Milestone 5: Make it magical
+
+1. ETA/critical path intelligence.
+2. Flake detection.
+3. Bottleneck detection.
+4. Runner saturation view.
+5. VTI savings view.
+6. “Why am I blocked?” natural explanation panel.
+7. Compact/dense/overview semantic zoom.
+
+---
+
+## 19. The strongest product concepts
+
+These are the concepts I would explicitly name in the product/design language.
+
+### Delivery runway
+
+A single top-to-bottom path from PR to production.
+
+### Parallel test matrix
+
+Every shard/test group visible as fixed cards across the horizontal axis.
+
+### Stall cone
+
+When something fails, show every downstream thing it blocks.
+
+### Critical path flame
+
+Highlight the path determining the remaining ETA.
+
+### VTI lens
+
+Show what was selected, skipped, cached, accelerated, and why.
+
+### Deployment safety rail
+
+A persistent prod-readiness checklist: staging, canary, prod gate, rollback readiness.
+
+### Semantic zoom
+
+Full graph, dense graph, overview graph, all without losing the ability to drill down.
+
+### Black box inspect
+
+Enter on any node opens full execution truth: command, logs, deps, artifacts, history, actions.
+
+### Mouse-native canvas
+
+Drag, wheel, horizontal scroll, click, double-click, minimap jump.
+
+### No hidden state
+
+Every status must have provenance: why waiting, why skipped, why blocked, why failed.
+
+---
+
+## 20. Final design principle
+
+The Workflow tab should optimize for one emotional outcome:
+
+> “I know exactly where my change is, exactly what is blocking it, and exactly what I can do next.”
+
+If that is achieved, the TUI becomes more than a visualization. It becomes the fastest way for an engineer to understand the entire delivery system from local development to production.
+
+[1]: https://ratatui.rs/concepts/layout/ "Layout | Ratatui"
+[2]: https://docs.rs/ratatui/latest/ratatui/struct.Terminal.html "Terminal in ratatui - Rust"
+[3]: https://docs.gitlab.com/ci/yaml/needs/?utm_source=chatgpt.com "Make jobs start earlier with needs"
+[4]: https://docs.rs/crossterm/latest/crossterm/event/index.html?utm_source=chatgpt.com "crossterm::event - Rust"
+[5]: https://docs.rs/crossterm/latest/crossterm/event/enum.MouseEventKind.html?utm_source=chatgpt.com "MouseEventKind in crossterm::event - Rust"
+[6]: https://docs.gitlab.com/ci/pipelines/downstream_pipelines/?utm_source=chatgpt.com "Downstream pipelines"
+[7]: https://docs.gitlab.com/user/project/canary_deployments/?utm_source=chatgpt.com "Canary deployments"
+[8]: https://ratatui.rs/faq/ "FAQ | Ratatui"
+[9]: https://ratatui.rs/templates/component/tui-rs/ "Tui.rs | Ratatui"
+

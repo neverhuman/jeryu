@@ -8,7 +8,6 @@
 
 use super::subsystem::glob_match;
 use serde::Deserialize;
-use std::collections::BTreeSet;
 use std::path::Path;
 
 // ---------------------------------------------------------------------------

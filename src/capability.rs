@@ -137,7 +137,7 @@ impl CapabilityContext {
 }
 
 #[derive(Debug)]
-enum ParsedCapabilityRequest {
+pub(crate) enum ParsedCapabilityRequest {
     Enveloped(Box<AgentActionRequest>),
     Bridge(AgentIntent),
 }
@@ -159,6 +159,16 @@ pub struct CapabilityResponse {
     pub success: bool,
     pub message: String,
     pub data: Option<serde_json::Value>,
+}
+
+impl CapabilityResponse {
+    pub fn error(msg: &str) -> Self {
+        Self {
+            success: false,
+            message: msg.to_string(),
+            data: None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]

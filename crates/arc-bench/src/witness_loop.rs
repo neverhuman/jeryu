@@ -152,9 +152,5 @@ pub fn run(output: &Path) -> Result<ScenarioReport> {
 }
 
 fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|path| path.parent())
-        .expect("workspace root")
-        .to_path_buf()
+    crate::support::workspace_root()
 }

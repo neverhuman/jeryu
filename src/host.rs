@@ -32,6 +32,46 @@ pub async fn install_gc_timer(allow_sudo: bool) -> Result<i32> {
     Ok(0)
 }
 
+/// Install and enable `jeryu-gcd.service` — the always-on disk daemon.
+///
+/// Returns Ok(0) on success. On systems without systemd (CI containers,
+/// macOS, WSL without --user) this is a no-op when `systemctl` is missing,
+/// rather than failing the surrounding bootstrap.
+pub async fn install_gcd_service(allow_sudo: bool) -> Result<i32> {
+    if !systemctl_available().await {
+        eprintln!(
+            "install-gcd-service: systemctl not found; skipping (set JERYU_BOOTSTRAP_SKIP_GCD=1 to silence)"
+        );
+        return Ok(0);
+    }
+    let unit_dir = PathBuf::from("/etc/systemd/system");
+    let service_src = repo_file("ops/ci/jeryu-gcd.service");
+    let service_dst = unit_dir.join("jeryu-gcd.service");
+
+    if !allow_sudo && !is_root() {
+        bail!("install-gcd-service requires --allow-sudo unless run as root");
+    }
+    if is_root() {
+        fs::copy(&service_src, &service_dst)
+            .with_context(|| format!("copying {}", service_dst.display()))?;
+    } else {
+        run_sudo_copy(&service_src, &service_dst).await?;
+    }
+    run_systemctl(&["daemon-reload"]).await?;
+    run_systemctl(&["enable", "--now", "jeryu-gcd.service"]).await?;
+    run_systemctl(&["status", "jeryu-gcd.service", "--no-pager"]).await?;
+    Ok(0)
+}
+
+async fn systemctl_available() -> bool {
+    Command::new("systemctl")
+        .arg("--version")
+        .output()
+        .await
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
 fn repo_file(rel: &str) -> PathBuf {
     match std::env::current_dir() {
         Ok(mut dir) => loop {

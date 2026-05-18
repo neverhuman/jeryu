@@ -1,0 +1,71 @@
+# .autonomy/policies/risk.yml — R0..R5 classification.
+# Each tier lists matchers. First matching tier (in declared order) wins.
+# Path globs are gitignore-style. `conditions:` references vetted Rust fns
+# in src/autonomy/conditions.rs — unknown names fail closed to R5.
+schema: vibegate.risk.v1
+
+tiers:
+  - id: R5
+    description: "missing/tampered evidence, suspicious behavior, emergency, unknown blast radius"
+    matchers:
+      - conditions: [evidence_missing]
+      - conditions: [evidence_signature_invalid]
+      - conditions: [prompt_injection_suspected]
+      - conditions: [policy_sha_drift]
+    auto_merge: false
+    human_required: true
+    fail_closed: true
+
+  - id: R4
+    description: "auth, crypto, secrets, infra, CI, policy, release, prod, prompt/judge rules"
+    matchers:
+      - any_path_matches_protected: true
+      - conditions: [changes_security_scanner_config]
+      - conditions: [changes_release_or_deploy_policy]
+      - conditions: [changes_agent_prompts_or_judge_policy]
+      - conditions: [touches_secret_handling]
+      - conditions: [destructive_database_change]
+    auto_merge: false
+    human_required: true
+
+  - id: R3
+    description: "large, novel, dependency, performance, data, or broad behavior change"
+    matchers:
+      - conditions: [lockfile_only_change]
+      - conditions: [dependency_count_delta_gte_5]
+      - conditions: [removes_or_weakens_tests]
+      - conditions: [introduces_new_external_code_source]
+      - lines_changed_gte: 800
+      - paths_match: ["**/migrations/**"]
+    auto_merge: false
+    required_reviews: [test_integrity, security, runtime, lockfile_scout]
+    human_required: true
+
+  # R0/R1 are checked BEFORE R2-default so safe patterns don't get over-classified.
+  - id: R0
+    description: "docs, comments, formatting, harmless metadata"
+    matchers:
+      - paths_only_in: ["**/*.md", "docs/**", "**/*.txt", "**/*.rst", "**/*.adoc"]
+      - paths_only_in: ["**/COMMENTS", "**/*.gitignore", "**/*.editorconfig"]
+    auto_merge: true
+    required_reviews: []
+
+  - id: R1
+    description: "small isolated code change with strong targeted tests"
+    matchers:
+      - lines_changed_lte: 60
+        all_files_have_targeted_tests: true
+    auto_merge: true
+    required_reviews: [test_integrity]
+
+  - id: R2
+    description: "normal product change (default catch-all; checked last)"
+    matchers:
+      - default: true
+    auto_merge: true
+    required_reviews: [test_integrity, security]
+
+# Note: tiers are evaluated TOP-DOWN (R5 first). The first match wins.
+# This implements veto semantics — a hard-stop tier (R5/R4) cannot be undone
+# by a "lower" tier matcher applying after.
+evaluation_order: top_down

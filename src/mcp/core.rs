@@ -6,7 +6,6 @@
 use anyhow::{Result, bail};
 use serde::Deserialize;
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, BufWriter};
 
 use super::{MCP_PROTOCOL_VERSION, TOOL_PREFIX};
 
@@ -192,10 +191,7 @@ impl McpCore {
         state.initialized = true;
         state.client_actor = match req.client_info.as_ref() {
             Some(info) => {
-                let version = match info.version.as_deref() {
-                    Some(version) => version,
-                    None => "unknown",
-                };
+                let version = info.version.as_deref().unwrap_or("unknown");
                 format!("mcp:{}:{version}", info.name)
             }
             None => "mcp-client".to_string(),
@@ -301,36 +297,13 @@ impl McpCore {
     }
 }
 
-pub async fn start_mcp_stdio(client: crate::gitlab_client::GitlabClient) -> Result<()> {
-    let stdin = BufReader::new(tokio::io::stdin());
-    let mut stdout = BufWriter::new(tokio::io::stdout());
-    let mut lines = stdin.lines();
-    let core = McpCore::new(client);
-    let mut state = McpSessionState::new();
+// ---------------------------------------------------------------------------
+// stdio server + JSON-RPC helpers (extracted to companion)
+// ---------------------------------------------------------------------------
 
-    while let Some(line) = lines.next_line().await? {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-
-        let responses = core.handle_line(&mut state, line).await;
-        if responses.is_empty() {
-            continue;
-        }
-
-        let payload = if responses.len() == 1 {
-            serde_json::to_vec(&responses[0])?
-        } else {
-            serde_json::to_vec(&responses)?
-        };
-        stdout.write_all(&payload).await?;
-        stdout.write_all(b"\n").await?;
-        stdout.flush().await?;
-    }
-
-    Ok(())
-}
+#[path = "core_io.rs"]
+mod core_io;
+pub use core_io::*;
 
 fn ensure_initialized(state: &McpSessionState) -> Result<()> {
     if state.initialized {

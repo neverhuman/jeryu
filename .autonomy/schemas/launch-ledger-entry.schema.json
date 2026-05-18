@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.launch_ledger_entry.v1",
+  "title": "LaunchLedgerEntry",
+  "description": "One append-only event in the Launch Ledger. All durable autonomy decisions write one of these.",
+  "type": "object",
+  "required": ["schema", "id", "kind", "subject_id", "recorded_at", "actor", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.launch_ledger_entry.v1" },
+    "id": { "type": "string", "pattern": "^lle_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "kind": {
+      "enum": [
+        "intent_declared",
+        "lease_issued",
+        "lease_expired",
+        "evidence_pack_created",
+        "review_started",
+        "review_completed",
+        "verdict_issued",
+        "merge_passport_issued",
+        "merge_passport_consumed",
+        "merge_passport_invalidated",
+        "release_passport_issued",
+        "deployment_started",
+        "deployment_promoted",
+        "rollback_initiated",
+        "rollback_completed",
+        "human_escalation_requested",
+        "human_decision_recorded",
+        "autonomy_pack_edit_proposed",
+        "autonomy_pack_edit_merged"
+      ]
+    },
+    "subject_id": { "type": "string", "description": "The id of the object this event is about (intent_*, lease_*, evp_*, aar_*, vgv_*, mpa_*, rpa_*)." },
+    "repo": { "type": ["string", "null"] },
+    "payload": {
+      "type": "object",
+      "description": "Free-form per-kind payload; the wrapping signature still applies."
+    },
+    "recorded_at": { "type": "string", "format": "date-time" },
+    "actor": { "type": "string", "description": "Agent id or human handle." },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "type": "string" },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

@@ -5,7 +5,7 @@
 use anyhow::{Context, Result};
 use bollard::container::ListContainersOptions;
 use bollard::volume::{ListVolumesOptions, RemoveVolumeOptions};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::path::Path;
 use tracing::{debug, info, warn};
 
@@ -49,7 +49,7 @@ impl DockerCtl {
 
         let all_volumes = match resp.volumes {
             Some(v) => v,
-            None => Default::default(),
+            None => Vec::new(),
         };
         let mut removed: u64 = 0;
 

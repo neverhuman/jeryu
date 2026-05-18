@@ -20,11 +20,7 @@ pub(crate) fn handle_palette_key(app: &mut App, key: KeyEvent) {
             app.selected_palette_index = app.selected_palette_index.saturating_sub(1);
         }
         KeyCode::Down => {
-            let count = action_registry::filtered_for_app(
-                &app.command_palette_query,
-                app.jankurai_available(),
-            )
-            .count();
+            let count = action_registry::filtered(&app.command_palette_query).count();
             if count > 0 {
                 app.selected_palette_index = (app.selected_palette_index + 1).min(count - 1);
             }
@@ -41,8 +37,7 @@ pub(crate) fn handle_palette_key(app: &mut App, key: KeyEvent) {
 
 fn execute_palette_action(app: &mut App) {
     let matches: Vec<&action_registry::ActionEntry> =
-        action_registry::filtered_for_app(&app.command_palette_query, app.jankurai_available())
-            .collect();
+        action_registry::filtered(&app.command_palette_query).collect();
     let Some(entry) = matches.get(app.selected_palette_index) else {
         return;
     };
@@ -57,7 +52,6 @@ fn execute_palette_action(app: &mut App) {
         "tab_evidence" => app.active_tab = crate::tui::app::ActiveTab::Evidence,
         "tab_secrets" => app.active_tab = crate::tui::app::ActiveTab::Secrets,
         "tab_git" => app.active_tab = crate::tui::app::ActiveTab::Git,
-        "tab_jank" => app.active_tab = crate::tui::app::ActiveTab::Jank,
         "toggle_audit_ledger" => {
             app.evidence_view_mode = match app.evidence_view_mode {
                 crate::tui::app::EvidenceViewMode::Capsules => {

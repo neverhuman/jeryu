@@ -148,7 +148,7 @@ WantedBy=timers.target
 ```ini
 [Unit]
 Description=Jeryu SmartCache Garbage Collection
-Documentation=https://github.com/jeppsontaylor/JeRyu
+Documentation=https://github.com/neverhuman/jeryu
 After=network.target docker.service
 
 [Service]

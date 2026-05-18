@@ -7,7 +7,7 @@ use crate::state::JobEvent;
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
-struct JobHookPayload {
+pub(crate) struct JobHookPayload {
     build_id: Option<i64>,
     project_id: Option<i64>,
     pipeline_id: Option<i64>,
@@ -43,10 +43,7 @@ pub(crate) async fn handle_job_event(state: &EngineState, payload: JobHookPayloa
     let Some(project_id) = payload.project_id else {
         return;
     };
-    let status = match payload.build_status {
-        Some(s) => s,
-        None => String::new(),
-    };
+    let status = payload.build_status.unwrap_or_default();
 
     info!(
         job_id,

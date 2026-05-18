@@ -4,6 +4,12 @@ This document is the short release-readiness reference for `jeryu`.
 The release path is owned by `src/release.rs` and `src/secrets.rs`; production
 promotion is pipeline-driven, not an ad hoc shell flow.
 
+**For the canonical agent-first release policy, branch protection settings,
+risk tiers, evidence directory contract, rollback ladder, and the
+`jeryu/release-ready` composite gate, see
+[`docs/release-policy.md`](release-policy.md). Machine-readable source of truth:
+[`release.policy.toml`](../release.policy.toml).**
+
 ## What must be true
 
 - The target ref or SHA has a green upstream pipeline.
@@ -50,6 +56,20 @@ The default release repo root is `/home/ubuntu/dougx`, unless overridden by
 - Backup evidence: `just postgres-state-proof`
 - Monitoring evidence: `target/jankurai/ux-qa.json`
 - Abuse-control evidence: `src/admission.rs`, `src/secrets.rs`, `agent/security-policy.toml`
+
+## Release process
+
+The release process is pipeline-driven via GitHub Actions. The single source
+of truth lives at [`ops/ci/release-lane.sh`](../ops/ci/release-lane.sh); local
+rehearsals and CI both call into it. End-to-end stages, gates, and approvals
+are defined in [`docs/release-policy.md`](release-policy.md).
+
+## Changelog
+
+All releases are tracked in [`CHANGELOG.md`](../CHANGELOG.md). For each
+release we record: the version, date, summary of changes, the release PR,
+and the rollback target. Releases are immutable — never re-tag; ship a
+patch instead.
 
 ## Rollback
 

@@ -696,7 +696,36 @@ impl Db {
                 }
 
                 let database_url = format!("sqlite:{}?mode=rwc", db_path.display());
-                Self::open_url(&database_url).await
+                match Self::open_url(&database_url).await {
+                    Ok(db) => Ok(db),
+                    Err(first_err) => {
+                        // Recovery: a previous run was killed mid-write and
+                        // left a stale write-ahead log (.wal) or
+                        // shared-memory file (.shm). Removing them is safe
+                        // per SQLite's WAL recovery docs as long as no other
+                        // process is holding the DB open — for a single-user
+                        // CLI that is the normal case. We retry once.
+                        let mut shm = db_path.clone().into_os_string();
+                        shm.push("-shm");
+                        let shm: std::path::PathBuf = shm.into();
+                        let mut wal = db_path.clone().into_os_string();
+                        wal.push("-wal");
+                        let wal: std::path::PathBuf = wal.into();
+                        let cleared_shm = std::fs::remove_file(&shm).is_ok();
+                        let cleared_wal = std::fs::remove_file(&wal).is_ok();
+                        if cleared_shm || cleared_wal {
+                            tracing::warn!(
+                                error = %first_err,
+                                shm = %shm.display(),
+                                wal = %wal.display(),
+                                "removed stale SQLite lock files; retrying open"
+                            );
+                            Self::open_url(&database_url).await
+                        } else {
+                            Err(first_err)
+                        }
+                    }
+                }
             })
             .await?;
         Ok(db.clone())
@@ -1281,6 +1310,101 @@ impl Db {
                 repaired        INTEGER NOT NULL DEFAULT 0,
                 created_at      TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS launch_ledger (
+                id                TEXT PRIMARY KEY,
+                kind              TEXT NOT NULL,
+                subject_id        TEXT NOT NULL,
+                repo              TEXT,
+                actor             TEXT NOT NULL,
+                payload           TEXT NOT NULL,
+                signature_algo    TEXT NOT NULL,
+                signature_key_id  TEXT NOT NULL,
+                signature_value   TEXT NOT NULL,
+                recorded_at       TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_launch_ledger_subject
+                ON launch_ledger(subject_id, recorded_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_launch_ledger_kind
+                ON launch_ledger(kind, recorded_at DESC);
+
+            -- Wave 4: Kill Bell global-pause state. Persisted so a pause
+            -- outlives process restart. Each row is an explicit state
+            -- transition. The most-recent row by set_at DESC is the
+            -- current state. Pauses carry an expires_at TTL so a forgotten
+            -- pause cannot permanently brick the autonomous-delivery
+            -- control plane: KillBell::current() auto-arms once now is
+            -- past expires_at.
+            CREATE TABLE IF NOT EXISTS kill_bell_state (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                state       TEXT NOT NULL CHECK(state IN ('armed','paused')),
+                reason      TEXT,
+                paused_by   TEXT,
+                paused_at   TEXT,
+                expires_at  TEXT,
+                set_at      TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_kill_bell_state_set_at
+                ON kill_bell_state(set_at DESC);
+
+            -- Wave 7.A: VerdictStore. Persists VibeGate verdicts so a
+            -- long-running daemon can poll active verdicts across process
+            -- restart. body_json is the source of truth for the full
+            -- serialized VibeGateVerdict (per-column fields exist only for
+            -- indexed queries). superseded_at is set when a newer verdict
+            -- for the same (repo, merge_request) pair replaces this row,
+            -- which keeps load_latest cheap.
+            CREATE TABLE IF NOT EXISTS verdicts (
+                id                TEXT PRIMARY KEY,
+                repo              TEXT NOT NULL,
+                merge_request     TEXT,
+                head_sha          TEXT NOT NULL,
+                policy_sha        TEXT NOT NULL,
+                target_branch     TEXT NOT NULL,
+                risk              TEXT NOT NULL,
+                decision          TEXT NOT NULL,
+                expires_at        TEXT NOT NULL,
+                created_at        TEXT NOT NULL,
+                body_json         TEXT NOT NULL,
+                signature_algo    TEXT NOT NULL,
+                signature_key_id  TEXT NOT NULL,
+                signature_value   TEXT NOT NULL,
+                superseded_at     TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_verdicts_repo_mr
+                ON verdicts(repo, merge_request, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_verdicts_active
+                ON verdicts(expires_at, superseded_at);
+
+            -- Wave 3.5.B: SqlFoundryQueue. Backs FoundryTrain so the release
+            -- candidate queue survives process restart. drained_at is a
+            -- legitimate lifecycle column updated when drain_ready() ships a
+            -- batch (this table is intentionally NOT append-only). The
+            -- partial-style index keeps pending lookups cheap.
+            CREATE TABLE IF NOT EXISTS foundry_candidates (
+                id            TEXT PRIMARY KEY,
+                head_sha      TEXT NOT NULL,
+                source_branch TEXT NOT NULL,
+                commits_json  TEXT NOT NULL,
+                created_at    TEXT NOT NULL,
+                drained_at    TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_foundry_candidates_pending
+                ON foundry_candidates(drained_at, created_at);
+
+            CREATE TABLE IF NOT EXISTS llm_budget_ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                repo_scope TEXT NOT NULL,
+                prompt_tokens INTEGER NOT NULL,
+                completion_tokens INTEGER NOT NULL,
+                micro_usd INTEGER NOT NULL,
+                recorded_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_llm_budget_ledger_scope_time
+                ON llm_budget_ledger(repo_scope, recorded_at DESC);
             "#;
         let schema = match self.backend {
             StateBackend::Sqlite => sqlite_schema.to_string(),
@@ -1379,6 +1503,50 @@ impl Db {
                 .execute(&self.pool)
                 .await;
         }
+
+        // launch_ledger is append-only: defend in depth with SQLite triggers.
+        // The Rust API in src/autonomy/ledger.rs has no update/delete methods,
+        // but the triggers stop anyone who reaches the DB directly.
+        let _ = sqlx::query(
+            "CREATE TRIGGER IF NOT EXISTS launch_ledger_no_update
+                 BEFORE UPDATE ON launch_ledger
+             BEGIN
+                 SELECT RAISE(ABORT, 'launch_ledger is append-only');
+             END",
+        )
+        .execute(&self.pool)
+        .await;
+        let _ = sqlx::query(
+            "CREATE TRIGGER IF NOT EXISTS launch_ledger_no_delete
+                 BEFORE DELETE ON launch_ledger
+             BEGIN
+                 SELECT RAISE(ABORT, 'launch_ledger is append-only');
+             END",
+        )
+        .execute(&self.pool)
+        .await;
+
+        // Wave 8.D: llm_budget_ledger is append-only too. The Rust API in
+        // src/llm/sql_budget_ledger.rs has no update/delete methods; these
+        // triggers stop anyone who reaches the DB out of band.
+        let _ = sqlx::query(
+            "CREATE TRIGGER IF NOT EXISTS llm_budget_ledger_no_update
+                 BEFORE UPDATE ON llm_budget_ledger
+             BEGIN
+                 SELECT RAISE(ABORT, 'llm_budget_ledger is append-only');
+             END",
+        )
+        .execute(&self.pool)
+        .await;
+        let _ = sqlx::query(
+            "CREATE TRIGGER IF NOT EXISTS llm_budget_ledger_no_delete
+                 BEFORE DELETE ON llm_budget_ledger
+             BEGIN
+                 SELECT RAISE(ABORT, 'llm_budget_ledger is append-only');
+             END",
+        )
+        .execute(&self.pool)
+        .await;
 
         Ok(())
     }
@@ -3453,172 +3621,6 @@ pub async fn record_admission_decision_for_hook(
     .is_ok()
 }
 
-impl crate::tui::app::App {
-    pub(crate) fn has_selected_runner_group(&self) -> bool {
-        self.state.pools.get(self.selected_pool_index).is_some()
-    }
-
-    pub(crate) fn command_palette_filter(&self) -> &str {
-        &self.command_palette_query
-    }
-
-    pub(crate) fn chrome_header_state(&self) -> crate::tui::ui::ui_chrome::ChromeHeaderState {
-        let release = self.state.release_status.as_ref().map(|rel| {
-            crate::tui::ui::ui_chrome::ChromeRelease {
-                short_sha: rel
-                    .attempt
-                    .sha
-                    .get(..8)
-                    .unwrap_or(rel.attempt.sha.as_str())
-                    .to_string(),
-                state_label: rel.canary_state.clone(),
-            }
-        });
-        let mut tabs = vec![
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "0",
-                name: "Workflow",
-                active: self.active_tab == crate::tui::app::ActiveTab::Workflow,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "1",
-                name: "Mission",
-                active: self.active_tab == crate::tui::app::ActiveTab::Mission,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "2",
-                name: "Release",
-                active: self.active_tab == crate::tui::app::ActiveTab::Release,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "3",
-                name: "Jobs",
-                active: self.active_tab == crate::tui::app::ActiveTab::Jobs,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "4",
-                name: "Agents",
-                active: self.active_tab == crate::tui::app::ActiveTab::Agents,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "5",
-                name: "Tests",
-                active: self.active_tab == crate::tui::app::ActiveTab::Tests,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "6",
-                name: "Pools",
-                active: self.is_runner_group_tab(),
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "7",
-                name: "Cache",
-                active: self.active_tab == crate::tui::app::ActiveTab::Cache,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "8",
-                name: "Evidence",
-                active: self.active_tab == crate::tui::app::ActiveTab::Evidence,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "9",
-                name: "Secrets",
-                active: self.active_tab == crate::tui::app::ActiveTab::Secrets,
-            },
-            crate::tui::ui::ui_chrome::ChromeTab {
-                key: "g",
-                name: "Git",
-                active: self.active_tab == crate::tui::app::ActiveTab::Git,
-            },
-        ];
-        if self.jankurai_available() {
-            tabs.push(crate::tui::ui::ui_chrome::ChromeTab {
-                key: "j",
-                name: "Jank",
-                active: self.active_tab == crate::tui::app::ActiveTab::Jank,
-            });
-        }
-
-        let (active_runner_groups, total_runner_groups) = self.runner_group_counts();
-
-        crate::tui::ui::ui_chrome::ChromeHeaderState {
-            active_containers: self.state.active_containers,
-            active_runner_groups,
-            total_runner_groups,
-            agent_count: self.state.agent_pipelines.len(),
-            cache_hit_ratio: self.state.hit_ratio,
-            active_taint_count: self.state.active_taint_count,
-            gitlab_ready: self.state.gitlab_ready,
-            release,
-            last_sync_at: self.state.last_sync_at,
-            tabs,
-        }
-    }
-
-    pub(crate) fn chrome_event_state(&self) -> crate::tui::ui::ui_chrome::ChromeEventState {
-        let entries = self
-            .state
-            .recent_jobs
-            .iter()
-            .take(20)
-            .map(|job| {
-                let (badge, color) = crate::tui::ui::ui_chrome::status_badge(&job.status);
-                crate::tui::ui::ui_chrome::ChromeEvent {
-                    ts: job
-                        .received_at
-                        .get(11..19)
-                        .unwrap_or("--:--:--")
-                        .to_string(),
-                    badge,
-                    color,
-                    name: job.job_name.as_deref().unwrap_or("job").to_string(),
-                }
-            })
-            .collect();
-
-        crate::tui::ui::ui_chrome::ChromeEventState {
-            entries,
-            ticker_offset: self.state.event_ticker_offset,
-        }
-    }
-
-    pub(crate) fn footer_help(&self) -> &'static str {
-        if self.maximize_logs {
-            return " Esc:minimize  ↑↓:scroll  PgUp/Dn:jump  Home:top  G/End:bottom  q:quit";
-        }
-
-        match self.active_tab {
-            crate::tui::app::ActiveTab::Jobs => {
-                " f:freeze  n/N:runner  g:follow  r:requeue  d:remove  Enter:logs  /:search  ?:help  ^K:palette  q:quit"
-            }
-            crate::tui::app::ActiveTab::Tests => {
-                " v:view-mode  Enter:history  ↑↓:move  /:search  ?:help  ^K:palette  q:quit"
-            }
-            crate::tui::app::ActiveTab::Workflow => {
-                " ↑↓:phase  ←→:node  Enter:inspect  i:info  /:search  ?:help  ^K:palette  q:quit"
-            }
-            crate::tui::app::ActiveTab::Mission => {
-                " .:next-action  ?:explain  Enter:inspect  /:search  ^K:palette  q:quit"
-            }
-            crate::tui::app::ActiveTab::Agents => {
-                " Enter:inspect  p:preview  x:execute  ?:explain  /:search  ^K:palette  q:quit"
-            }
-            crate::tui::app::ActiveTab::Evidence => {
-                " a:toggle-view  Enter:inspect  /:search  ?:help  ^K:palette  q:quit"
-            }
-            crate::tui::app::ActiveTab::Pools => {
-                " p:pause/resume  Enter:inspect  /:search  ?:help  ^K:palette  q:quit"
-            }
-            crate::tui::app::ActiveTab::Jank => {
-                " ↑↓:select  j:Jank  F5:refresh  ?:help  ^K:palette  q:quit"
-            }
-            _ => {
-                " Enter:inspect  Tab:cycle  1-0:tab  ↑↓:move  /:search  ?:help  ^K:palette  q:quit"
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3875,6 +3877,76 @@ mod tests {
     async fn open_memory_uses_sqlite_recovery() -> Result<()> {
         let db = setup_db().await?;
         assert_eq!(db.backend(), StateBackend::Sqlite);
+        Ok(())
+    }
+
+    // --- Wave 5 coverage-boost: SQL semicolon-in-comment regression --------
+
+    /// Wave 4.E regression fence. The `migrate()` schema is split on `;` via
+    /// `schema.split(';')`. If a future contributor adds a line-comment
+    /// (`-- ...`) containing a `;` character INSIDE the schema literal,
+    /// the splitter would slice the comment in half and the second half
+    /// would be executed as raw SQL, breaking 30+ state tests as it did
+    /// once before. We keep this guard: scan only the lines that live
+    /// inside a raw-string literal (`r#"..."#`) starting near the
+    /// `sqlite_schema` binding for any SQL line-comment (`--`) containing
+    /// a `;` and fail loudly with a remediation hint.
+    #[test]
+    fn sqlite_schema_has_no_line_comments_containing_semicolons() {
+        let src = std::fs::read_to_string(file!()).expect("read state.rs source");
+        let mut in_schema_literal = false;
+        let mut offenders: Vec<(usize, String)> = Vec::new();
+        for (lineno, line) in src.lines().enumerate() {
+            // Toggle on the schema literal's raw-string fences. The literal
+            // opens with `let sqlite_schema = r#"` and closes with `"#;`.
+            if !in_schema_literal {
+                if line.contains("let sqlite_schema = r#\"") {
+                    in_schema_literal = true;
+                }
+                continue;
+            }
+            if line.trim_start().starts_with("\"#") {
+                in_schema_literal = false;
+                continue;
+            }
+            // Inside the schema literal: any `--` is a SQL line-comment
+            // marker. Disallow `;` after it.
+            if let Some(idx) = line.find("--") {
+                let after = &line[idx + 2..];
+                if after.contains(';') {
+                    offenders.push((lineno + 1, line.to_string()));
+                }
+            }
+        }
+        assert!(
+            offenders.is_empty(),
+            "sqlite_schema literal contains SQL line-comments with ';' which would \
+             break schema.split(';') in migrate(); fix by removing the semicolon \
+             from the comment or by switching the migration to a comment-aware \
+             splitter. Offending lines: {:#?}",
+            offenders
+        );
+    }
+
+    /// Calling `migrate()` twice in a row (via two open_memory() calls on
+    /// the same logical schema) must succeed: every DDL statement is
+    /// `CREATE ... IF NOT EXISTS` and the migration must be idempotent.
+    /// This is the safety net that lets Wave 5 redeployers re-run boot
+    /// without dropping their DB.
+    #[tokio::test]
+    async fn migrate_is_idempotent_no_op_on_second_invocation() -> Result<()> {
+        // First open: fresh in-memory db with full migration.
+        let db = setup_db().await?;
+        // The second migrate() call must complete without erroring; every
+        // CREATE TABLE is guarded with IF NOT EXISTS, ALTERs are tolerated
+        // via let _ =, and the index creation is also IF NOT EXISTS.
+        db.migrate().await?;
+        // After the second run the schema is still serviceable: we can
+        // execute a smoke query against one of the known tables.
+        let _: Vec<(String,)> =
+            sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='pools'")
+                .fetch_all(&db.pool)
+                .await?;
         Ok(())
     }
 

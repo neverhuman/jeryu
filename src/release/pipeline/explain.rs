@@ -1,5 +1,30 @@
 use super::*;
 
+fn explain_release_candidate_blocker(
+    aggregated: &HashMap<String, AggregatedPipelineJob>,
+    release_candidate_materialized: bool,
+    blocking_failed: &[PipelineExplainItem],
+    incomplete_milestones: &[PipelineExplainMilestone],
+) -> Option<String> {
+    if !release_candidate_materialized {
+        return Some(if aggregated.is_empty() {
+            "materialized pipeline is empty".to_string()
+        } else {
+            "release candidate jobs omitted by VTI".to_string()
+        });
+    }
+    if let Some(item) = blocking_failed.first() {
+        return Some(format!("{} failed on {}", item.id, item.runner_pool));
+    }
+    incomplete_milestones.first().map(|milestone| {
+        format!(
+            "{} pending: {}",
+            milestone.title,
+            milestone.incomplete_jobs.join(", ")
+        )
+    })
+}
+
 pub async fn build_pipeline_explain_report(
     client: &GitlabClient,
     project_id: i64,
@@ -126,19 +151,12 @@ pub async fn build_pipeline_explain_report(
     let release_candidate_materialized = pipeline_product != "main-candidate"
         || aggregated_materializes_release_candidate(&aggregated);
 
-    let current_blocker = if !release_candidate_materialized {
-        Some("release candidate jobs omitted by VTI".to_string())
-    } else if let Some(item) = blocking_failed.first() {
-        Some(format!("{} failed on {}", item.id, item.runner_pool))
-    } else {
-        incomplete_milestones.first().map(|milestone| {
-            format!(
-                "{} pending: {}",
-                milestone.title,
-                milestone.incomplete_jobs.join(", ")
-            )
-        })
-    };
+    let current_blocker = explain_release_candidate_blocker(
+        &aggregated,
+        release_candidate_materialized,
+        &blocking_failed,
+        &incomplete_milestones,
+    );
     let release_eligible =
         release_candidate_materialized && blocking_failed.is_empty() && blocking_pending.is_empty();
 
@@ -217,4 +235,28 @@ pub fn render_pipeline_explain_text(report: &PipelineExplainReport) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_pipeline_reports_its_own_blocker() {
+        let blocker = explain_release_candidate_blocker(&HashMap::new(), false, &[], &[]);
+        assert_eq!(blocker.as_deref(), Some("materialized pipeline is empty"));
+    }
+
+    #[test]
+    fn omitted_release_candidate_jobs_keep_the_vti_blocker() {
+        let aggregated = HashMap::from([(
+            "compile-workspace".to_string(),
+            AggregatedPipelineJob::default(),
+        )]);
+        let blocker = explain_release_candidate_blocker(&aggregated, false, &[], &[]);
+        assert_eq!(
+            blocker.as_deref(),
+            Some("release candidate jobs omitted by VTI")
+        );
+    }
 }

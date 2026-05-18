@@ -107,6 +107,9 @@ mod tests {
     use super::*;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
+    use std::sync::{LazyLock, Mutex};
+
+    static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
     fn set_env(key: &str, value: impl AsRef<std::ffi::OsStr>) {
         // SAFETY: tests isolate the process environment with a mutex.
@@ -136,7 +139,7 @@ mod tests {
 
     #[test]
     fn env_resolution_is_not_globally_cached() {
-        let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+        let _guard = ENV_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         let first = dir.path().join("git-one");
         let second = dir.path().join("git-two");
@@ -155,7 +158,7 @@ mod tests {
 
     #[test]
     fn guarded_path_lookup_skips_jeryu_git_bridge() {
-        let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+        let _guard = ENV_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
         let bridge_dir = dir.path().join("bridge");
         let real_dir = dir.path().join("real");

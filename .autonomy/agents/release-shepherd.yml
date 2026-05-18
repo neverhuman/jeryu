@@ -1,0 +1,13 @@
+schema: vibegate.agent.v1
+id: release-shepherd
+version: 1
+role: release_shepherd
+chain_ref: judge
+prompt_path: null
+output_schema: schemas/release-passport.schema.json
+signing_key_pub: keys/release-shepherd.ed25519.pub
+build_once: true
+require_sbom: true
+require_slsa_provenance: true
+require_artifact_signature: true
+require_rollback_plan: true

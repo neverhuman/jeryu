@@ -169,7 +169,7 @@ impl RepairPacket {
     /// the panic hook fills those in later when it processes the emitted
     /// packet against the cell registry.
     #[doc(hidden)]
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)] // assert packet is a flat fixed schema
     pub fn for_assert(
         code: String,
         message: String,

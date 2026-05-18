@@ -167,6 +167,12 @@ Host $ALIAS
     Port $SSH_PORT
     User $SSH_USER
     IdentityFile $KEY_PATH
+    # IdentitiesOnly forces ssh to use ONLY the IdentityFile above. On GitHub
+    # Actions runners the SSH agent is pre-loaded with the runner user's
+    # default keys; without this, ssh tries those first, exhausts the test
+    # container's MaxAuthTries (default 6), then never reaches our injected
+    # key, producing "Permission denied (publickey,password)" failures.
+    IdentitiesOnly yes
     StrictHostKeyChecking accept-new
     UserKnownHostsFile /dev/null
 EOF

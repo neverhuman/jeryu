@@ -212,6 +212,7 @@ pub(crate) async fn handle_mcp_post(
     }
 }
 
+#[allow(clippy::result_large_err)] // Response is the unified MCP rejection type; boxing is tracked as a follow-up
 fn validate_mcp_http_headers(
     headers: &HeaderMap,
     allow_body: bool,

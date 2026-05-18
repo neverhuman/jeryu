@@ -1,0 +1,101 @@
+# .autonomy/providers/llm.yml — Wave 8.F per-role LLM router chains.
+#
+# Schema: vibegate.providers.v1
+#
+# This file replaces the Wave-5 `providers:` + `default_chain:` shape with the
+# Wave-8.F `chains:` map (one ordered chain per reviewer role). The parser
+# lives in `src/llm/provider_chains.rs` (`ProvidersConfig` / `ProviderEntry`);
+# call sites resolve a router via `build_router_for_role` in
+# `src/bin/autonomy.rs`, which falls back to `build_default_router` if the
+# per-role path returns Err.
+#
+# -----------------------------------------------------------------------------
+# SECURITY NOTE — keys NEVER live in this file.
+# -----------------------------------------------------------------------------
+# Every entry declares `api_key_secret: <ENV_NAME>` (a *name*, never a value).
+# Real values are resolved at runtime by the 6-tier `SecretResolver` chain in
+# `src/llm/secrets.rs`:
+#     1. --llm-key CLI flag
+#     2. process env var
+#     3. ~/.jeryu/secrets/llm.env  (canonical user-default; dotenvy format)
+#     4. ~/llm.env                  (legacy, back-compat)
+#     5. <repo>/.env.local         (gitignored)
+#     6. CI secret (injected as env var; tier #2 catches it)
+# In CI mode (CI=true) tiers 3-5 are skipped — only env wins.
+#
+# If you accidentally paste a real key here: revoke it at the provider, scrub
+# it from git history, and re-read `docs/llm-reviewers.md`. Gitleaks is wired
+# into CI and the pre-commit hook.
+# -----------------------------------------------------------------------------
+
+schema: vibegate.providers.v1
+
+# When a caller asks for a role not present in `chains:`, the router can
+# consult this list. Right now `security` is the universal fallback because
+# every reviewer agrees Nemotron-70B is a safe default for code review.
+default_role_chain: [security]
+
+chains:
+  # ---- Security reviewer (most important — 2-deep fallback) -----------------
+  security:
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: groq
+      base_url: https://api.groq.com/openai/v1
+      model_id: llama-3.1-70b-versatile
+      api_key_secret: GROQ_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+
+  # ---- Test-integrity reviewer (Llama-3.1-70b primary, Groq fallback) -------
+  test_integrity:
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: meta-llama/llama-3.1-70b-instruct:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: groq
+      base_url: https://api.groq.com/openai/v1
+      model_id: llama-3.1-70b-versatile
+      api_key_secret: GROQ_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+
+  # ---- Runtime reviewer (single-entry; Nemotron is enough) ------------------
+  runtime:
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+
+  # ---- Lockfile scout (single-entry; small free-tier suffices) --------------
+  lockfile:
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+
+  # ---- Nightwatch (post-deploy telemetry reviewer) --------------------------
+  nightwatch:
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000

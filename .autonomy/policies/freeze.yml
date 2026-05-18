@@ -1,0 +1,18 @@
+# .autonomy/policies/freeze.yml — change-window / freeze schedule.
+#
+# Schema: vibegate.freeze.v1 (see src/autonomy/freeze.rs).
+# When a window is active, any change above `max_allowed_risk` is downgraded
+# to RequireHuman by injecting the externally-supplied named hard-stop
+# `freeze_window_active` (registered in src/autonomy/conditions.rs).
+#
+# All times are UTC, RFC 3339. Windows are half-open: [start, end).
+schema: vibegate.freeze.v1
+enabled: true
+windows:
+  - id: holiday-2026-12-24
+    name: "End-of-year freeze 2026"
+    start: "2026-12-24T00:00:00Z"
+    end:   "2027-01-02T00:00:00Z"
+    max_allowed_risk: R0          # docs-only during freeze
+    reason: "engineering on-call rotation reduced"
+    allow_break_glass: true

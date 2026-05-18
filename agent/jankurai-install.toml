@@ -2,11 +2,11 @@
 # DO NOT EDIT BY HAND.
 
 schema_version = "1.0.0"
-installed_at = 1778094225
-jankurai_version = "0.8.10"
-standard_version = "0.8.0"
-auditor_version = "0.8.11"
-schema_contract_version = "1.6.0"
+installed_at = 1778696007
+jankurai_version = "1.3.0"
+standard_version = "0.9.0"
+auditor_version = "1.3.0"
+schema_contract_version = "1.9.0"
 paper_edition = "2026.05-ed8"
 target_stack_id = "rust-ts-vite-react-postgres-bounded-python"
 profile = "rust-ts-postgres"
@@ -14,7 +14,8 @@ level = "full"
 ide = "all"
 mode = "advisory"
 update_channel = "stable"
-install_source = "auto"
+install_source = "local"
+resolved_source = "local"
 agent_request_version = "v1"
 agent_request_hash = "<!-- jankurai agent request v1 sha256:REPLACE_WITH_HASH -->"
 
@@ -25,12 +26,12 @@ merge_policy = "merge-marker"
 
 [[templates]]
 path = "CLAUDE.md"
-hash = "cebe6fd7eb4de58f7a610ea8823b781b26fc895e8d739aba8c6f4a2ad36cd106"
+hash = "ecd6c59d9d6b6a9568c7d46a402c3ea6d3b22d80196347740a66cbe9157fbba9"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = "GEMINI.md"
-hash = "cebe6fd7eb4de58f7a610ea8823b781b26fc895e8d739aba8c6f4a2ad36cd106"
+hash = "ecd6c59d9d6b6a9568c7d46a402c3ea6d3b22d80196347740a66cbe9157fbba9"
 merge_policy = "keep-existing"
 
 [[templates]]
@@ -50,57 +51,82 @@ merge_policy = "keep-existing"
 
 [[templates]]
 path = "apps/web/AGENTS.md"
-hash = "7bb58d312ede49cfbf560e956544e51864536f9e1d36bd859a0f06a703b14d6e"
+hash = "50ba4c89a0088f58624c0a67483b65a8be60a8ad1fd4b9dff2555623b9109da2"
 merge_policy = "merge-marker"
 
 [[templates]]
 path = "apps/api/AGENTS.md"
-hash = "38d394a0c0e2008acd5ae37c90f2d3bf5d51ceb16e44ea9acb4c2717a2ed1acf"
+hash = "129d6d0bc28ad32b0a48c074a5b3801818ea07f249ecf12d16040be3e3fbf653"
 merge_policy = "merge-marker"
 
 [[templates]]
 path = ".agents/agents.md"
-hash = "cebe6fd7eb4de58f7a610ea8823b781b26fc895e8d739aba8c6f4a2ad36cd106"
+hash = "ecd6c59d9d6b6a9568c7d46a402c3ea6d3b22d80196347740a66cbe9157fbba9"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".agents/skills/jankurai/SKILL.md"
-hash = "c1d2a294704ea7656de6aea3f51543e83d093c1a8e4f71afd0b1596266f8efd7"
+hash = "064338f153f4af48a37b5a4cf2102fa7721e63935349a633d08369f09f30e5ca"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".agents/workflows/jankurai-audit.md"
-hash = "a0ae8bce74424b0927efd980f17480b1fe0af8d2206eb9523b532fb41c112fbe"
+hash = "c4173c1fc122c948cc92287ee7bd4dfc260fe042dd94a4eaf5f0f07ae7b2cd27"
+merge_policy = "keep-existing"
+
+[[templates]]
+path = ".agents/workflows/jankurai-context-pack.md"
+hash = "53e2021379f3875b7d1346aa33afb1d770a17f9311a6f62f869154f82c503550"
+merge_policy = "keep-existing"
+
+[[templates]]
+path = ".agents/workflows/jankurai-kickoff.md"
+hash = "cd49e70e846831bc083863341c41ab5c0f8a45a44674b89df2dfdb6c81068f28"
+merge_policy = "keep-existing"
+
+[[templates]]
+path = ".agents/workflows/jankurai-prove.md"
+hash = "d90e0f1db0df52c4fcde5b5d00ab794becafccb62b98c0c4407287059a7d7422"
+merge_policy = "keep-existing"
+
+[[templates]]
+path = ".agents/workflows/jankurai-witness.md"
+hash = "070319debb8d743364e8f45f88afbb6f0d9844b483a6e16a1cbb7aa4903643ac"
+merge_policy = "keep-existing"
+
+[[templates]]
+path = ".agents/workflows/jankurai-repair-plan.md"
+hash = "4b0ec5be9bfda16c37a4185ddd6ba79a47f70d639e7bb13fd0280276db094dc8"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".claude/skills/jankurai/SKILL.md"
-hash = "c1d2a294704ea7656de6aea3f51543e83d093c1a8e4f71afd0b1596266f8efd7"
+hash = "064338f153f4af48a37b5a4cf2102fa7721e63935349a633d08369f09f30e5ca"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".cursor/rules/jankurai.mdc"
-hash = "c7c1a96e319186872d57846bc3fcd83e33db43602b4c28c37d970fb423d2e533"
+hash = "3254b203803ce48553019eaa07d1acf1fd2feaa0be2b76e911131c7dd2e113df"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".github/copilot-instructions.md"
-hash = "cebe6fd7eb4de58f7a610ea8823b781b26fc895e8d739aba8c6f4a2ad36cd106"
+hash = "ecd6c59d9d6b6a9568c7d46a402c3ea6d3b22d80196347740a66cbe9157fbba9"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".github/instructions/jankurai.instructions.md"
-hash = "cebe6fd7eb4de58f7a610ea8823b781b26fc895e8d739aba8c6f4a2ad36cd106"
+hash = "ecd6c59d9d6b6a9568c7d46a402c3ea6d3b22d80196347740a66cbe9157fbba9"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".github/instructions/jankurai-rust.instructions.md"
-hash = "fc6e1e409cf7d5529f840512fcdc98e58a24ac8ac44586309977eb4713a188fc"
+hash = "7b40b4f3f0c4a19d0564974909c0fab1fc52eb09b9081238354170b966e53770"
 merge_policy = "keep-existing"
 
 [[templates]]
 path = ".github/instructions/jankurai-web.instructions.md"
-hash = "c0d2caf2aeec974b014ee6d5598b37cfbddf5c6984b8fa41f4e7ce175a23c5e0"
+hash = "a141f4a4d4da45f064a73d8785653e6def17c6c18327961d3c81e63d57ae2e7f"
 merge_policy = "keep-existing"
 
 [[templates]]
@@ -110,7 +136,7 @@ merge_policy = "keep-existing"
 
 [[templates]]
 path = "agent/JANKURAI_STANDARD.md"
-hash = "899d41acb06b6bc5b9cc3036e2139d4c8b1aabc772f29eacfe637cdfc6220268"
+hash = "e3ee9a36534bbb546b09c667bdf5c01342ecb834ff02fc80ccfbde4779b05366"
 merge_policy = "merge-marker"
 
 [[templates]]
@@ -140,7 +166,7 @@ merge_policy = "merge-toml"
 
 [[templates]]
 path = "agent/owner-map.json"
-hash = "50efe83253703fb3d2defe522833c2e155ecb22e143ba47cc3c3e5c5d0e6230f"
+hash = "01ce0059872f522c6136e9f58d70c53b5b70fac48aa1e5408d72d58fedc8e0bd"
 merge_policy = "merge-json"
 
 [[templates]]
@@ -150,12 +176,12 @@ merge_policy = "merge-toml"
 
 [[templates]]
 path = "agent/standard-version.toml"
-hash = "1cd68066b6d7a406eaa9bf5687a77df1a4c0c6c3f0cd35db18a43826688bbacb"
+hash = "18688daaf244246fb8dd43ca5cd3182d219f15a260c4dd18a0fcfcc01e7fde76"
 merge_policy = "merge-toml"
 
 [[templates]]
 path = "agent/test-map.json"
-hash = "431199bff437c9af6caf0a060def9a5ed5d1691e4c67543a220e65100b504b57"
+hash = "492c45dcb09e99ccea543ad94faea70c7cf0e27d86f428705ce2eead485940b4"
 merge_policy = "merge-json"
 
 [[templates]]
@@ -165,7 +191,7 @@ merge_policy = "merge-toml"
 
 [[templates]]
 path = "contracts/AGENTS.md"
-hash = "11fda87a006c02721c5b9de0fc7d397c7f8376b1ea08c64763d1eb97f4721c42"
+hash = "6b2158247f04834b92bff308776e906250236665e70c2ed13999f715420c66fc"
 merge_policy = "merge-marker"
 
 [[templates]]
@@ -175,27 +201,27 @@ merge_policy = "keep-existing"
 
 [[templates]]
 path = "crates/adapters/AGENTS.md"
-hash = "15cf983c623840f8c1ece2e240d4c5eab6d95019ba97019470b07b133dd0f504"
+hash = "d7d295dc6fa4e36ff8ef62a3d6042867b08ff677d0e9241846431459a8c3ef95"
 merge_policy = "merge-marker"
 
 [[templates]]
 path = "crates/application/AGENTS.md"
-hash = "26abb7dc02d9f1eff95956bd0c48f1c1690ccbf6509a188541f3fb9bb9e2a82a"
+hash = "34745b94861ba270c12b2d947645824932fbd49acb15e94917a3c92931781911"
 merge_policy = "merge-marker"
 
 [[templates]]
 path = "crates/domain/AGENTS.md"
-hash = "8fb7b4461ac604711c46008b7c6f1470442c96e024c00a79af53c22ed3bd7f30"
+hash = "4577181f3423f6ca05f1a893a6447a5fa08a7127f5669ef00b5978862d08e61e"
 merge_policy = "merge-marker"
 
 [[templates]]
 path = "crates/workers/AGENTS.md"
-hash = "046c012c3892f55c9597010b4757e9b0f10255301370fe74f1171b327ae56b19"
+hash = "c00a036b6b3f2cfa635d01bea235e3d552aba9bdb186bd238ac57dcd330d717d"
 merge_policy = "merge-marker"
 
 [[templates]]
 path = "db/AGENTS.md"
-hash = "66add4ab06b1471c7e0fbc19b3f7843bc2152a2ca35616c9b1cd21ddaf2a3b7d"
+hash = "f81e80960e01d0036aba55c9c74ff1389901d3bf676a00fb4f3d03028feb0dfe"
 merge_policy = "merge-marker"
 
 [[templates]]
@@ -245,12 +271,12 @@ merge_policy = "keep-existing"
 
 [[templates]]
 path = "ops/AGENTS.md"
-hash = "0248a32561440a7791f79a618b2aec9c14ef0d898d15d4c35dbe2449c5d0aa61"
+hash = "240fae61c06a191a01cfa123bef9b24d9880fbda87b856787c3ae80d08b3e4ac"
 merge_policy = "merge-marker"
 
 [[templates]]
 path = "python/ai-service/AGENTS.md"
-hash = "47552f0357109c3183be3b222449e3591581438c319df48ceb9aee0bce4c6595"
+hash = "636e1b7fce147013dad8310d5a629867707317d51e3e36979d1a478e52a6adb7"
 merge_policy = "merge-marker"
 
 [[templates]]

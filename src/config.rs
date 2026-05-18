@@ -169,6 +169,7 @@ services:
 // Runner config.toml Template
 // ---------------------------------------------------------------------------
 
+#[allow(clippy::too_many_arguments)] // runner config builder: each arg maps to a specific gitlab-runner TOML field
 pub fn render_runner_config(
     pool_name: &str,
     manager_id: &str,

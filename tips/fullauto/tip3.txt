@@ -1,0 +1,2115 @@
+([Files][1])([Files][2])([Files][3])([Files][4])([Files][5])([Files][6])([Files][7])([Files][8])([Files][9])([Files][10])([Files][11])([Files][12])([Files][13])([Files][14])([Files][15])([Files][16])([Files][17])([Files][18])([Files][19])([Files][20])
+
+After reading the uploaded VibeGate notes and cross-checking against current GitHub/GitLab and supply-chain practices, my final recommendation is:
+
+# Build **VibeGate: Evidence-Carrying Autonomous Delivery**
+
+The core idea:
+
+> **Agents may write code. Agents may review code. Agents may release code. But only evidence, policy, platform enforcement, signed artifacts, telemetry, and rollback may move code forward.**
+
+The simplest canonical flow is:
+
+```text
+Intent Card
+  ↓
+Scoped Capability Lease
+  ↓
+Ephemeral Agent Sandbox
+  ↓
+agent/* branch
+  ↓
+MR/PR + Change Passport
+  ↓
+Fast impacted CI
+  ↓
+VibeLock Airlock
+  ↓
+GitLab Merge Train / GitHub Merge Queue
+  ↓
+main = merge-certified
+  ↓
+Foundry Train
+  ↓
+certified-main / release candidate
+  ↓
+Build once, sign, attest, SBOM
+  ↓
+Dev / staging / shadow
+  ↓
+Nightwatch canary
+  ↓
+Progressive production
+  ↓
+Launch Ledger
+```
+
+The operating law:
+
+```text
+No intent, no work.
+No lease, no privileged action.
+No passport, no merge.
+No receipt, no trust.
+No signed artifact, no deploy.
+No telemetry, no promotion.
+No rollback, no production.
+```
+
+This fits where the ecosystem is going. OpenAI Codex already works as a cloud software-engineering agent that can edit repositories, run tasks in sandboxed environments, and propose pull requests; `AGENTS.md` is now a widely used open convention for repository-level agent instructions; GitLab Duo Agent Platform is explicitly moving toward multiple specialized agents across the SDLC. ([OpenAI][21]) The important lesson from DORA’s 2025 AI-assisted software delivery research is that AI amplifies the delivery system around it, including both strengths and dysfunctions; so the best future-proof design is not “trust better models,” it is **make the software delivery system evidence-native**. ([Google Research][22])
+
+---
+
+# 1. The final naming system
+
+Use fun names internally, but map them to boring GitHub/GitLab terms externally.
+
+| Layer            | Canonical product name |             Plain enterprise name | Purpose                                                                |
+| ---------------- | ---------------------: | --------------------------------: | ---------------------------------------------------------------------- |
+| Repo standard    |  **Jankurai Standard** |           Agent delivery standard | The anti-vibe-coding rules for a repo.                                 |
+| Control plane    |           **VibeGate** | Autonomous delivery control plane | Owns policy, evidence, leases, verdicts, telemetry, release authority. |
+| Pre-merge gate   |   **VibeLock Airlock** |   Required pre-merge status check | Blocks unproven or unsafe MRs/PRs.                                     |
+| Proof object     |    **Change Passport** |                   Evidence bundle | Machine-readable proof attached to every change.                       |
+| Merge proof      |     **Merge Passport** |              Gate verdict receipt | Exact-SHA-bound decision allowing merge queue/train entry.             |
+| Release queue    |      **Foundry Train** |       Release certification queue | Batches full validation and artifact production.                       |
+| Runtime observer |         **Nightwatch** |     Canary and rollout controller | Promotes, pauses, or rolls back based on telemetry.                    |
+| Audit trail      |      **Launch Ledger** |          Append-only decision log | Stores every intent, lease, decision, artifact, deployment, rollback.  |
+
+The most important naming decision is this:
+
+> **VibeGate is the system. VibeLock is the gate. Foundry Train certifies releases. Nightwatch watches production.**
+
+That avoids the confusion of calling every layer “the gate.”
+
+---
+
+# 2. The core philosophy
+
+The wrong architecture is:
+
+```text
+agent writes code → agent says it is good → agent merges → agent deploys
+```
+
+The right architecture is:
+
+```text
+agent writes code
+  → CI proves facts
+  → independent agents critique evidence
+  → deterministic policy decides
+  → GitHub/GitLab enforce branch rules
+  → release system builds one artifact
+  → canary telemetry proves runtime health
+  → rollback remains armed
+```
+
+The key doctrine:
+
+> **Do not trust agents. Trust receipts.**
+
+Agents are powerful, useful, and untrusted. The trusted control plane is VibeGate. The forge remains GitHub/GitLab. CI remains the proof engine. The release platform remains the deployment authority. Humans and agents are both approvers inside a policy model, but neither bypasses the model.
+
+---
+
+# 3. The five-plane architecture
+
+## Plane 1: Work Plane
+
+Builder agents create patches, tests, docs, migrations, refactors, or dependency updates.
+
+They can:
+
+```text
+create branches
+open MRs/PRs
+run tests
+propose evidence
+repair failures
+explain changes
+```
+
+They cannot:
+
+```text
+push to protected branches
+approve their own work
+weaken policy silently
+access production secrets
+deploy directly
+edit release gates without escalation
+```
+
+## Plane 2: Proof Plane
+
+CI, static analysis, test selection, coverage, security scanners, dependency scanners, benchmarks, contract tests, and runtime simulation create evidence.
+
+The rule:
+
+> **Agents may claim almost nothing unless a tool produced the proof.**
+
+Good proof examples:
+
+```text
+regression test failed on base SHA and passed on head SHA
+impacted test map selected these tests and skipped these with reasons
+security scanner produced no new critical findings
+dependency delta has license and vulnerability receipt
+migration has forward and rollback plan
+performance claim has before/after benchmark
+```
+
+## Plane 3: VibeLock Airlock
+
+VibeLock is the pre-merge decision layer.
+
+It asks:
+
+```text
+Did this change stay inside the Intent Card?
+Did it use only granted capabilities?
+Did it include a valid Change Passport?
+Did impacted CI pass?
+Were skipped tests skipped for defensible reasons?
+Did it weaken tests, CI, policy, observability, or rollback?
+Did it touch protected control-plane paths?
+Is rollback clear?
+Is canary required?
+Does this autonomy profile allow auto-merge?
+```
+
+VibeLock should be a **required status check / external status check**, not just an AI review comment. GitLab external status checks can be configured so merge requests cannot merge unless all required status checks pass, and GitLab returns conflicts for out-of-date status responses that do not match the current HEAD SHA. ([GitLab Docs][23])
+
+## Plane 4: Merge Plane
+
+GitLab/GitHub remain the merge authority.
+
+Use:
+
+```text
+protected branches
+required checks
+CODEOWNERS
+approval rules
+merge trains / merge queues
+signed commits where needed
+linear history where needed
+no force-push to protected branches
+```
+
+GitLab merge trains queue merge requests and compare each request against earlier queued requests to ensure they work together before reaching the default branch. ([GitLab Docs][24]) GitHub merge queue similarly ensures queued pull request changes pass required status checks when applied to the latest target branch plus earlier queued pull requests. ([GitHub Docs][25])
+
+## Plane 5: Release Plane
+
+`main` is not production. `main` is merge-certified.
+
+Release certification happens after merge:
+
+```text
+main
+  ↓
+Foundry Train
+  ↓
+full CI / deep security / integration / perf
+  ↓
+immutable artifact
+  ↓
+SBOM + provenance + signature
+  ↓
+dev/staging/shadow
+  ↓
+Nightwatch canary
+  ↓
+progressive rollout
+```
+
+Production promotion requires live health, not agent confidence. Argo Rollouts is a strong reference model because it supports canary, blue-green, canary analysis, experimentation, and progressive delivery features for Kubernetes. ([Argo Project][26])
+
+---
+
+# 4. The mandatory machine-readable objects
+
+## 4.1 Intent Card
+
+Every autonomous change starts with a typed request.
+
+```yaml
+# .autonomy/intents/BUG-1842.yaml
+apiVersion: vibegate.dev/v1
+kind: IntentCard
+
+id: BUG-1842
+type: bugfix # docs | test | bugfix | feature | dependency | security | refactor | infra | ci | release
+source: issue
+owner: payments-platform
+
+objective: "Fix null cart total when discounted cart has no line items"
+
+success_criteria:
+  - "Regression test fails on base SHA and passes on head SHA"
+  - "No behavior change for non-empty carts"
+  - "Checkout smoke test remains green"
+
+allowed_scope:
+  paths:
+    - services/cart/**
+    - tests/cart/**
+
+forbidden_scope:
+  paths:
+    - .gitlab/**
+    - .github/**
+    - .autonomy/policies/**
+    - infra/prod/**
+    - secrets/**
+
+autonomy:
+  requested_mode: guarded_auto_merge
+  max_merge_risk: R2
+  max_release_environment: staging
+  production_allowed: false
+
+rollback:
+  required: true
+  strategy: "revert_commit_or_disable_cart_discount_flag"
+```
+
+This prevents the most common agent failure: broad, confident work from an underspecified prompt.
+
+## 4.2 Capability Lease
+
+The lease is the agent’s temporary permission.
+
+```yaml
+apiVersion: vibegate.dev/v1
+kind: CapabilityLease
+
+lease_id: lease_2026_05_16_1842
+intent_id: BUG-1842
+agent_id: codex-bugfix-v4
+actor_role: builder
+
+valid_for:
+  base_sha: "abc123"
+  branch_pattern: "agent/bugfix/BUG-1842/*"
+  expires_at: "2026-05-16T23:59:00Z"
+
+allowed_actions:
+  - repo.read
+  - branch.create
+  - branch.push.agent
+  - ci.run.impacted
+  - mr.create
+  - evidence.write
+
+denied_actions:
+  - protected_branch.push
+  - approval.self
+  - policy.modify
+  - production.deploy
+  - secrets.read.production
+
+scope:
+  paths:
+    - services/cart/**
+    - tests/cart/**
+
+signature:
+  issuer: vibegate-control-plane
+  alg: ed25519
+  value: "..."
+```
+
+The lease must be scoped, short-lived, exact-SHA-aware, signed, revocable, and audited.
+
+## 4.3 Change Passport
+
+The passport is the evidence bundle for the MR/PR.
+
+```yaml
+apiVersion: vibegate.dev/v1
+kind: ChangePassport
+
+change_id: chg_2026_05_16_BUG_1842
+intent_id: BUG-1842
+mr: 812
+
+author:
+  agent_id: codex-bugfix-v4
+  lease_id: lease_2026_05_16_1842
+
+git:
+  base_sha: abc123
+  head_sha: def456
+  target_branch: main
+  source_branch: agent/bugfix/BUG-1842/fix-null-cart-total
+
+summary:
+  plain_english: "Guard empty discounted cart before total calculation."
+  changed_paths:
+    - services/cart/total.ts
+    - tests/cart/discounted_empty_cart.test.ts
+
+risk:
+  declared_class: R2
+  blast_radius: service
+  protected_paths_touched: false
+  user_visible: false
+  data_model_change: false
+  auth_change: false
+  migration: false
+  ci_policy_change: false
+
+proof:
+  tests:
+    - name: cart-unit
+      status: passed
+      artifact: artifacts/cart-unit.xml
+    - name: checkout-smoke
+      status: passed
+      artifact: artifacts/checkout-smoke.xml
+
+  regression:
+    base_failed: true
+    head_passed: true
+    test: tests/cart/discounted_empty_cart.test.ts
+
+  impact:
+    selected_tests:
+      - tests/cart/**
+      - tests/checkout/smoke/**
+    skipped_tests:
+      tests/billing/**: "No dependency edge, no shared contract, no historical co-failure"
+
+  security:
+    secret_scan: passed
+    sast_delta: no_new_high_or_critical
+
+rollback:
+  strategy: revert_commit
+  estimated_time: "<5m"
+
+integrity:
+  evidence_hash: sha256:...
+  generated_at: "2026-05-16T05:44:00Z"
+```
+
+## 4.4 Gate Verdict / Merge Passport
+
+The gate verdict is the exact-SHA-bound decision.
+
+```json
+{
+  "apiVersion": "vibegate.dev/v1",
+  "kind": "MergePassport",
+  "change_id": "chg_2026_05_16_BUG_1842",
+  "intent_id": "BUG-1842",
+  "mr": 812,
+  "base_sha": "abc123",
+  "head_sha": "def456",
+  "decision": "allow_merge_train",
+  "risk_class": "R2",
+  "risk_score": 18,
+  "confidence": 0.92,
+  "human_required": false,
+  "hard_rule_hits": [],
+  "required_status_checks": [
+    "pr-fast-ci",
+    "vibelock"
+  ],
+  "agent_reviews": [
+    {
+      "agent": "cartographer-v2",
+      "role": "impact",
+      "decision": "pass"
+    },
+    {
+      "agent": "test-skeptic-v3",
+      "role": "test_integrity",
+      "decision": "pass"
+    },
+    {
+      "agent": "judge-v2",
+      "role": "judge",
+      "decision": "pass"
+    }
+  ],
+  "policy_ref": "main:.autonomy/policies@sha256:...",
+  "evidence_hash": "sha256:...",
+  "expires_at": "2026-05-17T00:00:00Z",
+  "signature": "..."
+}
+```
+
+The most important field is `policy_ref`.
+
+> **Candidate policy cannot judge itself.**
+
+A PR/MR changing `.autonomy/policies/**`, `.gitlab-ci.yml`, `.github/**`, deploy manifests, or agent prompts must be evaluated by the policy from the protected target branch, not by the policy being introduced in the change.
+
+## 4.5 Release Passport
+
+The release passport proves what entered production.
+
+```yaml
+apiVersion: vibegate.dev/v1
+kind: ReleasePassport
+
+release_id: REL-2026-05-16-0042
+source:
+  ref: certified-main
+  sha: "9b1..."
+  included_changes:
+    - chg_2026_05_16_BUG_1842
+    - chg_2026_05_16_UPG_4412
+
+certification:
+  full_ci: passed
+  integration: passed
+  security: passed
+  performance: passed
+  migration_dry_run: not_applicable
+
+artifact:
+  name: cart-service
+  digest: sha256:...
+  built_once: true
+  sbom: artifacts/sbom.cdx.json
+  provenance: artifacts/provenance.intoto.jsonl
+  signature: artifacts/cosign.bundle
+
+rollout:
+  strategy: canary
+  rings:
+    - name: staging
+      status: passed
+    - name: production-1-percent
+      status: passed
+    - name: production-10-percent
+      status: passed
+    - name: production-100-percent
+      status: pending
+
+rollback:
+  method: previous_digest
+  previous_digest: sha256:...
+  kill_switch: cart_discount_enabled
+```
+
+in-toto is a good fit for supply-chain evidence because it is designed to make transparent what steps were performed, by whom, and in what order; OPA is a good fit for policy-as-code because it can enforce policies across CI/CD and other systems using structured inputs. ([in-toto][27])
+
+---
+
+# 5. Autonomy profiles
+
+Full autonomy must be easy to enable, but never ambiguous. Make autonomy a repo-level profile.
+
+```yaml
+# .autonomy/profile.yaml
+apiVersion: vibegate.dev/v1
+kind: AutonomyProfile
+
+active_profile: A3
+
+profiles:
+  A0_observe:
+    agents_can:
+      - analyze
+      - suggest
+      - draft_intent
+    auto_merge: false
+    auto_release: false
+
+  A1_patch:
+    agents_can:
+      - create_branch
+      - open_mr
+      - run_ci
+    auto_merge: false
+    auto_release: false
+
+  A2_prove:
+    agents_can:
+      - create_change_passport
+      - request_reviews
+      - repair_failures
+    auto_merge: false
+    auto_release: false
+
+  A3_guarded_auto_merge:
+    auto_merge:
+      max_risk: R2
+      required_gate: vibelock
+      require_merge_train: true
+    auto_release: false
+    humans_required_for:
+      - R3
+      - R4
+      - R5
+      - protected_paths
+      - policy_changes
+      - production
+
+  A4_auto_release_low_risk:
+    auto_merge:
+      max_risk: R2
+    auto_release:
+      max_risk: R2
+      max_environment: production
+      require_canary: true
+      require_rollback: true
+    humans_required_for:
+      - R4
+      - R5
+      - policy_changes
+      - auth
+      - secrets
+      - migrations
+
+  A5_sovereign_autopilot:
+    auto_merge:
+      max_risk: R5
+      require_elevated_agent_quorum: true
+    auto_release:
+      max_environment: production
+      require_canary: true
+      require_slo_guard: true
+      require_rollback: true
+    humans_required_for: []
+    policy_mutation:
+      allowed_by_elevated_agent_quorum: true
+      judged_by_previous_protected_policy: true
+      require_public_receipt: true
+```
+
+This is the key to making human-in-the-loop and 100% autonomy compatible:
+
+> **Full autonomy is not a different architecture. It is the same architecture with a different approval profile.**
+
+A0 through A4 should be normal for most teams. A5 should exist because the system must allow 100% autonomous production if the owner explicitly configures it. But A5 still uses exact-SHA receipts, independent agent quorum, protected branch enforcement, canary, rollback, and immutable audit logs.
+
+---
+
+# 6. Risk ladder
+
+Use a simple risk ladder developers can understand.
+
+|   Risk | Examples                                                                             | Default behavior                                          |
+| -----: | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| **R0** | Docs typo, formatting, generated changelog                                           | Auto-merge eligible after minimal proof.                  |
+| **R1** | Tests, small cleanup, dead-code removal                                              | Auto-merge eligible with fast CI and one reviewer agent.  |
+| **R2** | Isolated bug fix, small UI fix, safe dependency patch                                | Auto-merge eligible under A3+ with VibeLock pass.         |
+| **R3** | User-visible behavior, API contract, performance-sensitive code                      | Human or specialist agent approval depending on profile.  |
+| **R4** | Auth, permissions, crypto, PII, billing, migrations, CI, release config              | Human required by default; elevated quorum in A5.         |
+| **R5** | Production credentials, policy root of trust, emergency override, rollback disabling | Human by default; A5 only with explicit sovereign policy. |
+
+Risk scoring should be max-plus, not averaging.
+
+```text
+final_risk =
+  max(hard_rule_risk)
+  + evidence_gap
+  + blast_radius
+  + rollback_difficulty
+  + test_integrity_risk
+  + security_data_dependency_risk
+  + agent_trust_risk
+  + uncertainty_penalty
+```
+
+Why max-plus?
+
+Because ten green checks must not hide one severe failure. A single hard stop should dominate the score.
+
+Hard stops:
+
+```text
+changed CI but no elevated approval
+changed policy but evaluated by candidate policy
+deleted tests without replacement proof
+changed auth/permissions without security review
+added dependency without license/security receipt
+changed generated files outside generated-zone map
+missing owner map for changed path
+missing rollback for production-affecting change
+attempted self-approval
+status check not bound to current HEAD SHA
+```
+
+---
+
+# 7. Agent roles
+
+Do not use a giant fixed swarm for every change. Use a small default set, then specialist agents only when triggered.
+
+## Default VibeLock pack
+
+| Agent                  | Purpose                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| **Builder Agent**      | Writes the patch. Cannot approve it.                                         |
+| **Cartographer Agent** | Maps changed paths to owners, modules, tests, contracts, risk.               |
+| **Test Skeptic Agent** | Looks for missing tests, weakened assertions, snapshot abuse, skipped proof. |
+| **Judge Agent**        | Combines policy, CI, evidence, and reviews into a verdict.                   |
+
+## Conditional specialist agents
+
+| Trigger                     | Specialist                    |
+| --------------------------- | ----------------------------- |
+| Auth / permissions / crypto | Security Sentinel             |
+| Dependencies / licenses     | Dependency and IP Guardian    |
+| Migrations / data model     | Data Migration Auditor        |
+| CI / policy / release files | Control Plane Guardian        |
+| Performance claim           | Benchmark Skeptic             |
+| Frontend visual change      | UI Regression Agent           |
+| Docs / public API           | Developer Experience Reviewer |
+| Production rollout          | Release Shepherd              |
+| Runtime telemetry           | Nightwatch                    |
+
+## Anti-collusion rules
+
+```text
+author_agent != reviewer_agent
+reviewer_agent did not write to the branch
+judge_agent did not author the patch
+release_agent cannot override VibeLock
+same lease cannot both author and approve
+same agent session cannot both create and validate evidence
+agent approval must be exact-SHA-bound
+agent approval expires after branch update
+```
+
+For high-risk changes, require diversity:
+
+```yaml
+elevated_agent_quorum:
+  required_roles:
+    - security
+    - test_integrity
+    - release
+    - judge
+  independence:
+    min_distinct_agent_instances: 3
+    min_distinct_leases: 3
+    author_excluded: true
+```
+
+---
+
+# 8. Approval routing
+
+Approval should be a policy outcome, not a hardcoded “human required” branch.
+
+```yaml
+# .autonomy/policies/routing.yaml
+approval_routing:
+  R0:
+    auto_merge_allowed_profiles: [A3, A4, A5]
+    required:
+      - fast_ci
+      - vibelock_lite
+
+  R1:
+    auto_merge_allowed_profiles: [A3, A4, A5]
+    required:
+      - fast_ci
+      - cartographer
+      - test_skeptic
+
+  R2:
+    auto_merge_allowed_profiles: [A3, A4, A5]
+    required:
+      - fast_ci
+      - vibelock
+      - merge_train
+
+  R3:
+    auto_merge_allowed_profiles: [A5]
+    required:
+      - full_relevant_ci
+      - specialist_agent
+      - owner_or_elevated_quorum
+
+  R4:
+    auto_merge_allowed_profiles: [A5]
+    default_human_required: true
+    required:
+      - full_relevant_ci
+      - specialist_agent
+      - security_or_platform_owner
+      - explicit_rollout_plan
+
+  R5:
+    auto_merge_allowed_profiles: [A5]
+    default_human_required: true
+    required:
+      - emergency_or_sovereign_policy
+      - elevated_quorum
+      - break_glass_receipt
+```
+
+The best UX is:
+
+```text
+VibeLock decision: Needs human
+Reason: CI policy changed + policy file changed.
+Required approver: Platform Owner or A5 elevated quorum.
+One-click actions:
+  - Approve once
+  - Send back to agent
+  - Require more proof
+  - Escalate to sovereign quorum
+  - Reject
+```
+
+Humans should see one decision, one risk score, one reason, and one set of actions. Not ten bot comments.
+
+---
+
+# 9. GitLab-first implementation
+
+GitLab is a strong primary target because it already has merge trains, external status checks, MR approvals, protected environments, deployment approvals, CI components, CI inputs, and policy mechanisms. GitLab CI/CD inputs are generally available and give better validation than plain variables, and components can explicitly define typed inputs. ([GitLab Docs][28]) GitLab deployment approvals can block protected environment deployments until required approvals are given. ([GitLab Docs][29]) GitLab MR approval rules support multiple approval rules and eligible approvers, while merge request approval policies can enforce approval behavior on protected target branches. ([GitLab Docs][30])
+
+## 9.1 Canonical repo layout
+
+```text
+repo/
+  AGENTS.md
+  CODEOWNERS
+  JANKURAI_STANDARD.md
+
+  .autonomy/
+    vibegate.yaml
+    profile.yaml
+
+    agents/
+      registry.yaml
+      prompts/
+        builder.md
+        cartographer.md
+        test-skeptic.md
+        security-sentinel.md
+        judge.md
+        release-shepherd.md
+
+    policies/
+      protected_paths.yaml
+      approval_routing.yaml
+      hard_stops.rego
+      risk_score.rego
+      release_policy.rego
+      rollback_policy.rego
+      exceptions.yaml
+
+    proof/
+      proof_lanes.yaml
+      owner_map.yaml
+      test_map.yaml
+      contract_map.yaml
+      generated_zones.yaml
+      coverage_map.json
+      historical_cofailure.json
+
+    schemas/
+      intent-card.schema.json
+      capability-lease.schema.json
+      change-passport.schema.json
+      merge-passport.schema.json
+      release-passport.schema.json
+
+    ci/
+      pr_fast.yml
+      vibelock.yml
+      foundry_train.yml
+      build_attest.yml
+      deploy.yml
+      nightwatch.yml
+
+    runbooks/
+      rollback.md
+      break_glass.md
+      incident_response.md
+
+  .gitlab-ci.yml
+  .gitlab/
+    ci/
+      00_workflow.yml
+      10_intake.yml
+      20_pr_fast.yml
+      30_vibelock.yml
+      40_merge_train.yml
+      50_foundry_train.yml
+      60_build_attest.yml
+      70_deploy_dev_stage.yml
+      80_nightwatch_canary.yml
+      90_promote_prod.yml
+```
+
+## 9.2 Root `.gitlab-ci.yml`
+
+Keep the root file boring. Its job is to declare stages and include stable components.
+
+```yaml
+stages:
+  - intake
+  - fast_proof
+  - gate
+  - train
+  - certify
+  - build
+  - attest
+  - deploy
+  - observe
+  - promote
+  - rollback
+
+include:
+  - local: .gitlab/ci/00_workflow.yml
+  - local: .gitlab/ci/10_intake.yml
+  - local: .gitlab/ci/20_pr_fast.yml
+  - local: .gitlab/ci/30_vibelock.yml
+  - local: .gitlab/ci/40_merge_train.yml
+  - local: .gitlab/ci/50_foundry_train.yml
+  - local: .gitlab/ci/60_build_attest.yml
+  - local: .gitlab/ci/70_deploy_dev_stage.yml
+  - local: .gitlab/ci/80_nightwatch_canary.yml
+  - local: .gitlab/ci/90_promote_prod.yml
+```
+
+## 9.3 Workflow file
+
+```yaml
+# .gitlab/ci/00_workflow.yml
+workflow:
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+    - when: never
+```
+
+## 9.4 Intake
+
+```yaml
+# .gitlab/ci/10_intake.yml
+intent:validate:
+  stage: intake
+  image: ghcr.io/vibegate/cli:latest
+  script:
+    - vibegate intent validate --mr "$CI_MERGE_REQUEST_IID"
+    - vibegate lease verify --branch "$CI_COMMIT_REF_NAME"
+  artifacts:
+    when: always
+    paths:
+      - .vibegate/out/intent.json
+      - .vibegate/out/lease.json
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+
+impact:plan:
+  stage: intake
+  image: ghcr.io/vibegate/cli:latest
+  needs: ["intent:validate"]
+  script:
+    - vibegate impact plan
+        --base "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+        --head "$CI_COMMIT_SHA"
+        --out .vibegate/out/impact-plan.json
+  artifacts:
+    paths:
+      - .vibegate/out/impact-plan.json
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+```
+
+## 9.5 Fast MR proof
+
+```yaml
+# .gitlab/ci/20_pr_fast.yml
+proof:fast:
+  stage: fast_proof
+  image: ghcr.io/vibegate/runner:latest
+  needs: ["impact:plan"]
+  script:
+    - vibegate proof run --plan .vibegate/out/impact-plan.json
+  artifacts:
+    when: always
+    reports:
+      junit: .vibegate/out/junit/*.xml
+    paths:
+      - .vibegate/out/proof-results.json
+      - .vibegate/out/junit/
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+
+passport:create:
+  stage: fast_proof
+  image: ghcr.io/vibegate/cli:latest
+  needs: ["proof:fast"]
+  script:
+    - vibegate passport create
+        --intent .vibegate/out/intent.json
+        --impact .vibegate/out/impact-plan.json
+        --proof .vibegate/out/proof-results.json
+        --out .vibegate/out/change-passport.yaml
+  artifacts:
+    paths:
+      - .vibegate/out/change-passport.yaml
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+```
+
+## 9.6 VibeLock job
+
+This job produces artifacts and logs, but the authoritative merge block should also be an external status check.
+
+```yaml
+# .gitlab/ci/30_vibelock.yml
+vibelock:evaluate:
+  stage: gate
+  image: ghcr.io/vibegate/cli:latest
+  needs:
+    - passport:create
+  script:
+    - vibegate gate evaluate
+        --mr "$CI_MERGE_REQUEST_IID"
+        --head "$CI_COMMIT_SHA"
+        --target "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+        --policy-source protected-target-branch
+        --passport .vibegate/out/change-passport.yaml
+        --out .vibegate/out/merge-passport.json
+  artifacts:
+    when: always
+    paths:
+      - .vibegate/out/merge-passport.json
+      - .vibegate/out/gate-report.md
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+```
+
+## 9.7 Foundry Train
+
+```yaml
+# .gitlab/ci/50_foundry_train.yml
+foundry:certify:
+  stage: certify
+  image: ghcr.io/vibegate/runner:latest
+  resource_group: foundry-train
+  script:
+    - vibegate release candidate create --source "$CI_COMMIT_SHA"
+    - vibegate proof run --lane full-certification
+    - vibegate proof run --lane security-deep
+    - vibegate proof run --lane integration
+    - vibegate proof run --lane performance-if-required
+  artifacts:
+    when: always
+    paths:
+      - .vibegate/out/release-candidate.yaml
+      - .vibegate/out/certification-results.json
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+```
+
+## 9.8 Build, SBOM, provenance, signature
+
+```yaml
+# .gitlab/ci/60_build_attest.yml
+artifact:build:
+  stage: build
+  image: ghcr.io/vibegate/builder:latest
+  needs: ["foundry:certify"]
+  script:
+    - vibegate artifact build --source "$CI_COMMIT_SHA" --out .vibegate/out/artifact.json
+  artifacts:
+    paths:
+      - .vibegate/out/artifact.json
+
+artifact:attest:
+  stage: attest
+  image: ghcr.io/vibegate/supply-chain:latest
+  needs: ["artifact:build"]
+  script:
+    - vibegate sbom generate --format cyclonedx --out .vibegate/out/sbom.cdx.json
+    - vibegate provenance generate --format intoto --out .vibegate/out/provenance.intoto.jsonl
+    - vibegate artifact sign --out .vibegate/out/signature.bundle
+    - vibegate release-passport create --out .vibegate/out/release-passport.yaml
+  artifacts:
+    paths:
+      - .vibegate/out/sbom.cdx.json
+      - .vibegate/out/provenance.intoto.jsonl
+      - .vibegate/out/signature.bundle
+      - .vibegate/out/release-passport.yaml
+```
+
+Use CycloneDX for SBOMs and in-toto-style attestations for provenance; Sigstore/Cosign-style signing is a strong default for artifact identity and transparency. ([CycloneDX][31])
+
+## 9.9 Deploy and Nightwatch
+
+```yaml
+# .gitlab/ci/70_deploy_dev_stage.yml
+deploy:staging:
+  stage: deploy
+  image: ghcr.io/vibegate/deployer:latest
+  environment:
+    name: staging
+  needs: ["artifact:attest"]
+  script:
+    - vibegate deploy --env staging --passport .vibegate/out/release-passport.yaml
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+```
+
+```yaml
+# .gitlab/ci/80_nightwatch_canary.yml
+nightwatch:canary:
+  stage: observe
+  image: ghcr.io/vibegate/nightwatch:latest
+  environment:
+    name: production
+  resource_group: production-rollout
+  needs: ["deploy:staging"]
+  script:
+    - vibegate rollout start --ring production-1-percent
+    - vibegate nightwatch observe --window 30m --policy .autonomy/policies/release_policy.rego
+    - vibegate rollout promote-or-rollback
+  artifacts:
+    when: always
+    paths:
+      - .vibegate/out/nightwatch-report.json
+      - .vibegate/out/rollback-receipt.json
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+```
+
+## 9.10 GitLab settings
+
+Configure:
+
+```text
+Settings → Repository → Protected branches
+  protect main
+  no direct pushes by agents
+  no force pushes
+  maintainers or merge train only
+
+Settings → Merge requests
+  require pipeline success
+  require all external status checks
+  require approval rules as needed
+
+Settings → Merge requests → Status checks
+  add VibeLock external status check
+  enable Status checks must succeed
+
+Settings → Merge requests → Merge method
+  enable merge trains for main
+
+Settings → CI/CD → Protected environments
+  protect production
+  require deployment approvals unless profile A5 says agent quorum is allowed
+
+Security & Compliance
+  enforce scan execution / pipeline execution / approval policies for non-bypassable checks
+```
+
+---
+
+# 10. GitHub implementation mapping
+
+Use the same model with GitHub-native primitives:
+
+| VibeGate concept        | GitHub equivalent                                            |
+| ----------------------- | ------------------------------------------------------------ |
+| VibeLock                | Required status check from GitHub App                        |
+| Protected branch        | Branch protection / rulesets                                 |
+| Merge train             | Merge queue                                                  |
+| Human/elevated approval | Required reviewers / CODEOWNERS / app-enforced check         |
+| Protected production    | Environments + deployment protection rules                   |
+| Release gate            | GitHub App custom deployment protection rule                 |
+| Evidence                | Checks artifacts, workflow artifacts, PR summary, app ledger |
+| Launch Ledger           | External append-only store + Checks API annotations          |
+
+GitHub branch protection/rulesets can require status checks before merging, and merge queue validates required checks against the target branch plus queued changes. ([GitHub Docs][32]) GitHub environments can require reviewers, prevent self-review, use wait timers, restrict branches, and support custom deployment protection rules through GitHub Apps. ([GitHub Docs][33]) If using GitHub merge queue with Actions, workflows for required checks need the `merge_group` trigger, or the queue may fail because required checks are not reported. ([GitHub Docs][34])
+
+Minimal GitHub workflow shape:
+
+```yaml
+name: VibeGate
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+jobs:
+  pr-fast:
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: vibegate impact plan
+      - run: vibegate proof run --lane fast
+      - run: vibegate passport create
+
+  vibelock:
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    needs: [pr-fast]
+    steps:
+      - uses: actions/checkout@v4
+      - run: vibegate gate evaluate --policy-source protected-target-branch
+
+  foundry:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: vibegate proof run --lane full-certification
+      - run: vibegate artifact build
+      - run: vibegate attest
+```
+
+---
+
+# 11. CI strategy: fastest version that remains safe
+
+The winning CI strategy is:
+
+```text
+PR/MR: fast, impact-based, evidence-focused
+Merge queue/train: latest-base integration proof
+Release train: full/deep/batched certification
+Canary: production health proof
+```
+
+## Tier 1: Always-on sentinels
+
+Run on every MR/PR:
+
+```text
+schema validation
+intent validation
+lease validation
+changed-path classification
+secret scan
+lint of policy/CI syntax
+basic unit tests for touched modules
+test weakening detection
+passport generation
+```
+
+## Tier 2: Impacted proof
+
+Run only the tests mapped to the blast radius:
+
+```text
+owner map
+service map
+dependency graph
+coverage map
+contract map
+historical co-failure map
+runtime trace map
+```
+
+The rule:
+
+> **Run no test outside the provable blast radius, but never pretend the blast radius is smaller than the evidence proves.**
+
+If the impact map is weak, outdated, or missing, risk increases and the selected proof expands.
+
+## Tier 3: Merge queue/train proof
+
+Validate against the latest target branch plus queued changes. This prevents many individually-green MRs from breaking `main` together.
+
+## Tier 4: Foundry Train certification
+
+Batch expensive checks:
+
+```text
+full integration
+slow e2e
+deep SAST/DAST where applicable
+dependency diff
+license review
+migration dry-run
+performance benchmarks
+SBOM/provenance/signing
+release candidate creation
+```
+
+## Tier 5: Nightwatch runtime proof
+
+Production is certified by live telemetry:
+
+```text
+error rate
+latency
+saturation
+conversion or product metric
+security signal
+support ticket spike
+logs/anomaly signal
+rollback readiness
+```
+
+OpenTelemetry already defines CI/CD semantic conventions for spans, metrics, and logs, which makes it a good telemetry foundation for agent runs, CI, gate decisions, deployments, and rollbacks. ([OpenTelemetry][35])
+
+---
+
+# 12. Anti-vibe-coding protections
+
+VibeGate should explicitly detect the patterns maintainers hate.
+
+## 12.1 Test gaming
+
+Block or escalate when the agent:
+
+```text
+deletes assertions
+widens expected values
+updates snapshots without explanation
+skips failing tests
+moves tests out of path
+changes CI to avoid tests
+claims "tested" without artifact
+```
+
+## 12.2 Scope creep
+
+Block or escalate when:
+
+```text
+changed paths exceed Intent Card
+unrelated files modified
+large refactor hidden inside bugfix
+generated files changed without source change
+dependency lockfile changes unexplained
+```
+
+## 12.3 False proof
+
+Block or escalate when:
+
+```text
+test passed on head but was never shown failing on base for a bugfix
+benchmark lacks baseline
+security fix lacks threat statement
+migration lacks rollback
+canary lacks SLO
+evidence artifact missing or hash mismatch
+```
+
+## 12.4 Policy weakening
+
+Always high risk:
+
+```text
+.gitlab-ci.yml
+.github/**
+.autonomy/**
+AGENTS.md
+CODEOWNERS
+infra/**
+terraform/**
+k8s/**
+helm/**
+release/**
+secrets/**
+auth/**
+crypto/**
+migrations/**
+```
+
+Default: human required.
+
+A5: elevated autonomous quorum allowed, judged by previous protected policy.
+
+---
+
+# 13. Release agent design
+
+The release agent is not a magic deploy bot. It is a bounded operator.
+
+## Release agent can
+
+```text
+create release candidates
+schedule Foundry Train
+request full certification
+build immutable artifact
+generate SBOM/provenance/signature
+deploy to allowed environment
+start canary
+pause rollout
+promote rollout
+rollback rollout
+write release report
+```
+
+## Release agent cannot
+
+```text
+deploy artifact without release passport
+deploy unsigned artifact
+deploy artifact built from unapproved SHA
+rebuild different artifact for prod
+skip canary unless policy says emergency
+disable rollback
+ignore Nightwatch failure
+override protected environment approval
+```
+
+## Release rings
+
+```yaml
+# .autonomy/release/rings.yaml
+rings:
+  local:
+    auto: true
+
+  dev:
+    auto: true
+
+  staging:
+    auto: true
+    require_release_passport: true
+
+  shadow:
+    auto: true
+    require_prod_like_config: true
+
+  canary_1:
+    traffic_percent: 1
+    min_window: 30m
+    auto_promote_if_healthy: true
+
+  canary_10:
+    traffic_percent: 10
+    min_window: 60m
+    auto_promote_if_healthy: true
+
+  production:
+    traffic_percent: 100
+    require:
+      - release_passport
+      - signed_artifact
+      - healthy_canary
+      - rollback_ready
+```
+
+---
+
+# 14. User control without chaos
+
+The user should control these files:
+
+```text
+.autonomy/profile.yaml
+.autonomy/agents/registry.yaml
+.autonomy/policies/approval_routing.yaml
+.autonomy/policies/protected_paths.yaml
+.autonomy/proof/proof_lanes.yaml
+.autonomy/release/rings.yaml
+.autonomy/agents/prompts/*.md
+```
+
+## Agent registry
+
+```yaml
+# .autonomy/agents/registry.yaml
+agents:
+  builder.codex:
+    role: builder
+    provider: openai
+    allowed_actions:
+      - create_branch
+      - propose_patch
+      - run_tests
+      - open_mr
+    cannot:
+      - approve_own_work
+      - modify_policy
+      - deploy_prod
+
+  reviewer.test_skeptic:
+    role: test_integrity
+    allowed_actions:
+      - inspect_diff
+      - inspect_tests
+      - produce_review_vote
+    cannot:
+      - write_branch
+      - approve_if_same_lease
+
+  judge.vibelock:
+    role: judge
+    trusted: true
+    allowed_actions:
+      - evaluate_policy
+      - emit_merge_passport
+      - post_status_check
+    policy_source: protected_target_branch
+
+  release.nightwatch:
+    role: release
+    allowed_actions:
+      - deploy_staging
+      - start_canary
+      - promote_canary
+      - rollback
+    requires:
+      - release_passport
+      - signed_artifact
+```
+
+## Proof lanes
+
+```yaml
+# .autonomy/proof/proof_lanes.yaml
+lanes:
+  fast:
+    max_duration: 10m
+    required_for: [R0, R1, R2]
+    checks:
+      - intent_validate
+      - lease_verify
+      - secret_scan
+      - impacted_unit
+      - impacted_contract
+      - test_integrity
+
+  security:
+    required_when:
+      paths:
+        - auth/**
+        - crypto/**
+        - permissions/**
+      risk_at_least: R3
+    checks:
+      - sast_delta
+      - dependency_delta
+      - permission_diff
+      - threat_statement
+
+  release:
+    required_for_prod: true
+    checks:
+      - full_ci
+      - sbom
+      - provenance
+      - signature
+      - deploy_staging
+      - canary
+      - rollback_ready
+```
+
+## Protected paths
+
+```yaml
+# .autonomy/policies/protected_paths.yaml
+protected_paths:
+  control_plane:
+    risk: R4
+    default_human_required: true
+    paths:
+      - .autonomy/**
+      - .gitlab-ci.yml
+      - .gitlab/**
+      - .github/**
+      - AGENTS.md
+      - CODEOWNERS
+
+  production:
+    risk: R5
+    default_human_required: true
+    paths:
+      - infra/prod/**
+      - k8s/prod/**
+      - helm/prod/**
+      - secrets/**
+```
+
+---
+
+# 15. Policy-as-code example
+
+Use Rego/OPA for deterministic decisions and agent reviewers for evidence critique.
+
+```rego
+package vibegate.premerge
+
+default allow_merge := false
+default needs_human := false
+default block := false
+
+protected_path_touched if {
+  some p in input.changed_paths
+  some pattern in data.protected_paths.control_plane.paths
+  glob.match(pattern, ["/"], p)
+}
+
+self_approval if {
+  input.author.agent_id == input.review.approver_agent_id
+}
+
+missing_passport if {
+  not input.passport.valid
+}
+
+policy_judged_itself if {
+  input.changed_paths[_] == ".autonomy/policies/hard_stops.rego"
+  input.policy.source != "protected_target_branch"
+}
+
+block if missing_passport
+block if self_approval
+block if policy_judged_itself
+
+needs_human if {
+  protected_path_touched
+  input.profile != "A5_sovereign_autopilot"
+}
+
+needs_human if {
+  input.risk.class == "R4"
+  input.profile != "A5_sovereign_autopilot"
+}
+
+allow_merge if {
+  not block
+  not needs_human
+  input.passport.valid
+  input.ci.fast_passed
+  input.rollback.exists
+  input.risk.score <= data.thresholds[input.profile].auto_merge
+}
+```
+
+The policy engine decides. Agents supply context and critique.
+
+---
+
+# 16. Mission Control UX
+
+The UI should not be a wall of logs. It should be an attention system.
+
+## Main screen
+
+```text
+Autonomy Health
+  A3 guarded auto-merge enabled
+  42 autonomous MRs this week
+  31 auto-merged
+  9 sent to human
+  2 blocked
+  0 autonomous prod rollbacks
+
+Attention Queue
+  1. MR !812 needs platform approval: touched .gitlab-ci.yml
+  2. Release REL-0042 paused: canary latency regression
+  3. Agent codex-bugfix-v4 reliability dropped below threshold
+```
+
+## MR decision card
+
+```text
+VibeLock: Needs Human
+Risk: R4
+Reason: CI file changed + policy path changed
+Author: builder.codex
+Approvers allowed:
+  - human platform owner
+  - A5 elevated agent quorum
+
+Proof:
+  ✓ impacted tests passed
+  ✓ secret scan passed
+  ✗ policy mutation requires protected-policy review
+  ✓ rollback exists
+
+Actions:
+  Approve once
+  Request more proof
+  Send back to agent
+  Reject
+  Escalate to A5 quorum
+```
+
+## Release card
+
+```text
+Release REL-2026-05-16-0042
+Artifact: sha256:...
+SBOM: present
+Provenance: present
+Signature: verified
+Canary: 10%
+Latency: healthy
+Error rate: healthy
+Rollback: armed
+
+Next action:
+  Promote to 100%
+```
+
+---
+
+# 17. Open-source community rules
+
+For GitHub open source, agent contributions must reduce maintainer burden or they will be rejected.
+
+Canonical rules:
+
+```text
+Agents identify themselves.
+Agent PRs are small.
+Agent PRs include a Change Passport summary.
+Agent PRs do not include promotional text.
+Agent PRs do not mass-update snapshots without explanation.
+Agent PRs do not modify CI/policy/release files unless invited.
+Agent PRs do not change tests to match broken behavior.
+Agent PRs explain rollback or reversibility.
+Maintainers can label: no-ai, ai-ok, ai-needs-human, agent-good-first-issue.
+Bot comments are limited to one compact summary plus updates.
+```
+
+The GitHub community already understands PRs, required checks, branch protection, CODEOWNERS, merge queues, and environments. VibeGate should plug into those, not invent an alien workflow.
+
+---
+
+# 18. Observability and audit
+
+Every decision should be queryable.
+
+## Launch Ledger events
+
+```yaml
+events:
+  - intent.created
+  - lease.issued
+  - agent.run.started
+  - branch.created
+  - mr.created
+  - proof.started
+  - proof.completed
+  - passport.created
+  - gate.evaluated
+  - merge_train.entered
+  - merge.completed
+  - release_candidate.created
+  - artifact.built
+  - sbom.generated
+  - provenance.generated
+  - artifact.signed
+  - deploy.started
+  - canary.started
+  - canary.promoted
+  - rollback.started
+  - rollback.completed
+```
+
+## Metrics
+
+```text
+autonomous MR count
+auto-merge rate
+human escalation rate
+block reasons
+risk distribution
+agent repair loops
+agent reliability by role
+test selector accuracy
+later-failed skipped tests
+merge train failure rate
+release candidate failure rate
+canary rollback rate
+agent-caused rollback rate
+lead time
+deployment frequency
+change failure rate
+failed deployment recovery time
+```
+
+## Audit questions VibeGate must answer
+
+```text
+Who requested this change?
+Which agent wrote it?
+What lease allowed it?
+What files changed?
+What proof was produced?
+What tests were skipped and why?
+Which policy version judged it?
+Which agents approved it?
+Was any approver also the author?
+Which exact SHA was merged?
+Which artifact digest was deployed?
+Which telemetry allowed promotion?
+Was rollback available?
+```
+
+---
+
+# 19. Security baseline
+
+The minimum responsible baseline:
+
+```text
+agents use ephemeral identities
+all leases are signed and TTL-bound
+all privileged actions require a lease
+agents never receive broad long-lived tokens
+production secrets only available inside protected deployment jobs
+no agent can approve its own work
+no agent can push to protected branches
+policy evaluated from protected target branch
+artifact is built once and promoted by digest
+SBOM/provenance/signature required before production
+rollback is mandatory for production
+all decisions are append-only logged
+```
+
+For sandboxing:
+
+```text
+ephemeral worktrees or containers for low-risk code
+network egress limits for unknown dependencies
+microVM or hardened container for untrusted code execution
+secretless test environments by default
+tainted cache when dependency/security inputs change
+deterministic replay for failure capsules where feasible
+```
+
+---
+
+# 20. The strict design in one YAML file
+
+This is the smallest useful canonical declaration.
+
+```yaml
+# .autonomy/vibegate.yaml
+apiVersion: vibegate.dev/v1
+kind: AutonomousDeliveryStandard
+
+name: VibeGate
+standard: Jankurai
+version: 1
+
+doctrine:
+  - no_intent_no_work
+  - no_lease_no_privilege
+  - no_passport_no_merge
+  - no_receipt_no_trust
+  - no_signed_artifact_no_deploy
+  - no_telemetry_no_promotion
+  - no_rollback_no_production
+
+branches:
+  protected:
+    - main
+    - certified-main
+    - release/*
+  agent_branch_pattern: "agent/<type>/<intent>/<slug>"
+
+profiles:
+  active: A3_guarded_auto_merge
+  allow_sovereign_autopilot: true
+
+premerge:
+  gate: VibeLock
+  required_status: "vibegate/vibelock"
+  policy_source: protected_target_branch
+  require_change_passport: true
+  require_exact_head_sha: true
+  require_no_self_approval: true
+  require_merge_train: true
+
+risk:
+  auto_merge_max_default: R2
+  human_default_from: R3
+  hard_stop_from: R5
+  max_plus_scoring: true
+
+protected_paths:
+  default_human_required: true
+  paths:
+    - .autonomy/**
+    - .gitlab-ci.yml
+    - .gitlab/**
+    - .github/**
+    - AGENTS.md
+    - CODEOWNERS
+    - infra/**
+    - secrets/**
+    - auth/**
+    - crypto/**
+    - migrations/**
+
+release:
+  main_is_release_certified: false
+  release_train: FoundryTrain
+  build_once: true
+  promote_by_digest: true
+  require_sbom: true
+  require_provenance: true
+  require_signature: true
+  canary: Nightwatch
+  require_rollback: true
+
+observability:
+  ledger: append_only
+  trace_ci: true
+  trace_agent_runs: true
+  trace_rollouts: true
+```
+
+---
+
+# 21. Why this is the best design
+
+It is fast because:
+
+```text
+agents work in parallel
+PR/MR CI is impact-based
+review agents are selected dynamically
+merge train/queue handles integration
+expensive proof is batched in Foundry Train
+production proof happens through canary telemetry
+```
+
+It is safe because:
+
+```text
+agents cannot self-approve
+agents cannot push to protected branches
+policy cannot judge itself
+evidence is exact-SHA-bound
+merge is platform-enforced
+release uses signed immutable artifacts
+production promotion requires telemetry
+rollback is mandatory
+```
+
+It is simple because every stage has one job:
+
+```text
+Intent Card: what should happen
+Capability Lease: what the agent may do
+Change Passport: what changed and how it was proven
+VibeLock: may this enter main?
+Foundry Train: is this release candidate certified?
+Nightwatch: is production healthy?
+Launch Ledger: what happened and why?
+```
+
+It is future-proof because it does not depend on one model, one vendor, one forge, or one CI system. It depends on stable software-delivery primitives: PR/MR, protected branches, required checks, policy-as-code, signed artifacts, progressive delivery, telemetry, and rollback.
+
+---
+
+# 22. Implementation roadmap
+
+## Phase 1: Enforcement first
+
+Build:
+
+```text
+protected branches
+required status checks
+merge train/queue
+protected environments
+CODEOWNERS
+AGENTS.md
+basic .autonomy/profile.yaml
+basic Change Passport schema
+```
+
+Goal:
+
+```text
+No agent can bypass the forge.
+```
+
+## Phase 2: Proof-carrying MRs
+
+Build:
+
+```text
+Intent Card
+Capability Lease
+Change Passport
+impact planner
+proof lanes
+test weakening detector
+single compact MR summary
+```
+
+Goal:
+
+```text
+Every autonomous MR carries receipts.
+```
+
+## Phase 3: VibeLock Airlock
+
+Build:
+
+```text
+external status check service
+OPA/Rego hard stops
+agent reviewer registry
+Merge Passport
+risk score
+human escalation routing
+```
+
+Goal:
+
+```text
+Low-risk changes can auto-merge safely.
+```
+
+## Phase 4: Foundry Train
+
+Build:
+
+```text
+release candidate queue
+full certification lanes
+build-once artifact
+SBOM
+provenance
+signature
+Release Passport
+```
+
+Goal:
+
+```text
+main remains fast; release is deeply certified.
+```
+
+## Phase 5: Nightwatch
+
+Build:
+
+```text
+staging deploy
+shadow deploy
+canary rings
+SLO checks
+automatic rollback
+Launch Ledger
+release reports
+```
+
+Goal:
+
+```text
+Production promotion is metric-green, not agent-confident.
+```
+
+## Phase 6: Sovereign Autopilot
+
+Build:
+
+```text
+A5 profile
+elevated agent quorum
+policy mutation receipts
+break-glass protocol
+autonomous rollback authority
+agent reliability scoring
+```
+
+Goal:
+
+```text
+100% autonomous production is possible when explicitly enabled.
+```
+
+---
+
+# 23. Detailed rubric
+
+| Criterion                          | Weight | Score | Weighted | Rationale                                                                                       |
+| ---------------------------------- | -----: | ----: | -------: | ----------------------------------------------------------------------------------------------- |
+| Simplicity / cognitive load        |      8 |   9.6 |     7.68 | One spine: intent → proof → gate → queue → release → canary → ledger.                           |
+| Velocity / CI efficiency           |      8 |   9.5 |     7.60 | Impacted PR CI plus merge train plus batched full certification.                                |
+| Responsible autonomy               |     10 |   9.9 |     9.90 | Agents can act, but only through leases, evidence, receipts, and platform enforcement.          |
+| Full autonomous production support |      7 |   9.7 |     6.79 | A5 enables full autopilot with elevated quorum, canary, rollback, and receipts.                 |
+| Human-in-loop ergonomics           |      7 |   9.8 |     6.86 | Humans get one decision card, not bot-comment chaos.                                            |
+| User control / configurability     |      8 |   9.9 |     7.92 | Profiles, agents, prompts, risk thresholds, protected paths, proof lanes, rollout rings.        |
+| GitLab fit                         |      8 |   9.8 |     7.84 | Uses MR approvals, external status checks, merge trains, protected environments, CI components. |
+| GitHub / open-source fit           |      6 |   9.6 |     5.76 | Maps cleanly to PRs, required checks, CODEOWNERS, merge queue, environments, GitHub Apps.       |
+| Security / least privilege         |     10 |   9.8 |     9.80 | Scoped leases, no self-approval, no protected pushes, exact SHA checks, secret boundaries.      |
+| Supply-chain integrity             |      6 |   9.8 |     5.88 | Build once, promote by digest, SBOM, provenance, signature, release passport.                   |
+| Anti-vibe protections              |      6 |   9.7 |     5.82 | Detects test gaming, scope creep, false proof, policy weakening, snapshot abuse.                |
+| Observability / audit              |      6 |   9.8 |     5.88 | Launch Ledger, exact decision receipts, traceable agent runs, rollout evidence.                 |
+| Extensibility / future-proofing    |      4 |   9.8 |     3.92 | Works across agents, models, GitLab, GitHub, OPA, progressive delivery systems.                 |
+| AI developer experience            |      3 |   9.9 |     2.97 | Agents receive clear work orders, scopes, feedback, proof requirements, repair loops.           |
+| Operational resilience             |      3 |   9.6 |     2.88 | Canary, rollback, resource groups, release train, break-glass receipts.                         |
+
+**Final score: 97.5 / 100**
+
+The missing 2.5 points are real trade-offs: the stricter the evidence model, the more setup work teams must do; full A5 autonomy is powerful but requires mature observability, reliable rollback, and disciplined policy hygiene. That is the right trade-off.
+
+---
+
+# Final recommendation
+
+Build **VibeGate** as the canonical agent-native delivery spine:
+
+```text
+VibeGate = Jankurai Standard
+         + scoped agent leases
+         + evidence-carrying MRs/PRs
+         + VibeLock required status check
+         + merge train / merge queue
+         + Foundry Train release certification
+         + build-once signed artifacts
+         + Nightwatch canary
+         + Launch Ledger audit trail
+```
+
+The final slogan:
+
+> **Agents execute. Evidence decides. Policy enforces. Queues integrate. Artifacts prove. Telemetry promotes. Rollback protects.**
+
+[1]: file://my_files/file_0000000036e871fd809789cf61e1d228 "Pasted markdown.md"
+[2]: file://my_files/file_00000000074471f89e1525e3ea325d11 "Pasted markdown.md"
+[3]: file://my_files/file_00000000a4dc71fdba67a14e745d9001 "Pasted markdown.md"
+[4]: file://my_files/file_00000000e38471fd9666747d4002089b "Pasted markdown.md"
+[5]: file://my_files/file_000000009b8471fdb217ab85d62e8c00 "Pasted markdown.md"
+[6]: file://my_files/file_00000000cc0471fda678ebe4d2e5c513 "Pasted markdown.md"
+[7]: file://my_files/file_0000000093ac71fdbc4db03e9fe49226 "Pasted markdown.md"
+[8]: file://my_files/file_00000000abec71fdb9eca7f82a94e9b3 "Pasted markdown.md"
+[9]: file://my_files/file_000000007ccc71fd8a2011077451dd3f "Pasted markdown.md"
+[10]: file://my_files/file_000000008b9871f7a3e1381da793532a "Pasted text.txt"
+[11]: file://my_files/file_0000000021c071f7b370a95ac946ba0c "Pasted text.txt"
+[12]: file://my_files/file_0000000029e071f8bf52b46c9b4450d8 "Pasted markdown.md"
+[13]: file://my_files/file_000000003b0871f881c44a046e1b7893 "Pasted markdown.md"
+[14]: file://my_files/file_000000008fcc71fd9a545d7ab6fda2bd "Pasted markdown.md"
+[15]: file://my_files/file_000000001f3471f898cfefc038150ded "Pasted markdown.md"
+[16]: file://my_files/file_00000000102871f7952555455d76c071 "Pasted markdown.md"
+[17]: file://my_files/file_000000003b3c722f87c1d488f91d6e93 "Pasted markdown.md"
+[18]: file://my_files/file_00000000b80871f5ae0a87c5453527b8 "Pasted markdown.md"
+[19]: file://my_files/file_00000000afe471f7800e5c20062d7362 "Pasted markdown.md"
+[20]: file://my_files/file_00000000ea98722f857973ce6a4fb3ab "Pasted markdown.md"
+[21]: https://openai.com/index/introducing-codex/ "Introducing Codex | OpenAI"
+[22]: https://research.google/pubs/dora-2025-state-of-ai-assisted-software-development-report/ "DORA 2025 State of AI-assisted Software Development Report"
+[23]: https://docs.gitlab.com/user/project/merge_requests/status_checks/ "External status checks | GitLab Docs"
+[24]: https://docs.gitlab.com/ci/pipelines/merge_trains/ "Merge trains | GitLab Docs"
+[25]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches?utm_source=chatgpt.com "About protected branches"
+[26]: https://argoproj.github.io/rollouts/ "Argo Rollouts | Argo"
+[27]: https://in-toto.io/ "in-toto"
+[28]: https://docs.gitlab.com/ci/inputs/ "CI/CD inputs | GitLab Docs"
+[29]: https://docs.gitlab.com/ci/environments/deployment_approvals/ "Deployment approvals | GitLab Docs"
+[30]: https://docs.gitlab.com/user/project/merge_requests/approvals/rules/ "Merge request approval rules | GitLab Docs"
+[31]: https://cyclonedx.org/?utm_source=chatgpt.com "CycloneDX Bill of Materials Standard | CycloneDX"
+[32]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets?utm_source=chatgpt.com "Available rules for rulesets"
+[33]: https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment "Managing environments for deployment - GitHub Docs"
+[34]: https://docs.github.com/en/enterprise-server%403.20/actions/reference/workflows-and-actions/events-that-trigger-workflows?utm_source=chatgpt.com "Events that trigger workflows"
+[35]: https://opentelemetry.io/docs/specs/semconv/cicd/?utm_source=chatgpt.com "Semantic conventions for CICD"
+

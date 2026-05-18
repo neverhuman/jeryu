@@ -1,0 +1,135 @@
+# .autonomy/autonomy.yml — root config for the Evidence Gate / VibeGate Delivery Spine.
+# Schema: vibegate.autonomy.v1
+# This file is protected. Edits land via R4 MR per .autonomy/policies/protected-paths.yml.
+
+schema: vibegate.autonomy.v1
+public_name: "Evidence Gate"
+internal_brand: "VibeGate Delivery Spine"
+
+default_profile: supervised   # report_only | supervised | autonomous_merge | autonomous_release | sovereign
+
+profiles:
+  report_only:
+    agent_can_create_branch: true
+    agent_can_open_mr:       true
+    agent_can_review:        true
+    agent_can_approve_mr:    false
+    agent_can_auto_merge:    false
+    agent_can_deploy_dev:    false
+    agent_can_deploy_prod:   false
+
+  supervised:
+    agent_can_create_branch: true
+    agent_can_open_mr:       true
+    agent_can_review:        true
+    agent_can_approve_mr:    false
+    agent_can_auto_merge:    false
+    agent_can_deploy_dev:    false
+    agent_can_deploy_prod:   false
+
+  autonomous_merge:
+    agent_can_create_branch: true
+    agent_can_open_mr:       true
+    agent_can_review:        true
+    agent_can_approve_mr:    true
+    agent_can_auto_merge:    true
+    max_auto_merge_risk:     R2
+    agent_can_deploy_dev:    true
+    agent_can_deploy_prod:   false
+
+  autonomous_release:
+    agent_can_create_branch:    true
+    agent_can_open_mr:          true
+    agent_can_review:           true
+    agent_can_approve_mr:       true
+    agent_can_auto_merge:       true
+    max_auto_merge_risk:        R2
+    agent_can_deploy_dev:       true
+    agent_can_deploy_staging:   true
+    agent_can_deploy_prod_canary: true
+    agent_can_promote_prod:     false
+
+  sovereign:
+    agent_can_create_branch:    true
+    agent_can_open_mr:          true
+    agent_can_review:           true
+    agent_can_approve_mr:       true
+    agent_can_auto_merge:       true
+    max_auto_merge_risk:        R2
+    agent_can_deploy_dev:       true
+    agent_can_deploy_staging:   true
+    agent_can_deploy_prod_canary: true
+    agent_can_promote_prod:     true
+    max_auto_prod_risk:         R1
+
+  # Wave 5: "100% to prod" on-switch. Loads ONLY when the startup validator
+  # (src/autonomy/profile.rs::validate_sovereign_plus) confirms every Wave 1-4
+  # guardrail is wired and healthy: kill bell armed, freeze.yml present and
+  # parseable, nightwatch reviewer prompt present, canary ladder has >= 3 rings,
+  # rollback drill executor available, and the most recent shadow run reports
+  # agreement_rate >= 0.95. Any missing guardrail downgrades the effective
+  # profile to `sovereign` (or refuses to start, depending on caller config).
+  sovereign_plus:
+    agent_can_create_branch:      true
+    agent_can_open_mr:            true
+    agent_can_review:             true
+    agent_can_approve_mr:         true
+    agent_can_auto_merge:         true
+    max_auto_merge_risk:          R2
+    agent_can_deploy_dev:         true
+    agent_can_deploy_staging:     true
+    agent_can_deploy_prod_canary: true
+    agent_can_promote_prod:       true
+    max_auto_prod_risk:           R2
+    require_nightwatch:           true
+    require_canary:               true
+    require_rollback_drill:       true
+    require_kill_bell_armed:      true
+    require_freeze_check:         true
+    require_shadow_agreement_min: 0.95
+
+# Single repo-wide budget cap, in micro-USD. Per-PR + per-day caps live in providers/llm.yml.
+budget:
+  daily_micro_usd:    100000000  # $100/day per repo
+  per_pr_micro_usd:     2000000  # $2/PR
+  fail_closed_over_budget: true
+
+# Training-data exposure: refuse providers flagged `data_use: train_on_input` unless this is true.
+allow_training_use: false
+
+# Freeze windows downgrade R0..R2 from auto-merge to human-required.
+freeze:
+  enforce: true
+  source:  .autonomy/policies/freeze.yml
+
+# Notification webhooks fire on RequireHuman verdicts and KillBellEngaged ledger events.
+# See src/autonomy/escalation.rs for the consumer; tip1 Law 9 (human emergency stop
+# always wins) is the controlling motivation. URLs are resolved through the same
+# 6-tier secret chain used by src/llm/secrets.rs.
+escalation:
+  enabled: true
+  escalate_after_minutes: 30
+  on_events: [require_human, kill_bell_engaged]
+  webhooks:
+    - kind: slack
+      url_secret_name: SLACK_WEBHOOK_URL
+      channel: "#jeryu-needs-you"
+    - kind: pagerduty
+      url_secret_name: PAGERDUTY_INTEGRATION_URL
+      severity: warning
+    - kind: generic_json
+      url_secret_name: ESCALATION_WEBHOOK_URL
+      headers:
+        X-Source: jeryu
+
+# Reference to other files (paths relative to repo root).
+references:
+  risk_policy:      .autonomy/policies/risk.yml
+  approvals_policy: .autonomy/policies/approvals.yml
+  release_policy:   .autonomy/policies/release.yml
+  protected_paths:  .autonomy/policies/protected-paths.yml
+  providers:        .autonomy/providers/llm.yml
+  schemas_dir:      .autonomy/schemas
+  prompts_dir:      .autonomy/prompts
+  agents_dir:       .autonomy/agents
+  keys_dir:         .autonomy/keys

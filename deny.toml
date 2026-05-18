@@ -6,7 +6,12 @@ targets = []
 
 [advisories]
 version = 2
-ignore = []
+ignore = [
+    # RUSTSEC-2021-0140: rusttype is unmaintained (>2 years). Transitive
+    # dependency via tuiwright (from jankurai v1.4.1). Cannot be fixed in
+    # this repo — would require tuiwright to switch to ab_glyph upstream.
+    "RUSTSEC-2021-0140",
+]
 
 [licenses]
 version = 2

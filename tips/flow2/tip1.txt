@@ -1,0 +1,1430 @@
+# Engineering Spec: JeRyu Workflow Mission Control TUI
+
+## 1. Product Vision
+
+Build the **developer’s dream CI/CD visualization TUI**: a terminal-native “mission control” where a developer can see the entire journey from **PR → local checks → merge readiness → test matrix → build → deploy → canary → production**, with every node, dependency, failure, cache hit, skip reason, and live status visible in one navigable DAG.
+
+The Workflow tab should answer four questions instantly:
+
+1. **Where are we?**
+   The active/running node is visually obvious, centered when follow mode is enabled, and reflected in the header timeline.
+
+2. **What is blocking us?**
+   Failed, blocked, skipped, and waiting-on-dependency nodes show the exact upstream cause.
+
+3. **What ran in parallel?**
+   Parallel test shards appear as fixed-width cards side by side inside phase bands, not stretched rows.
+
+4. **How far are we from production?**
+   The graph runs from layer 0 to production gate, with critical path, ETA, phase progress, and deploy confidence shown continuously.
+
+The feel should be: **NASA mission control + GitLab/GitHub Actions + production deploy war room**, but rendered entirely in Rust terminal UI.
+
+---
+
+## 2. Core UX Philosophy
+
+The core model is:
+
+> **Glance → Navigate → Inspect → Act**
+
+At a glance, the user should see phase health, active work, failures, and pipeline progress. With keyboard or mouse, they should move quickly through a large DAG. Pressing Enter or clicking a node opens a focused inspector with full details. Later, action hooks can support retry, skip, cancel, expand logs, or open in GitLab.
+
+The UI should be **dense but calm**. It should never feel like a log wall. It should feel like a live system map.
+
+---
+
+## 3. Name the Experience
+
+Internally, call this view:
+
+## **Workflow Mission Control**
+
+Key concepts:
+
+| Concept                  | Meaning                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| **Mission Strip**        | Top summary banner showing PR-to-prod progress, mode, confidence, failures, ETA |
+| **Phase Bands**          | Horizontal layers: lint, unit, integration, deploy, canary, prod                |
+| **Test Swarms**          | Parallel fixed-width node cards within a phase                                  |
+| **Edge Highway**         | Dependency connectors routed through gutters between phases                     |
+| **Critical Beam**        | Highlighted critical path from PR to production                                 |
+| **Stall Beacon**         | The exact node or dependency causing the pipeline to stop                       |
+| **Flight Recorder**      | Inspect overlay with status history, duration, logs, deps, events               |
+| **Minimap Rail**         | Compact viewport indicator showing where the user is within the full DAG        |
+| **Follow Active**        | Auto-center on running or failing work                                          |
+| **Failure Blast Radius** | Downstream nodes affected by a failed upstream dependency                       |
+
+---
+
+## 4. Rust TUI Feasibility
+
+This design is very realistic for the current stack.
+
+Ratatui is an immediate-mode rendering library: applications draw into a `Frame`, widgets render into an intermediate buffer, and Ratatui flushes that buffer to the terminal at the end of the draw call. That matches the current JeRyu architecture of pure render functions and explicit app state. ([Ratatui][1])
+
+The Ratatui buffer is a grid of terminal cells, where each cell contains a grapheme plus foreground/background style. That makes it suitable for precise edge drawing, custom card borders, port connectors, minimaps, and overlay composition. ([Docs.rs][2])
+
+Ratatui supports normal widgets, custom widgets, and stateful widgets, which fits this design well: the workflow renderer can remain pure, while navigation, hover, selection, scrollbars, and mouse drag state live in `WorkflowNav` or adjacent state. ([Ratatui][3])
+
+Ratatui also includes `Scrollbar` support, including vertical and horizontal orientations; the docs note that `ScrollbarState::content_length` must be set or the scrollbar renders blank. That should replace the currently unreliable viewport indicator with first-class scrollbars. ([Docs.rs][4])
+
+For graph drawing, Ratatui’s `Canvas` can draw lines, rectangles, points, and labels, but for this DAG I would use direct buffer rendering rather than Canvas for the main graph because card layout, clipping, Unicode box drawing, hit testing, and exact terminal-cell routing matter more than geometric plotting. Canvas can still be useful for tiny inspector visualizations such as duration history or dependency micrographs. ([Docs.rs][5])
+
+For mouse support, Crossterm exposes `MouseEventKind::ScrollUp`, `ScrollDown`, `ScrollLeft`, `ScrollRight`, and `Drag`, and mouse events are available after enabling mouse capture. That supports wheel scrolling, horizontal trackpad panning, click selection, and drag-to-pan. ([Docs.rs][6])
+
+---
+
+# 5. Target Screen Design
+
+## 5.1 Overall Layout
+
+The Workflow tab should be divided into five zones:
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ JeRyu Workflow Mission Control                                                │
+│ PR #1842  selected mode  confidence 94%  active: e2e/payments-03  ETA 11m     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ PR → Checks → Unit → Integration → E2E → Build → Staging → Canary → Prod      │
+│ ● done     ● done   ◐ run   ○ wait        ○ wait   ○ wait    ○ wait   ○ wait  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ DAG CANVAS                                                                    │
+│                                                                              │
+│  L0  Source / VTI Gate                                                        │
+│      ┌──────────────────────────────┐                                        │
+│      │ ✓ vti-select                 │                                        │
+│      │ selected 184/923 tests       │                                        │
+│      │ cache: clean  conf: 94%      │                                        │
+│      └──────────────────────────────┘                                        │
+│                  │                                                           │
+│  L1  Static Checks ─────────────────────────────────────────────────────      │
+│      ┌──────────────────────────────┐ ┌──────────────────────────────┐       │
+│      │ ✓ fmt                        │ │ ✓ clippy                     │       │
+│      │ 18s  local+remote            │ │ 41s  no warnings             │       │
+│      └──────────────────────────────┘ └──────────────────────────────┘       │
+│                  │                             │                             │
+│  L2  Unit Test Swarm ───────────────────────────────────────────────────      │
+│      ┌──────────────────────────────┐ ┌══════════════════════════════┐       │
+│      │ ✓ unit/core                  │ ║ ▶ unit/api                   ║       │
+│      │ 1.2k tests  2m14s            │ ║ 63%  ETA 48s                 ║       │
+│      │ cache miss                   │ ║ [SEL] shard 7/12             ║       │
+│      └──────────────────────────────┘ └══════════════════════════════┘       │
+│                                                                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Mouse: drag pan · wheel scroll · click inspect | f follow | Enter inspect     │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+The top tells the story. The center is the live DAG. The bottom reminds the user how to control it.
+
+---
+
+# 6. Visual Language
+
+## 6.1 Theme
+
+Do not hardcode colors. Extend `Theme` if needed.
+
+Desired style:
+
+| UI Element              | Visual Intent                                           |
+| ----------------------- | ------------------------------------------------------- |
+| Background              | Deep charcoal / black terminal calm                     |
+| Phase headers           | Muted steel / blue-gray                                 |
+| Selected node           | Electric cyan border + `[SEL]` badge                    |
+| Running node            | Pulsing cyan/blue border, spinner glyph                 |
+| Failed node             | Red border, red failure beacon, downstream blast radius |
+| Blocked node            | Amber/yellow border, dependency icon                    |
+| Cached node             | Cool green/teal, cache badge                            |
+| Skipped node            | Muted gray with reason visible                          |
+| Critical path           | Bright, continuous highlighted connector                |
+| Non-critical edges      | Dim but readable                                        |
+| VTI accelerated/skipped | Purple/fire accent via existing `vti_fire` style        |
+| Production gate         | Distinct “launch” visual, not just another node         |
+
+Add semantic theme fields only if needed:
+
+```rust
+pub struct Theme {
+    // existing fields...
+    pub workflow_selected: Color,
+    pub workflow_edge: Color,
+    pub workflow_edge_dim: Color,
+    pub workflow_critical: Color,
+    pub workflow_phase: Color,
+    pub workflow_mouse_hover: Color,
+    pub workflow_stall: Color,
+}
+```
+
+But prefer existing theme methods first: `status_color`, `status_glyph`, `bold`, `muted`, `primary`, `secondary`, `border_style_for`.
+
+## 6.2 Node Card Design
+
+Node cards must be exactly `NODE_CARD_W = 34` and `NODE_CARD_H = 5`.
+
+Default card:
+
+```text
+┌──────────────────────────────┐
+│ ✓ unit/core-api              │
+│ 1,248 tests  2m14s           │
+│ cache hit · shard 3/12       │
+└──────────────────────────────┘
+```
+
+Running selected card:
+
+```text
+╔══════════════════════════════╗
+║ ▶ e2e/payments-03       [SEL]║
+║ 63% ███████░░░ ETA 48s       ║
+║ needs: build-api · shard 7/9 ║
+╚══════════════════════════════╝
+```
+
+Failed card:
+
+```text
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ ✗ integration/auth           ┃
+┃ failed  test_login_refresh   ┃
+┃ blocks: 8 downstream nodes   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
+
+Blocked card:
+
+```text
+┌──────────────────────────────┐
+│ ⚑ deploy/staging             │
+│ blocked by: build-image      │
+│ waiting 6m12s                │
+└──────────────────────────────┘
+```
+
+Cached card:
+
+```text
+┌──────────────────────────────┐
+│ ◇ unit/parser                │
+│ cached 0s                    │
+│ verdict: hit · clean         │
+└──────────────────────────────┘
+```
+
+## 6.3 Intelligent Label Abbreviation
+
+The 34-character card width means labels must be compressed intelligently.
+
+Rules:
+
+1. Preserve high-signal suffixes: `payments`, `auth`, `deploy`, `prod`, `canary`, shard number.
+2. Collapse common prefixes:
+
+   * `test_` → remove
+   * `integration/` → `int/`
+   * `end_to_end/` → `e2e/`
+   * `production` → `prod`
+   * `staging` → `stage`
+   * `javascript` → `js`
+   * `typescript` → `ts`
+3. Preserve shard identity:
+
+   * `unit-api-shard-07-of-24` → `unit/api 07/24`
+4. Use middle ellipsis only when necessary:
+
+   * `integration/payments/refund-flow` → `int/payments/…refund`
+5. Never truncate status badges, `[SEL]`, shard count, or failure glyph.
+
+Implement as:
+
+```rust
+fn compact_node_label(label: &str, max: usize) -> String
+fn compact_test_metadata(node: &WorkflowNode, max: usize) -> String
+```
+
+Keep this in `workflow/widget.rs` or a small `workflow/format.rs`.
+
+---
+
+# 7. DAG Layout Specification
+
+## 7.1 Virtual Canvas
+
+The DAG should live on a virtual canvas with its own coordinate system.
+
+```rust
+struct WorkflowLayout {
+    canvas_w: i32,
+    canvas_h: i32,
+    phase_rects: Vec<PhaseRect>,
+    node_rects: HashMap<String, Rect>,
+    edge_routes: Vec<EdgeRoute>,
+    hit_regions: Vec<HitRegion>,
+}
+```
+
+The renderer should compute this layout every frame from immutable inputs:
+
+```rust
+let layout = compute_workflow_layout(snapshot, area, nav, theme);
+render_workflow_canvas(frame, area, snapshot, nav, &layout, theme);
+```
+
+The actual render clips by:
+
+```rust
+screen_x = canvas_x - nav.viewport_x + dag_area.x
+screen_y = canvas_y - nav.viewport_y + dag_area.y
+```
+
+Anything outside the visible `dag_area` is skipped.
+
+## 7.2 Phase Bands
+
+Each `WorkflowPhase` becomes a horizontal band.
+
+```text
+L2  Unit Test Swarm ─────────────────────  8/12 done · 2 running · 1 failed
+```
+
+Phase header should include:
+
+* Layer index
+* Phase name
+* Status rollup
+* Running count
+* Failed count
+* Cached/skipped count
+* Duration or ETA
+* Optional mode badge: `selected`, `full`, `vti`, `deploy`
+
+Phase bands should be visually stable. Nodes should not jump around every frame. Running progress can update, but layout should remain deterministic.
+
+## 7.3 Parallel Test Layout
+
+Parallel nodes in the same phase are arranged left-to-right in lanes:
+
+```text
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ unit/core    │ │ unit/api     │ │ unit/db      │
+└──────────────┘ └──────────────┘ └──────────────┘
+```
+
+For many parallel nodes, wrap into rows within the same phase band:
+
+```text
+Phase L3 Integration
+  card card card card
+  card card card card
+  card card card card
+```
+
+Layout formula:
+
+```rust
+let lane_gap_x = 3;
+let row_gap_y = 1;
+let card_w = NODE_CARD_W as i32;
+let card_h = NODE_CARD_H as i32;
+
+cards_per_row = max(1, available_virtual_width / (card_w + lane_gap_x));
+row = node_idx / cards_per_row;
+col = node_idx % cards_per_row;
+x = PHASE_LABEL_W + col * (card_w + lane_gap_x);
+y = phase_y + PHASE_HEADER_H + row * (card_h + row_gap_y);
+```
+
+Important: `available_virtual_width` should not be the terminal width. It should be a layout target derived from the largest phase, capped by a sane maximum, so horizontal panning works.
+
+## 7.4 Stable Ordering
+
+Within each phase, order nodes by:
+
+1. Critical path first
+2. Running/failing nodes next
+3. Dependency order
+4. Natural label order
+5. Original input order as final tiebreaker
+
+This prevents visual noise while keeping important nodes near the left.
+
+---
+
+# 8. Edge Routing Specification
+
+## 8.1 Edge Philosophy
+
+Edges must be readable, not mathematically perfect. The goal is to show dependency flow and blockage.
+
+Use “ports” on cards:
+
+```text
+       upstream card
+            │ output port
+            ▼
+──────── edge gutter ────────
+            ▲ input port
+       downstream card
+```
+
+Each node has:
+
+```rust
+struct NodePorts {
+    top: Position,
+    bottom: Position,
+    left: Position,
+    right: Position,
+}
+```
+
+## 8.2 Edge Types
+
+Use existing `EdgeKind` glyph/badge concepts:
+
+| Edge Kind       | Visual                    |
+| --------------- | ------------------------- |
+| `GitlabNeeds`   | Solid line                |
+| `ArtifactDep`   | Solid with artifact glyph |
+| `StageOrder`    | Dim line                  |
+| `VtiSkipped`    | Dashed/dim purple         |
+| `Blocked`       | Amber/red blocking line   |
+| `ChildPipeline` | Branch connector          |
+
+## 8.3 Edge Rendering Order
+
+Render order must be:
+
+1. Clear DAG canvas background
+2. Phase backgrounds and headers
+3. Edge gutters
+4. Edge labels/badges
+5. Node cards
+6. Selection/hover overlays
+7. Scrollbars/minimap
+8. Inspector overlay, if open
+
+Edges should be under cards, not over them.
+
+## 8.4 Connector Characters
+
+Use Unicode box drawing:
+
+```text
+│ ─ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼ ═ ║ ╔ ╗ ╚ ╝
+```
+
+Critical path:
+
+```text
+━━━┃━━━
+```
+
+Blocked/failure propagation:
+
+```text
+╍╍╍ or ┄┄┄
+```
+
+For crossing edges, use `┼`. For selected-node edges, upgrade to stronger characters.
+
+## 8.5 Edge Deconfliction
+
+Assign each edge a gutter lane:
+
+```rust
+struct EdgeRoute {
+    from_id: String,
+    to_id: String,
+    points: Vec<Position>,
+    lane: usize,
+    kind: EdgeKind,
+    critical: bool,
+    blocked: bool,
+}
+```
+
+Route algorithm:
+
+1. Start at upstream bottom port.
+2. Move vertically into edge gutter.
+3. Move horizontally to downstream x.
+4. Move vertically into downstream top port.
+5. If multiple edges overlap, merge shared vertical trunks.
+6. If selected node is active, brighten only its inbound/outbound edges.
+
+## 8.6 Dependency Highlight Modes
+
+When a node is selected:
+
+* Brighten inbound dependencies.
+* Brighten outbound dependents.
+* Dim unrelated edges.
+* Show “upstream chain” and “downstream blast radius.”
+* In footer: `3 deps · 8 downstream · critical path +4m`.
+
+This is essential for “why am I stuck?”
+
+---
+
+# 9. Navigation and Interaction
+
+## 9.1 Keyboard
+
+Keep existing keys and add richer behavior.
+
+| Key           | Behavior                       |
+| ------------- | ------------------------------ |
+| `↑ / k`       | Previous phase                 |
+| `↓ / j`       | Next phase                     |
+| `← / h`       | Previous node in phase         |
+| `→ / l`       | Next node in phase             |
+| `Tab`         | Next node globally             |
+| `Shift+Tab`   | Previous node globally         |
+| `Enter`       | Toggle inspector               |
+| `Esc`         | Close inspector / clear search |
+| `PgUp / PgDn` | Pan vertical by 50%            |
+| `[ / ]`       | Pan horizontal by 50%          |
+| `Home`        | Jump to start                  |
+| `End`         | Jump to production/end         |
+| `f`           | Toggle follow active           |
+| `/`           | Search node/test               |
+| `n / N`       | Next/previous search hit       |
+| `c`           | Toggle critical path only      |
+| `b`           | Jump to blocker/stall beacon   |
+| `e`           | Toggle edge detail             |
+| `m`           | Toggle mouse capture mode      |
+| `?`           | Help overlay                   |
+
+## 9.2 Mouse
+
+Mouse support should feel first-class, not bolted on.
+
+| Mouse Action                    | Behavior                                  |
+| ------------------------------- | ----------------------------------------- |
+| Wheel up/down                   | Pan vertical                              |
+| Shift+wheel or horizontal wheel | Pan horizontal                            |
+| Click card                      | Select node                               |
+| Double-click card               | Open inspector                            |
+| Drag empty canvas               | Pan x/y                                   |
+| Click phase header              | Collapse/expand phase                     |
+| Click minimap                   | Jump viewport                             |
+| Click scrollbar thumb           | Jump/pan                                  |
+| Right click node                | Context mini-menu: inspect, logs, copy id |
+
+Implementation requires extending `runtime/input.rs` / `general.rs` to handle `Event::Mouse`. Crossterm supports scroll and drag event kinds, and mouse events are enabled through mouse capture. ([Docs.rs][6])
+
+Important UX rule: mouse capture should be **toggleable** with `m`. Developers still need native terminal text selection sometimes. Default can be enabled in demo mode and configurable in live mode.
+
+## 9.3 Follow Active
+
+Follow mode should center on the most important live node:
+
+Priority:
+
+1. Failed node on critical path
+2. Running node on critical path
+3. Any failed node
+4. Any running node
+5. First blocked node
+6. Selected node
+7. Start node
+
+When follow is active:
+
+```text
+FOLLOW ACTIVE: e2e/payments-03 · 63% · ETA 48s
+```
+
+If the user manually pans or drags, temporarily suspend follow:
+
+```text
+FOLLOW PAUSED — press f to resume
+```
+
+---
+
+# 10. Header / Mission Strip
+
+The top banner should summarize the entire pipeline.
+
+Example:
+
+```text
+JeRyu Workflow Mission Control
+PR #1842 → merge train · selected mode · confidence 94% · active e2e/payments-03 · ETA 11m
+✓ 27 done  ▶ 2 running  ○ 14 waiting  ◆ 9 cached  ⚑ 1 blocked  ✗ 0 failed
+```
+
+Second line: stage timeline.
+
+```text
+PR      VTI      Lint     Unit     Int      E2E      Build    Stage    Canary   Prod
+●──────●───────●───────◐───────○───────○───────○───────○───────○───────○
+```
+
+Symbols:
+
+| Symbol | Meaning |
+| ------ | ------- |
+| `●`    | Done    |
+| `◐`    | Running |
+| `○`    | Waiting |
+| `◆`    | Cached  |
+| `✗`    | Failed  |
+| `⚑`    | Blocked |
+| `⊘`    | Skipped |
+
+---
+
+# 11. Inspector Overlay: Flight Recorder
+
+Pressing Enter opens a detail panel. This should be high-value.
+
+## 11.1 Layout
+
+```text
+┌─ Flight Recorder: e2e/payments-03 ──────────────────────────────────────────┐
+│ Status: RUNNING  63%  ETA 48s  Critical Path: yes                           │
+│ Command: cargo nextest run -p payments --test e2e_refund --shard 7/9         │
+│                                                                              │
+│ Why this is running:                                                          │
+│   selected by VTI: changed files touched payments/refunds + auth/session      │
+│                                                                              │
+│ Dependencies:                                                                │
+│   ✓ build/payments-api   ✓ seed-db   ✓ unit/payments                         │
+│                                                                              │
+│ Downstream blocked until this passes:                                         │
+│   staging/payments → canary/payments → prod-gate                              │
+│                                                                              │
+│ Duration history:  2m01s 2m04s 1m58s 2m17s 2m09s                              │
+│                   ▁▂▁▃▂                                                       │
+│                                                                              │
+│ Live log preview:                                                             │
+│   running test refund_idempotency ... ok                                      │
+│   running test card_decline_reversal ...                                      │
+│                                                                              │
+│ Actions: [r] retry  [l] logs  [o] open GitLab  [y] copy id  [Esc] close       │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+## 11.2 Inspector Sections
+
+Always show:
+
+* Node label
+* Kind
+* Status
+* Phase
+* Critical path
+* Progress
+* ETA
+* Duration
+* Command
+* VTI status
+* Cache verdict
+* Reason
+* Tags
+* Dependencies
+* Downstream dependents
+* Failure/blocking reason
+
+If running:
+
+* Live log preview
+* Progress bar
+* ETA
+* current test name, if available
+
+If failed:
+
+* Failure headline
+* First failing test
+* Error excerpt
+* Retry recommendation
+* Downstream blocked count
+
+If skipped:
+
+* Skip reason
+* Whether skipped by VTI, cache, dependency, manual gate, or mode
+
+If deploy/canary/prod:
+
+* Environment
+* Version/SHA
+* Rollout percentage
+* Health checks
+* Error budget/smoke result
+* Rollback availability
+
+---
+
+# 12. Data Model Extensions
+
+The existing model is strong. Add fields only where needed.
+
+## 12.1 WorkflowSnapshot
+
+```rust
+pub struct WorkflowSnapshot {
+    pub title: String,
+    pub mode: String,
+    pub confidence: f64,
+    pub nodes: Vec<WorkflowNode>,
+    pub edges: Vec<WorkflowEdge>,
+    pub phases: Vec<WorkflowPhase>,
+    pub summary: WorkflowSummary,
+
+    // proposed
+    pub generated_at: Option<SystemTime>,
+    pub source_revision: Option<String>,
+    pub pr_number: Option<u64>,
+    pub pipeline_id: Option<String>,
+    pub active_node_id: Option<String>,
+    pub critical_path_node_ids: Vec<String>,
+    pub stall: Option<WorkflowStall>,
+}
+```
+
+## 12.2 WorkflowNode
+
+```rust
+pub struct WorkflowNode {
+    // existing fields...
+
+    // proposed
+    pub started_at: Option<SystemTime>,
+    pub finished_at: Option<SystemTime>,
+    pub queue_secs: Option<f64>,
+    pub retry_count: u16,
+    pub shard: Option<ShardInfo>,
+    pub environment: Option<EnvironmentInfo>,
+    pub failure: Option<FailureInfo>,
+    pub downstream_count: usize,
+    pub upstream_status: UpstreamHealth,
+    pub log_preview: Vec<String>,
+    pub history: Vec<NodeRunSample>,
+}
+```
+
+## 12.3 WorkflowStall
+
+```rust
+pub struct WorkflowStall {
+    pub node_id: String,
+    pub reason: StallReason,
+    pub blocked_node_count: usize,
+    pub critical_path_delay_secs: Option<u64>,
+}
+
+pub enum StallReason {
+    RunningLong,
+    FailedDependency,
+    ManualGate,
+    WaitingForRunner,
+    WaitingForEnvironment,
+    CacheDenied,
+    Unknown,
+}
+```
+
+## 12.4 ShardInfo
+
+```rust
+pub struct ShardInfo {
+    pub index: u16,
+    pub total: u16,
+    pub tests_total: Option<u32>,
+    pub tests_done: Option<u32>,
+}
+```
+
+---
+
+# 13. Rendering Architecture
+
+## 13.1 New Internal Modules
+
+Recommended structure:
+
+```text
+src/tui/workflow/
+  mod.rs
+  model.rs
+  nav.rs
+  widget.rs
+  builder.rs
+  collector.rs
+
+  layout.rs       // virtual canvas layout, node rects, phase rects
+  render.rs       // card, phase, edge, minimap render helpers
+  format.rs       // compact labels, durations, ETA, counts
+  hit.rs          // mouse hit testing
+  inspect.rs      // inspector rendering
+```
+
+Keep `widget.rs` as the public renderer entry point:
+
+```rust
+pub fn draw_workflow_tab(
+    f: &mut Frame,
+    area: Rect,
+    app: &App,
+    theme: &Theme,
+)
+```
+
+Then delegate:
+
+```rust
+let layout = WorkflowLayout::compute(snapshot, nav, area);
+render_mission_strip(...);
+render_canvas(...);
+render_scrollbars(...);
+render_footer_hints(...);
+```
+
+## 13.2 Pure Render Rule
+
+Rendering functions may compute temporary layout, but must not mutate app state except through explicitly passed mutable local widget states where Ratatui requires it. Existing architecture requires widgets to remain pure.
+
+For actual state updates, use App actions:
+
+```rust
+app.workflow_mouse_scroll(dx, dy)
+app.workflow_mouse_drag(from, to)
+app.workflow_select_node(id)
+app.workflow_open_inspector(id)
+app.workflow_toggle_mouse()
+```
+
+## 13.3 Layout Cache
+
+For performance, cache layout metadata when snapshot and terminal size are unchanged:
+
+```rust
+pub struct WorkflowLayoutCache {
+    snapshot_fingerprint: u64,
+    area: Rect,
+    layout: WorkflowLayout,
+}
+```
+
+But do not over-optimize early. The first priority is correctness and visual quality.
+
+---
+
+# 14. Live Data and Refresh Strategy
+
+Current issue: `refresh_workflow_snapshot()` runs every draw frame.
+
+Better model:
+
+```text
+Input/event tick ──> App state update ──> mark workflow dirty
+Timer tick ────────> refresh if stale
+Draw ──────────────> render latest cached snapshot only
+```
+
+## 14.1 Refresh Rules
+
+Refresh the workflow snapshot when:
+
+* New job event arrives
+* Pipeline state changes
+* VTI plan changes
+* User manually presses refresh
+* Demo tick changes simulated status
+* Stale interval expires, e.g. 500ms or 1s in live mode
+
+Do not rebuild from scratch every render frame.
+
+## 14.2 Snapshot Fingerprint
+
+Use a cheap fingerprint:
+
+```rust
+struct WorkflowFingerprint {
+    pipeline_id: Option<String>,
+    job_count: usize,
+    edge_count: usize,
+    status_counts: StatusCounts,
+    latest_event_seq: u64,
+}
+```
+
+If unchanged, skip rebuild.
+
+---
+
+# 15. Demo Mode Animation
+
+Demo mode should feel alive.
+
+## 15.1 Animation Loop
+
+Every tick:
+
+1. Advance one or more running nodes.
+2. Move nodes through `Waiting → Running → Ran`.
+3. Occasionally mark cache hit/skipped.
+4. Optionally inject a recoverable failure scenario.
+5. Update `progress_pct`, `eta_secs`, and `duration_secs`.
+6. Recompute summary and active node.
+
+## 15.2 Demo Scenarios
+
+Add selectable demo profiles:
+
+| Profile           | Purpose                                 |
+| ----------------- | --------------------------------------- |
+| `happy_path`      | Shows full PR-to-prod flow              |
+| `failed_test`     | Shows failure blast radius              |
+| `blocked_deploy`  | Shows manual/prod gate                  |
+| `large_matrix`    | Stress test horizontal/vertical panning |
+| `cache_heavy`     | Shows VTI/cache acceleration            |
+| `canary_rollback` | Shows production safety flow            |
+
+---
+
+# 16. PR-to-Production Workflow Model
+
+The ideal DAG should include the whole lifecycle.
+
+## 16.1 Canonical Phases
+
+```text
+L0  Local / Developer Preflight
+L1  PR Created / Source Gate
+L2  VTI Selection / Change Impact
+L3  Static Checks
+L4  Unit Test Matrix
+L5  Integration Test Matrix
+L6  E2E / Browser / Contract Tests
+L7  Security / Compliance / SBOM
+L8  Build / Package / Image
+L9  Merge Queue / Merge Train
+L10 Staging Deploy
+L11 Smoke Tests
+L12 Canary Deploy
+L13 Canary Health
+L14 Production Gate
+L15 Production Rollout
+L16 Post-Deploy Verification
+```
+
+Not every pipeline needs every phase. Empty phases should be hidden unless expanded.
+
+## 16.2 Production Gate Card
+
+Production gate should feel special:
+
+```text
+╔══════════════════════════════╗
+║ 🚀 prod-gate                 ║
+║ waiting: canary health       ║
+║ policy: 2 approvals + SLO    ║
+╚══════════════════════════════╝
+```
+
+For terminal compatibility, avoid relying on emoji by default; make emoji optional. ASCII/Unicode fallback:
+
+```text
+║ ^ prod-gate                  ║
+```
+
+---
+
+# 17. Failure Experience
+
+Failures should be impossible to miss but not chaotic.
+
+## 17.1 Failure Beacon
+
+When a failure exists:
+
+* Header shows red failure count.
+* First failure gets a beacon.
+* `b` jumps to root blocker.
+* Downstream affected nodes are dimmed/amber.
+* Edges from failed dependency are highlighted.
+* Inspector explains cause and downstream impact.
+
+## 17.2 Failure Root Cause
+
+Compute:
+
+```rust
+fn root_blocker(snapshot: &WorkflowSnapshot) -> Option<&WorkflowNode>
+```
+
+Priority:
+
+1. Failed critical-path node
+2. Failed node with most downstream blocked nodes
+3. Long-running critical-path node beyond expected duration
+4. Manual gate blocking production
+5. Waiting-for-runner node with longest queue time
+
+Display:
+
+```text
+STALL BEACON: integration/auth failed · blocks 8 nodes · prod delayed ~14m
+```
+
+---
+
+# 18. Performance Targets
+
+The view should remain responsive on large pipelines.
+
+## 18.1 Target Scale
+
+| Metric             | Target                                         |
+| ------------------ | ---------------------------------------------- |
+| Nodes              | 500 visible DAG nodes                          |
+| Edges              | 2,000 dependency edges                         |
+| Render             | Smooth enough at 10–20 FPS during live updates |
+| Input latency      | Under 50ms perceived                           |
+| Snapshot rebuild   | Avoid every-frame rebuild                      |
+| Horizontal panning | No layout jump                                 |
+| Vertical panning   | No layout jump                                 |
+
+## 18.2 Rendering Optimizations
+
+* Skip offscreen cards.
+* Skip offscreen edge segments.
+* Precompute node rects and edge routes.
+* Use compact strings allocated once per layout pass.
+* Avoid cloning whole snapshots in render.
+* Render only to visible `Rect`.
+* Keep inspector data lazy.
+
+---
+
+# 19. Implementation Plan
+
+## Phase 1 — Fix Core DAG Rendering
+
+Goal: make the current DAG correct and beautiful.
+
+Tasks:
+
+1. Enforce fixed-width node cards.
+2. Implement `WorkflowLayout`.
+3. Store node rectangles by ID.
+4. Render phase bands and cards from virtual coordinates.
+5. Fix selected-card border and `[SEL]` badge.
+6. Compute real `canvas_width` and `canvas_height`.
+7. Replace `last_dag_h()` / `last_dag_w()` hardcoded values with actual render area dimensions.
+8. Add real vertical and horizontal scrollbars.
+9. Ensure `ensure_selected_visible()` uses actual card rects.
+
+Acceptance:
+
+* Parallel nodes display side by side.
+* Selected node is visually obvious.
+* Panning is based on actual terminal size.
+* Scrollbars reflect true canvas position.
+* No cards stretch to full terminal width.
+
+## Phase 2 — Edge Highway
+
+Goal: make dependencies legible.
+
+Tasks:
+
+1. Add `EdgeRoute`.
+2. Draw edges before cards.
+3. Add input/output ports.
+4. Route through gutters.
+5. Highlight selected node’s inbound/outbound edges.
+6. Highlight critical path.
+7. Add blocked/failure edge style.
+
+Acceptance:
+
+* Edges are visible between phases.
+* Selected node shows dependency context.
+* Critical path is traceable.
+* Failed dependency propagation is clear.
+
+## Phase 3 — Mouse Navigation
+
+Goal: make panning and selection feel native.
+
+Tasks:
+
+1. Enable optional mouse capture.
+2. Add `WorkflowMouseState`.
+3. Handle wheel up/down.
+4. Handle horizontal scroll.
+5. Handle drag-to-pan.
+6. Add card hit testing.
+7. Click selects card.
+8. Double click or Enter opens inspector.
+9. Add `m` toggle for mouse mode.
+
+Acceptance:
+
+* User can pan up/down/left/right with mouse.
+* User can click a node to select it.
+* User can drag empty canvas to pan.
+* Keyboard still works perfectly.
+
+## Phase 4 — Flight Recorder Inspector
+
+Goal: make Enter useful.
+
+Tasks:
+
+1. Redesign inspect overlay.
+2. Show command, deps, downstream, VTI, cache, duration, progress.
+3. Add failure-specific view.
+4. Add running-log preview if available.
+5. Add dependency mini-list.
+6. Add action hint row.
+
+Acceptance:
+
+* A selected node can be fully understood without leaving the TUI.
+* Failure reason and downstream impact are visible.
+* Long labels and commands are readable.
+
+## Phase 5 — Live Refresh and Demo Animation
+
+Goal: make the view feel alive without wasting render work.
+
+Tasks:
+
+1. Move snapshot refresh out of `draw()`.
+2. Add dirty/stale refresh policy.
+3. Add snapshot fingerprinting.
+4. Animate demo workflow states.
+5. Add profile scenarios.
+6. Pulse running cards.
+7. Update ETA/progress.
+
+Acceptance:
+
+* Demo shows nodes transitioning.
+* Live mode avoids per-frame snapshot rebuild.
+* Running nodes visibly pulse.
+* Follow-active mode tracks meaningful active work.
+
+## Phase 6 — PR-to-Prod Full Lifecycle
+
+Goal: expand from test DAG to complete delivery system.
+
+Tasks:
+
+1. Add canonical lifecycle phases.
+2. Add merge train nodes.
+3. Add staging/canary/prod deploy nodes.
+4. Add environment metadata.
+5. Add production gate card.
+6. Add rollout/health status.
+7. Add post-deploy verification nodes.
+
+Acceptance:
+
+* User can see local-to-prod path.
+* Production readiness is obvious.
+* Canary and prod gates are first-class.
+
+---
+
+# 20. File-Level Change Plan
+
+## `src/tui/workflow/nav.rs`
+
+Add:
+
+```rust
+pub last_area_w: u16,
+pub last_area_h: u16,
+pub mouse_enabled: bool,
+pub mouse_drag_origin: Option<(u16, u16)>,
+pub hover_node_id: Option<String>,
+```
+
+Add methods:
+
+```rust
+pub fn set_viewport_area(&mut self, width: u16, height: u16)
+pub fn pan_by(&mut self, dx: i32, dy: i32)
+pub fn pan_mouse_wheel(&mut self, kind: MouseEventKind)
+pub fn select_node_id(&mut self, snapshot: &WorkflowSnapshot, id: &str)
+pub fn center_on_node_rect(&mut self, rect: Rect, area: Rect)
+```
+
+## `src/tui/workflow/layout.rs`
+
+New file.
+
+Responsibilities:
+
+* Compute phase y offsets.
+* Compute card positions.
+* Compute canvas dimensions.
+* Compute edge routes.
+* Build hit regions.
+
+## `src/tui/workflow/widget.rs`
+
+Refactor into orchestration:
+
+```rust
+pub fn draw_workflow_tab(...)
+fn render_mission_strip(...)
+fn render_dag_canvas(...)
+fn render_phase_band(...)
+fn render_node_card(...)
+fn render_edges(...)
+fn render_scrollbars(...)
+fn render_minimap(...)
+```
+
+## `src/tui/workflow/inspect.rs`
+
+New file.
+
+Responsibilities:
+
+* Render Flight Recorder overlay.
+* Format dependency sections.
+* Format live log preview.
+* Format failure reason.
+
+## `src/tui/workflow/format.rs`
+
+New file.
+
+Responsibilities:
+
+* Compact labels.
+* Format duration.
+* Format ETA.
+* Format counts.
+* Format progress.
+* Format cache/VTI badges.
+
+## `runtime/input/navigation/general.rs`
+
+Add mouse event routing when active tab is Workflow:
+
+```rust
+Event::Mouse(mouse) if app.active_tab == ActiveTab::Workflow => {
+    app.workflow_handle_mouse(mouse)
+}
+```
+
+## `app_runtime_sync_actions.rs`
+
+Add:
+
+```rust
+pub fn workflow_handle_mouse(&mut self, mouse: MouseEvent)
+pub fn workflow_select_node_id(&mut self, id: String)
+pub fn workflow_toggle_mouse(&mut self)
+pub fn workflow_jump_to_blocker(&mut self)
+pub fn workflow_toggle_critical_only(&mut self)
+pub fn workflow_search(&mut self, query: String)
+```
+
+## `runner.rs` or TUI startup
+
+Add optional mouse capture enable/disable. Make it configurable and reversible.
+
+---
+
+# 21. Testing Plan
+
+## 21.1 Unit Tests
+
+Add tests for:
+
+* Fixed card layout.
+* Phase y-position calculation.
+* Canvas width/height calculation.
+* Selection visibility.
+* Panning clamp behavior.
+* Label abbreviation.
+* Edge route generation.
+* Root blocker detection.
+* Mouse hit testing.
+* Snapshot fingerprinting.
+
+## 21.2 Snapshot/Golden Tests
+
+Use demo snapshots to assert rendered text contains:
+
+* Fixed card borders.
+* `[SEL]`.
+* Phase headers.
+* Edge glyphs.
+* Failure beacon.
+* Scrollbar/minimap text.
+* Production gate.
+
+## 21.3 Interaction Tests
+
+Simulate:
+
+* Arrow navigation.
+* Tab navigation.
+* Page panning.
+* Horizontal panning.
+* Click card.
+* Drag canvas.
+* Wheel scroll.
+* Follow active.
+
+## 21.4 Demo Manual Test
+
+Command sequence:
+
+```bash
+cargo check -p jeryu
+cargo nextest run -p jeryu -- tui::workflow
+cargo nextest run -p jeryu -- tui
+cargo install --path . --force
+jeryu tui --demo
+```
+
+Acceptance checklist:
+
+* Open tab 0.
+* See PR-to-prod workflow.
+* See parallel cards.
+* See selected card.
+* See edges.
+* Pan vertically.
+* Pan horizontally.
+* Click card.
+* Open inspector.
+* Watch demo statuses advance.
+* Jump to blocker.
+* Toggle follow mode.
+
+---
+
+# 22. Non-Negotiable Acceptance Criteria
+
+The Workflow TUI is not done until all of these are true:
+
+1. **Fixed-width cards**: every node card is 34 chars wide.
+2. **Parallel visibility**: parallel tests appear side by side.
+3. **Full DAG visibility**: user can pan from layer 0 to production.
+4. **Live status**: running, waiting, blocked, cached, skipped, failed, and done are visually distinct.
+5. **Selected node obvious**: selected card has accent border and `[SEL]`.
+6. **Edges visible**: dependency edges render between phases.
+7. **Critical path visible**: user can trace the longest/most important path.
+8. **Stall obvious**: blocker/failure root cause is shown in header and jumpable.
+9. **Mouse panning**: wheel and drag work for navigation.
+10. **Keyboard remains fast**: no mouse dependency.
+11. **Inspector is useful**: Enter explains node status, deps, command, reason, and downstream impact.
+12. **No hardcoded widget colors**: theme only.
+13. **No render-time mutation of app state**: preserve architecture.
+14. **No every-frame snapshot rebuild in live mode**.
+15. **Demo mode animates**.
+
+---
+
+# 23. The “Dream” Features After v1
+
+Once the core visualization is excellent, add these:
+
+## 23.1 Time Travel
+
+Scrub pipeline history:
+
+```text
+t: timeline mode
+← previous event
+→ next event
+```
+
+See how the DAG changed over time.
+
+## 23.2 Failure Diff
+
+Show what changed since last green run:
+
+```text
+Changed since last pass:
+  src/payments/refund.rs
+  src/auth/session.rs
+
+Likely impacted:
+  e2e/payments-refund
+  integration/auth-refresh
+```
+
+## 23.3 Cost View
+
+Toggle from status to cost:
+
+```text
+$ cloud minutes
+$ runner time
+$ cache savings
+$ VTI saved tests
+```
+
+## 23.4 Flake Radar
+
+Mark flaky tests:
+
+```text
+⚠ e2e/login-mobile
+flake rate: 7.2% over 90 days
+```
+
+## 23.5 Deploy Confidence
+
+Production gate shows:
+
+```text
+deploy confidence: 94%
+risk: medium-low
+rollback: available
+canary health: clean
+```
+
+## 23.6 Command Palette
+
+```text
+:retry failed
+:open logs
+:jump prod
+:show critical
+:filter failed
+:copy selected id
+```
+
+---
+
+# 24. Final Design Principle
+
+The Workflow tab should not merely display CI jobs.
+
+It should become the **operational truth surface** for software delivery.
+
+A developer should be able to open Tab 0 and immediately know:
+
+> “What changed, what ran, what is still running, what failed, what is blocked, what is safe to merge, and how close we are to production.”
+
+That is the bar.
+
+[1]: https://ratatui.rs/concepts/rendering/under-the-hood/?utm_source=chatgpt.com "Rendering under the hood"
+[2]: https://docs.rs/ratatui/latest/ratatui/buffer/struct.Buffer.html?utm_source=chatgpt.com "Buffer in ratatui::buffer - Rust"
+[3]: https://ratatui.rs/concepts/widgets/?utm_source=chatgpt.com "Introduction to Widgets"
+[4]: https://docs.rs/ratatui/latest/ratatui/widgets/struct.Scrollbar.html?utm_source=chatgpt.com "Scrollbar in ratatui::widgets - Rust"
+[5]: https://docs.rs/ratatui/latest/ratatui/widgets/canvas/index.html?utm_source=chatgpt.com "ratatui::widgets::canvas - Rust"
+[6]: https://docs.rs/crossterm/latest/crossterm/event/enum.MouseEventKind.html?utm_source=chatgpt.com "MouseEventKind in crossterm::event - Rust"
+

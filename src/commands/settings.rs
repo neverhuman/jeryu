@@ -4,7 +4,7 @@
 
 use anyhow::{Result, bail};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub(crate) async fn execute_settings_commands(cmd: crate::cli::SettingsCommands) -> Result<()> {
     match cmd {
@@ -51,7 +51,7 @@ async fn reset_settings(force: bool) -> Result<()> {
     Ok(())
 }
 
-fn newest_backup(path: &PathBuf) -> Option<PathBuf> {
+fn newest_backup(path: &Path) -> Option<PathBuf> {
     let dir = path.parent()?;
     let mut entries: Vec<PathBuf> = fs::read_dir(dir)
         .ok()?

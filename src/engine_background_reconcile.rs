@@ -112,6 +112,7 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
         &state.client,
         release::DEFAULT_RELEASE_PROJECT_ID,
         "main",
+        false,
     )
     .await
     {

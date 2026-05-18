@@ -4,6 +4,24 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[package.metadata.agent]
+purpose = "Database-backed cache-brain adapter (sqlx persistence for CacheBrain decisions)"
+owned_paths = ["src/**", "AGENTS.md"]
+entrypoints = ["CacheBrainAdapter"]
+invariants = [
+    "Cache misses are recoverable without data loss",
+    "Persistence layer never blocks the CacheBrain decision path",
+]
+local_validate = [
+    "cargo check -p cache-brain-adapter",
+    "cargo test -p cache-brain-adapter",
+]
+boundary_validate = []
+public_api = false
+risk = "low"
+consumers = ["crates/adapters"]
+exceptions = []
+
 [lib]
 path = "src/lib.rs"
 

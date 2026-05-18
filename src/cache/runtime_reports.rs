@@ -1,5 +1,4 @@
 use anyhow::Result;
-use chrono::{Duration as ChronoDuration, Utc};
 use std::collections::BTreeSet;
 
 use super::*;
@@ -130,11 +129,9 @@ impl SmartCache {
             .unwrap_or(0);
 
         let mut cargo_target_caches = local_cargo_targets;
-        let mut pip_caches = Vec::new();
         let pool_root = crate::config::cache_root_dir().join("pools");
         let mut pool_cargo_target_bytes = 0_u64;
         let mut pool_cargo_sccache_bytes = 0_u64;
-        let mut pip_cache_bytes = 0_u64;
         if pool_root.is_dir() {
             for entry in std::fs::read_dir(&pool_root)
                 .with_context(|| format!("reading {}", pool_root.display()))?
@@ -171,10 +168,6 @@ impl SmartCache {
                 pool_cargo_sccache_bytes +=
                     du_bytes(&pool_cache_dir.join("sccache")).await.unwrap_or(0);
                 cargo_target_caches.extend(statuses);
-
-                let pip_statuses = scan_pip_cache_dirs(&pool_cache_dir).await?;
-                pip_cache_bytes += pip_statuses.iter().map(|status| status.bytes).sum::<u64>();
-                pip_caches.extend(pip_statuses);
             }
         }
         cargo_target_caches.sort_by(|a, b| {
@@ -199,10 +192,8 @@ impl SmartCache {
             pool_cargo_target_bytes,
             pool_cargo_sccache_bytes,
             cargo_target_caches,
-            pip_cache_bytes,
-            pip_caches,
             docker: match docker_storage_summary().await {
-                Ok(summary) => summary,
+                Ok(d) => d,
                 Err(_) => DockerStorageSummary::default(),
             },
             proxy_up,

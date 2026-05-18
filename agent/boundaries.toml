@@ -1,12 +1,16 @@
 [db]
+allowed_truth_paths = ["python/ai-service"]
 constraint_paths = ["db/constraints"]
 migration_paths = ["db/migrations"]
 root_paths = [
     "db",
-    "src/tui",
+    "src/cache/",
     "src/state.rs",
     "src/taint.rs",
 ]
+
+[python]
+allowed_truth_paths = ["python/ai-service"]
 
 [queues]
 adapter_paths = [
@@ -61,7 +65,7 @@ generated_contract_paths = ["contracts/generated"]
 generated_paths = ["contracts/generated"]
 
 [stack]
-id = "rust-ts-vite-react-postgres"
+id = "rust-ts-vite-react-postgres-bounded-python"
 version = "0.4.0"
 
 [[streaming_exception]]

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.intent_card.v1",
+  "title": "IntentCard",
+  "description": "Declared intent of an agent before any code change.",
+  "type": "object",
+  "required": ["schema", "id", "agent_id", "repo", "summary", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.intent_card.v1" },
+    "id": { "type": "string", "pattern": "^intent_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "agent_id": { "type": "string" },
+    "repo": { "type": "string" },
+    "target_branch": { "type": "string" },
+    "summary": { "type": "string", "maxLength": 500 },
+    "linked_issue": { "type": ["string", "null"] },
+    "estimated_risk": { "enum": ["R0", "R1", "R2", "R3", "R4", "R5"] },
+    "expected_changed_paths": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "claims": {
+      "type": "array",
+      "description": "Human-readable claims the agent intends to prove with evidence.",
+      "items": { "type": "string", "maxLength": 280 }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "type": "string" },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string", "description": "base64-encoded signature over the canonical JSON of all other fields." }
+      }
+    }
+  }
+}

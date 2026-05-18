@@ -1,0 +1,13 @@
+schema: vibegate.agent.v1
+id: reviewer-runtime
+version: 1
+role: runtime
+chain_ref: reviewer-runtime
+prompt_path: prompts/reviewer-runtime.md
+output_schema: schemas/agent-approval-receipt.schema.json
+signing_key_pub: keys/reviewer-runtime.ed25519.pub
+required_for_tiers: ["R3"]
+forbidden_provider_data_use: []
+deterministic: true
+max_diff_bytes: 600000
+on_oversize_diff: chunk_and_summarize

@@ -1,3 +1,8 @@
+// Tests intentionally hold a std::sync::Mutex across .await to serialize
+// against shared on-disk fixtures. tokio::sync::Mutex isn't suitable because
+// we mutate process-wide env vars from inside the guard.
+#![allow(clippy::await_holding_lock)]
+
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::sync::{LazyLock, Mutex};

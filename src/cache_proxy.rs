@@ -284,16 +284,17 @@ impl CacheProxy {
                     let url = format!("https://index.crates.io/{}", suffix);
                     match reqwest::get(&url).await {
                         Ok(req_resp) => {
-                            let bytes = match req_resp.bytes().await {
+                            let raw_bytes = req_resp.bytes().await;
+                            let bytes: &[u8] = match raw_bytes.as_deref() {
                                 Ok(b) => b,
-                                Err(_) => Default::default(),
+                                Err(_) => b"",
                             };
                             let resp_head = format!(
                                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
                                 bytes.len()
                             );
                             stream.write_all(resp_head.as_bytes()).await?;
-                            stream.write_all(&bytes).await?;
+                            stream.write_all(bytes).await?;
 
                             let _ = db
                                 .record_cache_request(
@@ -324,35 +325,5 @@ impl CacheProxy {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_proxy_verdict_classification() {
-        assert_eq!(
-            ProxyVerdict::classify("crates.io:443"),
-            ProxyVerdict::MitmIntercept
-        );
-        assert_eq!(
-            ProxyVerdict::classify("registry.npmjs.org:443"),
-            ProxyVerdict::MitmIntercept
-        );
-        assert_eq!(
-            ProxyVerdict::classify("github.com:443"),
-            ProxyVerdict::Passthrough
-        );
-        assert_eq!(
-            ProxyVerdict::classify("api.stripe.com"),
-            ProxyVerdict::Passthrough
-        );
-    }
-
-    #[test]
-    fn test_proxy_verdict_reasons() {
-        assert_eq!(
-            ProxyVerdict::MitmIntercept.reason_code(),
-            "intercepted_passthrough"
-        );
-        assert_eq!(ProxyVerdict::Passthrough.reason_code(), "passthrough");
-    }
-}
+#[path = "cache_proxy_tests.rs"]
+mod cache_proxy_tests;

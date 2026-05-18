@@ -1,12 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "1.0.1",
-  "cargo_workspace_version": "1.0.1",
-  "release_line": "V1.00",
-  "status": "stable",
-  "date": "2026-05-14",
+  "version": "3.3.0",
+  "cargo_workspace_version": "3.3.0",
+  "release_line": "V3.3",
+  "status": "released",
+  "date": "2026-05-16",
   "tag_policy": {
-    "release_candidate": "v1.0.0-rc.N after required proof lanes pass",
-    "stable": "v1.0.0 after release and security lanes pass"
-  }
+    "release_candidate": "v3.3.0-rc.N after required proof lanes pass",
+    "stable": "v3.3.0 after release and security lanes pass"
+  },
+  "headline": "Max-throughput autonomy: dougx sovereign_plus profile, db boundary refactor, jankurai caps=0 / score 87, replay/webhook/per-role-chain GA."
 }

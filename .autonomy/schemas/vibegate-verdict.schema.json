@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.gate_verdict.v1",
+  "title": "VibeGateVerdict",
+  "description": "Fused decision from hard rules + reviewer receipts. Emitted by the Judge (pure policy, no LLM).",
+  "type": "object",
+  "required": ["schema", "id", "evidence_pack_id", "head_sha", "policy_sha", "risk", "decision", "expires_at", "created_at", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.gate_verdict.v1" },
+    "id": { "type": "string", "pattern": "^vgv_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "evidence_pack_id": { "type": "string" },
+    "merge_request": { "type": ["string", "null"], "description": "e.g. '!123' on GitLab or '#123' on GitHub" },
+    "repo": { "type": "string" },
+    "target_branch": { "type": "string" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "policy_sha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "evidence_pack_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "risk": { "enum": ["R0", "R1", "R2", "R3", "R4", "R5"] },
+    "hard_stops": {
+      "type": "array",
+      "description": "Names of triggered conditions from src/autonomy/conditions.rs registry. Any non-empty list = block.",
+      "items": { "type": "string" }
+    },
+    "required_reviews": {
+      "type": "array",
+      "items": { "enum": ["security", "test_integrity", "runtime", "lockfile"] }
+    },
+    "approval_receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "agent_id", "receipt_digest", "decision", "not_author"],
+        "properties": {
+          "role": { "type": "string" },
+          "agent_id": { "type": "string" },
+          "receipt_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "decision": { "enum": ["pass", "concern", "block", "abstain"] },
+          "not_author": { "type": "boolean" }
+        }
+      }
+    },
+    "decision": { "enum": ["allow_merge", "require_human", "reject"] },
+    "valid_for_head_sha_only": { "const": true },
+    "rebind_on_train": { "type": "boolean", "default": true },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "const": "judge.ed25519" },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

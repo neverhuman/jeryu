@@ -157,6 +157,11 @@ mod runtime;
 
 pub use runtime::*;
 
+#[path = "agent_ops.rs"]
+mod ops;
+
+pub use ops::*;
+
 #[cfg(test)]
 mod tests {
     use super::{build_agent_task, compute_slug, format_bot_name};

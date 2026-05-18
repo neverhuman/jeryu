@@ -1,56 +1,49 @@
 {
-  "report_fingerprint": "sha256:77a6abc6147710507a19abfeb6e70511f18499e93a08f21748b1f66fefe37f6c",
-  "input_fingerprint": "sha256:49c727d500f5537bbf15e473c637cb8dd3fe5846b9aa7ba8ec49612926006fb2",
-  "policy_fingerprint": "sha256:4288a09ea1a256b73db79a0953ca6e88b9b823694013e1e0974ae859e7d6c167",
+  "report_fingerprint": "sha256:b90b1b25f6fbe2b470b04fa0f9f5aaea9e54fc7de5141f76483be94c0e94c4f8",
+  "input_fingerprint": "sha256:717bc4387c2f8eb9ee7997557d2ceaf7e64aa8e773fb043a44d1d031c1cbfb37",
+  "policy_fingerprint": "sha256:7ce2d541357335c48033cf468b153df23198387e5de1e7960af6a036f963240b",
   "manifest_fingerprints": {
-    "owner_map": "sha256:b0b5a6ec1dcf49aa1c4d5a4b3b090c300a89fdb7f38fd50691578d130aa2dd85",
-    "test_map": "sha256:a1b8aea5607aa2423ac106e008f5cfbcbf01c02efe05af69cf2fc4d12a4287f0",
-    "generated_zones": "sha256:5b10e7ba083dd6b825ad78aa54b9e94144c8544e85b62faf6587a86283356f44",
-    "boundaries": "sha256:3576da495134b252ca6cdfa69ff4c777cc70c4497991a3b9f0131cd85f9428f9",
-    "proof_lanes": "sha256:87630d6fe9b678ce7cfeff446c6e1bf1cdf75bc48c8669929914d2fb5d7e07e8",
-    "standard_version": "sha256:6d84737d2795323e28d70f14863f479329f39f7130bd5021823bddc48d32fba2"
+    "owner_map": "sha256:95646e7f61984b4b34c8ad5ef742d8245413978f2101e34ef079be46ab316567",
+    "test_map": "sha256:35d9de7b795c3185c5f8f8dbbe8a0ab63f0bd13aefc67e1667cb43a89ef18c7d",
+    "generated_zones": "sha256:5dfe809251017a95ec5a27320d48c17b4abacd36c2b66eee287f4f70fcfb7772",
+    "boundaries": "sha256:45434b4e539727661dfd8c5f11df3a0d30795b6c19fd91bbb77d17d9a5a22a8e",
+    "proof_lanes": "sha256:3afaae9e9f004f9061b1e04991e33bb0e6c584ea711eb9f90021e52d5170af81",
+    "standard_version": "sha256:7453c97b6b9ed3c9535b03655eddbe5cfc52f46ab15339264de93534d2db94c5"
   },
   "dirty_worktree": true,
-  "generated_at": "1778816414",
+  "generated_at": "1778959429",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
-  "standard_version": "0.8.0",
-  "auditor_version": "0.8.0",
-  "schema_version": "1.5.0",
+  "standard_version": "0.9.0",
+  "auditor_version": "1.3.0",
+  "schema_version": "1.9.0",
   "paper_edition": "2026.05-ed8",
   "target_stack_id": "rust-ts-vite-react-postgres-bounded-python",
   "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
   "claimed_conformance_level": "HL3",
-  "observed_conformance_level": "HL2",
-  "conformance_decision": "block",
-  "conformance_blockers": [
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/release.yml"
-  ],
-  "repo": ".",
-  "run_id": "1778816414",
-  "started_at": "1778816414",
-  "elapsed_ms": 1775,
+  "observed_conformance_level": "HL3",
+  "conformance_decision": "pass",
+  "conformance_blockers": [],
+  "repo": "/home/ubuntu/jeryu",
+  "run_id": "1778959429",
+  "started_at": "1778959429",
+  "elapsed_ms": 8655,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 70,
-  "raw_score": 94,
+  "score": 87,
+  "raw_score": 87,
   "decision": {
     "status": "advisory",
     "minimum_score": 85,
     "passed": true,
-    "hard_findings": 6,
-    "soft_findings": 0,
+    "hard_findings": 0,
+    "soft_findings": 1,
     "ratchet": {
-      "baseline_score": 70,
+      "baseline_score": 87,
       "allowed_drop": 0,
-      "passed": false,
+      "passed": true,
       "score_delta": 0,
       "baseline_report_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "baseline_input_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -61,14 +54,14 @@
     }
   },
   "git": {
-    "head": "9a665fb",
+    "head": "9d88205",
     "base": null,
     "changed_files": 0,
     "mode": "full",
     "dirty_worktree": true
   },
   "policy": {
-    "path": "./agent/audit-policy.toml",
+    "path": "/home/ubuntu/jeryu/agent/audit-policy.toml",
     "minimum_score": 85,
     "fail_on": [
       "critical",
@@ -85,9 +78,7 @@
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
   },
-  "caps_applied": [
-    "ci-local-parity"
-  ],
+  "caps_applied": [],
   "hard_rules": [
     {
       "id": "no-root-agent-instructions",
@@ -290,23 +281,34 @@
         "reference-profile cell `web` has local AGENTS.md guidance",
         "reference-profile cell `api` is canonical",
         "reference-profile cell `api` has local AGENTS.md guidance",
+        "reference-profile cell `domain` is canonical",
+        "reference-profile cell `domain` has local AGENTS.md guidance",
+        "reference-profile cell `application` is canonical",
+        "reference-profile cell `application` has local AGENTS.md guidance",
+        "reference-profile cell `adapters` is canonical",
+        "reference-profile cell `adapters` has local AGENTS.md guidance",
+        "reference-profile cell `workers` is canonical",
+        "reference-profile cell `workers` has local AGENTS.md guidance",
         "reference-profile cell `contracts` is canonical",
         "reference-profile cell `contracts` has local AGENTS.md guidance",
         "reference-profile cell `db` is canonical",
         "reference-profile cell `db` has local AGENTS.md guidance",
+        "reference-profile cell `python-ai` is canonical",
+        "reference-profile cell `python-ai` has local AGENTS.md guidance",
         "reference-profile cell `ops` is canonical",
         "reference-profile cell `ops` has local AGENTS.md guidance",
         "root `README.md` routes to workspace layout",
         "owner map covers audited paths",
-        "test map covers audited paths"
+        "test map covers audited paths",
+        "authored code file exceeds 500 LOC"
       ],
       "notes": []
     },
     {
       "name": "Contract and boundary integrity",
       "weight": 13,
-      "score": 100,
-      "weighted_points": 13.0,
+      "score": 93,
+      "weighted_points": 12.09,
       "evidence": [
         "contract surface found",
         "generated contract artifacts found",
@@ -314,6 +316,7 @@
         "public API drift checks found",
         "boundary manifest present",
         "Rust typed boundary helpers found",
+        "handwritten web DTO/API marker found",
         "all contract sources have generated zone entries"
       ],
       "notes": []
@@ -350,9 +353,8 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 2",
+        "rust bad-behavior advisory signals: 1128",
         "ci bad-behavior advisory signals: 3",
-        "git bad-behavior advisory signals: 1",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
       ],
@@ -361,16 +363,15 @@
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 100,
-      "weighted_points": 12.0,
+      "score": 65,
+      "weighted_points": 7.8,
       "evidence": [
-        "largest authored code file: test_font3.rs (16 LOC)",
+        "largest authored code file: src/autonomy/profile.rs (863 LOC)",
+        "code file exceeds 500 LOC",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 6 (advisory only, no score impact)",
-        "authored code stays below hard LOC limits with no shape markers",
-        "rust bad-behavior advisory signals: 2",
+        "copy-code advisory classes found: 24 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 1128",
         "ci bad-behavior advisory signals: 3",
-        "git bad-behavior advisory signals: 1",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
       ],
@@ -379,13 +380,14 @@
     {
       "name": "Data truth and workflow safety",
       "weight": 8,
-      "score": 85,
-      "weighted_points": 6.8,
+      "score": 95,
+      "weighted_points": 7.6,
       "evidence": [
         "database surface present",
         "structured db boundary manifest present",
         "db boundary routes roots, migrations, and constraints",
-        "migration directory present"
+        "migration directory present",
+        "data access appears compartmentalized"
       ],
       "notes": []
     },
@@ -426,22 +428,22 @@
     {
       "name": "Jankurai tool adoption and CI replacement",
       "weight": 7,
-      "score": 64,
-      "weighted_points": 4.48,
+      "score": 26,
+      "weighted_points": 1.82,
       "evidence": [
         "control-plane files present",
-        "applicable=17",
+        "applicable=18",
         "configured=11",
-        "ci_evidence=11",
-        "artifact_verified=4"
+        "ci_evidence=1",
+        "artifact_verified=1"
       ],
       "notes": [
         "some applicable tools are not configured",
         "some applicable tools lack CI evidence",
         "missing CI evidence for `audit-ci`",
         "missing CI evidence for `proof-routing`",
-        "missing CI evidence for `copy-code`",
-        "missing CI evidence for `ci-bad-behavior`"
+        "missing CI evidence for `proofbind`",
+        "missing CI evidence for `proofmark-rust`"
       ]
     },
     {
@@ -485,26 +487,28 @@
         "apps/web/ux-qa.ts"
       ],
       "artifact_backed_proof": [
-        ".github/workflows/jankurai.yml",
         "Cargo.toml",
         "aer-records/EXAMPLE.yaml",
         "aer-records/mega-file-release.yaml",
-        "agent-index.json"
+        "agent-index.json",
+        "agent/ux-qa.toml"
       ],
       "design_tokens": [
         "apps/web/ux-qa.ts"
       ],
       "geometry_runtime": [
-        ".github/workflows/jankurai.yml",
         "agent/ux-qa.toml",
         "apps/web/ux-qa.md",
         "apps/web/ux-qa.ts"
       ],
       "layout_stability": [
-        "apps/web/ux-qa.ts"
+        "apps/web/ux-qa.ts",
+        "src/autonomy/risk.rs"
       ],
       "playwright_visual": [
         "apps/web/ux-qa.ts",
+        "crates/tuiwright/src/lib.rs",
+        "crates/tuiwright/tests/smoke.rs",
         "tests/tui_tuiwright.rs"
       ],
       "storybook": [
@@ -519,29 +523,28 @@
   },
   "tool_adoption": {
     "control_plane_present": true,
-    "applicable_count": 17,
+    "applicable_count": 18,
     "configured_count": 11,
-    "ci_evidence_count": 11,
-    "artifact_verified_count": 4,
-    "replaced_count": 11,
+    "ci_evidence_count": 1,
+    "artifact_verified_count": 1,
+    "replaced_count": 1,
     "items": [
       {
         "id": "audit-ci",
         "category": "audit",
         "mode": "auto",
         "applicable": true,
-        "status": "ci_evidence",
+        "status": "configured",
         "replaced_tools": [
           "manual repo scoring",
           "ad hoc score gates"
         ],
         "evidence": [
           "mode=auto",
-          "tool-adoption config entry present",
-          "CI command found in workflow"
+          "tool-adoption config entry present"
         ],
         "missing": [
-          "artifact upload reference"
+          "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
@@ -555,18 +558,17 @@
         "category": "proof",
         "mode": "auto",
         "applicable": true,
-        "status": "ci_evidence",
+        "status": "configured",
         "replaced_tools": [
           "ad hoc proof lane selection",
           "manual proof receipts"
         ],
         "evidence": [
           "mode=auto",
-          "tool-adoption config entry present",
-          "CI command found in workflow"
+          "tool-adoption config entry present"
         ],
         "missing": [
-          "artifact upload reference"
+          "CI command evidence"
         ],
         "local_command": "jankurai proof . --changed-from origin/main --out target/jankurai/proof-plan.json --md target/jankurai/proof-plan.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
@@ -581,18 +583,17 @@
         "category": "proof",
         "mode": "auto",
         "applicable": true,
-        "status": "artifact_verified",
+        "status": "missing",
         "replaced_tools": [
           "manual changed-surface routing",
           "ad hoc proof obligation lists"
         ],
         "evidence": [
-          "mode=auto",
-          "CI command found in workflow",
-          "artifact uploads found: target/jankurai/proofbind/surface-witness.json, target/jankurai/proofbind/obligations.json"
+          "mode=auto"
         ],
         "missing": [
-          "agent/tool-adoption.toml entry"
+          "agent/tool-adoption.toml entry",
+          "CI command evidence"
         ],
         "local_command": "jankurai proofbind verify . --changed-from origin/main",
         "ci_command": "jankurai proofbind verify . --changed-from origin/main",
@@ -606,18 +607,17 @@
         "category": "proof",
         "mode": "auto",
         "applicable": true,
-        "status": "artifact_verified",
+        "status": "missing",
         "replaced_tools": [
           "line-only coverage review",
           "manual in-diff mutation review"
         ],
         "evidence": [
-          "mode=auto",
-          "CI command found in workflow",
-          "artifact uploads found: target/jankurai/proofmark/proofmark-receipt.json, target/jankurai/proofmark/proof-receipt.json"
+          "mode=auto"
         ],
         "missing": [
-          "agent/tool-adoption.toml entry"
+          "agent/tool-adoption.toml entry",
+          "CI command evidence"
         ],
         "local_command": "jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json",
         "ci_command": "jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json",
@@ -797,18 +797,17 @@
         "category": "contract",
         "mode": "auto",
         "applicable": true,
-        "status": "ci_evidence",
+        "status": "configured",
         "replaced_tools": [
           "handwritten contract drift checks",
           "openapi diff"
         ],
         "evidence": [
           "mode=auto",
-          "tool-adoption config entry present",
-          "CI command found in workflow"
+          "tool-adoption config entry present"
         ],
         "missing": [
-          "artifact upload reference"
+          "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
@@ -822,17 +821,17 @@
         "category": "rust",
         "mode": "auto",
         "applicable": true,
-        "status": "artifact_verified",
+        "status": "configured",
         "replaced_tools": [
           "manual witness graphing"
         ],
         "evidence": [
           "mode=auto",
-          "tool-adoption config entry present",
-          "CI command found in workflow",
-          "artifact uploads found: target/jankurai/rust/witness-graph.json"
+          "tool-adoption config entry present"
         ],
-        "missing": [],
+        "missing": [
+          "CI command evidence"
+        ],
         "local_command": "jankurai rust witness build .",
         "ci_command": "jankurai rust witness build .",
         "artifact_paths": [
@@ -885,17 +884,16 @@
         "category": "security",
         "mode": "auto",
         "applicable": true,
-        "status": "ci_evidence",
+        "status": "missing",
         "replaced_tools": [
           "manual authz matrix review"
         ],
         "evidence": [
-          "mode=auto",
-          "CI command found in workflow"
+          "mode=auto"
         ],
         "missing": [
           "agent/tool-adoption.toml entry",
-          "artifact upload reference"
+          "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
@@ -908,15 +906,18 @@
         "id": "input-boundary",
         "category": "security",
         "mode": "auto",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "missing",
         "replaced_tools": [
           "manual unsafe sink review"
         ],
         "evidence": [
           "mode=auto"
         ],
-        "missing": [],
+        "missing": [
+          "agent/tool-adoption.toml entry",
+          "CI command evidence"
+        ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
         "artifact_paths": [
@@ -929,17 +930,16 @@
         "category": "security",
         "mode": "auto",
         "applicable": true,
-        "status": "ci_evidence",
+        "status": "configured",
         "replaced_tools": [
           "manual MCP/tool trust review"
         ],
         "evidence": [
           "mode=auto",
-          "tool-adoption config entry present",
-          "CI command found in workflow"
+          "tool-adoption config entry present"
         ],
         "missing": [
-          "artifact upload reference"
+          "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
@@ -953,17 +953,16 @@
         "category": "release",
         "mode": "auto",
         "applicable": true,
-        "status": "ci_evidence",
+        "status": "missing",
         "replaced_tools": [
           "manual launch checklist"
         ],
         "evidence": [
-          "mode=auto",
-          "CI command found in workflow"
+          "mode=auto"
         ],
         "missing": [
           "agent/tool-adoption.toml entry",
-          "artifact upload reference"
+          "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
@@ -977,17 +976,16 @@
         "category": "release",
         "mode": "auto",
         "applicable": true,
-        "status": "ci_evidence",
+        "status": "missing",
         "replaced_tools": [
           "manual spend review"
         ],
         "evidence": [
-          "mode=auto",
-          "CI command found in workflow"
+          "mode=auto"
         ],
         "missing": [
           "agent/tool-adoption.toml entry",
-          "artifact upload reference"
+          "CI command evidence"
         ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
@@ -998,7 +996,7 @@
       }
     ],
     "evidence": {
-      "applicable_count": 17,
+      "applicable_count": 18,
       "applicable_tools": [
         "audit-ci",
         "proof-routing",
@@ -1014,30 +1012,18 @@
         "contract-drift",
         "rust-witness",
         "authz-matrix",
+        "input-boundary",
         "agent-tool-supply",
         "release-readiness",
         "cost-budget"
       ],
-      "artifact_verified_count": 4,
+      "artifact_verified_count": 1,
       "artifact_verified_tools": [
-        "proofbind",
-        "proofmark-rust",
-        "security",
-        "rust-witness"
+        "security"
       ],
-      "ci_evidence_count": 11,
+      "ci_evidence_count": 1,
       "ci_evidence_tools": [
-        "audit-ci",
-        "proof-routing",
-        "proofbind",
-        "proofmark-rust",
-        "security",
-        "contract-drift",
-        "rust-witness",
-        "authz-matrix",
-        "agent-tool-supply",
-        "release-readiness",
-        "cost-budget"
+        "security"
       ],
       "config_present": true,
       "configured_count": 11,
@@ -1059,6 +1045,8 @@
     "missing": [
       "audit-ci",
       "proof-routing",
+      "proofbind",
+      "proofmark-rust",
       "copy-code",
       "ci-bad-behavior",
       "git-bad-behavior",
@@ -1066,7 +1054,9 @@
       "ux-qa",
       "db-migration-analyze",
       "contract-drift",
+      "rust-witness",
       "authz-matrix",
+      "input-boundary",
       "agent-tool-supply",
       "release-readiness",
       "cost-budget"
@@ -1076,8 +1066,8 @@
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
-      "content_fingerprint": "sha256:3576da495134b252ca6cdfa69ff4c777cc70c4497991a3b9f0131cd85f9428f9",
-      "stack_id": "rust-ts-vite-react-postgres",
+      "content_fingerprint": "sha256:45434b4e539727661dfd8c5f11df3a0d30795b6c19fd91bbb77d17d9a5a22a8e",
+      "stack_id": "rust-ts-vite-react-postgres-bounded-python",
       "stack_version": "0.4.0",
       "adapter_path_count": 2,
       "event_contract_path_count": 1,
@@ -1090,8 +1080,8 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-15T03:40:12.648625+00:00",
-    "repo": ".",
+    "generated_at": "2026-05-16T19:23:41.477796177+00:00",
+    "repo": "/home/ubuntu/jeryu",
     "auditor_version": "1.3.0",
     "status": "review",
     "policy": {
@@ -1128,22 +1118,120 @@
       ]
     },
     "summary": {
-      "files_scanned": 186,
-      "files_considered": 12,
-      "active_files": 12,
+      "files_scanned": 655,
+      "files_considered": 361,
+      "active_files": 361,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 6,
+      "warning_classes": 24,
       "hard_instances": 0,
-      "warning_instances": 25,
-      "duplicate_lines": 6,
-      "duplicate_tokens": 18,
-      "duplicate_bytes": 178,
-      "total_redundant_lines": 19,
-      "total_redundant_tokens": 66,
-      "total_redundant_bytes": 545
+      "warning_instances": 93,
+      "duplicate_lines": 35,
+      "duplicate_tokens": 78,
+      "duplicate_bytes": 838,
+      "total_redundant_lines": 80,
+      "total_redundant_tokens": 210,
+      "total_redundant_bytes": 2084
     },
     "classes": [
+      {
+        "id": "copy-code-body-rust-0a76d27a920f262f",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 11,
+        "total_redundant_lines": 10,
+        "total_redundant_tokens": 20,
+        "total_redundant_bytes": 200,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "795eac81ac6949c2",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/cargo-witness/src/diagnose.rs",
+            "language": "rust",
+            "start_line": 179,
+            "end_line": 180,
+            "unit_name": "span"
+          },
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 123,
+            "end_line": 124,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 198,
+            "end_line": 199,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 105,
+            "end_line": 106,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 114,
+            "end_line": 115,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 137,
+            "end_line": 138,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 147,
+            "end_line": 148,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 87,
+            "end_line": 88,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 140,
+            "end_line": 141,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/tui/action_registry.rs",
+            "language": "rust",
+            "start_line": 79,
+            "end_line": 80,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/tui/action_registry.rs",
+            "language": "rust",
+            "start_line": 106,
+            "end_line": 107,
+            "unit_name": "label"
+          }
+        ]
+      },
       {
         "id": "copy-code-body-rust-e60581c6d4098d8b",
         "kind": "exact_unit_different_name",
@@ -1166,128 +1254,451 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1471,
-            "end_line": 1472,
+            "start_line": 1639,
+            "end_line": 1640,
             "unit_name": "insert_pool"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1534,
-            "end_line": 1535,
+            "start_line": 1702,
+            "end_line": 1703,
             "unit_name": "insert_manager"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1625,
-            "end_line": 1626,
+            "start_line": 1793,
+            "end_line": 1794,
             "unit_name": "count_active_managers"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1638,
-            "end_line": 1639,
+            "start_line": 1806,
+            "end_line": 1807,
             "unit_name": "upsert_job_event"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1677,
-            "end_line": 1678,
+            "start_line": 1845,
+            "end_line": 1846,
             "unit_name": "upsert_ci_job_run"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2599,
-            "end_line": 2600,
+            "start_line": 2767,
+            "end_line": 2768,
             "unit_name": "record_git_ref_update"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2626,
-            "end_line": 2627,
+            "start_line": 2794,
+            "end_line": 2795,
             "unit_name": "record_git_mirror_job"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2653,
-            "end_line": 2654,
+            "start_line": 2821,
+            "end_line": 2822,
             "unit_name": "record_git_risk_approval"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2672,
-            "end_line": 2673,
+            "start_line": 2840,
+            "end_line": 2841,
             "unit_name": "record_git_command_artifact"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3104,
-            "end_line": 3105,
+            "start_line": 3272,
+            "end_line": 3273,
             "unit_name": "latest_test_plan"
           }
         ]
       },
       {
-        "id": "copy-code-body-rust-7c57d7d6be5f3cde",
+        "id": "copy-code-body-rust-268166da4eb8b9c4",
         "kind": "exact_unit_different_name",
         "severity": "warning",
         "confidence": "medium",
         "language": "rust",
         "duplicate_lines": 1,
-        "duplicate_tokens": 4,
-        "duplicate_bytes": 37,
-        "instance_count": 5,
-        "total_redundant_lines": 4,
-        "total_redundant_tokens": 16,
-        "total_redundant_bytes": 148,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 43,
+        "instance_count": 9,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 24,
+        "total_redundant_bytes": 344,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "5d81fed8550c0576",
+        "fingerprint": "4d79b509b2be86cb",
         "reason": "same body appears under different names across files",
         "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
         "instances": [
           {
-            "path": "db/state.rs",
+            "path": "src/autonomy/profile.rs",
             "language": "rust",
-            "start_line": 3374,
-            "end_line": 3375,
-            "unit_name": "count_pipeline_jobs_total"
+            "start_line": 456,
+            "end_line": 457,
+            "unit_name": "validate_all_pass_returns_sovereign_plus"
           },
           {
-            "path": "db/state.rs",
+            "path": "src/autonomy/profile.rs",
             "language": "rust",
-            "start_line": 3384,
-            "end_line": 3385,
-            "unit_name": "count_pipeline_jobs_completed"
+            "start_line": 496,
+            "end_line": 497,
+            "unit_name": "validate_missing_freeze_yml_downgrades_to_sovereign"
           },
           {
-            "path": "db/state.rs",
+            "path": "src/autonomy/profile.rs",
             "language": "rust",
-            "start_line": 3394,
-            "end_line": 3395,
-            "unit_name": "count_pipeline_jobs_running"
+            "start_line": 528,
+            "end_line": 529,
+            "unit_name": "validate_missing_nightwatch_prompt_fails"
           },
           {
-            "path": "db/state.rs",
+            "path": "src/autonomy/profile.rs",
             "language": "rust",
-            "start_line": 3411,
-            "end_line": 3412,
-            "unit_name": "count_tripwire_taints"
+            "start_line": 559,
+            "end_line": 560,
+            "unit_name": "validate_paused_kill_bell_fails"
           },
           {
-            "path": "db/state.rs",
+            "path": "src/autonomy/profile.rs",
             "language": "rust",
-            "start_line": 3420,
-            "end_line": 3421,
-            "unit_name": "count_cache_misses"
+            "start_line": 591,
+            "end_line": 592,
+            "unit_name": "validate_no_shadow_history_fails_with_message"
+          },
+          {
+            "path": "src/autonomy/profile.rs",
+            "language": "rust",
+            "start_line": 620,
+            "end_line": 621,
+            "unit_name": "validate_low_shadow_agreement_fails"
+          },
+          {
+            "path": "src/autonomy/profile.rs",
+            "language": "rust",
+            "start_line": 655,
+            "end_line": 656,
+            "unit_name": "validate_shadow_agreement_at_threshold_passes"
+          },
+          {
+            "path": "src/autonomy/profile.rs",
+            "language": "rust",
+            "start_line": 726,
+            "end_line": 727,
+            "unit_name": "validate_with_partial_guardrails_disabled_skips_them"
+          },
+          {
+            "path": "src/autonomy/profile.rs",
+            "language": "rust",
+            "start_line": 775,
+            "end_line": 776,
+            "unit_name": "validate_extremely_high_shadow_agreement_floor_rejects_near_perfect"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-0ec64920552a2bb1",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 8,
+        "duplicate_tokens": 9,
+        "duplicate_bytes": 144,
+        "instance_count": 2,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 9,
+        "total_redundant_bytes": 144,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "eddcd8ce5c05b566",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/tuiwright/src/render.rs",
+            "language": "rust",
+            "start_line": 26,
+            "end_line": 34,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/tuiwright/src/render.rs",
+            "language": "rust",
+            "start_line": 38,
+            "end_line": 46,
+            "unit_name": "ci"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e3d68009ba4f72e5",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 17,
+        "instance_count": 8,
+        "total_redundant_lines": 7,
+        "total_redundant_tokens": 14,
+        "total_redundant_bytes": 119,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c906af0d3cae1061",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 87,
+            "end_line": 88,
+            "unit_name": "vti_accelerated_badge"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 96,
+            "end_line": 97,
+            "unit_name": "vti_skipped_badge"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 105,
+            "end_line": 106,
+            "unit_name": "vti_selected_badge"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 112,
+            "end_line": 113,
+            "unit_name": "cache_hit_badge"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 119,
+            "end_line": 120,
+            "unit_name": "cache_taint_badge"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 128,
+            "end_line": 129,
+            "unit_name": "flake_badge"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 137,
+            "end_line": 138,
+            "unit_name": "agent_badge"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 146,
+            "end_line": 147,
+            "unit_name": "production_badge"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-f4834069c044042b",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 6,
+        "duplicate_bytes": 53,
+        "instance_count": 6,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 30,
+        "total_redundant_bytes": 265,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "175658d332afeb5e",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 28,
+            "end_line": 29,
+            "unit_name": "to_contain_text"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 48,
+            "end_line": 49,
+            "unit_name": "not_to_contain_text"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 67,
+            "end_line": 68,
+            "unit_name": "to_match_regex"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 110,
+            "end_line": 111,
+            "unit_name": "to_be_visible"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 131,
+            "end_line": 132,
+            "unit_name": "not_to_be_visible"
+          },
+          {
+            "path": "crates/tuiwright/src/expect.rs",
+            "language": "rust",
+            "start_line": 151,
+            "end_line": 152,
+            "unit_name": "to_have_text"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-5c97e73af8e01f30",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "label",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 6,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 10,
+        "total_redundant_bytes": 100,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "bcd83d2d85aa3910",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 123,
+            "end_line": 124,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 105,
+            "end_line": 106,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 137,
+            "end_line": 138,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 140,
+            "end_line": 141,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/tui/action_registry.rs",
+            "language": "rust",
+            "start_line": 79,
+            "end_line": 80,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/tui/action_registry.rs",
+            "language": "rust",
+            "start_line": 106,
+            "end_line": 107,
+            "unit_name": "label"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-1bd4ee708d8ab52d",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 25,
+        "instance_count": 5,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 100,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "7c38a3591d7c55d4",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/autonomy/risk.rs",
+            "language": "rust",
+            "start_line": 204,
+            "end_line": 205,
+            "unit_name": "protected_path_lands_in_r4"
+          },
+          {
+            "path": "src/autonomy/risk.rs",
+            "language": "rust",
+            "start_line": 216,
+            "end_line": 217,
+            "unit_name": "autonomy_path_lands_in_r4"
+          },
+          {
+            "path": "src/autonomy/risk.rs",
+            "language": "rust",
+            "start_line": 228,
+            "end_line": 229,
+            "unit_name": "docs_only_change_lands_in_r0"
+          },
+          {
+            "path": "src/autonomy/risk.rs",
+            "language": "rust",
+            "start_line": 240,
+            "end_line": 241,
+            "unit_name": "r5_condition_supersedes_protected_path"
+          },
+          {
+            "path": "src/autonomy/risk.rs",
+            "language": "rust",
+            "start_line": 253,
+            "end_line": 254,
+            "unit_name": "small_change_with_targeted_tests_lands_in_r1"
           }
         ]
       },
@@ -1313,30 +1724,258 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1910,
-            "end_line": 1911,
+            "start_line": 2078,
+            "end_line": 2079,
             "unit_name": "upsert_tracked_pipeline"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2699,
-            "end_line": 2700,
+            "start_line": 2867,
+            "end_line": 2868,
             "unit_name": "upsert_secret_authority"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2737,
-            "end_line": 2738,
+            "start_line": 2905,
+            "end_line": 2906,
             "unit_name": "upsert_release_secret_set"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2839,
-            "end_line": 2840,
+            "start_line": 3007,
+            "end_line": 3008,
             "unit_name": "insert_secret_audit_event"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-e80c1f5cbf7cefbc",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "glyph",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 60,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "98fa6135c45d3c68",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 198,
+            "end_line": 199,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 114,
+            "end_line": 115,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 147,
+            "end_line": 148,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 87,
+            "end_line": 88,
+            "unit_name": "glyph"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-6423d6e331bc1b57",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 45,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 45,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa35d288e145c6bb",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/mcp/tools_schema.rs",
+            "language": "rust",
+            "start_line": 29,
+            "end_line": 31,
+            "unit_name": "string_schema"
+          },
+          {
+            "path": "src/mcp/tools_schema.rs",
+            "language": "rust",
+            "start_line": 33,
+            "end_line": 35,
+            "unit_name": "string_schema_optional"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-fb6d6c73a1c24f2a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "workspace_root",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 38,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 38,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "775c8bb84db95c3d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/arc-bench/src/exceptions.rs",
+            "language": "rust",
+            "start_line": 130,
+            "end_line": 132,
+            "unit_name": "workspace_root"
+          },
+          {
+            "path": "crates/arc-bench/src/witness_loop.rs",
+            "language": "rust",
+            "start_line": 154,
+            "end_line": 156,
+            "unit_name": "workspace_root"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-b6cdcfeb5575d6b6",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "err",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 36,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 36,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a23c0e3cedf9e431",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/capability_execute.rs",
+            "language": "rust",
+            "start_line": 267,
+            "end_line": 269,
+            "unit_name": "err"
+          },
+          {
+            "path": "src/capability_inspect.rs",
+            "language": "rust",
+            "start_line": 244,
+            "end_line": 246,
+            "unit_name": "err"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-a3b268a954e765f7",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "display_workspace_root",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 21,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 21,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "0d250838f961b73c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/cargo-aer/src/lib.rs",
+            "language": "rust",
+            "start_line": 152,
+            "end_line": 154,
+            "unit_name": "display_workspace_root"
+          },
+          {
+            "path": "crates/cargo-witness/src/graph.rs",
+            "language": "rust",
+            "start_line": 161,
+            "end_line": 163,
+            "unit_name": "display_workspace_root"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-796e25c5066d823f",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 44,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 44,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "3d174aec7c5e4ae2",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 72,
+            "end_line": 73,
+            "unit_name": "badge_span"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 81,
+            "end_line": 82,
+            "unit_name": "glyph_span"
           }
         ]
       },
@@ -1362,16 +2001,192 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1812,
-            "end_line": 1813,
+            "start_line": 1980,
+            "end_line": 1981,
             "unit_name": "count_pending_jobs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2442,
-            "end_line": 2443,
+            "start_line": 2610,
+            "end_line": 2611,
             "unit_name": "count_recovery_decisions"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-ef0ed0ddff8f0a96",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "workspace_root",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 45,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 45,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c2ad5c3d3a13dd91",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/arc-bench/src/psd_mechanics.rs",
+            "language": "rust",
+            "start_line": 347,
+            "end_line": 348,
+            "unit_name": "workspace_root"
+          },
+          {
+            "path": "crates/arc-bench/src/repo_shape.rs",
+            "language": "rust",
+            "start_line": 104,
+            "end_line": 105,
+            "unit_name": "workspace_root"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-7da08607fa6bf342",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 40,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "115b4c7e36a8d3c8",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/tui/graph.rs",
+            "language": "rust",
+            "start_line": 45,
+            "end_line": 46,
+            "unit_name": "classify_phase"
+          },
+          {
+            "path": "src/tui/graph.rs",
+            "language": "rust",
+            "start_line": 76,
+            "end_line": 77,
+            "unit_name": "classify_lane"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-b428d52f11ae2849",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 30,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 30,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "3d174aec7c5e4ae2",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 160,
+            "end_line": 161,
+            "unit_name": "badges_use_correct_theme_colors"
+          },
+          {
+            "path": "src/tui/widgets/status_badge.rs",
+            "language": "rust",
+            "start_line": 172,
+            "end_line": 173,
+            "unit_name": "unknown_status_maps_to_info"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-8f7e82e5384a4316",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 22,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 22,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "f98a631de25d7adf",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/secrets.rs",
+            "language": "rust",
+            "start_line": 234,
+            "end_line": 235,
+            "unit_name": "create_ops_token"
+          },
+          {
+            "path": "src/secrets.rs",
+            "language": "rust",
+            "start_line": 260,
+            "end_line": 261,
+            "unit_name": "token_is_usable"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-4bc7d056d416ed07",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 20,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 20,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a3a4f3e99bae830d",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/tui/ui_panels_body_tail_extra_tail_help.rs",
+            "language": "rust",
+            "start_line": 95,
+            "end_line": 96,
+            "unit_name": "help_row"
+          },
+          {
+            "path": "src/tui/ui_panels_mission_extra.rs",
+            "language": "rust",
+            "start_line": 3,
+            "end_line": 4,
+            "unit_name": "readiness_line"
           }
         ]
       },
@@ -1432,16 +2247,51 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 706,
-            "end_line": 707,
+            "start_line": 735,
+            "end_line": 736,
             "unit_name": "open_url"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 773,
-            "end_line": 774,
+            "start_line": 802,
+            "end_line": 803,
             "unit_name": "open_memory"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-a8cc7acd4ec90937",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 14,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 14,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "b1c3bd4337becda9",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 178,
+            "end_line": 179,
+            "unit_name": "default"
+          },
+          {
+            "path": "src/gateway/singleflight.rs",
+            "language": "rust",
+            "start_line": 64,
+            "end_line": 65,
+            "unit_name": "new"
           }
         ]
       }
@@ -1453,8 +2303,8 @@
     ]
   },
   "profile_structure": {
-    "applicable_count": 5,
-    "canonical_count": 5,
+    "applicable_count": 10,
+    "canonical_count": 10,
     "noncanonical_count": 0,
     "guidance_missing_count": 0,
     "cells": [
@@ -1497,67 +2347,75 @@
       },
       {
         "id": "domain",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/domain/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/domain"
+        ],
         "aliases": [
           "domain/",
           "core/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/domain",
         "proof_lane": "unit / property tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/domain/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "application",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/application/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/application"
+        ],
         "aliases": [
           "application/",
           "usecases/",
           "use-cases/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/application",
         "proof_lane": "use-case / authz tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/application/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "adapters",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/adapters/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/adapters"
+        ],
         "aliases": [
           "adapters/",
           "infra/",
           "integrations/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/adapters",
         "proof_lane": "adapter integration tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/adapters/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "workers",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/workers/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/workers"
+        ],
         "aliases": [
           "workers/",
           "jobs/",
           "scheduler/",
           "queue/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/workers",
         "proof_lane": "workflow / replay tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/workers/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "contracts",
@@ -1598,10 +2456,13 @@
       },
       {
         "id": "python-ai",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "python/ai-service/",
-        "detected_paths": [],
+        "detected_paths": [
+          "python",
+          "python/ai-service"
+        ],
         "aliases": [
           "python/",
           "ai-service/",
@@ -1609,10 +2470,10 @@
           "embeddings/",
           "model/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "python/ai-service",
         "proof_lane": "eval / contract tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `python/ai-service/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "ops",
@@ -1639,8 +2500,8 @@
       }
     ],
     "evidence": {
-      "applicable_count": 5,
-      "canonical_count": 5,
+      "applicable_count": 10,
+      "canonical_count": 10,
       "detected_cells": [
         {
           "canonical_path": "apps/web/",
@@ -1658,6 +2519,42 @@
           ],
           "guidance_status": "present",
           "id": "api",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/domain/",
+          "detected_paths": [
+            "crates/domain"
+          ],
+          "guidance_status": "present",
+          "id": "domain",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/application/",
+          "detected_paths": [
+            "crates/application"
+          ],
+          "guidance_status": "present",
+          "id": "application",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/adapters/",
+          "detected_paths": [
+            "crates/adapters"
+          ],
+          "guidance_status": "present",
+          "id": "adapters",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/workers/",
+          "detected_paths": [
+            "crates/workers"
+          ],
+          "guidance_status": "present",
+          "id": "workers",
           "status": "canonical"
         },
         {
@@ -1679,6 +2576,16 @@
           "status": "canonical"
         },
         {
+          "canonical_path": "python/ai-service/",
+          "detected_paths": [
+            "python",
+            "python/ai-service"
+          ],
+          "guidance_status": "present",
+          "id": "python-ai",
+          "status": "canonical"
+        },
+        {
           "canonical_path": "ops/",
           "detected_paths": [
             ".github",
@@ -1696,234 +2603,40 @@
   },
   "findings": [
     {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "ops/ci/lib.sh is missing",
-      "agent_fix": "add ops/ci/lib.sh defining shared helpers and tool version pins",
+      "severity": "medium",
+      "category": "shape",
+      "path": ".",
+      "problem": "`Code shape and semantic surface` scored 65 below the standard floor of 85",
+      "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "detector=ci.local-parity.lib-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
+        "largest authored code file: src/autonomy/profile.rs (863 LOC)",
+        "code file exceeds 500 LOC",
+        "most code files stay under 300 LOC",
+        "copy-code advisory classes found: 24 (advisory only, no score impact)"
       ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
+      "check_id": "HLT-001-DEAD-MARKER:shape",
+      "hardness": "soft",
+      "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:37915fba1911bbff8067832d71760cb1c395b643f8bf5d61e8dd1f4ab2bcc5ca",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
+      "fingerprint": "sha256:49c2f4542806a228192aff630d1cbe62846a0eae1940ad16f26570b0737989f1",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
       "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.lib-missing",
-      "reason": "ops/ci/lib.sh is the shared helper module (artifact assertions, tool pins) every lane sources"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "ops/git-hooks/pre-push is missing",
-      "agent_fix": "add ops/git-hooks/pre-push that runs `bash ops/ci/quality-gates.sh` and wire it via `git config core.hooksPath ops/git-hooks`",
-      "evidence": [
-        "detector=ci.local-parity.pre-push-hook-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:1eddecd5e7ed9fc3919ef4f85fe6c719399ff0704e889c28f7134662a1512fd7",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.pre-push-hook-missing",
-      "reason": "without a mandatory pre-push gate, broken code can be pushed and CI is the first place a failure shows up"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "scripts/ci-doctor.sh is missing",
-      "agent_fix": "add scripts/ci-doctor.sh listing every tool the ops/ci scripts depend on",
-      "evidence": [
-        "detector=ci.local-parity.doctor-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:4f3bac5529ba53c005699b913af04e7bdeaa4a5538bcd3cd0d736f210438a6e5",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.doctor-missing",
-      "reason": "without a doctor script, developers cannot confirm their local environment matches CI"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "scripts/ci-local.sh is missing",
-      "agent_fix": "add scripts/ci-local.sh exposing each CI lane locally",
-      "evidence": [
-        "detector=ci.local-parity.runner-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:8c0df3fda16a40e9a6b8ccf848f557b954f5560e130076937fc056ae021e3fce",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.runner-missing",
-      "reason": "scripts/ci-local.sh is the local entry point that delegates to the same ops/ci scripts the workflows call"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "workflow inlines CI commands instead of delegating to ops/ci/*.sh",
-      "agent_fix": "extract the workflow steps into ops/ci/<lane>.sh and call them with `bash ops/ci/<lane>.sh`",
-      "evidence": [
-        "detector=ci.local-parity.workflow-not-thin",
-        "path=.github/workflows/jankurai.yml",
-        "line=12",
-        "proof_window=None",
-        "snippet=jobs:"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:ba344f9676c430768708b53b4ec1933119d58e63d9c2e754504cbc03add48853",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 12,
-      "matched_term": "ci.local-parity.workflow-not-thin",
-      "reason": "without a single source of truth, local runs drift from CI and breakage is only visible after push"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/release.yml",
-      "problem": "workflow inlines CI commands instead of delegating to ops/ci/*.sh",
-      "agent_fix": "extract the workflow steps into ops/ci/<lane>.sh and call them with `bash ops/ci/<lane>.sh`",
-      "evidence": [
-        "detector=ci.local-parity.workflow-not-thin",
-        "path=.github/workflows/release.yml",
-        "line=24",
-        "proof_window=None",
-        "snippet=jobs:"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:f280e695679fbe0c4b1256ce68614ebb4a9012f8f98c5a4c088c15400a8ccb50",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 24,
-      "matched_term": "ci.local-parity.workflow-not-thin",
-      "reason": "without a single source of truth, local runs drift from CI and breakage is only visible after push"
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "tools"
     }
   ],
   "agent_fix_queue": [
     {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
+      "path": ".",
+      "priority": "medium",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
       "lane": "fast",
-      "owner": "ops",
-      "task": "add ops/ci/lib.sh defining shared helpers and tool version pins",
-      "why": "ops/ci/lib.sh is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add ops/git-hooks/pre-push that runs `bash ops/ci/quality-gates.sh` and wire it via `git config core.hooksPath ops/git-hooks`",
-      "why": "ops/git-hooks/pre-push is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add scripts/ci-doctor.sh listing every tool the ops/ci scripts depend on",
-      "why": "scripts/ci-doctor.sh is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add scripts/ci-local.sh exposing each CI lane locally",
-      "why": "scripts/ci-local.sh is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "extract the workflow steps into ops/ci/<lane>.sh and call them with `bash ops/ci/<lane>.sh`",
-      "why": "workflow inlines CI commands instead of delegating to ops/ci/*.sh"
-    },
-    {
-      "path": ".github/workflows/release.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "extract the workflow steps into ops/ci/<lane>.sh and call them with `bash ops/ci/<lane>.sh`",
-      "why": "workflow inlines CI commands instead of delegating to ops/ci/*.sh"
+      "owner": "tools",
+      "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "why": "`Code shape and semantic surface` scored 65 below the standard floor of 85"
     }
   ]
 }

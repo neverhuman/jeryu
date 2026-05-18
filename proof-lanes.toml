@@ -39,6 +39,21 @@ trigger_paths = [
     "src/taint.rs",
 ]
 
+[lane.release-readiness]
+command = "cargo run -p jeryu -- release ready --dry-run"
+description = "Composite proof for the jeryu/release-ready gate on a PR"
+required_for = ["release-change", "release-blocking"]
+
+[lane.canary]
+command = "cargo run -p jeryu -- release dry-run --version next"
+description = "Canary smoke: install-smoke + remote doctor + preflight against the candidate version"
+required_for = ["release-change", "release-blocking"]
+
+[lane.release-control-plane]
+command = "cargo test -p jeryu --lib reconcile_prefers_existing_release_attempt_until_prod_finishes -- --nocapture && cargo test -p jeryu --lib should_resume_existing_release_attempt -- --nocapture && cargo test -p jeryu --lib auto_promotion_requires_complete_canary_evidence -- --nocapture && rustfmt --edition 2021 --check src/release/lifecycle.rs src/release/release_status_report.rs src/tui/ui_panels_body_evidence.rs src/release/tests.rs"
+description = "Narrow proof for release control-plane resume-first changes"
+required_for = ["release-change", "release-blocking"]
+
 # ─── Change Types → Lanes ───────────────────────────────────────────────
 
 [change_type.leaf-bugfix]
@@ -55,7 +70,7 @@ lanes = ["check", "unit", "integration"]
 
 [change_type.release-change]
 description = "Modify release pipeline, canary, or evidence handling"
-lanes = ["check", "unit", "integration"]
+lanes = ["check", "unit", "integration", "release-control-plane"]
 
 [change_type.cross-module]
 description = "Change spans multiple modules or touches shared types"
@@ -63,7 +78,7 @@ lanes = ["check", "unit", "integration", "full"]
 
 [change_type.release-blocking]
 description = "Must pass before any release attempt"
-lanes = ["check", "unit", "integration", "full"]
+lanes = ["check", "unit", "integration", "release-control-plane", "full"]
 
 [change_type.security-relevant]
 description = "Touches secrets, sandbox isolation, supply-chain detection, or admission control"

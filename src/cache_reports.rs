@@ -7,8 +7,8 @@ mod manager;
 #[path = "cache_reports_scan.rs"]
 mod scan;
 
-pub use manager::*;
-pub use scan::*;
+pub(crate) use manager::*;
+pub(crate) use scan::*;
 
 pub fn print_cache_status_report(report: &CacheStatusReport) {
     println!("📊 SmartCache Status");
@@ -38,7 +38,6 @@ pub fn print_cache_status_report(report: &CacheStatusReport) {
         human_bytes(report.local_cargo_sccache_bytes),
         human_bytes(report.pool_cargo_sccache_bytes)
     );
-    println!("Pip cache:     {}", human_bytes(report.pip_cache_bytes));
     let orphan_count = report
         .manager_caches
         .iter()
@@ -85,30 +84,6 @@ pub fn print_cache_status_report(report: &CacheStatusReport) {
             }
         );
     }
-    let pip_orphans = report
-        .pip_caches
-        .iter()
-        .filter(|cache| !cache.active)
-        .count();
-    if !report.pip_caches.is_empty() {
-        println!(
-            "Pip caches: {} total, {} orphaned",
-            report.pip_caches.len(),
-            pip_orphans
-        );
-        for cache in report.pip_caches.iter().take(12) {
-            println!(
-                "  {:<36} {:>9} {}",
-                cache.path,
-                human_bytes(cache.bytes),
-                if cache.active {
-                    "active"
-                } else {
-                    cache.reason.as_str()
-                }
-            );
-        }
-    }
 }
 
 pub fn print_cache_gc_report(report: &CacheGcReport) {
@@ -123,8 +98,8 @@ pub fn print_cache_gc_report(report: &CacheGcReport) {
             cache.reason
         );
     }
-    if !report.deleted_manager_caches.is_empty() {
-        println!("Deleted: {}", report.deleted_manager_caches.len());
+    if !report.removed_manager_caches.is_empty() {
+        println!("Removed: {}", report.removed_manager_caches.len());
     }
     if !report.candidate_cargo_targets.is_empty() {
         println!("Cargo candidates: {}", report.candidate_cargo_targets.len());
@@ -137,28 +112,11 @@ pub fn print_cache_gc_report(report: &CacheGcReport) {
             );
         }
     }
-    if !report.deleted_cargo_targets.is_empty() {
-        println!("Cargo deleted: {}", report.deleted_cargo_targets.len());
+    if !report.removed_cargo_targets.is_empty() {
+        println!("Cargo removed: {}", report.removed_cargo_targets.len());
     }
-    if !report.candidate_pip_caches.is_empty() {
-        println!("Pip candidates: {}", report.candidate_pip_caches.len());
-        for cache in &report.candidate_pip_caches {
-            println!(
-                "  {:<36} {:>9} {}",
-                cache.path,
-                human_bytes(cache.bytes),
-                cache.reason
-            );
-        }
-    }
-    if !report.deleted_pip_caches.is_empty() {
-        println!("Pip deleted: {}", report.deleted_pip_caches.len());
-    }
-    if report.reclaimed_cache_request_rows > 0 {
-        println!(
-            "Pruned cache request rows: {}",
-            report.reclaimed_cache_request_rows
-        );
+    if report.gc_eviction_count > 0 {
+        println!("GC evictions: {}", report.gc_eviction_count);
     }
     for err in &report.errors {
         println!("Warning: {err}");
@@ -230,7 +188,9 @@ pub(crate) async fn du_bytes(path: &Path) -> Result<u64> {
     Ok(total)
 }
 
-pub(crate) async fn df_usage(path: &str) -> Result<FsUsage> {
+/// Run `df -Pk <path>` and parse the result. Public so `jeryu-gcd` can
+/// query disk usage without duplicating parsing logic.
+pub async fn df_usage(path: &str) -> Result<FsUsage> {
     let output = tokio::process::Command::new("df")
         .args(["-Pk", path])
         .output()

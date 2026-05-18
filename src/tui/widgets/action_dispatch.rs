@@ -2,17 +2,20 @@
 //! Proof: `cargo nextest run -p jeryu -- tui::widgets::action_dispatch`
 //! Invariants: Every mutation goes through preview → confirm → execute.
 
+#[cfg(test)]
+use crate::api::actions::ActionStatus;
 use crate::api::actions::{
-    ActionContext, ActionPreview, ActionResult, ActionStatus, ActorKind, ActorRef,
-    ContextualAction, actions_for_entity,
+    ActionContext, ActionPreview, ActionResult, ActorKind, ActorRef, ContextualAction,
+    actions_for_entity,
 };
 use crate::api::entity::{EntityKind, EntityRef};
 use crate::tui::action_registry::{GrantRequirement, RiskTier, SideEffectClass};
 
 /// Preview state for the action execution modal.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ActionExecutionState {
     /// No action being executed.
+    #[default]
     Idle,
     /// Action selected — showing preview modal.
     Previewing {
@@ -30,12 +33,6 @@ pub enum ActionExecutionState {
     },
 }
 
-impl Default for ActionExecutionState {
-    fn default() -> Self {
-        Self::Idle
-    }
-}
-
 impl ActionExecutionState {
     pub fn is_previewing(&self) -> bool {
         matches!(self, Self::Previewing { .. })
@@ -46,6 +43,7 @@ impl ActionExecutionState {
     }
 
     /// Start previewing an action from the command palette.
+    #[allow(clippy::too_many_arguments)] // palette preview: matches ActionPreview's flat schema
     pub fn begin_preview(
         action_id: &str,
         label: &str,
@@ -54,7 +52,7 @@ impl ActionExecutionState {
         side_effect_class: SideEffectClass,
         description: &str,
         required_grant: GrantRequirement,
-        dry_run: bool,
+        _dry_run: bool,
     ) -> Self {
         let preview = ActionPreview {
             enabled: true,

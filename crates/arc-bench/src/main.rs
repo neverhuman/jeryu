@@ -4,6 +4,7 @@ mod model;
 mod psd_mechanics;
 mod repo_shape;
 mod runtime;
+mod support;
 mod witness_loop;
 
 use std::fs;

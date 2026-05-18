@@ -1,3 +1,4 @@
+pub mod agent_submit;
 pub mod exec;
 pub mod git;
 pub mod host;

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 #[path = "action_registry_entries.rs"]
 mod entries;
-pub use entries::{REGISTRY, entries_for_surface, filtered, filtered_for_app};
+pub use entries::{REGISTRY, entries_for_surface, filtered};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

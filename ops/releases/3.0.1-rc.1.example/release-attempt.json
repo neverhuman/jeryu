@@ -1,0 +1,10 @@
+{
+  "attempt_id": "00000000-0000-0000-0000-000000000000",
+  "version": "3.0.1-rc.1",
+  "channel": "rc",
+  "sha": "0000000000000000000000000000000000000000",
+  "ref_name": "refs/tags/v3.0.1-rc.1",
+  "started_at": "1970-01-01T00:00:00Z",
+  "status": "example",
+  "release_manager": "@veox-ai/jeryu-ops"
+}

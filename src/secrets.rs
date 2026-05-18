@@ -3,14 +3,10 @@
 //! Invariants: Rotation is current/previous pair; never raw plaintext; 0600 perms on all secret files
 
 use anyhow::{Context, Result};
-use chrono::Utc;
-use rand::Rng;
-use reqwest::{Client, StatusCode};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
 use thiserror::Error;
 
 use crate::config;

@@ -339,10 +339,154 @@ The tab labels are:
 
 The active tab is cyan and bold.
 
+## Delivery Tab (default — `0`)
+
+The Delivery tab (also reached as `Workflow`) is the CI Production Manager's
+mission control. It renders every active pull request flowing through the
+canonical pipeline end-to-end so a single screen answers "what is shipping,
+what is blocked, and what can I roll back?".
+
+### Canonical pipeline
+
+Per PR, the DAG always covers the same ten phases, even when one or more is
+still `Waiting`:
+
+```
+Pre-merge CI → Agent review (pre, stub) → Auto-merge to main
+            → Post-merge CI → Agent review (post, stub)
+            → Build immutable artifact
+            → Promote local → Promote dev (canary) → Promote prod
+            → Monitor / rollback
+```
+
+Two policy stubs ship in this round and will be replaced as JeRyu's agent
+layer lands:
+
+- **Agent review** — auto-passes ~5s after upstream CI is green; blocks on
+  upstream errors. See `src/tui/workflow/delivery.rs`.
+- **Auto-merge** — passes whenever pre-merge CI + the pre-merge agent
+  review are both green (the stated policy: PRs auto-merge when pre-merge
+  CI passes).
+
+### Region layout (≥ 160 cols)
+
+```
+┌─ Mission strip (3 rows) ─ identity + ship % + blocker + critical path ─┐
+├─ PR rail (3 rows) ─ [✗ #1842 …] [● #1841 …] [✎ #1839 …] [✓ #1837 …] … ─┤
+│ Phase rail │  ────────── DAG canvas (selected PR) ─────────  │ Minimap │
+│ PreCI  ●   │                                                  │   ██    │
+│ Agent▲ ✓   │                                                  │   ░░    │
+│ Merge  ⛔  │                                                  │   ░░    │
+│ ...        │                                                  │   ...   │
+├─ Footer (1 row) ─ keybinds + last-action feedback ──────────────────────┤
+```
+
+Below ~160 cols the minimap collapses; below ~120 cols the phase rail
+collapses; below ~80 cols the PR rail collapses. Region math lives in
+`src/tui/workflow/regions.rs` (with no-overlap tests).
+
+### Mission strip
+
+Two lines that always answer the canonical PM questions:
+
+1. Selected PR identity — `[status #N title]  by author  ·  STATUS  ·  at PHASE  ·  ship X%`, followed by `blocker: NAME (blocks K)` in red and `crit: TAIL (~Ts)` in amber when work remains.
+2. Fleet rollup — `OPEN N · RUN N · BLOCK N · MERGED N · READY N` plus `CANARY ◉` / `PROD ◉` beacons and a canary URL when a deployment is live.
+
+### Side-pane inspector
+
+`Enter` toggles an inspector pane on the right (or the legacy modal at
+narrow widths). Five sub-tabs cycle with `Tab` / `Shift+Tab`:
+
+- **Overview** — status, kind, command, progress, ETA, duration, VTI,
+  cache verdict, reason, tags.
+- **Logs** — live tail from `LiveLogState` (last N lines that fit).
+- **Deps** — incoming + outgoing dependency lists with status glyphs.
+- **Evidence** — capsule + backend reference (capsule wiring is stubbed).
+- **Actions** — context-sensitive: `[Rerun]`, `[Rollback]` (only on
+  Promote{dev|prod}), `[View prompt]` (agent review nodes), `[Open in
+  GitLab]`, `[View capsule]`. The last-action feedback line lands here.
+
+### Intelligence
+
+`src/tui/workflow/intelligence.rs` provides:
+
+- `compute_first_blocker(snap)` — earliest Error/Blocked node.
+- `compute_critical_path(snap)` — longest-ETA path through remaining work.
+- `compute_downstream_impact(snap, id)` — transitive child count.
+- `detect_stalls(snap, now)` — running nodes past `eta*1.5` (90s floor).
+- `compute_ship_readiness(snap)` — % of canonical phases fully terminal-pass.
+
+Stalled running nodes get an amber pulsing border and a `[STALL]` marker.
+Failed/blocked cards gain a `⚠ blocks K · reason` chip on the badge line.
+
+### Visual polish
+
+- Block-character progress bar: `███░░░░░ 41%` on running nodes.
+- Kind accents on the title row: 🤖 (agent review), ⇲ (auto-merge),
+  📦 (build artifact), 🚀 (promote), 📈 (monitor).
+- `[ROLLBACK]` amber chip on rollback-eligible Promote{dev|prod} nodes
+  that are Running or Ran.
+- Selection: `[SEL]` marker + bright border. Critical path: `[CRIT]`.
+- Zoom modes cycled with `z`: Overview (status + title only),
+  Cards (default), Dense (no command line).
+
+### Keymap
+
+```
+↑↓←→ / hjkl  select node within / across phases
+Tab          next node (or next inspector sub-tab when inspector is open)
+Shift+Tab    previous inspector sub-tab
+Enter        toggle inspector pane (side pane ≥140 cols; modal otherwise)
+PgUp/PgDn    pan viewport ½-screen vertically
+Space        pan down ½-screen
+[  /  ]      pan viewport ½-screen horizontally
+Home / End   jump viewport top / bottom
+f            toggle follow-active mode (auto-pan to first running node)
+b            jump selection to first blocker
+c            jump to critical-path tail
+z            cycle zoom (Overview → Cards → Dense)
+< / >        cycle pull request (previous / next)
+r            trigger rollback (only fires on Promote{dev|prod})
+?            help overlay
+```
+
+### Mouse
+
+Capture is on by default (`runner.rs` enables `EnableMouseCapture`). The
+Delivery tab routes events through `src/tui/runtime/input/mouse.rs`:
+
+- Wheel inside canvas: pan viewport vertically (Shift+Wheel: horizontal).
+- Drag (left-down + move): pan viewport from the drag origin.
+- Click on a node card: select; second click on selected → toggle inspector.
+- Click on the PR rail: switch PR via `pr_at_column`.
+- Click on the minimap: jump cursor via `locate_minimap_click`.
+
+Hit boxes are stored on `app.delivery_hit_map` (populated by the renderer
+each frame via `draw_dag_canvas_with_hits`).
+
+### Source files
+
+| File | Responsibility |
+| --- | --- |
+| `src/tui/workflow/model.rs` | Snapshot types: WorkflowNode, CanonicalPhase, PullRequestView, DeliverySnapshot, FleetSummary, PrStatus. |
+| `src/tui/workflow/delivery.rs` | `collect_delivery_snapshot` + `build_demo_delivery` (5-PR story) + canonical-pipeline builder + agent-review / auto-merge stubs. |
+| `src/tui/workflow/builder.rs` | Topological phase assignment + reusable `build_snapshot`. |
+| `src/tui/workflow/intelligence.rs` | Blocker, critical-path, downstream, stall, ship-readiness compute functions. |
+| `src/tui/workflow/widget.rs` | `draw_delivery_tab` + `draw_dag_canvas_with_hits` + node cards. |
+| `src/tui/workflow/regions.rs` | Region layout / collapse rules. |
+| `src/tui/workflow/mission_strip.rs` | Sticky two-line banner. |
+| `src/tui/workflow/pr_rail.rs` | Horizontal PR chip list + click hit-test. |
+| `src/tui/workflow/phase_rail.rs` | Vertical canonical-phase index. |
+| `src/tui/workflow/minimap.rs` | Bird's-eye DAG + click hit-test. |
+| `src/tui/workflow/inspector.rs` | Side-pane inspector + 5 sub-tabs. |
+| `src/tui/workflow/nav.rs` | Spatial navigation + viewport + zoom + persistent selection. |
+| `src/tui/workflow/hit_map.rs` | Renderer → mouse handoff. |
+| `src/tui/runtime/input/mouse.rs` | Wheel/drag/click dispatch. |
+
 ## Mission Tab
 
-The Mission tab is the default operational landing surface. It condenses the
-state model into an actionable summary:
+The Mission tab (now `1:` after Delivery) is an operational summary surface.
+It condenses the state model into an actionable view:
 
 - `Top Signal`: the highest-priority blocker or green-path status.
 - `Next Action`: the safest immediate operator action inferred from current

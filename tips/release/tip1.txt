@@ -1,0 +1,384 @@
+Yes — for **JeRyu**, the answer is even clearer:
+
+> **JeRyu should become the release-control plane, but GitHub/GitLab should remain the enforcement boundary.**
+> Agents can plan, patch, test, prove, and request merge. They should not directly merge, bypass gates, or publish stable production releases.
+
+JeRyu is explicitly trying to be a Git-compatible, agent-native control plane: the repo describes it as a Rust binary that wraps Git while adding agent-aware CI/CD, smart test selection, runner orchestration, remote management, and deterministic governance. ([GitHub][1]) Its mission also says every important action should produce structured evidence, and risky actions should go through risk gates, grants, and audit trails rather than broad ambient credentials. ([GitHub][2])
+
+## The best canonical standard
+
+Use this:
+
+```text
+Issue → agent grant → short-lived branch/worktree → draft PR/MR
+→ JeRyu VTI/proof receipt
+→ deterministic proof gates
+→ human/CODEOWNER review
+→ merge queue
+→ immutable release candidate
+→ canary/beta
+→ production promotion
+→ monitored rollback path
+```
+
+The correction to your instinct is important:
+
+```text
+Wrong: “Because JeRyu works with agents, we do not need CI or release gates.”
+
+Right: “Because JeRyu works with agents, JeRyu should run/route/explain the gates,
+but the gates still must exist and be enforced by protected branches, merge queues,
+environments, required checks, and release approvals.”
+```
+
+A model saying “tests passed” is not a release gate. A gate is valid only when it is deterministic, bound to the exact commit SHA, visible to reviewers, and enforced by GitHub/GitLab or JeRyu’s own admission layer.
+
+## Should all agent code go through PRs/MRs?
+
+For **production-affecting code: yes, absolutely**.
+
+Agents may create issues, branches, patches, test runs, proof receipts, draft PRs/MRs, and release-candidate evidence. Agents should not push directly to `main`, approve their own changes, merge their own PRs, alter release gates, weaken tests, or publish stable releases.
+
+GitHub’s current guidance for agent governance says agent-authored code should pass the same CI checks, security scans, and review gates as human-authored code, with CODEOWNERS, branch rulesets, independent review, and least-privilege token scoping layered on top. ([Well-Architected][3]) GitHub’s agent-PR review guidance is also explicit that agent PRs can look complete while missing operational context, and that any change weakening CI/tests/linting is a blocker. ([The GitHub Blog][4]) OWASP’s agent security guidance reaches the same conclusion from the security side: agents need least-privilege tools, per-tool scoping, and explicit authorization for sensitive operations. ([OWASP Cheat Sheet Series][5])
+
+Use GitHub **PRs** for the public GitHub repo. Use GitLab **MRs** inside JeRyu-managed GitLab. Same rule either way.
+
+## Branch model
+
+For JeRyu, I would use:
+
+```text
+main                  protected trunk, always releasable
+agent/<issue>-<slug>  short-lived agent branches
+human/<issue>-<slug>  short-lived human branches
+vX.Y.Z-rc.N           release candidate / canary tag
+vX.Y.Z                immutable stable release tag
+release/X.Y           only for LTS/hotfix support, not normal development
+```
+
+Do **not** use heavy GitFlow unless you need long-term maintenance branches. The better default is trunk-based development: small batches, short-lived branches, frequent merges to trunk, and automated tests/proof after each change. DORA’s trunk-based guidance says branches typically last hours rather than days, frequent small merges reduce integration complexity, and CI means trunk-based development plus fast automated tests that keep the system working. ([Dora][6])
+
+## Required GitHub/GitLab controls
+
+For GitHub `main`, configure a ruleset or branch protection like this:
+
+```text
+Require PR before merge
+Require CODEOWNER review
+Require approval from someone other than latest committer
+Dismiss stale approvals on new commits
+Require conversation resolution
+Require required status checks from trusted source
+Require merge queue
+Require linear history or squash merge
+Block force-push
+Block branch deletion
+Restrict bypass permissions
+Protect release tags
+```
+
+GitHub protected branches can require PR reviews, CODEOWNER review, required status checks, signed commits, linear history, merge queue, and push restrictions. Required status checks can also be bound to the expected GitHub App/source so a fake status cannot satisfy the rule. ([GitHub Docs][7]) CODEOWNERS should be required for sensitive paths, and GitHub specifically recommends protecting the CODEOWNERS file itself. ([GitHub Docs][8])
+
+For GitLab, use the equivalent:
+
+```text
+Protected default branch
+Merge request approvals
+Code Owner approvals
+Pipelines must succeed
+Protected environments
+Deployment approvals for production
+No direct push to protected branches by agents
+```
+
+GitLab approval rules define how many approvals an MR needs and who can approve it; they can be combined with Code Owners for area-specific oversight. ([GitLab Docs][9]) GitLab protected environments and deployment approvals block production deployment until the required approvers approve. ([GitLab Docs][10])
+
+## Use merge queue
+
+With many agents submitting bugs and features, merge queue is not optional. It solves the “two green PRs break when combined” problem.
+
+GitHub merge queue validates a PR against the latest target branch plus earlier queued PRs, then merges only if required checks pass. It is specifically useful when many users are merging many PRs into a busy branch. ([GitHub Docs][11])
+
+JeRyu’s current `rust.yml` workflow triggers on `push`, `pull_request`, and a weekly schedule, but not `merge_group`; `jankurai.yml` also triggers on `pull_request` and `push`, but not `merge_group`. ([GitHub][12]) Add:
+
+```yaml
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+```
+
+GitHub says required checks must run on the `merge_group` event, or the merge queue will wait/fail because required statuses are never reported. ([GitHub Docs][11])
+
+## JeRyu proof gates
+
+JeRyu already has the right internal design. Use it.
+
+JeRyu’s VTI docs say smart test selection emits proof receipts, and the default merge gate can block when required receipt evidence is missing or bound to a different head SHA. ([GitHub][13]) The API docs say `jeryu agent merge` runs a risk gate before accepting an MR, and `RequestMerge` blocks conservatively without a VTI receipt plus complete MR/pipeline evidence. ([GitHub][14])
+
+Make these required checks:
+
+```text
+jeryu / vti-receipt
+jeryu / proof-lanes
+jeryu / risk-gate
+jeryu / admission
+jankurai / audit
+jankurai / security
+rust / fmt
+rust / build
+rust / vti-test-selection
+rust / unit
+rust / integration when required
+release / dry-run when release paths change
+supply-chain / sbom-and-attestation
+```
+
+The key is that JeRyu should post those as GitHub Checks/commit statuses or GitLab MR pipeline statuses, bound to the exact SHA. GitHub required checks can be checks or commit statuses, and protected branches can require them before merge. ([GitHub Docs][7])
+
+## Proof lane matrix
+
+JeRyu already has a machine-readable lane model in `proof-lanes.toml`. Use that as the canonical merge policy, not prose. It maps leaf bugfixes to check+unit, state/API/release changes to check+unit+integration, security-relevant changes to security tests, and cross-module/release-blocking work to full validation. ([GitHub][15]) The testing docs say the source of truth is `proof-lanes.toml`, list the required commands, and define stop conditions/budgets. ([GitHub][16])
+
+| Change type                          | Required proof                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Docs-only                            | VTI `docs_only` receipt, current proof artifact, human review if policy/docs affect behavior |
+| Leaf bugfix                          | `cargo check -p jeryu`, unit lane, VTI receipt                                               |
+| API/CLI/GitLab client                | check, unit, integration                                                                     |
+| State/database/cache                 | check, unit, integration, migration/state proof                                              |
+| Release/secrets                      | check, unit, integration, release dry-run, security gate                                     |
+| Security/sandbox/admission/taint     | check, unit, integration, security lane, security owner approval                             |
+| Workflow/CODEOWNERS/agent config/MCP | full lane, security lane, ops/agent CODEOWNER approval                                       |
+| Cross-module/global invalidator      | full lane                                                                                    |
+
+VTI’s global invalidators include workspace/toolchain/workflow files and policy/admission files, which should force full validation. ([GitHub][13])
+
+## Canary and limited release
+
+For JeRyu, “canary” mostly means **release channel**, not web traffic split.
+
+Use:
+
+```text
+snapshot/dev artifact    built from PR/main for internal validation
+vX.Y.Z-rc.N              release candidate / canary
+GitHub prerelease        public beta/canary
+installer channel=beta   limited install path
+vX.Y.Z                   stable immutable release
+crates.io stable publish only after final approval
+```
+
+JeRyu’s own release docs already say production promotion is pipeline-driven, requires a green upstream pipeline, release reconcile, preflight, complete canary evidence, handoff artifacts, and production only after the canary path is complete. ([GitHub][17]) For services JeRyu controls, use feature flags or progressive delivery: GitLab feature flags allow smaller production batches and toggling features for subsets of users to reduce risk. ([GitLab Docs][18])
+
+For GitHub Actions production release, use protected **environments**:
+
+```text
+environment: release
+required reviewers
+prevent self-review
+selected protected tags only: v*
+environment secrets unavailable until approval
+```
+
+GitHub environment protection rules can require manual approval, wait timers, branch/tag restrictions, and required reviewers; environment secrets are not available until approval if the environment requires approval. ([GitHub Docs][19])
+
+## Rollback standard
+
+You need two rollback paths.
+
+### 1. Deployment/channel rollback
+
+Use when the artifact was already built and published, but you need users back on the previous good version.
+
+```text
+Stop promotion
+Mark current release attempt failed
+Promote previous known-good artifact/channel
+Disable feature flag
+Rollback GitLab deployment if applicable
+Preserve canary/handoff evidence
+Open incident issue
+```
+
+JeRyu’s own release doc says to stop promotion if `release doctor` or `release preflight` fails, prefer the previous known-good release over ad hoc manual fixes, preserve previous canary/handoff artifacts, and record the rollback reason. ([GitHub][17]) GitLab deployments also support rolling back to a previous successful deployment, which creates a new deployment pointing to the rollback commit. ([GitLab Docs][20])
+
+### 2. Code rollback
+
+Use when the merged code itself is bad.
+
+```text
+Open revert PR/MR
+Run required proof lanes
+Merge through queue
+Release patch version
+```
+
+Do **not** mutate old releases or reuse old tags. SemVer says once a versioned package has been released, its contents must not be modified; changes require a new version. ([Semantic Versioning][21])
+
+JeRyu’s current `release.yml` generated rollback text appears to suggest re-tagging the previous version; that should be removed. The safe rollback is “re-point a deployment/channel to a previous known-good artifact” or “ship a new patch release,” not “recreate a released tag.” ([GitHub][22])
+
+## Supply-chain release standard
+
+Stable releases should be immutable, provenance-backed, and built from protected refs only.
+
+Use:
+
+```text
+Protected vX.Y.Z tags
+GitHub release environment approval
+SBOM
+artifact attestations
+signed/provenance-backed binaries
+crates.io Trusted Publishing/OIDC
+no long-lived publish token
+release evidence archive
+```
+
+GitHub Artifact Attestations create cryptographically signed provenance claims showing workflow, repo, commit SHA, trigger, and related build identity; GitHub recommends attesting released binaries/packages/manifests that users will verify. ([GitHub Docs][23]) SLSA is the broader supply-chain framework for preventing tampering and improving package/build integrity. ([SLSA][24]) For Rust, crates.io Trusted Publishing lets GitHub Actions publish using OIDC short-lived tokens instead of long-lived secrets. ([Rust Blog][25])
+
+## Concrete changes I would make to JeRyu now
+
+### 1. Add merge queue support
+
+Add `merge_group` to required workflows:
+
+```yaml
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+```
+
+Do this for `rust.yml`, `jankurai.yml`, and any release-dry-run workflow that becomes a required check.
+
+### 2. Fix the release workflow
+
+Current `release.yml` has a strong foundation: semver validation, version consistency checks, changelog checks, security gate, release build, provenance job, release environment, GitHub release creation, crates publish, release evidence, and rollback procedure generation. ([GitHub][22]) But I would fix these before trusting it for stable prod:
+
+```text
+Run Release Audit on live releases too, not only dry_run.
+Make publish depend on audit + security + build + provenance.
+Attest actual release binaries, not only SBOM files.
+Ensure cargo-cyclonedx is installed before cargo cyclonedx.
+Use crates.io Trusted Publishing/OIDC.
+Remove the retag-old-version rollback instruction.
+Require protected vX.Y.Z tag + release environment approval for stable.
+```
+
+The current workflow shows `audit` running only when `dry_run != 'false'`, while the `publish` job depends on `preflight`, `security`, and `build`, not audit/provenance. ([GitHub][22])
+
+### 3. Fix or ratchet the Clippy gap
+
+`rust.yml` currently excludes the main `jeryu` package from clippy because of a lint backlog. That is acceptable only as a temporary ratchet, not as a permanent production gate. ([GitHub][12]) Recommended:
+
+```text
+Phase 1: keep advisory clippy for jeryu, blocking clippy for clean crates.
+Phase 2: create lint baseline.
+Phase 3: block new warnings.
+Phase 4: remove --exclude jeryu.
+```
+
+### 4. Expand CODEOWNERS/rulesets
+
+JeRyu already has CODEOWNERS for workspace/build, source, ops/CI, agent standards, docs, and mission surfaces. ([GitHub][26]) Make sure these paths are all protected by required CODEOWNER review:
+
+```text
+.github/workflows/**
+CODEOWNERS
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.github/copilot-instructions.md
+.mcp.json
+proof-lanes.toml
+agent/**
+.agents/**
+ops/**
+docs/release.md
+docs/testing.md
+docs/VTI.md
+src/release.rs
+src/secrets.rs
+src/admission.rs
+src/policy.rs
+src/sandbox.rs
+src/exec.rs
+src/taint.rs
+Cargo.toml
+Cargo.lock
+deny.toml
+```
+
+GitHub specifically warns that agent instruction files and MCP config define what agents can do and should be protected by rulesets requiring human review. ([Well-Architected][3])
+
+### 5. Strengthen issue and PR templates for agent submissions
+
+The current PR template is very generic: description, motivation, change type, style/tests/docs checklist. ([GitHub][27]) Add required agent fields:
+
+```text
+Agent/session ID
+Linked issue
+Risk tier: read-only / low / high / production
+Change type from proof-lanes.toml
+Files touched
+VTI receipt ID/path
+Proof commands run
+Evidence artifacts
+Rollback plan
+Release impact
+Secrets/security impact
+Did this alter tests, workflows, gates, CODEOWNERS, MCP, or agent instructions?
+Test that fails before this fix
+```
+
+The current contributing docs say bugs and enhancements are tracked as GitHub issues and PRs should use the template, with fmt/clippy/tests before PR. ([GitHub][28]) Keep that, but replace “human says they ran tests” with “JeRyu-attached proof receipt bound to SHA.”
+
+## Final operating policy
+
+For JeRyu, I would write the policy as:
+
+```text
+1. Git remains the ledger.
+2. JeRyu owns agent grants, proof routing, VTI receipts, risk gates, evidence, and release state.
+3. GitHub/GitLab owns the hard boundary: protected branches, PR/MR approvals, required checks, merge queue, protected environments, protected tags.
+4. Agents may propose, patch, test, explain, and request.
+5. Humans/CODEOWNERS approve high-risk code, release gates, and production promotion.
+6. Stable releases are immutable, provenance-backed, and rollbackable.
+7. Anything that makes the system faster but less explainable, governable, recoverable, or trustworthy is rejected.
+```
+
+Your screenshot showing `release outdated` and `artifact-contract-broken` is exactly the right failure mode: that should block promotion until the evidence ledger is complete, not be bypassed.
+
+I searched official GitHub/GitLab/Rust/SLSA/OWASP sources, JeRyu’s repo/docs/workflows, publications, and social/forum sources. The social sources were directionally consistent but lower quality, so I did not make them load-bearing; Quora was blocked by robots.txt in the search environment, so I did not rely on it.
+
+[1]: https://github.com/neverhuman/jeryu "GitHub - neverhuman/jeryu: Agent-first git, Gitlab fork with full agent support and TUI · GitHub"
+[2]: https://raw.githubusercontent.com/neverhuman/jeryu/main/docs/MISSION.md "raw.githubusercontent.com"
+[3]: https://wellarchitected.github.com/library/governance/recommendations/governing-agents/ "Governing agents in GitHub Enterprise – GitHub Well-Architected"
+[4]: https://github.blog/ai-and-ml/generative-ai/agent-pull-requests-are-everywhere-heres-how-to-review-them/ "Agent pull requests are everywhere. Here's how to review them. - The GitHub Blog"
+[5]: https://cheatsheetseries.owasp.org/cheatsheets/AI_Agent_Security_Cheat_Sheet.html "AI Agent Security - OWASP Cheat Sheet Series"
+[6]: https://dora.dev/capabilities/trunk-based-development/ "DORA | Capabilities: Trunk-based development"
+[7]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches "About protected branches - GitHub Docs"
+[8]: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners "About code owners - GitHub Docs"
+[9]: https://docs.gitlab.com/user/project/merge_requests/approvals/rules/ "Merge request approval rules | GitLab Docs"
+[10]: https://docs.gitlab.com/ci/environments/deployment_approvals/ "Deployment approvals | GitLab Docs"
+[11]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[12]: https://raw.githubusercontent.com/neverhuman/jeryu/main/.github/workflows/rust.yml "raw.githubusercontent.com"
+[13]: https://raw.githubusercontent.com/neverhuman/jeryu/main/docs/VTI.md "raw.githubusercontent.com"
+[14]: https://raw.githubusercontent.com/neverhuman/jeryu/main/docs/API.md "raw.githubusercontent.com"
+[15]: https://raw.githubusercontent.com/neverhuman/jeryu/main/proof-lanes.toml "raw.githubusercontent.com"
+[16]: https://raw.githubusercontent.com/neverhuman/jeryu/main/docs/testing.md "raw.githubusercontent.com"
+[17]: https://raw.githubusercontent.com/neverhuman/jeryu/main/docs/release.md "raw.githubusercontent.com"
+[18]: https://docs.gitlab.com/operations/feature_flags/ "Feature flags | GitLab Docs"
+[19]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments "Deployments and environments - GitHub Docs"
+[20]: https://docs.gitlab.com/ci/environments/deployments/ "Deployments | GitLab Docs"
+[21]: https://semver.org/ "Semantic Versioning 2.0.0 | Semantic Versioning"
+[22]: https://raw.githubusercontent.com/neverhuman/jeryu/main/.github/workflows/release.yml "raw.githubusercontent.com"
+[23]: https://docs.github.com/en/actions/concepts/security/artifact-attestations "Artifact attestations - GitHub Docs"
+[24]: https://slsa.dev/ "SLSA • Supply-chain Levels for Software Artifacts"
+[25]: https://blog.rust-lang.org/2025/07/11/crates-io-development-update-2025-07/ "crates.io: development update | Rust Blog"
+[26]: https://raw.githubusercontent.com/neverhuman/jeryu/main/CODEOWNERS "raw.githubusercontent.com"
+[27]: https://raw.githubusercontent.com/neverhuman/jeryu/main/.github/PULL_REQUEST_TEMPLATE.md "raw.githubusercontent.com"
+[28]: https://raw.githubusercontent.com/neverhuman/jeryu/main/CONTRIBUTING.md "raw.githubusercontent.com"
+

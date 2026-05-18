@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.merge_passport.v1",
+  "title": "MergePassport",
+  "description": "Exact-SHA authorization to enter the merge queue / merge train.",
+  "type": "object",
+  "required": ["schema", "id", "verdict_id", "head_sha", "target_branch", "issued_at", "expires_at", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.merge_passport.v1" },
+    "id": { "type": "string", "pattern": "^mpa_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "verdict_id": { "type": "string" },
+    "repo": { "type": "string" },
+    "merge_request": { "type": "string" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "target_branch": { "type": "string" },
+    "conditions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Named conditions that must still hold at merge time (e.g. 'no_new_commits_after_verdict')."
+    },
+    "rebind_on_train": { "type": "boolean", "default": true },
+    "merge_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "Populated post-merge for the ledger." },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "consumed_at": { "type": ["string", "null"], "format": "date-time" },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "const": "judge.ed25519" },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

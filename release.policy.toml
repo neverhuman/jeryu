@@ -1,0 +1,213 @@
+# release.policy.toml — Canonical agent-first release policy for JeRyu.
+#
+# Read by `jeryu release ready`, `jeryu agent submit`, and the TUI.
+# Companion document: docs/release-policy.md
+# Companion lanes:    proof-lanes.toml
+# Companion ownership: agent/owner-map.json (mirrored to CODEOWNERS)
+
+schema_version = "1.0.0"
+standard = "agent-first trunk-based progressive delivery"
+
+# ─── Rules (mirrors docs/release-policy.md) ────────────────────────────
+# Numbered to match policy doc paragraphs.
+
+[[rule]]
+n = 1
+text = "All production code changes enter through an issue-linked PR."
+
+[[rule]]
+n = 2
+text = "Agents may create branches, commits, proof receipts, and draft PRs."
+
+[[rule]]
+n = 3
+text = "Agents may NOT push to protected branches, approve their own PRs, create stable tags, mutate releases, or promote production."
+
+[[rule]]
+n = 4
+text = "main is protected, linear, and always releasable."
+
+[[rule]]
+n = 5
+text = "Long-lived feature branches are prohibited. Large work is split into stacked, reviewable PRs."
+
+[[rule]]
+n = 6
+text = "JeRyu selects the proof lane via VTI; low-confidence cases escalate to broader validation."
+
+[[rule]]
+n = 7
+text = "The single required check on main is jeryu/release-ready, posted by the trusted JeRyu workflow."
+
+[[rule]]
+n = 8
+text = "Protected paths require CODEOWNER review (release, security, workflow, agent-policy)."
+
+[[rule]]
+n = 9
+text = "Release artifacts are built only from protected commits/tags."
+
+[[rule]]
+n = 10
+text = "Stable releases use SemVer, immutable tags, SBOMs, provenance attestations, and structured release evidence."
+
+[[rule]]
+n = 11
+text = "Release progression is snapshot → dogfood → RC/canary → stable."
+
+[[rule]]
+n = 12
+text = "Production promotion requires release doctor, preflight, canary evidence, security evidence, handoff artifacts, and a declared rollback target."
+
+[[rule]]
+n = 13
+text = "Rollback never rewrites stable history. It uses feature flags, previous artifacts, channel rollback, revert PRs, or patch releases."
+
+[[rule]]
+n = 14
+text = "Emergency rollback may bypass normal PR review only as a protected release-manager action, and must produce an incident/evidence record plus a follow-up PR."
+
+[[rule]]
+n = 15
+text = "Track DORA metrics: deployment frequency, change lead time, recovery time, change failure rate."
+
+# ─── jeryu/release-ready composite gate ────────────────────────────────
+# The TUI and `jeryu release ready` compose this gate from these receipts.
+
+[gate.jeryu_release_ready]
+description = "Top-level required check on main. Single signal composed of all receipts."
+required_receipts = [
+    "intake",              # issue/task linked, template complete, agent disclosure present
+    "vti-plan",            # VTI plan emitted, receipt id stable
+    "proof-receipt",       # required lane(s) ran and passed against base/head SHAs
+    "risk-gate",           # capability grant valid for touched paths
+    "reviewer-agent",      # advisory reviewer-agent ran (does NOT block on its own)
+    "rollback-plan",       # rollback path declared (or "docs only — none required")
+    "ci-checks",           # underlying CI workflows green for HEAD
+]
+# Reviewer-agent finding alone does not block; CI weakening detection does.
+
+# ─── Risk tiers → required approvals ───────────────────────────────────
+# Paths use glob-like prefixes. First-match-wins.
+
+[[risk_tier]]
+name = "tier-0"
+description = "docs / typo / non-behavioral"
+paths = ["docs/**/*.md", "README.md", "CHANGELOG.md", "**/*.md"]
+required_human_approvals = 1
+codeowner_required = false
+canary_required = false
+
+[[risk_tier]]
+name = "tier-1"
+description = "small bugfix, no API/security/release impact"
+paths = ["src/**", "crates/**"]
+required_human_approvals = 1
+codeowner_required = false
+canary_required = false
+
+[[risk_tier]]
+name = "tier-2"
+description = "feature / API / behavior / TUI surface"
+paths = ["src/tui/**", "src/cli*.rs", "src/dispatch*.rs", "src/commands/**"]
+required_human_approvals = 1
+codeowner_required = true
+canary_required = false
+
+[[risk_tier]]
+name = "tier-3"
+description = "secrets / release / CI / workflow / agent policy / dependency / security"
+paths = [
+    ".github/workflows/**",
+    "Cargo.toml",
+    "Cargo.lock",
+    "deny.toml",
+    "release.policy.toml",
+    "proof-lanes.toml",
+    "src/release.rs",
+    "src/release/**",
+    "src/secrets.rs",
+    "src/admission.rs",
+    "src/policy.rs",
+    "src/sandbox.rs",
+    "src/exec.rs",
+    "src/taint.rs",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".github/copilot-instructions.md",
+    "agent/**",
+    "CODEOWNERS",
+    "ops/**",
+    "docs/release.md",
+    "docs/release-policy.md",
+    "docs/testing.md",
+    "docs/VTI.md",
+]
+required_human_approvals = 2
+codeowner_required = true
+canary_required = true
+
+[[risk_tier]]
+name = "tier-4"
+description = "emergency production fix — smallest safe gate, then post-fix full validation"
+paths = []  # never matched by path; explicitly labelled
+required_human_approvals = 1
+codeowner_required = true
+canary_required = false
+emergency_label = "emergency"
+followup_pr_required = true
+
+# ─── Release channels ──────────────────────────────────────────────────
+
+[[channel]]
+name = "snapshot"
+source = "protected main"
+visibility = "internal"
+purpose = "dogfood post-merge artifact"
+
+[[channel]]
+name = "rc"
+source = "vX.Y.Z-rc.N tag"
+visibility = "github prerelease"
+purpose = "canary / release candidate"
+
+[[channel]]
+name = "stable"
+source = "vX.Y.Z immutable tag"
+visibility = "everyone"
+purpose = "production"
+requires_environment = "release"
+
+# ─── Rollback ladder ───────────────────────────────────────────────────
+
+[[rollback_step]]
+n = 1
+kind = "feature-flag"
+description = "Disable feature/capability flag. Keep deployed binary."
+
+[[rollback_step]]
+n = 2
+kind = "channel"
+description = "Move stable channel pointer back to previous known-good artifact."
+
+[[rollback_step]]
+n = 3
+kind = "revert-pr"
+description = "Open revert PR through normal merge queue. Publish patch release."
+
+[[rollback_step]]
+n = 4
+kind = "incident"
+description = "If above are insufficient, open incident, follow runbook in docs/release-policy.md."
+
+# ─── DORA metrics ──────────────────────────────────────────────────────
+
+[metrics]
+track = [
+    "deployment_frequency",
+    "change_lead_time",
+    "failed_deployment_recovery_time",
+    "change_failure_rate",
+    "deployment_rework_rate",
+]

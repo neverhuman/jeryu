@@ -224,15 +224,6 @@ pub static REGISTRY: &[ActionEntry] = &[
         description: "Switch to Vault / Secrets lifecycle tab",
     },
     ActionEntry {
-        id: "tab_jank",
-        label: "Go to Jank tab",
-        key_hint: Some("j"),
-        risk_tier: RiskTier::ReadOnly,
-        surfaces: TUI,
-        dry_run: false,
-        description: "Switch to the optional Jankurai score/history tab",
-    },
-    ActionEntry {
         id: "toggle_audit_ledger",
         label: "Toggle audit ledger view",
         key_hint: Some("a"),
@@ -255,15 +246,6 @@ pub static REGISTRY: &[ActionEntry] = &[
 /// Returns entries matching `query` (substring match on id, label, description).
 pub fn filtered(query: &str) -> impl Iterator<Item = &'static ActionEntry> {
     REGISTRY.iter().filter(move |a| a.matches_query(query))
-}
-
-pub fn filtered_for_app(
-    query: &str,
-    jankurai_available: bool,
-) -> impl Iterator<Item = &'static ActionEntry> {
-    REGISTRY.iter().filter(move |entry| {
-        entry.matches_query(query) && (jankurai_available || entry.id != "tab_jank")
-    })
 }
 
 pub fn entries_for_surface(surface: Surface) -> impl Iterator<Item = &'static ActionEntry> {
@@ -310,17 +292,5 @@ mod tests {
             assert!(contract.get("required_grant").is_some());
             assert!(contract.get("surfaces").is_some());
         }
-    }
-
-    #[test]
-    fn jank_action_is_only_visible_when_available() {
-        assert!(
-            filtered_for_app("", false).all(|entry| entry.id != "tab_jank"),
-            "jank action should be hidden when unavailable"
-        );
-        assert!(
-            filtered_for_app("", true).any(|entry| entry.id == "tab_jank"),
-            "jank action should be visible when available"
-        );
     }
 }

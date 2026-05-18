@@ -1,0 +1,38 @@
+# .autonomy/policies/release.yml — release passport + canary + rollback rules.
+schema: vibegate.release.v1
+
+build:
+  build_once:                true
+  require_sbom:              true
+  require_slsa_provenance:   true
+  require_artifact_signature: true
+  require_rollback_plan:     true
+
+canary:
+  initial_percent:        1
+  max_percent_without_human: 10
+  analysis_minutes:       30
+  rollback_on:
+    error_rate_relative_increase: 0.02
+    p95_latency_relative_increase: 0.15
+    crash_loop:                   true
+    security_signal:              true
+
+# Nightwatch authority: it may pause/rollback faster than it may roll forward.
+nightwatch:
+  may_rollback:        true
+  may_promote:         false
+  may_pause_pipeline:  true
+  may_page_human:      true
+
+# Mapping back to the legacy jeryu/release-ready 7-receipt gate from
+# release.policy.toml::[gate.jeryu_release_ready]. These become the
+# "legacy_receipts" slice inside an Evidence Pack.
+legacy_release_ready_receipts:
+  - intake
+  - vti-plan
+  - proof-receipt
+  - risk-gate
+  - reviewer-agent
+  - rollback-plan
+  - ci-checks

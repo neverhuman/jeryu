@@ -53,36 +53,30 @@ fn assign_phases(nodes: &[WorkflowNode]) -> Vec<WorkflowPhase> {
     while changed {
         changed = false;
         for n in nodes {
-            let max_dep = match n
+            let max_dep = n
                 .deps
                 .iter()
                 .filter(|d| ids.contains(d.as_str()))
                 .filter_map(|d| depth.get(d.as_str()))
                 .max()
                 .copied()
-            {
-                Some(d) => d,
-                None => 0,
-            };
+                .unwrap_or(0);
             let target = if n.deps.iter().any(|d| ids.contains(d.as_str())) {
                 max_dep + 1
             } else {
                 0
             };
-            if let Some(current) = depth.get_mut(n.id.as_str()) {
-                if target > *current {
-                    *current = target;
-                    changed = true;
-                }
+            if let Some(current) = depth.get_mut(n.id.as_str())
+                && target > *current
+            {
+                *current = target;
+                changed = true;
             }
         }
     }
 
     // Group nodes by depth.
-    let max_depth = match depth.values().max().copied() {
-        Some(d) => d,
-        None => 0,
-    };
+    let max_depth = depth.values().max().copied().unwrap_or(0);
     let mut phases = Vec::new();
     for d in 0..=max_depth {
         let node_ids: Vec<String> = nodes

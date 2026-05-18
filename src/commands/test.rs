@@ -6,9 +6,10 @@ use std::path::PathBuf;
 
 #[path = "test_back.rs"]
 mod test_back;
-use test_back::{current_commit_sha, git_diff_changed_paths, parse_tag_list, write_json_artifact};
+use test_back::{current_commit_sha, handle_choose, handle_impact, parse_tag_list};
 
 pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
+    let (client, _) = load_client()?;
     let db = state::Db::open().await?;
 
     match subcmd {
@@ -20,7 +21,6 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             timeout,
             force,
         } => {
-            let (client, _) = load_client()?;
             let opts = test_runner::TestRunOpts {
                 project_id,
                 test_command: command,
@@ -96,7 +96,6 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             max_parallel,
             force,
         } => {
-            let (client, _) = load_client()?;
             let opts = test_runner::TestBatchOpts {
                 project_id,
                 test_commands: commands.clone(),
@@ -134,21 +133,17 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             pipeline_id,
             project_id,
         } => {
-            let (client, _) = load_client()?;
             let results = test_runner::pipeline_results(&client, project_id, pipeline_id).await?;
-
             let passed = results.iter().filter(|r| r.passed).count();
             let failed = results.iter().filter(|r| r.status == "failed").count();
             let skipped = results.iter().filter(|r| r.status == "skipped").count();
             let other = results.len() - passed - failed - skipped;
-
             println!("Pipeline {} — {} jobs", pipeline_id, results.len());
             println!(
                 "  ✅ {} passed  ❌ {} failed  ⏭ {} skipped  ⏳ {} other",
                 passed, failed, skipped, other
             );
             println!();
-
             for r in &results {
                 let icon = match r.status.as_str() {
                     "success" => "✅",
@@ -170,7 +165,6 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             job_name,
             project_id,
         } => {
-            let (client, _) = load_client()?;
             println!(
                 "🔄 Requeuing job '{}' in pipeline {}...",
                 job_name, pipeline_id
@@ -178,7 +172,6 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             let result =
                 test_runner::requeue_job_by_name(&client, project_id, pipeline_id, &job_name)
                     .await?;
-
             if result.passed {
                 println!("✅ Job '{}' passed after requeue!", job_name);
             } else {
@@ -189,14 +182,11 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             pipeline_id,
             project_id,
         } => {
-            let (client, _) = load_client()?;
             let results = test_runner::pipeline_results(&client, project_id, pipeline_id).await?;
-
             let failed: Vec<_> = results
                 .into_iter()
                 .filter(|r| r.status == "failed")
                 .collect();
-
             if failed.is_empty() {
                 println!("✅ No failed jobs in pipeline {}!", pipeline_id);
             } else {
@@ -224,64 +214,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             repo_root,
             json,
         } => {
-            let output = tokio::process::Command::new("cargo")
-                .current_dir(&repo_root)
-                .args([
-                    "run",
-                    "-q",
-                    "-p",
-                    "veox-testctl",
-                    "--",
-                    "ci-impact",
-                    "--base",
-                    &base,
-                    "--head",
-                    &head,
-                    "--json",
-                ])
-                .output()
-                .await?;
-            if !output.status.success() {
-                anyhow::bail!(
-                    "ci-impact failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                );
-            }
-            if json {
-                print!("{}", String::from_utf8_lossy(&output.stdout));
-            } else {
-                let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-                println!("━━━ jeryu test impact ━━━\n");
-                println!("  Base/head:          {base}..{head}");
-                let release_impacting = match value["release_impacting"].as_bool() {
-                    Some(v) => v,
-                    None => true,
-                };
-                let full_build_required = match value["full_build_required"].as_bool() {
-                    Some(v) => v,
-                    None => true,
-                };
-                println!("  Release impacting:  {}", release_impacting);
-                println!("  Full build:         {}", full_build_required);
-                let jobs = match value["jobs"].as_array() {
-                    Some(items) => items
-                        .iter()
-                        .filter_map(|item| item.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    None => String::new(),
-                };
-                println!("  Jobs:               {jobs}");
-                let rules = match value["matched_rules"].as_array() {
-                    Some(items) => items
-                        .iter()
-                        .filter_map(|item| item.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                    None => String::new(),
-                };
-                println!("  Matched rules:      {rules}");
-            }
+            handle_impact(base, head, repo_root, json).await?;
         }
         TestCommands::Choose {
             base,
@@ -300,56 +233,16 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                     Err(_) => PathBuf::from("."),
                 },
             };
-
-            let changed_paths = git_diff_changed_paths(&cwd, &base, &head)?;
-
-            // Run the VTI planner
-            let plan = test_intel::planner::plan_tests(&changed_paths);
-            let receipt = plan.receipt(Some(&base), Some(&head));
-
-            // Output
-            if json {
-                let json_value = test_intel::explain::explain_json(&plan);
-                println!("{}", serde_json::to_string_pretty(&json_value)?);
-            } else if explain {
-                print!("{}", test_intel::explain::explain(&plan));
-            } else {
-                println!("━━━ jeryu smart test pick ━━━\n");
-                println!("  Base:       {}", base);
-                println!("  Head:       {}", head);
-                println!("  Changed:    {} files", changed_paths.len());
-                println!("  Mode:       {:?}", plan.mode);
-                println!("  Confidence: {:.2}", plan.confidence);
-                println!("  Receipt:    {}", receipt.receipt_id);
-                println!("  Selected:   {} test commands", plan.selected_tests.len());
-                println!("  Skipped:    {} subsystems", plan.skipped_subsystems.len());
-                if let Some(reason) = plan.repair_reason() {
-                    println!("  Repair:     {}", reason);
-                }
-                println!();
-                for test in &plan.selected_tests {
-                    println!("  ✓ [{}] {}", test.subsystem, test.command);
-                }
-            }
-
-            // Emit artifacts
-            if let Some(gitlab_path) = emit_gitlab {
-                let yaml = test_intel::ci_gen::emit_gitlab_child_yaml(&plan);
-                if let Some(parent) = gitlab_path.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                std::fs::write(&gitlab_path, &yaml)?;
-                eprintln!("Wrote GitLab child pipeline to {}", gitlab_path.display());
-            }
-
-            if let Some(plan_path) = emit_plan {
-                let json_value = test_intel::explain::explain_json(&plan);
-                write_json_artifact(&plan_path, &json_value, "test plan")?;
-            }
-
-            if let Some(receipt_path) = emit_receipt {
-                write_json_artifact(&receipt_path, &receipt, "VTI receipt")?;
-            }
+            handle_choose(
+                base,
+                head,
+                cwd,
+                explain,
+                json,
+                emit_gitlab,
+                emit_plan,
+                emit_receipt,
+            )?;
         }
         TestCommands::ExplainPlan { plan_path } => {
             let contents = std::fs::read_to_string(&plan_path)?;

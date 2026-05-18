@@ -8,6 +8,7 @@
 
 mod cleanup;
 mod stage;
+mod stage_cache;
 mod support;
 
 pub use cleanup::*;

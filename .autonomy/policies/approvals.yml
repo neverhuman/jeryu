@@ -1,0 +1,53 @@
+# .autonomy/policies/approvals.yml — quorum + hard stops.
+# Veto logic, not averaging: one valid hard_stop kills the verdict.
+# Each `hard_stops` entry references a vetted Rust fn name in
+# src/autonomy/conditions.rs. Unknown names are rejected at policy load.
+schema: vibegate.approvals.v1
+
+invariants:
+  no_self_approval:                 true   # author agent cannot approve own MR
+  exact_sha_required:               true   # approvals bind to current MR head_sha
+  target_branch_policy_only:        true   # policy loaded from target branch SHA
+  fail_closed_on_missing_evidence:  true
+  fail_closed_on_agent_disagreement: true
+  require_distinct_agent_identities: true  # quorum requires distinct agent_id values
+
+# Named hard-stops. Order matters for explainability only; ANY match vetoes.
+hard_stops:
+  - name: secret_scan_failed
+  - name: sast_failed
+  - name: reviewer_blocked            # any reviewer emitted decision == "block"
+  - name: sha_drift                   # head_sha changed since verdict
+  - name: policy_sha_drift            # target-branch policy_sha changed since verdict
+  - name: missing_required_review_role
+  - name: missing_evidence_pack
+  - name: evidence_signature_invalid
+  - name: prompt_injection_suspected
+  - name: codeowners_not_satisfied    # CODEOWNERS-required human approval missing
+  - name: freeze_window_active
+  - name: budget_exceeded
+  - name: training_use_required_but_disallowed
+  - name: lockfile_diff_without_manifest_diff   # Cargo.lock w/o Cargo.toml ⇒ veto until R3 review
+  - name: judge_signature_invalid
+
+# Quorum per risk tier. `roles:` must all emit decision == "pass".
+quorum:
+  R0: { approvals_needed: 0, roles: [], human_required: false }
+  R1: { approvals_needed: 1, roles: [test_integrity], human_required: false }
+  R2: { approvals_needed: 2, roles: [test_integrity, security], human_required: false }
+  R3:
+    approvals_needed: 4
+    roles: [test_integrity, security, runtime, lockfile_scout]
+    human_required: true
+  R4: { approvals_needed: 0, roles: [], human_required: true, fail_closed_without_human: true }
+  R5: { approvals_needed: 0, roles: [], human_required: true, fail_closed: true }
+
+# Verdict TTL: a verdict is valid only against (head_sha, policy_sha) for this window.
+verdict_ttl_minutes: 60
+
+# Re-judge automatically when:
+re_judge_on:
+  - merge_train_rebase
+  - target_branch_advance
+  - policy_change_on_target
+  - new_commit_on_pr

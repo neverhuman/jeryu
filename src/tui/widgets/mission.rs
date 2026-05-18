@@ -7,7 +7,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph},
 };
 
 use super::mission_shared::{MetricTile, render_metric_row};
@@ -17,6 +17,7 @@ use crate::api::read_model::{
 use crate::tui::theme::Theme;
 
 /// Render the mission control attention-first cockpit.
+#[allow(clippy::too_many_arguments)] // TUI cockpit: each arg is a distinct rendered surface
 pub fn render_mission(
     f: &mut Frame,
     area: Rect,
@@ -210,7 +211,7 @@ fn metric_color(value: &str, theme: &Theme) -> Color {
 }
 
 fn render_proof_stack(f: &mut Frame, area: Rect, mission: &MissionSnapshot, theme: &Theme) {
-    let lanes = vec![
+    let lanes = [
         (
             "Capability grants",
             if mission.safe_to_code {

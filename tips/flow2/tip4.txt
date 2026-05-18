@@ -1,0 +1,1566 @@
+# Engineering Spec: JeRyu Workflow Mission Control TUI
+
+## 0. North Star
+
+The Workflow tab should become the **developer’s live command deck for shipping software**: one place where they can see every required proof from PR creation through merge, selected tests, full-suite escalation, local/dev validation, canary, production promotion, evidence, blockers, and rollback readiness.
+
+The user should never have to ask:
+
+> “Where are we?”
+> “What is blocked?”
+> “Which test is failing?”
+> “What still has to run?”
+> “Can we safely merge or ship?”
+> “What action should I take next?”
+
+The TUI should answer those questions visually, instantly, and with enough density that a power user can drive the entire release process from the keyboard or mouse.
+
+This should not feel like a flat CI job list. It should feel like a **living proof DAG**.
+
+---
+
+# 1. Core Product Concept
+
+## Name: Workflow Atlas
+
+The Workflow tab becomes a scrollable, zoomable, navigable **Workflow Atlas**:
+
+```text
+PR → Change Impact → VTI Plan → Required Proofs → CI Jobs → Merge Gate
+   → Artifact Build → Dev/Dogfood → Canary → Prod Gate → Production
+```
+
+Every node is a proof-bearing object:
+
+```text
+test, build, lint, cache proof, evidence capsule, manual gate,
+merge queue item, artifact, canary, rollout, rollback check
+```
+
+Every edge means:
+
+```text
+this cannot safely proceed until that proof exists
+```
+
+The key idea: **the DAG is not just a pipeline diagram; it is the truth model for whether the change can ship.**
+
+---
+
+# 2. Visual Philosophy
+
+## 2.1 Top-to-bottom means time, dependency, and shipping confidence
+
+The user asked to see the “full workflow top/bottom.” So the primary layout should be vertical:
+
+```text
+Layer 0: PR / branch / diff / VTI impact
+Layer 1: lint / format / static checks
+Layer 2: unit tests
+Layer 3: integration tests
+Layer 4: e2e / security / full-suite escalation
+Layer 5: merge gate
+Layer 6: artifact build / attest / SBOM / provenance
+Layer 7: dev / dogfood
+Layer 8: canary
+Layer 9: prod gate
+Layer 10: production / rollback ready
+```
+
+Horizontal space represents **parallelism**.
+
+```text
+                  ┌──────────────┐
+L0  PR opened  →  │ Impact Graph │
+                  └──────┬───────┘
+                         │
+          ┌──────────────┼──────────────┐
+L1        │              │              │
+      ┌───▼───┐      ┌───▼───┐      ┌───▼───┐
+      │ fmt   │      │ lint  │      │ check │
+      └───┬───┘      └───┬───┘      └───┬───┘
+          └──────────────┼──────────────┘
+                         │
+          ┌──────────────┼──────────────┐
+L2    ┌───▼────┐     ┌───▼────┐     ┌───▼────┐
+      │ unit A │     │ unit B │     │ unit C │
+      └────────┘     └────────┘     └────────┘
+```
+
+That mental model is immediately legible: **down is progress toward production; sideways is parallel work.**
+
+---
+
+# 3. Main Screen Layout
+
+## 3.1 Default Workflow tab layout
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ JeRyu Workflow Atlas  PR !384  main←agent/fix-cache  SHA a8f93c2  LIVE ●     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Ship Readiness: 71%   Critical Path: integration/e2e → canary smoke          │
+│ Running: 4   Passed: 31   Failed: 1   Blocked: 6   Skipped by VTI: 18        │
+│ Next Safe Action: inspect failed test `cache_taint_blocks_reuse`             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ View: Atlas  Mode: Selected+Required  Follow: RUNNING  Filter: blockers off  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  L0  CHANGE / INTENT                                                          │
+│      ┌────────────────────────────────┐                                      │
+│      │◉ IMPACT GRAPH              92% │  VTI selected 43/211 tests           │
+│      │ risk: medium  files: 17        │  evidence: impact_receipt.json       │
+│      │ [SEL] PR !384 agent-authored   │                                      │
+│      └───────────────┬────────────────┘                                      │
+│                      │                                                       │
+│  L1  STATIC PROOF    │                                                       │
+│      ┌───────────────▼────────────────┐ ┌────────────────────────────────┐  │
+│      │✓ cargo fmt                 2s  │ │✓ cargo check              38s  │  │
+│      │ proof: fmt_receipt             │ │ cache: hit trusted             │  │
+│      │ required by: base lane          │ │ required by: base lane         │  │
+│      └───────────────┬────────────────┘ └──────────────┬─────────────────┘  │
+│                      └────────────┬─────────────────────┘                    │
+│                                   │                                          │
+│  L2  SELECTED UNIT TESTS          │                                          │
+│      ┌────────────────────────────────┐ ┌────────────────────────────────┐  │
+│      │✓ tui::workflow::nav        7s  │ │◉ workflow::layout         63%  │  │
+│      │ vti: selected                  │ │ eta 19s  critical             │  │
+│      │ deps: check                    │ │ log: edge route recalculated   │  │
+│      └────────────────────────────────┘ └──────────────┬─────────────────┘  │
+│                                                        │                     │
+│  L3  INTEGRATION / BLOCKERS                            │                     │
+│      ┌────────────────────────────────┐ ┌──────────────▼─────────────────┐  │
+│      │✕ cache_taint_blocks_reuse  ERR │ │○ gitlab child pipeline    WAIT │  │
+│      │ failed 1m ago                   │ │ blocked by failed cache test   │  │
+│      │ retry:r inspect:Enter           │ │ needs: cache_taint_blocks...   │  │
+│      └──────────────┬─────────────────┘ └────────────────────────────────┘  │
+│                     │                                                        │
+│  L4  MERGE / RELEASE                                                        │
+│      ┌──────────────▼─────────────────┐ ┌────────────────────────────────┐  │
+│      │□ merge queue              BLOCK│ │□ release artifact         WAIT │  │
+│      │ waiting for all required proof │ │ requires merge gate             │  │
+│      │ evidence missing: 1            │ │ exact SHA not built             │  │
+│      └────────────────────────────────┘ └────────────────────────────────┘  │
+│                                                                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ viewport y 12/98 x 0/240  minimap ███░░░░░░░  mouse drag/pan enabled          │
+│ ↑↓←→ nav  PgUp/PgDn/[ ] pan  Enter inspect  / search  b blockers  r retry    │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+This screen should communicate five things within two seconds:
+
+1. **The pipeline’s shape**: what phases exist from PR to prod.
+2. **Current location**: which node is selected and where the live execution is.
+3. **The blocker**: the first failure or missing proof that prevents progress.
+4. **Parallelism**: what is running side-by-side.
+5. **Next action**: inspect, retry, cancel, expand, open logs, or explain.
+
+---
+
+# 4. Visual Design System
+
+## 4.1 Node card contract
+
+All normal DAG cards must be fixed-width:
+
+```rust
+NODE_CARD_W = 34
+NODE_CARD_H = 5
+```
+
+A 34-character node card should contain:
+
+```text
+┌────────────────────────────────┐
+│◉ workflow::layout         63%  │
+│ eta 19s  critical             │
+│ vti:selected cache:hit        │
+│ deps: check        [SEL]      │
+└────────────────────────────────┘
+```
+
+The card should always answer:
+
+```text
+what is it?
+what state is it in?
+why does it exist?
+what is blocking it or what does it unblock?
+what can I do?
+```
+
+## 4.2 Status language
+
+Use a consistent visual grammar:
+
+| Status         | Glyph | Feel               | Meaning                                 |
+| -------------- | ----: | ------------------ | --------------------------------------- |
+| Waiting        |   `○` | dim/yellow         | queued, eligible later                  |
+| Running        |   `◉` | cyan/blue, pulsing | active now                              |
+| Passed/Ran     |   `✓` | green              | proof exists                            |
+| Failed/Error   |   `✕` | red/bold           | blocks downstream                       |
+| Blocked        |   `□` | amber/red border   | cannot start                            |
+| Cached         |   `◆` | green/blue         | proof reused                            |
+| Skipped by VTI |   `◇` | dim green/gray     | intentionally not run, receipt required |
+| Manual gate    |  `◆?` | magenta/amber      | human/CODEOWNER/prod approval required  |
+| Unknown/Stale  |   `?` | dim gray           | source data missing or stale            |
+
+Important distinction: **skipped is not passed**. VTI-skipped nodes should show a receipt and explanation, not simply turn green.
+
+## 4.3 Borders
+
+Node border should carry state:
+
+```text
+selected    double or bright accent border + [SEL]
+running     animated/pulsing border
+failed      thick red/bold border
+blocked     amber border with upstream edge highlighted
+critical    left rail or top title marker
+stale       dotted/dim border
+```
+
+For Ratatui implementation, the existing `Theme` should own all semantic colors. Do not hardcode `Color::*` inside workflow widgets.
+
+## 4.4 Terminal-native polish
+
+Ratatui supports built-in widgets such as `Block`, `Paragraph`, `Gauge`, `LineGauge`, `Scrollbar`, `Sparkline`, `Canvas`, `Chart`, `Table`, and `Tabs`, which means the Workflow tab can use terminal-native progress bars, historical duration sparklines, scrollbars, and mini visualizations without introducing a GUI dependency. ([Docs.rs][1])
+
+Use those aggressively:
+
+```text
+duration history: ▁▂▃▁▅▆█
+confidence:       ███████░░ 71%
+cache trust:      ████████░ 88%
+flake risk:       ▄▅▆█
+```
+
+---
+
+# 5. Workflow Atlas Modes
+
+The Workflow tab should support several viewing modes without changing the underlying model.
+
+## 5.1 Atlas Mode
+
+Default mode.
+
+Shows the full DAG from PR to production. This is the main “where are we?” view.
+
+```text
+mode: selected + required
+vertical: dependency / lifecycle
+horizontal: parallelism
+```
+
+## 5.2 Blockers Mode
+
+Hotkey: `b`
+
+Collapses everything except:
+
+```text
+failed nodes
+blocked nodes
+critical-path ancestors
+critical-path descendants
+manual gates
+missing evidence
+```
+
+This becomes the “why can’t we ship?” view.
+
+```text
+Impact Graph → cargo check → cache_taint_blocks_reuse ✕
+                                   ↓
+                              merge gate BLOCK
+                                   ↓
+                              release artifact WAIT
+```
+
+## 5.3 Critical Path Mode
+
+Hotkey: `c` or `C`, depending on existing bindings.
+
+Highlights the longest remaining path to production:
+
+```text
+current running node → downstream required tests → merge → artifact → canary → prod
+```
+
+Every non-critical node dims, but remains visible enough to preserve context.
+
+## 5.4 Evidence Mode
+
+Hotkey: `e`
+
+Turns the DAG into a proof ledger:
+
+```text
+each node shows:
+- receipt id
+- artifact path
+- signer/source
+- trust level
+- cache verdict
+- stale/valid
+```
+
+This is crucial for JeRyu’s agent-first model: the TUI should show not only that a job passed, but **what evidence proves it**.
+
+## 5.5 Release Mode
+
+Hotkey: `R` or view cycle.
+
+Shows only:
+
+```text
+merge gate
+artifact identity
+SBOM/provenance
+dev/dogfood
+canary
+prod gate
+prod rollout
+rollback readiness
+```
+
+This is the “can I promote?” view.
+
+## 5.6 Compact / Zoomed-Out Mode
+
+Hotkey: `z`
+
+Cards shrink to 1–2 line pills:
+
+```text
+[✓ fmt] [✓ check] [◉ layout 63%] [✕ cache_taint]
+```
+
+The user gets a full-screen pipeline overview. Pressing `Enter` on a pill opens the full inspector.
+
+## 5.7 Focus Mode
+
+Hotkey: `Enter` or `Space` on selected node.
+
+Centers the selected node and shows:
+
+```text
+upstream deps above
+selected node in center
+downstream blocked nodes below
+logs/evidence/right inspector
+```
+
+This is especially useful for failure debugging.
+
+---
+
+# 6. Navigation and Interaction
+
+## 6.1 Keyboard navigation
+
+The navigation should feel spatial, not list-like.
+
+```text
+↑ / k       nearest upstream phase / predecessor
+↓ / j       nearest downstream phase / successor
+← / h       previous sibling in same phase
+→ / l       next sibling in same phase
+Tab         next visible node
+Shift+Tab   previous visible node
+Home        top-left of DAG
+End         bottom / production gate
+PgUp        pan up 50%
+PgDn/Space  pan down 50%
+[           pan left 50%
+]           pan right 50%
+f           follow active running node
+b           blockers mode
+/           search
+n / N       next / previous search result
+Enter       inspect selected node
+Esc         close overlay / clear mode
+r           retry selected failed job
+c           cancel selected running job
+?           help overlay
+```
+
+The key requirement: **selection must be stable by node id**, not by visible index. Refreshes must not throw the user to a different node.
+
+## 6.2 Mouse navigation
+
+The user explicitly wants fast mouse panning up/down/left/right.
+
+Crossterm supports `EnableMouseCapture`, and mouse events can be captured through `read`/`poll`; `MouseEventKind` includes `Drag`, `ScrollUp`, `ScrollDown`, `ScrollLeft`, and `ScrollRight`, which are exactly the primitives needed for viewport panning. ([Docs.rs][2]) ([Docs.rs][3])
+
+Mouse behavior:
+
+```text
+wheel up/down        pan vertical
+shift+wheel          pan horizontal, where terminals support modifiers
+trackpad left/right  pan horizontal via ScrollLeft/ScrollRight
+left click card      select node
+double click card    open inspector
+drag empty canvas    pan x/y
+drag minimap         jump viewport
+right click card     quick action menu
+```
+
+Implementation state:
+
+```rust
+pub struct WorkflowMouseState {
+    pub dragging: bool,
+    pub drag_origin: Option<(u16, u16)>,
+    pub drag_viewport_origin: Option<(i32, i32)>,
+    pub last_click: Option<(NodeId, Instant)>,
+}
+```
+
+Mouse actions should route to `App` methods, not mutate rendering state inside widgets.
+
+---
+
+# 7. DAG Layout System
+
+## 7.1 Canonical layout rule
+
+```text
+Y axis = topological phase / lifecycle stage
+X axis = lane position within phase
+```
+
+Rules:
+
+1. Nodes with no dependency start at layer 0 or the relevant lifecycle root.
+2. Node layer is `1 + max(layer(dep))`.
+3. Nodes in the same layer render side-by-side.
+4. Downstream nodes should try to stay horizontally aligned with their strongest upstream dependency.
+5. Critical-path nodes should get central preferred lanes.
+6. Failed/blocking nodes should avoid being hidden off-screen when possible.
+7. Manual gates and release gates get full-width emphasis when terminal width allows.
+
+## 7.2 Virtual canvas
+
+The Workflow widget should render into a virtual coordinate system:
+
+```rust
+pub struct WorkflowLayout {
+    pub canvas_width: i32,
+    pub canvas_height: i32,
+    pub phase_rects: Vec<PhaseRect>,
+    pub node_rects: HashMap<NodeId, Rect>,
+    pub edge_routes: Vec<EdgeRoute>,
+}
+```
+
+Every frame:
+
+```text
+snapshot + nav + terminal area
+→ compute or reuse layout
+→ clip against viewport
+→ draw visible phase headers
+→ draw visible edges
+→ draw visible node cards
+→ draw overlays / minimap / scrollbars
+```
+
+Ratatui is immediate-rendered with intermediate buffers: the app redraws the visible UI each frame instead of relying on retained widgets automatically updating themselves. ([Docs.rs][4]) This is a good fit for the Atlas, but expensive data collection should not happen every render frame.
+
+## 7.3 Fix current fixed-width card issue
+
+The renderer should never give each card the full DAG area width. Instead, compute card rects directly:
+
+```rust
+let x = canvas_origin_x + lane_idx * (NODE_CARD_W + NODE_GAP_X);
+let y = phase_y + PHASE_HEADER_H + row_offset;
+let rect = Rect::new(
+    screen_x_from_canvas(x, nav.viewport_x),
+    screen_y_from_canvas(y, nav.viewport_y),
+    NODE_CARD_W,
+    NODE_CARD_H,
+);
+```
+
+Only render the card if it intersects the viewport.
+
+## 7.4 Parallel nodes
+
+For many parallel tests:
+
+```text
+L2 unit tests:
+[unit core] [unit tui] [unit cache] [unit api] [unit planner] ...
+```
+
+If the phase is wider than the terminal:
+
+```text
+horizontal scroll with [ and ], mouse drag, trackpad ScrollLeft/ScrollRight
+```
+
+If there are hundreds of tests:
+
+```text
+group lanes:
+- unit::tui/*
+- unit::cache/*
+- integration::gitlab/*
+- release::*
+```
+
+Group cards can expand/collapse.
+
+---
+
+# 8. Edge Rendering
+
+## 8.1 Edge types
+
+Edges should visually encode meaning:
+
+| Edge kind           | Visual                 |
+| ------------------- | ---------------------- |
+| hard dependency     | solid line             |
+| stage-order         | thin/dim line          |
+| artifact dependency | line with `◆`          |
+| VTI skipped         | dotted/dim line        |
+| blocked             | red/amber highlighted  |
+| child pipeline      | double or labeled line |
+| critical path       | bright heavy line      |
+
+Examples:
+
+```text
+        ┌──────────────┐
+        │ cargo check  │
+        └──────┬───────┘
+               │
+      ┌────────┴────────┐
+      │                 │
+┌─────▼─────┐     ┌─────▼─────┐
+│ unit tui  │     │ unit api  │
+└───────────┘     └───────────┘
+```
+
+## 8.2 Edge routing
+
+Use orthogonal routes:
+
+```rust
+pub struct EdgeRoute {
+    pub from: NodeId,
+    pub to: NodeId,
+    pub kind: EdgeKind,
+    pub points: Vec<(i32, i32)>,
+    pub highlighted: bool,
+}
+```
+
+Draw order:
+
+```text
+1. background
+2. phase gutters
+3. edges
+4. node cards
+5. selection rings
+6. overlays
+7. viewport indicator
+```
+
+The current bug where edges are not visible is likely a draw-order or coordinate mismatch. The edge gutter must be included in the virtual canvas Y calculation and rendered before cards but after the background.
+
+## 8.3 Edge hit-testing
+
+When user selects a node, highlight:
+
+```text
+upstream dependency edges
+downstream blocked edges
+critical path continuation
+```
+
+This makes failures instantly understandable.
+
+---
+
+# 9. Inspector Overlay
+
+The current inspector should become a full “proof debugger.”
+
+## 9.1 Default inspector
+
+```text
+┌──────────────────── Node Inspector ────────────────────┐
+│ workflow::layout_edge_routes                            │
+│ Status: RUNNING ◉   Progress: 63%   ETA: 19s             │
+│ Kind: Test        Phase: Selected Unit Tests             │
+│ Critical Path: yes                                       │
+├─────────────────────────────────────────────────────────┤
+│ Why this exists                                          │
+│ Selected by VTI because files touched:                   │
+│ - src/tui/workflow/widget.rs                             │
+│ - src/tui/workflow/nav.rs                                │
+│ Confidence: 0.92                                         │
+├─────────────────────────────────────────────────────────┤
+│ Dependencies                                             │
+│ ✓ cargo check                                            │
+│ ✓ workflow::nav                                         │
+│ ✕ cache_taint_blocks_reuse blocks downstream             │
+├─────────────────────────────────────────────────────────┤
+│ Live log preview                                         │
+│ test edge_routes_split_parallel_lanes ... ok             │
+│ test selected_node_visible_after_pan ... running         │
+├─────────────────────────────────────────────────────────┤
+│ Evidence                                                 │
+│ receipt: pending                                         │
+│ cache: hit/trusted                                       │
+│ artifact: target/nextest/default.xml                     │
+├─────────────────────────────────────────────────────────┤
+│ Actions: [r] retry  [c] cancel  [l] logs  [e] evidence   │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 9.2 Inspector tabs
+
+Inside the overlay:
+
+```text
+1 Details
+2 Logs
+3 Dependencies
+4 Evidence
+5 History
+6 Actions
+```
+
+## 9.3 Duration history
+
+Use a sparkline:
+
+```text
+last 20 runs: ▁▁▂▁▃▂▅█▆▅
+p50 12s  p95 41s  current 63s  flake risk high
+```
+
+Ratatui’s built-in `Sparkline`, `Gauge`, and `Scrollbar` widgets make this viable without leaving the terminal UI toolkit. ([Docs.rs][1])
+
+---
+
+# 10. Summary Banner
+
+The top banner should be the “executive answer”:
+
+```text
+Ship Readiness: 71%
+Current phase: selected integration tests
+Primary blocker: cache_taint_blocks_reuse failed
+Critical path ETA: 7m 14s
+Merge gate: blocked
+Prod readiness: not eligible
+Next safe action: inspect failure / retry after patch
+```
+
+## 10.1 Confidence score
+
+Compute:
+
+```text
+confidence =
+  weighted proof completion
+  - failed required proof penalty
+  - stale data penalty
+  - missing evidence penalty
+  - manual gate pending penalty
+```
+
+Show it as:
+
+```text
+Confidence ███████░░ 71%
+```
+
+## 10.2 Progress bars
+
+```text
+Required Proofs: 31/44 complete
+VTI Selected:    43/211 tests
+Critical Path:   4/9 complete
+Release Gates:   0/5 complete
+```
+
+---
+
+# 11. Minimap and Scroll Indicators
+
+The bottom-right indicator should become a real minimap:
+
+```text
+┌mini────────┐
+│█░░░░░░░░░░│
+│█░░░░░░░░░░│
+│███░░░░░░░░│
+│░░█░░░░░░░░│
+│░░█░░░░░░░░│
+└────────────┘
+```
+
+Meaning:
+
+```text
+bright block = current viewport
+dim blocks = phases with nodes
+red marker = failure
+cyan marker = running node
+green marker = passed dense region
+```
+
+Also render textual coordinates:
+
+```text
+viewport y 12/98 x 34/240
+```
+
+Use Ratatui `Scrollbar` for vertical and horizontal scroll affordances where space allows. Ratatui includes a built-in `Scrollbar` widget. ([Docs.rs][1])
+
+---
+
+# 12. Data Model Upgrade
+
+The existing `WorkflowSnapshot` is already a strong base. I would extend it rather than replace it.
+
+## 12.1 Add lifecycle stage
+
+```rust
+pub enum WorkflowLifecycleStage {
+    ChangeIntent,
+    LocalPreview,
+    StaticProof,
+    SelectedTests,
+    Integration,
+    FullSuite,
+    MergeGate,
+    ArtifactBuild,
+    DevDogfood,
+    Canary,
+    ProdGate,
+    Production,
+    RollbackReady,
+}
+```
+
+## 12.2 Add node evidence
+
+```rust
+pub struct WorkflowEvidence {
+    pub receipt_id: Option<String>,
+    pub artifact_uri: Option<String>,
+    pub log_uri: Option<String>,
+    pub junit_uri: Option<String>,
+    pub provenance_uri: Option<String>,
+    pub sbom_uri: Option<String>,
+    pub signer: Option<String>,
+    pub source: EvidenceSource,
+    pub stale: bool,
+}
+```
+
+## 12.3 Add runtime timing
+
+```rust
+pub struct WorkflowTiming {
+    pub queued_at: Option<DateTime<Utc>>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub eta_secs: Option<u64>,
+    pub duration_secs: Option<f64>,
+    pub historical_p50_secs: Option<f64>,
+    pub historical_p95_secs: Option<f64>,
+}
+```
+
+## 12.4 Add explainability fields
+
+```rust
+pub struct WorkflowWhy {
+    pub selected_by: Vec<SelectionReason>,
+    pub required_by: Vec<RequirementReason>,
+    pub blocks: Vec<String>,
+    pub blocked_by: Vec<String>,
+    pub risk_notes: Vec<String>,
+}
+```
+
+## 12.5 Add action affordances
+
+```rust
+pub struct WorkflowAction {
+    pub key: char,
+    pub label: String,
+    pub intent: AgentIntentKind,
+    pub destructive: bool,
+    pub requires_confirmation: bool,
+    pub enabled: bool,
+    pub disabled_reason: Option<String>,
+}
+```
+
+This ties directly into JeRyu’s action registry / capability model.
+
+---
+
+# 13. Data Sources
+
+The collector should merge sources in priority order:
+
+```text
+1. Live GitLab/GitHub pipeline jobs and needs
+2. VTI selected test plan
+3. persisted test executions
+4. proof-lanes.toml / Jankurai standard
+5. Cargo metadata / workspace validation order
+6. release/canary/prod state
+7. evidence capsules / proof receipts
+8. historical durations / flake data
+```
+
+## 13.1 Snapshot freshness
+
+Do not rebuild the Workflow snapshot every render frame.
+
+Instead:
+
+```text
+render tick:        16–250ms depending on app loop
+data refresh:       event-driven or 750–1500ms
+log refresh:        faster, bounded
+snapshot rebuild:   only when source revision changes
+layout rebuild:     only when snapshot hash or terminal size changes
+```
+
+Keep:
+
+```rust
+last_snapshot_hash
+last_layout_hash
+last_terminal_rect
+last_non_empty_snapshot
+stale_since
+```
+
+This preserves JeRyu’s anti-blanking principle.
+
+---
+
+# 14. Refresh Architecture
+
+## 14.1 Current problem
+
+`refresh_workflow_snapshot()` inside `draw()` is convenient but wasteful.
+
+## 14.2 Target architecture
+
+```text
+input/event loop
+  → app actions
+  → background collectors update data model
+  → snapshot cache invalidated
+  → render uses latest snapshot
+```
+
+```rust
+pub struct WorkflowCache {
+    pub snapshot: Option<WorkflowSnapshot>,
+    pub snapshot_hash: u64,
+    pub layout: Option<WorkflowLayout>,
+    pub layout_hash: u64,
+    pub last_refresh: Instant,
+    pub stale: bool,
+}
+```
+
+Render should be pure:
+
+```rust
+draw_workflow_tab(frame, area, &snapshot, &nav, &theme, &layout)
+```
+
+Collectors should be impure:
+
+```rust
+collect_workflow_snapshot(session, db, gitlab, vti) -> WorkflowSnapshot
+```
+
+Widgets should never mutate app state.
+
+---
+
+# 15. Powerful Rust TUI Concepts to Support
+
+## 15.1 Immediate-mode rendering, cached data
+
+Ratatui’s immediate model is perfect for drawing a fresh visual state every frame, but collection and layout must be cached. Ratatui’s docs describe this immediate rendering model with intermediate buffers, where the UI is rendered each frame. ([Docs.rs][4])
+
+Design implication:
+
+```text
+redraw often
+collect carefully
+layout only when dirty
+```
+
+## 15.2 Direct buffer edge drawing
+
+Use widgets for cards and direct buffer writes for edges.
+
+```rust
+buf[(x, y)].set_symbol("│").set_style(edge_style);
+buf[(x, y)].set_symbol("┬").set_style(edge_style);
+buf[(x, y)].set_symbol("─").set_style(edge_style);
+```
+
+This gives the TUI a custom, high-fidelity DAG feel that normal widgets cannot provide.
+
+## 15.3 Semantic theming
+
+No hardcoded widget colors.
+
+The `Theme` should expose:
+
+```rust
+theme.workflow_selected()
+theme.workflow_edge()
+theme.workflow_edge_critical()
+theme.workflow_edge_blocked()
+theme.workflow_node_running()
+theme.workflow_node_failed()
+theme.workflow_node_cached()
+theme.workflow_node_skipped()
+theme.workflow_minimap()
+```
+
+If the existing theme cannot support this cleanly, add semantic methods to `Theme`, not raw colors in widgets.
+
+## 15.4 Stateful navigation, pure widgets
+
+Keep the existing invariant:
+
+```text
+App owns state
+WorkflowNav owns navigation
+Widget renders only
+Input calls App methods
+```
+
+This preserves testability.
+
+## 15.5 Deterministic capture mode
+
+The Workflow tab should have golden snapshot tests:
+
+```bash
+jeryu tui --demo --once --capture workflow_atlas.txt
+```
+
+Use deterministic demo ticks:
+
+```text
+tick 0 waiting
+tick 1 static running
+tick 2 static passed, unit running
+tick 3 integration failed
+tick 4 blocked downstream
+tick 5 retry success
+tick 6 canary running
+tick 7 prod ready
+```
+
+---
+
+# 16. Demo Mode Upgrade
+
+Demo mode should not be static. It should be a showcase.
+
+## 16.1 Demo timeline
+
+```text
+0s   PR opened, impact graph running
+3s   static checks run in parallel
+6s   selected unit tests fan out
+10s  one integration test fails
+13s  downstream merge/release nodes turn blocked
+18s  user/retry simulation starts
+24s  failure passes
+28s  merge gate opens
+34s  artifact build runs
+40s  canary runs
+48s  production gate waits
+```
+
+## 16.2 Demo goals
+
+Demo should show:
+
+```text
+parallel cards
+animated running node
+visible edges
+failure propagation
+blocked downstream nodes
+mouse/keyboard panning
+inspector overlay
+minimap
+release path
+```
+
+This makes `jeryu tui --demo` a sales demo and a regression fixture.
+
+---
+
+# 17. Failure UX
+
+Failure is where the product earns trust.
+
+## 17.1 Failure node card
+
+```text
+┌────────────────────────────────┐
+│✕ cache_taint_blocks_reuse  ERR │
+│ failed 1m ago  p95 22s         │
+│ blocks: merge, artifact, prod  │
+│ [r] retry  [Enter] inspect     │
+└────────────────────────────────┘
+```
+
+## 17.2 Failure propagation
+
+When selected:
+
+```text
+failed node: red
+upstream passed deps: green
+downstream blocked nodes: amber/red
+unrelated nodes: dim
+```
+
+## 17.3 Failure explanation
+
+Inspector should show:
+
+```text
+why it failed
+first failing line
+last useful log lines
+artifact paths
+whether it is flaky
+what downstream work is blocked
+suggested safe action
+```
+
+## 17.4 Action safety
+
+Dangerous operations require preview:
+
+```text
+Retry job?
+- job: cache_taint_blocks_reuse
+- source: GitLab pipeline #8421
+- effect: creates new retry attempt
+- downstream: may unblock merge gate
+Confirm: y/N
+```
+
+---
+
+# 18. Agent-First Workflow Concepts
+
+JeRyu is not merely a human CI dashboard. It is an agent-native control plane. The Workflow tab should expose that.
+
+## 18.1 Agent attribution
+
+Every node should be able to show:
+
+```text
+actor: human / agent / system
+agent id
+capability grant
+intent id
+evidence id
+```
+
+Example:
+
+```text
+agent: codex-17
+intent: RunTests
+grant: test:workflow/*
+receipt: proof_89f...
+```
+
+## 18.2 Evidence capsules
+
+Evidence should be first-class:
+
+```text
+VTI receipt
+test receipt
+cache receipt
+artifact receipt
+canary receipt
+rollback receipt
+```
+
+A green card without evidence is not fully green. It should be “passed, evidence pending” or “passed, stale evidence.”
+
+## 18.3 Next best action
+
+Top banner:
+
+```text
+Next Safe Action:
+Patch failure in src/tui/workflow/widget.rs or retry if flaky.
+```
+
+Inspector:
+
+```text
+Available actions:
+[r] retry failed job
+[l] open logs
+[e] open evidence
+[x] explain selection
+[p] create patch task for agent
+```
+
+## 18.4 Action registry integration
+
+The TUI should not invent behavior. It should display action affordances from the existing action registry / capability layer.
+
+```text
+action availability is data
+action execution is typed
+action preview is mandatory for risk
+```
+
+---
+
+# 19. Search and Filter
+
+## 19.1 Search
+
+Hotkey: `/`
+
+Search should match:
+
+```text
+node id
+label
+command
+test name
+phase
+status
+tag
+evidence id
+agent id
+file path
+failure text
+```
+
+Search result behavior:
+
+```text
+n / N next previous
+Enter inspect
+Esc clear
+```
+
+## 19.2 Filters
+
+Hotkey: `F`
+
+```text
+all
+running
+failed
+blocked
+waiting
+critical path
+selected by VTI
+skipped by VTI
+cached
+release gates
+manual gates
+agent-authored
+stale evidence
+```
+
+## 19.3 Semantic shortcuts
+
+```text
+!     jump to first failure
+?     help
+g     jump to active running node
+G     jump to production gate
+m     jump to merge gate
+p     jump to PR/root
+```
+
+---
+
+# 20. Accessibility and Terminal Compatibility
+
+## 20.1 Do not rely on color alone
+
+Every status needs:
+
+```text
+glyph
+badge
+border style
+text label
+```
+
+Examples:
+
+```text
+✓ RAN
+◉ RUN
+✕ ERR
+□ BLOCK
+○ WAIT
+```
+
+## 20.2 High-contrast mode
+
+The existing `Theme::high_contrast()` should make the Workflow tab usable on:
+
+```text
+dark terminals
+light terminals
+tmux
+SSH
+low-color environments
+```
+
+## 20.3 Responsive design
+
+On narrow terminals:
+
+```text
+full cards collapse to compact cards
+inspector becomes full-screen overlay
+minimap disappears before core DAG disappears
+banner compresses
+footer rotates hints
+```
+
+On wide terminals:
+
+```text
+right side inspector can dock permanently
+logs can tail beside DAG
+minimap can expand
+```
+
+---
+
+# 21. Implementation Plan
+
+## Phase 1: Fix current foundation
+
+Target: make the existing Workflow tab correct and legible.
+
+Deliverables:
+
+```text
+fixed-width 34-char cards
+visible selected [SEL] state
+visible edge gutters
+actual terminal dimensions for panning
+viewport indicator visible
+draw order fixed
+layout clipping reliable
+```
+
+Files:
+
+```text
+src/tui/workflow/widget.rs
+src/tui/workflow/nav.rs
+src/tui/theme.rs
+src/tui/runtime/input/navigation/general.rs
+```
+
+Acceptance:
+
+```text
+parallel nodes appear side-by-side
+selected node visibly highlighted
+edges visible between phases
+PgUp/PgDn/[ ] pan by 50% of actual viewport
+Home/End behave correctly
+cargo nextest run -p jeryu -- tui::workflow passes
+```
+
+## Phase 2: Mouse panning and hit-testing
+
+Deliverables:
+
+```text
+EnableMouseCapture in terminal setup
+MouseEvent routed through input layer
+wheel vertical pan
+ScrollLeft/ScrollRight horizontal pan
+drag canvas pan
+click card select
+double click inspect
+minimap click/drag jump
+```
+
+Acceptance:
+
+```text
+user can pan large DAG with mouse/trackpad
+mouse does not break keyboard navigation
+selected node remains stable across refreshes
+```
+
+## Phase 3: Workflow Atlas layout engine
+
+Deliverables:
+
+```text
+layout.rs
+WorkflowLayout
+node rect cache
+edge route cache
+phase rect cache
+intersection-based clipping
+lane assignment for parallel nodes
+critical path lane bias
+```
+
+Acceptance:
+
+```text
+large demo DAG with 100+ nodes remains navigable
+layout does not flicker
+parallel tests are spatially stable
+```
+
+## Phase 4: Inspector 2.0
+
+Deliverables:
+
+```text
+rich node inspector
+dependency graph
+log preview
+duration sparkline
+evidence section
+action buttons
+failure explanation
+```
+
+Acceptance:
+
+```text
+Enter on any node answers what/why/status/deps/logs/actions
+failed node inspector shows blocker chain and useful logs
+```
+
+## Phase 5: Snapshot caching and live refresh
+
+Deliverables:
+
+```text
+WorkflowCache
+snapshot hash
+layout hash
+last non-empty snapshot
+stale marker
+refresh cadence outside draw()
+source revision detection
+```
+
+Acceptance:
+
+```text
+draw is pure
+live mode does not rebuild snapshot every frame
+no blanking when data source returns temporarily empty
+```
+
+## Phase 6: PR-to-prod lifecycle
+
+Deliverables:
+
+```text
+lifecycle stage enum
+merge gate nodes
+artifact/provenance nodes
+canary nodes
+prod gate nodes
+rollback-ready nodes
+evidence receipts
+```
+
+Acceptance:
+
+```text
+Workflow tab shows full path from PR/change intent through production readiness
+release blockers are visible in the same DAG as tests
+```
+
+## Phase 7: Showcase demo mode
+
+Deliverables:
+
+```text
+animated workflow snapshot
+failure propagation
+retry recovery
+canary/prod progression
+demo capture tests
+```
+
+Acceptance:
+
+```text
+jeryu tui --demo showcases the full product story
+deterministic capture tests prove visual regressions
+```
+
+---
+
+# 22. Testing Strategy
+
+## 22.1 Unit tests
+
+```text
+topological phase assignment
+parallel lane assignment
+edge route generation
+viewport clipping
+selection stability by node id
+ensure_selected_visible
+mouse drag pan math
+search/filter matching
+status mapping
+```
+
+## 22.2 Render tests
+
+Use buffer snapshot tests:
+
+```text
+small DAG
+wide parallel DAG
+deep vertical DAG
+failed blocker DAG
+selected node DAG
+compact mode
+high contrast mode
+mouse-panned viewport
+```
+
+## 22.3 Demo smoke tests
+
+```bash
+cargo check -p jeryu
+cargo nextest run -p jeryu -- tui::workflow
+cargo nextest run -p jeryu -- tui
+cargo install --path . --force
+jeryu tui --demo
+```
+
+For CI:
+
+```bash
+jeryu tui --demo --once --capture workflow-demo.txt
+```
+
+---
+
+# 23. Design Principles
+
+## 23.1 Truth before beauty
+
+The TUI must never hide a blocker to make the graph look clean.
+
+## 23.2 Parallelism must be obvious
+
+If tests can run at the same time, they should be side-by-side.
+
+## 23.3 Dependency must be obvious
+
+If one test blocks another, there must be a visible edge.
+
+## 23.4 Skipped is not passed
+
+VTI skip requires a receipt and explanation.
+
+## 23.5 Evidence is the product
+
+For JeRyu, “green” is not enough. The UI should show proof.
+
+## 23.6 Actions are typed, previewed, and safe
+
+Retry, cancel, promote, merge, skip, and expand must come from typed action affordances.
+
+## 23.7 The user should always know the next safe move
+
+The top banner and inspector should always answer:
+
+```text
+what happened?
+why?
+what is blocked?
+what evidence exists?
+what can safely happen next?
+```
+
+---
+
+# 24. The Dream Version
+
+The best possible JeRyu Workflow TUI looks like this:
+
+```text
+┌──────────────────────────── JeRyu Mission Control ───────────────────────────┐
+│ PR !384  agent/fix-cache → main   SHA a8f93c2   LIVE ●   confidence 71%       │
+│ Blocker: cache_taint_blocks_reuse ✕   Next: inspect failure / retry           │
+├──────────────────────────────── Workflow Atlas ──────────────────────────────┤
+│ PR/Impact      ◉ impact graph ──✓ VTI plan ──✓ risk gate                      │
+│ Static         ✓ fmt      ✓ check      ✓ clippy      ✓ policy                 │
+│ Unit           ✓ tui nav  ◉ layout 63%  ✓ cache model  ✓ api                  │
+│ Integration    ✕ cache taint ────────────────┐                                │
+│ Release        □ merge gate BLOCK            │                                │
+│ Artifact       □ exact-SHA artifact WAIT      │                                │
+│ Canary         □ canary smoke WAIT            │                                │
+│ Production     □ prod gate WAIT               │                                │
+├─────────────────────────────── Inspector Dock ───────────────────────────────┤
+│ Selected: cache_taint_blocks_reuse                                            │
+│ Why: required by proof lane + touched src/cache.rs                            │
+│ Blocks: merge gate, artifact build, canary, prod                              │
+│ Failure: expected tainted cache denied, got cache hit                          │
+│ Evidence: junit pending, log available, receipt failed                         │
+│ Actions: [r] retry  [l] logs  [p] create agent patch  [e] evidence             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ viewport y 34/140 x 0/260  minimap ▓▓░░░░░░░  ↑↓←→ nav  mouse drag pan        │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+That is the target: **not a dashboard, not a job list, but a live shipping intelligence surface.**
+
+It should make JeRyu feel like the first CI/CD tool designed for the agent era: proof-native, DAG-native, evidence-native, and fast enough to drive entirely from a terminal.
+
+[1]: https://docs.rs/ratatui/latest/ratatui/widgets/index.html "ratatui::widgets - Rust"
+[2]: https://docs.rs/crossterm/latest/crossterm/event/struct.EnableMouseCapture.html "EnableMouseCapture in crossterm::event - Rust"
+[3]: https://docs.rs/crossterm/latest/crossterm/event/enum.MouseEventKind.html "MouseEventKind in crossterm::event - Rust"
+[4]: https://docs.rs/ratatui/latest/ratatui/ "ratatui - Rust"
+

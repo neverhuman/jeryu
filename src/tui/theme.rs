@@ -5,6 +5,8 @@
 
 use ratatui::style::{Color, Modifier, Style};
 
+use crate::api::entity::Severity;
+
 // ── Theme ───────────────────────────────────────────────────────────────
 
 /// Semantic color tokens for the entire TUI. Every rendering function
@@ -119,7 +121,12 @@ impl Theme {
         match status {
             "success" | "passed" | "green" | "released" | "omitted" => self.ok,
             "running" | "in-flight" | "canary-authorized" => self.running,
-            "pending" | "created" | "waiting" | "ready-for-canary" => self.waiting,
+            "pending"
+            | "created"
+            | "waiting"
+            | "waiting_for_resource"
+            | "preparing"
+            | "ready-for-canary" => self.waiting,
             "failed" => self.fail,
             "blocked" | "blocked-by-upstream" => self.blocked,
             "canceled" | "vti-skipped" | "skipped" => self.skipped,
@@ -132,7 +139,7 @@ impl Theme {
         match status {
             "success" | "passed" | "green" | "released" => "✓",
             "running" | "in-flight" => "●",
-            "pending" | "created" | "waiting" => "○",
+            "pending" | "created" | "waiting" | "waiting_for_resource" | "preparing" => "○",
             "failed" => "✗",
             "blocked" | "blocked-by-upstream" => "⊘",
             "canceled" | "vti-skipped" | "skipped" => "⊘",
@@ -162,6 +169,15 @@ impl Theme {
             Style::default().fg(self.border_active)
         } else {
             Style::default().fg(self.border_subtle)
+        }
+    }
+
+    pub fn severity_color(&self, severity: Severity) -> Color {
+        match severity {
+            Severity::Critical => self.fail,
+            Severity::Error => self.warning,
+            Severity::Warning => self.waiting,
+            Severity::Info => self.text_muted,
         }
     }
 }

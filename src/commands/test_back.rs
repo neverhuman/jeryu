@@ -192,10 +192,10 @@ pub(crate) async fn run(subcmd: TestCommands, db: &state::Db) -> Result<()> {
                 build_audit_report(&changed, &failed, &all_tests, &sha, workspace.as_ref());
 
             if json {
-                let json_value = test_intel::nightly::explain_audit_json(&report);
+                let json_value = test_intel::nightly_report::explain_audit_json(&report);
                 println!("{}", serde_json::to_string_pretty(&json_value)?);
             } else {
-                print!("{}", test_intel::nightly::explain_audit(&report));
+                print!("{}", test_intel::nightly_report::explain_audit(&report));
             }
 
             for miss in &report.misses {
@@ -334,3 +334,11 @@ pub(crate) async fn run(subcmd: TestCommands, db: &state::Db) -> Result<()> {
     }
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Choose/Impact helpers (extracted to companion)
+// ---------------------------------------------------------------------------
+
+#[path = "test_back_choose.rs"]
+mod test_back_choose;
+pub(crate) use test_back_choose::{handle_choose, handle_impact};

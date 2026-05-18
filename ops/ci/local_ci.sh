@@ -36,7 +36,9 @@ trap cleanup_generated_sboms EXIT
 prepare_ux_qa_cli() {
     local tool_dir
     tool_dir="$(mktemp -d)"
-    git clone --branch v1.0.0 --depth 1 https://github.com/neverhuman/jankurai "$tool_dir/jankurai" >/dev/null 2>&1
+    # Jankurai is always installed from URL with an explicit version tag.
+    # Keep this tag in sync with the Rust install in .github/workflows/jankurai.yml.
+    git clone --branch v1.4.1 --depth 1 https://github.com/neverhuman/jankurai "$tool_dir/jankurai" >/dev/null 2>&1
     (
         cd "$tool_dir/jankurai"
         npm ci >/dev/null 2>&1

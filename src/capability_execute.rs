@@ -80,6 +80,7 @@ pub(crate) async fn run_tests(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // capability bridge: flat schema mirrors AgentIntent::ProposePatch
 pub(crate) async fn propose_patch(
     project_id: i64,
     branch_name: String,
@@ -264,11 +265,7 @@ pub(crate) async fn request_merge(
 }
 
 fn err(msg: &str) -> CapabilityResponse {
-    CapabilityResponse {
-        success: false,
-        message: msg.to_string(),
-        data: None,
-    }
+    CapabilityResponse::error(msg)
 }
 
 #[allow(clippy::too_many_arguments)]

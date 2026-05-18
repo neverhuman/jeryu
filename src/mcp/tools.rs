@@ -179,7 +179,38 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
         _ => return None,
     };
 
-    let input_schema = match action_id {
+    let input_schema = tool_input_schema(action_id)?;
+
+    let output_schema = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" },
+            "data": {}
+        },
+        "required": ["success", "message"]
+    });
+
+    Some(ToolDefinition {
+        title,
+        description,
+        annotations,
+        input_schema,
+        output_schema,
+        kind,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Schema helpers and parsers (extracted to companion)
+// ---------------------------------------------------------------------------
+
+#[path = "tools_schema.rs"]
+mod tools_schema;
+use tools_schema::*;
+
+fn tool_input_schema(action_id: &str) -> Option<Value> {
+    let schema = match action_id {
         "fetch_capsule" => object_schema(&["job_id"], &[("job_id", integer_schema())]),
         "get_system_snapshot" => object_schema(&[], &[]),
         "get_pipeline_jobs" => object_schema(
@@ -281,103 +312,5 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
         ),
         _ => return None,
     };
-
-    let output_schema = serde_json::json!({
-        "type": "object",
-        "properties": {
-            "success": { "type": "boolean" },
-            "message": { "type": "string" },
-            "data": {}
-        },
-        "required": ["success", "message"]
-    });
-
-    Some(ToolDefinition {
-        title,
-        description,
-        annotations,
-        input_schema,
-        output_schema,
-        kind,
-    })
-}
-
-fn tool_annotations(
-    read_only: bool,
-    destructive: bool,
-    idempotent: bool,
-    open_world: bool,
-) -> Value {
-    serde_json::json!({
-        "readOnlyHint": read_only,
-        "destructiveHint": destructive,
-        "idempotentHint": idempotent,
-        "openWorldHint": open_world,
-    })
-}
-
-fn object_schema(required: &[&str], props: &[(&str, Value)]) -> Value {
-    let properties = props
-        .iter()
-        .map(|(k, v)| ((*k).to_string(), v.clone()))
-        .collect::<serde_json::Map<_, _>>();
-    serde_json::json!({
-        "type": "object",
-        "properties": properties,
-        "required": required,
-    })
-}
-
-fn string_schema() -> Value {
-    serde_json::json!({ "type": "string" })
-}
-
-fn string_schema_optional() -> Value {
-    serde_json::json!({ "type": "string" })
-}
-
-fn integer_schema() -> Value {
-    serde_json::json!({ "type": "integer" })
-}
-
-fn array_schema(items: Value) -> Value {
-    serde_json::json!({ "type": "array", "items": items })
-}
-
-fn enum_schema(values: &[&str]) -> Value {
-    serde_json::json!({ "type": "string", "enum": values })
-}
-
-fn parse_string_array(value: &Value) -> Option<Vec<String>> {
-    let items = value.as_array()?;
-    let mut out = Vec::with_capacity(items.len());
-    for item in items {
-        out.push(item.as_str()?.to_string());
-    }
-    Some(out)
-}
-
-fn parse_modifications(value: &Value) -> Option<Vec<crate::capability::FileModification>> {
-    let items = value.as_array()?;
-    let mut out = Vec::with_capacity(items.len());
-    for item in items {
-        let file_path = item.get("file_path")?.as_str()?.to_string();
-        let content = item.get("content")?.as_str()?.to_string();
-        out.push(crate::capability::FileModification { file_path, content });
-    }
-    Some(out)
-}
-
-fn parse_hypotheses(value: &Value) -> Option<Vec<crate::capability::HypothesisPatch>> {
-    let items = value.as_array()?;
-    let mut out = Vec::with_capacity(items.len());
-    for item in items {
-        let branch_suffix = item.get("branch_suffix")?.as_str()?.to_string();
-        let modifications = parse_modifications(item.get("modifications")?)?;
-        out.push(crate::capability::HypothesisPatch {
-            branch_suffix,
-            modifications,
-        });
-    }
-    Some(out)
+    Some(schema)
 }

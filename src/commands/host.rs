@@ -23,6 +23,9 @@ pub(crate) async fn execute_host_commands(subcmd: HostCommands) -> Result<i32> {
         HostCommands::InstallGcTimer { allow_sudo } => {
             jeryu::host::install_gc_timer(allow_sudo).await?;
         }
+        HostCommands::InstallGcdService { allow_sudo } => {
+            jeryu::host::install_gcd_service(allow_sudo).await?;
+        }
         HostCommands::Reclaim { mode, plan, apply } => {
             if mode != "aggressive" {
                 anyhow::bail!("Only --mode aggressive is currently supported for host reclaim.");

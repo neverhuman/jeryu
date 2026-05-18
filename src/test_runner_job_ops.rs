@@ -124,7 +124,7 @@ pub async fn pipeline_results(
     for job in &jobs {
         let trace_tail = if job.status == "failed" {
             match client.get_job_log_snippet(project_id, job.id, 2000).await {
-                Ok(trace) => trace,
+                Ok(s) => s,
                 Err(_) => String::new(),
             }
         } else {

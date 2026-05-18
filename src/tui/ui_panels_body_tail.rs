@@ -38,8 +38,7 @@ pub(crate) fn draw_release_banner(f: &mut Frame, app: &App, area: Rect) {
 
 #[allow(dead_code)]
 pub(crate) fn draw_flow_board(f: &mut Frame, app: &App, area: Rect) {
-    let (outdated_age, outdated_color, _outdated_label) =
-        outdated_indicator(app.state.last_sync_at);
+    let (outdated_age, outdated_color, _outdated_label) = outdated_indicator(app);
     let flow_outdated = app.state.flow.outdated;
     let title = if flow_outdated {
         if let Some(last) = app.state.flow.last_non_empty_at {
@@ -109,7 +108,7 @@ pub(crate) fn draw_jobs(f: &mut Frame, app: &App, area: Rect) {
                 "success" => "OK",
                 "running" => "RUN",
                 "failed" => "FAIL",
-                "pending" | "created" => "WAIT",
+                "pending" | "created" | "waiting_for_resource" | "preparing" => "WAIT",
                 "canceled" => "STOP",
                 _ => "JOB",
             };
@@ -135,7 +134,7 @@ pub(crate) fn draw_jobs(f: &mut Frame, app: &App, area: Rect) {
                         },
                     )
                 }
-                "running" => {
+                "running" | "pending" | "created" | "waiting_for_resource" | "preparing" => {
                     let elapsed =
                         if let Ok(st) = chrono::DateTime::parse_from_rfc3339(&j.received_at) {
                             now.signed_duration_since(st).num_seconds()
@@ -143,7 +142,14 @@ pub(crate) fn draw_jobs(f: &mut Frame, app: &App, area: Rect) {
                             0
                         };
                     let p = ((elapsed as f64 / 120.0) * 100.0).min(99.0) as u16;
-                    (p, Color::Cyan)
+                    (
+                        p,
+                        if j.status == "running" {
+                            Color::Cyan
+                        } else {
+                            Color::Yellow
+                        },
+                    )
                 }
                 _ => (0, Color::DarkGray),
             };
@@ -198,7 +204,7 @@ pub(crate) fn draw_jobs(f: &mut Frame, app: &App, area: Rect) {
                 app.state.recent_jobs.len()
             ))
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(pane_border(ActivePane::Jobs, app.active_pane))),
+            .border_style(Style::default().fg(pane_border(ActivePane::Jobs, app))),
     );
     f.render_widget(list, area);
 }
@@ -239,7 +245,7 @@ pub(crate) fn draw_logs(f: &mut Frame, app: &mut App, area: Rect) {
         } else if log_state.outdated || log_state.error.is_some() {
             Color::Yellow
         } else {
-            pane_border(ActivePane::Jobs, app.active_pane)
+            pane_border(ActivePane::Jobs, app)
         }));
 
     let inner_area = outer_block.inner(area);
@@ -299,7 +305,7 @@ pub(crate) fn draw_logs(f: &mut Frame, app: &mut App, area: Rect) {
     let parsed_text = if !log_state.text.is_empty() {
         render_log_text(&log_state.text)
     } else if app.active_pane == ActivePane::Jobs {
-        Text::raw("Choose a running, failed, or recent job. Fetching...")
+        Text::raw("Choose a live, failed, or recent job. Fetching...")
     } else {
         Text::raw("Focus Jobs pane to tail logs...")
     };

@@ -4,12 +4,23 @@ pub(super) fn ssh_bash_command(cfg: &RemoteConfig, script: &str) -> Command {
     let mut cmd = Command::new("ssh");
     cmd.args(ssh_args(cfg));
     cmd.arg(&cfg.target);
-    cmd.arg(ssh_bash_remote_command(script));
+    // SSH joins all remaining args with spaces and passes them as ONE shell
+    // command string to the remote sh. If we send `bash -c <script>` as
+    // three args, the remote sh sees:
+    //     bash -c <first-word-of-script> <rest-positional-args>
+    // — bash only treats the first word as the command. So a script like
+    // `mkdir -p $HOME/x && cat > $HOME/y` runs `mkdir` with no operands.
+    // Wrap the whole `bash -c <script>` in a single argument with the
+    // script quoted, so the remote shell re-parses it as one bash invocation.
+    //
+    // We use `-c` (not `-lc`): the prior `-l` (login shell) sourced
+    // /etc/profile on the remote, which on some images triggers init
+    // logic (e.g., the docker-installer's profile fragment can launch
+    // a docker compose pull). We don't need login mode — these scripts
+    // either set their own env (uploads, install) or invoke a self-
+    // contained binary that needs no shell init.
+    cmd.arg(format!("bash -c {}", shell_single_quote(script)));
     cmd
-}
-
-fn ssh_bash_remote_command(script: &str) -> String {
-    format!("bash -lc {}", shell_single_quote(script))
 }
 
 pub(super) async fn capture_ssh_bash_output(
@@ -59,10 +70,10 @@ pub(crate) fn print_remote_report(
         println!("  installed:      {}", report.installed);
         println!("  service active: {}", report.service_active);
         println!("  docker ready:   {}", report.docker_ready);
-        if label == "doctor" {
-            if let Some(version) = &report.version_output {
-                println!("  version:        {}", version.trim());
-            }
+        if label == "doctor"
+            && let Some(version) = &report.version_output
+        {
+            println!("  version:        {}", version.trim());
         }
     }
     Ok(())
@@ -87,11 +98,11 @@ pub(crate) async fn remote_uninstall(
     match resolve_service_mode(cfg).await? {
         ServiceMode::User => {
             let cmd = "systemctl --user disable --now jeryu.service >/dev/null 2>&1 || true; rm -f \"$HOME/.jeryu/bin/jeryu\" \"$HOME/.config/systemd/user/jeryu.service\"; systemctl --user daemon-reload";
-            run_remote_shell(cfg, &cmd, false).await?;
+            run_remote_shell(cfg, cmd, false).await?;
         }
         ServiceMode::Manual => {
             let cmd = "rm -f \"$HOME/.jeryu/bin/jeryu\"";
-            run_remote_shell(cfg, &cmd, false).await?;
+            run_remote_shell(cfg, cmd, false).await?;
         }
         ServiceMode::Auto => panic!("resolved service mode should never be Auto"),
     }
@@ -125,7 +136,21 @@ pub(crate) async fn probe_remote(cfg: &RemoteConfig) -> Result<RemotePreflight> 
 }
 
 pub(crate) async fn remote_bootstrap(cfg: &RemoteConfig) -> Result<()> {
-    let _ = run_remote_binary(cfg, &["init"], false).await?;
+    // `jeryu init` tries to bring up the local GitLab stack via
+    // `docker compose up`, which pulls gitlab/gitlab-ce (~1.5GB image).
+    // On constrained remote hosts (small VPS, ephemeral CI containers)
+    // this either times out or fails on disk/network. Treat init as
+    // advisory — the install completes the binary upload and config
+    // write; the operator can run `jeryu init` later with a fresh
+    // `jeryu serve` session, getting full error context.
+    if let Err(e) = run_remote_binary(cfg, &["init"], false).await {
+        eprintln!(
+            "warning: 'jeryu init' on remote did not complete cleanly: {e}\n\
+             this is non-fatal — the binary is installed and the remote\n\
+             config is written. Run `jeryu init` manually on the remote\n\
+             once docker has the bandwidth + disk for gitlab/gitlab-ce."
+        );
+    }
     Ok(())
 }
 
@@ -134,8 +159,7 @@ pub(crate) async fn manual_service_active(cfg: &RemoteConfig) -> Result<bool> {
 }
 
 pub(crate) async fn ensure_remote_service(cfg: &RemoteConfig) -> Result<()> {
-    let unit = format!(
-        r#"[Unit]
+    let unit = r#"[Unit]
 Description=JeRyu remote control plane
 After=network-online.target
 
@@ -149,7 +173,7 @@ RestartSec=5
 [Install]
 WantedBy=default.target
 "#
-    );
+    .to_string();
     let script = format!(
         "mkdir -p \"$HOME/.config/systemd/user\" \"$HOME/.jeryu/bin\" \"$HOME/.jeryu\" && cat > \"$HOME/.config/systemd/user/jeryu.service\" <<'EOF'\n{}\nEOF\nsystemctl --user daemon-reload\nsystemctl --user enable --now jeryu.service",
         unit
@@ -209,8 +233,8 @@ pub(crate) async fn ensure_remote_key(cfg: &RemoteConfig, setup_key: bool) -> Re
         .with_context(|| format!("reading {}", identity.with_extension("pub").display()))?;
     let script = format!(
         "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && grep -qxF -- {} ~/.ssh/authorized_keys || printf '%s\\n' {} >> ~/.ssh/authorized_keys",
-        shell_single_quote(&pubkey.trim()),
-        shell_single_quote(&pubkey.trim())
+        shell_single_quote(pubkey.trim()),
+        shell_single_quote(pubkey.trim())
     );
     run_remote_shell(cfg, &script, false).await
 }
@@ -239,20 +263,31 @@ pub(crate) async fn run_remote_binary(
     args: &[&str],
     allow_fail: bool,
 ) -> Result<Option<String>> {
-    let mut cmd = Command::new("ssh");
-    cmd.args(ssh_args(cfg));
-    cmd.arg(&cfg.target);
-    cmd.arg(&cfg.remote_bin);
-    cmd.args(args);
+    // Wrap in bash -lc so a tilde-prefixed remote_bin (e.g. ~/.jeryu/bin/jeryu)
+    // gets word-split with tilde expansion. Without this, ssh hands
+    // `~/.jeryu/bin/jeryu --version` to the remote sh as a literal command,
+    // and POSIX sh only expands `~` at specific syntactic positions —
+    // when not expanded, the binary path doesn't exist and exec fails.
+    let script = format!(
+        "{} {}",
+        cfg.remote_bin,
+        args.iter()
+            .map(|a| shell_single_quote(a))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+    let mut cmd = ssh_bash_command(cfg, &script);
     let output = cmd.output().await.context("running remote binary")?;
     if output.status.success() {
         Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
     } else if allow_fail {
         Ok(None)
     } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
         bail!(
-            "remote binary exited with {}",
-            output.status.code().unwrap_or(-1)
+            "remote binary exited with {}: {}",
+            output.status.code().unwrap_or(-1),
+            stderr.trim()
         );
     }
 }
@@ -298,124 +333,4 @@ pub(crate) async fn run_remote_shell_capture(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn sample_remote_config(alias: &str) -> RemoteConfig {
-        let alias = alias.to_string();
-        RemoteConfig {
-            connection: build_remote_connection(alias.clone(), alias, 22, None),
-            created_at_utc: "2026-05-04T00:00:00Z".into(),
-            service_mode: ServiceMode::Auto,
-        }
-    }
-
-    #[test]
-    fn default_alias_is_target_tail() {
-        assert_eq!(default_alias("deploy@10.0.0.20"), "10.0.0.20");
-        assert_eq!(default_alias("xbabe1"), "xbabe1");
-    }
-
-    #[test]
-    fn config_round_trip_contains_expected_paths() {
-        let cfg = sample_remote_config("xbabe1");
-        let text = toml::to_string_pretty(&cfg).unwrap();
-        assert!(text.contains("remote_bin"));
-        assert!(text.contains("~/.jeryu/bin/jeryu"));
-        assert!(text.contains("service_mode"));
-    }
-
-    #[test]
-    fn ssh_bash_command_quotes_script_as_one_remote_arg() {
-        let script = r#"mkdir -p "$HOME/.jeryu/bin" && cat > "$HOME/.jeryu/bin/jeryu.tmp""#;
-
-        let expected = format!("bash -lc {}", shell_single_quote(script));
-        assert_eq!(ssh_bash_remote_command(script), expected);
-    }
-
-    #[test]
-    fn remote_install_plan_includes_service_mode_and_steps() {
-        let cfg = sample_remote_config("xbabe1");
-        let plan = build_remote_plan(
-            &cfg,
-            true,
-            &RemoteCommonOptions {
-                dry_run: true,
-                json: true,
-                yes: true,
-                color: ColorMode::Never,
-                interactive: InteractiveMode::Never,
-                service_mode: ServiceMode::Manual,
-                verbose: false,
-            },
-        );
-        let rendered = serde_json::to_value(&plan).unwrap();
-        assert_eq!(rendered["service_mode"], "Manual");
-        assert_eq!(rendered["setup_key"], true);
-        assert!(
-            rendered["steps"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|step| { step["id"].as_str().unwrap() == "verify" })
-        );
-    }
-
-    #[test]
-    fn remote_plan_is_json_serializable_without_network() {
-        let cfg = sample_remote_config("xbabe1");
-        let plan = build_remote_plan(
-            &cfg,
-            false,
-            &RemoteCommonOptions {
-                dry_run: true,
-                json: false,
-                yes: true,
-                color: ColorMode::Auto,
-                interactive: InteractiveMode::Auto,
-                service_mode: ServiceMode::Auto,
-                verbose: false,
-            },
-        );
-        assert_eq!(plan.action, "remote-install");
-        assert!(!plan.preflight.local_ssh_keygen || plan.preflight.local_ssh);
-    }
-
-    #[test]
-    fn effective_service_mode_resolves_auto_by_preflight() {
-        assert_eq!(
-            effective_service_mode(ServiceMode::Auto, Some(true)),
-            ServiceMode::User
-        );
-        assert_eq!(
-            effective_service_mode(ServiceMode::Auto, Some(false)),
-            ServiceMode::Manual
-        );
-        assert_eq!(
-            effective_service_mode(ServiceMode::User, Some(false)),
-            ServiceMode::User
-        );
-        assert_eq!(
-            effective_service_mode(ServiceMode::Manual, Some(true)),
-            ServiceMode::Manual
-        );
-    }
-
-    #[test]
-    fn remote_config_defaults_service_mode_when_missing() {
-        let text = r#"
-alias = "xbabe1"
-target = "xbabe1"
-ssh_port = 22
-remote_prefix = "~/.jeryu"
-remote_bin = "~/.jeryu/bin/jeryu"
-local_http_port = 8929
-local_ssh_port = 2224
-local_vault_port = 18200
-local_webhook_port = 9777
-created_at_utc = "2026-05-04T00:00:00Z"
-"#;
-        let cfg: RemoteConfig = toml::from_str(text).unwrap();
-        assert_eq!(cfg.service_mode, ServiceMode::Auto);
-    }
-}
+mod remote_shell_tests;

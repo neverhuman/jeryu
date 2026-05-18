@@ -32,6 +32,20 @@ async fn test_full_lifecycle() -> Result<()> {
         return Ok(());
     }
 
+    // Skip if the gitlab-runner docker image isn't pulled locally — otherwise
+    // the test fails with a 404 inside docker that looks like a regression.
+    let image = jeryu::config::GITLAB_RUNNER_IMAGE;
+    let image_present = tokio::process::Command::new("docker")
+        .args(["image", "inspect", "--format={{.Id}}", image])
+        .output()
+        .await
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    if !image_present {
+        println!("Skipping E2E test — docker image {image} not present locally.");
+        return Ok(());
+    }
+
     let docker = jeryu::docker::DockerCtl::connect()?;
     let db = jeryu::state::Db::open().await?;
 

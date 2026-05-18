@@ -1,0 +1,2004 @@
+# Engineering Spec: “Pipeline Atlas” — A World-Class CI/CD Visualization TUI
+
+## 1. Product Vision
+
+The Workflow tab should become the developer’s **CI command center**: a fast, beautiful, keyboard-and-mouse driven terminal interface that shows the entire software delivery path from **PR → local validation → merge gate → test matrix → canary → production**.
+
+The core promise:
+
+> “At any moment, I can open the Workflow view and know exactly what is running, what is blocked, what failed, what is cached, what is waiting, what depends on what, and what must happen before production is safe.”
+
+This should feel less like a log viewer and more like an **air-traffic-control system for software delivery**.
+
+The ideal user experience:
+
+* I can see the **whole pipeline shape** from top to bottom.
+* I can see **parallel tests as distinct cards**, not stretched rows.
+* I can instantly identify the **active critical path**.
+* I can tell whether the pipeline is **healthy, stalled, blocked, failing, or waiting on humans**.
+* I can pan quickly with keyboard or mouse.
+* I can zoom between **overview**, **standard card view**, and **inspection mode**.
+* I can select any node and understand its purpose, dependencies, status, logs, duration, cache state, and downstream blast radius.
+* I can track the entire delivery lifecycle from **local dev checks** to **production rollout**.
+
+---
+
+# 2. North-Star UX
+
+## 2.1 The TUI should answer five questions instantly
+
+### 1. Where are we?
+
+The view should always show a clear progress marker:
+
+```text
+PR #4821 → Local → PR Gate → Build → Test Matrix → Merge → Canary → Prod
+                         ▲ currently running here
+```
+
+The selected/current phase should be visually emphasized. Running nodes should pulse. The active critical path should be easy to follow.
+
+### 2. What is running now?
+
+Running nodes should be the brightest moving objects in the DAG. They should show:
+
+```text
+┌─ RUNNING 67% ───────────────┐
+│ integration:api-contracts   │
+│ ETA 02:14  cpu-large  shard2│
+│ ███████████░░░░░░░░░░░░░░░  │
+└ deps: 8   out: 3   CP +12m ┘
+```
+
+### 3. What is blocked?
+
+Blocked nodes should make their blocking reason obvious without needing to open logs:
+
+```text
+┌─ BLOCKED ───────────────────┐
+│ deploy:canary-us-east       │
+│ waiting: security-review    │
+│ blocked by: sast-critical   │
+└ manual gate required        ┘
+```
+
+### 4. What failed?
+
+Failures should stand out immediately, with dependency impact visible:
+
+```text
+┌─ FAILED ────────────────────┐
+│ e2e:checkout-firefox        │
+│ exit 1 · flaky? no          │
+│ failed at 11m42s            │
+└ blocks: prod-gate + 4 more  ┘
+```
+
+When a failed node is selected, downstream blocked nodes should be highlighted through dependency edges.
+
+### 5. What is the shortest path to green?
+
+The selected failure inspector should show:
+
+```text
+Failure root:
+  e2e:checkout-firefox
+
+Immediate unblock options:
+  r  retry node
+  R  retry failed shard group
+  l  open logs
+  d  show downstream blocked nodes
+  c  compare with last green run
+```
+
+Some actions may be read-only in the first implementation, but the UI should be designed as if it can become operational later.
+
+---
+
+# 3. Visual Design System
+
+## 3.1 Overall layout
+
+The Workflow tab should be a **virtual canvas** with fixed-width node cards, phase headers, edge gutters, and a persistent status banner.
+
+```text
+┌ Workflow Atlas ─ PR #4821 · selected pipeline · confidence 94% ─────────────┐
+│ Health: RUNNING  Active: e2e:checkout-firefox  ETA: 14m  Critical path: 31m │
+│ Ran 42 · Running 6 · Waiting 18 · Cached 97 · Failed 1 · Blocked 5          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Layer 0 · Local / Preflight
+┌─ RAN ───────────────────────┐ ┌─ CACHED ────────────────────┐ ┌─ RAN ───────────────────────┐
+│ cargo fmt                   │ │ dependency graph            │ │ cargo check                  │
+│ 18s · local                 │ │ cache hit · 0s               │ │ 44s · local                  │
+└─────────────────────────────┘ └─────────────────────────────┘ └─────────────────────────────┘
+             │                                │                                │
+             ├──────────────┬─────────────────┴────────────────┬───────────────┤
+
+Layer 1 · PR Gate
+┌─ RAN ───────────────────────┐ ┌─ RUNNING 67% ───────────────┐ ┌─ WAITING ───────────────────┐
+│ unit:core                   │ │ integration:api             │ │ lint:docs                    │
+│ 3m12s · shard 1/8           │ │ ETA 02:14 · shard 2/8        │ │ needs unit:core              │
+└─────────────────────────────┘ └─────────────────────────────┘ └─────────────────────────────┘
+
+Layer 2 · Test Matrix
+┌─ FAILED ────────────────────┐ ┌─ RUNNING ───────────────────┐ ┌─ WAITING ───────────────────┐
+│ e2e:checkout-firefox        │ │ e2e:checkout-chrome         │ │ e2e:checkout-safari         │
+│ exit 1 · 11m42s             │ │ 74% · ETA 01:20             │ │ waits e2e base image         │
+└─────────────────────────────┘ └─────────────────────────────┘ └─────────────────────────────┘
+
+Layer 3 · Merge / Release Gate
+┌─ BLOCKED ───────────────────┐
+│ merge readiness             │
+│ blocked by e2e failure      │
+└─────────────────────────────┘
+
+Layer 4 · Canary
+┌─ BLOCKED ───────────────────┐ ┌─ BLOCKED ───────────────────┐
+│ canary us-east              │ │ canary eu-west              │
+│ waits merge readiness       │ │ waits merge readiness       │
+└─────────────────────────────┘ └─────────────────────────────┘
+
+Layer 5 · Production
+┌─ BLOCKED ───────────────────┐
+│ prod global rollout         │
+│ waits canary health         │
+└─────────────────────────────┘
+
+                                                    View y: 018/124 x: 000/260
+```
+
+## 3.2 Required visual hierarchy
+
+The screen should prioritize information in this order:
+
+1. **Current active/running work**
+2. **Failures**
+3. **Blocked production path**
+4. **Critical path**
+5. **Selected node**
+6. **Cached/skipped work**
+7. **Idle/waiting background nodes**
+
+Running and failed nodes should visually dominate. Cached/skipped nodes should be legible but visually quieter.
+
+## 3.3 Card anatomy
+
+Every node card uses the fixed dimensions already defined:
+
+```rust
+NODE_CARD_W = 34
+NODE_CARD_H = 5
+```
+
+Recommended card structure:
+
+```text
+┌─ STATUS / TAGS ─────────────┐
+│ readable test label         │
+│ detail line / ETA / reason  │
+│ progress / deps / duration  │
+└ badges / edge / cp info ────┘
+```
+
+Examples:
+
+```text
+┌─ RUN 67% · CP ──────────────┐
+│ integration:payments-api    │
+│ ETA 02:14 · shard 4/12      │
+│ ███████████░░░░░░░░░░░░░░░  │
+└ deps 7 · out 3 · 8m12s ────┘
+```
+
+```text
+┌─ FAIL · blocks 5 ───────────┐
+│ e2e:checkout-firefox        │
+│ exit 1 · no retry yet       │
+│ duration 11m42s             │
+└ select Enter for details ──┘
+```
+
+```text
+┌─ CACHED · VTI ──────────────┐
+│ test:pricing-rules          │
+│ cache hit · selected by VTI │
+│ saved ~04m20s               │
+└ no downstream risk ────────┘
+```
+
+## 3.4 Selection design
+
+The selected card needs to be unmistakable.
+
+Recommended design:
+
+```text
+╔═ SEL · RUNNING 67% ═════════╗
+║ integration:payments-api    ║
+║ ETA 02:14 · shard 4/12      ║
+║ ███████████░░░░░░░░░░░░░░░  ║
+╚ deps 7 · out 3 · CP ═══════╝
+```
+
+Selection should include:
+
+* Different border style: double or heavy border.
+* `[SEL]` or `SEL` badge in the top border.
+* Theme-selected accent color.
+* Highlighted dependency edges in and out.
+* Optional subtle background tint if supported by theme.
+
+Do not rely only on color. The border shape and `SEL` text are important for accessibility.
+
+## 3.5 Status visual grammar
+
+Use semantic theme colors only. No hardcoded `Color::*` in widgets.
+
+Recommended status mapping:
+
+| Status       | Visual treatment                                      |
+| ------------ | ----------------------------------------------------- |
+| Running      | Pulsing border, progress bar, ETA                     |
+| Failed/Error | Strong border, failure reason, downstream block count |
+| Blocked      | Distinct muted-danger style, blocker label            |
+| Waiting      | Dim border, upstream requirement                      |
+| Ran          | Stable success style, duration                        |
+| Cached       | Quiet success/secondary style, saved time             |
+| Skipped      | Dim style, VTI reason                                 |
+| Manual       | Gate icon/badge, required actor                       |
+| Unknown      | Neutral style, low confidence                         |
+
+## 3.6 Edge visual grammar
+
+Edges should be visible, meaningful, and not overwhelming.
+
+Recommended edge types:
+
+```text
+│  direct dependency
+║  critical path dependency
+┆  weak/stage-order dependency
+╳  failed/blocking dependency
+┄  skipped/VTI dependency
+```
+
+Examples:
+
+```text
+     │
+     ├───────────────┐
+     │               │
+     ▼               ▼
+┌─────────┐     ┌─────────┐
+│ unit    │     │ lint    │
+└─────────┘     └─────────┘
+```
+
+Critical path:
+
+```text
+     ║
+     ╠═══════════════╗
+     ║               ║
+     ▼               ▼
+```
+
+Failure propagation:
+
+```text
+     ╳
+     ╠═══════════════╗
+     ╳               ╳
+     ▼               ▼
+```
+
+Edge rendering should support:
+
+* Highlight upstream dependencies of selected node.
+* Highlight downstream impacted nodes.
+* Dim unrelated edges.
+* Show edge kind glyphs where useful.
+* Show blocked/failure propagation.
+
+---
+
+# 4. Interaction Model
+
+## 4.1 Keyboard navigation
+
+Existing keybindings are good. The upgraded design should extend them.
+
+| Key            | Action                               |
+| -------------- | ------------------------------------ |
+| `↑ / k`        | Previous phase                       |
+| `↓ / j`        | Next phase                           |
+| `← / h`        | Previous node in phase               |
+| `→ / l`        | Next node in phase                   |
+| `Tab`          | Next visible node                    |
+| `Shift+Tab`    | Previous visible node                |
+| `Enter`        | Open/close inspector                 |
+| `Esc`          | Close inspector                      |
+| `PgDn / Space` | Pan down 50%                         |
+| `PgUp`         | Pan up 50%                           |
+| `]`            | Pan right 50%                        |
+| `[`            | Pan left 50%                         |
+| `Home`         | Jump to top-left                     |
+| `End`          | Jump to active/latest/bottom         |
+| `f`            | Toggle follow-active                 |
+| `/`            | Search nodes                         |
+| `n`            | Next search result                   |
+| `N`            | Previous search result               |
+| `c`            | Toggle critical-path highlighting    |
+| `b`            | Toggle blocked-only view             |
+| `e`            | Toggle edge detail density           |
+| `z`            | Cycle zoom: overview → cards → dense |
+| `m`            | Toggle minimap                       |
+| `?`            | Show help overlay                    |
+
+## 4.2 Mouse interaction
+
+The user specifically wants to quickly pan up/down/left/right with the mouse.
+
+The Workflow tab should support:
+
+| Mouse action              | Behavior                                  |
+| ------------------------- | ----------------------------------------- |
+| Scroll wheel up/down      | Pan vertically                            |
+| Shift + scroll            | Pan horizontally                          |
+| Drag empty canvas         | Pan both axes                             |
+| Click node card           | Select node                               |
+| Double-click node card    | Open inspector                            |
+| Click phase header        | Jump/select phase                         |
+| Click minimap             | Move viewport                             |
+| Drag minimap viewport box | Pan canvas                                |
+| Scroll inside inspector   | Scroll inspector content                  |
+| Right-click node          | Open contextual action menu, if supported |
+
+Implementation concept:
+
+```rust
+pub struct WorkflowNav {
+    pub phase_idx: usize,
+    pub node_idx: usize,
+    pub viewport_y: i32,
+    pub viewport_x: i32,
+    pub follow_active: bool,
+    pub canvas_height: i32,
+    pub canvas_width: i32,
+
+    // New:
+    pub last_area: Option<Rect>,
+    pub dragging: bool,
+    pub drag_origin: Option<(u16, u16)>,
+    pub drag_viewport_origin: Option<(i32, i32)>,
+    pub hover_node_id: Option<String>,
+    pub mouse_hotspots: Vec<WorkflowHotspot>,
+}
+```
+
+Hotspot model:
+
+```rust
+pub struct WorkflowHotspot {
+    pub rect: Rect,
+    pub node_id: Option<String>,
+    pub phase_idx: Option<usize>,
+    pub kind: WorkflowHotspotKind,
+}
+
+pub enum WorkflowHotspotKind {
+    NodeCard,
+    PhaseHeader,
+    Minimap,
+    ViewportIndicator,
+    Inspector,
+}
+```
+
+Rendering should update hotspots as pure calculated output. Since widgets must not mutate state, the cleanest pattern is:
+
+1. `widget.rs` computes a `WorkflowRenderLayout`.
+2. The app stores it after render or during pre-render layout calculation.
+3. Mouse input uses the last known layout to resolve clicks/drags.
+
+If maintaining strict widget purity, perform layout calculation outside the actual draw function:
+
+```rust
+let layout = compute_workflow_layout(snapshot, nav, area);
+app.workflow_last_layout = layout.clone();
+draw_workflow_tab(frame, area, snapshot, nav, theme, &layout);
+```
+
+---
+
+# 5. Three Zoom Levels
+
+A world-class CI TUI needs zoom. Large pipelines cannot be represented well at a single detail level.
+
+## 5.1 Overview mode
+
+Purpose: see the whole workflow top-to-bottom.
+
+Nodes become tiny status chips grouped by phase:
+
+```text
+Layer 0 Local       [✓][✓][✓][C]
+Layer 1 PR Gate     [✓][▶][▶][…][…]
+Layer 2 Matrix      [✗][▶][…][…][C][C][C][C][C][C]
+Layer 3 Merge       [B]
+Layer 4 Canary      [B][B]
+Layer 5 Production  [B]
+```
+
+This mode should show:
+
+* Phase progress.
+* Failure location.
+* Running count.
+* Blocked production path.
+* Critical path as a vertical highlighted route.
+* Selected node label in side/bottom inspector.
+
+## 5.2 Card mode
+
+This is the main mode.
+
+* Fixed-width 34-character node cards.
+* Parallel nodes side-by-side.
+* Edge gutters visible.
+* Horizontal panning for wide phases.
+
+## 5.3 Dense mode
+
+Purpose: monitor huge pipelines with hundreds/thousands of jobs.
+
+Cards shrink to 1-2 line rows:
+
+```text
+[✓ cargo fmt 18s] [▶ integration:api 67%] [✗ e2e:firefox] [B merge gate]
+```
+
+Dense mode still preserves phase layout and selection.
+
+---
+
+# 6. Full Lifecycle Model: PR → Merge → Canary → Prod
+
+The current workflow model already supports generic phases and nodes. The product should formalize a richer lifecycle taxonomy.
+
+## 6.1 Recommended phase classes
+
+```rust
+pub enum WorkflowPhaseKind {
+    Local,
+    Preflight,
+    PullRequest,
+    Build,
+    UnitTest,
+    IntegrationTest,
+    E2E,
+    Security,
+    Packaging,
+    MergeGate,
+    Release,
+    Canary,
+    Production,
+    Rollback,
+    Manual,
+    Unknown,
+}
+```
+
+## 6.2 Recommended node kinds
+
+Current:
+
+```rust
+Gate | Test | Build | Deploy | Manual
+```
+
+Recommended expansion:
+
+```rust
+pub enum NodeKind {
+    LocalCheck,
+    Gate,
+    Test,
+    TestShard,
+    Build,
+    Package,
+    Security,
+    Deploy,
+    Canary,
+    Production,
+    Rollback,
+    Manual,
+    External,
+}
+```
+
+## 6.3 Delivery timeline
+
+The UI should show the pipeline as a delivery journey:
+
+```text
+Code change
+  ↓
+Local validation
+  ↓
+PR checks
+  ↓
+Build/package
+  ↓
+Test matrix
+  ↓
+Security/compliance
+  ↓
+Merge gate
+  ↓
+Canary
+  ↓
+Production
+  ↓
+Post-deploy health
+```
+
+This makes the Workflow tab more than a CI graph. It becomes an end-to-end release monitor.
+
+---
+
+# 7. Powerful Product Concepts
+
+## 7.1 Active critical path
+
+Every pipeline should compute and display the path that determines total completion time.
+
+Node card marker:
+
+```text
+CP +12m
+```
+
+Critical path edge:
+
+```text
+║
+╠══════
+```
+
+Inspector section:
+
+```text
+Critical path:
+  build:linux-release       04m12s
+  integration:payments      08m31s
+  e2e:checkout-firefox      FAILED
+  merge readiness           BLOCKED
+  prod rollout              BLOCKED
+```
+
+## 7.2 Blast radius
+
+When a node fails, the user should know what it blocks.
+
+Card footer:
+
+```text
+blocks 7
+```
+
+Inspector:
+
+```text
+Downstream blocked:
+  merge readiness
+  canary us-east
+  canary eu-west
+  prod global rollout
+  post-deploy synthetic checks
+```
+
+## 7.3 Bottleneck score
+
+Each running or waiting node can show whether it is delaying the pipeline.
+
+```text
+Bottleneck:
+  high — on critical path
+  delaying prod by ~12m
+```
+
+## 7.4 VTI explanation
+
+Because this app already has VTI concepts, the Workflow view should make virtual test intelligence explainable.
+
+Examples:
+
+```text
+VTI selected:
+  changed files matched payment rules
+  previous failure in related component
+  cache tainted by dependency change
+```
+
+```text
+VTI skipped:
+  no dependency path from changed files
+  last green cache valid
+  confidence 97%
+```
+
+## 7.5 Cache economics
+
+Cached nodes should not just say “cached.” They should show value.
+
+```text
+cache hit · saved 04m20s
+```
+
+Phase summary:
+
+```text
+Layer 2 · Test Matrix · 84 cached · saved ~6h42m compute
+```
+
+## 7.6 Human gates
+
+Manual gates should be first-class.
+
+```text
+┌─ MANUAL GATE ───────────────┐
+│ security approval           │
+│ owner: appsec-oncall        │
+│ waiting 18m                 │
+└ press Enter for context ───┘
+```
+
+## 7.7 Failure clustering
+
+Failures should be grouped if they share the same likely cause.
+
+Example:
+
+```text
+Failure cluster:
+  base image missing libssl.so
+
+Affected:
+  e2e:checkout-firefox
+  e2e:checkout-chrome
+  e2e:checkout-webkit
+```
+
+## 7.8 “Why am I waiting?”
+
+Every waiting/blocked node should answer this directly.
+
+```text
+Waiting because:
+  needs integration:payments-api
+  needs e2e:checkout-firefox
+  merge gate cannot open while failed tests exist
+```
+
+## 7.9 Production readiness meter
+
+Persistent banner:
+
+```text
+Production readiness: 42%
+███████████░░░░░░░░░░░░░░░
+Blocked by: e2e:checkout-firefox
+```
+
+## 7.10 Time travel
+
+Future version: allow browsing previous pipeline snapshots.
+
+```text
+t: timeline mode
+← previous state
+→ next state
+```
+
+This would let developers see how the failure evolved.
+
+---
+
+# 8. Inspector Overlay
+
+The inspector should be the place where a selected node becomes fully understandable.
+
+## 8.1 Inspector layout
+
+```text
+╔═ Node Inspector ═════════════════════════════════════════════════════════════╗
+║ e2e:checkout-firefox                                      FAILED · TestShard ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║ Status                                                                      ║
+║   Failed after 11m42s · exit code 1 · retry count 0                          ║
+║                                                                              ║
+║ Why this ran                                                                 ║
+║   VTI selected this test because checkout UI files changed.                  ║
+║                                                                              ║
+║ Dependencies                                                                 ║
+║   upstream: build:web, seed:test-data, integration:payments-api              ║
+║   downstream: merge readiness, canary us-east, prod rollout                  ║
+║                                                                              ║
+║ Critical path                                                                ║
+║   This node is on the active critical path and blocks production.             ║
+║                                                                              ║
+║ Recent log preview                                                           ║
+║   Error: expected payment method "card" but found "wallet"                  ║
+║   at checkout.spec.ts:184                                                    ║
+║                                                                              ║
+║ Duration history                                                             ║
+║   ▁▂▂▃▅▇█  median 08m12s · current 11m42s · slower than p95                  ║
+║                                                                              ║
+║ Actions                                                                      ║
+║   r retry node   R retry failed group   l open logs   d downstream graph     ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+## 8.2 Inspector sections
+
+Recommended sections:
+
+1. Header: label, status, kind, phase.
+2. Why this exists: command, reason, VTI decision.
+3. Current execution: progress, ETA, runner, job ID.
+4. Dependencies: upstream and downstream.
+5. Critical path impact.
+6. Cache verdict.
+7. Failure details.
+8. Log preview.
+9. Duration history.
+10. Actions/help.
+
+## 8.3 Inspector should be scrollable
+
+Large logs or dependency lists need internal scrolling. The inspector should not force the main DAG to move.
+
+---
+
+# 9. Rendering Architecture
+
+## 9.1 Separate layout from rendering
+
+Current widget rendering can be upgraded by introducing a layout stage.
+
+Recommended architecture:
+
+```text
+WorkflowSnapshot
+      ↓
+WorkflowLayoutEngine
+      ↓
+WorkflowRenderLayout
+      ↓
+draw_workflow_tab()
+```
+
+New files:
+
+```text
+src/tui/workflow/layout.rs
+src/tui/workflow/render_edges.rs
+src/tui/workflow/render_cards.rs
+src/tui/workflow/render_minimap.rs
+src/tui/workflow/render_inspector.rs
+```
+
+Suggested module shape:
+
+```rust
+pub struct WorkflowRenderLayout {
+    pub canvas_width: i32,
+    pub canvas_height: i32,
+    pub phase_rows: Vec<PhaseLayout>,
+    pub node_cards: Vec<NodeCardLayout>,
+    pub edges: Vec<EdgeLayout>,
+    pub hotspots: Vec<WorkflowHotspot>,
+}
+
+pub struct PhaseLayout {
+    pub phase_idx: usize,
+    pub y: i32,
+    pub header_rect: VirtualRect,
+    pub gutter_rect: VirtualRect,
+}
+
+pub struct NodeCardLayout {
+    pub node_id: String,
+    pub phase_idx: usize,
+    pub node_idx: usize,
+    pub rect: VirtualRect,
+    pub selected: bool,
+    pub status: WorkflowStatus,
+}
+
+pub struct EdgeLayout {
+    pub from_id: String,
+    pub to_id: String,
+    pub points: Vec<VirtualPoint>,
+    pub kind: EdgeKind,
+    pub highlighted: bool,
+    pub critical: bool,
+    pub blocked: bool,
+}
+```
+
+Virtual coordinate types:
+
+```rust
+pub struct VirtualPoint {
+    pub x: i32,
+    pub y: i32,
+}
+
+pub struct VirtualRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+```
+
+Conversion:
+
+```rust
+fn virtual_to_screen(
+    point: VirtualPoint,
+    viewport_x: i32,
+    viewport_y: i32,
+    area: Rect,
+) -> Option<(u16, u16)> {
+    let sx = point.x - viewport_x + area.x as i32;
+    let sy = point.y - viewport_y + area.y as i32;
+
+    if sx < area.x as i32
+        || sy < area.y as i32
+        || sx >= area.right() as i32
+        || sy >= area.bottom() as i32
+    {
+        return None;
+    }
+
+    Some((sx as u16, sy as u16))
+}
+```
+
+This avoids duplicated clipping math throughout `widget.rs`.
+
+## 9.2 Fixed-width card layout
+
+Parallel nodes in the same phase must be laid out side-by-side.
+
+Recommended constants:
+
+```rust
+pub const NODE_CARD_W: u16 = 34;
+pub const NODE_CARD_H: u16 = 5;
+pub const NODE_GAP_X: u16 = 3;
+pub const PHASE_GAP_Y: u16 = 1;
+pub const EDGE_GUTTER_H: u16 = 3;
+pub const BANNER_H: u16 = 4;
+```
+
+For each phase:
+
+```rust
+let x = phase_left + node_idx * (NODE_CARD_W + NODE_GAP_X);
+let y = phase_y + PHASE_HEADER_H;
+```
+
+Do not use the full row width for each card. Each card gets exactly `NODE_CARD_W`.
+
+## 9.3 Better wrapping for huge phases
+
+If a phase has too many parallel nodes, support lane wrapping:
+
+```text
+Layer 2 · Test Matrix
+[node 0] [node 1] [node 2] [node 3]
+[node 4] [node 5] [node 6] [node 7]
+[node 8] [node 9] [node10] [node11]
+```
+
+This should be controlled by a layout mode:
+
+```rust
+pub enum WorkflowLayoutMode {
+    HorizontalInfinite,
+    WrappedToViewport,
+    Dense,
+    Overview,
+}
+```
+
+For the user’s requested wide panning, the default should be `HorizontalInfinite`, but wrapped mode is useful for smaller terminals.
+
+## 9.4 Edge routing
+
+Edges should be calculated after card layout.
+
+Each node exposes anchor points:
+
+```rust
+pub struct NodeAnchors {
+    pub top: VirtualPoint,
+    pub bottom: VirtualPoint,
+    pub left: VirtualPoint,
+    pub right: VirtualPoint,
+}
+```
+
+For top-to-bottom DAG:
+
+```rust
+from.bottom → gutter → to.top
+```
+
+Simple routed edge:
+
+```text
+from.bottom
+    │
+    ├────── horizontal
+    │
+to.top
+```
+
+Algorithm:
+
+1. Get source card bottom-center.
+2. Get target card top-center.
+3. Route vertical from source to gutter midline.
+4. Route horizontal across gutter.
+5. Route vertical into target.
+6. Use collision-aware character merge when edges overlap.
+
+Cell merge examples:
+
+| Existing | New | Result |
+| -------- | --- | ------ |
+| `│`      | `─` | `┼`    |
+| `─`      | `│` | `┼`    |
+| `└`      | `─` | `┴`    |
+| `┌`      | `│` | `├`    |
+| empty    | `│` | `│`    |
+
+Implement as:
+
+```rust
+fn merge_edge_char(existing: char, incoming: EdgeStroke) -> char
+```
+
+This is essential for beautiful edge gutters.
+
+## 9.5 Rendering order
+
+Correct rendering order should be:
+
+1. Clear/background DAG area.
+2. Draw summary banner.
+3. Draw phase headers.
+4. Draw edge gutters.
+5. Draw node cards.
+6. Draw selection highlights.
+7. Draw minimap/viewport indicator.
+8. Draw overlays.
+
+Edges should usually render before cards so cards remain crisp and readable.
+
+---
+
+# 10. Navigation State Improvements
+
+## 10.1 Replace hardcoded dimensions
+
+Current issue:
+
+```rust
+last_dag_h() -> 30
+last_dag_w() -> 120
+```
+
+These should use actual last-render dimensions.
+
+Add:
+
+```rust
+pub struct WorkflowNav {
+    // existing fields...
+
+    pub last_viewport_width: i32,
+    pub last_viewport_height: i32,
+}
+```
+
+During render/layout:
+
+```rust
+nav.update_canvas_size(layout.canvas_width, layout.canvas_height);
+nav.update_viewport_size(area.width as i32, area.height as i32);
+```
+
+If widgets must stay pure, do this before rendering in the app action layer.
+
+Then:
+
+```rust
+pub fn page_down(&mut self) {
+    self.viewport_y += (self.last_viewport_height / 2).max(1);
+    self.clamp_viewport();
+}
+
+pub fn page_right(&mut self) {
+    self.viewport_x += (self.last_viewport_width / 2).max(1);
+    self.clamp_viewport();
+}
+```
+
+## 10.2 Smart follow-active mode
+
+Follow-active should not randomly jump around.
+
+Recommended behavior:
+
+* If a running node exists on the critical path, follow that.
+* Else follow first running node.
+* Else follow first failed node.
+* Else follow first blocked production gate.
+* Else follow selected node.
+
+Priority:
+
+```rust
+CriticalRunning
+Failed
+BlockedProduction
+AnyRunning
+Selected
+LastKnownActive
+```
+
+## 10.3 Selection should ensure visibility
+
+When selection changes:
+
+```rust
+nav.ensure_selected_visible(layout, margin_x = 6, margin_y = 3)
+```
+
+The card should never be hidden behind the viewport edge after keyboard navigation.
+
+---
+
+# 11. Search and Filter
+
+A developer’s dream CI view needs fast search.
+
+## 11.1 Search overlay
+
+Press `/`:
+
+```text
+Search workflow: e2e checkout
+```
+
+Matching nodes are highlighted. `n` and `N` cycle.
+
+Search should match:
+
+* Label
+* ID
+* Command
+* Tags
+* Status
+* Reason
+* Phase name
+* Cache verdict
+* VTI status
+
+## 11.2 Filters
+
+Recommended filters:
+
+| Key | Filter                              |
+| --- | ----------------------------------- |
+| `b` | Show blocked/failing path           |
+| `r` | Show running only                   |
+| `a` | Show all                            |
+| `v` | Show VTI selected/skipped reasoning |
+| `C` | Show cached nodes                   |
+| `p` | Show production path                |
+| `x` | Show failed nodes                   |
+
+Filtered mode should preserve context. Do not hide the fact that nodes exist; collapse unrelated nodes into dim chips or phase counts.
+
+Example:
+
+```text
+Layer 2 · Test Matrix · 1 failed · 6 running · 84 hidden
+```
+
+---
+
+# 12. Minimap
+
+Large DAGs need a minimap.
+
+## 12.1 Minimap placement
+
+Bottom-right, small and persistent:
+
+```text
+┌map────┐
+│·······│
+│··██···│
+│··██···│
+│·······│
+└───────┘
+```
+
+The minimap shows:
+
+* Full canvas.
+* Current viewport rectangle.
+* Failure markers.
+* Running markers.
+* Selected node marker.
+
+## 12.2 Minimap interactions
+
+* Click minimap: jump viewport.
+* Drag viewport rectangle: pan.
+* Toggle with `m`.
+
+This gives mouse users a fast way to navigate massive workflows.
+
+---
+
+# 13. Demo Mode Animation
+
+Demo mode should be a selling point. It should animate the Workflow tab, not just Flow.
+
+## 13.1 Demo timeline
+
+The demo should simulate:
+
+1. Local checks start.
+2. Local checks pass/cached.
+3. PR gate starts.
+4. Build starts.
+5. Parallel test matrix fans out.
+6. One test fails.
+7. Downstream merge/canary/prod nodes become blocked.
+8. Retry occurs.
+9. Test passes.
+10. Merge gate opens.
+11. Canary deploy runs.
+12. Production deploy runs.
+13. Post-deploy health passes.
+
+## 13.2 Demo status transitions
+
+```text
+Waiting → Running → Ran
+Waiting → Running → Error → Running → Ran
+Waiting → Blocked → Waiting → Running → Ran
+```
+
+## 13.3 Demo should showcase
+
+* Parallel cards.
+* Edge visibility.
+* Selection highlight.
+* Follow-active mode.
+* Failure propagation.
+* Inspector overlay.
+* Production readiness meter.
+* Mouse/keyboard panning.
+
+---
+
+# 14. Data Model Extensions
+
+The current model is strong. Add optional fields so the UI can become richer without breaking existing builders.
+
+## 14.1 WorkflowNode additions
+
+```rust
+pub struct WorkflowNode {
+    pub id: String,
+    pub label: String,
+    pub kind: NodeKind,
+    pub status: WorkflowStatus,
+    pub deps: Vec<String>,
+    pub command: Option<String>,
+    pub reason: Option<String>,
+    pub tags: Vec<String>,
+    pub vti_status: Option<VtiStatus>,
+    pub cache_verdict: Option<CacheVerdict>,
+    pub critical_path: bool,
+    pub progress_pct: Option<u16>,
+    pub eta_secs: Option<u64>,
+    pub duration_secs: Option<f64>,
+
+    // New:
+    pub phase_kind: Option<WorkflowPhaseKind>,
+    pub started_at_ms: Option<u64>,
+    pub finished_at_ms: Option<u64>,
+    pub queued_secs: Option<f64>,
+    pub retry_count: Option<u16>,
+    pub shard: Option<ShardInfo>,
+    pub runner: Option<String>,
+    pub owner: Option<String>,
+    pub environment: Option<String>,
+    pub upstream_count: usize,
+    pub downstream_count: usize,
+    pub blocked_by: Vec<String>,
+    pub blocks: Vec<String>,
+    pub failure: Option<FailureInfo>,
+    pub duration_history_secs: Vec<f64>,
+    pub log_preview: Vec<String>,
+}
+```
+
+## 14.2 Supporting types
+
+```rust
+pub struct ShardInfo {
+    pub index: u16,
+    pub total: u16,
+    pub group: String,
+}
+
+pub struct FailureInfo {
+    pub exit_code: Option<i32>,
+    pub message: Option<String>,
+    pub file: Option<String>,
+    pub line: Option<u32>,
+    pub flaky: Option<bool>,
+    pub cluster_id: Option<String>,
+}
+
+pub struct WorkflowPhase {
+    pub id: String,
+    pub label: String,
+    pub nodes: Vec<String>,
+
+    // New:
+    pub kind: WorkflowPhaseKind,
+    pub progress_pct: Option<u16>,
+    pub status: WorkflowStatus,
+    pub summary: PhaseSummary,
+}
+
+pub struct PhaseSummary {
+    pub total: usize,
+    pub ran: usize,
+    pub running: usize,
+    pub waiting: usize,
+    pub failed: usize,
+    pub blocked: usize,
+    pub cached: usize,
+    pub skipped: usize,
+}
+```
+
+## 14.3 WorkflowSummary additions
+
+```rust
+pub struct WorkflowSummary {
+    // existing fields...
+
+    pub production_readiness_pct: Option<u16>,
+    pub critical_path_secs: Option<f64>,
+    pub estimated_remaining_secs: Option<f64>,
+    pub blocked_production: bool,
+    pub active_node_id: Option<String>,
+    pub primary_failure_node_id: Option<String>,
+    pub total_compute_saved_secs: Option<f64>,
+}
+```
+
+---
+
+# 15. Performance Requirements
+
+The Workflow view should feel instant, even with hundreds or thousands of nodes.
+
+## 15.1 Rendering performance goals
+
+| Scenario     | Target                                            |
+| ------------ | ------------------------------------------------- |
+| 100 nodes    | 60 FPS-feeling responsiveness                     |
+| 500 nodes    | Smooth keyboard/mouse panning                     |
+| 1,000+ nodes | Dense/overview mode remains usable                |
+| Mouse drag   | No expensive snapshot rebuilds                    |
+| Live updates | Incremental refresh, not full rebuild every frame |
+
+## 15.2 Stop rebuilding every render frame
+
+Current issue:
+
+```rust
+refresh_workflow_snapshot() is called inside draw()
+```
+
+Recommended change:
+
+* Draw should render only.
+* Snapshot refresh should happen on:
+
+  * Input-triggered refresh.
+  * Timer tick, throttled.
+  * Job event arrival.
+  * Demo animation tick.
+  * Pipeline state mutation.
+
+Add:
+
+```rust
+pub struct WorkflowRuntimeState {
+    pub snapshot: WorkflowSnapshot,
+    pub last_refresh: Instant,
+    pub dirty: bool,
+    pub refresh_interval: Duration,
+}
+```
+
+Behavior:
+
+```rust
+if workflow_dirty || last_refresh.elapsed() > refresh_interval {
+    app.refresh_workflow_snapshot();
+}
+```
+
+Suggested intervals:
+
+| Mode           | Refresh                                                  |
+| -------------- | -------------------------------------------------------- |
+| Demo           | 250ms to 500ms                                           |
+| Live running   | 500ms to 1s                                              |
+| Idle           | 2s to 5s                                                 |
+| Mouse dragging | Do not rebuild during drag unless critical event arrives |
+
+## 15.3 Layout caching
+
+Cache layout based on:
+
+```rust
+snapshot.revision
+viewport size
+zoom mode
+filter mode
+selected node
+edge density
+```
+
+Only recompute layout when one changes.
+
+---
+
+# 16. File-Level Implementation Plan
+
+## 16.1 `src/tui/workflow/model.rs`
+
+Add:
+
+* Phase kind.
+* Node metadata.
+* Failure info.
+* Shard info.
+* Summary enrichments.
+* Helper methods:
+
+  * `node_by_id`
+  * `phase_of_node`
+  * `downstream_of`
+  * `upstream_of`
+  * `selected_node`
+  * `active_node`
+  * `primary_failure`
+  * `production_blocker`
+
+## 16.2 `src/tui/workflow/nav.rs`
+
+Add:
+
+* Last viewport width/height.
+* Zoom mode.
+* Filter mode.
+* Edge density.
+* Search state.
+* Mouse drag state.
+* Minimap visibility.
+* Hotspot support.
+
+Example:
+
+```rust
+pub enum WorkflowZoom {
+    Overview,
+    Cards,
+    Dense,
+}
+
+pub enum WorkflowEdgeDensity {
+    Off,
+    Highlighted,
+    Normal,
+    Full,
+}
+
+pub enum WorkflowFilter {
+    All,
+    Running,
+    Failed,
+    Blocked,
+    ProductionPath,
+    CriticalPath,
+}
+```
+
+## 16.3 `src/tui/workflow/layout.rs`
+
+New file.
+
+Responsibilities:
+
+* Compute virtual canvas dimensions.
+* Place phase headers.
+* Place fixed-width cards.
+* Compute edge paths.
+* Compute hotspots.
+* Compute minimap model.
+* Return `WorkflowRenderLayout`.
+
+## 16.4 `src/tui/workflow/widget.rs`
+
+Refactor into smaller rendering helpers.
+
+Responsibilities:
+
+* Draw banner.
+* Draw phase headers.
+* Draw cards.
+* Draw edges.
+* Draw viewport indicator.
+* Draw minimap.
+* Draw empty state.
+* Draw help hints.
+
+Avoid mutation. Avoid business logic.
+
+## 16.5 `src/tui/workflow/render_cards.rs`
+
+New file.
+
+Responsibilities:
+
+* Card border style.
+* Status badge.
+* Label truncation.
+* Progress bar.
+* Duration/ETA rendering.
+* Selection style.
+* Cache/VTI badges.
+
+## 16.6 `src/tui/workflow/render_edges.rs`
+
+New file.
+
+Responsibilities:
+
+* Edge clipping.
+* Edge character merging.
+* Critical/failure edge style.
+* Direct buffer drawing.
+
+## 16.7 `src/tui/workflow/render_inspector.rs`
+
+New file.
+
+Responsibilities:
+
+* Overlay layout.
+* Scrollable node details.
+* Dependency sections.
+* Log preview.
+* Duration sparkline.
+* Action hints.
+
+## 16.8 `src/tui/workflow/builder.rs`
+
+Improve:
+
+* Assign lifecycle phase kinds.
+* Compute downstream counts.
+* Compute blocked propagation.
+* Compute critical path.
+* Compute production readiness.
+* Add richer demo data.
+* Add duration history where possible.
+
+## 16.9 `src/tui/workflow/collector.rs`
+
+Improve:
+
+* Pull live job progress.
+* Pull job duration.
+* Pull retry count.
+* Pull log preview, if cheap.
+* Mark stale data.
+* Preserve snapshot revision.
+
+## 16.10 `src/tui/runtime/input/navigation/general.rs`
+
+Add:
+
+* Mouse event handling.
+* Search keys.
+* Zoom/filter keys.
+* Minimap toggle.
+* Edge density toggle.
+
+## 16.11 `src/tui/app_runtime_sync_actions.rs`
+
+Add app actions:
+
+```rust
+workflow_zoom_next()
+workflow_filter_next()
+workflow_filter_set(...)
+workflow_search_open()
+workflow_search_input(...)
+workflow_search_next()
+workflow_search_prev()
+workflow_mouse_down(...)
+workflow_mouse_drag(...)
+workflow_mouse_up(...)
+workflow_mouse_scroll(...)
+workflow_toggle_minimap()
+workflow_toggle_edge_density()
+```
+
+---
+
+# 17. Mouse Panning Implementation Detail
+
+## 17.1 Crossterm event handling
+
+Handle:
+
+```rust
+Event::Mouse(MouseEvent {
+    kind: MouseEventKind::ScrollUp,
+    column,
+    row,
+    modifiers,
+})
+```
+
+Suggested behavior:
+
+```rust
+match kind {
+    MouseEventKind::ScrollUp => {
+        if modifiers.contains(KeyModifiers::SHIFT) {
+            app.workflow_pan_left_mouse();
+        } else {
+            app.workflow_pan_up_mouse();
+        }
+    }
+    MouseEventKind::ScrollDown => {
+        if modifiers.contains(KeyModifiers::SHIFT) {
+            app.workflow_pan_right_mouse();
+        } else {
+            app.workflow_pan_down_mouse();
+        }
+    }
+    MouseEventKind::Down(MouseButton::Left) => {
+        app.workflow_mouse_down(column, row);
+    }
+    MouseEventKind::Drag(MouseButton::Left) => {
+        app.workflow_mouse_drag(column, row);
+    }
+    MouseEventKind::Up(MouseButton::Left) => {
+        app.workflow_mouse_up(column, row);
+    }
+    _ => {}
+}
+```
+
+## 17.2 Drag panning
+
+When user clicks empty canvas:
+
+```rust
+drag_origin = current mouse position
+drag_viewport_origin = current viewport x/y
+```
+
+During drag:
+
+```rust
+viewport_x = drag_viewport_origin.x - delta_x
+viewport_y = drag_viewport_origin.y - delta_y
+```
+
+Clamp after update.
+
+## 17.3 Node clicking
+
+If mouse down hits a node hotspot:
+
+```rust
+select node
+ensure selected visible
+```
+
+If same node clicked twice within a threshold, open inspector.
+
+---
+
+# 18. Intelligent Label Truncation
+
+The user wants abbreviated test names that remain readable inside 34-character cards.
+
+Do not blindly truncate from the end.
+
+## 18.1 Recommended strategy
+
+Input:
+
+```text
+e2e:checkout:payment-method-selection:firefox:shard-04
+```
+
+Output:
+
+```text
+e2e:checkout/payments/firefox
+```
+
+Rules:
+
+1. Preserve high-signal prefixes: `unit`, `e2e`, `integration`, `deploy`, `canary`, `prod`.
+2. Preserve component name.
+3. Preserve browser/platform/shard if relevant.
+4. Remove redundant words: `test`, `job`, `pipeline`, `run`.
+5. Collapse namespaces:
+
+   * `checkout:payment-method-selection` → `checkout/payments`
+6. Use middle ellipsis if necessary:
+
+   * `integration:payments…firefox`
+7. Keep shard info in detail line:
+
+   * `shard 4/12`
+
+Function:
+
+```rust
+fn abbreviate_workflow_label(label: &str, max_width: usize) -> String
+```
+
+Examples:
+
+| Original                                       | Card label                 |
+| ---------------------------------------------- | -------------------------- |
+| `integration-test-payments-api-contracts`      | `integration:payments-api` |
+| `e2e-checkout-payment-method-firefox-shard-04` | `e2e:checkout-firefox`     |
+| `deploy-production-global-rollout`             | `prod:global-rollout`      |
+| `security-static-analysis-critical-rules`      | `sast:critical-rules`      |
+
+---
+
+# 19. Banner Design
+
+The top banner should summarize the whole pipeline.
+
+## 19.1 Banner content
+
+```text
+Workflow Atlas · PR #4821 · selected mode · confidence 94%
+Health RUNNING · ETA 14m · Prod readiness 42% · Active integration:payments-api
+Ran 42 · Running 6 · Waiting 18 · Cached 97 · Failed 1 · Blocked 5
+```
+
+## 19.2 Banner modes
+
+Healthy:
+
+```text
+Health: RUNNING · ETA 14m · no failures
+```
+
+Failure:
+
+```text
+Health: FAILED · e2e:checkout-firefox blocks merge + prod
+```
+
+Blocked:
+
+```text
+Health: BLOCKED · waiting on security approval
+```
+
+Complete:
+
+```text
+Health: GREEN · prod rollout complete · 183 tests · 6h42m compute saved
+```
+
+---
+
+# 20. Footer Design
+
+Workflow footer should show high-value controls only.
+
+```text
+↑↓←→ select · Tab next · Enter inspect · PgUp/PgDn pan · [/ ] pan x · drag mouse pan · / search · z zoom · f follow · ? help
+```
+
+When inspector is open:
+
+```text
+Esc close · ↑↓ scroll · r retry · l logs · d downstream · c compare · ? help
+```
+
+---
+
+# 21. Help Overlay
+
+Press `?`.
+
+```text
+Workflow Atlas Help
+
+Navigation
+  ↑↓←→ / hjkl     Move selection
+  Tab / Shift-Tab Next/previous node
+  PgUp/PgDn       Pan vertically
+  [ / ]           Pan horizontally
+  Mouse drag      Pan canvas
+  Mouse wheel     Pan vertically
+  Shift+wheel     Pan horizontally
+
+Views
+  z               Cycle zoom
+  m               Toggle minimap
+  e               Edge density
+  f               Follow active
+
+Focus
+  /               Search
+  b               Blocked/failure path
+  c               Critical path
+  p               Production path
+
+Node
+  Enter           Inspect node
+  l               Logs
+  r               Retry, if enabled
+```
+
+---
+
+# 22. Testing Strategy
+
+## 22.1 Unit tests
+
+Add tests for:
+
+* Fixed-width card placement.
+* Canvas width/height calculation.
+* Viewport clamping.
+* 50% panning based on actual viewport dimensions.
+* Selection visibility.
+* Edge routing.
+* Edge character merging.
+* Label abbreviation.
+* Critical path highlighting.
+* Downstream blocked propagation.
+* Search matching.
+* Filter modes.
+
+## 22.2 Snapshot/render tests
+
+Test:
+
+* Small terminal.
+* Wide terminal.
+* Narrow terminal.
+* Many parallel nodes.
+* Deep pipeline.
+* Failure state.
+* Blocked production path.
+* Selected node visible.
+* Edge gutter visible.
+* Minimap visible.
+* Inspector overlay.
+
+## 22.3 Demo tests
+
+Test demo transitions:
+
+```text
+Waiting → Running → Ran
+Running → Error
+Error → Blocked downstream
+Retry → Ran
+Blocked → Running → Production complete
+```
+
+## 22.4 Manual acceptance checklist
+
+Run:
+
+```bash
+cargo check -p jeryu
+cargo nextest run -p jeryu -- tui::workflow
+cargo nextest run -p jeryu -- tui
+cargo install --path . --force
+jeryu tui --demo
+```
+
+Then verify:
+
+* Cards are fixed width.
+* Parallel nodes render side-by-side.
+* Edges are visible.
+* Selected node has obvious border and `SEL` badge.
+* Mouse wheel pans vertically.
+* Shift+wheel pans horizontally.
+* Mouse drag pans canvas.
+* Enter opens useful inspector.
+* Follow-active centers running/failing nodes.
+* Demo animates status transitions.
+* Production gate clearly shows why it is blocked.
+
+---
+
+# 23. Implementation Priorities
+
+## Phase 1: Fix the foundation
+
+1. Fixed-width cards.
+2. Correct virtual canvas dimensions.
+3. Replace hardcoded `last_dag_h()` / `last_dag_w()`.
+4. Make selected card unmistakable.
+5. Fix edge gutter visibility.
+6. Ensure viewport indicator is visible.
+7. Add mouse scroll panning.
+8. Add drag panning.
+
+This alone makes the current Workflow tab feel dramatically better.
+
+## Phase 2: Make it beautiful and useful
+
+1. Refactor layout engine.
+2. Add edge highlighting for selected node.
+3. Add critical path visual style.
+4. Add richer card content.
+5. Add minimap.
+6. Add search.
+7. Add filter modes.
+8. Improve inspector overlay.
+
+## Phase 3: Make it a CI command center
+
+1. Add PR → canary → prod lifecycle model.
+2. Add production readiness meter.
+3. Add blocked-path explanation.
+4. Add failure clustering.
+5. Add log preview.
+6. Add duration history.
+7. Add cache economics.
+8. Add VTI explanations.
+
+## Phase 4: Make demo mode sell the product
+
+1. Animate workflow transitions.
+2. Show failure and recovery.
+3. Show canary/prod progression.
+4. Show critical path changes.
+5. Make the demo visually impressive.
+
+---
+
+# 24. Acceptance Criteria
+
+The feature is successful when a developer can open the Workflow tab and say:
+
+> “I know exactly where the pipeline is, what is running, what failed, what is blocked, and what has to happen before production.”
+
+Specific acceptance criteria:
+
+* The complete workflow is visible as a top-to-bottom DAG.
+* Parallel jobs are visibly parallel.
+* Cards are fixed-width 34-character boxes.
+* Selected node is unmistakable.
+* Edges are visible and meaningful.
+* Running nodes show progress/ETA.
+* Failed nodes show failure reason.
+* Blocked nodes show blocker.
+* Production gate shows readiness/blockage.
+* Mouse panning works smoothly.
+* Keyboard panning uses true viewport dimensions.
+* Inspector explains the selected node deeply.
+* Demo mode animates the full workflow.
+* Rendering remains responsive for large pipelines.
+* No widget mutates app state.
+* No hardcoded colors are introduced in widgets.
+
+---
+
+# 25. The Signature Experience
+
+The final Workflow tab should feel like this:
+
+```text
+╔ Workflow Atlas ═ PR #4821 · VTI selected · confidence 94% ═════════════════╗
+║ Health: FAILED    Active: e2e:checkout-firefox    Prod readiness: 42%       ║
+║ Ran 42 · Running 6 · Waiting 18 · Cached 97 · Failed 1 · Blocked 5          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Layer 0  Local Preflight                         100% complete
+╔═ RAN ═══════════════════════╗ ╔═ CACHED ════════════════════╗ ╔═ RAN ═══════════════════════╗
+║ cargo fmt                  ║ ║ dependency graph            ║ ║ cargo check                ║
+║ 18s · local                ║ ║ cache hit · saved 42s       ║ ║ 44s · local                ║
+╚ deps 0 · out 3 ════════════╝ ╚ VTI safe ═══════════════════╝ ╚ deps 0 · out 4 ════════════╝
+              ║                                │                                │
+              ╠════════════════════════════════╪════════════════════════════════╣
+
+Layer 1  PR Gate                                74% complete
+╔═ RAN ═══════════════════════╗ ╔═ RUN 67% · CP ═════════════╗ ╔═ WAITING ═══════════════════╗
+║ unit:core                  ║ ║ integration:payments-api   ║ ║ lint:docs                  ║
+║ 3m12s · shard 1/8          ║ ║ ETA 02:14 · shard 4/12     ║ ║ needs unit:core            ║
+╚ deps 4 · out 8 ════════════╝ ╚ ███████████░░░░░░░░░░░░░░ ═╝ ╚ queued 01m08s ═════════════╝
+                                               ║
+                                               ║
+Layer 2  Test Matrix                            39% complete
+╔═ SEL · FAILED · blocks 5 ═══╗ ╔═ RUNNING ══════════════════╗ ╔═ WAITING ═══════════════════╗
+║ e2e:checkout-firefox       ║ ║ e2e:checkout-chrome        ║ ║ e2e:checkout-safari        ║
+║ exit 1 · 11m42s            ║ ║ 74% · ETA 01:20            ║ ║ waits base image           ║
+╚ Enter inspect · CP ════════╝ ╚ shard 5/12 ════════════════╝ ╚ queued 03m02s ═════════════╝
+              ╳
+              ╠═════════════════════════════════════════════════════════════════╗
+
+Layer 3  Merge Gate                             blocked
+╔═ BLOCKED ═══════════════════╗
+║ merge readiness            ║
+║ blocked by e2e failure     ║
+╚ prod cannot proceed ═══════╝
+
+Layer 4  Canary                                 blocked
+╔═ BLOCKED ═══════════════════╗ ╔═ BLOCKED ═══════════════════╗
+║ canary us-east             ║ ║ canary eu-west             ║
+║ waits merge readiness      ║ ║ waits merge readiness      ║
+╚ environment locked ════════╝ ╚ environment locked ════════╝
+
+Layer 5  Production                             blocked
+╔═ BLOCKED ═══════════════════╗
+║ prod global rollout        ║
+║ waits canary health        ║
+╚ production protected ══════╝
+
+↑↓←→ select · Enter inspect · drag pan · wheel pan · / search · z zoom · f follow
+View y: 018/124 x: 000/260                                           ┌map──┐
+                                                                     │··█·│
+                                                                     │··█·│
+                                                                     └─────┘
+```
+
+That is the target: **not just a CI view, but a live software-delivery cockpit.**
+

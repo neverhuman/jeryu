@@ -1,0 +1,69 @@
+# .autonomy/policies/protected-paths.yml — hard-human-review paths.
+# Any PR/MR touching these paths is automatically classified R4 minimum
+# regardless of profile. Mirrors tip1 §5 (canonical control plane).
+schema: vibegate.protected_paths.v1
+
+# Paths use gitignore-style globs evaluated against the union of changed files.
+paths:
+  # autonomy plane itself
+  - ".autonomy/**"
+  - "AGENTS.md"
+  - "CODEOWNERS"
+
+  # CI/CD control plane
+  - ".gitlab-ci.yml"
+  - ".gitlab/**"
+  - ".github/workflows/**"
+  - ".github/security/**"
+  - "ci/**"
+  - "scripts/release/**"
+  - "ops/ci/**"
+
+  # deploy + infra
+  - "deploy/**"
+  - "infra/**"
+  - "k8s/**"
+  - "terraform/**"
+  - "helm/**"
+  - "ansible/**"
+
+  # security-sensitive sources
+  - "auth/**"
+  - "crypto/**"
+  - "permissions/**"
+  - "secrets/**"
+  - "src/secrets.rs"
+  - "src/sandbox/**"
+  - "src/admission.rs"
+  - "src/admission_tests.rs"
+  - "src/exec/**"
+
+  # feature flags + observability + SLOs
+  - "feature-flags/defaults/**"
+  - "observability/**"
+  - "slo/**"
+
+  # destructive data ops
+  - "migrations/destructive/**"
+
+  # lockfiles
+  - "Cargo.lock"
+  - "package-lock.json"
+  - "pnpm-lock.yaml"
+  - "yarn.lock"
+  - "go.sum"
+  - "Pipfile.lock"
+  - "poetry.lock"
+  - "uv.lock"
+
+# Semantic triggers (names referenced from approvals.yml::hard_stops; not free-form expressions).
+# Each name resolves to a vetted Rust fn in src/autonomy/conditions.rs.
+semantic_triggers:
+  - removes_or_weakens_tests
+  - changes_security_scanner_config
+  - touches_secret_handling
+  - changes_release_or_deploy_policy
+  - changes_agent_prompts_or_judge_policy
+  - introduces_new_external_code_source
+  - raises_runtime_blast_radius
+  - destructive_database_change

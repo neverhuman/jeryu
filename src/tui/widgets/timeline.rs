@@ -45,7 +45,7 @@ pub fn render_timeline(
         .take(max_lines)
         .map(|event| {
             let ts = event.timestamp.format("%H:%M:%S").to_string();
-            let sev_color = severity_theme_color(event.severity, theme);
+            let sev_color = theme.severity_color(event.severity);
             let kind_label = event.kind.label();
 
             Line::from(vec![
@@ -64,15 +64,6 @@ pub fn render_timeline(
         .collect();
 
     f.render_widget(Paragraph::new(lines), inner);
-}
-
-fn severity_theme_color(severity: Severity, theme: &Theme) -> ratatui::style::Color {
-    match severity {
-        Severity::Critical => theme.fail,
-        Severity::Error => theme.warning,
-        Severity::Warning => theme.waiting,
-        Severity::Info => theme.text_muted,
-    }
 }
 
 fn truncate_summary(s: &str, max: usize) -> String {

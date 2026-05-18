@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# ops/git-hooks/pre-push — quality gate that runs before every git push
+# Wire up with: git config core.hooksPath ops/git-hooks
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec bash "$SCRIPT_DIR/../ci/quality-gates.sh"

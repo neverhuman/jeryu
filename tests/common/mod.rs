@@ -90,6 +90,24 @@ pub async fn skip_if_not_ready() -> Result<Option<GitlabClient>> {
         return Ok(None);
     }
 
+    // Even when GitLab is reachable, the test also needs the gitlab-runner
+    // Docker image pulled locally. Skip if Docker isn't accessible OR the
+    // image isn't present — otherwise the test fails with a Docker 404 that
+    // looks like a regression but is really a missing test dependency.
+    if jeryu::docker::DockerCtl::connect().is_err() {
+        return Ok(None);
+    }
+    let image = jeryu::config::GITLAB_RUNNER_IMAGE;
+    let probe = tokio::process::Command::new("docker")
+        .args(["image", "inspect", "--format={{.Id}}", image])
+        .output()
+        .await;
+    let image_present = probe.map(|o| o.status.success()).unwrap_or(false);
+    if !image_present {
+        eprintln!("test skipped: docker image {image} not present locally");
+        return Ok(None);
+    }
+
     Ok(Some(client))
 }
 

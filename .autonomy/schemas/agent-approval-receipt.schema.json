@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.agent_approval_receipt.v1",
+  "title": "AgentApprovalReceipt",
+  "description": "One reviewer's signed verdict over one EvidencePack. Compromising one reviewer cannot escalate: veto > approval count.",
+  "type": "object",
+  "required": ["schema", "id", "evidence_pack_id", "role", "agent_id", "decision", "head_sha", "policy_sha", "created_at", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.agent_approval_receipt.v1" },
+    "id": { "type": "string", "pattern": "^aar_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "evidence_pack_id": { "type": "string", "pattern": "^evp_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "role": { "enum": ["security", "test_integrity", "runtime", "lockfile", "judge", "release_shepherd", "nightwatch"] },
+    "agent_id": { "type": "string", "description": "Includes version, e.g. reviewer-security.v1" },
+    "prompt_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "provider": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "temperature": { "type": ["number", "null"] },
+    "seed": { "type": ["integer", "null"] },
+    "raw_response_sha": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "policy_sha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "decision": { "enum": ["pass", "concern", "block", "abstain"] },
+    "reason": { "type": ["string", "null"], "maxLength": 1000 },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "class", "file", "range"],
+        "additionalProperties": false,
+        "properties": {
+          "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+          "class": { "type": "string" },
+          "file": { "type": "string" },
+          "range": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "evidence": { "type": "string", "maxLength": 500 },
+          "recommendation": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "not_author": { "type": "boolean", "default": true, "description": "Always true for the reviewer; no-self-approval rule." },
+    "tokens": {
+      "type": "object",
+      "properties": {
+        "prompt": { "type": "integer", "minimum": 0 },
+        "completion": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "type": "string" },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

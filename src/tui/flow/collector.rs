@@ -2,10 +2,11 @@
 //! Proof: `cargo nextest run -p jeryu -- tui::flow`
 //! Invariants: Collection is best-effort, bounded, and never blocks the TUI render loop on remote state.
 
-use super::model::{FlowGraph, FlowSnapshot, PipelineFlow};
+use super::model::{FlowSnapshot, PipelineFlow};
+use super::recovery::{gitlab_job_to_event, pipeline_flow_from_jobs};
 use crate::{
     docker::DockerCtl,
-    gitlab_client::{GitlabClient, Job},
+    gitlab_client::GitlabClient,
     release,
     state::{CiJobRun, JobEvent, TrackedPipeline, TuiSession}, // allowlist: TUI session import
 };
@@ -24,77 +25,7 @@ pub async fn run_collector(
     let mut last_active_seen_at: Option<chrono::DateTime<chrono::Utc>> = None;
 
     loop {
-        let mut snap = FlowSnapshot {
-            generated_at: chrono::Utc::now(),
-            ..Default::default()
-        };
-
-        if let Ok(pools) = session.list_pools().await {
-            snap.pools = pools;
-        }
-
-        if let Ok(managed) = docker.list_managed_containers().await {
-            snap.active_containers = managed.len();
-        }
-
-        snap.gitlab_online = gitlab.is_ready().await;
-
-        let mut release_pipeline_hint = None;
-        if let Ok(report) = release::build_release_status_report(
-            &session,
-            release::ReleaseStatusQuery {
-                project_id: Some(release::DEFAULT_RELEASE_PROJECT_ID),
-                ref_name: Some("main".into()),
-                sha: None,
-                limit: 1,
-            },
-        )
-        .await
-        {
-            release_pipeline_hint = report.latest.as_ref().and_then(|view| {
-                view.attempt.release_pipeline_id.map(|pipeline_id| {
-                    (
-                        view.attempt.project_id,
-                        pipeline_id,
-                        view.attempt.ref_name.clone(),
-                        view.attempt.sha.clone(),
-                        match view.attempt.release_pipeline_status.clone() {
-                            Some(value) => value,
-                            None => "unknown".to_string(),
-                        },
-                    )
-                })
-            });
-            snap.release = report.latest;
-        }
-
-        if let Ok(metrics) = session.get_cache_metrics().await {
-            snap.cache_metrics.hot_usage_bytes = metrics.bytes_served;
-            snap.cache_metrics.hits = metrics.hit_count;
-            snap.cache_metrics.objects = metrics.object_count;
-            snap.cache_metrics.singleflight_coalesced = metrics.singleflight_coalesced;
-            snap.cache_metrics.hit_ratio = metrics.hit_ratio;
-            snap.cache_metrics.misses = metrics.miss_count;
-            snap.cache_metrics.requests = metrics.total_requests;
-        }
-
-        let mut included_pipeline_ids = BTreeSet::new();
-        if let Ok(pipes) = session.list_tracked_pipelines(5).await {
-            for p in pipes {
-                included_pipeline_ids.insert(p.pipeline_id);
-                snap.active_pipelines
-                    .push(build_tracked_pipeline_flow(&session, &gitlab, p).await);
-            }
-        }
-
-        if let Some((project_id, pipeline_id, ref_name, sha, status)) = release_pipeline_hint
-            && included_pipeline_ids.insert(pipeline_id)
-            && let Some(flow) =
-                build_gitlab_pipeline_flow(&gitlab, project_id, pipeline_id, ref_name, sha, status)
-                    .await
-        {
-            snap.active_pipelines.insert(0, flow);
-        }
+        let mut snap = collect_once(&session, &docker, &gitlab).await;
 
         if snap.active_pipelines.is_empty() {
             if !last_active_pipelines.is_empty() {
@@ -116,6 +47,64 @@ pub async fn run_collector(
     }
 }
 
+pub async fn collect_once(
+    session: &TuiSession,
+    docker: &DockerCtl,
+    gitlab: &GitlabClient,
+) -> FlowSnapshot {
+    let mut snap = FlowSnapshot {
+        generated_at: chrono::Utc::now(),
+        ..Default::default()
+    };
+
+    if let Ok(pools) = session.list_pools().await {
+        snap.pools = pools;
+    }
+
+    if let Ok(managed) = docker.list_managed_containers().await {
+        snap.active_containers = managed.len();
+    }
+
+    snap.gitlab_online = gitlab.is_ready().await;
+    snap.release = release_hint(session).await;
+
+    if let Ok(metrics) = session.get_cache_metrics().await {
+        snap.cache_metrics.hot_usage_bytes = metrics.bytes_served;
+        snap.cache_metrics.hits = metrics.hit_count;
+        snap.cache_metrics.objects = metrics.object_count;
+        snap.cache_metrics.singleflight_coalesced = metrics.singleflight_coalesced;
+        snap.cache_metrics.hit_ratio = metrics.hit_ratio;
+        snap.cache_metrics.misses = metrics.miss_count;
+        snap.cache_metrics.requests = metrics.total_requests;
+    }
+
+    let mut included_pipeline_ids = BTreeSet::new();
+    if let Ok(pipes) = session.list_tracked_pipelines(5).await {
+        for pipeline in pipes {
+            included_pipeline_ids.insert(pipeline.pipeline_id);
+            snap.active_pipelines
+                .push(build_tracked_pipeline_flow(session, gitlab, pipeline).await);
+        }
+    }
+
+    if let Some((project_id, pipeline_id, ref_name, sha, status)) =
+        release_pipeline_hint(session).await
+        && included_pipeline_ids.insert(pipeline_id)
+        && let Some(flow) =
+            build_gitlab_pipeline_flow(gitlab, project_id, pipeline_id, ref_name, sha, status).await
+    {
+        snap.active_pipelines.insert(0, flow);
+    }
+
+    if snap.active_pipelines.is_empty() {
+        snap.outdated = true;
+    } else {
+        snap.last_non_empty_at = Some(snap.generated_at);
+    }
+
+    snap
+}
+
 async fn build_tracked_pipeline_flow(
     session: &TuiSession,
     gitlab: &GitlabClient,
@@ -134,16 +123,20 @@ async fn build_tracked_pipeline_flow(
             .list_pipeline_jobs_with_downstream(pipeline.project_id, pipeline.pipeline_id)
             .await
     {
-        jobs = gitlab_jobs_to_events(pipeline.project_id, pipeline.pipeline_id, gitlab_jobs);
+        let now = chrono::Utc::now().to_rfc3339();
+        jobs = gitlab_jobs
+            .into_iter()
+            .map(|job| gitlab_job_to_event(pipeline.project_id, job, &now))
+            .collect();
     }
 
-    pipeline_flow_from_graph(
+    pipeline_flow_from_jobs(
         pipeline.pipeline_id,
         pipeline.project_id,
         pipeline.ref_name,
         Some(pipeline.sha),
         pipeline.status,
-        super::builder::build_graph(pipeline.pipeline_id, jobs),
+        jobs,
     )
 }
 
@@ -180,7 +173,7 @@ async fn build_gitlab_pipeline_flow(
         .list_pipeline_jobs_with_downstream(project_id, pipeline_id)
         .await
         .ok()?;
-    let events = gitlab_jobs_to_events(project_id, pipeline_id, jobs);
+    let now = chrono::Utc::now().to_rfc3339();
     let ref_name = match pipeline.as_ref() {
         Some(pipeline) => pipeline.ref_name.clone(),
         None => default_ref_name,
@@ -194,89 +187,62 @@ async fn build_gitlab_pipeline_flow(
         None => default_status,
     };
 
-    Some(pipeline_flow_from_graph(
+    Some(pipeline_flow_from_jobs(
         pipeline_id,
         project_id,
         ref_name,
         Some(sha),
         status,
-        super::builder::build_graph(pipeline_id, events),
+        jobs.into_iter()
+            .map(|job| gitlab_job_to_event(project_id, job, &now))
+            .collect(),
     ))
 }
 
-fn gitlab_jobs_to_events(project_id: i64, pipeline_id: i64, jobs: Vec<Job>) -> Vec<JobEvent> {
-    let now = chrono::Utc::now().to_rfc3339();
-    jobs.into_iter()
-        .map(|job| {
-            let pool_name = job
-                .runner
-                .and_then(|runner| runner.description)
-                .or(Some(job.stage.clone()));
-            let received_at = if let Some(started_at) = job.started_at.clone() {
-                started_at
-            } else if let Some(finished_at) = job.finished_at.clone() {
-                finished_at
-            } else {
-                now.clone()
-            };
-            JobEvent {
-                job_id: job.id,
-                project_id,
-                pipeline_id: Some(pipeline_id),
-                status: job.status,
-                job_name: Some(job.name),
-                pool_name,
-                system_id: None,
-                queued_duration: job.queued_duration,
-                received_at,
-            }
-        })
-        .collect()
-}
-
-fn pipeline_flow_from_graph(
-    pipeline_id: i64,
-    project_id: i64,
-    ref_name: String,
-    sha: Option<String>,
-    status: String,
-    graph: FlowGraph,
-) -> PipelineFlow {
-    let total = graph.nodes.len();
-    let mut completed = 0;
-    let mut running = 0;
-    for n in &graph.nodes {
-        if n.status == "success" || n.status == "failed" || n.status == "canceled" {
-            completed += 1;
-        } else if n.status == "running" {
-            running += 1;
-        }
-    }
-
-    let pct = if total > 0 {
-        let effective = completed as f64 + (running as f64 * 0.5);
-        ((effective / total as f64) * 100.0) as u16
-    } else {
-        0
+async fn release_pipeline_hint(session: &TuiSession) -> Option<(i64, i64, String, String, String)> {
+    let Ok(report) = release::build_release_status_report(
+        session,
+        release::ReleaseStatusQuery {
+            project_id: Some(release::DEFAULT_RELEASE_PROJECT_ID),
+            ref_name: Some("main".into()),
+            sha: None,
+            limit: 1,
+        },
+    )
+    .await
+    else {
+        return None;
     };
 
-    let cur_blocker = graph
-        .nodes
-        .iter()
-        .filter(|n| n.status == "running" || n.status == "failed")
-        .max_by_key(|n| n.elapsed_secs)
-        .and_then(|n| n.job_id);
+    report.latest.as_ref().and_then(|view| {
+        view.attempt.release_pipeline_id.map(|pipeline_id| {
+            (
+                view.attempt.project_id,
+                pipeline_id,
+                view.attempt.ref_name.clone(),
+                view.attempt.sha.clone(),
+                match view.attempt.release_pipeline_status.clone() {
+                    Some(s) => s,
+                    None => "unknown".to_string(),
+                },
+            )
+        })
+    })
+}
 
-    PipelineFlow {
-        pipeline_id,
-        project_id,
-        ref_name,
-        sha,
-        status,
-        graph,
-        current_blocker: cur_blocker,
-        critical_path: vec![],
-        eta: None,
-        progress_pct: pct,
-    }
+async fn release_hint(session: &TuiSession) -> Option<crate::release::ReleaseAttemptView> {
+    let Ok(report) = release::build_release_status_report(
+        session,
+        release::ReleaseStatusQuery {
+            project_id: Some(release::DEFAULT_RELEASE_PROJECT_ID),
+            ref_name: Some("main".into()),
+            sha: None,
+            limit: 1,
+        },
+    )
+    .await
+    else {
+        return None;
+    };
+    report.latest
 }

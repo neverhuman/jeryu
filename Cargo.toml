@@ -6,14 +6,14 @@ members = [
     "crates/cargo-vrc",
     "crates/cargo-aer",
     "crates/arc-bench",
-    "crates/tuiwright",
     "crates/tui-capture",
     "crates/adapters/cache-brain",
+    "crates/jeryu-gcd",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "1.0.1"
+version = "3.3.0"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -63,6 +63,9 @@ name = "jeryu"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+# Multiple binaries (jeryu + autonomy) means `cargo run -p jeryu` is ambiguous.
+# Pick jeryu as the default so CI commands and `cargo run --` keep working.
+default-run = "jeryu"
 
 [dependencies]
 # Async runtime
@@ -81,7 +84,13 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 # Docker control
 bollard = "0.18"
 
-# SQLite state
+# SQLite/Postgres state. Migration to RedlineDB v1.0.1 is tracked in
+# docs/redline-jansu-issues.md — RedlineDB is the canonical storage engine
+# going forward, but two blockers defer the migration to a follow-up PR:
+#   R-1: RedlineDB's sync API is not a sqlx drop-in; 19 call sites need a
+#        spawn_blocking adapter or full async rewrite (~20+ hours).
+#   R-2: RedlineDB requires rustc 1.95; jeryu currently builds on 1.92.
+# Both are tracked in docs/redline-jansu-issues.md.
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 
 # Serialization
@@ -118,6 +127,8 @@ gif = "0.13"
 image = { version = "0.25", default-features = false, features = ["png"] }
 sha2 = "0.11.0"
 hex = "0.4.3"
+regex = "1"
+ed25519-dalek = "2"
 httparse = "1.10.1"
 dashmap = "6.1.0"
 cargo_metadata = "0.23.1"
@@ -129,7 +140,10 @@ cache-brain-adapter = { path = "crates/adapters/cache-brain" }
 async-trait = "0.1"
 
 [dev-dependencies]
-tuiwright = { path = "crates/tuiwright" }
+# Tuiwright is NOT managed as a library in this repo. It MUST be pulled from
+# the jankurai workspace at an explicit version tag — never a local path.
+# Bump the `tag` to upgrade; Cargo.lock pins the exact commit.
+tuiwright = { git = "https://github.com/neverhuman/jankurai.git", tag = "v1.4.1" }
 
 [package.metadata.agent]
 purpose = "Single-binary CI/CD control plane for GitLab-based pipelines"

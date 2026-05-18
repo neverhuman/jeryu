@@ -58,6 +58,8 @@ pub struct Job {
     pub allow_failure: bool,
     #[serde(skip)]
     pub pipeline_id: Option<i64>,
+    #[serde(default)]
+    pub pipeline: Option<PipelineRef>,
     #[serde(rename = "ref")]
     pub ref_name: Option<String>,
     pub web_url: Option<String>,
@@ -66,6 +68,15 @@ pub struct Job {
     pub started_at: Option<String>,
     pub finished_at: Option<String>,
     pub runner: Option<JobRunner>,
+}
+
+impl Job {
+    pub fn effective_pipeline_id(&self) -> Option<i64> {
+        match self.pipeline_id {
+            Some(id) => Some(id),
+            None => self.pipeline.as_ref().map(|p| p.id),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -229,4 +240,27 @@ pub struct PipelineVariable<'a> {
 #[derive(Deserialize)]
 pub(crate) struct PipelineResp {
     pub(crate) id: i64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn effective_pipeline_id_prefers_nested_pipeline_metadata() {
+        let job: Job = serde_json::from_str(
+            r#"{
+                "id": 17,
+                "name": "build-enclave-server",
+                "status": "running",
+                "stage": "package",
+                "allow_failure": false,
+                "pipeline": { "id": 4242, "status": "running" }
+            }"#,
+        )
+        .expect("deserialize job");
+
+        assert_eq!(job.pipeline_id, None);
+        assert_eq!(job.effective_pipeline_id(), Some(4242));
+    }
 }

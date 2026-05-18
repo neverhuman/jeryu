@@ -1,5 +1,9 @@
 use super::*;
 
+#[path = "app_runtime_demo_fixtures.rs"]
+mod fixtures;
+use fixtures::*;
+
 pub(crate) fn build_demo_state(
     now: chrono::DateTime<chrono::Utc>,
     now_str: String,
@@ -63,7 +67,6 @@ pub(crate) fn build_demo_state(
             error: None,
             outdated: false,
         },
-        jankurai: demo_jankurai_snapshot(now),
         hot_cache_usage_bytes: 2_340_000_000,
         cache_hits: 1_102,
         cache_objects_count: 2_900,
@@ -111,7 +114,7 @@ pub(crate) fn build_demo_state(
                 count: 24,
             },
             crate::state::TestBottleneck {
-                test_name: "integration::large_batch_completes_under_25ms".into(),
+                test_name: "integration::large_batch_completes_under_10ms".into(),
                 avg_duration_ms: 18_000.0,
                 latest_duration_ms: 18_720,
                 count: 4,
@@ -119,7 +122,7 @@ pub(crate) fn build_demo_state(
         ],
         test_bottlenecks_latest: vec![
             crate::state::TestBottleneck {
-                test_name: "integration::large_batch_completes_under_25ms".into(),
+                test_name: "integration::large_batch_completes_under_10ms".into(),
                 avg_duration_ms: 18_000.0,
                 latest_duration_ms: 18_720,
                 count: 4,
@@ -233,222 +236,14 @@ pub(crate) fn build_demo_state(
             },
         ],
         recent_git_events: vec![],
-        runner_feeds: vec![
-            RunnerFeed {
-                runner_name: "trusted-01".into(),
-                job_id: 9_002,
-                job_name: "build-image".into(),
-                pipeline_id: 8_013,
-                status: "running".into(),
-                elapsed_secs: 134.0,
-                log_tail: "[2026-05-02 23:04:12] Compiling signal-router v0.4.2\n[2026-05-02 23:04:13] Compiling tokio v1.40\n[2026-05-02 23:04:14]   warning: missing import `std::io`\n[2026-05-02 23:04:15] Compiling serde v1.0\n[2026-05-02 23:04:16] Compiling log v0.4\n[2026-05-02 23:04:17] Finished `release` profile in 2m14s".into(),
-                updated_at: now_str.clone(),
-            },
-            RunnerFeed {
-                runner_name: "trusted-02".into(),
-                job_id: 9_005,
-                job_name: "integration-tests".into(),
-                pipeline_id: 8_013,
-                status: "running".into(),
-                elapsed_secs: 87.0,
-                log_tail: "[2026-05-02 23:04:30] Running integration test suite...\n[2026-05-02 23:04:31] test integration::cache_warmer_info_routes_to_all_and_cache ... ok\n[2026-05-02 23:04:32] test integration::auth_error_routes_to_alerts_and_security ... FAILED\n[2026-05-02 23:04:33]   Error: route mismatch on severity filter\n[2026-05-02 23:04:34] test integration::batch_routing_preserves_signal_count ... ok".into(),
-                updated_at: now_str.clone(),
-            },
-            RunnerFeed {
-                runner_name: "security-01".into(),
-                job_id: 9_004,
-                job_name: "security-gate".into(),
-                pipeline_id: 8_013,
-                status: "failed".into(),
-                elapsed_secs: 45.0,
-                log_tail: "[2026-05-02 23:03:50] Running security scan...\n[2026-05-02 23:03:52] Checking artifact signatures...\n[2026-05-02 23:03:55] ERROR: Artifact verification timed out\n[2026-05-02 23:03:55] FATAL: security gate failed".into(),
-                updated_at: now_str.clone(),
-            },
-        ],
+        runner_feeds: demo_runner_feeds(&now_str),
         active_feed_index: 0,
         feed_cycle_tick: 0,
         feed_auto_cycle: true,
-        pipeline_progress_view: Some(PipelineProgressView {
-            pipeline_id: 8_013,
-            ref_name: "main".into(),
-            sha_short: "9c3f2d4e".into(),
-            stages: vec![
-                StageProgress {
-                    stage_name: "build".into(),
-                    total_jobs: 2, completed_jobs: 2, running_jobs: 0, failed_jobs: 0,
-                    status: "success".into(),
-                    avg_duration_secs: Some(180.0), elapsed_secs: Some(134.0),
-                },
-                StageProgress {
-                    stage_name: "test".into(),
-                    total_jobs: 3, completed_jobs: 1, running_jobs: 1, failed_jobs: 0,
-                    status: "running".into(),
-                    avg_duration_secs: Some(300.0), elapsed_secs: Some(87.0),
-                },
-                StageProgress {
-                    stage_name: "security".into(),
-                    total_jobs: 2, completed_jobs: 0, running_jobs: 0, failed_jobs: 1,
-                    status: "failed".into(),
-                    avg_duration_secs: Some(60.0), elapsed_secs: Some(45.0),
-                },
-                StageProgress {
-                    stage_name: "deploy".into(),
-                    total_jobs: 1, completed_jobs: 0, running_jobs: 0, failed_jobs: 0,
-                    status: "pending".into(),
-                    avg_duration_secs: Some(120.0), elapsed_secs: None,
-                },
-                StageProgress {
-                    stage_name: "e2e".into(),
-                    total_jobs: 2, completed_jobs: 0, running_jobs: 1, failed_jobs: 0,
-                    status: "running".into(),
-                    avg_duration_secs: Some(240.0), elapsed_secs: Some(87.0),
-                },
-            ],
-            overall_pct: 47,
-            eta_remaining_secs: Some(492),
-            eta_confidence: "medium".into(),
-            wall_clock_secs: 862,
-            started_at: Some(now_str.clone()),
-        }),
+        pipeline_progress_view: Some(demo_pipeline_progress_view(&now_str)),
         event_ticker_offset: 0,
-    }
-}
-
-fn demo_jankurai_snapshot(
-    now: chrono::DateTime<chrono::Utc>,
-) -> crate::tui::jankurai::JankuraiSnapshot {
-    use crate::tui::jankurai::{
-        JankuraiDimension, JankuraiEntry, JankuraiEntryKind, JankuraiHistoryPoint, JankuraiScan,
-        JankuraiSnapshot,
-    };
-
-    let h0 = now - chrono::Duration::days(14);
-    let h1 = now - chrono::Duration::days(12);
-    let h2 = now - chrono::Duration::days(10);
-    let h3 = now - chrono::Duration::days(7);
-    let h4 = now - chrono::Duration::days(5);
-    let h5 = now - chrono::Duration::days(3);
-    let h6 = now - chrono::Duration::days(1);
-    let h7 = now;
-
-    JankuraiSnapshot {
-        installed: true,
-        history: vec![
-            JankuraiHistoryPoint {
-                generated_at: h0,
-                score: 62,
-                raw_score: Some(62),
-                decision: Some("fail".into()),
-            },
-            JankuraiHistoryPoint {
-                generated_at: h1,
-                score: 68,
-                raw_score: Some(68),
-                decision: Some("fail".into()),
-            },
-            JankuraiHistoryPoint {
-                generated_at: h2,
-                score: 74,
-                raw_score: Some(74),
-                decision: Some("advisory".into()),
-            },
-            JankuraiHistoryPoint {
-                generated_at: h3,
-                score: 79,
-                raw_score: Some(79),
-                decision: Some("advisory".into()),
-            },
-            JankuraiHistoryPoint {
-                generated_at: h4,
-                score: 85,
-                raw_score: Some(85),
-                decision: Some("advisory".into()),
-            },
-            JankuraiHistoryPoint {
-                generated_at: h5,
-                score: 88,
-                raw_score: Some(88),
-                decision: Some("pass".into()),
-            },
-            JankuraiHistoryPoint {
-                generated_at: h6,
-                score: 92,
-                raw_score: Some(92),
-                decision: Some("pass".into()),
-            },
-            JankuraiHistoryPoint {
-                generated_at: h7,
-                score: 95,
-                raw_score: Some(95),
-                decision: Some("pass".into()),
-            },
-        ],
-        dimensions: vec![
-            JankuraiDimension {
-                name: "Agent Capability".into(),
-                weight: 40,
-                score: 100,
-                weighted_points: 40.0,
-                evidence: vec!["all required caps enabled".into()],
-                notes: vec![],
-            },
-            JankuraiDimension {
-                name: "Testing Coverage".into(),
-                weight: 30,
-                score: 90,
-                weighted_points: 27.0,
-                evidence: vec!["missing e2e coverage".into()],
-                notes: vec![],
-            },
-            JankuraiDimension {
-                name: "Documentation".into(),
-                weight: 30,
-                score: 93,
-                weighted_points: 28.0,
-                evidence: vec!["JANKURAI_STANDARD.md exists".into()],
-                notes: vec![],
-            },
-        ],
-        entries: vec![
-            JankuraiEntry {
-                kind: JankuraiEntryKind::Cap,
-                label: "cap-agent-execution".into(),
-                severity: None,
-                hardness: None,
-                path: None,
-                rule: None,
-                lane: None,
-                owner: None,
-                problem: None,
-                evidence: vec!["applied in JANKURAI_STANDARD.md".into()],
-                suggested_fix: None,
-            },
-            JankuraiEntry {
-                kind: JankuraiEntryKind::Finding,
-                label: "rule-missing-e2e".into(),
-                severity: Some("medium".into()),
-                hardness: Some("soft".into()),
-                path: Some("tests/e2e/".into()),
-                rule: Some("REQ-TEST-E2E".into()),
-                lane: Some("slow".into()),
-                owner: Some("qa".into()),
-                problem: Some("E2E tests not found".into()),
-                evidence: vec!["no tests matched in tests/e2e/".into()],
-                suggested_fix: Some("Add at least one E2E test".into()),
-            },
-        ],
-        last_scan: Some(JankuraiScan {
-            generated_at: Some(now),
-            score: 95,
-            raw_score: 95,
-            minimum_score: 90,
-            decision: "pass".into(),
-            score_status: "passing".into(),
-            finding_count: 1,
-            hard_findings: 0,
-            soft_findings: 1,
-            caps_applied: vec!["cap-agent-execution".into(), "cap-secure-build".into()],
-        }),
-        error: None,
+        release_stages: demo_release_stages(),
+        approvals_queue: demo_approvals_queue(),
+        agent_connected: true, // demo is "connected"
     }
 }

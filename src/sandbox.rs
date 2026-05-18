@@ -45,7 +45,7 @@ impl ExecutorSandbox {
     /// Strict mode never silently downgrades to soft local execution.
     pub fn spawn_script(&self, script_path: &str) -> Result<Child> {
         let mut cmd = match self.selected_backend() {
-            SandboxBackend::SoftLocal => bash_command(),
+            SandboxBackend::SoftLocal => Command::new("bash"),
             SandboxBackend::Bubblewrap => {
                 let mut c = Command::new("bwrap");
                 c.arg("--die-with-parent")
@@ -100,16 +100,6 @@ impl ExecutorSandbox {
     }
 }
 
-fn bash_command() -> Command {
-    if command_exists("bash") {
-        Command::new("bash")
-    } else if std::path::Path::new("/usr/bin/bash").is_file() {
-        Command::new("/usr/bin/bash")
-    } else {
-        Command::new("/bin/bash")
-    }
-}
-
 fn detect_strict_backend() -> SandboxBackend {
     if command_exists("bwrap") {
         SandboxBackend::Bubblewrap
@@ -136,7 +126,18 @@ mod tests {
     use std::io::Write;
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)]
     async fn test_sandbox_proxy_injection() {
+        // Hold PATH_ENV_LOCK for the duration: this test spawns a child bash
+        // that inherits this process's env. If another test concurrently
+        // mutates env (HTTP_PROXY, PATH, etc.), the spawn races and bash
+        // sees stale env. Serializing with the global PATH_ENV_LOCK keeps
+        // parallel-test runs deterministic. The std::sync::MutexGuard does
+        // cross `.await` points — that's intentional here (test-only).
+        let _guard = crate::test_sync::PATH_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+
         let config = SandboxConfig {
             use_strict_network_isolation: false,
             proxy_host: "127.0.0.1".into(),
@@ -148,6 +149,11 @@ mod tests {
 
         let mut script_file = tempfile::NamedTempFile::new().unwrap();
         script_file.write_all(b"echo $HTTP_PROXY").unwrap();
+        // Flush + fsync so the spawned bash sees the bytes on disk. Without
+        // this the spawn can race the kernel writeback and bash reads an
+        // empty file ("No such file or directory" or empty output).
+        script_file.flush().unwrap();
+        script_file.as_file().sync_all().unwrap();
 
         let child = sandbox
             .spawn_script(script_file.path().to_str().unwrap())

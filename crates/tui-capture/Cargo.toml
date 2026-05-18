@@ -5,6 +5,24 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
+[package.metadata.agent]
+purpose = "Terminal-UI capture and deterministic PNG rendering for demo/recording lanes"
+owned_paths = ["src/**", "AGENTS.md"]
+entrypoints = ["render_capture", "write_png"]
+invariants = [
+    "Output PNG files are deterministic for a given input transcript",
+    "No global env mutation (capture is hermetic)",
+]
+local_validate = [
+    "cargo check -p tui-capture",
+    "cargo test -p tui-capture",
+]
+boundary_validate = []
+public_api = false
+risk = "low"
+consumers = ["crates/", "tools/"]
+exceptions = ["rusttype-dev-dep-pending-ab-glyph-migration"]
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true

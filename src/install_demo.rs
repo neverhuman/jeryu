@@ -214,8 +214,7 @@ fn draw_text(img: &mut RgbaImage, x: i32, y: i32, text: &str, scale: i32, color:
 fn draw_char(img: &mut RgbaImage, x: i32, y: i32, ch: char, scale: i32, color: Rgba<u8>) {
     let glyph = BASIC_FONTS.get(ch).unwrap_or([0; 8]);
     for (row, bits) in glyph.iter().enumerate() {
-        for col in 0..8 {
-            let col = col as i32;
+        for col in 0..8i32 {
             if *bits & (1u8 << (col as u32)) != 0 {
                 fill_rect(
                     img,

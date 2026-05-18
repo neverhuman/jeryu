@@ -1,0 +1,48 @@
+[package]
+name = "jeryu-gcd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[package.metadata.agent]
+purpose = "Always-on disk-pressure daemon. Maintains ≥80 GiB free via pressure-tier GC."
+owned_paths = ["src/**", "AGENTS.md"]
+entrypoints = ["jeryu_gcd::run", "jeryu_gcd::tick_once"]
+invariants = [
+    "Never deletes data when df is Nominal — only honor scheduled deep sweeps",
+    "Preserves active leases at every pressure tier below Emergency",
+    "All actions are recorded as DiskPressureEvent in the state DB",
+]
+local_validate = [
+    "cargo check -p jeryu-gcd",
+    "cargo nextest run -p jeryu-gcd --lib",
+]
+boundary_validate = []
+public_api = false
+risk = "high"
+consumers = ["jeryu", "ops"]
+exceptions = []
+
+[[bin]]
+name = "jeryu-gcd"
+path = "src/main.rs"
+
+[lib]
+name = "jeryu_gcd"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
+jeryu = { path = "../.." }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"

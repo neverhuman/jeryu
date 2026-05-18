@@ -195,6 +195,7 @@ pub(crate) fn status_label(enabled: bool, label: &str, code: &str) -> String {
     format!("[{}]", color_text(enabled, code, label))
 }
 
+#[allow(clippy::too_many_arguments)] // install renderer: closures + style codes inline by design; struct-wrap is tracked as a follow-up
 pub(crate) fn render_plan_steps<T, FReq, FLabel, FDetail, FCommand>(
     steps: &[T],
     verbose: bool,

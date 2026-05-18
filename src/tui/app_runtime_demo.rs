@@ -184,7 +184,6 @@ pub(crate) fn apply_demo_fixture(app: &mut App) {
     app.selected_test_index = 0;
     app.selected_test_history = None;
     app.selected_evidence_index = 0;
-    app.selected_jankurai_index = 0;
     app.test_view_mode = TestViewMode::Average;
     app.evidence_view_mode = EvidenceViewMode::Capsules;
     app.maximize_logs = false;
@@ -207,30 +206,29 @@ pub(crate) fn tick_demo_state(app: &mut App) {
     let tc = app.tick_count;
 
     // Simulate logs tailing for job 9002 (the running one we start on)
-    if tc % 2 == 0 {
-        if let Some(target) = app.log_target {
-            if target.job_id == 9002 {
-                let num = tc / 2;
-                let log_line = format!(
-                    "[demo] Processing signal block {} [batch-routing] ... ok\n",
-                    num
-                );
-                app.state.live_log.text.push_str(&log_line);
-            }
-        }
+    if tc.is_multiple_of(2)
+        && let Some(target) = app.log_target
+        && target.job_id == 9002
+    {
+        let num = tc / 2;
+        let log_line = format!(
+            "[demo] Processing signal block {} [batch-routing] ... ok\n",
+            num
+        );
+        app.state.live_log.text.push_str(&log_line);
     }
 
     // Advance progress
-    if tc % 4 == 0 {
-        if let Some(pipeline) = app.state.flow.active_pipelines.first_mut() {
-            if pipeline.progress_pct < 100 {
-                pipeline.progress_pct += 1;
-            }
+    if tc.is_multiple_of(4) {
+        if let Some(pipeline) = app.state.flow.active_pipelines.first_mut()
+            && pipeline.progress_pct < 100
+        {
+            pipeline.progress_pct += 1;
         }
-        if let Some(view) = app.state.pipeline_progress_view.as_mut() {
-            if view.overall_pct < 100 {
-                view.overall_pct += 1;
-            }
+        if let Some(view) = app.state.pipeline_progress_view.as_mut()
+            && view.overall_pct < 100
+        {
+            view.overall_pct += 1;
         }
     }
 

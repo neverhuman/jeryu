@@ -9,7 +9,6 @@
 use anyhow::Result;
 use axum::{
     Router,
-    extract::State,
     routing::{get, post},
 };
 use std::sync::Arc;
@@ -17,7 +16,7 @@ use tracing::info;
 
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
-use crate::state::{Db, JobEvent, TrackedPipeline};
+use crate::state::Db;
 
 #[path = "engine_aux.rs"]
 mod aux_secondary;

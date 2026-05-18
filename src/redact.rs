@@ -67,14 +67,13 @@ fn redact_basic_auth(input: &str) -> String {
     input
         .split_whitespace()
         .map(|token| {
-            if let Some((scheme, rest)) = token.split_once("://") {
-                if let Some((auth, tail)) = rest.split_once('@') {
-                    if auth.contains(':') {
-                        let host = tail.split('/').next().unwrap_or("");
-                        let suffix = tail.strip_prefix(host).unwrap_or("");
-                        return format!("{scheme}://redacted@{host}{suffix}");
-                    }
-                }
+            if let Some((scheme, rest)) = token.split_once("://")
+                && let Some((auth, tail)) = rest.split_once('@')
+                && auth.contains(':')
+            {
+                let host = tail.split('/').next().unwrap_or("");
+                let suffix = tail.strip_prefix(host).unwrap_or("");
+                return format!("{scheme}://redacted@{host}{suffix}");
             }
             token.to_string()
         })

@@ -53,7 +53,7 @@ pub(crate) fn render_metric_row(f: &mut Frame, area: Rect, tiles: &[MetricTile<'
         .direction(Direction::Horizontal)
         .constraints(constraints)
         .split(area);
-    for (col, tile) in cols.into_iter().zip(tiles.iter()) {
+    for (col, tile) in cols.iter().zip(tiles.iter()) {
         render_metric_tile(f, *col, tile.title, tile.value, tile.detail, tile.color);
     }
 }

@@ -1,0 +1,22 @@
+schema: vibegate.agent.v1
+id: nightwatch
+version: 1
+role: nightwatch
+chain_ref: judge
+prompt_path: null
+output_schema: schemas/launch-ledger-entry.schema.json
+signing_key_pub: keys/nightwatch.ed25519.pub
+authority:
+  may_pause_rollout:    true
+  may_rollback:         true
+  may_promote_forward:  false
+  may_page_humans:      true
+canary:
+  initial_percent: 1
+  max_percent_without_human: 10
+  analysis_minutes: 30
+  rollback_on:
+    error_rate_relative_increase: 0.02
+    p95_latency_relative_increase: 0.15
+    crash_loop: true
+    security_signal: true

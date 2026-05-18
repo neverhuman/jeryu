@@ -28,10 +28,7 @@ pub fn render_attention_rail(
         .border_style(Style::default().fg(if items.is_empty() {
             theme.ok
         } else {
-            severity_color(
-                items.first().map(|i| i.severity).unwrap_or(Severity::Info),
-                theme,
-            )
+            theme.severity_color(items.first().map(|i| i.severity).unwrap_or(Severity::Info))
         }));
 
     let inner = block.inner(area);
@@ -54,7 +51,7 @@ pub fn render_attention_rail(
         .take(max_items)
         .enumerate()
         .map(|(idx, item)| {
-            let sev_color = severity_color(item.severity, theme);
+            let sev_color = theme.severity_color(item.severity);
             let is_selected = selected == Some(idx);
 
             let mut spans = vec![
@@ -96,15 +93,6 @@ pub fn render_attention_rail(
     f.render_widget(Paragraph::new(lines), inner);
 }
 
-fn severity_color(severity: Severity, theme: &Theme) -> ratatui::style::Color {
-    match severity {
-        Severity::Critical => theme.fail,
-        Severity::Error => theme.warning,
-        Severity::Warning => theme.waiting,
-        Severity::Info => theme.text_muted,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,7 +100,7 @@ mod tests {
     #[test]
     fn severity_color_maps_correctly() {
         let t = Theme::dark();
-        assert_eq!(severity_color(Severity::Critical, &t), t.fail);
-        assert_eq!(severity_color(Severity::Warning, &t), t.waiting);
+        assert_eq!(t.severity_color(Severity::Critical), t.fail);
+        assert_eq!(t.severity_color(Severity::Warning), t.waiting);
     }
 }

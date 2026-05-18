@@ -12,6 +12,7 @@ pub mod cache;
 pub mod ci_gen;
 pub mod explain;
 pub mod nightly;
+pub mod nightly_report;
 pub mod planner;
 pub mod subsystem;
 pub mod testmap;

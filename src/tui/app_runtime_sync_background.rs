@@ -97,7 +97,7 @@ pub(crate) fn start_background_sync(app: &App) {
             let running_jobs = match store_feed.recent_job_events(50).await {
                 Ok(jobs) => jobs
                     .into_iter()
-                    .filter(|j| j.status == "running")
+                    .filter(|j| crate::tui::live::is_live_job_status(j.status.as_str()))
                     .take(5)
                     .collect::<Vec<_>>(),
                 Err(_) => Vec::new(),
@@ -216,15 +216,15 @@ pub(crate) fn start_background_sync(app: &App) {
                 if let Some((pid, project_id, ref_name, sha)) = active_opt {
                     let stages = {
                         let mut s = Vec::new();
-                        if let Ok(runs) = store.list_ci_job_runs(project_id, pid).await {
-                            if !runs.is_empty() {
-                                s = build_stage_progress_from_ci_runs(&runs);
-                            }
+                        if let Ok(runs) = store.list_ci_job_runs(project_id, pid).await
+                            && !runs.is_empty()
+                        {
+                            s = build_stage_progress_from_ci_runs(&runs);
                         }
-                        if s.is_empty() {
-                            if let Ok(events) = store.recent_job_events(100).await {
-                                s = build_stage_progress_from_events(&events, pid);
-                            }
+                        if s.is_empty()
+                            && let Ok(events) = store.recent_job_events(100).await
+                        {
+                            s = build_stage_progress_from_events(&events, pid);
                         }
                         s
                     };
@@ -285,10 +285,7 @@ pub(crate) fn start_background_sync(app: &App) {
 
             let daemon_path = std::path::Path::new("/etc/docker/daemon.json");
             snap.mirror_enabled = if daemon_path.exists() {
-                let content = match std::fs::read_to_string(daemon_path) {
-                    Ok(value) => value,
-                    Err(_) => String::new(),
-                };
+                let content = std::fs::read_to_string(daemon_path).unwrap_or_default();
                 content.contains(&registry_addr)
                     || content.contains(&crate::config::CACHE_REGISTRY_PORT.to_string())
             } else {
@@ -341,6 +338,7 @@ pub(crate) fn start_background_sync(app: &App) {
                 snap.recent_git_events = events;
             }
             snap.last_sync_at = Some(chrono::Utc::now());
+            snap.agent_connected = true; // successful sync = connected
 
             // Storage Metrics background queries
             if let Ok(df_output) = tokio::process::Command::new("df")

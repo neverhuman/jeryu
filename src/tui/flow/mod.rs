@@ -7,6 +7,7 @@ pub mod collector;
 pub mod eta;
 pub mod inspector;
 pub mod model;
+pub mod recovery;
 pub mod widget;
 
 // Re-exports
@@ -15,4 +16,5 @@ pub use collector::*;
 pub use eta::*;
 pub use inspector::*;
 pub use model::*;
+pub(crate) use recovery::*;
 pub use widget::*;

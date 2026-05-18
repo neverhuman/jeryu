@@ -1,21 +1,30 @@
 name: Release
 
+# Thin CI lane. The source of truth lives at ops/ci/release-lane.sh so local
+# rehearsals and CI execute identical commands (jankurai HLT-042).
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Semantic version (e.g., 1.0.0, 2.1.0-rc.1)'
+        description: "Release version, e.g. 3.0.1-rc.1 or 3.0.1"
         required: true
         type: string
       dry_run:
-        description: 'Dry run mode (skip actual publishing)'
+        description: "Run the pipeline but do NOT publish."
         required: false
         type: boolean
-        default: true
+        default: false
+  push:
+    tags:
+      - "v*"
 
 concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -23,350 +32,156 @@ env:
 
 jobs:
   preflight:
-    name: Release Preflight
+    name: Preflight
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
-      version: ${{ steps.version_check.outputs.version }}
-      is_prerelease: ${{ steps.version_check.outputs.is_prerelease }}
+      version: ${{ steps.resolve.outputs.version }}
+      dry_run: ${{ steps.resolve.outputs.dry_run }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      - name: Validate version format
-        id: version_check
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - id: resolve
+        name: Resolve version + dry_run
         run: |
-          VERSION="${{ github.event.inputs.version }}"
-          echo "Validating version: $VERSION"
-
-          # Check semver format
-          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
-            echo "Error: Version must be valid semver (e.g., 1.0.0, 2.1.0-rc.1)" >&2
-            exit 1
-          fi
-
-          # Check if prerelease
-          if echo "$VERSION" | grep -qE '-'; then
-            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            ver="${GITHUB_REF_NAME#v}"
+            dry="false"
           else
-            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            ver="${{ inputs.version }}"
+            dry="${{ inputs.dry_run }}"
           fi
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Check version consistency
-        run: |
-          VERSION="${{ steps.version_check.outputs.version }}"
-
-          # Check VERSION file
-          if ! grep -qF "$VERSION" VERSION; then
-            echo "Error: VERSION file does not contain $VERSION"
-            exit 1
-          fi
-
-          # Check version.json
-          if ! jq -e ".version == \"$VERSION\"" version.json > /dev/null; then
-            echo "Error: version.json version does not match $VERSION"
-            exit 1
-          fi
-
-          # Check Cargo.toml
-          if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
-            echo "Error: Cargo.toml version does not match $VERSION"
-            exit 1
-          fi
-
-      - name: Check CHANGELOG entry
-        run: |
-          VERSION="${{ steps.version_check.outputs.version }}"
-          if ! grep -qF "## [$VERSION]" CHANGELOG.md; then
-            echo "Error: CHANGELOG.md must have entry for version $VERSION"
-            echo "Expected format: ## [$VERSION] - YYYY-MM-DD"
-            exit 1
-          fi
-
-      - name: Check no existing tag
-        run: |
-          VERSION="${{ steps.version_check.outputs.version }}"
-          if git tag | grep -q "^v$VERSION$"; then
-            echo "Error: Tag v$VERSION already exists"
-            exit 1
-          fi
-
-      - name: Check Cargo.lock committed
-        run: |
-          if ! git diff --quiet --name-only -- Cargo.lock; then
-            echo "Error: Cargo.lock has uncommitted changes"
-            exit 1
-          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry" >> "$GITHUB_OUTPUT"
+      - run: bash ops/ci/release-lane.sh preflight "${{ steps.resolve.outputs.version }}"
 
   audit:
-    name: Release Audit
+    name: Audit
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [preflight]
-    if: github.event.inputs.dry_run != 'false'
+    timeout-minutes: 20
+    needs: preflight
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-      - name: Install jankurai
-        run: cargo install jankurai --locked
-      - name: Run release audit
-        run: |
-          mkdir -p target/jankurai
-          jankurai audit . --mode ratchet \
-            --baseline agent/repo-score.json \
-            --json target/jankurai/release-audit.json \
-            --md target/jankurai/release-audit.md \
-            --score-history agent/score-history.jsonl
-      - name: Check minimum score
-        run: |
-          SCORE=$(jq -r '.score' target/jankurai/release-audit.json)
-          MIN_SCORE=$(jq -r '.policy.minimum_score // 85' agent/audit-policy.toml)
-          echo "Release audit score: $SCORE (minimum: $MIN_SCORE)"
-          if [ "$SCORE" -lt "$MIN_SCORE" ]; then
-            echo "Error: Release audit score $SCORE is below minimum $MIN_SCORE"
-            exit 1
-          fi
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - run: bash ops/ci/release-lane.sh audit "${{ needs.preflight.outputs.version }}"
 
   security:
-    name: Security Gate
+    name: Security
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    needs: [preflight]
-    permissions:
-      contents: read
-      security-events: write
+    timeout-minutes: 20
+    needs: preflight
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-      - name: Install cargo-deny
-        uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny
-      - name: Install jankurai
-        run: cargo install jankurai --locked
-      - name: Security lane
-        run: jankurai security run . --strict --profile ci --out target/jankurai/security/release-evidence.json
-      - name: Check security findings
-        run: |
-          if jq -e '.secret_scan.status != 0 or .dependency_review.status != 0' target/jankurai/security/release-evidence.json > /dev/null 2>&1; then
-            echo "Error: Security lane has failures"
-            exit 1
-          fi
-      - name: Run cargo-deny
-        run: |
-          cargo deny check advisories
-          cargo deny check bans
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - run: bash ops/ci/release-lane.sh security "${{ needs.preflight.outputs.version }}"
 
   build:
-    name: Build Release
+    name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-    needs: [preflight]
+    timeout-minutes: 45
+    needs: preflight
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-      - name: Rust cache
-        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-      - name: Install mold
-        run: sudo apt-get install -y mold
-      - name: Build release
-        run: cargo build --release -p jeryu
-      - name: Build tools
-        run: |
-          cargo build --release -p cargo-witness -p cargo-vrc -p cargo-aer
-      - name: Run tests
-        run: cargo test --release --lib
-      - name: Install nextest
-        uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
-        with:
-          tool: nextest
-      - name: Run nextest
-        run: cargo nextest run --release -p jeryu --lib --profile ci
-      - name: Upload release binaries
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - run: bash ops/ci/release-lane.sh build "${{ needs.preflight.outputs.version }}"
+      - name: Upload binary
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: release-binaries
-          path: |
-            target/release/jeryu
-            target/release/cargo-witness
-            target/release/cargo-vrc
-            target/release/cargo-aer
+          name: jeryu-binary
+          path: target/release/jeryu
           if-no-files-found: error
 
   provenance:
-    name: Provenance Attestation
+    name: Provenance + SBOM
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [build]
+    timeout-minutes: 25
+    # Needs preflight for `${{ needs.preflight.outputs.version }}` on line 116
+    # and needs build for the downloaded binary artifact.
+    needs: [preflight, build]
     permissions:
       id-token: write
       contents: read
+      attestations: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/download-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - name: Download binary
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: release-binaries
-          path: target/release/
-      - name: Generate CycloneDX SBOM
-        run: |
-          cargo cyclonedx --format json --output-dir target/jankurai/sbom
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
+          name: jeryu-binary
+          path: target/release
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - run: bash ops/ci/release-lane.sh provenance "${{ needs.preflight.outputs.version }}"
+      - name: Attest release binary
+        uses: actions/attest-build-provenance@4d7c2722ed02d3f4f4e62a4b4d8e60036aceb78b # v3.0.1
+        with:
+          subject-path: |
+            target/release/jeryu
+      - name: Attest SBOM
+        uses: actions/attest-build-provenance@4d7c2722ed02d3f4f4e62a4b4d8e60036aceb78b # v3.0.1
         with:
           subject-path: target/jankurai/sbom/*.json
 
-  publish:
-    name: Publish Release
+  evidence:
+    name: Evidence
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [preflight, security, build]
-    if: github.event.inputs.dry_run == 'false'
-    environment:
-      name: release
-      url: https://github.com/${{ github.repository }}/releases/tag/v${{ needs.preflight.outputs.version }}
+    needs: [preflight, audit, security, build, provenance]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: bash ops/ci/release-lane.sh evidence "${{ needs.preflight.outputs.version }}"
+      - name: Upload evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-evidence
+          path: ops/releases/${{ needs.preflight.outputs.version }}
+
+  rollback-check:
+    name: Rollback target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: preflight
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: bash ops/ci/release-lane.sh rollback-check "${{ needs.preflight.outputs.version }}"
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [preflight, audit, security, build, provenance, evidence, rollback-check]
+    if: needs.preflight.outputs.dry_run != 'true'
+    environment: release
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download binary
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          fetch-depth: 0
-      - uses: actions/download-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: release-binaries
-          path: target/release/
-      - name: Make binaries executable
-        run: |
-          chmod +x target/release/jeryu
-          chmod +x target/release/cargo-witness
-          chmod +x target/release/cargo-vrc
-          chmod +x target/release/cargo-aer
-      - name: Create GitHub Release
-        env:
-          VERSION: ${{ needs.preflight.outputs.version }}
-          IS_PRERELEASE: ${{ needs.preflight.outputs.is_prerelease }}
-        run: |
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            gh release create "v$VERSION" \
-              --title "v$VERSION" \
-              --notes-file CHANGELOG.md \
-              --prerelease \
-              --verify-tag \
-              target/release/jeryu \
-              target/release/cargo-witness \
-              target/release/cargo-vrc \
-              target/release/cargo-aer
-          else
-            gh release create "v$VERSION" \
-              --title "v$VERSION" \
-              --notes-file CHANGELOG.md \
-              --verify-tag \
-              target/release/jeryu \
-              target/release/cargo-witness \
-              target/release/cargo-vrc \
-              target/release/cargo-aer
-          fi
-      - name: Publish to crates.io
-        if: needs.preflight.outputs.is_prerelease == 'false'
-        run: |
-          cargo publish --package jeryu
-          cargo publish --package cargo-witness
-          cargo publish --package cargo-vrc
-          cargo publish --package cargo-aer
-
-  evidence:
-    name: Generate Release Evidence
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [preflight, build]
-    if: always()
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-      - name: Install jankurai
-        run: cargo install jankurai --locked
-      - name: Generate release evidence
-        run: |
-          mkdir -p target/jankurai/release
-          jankurai audit . --mode advisory \
-            --json target/jankurai/release/evidence.json \
-            --md target/jankurai/release/evidence.md
-          jankurai rust witness build . --out target/jankurai/release/witness-graph.json
-          cargo run -p cargo-vrc -- map --output-dir target/jankurai/release
-          cargo run -p cargo-aer -- scan --output target/jankurai/release/aer-findings.json
-      - name: Create release evidence archive
-        run: |
-          tar -czf release-evidence.tar.gz -C target/jankurai/release .
-      - name: Upload release evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+          name: jeryu-binary
+          path: target/release
+      - name: Download evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: release-evidence
-          path: |
-            release-evidence.tar.gz
-            target/jankurai/release/evidence.json
-            target/jankurai/release/evidence.md
-          if-no-files-found: warn
-
-  rollback-check:
-    name: Rollback Compatibility Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [preflight]
-    if: github.event.inputs.dry_run == 'false'
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-      - name: Check rollback path
+          path: ops/releases/${{ needs.preflight.outputs.version }}
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ needs.preflight.outputs.version }}"
-
-          # Get the previous version
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          if [ -z "$PREV_TAG" ]; then
-            echo "No previous tag found, skipping rollback check"
-            exit 0
+          ver="${{ needs.preflight.outputs.version }}"
+          tag="v$ver"
+          if ! git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag not found — \`jeryu release submit\` should have pushed it." >&2
+            exit 1
           fi
-
-          PREV_VERSION="${PREV_TAG#v}"
-          echo "Previous version: $PREV_VERSION"
-          echo "New version: $VERSION"
-
-          # Document rollback procedure
-          cat > rollback-procedure.md << EOF
-          # Rollback Procedure for v$VERSION
-
-          ## If issues are detected before promotion:
-          1. Do not push the release tag
-          2. Revert the version bump commits
-          3. Investigate and fix the issues
-
-          ## If issues are detected after release:
-          1. Tag the fix: git tag v$PREV_VERSION -m "Revert to v$PREV_VERSION"
-          2. Push: git push origin v$PREV_VERSION
-          3. Document the regression in CHANGELOG.md
-          4. Notify users via the release channel
-
-          ## Canary Rollback:
-          1. Stop the canary pipeline
-          2. Revert to previous production version
-          3. Preserve evidence for post-mortem
-
-          ## Previous Version: $PREV_VERSION
-          EOF
-
-      - name: Upload rollback procedure
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: rollback-procedure
-          path: rollback-procedure.md
-          if-no-files-found: warn
+          gh release create "$tag" \
+            --verify-tag \
+            --title "$tag" \
+            --notes-file "ops/releases/$ver/changelog.md" \
+            target/release/jeryu

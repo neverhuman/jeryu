@@ -1,3 +1,7 @@
+// Tests intentionally hold a std::sync::Mutex across .await to serialize
+// against shared on-disk fixtures and mutated env vars.
+#![allow(clippy::await_holding_lock)]
+
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::sync::{LazyLock, Mutex};

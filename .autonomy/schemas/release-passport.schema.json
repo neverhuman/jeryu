@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vibegate.release_passport.v1",
+  "title": "ReleasePassport",
+  "description": "Artifact-level authorization to deploy/promote. Built once, promoted through environments.",
+  "type": "object",
+  "required": ["schema", "id", "artifact_digest", "sbom_digest", "provenance_digest", "source_sha", "build_logs_digest", "issued_at", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "vibegate.release_passport.v1" },
+    "id": { "type": "string", "pattern": "^rpa_[0-9A-HJKMNP-TV-Z]{26}$" },
+    "release_id": { "type": ["string", "null"] },
+    "artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifact_kind": { "enum": ["container", "rust_binary", "wasm_module", "deb", "rpm", "tarball"] },
+    "sbom_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "provenance_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "build_logs_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "allowed_environments": {
+      "type": "array",
+      "items": { "enum": ["dev", "staging", "canary", "prod"] }
+    },
+    "rollback_plan": {
+      "type": "object",
+      "required": ["strategy"],
+      "properties": {
+        "strategy": { "enum": ["revert_artifact", "feature_flag", "data_migration_reverse"] },
+        "tested": { "type": "boolean", "default": false }
+      }
+    },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "signature": {
+      "type": "object",
+      "required": ["key_id", "algo", "value"],
+      "properties": {
+        "key_id": { "type": "string", "description": "Typically 'release-shepherd.ed25519'." },
+        "algo": { "const": "ed25519" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

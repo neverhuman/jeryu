@@ -27,7 +27,7 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
         .state
         .recent_jobs
         .iter()
-        .filter(|j| j.status == "running")
+        .filter(|j| crate::tui::live::is_live_job_status(j.status.as_str()))
         .count();
     let failed_jobs = app
         .state
@@ -73,34 +73,8 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
         .saturating_sub(if !app.state.gitlab_ready { 22 } else { 0 })
         .saturating_sub(if app.state.proxy_healthy { 0 } else { 8 })
         .min(100);
-    let attention = AttentionState {
-        active_taint_count: app.state.active_taint_count,
-        release: app
-            .state
-            .release_status
-            .as_ref()
-            .map(|rel| AttentionRelease {
-                version: rel.attempt.version.clone(),
-                state_label: rel.canary_state.clone(),
-            }),
-        failed_job: app
-            .state
-            .recent_jobs
-            .iter()
-            .find(|job| job.status == "failed")
-            .map(|job| AttentionJob {
-                id: job.job_id,
-                name: job.job_name.as_deref().unwrap_or("unknown job").to_string(),
-            }),
-        has_running_job: app
-            .state
-            .recent_jobs
-            .iter()
-            .any(|job| job.status == "running"),
-        gitlab_ready: app.state.gitlab_ready,
-    };
-    let (headline, headline_color, next_action) = top_attention(&attention);
-    let (_, outdated_color, outdated_label) = outdated_indicator(app.state.last_sync_at);
+    let (headline, headline_color, next_action) = top_attention(app);
+    let (_, outdated_color, outdated_label) = outdated_indicator(app);
 
     f.render_widget(
         Paragraph::new(vec![
@@ -222,7 +196,7 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
         .state
         .runner_feeds
         .iter()
-        .filter(|f| f.status == "running")
+        .filter(|f| crate::tui::live::is_live_job_status(f.status.as_str()))
         .count();
     let feed_failed = app
         .state
@@ -302,6 +276,6 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
 mod ui_panels_mission_extra;
 pub(crate) use ui_panels_mission_extra::*;
 
-#[path = "ui_panels_jankurai.rs"]
-mod ui_panels_jankurai;
-pub(crate) use ui_panels_jankurai::*;
+#[path = "ui_panels_body_approvals.rs"]
+mod ui_panels_body_approvals;
+pub(crate) use ui_panels_body_approvals::*;

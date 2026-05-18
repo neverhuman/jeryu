@@ -1,0 +1,32 @@
+schema_version = "1.0.0"
+mode = "enforce"
+block_on = [
+    "critical",
+    "high",
+]
+warn_on = [
+    "medium",
+    "low",
+]
+debounce_ms = 150
+stable_ms = 75
+on_fail = "poison"
+quarantine_new_files = true
+respect_gitignore = true
+audit_scope = "file-plus-control"
+fail_closed = true
+max_audit_ms = 4000
+
+[paths]
+extra_excluded_paths = [
+    ".jankurai/",
+    "target/jankurai/",
+    "target/",
+    "node_modules/",
+    ".git/",
+]
+
+[hardening]
+linux_landlock = false
+linux_fanotify = false
+macos_endpoint_security = false

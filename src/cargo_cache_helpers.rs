@@ -61,7 +61,7 @@ pub(crate) fn sanitize_segment(value: &str) -> String {
         .collect()
 }
 
-fn short_hash(bytes: &[u8]) -> String {
+pub(crate) fn short_hash(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     hex::encode(hasher.finalize())[..12].to_string()

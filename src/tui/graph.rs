@@ -2,6 +2,7 @@
 //! Proof: `cargo nextest run -p jeryu -- tui::graph`
 //! Invariants: Graph rendering is deterministic and never mutates pipeline or release state.
 use crate::state::JobEvent;
+use crate::tui::live::is_live_job_status;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -120,8 +121,7 @@ impl PipelineGraph {
             let phase = classify_phase(name);
             let lane = classify_lane(name);
 
-            let active =
-                job.status == "running" || job.status == "pending" || job.status == "created";
+            let active = is_live_job_status(job.status.as_str());
 
             let mut elapsed_secs = 0;
             if let Ok(st) = chrono::DateTime::parse_from_rfc3339(&job.received_at) {

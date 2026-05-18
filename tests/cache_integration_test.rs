@@ -1,3 +1,8 @@
+// Integration tests intentionally hold mocked Mutex guards across awaits to
+// serialize against test-local environment state. std::sync::Mutex is the
+// right primitive here (cheaper than tokio Mutex for serial test sections).
+#![allow(clippy::await_holding_lock)]
+
 use anyhow::Result;
 use jeryu::cache_brain::{BuildUnit, BuildUnitType, CacheBrain};
 use jeryu::epoch::EpochManager;

@@ -9,6 +9,7 @@ fn job(name: &str, status: &str, allow_failure: bool) -> Job {
         stage: "test".to_string(),
         allow_failure,
         pipeline_id: None,
+        pipeline: None,
         ref_name: Some("main".to_string()),
         web_url: None,
         queued_duration: None,
@@ -47,6 +48,7 @@ fn sample_release_view(attempt: ReleaseAttempt, release_dir: &str) -> ReleaseAtt
 
 /// Build a `CiSchemaJob` test fixture from common defaults. Tests pass the
 /// fields that vary; everything else is filled in with neutral defaults.
+#[allow(clippy::too_many_arguments)] // test fixture: flat positional schema by design
 fn sample_ci_schema_job(
     id: &str,
     section: &str,
@@ -169,6 +171,7 @@ fn status_text_includes_state_paths() {
     };
     let text = render_release_status_text(&report);
     assert!(text.contains("jeryu release status"));
+    assert!(text.contains("Active:"));
     assert!(text.contains("deploy-canary-c-state.json"));
     assert!(text.contains("Phase:"));
     assert!(text.contains("Gates:"));
@@ -188,6 +191,41 @@ fn auto_promotion_stops_when_prod_gate_already_exists() {
     let attempt = sample_release_attempt(version);
     let view = sample_release_view(attempt, &format!("/tmp/{version}"));
     assert!(!should_trigger_production_promotion_with_gate(&view, true));
+}
+
+#[test]
+fn reconcile_prefers_existing_release_attempt_until_prod_finishes() {
+    let mut attempt = sample_release_attempt("ci-abcdef123456");
+    assert!(should_resume_existing_release_attempt_for_reconcile(
+        &attempt
+    ));
+
+    attempt.production_pipeline_status = Some("success".into());
+    assert!(!should_resume_existing_release_attempt_for_reconcile(
+        &attempt
+    ));
+
+    let mut skipped = sample_release_attempt("ci-abcdef123456");
+    skipped.canary_status = "skipped".into();
+    skipped.release_pipeline_id = Some(99);
+    skipped.production_pipeline_status = None;
+    assert!(!should_resume_existing_release_attempt_for_reconcile(
+        &skipped
+    ));
+}
+
+#[test]
+fn should_resume_existing_release_attempt() {
+    let attempt = sample_release_attempt("ci-abcdef123456");
+    assert!(should_resume_existing_release_attempt_for_reconcile(
+        &attempt
+    ));
+
+    let mut finished = attempt.clone();
+    finished.production_pipeline_status = Some("success".into());
+    assert!(!should_resume_existing_release_attempt_for_reconcile(
+        &finished
+    ));
 }
 
 #[test]

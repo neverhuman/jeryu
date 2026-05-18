@@ -1,0 +1,13 @@
+{
+  "receipt_id": "vti-receipt-example-0000",
+  "policy_version": "v3.01",
+  "base_sha": "0000000000000000000000000000000000000000",
+  "head_sha": "1111111111111111111111111111111111111111",
+  "mode": "selected",
+  "confidence": "high",
+  "fallback_reason": null,
+  "selected_tests": [
+    { "subsystem": "release", "command": "cargo nextest run -p jeryu -E 'test(release::)'", "tags": ["unit"] }
+  ],
+  "skipped_subsystems": ["pool", "cache", "tui"]
+}

@@ -1,6 +1,4 @@
 use super::*;
-use crate::capsule::FailureCapsule;
-use std::collections::HashMap;
 
 pub fn evaluate_risk_gate(
     trust_tier: TrustTier,
@@ -122,6 +120,7 @@ pub fn evaluate_merge_gate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     fn capsule(kind: &str, log: &str, exit_code: i32) -> FailureCapsule {
         FailureCapsule {

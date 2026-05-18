@@ -1,0 +1,21 @@
+[Unit]
+Description=Jeryu Always-On Disk Daemon (SmartCache pressure-tier GC)
+Documentation=https://github.com/veox-ai/jeryu/blob/main/docs/release-policy.md
+After=network.target docker.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=ubuntu
+ExecStart=/home/ubuntu/.local/bin/jeryu-gcd
+Restart=always
+RestartSec=10
+WatchdogSec=180
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jeryu-gcd
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target

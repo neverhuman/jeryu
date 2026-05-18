@@ -17,3 +17,8 @@ purpose = "secret, dependency, and workflow proof"
 name = "release"
 command = "just check"
 purpose = "full merge gate"
+
+[[lane]]
+name = "release-control-plane"
+command = "cargo test -p jeryu --lib reconcile_prefers_existing_release_attempt_until_prod_finishes -- --nocapture && cargo test -p jeryu --lib should_resume_existing_release_attempt -- --nocapture && cargo test -p jeryu --lib auto_promotion_requires_complete_canary_evidence -- --nocapture && rustfmt --edition 2021 --check src/release/lifecycle.rs src/release/release_status_report.rs src/tui/ui_panels_body_evidence.rs src/release/tests.rs"
+purpose = "narrow proof for release control-plane resume-first changes"

@@ -4,14 +4,12 @@ use tracing::{debug, error, info};
 
 use super::super::EngineState;
 use super::SharedState;
-use crate::decision::{
-    RetryDecision as RecoveryDecision, SupersedenceAction, SupersedenceDecision,
-};
+use crate::decision::{SupersedenceAction, SupersedenceDecision};
 use crate::impact;
 use crate::state::TrackedPipeline;
 
 #[derive(Debug, Deserialize)]
-struct PushHookPayload {
+pub(crate) struct PushHookPayload {
     project_id: i64,
     before: String,
     after: String,

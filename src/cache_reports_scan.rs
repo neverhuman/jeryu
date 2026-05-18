@@ -142,33 +142,3 @@ pub(crate) async fn scan_nextest_extract_dirs(
     statuses.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.path.cmp(&b.path)));
     Ok(statuses)
 }
-
-pub(crate) async fn scan_pip_cache_dirs(root: &Path) -> Result<Vec<PipCacheStatus>> {
-    let mut statuses = Vec::new();
-    let pip_cache_dir = root.join("pip-cache");
-    if !pip_cache_dir.is_dir() {
-        return Ok(statuses);
-    }
-
-    let bytes = du_bytes(&pip_cache_dir).await.unwrap_or(0);
-    let age_seconds = path_age_seconds(&pip_cache_dir);
-    // Active if it has been accessed or modified recently (e.g. within 2 hours)
-    let active = age_seconds
-        .map(|age| age <= NEXTEST_EXTRACT_RECENT_TTL_SECS)
-        .unwrap_or(true);
-
-    statuses.push(PipCacheStatus {
-        path: pip_cache_dir.display().to_string(),
-        bytes,
-        active,
-        age_seconds,
-        gc_candidate: false,
-        reason: if active {
-            "recently accessed pip cache".to_string()
-        } else {
-            "expired pip cache".to_string()
-        },
-    });
-
-    Ok(statuses)
-}

@@ -76,8 +76,8 @@ pub fn install_panic_hook(config: HookConfig) {
 
 /// Build and write a repair packet from panic info.
 ///
-/// Returns `Ok(())` on success. Errors are intentionally swallowed by the
-/// caller (the panic hook) to avoid recursive panics.
+/// Returns `Ok(())` on success; the caller drops the error to prevent a
+/// recursive panic inside the panic hook.
 fn emit_repair_packet(info: &PanicHookInfo<'_>) -> Result<(), Box<dyn std::error::Error>> {
     let config = HOOK_CONFIG.get().ok_or("hook config not set")?;
 

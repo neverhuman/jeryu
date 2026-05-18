@@ -1,0 +1,1068 @@
+## Bottom line
+
+For `jeryu`, the best standard is:
+
+**Short-lived branch → PR → required evidence gates → merge queue → protected `main` → versioned artifact → staging/dev smoke → production canary → progressive prod rollout → immutable release/tag → rollback by feature flag or previous known-good artifact.**
+
+Yes: **production code should go through PRs.**
+No: agents should **not** be allowed to push directly to `main` or directly release to prod, even if JeRyu runs tests.
+Yes: JeRyu should make the gates smarter, faster, and evidence-producing, but it should **not remove the gates**.
+
+Your repo is already pointed in the right direction. The README frames JeRyu as a “Git-Compatible Version Control Layer for the AI Era,” with accountable agent work, risk/confidence gates, explainable testing, canary promotion, production gates, Vault-backed secret rotation, and structured release evidence. ([GitHub][1]) The mission doc is even clearer: every important action should produce evidence; risky actions should go through Risk Gates, grants, and audit trails; and the core primitives include Evidence Capsules, Confidence Gates, Risk Gates, and Proof Receipts. ([GitHub][2])
+
+So the standard is not “skip CI/release gates because agents are inside the repo.” The standard is: **agents may perform the work, but GitHub/JeRyu policy decides whether the work is trusted.**
+
+---
+
+# 1. The canonical release model I would use
+
+Call it:
+
+## Agent-native trunk-based progressive delivery
+
+That means:
+
+1. **Issues are the intake layer.**
+   Bugs, feature requests, agent proposals, and user requests start as GitHub Issues with labels, severity, scope, risk, and owner.
+
+2. **Agents work on short-lived branches.**
+   Each agent creates a branch from `main`, makes a small change, and opens a PR.
+
+3. **Every production change goes through a PR.**
+   The PR is the reviewable “change contract”: diff, reason, tests, evidence, rollback plan, and approval.
+
+4. **`main` is protected and always releasable.**
+   No direct pushes. No force pushes. No deleting protected branches. No agent bypass.
+
+5. **Use merge queue for high agent volume.**
+   With many agents opening PRs, “green PR” is not enough, because two individually green PRs can break together. GitHub’s merge queue tests queued changes against the latest target branch and other queued changes before merging. ([GitHub Docs][3])
+
+6. **Merging is not the same as releasing.**
+   Merging to `main` creates a candidate/artifact. Releasing means exposing that artifact to users.
+
+7. **Deploy progressively.**
+   Dev/staging smoke first, then production canary, then gradual ramp, then full prod.
+
+8. **Rollback is designed before release.**
+   Every PR that can affect prod should say how to undo it: feature flag off, traffic rollback, previous artifact deploy, config rollback, or migration rollback path.
+
+This aligns with DORA’s continuous-delivery guidance: keep software deployable, get fast feedback, use automated tests/deployment, practice trunk-based development, and optimize for low lead time, low change-failure rate, and short recovery time. ([Dora][4])
+
+---
+
+# 2. The naive but dangerous path to avoid
+
+This would be the wrong process:
+
+```text
+Agent changes code
+→ Agent says tests pass
+→ Agent merges itself
+→ Agent deploys prod
+→ Humans notice breakage later
+```
+
+That is not “agent-first.” That is “agent has ambient authority,” which JeRyu’s own docs identify as a problem. JeRyu’s value is that it can make agent work **accountable, explainable, gated, cached, audited, and recoverable**. ([GitHub][1])
+
+The right process is:
+
+```text
+Agent proposes
+→ JeRyu verifies
+→ GitHub rules enforce
+→ Human/owner approves risky surfaces
+→ merge queue validates
+→ release gates promote
+→ canary proves
+→ prod ramps
+→ rollback remains immediate
+```
+
+Agents should be fast operators and reviewers, not unbounded production authorities.
+
+---
+
+# 3. Should everything be done through PRs?
+
+## For production code: yes.
+
+All code changes that can affect shipped behavior should go through PRs.
+
+That includes:
+
+* source code
+* tests
+* workflows
+* release scripts
+* security policy
+* dependency changes
+* `Cargo.lock`
+* secrets/config handling
+* deployment scripts
+* database migrations
+* agent instructions such as `AGENTS.md`, `CLAUDE.md`, or review rules
+
+Your repo already has the right building blocks: GitHub issue templates, PR template, workflows, `CODEOWNERS`, and docs for release/canary/security evidence. ([GitHub][5])
+
+## Exceptions should be rare and explicit.
+
+The only exception is an emergency break-glass hotfix. Even then:
+
+```text
+Emergency fix
+→ temporary elevated permission
+→ deploy previous known-good or minimal hotfix
+→ create retroactive PR/evidence record
+→ postmortem
+→ remove elevated permission
+```
+
+Do not normalize direct pushes.
+
+---
+
+# 4. Dev testing vs canary
+
+One important correction:
+
+## Your “dev testing” is not a canary.
+
+It is valuable, but it is not a canary.
+
+A real canary means:
+
+```text
+New version receives a small amount of real production traffic
+while old stable version remains the control
+and metrics decide whether to continue, pause, or roll back.
+```
+
+Google SRE describes canaries as exposing a small subset of production traffic to detect defects, comparing candidate and control behavior, and pausing or rolling back when the candidate behaves worse. ([Google SRE][6])
+
+So the stages should be:
+
+```text
+Local/agent validation
+→ CI/JeRyu validation
+→ dev/staging smoke
+→ internal dogfood
+→ production canary
+→ progressive rollout
+→ full production
+```
+
+Dev testing is useful, but production canary catches things synthetic tests miss: real traffic, real timing, real permissions, real data shape, real infra behavior.
+
+---
+
+# 5. The release ladder I recommend for JeRyu
+
+## Stage 0 — Issue intake
+
+Every bug/feature request becomes an issue.
+
+Required fields:
+
+```text
+Problem
+Expected behavior
+Risk level
+Affected area
+Acceptance criteria
+Rollback expectation
+Owner/code area
+Agent allowed? yes/no
+```
+
+Agents can help triage, deduplicate, reproduce, label, and propose plans. GitHub’s own Copilot agent guidance treats issues as prompts and recommends starting agents on simpler, well-scoped tasks rather than ambiguous, production-critical, security, auth, PII, or incident work. ([GitHub Docs][7])
+
+## Stage 1 — Agent branch
+
+Agent creates:
+
+```text
+agent/<agent-name>/<issue-number>-short-description
+```
+
+Examples:
+
+```text
+agent/codex/142-fix-release-preflight
+agent/claude/188-add-secret-rotation-test
+agent/jeryu-bot/205-update-vti-proof-receipt
+```
+
+Rules:
+
+* branch from latest `main`
+* small diff
+* no hidden generated bulk
+* no unrelated cleanup
+* no workflow/security changes unless explicitly requested
+* no removal of tests/lints/gates without high-risk review
+
+## Stage 2 — Draft PR
+
+Agent opens a draft PR early.
+
+The PR should include:
+
+```text
+Linked issue
+Goal
+Files changed
+Risk level
+Behavior change
+Tests/evidence
+Security impact
+Release impact
+Rollback plan
+Known limitations
+```
+
+Your repo already has a PR template requiring description, motivation/context, change type, docs, tests, `cargo fmt`, `cargo clippy`, and `cargo test --all`. ([GitHub][8]) I would expand that template for agent-first release safety.
+
+## Stage 3 — Agent self-review
+
+Before human review, require the authoring agent to produce an evidence summary.
+
+For JeRyu, this should become a first-class **Evidence Capsule**:
+
+```text
+Issue
+Diff summary
+Impact graph
+Selected tests
+Skipped tests with reason
+Security findings
+Dependency changes
+Release impact
+Rollback method
+Confidence score
+```
+
+This maps directly to JeRyu’s mission language: Evidence Capsule, Confidence Gate, Risk Gate, and Proof Receipt. ([GitHub][2])
+
+## Stage 4 — Independent AI review
+
+Use AI review as an additional signal, not the final authority.
+
+OpenAI’s Codex PR review is positioned as “another review signal before human merge approval,” surfacing regressions, missing tests, documentation issues, and risky security/auth/dependency changes on PRs. ([OpenAI Developers][9]) Claude Code Review similarly analyzes PRs for logic errors, security vulnerabilities, edge cases, and regressions, but its findings do not approve or block PRs by default, preserving the existing review workflow. ([Claude][10])
+
+Recommended pattern:
+
+```text
+Authoring agent writes code
+→ Reviewing agent checks diff
+→ JeRyu checks evidence
+→ Human/code owner approves risky changes
+```
+
+Do not let the same agent author, approve, and release its own change.
+
+## Stage 5 — Required checks
+
+Minimum required checks for `main`:
+
+```text
+format
+lint
+unit tests
+integration tests where relevant
+VTI/selected-test proof
+security/dependency review
+release-impact check
+workflow-change check
+CODEOWNERS review
+```
+
+Your repo already has Rust CI with `cargo fmt`, clippy, tests, VTI test selection, security proof artifacts, witness graph artifacts, and a release workflow with preflight/security/build/SBOM/provenance pieces. ([GitHub][11])
+
+One nuance: the current Rust workflow triggers on `push`, `pull_request`, and schedule. If you enable GitHub merge queue, add the `merge_group` event, because GitHub says required checks must run on merge-group events or the queue can fail to report required checks correctly. ([GitHub][11])
+
+## Stage 6 — Code owner approval
+
+Use `CODEOWNERS` aggressively.
+
+Your repo already maps default maintainers and special ownership areas for build, source, ops, docs, agent standards, and security-ish surfaces. ([GitHub][12]) GitHub supports requiring code-owner approval before merge, and CODEOWNERS are automatically requested for review when protected-branch rules require it. ([GitHub Docs][13])
+
+Recommended rule:
+
+```text
+Normal app/code change: 1 human/code-owner approval
+Release/secrets/security/workflow change: 2 approvals
+Agent policy change: maintainer + security/release owner
+Emergency change: release owner approval + retroactive review
+```
+
+## Stage 7 — Merge queue
+
+Once approved, PR enters merge queue.
+
+Do not let agents merge directly. Let the queue merge only after checks pass against the current queue state.
+
+This is especially important for your “many agents submitting bugs and features” scenario. GitHub’s merge queue is explicitly useful for high-PR-volume branches and validates queued changes against the latest target branch and earlier queued changes. ([GitHub Docs][3])
+
+## Stage 8 — Protected `main`
+
+`main` should be protected by GitHub Rulesets or branch protection:
+
+```text
+Require PR before merge
+Require status checks
+Require code-owner review
+Require conversation resolution
+Require linear history or squash merge
+Require signed commits if practical
+Require merge queue
+Block force pushes
+Block branch deletion
+Restrict direct pushes
+Do not allow bypass
+```
+
+GitHub branch protection/rulesets support required PRs, status checks, deployments, linear history, signed commits, code scanning, code quality checks, merge queue, force-push blocking, deletion blocking, and bypass controls. ([GitHub Docs][14])
+
+For JeRyu, I would set **no bypass**, including admins, except a documented emergency release-manager path.
+
+## Stage 9 — Build immutable artifact
+
+After merge to `main`, build a release artifact.
+
+Do not rebuild “whatever is on main” differently for prod. Build once, promote the same artifact.
+
+Artifact should include:
+
+```text
+version
+commit SHA
+SBOM
+provenance/attestation
+release notes
+test evidence
+security evidence
+rollback target
+```
+
+Your release workflow already includes SBOM/provenance-style work, and GitHub now supports immutable releases where release assets and tags are locked after publish, with attestations for supply-chain integrity. ([GitHub][15])
+
+## Stage 10 — Dev/staging deploy
+
+Deploy the artifact to dev/staging.
+
+Purpose:
+
+```text
+smoke test
+config validation
+secret availability
+migration dry-run
+observability check
+agent workflow check
+release doctor check
+```
+
+GitHub Environments can protect deployments with required reviewers, wait timers, branch/tag restrictions, and custom deployment protection rules. ([GitHub Docs][16])
+
+Your repo already has release docs requiring `release reconcile`, `release preflight`, `release doctor`, canary evidence, handoff artifacts, and production promotion only after canary completion. ([GitHub][17])
+
+## Stage 11 — Production canary
+
+Canary should be a real production limited release.
+
+Suggested ramp:
+
+```text
+0%: artifact deployed but not serving users
+1%: tiny canary or internal allowlist
+5%: low-risk production cohort
+10%: broader canary
+25%: meaningful traffic
+50%: half traffic
+100%: full prod
+```
+
+Promotion should require metrics:
+
+```text
+error rate
+latency
+crash/panic rate
+failed jobs
+rollback-trigger events
+user-impact events
+security alerts
+cost/token or infra spend if AI calls are involved
+```
+
+Google SRE recommends staged rollouts, reliable monitoring, rollback first and diagnose afterward if unexpected behavior appears, and careful canary evaluation to limit SLO/error-budget impact. ([Google SRE][18])
+
+Also: run **one canary at a time** for the same surface. Google SRE warns that multiple simultaneous canaries can contaminate signals and make diagnosis much harder. ([Google SRE][6])
+
+## Stage 12 — Full production promotion
+
+Only promote to full prod if:
+
+```text
+canary completed
+metrics clean
+no unresolved high-severity alerts
+rollback target confirmed
+release evidence stored
+release owner approves or auto-policy approves
+```
+
+Your release docs already say production promotion should only happen after canary completion, handoff artifacts, green upstream pipeline, preflight, and release evidence. ([GitHub][17])
+
+## Stage 13 — Post-release monitoring
+
+For a fixed window after release:
+
+```text
+monitor SLOs
+watch regressions
+watch support/issue volume
+watch cost spikes
+watch security/dependency alerts
+watch agent failure loops
+```
+
+Then automatically close the release as healthy or mark it degraded.
+
+---
+
+# 6. The rollback standard
+
+Rollback must be boring.
+
+Use this priority order:
+
+## 1. Feature flag off
+
+Best when a new feature causes problems.
+
+```text
+disable flag
+keep deployed binary
+users return to old behavior
+investigate safely
+```
+
+Feature flags separate deployment from release. Martin Fowler’s release-toggle guidance describes this exact purpose: deploy code continuously while deciding separately whether users see the new feature. ([martinfowler.com][19])
+
+## 2. Traffic rollback
+
+Best for canary failure.
+
+```text
+route traffic back to stable version
+stop canary
+preserve logs/evidence
+open rollback issue
+```
+
+## 3. Previous known-good artifact
+
+Best for binary/infrastructure regression.
+
+```text
+deploy previous immutable artifact
+do not hand-edit prod
+record rollback reason
+open fix-forward PR
+```
+
+This matches JeRyu’s own release docs: stop if doctor/preflight fails, prefer promoting a previous known-good release over ad hoc fixes, keep prior handoff/canary artifacts, and record rollback reason before retrying. ([GitHub][17])
+
+## 4. Data rollback only if explicitly designed
+
+Database rollback is dangerous.
+
+Use safer migration patterns:
+
+```text
+expand/contract migrations
+backward-compatible schema changes
+dual-write only when necessary
+migration feature flags
+precomputed down migration only for safe cases
+backup/restore plan for destructive cases
+```
+
+Never let agents perform destructive schema/data rollback without explicit human approval.
+
+---
+
+# 7. The exact GitHub settings I would turn on
+
+For branch/ruleset protection on `main`:
+
+```text
+Require pull request before merge: ON
+Required approvals: 1 normal, 2 for high-risk paths
+Require CODEOWNERS review: ON
+Dismiss stale approvals on new commits: ON
+Require review from someone other than author: ON
+Require status checks: ON
+Require branches up to date: handled by merge queue
+Require merge queue: ON
+Require conversation resolution: ON
+Require linear history: ON
+Allow squash merge: ON
+Allow merge commits: OFF, unless needed
+Allow rebase merge: optional
+Require signed commits: recommended
+Block force pushes: ON
+Block deletions: ON
+Restrict direct pushes: ON
+Do not allow bypass: ON
+```
+
+For GitHub Environments:
+
+```text
+dev/staging:
+  automatic deploy allowed after checks
+
+canary:
+  required reviewer or JeRyu policy approval
+  wait timer optional
+  branch restriction: main/tags only
+
+production:
+  required reviewer
+  no self-review
+  branch/tag restriction
+  no admin bypass
+  deployment protection rules
+```
+
+GitHub Environments support required reviewers, wait timers, custom deployment protection rules, deployment branch/tag restrictions, and admin-bypass controls. ([GitHub Docs][16])
+
+---
+
+# 8. The path-based risk policy I would enforce
+
+Not all PRs are equal.
+
+## Low risk
+
+Examples:
+
+```text
+docs
+typos
+non-release README updates
+small test-only changes
+```
+
+Gate:
+
+```text
+PR
+basic checks
+1 approval or auto-merge if very safe
+```
+
+## Medium risk
+
+Examples:
+
+```text
+normal source changes
+new tests
+small CLI behavior changes
+non-sensitive config
+```
+
+Gate:
+
+```text
+PR
+required checks
+AI review
+1 code-owner approval
+merge queue
+```
+
+## High risk
+
+Examples:
+
+```text
+.github/workflows/**
+ops/**
+src/release.rs
+src/secrets.rs
+Cargo.toml
+Cargo.lock
+security policy
+agent permissions
+AGENTS.md / CLAUDE.md / REVIEW.md
+auth
+secrets
+deployment
+rollback logic
+test-selection logic
+```
+
+Gate:
+
+```text
+PR
+full checks
+security/dependency review
+2 approvals
+CODEOWNERS
+release-owner approval
+merge queue
+staging required
+canary required
+```
+
+## Critical risk
+
+Examples:
+
+```text
+production secret handling
+release gate bypass
+permission expansion
+destructive migrations
+workflow changes that can disable CI
+agent authority changes
+```
+
+Gate:
+
+```text
+PR
+2+ human approvals
+security owner
+release owner
+explicit rollback plan
+manual production approval
+no auto-merge
+```
+
+This is especially important for agent PRs. GitHub’s own article on reviewing agent-generated PRs warns reviewers to look for CI gaming, skipped tests, removed coverage thresholds, changed workflow conditions, hallucinated correctness, and missing tests that should fail before the change. ([The GitHub Blog][20])
+
+---
+
+# 9. What agents should be allowed to do
+
+Agents should be allowed to:
+
+```text
+triage issues
+draft implementation plans
+create branches
+write code
+write tests
+open PRs
+self-review
+respond to review comments
+run JeRyu checks
+produce evidence capsules
+suggest rollback plans
+summarize release risk
+review other agents’ PRs
+```
+
+Agents should not be allowed to:
+
+```text
+push to main
+approve their own PRs
+bypass CODEOWNERS
+disable checks
+change workflows without high-risk review
+change security policy without approval
+access prod secrets by default
+deploy prod directly
+delete release evidence
+force-push protected branches
+erase audit logs
+```
+
+Claude’s GitHub Actions docs show the modern agent pattern clearly: agents can respond to PRs/issues, create PRs, implement features, and fix bugs while following project standards, but this requires explicit GitHub app permissions and should remain inside the repository workflow. ([Claude][21])
+
+---
+
+# 10. Specific notes for `jeryu`
+
+## Good things already present
+
+JeRyu already has much of the right structure:
+
+```text
+CODEOWNERS
+issue templates
+PR template
+Rust CI
+release workflow
+release docs
+canary/promotion language
+security gate language
+VTI test selection
+release evidence docs
+SBOM/provenance steps
+mission-level risk/evidence primitives
+```
+
+That is a strong foundation. ([GitHub][12])
+
+## Things I would fix or verify
+
+### 1. Add merge queue support to workflows
+
+If you enable GitHub merge queue, update CI to include:
+
+```yaml
+on:
+  pull_request:
+  push:
+  merge_group:
+```
+
+GitHub explicitly notes that workflows must use the `merge_group` event for required checks to run against merge queue branches. ([GitHub Docs][3])
+
+### 2. Do not let release audit skip real releases
+
+I would carefully review the release workflow’s dry-run conditions. The release audit section appears conditioned around `dry_run`, and I would verify that real publishing cannot skip audit/security gates. The repo’s release docs say production promotion must require preflight, canary evidence, handoff artifacts, and gates, so the workflow should make that impossible to bypass. ([GitHub][15])
+
+### 3. Finish the clippy backlog
+
+Your CI currently excludes the main `jeryu` package from one clippy path because of backlog. That may be fine temporarily, but the production standard should ratchet toward no lint bypasses on release-critical code. ([GitHub][11])
+
+### 4. Make JeRyu evidence mandatory in PRs
+
+Right now, JeRyu has the concept. I would make it operational:
+
+```text
+No Evidence Capsule → no merge
+No rollback plan for risky change → no merge
+No selected-test explanation → no merge
+No canary success evidence → no prod promotion
+```
+
+### 5. Protect agent-instruction files
+
+Files like these are security-sensitive:
+
+```text
+AGENTS.md
+CLAUDE.md
+REVIEW.md
+.github/copilot-instructions.md
+agent/security-policy.toml
+release docs
+workflow files
+```
+
+Changing the instructions that agents follow is effectively changing the behavior of future contributors. Treat that as high risk.
+
+---
+
+# 11. The simplest version-control mental model
+
+Since you said you are naive to git/release process, here is the clean model:
+
+```text
+Issue = the request
+Branch = safe workspace for one change
+Commit = saved snapshot
+PR = proposed change plus review/evidence
+Merge = accept into main
+Main = trusted source branch
+Tag = named version
+Artifact = built thing you deploy
+Environment = dev/staging/canary/prod
+Release = users get access
+Rollback = return to previous known-good behavior
+```
+
+The key distinction:
+
+```text
+merge != deploy
+deploy != release
+release != irreversible
+```
+
+A safe company can merge many times per day, deploy often, and release gradually.
+
+---
+
+# 12. Recommended labels for many agent submissions
+
+Use labels to control automation:
+
+```text
+risk:low
+risk:medium
+risk:high
+risk:critical
+
+area:release
+area:secrets
+area:ci
+area:agent-policy
+area:testing
+area:docs
+area:cli
+area:dependencies
+
+agent:allowed
+agent:needs-plan
+agent:review-only
+agent:blocked
+
+release:canary-required
+release:flag-required
+release:rollback-required
+release:no-prod-impact
+
+security:review-required
+security:dependency
+security:secrets
+security:permissions
+```
+
+Then define policy:
+
+```text
+risk:low + docs only
+→ auto-review/auto-merge possible
+
+risk:medium
+→ normal PR review
+
+risk:high
+→ CODEOWNERS + release/security owner
+
+risk:critical
+→ no auto-merge, manual prod approval
+```
+
+---
+
+# 13. Recommended PR template for agent-first releases
+
+I would change the PR template to something like:
+
+```markdown
+## What changed?
+
+## Why?
+
+## Linked issue
+
+## Agent author
+- [ ] Human-authored
+- [ ] Agent-authored
+- [ ] Mixed
+
+## Risk level
+- [ ] Low
+- [ ] Medium
+- [ ] High
+- [ ] Critical
+
+## Affected surfaces
+- [ ] Source
+- [ ] Tests
+- [ ] CI/workflows
+- [ ] Release
+- [ ] Secrets
+- [ ] Dependencies
+- [ ] Agent policy
+- [ ] Docs
+
+## Evidence
+- [ ] Format passed
+- [ ] Lint passed
+- [ ] Tests passed
+- [ ] VTI test plan attached
+- [ ] Security/dependency check passed
+- [ ] Release impact checked
+- [ ] Evidence Capsule attached
+
+## Tests added or changed
+
+## Tests intentionally skipped
+Explain why.
+
+## Rollback plan
+How do we undo this?
+
+## Feature flag / limited release
+Is this behind a flag?
+
+## Canary requirement
+- [ ] Not needed
+- [ ] Required
+
+## Human review required
+- [ ] Code owner
+- [ ] Release owner
+- [ ] Security owner
+- [ ] Agent-policy owner
+```
+
+---
+
+# 14. Recommended release checklist
+
+Before production:
+
+```text
+Version chosen
+CHANGELOG updated
+Artifact built once
+SBOM generated
+Provenance/attestation generated
+Security gate passed
+Dependency review passed
+Release doctor passed
+Preflight passed
+Rollback target identified
+Feature flag / kill switch ready
+Canary cohort selected
+Monitoring dashboard ready
+Alert thresholds defined
+Owner online or policy-approved
+```
+
+During canary:
+
+```text
+deploy to tiny cohort
+compare candidate vs control
+watch errors/latency/cost/security
+pause if noisy
+rollback first if unsafe
+record evidence
+```
+
+After full prod:
+
+```text
+publish immutable release/tag
+store evidence
+monitor fixed window
+close release as healthy or degraded
+open follow-up issues
+```
+
+---
+
+# 15. Limited release strategy
+
+Use feature flags for product behavior and traffic controls for infrastructure behavior.
+
+## Feature flag limited release
+
+Good for:
+
+```text
+new commands
+new agent behavior
+new UI
+new test-selection behavior
+new release automation behavior
+```
+
+Rollout:
+
+```text
+off by default
+internal only
+maintainer allowlist
+5%
+25%
+50%
+100%
+remove flag when stable
+```
+
+Do not keep release flags forever. Fowler’s guidance is that release toggles are transitionary and should usually be short-lived, not permanent complexity. ([martinfowler.com][19])
+
+## Canary limited release
+
+Good for:
+
+```text
+new binary
+new service version
+new runner behavior
+new release engine behavior
+new cache behavior
+```
+
+Rollout:
+
+```text
+stable control remains live
+candidate gets small traffic
+metrics decide promotion
+rollback routes back to stable
+```
+
+---
+
+# 16. My strongest recommendation
+
+For JeRyu, implement this as policy:
+
+```text
+Agents may create and update PRs.
+Agents may review PRs.
+Agents may produce evidence.
+Agents may recommend merge/release/rollback.
+Agents may not directly merge protected branches.
+Agents may not directly deploy production.
+Agents may not bypass release gates.
+All production changes require PR + evidence + protected-branch checks.
+All production exposure goes through progressive delivery.
+All releases have a known rollback target.
+```
+
+That gives you speed without surrendering control.
+
+The winning architecture is not “humans manually gate everything.”
+It is also not “agents can do anything.”
+
+The winning architecture is:
+
+```text
+Agents do the work.
+JeRyu proves the work.
+GitHub enforces the boundary.
+Humans approve high-risk judgment calls.
+Canary proves production safety.
+Rollback stays immediate.
+```
+
+[1]: https://github.com/neverhuman/jeryu "GitHub - neverhuman/jeryu: Agent-first git, Gitlab fork with full agent support and TUI · GitHub"
+[2]: https://github.com/neverhuman/jeryu/blob/main/docs/MISSION.md "jeryu/docs/MISSION.md at main · neverhuman/jeryu · GitHub"
+[3]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[4]: https://dora.dev/capabilities/continuous-delivery/ "DORA | Capabilities: Continuous delivery"
+[5]: https://github.com/neverhuman/jeryu/tree/main/.github "jeryu/.github at main · neverhuman/jeryu · GitHub"
+[6]: https://sre.google/workbook/canarying-releases/ "Google SRE - Canary Release: Deployment Safety and Efficiency"
+[7]: https://docs.github.com/copilot/how-tos/agents/copilot-coding-agent/best-practices-for-using-copilot-to-work-on-tasks "Best practices for using GitHub Copilot to work on tasks - GitHub Docs"
+[8]: https://github.com/neverhuman/jeryu/blob/main/.github/PULL_REQUEST_TEMPLATE.md "jeryu/.github/PULL_REQUEST_TEMPLATE.md at main · neverhuman/jeryu · GitHub"
+[9]: https://developers.openai.com/codex/use-cases/github-code-reviews "Codex code review for GitHub pull requests | Codex use cases"
+[10]: https://code.claude.com/docs/en/code-review "Code Review - Claude Code Docs"
+[11]: https://github.com/neverhuman/jeryu/blob/main/.github/workflows/rust.yml "jeryu/.github/workflows/rust.yml at main · neverhuman/jeryu · GitHub"
+[12]: https://github.com/neverhuman/jeryu/blob/main/CODEOWNERS "jeryu/CODEOWNERS at main · neverhuman/jeryu · GitHub"
+[13]: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners "About code owners - GitHub Docs"
+[14]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches "About protected branches - GitHub Docs"
+[15]: https://github.com/neverhuman/jeryu/blob/main/.github/workflows/release.yml "jeryu/.github/workflows/release.yml at main · neverhuman/jeryu · GitHub"
+[16]: https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment "Managing environments for deployment - GitHub Docs"
+[17]: https://github.com/neverhuman/jeryu/blob/main/docs/release.md "jeryu/docs/release.md at main · neverhuman/jeryu · GitHub"
+[18]: https://sre.google/sre-book/service-best-practices/ "Google SRE: Production Services Best Practices"
+[19]: https://martinfowler.com/articles/feature-toggles.html "Feature Toggles (aka Feature Flags)"
+[20]: https://github.blog/ai-and-ml/generative-ai/agent-pull-requests-are-everywhere-heres-how-to-review-them/ "Agent pull requests are everywhere. Here's how to review them. - The GitHub Blog"
+[21]: https://code.claude.com/docs/en/github-actions "Claude Code GitHub Actions - Claude Code Docs"
+

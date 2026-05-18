@@ -5,10 +5,17 @@ use super::*;
 // ---------------------------------------------------------------------------
 
 pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
+    let outer = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(5), Constraint::Min(8)])
+        .split(area);
+
+    draw_disk_pressure_panel(f, app, outer[0]);
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-        .split(area);
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
+        .split(outer[1]);
 
     let top_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -103,5 +110,44 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &App, area: Rect) {
                 })),
         ),
         bottom_chunks[1],
+    );
+}
+
+/// Disk pressure strip — surfaces what `jeryu-gcd` is doing.
+fn draw_disk_pressure_panel(f: &mut Frame, app: &App, area: Rect) {
+    let free = app.state.storage_breakdown.disk_available_bytes;
+    let total = app.state.storage_breakdown.total_disk_bytes;
+    let free_gib = free / (1024 * 1024 * 1024);
+    let total_gib = total / (1024 * 1024 * 1024);
+
+    // Mirrors the constants in `src/cache/types.rs`. Kept inline to avoid a
+    // dependency on i64↔u64 conversion noise.
+    const WARN_GIB: u64 = 80;
+    const CRIT_GIB: u64 = 60;
+    const EMERG_GIB: u64 = 40;
+
+    let (label, color) = if free_gib < EMERG_GIB {
+        ("EMERGENCY", Color::Red)
+    } else if free_gib < CRIT_GIB {
+        ("CRITICAL", Color::LightRed)
+    } else if free_gib < WARN_GIB {
+        ("WARNING", Color::Yellow)
+    } else {
+        ("NOMINAL", Color::Green)
+    };
+
+    let body = format!(
+        "\n  Free: {} GiB / {} GiB     Pressure: {}     Daemon: jeryu-gcd",
+        free_gib, total_gib, label,
+    );
+
+    f.render_widget(
+        Paragraph::new(body).block(
+            Block::default()
+                .title(" [ Disk Pressure ] ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(color)),
+        ),
+        area,
     );
 }

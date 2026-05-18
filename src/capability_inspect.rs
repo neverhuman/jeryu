@@ -204,7 +204,7 @@ pub(crate) fn list_allowed_actions() -> CapabilityResponse {
 }
 
 pub(crate) async fn plan_validation(
-    project_id: i64,
+    _project_id: i64,
     ref_name: String,
     test_ids: Vec<String>,
 ) -> CapabilityResponse {
@@ -242,9 +242,5 @@ pub(crate) async fn plan_validation(
 }
 
 fn err(msg: &str) -> CapabilityResponse {
-    CapabilityResponse {
-        success: false,
-        message: msg.to_string(),
-        data: None,
-    }
+    CapabilityResponse::error(msg)
 }

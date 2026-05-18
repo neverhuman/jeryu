@@ -4,9 +4,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::entity::EntityRef;
-use crate::tui::action_registry::RiskTier;
-
 /// VTI (Validated Test Intelligence) status for a job or test.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VtiStatus {

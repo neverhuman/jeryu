@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::cli::ExecCommands;
 
-pub async fn execute_exec_commands(subcmd: ExecCommands) -> Result<i32> {
+pub(crate) async fn execute_exec_commands(subcmd: ExecCommands) -> Result<i32> {
     match subcmd {
         ExecCommands::Config => {
             jeryu::exec::run_config()?;

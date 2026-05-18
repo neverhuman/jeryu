@@ -49,8 +49,8 @@ async fn initialize_session(
     (resp, session)
 }
 
-fn authenticated_post<'a>(
-    client: &'a reqwest::Client,
+fn authenticated_post(
+    client: &reqwest::Client,
     base: &str,
     origin: &str,
     session: &str,

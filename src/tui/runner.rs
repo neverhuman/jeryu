@@ -9,6 +9,7 @@ use super::runtime::{
     maintenance::cache_maintenance_loop,
 };
 use crate::state::TuiSession;
+use crate::tui::flow::collect_once;
 use anyhow::Result;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
@@ -39,6 +40,13 @@ pub async fn run_tui(
     if demo {
         app.apply_demo_fixture();
     } else {
+        // Wave 6.A: try to upgrade Mission Control's action surface to the
+        // production adapter. Non-fatal: when the DB/token/key chain isn't
+        // available we keep the default FakeActionAdapter so the cockpit
+        // still renders and reports `Failed("no adapter wired")` per click.
+        if let Err(e) = app.try_install_production_adapter().await {
+            tracing::warn!(target: "tui.cockpit", err = %e, "action adapter stays fake");
+        }
         hydrate_smoke_state(&mut app).await;
         app.start_background_sync();
     }
@@ -65,6 +73,7 @@ pub async fn run_tui_once(
 
     let mut app = App::new(store, docker_ctl, client);
     hydrate_smoke_state(&mut app).await;
+    seed_live_flow_snapshot(&mut app).await;
 
     let backend = TestBackend::new(120, 40);
     let mut terminal = Terminal::new(backend)?;
@@ -83,12 +92,8 @@ pub async fn run_tui_screenshot(
     tab: &str,
     hold_ms: u64,
 ) -> Result<()> {
-    let requested_tab = parse_capture_tab(tab)?;
     let mut app = App::new(store, docker_ctl, client);
-    if requested_tab == crate::tui::app::ActiveTab::Jank && !app.jankurai_available() {
-        anyhow::bail!("requested tab '{}' requires jankurai on PATH", tab);
-    }
-    app.active_tab = requested_tab;
+    app.active_tab = parse_capture_tab(tab)?;
     app.apply_demo_fixture();
 
     crossterm::terminal::enable_raw_mode()?;
@@ -125,13 +130,10 @@ pub async fn capture_tui_png(
 ) -> Result<()> {
     use ratatui::backend::TestBackend;
 
-    let requested_tab = parse_capture_tab(tab)?;
     let mut app = App::new(store, docker_ctl, client);
+    app.active_tab = parse_capture_tab(tab)?;
     hydrate_smoke_state(&mut app).await;
-    if requested_tab == crate::tui::app::ActiveTab::Jank && !app.jankurai_available() {
-        anyhow::bail!("requested tab '{}' requires jankurai on PATH", tab);
-    }
-    app.active_tab = requested_tab;
+    seed_live_flow_snapshot(&mut app).await;
 
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend)?;
@@ -144,4 +146,10 @@ pub async fn capture_tui_png(
     }
     write_buffer_png(terminal.backend().buffer(), output)?;
     Ok(())
+}
+
+async fn seed_live_flow_snapshot(app: &mut App) {
+    let flow_snap = collect_once(&app.store, &app.docker, &app.gitlab).await;
+    let _ = app.flow_tx.send(flow_snap).await;
+    app.tick().await;
 }

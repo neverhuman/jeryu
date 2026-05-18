@@ -24,3 +24,18 @@ tests/fixtures/fixture_project/target/
 # CI test evidence (generated per-run).
 target/ci-evidence/
 target/ci-screenshots/
+
+# Evidence Gate / autonomous-delivery secret material.
+# .autonomy/keys/ holds ed25519 signing material at runtime; only the
+# .gitkeep placeholder is tracked. Belt-and-suspenders pattern matching
+# any future env/secret file dropped here.
+.autonomy/keys/*
+!.autonomy/keys/.gitkeep
+.autonomy/flags/*
+!.autonomy/flags/.gitkeep
+
+# Local secret material — never commit.
+*.env
+*.env.local
+llm.env
+~/.jeryu/secrets/
