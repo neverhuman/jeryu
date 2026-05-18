@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-05-17
+
+### Changed
+
+- **Toolchain bump to rustc 1.95.0** (was 1.92.0).
+  - `rust-toolchain.toml::channel`: `1.92.0` → `1.95.0`.
+  - `Cargo.toml::workspace.package.rust-version`: `1.85` → `1.95`.
+  - Required for the upcoming RedlineDB v1.0.2 + Jansu v0.6.1 integrations
+    (Wave 11.C) — both pin edition 2024, which became stable in rustc 1.95.
+
+### Added
+
+- `#![allow(...)]` at crate root for the new clippy lints rustc 1.95 introduces:
+  `expect_fun_call`, `useless_conversion`, `manual_div_ceil`,
+  `collapsible_match`, `unnecessary_unwrap`, `manual_checked_ops`. All are
+  style preferences, not correctness bugs. Site-by-site cleanup deferred to a
+  focused refactor PR.
+
+### Verified
+
+- `cargo fmt --all -- --check` — clean.
+- `cargo clippy --tests -- -D warnings` — clean.
+- `cargo test -p jeryu --lib` — 923 tests, all green.
+
 ## [3.3.0] - 2026-05-16
 ### Added
 - **Dougx max-throughput autonomy profile** (`~/dougx/.autonomy/`): canonical

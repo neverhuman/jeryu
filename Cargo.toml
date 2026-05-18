@@ -13,11 +13,11 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.0"
+version = "3.3.1"
 edition = "2024"
 license = "MIT"
 authors = []
-rust-version = "1.85"
+rust-version = "1.95"
 
 # Shared deps used by the proof-scoped control plane crates.
 # jeryu uses its own explicit declarations below.

@@ -109,7 +109,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "arc-bench"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "anyhow",
  "cargo-aer",
@@ -370,7 +370,7 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "cache-brain-adapter"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -389,7 +389,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-aer"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -415,7 +415,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-vrc"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-witness"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -1792,7 +1792,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jeryu"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -1844,7 +1844,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-gcd"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4144,7 +4144,7 @@ checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
 
 [[package]]
 name = "tui-capture"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -5018,7 +5018,7 @@ dependencies = [
 
 [[package]]
 name = "witness-rt"
-version = "3.3.0"
+version = "3.3.1"
 dependencies = [
  "chrono",
  "serde",

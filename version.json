@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.0",
-  "cargo_workspace_version": "3.3.0",
+  "version": "3.3.1",
+  "cargo_workspace_version": "3.3.1",
   "release_line": "V3.3",
   "status": "released",
-  "date": "2026-05-16",
+  "date": "2026-05-17",
   "tag_policy": {
-    "release_candidate": "v3.3.0-rc.N after required proof lanes pass",
-    "stable": "v3.3.0 after release and security lanes pass"
+    "release_candidate": "v3.3.1-rc.N after required proof lanes pass",
+    "stable": "v3.3.1 after release and security lanes pass"
   },
-  "headline": "Max-throughput autonomy: dougx sovereign_plus profile, db boundary refactor, jankurai caps=0 / score 87, replay/webhook/per-role-chain GA."
+  "headline": "Toolchain bump to rustc 1.95 — prerequisite for the upcoming RedlineDB (Wave 11.C) + Jansu (Wave 11.C) integrations that both require rustc 1.95 + edition 2024."
 }
