@@ -11,12 +11,94 @@ the Wave 11.B integration. Format per entry:
 
 ---
 
-## RedlineDB v1.0.1
+## RedlineDB v1.0.1 / v1.0.2
 
-### R-1: RedlineDB is not a sqlx-API drop-in — it's a storage-engine drop-in
+### R-0: Async wrapper SHIPPED — RedlineDB PR #7
+
+**Date:** 2026-05-17
+**Status:** RESOLVED (Wave 11.C Phase 1)
+
+Shipped `crates/redlinedb-tokio` upstream at https://github.com/neverhuman/RedlineDB/pull/7
+(workspace v1.0.2). 17 integration tests + 1 example, all green on rustc 1.95.
+The sqlx::Pool-shaped async surface (`Pool::execute`, `fetch_one`, `fetch_all`,
+`with_connection`, `transaction`) is the foundation jeryu needs to migrate.
+
+Removes the async/sync API mismatch concern from the original R-1 entry —
+the wrapper handles spawn_blocking + connection pooling at the boundary.
+
+### R-1: SQL dialect gap — RedlineDB rejects features jeryu's schema uses
+
+**Date:** 2026-05-17 (updated; original 2026-05-16)
+**Status:** **open — defines the staged migration shape for Phase 4**
+
+**What:** Probed RedlineDB v1.0.x's SQL surface against jeryu's schema (results
+captured 2026-05-17 by running `/tmp/redline_sql_probe.rs` against the
+embedded engine). RedlineDB **does support** the bulk of what jeryu needs:
+
+| Feature | Support | Notes |
+|---|---|---|
+| `INTEGER PRIMARY KEY` | ✅ | |
+| `NOT NULL`, `UNIQUE` (column + table) | ✅ | |
+| `REFERENCES` (foreign keys) | ✅ | |
+| `CREATE INDEX`, `CREATE UNIQUE INDEX` | ✅ | |
+| `DEFAULT <constant>` | ✅ | constants only |
+| `INSERT OR IGNORE` | ✅ | |
+| `ON CONFLICT DO NOTHING / DO UPDATE` | ✅ | full upsert semantics |
+| `RETURNING` clause | ✅ | |
+| `INSERT INTO … SELECT` | ✅ | |
+| `JOIN`, `UPDATE`, `DELETE`, `CREATE TABLE IF NOT EXISTS` | ✅ | |
+
+**Unsupported (jeryu uses these — must rewrite):**
+
+| Feature | Unsupported because | Jeryu usage | Mitigation |
+|---|---|---|---|
+| `AUTOINCREMENT` | RedlineDB v1.0.x parser explicitly rejects | 17+ tables across `db/state.rs`, `src/db/{autonomy_repo,budget_repo}.rs` | App-generate IDs (UUIDv7 or monotonic counter) and bind on INSERT. Schema: `INTEGER PRIMARY KEY` (no AUTOINCREMENT) or `TEXT PRIMARY KEY`. |
+| `CHECK(col IN (...))` | Parser doesn't recognize IN-list in DDL | 1 known: `kill_bell_state::state IN ('armed','paused')` | Rewrite as `CHECK(state = 'armed' OR state = 'paused')`, OR drop the constraint and enforce in Rust (typed enum + `bind_value`). |
+| `DEFAULT CURRENT_TIMESTAMP` | Parser rejects function expressions in DEFAULT | 6+ tables use `recorded_at TEXT DEFAULT CURRENT_TIMESTAMP` | Bind `Utc::now().to_rfc3339()` from Rust on every INSERT (already done in most repo methods; just remove the DEFAULT from DDL). |
+| `CREATE TRIGGER` | Parser fails at `BEGIN ... END` block | 8 triggers: append-only enforcement on `launch_ledger`, `llm_budget_ledger`, etc. (`BEFORE UPDATE/DELETE → SELECT RAISE(ABORT, 'append-only')`) | Move enforcement to the Rust repo layer: simply don't expose `update_*` / `delete_*` methods. The trigger was belt-and-suspenders; with no caller invoking those operations, the SQL-level guard is redundant. |
+
+**Magnitude estimate (revised from original):** 12–18 hours of careful migration,
+not the 6–8 originally planned. Each table needs:
+1. Rewrite DDL (drop AUTOINCREMENT, replace IN-list CHECK, drop CURRENT_TIMESTAMP).
+2. Update every INSERT call site to bind app-generated id + timestamp.
+3. Drop CREATE TRIGGER blocks; audit Rust callers to confirm no UPDATE/DELETE
+   on append-only tables.
+4. Update tests that depend on database-side auto-increment ordering.
+
+**Staged migration plan (proposed for Wave 11.C+):**
+
+- **Stage A (smallest blast radius)**: `src/db/budget_repo.rs` (1 table,
+  `llm_budget_ledger`). Migrate, validate, ship as standalone PR.
+- **Stage B**: `src/db/autonomy_repo.rs` (3 tables: launch_ledger,
+  kill_bell_state, verdicts). Most trigger usage. Reference impl for the
+  pattern.
+- **Stage C**: `src/db/release_repo.rs` (1 table, foundry_candidates).
+- **Stage D**: `db/state.rs` (~15 tables, ~half the work). Split into
+  sub-PRs by table group: pools/managers, job_events/ci_job_runs,
+  tracked_pipelines, git_*, cache_*.
+- **Stage E**: 11 sqlx call-site renames (mechanical, no schema change).
+  Land last when all DB modules are RedlinePool-shaped.
+
+Each stage keeps both backends alive via a feature flag during transition so
+production keeps running on sqlx until cutover. Once Stage E lands, drop sqlx
+from `Cargo.toml`.
+
+**Why deferred from this PR:** Even Stage A alone is ~2 hours of focused work
+(schema rewrite + tests + verification). The full sequence is 12–18 hours.
+Splitting into focused stages keeps reviews scannable and rollback granular.
+Wave 11.C ships the foundation (toolchain bump v3.3.1, RedlineDB upstream
+async wrapper v1.0.2, Jansu upstream embedded helper v0.6.1, Jansu webhook
+dispatch integration PR-C) so the next session can begin Stage A with all
+prerequisites in place.
+
+**Original entry preserved below for context.**
+
+---
+
+### R-1 (original): RedlineDB is not a sqlx-API drop-in — it's a storage-engine drop-in
 
 **Date:** 2026-05-16
-**Status:** **open — blocking full migration**
+**Status:** SUPERSEDED by R-0 + the dialect findings in R-1 (above)
 
 **What:** The user described RedlineDB as a "100% parity 100% Rust drop-in for
 SQLite/Postgres." This is true at the **storage-engine level** (you can replace
@@ -85,12 +167,32 @@ an older toolchain, the dep will fail to compile.
 
 ---
 
-## Jansu v0.6.0
+## Jansu v0.6.0 / v0.6.1
+
+### J-0: Embedded broker SHIPPED — Jansu PR #11; jeryu integration in PR-C
+
+**Date:** 2026-05-17
+**Status:** RESOLVED (Wave 11.C Phases 2 + 5)
+
+Shipped `jansu-embedded` upstream at https://github.com/neverhuman/jansu/pull/11
+(workspace v0.6.1). Wires through to jeryu via `src/messaging/{mod,broker,
+consumer_loop,topics}.rs` (PR-C). The HTTP webhook handler enqueues to
+`jeryu.webhook.{jobs,pipelines,pushes}`; the engine startup spawns one consumer
+task per topic that drains records into the existing inline `dispatch_inline`.
+
+`JERYU_WEBHOOK_SYNC=1` keeps the legacy path callable. The whole jansu transitive
+closure is feature-gated behind `jansu-broker` (default-on) so downstream
+consumers can `--no-default-features` to drop it.
+
+Three integration tests cover the dispatch path (`tests/jansu_*.rs`).
+
+Closes J-3 (scope was webhook dispatch only — done) and supersedes J-2
+(rustc 1.95 toolchain bump landed in PR-A v3.3.1).
 
 ### J-1: Jansu has no tagged GitHub release
 
 **Date:** 2026-05-16
-**Status:** open
+**Status:** open — still pending upstream tag publish; jeryu pins by commit SHA in the interim
 
 **What:** `https://github.com/neverhuman/jansu/releases` returns empty.
 The `Cargo.toml` workspace declares `version = "0.6.0"` but no git tag exists
@@ -131,6 +233,47 @@ declares `channel = "1.95"`. jeryu's workspace currently declares
   ships ONLY the toolchain bump first.
 - **Chosen path: B** for v3.3.0. The toolchain bump + integration would
   bloat this PR past safe review size. Track it as Wave 11.C.
+
+---
+
+### J-4: jansu-embedded Consumer redelivers batch tails on resume
+
+**Date:** 2026-05-17
+**Status:** open — consumer-side dedup mitigates; upstream fix planned in v0.6.2
+
+**What:** When a `Consumer` is rebuilt at `start_offset = N` (mid-stream), the
+fetch path returns *the entire surrounding batch*, so the consumer observes
+records both before and after N, plus tail records duplicated across
+successive polls. Concretely, the Wave 11.C Phase 5 test
+`jansu_consumer_resumes_from_remembered_offset` produced offsets
+`[2, 3, 4, 3, 4, 4]` when asking for `start_offset = 2`.
+
+**Where:** `~/jansu/jansu-embedded/src/lib.rs::Consumer::next` (fetch loop
+does not advance past the high-water mark of the previous batch before
+issuing the next fetch).
+
+**Why it matters:**
+- This is *technically* compatible with Kafka's at-least-once semantics:
+  consumers everywhere already dedup by offset, and idempotency keys handle
+  the rest. Webhook dispatch is safe because the producer uses the GitLab
+  delivery UUID as the message key, so re-delivered webhooks no-op at the
+  handler layer.
+- But the redelivery rate is much higher than necessary — the consumer ends
+  up doing N² work as the batch tail keeps coming back.
+
+**Mitigation (in place this PR):**
+- The integration test uses a `BTreeSet<offset>` to assert set inclusion
+  instead of an exact sequence.
+- The autonomy daemon's consumer loop is naturally dedup-safe because each
+  `dispatch_inline` call is idempotent at the webhook-event level (GitLab
+  redelivery semantics).
+
+**Upstream fix (planned for jansu v0.6.2):**
+- Track `next_offset` inside `Consumer` and bump the fetch start to that
+  value after each `next()` call, instead of starting fresh from the
+  consumer's logical position.
+- Add a `Consumer::dedup_within_session()` builder option for callers that
+  want strict deduplication.
 
 ---
 

@@ -815,7 +815,7 @@ mod tests {
                 data_migration_reversible: Some(true),
             },
             legacy_receipts: vec![],
-            evidence_digest: "sha256:00".to_string() + &"0".repeat(62),
+            evidence_digest: format!("sha256:00{}", "0".repeat(62)),
             created_at: now(),
             signature: None,
         };

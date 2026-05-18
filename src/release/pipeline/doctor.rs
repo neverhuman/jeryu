@@ -102,9 +102,9 @@ pub async fn build_pipeline_doctor_report(
             let slow = slow_factor
                 .map(|value| format!("{value:.2}x"))
                 .unwrap_or("n/a".to_string());
-            "trace appears older than historical runtime; inspect trace capture and refresh the runner before running again"
-                .to_string()
-                + &format!(" (avg={}, slow={})", avg, slow)
+            format!(
+                "trace appears older than historical runtime; inspect trace capture and refresh the runner before running again (avg={avg}, slow={slow})"
+            )
         } else if stuck_suspected && job.status == "running" {
             "cancel this job or restart its runner; it is materially slower than historical timing"
                 .to_string()

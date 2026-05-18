@@ -722,7 +722,7 @@ mod tests {
                 data_migration_reversible: Some(true),
             },
             legacy_receipts: vec![],
-            evidence_digest: "sha256:".to_string() + &"0".repeat(64),
+            evidence_digest: format!("sha256:{}", "0".repeat(64)),
             created_at: Utc::now(),
             signature: None,
         }

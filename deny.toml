@@ -11,12 +11,23 @@ ignore = [
     # dependency via tuiwright (from jankurai v1.4.1). Cannot be fixed in
     # this repo — would require tuiwright to switch to ab_glyph upstream.
     "RUSTSEC-2021-0140",
+    # RUSTSEC-2024-0436: `paste 1.0.15` is archived (no longer maintained
+    # by dtolnay). Transitive: paste ← human-units ← jansu-storage ←
+    # jansu-embedded ← jeryu. The crate is a `macro_rules!` helper; the
+    # archived status is informational, not a security defect. Fixing
+    # upstream requires `human-units` to migrate to `pastey` (a drop-in
+    # fork). Tracked in docs/redline-jansu-issues.md as a follow-up for
+    # jansu v0.6.2.
+    "RUSTSEC-2024-0436",
 ]
 
 [licenses]
 version = 2
 allow = [
     "MIT",
+    # MIT-0 is MIT without the attribution clause — strictly more permissive
+    # than MIT, OSI-approved. Pulled in via `borrow-or-share` (jansu transitive).
+    "MIT-0",
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",

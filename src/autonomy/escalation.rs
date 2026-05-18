@@ -407,7 +407,7 @@ mod tests {
             target_branch: "main".into(),
             head_sha: "abcdef1234567890abcdef1234567890abcdef12".into(),
             policy_sha: "c".repeat(40),
-            evidence_pack_digest: "sha256:00".to_string() + &"0".repeat(62),
+            evidence_pack_digest: format!("sha256:00{}", "0".repeat(62)),
             risk: RiskTier::R3,
             hard_stops: vec!["protected_path_touched".into()],
             required_reviews: vec![],

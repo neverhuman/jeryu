@@ -214,7 +214,7 @@ fn verdict_decision_serializes_snake_case() {
         target_branch: "main".into(),
         head_sha: "a".repeat(40),
         policy_sha: "c".repeat(40),
-        evidence_pack_digest: "sha256:00".to_string() + &"0".repeat(62),
+        evidence_pack_digest: format!("sha256:00{}", "0".repeat(62)),
         risk: RiskTier::R2,
         hard_stops: vec![],
         required_reviews: vec![ReviewerRole::Security, ReviewerRole::TestIntegrity],

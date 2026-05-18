@@ -510,7 +510,7 @@ fn default_pass_receipt(
         model: Some("fake-model".into()),
         temperature: Some(0.0),
         seed: None,
-        raw_response_sha: Some("sha256:0".to_string() + &"0".repeat(63)),
+        raw_response_sha: Some(format!("sha256:0{}", "0".repeat(63))),
         head_sha: head_sha.to_string(),
         policy_sha: policy_sha.to_string(),
         decision: ReviewDecision::Pass,
@@ -602,7 +602,7 @@ mod tests {
                 data_migration_reversible: Some(true),
             },
             legacy_receipts: vec![],
-            evidence_digest: "sha256:".to_string() + &"0".repeat(64),
+            evidence_digest: format!("sha256:{}", "0".repeat(64)),
             created_at: Utc::now(),
             signature: None,
         }

@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.2] - 2026-05-17
+
+### Added
+
+- **Embedded Jansu broker for webhook dispatch** (Wave 11.C Phase 5).
+  - New `src/messaging/` module with three submodules:
+    - `topics` — canonical topic constants (`jeryu.webhook.{jobs,pipelines,pushes}`).
+    - `broker` — `OnceLock` singleton `EmbeddedBroker` + thin `BrokerHandle` /
+      `ConsumerHandle` wrappers. `next_with_timeout` keeps the consumer arm
+      `tokio::select!`-friendly.
+    - `consumer_loop` — one consumer task per topic, drains records into
+      `engine::dispatch_inline`, supervised via `watch::Receiver<bool>` shutdown.
+  - `engine_webhook.rs::handle_webhook` now routes through the broker by
+    default (returns `202 Accepted`). Set `JERYU_WEBHOOK_SYNC=1` to force the
+    legacy inline path for ops/debug.
+  - `engine::run_engine` initializes the broker + spawns the consumer
+    supervisor at startup. Failure to initialize is non-fatal: HTTP keeps
+    serving but `/hooks` returns `503` until the operator restarts (the inline
+    fallback remains available via the env-var escape hatch).
+  - Three new integration tests in `tests/`:
+    - `jansu_webhook_jobs_roundtrip.rs` — producer → consumer payload + key
+      round-trip + empty-poll budget check.
+    - `jansu_consumer_resumes_after_restart.rs` — drop and rebuild consumer
+      at the remembered offset, resume cleanly.
+    - `jansu_three_topics_no_crosstalk.rs` — verify topic isolation across
+      jobs / pipelines / pushes.
+
+### Changed
+
+- **`jansu-embedded` + `jansu-sans-io` deps added** (URL-pinned to
+  `neverhuman/jansu` at commit `3e270dc` on the v0.6.1 feature branch; flip
+  to `tag = "v0.6.1"` after upstream tag publish).
+- New `jansu-broker` Cargo feature, default-on, gates the entire jansu
+  transitive closure (`object_store`, `rama`, …). `--no-default-features`
+  drops it for a leaner build that processes webhooks inline.
+
+### Verified
+
+- `cargo test --features jansu-broker --test jansu_*` — 4 tests, all green.
+- `cargo check --features jansu-broker` + `cargo check --no-default-features` —
+  both clean.
+
 ## [3.3.1] - 2026-05-17
 
 ### Changed

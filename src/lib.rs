@@ -88,6 +88,7 @@ pub mod llm;
 pub mod local;
 pub mod logs;
 pub mod mcp;
+pub mod messaging;
 pub mod policy;
 pub mod pool;
 pub mod reclaim;

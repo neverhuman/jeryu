@@ -28,6 +28,8 @@ mod webhook;
 pub(crate) use background::{
     cache_summary, check_scale_up, docker_event_loop, reconciliation_loop, system_health_loop,
 };
+#[cfg(feature = "jansu-broker")]
+pub(crate) use webhook::dispatch_inline;
 pub(crate) use webhook::{handle_webhook, health};
 
 // ---------------------------------------------------------------------------
@@ -89,6 +91,32 @@ pub async fn run_engine(
     tokio::spawn(async move {
         system_health_loop(health_state).await;
     });
+
+    // Bring up the embedded jansu broker and the consumer loop that drains
+    // webhook events into the inline dispatch path. Best-effort: if broker
+    // init fails the engine still serves HTTP, but webhooks will reject with
+    // 503 until the operator restarts. (Inline fallback is via JERYU_WEBHOOK_SYNC=1.)
+    #[cfg(feature = "jansu-broker")]
+    {
+        match crate::messaging::init_broker().await {
+            Ok(broker) => {
+                let (_shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+                // Leak the sender deliberately — the consumer loop runs for the
+                // lifetime of the engine and there's no external cancellation
+                // path until the engine itself is dropped.
+                std::mem::forget(_shutdown_tx);
+                let consumer_state = state.clone();
+                tokio::spawn(async move {
+                    crate::messaging::consumer_loop::spawn(consumer_state, broker, shutdown_rx)
+                        .await
+                        .ok();
+                });
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "embedded jansu broker init failed");
+            }
+        }
+    }
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
