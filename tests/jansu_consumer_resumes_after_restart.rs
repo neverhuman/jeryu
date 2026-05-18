@@ -46,33 +46,29 @@ async fn jansu_consumer_resumes_from_remembered_offset() {
 
     assert_eq!(r0.offset, 0);
     assert_eq!(r1.offset, 1);
+    // With the upstream J-4 fix (jansu PR #11 commit 9f61c0d), Consumer::next
+    // advances self.offset on every pop — including the early-return buffered
+    // path — so the cursor reports next-to-read, not last-read.
     assert_eq!(
-        remembered, 1,
-        "consumer cursor reports the last-read offset"
+        remembered, 2,
+        "consumer cursor reports next-to-read offset"
     );
 
-    // Second consumer resumes one past the last-read offset. Jansu's fetch
-    // semantics are at-least-once: a batch may overlap the requested start
-    // offset (e.g. start_offset=2 may yield offsets [2, 3, 4, 3, 4, 4] as
-    // successive batches re-deliver tail records). Consumers must dedup by
-    // offset — we assert set inclusion, not exact sequence.
-    let resume_from = remembered + 1;
-    let mut c2 = broker.consumer(topics::PIPELINES, resume_from);
-    let mut seen_offsets: std::collections::BTreeSet<i64> = std::collections::BTreeSet::new();
+    // Second consumer resumes at the remembered cursor (already next-to-read)
+    // and sees offsets [2, 3, 4] exactly — no batch-tail redelivery.
+    let mut c2 = broker.consumer(topics::PIPELINES, remembered);
+    let mut seen: Vec<i64> = Vec::new();
     while let Some(record) = c2
         .next_with_timeout(Duration::from_millis(300))
         .await
         .expect("poll")
     {
-        // Only count offsets at-or-past the requested resume point.
-        if record.offset >= resume_from {
-            seen_offsets.insert(record.offset);
-        }
+        seen.push(record.offset);
     }
 
-    let expected: std::collections::BTreeSet<i64> = [2, 3, 4].into_iter().collect();
     assert_eq!(
-        seen_offsets, expected,
-        "resumed consumer must observe every remaining offset at least once"
+        seen,
+        vec![2, 3, 4],
+        "resumed consumer sees the remaining offsets exactly once each"
     );
 }

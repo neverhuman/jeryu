@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "arc-bench"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "anyhow",
  "cargo-aer",
@@ -500,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "cache-brain-adapter"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-aer"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -578,7 +578,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-vrc"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -593,7 +593,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-witness"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -2310,7 +2310,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 [[package]]
 name = "jansu-embedded"
 version = "0.6.1"
-source = "git+https://github.com/neverhuman/jansu.git?rev=3e270dc#3e270dc573eddcc4d0621c5e6bbcd25712a3a49a"
+source = "git+https://github.com/neverhuman/jansu.git?rev=9f61c0d#9f61c0d4a71978f14fc19257569cd3bf51b58d59"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2328,7 +2328,7 @@ dependencies = [
 [[package]]
 name = "jansu-model"
 version = "0.6.1"
-source = "git+https://github.com/neverhuman/jansu.git?rev=3e270dc#3e270dc573eddcc4d0621c5e6bbcd25712a3a49a"
+source = "git+https://github.com/neverhuman/jansu.git?rev=9f61c0d#9f61c0d4a71978f14fc19257569cd3bf51b58d59"
 dependencies = [
  "convert_case 0.11.0",
  "lazy_static",
@@ -2344,7 +2344,7 @@ dependencies = [
 [[package]]
 name = "jansu-sans-io"
 version = "0.6.1"
-source = "git+https://github.com/neverhuman/jansu.git?rev=3e270dc#3e270dc573eddcc4d0621c5e6bbcd25712a3a49a"
+source = "git+https://github.com/neverhuman/jansu.git?rev=9f61c0d#9f61c0d4a71978f14fc19257569cd3bf51b58d59"
 dependencies = [
  "bytes",
  "clap",
@@ -2371,7 +2371,7 @@ dependencies = [
 [[package]]
 name = "jansu-schema"
 version = "0.6.1"
-source = "git+https://github.com/neverhuman/jansu.git?rev=3e270dc#3e270dc573eddcc4d0621c5e6bbcd25712a3a49a"
+source = "git+https://github.com/neverhuman/jansu.git?rev=9f61c0d#9f61c0d4a71978f14fc19257569cd3bf51b58d59"
 dependencies = [
  "anyhow",
  "apache-avro",
@@ -2410,7 +2410,7 @@ dependencies = [
 [[package]]
 name = "jansu-storage"
 version = "0.6.1"
-source = "git+https://github.com/neverhuman/jansu.git?rev=3e270dc#3e270dc573eddcc4d0621c5e6bbcd25712a3a49a"
+source = "git+https://github.com/neverhuman/jansu.git?rev=9f61c0d#9f61c0d4a71978f14fc19257569cd3bf51b58d59"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2450,7 +2450,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2505,7 +2505,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-gcd"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5553,7 +5553,7 @@ checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
 
 [[package]]
 name = "tui-capture"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -6492,7 +6492,7 @@ dependencies = [
 
 [[package]]
 name = "witness-rt"
-version = "3.3.4"
+version = "3.3.5"
 dependencies = [
  "chrono",
  "serde",

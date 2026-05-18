@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.4",
-  "cargo_workspace_version": "3.3.4",
+  "version": "3.3.5",
+  "cargo_workspace_version": "3.3.5",
   "release_line": "V3.3",
   "status": "released",
   "date": "2026-05-18",
   "tag_policy": {
-    "release_candidate": "v3.3.4-rc.N after required proof lanes pass",
-    "stable": "v3.3.4 after release and security lanes pass"
+    "release_candidate": "v3.3.5-rc.N after required proof lanes pass",
+    "stable": "v3.3.5 after release and security lanes pass"
   },
-  "headline": "Autonomy profile validator — wire real shadow-agreement data into sovereign_plus gating; orphan-discovered fix shipped as standalone PR-E to keep Wave 11.C atomic."
+  "headline": "Bump jansu-embedded rev to pick up the upstream J-4 Consumer batch-tail redelivery fix (jansu PR #11 commit 9f61c0d). Revert the J-4 workaround in jansu_consumer_resumes_after_restart.rs back to exact-sequence assertion."
 }
