@@ -8,7 +8,7 @@
 use ratatui::layout::Rect;
 
 /// Concrete widths for each chrome region.
-pub const PHASE_RAIL_W: u16 = 13;
+pub const PHASE_RAIL_W: u16 = 17;
 pub const MINIMAP_W: u16 = 14;
 
 /// Vertical heights.

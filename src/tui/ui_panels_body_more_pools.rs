@@ -4,14 +4,17 @@ use super::*;
 // Tab 6 — Pools
 // ---------------------------------------------------------------------------
 
-pub(crate) fn draw_pools_tab(f: &mut Frame, app: &App, area: Rect) {
+pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(area);
 
+    focus::register_pane(app, PaneId::PoolsList, cols[0]);
+    focus::register_pane(app, PaneId::PoolsDetail, cols[1]);
+
     // Left: pools list
-    let active = app.active_pane == ActivePane::Pools;
+    let active = app.active_tab == ActiveTab::Pools;
     let items: Vec<ListItem> = app
         .state
         .pools
@@ -43,7 +46,7 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(format!(" [ Runner Pools ({}) ] ", app.state.pools.len()))
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(pane_border(ActivePane::Pools, app))),
+            .border_style(focus::border_style(app, PaneId::PoolsList)),
     );
     f.render_widget(list, cols[0]);
 
@@ -66,7 +69,7 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &App, area: Rect) {
                 Block::default()
                     .title(" [ Pool Detail ] ")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Cyan)),
+                    .border_style(focus::border_style(app, PaneId::PoolsDetail)),
             )
             .wrap(Wrap { trim: false }),
         cols[1],

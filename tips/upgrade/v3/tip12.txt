@@ -432,7 +432,7 @@ To make it world-class:
 
 3. **Backups and migrations.** State is core. Add DB migration checks, backup/restore, ledger compaction, and disaster recovery docs.
 
-4. **HA mode.** One local binary is great, but eventually support Postgres-primary, leader election, event bus, and multiple control-plane instances.
+4. **HA mode.** One local binary is great, but eventually support RedlineDB-primary, leader election, event bus, and multiple control-plane instances.
 
 5. **Supply-chain hardening.** The workflow already runs `cargo deny`; go further with SLSA provenance, SBOM, Sigstore/cosign, reproducible builds, dependency update policy, and signed release artifacts. ([GitHub][9])
 

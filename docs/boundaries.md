@@ -6,7 +6,7 @@ document explains how to read it and which audit findings reference it.
 
 ## Stack
 
-`rust-ts-vite-react-postgres-bounded-python` (see `agent/boundaries.toml`
+`rust-ts-vite-react-redlinedb-bounded-python` (see `agent/boundaries.toml`
 `[stack]`). The release path is Rust-first; Python lives behind
 `python/ai-service` and is not the truth surface.
 
@@ -21,7 +21,7 @@ not import side-effecting crates. Today those are:
 
 `forbidden_domain_imports` is enforced as a no-import list (`std::fs`,
 `std::env`, `std::net`, `std::time::SystemTime`, `rand::`, `sqlx::`,
-`diesel::`, `reqwest::`, `rdkafka::`, `tracing::`, `log::`). New domain
+`diesel::`, `reqwest::`, `jansu::`, `tracing::`, `log::`). New domain
 files must be added to `domain_paths` rather than relaxing the import
 list.
 
@@ -32,10 +32,16 @@ list.
 must live behind a typed adapter; this is what the
 `HLT-006-DIRECT-DB-WRONG-LAYER` audit rule checks.
 
+RedlineDB is the only embedded state-store backend allowed in this repo.
+Do not enable SQLite features, add SQLite SQLx packages, or use SQLite URLs
+as a test fixture, compatibility fallback, or local workaround. If the current
+SQLx compatibility surface cannot open a `redline:` URL, the fix belongs in
+RedlineDB or the RedlineDB adapter layer, not in a SQLite fallback.
+
 ## Queues and contracts
 
 `[queues]` pins event contracts to `contracts/events` and generated
-types to `contracts/generated`. Kafka is grandfathered as a brownfield
+types to `contracts/generated`. Jansu is grandfathered as a brownfield
 streaming runtime via `[[streaming_exception]]`; replacements require
 generated-contract parity, replay, and operations proof before swap.
 

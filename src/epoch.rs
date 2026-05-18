@@ -9,8 +9,8 @@ use crate::state::StateBackend;
 
 fn adapter_backend(backend: StateBackend) -> AdapterBackend {
     match backend {
-        StateBackend::Sqlite => AdapterBackend::Sqlite,
-        StateBackend::Postgres => AdapterBackend::Postgres,
+        StateBackend::RedlineDb => AdapterBackend::RedlineDb,
+        StateBackend::CompatSql => AdapterBackend::CompatSql,
     }
 }
 
@@ -27,7 +27,7 @@ pub struct EpochManager {
 
 impl EpochManager {
     pub fn new(pool: AnyPool) -> Self {
-        Self::with_backend(pool, StateBackend::Sqlite)
+        Self::with_backend(pool, StateBackend::RedlineDb)
     }
 
     pub fn with_backend(pool: AnyPool, backend: StateBackend) -> Self {

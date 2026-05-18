@@ -256,11 +256,10 @@ pub(super) fn draw_node_card(
         let reason_excerpt = node
             .reason
             .as_deref()
-            .map(|r| {
+            .map_or_else(String::new, |r| {
                 let max = area.width.saturating_sub(20) as usize;
                 r.chars().take(max.max(6)).collect::<String>()
-            })
-            .unwrap_or_default();
+            });
         let chip = if downstream > 0 {
             format!(" ⚠ blocks {}", downstream)
         } else {

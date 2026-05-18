@@ -2,7 +2,7 @@ I couldn’t clone through the execution container because DNS resolution to Git
 
 ## Executive read
 
-JeRyu is a **serious, unusually agent-aware prototype**, not just a GitLab wrapper. The best idea is that it treats Git, CI, runners, logs, test selection, release gates, and agent actions as one local control plane. The architecture doc frames it as a Rust control plane over local GitLab/GitLab Runner/Docker/Vault/SQLite, with planes for interface, control, state, execution, and intelligence; that is the right shape for an agent-first development system. ([GitHub][1])
+JeRyu is a **serious, unusually agent-aware prototype**, not just a GitLab wrapper. The best idea is that it treats Git, CI, runners, logs, test selection, release gates, and agent actions as one local control plane. The architecture doc frames it as a Rust control plane over local GitLab/GitLab Runner/Docker/Vault/RedlineDB, with planes for interface, control, state, execution, and intelligence; that is the right shape for an agent-first development system. ([GitHub][1])
 
 The biggest weakness is that the **product thesis outruns the enforcement layer**. The repo has many of the right nouns: capability API, VTI, runner pools, action registry, evidence, capsules, release gates, honeypots, cache brain, TUI, agent commands. But some of the most important claims are scaffolded, shallow, inconsistent across surfaces, or documented differently from the code. The mission doc itself recognizes that the “infrastructure/agent substrate” is mostly real, while semantic CI, policy-driven authority, evidence capsules, causal explanations, and partial DAG reuse are still missing or partial. ([GitHub][2])
 
@@ -28,7 +28,7 @@ The VTI design has the right conservative instincts: global invalidators, docs-o
 The GitHub workflow includes fmt, clippy, build, VTI test-select, library tests, integration tests, TUI smoke, cargo-deny, witness graph, VRC map/plan, AER audit, and scheduled hardening. That signals the project already cares about validation lanes and agent-specific correctness, not just “cargo test.” ([GitHub][6])
 
 **6. The system has the beginnings of a real state ledger.**
-The SQLite layer tracks pools, jobs, CI runs, tracked pipelines, release state, evidence, retry/jeryu records, secrets, cache, test plans, selector misses, and related events. That is essential. A world-class agent system needs durable memory of what happened and why, not just logs that disappear when the runner exits. ([GitHub][7])
+The RedlineDB layer tracks pools, jobs, CI runs, tracked pipelines, release state, evidence, retry/jeryu records, secrets, cache, test plans, selector misses, and related events. That is essential. A world-class agent system needs durable memory of what happened and why, not just logs that disappear when the runner exits. ([GitHub][7])
 
 ---
 

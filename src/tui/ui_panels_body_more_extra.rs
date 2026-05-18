@@ -75,7 +75,7 @@ pub(crate) fn draw_agent_actions(f: &mut Frame, app: &App, area: Rect) {
                 Block::default()
                     .title(" [ Actions / Grants ] ")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Magenta)),
+                    .border_style(focus::border_style(app, PaneId::AgentsActions)),
             )
             .wrap(Wrap { trim: false }),
         area,
@@ -86,7 +86,7 @@ pub(crate) fn draw_agent_actions(f: &mut Frame, app: &App, area: Rect) {
 // Tab 8 — Evidence: failure capsule viewer
 // ---------------------------------------------------------------------------
 
-pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &App, area: Rect) {
+pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &mut App, area: Rect) {
     use crate::tui::app::EvidenceViewMode;
     if app.evidence_view_mode == EvidenceViewMode::AuditLedger {
         draw_audit_ledger(f, app, area);
@@ -97,6 +97,9 @@ pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &App, area: Rect) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
         .split(area);
+
+    focus::register_pane(app, PaneId::EvidenceList, cols[0]);
+    focus::register_pane(app, PaneId::EvidenceDetail, cols[1]);
 
     // Left: evidence record list
     let items: Vec<ListItem> = app
@@ -150,7 +153,7 @@ pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &App, area: Rect) {
                 app.state.recent_evidence.len()
             ))
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::DarkGray)),
+            .border_style(focus::border_style(app, PaneId::EvidenceList)),
     );
     f.render_widget(list, cols[0]);
 
@@ -158,7 +161,7 @@ pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &App, area: Rect) {
     let detail_block = Block::default()
         .title(" [ Capsule Detail ] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(focus::border_style(app, PaneId::EvidenceDetail));
     let detail_inner = detail_block.inner(cols[1]);
     f.render_widget(detail_block, cols[1]);
 

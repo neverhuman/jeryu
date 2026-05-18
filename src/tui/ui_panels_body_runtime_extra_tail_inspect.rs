@@ -36,7 +36,7 @@ pub(crate) fn draw_pipeline_nav(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(" Pipelines ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::DarkGray)),
+            .border_style(focus::border_style(app, PaneId::JobsProgress)),
     );
     f.render_widget(list, area);
 }
@@ -45,7 +45,7 @@ pub(crate) fn draw_job_inspector_panel(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(" [ Inspector ] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(pane_border(ActivePane::Jobs, app)));
+        .border_style(focus::border_style(app, PaneId::JobsInspector));
     let inner = block.inner(area);
     f.render_widget(block, area);
 

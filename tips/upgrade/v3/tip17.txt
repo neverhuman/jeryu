@@ -48,7 +48,7 @@ The repo is not just “call GitLab APIs from a script.” It is trying to becom
 
 ## 3. The architecture surface is impressively broad
 
-The docs describe a control surface spanning CLI, TUI, webhook HTTP server, Unix socket capability API, Git server hook, custom executor, action registry, GitLab client, state DB, release/secrets systems, and settings. ([GitHub][6]) The architecture doc separates the system into interface, control, state, execution, and intelligence planes, with GitLab, Runner, Docker, Vault, Postgres/SQLite, SmartCache, evidence, actions, and TUI all in scope. ([GitHub][7])
+The docs describe a control surface spanning CLI, TUI, webhook HTTP server, Unix socket capability API, Git server hook, custom executor, action registry, GitLab client, state DB, release/secrets systems, and settings. ([GitHub][6]) The architecture doc separates the system into interface, control, state, execution, and intelligence planes, with GitLab, Runner, Docker, Vault, RedlineDB/RedlineDB, SmartCache, evidence, actions, and TUI all in scope. ([GitHub][7])
 
 That breadth matters because agent-first Git is not one feature. It is an ecosystem:
 

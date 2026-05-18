@@ -13,7 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.5"
+version = "3.3.6"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -84,14 +84,21 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 # Docker control
 bollard = "0.18"
 
-# SQLite/Postgres state. Migration to RedlineDB v1.0.1 is tracked in
-# docs/redline-jansu-issues.md — RedlineDB is the canonical storage engine
-# going forward, but two blockers defer the migration to a follow-up PR:
+# RedlineDB state. Migration to RedlineDB v1.0.1 is tracked in
+# docs/redline-jansu-issues.md. `redlinedb-sqlx` is pinned to an upstream git
+# revision so clean clones do not depend on a sibling checkout. RedlineDB is
+# the only embedded state-store backend allowed here. Do not enable SQLx
+# SQLite features, add sqlx-sqlite, or use SQLite URLs as a fallback; fix
+# RedlineDB or its adapter surface instead.
+#
+# The current SQLx AnyPool surface is a compatibility layer while two blockers
+# defer the native RedlineDB migration to a follow-up PR:
 #   R-1: RedlineDB's sync API is not a sqlx drop-in; 19 call sites need a
 #        spawn_blocking adapter or full async rewrite (~20+ hours).
 #   R-2: RedlineDB requires rustc 1.95; jeryu currently builds on 1.92.
 # Both are tracked in docs/redline-jansu-issues.md.
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "postgres", "any"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "any"] }
+redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "6b346280f2d0740673e457d777d924e7a22301f7" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -139,7 +146,7 @@ witness-rt = { path = "crates/witness-rt" }
 cache-brain-adapter = { path = "crates/adapters/cache-brain" }
 async-trait = "0.1"
 
-# Jansu — in-process embedded Kafka-like broker, used for webhook event
+# Jansu — in-process embedded broker, used for webhook event
 # dispatch. URL-pinned to the v0.6.1 feature branch tip including the J-4
 # Consumer batch-tail redelivery fix (jansu PR #11 commit 9f61c0d). Switch
 # to `tag = "v0.6.1"` once neverhuman/jansu cuts the release tag.

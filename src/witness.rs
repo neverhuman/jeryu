@@ -105,10 +105,16 @@ impl WitnessBuilder {
         hasher.update(features.as_bytes());
 
         // Respect Cargo oracle inputs
-        let rustflags = std::env::var("RUSTFLAGS").unwrap_or_default();
+        let rustflags = match std::env::var("RUSTFLAGS") {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         hasher.update(rustflags.as_bytes());
 
-        let wrapper = std::env::var("RUSTC_WORKSPACE_WRAPPER").unwrap_or_default();
+        let wrapper = match std::env::var("RUSTC_WORKSPACE_WRAPPER") {
+            Ok(value) => value,
+            Err(_) => String::new(),
+        };
         hasher.update(wrapper.as_bytes());
 
         if let Some(wf) = witness_fingerprint {

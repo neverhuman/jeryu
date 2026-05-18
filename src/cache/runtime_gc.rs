@@ -16,8 +16,10 @@ impl SmartCache {
             None => None,
         };
         let total_cache_bytes = status.manager_cache_bytes
+            + status.manager_cargo_target_bytes
             + status.local_cargo_target_bytes
             + status.pool_cargo_target_bytes
+            + status.manager_cargo_sccache_bytes
             + status.local_cargo_sccache_bytes
             + status.pool_cargo_sccache_bytes;
         let over_budget = budget_bytes

@@ -677,8 +677,8 @@ The current TUI polls every second. Keep that, but split refresh rates by cost.
 
 ```text
 Every 1s:
-  - active pipelines from SQLite
-  - active job events from SQLite
+  - active pipelines from RedlineDB
+  - active job events from RedlineDB
   - selected pipeline jobs from GitLab
   - selected job trace heartbeat only if inspector is open
 
@@ -1584,7 +1584,7 @@ Never rely only on color. The glyph and label must communicate status.
 
 # 14. Data Sources
 
-The TUI should combine SQLite, GitLab, Docker, and release logic.
+The TUI should combine RedlineDB, GitLab, Docker, and release logic.
 
 | Data             | Source                                                    |
 | ---------------- | --------------------------------------------------------- |

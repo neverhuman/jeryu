@@ -36,7 +36,7 @@ But the current code appears to be **foundation plus scaffolding**, not yet the 
 
 ## Biggest gaps and risks
 
-**1. It is not yet a full GitLab fork.** It is currently a Rust orchestrator/control plane that boots and controls GitLab CE, runners, Vault, Postgres/SQLite, webhooks, caches, and agent operations. That may actually be the better architecture, but the language should be honest: it is “agent-first GitLab control plane,” not “GitLab fork.” The README itself calls it a single-binary Rust control plane for local GitLab orchestration. ([GitHub][1])
+**1. It is not yet a full GitLab fork.** It is currently a Rust orchestrator/control plane that boots and controls GitLab CE, runners, Vault, RedlineDB/RedlineDB, webhooks, caches, and agent operations. That may actually be the better architecture, but the language should be honest: it is “agent-first GitLab control plane,” not “GitLab fork.” The README itself calls it a single-binary Rust control plane for local GitLab orchestration. ([GitHub][1])
 
 **2. The autonomous agent loop is mostly not implemented.** `agent.rs` documents a loop where an agent creates a branch, performs a task, commits/pushes, opens an MR, watches CI, analyzes failures, fixes, force-pushes, and auto-merges or flags review. But the implementation shown creates a project bot, issue, branch, and MR-like flow; `list_agents` is TODO/empty, race cleanup is noted as manual/TODO, and winner auto-merge is explicitly not implemented. ([GitHub][11])
 

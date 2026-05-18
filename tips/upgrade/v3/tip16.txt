@@ -2,7 +2,7 @@
 
 I reviewed the public repo, README, workspace metadata, AGENTS/proof-lane docs, generated agent index, main Rust modules, architecture docs, API docs, TUI docs, VTI docs, and several source modules in detail. Direct `git clone` failed in the container because DNS resolution for `github.com` was unavailable, so I used GitHub’s source browser/raw files and downloaded representative files locally. I did **not** run `cargo check` or the test suite, so this is a static architecture/code review rather than a build-verified audit.
 
-**My blunt read:** JeRyu/jeryu is not yet “a GitLab fork” in the normal sense. The docs describe it more accurately as a **single-binary Rust control plane wrapped around a local GitLab CE, GitLab Runner, Docker, Vault, Postgres/SQLite, cache, custom executor, and Ratatui TUI**. That is still a strong direction: it is trying to make GitLab agent-operable rather than merely scriptable. The current repo has a lot of good agent-first scaffolding, but the security/isolation claims are ahead of the implementation, and the actual “agent codes autonomously, repairs itself, wins a race, proves safety, and ships” loop is only partially implemented. The architecture doc itself frames it as a Rust control plane that turns local GitLab and related services into an “agent-operable delivery system,” not as a replacement for GitLab’s core Rails/Gitaly/database product. ([GitHub][1])
+**My blunt read:** JeRyu/jeryu is not yet “a GitLab fork” in the normal sense. The docs describe it more accurately as a **single-binary Rust control plane wrapped around a local GitLab CE, GitLab Runner, Docker, Vault, RedlineDB/RedlineDB, cache, custom executor, and Ratatui TUI**. That is still a strong direction: it is trying to make GitLab agent-operable rather than merely scriptable. The current repo has a lot of good agent-first scaffolding, but the security/isolation claims are ahead of the implementation, and the actual “agent codes autonomously, repairs itself, wins a race, proves safety, and ships” loop is only partially implemented. The architecture doc itself frames it as a Rust control plane that turns local GitLab and related services into an “agent-operable delivery system,” not as a replacement for GitLab’s core Rails/Gitaly/database product. ([GitHub][1])
 
 ---
 
@@ -54,7 +54,7 @@ That is much better than a normal CI dashboard for supervising agents. A human o
 
 ### 8. The state model is richer than typical CLI tooling
 
-The architecture doc describes Postgres-primary with SQLite fallback, typed DB methods, operational state, audit state, and tables for runner fleet, jobs/pipelines, events, releases, evidence/retry, jeryu sync, secrets, cache, tests, selector misses, capability grants, and admission decisions. ([GitHub][1])
+The architecture doc describes RedlineDB-primary with RedlineDB fallback, typed DB methods, operational state, audit state, and tables for runner fleet, jobs/pipelines, events, releases, evidence/retry, jeryu sync, secrets, cache, tests, selector misses, capability grants, and admission decisions. ([GitHub][1])
 
 That is the right shape for an autonomous delivery system: do not leave critical facts scattered across GitLab APIs, logs, local files, and shell history.
 

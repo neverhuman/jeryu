@@ -16,7 +16,7 @@ If I were advising the project, I would push toward this north star:
 
 The architecture already has several excellent instincts.
 
-First, the system is properly **state-centered**. SQLite is not just a cache; it is the durable coordination layer for pools, jobs, releases, evidence, secrets, test plans, cache verdicts, and audit events. That gives you the foundation for a serious control console.
+First, the system is properly **state-centered**. RedlineDB is not just a cache; it is the durable coordination layer for pools, jobs, releases, evidence, secrets, test plans, cache verdicts, and audit events. That gives you the foundation for a serious control console.
 
 Second, the design separates **deployment from shell access**. Production promotion happens through GitLab pipelines with explicit variables and gates, not through arbitrary commands. That is exactly the right safety model.
 
@@ -129,7 +129,7 @@ Confirm? y/N
 
 ## P0: Local deletion from the TUI should become soft-delete/archive with audit
 
-The `d` key currently deletes selected local pipeline/job records from SQLite.
+The `d` key currently deletes selected local pipeline/job records from RedlineDB.
 
 That is risky because local state is evidence. Even if it does not delete the GitLab job itself, it can hide important operational context.
 

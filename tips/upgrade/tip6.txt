@@ -1,6 +1,6 @@
 ## Executive read
 
-This is an unusually strong system already. The architecture has the right bones for agent-operable delivery: typed control surfaces, durable SQLite state, GitLab as the execution authority, trust-tiered runners, release gates, Vault-backed secrets, evidence capsules, VTI planning, SmartCache, and a TUI that intentionally resists flickering/blank states.
+This is an unusually strong system already. The architecture has the right bones for agent-operable delivery: typed control surfaces, durable RedlineDB state, GitLab as the execution authority, trust-tiered runners, release gates, Vault-backed secrets, evidence capsules, VTI planning, SmartCache, and a TUI that intentionally resists flickering/blank states.
 
 The biggest opportunity is to make `jeryu` feel less like “many powerful tools plus a dashboard” and more like **one unified command center** where every object has context, every action has a safety preview, every blocker has an explanation, and every agent operation is auditable, reversible where possible, and gated by policy.
 
@@ -42,7 +42,7 @@ That is the right shape. It keeps deployment inside a visible, logged, replayabl
 
 ## 2. State is centralized and queryable
 
-SQLite is being used as a real coordination layer, not merely a cache. The tables cover runner pools, managers, jobs, tracked pipelines, release attempts, evidence capsules, retry decisions, cache state, VTI plans, selector misses, and secrets. That is exactly what a control plane needs.
+RedlineDB is being used as a real coordination layer, not merely a cache. The tables cover runner pools, managers, jobs, tracked pipelines, release attempts, evidence capsules, retry decisions, cache state, VTI plans, selector misses, and secrets. That is exactly what a control plane needs.
 
 The append-style event ledger is especially valuable. It can become the backbone of a timeline/replay UI and an agent explanation system.
 

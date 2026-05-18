@@ -14,7 +14,7 @@ The strongest parts of the system are:
    This is excellent. Production promotion through `CI_PIPELINE_PRODUCT=production-promotion` with explicit gate variables is the right safety posture.
 
 2. **State is durable and evidence-oriented.**
-   SQLite as the coordination/audit layer gives the system memory. Tables like `release_attempts`, `evidence_capsules`, `retry_decisions`, `test_plans`, `cache_verdicts`, and `selector_misses` are exactly the kind of substrate agents need.
+   RedlineDB as the coordination/audit layer gives the system memory. Tables like `release_attempts`, `evidence_capsules`, `retry_decisions`, `test_plans`, `cache_verdicts`, and `selector_misses` are exactly the kind of substrate agents need.
 
 3. **Agents are intended to operate through typed capabilities.**
    That is much better than handing agents broad PATs and shell access.

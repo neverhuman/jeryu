@@ -49,7 +49,7 @@ Main surfaces:
 - CLI and TUI for humans and supervising agents.
 - Unix-socket capability API for local agents.
 - GitLab webhook ingestion and reconciliation.
-- Postgres-primary state with SQLite fallback for jobs, pools, evidence, VTI plans, selector misses, releases, cache, and audit events.
+- RedlineDB-primary state with RedlineDB fallback for jobs, pools, evidence, VTI plans, selector misses, releases, cache, and audit events.
 - Runner pool management across trust classes.
 - Custom executor hooks for sandbox, cache, honeypot, and failure evidence.
 - VTI for smart validation selection.

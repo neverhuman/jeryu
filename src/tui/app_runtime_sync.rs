@@ -7,21 +7,24 @@ impl App {
     }
     pub async fn refresh_now(&mut self) {
         let mut snap = TuiStateSnapshot::default();
-        Self::hydrate_core_snapshot(&mut snap, &self.store, &self.docker, &self.gitlab).await;
+        if let Some(store) = self.store.as_ref() {
+            Self::hydrate_core_snapshot(&mut snap, store, &self.docker, &self.gitlab).await;
+        }
         self.state = snap;
     }
 
     pub async fn hydrate_release_status(&mut self) {
-        if let Ok(report) = crate::release::build_release_status_report(
-            &self.store,
-            crate::release::ReleaseStatusQuery {
-                project_id: Some(crate::release::DEFAULT_RELEASE_PROJECT_ID),
-                ref_name: Some("main".to_string()),
-                sha: None,
-                limit: 1,
-            },
-        )
-        .await
+        if let Some(store) = self.store.as_ref()
+            && let Ok(report) = crate::release::build_release_status_report(
+                store,
+                crate::release::ReleaseStatusQuery {
+                    project_id: Some(crate::release::DEFAULT_RELEASE_PROJECT_ID),
+                    ref_name: Some("main".to_string()),
+                    sha: None,
+                    limit: 1,
+                },
+            )
+            .await
         {
             self.state.release_status_generated_at = Some(report.generated_at);
             self.state.release_status = report.latest;
@@ -178,12 +181,11 @@ impl App {
         if current_job_id != self.state.inspector_job_id {
             self.state.inspector_job_id = current_job_id;
             if let Some(jid) = current_job_id {
-                self.state.inspector_capsule = self
-                    .store
-                    .latest_evidence_by_job_id(jid)
-                    .await
-                    .ok()
-                    .flatten();
+                self.state.inspector_capsule = if let Some(store) = self.store.as_ref() {
+                    store.latest_evidence_by_job_id(jid).await.ok().flatten()
+                } else {
+                    None
+                };
             } else {
                 self.state.inspector_capsule = None;
             }

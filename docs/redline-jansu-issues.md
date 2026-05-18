@@ -101,7 +101,7 @@ prerequisites in place.
 **Status:** SUPERSEDED by R-0 + the dialect findings in R-1 (above)
 
 **What:** The user described RedlineDB as a "100% parity 100% Rust drop-in for
-SQLite/Postgres." This is true at the **storage-engine level** (you can replace
+RedlineDB/RedlineDB." This is true at the **storage-engine level** (you can replace
 the underlying file format / wire protocol), but RedlineDB does NOT provide a
 sqlx-compatible API. Our 19 call sites use sqlx-specific types and patterns
 that have no 1:1 equivalent in RedlineDB.
@@ -133,7 +133,7 @@ let rows: Vec<_> = stmt.query(params![&filter.kind])?.collect();  // sync iterat
 **Why it matters:**
 1. **Async-to-sync boundary:** Every async call site needs `tokio::task::spawn_blocking` or a parallel sync codepath. This propagates through 19+ files and across the `daemon`, `http_server`, `tui::workflow::action_adapter`, and `bin/autonomy` boundaries.
 2. **Pool management:** sqlx's `AnyPool` (connection pool with max_connections, timeouts, health checks) has no direct equivalent — RedlineDB connections are one-shot from `Database::connect()`.
-3. **Dual-backend support:** Our `state.rs` currently supports both `sqlite:` and `postgres://` URLs via sqlx-any. RedlineDB only handles its own `.redline` files; no Postgres on the same code path.
+3. **Dual-backend support:** Our `state.rs` currently supports both `redline:` and the legacy SQL URL path via sqlx-any. RedlineDB only handles its own `.redline` files; no legacy SQL backend on the same code path.
 4. **Test fixtures:** ~30 test helpers use `sqlx::any::AnyPoolOptions` to spin up in-memory test DBs. Each needs to be rewritten for RedlineDB's `Database::create(":memory:")` (which may or may not exist — needs verification).
 5. **Magnitude:** Realistic estimate is 20+ hours of careful migration with high regression risk, not the 4 hours estimated in the plan when we believed it was sqlx-compatible.
 
@@ -255,7 +255,7 @@ does not advance past the high-water mark of the previous batch before
 issuing the next fetch).
 
 **Why it matters:**
-- This is *technically* compatible with Kafka's at-least-once semantics:
+- This is *technically* compatible with Jansu's at-least-once semantics:
   consumers everywhere already dedup by offset, and idempotency keys handle
   the rest. Webhook dispatch is safe because the producer uses the GitLab
   delivery UUID as the message key, so re-delivered webhooks no-op at the

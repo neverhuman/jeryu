@@ -1,4 +1,4 @@
-# .autonomy/providers/llm.yml — Wave 8.F per-role LLM router chains.
+# .autonomy/providers/llm.yml — free-only per-role LLM router chains.
 #
 # Schema: vibegate.providers.v1
 #
@@ -32,69 +32,90 @@ schema: vibegate.providers.v1
 
 # When a caller asks for a role not present in `chains:`, the router can
 # consult this list. Right now `security` is the universal fallback because
-# every reviewer agrees Nemotron-70B is a safe default for code review.
+# every reviewer agrees Nemotron 3 Super is a safe default for code review.
 default_role_chain: [security]
 
 chains:
-  # ---- Security reviewer (most important — 2-deep fallback) -----------------
+  # ---- Security reviewer (most important — 2-deep free fallback) -----------
   security:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
-    - provider: groq
-      base_url: https://api.groq.com/openai/v1
-      model_id: llama-3.1-70b-versatile
-      api_key_secret: GROQ_API_KEY
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: openai/gpt-oss-120b:free
+      api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
 
-  # ---- Test-integrity reviewer (Llama-3.1-70b primary, Groq fallback) -------
+  # ---- Test-integrity reviewer (free-only fallback chain) ------------------
   test_integrity:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: meta-llama/llama-3.1-70b-instruct:free
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
-    - provider: groq
-      base_url: https://api.groq.com/openai/v1
-      model_id: llama-3.1-70b-versatile
-      api_key_secret: GROQ_API_KEY
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: openai/gpt-oss-120b:free
+      api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
 
-  # ---- Runtime reviewer (single-entry; Nemotron is enough) ------------------
+  # ---- Runtime reviewer (free-only, gpt-oss primary) ------------------------
   runtime:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      model_id: openai/gpt-oss-120b:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
 
-  # ---- Lockfile scout (single-entry; small free-tier suffices) --------------
+  # ---- Lockfile scout (free-only, gpt-oss primary) --------------------------
   lockfile:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      model_id: openai/gpt-oss-120b:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
 
-  # ---- Nightwatch (post-deploy telemetry reviewer) --------------------------
+  # ---- Nightwatch (free-only, Nemotron primary) ----------------------------
   nightwatch:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
-      model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
+      model_id: nvidia/nemotron-3-super-120b-a12b:free
+      api_key_secret: OPENROUTER_API_KEY
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: openai/gpt-oss-120b:free
       api_key_secret: OPENROUTER_API_KEY
       data_use: no_train
       temperature: 0.0

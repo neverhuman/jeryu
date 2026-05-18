@@ -16,9 +16,10 @@ use std::io;
 use std::path::Path;
 
 pub async fn run_tui(
-    store: TuiSession,
+    store: Option<TuiSession>,
     docker_ctl: crate::docker::DockerCtl,
     client: crate::gitlab_client::GitlabClient,
+    tab: &str,
     demo: bool,
 ) -> Result<()> {
     crossterm::terminal::enable_raw_mode()?;
@@ -36,9 +37,16 @@ pub async fn run_tui(
         cache_maintenance_loop(maintenance_docker).await;
     });
 
-    let mut app = App::new(store, docker_ctl, client);
+    let mut app = match store {
+        Some(store) => App::new(store, docker_ctl, client),
+        None => App::new_render_only(docker_ctl, client),
+    };
+    app.active_tab = parse_capture_tab(tab)?;
     if demo {
         app.apply_demo_fixture();
+        if std::env::var_os("JERYU_TUI_WORKFLOW_INSPECT_OPEN").is_some() {
+            app.workflow_inspect_open = true;
+        }
     } else {
         // Wave 6.A: try to upgrade Mission Control's action surface to the
         // production adapter. Non-fatal: when the DB/token/key chain isn't
@@ -65,15 +73,24 @@ pub async fn run_tui(
 }
 
 pub async fn run_tui_once(
-    store: TuiSession,
+    store: Option<TuiSession>,
     docker_ctl: crate::docker::DockerCtl,
     client: crate::gitlab_client::GitlabClient,
+    tab: &str,
 ) -> Result<()> {
     use ratatui::backend::TestBackend;
 
-    let mut app = App::new(store, docker_ctl, client);
-    hydrate_smoke_state(&mut app).await;
-    seed_live_flow_snapshot(&mut app).await;
+    let mut app = match store {
+        Some(store) => App::new(store, docker_ctl, client),
+        None => App::new_render_only(docker_ctl, client),
+    };
+    app.active_tab = parse_capture_tab(tab)?;
+    if app.store.is_some() {
+        hydrate_smoke_state(&mut app).await;
+        seed_live_flow_snapshot(&mut app).await;
+    } else {
+        app.apply_demo_fixture();
+    }
 
     let backend = TestBackend::new(120, 40);
     let mut terminal = Terminal::new(backend)?;
@@ -86,13 +103,16 @@ pub async fn run_tui_once(
 }
 
 pub async fn run_tui_screenshot(
-    store: TuiSession,
+    store: Option<TuiSession>,
     docker_ctl: crate::docker::DockerCtl,
     client: crate::gitlab_client::GitlabClient,
     tab: &str,
     hold_ms: u64,
 ) -> Result<()> {
-    let mut app = App::new(store, docker_ctl, client);
+    let mut app = match store {
+        Some(store) => App::new(store, docker_ctl, client),
+        None => App::new_render_only(docker_ctl, client),
+    };
     app.active_tab = parse_capture_tab(tab)?;
     app.apply_demo_fixture();
 
@@ -120,7 +140,7 @@ pub async fn run_tui_screenshot(
 
 /// Render one deterministic TUI frame into a PNG file.
 pub async fn capture_tui_png(
-    store: TuiSession,
+    store: Option<TuiSession>,
     docker_ctl: crate::docker::DockerCtl,
     client: crate::gitlab_client::GitlabClient,
     tab: &str,
@@ -130,10 +150,17 @@ pub async fn capture_tui_png(
 ) -> Result<()> {
     use ratatui::backend::TestBackend;
 
-    let mut app = App::new(store, docker_ctl, client);
+    let mut app = match store {
+        Some(store) => App::new(store, docker_ctl, client),
+        None => App::new_render_only(docker_ctl, client),
+    };
     app.active_tab = parse_capture_tab(tab)?;
-    hydrate_smoke_state(&mut app).await;
-    seed_live_flow_snapshot(&mut app).await;
+    if app.store.is_some() {
+        hydrate_smoke_state(&mut app).await;
+        seed_live_flow_snapshot(&mut app).await;
+    } else {
+        app.apply_demo_fixture();
+    }
 
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend)?;
@@ -149,7 +176,9 @@ pub async fn capture_tui_png(
 }
 
 async fn seed_live_flow_snapshot(app: &mut App) {
-    let flow_snap = collect_once(&app.store, &app.docker, &app.gitlab).await;
-    let _ = app.flow_tx.send(flow_snap).await;
-    app.tick().await;
+    if let Some(store) = app.store.as_ref() {
+        let flow_snap = collect_once(store, &app.docker, &app.gitlab).await;
+        let _ = app.flow_tx.send(flow_snap).await;
+        app.tick().await;
+    }
 }

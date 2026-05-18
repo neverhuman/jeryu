@@ -892,7 +892,7 @@ impl<'a> FlowGraphBuilder<'a> {
     pub async fn build(&self) -> anyhow::Result<FlowGraph> {
         // 1. Load selected/latest pipeline
         // 2. Load jobs from GitLab
-        // 3. Load job events from SQLite
+        // 3. Load job events from RedlineDB
         // 4. Load release attempt
         // 5. Load evidence/retry records
         // 6. Load impact/supersedence/admission events

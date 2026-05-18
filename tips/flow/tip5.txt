@@ -667,7 +667,7 @@ Use this refresh cadence:
 
 | Data                            |    Frequency |
 | ------------------------------- | -----------: |
-| SQLite state                    |     every 1s |
+| RedlineDB state                    |     every 1s |
 | active GitLab pipelines/jobs    |     every 2s |
 | selected job trace tail         |     every 3s |
 | Docker manager status           |     every 5s |

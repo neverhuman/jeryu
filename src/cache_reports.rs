@@ -29,13 +29,15 @@ pub fn print_cache_status_report(report: &CacheStatusReport) {
         human_bytes(report.manager_cache_bytes)
     );
     println!(
-        "Cargo targets: local={} pool={}",
+        "Cargo targets: local={} manager={} pool={}",
         human_bytes(report.local_cargo_target_bytes),
+        human_bytes(report.manager_cargo_target_bytes),
         human_bytes(report.pool_cargo_target_bytes)
     );
     println!(
-        "Sccache dirs:  local={} pool={}",
+        "Sccache dirs:  local={} manager={} pool={}",
         human_bytes(report.local_cargo_sccache_bytes),
+        human_bytes(report.manager_cargo_sccache_bytes),
         human_bytes(report.pool_cargo_sccache_bytes)
     );
     let orphan_count = report

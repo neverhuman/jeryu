@@ -14,7 +14,7 @@ The best path is: **freeze the feature sprawl briefly, make the contracts truthf
 
 ### 1. The vision is unusually good
 
-Most “AI coding” systems still bolt an agent onto a repo and let it run shell commands. This project is aiming higher: agents interact with a typed control plane, GitLab receives controlled branches/MRs/pipelines, test evidence is captured, and production is mediated through release gates. The architecture explicitly separates interface, control, state, execution, and intelligence planes, with CLI/TUI/hooks/capability socket on the interface side, webhooks/reconciliation/runner scaling/release triggers on the control side, SQLite state/audit ledgers, runner/sandbox/cache execution, and VTI/decision/capsule intelligence. ([GitHub][2])
+Most “AI coding” systems still bolt an agent onto a repo and let it run shell commands. This project is aiming higher: agents interact with a typed control plane, GitLab receives controlled branches/MRs/pipelines, test evidence is captured, and production is mediated through release gates. The architecture explicitly separates interface, control, state, execution, and intelligence planes, with CLI/TUI/hooks/capability socket on the interface side, webhooks/reconciliation/runner scaling/release triggers on the control side, RedlineDB state/audit ledgers, runner/sandbox/cache execution, and VTI/decision/capsule intelligence. ([GitHub][2])
 
 That decomposition is exactly what an agent-first Git manager needs.
 
@@ -35,7 +35,7 @@ That is the right shape. An agent-first repo manager should not merely “run te
 
 ### 3. The system has the beginnings of an evidence-first workflow
 
-SQLite is documented as the durable coordination layer for runner state, job/pipeline state, audit events, release attempts, evidence capsules, retry decisions, jeryu sync, secrets, test plans, selector misses, and cache metadata. ([GitHub][2])
+RedlineDB is documented as the durable coordination layer for runner state, job/pipeline state, audit events, release attempts, evidence capsules, retry decisions, jeryu sync, secrets, test plans, selector misses, and cache metadata. ([GitHub][2])
 
 This matters because agents need **structured evidence**, not raw logs alone. The project already has concepts like failure capsules, retry decisions, `explain-blocker`, `next`, cache verdicts, selector misses, and release-gate status. Those are the right primitives for “agent as repo operator.”
 
@@ -104,7 +104,7 @@ Concrete fix:
 * Validate peer UID/GID via `SO_PEERCRED` on Linux.
 * Issue per-agent capability leases with allowed intents, allowed project IDs, allowed branch prefixes, TTL, and max budget.
 * Require every write intent to carry `agent_id`, `task_id`, `lease_id`, `reason`, and `correlation_id`.
-* Record every accepted/denied capability call in the SQLite event ledger.
+* Record every accepted/denied capability call in the RedlineDB event ledger.
 * Add a dry-run mode for every mutating intent.
 
 ### 4. `RequestMerge` is not a complete merge gate
@@ -662,7 +662,7 @@ What is still missing or not mature enough:
    Publish JSON Schema/OpenAPI-like docs for capability requests, responses, event ledger entries, VTI plans, failure capsules, and action registry entries.
 
 5. **Architecture decision records**
-   Add ADRs for local GitLab, SQLite, custom executor, VTI, capability socket, runner pools, and sandboxing.
+   Add ADRs for local GitLab, RedlineDB, custom executor, VTI, capability socket, runner pools, and sandboxing.
 
 6. **Contributor onboarding**
    Add “first 30 minutes” docs: build, run tests, start dev stack, run a fake pipeline, inspect DB, add a command, add a capability.

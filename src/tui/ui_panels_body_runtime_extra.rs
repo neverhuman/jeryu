@@ -63,7 +63,7 @@ pub(crate) fn draw_live_runner_feed(f: &mut Frame, app: &App, area: Rect) {
             cycle_label, runner_label
         ))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(focus::border_style(app, PaneId::JobsRunnerFeed));
     let inner = block.inner(area);
     f.render_widget(block, area);
 

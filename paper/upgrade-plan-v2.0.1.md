@@ -15,7 +15,7 @@ Local review confirms the main v2 upgrade risks captured in the retained upgrade
 - `src/test_runner.rs` creates scratch branches from `main` instead of an immutable requested SHA/ref.
 - `src/impact.rs` now treats unknown files as full-validation fallback instead of docs-only, closing the unsafe non-code shortcut called out by the V2 review notes.
 - VTI is conservative but still path/glob driven; it lacks coverage, history, flake, confidence calibration, and proof receipts.
-- The state layer now supports Postgres as the primary backend for concurrent agent workloads and keeps SQLite as the embedded fallback. Core state operations now have a disposable-container Postgres proof lane; remaining state work is to move every direct SQL caller behind `Db` methods and promote that lane into CI.
+- The state layer now supports RedlineDB as the primary backend for concurrent agent workloads and keeps RedlineDB as the embedded fallback. Core state operations now have a disposable-container Redline proof lane; remaining state work is to move every direct SQL caller behind `Db` methods and promote that lane into CI.
 - TUI docs now describe the nine-tab model and deterministic PNG capture path.
 - The action registry now drives capability `ListAllowedActions`; generated docs/schema parity remains to be added.
 
@@ -23,7 +23,7 @@ Local review confirms the main v2 upgrade risks captured in the retained upgrade
 
 The raw review corpus is retained as release evidence. The repeated recommendations resolve into four buckets:
 
-- **Implemented in the V2.0.1 cleanup:** version tracking, Postgres-primary state with SQLite fallback, disposable Postgres proof, unknown-file full fallback, recursive VTI subsystem globs, canonical action listing for capability discovery, advisory merge proof records, branch-write capability grants with commit-SHA binding for GitLab commit API writes, persisted admission decisions, TUI screenshot capture, warning-clean proof lanes, and the IEEE/Markdown paper package.
+- **Implemented in the V2.0.1 cleanup:** version tracking, RedlineDB-primary state with RedlineDB fallback, disposable Redline proof, unknown-file full fallback, recursive VTI subsystem globs, canonical action listing for capability discovery, advisory merge proof records, branch-write capability grants with commit-SHA binding for GitLab commit API writes, persisted admission decisions, TUI screenshot capture, warning-clean proof lanes, and the IEEE/Markdown paper package.
 - **Partially implemented but not yet release-complete:** intent ledger, admission enforcement, merge readiness, VTI proof receipts, cache taint decisions, and TUI proof panes. These exist as working surfaces or advisory records but need stricter schemas, scoped evidence, and caller-independent enforcement before being marketed as complete.
 - **Deliberately deferred because they are high-risk or broad:** typed CI YAML generation, peer-credential authentication on the capability socket, path-scoped grants, signed grants, full GitLab MR/pipeline/approval merge gate, event streaming, semantic log intelligence, patch-race tournament completion, hermetic sandbox replay, and generic multi-repo onboarding.
 - **Documented as limitations rather than claims:** strict sandboxing is not yet a production isolation boundary, dynamic CI generation is not yet injection-hardened, VTI is not yet coverage/history/flake aware, and merge decisions remain advisory until wired to complete GitLab evidence.
@@ -60,18 +60,18 @@ Goal: make JeRyu's durable memory suitable for many agents, webhooks, runners, a
 
 Implemented:
 
-- Add `JERYU_DATABASE_URL` selection with `postgres://`, `postgresql://`, and explicit `sqlite:` URL support.
-- Keep SQLite as the no-config fallback and in-memory test backend.
-- Add bootstrap-managed `jeryu-postgres` Docker Compose service and fresh-env Postgres URL generation.
-- Move shared upserts away from SQLite-only `INSERT OR REPLACE` / `INSERT OR IGNORE` syntax to portable `ON CONFLICT` statements.
-- Add optional `JERYU_TEST_POSTGRES_URL` integration smoke coverage for core state operations, VTI ledgers, cache verdicts, epoch bumps, taint propagation, CacheBrain hit/deny decisions, capability grants, and admission decisions.
-- Add `just postgres-state-proof` to run the Postgres smoke against a disposable `postgres:16-alpine` container.
+- Add `JERYU_DATABASE_URL` selection with `redline://` and explicit `redline:` URL support.
+- Keep RedlineDB as the no-config fallback and in-memory test backend.
+- Add bootstrap-managed `jeryu-redline` Docker Compose service and fresh-env Redline URL generation.
+- Move shared upserts away from RedlineDB-only `INSERT OR REPLACE` / `INSERT OR IGNORE` syntax to portable `ON CONFLICT` statements.
+- Add optional `JERYU_TEST_REDLINE_URL` integration smoke coverage for core state operations, VTI ledgers, cache verdicts, epoch bumps, taint propagation, CacheBrain hit/deny decisions, capability grants, and admission decisions.
+- Add `just state-proof` to run the Redline smoke against a disposable runtime container.
 
 Next:
 
-- Add a required CI Postgres service lane before the final `v2.0.1` tag, using the disposable proof target as the local equivalent.
+- Add a required CI Redline service lane before the final `v2.0.1` tag, using the disposable proof target as the local equivalent.
 - Convert remaining direct pool users into `Db` methods when their query shape becomes cross-module behavior.
-- Decide whether embedded high-write local caches should use a Rust-native store such as `redb` while keeping Postgres as the source of truth for operational state.
+- Decide whether embedded high-write local caches should use a Rust-native store such as `redb` while keeping RedlineDB as the source of truth for operational state.
 
 ## Milestone 2: Capability Security and Intent Ledger
 

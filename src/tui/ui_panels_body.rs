@@ -5,19 +5,29 @@ use crate::tui::app::ReleaseSubPane;
 mod body_evidence;
 use body_evidence::draw_release_evidence_pane;
 
-pub(crate) fn draw_release_tab(f: &mut Frame, app: &App, area: Rect) {
+pub(crate) fn draw_release_tab(f: &mut Frame, app: &mut App, area: Rect) {
     // Top strip: sub-pane selector (1/2/3 or h/l to cycle).
     let split = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(2), Constraint::Min(8)])
         .split(area);
 
+    focus::register_pane(app, PaneId::ReleaseSelector, split[0]);
     draw_release_subpane_tabs(f, app, split[0]);
 
     match app.release_subpane {
-        ReleaseSubPane::Pipeline => draw_release_pipeline_pane(f, app, split[1]),
-        ReleaseSubPane::Evidence => draw_release_evidence_pane(f, app, split[1]),
-        ReleaseSubPane::Rollback => draw_release_rollback_pane(f, app, split[1]),
+        ReleaseSubPane::Pipeline => {
+            focus::register_pane(app, PaneId::ReleasePipeline, split[1]);
+            draw_release_pipeline_pane(f, app, split[1])
+        }
+        ReleaseSubPane::Evidence => {
+            focus::register_pane(app, PaneId::ReleaseInspector, split[1]);
+            draw_release_evidence_pane(f, app, split[1])
+        }
+        ReleaseSubPane::Rollback => {
+            focus::register_pane(app, PaneId::ReleaseRollback, split[1]);
+            draw_release_rollback_pane(f, app, split[1])
+        }
     }
 }
 
@@ -100,7 +110,7 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(title)
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(*color)),
+                .border_style(focus::border_style(app, PaneId::ReleasePipeline)),
         );
         f.render_widget(list, cols[i]);
     }
@@ -128,7 +138,7 @@ fn draw_release_rollback_pane(f: &mut Frame, app: &App, area: Rect) {
         Block::default()
             .title(" [ Rollback ladder ] ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Red)),
+            .border_style(focus::border_style(app, PaneId::ReleaseRollback)),
     );
     f.render_widget(list, area);
 }
@@ -137,7 +147,7 @@ pub(crate) fn draw_release_inspector(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default()
         .title(" [ Inspector ] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(focus::border_style(app, PaneId::ReleaseInspector));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -178,6 +188,7 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .split(area);
 
     // Left column: Live Runner Feed
+    focus::register_pane(app, PaneId::JobsRunnerFeed, cols[0]);
     draw_live_runner_feed(f, app, cols[0]);
 
     // Right column: Pipeline Progress on top, Job Matrix below, Inspector at bottom
@@ -189,6 +200,10 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
             Constraint::Length(10), // Inspector
         ])
         .split(cols[1]);
+
+    focus::register_pane(app, PaneId::JobsProgress, right_rows[0]);
+    focus::register_pane(app, PaneId::JobsMatrix, right_rows[1]);
+    focus::register_pane(app, PaneId::JobsInspector, right_rows[2]);
 
     draw_pipeline_progress(f, app, right_rows[0]);
     draw_job_matrix(f, app, right_rows[1]);

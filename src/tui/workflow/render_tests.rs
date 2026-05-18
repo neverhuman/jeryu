@@ -46,6 +46,7 @@ fn delivery_view_renders_at_200x60_without_panic() {
         !hits.cards.is_empty(),
         "at least one node card should have been laid out"
     );
+    assert_eq!(super::regions::PHASE_RAIL_W, 17);
 }
 
 #[test]

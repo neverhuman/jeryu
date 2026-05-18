@@ -1,6 +1,6 @@
 -- Migration: 0001 — inline schema marker
 --
--- jeryu's durable state is a local SQLite (or in-memory) cache, and the
+-- jeryu's durable state is a local RedlineDB (or in-memory) cache, and the
 -- live schema is embedded in `src/state.rs`, `src/epoch.rs`, and
 -- `src/cache_brain.rs`. Migrations are applied via `CREATE TABLE IF NOT
 -- EXISTS` at startup, not from this directory.

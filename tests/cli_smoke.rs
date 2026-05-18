@@ -100,7 +100,7 @@ fn add_recent_merge_commit(repo: &Path) {
 
 fn run_profile_validate(repo: &Path) -> std::process::Output {
     let db = tempfile::NamedTempFile::new().expect("temp db");
-    let db_url = format!("sqlite:{}?mode=rwc", db.path().display());
+    let db_url = format!("redline:{}?mode=rwc", db.path().display());
     Command::new(bin_path())
         .current_dir(repo)
         .args([

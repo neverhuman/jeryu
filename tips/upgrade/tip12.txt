@@ -215,7 +215,7 @@ It should answer:
 * What did the engine decide?
 * What gates blocked or passed?
 * What did agents do?
-* What state changed in SQLite?
+* What state changed in RedlineDB?
 * What external GitLab/Docker/Vault action happened?
 * What was retried, canceled, promoted, or quarantined?
 
@@ -559,7 +559,7 @@ with explicit behavior.
 
 ## Issue 6: Local TUI deletion can erase useful operational evidence
 
-The TUI allows deleting local job/pipeline records from SQLite.
+The TUI allows deleting local job/pipeline records from RedlineDB.
 
 That can be useful for cleanup, but dangerous for debugging. A user might accidentally remove the evidence needed to explain a failure.
 

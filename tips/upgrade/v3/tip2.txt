@@ -1,6 +1,6 @@
 ## Bottom line
 
-JeRyu / `jeryu` is **not really a GitLab fork** in the normal sense. It is much more interesting than that: it is a Rust control plane that sits on top of local GitLab, GitLab Runner, Docker, Vault, Postgres/SQLite state, cache systems, Git hooks, and a Ratatui TUI. The README calls it a “single-binary Rust control plane” for turning local GitLab into an orchestration engine for autonomous agents, with runner control, sandboxing, ephemeral identities, custom executor hooks, semantic CI, and a headless GitLab setup. ([GitHub][1])
+JeRyu / `jeryu` is **not really a GitLab fork** in the normal sense. It is much more interesting than that: it is a Rust control plane that sits on top of local GitLab, GitLab Runner, Docker, Vault, RedlineDB/RedlineDB state, cache systems, Git hooks, and a Ratatui TUI. The README calls it a “single-binary Rust control plane” for turning local GitLab into an orchestration engine for autonomous agents, with runner control, sandboxing, ephemeral identities, custom executor hooks, semantic CI, and a headless GitLab setup. ([GitHub][1])
 
 I could not literally clone the repo in the execution container because DNS resolution for GitHub failed. I therefore reviewed it through GitHub’s web and raw source views. I did not compile or run tests. The review below is source-level and architecture-level, based on the repository docs and the key Rust modules I inspected.
 
@@ -50,7 +50,7 @@ The anti-blanking behavior is particularly good: when fresh flow data is missing
 
 ### 7. The state ledger is broad and ambitious
 
-`state.rs` is positioned as Postgres-primary with SQLite fallback and an append-only event log. It models pools, managers, job events, CI job runs, tracked pipelines, release attempts, evidence records, retry records, jeryu sync, secret authorities, release secret sets, secret audit events, capability intents/grants, admission decisions, cache objects, cache taints, test plans, selector misses, and more. ([GitHub][9])
+`state.rs` is positioned as RedlineDB-primary with RedlineDB fallback and an append-only event log. It models pools, managers, job events, CI job runs, tracked pipelines, release attempts, evidence records, retry records, jeryu sync, secret authorities, release secret sets, secret audit events, capability intents/grants, admission decisions, cache objects, cache taints, test plans, selector misses, and more. ([GitHub][9])
 
 That is the right instinct. Autonomous systems need durable memory. They cannot just “look at current status”; they need histories of decisions, failures, retries, flakes, taints, grants, evidence, and releases.
 

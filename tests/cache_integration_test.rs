@@ -74,7 +74,7 @@ async fn test_cache_brain_rejection_no_namespace() -> Result<()> {
     let taint_mgr = TaintManager::new(db.pool());
     let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
         db.pool(),
-        cache_brain_adapter::AdapterBackend::Sqlite,
+        cache_brain_adapter::AdapterBackend::RedlineDb,
     );
     let brain = CacheBrain::with_store(epoch_mgr, taint_mgr, store);
 
@@ -112,7 +112,7 @@ async fn test_action_cache_roundtrip_hit() -> Result<()> {
     let taint_mgr = TaintManager::new(db.pool());
     let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
         db.pool(),
-        cache_brain_adapter::AdapterBackend::Sqlite,
+        cache_brain_adapter::AdapterBackend::RedlineDb,
     );
     let brain = CacheBrain::with_store(epoch_mgr, taint_mgr, store);
 
@@ -166,7 +166,7 @@ async fn test_taint_propagation_blocks_cache_hit() -> Result<()> {
     let taint_mgr = TaintManager::new(db.pool());
     let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
         db.pool(),
-        cache_brain_adapter::AdapterBackend::Sqlite,
+        cache_brain_adapter::AdapterBackend::RedlineDb,
     );
     let brain = CacheBrain::with_store(epoch_mgr, taint_mgr.clone(), store);
 
@@ -422,7 +422,7 @@ async fn local_cargo_wrapper_smoke_with_sccache_shim() -> Result<()> {
 }
 
 #[tokio::test]
-async fn cache_status_report_exposes_local_and_pool_cargo_bytes() -> Result<()> {
+async fn cache_status_report_exposes_local_manager_and_pool_cargo_bytes() -> Result<()> {
     let _guard = ENV_LOCK.lock().unwrap();
     let temp_home = TempDir::new()?;
     let original_home = std::env::var_os("HOME");
@@ -440,14 +440,30 @@ async fn cache_status_report_exposes_local_and_pool_cargo_bytes() -> Result<()> 
         .join("host")
         .join("target");
     let pool_sccache = jeryu::config::pool_cargo_sccache_dir("default");
+    let manager_target = cache_root
+        .join("managers")
+        .join("manager-1")
+        .join("cargo-targets")
+        .join("scope")
+        .join("rustc")
+        .join("host")
+        .join("target");
+    let manager_sccache = cache_root
+        .join("managers")
+        .join("manager-1")
+        .join("sccache");
     std::fs::create_dir_all(&local_target)?;
     std::fs::create_dir_all(&local_sccache)?;
     std::fs::create_dir_all(&pool_target)?;
     std::fs::create_dir_all(&pool_sccache)?;
+    std::fs::create_dir_all(&manager_target)?;
+    std::fs::create_dir_all(&manager_sccache)?;
     std::fs::write(local_target.join("a"), vec![0_u8; 32])?;
     std::fs::write(local_sccache.join("b"), vec![0_u8; 16])?;
     std::fs::write(pool_target.join("c"), vec![0_u8; 24])?;
     std::fs::write(pool_sccache.join("d"), vec![0_u8; 8])?;
+    std::fs::write(manager_target.join("e"), vec![0_u8; 20])?;
+    std::fs::write(manager_sccache.join("f"), vec![0_u8; 12])?;
 
     let db = setup_production_db().await?;
     let report = jeryu::cache::SmartCache::new(db)
@@ -456,12 +472,22 @@ async fn cache_status_report_exposes_local_and_pool_cargo_bytes() -> Result<()> 
     let json = serde_json::to_value(&report)?;
     assert!(report.local_cargo_target_bytes > 0);
     assert!(report.local_cargo_sccache_bytes > 0);
+    assert!(report.manager_cargo_target_bytes > 0);
+    assert!(report.manager_cargo_sccache_bytes > 0);
     assert!(report.pool_cargo_target_bytes > 0);
     assert!(report.pool_cargo_sccache_bytes > 0);
     assert!(json.get("local_cargo_target_bytes").is_some());
     assert!(json.get("local_cargo_sccache_bytes").is_some());
+    assert!(json.get("manager_cargo_target_bytes").is_some());
+    assert!(json.get("manager_cargo_sccache_bytes").is_some());
     assert!(json.get("pool_cargo_target_bytes").is_some());
     assert!(json.get("pool_cargo_sccache_bytes").is_some());
+    assert!(
+        report
+            .cargo_target_caches
+            .iter()
+            .any(|cache| cache.scope.starts_with("manager:manager-1"))
+    );
     assert!(report.jeryu_cache_bytes >= report.local_cargo_target_bytes);
     assert!(cache_root.exists());
 

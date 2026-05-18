@@ -6,7 +6,11 @@
 mod ui_chrome;
 #[path = "ui_panels.rs"]
 mod ui_panels;
-use super::app::{ActivePane, ActiveTab, App};
+use super::app::{ActiveTab, App};
+use crate::tui::{
+    activity,
+    focus::{self, PaneId},
+};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -18,18 +22,27 @@ use ui_chrome::*;
 use ui_panels::*;
 
 pub fn draw(f: &mut Frame, app: &mut App) {
-    if app.maximize_logs {
+    if app.focus.active.tab() != app.active_tab {
+        app.maximize_logs = false;
+        app.focus.set_tab(app.active_tab);
+    }
+    app.focus_map.clear_for_tab(app.active_tab);
+
+    let fullscreen_activity =
+        app.maximize_logs || app.focus.fullscreen == Some(PaneId::ActivityLog(app.active_tab));
+
+    if fullscreen_activity {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3), // Header + tabs
                 Constraint::Min(10),   // Full log view
-                Constraint::Length(2), // Footer
+                Constraint::Length(1), // Footer
             ])
             .split(f.area());
 
         draw_header_tabs(f, app, chunks[0]);
-        draw_logs(f, app, chunks[1]);
+        activity::draw_activity_pane(f, app, chunks[1]);
         draw_footer(f, app, chunks[2]);
         return;
     }
@@ -39,13 +52,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         .constraints([
             Constraint::Length(3), // Header + tabs
             Constraint::Min(10),   // Content
-            Constraint::Length(4), // Event console
-            Constraint::Length(2), // Footer
+            Constraint::Length(7), // Activity / Logs
+            Constraint::Length(1), // Footer
         ])
         .split(f.area());
 
     draw_header_tabs(f, app, chunks[0]);
-    draw_footer(f, app, chunks[3]);
 
     match app.active_tab {
         ActiveTab::Workflow => {
@@ -103,6 +115,17 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 app.delivery_hit_map = hit_map;
             }
 
+            let regions = crate::tui::workflow::regions::compute_regions(delivery_area);
+            focus::register_pane(app, PaneId::WorkflowMissionStrip, regions.mission);
+            focus::register_pane(app, PaneId::WorkflowPrRail, regions.pr_rail);
+            focus::register_pane(app, PaneId::WorkflowPhaseRail, regions.phase_rail);
+            focus::register_pane(app, PaneId::WorkflowCanvas, regions.canvas);
+            focus::register_pane(app, PaneId::WorkflowMinimap, regions.minimap);
+            if let Some(area) = inspector_area {
+                focus::register_pane(app, PaneId::WorkflowInspector, area);
+                focus::register_esc_hotspot(app, PaneId::WorkflowInspector, area);
+            }
+
             if let Some(area) = inspector_area {
                 let selected_id = app
                     .workflow_nav
@@ -132,11 +155,13 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         ActiveTab::Pools => draw_pools_tab(f, app, chunks[1]),
         ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[1]),
         ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[1]),
+        ActiveTab::LLMs => draw_llms_tab(f, app, chunks[1]),
         ActiveTab::Git => draw_git_tab(f, app, chunks[1]),
         ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[1]),
     }
 
-    draw_event_console(f, app, chunks[2]);
+    activity::draw_activity_pane(f, app, chunks[2]);
+    draw_footer(f, app, chunks[3]);
 
     if app.command_palette_open {
         draw_command_palette(f, app);

@@ -14,7 +14,7 @@ The highest-leverage product direction is: **make “proof” the central primit
 
 ### 1. The architecture is agent-native, not just “CI with a bot”
 
-The design does not just bolt an LLM onto Git. It creates a local control plane with typed surfaces: CLI, TUI, webhook server, Unix-socket capability API, GitLab REST wrapper, SQLite state, runner pools, executor hooks, release controls, test-intelligence controls, action registry, and settings. That is exactly the kind of surface agents need: typed, inspectable, scriptable, and stateful. ([GitHub][3])
+The design does not just bolt an LLM onto Git. It creates a local control plane with typed surfaces: CLI, TUI, webhook server, Unix-socket capability API, GitLab REST wrapper, RedlineDB state, runner pools, executor hooks, release controls, test-intelligence controls, action registry, and settings. That is exactly the kind of surface agents need: typed, inspectable, scriptable, and stateful. ([GitHub][3])
 
 ### 2. VTI is the most promising part
 

@@ -45,8 +45,8 @@ pub(crate) async fn run_loop(
                         return Ok(());
                     }
                 }
-                Event::Mouse(m) if app.active_tab == crate::tui::app::ActiveTab::Workflow => {
-                    mouse::handle_delivery_mouse(app, m);
+                Event::Mouse(m) => {
+                    mouse::handle(app, m);
                 }
                 _ => {}
             }

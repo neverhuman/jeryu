@@ -2,6 +2,7 @@ use super::*;
 
 impl App {
     pub fn cycle_tab_next(&mut self) {
+        self.maximize_logs = false;
         self.active_tab = match self.active_tab {
             ActiveTab::Workflow => ActiveTab::Mission,
             ActiveTab::Mission => ActiveTab::Release,
@@ -13,21 +14,49 @@ impl App {
             ActiveTab::Pools => ActiveTab::Cache,
             ActiveTab::Cache => ActiveTab::Evidence,
             ActiveTab::Evidence => ActiveTab::Secrets,
-            ActiveTab::Secrets => ActiveTab::Git,
+            ActiveTab::Secrets => ActiveTab::LLMs,
+            ActiveTab::LLMs => ActiveTab::Git,
             ActiveTab::Git => ActiveTab::Workflow,
         };
+        self.focus.set_tab(self.active_tab);
+    }
+
+    pub fn cycle_tab_prev(&mut self) {
+        self.maximize_logs = false;
+        self.active_tab = match self.active_tab {
+            ActiveTab::Workflow => ActiveTab::Git,
+            ActiveTab::Mission => ActiveTab::Workflow,
+            ActiveTab::Release => ActiveTab::Mission,
+            ActiveTab::Approvals => ActiveTab::Release,
+            ActiveTab::Jobs => ActiveTab::Approvals,
+            ActiveTab::Agents => ActiveTab::Jobs,
+            ActiveTab::Tests => ActiveTab::Agents,
+            ActiveTab::Pools => ActiveTab::Tests,
+            ActiveTab::Cache => ActiveTab::Pools,
+            ActiveTab::Evidence => ActiveTab::Cache,
+            ActiveTab::LLMs => ActiveTab::Evidence,
+            ActiveTab::Git => ActiveTab::LLMs,
+            ActiveTab::Secrets => ActiveTab::Git,
+        };
+        self.focus.set_tab(self.active_tab);
     }
 
     pub fn cycle_pane_next(&mut self) {
-        // Only Jobs is currently rendered; cycling to Pools/Pipelines would silently
-        // focus invisible panes. Expand this when those panes are visible.
-        self.active_pane = ActivePane::Jobs;
-        self.update_log_target();
+        if let Some(next) = self
+            .focus_map
+            .neighbor(self.focus.active, crate::tui::focus::NavDirection::Right)
+        {
+            self.focus.active = next;
+        }
     }
 
     pub fn cycle_pane_prev(&mut self) {
-        self.active_pane = ActivePane::Jobs;
-        self.update_log_target();
+        if let Some(prev) = self
+            .focus_map
+            .neighbor(self.focus.active, crate::tui::focus::NavDirection::Left)
+        {
+            self.focus.active = prev;
+        }
     }
 
     pub fn up(&mut self) {
@@ -118,7 +147,7 @@ impl App {
     }
 
     pub(crate) fn update_log_target(&mut self) {
-        if self.maximize_logs
+        if (self.maximize_logs || self.focus.fullscreen.is_some())
             && let Some(job) = self.selected_job()
         {
             let target = Some(LogTarget {
@@ -180,7 +209,78 @@ impl App {
 
     pub fn close_log_view(&mut self) {
         self.maximize_logs = false;
+        self.focus.fullscreen = None;
         self.update_log_target();
+    }
+
+    pub fn open_activity_log(&mut self) {
+        let pane = crate::tui::focus::PaneId::ActivityLog(self.active_tab);
+        self.focus.push();
+        self.focus.active = pane;
+        self.focus.fullscreen = Some(pane);
+        self.maximize_logs = true;
+        self.follow_log_tail = true;
+        self.log_scroll_offset = u16::MAX;
+    }
+
+    pub fn close_focus_overlay(&mut self) -> bool {
+        if self.command_palette_open {
+            self.command_palette_open = false;
+            self.command_palette_query.clear();
+            self.selected_palette_index = 0;
+            return true;
+        }
+        if self.help_overlay_open {
+            self.help_overlay_open = false;
+            return true;
+        }
+        if self.maximize_logs || self.focus.fullscreen.is_some() || !self.focus.stack.is_empty() {
+            self.maximize_logs = false;
+            self.focus.fullscreen = None;
+            if self.focus.pop() {
+                self.update_log_target();
+            }
+            return true;
+        }
+        false
+    }
+
+    pub fn enter_focused_pane(&mut self) {
+        let pane = self.focus.active;
+        if matches!(pane, crate::tui::focus::PaneId::ActivityLog(_)) {
+            self.open_activity_log();
+            return;
+        }
+        self.focus.push();
+        match (self.active_tab, pane) {
+            (ActiveTab::Release, crate::tui::focus::PaneId::ReleaseSelector) => {
+                self.release_subpane = self.release_subpane.next();
+            }
+            (ActiveTab::Jobs, crate::tui::focus::PaneId::JobsRunnerFeed) => {
+                self.feed_toggle_pin();
+            }
+            (ActiveTab::Tests, crate::tui::focus::PaneId::TestsBottlenecks) => {
+                self.selected_test_history = None;
+            }
+            _ => {}
+        }
+    }
+
+    pub fn current_focus_pane(&self) -> crate::tui::focus::PaneId {
+        self.focus.active
+    }
+
+    pub fn focus_move(&mut self, direction: crate::tui::focus::NavDirection) {
+        if self.focus.is_drilled() {
+            return;
+        }
+        if let Some(next) = self.focus_map.neighbor(self.focus.active, direction) {
+            self.maximize_logs = false;
+            self.focus.active = next;
+        } else if let Some(first) = self.focus_map.first_visible() {
+            self.maximize_logs = false;
+            self.focus.active = first;
+        }
     }
 
     pub fn scroll_logs_up(&mut self, amount: u16) {
@@ -204,22 +304,28 @@ impl App {
     }
 
     pub async fn toggle_pool_paused(&mut self) -> Result<()> {
+        let Some(store) = self.store.as_ref() else {
+            return Ok(());
+        };
         if let Some(pool) = self.state.pools.get(self.selected_pool_index) {
             if pool.paused {
-                crate::pool::resume_pool(&self.store, &self.gitlab, &pool.name).await?;
+                crate::pool::resume_pool(store, &self.gitlab, &pool.name).await?;
             } else {
-                crate::pool::pause_pool(&self.store, &self.gitlab, &pool.name).await?;
+                crate::pool::pause_pool(store, &self.gitlab, &pool.name).await?;
             }
         }
         Ok(())
     }
 
     pub async fn remove_selected_item(&mut self) -> Result<()> {
+        let Some(store) = self.store.as_ref() else {
+            return Ok(());
+        };
         match self.active_pane {
             ActivePane::Pipelines => {
                 if let Some(pm) = self.state.pipelines.get(self.selected_pipeline_index) {
                     let pid = pm.pipeline.pipeline_id;
-                    self.store.delete_pipeline(pid).await?;
+                    store.delete_pipeline(pid).await?;
                     // Remove from local state immediately for snappy UX
                     self.state.pipelines.remove(self.selected_pipeline_index);
                     if self.selected_pipeline_index > 0 {
@@ -230,7 +336,7 @@ impl App {
             ActivePane::Jobs => {
                 if let Some(j) = self.state.recent_jobs.get(self.selected_job_index) {
                     let jid = j.job_id;
-                    self.store.delete_job_event(jid).await?;
+                    store.delete_job_event(jid).await?;
                     self.state.recent_jobs.remove(self.selected_job_index);
                     if self.selected_job_index > 0 {
                         self.selected_job_index -= 1;
@@ -262,12 +368,15 @@ impl App {
     }
 
     pub async fn fetch_selected_test_history(&mut self) {
+        let Some(store) = self.store.as_ref() else {
+            return;
+        };
         let bottlenecks = match self.test_view_mode {
             TestViewMode::Average => &self.state.test_bottlenecks_avg,
             TestViewMode::Latest => &self.state.test_bottlenecks_latest,
         };
         if let Some(b) = bottlenecks.get(self.selected_test_index)
-            && let Ok(hist) = self.store.get_test_history(&b.test_name, 50).await
+            && let Ok(hist) = store.get_test_history(&b.test_name, 50).await
         {
             self.selected_test_history = Some(hist);
         }

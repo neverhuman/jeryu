@@ -948,7 +948,7 @@ Polling plan:
 
 | Data                                |              Frequency |
 | ----------------------------------- | ---------------------: |
-| SQLite pools/managers/recent events |                     1s |
+| RedlineDB pools/managers/recent events |                     1s |
 | Active GitLab pipelines/jobs        |                     2s |
 | Release attempts                    |                     2s |
 | Docker managed containers           |                     5s |
@@ -962,7 +962,7 @@ The render loop reads the latest `TuiSnapshot` from a `watch::Receiver`.
 
 Rules:
 
-1. Never call GitLab, Docker, or SQLite from `ui.rs` render code.
+1. Never call GitLab, Docker, or RedlineDB from `ui.rs` render code.
 2. Never fetch job traces for all running jobs.
 3. Never block the event loop on a long API call.
 4. Show stale-data indicator when the latest snapshot is older than 5 seconds.
@@ -977,7 +977,7 @@ Example stale banner:
 
 # 13. Data sources and API mapping
 
-## 13.1 From SQLite
+## 13.1 From RedlineDB
 
 Use existing state:
 
@@ -1504,7 +1504,7 @@ Next actions:
 
 ```text
 GitLab unavailable.
-Last known state from SQLite:
+Last known state from RedlineDB:
 #407 main running, last update 4m ago
 
 Engine may still be running. Press d for host doctor.
@@ -1643,7 +1643,7 @@ Implement a new default Flow View for jeryu's Ratatui TUI.
 Context:
 - jeryu already has src/tui/{mod.rs,app.rs,ui.rs,events.rs}
 - jeryu uses ratatui 0.30, crossterm 0.29, tokio, ansi-to-tui
-- State lives in SQLite via state::Db
+- State lives in RedlineDB via state::Db
 - GitLab API is exposed through GitlabClient
 - Docker manager data is exposed through docker.rs
 - Release state is available through release_attempts

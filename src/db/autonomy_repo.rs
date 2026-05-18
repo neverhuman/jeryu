@@ -125,8 +125,7 @@ impl AutonomyRepo {
         };
         let limit_sql = filter
             .limit
-            .map(|n| format!(" LIMIT {n}"))
-            .unwrap_or_default();
+            .map_or_else(String::new, |n| format!(" LIMIT {n}"));
         let sql = format!(
             "SELECT id, kind, subject_id, repo, actor, payload,
                     signature_algo, signature_key_id, signature_value, recorded_at
@@ -174,8 +173,14 @@ impl AutonomyRepo {
         if state != "paused" {
             return Ok(KillBellState::Armed);
         }
-        let reason: String = row.try_get("reason").unwrap_or_default();
-        let paused_by: String = row.try_get("paused_by").unwrap_or_default();
+        let reason: String = match row.try_get("reason") {
+            Ok(reason) => reason,
+            Err(_) => String::new(),
+        };
+        let paused_by: String = match row.try_get("paused_by") {
+            Ok(paused_by) => paused_by,
+            Err(_) => String::new(),
+        };
         let paused_at_str: String = row
             .try_get("paused_at")
             .context("read kill_bell_state.paused_at")?;
@@ -525,13 +530,13 @@ fn decode_body(row: &AnyRow) -> Result<VibeGateVerdict> {
 
 #[cfg(test)]
 pub(crate) async fn fresh_autonomy_pool() -> AnyPool {
-    use sqlx::any::{AnyPoolOptions, install_default_drivers};
+    use crate::db::{AnyPoolOptions, install_default_drivers};
     install_default_drivers();
     let pool = AnyPoolOptions::new()
         .max_connections(1)
-        .connect("sqlite::memory:")
+        .connect("redline::memory:")
         .await
-        .expect("connect in-memory sqlite");
+        .expect("connect in-memory redline");
     for stmt in autonomy_schema_ddl() {
         sqlx::query(stmt).execute(&pool).await.unwrap();
     }

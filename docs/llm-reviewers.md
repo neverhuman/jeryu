@@ -308,7 +308,6 @@ default_chain:
   reviewer-security:
     - { provider: openrouter, model: "nvidia/nemotron-3-super-120b-a12b:free", temperature: 0, max_input_tokens: 200000 }
     - { provider: openrouter, model: "openai/gpt-oss-120b:free", temperature: 0, max_input_tokens: 120000 }
-    - { provider: groq, model: "llama-3.3-70b-versatile", temperature: 0, max_input_tokens: 32000, data_use_override: train_on_input_explicit_opt_in_required }
 ```
 
 The third entry has `data_use_override: train_on_input_explicit_opt_in_required`
@@ -371,7 +370,7 @@ behavior. The reviewer treats them as a hard veto.
 default_chain:
   reviewer-test-integrity:
     - { provider: openrouter, model: "nvidia/nemotron-3-super-120b-a12b:free", temperature: 0, max_input_tokens: 200000 }
-    - { provider: groq, model: "llama-3.3-70b-versatile", temperature: 0, max_input_tokens: 32000, data_use_override: train_on_input_explicit_opt_in_required }
+    - { provider: openrouter, model: "openai/gpt-oss-120b:free", temperature: 0, max_input_tokens: 120000 }
 ```
 
 ---
@@ -409,7 +408,7 @@ From `.autonomy/prompts/reviewer-runtime.md:13-25`:
 default_chain:
   reviewer-runtime:
     - { provider: openrouter, model: "openai/gpt-oss-120b:free", temperature: 0, max_input_tokens: 120000 }
-    - { provider: groq, model: "llama-3.3-70b-versatile", temperature: 0, max_input_tokens: 32000, data_use_override: train_on_input_explicit_opt_in_required }
+    - { provider: openrouter, model: "nvidia/nemotron-3-super-120b-a12b:free", temperature: 0, max_input_tokens: 200000 }
 ```
 
 The Runtime reviewer is required for every R3 change (large, novel,
@@ -510,6 +509,8 @@ chain (from the file header):
 
 CI mode refuses local files for safety.
 
+`~/.jeryu/secrets/llm.env` is the canonical home for LLM keys.
+
 ### 10.2 Each role has its own ordered chain with deterministic failover
 
 Each entry in a role's chain is tried in order; on rate limit, timeout,
@@ -520,55 +521,12 @@ sub-command can probe the chain end-to-end:
 cargo run --bin autonomy -- doctor
 ```
 
-The provider list reflects what was live-verified on 2026-05-16
-against the user's `~/llm.env`:
-
-```yaml
-providers:
-  - id: openrouter
-    base_url: "https://openrouter.ai/api/v1"
-    api: openai_compatible
-    env: OPENROUTER_API_KEY
-    headers:
-      HTTP-Referer: "https://github.com/jeryu/jeryu"
-      X-Title: "jeryu-evidence-gate"
-    data_use: no_train
-    timeout_ms: 30000
-    retry_after_respect: true
-
-  - id: groq
-    base_url: "https://api.groq.com/openai/v1"
-    api: openai_compatible
-    env: GROQ_API_KEY
-    data_use: train_on_input
-    timeout_ms: 20000
-
-  - id: gemini
-    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
-    api: openai_compatible
-    env: GEMINI_API_KEY
-    data_use: train_on_input
-    timeout_ms: 30000
-
-  - id: nvidia
-    base_url: "https://integrate.api.nvidia.com/v1"
-    api: openai_compatible
-    env: NVIDIA_API_KEY
-    data_use: no_train
-    timeout_ms: 30000
-
-  - id: ollama
-    base_url: "http://127.0.0.1:11434/v1"
-    api: openai_compatible
-    env: OLLAMA_HOST_TOKEN
-    data_use: no_train
-    timeout_ms: 60000
-    notes: "local-only fallback for air-gapped / privacy-strict workflows"
-```
-
-The default chain `openrouter → groq → nvidia` is documented as
-provably resilient: three independent providers, three independent
-backbones, three working keys.
+The provider list is now intentionally small: a single OpenRouter API
+key, resolved through the six-tier secret chain, feeds the free-model
+chains in `.autonomy/providers/llm.yml`. The live profile uses
+`nvidia/nemotron-3-super-120b-a12b:free` and
+`openai/gpt-oss-120b:free` across the reviewer roles, with no paid or
+train-on-input fallback providers in the default path.
 
 ### 10.3 Training-data exposure is gated
 
@@ -576,9 +534,8 @@ Every provider entry carries a `data_use` flag, one of `no_train`,
 `train_on_input`, or `unknown`. The router refuses to dispatch to a
 `train_on_input` provider unless `allow_training_use: true` is set
 repo-wide *and* the per-role chain entry carries an explicit
-`data_use_override: train_on_input_explicit_opt_in_required`. This
-guards against a reviewer being silently downgraded to a provider that
-ingests the diff into a training corpus.
+`data_use_override: train_on_input_explicit_opt_in_required`. The
+default profile avoids train-on-input providers entirely.
 
 ### 10.4 Budgets
 

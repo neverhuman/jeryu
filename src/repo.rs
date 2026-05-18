@@ -4,32 +4,32 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
 
-pub async fn postgres_state_proof() -> Result<i32> {
-    let container = match std::env::var("JERYU_POSTGRES_PROOF_CONTAINER") {
+pub async fn state_proof() -> Result<i32> {
+    let container = match std::env::var("JERYU_REDLINE_PROOF_CONTAINER") {
         Ok(value) => value,
-        Err(_) => "jeryu-postgres-proof".to_string(),
+        Err(_) => "jeryu-redline-proof".to_string(),
     };
-    let port = match std::env::var("JERYU_POSTGRES_PROOF_PORT") {
+    let port = match std::env::var("JERYU_REDLINE_PROOF_PORT") {
         Ok(value) => value,
         Err(_) => "15439".to_string(),
     };
-    let db = match std::env::var("JERYU_POSTGRES_PROOF_DB") {
+    let db = match std::env::var("JERYU_REDLINE_PROOF_DB") {
         Ok(value) => value,
         Err(_) => "jeryu_test".to_string(),
     };
-    let user = match std::env::var("JERYU_POSTGRES_PROOF_USER") {
+    let user = match std::env::var("JERYU_REDLINE_PROOF_USER") {
         Ok(value) => value,
         Err(_) => "jeryu".to_string(),
     };
-    let password = match std::env::var("JERYU_POSTGRES_PROOF_PASSWORD") {
+    let password = match std::env::var("JERYU_REDLINE_PROOF_PASSWORD") {
         Ok(value) => value,
         Err(_) => "jeryu_test".to_string(),
     };
-    let image = match std::env::var("JERYU_POSTGRES_PROOF_IMAGE") {
+    let image = match std::env::var("JERYU_REDLINE_PROOF_IMAGE") {
         Ok(value) => value,
-        Err(_) => "postgres:16-alpine".to_string(),
+        Err(_) => "redlinedb/redline:latest".to_string(),
     };
-    let url = format!("postgres://{user}:{password}@127.0.0.1:{port}/{db}");
+    let url = format!("redline://{user}:{password}@127.0.0.1:{port}/{db}");
 
     let _ = Command::new("docker")
         .args(["rm", "-f", &container])
@@ -46,11 +46,11 @@ pub async fn postgres_state_proof() -> Result<i32> {
         "--name",
         &container,
         "-e",
-        &format!("POSTGRES_DB={db}"),
+        &format!("REDLINE_DB={db}"),
         "-e",
-        &format!("POSTGRES_USER={user}"),
+        &format!("REDLINE_USER={user}"),
         "-e",
-        &format!("POSTGRES_PASSWORD={password}"),
+        &format!("REDLINE_PASSWORD={password}"),
         "-p",
         &format!("127.0.0.1:{port}:5432"),
         &image,
@@ -58,42 +58,50 @@ pub async fn postgres_state_proof() -> Result<i32> {
     let status = run
         .status()
         .await
-        .context("starting postgres proof container")?;
+        .context("starting redline proof container")?;
     if !status.success() {
         bail!("docker run failed");
     }
 
     let cleanup = container.clone();
-    let keep = match std::env::var("JERYU_KEEP_POSTGRES_PROOF") {
+    let keep = match std::env::var("JERYU_KEEP_REDLINE_PROOF") {
         Ok(value) => value == "1",
         Err(_) => false,
     };
     let result = async {
         for _ in 0..30 {
             let ready = Command::new("docker")
-                .args(["exec", &container, "pg_isready", "-U", &user, "-d", &db])
+                .args([
+                    "exec",
+                    &container,
+                    "redline-healthcheck",
+                    "-U",
+                    &user,
+                    "-d",
+                    &db,
+                ])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status()
                 .await
-                .context("probing postgres readiness")?;
+                .context("probing redline readiness")?;
             if ready.success() {
                 let mut test = Command::new("cargo");
                 test.args([
                     "test",
                     "-p",
                     "jeryu",
-                    "state::tests::postgres_backend_smoke_test_when_configured",
+                    "state::tests::redline_backend_smoke_test_when_configured",
                     "--",
                     "--nocapture",
                 ]);
-                test.env("JERYU_TEST_POSTGRES_URL", &url);
-                crate::exec::run_status_check(&mut test, "running postgres proof test").await?;
+                test.env("JERYU_TEST_REDLINE_URL", &url);
+                crate::exec::run_status_check(&mut test, "running redline proof test").await?;
                 return Ok(());
             }
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
-        bail!("postgreSQL proof container did not become ready");
+        bail!("redline proof container did not become ready");
     }
     .await;
 

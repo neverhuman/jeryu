@@ -7,7 +7,7 @@
 //!
 //! Invariants preserved (mirror of `SqlBudgetLedger`):
 //!   - `llm_budget_ledger` is APPEND-ONLY. The repo has no
-//!     update/delete; SQLite triggers enforce it.
+//!     update/delete; RedlineDB triggers enforce it.
 //!   - `budget_snapshot` only counts rows with `recorded_at >= since`
 //!     so the caller decides the day-boundary cutoff.
 //!   - `budget_snapshot` filters by `scope` so a fleet-wide ledger
@@ -91,13 +91,13 @@ impl BudgetRepo {
 
 #[cfg(test)]
 pub(crate) async fn fresh_budget_pool() -> AnyPool {
-    use sqlx::any::{AnyPoolOptions, install_default_drivers};
+    use crate::db::{AnyPoolOptions, install_default_drivers};
     install_default_drivers();
     let pool = AnyPoolOptions::new()
         .max_connections(1)
-        .connect("sqlite::memory:")
+        .connect("redline::memory:")
         .await
-        .expect("connect in-memory sqlite");
+        .expect("connect in-memory redline");
     for stmt in budget_schema_ddl() {
         sqlx::query(stmt).execute(&pool).await.unwrap();
     }

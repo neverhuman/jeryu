@@ -16,7 +16,7 @@ pub struct TaintManager {
 
 impl TaintManager {
     pub fn new(pool: AnyPool) -> Self {
-        Self::with_backend(pool, StateBackend::Sqlite)
+        Self::with_backend(pool, StateBackend::RedlineDb)
     }
 
     pub fn with_backend(pool: AnyPool, backend: StateBackend) -> Self {
@@ -116,13 +116,13 @@ impl TaintManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::any::{AnyPoolOptions, install_default_drivers};
+    use crate::db::{AnyPoolOptions, install_default_drivers};
 
     async fn setup_db() -> AnyPool {
         install_default_drivers();
         let pool = AnyPoolOptions::new()
             .max_connections(1)
-            .connect("sqlite::memory:")
+            .connect("redline::memory:")
             .await
             .unwrap();
 

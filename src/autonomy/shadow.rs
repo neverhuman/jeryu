@@ -399,8 +399,7 @@ fn stat_changed_files(repo_root: &PathBuf, sha: &str) -> Vec<ChangedFile> {
                 .new_file()
                 .path()
                 .or_else(|| delta.old_file().path())
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_default();
+                .map_or_else(String::new, |p| p.to_string_lossy().into_owned());
             if !path.is_empty() {
                 files.borrow_mut().push(ChangedFile {
                     path,
@@ -418,8 +417,7 @@ fn stat_changed_files(repo_root: &PathBuf, sha: &str) -> Vec<ChangedFile> {
                 .new_file()
                 .path()
                 .or_else(|| delta.old_file().path())
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_default();
+                .map_or_else(String::new, |p| p.to_string_lossy().into_owned());
             let mut files = files.borrow_mut();
             if let Some(entry) = files.iter_mut().find(|f| f.path == path) {
                 match line.origin() {
@@ -895,6 +893,10 @@ mod tests {
         );
         assert_eq!(
             score_agreement(RequireHuman, LandedOnDefaultBranch),
+            Agreement::Match
+        );
+        assert_eq!(
+            score_agreement(RequireHuman, NotOnDefaultBranch),
             Agreement::Match
         );
         assert_eq!(score_agreement(Reject, Reverted), Agreement::Match);

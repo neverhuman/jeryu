@@ -56,7 +56,7 @@ That is the right safety posture for agent-led coding: accelerate only when evid
 
 ## 7. The state/evidence model is a strong base
 
-The architecture docs describe Postgres primary with SQLite fallback, DB schema groups for pools/managers/jobs/pipelines/releases/cache/evidence/agents/policies/jeryu/progress/test intelligence, and invariants around append-heavy events and typed DB access. ([GitHub][9])
+The architecture docs describe RedlineDB primary with RedlineDB fallback, DB schema groups for pools/managers/jobs/pipelines/releases/cache/evidence/agents/policies/jeryu/progress/test intelligence, and invariants around append-heavy events and typed DB access. ([GitHub][9])
 
 For agents, this is critical. A good agent platform needs a **durable memory of what happened**, not just transient logs. Every flaky test, retry decision, failed release, selector miss, cache taint, and merge gate should become part of the system’s future intelligence.
 
@@ -84,7 +84,7 @@ This is directionally excellent. The next step is making every identity/grant na
 
 ## 1. It is not actually a GitLab fork
 
-The repo positions `jeryu` as a Rust control plane for local GitLab, not as a modified GitLab codebase. The architecture docs explicitly describe GitLab/GitLab Runner/Docker/Vault/Postgres/SQLite as components driven by the Rust binary. ([GitHub][9])
+The repo positions `jeryu` as a Rust control plane for local GitLab, not as a modified GitLab codebase. The architecture docs explicitly describe GitLab/GitLab Runner/Docker/Vault/RedlineDB/RedlineDB as components driven by the Rust binary. ([GitHub][9])
 
 That is fine, but the product language should be precise:
 

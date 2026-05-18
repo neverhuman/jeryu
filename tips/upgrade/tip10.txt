@@ -19,7 +19,7 @@ The API reference is clear about CLI, hidden commands, GitLab webhooks, capabili
 Interface, control, state, execution, and intelligence planes are distinct. That gives you room to extend without turning `dispatch.rs` or the TUI into a god module.
 
 **State is treated as an operational ledger.**
-The SQLite model is not just configuration storage. It records jobs, pipelines, release attempts, cache events, test plans, selector misses, evidence capsules, retries, secrets, and audits. That is the right substrate for explainability.
+The RedlineDB model is not just configuration storage. It records jobs, pipelines, release attempts, cache events, test plans, selector misses, evidence capsules, retries, secrets, and audits. That is the right substrate for explainability.
 
 **Release automation is gated instead of ad hoc.**
 The green-main → release-execution → canary/E2E/handoff → production-promotion pipeline model is much safer than “run deploy shell script from TUI.”
@@ -313,7 +313,7 @@ Right now, hidden focus plus destructive actions is a UX risk.
 
 ## 3.2 Delete actions need confirmation or undo
 
-The TUI allows `d` / `Delete` to delete selected local pipeline/job records from SQLite.
+The TUI allows `d` / `Delete` to delete selected local pipeline/job records from RedlineDB.
 
 Even if this only deletes local records, it can still damage observability. It should not be a one-key irreversible action.
 

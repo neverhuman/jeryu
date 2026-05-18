@@ -101,7 +101,7 @@ The key artifact is an **ImpactPlan**:
 }
 ```
 
-Every plan should be written to the SQLite event ledger and attached to the pipeline as an artifact. Skipped tests are not “invisible”; they are recorded with the reason they were skipped.
+Every plan should be written to the RedlineDB event ledger and attached to the pipeline as an artifact. Skipped tests are not “invisible”; they are recorded with the reason they were skipped.
 
 ---
 
@@ -193,7 +193,7 @@ Suggested crates/tools:
 | Test execution          | `cargo-nextest`                                                |
 | JUnit ingestion         | `quick-xml` or a small internal parser                         |
 | Coverage                | `cargo-llvm-cov`, LLVM source coverage                         |
-| Storage                 | existing `sqlx` SQLite                                         |
+| Storage                 | existing `sqlx` RedlineDB                                         |
 
 Rust’s LLVM coverage support is a good fit for the learning layer: `rustc -C instrument-coverage` instruments branches/functions and writes `.profraw` data that LLVM tools convert into coverage reports; `cargo llvm-cov nextest` is already supported. ([Rust Compiler Development Guide][10])
 
@@ -328,7 +328,7 @@ This is the initial static map I would encode before coverage learning exists.
 | ------------------------------------------------------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------- |
 | `src/decision.rs`                                      | decision unit tests, retry/risk-gate tests, agent merge risk tests        | If trust tier, retry, or release gate semantics changed                 | If policy defaults change                                  |
 | `src/impact.rs`                                        | impact lane tests, golden `ImpactPlan` tests                              | If dynamic child pipeline generation changes                            | If planner confidence/scoring changes                      |
-| `src/state.rs`                                         | SQLite in-memory CRUD, migration tests, affected module tests             | If schema affects managers, release, cache, evidence, or secrets        | Schema migration touching many tables                      |
+| `src/state.rs`                                         | RedlineDB in-memory CRUD, migration tests, affected module tests             | If schema affects managers, release, cache, evidence, or secrets        | Schema migration touching many tables                      |
 | `src/pool.rs`, `src/docker.rs`                         | `pool_tests`, `job_tests`, Docker mock/contract tests                     | Runner manager lifecycle, SIGQUIT/SIGHUP, token rotation, Docker labels | Runner config template or Docker executor behavior changes |
 | `src/engine.rs`                                        | webhook handler unit tests, supersedence, auto-retry, release event tests | Job hook → scale-up, failed job → retry, push hook → supersedence       | Webhook auth, event routing, reconciliation semantics      |
 | `src/gitlab_client.rs`                                 | client contract tests/mocked endpoints                                    | Endpoint used by bootstrap, agents, runners, release                    | Auth or URL construction changes                           |
@@ -843,7 +843,7 @@ Expected benefit: visibility and confidence without risk.
    * changed test file only
 2. Force full on config/dependency/toolchain changes.
 3. Add random skipped-test audit sample.
-4. Store all plans in SQLite.
+4. Store all plans in RedlineDB.
 
 Expected benefit: large PR speedups with strong guardrails.
 

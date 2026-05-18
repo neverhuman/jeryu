@@ -1,14 +1,22 @@
 use super::*;
+use std::path::PathBuf;
 
 #[cfg(test)]
 pub(crate) async fn test_app() -> anyhow::Result<App> {
-    let store = TuiSession::open_memory().await?;
     let docker = crate::tui::test_support::docker_ctl()?;
     let gitlab = GitlabClient::new("http://127.0.0.1:9", None);
-    Ok(App::new(store, docker, gitlab))
+    Ok(App::new_render_only(docker, gitlab))
 }
 impl App {
     pub fn new(store: TuiSession, docker: DockerCtl, gitlab: GitlabClient) -> Self {
+        Self::build(Some(store), docker, gitlab)
+    }
+
+    pub fn new_render_only(docker: DockerCtl, gitlab: GitlabClient) -> Self {
+        Self::build(None, docker, gitlab)
+    }
+
+    fn build(store: Option<TuiSession>, docker: DockerCtl, gitlab: GitlabClient) -> Self {
         let (sync_tx, sync_rx) = mpsc::channel(4);
         let (flow_tx, flow_rx) = mpsc::channel(4);
         let (log_tx, log_rx) = mpsc::channel(8);
@@ -18,6 +26,10 @@ impl App {
             store,
             docker,
             gitlab,
+            autonomy_dir: std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join(".autonomy"),
+            llm_secret_resolver: None,
             state: TuiStateSnapshot::default(),
             active_tab: ActiveTab::default(),
             active_pane: ActivePane::default(),
@@ -27,6 +39,8 @@ impl App {
             selected_pipeline_index: 0,
             selected_job_index: 0,
             selected_job_id: None,
+            selected_secret_index: 0,
+            selected_git_index: 0,
             maximize_logs: false,
             log_scroll_offset: 0,
             follow_log_tail: true,
@@ -38,6 +52,8 @@ impl App {
             command_palette_query: String::new(),
             selected_palette_index: 0,
             evidence_view_mode: EvidenceViewMode::default(),
+            focus: crate::tui::focus::FocusState::default(),
+            focus_map: crate::tui::focus::FocusMap::default(),
             tick_count: 0,
             log_target: None,
             log_target_tx,

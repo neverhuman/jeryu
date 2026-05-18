@@ -1,6 +1,6 @@
 Based on the three documents, my strongest read is: **jeryu is already much more than a CLI/TUI wrapper; it is a local delivery-control plane.** The architecture is exciting because it has the raw ingredients for something rare: agent-operable CI/CD with typed gates, failure evidence, release automation, cache intelligence, and a supervisory terminal interface.
 
-The biggest opportunity is to make the system’s **intent, safety gates, blockers, evidence, and available actions visible in one place**. Right now, a lot of power exists, but much of it is scattered across CLI commands, hidden executor surfaces, SQLite state, release logic, and partially wired TUI panes.
+The biggest opportunity is to make the system’s **intent, safety gates, blockers, evidence, and available actions visible in one place**. Right now, a lot of power exists, but much of it is scattered across CLI commands, hidden executor surfaces, RedlineDB state, release logic, and partially wired TUI panes.
 
 ## My high-level feedback
 
@@ -409,7 +409,7 @@ Current API is request/response. Agents would love an event stream:
 
 For a Unix socket, this could be a separate streaming mode or line-delimited JSON feed.
 
-Agents should not have to poll SQLite or scrape CLI output.
+Agents should not have to poll RedlineDB or scrape CLI output.
 
 ### 3. Explain current blocker
 

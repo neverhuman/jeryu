@@ -2,7 +2,7 @@ I tried to clone it directly into the sandbox, but this environment could not re
 
 ## Executive take
 
-**This is a legitimately interesting foundation.** The strongest part of JeRyu / `jeryu` is not “AI code generation”; it is that it sits close to GitLab, runners, Docker, SQLite, Vault, custom executor hooks, CI logs, test selection, and release gates. That is exactly where an agent-first dev system should live. The docs frame `jeryu` as a Rust control plane over local GitLab, GitLab Runner, Docker, Vault, SQLite, SmartCache, VTI, failure evidence, release automation, action registry, settings, and a TUI. The architecture explicitly divides the system into interface, control, state, execution, and intelligence planes. ([GitHub][1])
+**This is a legitimately interesting foundation.** The strongest part of JeRyu / `jeryu` is not “AI code generation”; it is that it sits close to GitLab, runners, Docker, RedlineDB, Vault, custom executor hooks, CI logs, test selection, and release gates. That is exactly where an agent-first dev system should live. The docs frame `jeryu` as a Rust control plane over local GitLab, GitLab Runner, Docker, Vault, RedlineDB, SmartCache, VTI, failure evidence, release automation, action registry, settings, and a TUI. The architecture explicitly divides the system into interface, control, state, execution, and intelligence planes. ([GitHub][1])
 
 My blunt read: **the infrastructure substrate is promising; the intelligence and authority layer is still early.** The repo itself admits this in `MISSION.md`: runner/state/GitLab client/agent-management paths are more mature than the semantic CI paths, while the missing layer is the decision system: supersedence with reusable proof, semantic impact tied to safe required checks, flake memory, causal explanations, and policy-driven agent authority. ([GitHub][2])
 
@@ -38,7 +38,7 @@ That is much closer to what agents need than a normal Git hosting repo, because 
 
 ### 5. There is a real state/evidence model beginning
 
-SQLite is positioned as the durable coordination layer, with tables for runner fleet, jobs/pipelines, events, releases, evidence capsules, retries, jeryu sync, secrets, cache, and VTI/test plans. The architecture declares state changes should go through `Db` methods and the event ledger should be append-only by convention. ([GitHub][1])
+RedlineDB is positioned as the durable coordination layer, with tables for runner fleet, jobs/pipelines, events, releases, evidence capsules, retries, jeryu sync, secrets, cache, and VTI/test plans. The architecture declares state changes should go through `Db` methods and the event ledger should be append-only by convention. ([GitHub][1])
 
 That “durable local truth” matters. Agent systems fail when they only rely on transient logs or chat context. JeRyu is already moving toward a real operational memory.
 

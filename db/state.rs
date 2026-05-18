@@ -1,4 +1,4 @@
-//! Owner: State Store (Postgres primary, SQLite recovery)
+//! Owner: State Store (CompatSql primary, RedlineDB recovery)
 //! Proof: `cargo test -p jeryu -- state`
 //! Invariants: append-only event log; manager state machine (starting→online→draining→stopped)
 //!
@@ -8,8 +8,10 @@
 
 use anyhow::{Context, Result};
 use sqlx::any::AnyQueryResult;
-use sqlx::any::{AnyConnectOptions, AnyPoolOptions, AnyRow, install_default_drivers};
+use sqlx::any::{AnyConnectOptions, AnyPoolOptions, AnyRow};
 use sqlx::{AnyPool, FromRow, Row};
+
+use crate::db::install_default_drivers;
 use std::borrow::Cow;
 use std::str::FromStr;
 
@@ -274,8 +276,8 @@ const POOL_SELECT: &str = r#"SELECT
     trust_tier
 FROM pools"#;
 
-fn postgres_schema(sqlite_schema: &str) -> String {
-    sqlite_schema
+fn render_redline_schema(redline_schema: &str) -> String {
+    redline_schema
         .replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
         .replace("INTEGER PRIMARY KEY", "BIGINT PRIMARY KEY")
         .replace(" INTEGER", " BIGINT")
@@ -344,7 +346,7 @@ pub struct SecretAuditEvent {
 #[derive(Debug, Clone, FromRow, serde::Serialize)]
 /// Persisted capability intent requested by an agent-facing action.
 pub struct CapabilityIntentRecord {
-    /// SQLite row id.
+    /// RedlineDB row id.
     pub id: i64,
     /// Stable request identifier for idempotency and audit correlation.
     pub request_id: String,
@@ -371,7 +373,7 @@ pub struct CapabilityIntentRecord {
 #[derive(Debug, Clone, FromRow, serde::Serialize)]
 /// Persisted grant that admission can match against an attempted ref update.
 pub struct CapabilityGrantRecord {
-    /// SQLite row id.
+    /// RedlineDB row id.
     pub id: i64,
     /// Owning capability intent row id.
     pub intent_id: i64,
@@ -591,27 +593,27 @@ pub type TuiSession = Db;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateBackend {
-    /// Local embedded SQLite database.
-    Sqlite,
-    /// Production Postgres database.
-    Postgres,
+    /// Local embedded RedlineDB database.
+    RedlineDb,
+    /// Production CompatSql database.
+    CompatSql,
 }
 
 impl StateBackend {
     fn from_url(database_url: &str) -> Result<Self> {
-        if database_url.starts_with("postgres://") || database_url.starts_with("postgresql://") {
-            Ok(Self::Postgres)
-        } else if database_url.starts_with("sqlite:") {
-            Ok(Self::Sqlite)
+        if database_url.starts_with("redline://") || database_url.starts_with("redlineql://") {
+            Ok(Self::CompatSql)
+        } else if database_url.starts_with("redline:") {
+            Ok(Self::RedlineDb)
         } else {
             anyhow::bail!(
-                "unsupported JERYU_DATABASE_URL scheme; expected postgres://, postgresql://, or sqlite:"
+                "unsupported JERYU_DATABASE_URL scheme; expected redline://, redlineql://, or redline:"
             )
         }
     }
 }
 
-pub(crate) fn postgres_bind_params(sql: &str) -> String {
+pub(crate) fn redline_bind_params(sql: &str) -> String {
     let mut converted = String::with_capacity(sql.len() + 16);
     let mut next = 1;
     let mut in_single_quote = false;
@@ -646,15 +648,15 @@ pub(crate) fn postgres_bind_params(sql: &str) -> String {
 
 pub(crate) fn backend_sql(backend: StateBackend, sql: &'static str) -> Cow<'static, str> {
     match backend {
-        StateBackend::Sqlite => Cow::Borrowed(sql),
-        StateBackend::Postgres => Cow::Owned(postgres_bind_params(sql)),
+        StateBackend::RedlineDb => Cow::Borrowed(sql),
+        StateBackend::CompatSql => Cow::Owned(redline_bind_params(sql)),
     }
 }
 
 pub(crate) fn backend_sql_owned(backend: StateBackend, sql: String) -> String {
     match backend {
-        StateBackend::Sqlite => sql,
-        StateBackend::Postgres => postgres_bind_params(&sql),
+        StateBackend::RedlineDb => sql,
+        StateBackend::CompatSql => redline_bind_params(&sql),
     }
 }
 
@@ -695,14 +697,14 @@ impl Db {
                         .with_context(|| format!("creating db directory: {}", parent.display()))?;
                 }
 
-                let database_url = format!("sqlite:{}?mode=rwc", db_path.display());
+                let database_url = format!("redline:{}?mode=rwc", db_path.display());
                 match Self::open_url(&database_url).await {
                     Ok(db) => Ok(db),
                     Err(first_err) => {
                         // Recovery: a previous run was killed mid-write and
                         // left a stale write-ahead log (.wal) or
                         // shared-memory file (.shm). Removing them is safe
-                        // per SQLite's WAL recovery docs as long as no other
+                        // per RedlineDB's WAL recovery docs as long as no other
                         // process is holding the DB open — for a single-user
                         // CLI that is the normal case. We retry once.
                         let mut shm = db_path.clone().into_os_string();
@@ -718,7 +720,7 @@ impl Db {
                                 error = %first_err,
                                 shm = %shm.display(),
                                 wal = %wal.display(),
-                                "removed stale SQLite lock files; retrying open"
+                                "removed stale RedlineDB lock files; retrying open"
                             );
                             Self::open_url(&database_url).await
                         } else {
@@ -737,8 +739,8 @@ impl Db {
         let backend = StateBackend::from_url(database_url)?;
         let pool = AnyPoolOptions::new()
             .max_connections(match backend {
-                StateBackend::Sqlite => 4,
-                StateBackend::Postgres => 16,
+                StateBackend::RedlineDb => 4,
+                StateBackend::CompatSql => 16,
             })
             .connect_with(AnyConnectOptions::from_str(database_url)?)
             .await
@@ -803,20 +805,20 @@ impl Db {
         install_default_drivers();
         let pool = AnyPoolOptions::new()
             .max_connections(1)
-            .connect("sqlite::memory:")
+            .connect("redline::memory:")
             .await?;
         let db = Self {
             pool,
-            backend: StateBackend::Sqlite,
+            backend: StateBackend::RedlineDb,
             telemetry_tx: None,
         };
         db.migrate().await?;
         Ok(db)
     }
 
-    /// Open the optional Postgres integration database from `JERYU_TEST_POSTGRES_URL`.
-    pub async fn open_test_postgres() -> Result<Option<Self>> {
-        match std::env::var("JERYU_TEST_POSTGRES_URL") {
+    /// Open the optional CompatSql integration database from `JERYU_TEST_REDLINE_URL`.
+    pub async fn open_test_redline() -> Result<Option<Self>> {
+        match std::env::var("JERYU_TEST_REDLINE_URL") {
             Ok(url) if !url.trim().is_empty() => Self::open_url(&url).await.map(Some),
             _ => Ok(None),
         }
@@ -824,20 +826,20 @@ impl Db {
 
     async fn inserted_id(&self, result: AnyQueryResult) -> Result<i64> {
         match self.backend {
-            StateBackend::Sqlite => {
+            StateBackend::RedlineDb => {
                 let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
                     .fetch_one(&self.pool)
                     .await?;
                 Ok(row.0)
             }
-            StateBackend::Postgres => result
+            StateBackend::CompatSql => result
                 .last_insert_id()
-                .ok_or_else(|| anyhow::anyhow!("Postgres insert did not return an id")),
+                .ok_or_else(|| anyhow::anyhow!("CompatSql insert did not return an id")),
         }
     }
 
     async fn migrate(&self) -> Result<()> {
-        let sqlite_schema = r#"
+        let redline_schema = r#"
             CREATE TABLE IF NOT EXISTS pools (
                 name                TEXT PRIMARY KEY,
                 gitlab_runner_id    INTEGER NOT NULL,
@@ -1407,8 +1409,8 @@ impl Db {
                 ON llm_budget_ledger(repo_scope, recorded_at DESC);
             "#;
         let schema = match self.backend {
-            StateBackend::Sqlite => sqlite_schema.to_string(),
-            StateBackend::Postgres => postgres_schema(sqlite_schema),
+            StateBackend::RedlineDb => redline_schema.to_string(),
+            StateBackend::CompatSql => render_redline_schema(redline_schema),
         };
         for statement in schema.split(';') {
             let statement = statement.trim();
@@ -1421,7 +1423,7 @@ impl Db {
                 .with_context(|| format!("running migration statement: {}", statement))?;
         }
 
-        if self.backend == StateBackend::Postgres {
+        if self.backend == StateBackend::CompatSql {
             return Ok(());
         }
 
@@ -1468,9 +1470,9 @@ impl Db {
         .execute(&self.pool)
         .await?;
         // Migrate selector_misses.plan_id from NOT NULL to nullable.
-        // SQLite cannot ALTER COLUMN, so we rename → recreate → copy → drop.
+        // RedlineDB cannot ALTER COLUMN, so we rename → recreate → copy → drop.
         let has_old_schema: bool = sqlx::query_scalar::<_, String>(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='selector_misses'",
+            "SELECT sql FROM redline_master WHERE type='table' AND name='selector_misses'",
         )
         .fetch_optional(&self.pool)
         .await
@@ -1504,7 +1506,7 @@ impl Db {
                 .await;
         }
 
-        // launch_ledger is append-only: defend in depth with SQLite triggers.
+        // launch_ledger is append-only: defend in depth with RedlineDB triggers.
         // The Rust API in src/autonomy/ledger.rs has no update/delete methods,
         // but the triggers stop anyone who reaches the DB directly.
         let _ = sqlx::query(
@@ -1597,7 +1599,7 @@ impl Db {
                  COALESCE(SUM(CASE WHEN hit THEN 1 ELSE 0 END), 0),
                  (SELECT COUNT(*) FROM cache_objects),
                  COALESCE(SUM(CASE WHEN reason_code = 'singleflight_coalesced' THEN 1 ELSE 0 END), 0)
-               FROM cache_requests"#
+               FROM cache_requests"#,
         )
         .fetch_one(&self.pool)
         .await
@@ -3159,7 +3161,7 @@ impl Db {
         payload: &str,
     ) -> Result<i64> {
         let created_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::Postgres {
+        if self.backend == StateBackend::CompatSql {
             let row: (i64,) = sqlx::query_as(
                 r#"INSERT INTO test_plans
                    (project_id, base_sha, head_sha, mode, confidence,
@@ -3381,7 +3383,7 @@ impl Db {
 
     pub async fn record_capability_intent(&self, intent: NewCapabilityIntent<'_>) -> Result<i64> {
         let created_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::Postgres {
+        if self.backend == StateBackend::CompatSql {
             let row: (i64,) = sqlx::query_as(
                 r#"INSERT INTO capability_intents
                    (request_id, intent_type, action_id, project_id, ref_name, target_ref, actor, status, payload, created_at)
@@ -3424,7 +3426,7 @@ impl Db {
 
     pub async fn approve_capability_grant(&self, grant: NewCapabilityGrant<'_>) -> Result<i64> {
         let issued_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::Postgres {
+        if self.backend == StateBackend::CompatSql {
             let row: (i64,) = sqlx::query_as(
                 r#"INSERT INTO capability_grants
                    (intent_id, grant_id, action_id, project_id, ref_name, new_sha, required_grant, status, issued_at, expires_at, payload)
@@ -3496,7 +3498,7 @@ impl Db {
         decision: NewAdmissionDecision<'_>,
     ) -> Result<i64> {
         let created_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::Postgres {
+        if self.backend == StateBackend::CompatSql {
             let row: (i64,) = sqlx::query_as(
                 r#"INSERT INTO admission_decisions
                    (raw_input, verdict, actor_kind, ref_name, old_sha, new_sha, grant_id, policy_version, reasons_json, payload, created_at)
@@ -3631,10 +3633,10 @@ mod tests {
     }
 
     fn unique_suffix() -> String {
-        chrono::Utc::now()
-            .timestamp_nanos_opt()
-            .unwrap_or_default()
-            .to_string()
+        match chrono::Utc::now().timestamp_nanos_opt() {
+            Some(nanos) => nanos.to_string(),
+            None => "0".to_string(),
+        }
     }
 
     async fn exercise_core_state_backend(db: &Db, suffix: &str) -> Result<()> {
@@ -3647,7 +3649,7 @@ mod tests {
             name: pool_name.clone(),
             gitlab_runner_id: 42,
             auth_token: "secret".into(),
-            tags: "proof,postgres".into(),
+            tags: "proof,redline".into(),
             executor: "docker".into(),
             min_warm: 1,
             max_managers: 3,
@@ -3807,9 +3809,11 @@ mod tests {
         let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
             db.pool(),
             match db.backend() {
-                crate::state::StateBackend::Sqlite => cache_brain_adapter::AdapterBackend::Sqlite,
-                crate::state::StateBackend::Postgres => {
-                    cache_brain_adapter::AdapterBackend::Postgres
+                crate::state::StateBackend::RedlineDb => {
+                    cache_brain_adapter::AdapterBackend::RedlineDb
+                }
+                crate::state::StateBackend::CompatSql => {
+                    cache_brain_adapter::AdapterBackend::CompatSql
                 }
             },
         );
@@ -3844,13 +3848,13 @@ mod tests {
     }
 
     #[test]
-    fn postgres_bind_rewrite_skips_quoted_question_marks() {
+    fn redline_bind_rewrite_skips_quoted_question_marks() {
         assert_eq!(
-            postgres_bind_params("SELECT '?' AS q, col FROM t WHERE a = ? AND b = ?"),
+            redline_bind_params("SELECT '?' AS q, col FROM t WHERE a = ? AND b = ?"),
             "SELECT '?' AS q, col FROM t WHERE a = $1 AND b = $2"
         );
         assert_eq!(
-            postgres_bind_params("SELECT 'it''s ?' AS q WHERE id = ?"),
+            redline_bind_params("SELECT 'it''s ?' AS q WHERE id = ?"),
             "SELECT 'it''s ?' AS q WHERE id = $1"
         );
     }
@@ -3858,25 +3862,25 @@ mod tests {
     #[test]
     fn state_backend_detects_supported_urls() -> Result<()> {
         assert_eq!(
-            StateBackend::from_url("postgres://jeryu:secret@127.0.0.1/jeryu")?,
-            StateBackend::Postgres
+            StateBackend::from_url("redline://jeryu:secret@127.0.0.1/jeryu")?,
+            StateBackend::CompatSql
         );
         assert_eq!(
-            StateBackend::from_url("postgresql://jeryu:secret@127.0.0.1/jeryu")?,
-            StateBackend::Postgres
+            StateBackend::from_url("redlineql://jeryu:secret@127.0.0.1/jeryu")?,
+            StateBackend::CompatSql
         );
         assert_eq!(
-            StateBackend::from_url("sqlite:/tmp/jeryu.db?mode=rwc")?,
-            StateBackend::Sqlite
+            StateBackend::from_url("redline:/tmp/jeryu.db?mode=rwc")?,
+            StateBackend::RedlineDb
         );
         assert!(StateBackend::from_url("mysql://localhost/jeryu").is_err());
         Ok(())
     }
 
     #[tokio::test]
-    async fn open_memory_uses_sqlite_recovery() -> Result<()> {
+    async fn open_memory_uses_redline_recovery() -> Result<()> {
         let db = setup_db().await?;
-        assert_eq!(db.backend(), StateBackend::Sqlite);
+        assert_eq!(db.backend(), StateBackend::RedlineDb);
         Ok(())
     }
 
@@ -3889,18 +3893,18 @@ mod tests {
     /// would be executed as raw SQL, breaking 30+ state tests as it did
     /// once before. We keep this guard: scan only the lines that live
     /// inside a raw-string literal (`r#"..."#`) starting near the
-    /// `sqlite_schema` binding for any SQL line-comment (`--`) containing
+    /// `redline_schema` binding for any SQL line-comment (`--`) containing
     /// a `;` and fail loudly with a remediation hint.
     #[test]
-    fn sqlite_schema_has_no_line_comments_containing_semicolons() {
+    fn redline_schema_has_no_line_comments_containing_semicolons() {
         let src = std::fs::read_to_string(file!()).expect("read state.rs source");
         let mut in_schema_literal = false;
         let mut offenders: Vec<(usize, String)> = Vec::new();
         for (lineno, line) in src.lines().enumerate() {
             // Toggle on the schema literal's raw-string fences. The literal
-            // opens with `let sqlite_schema = r#"` and closes with `"#;`.
+            // opens with `let redline_schema = r#"` and closes with `"#;`.
             if !in_schema_literal {
-                if line.contains("let sqlite_schema = r#\"") {
+                if line.contains("let redline_schema = r#\"") {
                     in_schema_literal = true;
                 }
                 continue;
@@ -3920,7 +3924,7 @@ mod tests {
         }
         assert!(
             offenders.is_empty(),
-            "sqlite_schema literal contains SQL line-comments with ';' which would \
+            "redline_schema literal contains SQL line-comments with ';' which would \
              break schema.split(';') in migrate(); fix by removing the semicolon \
              from the comment or by switching the migration to a comment-aware \
              splitter. Offending lines: {:#?}",
@@ -3944,18 +3948,18 @@ mod tests {
         // After the second run the schema is still serviceable: we can
         // execute a smoke query against one of the known tables.
         let _: Vec<(String,)> =
-            sqlx::query_as("SELECT name FROM sqlite_master WHERE type='table' AND name='pools'")
+            sqlx::query_as("SELECT name FROM redline_master WHERE type='table' AND name='pools'")
                 .fetch_all(&db.pool)
                 .await?;
         Ok(())
     }
 
     #[tokio::test]
-    async fn sqlite_migration_adds_root_pipeline_id_before_index() -> Result<()> {
+    async fn redline_migration_adds_root_pipeline_id_before_index() -> Result<()> {
         install_default_drivers();
         let dir = tempfile::tempdir()?;
         let db_path = dir.path().join(".db");
-        let database_url = format!("sqlite:{}?mode=rwc", db_path.display());
+        let database_url = format!("redline:{}?mode=rwc", db_path.display());
         let pool = AnyPoolOptions::new()
             .max_connections(1)
             .connect(&database_url)
@@ -3996,7 +4000,7 @@ mod tests {
         );
 
         let root_index: Option<(String,)> =
-            sqlx::query_as("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+            sqlx::query_as("SELECT name FROM redline_master WHERE type = 'index' AND name = ?")
                 .bind("idx_ci_job_runs_root_pipeline")
                 .fetch_optional(&db.pool)
                 .await?;
@@ -4008,18 +4012,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn sqlite_core_state_backend_smoke() -> Result<()> {
+    async fn redline_core_state_backend_smoke() -> Result<()> {
         let db = setup_db().await?;
         exercise_core_state_backend(&db, &unique_suffix()).await
     }
 
     #[tokio::test]
-    async fn postgres_backend_smoke_test_when_configured() -> Result<()> {
-        let Some(db) = Db::open_test_postgres().await? else {
+    async fn redline_backend_smoke_test_when_configured() -> Result<()> {
+        let Some(db) = Db::open_test_redline().await? else {
             return Ok(());
         };
 
-        assert_eq!(db.backend(), StateBackend::Postgres);
+        assert_eq!(db.backend(), StateBackend::CompatSql);
         let suffix = unique_suffix();
         exercise_core_state_backend(&db, &suffix).await?;
         let request_id = format!("req-pg-{suffix}");
@@ -4031,9 +4035,9 @@ mod tests {
                 intent_type: "ProposePatch",
                 action_id: "propose_patch",
                 project_id: Some(77),
-                ref_name: Some("refs/heads/agent/postgres-smoke"),
+                ref_name: Some("refs/heads/agent/redline-smoke"),
                 target_ref: Some("main"),
-                actor: "postgres-smoke-test",
+                actor: "redline-smoke-test",
                 status: "executed",
                 payload,
             })
@@ -4047,7 +4051,7 @@ mod tests {
                 grant_id: &grant_id,
                 action_id: "propose_patch",
                 project_id: Some(77),
-                ref_name: "refs/heads/agent/postgres-smoke",
+                ref_name: "refs/heads/agent/redline-smoke",
                 new_sha: Some("0123456789abcdef0123456789abcdef01234567"),
                 required_grant: "agent_task",
                 status: "approved",
@@ -4059,10 +4063,10 @@ mod tests {
 
         let decision_id = db
             .record_admission_decision(NewAdmissionDecision {
-                raw_input: "0000000000000000000000000000000000000000 0123456789abcdef0123456789abcdef01234567 refs/heads/agent/postgres-smoke",
+                raw_input: "0000000000000000000000000000000000000000 0123456789abcdef0123456789abcdef01234567 refs/heads/agent/redline-smoke",
                 verdict: "allow",
                 actor_kind: "agent",
-                ref_name: Some("refs/heads/agent/postgres-smoke"),
+                ref_name: Some("refs/heads/agent/redline-smoke"),
                 old_sha: Some("0000000000000000000000000000000000000000"),
                 new_sha: Some("0123456789abcdef0123456789abcdef01234567"),
                 grant_id: Some(&grant_id),

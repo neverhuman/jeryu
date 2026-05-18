@@ -182,7 +182,7 @@ impl WorkflowNav {
 
     /// Compute the virtual Y position of a phase in the canvas.
     pub fn phase_virtual_y(&self, phase_idx: usize) -> i32 {
-        let mut y = BANNER_H as i32;
+        let mut y = 0i32;
         for _ in 0..phase_idx {
             y += PHASE_HEADER_H as i32 + NODE_CARD_H as i32 + EDGE_GUTTER_H as i32;
         }
@@ -199,8 +199,8 @@ impl WorkflowNav {
             .max()
             .unwrap_or(1) as i32;
 
-        self.canvas_height = BANNER_H as i32
-            + phase_count * (PHASE_HEADER_H as i32 + NODE_CARD_H as i32 + EDGE_GUTTER_H as i32);
+        self.canvas_height =
+            phase_count * (PHASE_HEADER_H as i32 + NODE_CARD_H as i32 + EDGE_GUTTER_H as i32);
         self.canvas_width = (max_nodes_in_phase * NODE_CARD_W as i32).max(80);
     }
 

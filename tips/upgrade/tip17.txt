@@ -29,7 +29,7 @@ green main
 
 That is exactly the right shape. Agents should never get a raw “deploy prod” shell button. They should get a typed “request promotion” capability that returns a gate report and only acts when the release model says it is safe.
 
-## SQLite as durable coordination state is the right move
+## RedlineDB as durable coordination state is the right move
 
 The system has a durable state plane instead of relying only on live GitLab state. That enables:
 

@@ -1,4 +1,4 @@
-Based on the API, architecture, and TUI docs you shared, my overall read is: **jeryu is already much more than a CI helper. It is becoming a local delivery operating system.** The strongest parts are the typed control surfaces, release gates, durable SQLite state, failure evidence, VTI test selection, trust-tiered runners, Vault-backed release secrets, and the anti-blanking TUI behavior. The biggest opportunity is to turn this from a powerful but somewhat fragmented control plane into a **real-time, explainable, safety-gated command console** where a human or agent can always answer:
+Based on the API, architecture, and TUI docs you shared, my overall read is: **jeryu is already much more than a CI helper. It is becoming a local delivery operating system.** The strongest parts are the typed control surfaces, release gates, durable RedlineDB state, failure evidence, VTI test selection, trust-tiered runners, Vault-backed release secrets, and the anti-blanking TUI behavior. The biggest opportunity is to turn this from a powerful but somewhat fragmented control plane into a **real-time, explainable, safety-gated command console** where a human or agent can always answer:
 
 **What is happening? Why? What is blocked? What changed? What can I safely do next? What will happen if I do it?**
 
@@ -10,7 +10,7 @@ Below is my best feedback.
 
 The system has several unusually strong design choices.
 
-**The control plane is stateful and evidence-driven.** SQLite is not just cache storage; it acts as a coordination and audit layer. That is the right move for agents because agents need memory, evidence, and explainability.
+**The control plane is stateful and evidence-driven.** RedlineDB is not just cache storage; it acts as a coordination and audit layer. That is the right move for agents because agents need memory, evidence, and explainability.
 
 **Release and production are mediated by pipelines, not shell commands.** This is excellent. The fact that production promotion is represented as a GitLab pipeline with explicit variables and gates is a major safety feature.
 

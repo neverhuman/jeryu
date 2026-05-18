@@ -2,7 +2,7 @@ I reviewed the repo as a live GitHub project and read the key source/docs. One c
 
 ## Executive verdict
 
-JeRyu is **not currently a literal source-level fork of GitLab**. It is better described as a **Rust “agent control plane” around a local GitLab CE + GitLab Runner + Docker + Vault + Postgres/SQLite stack**. The README calls `jeryu` a single-binary Rust control plane that turns a local GitLab into an orchestration engine for autonomous AI agents, and the architecture docs describe it as a Rust control plane over GitLab, Runner, Docker, Vault, and state storage. ([GitHub][1])
+JeRyu is **not currently a literal source-level fork of GitLab**. It is better described as a **Rust “agent control plane” around a local GitLab CE + GitLab Runner + Docker + Vault + RedlineDB/RedlineDB stack**. The README calls `jeryu` a single-binary Rust control plane that turns a local GitLab into an orchestration engine for autonomous AI agents, and the architecture docs describe it as a Rust control plane over GitLab, Runner, Docker, Vault, and state storage. ([GitHub][1])
 
 The idea is excellent. The strongest parts are: typed agent capability surfaces, GitLab-backed CI/release workflows, evidence capsules, smart test selection, cache/taint thinking, ephemeral bot identities, risk-gated merges, and a serious TUI direction. But the project is still more of an **agent-first GitLab hypervisor/prototype** than the “world’s #1 agent-first Git option.” To get there, it needs deeper agent autonomy, stronger sandbox isolation, lower-latency APIs, generalized project support, structured diff/test/proof protocols, real event streaming, and hardened supply-chain/security guarantees.
 
@@ -32,7 +32,7 @@ VTI maps changed files to subsystems, selects minimal tests, supports external `
 The release module tracks upstream, release-execution, canary, and production pipeline state; checks gate artifacts; explains pipeline eligibility; runs preflight checks; and promotes production only after canary/E2E and handoff validation. ([GitHub][8])
 
 **8. The state layer is appropriately rich.**
-The state API uses Postgres as the preferred concurrent backend with SQLite fallback, and the schema tracks runner pools, managers, jobs, pipelines, event ledger, release attempts, evidence capsules, retry decisions, jeryu sync, secrets, cache objects, cache taints, cache verdicts, test plans, test executions, and selector misses. ([GitHub][9])
+The state API uses RedlineDB as the preferred concurrent backend with RedlineDB fallback, and the schema tracks runner pools, managers, jobs, pipelines, event ledger, release attempts, evidence capsules, retry decisions, jeryu sync, secrets, cache objects, cache taints, cache verdicts, test plans, test executions, and selector misses. ([GitHub][9])
 
 **9. Cache trust/taint design is pointed in the right direction.**
 `CacheBrain` refuses hits on missing cache, epoch mismatch, tainted objects, or trust namespace mismatch. `TaintManager` propagates taint through downstream cache verdicts, and BuildKit config is separated by trust namespace. This is the correct security model for agent-driven build reuse. ([GitHub][10])

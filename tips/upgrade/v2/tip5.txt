@@ -14,13 +14,13 @@ The highest-leverage change: **make the agent capability layer the primary produ
 
 ### 1. The overall architecture is unusually agent-aware
 
-The architecture doc describes jeryu as a Rust control plane that sits across local GitLab, Runner, Docker, Vault, SQLite, CI semantics, webhook reconciliation, custom executor policy, release automation, SmartCache, VTI, failure evidence, an action registry, and a TUI. That is exactly the right conceptual layer for an agent-first development system: not “an agent that runs commands,” but “an agent operating through a constrained delivery substrate.” ([GitHub][1])
+The architecture doc describes jeryu as a Rust control plane that sits across local GitLab, Runner, Docker, Vault, RedlineDB, CI semantics, webhook reconciliation, custom executor policy, release automation, SmartCache, VTI, failure evidence, an action registry, and a TUI. That is exactly the right conceptual layer for an agent-first development system: not “an agent that runs commands,” but “an agent operating through a constrained delivery substrate.” ([GitHub][1])
 
 The five-plane split — interface, control, state, execution, and intelligence — is also good. It gives you a framework for deciding where new features belong, and it keeps you from dumping every agent function into a CLI command or background loop. ([GitHub][1])
 
 ### 2. VTI has the right safety posture
 
-The VTI docs describe a subsystem-aware test-selection system that maps changed paths to minimal test commands, supports internal hardcoded subsystem definitions plus external `.jeryu/testmap.toml`, emits plan JSON/CI YAML/SQLite records, and runs a nightly oracle to detect selector misses. ([GitHub][2])
+The VTI docs describe a subsystem-aware test-selection system that maps changed paths to minimal test commands, supports internal hardcoded subsystem definitions plus external `.jeryu/testmap.toml`, emits plan JSON/CI YAML/RedlineDB records, and runs a nightly oracle to detect selector misses. ([GitHub][2])
 
 The important part: **failure modes fall back to full test execution**. The VTI doc says missing artifacts, unreadable plans, parser failure, low confidence, and unmapped files all fall back conservatively. That is exactly the right safety policy for test selection. Agents can optimize, but they must not silently skip validation. ([GitHub][2])
 

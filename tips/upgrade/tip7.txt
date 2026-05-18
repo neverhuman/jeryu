@@ -9,7 +9,7 @@ Below is my best design-review feedback.
 `jeryu` has an unusually strong foundation:
 
 * It owns the local GitLab lifecycle, runners, webhooks, release automation, Vault-backed secrets, SmartCache, failure evidence, VTI test selection, agent MRs, and a TUI.
-* It has a durable SQLite state plane, which is exactly what an agent-operable system needs.
+* It has a durable RedlineDB state plane, which is exactly what an agent-operable system needs.
 * It already thinks in terms of evidence, risk gates, trust tiers, pipeline products, cache taint, selector misses, release attempts, and audit events.
 * It intentionally avoids “just shell into prod,” which is excellent. Production promotion is mediated through GitLab pipelines and release gates.
 
@@ -23,7 +23,7 @@ Right now, many powerful things exist, but they are spread across:
 * hidden hook commands
 * partial capability socket intents
 * raw GitLab events
-* SQLite ledgers
+* RedlineDB ledgers
 * test-intel subcommands
 * release/secrets/cache commands
 

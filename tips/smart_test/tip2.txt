@@ -181,7 +181,7 @@ Example hard-coded first-pass:
 | `README.md`, docs-only files                                                                              | docs lint only, no Rust tests unless docs include commands/templates.            |
 | `src/decision.rs`                                                                                         | decision unit tests + impact planner tests.                                      |
 | `src/impact.rs` / `src/test_intel/**`                                                                     | planner tests + targeted integration of CI generation.                           |
-| `src/state.rs`                                                                                            | SQLite memory CRUD tests + affected schema tests.                                |
+| `src/state.rs`                                                                                            | RedlineDB memory CRUD tests + affected schema tests.                                |
 | `src/config.rs`                                                                                           | config template tests + generated compose/runner config snapshot tests.          |
 | `src/gitlab_client.rs`                                                                                    | API client unit/mock tests + live smoke only if endpoint semantics changed.      |
 | `src/docker.rs`, `src/pool.rs`                                                                            | pool tests + Docker controller tests; no agent/release/e2e unless graph says so. |
@@ -300,7 +300,7 @@ runner_tags = ["default", "rust", "test"]
 [lanes.integration]
 cost = 7
 runner_tags = ["default", "rust", "test"]
-resources = ["sqlite", "docker"]
+resources = ["redline", "docker"]
 
 [lanes.e2e]
 cost = 30
@@ -320,9 +320,9 @@ inputs = [
 ]
 
 [[suites]]
-id = "state-sqlite"
+id = "state-redline"
 lane = "unit"
-command = "cargo nextest run -E 'test(/state|sqlite|db|migration/)'"
+command = "cargo nextest run -E 'test(/state|redline|db|migration/)'"
 inputs = [
   "src/state.rs",
   "migrations/**",
@@ -489,7 +489,7 @@ Use AI where it is strongest:
 * generate new tests for uncovered changed code;
 * summarize selector misses.
 
-Do **not** let the LLM be the final authority for skipping. The final skip decision should be deterministic and stored in SQLite. The LLM can add tests or request escalation; it should not remove deterministic tests from the plan.
+Do **not** let the LLM be the final authority for skipping. The final skip decision should be deterministic and stored in RedlineDB. The LLM can add tests or request escalation; it should not remove deterministic tests from the plan.
 
 ### 4. Random sentinel testing
 
@@ -810,7 +810,7 @@ Start with this deterministic map before dynamic learning:
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `src/decision.rs`                                           | decision unit tests, retry/risk gate tests, impact tests if exported decisions changed.                                |
 | `src/impact.rs`                                             | impact tests, selected pipeline-generation tests, no live GitLab.                                                      |
-| `src/state.rs`                                              | SQLite memory CRUD tests, migration/schema tests, affected modules that read/write changed tables.                     |
+| `src/state.rs`                                              | RedlineDB memory CRUD tests, migration/schema tests, affected modules that read/write changed tables.                     |
 | `src/config.rs`                                             | template snapshot tests, generated `docker-compose.yml`, runner `config.toml`, TUI smoke if display constants changed. |
 | `src/bootstrap.rs`                                          | bootstrap unit/mocked API tests; full e2e only on nightly or bootstrap-critical changes.                               |
 | `src/gitlab_client.rs`                                      | mocked REST endpoint tests + one GitLab smoke if method signature/endpoint changed.                                    |
@@ -935,7 +935,7 @@ Ask:
 
 > “What is the smallest test/evidence set that proves this diff is safe under the current trust tier, with an auditable fallback if the selector is uncertain?”
 
-That framing fits jeryu perfectly. Git remains the ledger, SQLite stores the evolving test graph, GitLab Runner executes only the generated plan, SmartCache avoids repeated work, Failure Capsules teach the selector, and the Risk Gate decides whether the evidence is enough.
+That framing fits jeryu perfectly. Git remains the ledger, RedlineDB stores the evolving test graph, GitLab Runner executes only the generated plan, SmartCache avoids repeated work, Failure Capsules teach the selector, and the Risk Gate decides whether the evidence is enough.
 
 [1]: https://nx.dev/docs/features/ci-features/affected "Run Only Tasks Affected by a PR | Nx"
 [2]: https://www.pantsbuild.org/dev/docs/using-pants/key-concepts/targets-and-build-files "Targets and BUILD files | Pantsbuild"

@@ -290,7 +290,7 @@ Examples:
 
 ```bash
 cargo nextest run -E 'test(/tui|snapshot|render|widget/)'
-cargo nextest run -E 'test(/state|sqlite|db|migrat/)'
+cargo nextest run -E 'test(/state|redline|db|migrat/)'
 cargo nextest run -E 'test(/cache|singleflight|gateway|taint|epoch|witness|sccache/)'
 ```
 
@@ -961,7 +961,7 @@ unit-state:
     - rust
     - test
   script:
-    - cargo nextest run -E 'test(/state|sqlite|db|migrat/)'
+    - cargo nextest run -E 'test(/state|redline|db|migrat/)'
 
 integration-pool-tests:
   stage: wf_03_integration

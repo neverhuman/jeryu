@@ -23,7 +23,7 @@ The repository root is `/home/ubuntu/JeRyu`. The binary is the Rust crate/packag
 | Git server hook | stdin/stdout process hook | GitLab Gitaly/server hook | `jeryu server-hook pre-receive` |
 | Custom executor | GitLab Runner custom executor protocol | GitLab Runner | `jeryu exec ...` |
 | Action registry | Static registry, CLI list, TUI palette | agents, TUI, CLI | `src/tui/action_registry.rs` |
-| State API | Postgres-primary/sqlx methods with SQLite fallback | internal modules and tests | `src/state.rs` |
+| State API | RedlineDB-primary/sqlx methods with RedlineDB fallback | internal modules and tests | `src/state.rs` |
 | Settings API | JSON file + singleton | all modules | `src/settings.rs` |
 | GitLab REST client | reqwest HTTP wrapper | internal modules | `src/gitlab_client.rs` |
 | Release API | CLI + internal orchestration | engine, humans, agents | `src/release.rs` |
@@ -44,8 +44,8 @@ The repository root is `/home/ubuntu/JeRyu`. The binary is the Rust crate/packag
 | `VAULT_IMAGE` | `hashicorp/vault:1.17.5` | Vault image |
 | `VAULT_CONTAINER_NAME` | `jeryu-vault` | Vault container |
 | `VAULT_HTTP_PORT` | `18200` | Host Vault port |
-| `POSTGRES_IMAGE` | `postgres:16-alpine` | State database image |
-| `POSTGRES_PORT` | `15432` | Host Postgres port bound to `127.0.0.1` |
+| `REDLINE_IMAGE` | `redlinedb/redline:latest` | Optional RedlineDB service image (`jeryu-redline` compose profile) |
+| `REDLINE_PORT` | `15432` | Host RedlineDB port bound to `127.0.0.1` |
 | `VAULT_DEFAULT_MOUNT` | `secret` | Vault KV mount |
 | `VAULT_DEFAULT_PREFIX` | `veox` | Vault path prefix |
 | `CACHE_PROXY_PORT` | `19800` | SmartCache proxy/gateway port |
@@ -57,8 +57,8 @@ All constants are configurable through `~/.jeryu/settings.json` — see the Sett
 
 Configuration paths are rooted under `crate::config::data_dir()`:
 - `jeryu.env`: primary jeryu environment/secrets file
-- `postgres/`: Postgres data directory for the bootstrap-managed state database
-- `jeryu.db`: SQLite fallback state database when `JERYU_DATABASE_URL` is unset
+- `redline/`: RedlineDB data directory for the bootstrap-managed state database
+- `jeryu.db`: RedlineDB fallback state database when `JERYU_DATABASE_URL` is unset
 - `runners/`: runner manager config directories
 - `cache/`: manager cache, crate cache, CAS, and SmartCache state
 - Vault config/storage/env/bootstrap files
@@ -101,7 +101,7 @@ Shows GitLab readiness, Vault status, pool state, managed Docker containers, rec
 
 #### `jeryu tui [--once] [--capture --tab <name> --output <png>]`
 
-Launches the Ratatui dashboard. `--once` renders a single frame with optional GitLab auth and exits. `--capture` renders a deterministic Ratatui frame to a PNG file without entering an interactive terminal; accepted tabs are `mission`, `release`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, and `secrets`. See `docs/JERYU_TUI.md`.
+Launches the Ratatui dashboard. `--once` renders a single frame with optional GitLab auth and exits. `--capture` renders a deterministic Ratatui frame to a PNG file without entering an interactive terminal; accepted tabs are `workflow`, `mission`, `release`, `approvals`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, `llms`, `secrets`, and `git`. See `docs/JERYU_TUI.md`.
 
 Git compatibility is handled through `jeryu git <args>` passthrough plus the native `jeryu save`, `jeryu sync`, and `jeryu undo` wrappers. The removed `ship` command and the old repo-mirror CLI entrypoints used to own a separate jeryu-git control plane; that meaning now lives only in the hook-driven passthrough and mirror-enforcement path.
 
@@ -634,6 +634,7 @@ Single source of truth in `src/tui/action_registry.rs`. Each action has: id, lab
 | `tab_cache` | Go to Cache tab | read-only | 7 | TUI | SmartCache metrics |
 | `tab_evidence` | Go to Evidence tab | read-only | 8 | TUI | Evidence & Audit ledger |
 | `tab_secrets` | Go to Secrets tab | read-only | 9 | TUI | Vault lifecycle |
+| `tab_llms` | Go to LLMs tab | read-only | — | TUI | LLM provider and key-source policy |
 | `toggle_audit_ledger` | Toggle audit ledger | read-only | a | TUI | Toggle capsule/event view in Evidence tab |
 | `quit` | Quit jeryu TUI | read-only | q | TUI | Exit TUI |
 
@@ -707,7 +708,7 @@ Critical guardrails:
 
 ## 10. State API
 
-State is owned by `Db` in `src/state.rs`. Postgres is the preferred backend for concurrent agent fleets and is selected with `JERYU_DATABASE_URL=postgres://...` or `postgresql://...`. SQLite remains the embedded fallback when `JERYU_DATABASE_URL` is absent, and explicit `sqlite:` URLs are supported for tests and development. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped backend-neutral helpers.
+State is owned by `Db` in `src/state.rs`. RedlineDB is the preferred backend for concurrent agent fleets and is selected with `JERYU_DATABASE_URL=redline://...`. RedlineDB remains the embedded fallback when `JERYU_DATABASE_URL` is absent, and explicit `redline:` URLs are supported for tests and development. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped backend-neutral helpers.
 
 ### 10.1 Core Tables
 
@@ -879,7 +880,7 @@ Logs are polled every 650ms, syntax-highlighted, and tail-following. The Flow Bo
 
 `JERYU_GITLAB_INSECURE_TLS=1` allows invalid GitLab TLS certificates for development-only self-signed HTTPS setups. The default is certificate validation enabled.
 
-**State test override:** `JERYU_TEST_POSTGRES_URL` enables optional Postgres integration smoke tests; normal test runs use in-memory SQLite and skip the Postgres smoke when unset. `jeryu repo postgres-state-proof` starts a disposable `postgres:16-alpine` container, sets the URL, runs the core state/cache smoke, and removes the container unless `JERYU_KEEP_POSTGRES_PROOF=1`.
+**State test override:** `JERYU_TEST_REDLINE_URL` enables optional RedlineDB integration smoke tests; normal test runs use in-memory RedlineDB and skip the Redline smoke when unset. `jeryu repo state-proof` runs the core state/cache smoke and removes any disposable runtime unless `JERYU_KEEP_REDLINE_PROOF=1`.
 
 **Vault:** `JERYU_VAULT_ADDR`, `JERYU_VAULT_TOKEN`, `JERYU_VAULT_MOUNT`, `JERYU_VAULT_PREFIX`.
 

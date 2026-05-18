@@ -20,7 +20,7 @@ That is exactly the right direction for an agent-first developer platform.
 
 The VTI design has the right safety posture: it maps changed files to minimal test scopes, but has global invalidators, docs-only handling, and a nightly oracle to catch selector misses. Most importantly, VTI is documented to **fall back to full execution instead of silently dropping tests** when planning fails. That safety-first behavior matters because a flaky or overconfident test selector is worse than no selector at all. ([GitHub][3])
 
-The idea of emitting plan artifacts into YAML/JSON/SQLite is also good. Agents need durable explanations: “why were these tests run?” should be answerable later, not reconstructed from memory.
+The idea of emitting plan artifacts into YAML/JSON/RedlineDB is also good. Agents need durable explanations: “why were these tests run?” should be answerable later, not reconstructed from memory.
 
 ### 3. The module boundaries are promising
 

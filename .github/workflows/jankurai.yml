@@ -121,13 +121,6 @@ jobs:
         run: bash ops/ci/jankurai-lane.sh tools
       - name: Bad-behavior checks
         run: bash ops/ci/jankurai-lane.sh bad-behavior
-      - name: Security lane proof (advisory)
-        # Duplicate of "Security strict preflight" above (same wrapper, same
-        # output file). Without --strict --profile ci, the default profile
-        # has its own required-tool list that we don't fully satisfy yet.
-        # Advisory; the strict-preflight step is the gating one.
-        continue-on-error: true
-        run: jankurai security run . --out target/jankurai/security/evidence.json
       - name: Generate CycloneDX SBOM
         if: always()
         run: |
@@ -139,34 +132,10 @@ jobs:
           done < <(find . -maxdepth 4 -name 'sbom.cdx.json' -not -path './target/jankurai/*')
 
       - name: Attest build provenance
-        # Best-effort: cargo cyclonedx's filename convention depends on the
-        # workspace layout, and find/mv shuffles may not always land JSONs at
-        # the expected glob path. Advisory until the SBOM-glob path is made
-        # robust (or attestation needs are codified separately).
-        if: always()
-        continue-on-error: true
+        if: always() && hashFiles('target/jankurai/sbom/*.json') != ''
         uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
         with:
           subject-path: target/jankurai/sbom/*.json
-      - name: Gitleaks secret scan
-        # The gitleaks-action's PR scan errored on this branch with
-        # "git error encountered, see logs" before completing the scan (likely
-        # the large PR diff or `actions/checkout`'s shallow ref state). The
-        # in-house tools/security-lane.sh runs gitleaks separately with full
-        # working-tree mode and DOES respect our .gitleaks.toml allowlist
-        # (src/honeypot.rs intentional decoys, tips/* docs, etc). Mark the
-        # gitleaks-action advisory; the wrapper-script run is the authoritative
-        # secret-scan signal.
-        continue-on-error: true
-        uses: gitleaks/gitleaks-action@83373cf2f8c4db6e24b41c1a9b086bb9619e9cd3 # v2.3.7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Dependency review
-        # Advisory until Dependency graph is enabled in the repo's security
-        # settings. See rust.yml::supply-chain for the same rationale.
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:

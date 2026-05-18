@@ -1,6 +1,6 @@
 ## Overall read
 
-This is already an unusually strong agent-operable delivery system. The best parts are the **typed control surfaces**, the **release/prod separation**, the **SQLite evidence layer**, the **trust-tiered runner pools**, the **failure capsule/retry model**, and the TUI’s current anti-blanking/log-follow behavior. The system has the right philosophy: agents should operate through **audited, typed, policy-mediated controls**, not by grabbing a PAT and shelling around.
+This is already an unusually strong agent-operable delivery system. The best parts are the **typed control surfaces**, the **release/prod separation**, the **RedlineDB evidence layer**, the **trust-tiered runner pools**, the **failure capsule/retry model**, and the TUI’s current anti-blanking/log-follow behavior. The system has the right philosophy: agents should operate through **audited, typed, policy-mediated controls**, not by grabbing a PAT and shelling around.
 
 The biggest opportunity is to turn `jeryu` from a powerful control plane with a useful dashboard into a **real-time command center**: one place where a developer can see every active pipeline, release gate, agent task, test selector decision, runner bottleneck, cache verdict, security tripwire, and allowed action, with “why” explanations and safe execution previews.
 
@@ -37,7 +37,7 @@ The strongest pieces are:
 | VTI/test intelligence          | Agents can run focused validation instead of brute-force everything.                                                            |
 | SmartCache/taint/witness model | Cache is treated as a policy system, not just a directory.                                                                      |
 | TUI anti-blanking              | Retaining the last meaningful flow snapshot and marking it stale is a good operational UX choice.                               |
-| SQLite audit/state layer       | This gives the system memory, replayability, and a basis for explanations.                                                      |
+| RedlineDB audit/state layer       | This gives the system memory, replayability, and a basis for explanations.                                                      |
 
 ## The release safety model is especially good
 
@@ -377,7 +377,7 @@ File existence is a useful minimum, but production safety would be stronger with
 | SHA present     | SHA matches release attempt SHA                   |
 | Version present | Version matches release version                   |
 | Artifact source | Artifact came from expected pipeline/job          |
-| Integrity       | Artifact digest recorded in SQLite                |
+| Integrity       | Artifact digest recorded in RedlineDB                |
 | Freshness       | Artifact generated after release attempt creation |
 | Signature       | Optional signature/attestation where appropriate  |
 
@@ -669,7 +669,7 @@ SHA/version matching
 artifact digest
 source job/pipeline id
 created_at freshness
-SQLite gate verification record
+RedlineDB gate verification record
 ```
 
 Then render those checks in Release Watch.

@@ -25,7 +25,7 @@ cargo run -p jeryu -- tui --capture --tab jobs --output paper/assets/jeryu-tui-j
 cargo run -p jeryu -- tui --capture --tab tests --output paper/assets/jeryu-tui-tests-vti.png
 ```
 
-`--capture` accepts `mission`, `release`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, and `secrets`. The capture path renders the same Ratatui layout through `TestBackend` and writes a PNG.
+`--capture` accepts `workflow`, `mission`, `release`, `approvals`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, `llms`, `secrets`, and `git`. The capture path renders the same Ratatui layout through `TestBackend` and writes a PNG.
 
 ## Source Map
 
@@ -51,17 +51,21 @@ The TUI is a Ratatui/crossterm application. It uses crossterm raw mode and the t
 
 The application state is owned by `App` in `src/tui/app.rs`. `App` is not just view state: it also owns handles to the database, Docker controller, and GitLab client so it can run operational actions such as retrying jobs, deleting local records, and pausing/resuming pools.
 
-The TUI has nine top-level tabs:
+The TUI has thirteen top-level tabs:
 
-1. `Mission`
-2. `Release`
-3. `Jobs`
-4. `Agents`
-5. `Tests`
-6. `Pools`
-7. `Cache`
-8. `Evidence`
-9. `Secrets`
+1. `Workflow`
+2. `Mission`
+3. `Release`
+4. `Approvals`
+5. `Jobs`
+6. `Agents`
+7. `Tests`
+8. `Pools`
+9. `Cache`
+10. `Evidence`
+11. `Secrets`
+12. `LLMs`
+13. `Git`
 
 The default tab is `Mission`. The default active pane is `Jobs`, which keeps
 job/log keyboard behavior predictable when the operator switches to the Jobs
@@ -334,7 +338,7 @@ The upstream URL display strips credentials by showing only the substring after 
 The tab labels are:
 
 ```text
-1: Mission  2: Release  3: Jobs  4: Agents  5: Tests  6: Pools  7: Cache  8: Evidence  9: Secrets
+0: Workflow  1: Mission  2: Release  3: Approvals  4: Jobs  5: Agents  6: Tests  7: Pools  8: Cache  9: Evidence  Secrets  LLMs  Git
 ```
 
 The active tab is cyan and bold.
@@ -1235,7 +1239,7 @@ Think of the TUI as four overlapping subsystems:
 1. A mission-control surface: Top Signal, Attention Queue, Proof Stack, and Next Actions.
 2. A release/deployment observability surface: Release Watch plus Flow Board.
 3. A real-time job operations surface: Live Jobs plus Log Preview/maximized logs.
-4. A host/cache/test/evidence surface: Pools, Cache, Tests, Evidence, and Secrets tabs.
+4. A host/cache/test/evidence/model-policy surface: Pools, Cache, Tests, Evidence, Secrets, and LLMs tabs.
 
 The biggest UX requirement in the current implementation is stability under partial data. The TUI intentionally keeps the last meaningful flow board visible and marks it stale rather than letting transient empty snapshots blank the screen. This is the key design point behind the recent anti-blink behavior.
 

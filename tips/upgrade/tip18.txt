@@ -1,4 +1,4 @@
-Based on the docs, my read is: **JeRyu/jeryu is already much more than a CLI wrapper.** It is close to being a local delivery operating system for agents: GitLab, runners, cache, release gates, Vault, evidence capsules, VTI, risk gates, and a TUI all orbiting one SQLite-backed control plane.
+Based on the docs, my read is: **JeRyu/jeryu is already much more than a CLI wrapper.** It is close to being a local delivery operating system for agents: GitLab, runners, cache, release gates, Vault, evidence capsules, VTI, risk gates, and a TUI all orbiting one RedlineDB-backed control plane.
 
 The biggest opportunity is to turn it from “many powerful surfaces” into **one coherent command-and-observation fabric** where a human or agent can always answer:
 
@@ -24,7 +24,7 @@ Production promotion is not a shell command. It is a GitLab pipeline product tri
 **2. The agent model is already bounded.**
 Agents operate through branches, MRs, risk gates, typed capability intents, test runners, and GitLab pipelines. That is much safer than giving an agent raw shell and PAT access.
 
-**3. SQLite as durable coordination is a good choice.**
+**3. RedlineDB as durable coordination is a good choice.**
 The DB gives the system a memory: pools, managers, releases, retries, evidence, cache verdicts, selector misses, test runs, jeryu sync state, and audit events.
 
 **4. The custom executor/caching/security boundary is thoughtful.**
@@ -556,7 +556,7 @@ The Flow Board has good stale handling. Other panels need similar source-age ind
 Each major panel should know:
 
 ```text
-source: GitLab / SQLite / Docker / Vault / filesystem
+source: GitLab / RedlineDB / Docker / Vault / filesystem
 last refreshed: 3s ago
 status: fresh / stale / failed / inferred
 ```

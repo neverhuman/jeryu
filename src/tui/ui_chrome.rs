@@ -26,14 +26,6 @@ pub(crate) fn release_color(state: &str) -> Color {
     }
 }
 
-pub(crate) fn pane_border(pane: ActivePane, app: &App) -> Color {
-    if app.active_pane == pane {
-        Color::Cyan
-    } else {
-        Color::DarkGray
-    }
-}
-
 pub(crate) fn status_badge(status: &str) -> (&'static str, Color) {
     match status {
         "success" | "passed" | "green" | "released" => ("PASS", Color::Green),
@@ -204,17 +196,20 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
         Span::raw("")
     };
 
-    let tab_defs: &[(&str, ActiveTab, u8)] = &[
-        ("Workflow", ActiveTab::Workflow, 0),
-        ("Mission", ActiveTab::Mission, 1),
-        ("Release", ActiveTab::Release, 2),
-        ("Approvals", ActiveTab::Approvals, 3),
-        ("Jobs", ActiveTab::Jobs, 4),
-        ("Agents", ActiveTab::Agents, 5),
-        ("Tests", ActiveTab::Tests, 6),
-        ("Pools", ActiveTab::Pools, 7),
-        ("Cache", ActiveTab::Cache, 8),
-        ("Evidence", ActiveTab::Evidence, 9),
+    let tab_defs: &[(&str, ActiveTab, Option<u8>)] = &[
+        ("Workflow", ActiveTab::Workflow, Some(0)),
+        ("Mission", ActiveTab::Mission, Some(1)),
+        ("Release", ActiveTab::Release, Some(2)),
+        ("Approvals", ActiveTab::Approvals, Some(3)),
+        ("Jobs", ActiveTab::Jobs, Some(4)),
+        ("Agents", ActiveTab::Agents, Some(5)),
+        ("Tests", ActiveTab::Tests, Some(6)),
+        ("Pools", ActiveTab::Pools, Some(7)),
+        ("Cache", ActiveTab::Cache, Some(8)),
+        ("Evidence", ActiveTab::Evidence, Some(9)),
+        ("Secrets", ActiveTab::Secrets, None),
+        ("LLMs", ActiveTab::LLMs, None),
+        ("Git", ActiveTab::Git, None),
     ];
 
     let top_spans: Vec<Span> = vec![
@@ -297,9 +292,12 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
 
     let mut tab_spans: Vec<Span> = vec![];
     for (name, tab, n) in tab_defs {
+        let label = n
+            .map(|n| format!("{n}:{name}"))
+            .unwrap_or_else(|| name.to_string());
         if app.active_tab == *tab {
             tab_spans.push(Span::styled(
-                format!("[{}:{}]", n, name),
+                format!("[{label}]"),
                 Style::default()
                     .fg(Color::Black)
                     .bg(Color::Cyan)
@@ -307,7 +305,7 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
             ));
         } else {
             tab_spans.push(Span::styled(
-                format!(" {}:{} ", n, name),
+                format!(" {label} "),
                 Style::default().fg(Color::DarkGray),
             ));
         }

@@ -12,7 +12,7 @@ The biggest gap is that the repo currently reads like a powerful prototype/contr
 
 ### 1. The architecture points at the right primitive: an agent-native control plane
 
-The architecture doc frames `jeryu` as a Rust control plane over local GitLab, Runner, Docker, Vault, SQLite, CI semantics, VTI, failure evidence, action registry, settings, and TUI. It also splits the system into interface, control, state, execution, and intelligence planes, which is exactly how I would structure an agent-first Git/testing manager. ([GitHub][1])
+The architecture doc frames `jeryu` as a Rust control plane over local GitLab, Runner, Docker, Vault, RedlineDB, CI semantics, VTI, failure evidence, action registry, settings, and TUI. It also splits the system into interface, control, state, execution, and intelligence planes, which is exactly how I would structure an agent-first Git/testing manager. ([GitHub][1])
 
 That separation matters. Agents need different surfaces from humans: typed intents, logs, failure capsules, “why blocked” explanations, safe patching, reproducible runners, and merge gates. The repo already has the beginnings of that: CLI/TUI, GitLab webhooks, capability intents, runner pools, custom executor, SmartCache, failure capsules, release tracking, and VTI. ([GitHub][1])
 

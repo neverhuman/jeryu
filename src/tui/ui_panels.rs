@@ -1,5 +1,5 @@
 use super::*;
-pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
+pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -20,6 +20,13 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Percentage(22),
         ])
         .split(rows[2]);
+
+    focus::register_pane(app, PaneId::MissionTopSignal, headline_cols[0]);
+    focus::register_pane(app, PaneId::MissionReadiness, headline_cols[1]);
+    focus::register_pane(app, PaneId::MissionMetrics, rows[1]);
+    focus::register_pane(app, PaneId::MissionAttention, body_cols[0]);
+    focus::register_pane(app, PaneId::MissionProofLanes, body_cols[1]);
+    focus::register_pane(app, PaneId::MissionActions, body_cols[2]);
 
     let pool_active = app.state.pools.iter().filter(|p| !p.paused).count();
     let pool_total = app.state.pools.len();
@@ -121,7 +128,7 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Mission Control ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(headline_color)),
+                .border_style(focus::border_style(app, PaneId::MissionTopSignal)),
         ),
         headline_cols[0],
     );
@@ -181,7 +188,7 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(" [ Readiness ] ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(focus::border_style(app, PaneId::MissionReadiness)),
         ),
         headline_cols[1],
     );

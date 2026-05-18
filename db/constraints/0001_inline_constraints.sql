@@ -3,7 +3,7 @@
 -- Durable constraints (PRIMARY KEYs, UNIQUE indexes, NOT NULL) are
 -- declared inline with the table definitions in `src/state.rs` and
 -- friends because the live schema is created at startup against a
--- local SQLite (or in-memory) cache.
+-- local RedlineDB (or in-memory) cache.
 --
 -- This file exists so the `[db]` boundary in `agent/boundaries.toml`
 -- routes to a real constraint artifact. When the schema is extracted

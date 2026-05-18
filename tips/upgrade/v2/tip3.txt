@@ -16,7 +16,7 @@ I would frame this as an **agent-first GitLab control plane**, not yet a GitLab 
 
 The architecture doc divides the system into five sensible planes: interface, control, state, execution, and intelligence. That is the correct shape for an agent-first developer platform because agents need explicit surfaces, durable state, controlled execution, and machine-readable reasoning artifacts. ([GitHub][2])
 
-The repo also has a broad set of agent-facing surfaces: CLI, TUI, webhook server, capability API, Git server hooks, custom executor, action registry, SQLite state API, settings API, GitLab REST wrapper, release API, and secrets API. That is much closer to what agents need than a normal CI wrapper. ([GitHub][3])
+The repo also has a broad set of agent-facing surfaces: CLI, TUI, webhook server, capability API, Git server hooks, custom executor, action registry, RedlineDB state API, settings API, GitLab REST wrapper, release API, and secrets API. That is much closer to what agents need than a normal CI wrapper. ([GitHub][3])
 
 ## 2. The VTI idea is exactly the right direction
 
@@ -36,7 +36,7 @@ The architecture talks about failure capsules, next-action recommendations, expl
 
 ## 5. Local-first GitLab orchestration is a valuable wedge
 
-The repo’s core idea is not “replace GitLab immediately.” It is “wrap local GitLab CE, runners, Vault, Docker, SQLite, CI, and agent policy into an agent-operable system.” That is a pragmatic wedge. If done well, it can become the local development and validation substrate for agents before expanding to remote GitLab/GitHub/Gitea. ([GitHub][1])
+The repo’s core idea is not “replace GitLab immediately.” It is “wrap local GitLab CE, runners, Vault, Docker, RedlineDB, CI, and agent policy into an agent-operable system.” That is a pragmatic wedge. If done well, it can become the local development and validation substrate for agents before expanding to remote GitLab/GitHub/Gitea. ([GitHub][1])
 
 ## 6. The repo already has basic open-source hygiene
 
@@ -463,7 +463,7 @@ Then return a structured decision with blockers and safe next actions.
 
 VTI is the feature with the biggest upside and biggest risk.
 
-I would immediately change semantics so skipped jobs are never simply “green.” They should be “skipped with proof,” and that proof should be attached as an artifact and stored in SQLite.
+I would immediately change semantics so skipped jobs are never simply “green.” They should be “skipped with proof,” and that proof should be attached as an artifact and stored in RedlineDB.
 
 Also add CI checks that validate `API.md`, `ARCHITECTURE.md`, `VTI.md`, `AGENTS.md`, and `agent-index` against the actual code and schemas. Docs in this repo are part of the product.
 

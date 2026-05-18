@@ -359,7 +359,7 @@ Use an abbreviation pipeline:
    `intg checkout firefox retry pay`.
 
 4. Preserve matrix axes as compact badges:
-   `linux x86_64 postgres 16` → `linux x64 pg16`.
+   `linux x86_64 redline 16` → `linux x64 pg16`.
 
 5. Use middle truncation only after semantic compaction:
    `workflow_edge_connector_visibility` → `workflow … connector vis`.

@@ -32,6 +32,11 @@ fn current_exe_mount_source_falls_back_to_default() {
     assert_eq!(path, PathBuf::from("/usr/local/bin/jeryu"));
 }
 
+#[test]
+fn compose_up_targets_only_gitlab_and_vault() {
+    assert_eq!(compose_up_targets(), ["gitlab", "vault"]);
+}
+
 fn contains_bytes(haystack: &str, needle: &[u8]) -> bool {
     haystack
         .as_bytes()

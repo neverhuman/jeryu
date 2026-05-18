@@ -17,7 +17,7 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
             jeryu::agent_surface::audit_agent_surface(json)?;
             Ok(0)
         }
-        RepoCommands::PostgresStateProof => repo::postgres_state_proof().await,
+        RepoCommands::RedlineStateProof => repo::state_proof().await,
         RepoCommands::CaptureTuiScreenshots { output_dir } => {
             repo::capture_tui_screenshots(output_dir).await
         }

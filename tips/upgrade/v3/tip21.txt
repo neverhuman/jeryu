@@ -12,7 +12,7 @@ My blunt product read: **this is already more agent-first than most GitHub/GitLa
 
 ### 1. Strong “control plane, not just CI helper” architecture
 
-The architecture is ambitious in the right way: five planes—interface, control, state, execution, and intelligence—cover CLI/TUI/hooks/capability APIs, webhook/reconciliation/runner scaling/release control, Postgres/SQLite state, Docker/custom execution, and agent/risk/impact/VTI/failure/next-action logic. That is exactly the shape an agent-first system needs: agents need a **governed operating system**, not a pile of ad hoc scripts. ([GitHub][2])
+The architecture is ambitious in the right way: five planes—interface, control, state, execution, and intelligence—cover CLI/TUI/hooks/capability APIs, webhook/reconciliation/runner scaling/release control, RedlineDB/RedlineDB state, Docker/custom execution, and agent/risk/impact/VTI/failure/next-action logic. That is exactly the shape an agent-first system needs: agents need a **governed operating system**, not a pile of ad hoc scripts. ([GitHub][2])
 
 The `lib.rs` module map is also clean. It separates engine, release, state, exec, secrets, honeypot, sandbox, admission, taint, decision, test intelligence, TUI, and gateway modules, which is a good base for a real autonomy platform. ([GitHub][3])
 

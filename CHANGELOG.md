@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.6] - 2026-05-18
+
+### Changed
+
+- `Cargo.toml` now pins `redlinedb-sqlx` to upstream RedlineDB commit
+  `6b346280f2d0740673e457d777d924e7a22301f7` instead of a sibling checkout, so
+  clean clones resolve the same adapter revision.
+- `jeryu serve` still starts only `gitlab` and `vault` with
+  `docker compose up -d --no-deps`; the `redline` compose profile remains
+  defined for bootstrap, but it is not part of serve startup.
+
+### Fixed
+
+- Release metadata in `Cargo.toml`, `VERSION`, and `version.json` was bumped
+  together to `3.3.6`.
+- Added a startup-target test so the Redline compose profile cannot silently
+  leak into the serve path.
+
 ## [3.3.5] - 2026-05-18
 
 ### Changed
@@ -273,7 +291,7 @@ once PR #5 merges, GitHub auto-rebases to main.
   `src/approval/sha_bind.rs`) — `no_self_approval`,
   `require_distinct_agent_identities`, exact (head_sha, policy_sha) match.
 - **Signed launch ledger** (`src/autonomy/ledger.rs`, `SqlLedger`) —
-  append-only `launch_ledger` table with SQLite `BEFORE UPDATE`/`BEFORE
+  append-only `launch_ledger` table with RedlineDB `BEFORE UPDATE`/`BEFORE
   DELETE` triggers in `db/state.rs::migrate`; `append()` refuses stub/HMAC
   signatures and is idempotent on entry id.
 - **Live orchestrator daemon** (`src/autonomy/daemon.rs`,
@@ -316,7 +334,7 @@ once PR #5 merges, GitHub auto-rebases to main.
 - **SQL-backed budget ledger** (`src/llm/sql_budget_ledger.rs`,
   `llm_budget_ledger` table) — append-only daily spend tracker; daily caps
   now survive process restart per
-  `fail_closed_over_budget: true` invariant. SQLite append-only triggers
+  `fail_closed_over_budget: true` invariant. RedlineDB append-only triggers
   mirror the launch ledger pattern.
 - **LLM scrub + secrets + doctor** (`src/llm/scrub.rs`,
   `src/llm/secrets.rs`, `src/llm/doctor.rs`) — prompt redaction,
@@ -387,7 +405,7 @@ once PR #5 merges, GitHub auto-rebases to main.
   matrices.
 - **TUI Mission Control** opens on the delivery workflow by default; the
   delivery model is the canonical 5-PR demo plus live data when wired.
-- **State backend** (`db/state.rs`) — auto-recovers from stale SQLite
+- **State backend** (`db/state.rs`) — auto-recovers from stale RedlineDB
   WAL/SHM on open instead of failing fast.
 
 ### Fixed
@@ -401,7 +419,7 @@ once PR #5 merges, GitHub auto-rebases to main.
   consuming the body.
 - **ed25519 signing for every `LaunchLedgerEntry`**;
   `Signature::stub()` is refused at the `SqlLedger::append()` enforcement
-  boundary, and the SQLite `launch_ledger` triggers enforce append-only at
+  boundary, and the RedlineDB `launch_ledger` triggers enforce append-only at
   the storage layer.
 - **`AgentApprovalReceipt`s synthesized by the orchestrator** (abstain on
   reviewer failure) are signed with the orchestrator's ed25519 key so the
@@ -509,8 +527,8 @@ once PR #5 merges, GitHub auto-rebases to main.
 - Command palette preview pane backed by the action registry, showing risk, side effects, required grants, dry-run availability, disabled reasons, and execution guidance.
 - IEEE-style V3.01 working paper sources, agent-friendly Markdown, bibliography, and generated TUI screenshots.
 - Version control files: `VERSION` and `version.json`.
-- Postgres-primary state backend with SQLite fallback, bootstrap-managed Postgres Compose service, optional `JERYU_TEST_POSTGRES_URL` smoke coverage, and a disposable `just postgres-state-proof` harness.
-- Backend-neutral state SQL placeholder handling for core Postgres operations across pools, managers, job/event tracking, VTI records, capability grants, and admission decisions.
+- RedlineDB-primary state backend with RedlineDB fallback, bootstrap-managed Redline Compose service, optional `JERYU_TEST_REDLINE_URL` smoke coverage, and a disposable `just state-proof` harness.
+- Backend-neutral state SQL placeholder handling for core RedlineDB operations across pools, managers, job/event tracking, VTI records, capability grants, and admission decisions.
 - Backend-aware cache control managers for epoch invalidation, taint propagation, and CacheBrain decisions; executor cache writes now go through `Db` methods.
 
 ### Changed
@@ -523,7 +541,7 @@ once PR #5 merges, GitHub auto-rebases to main.
 - VTI subsystem ownership patterns now include nested TUI, gateway, and test-intelligence modules.
 - Unknown file changes now conservatively select full validation instead of docs-only validation.
 - API and TUI docs now describe the current nine-tab TUI and screenshot capture path.
-- Shared state upserts now use portable `ON CONFLICT` SQL instead of SQLite-only `INSERT OR REPLACE` forms.
+- Shared state upserts now use portable `ON CONFLICT` SQL instead of RedlineDB-only `INSERT OR REPLACE` forms.
 
 
 ## [1.0.1] - 2026-05-14

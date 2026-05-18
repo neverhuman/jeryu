@@ -2,7 +2,7 @@ I couldn’t complete a local `git clone` or run the build/tests from this envir
 
 ## Bottom line
 
-JeRyu is **not really a GitLab fork** in the conventional sense. It is a Rust control plane around a local GitLab CE + GitLab Runner + Docker + Vault + Postgres/SQLite stack. The repo describes `jeryu` as a single-binary Rust control plane for local GitLab that bypasses the web UI for agent workflows, with runner lifecycle control, CoW sandboxing, ephemeral bot users, custom executor support, semantic CI/CD, and security/isolation features. ([GitHub][1])
+JeRyu is **not really a GitLab fork** in the conventional sense. It is a Rust control plane around a local GitLab CE + GitLab Runner + Docker + Vault + RedlineDB/RedlineDB stack. The repo describes `jeryu` as a single-binary Rust control plane for local GitLab that bypasses the web UI for agent workflows, with runner lifecycle control, CoW sandboxing, ephemeral bot users, custom executor support, semantic CI/CD, and security/isolation features. ([GitHub][1])
 
 The **strongest idea** is excellent: make the forge itself agent-operable. Instead of asking an agent to drive GitLab/GitHub like a slow human through web/API fragments, JeRyu creates a typed command surface for agents: task spawning, branch/MR workflows, capability intents, risk gates, smart test selection, failure capsules, runner pools, release gates, and a supervisory TUI. That is exactly the right direction.
 
@@ -29,7 +29,7 @@ The `capsule` module captures structured failure evidence: environment, log snip
 The VTI docs describe a subsystem-aware planner that maps changed files to selected tests, supports external `.jeryu/testmap.toml`, emits GitLab child pipeline YAML and plan JSON, and has a nightly oracle for selector misses. It also defaults to full execution on failure modes, which is the right safety posture. ([GitHub][7])
 
 **7. The state/audit model is ambitious and mostly right.**
-The state layer supports Postgres-primary with SQLite fallback and stores runner state, jobs/pipelines, audit events, release attempts, failure capsules, jeryu sync, secrets, cache state, test plans, and selector misses. For agent fleets, durable state plus append-friendly ledgers is mandatory. ([GitHub][8])
+The state layer supports RedlineDB-primary with RedlineDB fallback and stores runner state, jobs/pipelines, audit events, release attempts, failure capsules, jeryu sync, secrets, cache state, test plans, and selector misses. For agent fleets, durable state plus append-friendly ledgers is mandatory. ([GitHub][8])
 
 **8. SmartCache / gateway / singleflight is a strong performance direction.**
 The repo has cache modules for registry proxying, CAS, cache brain decisions, taint, epoch invalidation, gateway adapters for Cargo/Git/npm/OCI, and singleflight request coalescing. This is exactly the sort of infra that makes agent-led CI feel instant instead of “wait 20 minutes every patch.” ([GitHub][9])

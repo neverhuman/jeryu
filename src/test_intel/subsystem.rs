@@ -170,9 +170,9 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
     },
     Subsystem {
         id: "state",
-        description: "Postgres-primary state database, SQLite recovery, migrations, CRUD operations",
+        description: "RedlineDB-primary state database, backend-neutral path, migrations, CRUD operations",
         owned_paths: &["src/state.rs"],
-        unit_filter: "test(/state|sqlite|db|migrat/)",
+        unit_filter: "test(/state|redline|db|migrat/)",
         integration_tests: &[
             "pool_tests",
             "job_tests",

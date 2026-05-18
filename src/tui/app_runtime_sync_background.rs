@@ -1,14 +1,16 @@
 use super::*;
 
 pub(crate) fn start_background_sync(app: &App) {
-    let store = app.store.clone();
+    let Some(store) = app.store.clone() else {
+        return;
+    };
     let docker = app.docker.clone();
     let gitlab = app.gitlab.clone();
     let tx = app.sync_tx.clone();
     let log_tx = app.log_tx.clone();
     let mut log_rx = app.log_target_tx.subscribe();
 
-    let store_flow = app.store.clone();
+    let store_flow = store.clone();
     let docker_flow = app.docker.clone();
     let gitlab_flow = app.gitlab.clone();
 
@@ -83,7 +85,7 @@ pub(crate) fn start_background_sync(app: &App) {
     });
 
     // TUI v2 — Live Runner Feed background sync
-    let store_feed = app.store.clone();
+    let store_feed = store.clone();
     let gitlab_feed = app.gitlab.clone();
     let feed_tx = app.feed_tx.clone();
     tokio::spawn(async move {
@@ -285,7 +287,10 @@ pub(crate) fn start_background_sync(app: &App) {
 
             let daemon_path = std::path::Path::new("/etc/docker/daemon.json");
             snap.mirror_enabled = if daemon_path.exists() {
-                let content = std::fs::read_to_string(daemon_path).unwrap_or_default();
+                let content = match std::fs::read_to_string(daemon_path) {
+                    Ok(content) => content,
+                    Err(_) => String::new(),
+                };
                 content.contains(&registry_addr)
                     || content.contains(&crate::config::CACHE_REGISTRY_PORT.to_string())
             } else {

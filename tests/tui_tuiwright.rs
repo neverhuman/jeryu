@@ -1,9 +1,19 @@
-//! Owner: Interactive TUI subsystem — Tuiwright black-box integration tests
+//! Owner: Interactive TUI subsystem - Tuiwright black-box input smoke tests
 //! Proof: `TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1`
-//! Invariants: Each test spawns a real PTY session; tests are serial to avoid port contention.
+//! Invariants: PNG capture is the render oracle; PTY sessions are reserved for input routing.
 
-use std::time::Duration;
-use tuiwright::{Page, SpawnConfig};
+use image::RgbImage;
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+    time::Duration,
+};
+use tuiwright::{Key, Page, SpawnConfig};
+
+const CAPTURE_COLS: u16 = 120;
+const CAPTURE_ROWS: u16 = 36;
+const CELL_W: u32 = 8;
+const CELL_H: u32 = 12;
 
 /// Locate the `jeryu` binary built by cargo.
 fn jeryu_bin() -> String {
@@ -19,106 +29,223 @@ fn jeryu_bin() -> String {
     }
 }
 
-fn spawn_tui(tab: &str) -> anyhow::Result<Page> {
+fn capture_tui(tab: &str) -> anyhow::Result<PathBuf> {
+    let path = PathBuf::from(format!("target/tuiwright/capture-{tab}.png"));
+    std::fs::create_dir_all("target/tuiwright")?;
+
+    let output = Command::new(jeryu_bin())
+        .arg("tui")
+        .arg("--capture")
+        .arg("--tab")
+        .arg(tab)
+        .arg("--output")
+        .arg(&path)
+        .arg("--width")
+        .arg(CAPTURE_COLS.to_string())
+        .arg("--height")
+        .arg(CAPTURE_ROWS.to_string())
+        .env("TERM", "xterm-256color")
+        .env("COLORTERM", "truecolor")
+        .env("JERYU_DATABASE_URL", "redline::memory:")
+        .output()?;
+
+    anyhow::ensure!(
+        output.status.success(),
+        "capture failed for {tab} with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(path)
+}
+
+fn read_png(path: &Path) -> anyhow::Result<RgbImage> {
+    Ok(image::open(path)?.to_rgb8())
+}
+
+fn assert_png_shape_and_ink(path: &Path, image: &RgbImage) {
+    assert_eq!(
+        image.dimensions(),
+        (
+            u32::from(CAPTURE_COLS) * CELL_W,
+            u32::from(CAPTURE_ROWS) * CELL_H
+        ),
+        "unexpected PNG dimensions for {}",
+        path.display()
+    );
+    let bg = image.get_pixel(0, 0).0;
+    let ink = image.pixels().filter(|pixel| pixel.0 != bg).count();
+    assert!(
+        ink > 1_000,
+        "capture should contain rendered terminal ink; only {ink} non-background pixels in {}",
+        path.display()
+    );
+}
+
+fn assert_cell_region_has_ink(
+    image: &RgbImage,
+    bg: [u8; 3],
+    label: &str,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+) {
+    let x0 = u32::from(x) * CELL_W;
+    let y0 = u32::from(y) * CELL_H;
+    let x1 = (u32::from(x + width) * CELL_W).min(image.width());
+    let y1 = (u32::from(y + height) * CELL_H).min(image.height());
+    let mut ink = 0usize;
+    for py in y0..y1 {
+        for px in x0..x1 {
+            if image.get_pixel(px, py).0 != bg {
+                ink += 1;
+            }
+        }
+    }
+    assert!(ink > 120, "{label} region should contain rendered ink");
+}
+
+fn assert_main_layout_regions(tab: &str, image: &RgbImage) {
+    let bg = image.get_pixel(0, 0).0;
+    assert_cell_region_has_ink(image, bg, &format!("{tab} header"), 0, 0, CAPTURE_COLS, 3);
+    assert_cell_region_has_ink(
+        image,
+        bg,
+        &format!("{tab} content"),
+        0,
+        3,
+        CAPTURE_COLS,
+        CAPTURE_ROWS - 11,
+    );
+    assert_cell_region_has_ink(
+        image,
+        bg,
+        &format!("{tab} activity/log"),
+        0,
+        CAPTURE_ROWS - 8,
+        CAPTURE_COLS,
+        7,
+    );
+    assert_cell_region_has_ink(
+        image,
+        bg,
+        &format!("{tab} footer"),
+        0,
+        CAPTURE_ROWS - 1,
+        CAPTURE_COLS,
+        1,
+    );
+}
+
+fn spawn_interactive_tui(tab: &str) -> anyhow::Result<Page> {
     let bin = jeryu_bin();
     let page = Page::spawn(
         SpawnConfig::new(&bin)
             .arg("tui")
-            .arg("--screenshot")
+            .arg("--demo")
             .arg("--tab")
             .arg(tab)
-            .arg("--screenshot-hold-ms")
-            .arg("10000")
-            .size(120, 36)
+            .size(160, 40)
             .env("TERM", "xterm-256color")
             .env("COLORTERM", "truecolor")
+            .env("JERYU_TUI_WORKFLOW_INSPECT_OPEN", "1")
             .timeout(Duration::from_secs(8)),
     )?;
-    // Wait for the TUI to finish its first render.
-    std::thread::sleep(Duration::from_millis(800));
+    std::thread::sleep(Duration::from_millis(2000));
     Ok(page)
 }
 
-// ── Test: Workflow tab renders on startup ────────────────────────────────
+fn screen_text(page: &Page) -> String {
+    page.screen().plain_text()
+}
 
 #[test]
-fn workflow_tab_renders_header_and_content() -> anyhow::Result<()> {
-    let page = spawn_tui("workflow")?;
-
-    // The header bar must show the Delivery (Workflow) tab label.
-    page.wait_for_text("Delivery", Duration::from_secs(5))?;
-
-    // The 5-PR demo renders the canonical pre-merge phase header.
-    page.wait_for_text("Pre-merge CI", Duration::from_secs(3))?;
-
-    std::fs::create_dir_all("target/tuiwright")?;
-    page.screenshot("target/tuiwright/workflow-default.png")?;
-
+fn capture_path_renders_all_primary_tabs() -> anyhow::Result<()> {
+    for tab in [
+        "workflow",
+        "mission",
+        "release",
+        "approvals",
+        "jobs",
+        "agents",
+        "tests",
+        "pools",
+        "cache",
+        "evidence",
+        "secrets",
+        "llms",
+        "git",
+    ] {
+        let path = capture_tui(tab)?;
+        let image = read_png(&path)?;
+        assert_png_shape_and_ink(&path, &image);
+        assert_main_layout_regions(tab, &image);
+    }
     Ok(())
 }
 
-// ── Test: Workflow tab shows demo PR + status glyphs ────────────────────
-
 #[test]
-fn workflow_demo_shows_node_labels() -> anyhow::Result<()> {
-    let page = spawn_tui("workflow")?;
+fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
+    let page = spawn_interactive_tui("workflow")?;
 
-    // The 5-PR demo includes a PR #1842 chip in the PR rail.
     page.wait_for_text("#1842", Duration::from_secs(5))?;
+    page.press(Key::Tab)?;
+    page.wait_for_text("Mission Control", Duration::from_secs(5))?;
 
-    // The mission strip + cards should contain status glyphs.
-    let screen = page.screen();
-    let text = screen.plain_text();
+    for _ in 0..12 {
+        page.press(Key::Tab)?;
+    }
 
-    assert!(
-        text.contains('✓') || text.contains('●') || text.contains("RAN") || text.contains("OPEN"),
-        "expected a status glyph or label in delivery view; got:\n{}",
-        text
-    );
-
-    page.screenshot("target/tuiwright/workflow-nodes.png")?;
+    page.wait_for_text("Pre-merge CI", Duration::from_secs(5))?;
+    let text = screen_text(&page);
+    assert!(text.contains("#1842"));
     Ok(())
 }
 
-// ── Test: Mission tab renders ───────────────────────────────────────────
-
 #[test]
-fn mission_tab_renders() -> anyhow::Result<()> {
-    let page = spawn_tui("mission")?;
+fn activity_log_enter_expands_and_esc_restores() -> anyhow::Result<()> {
+    let page = spawn_interactive_tui("jobs")?;
 
-    page.wait_for_text("Mission", Duration::from_secs(5))?;
+    page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
+    let locator = page.get_by_text("Activity / Logs");
+    let match_ = locator
+        .resolve_first(&page.screen())
+        .expect("expected activity log pane to be visible");
+    let (col, row) = match_.center();
+    page.click_cell(col, row)?;
 
-    page.screenshot("target/tuiwright/mission.png")?;
-    Ok(())
-}
+    page.press(Key::Enter)?;
+    page.wait_for_text("[esc]", Duration::from_secs(5))?;
+    page.expect_screen().not_to_contain_text("Pipeline")?;
 
-// ── Test: Jobs tab renders ──────────────────────────────────────────────
-
-#[test]
-fn jobs_tab_renders() -> anyhow::Result<()> {
-    let page = spawn_tui("jobs")?;
-    // The Jobs tab shows a Pipeline Progress panel in its content area.
+    page.press(Key::Esc)?;
     page.wait_for_text("Pipeline", Duration::from_secs(5))?;
-
-    page.screenshot("target/tuiwright/jobs.png")?;
     Ok(())
 }
 
-// ── Test: Screenshot is deterministic PNG ───────────────────────────────
-
 #[test]
-fn screenshot_produces_valid_png() -> anyhow::Result<()> {
-    let page = spawn_tui("workflow")?;
-    page.wait_for_text("Workflow", Duration::from_secs(5))?;
+fn esc_badge_click_exits_entered_pane() -> anyhow::Result<()> {
+    let page = spawn_interactive_tui("jobs")?;
 
-    let path = "target/tuiwright/workflow-deterministic.png";
-    std::fs::create_dir_all("target/tuiwright")?;
-    page.screenshot(path)?;
+    page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
+    let locator = page.get_by_text("Activity / Logs");
+    let match_ = locator
+        .resolve_first(&page.screen())
+        .expect("expected activity log pane to be visible");
+    let (col, row) = match_.center();
+    page.click_cell(col, row)?;
 
-    // Verify the file exists and has valid PNG header.
-    let data = std::fs::read(path)?;
-    assert!(data.len() > 100, "PNG file too small");
-    assert_eq!(&data[1..4], b"PNG", "not a valid PNG file");
+    page.press(Key::Enter)?;
+    page.wait_for_text("[esc]", Duration::from_secs(5))?;
 
+    let esc = page.get_by_text("[esc]");
+    let esc_match = esc
+        .resolve_first(&page.screen())
+        .expect("expected esc badge in fullscreen activity log");
+    let (esc_col, esc_row) = esc_match.center();
+    page.click_cell(esc_col, esc_row)?;
+
+    page.wait_for_text("Pipeline", Duration::from_secs(5))?;
     Ok(())
 }
