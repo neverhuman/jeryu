@@ -153,8 +153,7 @@ fn legacy_redline_service_url_uses_embedded_file_url() {
     );
 
     let url = database_url().expect("database url");
-    assert!(url.starts_with("redline:"));
-    assert!(!url.starts_with("redline://"));
+    assert!(url.starts_with("redline:///"));
     assert!(url.contains("jeryu.db"));
 
     match original {
@@ -170,6 +169,35 @@ fn embedded_redline_memory_url_is_preserved() {
     set_env_var("JERYU_DATABASE_URL", "redline::memory:");
 
     assert_eq!(database_url().as_deref(), Some("redline::memory:"));
+
+    match original {
+        Some(value) => set_env_var("JERYU_DATABASE_URL", value),
+        None => remove_env_var("JERYU_DATABASE_URL"),
+    }
+}
+
+#[test]
+fn embedded_redline_file_urls_are_preserved() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let original = std::env::var("JERYU_DATABASE_URL").ok();
+
+    set_env_var(
+        "JERYU_DATABASE_URL",
+        "redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB",
+    );
+    assert_eq!(
+        database_url().as_deref(),
+        Some("redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB")
+    );
+
+    set_env_var(
+        "JERYU_DATABASE_URL",
+        "redlineDB:///tmp/jeryu/target/jeryu/autonomy.redlineDB",
+    );
+    assert_eq!(
+        database_url().as_deref(),
+        Some("redlineDB:///tmp/jeryu/target/jeryu/autonomy.redlineDB")
+    );
 
     match original {
         Some(value) => set_env_var("JERYU_DATABASE_URL", value),

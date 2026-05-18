@@ -31,6 +31,11 @@ pub fn db_path() -> PathBuf {
     workspace_path(&["jeryu.db"])
 }
 
+/// SQLx URL for an embedded RedlineDB file path.
+pub fn embedded_redline_url(path: &std::path::Path) -> String {
+    format!("redline://{}", path.display())
+}
+
 /// Persistent data root for the jeryu RedlineDB service.
 pub fn redline_data_dir() -> PathBuf {
     workspace_path(&["redline"])
@@ -42,7 +47,7 @@ pub fn database_url() -> Option<String> {
         Some(value) if !value.trim().is_empty() => {
             let value = value.trim();
             if is_legacy_redline_service_url(value) {
-                Some(format!("redline:{}?mode=rwc", db_path().display()))
+                Some(embedded_redline_url(&db_path()))
             } else {
                 Some(value.to_string())
             }

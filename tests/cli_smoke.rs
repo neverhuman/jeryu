@@ -6,7 +6,7 @@
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
 use std::sync::OnceLock;
 
 fn bin_path() -> PathBuf {
@@ -15,6 +15,25 @@ fn bin_path() -> PathBuf {
     p.push("debug");
     p.push("autonomy");
     p
+}
+
+fn autonomy_ledger_url(scheme: &str, root: &Path) -> String {
+    let path = root.join("target").join("jeryu").join("autonomy.redlineDB");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    format!("{scheme}://{}", path.display())
+}
+
+fn assert_no_sqlite_fallback(out: &Output) {
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
+    .to_ascii_lowercase();
+    assert!(
+        !combined.contains("sqlite"),
+        "unexpected sqlite fallback mention in output:\n{combined}"
+    );
 }
 
 fn ensure_built() {
@@ -98,9 +117,7 @@ fn add_recent_merge_commit(repo: &Path) {
     );
 }
 
-fn run_profile_validate(repo: &Path) -> std::process::Output {
-    let db = tempfile::NamedTempFile::new().expect("temp db");
-    let db_url = format!("redline:{}?mode=rwc", db.path().display());
+fn run_profile_validate_with_url(repo: &Path, db_url: &str) -> Output {
     Command::new(bin_path())
         .current_dir(repo)
         .args([
@@ -114,6 +131,20 @@ fn run_profile_validate(repo: &Path) -> std::process::Output {
         .env("JERYU_DATABASE_URL", db_url)
         .output()
         .expect("profile validate")
+}
+
+fn run_profile_validate(repo: &Path) -> Output {
+    let ledger = tempfile::tempdir().expect("temp ledger dir");
+    let db_url = autonomy_ledger_url("redline", ledger.path());
+    run_profile_validate_with_url(repo, &db_url)
+}
+
+fn run_kill_bell_status(db_url: &str) -> Output {
+    Command::new(bin_path())
+        .args(["kill-bell", "status"])
+        .env("JERYU_DATABASE_URL", db_url)
+        .output()
+        .expect("kill-bell status")
 }
 
 #[test]
@@ -343,20 +374,69 @@ fn shadow_subcommand_emits_json_when_requested() {
 }
 
 #[test]
-fn profile_validate_uses_recent_shadow_report_when_above_threshold() {
+fn kill_bell_status_accepts_redline_autonomy_ledger_url() {
     ensure_built();
-    let tmp = tempfile::tempdir().unwrap();
-    copy_profile_autonomy_fixture(tmp.path());
-    init_repo_with_single_commit(tmp.path());
-    add_recent_merge_commit(tmp.path());
+    let ledger = tempfile::tempdir().unwrap();
+    let db_url = autonomy_ledger_url("redline", ledger.path());
 
-    let out = run_profile_validate(tmp.path());
+    let out = run_kill_bell_status(&db_url);
+
     assert!(
         out.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+    assert_no_sqlite_fallback(&out);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("kill-bell JSON");
+    assert_eq!(v["state"], "armed");
+}
+
+#[test]
+fn kill_bell_status_accepts_mixed_case_redlinedb_autonomy_ledger_url() {
+    ensure_built();
+    let ledger = tempfile::tempdir().unwrap();
+    let db_url = autonomy_ledger_url("redlineDB", ledger.path());
+
+    let out = run_kill_bell_status(&db_url);
+
+    assert!(
+        out.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_no_sqlite_fallback(&out);
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("kill-bell JSON");
+    assert_eq!(v["state"], "armed");
+}
+
+#[test]
+fn profile_validate_uses_recent_shadow_report_when_above_threshold() {
+    ensure_built();
+    let tmp = tempfile::tempdir().unwrap();
+    let ledger = tempfile::tempdir().unwrap();
+    let db_url = autonomy_ledger_url("redline", ledger.path());
+    copy_profile_autonomy_fixture(tmp.path());
+    init_repo_with_single_commit(tmp.path());
+    add_recent_merge_commit(tmp.path());
+
+    let status = run_kill_bell_status(&db_url);
+    assert!(
+        status.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&status.stdout),
+        String::from_utf8_lossy(&status.stderr)
+    );
+
+    let out = run_profile_validate_with_url(tmp.path(), &db_url);
+    assert!(
+        out.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_no_sqlite_fallback(&out);
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("profile validate JSON");
     assert_eq!(v["effective_profile"], "sovereign_plus");
     assert_eq!(v["all_passed"], true);
