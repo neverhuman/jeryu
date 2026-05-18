@@ -5,8 +5,9 @@
 //! purely offline.
 
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 
 fn bin_path() -> PathBuf {
     let mut p = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -17,13 +18,102 @@ fn bin_path() -> PathBuf {
 }
 
 fn ensure_built() {
-    if !bin_path().exists() {
+    static BUILT: OnceLock<()> = OnceLock::new();
+    BUILT.get_or_init(|| {
         let s = Command::new("cargo")
             .args(["build", "-p", "jeryu", "--bin", "autonomy"])
             .status()
             .expect("cargo build");
         assert!(s.success(), "cargo build --bin autonomy failed");
+    });
+}
+
+fn git(repo: &Path, args: &[&str]) {
+    let out = Command::new("git")
+        .current_dir(repo)
+        .args(args)
+        .output()
+        .expect("git command");
+    assert!(
+        out.status.success(),
+        "git {:?} failed\nstdout={}\nstderr={}",
+        args,
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+fn copy_profile_autonomy_fixture(repo: &Path) {
+    let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".autonomy");
+    let dst = repo.join(".autonomy");
+    std::fs::create_dir_all(dst.join("policies")).unwrap();
+    std::fs::create_dir_all(dst.join("prompts")).unwrap();
+    for name in [
+        "risk.yml",
+        "approvals.yml",
+        "release.yml",
+        "protected-paths.yml",
+        "freeze.yml",
+    ] {
+        std::fs::copy(
+            src.join("policies").join(name),
+            dst.join("policies").join(name),
+        )
+        .unwrap();
     }
+    std::fs::copy(
+        src.join("prompts/reviewer-nightwatch.md"),
+        dst.join("prompts/reviewer-nightwatch.md"),
+    )
+    .unwrap();
+}
+
+fn init_repo_with_single_commit(repo: &Path) {
+    git(repo, &["init", "-b", "main"]);
+    git(repo, &["config", "user.email", "ci@example.invalid"]);
+    git(repo, &["config", "user.name", "CI Smoke"]);
+    std::fs::write(repo.join("README.md"), "initial\n").unwrap();
+    git(repo, &["add", "README.md"]);
+    git(repo, &["commit", "-m", "initial"]);
+}
+
+fn add_recent_merge_commit(repo: &Path) {
+    git(repo, &["checkout", "-b", "feature/profile-shadow"]);
+    std::fs::write(repo.join("feature.txt"), "feature\n").unwrap();
+    git(repo, &["add", "feature.txt"]);
+    git(repo, &["commit", "-m", "feature change"]);
+    git(repo, &["checkout", "main"]);
+    std::fs::write(repo.join("main.txt"), "main\n").unwrap();
+    git(repo, &["add", "main.txt"]);
+    git(repo, &["commit", "-m", "main change"]);
+    git(
+        repo,
+        &[
+            "merge",
+            "--no-ff",
+            "feature/profile-shadow",
+            "-m",
+            "Merge profile shadow fixture",
+        ],
+    );
+}
+
+fn run_profile_validate(repo: &Path) -> std::process::Output {
+    let db = tempfile::NamedTempFile::new().expect("temp db");
+    let db_url = format!("sqlite:{}?mode=rwc", db.path().display());
+    Command::new(bin_path())
+        .current_dir(repo)
+        .args([
+            "profile",
+            "validate",
+            "--profile",
+            "sovereign_plus",
+            "--autonomy-dir",
+            repo.join(".autonomy").to_str().unwrap(),
+        ])
+        .env("JERYU_DATABASE_URL", db_url)
+        .output()
+        .expect("profile validate")
 }
 
 #[test]
@@ -250,6 +340,86 @@ fn shadow_subcommand_emits_json_when_requested() {
     // `entries`; the canonical key is `results`.
     assert!(v["results"].is_array());
     assert!(v["summary"]["by_tier"]["R2"].is_number());
+}
+
+#[test]
+fn profile_validate_uses_recent_shadow_report_when_above_threshold() {
+    ensure_built();
+    let tmp = tempfile::tempdir().unwrap();
+    copy_profile_autonomy_fixture(tmp.path());
+    init_repo_with_single_commit(tmp.path());
+    add_recent_merge_commit(tmp.path());
+
+    let out = run_profile_validate(tmp.path());
+    assert!(
+        out.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("profile validate JSON");
+    assert_eq!(v["effective_profile"], "sovereign_plus");
+    assert_eq!(v["all_passed"], true);
+    assert!(
+        v["passed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|g| g.as_str() == Some("shadow_agreement_recent"))
+    );
+}
+
+#[test]
+fn profile_validate_fails_closed_when_shadow_report_missing() {
+    ensure_built();
+    let tmp = tempfile::tempdir().unwrap();
+    copy_profile_autonomy_fixture(tmp.path());
+
+    let out = run_profile_validate(tmp.path());
+    assert_eq!(
+        out.status.code(),
+        Some(78),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("profile validate JSON");
+    assert_eq!(v["effective_profile"], "sovereign");
+    let failures = v["failed"].as_array().unwrap();
+    assert!(failures.iter().any(|f| {
+        f["guardrail"] == "shadow_agreement_recent"
+            && f["reason"]
+                .as_str()
+                .unwrap()
+                .contains("no recent shadow report found")
+    }));
+}
+
+#[test]
+fn profile_validate_rejects_shadow_report_below_threshold() {
+    ensure_built();
+    let tmp = tempfile::tempdir().unwrap();
+    copy_profile_autonomy_fixture(tmp.path());
+    init_repo_with_single_commit(tmp.path());
+
+    let out = run_profile_validate(tmp.path());
+    assert_eq!(
+        out.status.code(),
+        Some(78),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("profile validate JSON");
+    assert_eq!(v["effective_profile"], "sovereign");
+    let failures = v["failed"].as_array().unwrap();
+    assert!(failures.iter().any(|f| {
+        f["guardrail"] == "shadow_agreement_recent"
+            && f["reason"]
+                .as_str()
+                .unwrap()
+                .contains("latest shadow agreement_rate is 0.0000")
+    }));
 }
 
 #[test]

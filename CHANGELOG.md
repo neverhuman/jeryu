@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.4] - 2026-05-18
+
+### Fixed
+
+- **Autonomy profile validator: wire real shadow-agreement data into
+  `sovereign_plus` gating.** Previously `profile_validator()` hardcoded
+  `latest_shadow_agreement: None`, meaning the `sovereign_plus` profile's
+  shadow-agreement threshold was *bypassed entirely* — any operator could
+  promote to the most-permissive profile without the shadow-mode check
+  catching disagreement between the autonomous judge and the validator.
+
+### Added
+
+- `src/autonomy/shadow.rs::score_agreement` now recognises a new pattern:
+  `(RequireHuman, NotOnDefaultBranch) → Agreement::Match`. Treats
+  manual-gate-paired-with-branch-only-commits as correct: autonomy
+  conservatively required approval, the commit didn't land unattended.
+- `src/bin/autonomy.rs::latest_shadow_agreement_for_profile()` helper
+  computes shadow agreement over the last 50 merges or 7 days and feeds
+  it into the profile validator.
+- Three integration tests in `tests/cli_smoke.rs`:
+  `profile_validate_uses_recent_shadow_report_when_above_threshold`,
+  `profile_validate_fails_closed_when_shadow_report_missing`,
+  `profile_validate_rejects_shadow_report_below_threshold`.
+
+### Provenance
+
+This fix was authored as orphan commit `f0808f2` and discovered during
+Wave 11.C Phase 6 cleanup. It targets the same release line as v3.3.3
+(Wave 11.C) but is opened as a standalone PR (PR-E) so the Wave 11.C
+stack stays atomic. Stacks on `release/v3.3.3-phase6-cleanup` (PR #5);
+once PR #5 merges, GitHub auto-rebases to main.
+
+### Verified
+
+- `cargo test --test cli_smoke -- profile_validate` — 3 new tests pass.
+- `bash scripts/ci-parity.sh` — all 14 checks green.
+
 ## [3.3.3] - 2026-05-17
 
 ### Changed

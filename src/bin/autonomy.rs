@@ -42,8 +42,11 @@ use jeryu::release::{
     rollback_drill,
 };
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+const PROFILE_SHADOW_MAX_COMMITS: usize = 50;
+const PROFILE_SHADOW_SINCE_SECONDS: u64 = 604_800;
 
 #[derive(Parser)]
 #[command(
@@ -580,6 +583,35 @@ fn cmd_shadow(
         print!("{}", render_summary(&summary, &[]));
     }
     Ok(())
+}
+
+fn profile_shadow_repo_root(autonomy_dir: &Path) -> PathBuf {
+    autonomy_dir
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+}
+
+fn latest_shadow_agreement_for_profile(autonomy_dir: &Path) -> Option<f64> {
+    let opts = ShadowOptions {
+        repo_root: profile_shadow_repo_root(autonomy_dir),
+        autonomy_dir: autonomy_dir.to_path_buf(),
+        merges_only: true,
+        max_commits: Some(PROFILE_SHADOW_MAX_COMMITS),
+        since_seconds: Some(PROFILE_SHADOW_SINCE_SECONDS),
+    };
+    match run_shadow(&opts) {
+        Ok(summary) => Some(summary.agreement_rate),
+        Err(err) => {
+            eprintln!(
+                "profile shadow lookup failed \
+                 (merges-only max-commits={} since-seconds={}): {err}",
+                PROFILE_SHADOW_MAX_COMMITS, PROFILE_SHADOW_SINCE_SECONDS
+            );
+            None
+        }
+    }
 }
 
 async fn cmd_doctor(_autonomy_dir: &PathBuf) -> Result<()> {
@@ -1204,7 +1236,7 @@ async fn cmd_profile(op: ProfileOp) -> Result<()> {
                 autonomy_dir: autonomy_dir.as_path(),
                 ledger_pool: pool.as_ref(),
                 now: chrono::Utc::now(),
-                latest_shadow_agreement: None,
+                latest_shadow_agreement: latest_shadow_agreement_for_profile(&autonomy_dir),
             };
             let guardrails = SovereignPlusGuardrails::default();
             let report = validate_sovereign_plus(inputs, &guardrails)

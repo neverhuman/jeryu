@@ -512,6 +512,9 @@ fn score_agreement(predicted: GateDecision, actual: ActualOutcome) -> Agreement 
             GateDecision::AllowMerge | GateDecision::RequireHuman,
             ActualOutcome::LandedOnDefaultBranch,
         ) => Agreement::Match,
+        // A manual gate is conservative for branch-only history: autonomy did
+        // not predict an unattended landing, and the commit did not land.
+        (GateDecision::RequireHuman, ActualOutcome::NotOnDefaultBranch) => Agreement::Match,
         (GateDecision::Reject, ActualOutcome::Reverted)
         | (GateDecision::Reject, ActualOutcome::NotOnDefaultBranch) => Agreement::Match,
         _ => Agreement::Disagreement,
@@ -897,6 +900,10 @@ mod tests {
         assert_eq!(score_agreement(Reject, Reverted), Agreement::Match);
         assert_eq!(
             score_agreement(Reject, NotOnDefaultBranch),
+            Agreement::Match
+        );
+        assert_eq!(
+            score_agreement(RequireHuman, NotOnDefaultBranch),
             Agreement::Match
         );
         assert_eq!(
