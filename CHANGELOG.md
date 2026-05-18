@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.6] - 2026-05-18
+
+### Changed
+
+- `db/state.rs` now treats `redline://` as RedlineDB-backed SQLite-compatible
+  storage, keeps omitted integer primary keys on the rowid path, and uses the
+  insert result when available before falling back to `last_insert_rowid()`.
+- `src/bootstrap.rs`, `src/config.rs`, `src/lib.rs`, `src/main.rs`, and the
+  cache-brain adapter tests now install and exercise the RedlineDB SQLx driver
+  end to end.
+
+### Fixed
+
+- `.github/workflows/jankurai.yml` now moves the generated CycloneDX SBOM into
+  `target/jankurai/sbom/sbom.json` before attestation, so the audit lane no
+  longer fails on a missing subject path.
+- Version metadata and release policy files were bumped together to `3.3.6` so
+  the release gates and changelog stay aligned.
+
 ## [3.3.5] - 2026-05-18
 
 ### Changed
