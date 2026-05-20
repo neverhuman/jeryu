@@ -272,10 +272,7 @@ fn load_receipts(receipt_dir: &Path) -> LoadedReceipts {
 
 fn required_id_from_path(path: &Path) -> Option<String> {
     let id = path.file_stem()?.to_str()?;
-    REQUIRED_RECEIPTS
-        .iter()
-        .any(|required| *required == id)
-        .then(|| id.to_string())
+    REQUIRED_RECEIPTS.contains(&id).then(|| id.to_string())
 }
 
 /// Render a human-readable summary suitable for stdout or a GitHub Check Run.

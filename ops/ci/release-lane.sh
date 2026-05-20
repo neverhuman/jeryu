@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ops/ci/release-lane.sh — run one stage of the release pipeline
-# Usage: bash ops/ci/release-lane.sh <preflight|audit|security|build|provenance|evidence|rollback-check> <version>
+# Usage: bash ops/ci/release-lane.sh <preflight|audit|security|build|provenance|evidence|rollback-check|publish> <version>
 #
 # Single source of truth for the release pipeline. `.github/workflows/release.yml`
 # and local `jeryu release dry-run` both call into these stages so CI and local
@@ -85,6 +85,19 @@ run_rollback_check() {
   fi
 }
 
+run_publish() {
+  require_tool gh
+  local tag="v$VERSION"
+  if ! git rev-parse --verify "refs/tags/$tag" >/dev/null 2>&1; then
+    die "Tag $tag not found; jeryu release submit should have pushed it"
+  fi
+  gh release create "$tag" \
+    --verify-tag \
+    --title "$tag" \
+    --notes-file "ops/releases/$VERSION/changelog.md" \
+    target/release/jeryu
+}
+
 case "$STAGE" in
   preflight)      run_preflight ;;
   audit)          run_audit ;;
@@ -93,5 +106,6 @@ case "$STAGE" in
   provenance)     run_provenance_sbom ;;
   evidence)       run_evidence ;;
   rollback-check) run_rollback_check ;;
+  publish)        run_publish ;;
   *)              die "unknown stage: $STAGE" ;;
 esac

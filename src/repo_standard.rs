@@ -348,9 +348,10 @@ fn plan_standard(
     } else {
         None
     };
-    let hook_operation = if !opts.configure_git_hooks || !spec.repo_root.join(".git").is_dir() {
-        ManagedFileOperation::Unchanged
-    } else if actual_hooks.as_deref() == Some(".jeryu/hooks") {
+    let hook_operation = if !opts.configure_git_hooks
+        || actual_hooks.as_deref() == Some(".jeryu/hooks")
+        || !spec.repo_root.join(".git").is_dir()
+    {
         ManagedFileOperation::Unchanged
     } else if actual_hooks.is_some() {
         ManagedFileOperation::Update

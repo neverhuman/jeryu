@@ -10,7 +10,7 @@
 //!   - All required `roles:` must emit `Pass`
 //!   - Any `Block` decision short-circuits to `Vetoed`
 
-use crate::autonomy::policy_yaml::{ApprovalsPolicy, QuorumEntry};
+use crate::autonomy::policy_yaml::ApprovalsPolicy;
 use crate::autonomy::types::{AgentApprovalReceipt, ReviewDecision, ReviewerRole, RiskTier};
 use std::collections::HashSet;
 
@@ -141,6 +141,7 @@ pub fn evaluate_quorum(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::autonomy::policy_yaml::QuorumEntry;
     use crate::autonomy::signing::Signature;
     use crate::autonomy::types::*;
     use chrono::Utc;

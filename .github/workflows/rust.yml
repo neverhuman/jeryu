@@ -25,11 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
         with:
+          toolchain: 1.95.0
           components: rustfmt
       - name: Check formatting
-        run: cargo fmt --all -- --check
+        run: bash ops/ci/rust-lane.sh fmt
 
   clippy:
     name: Clippy
@@ -38,15 +39,14 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
         with:
+          toolchain: 1.95.0
           components: clippy
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: bash ops/ci/rust-lane.sh clippy
 
   build:
     name: Build
@@ -55,15 +55,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
       - name: Build workspace
-        run: cargo build --verbose
+        run: bash ops/ci/rust-lane.sh build
 
   install-smoke:
     name: Install Smoke
@@ -76,20 +76,13 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
       - name: Run install commands
-        run: |
-          cargo run -p jeryu -- install --dry-run --json --color never --prefix /tmp/jeryu-install-test
-          PREFIX="$(mktemp -d)"
-          cargo run -p jeryu -- install --yes --prefix "$PREFIX" --path-mode skip
-          cargo run -p jeryu -- install doctor --prefix "$PREFIX"
-          cargo run -p jeryu -- install smoke --dry-run
-          cargo run -p jeryu -- install render-demo --output target/jeryu-install-demo.gif --png target/jeryu-install-demo.png
-          cargo run -p jeryu -- remote install xbabe1 --dry-run --yes --setup-key --json
+        run: bash ops/ci/rust-lane.sh install-smoke
 
   test-select:
     name: VTI Test Selection
@@ -104,52 +97,16 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
       - name: Compute test plan
         id: plan
-        run: |
-          mkdir -p target/jeryu
-          cargo build --bin jeryu
-          if ./target/debug/jeryu test select \
-            --base origin/main \
-            --head HEAD \
-            --explain \
-            --emit-plan target/jeryu/test-plan.json 2>/dev/null; then
-            MODE=$(jq -r '.mode' target/jeryu/test-plan.json)
-            # Extract the combined nextest -E filter expression from all unit_filter entries.
-            # The plan stores full commands like: cargo nextest run -E 'test(/pool|docker/)'
-            # We extract just the expression part and OR them together.
-            UNIT_FILTER_EXPR=""
-            while IFS= read -r expr; do
-              [[ -n "$expr" ]] || continue
-              if [[ -z "$UNIT_FILTER_EXPR" ]]; then
-                UNIT_FILTER_EXPR="$expr"
-              else
-                UNIT_FILTER_EXPR="$UNIT_FILTER_EXPR | $expr"
-              fi
-            done < <(
-              jq -r '
-                .selected_tests[]
-                | select(.kind == "unit_filter")
-                | .command
-              ' target/jeryu/test-plan.json | sed -e "s/^cargo nextest run -E '//" -e "s/'$//"
-            )
-          else
-            echo "VTI not available (no GITLAB_PAT or GitLab unreachable) — using full mode"
-            echo '{"mode":"full","selected_tests":[]}' > target/jeryu/test-plan.json
-            MODE="full"
-            UNIT_FILTER_EXPR=""
-          fi
-          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
-          echo "unit_filter_expr=$UNIT_FILTER_EXPR" >> "$GITHUB_OUTPUT"
-          echo "VTI mode: $MODE"
-          echo "VTI unit filter: ${UNIT_FILTER_EXPR:-(full run)}"
+        run: bash ops/ci/rust-lane.sh test-select
       - name: Upload test plan
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -172,15 +129,15 @@ jobs:
           # full history lets the tests actually run.
           fetch-depth: 0
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Install nextest
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
       - name: Download VTI plan
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -188,16 +145,10 @@ jobs:
           path: target/jeryu/
         continue-on-error: true
       - name: Run library tests
-        run: |
-          MODE="${{ needs.test-select.outputs.mode }}"
-          FILTER="${{ needs.test-select.outputs.unit_filter_expr }}"
-          if [ "$MODE" = "selected" ] && [ -n "$FILTER" ]; then
-            echo "VTI selected: running filter: $FILTER"
-            cargo nextest run -p jeryu --lib --profile ci -E "$FILTER"
-          else
-            echo "VTI mode=${MODE:-unknown}: running full lib suite"
-            cargo nextest run -p jeryu --lib --profile ci
-          fi
+        env:
+          MODE: ${{ needs.test-select.outputs.mode }}
+          FILTER: ${{ needs.test-select.outputs.unit_filter_expr }}
+        run: bash ops/ci/rust-lane.sh test-lib "$MODE" "$FILTER"
 
   test-integration:
     name: Integration Tests
@@ -212,15 +163,15 @@ jobs:
           # See library-tests above: shadow tests need full git history.
           fetch-depth: 0
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
       - name: Run integration tests
-        run: cargo test --tests --verbose
+        run: bash ops/ci/rust-lane.sh test-integration
 
   tui-smoke:
     name: TUI Smoke
@@ -230,15 +181,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
       - name: Render one TUI frame
-        run: cargo run -- tui --once
+        run: bash ops/ci/rust-lane.sh tui-smoke
 
   supply-chain:
     name: Supply Chain Audit
@@ -253,7 +204,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Install cargo-deny
         uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny
       - name: Install actionlint
@@ -261,7 +214,7 @@ jobs:
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Security lane proof
-        run: bash tools/security-lane.sh .
+        run: bash ops/ci/rust-lane.sh supply-chain
       - name: Upload security evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -278,13 +231,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
       - name: Build witness graph
-        run: cargo run -p cargo-witness -- build
+        run: bash ops/ci/rust-lane.sh witness
       - name: Upload witness graph
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -300,13 +255,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
       - name: Generate agent + test maps
-        run: cargo run -p cargo-vrc -- map --output-dir .
+        run: bash ops/ci/rust-lane.sh vrc-map
       - name: Upload maps
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -326,21 +283,15 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Compute changed files
-        run: git diff --name-only origin/main...HEAD > changed-files.txt; cat changed-files.txt
       - name: Run VRC plan
-        run: |
-          mapfile -t CHANGED < changed-files.txt
-          if [ "${#CHANGED[@]}" -gt 0 ]; then
-            cargo run -p cargo-vrc -- plan "${CHANGED[@]}" --output vrc-plan.json
-          else
-            echo '{"mode":"full","reason":"no changed files detected"}' > vrc-plan.json
-          fi
+        run: bash ops/ci/rust-lane.sh vrc-plan
       - name: Upload VRC plan
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -356,13 +307,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
       - name: Scan for structural exceptions
-        run: cargo run -p cargo-aer -- scan --output aer-findings.json
+        run: bash ops/ci/rust-lane.sh aer
       - name: Upload AER findings
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -379,7 +332,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
@@ -387,13 +342,9 @@ jobs:
       - name: Install cargo-semver-checks
         uses: taiki-e/install-action@2917690e52aa4d7197c24238e2a04e6775cc8170 # cargo-semver-checks
       - name: Semver check
-        run: |
-          if cargo semver-checks check-release -p jeryu 2>/dev/null; then
-            exit 0
-          fi
-          cargo semver-checks check-release
+        run: bash ops/ci/rust-lane.sh semver-check
       - name: AER structural audit
-        run: cargo run -p cargo-aer -- scan --output aer-findings.json
+        run: bash ops/ci/rust-lane.sh aer
       - name: Upload hardening findings
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -412,20 +363,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
-      - name: Build jeryu (release)
-        run: cargo build --release -p jeryu
       - name: Run SSH install integration test
-        run: |
-          export JERYU_BIN="$PWD/target/release/jeryu"
-          export EVIDENCE_DIR="$PWD/target/ci-evidence/ssh-install"
-          bash ops/ci/ssh_install_integration.sh
+        run: bash ops/ci/rust-lane.sh ssh-install-e2e
       - name: Upload SSH install evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -445,34 +391,19 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
-      - name: Build jeryu
-        run: cargo build --release -p jeryu
       - name: Render deterministic TUI PNG captures
-        run: |
-          mkdir -p target/ci-screenshots
-          
-          cargo run --release -p jeryu -- install render-demo --output target/ci-screenshots/install-demo.gif --png target/ci-screenshots/install-demo.png
-          
-          TABS="workflow jobs mission agents tests pools cache evidence secrets"
-          for tab in $TABS; do
-            cargo run --release -p jeryu -- tui --capture --tab "$tab" --output "target/ci-screenshots/${tab}.png"
-          done
-          echo ""
-          echo "=== Generated screenshots ==="
-          ls -la target/ci-screenshots/
+        run: bash ops/ci/rust-lane.sh tui-screenshots
       - name: Record 10-second animated TUI GIF
         # tuiwright is a git dev-dependency pinned to the jankurai commit SHA.
         # Cargo fetches it directly; no path-dep clone is required.
-        run: |
-          # tui_recording is marked #[ignore], so we run it explicitly
-          cargo test --test tui_recording -- --ignored --exact tui_demo_recording
+        run: bash ops/ci/rust-lane.sh tui-recording
       - name: Upload TUI screenshots
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -490,14 +421,12 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-      - name: Install RedlineDB binary
-        run: bash scripts/install-redlinedb.sh
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Build and test fixture project
         working-directory: tests/fixtures/fixture_project
-        run: |
-          cargo test --verbose
-          cargo run -- 2>&1 | head -20
+        run: bash ../../../ops/ci/rust-lane.sh fixture-project-test
       - name: Verify fixture project is healthy
         working-directory: tests/fixtures/fixture_project
-        run: cargo clippy -- -D warnings 2>&1 || echo "clippy warnings (non-blocking)"
+        run: bash ../../../ops/ci/rust-lane.sh fixture-project-clippy

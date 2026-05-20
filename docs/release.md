@@ -57,6 +57,22 @@ The default release repo root is `/home/ubuntu/dougx`, unless overridden by
 - Monitoring evidence: `target/jankurai/ux-qa.json`
 - Abuse-control evidence: `src/admission.rs`, `src/secrets.rs`, `agent/security-policy.toml`
 
+## Release structure
+
+The release structure is intentionally artifact-backed:
+
+- Version source: `VERSION`
+- Changelog source: `CHANGELOG.md`
+- Release process doc: `docs/release.md`
+- Release policy doc: `docs/release-policy.md`
+- Release workflow: `.github/workflows/release.yml`
+- Local release script: `ops/ci/release-lane.sh`
+- Release-ready receipts: `.jeryu/release-ready/receipts/*.json`
+- Published release evidence: `ops/releases/<version>/`
+
+Do not ship from an ad hoc checklist. The release gate requires the receipt
+directory before a non-dry-run release can pass.
+
 ## Release process
 
 The release process is pipeline-driven via GitHub Actions. The single source
