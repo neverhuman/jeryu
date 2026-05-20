@@ -1,0 +1,405 @@
+## The canonical rule
+
+**Only the platform ships software. Humans and agents only propose changes.**
+
+That means: **PR → merge queue → main → full CI → signed artifact → staged rollout → automatic rollback**. No side paths. No “just this once.” No local machine builds for production. No direct deploys from branches.
+
+## The nonnegotiables
+
+1. **No secrets in git, ever.**
+   Enable GitHub secret scanning with push protection at the org/repo level, add local `gitleaks`/secret scanning hooks, and run secret scanning in CI. GitHub push protection is specifically designed to block detected credentials before they reach the repository. ([GitHub Docs][1])
+
+2. **No direct push to `main`.**
+   `main` is protected by a ruleset: no force pushes, no deletions, no bypass, PR required, status checks required, linear history required, merge queue required. GitHub branch protection supports these controls directly. ([GitHub Docs][2])
+
+3. **All merges go through the merge queue.**
+   The merge queue must run required checks on the actual merge candidate, not only on the PR branch. GitHub Actions workflows used by required checks must include the `merge_group` trigger or required checks will not run correctly for queued merges. ([GitHub Docs][3])
+
+4. **One PR becomes one main commit.**
+   Use **squash merge only**. This gives you one auditable unit: one PR, one commit, one build, one artifact, one deploy, one rollback target.
+
+5. **Approvals are not the main safety mechanism. CI is.**
+   Default: **0 human approvals** when required CI, policy checks, and agent review pass.
+   Exception: **1 CODEOWNER approval** for high-risk paths: `.github/**`, CI/CD, infra, auth, secrets config, permissions, deployment code, database migrations, dependency lockfiles. CODEOWNERS can be required for path-specific review. ([GitHub Docs][4])
+
+6. **`main` must always be releasable.**
+   Every commit on `main` runs full CI. If full CI fails, merging stops. Fix-forward or revert immediately.
+
+7. **Build once, promote the same artifact.**
+   Production is never rebuilt from source. The artifact built from the `main` SHA is the artifact tested in dev, canary, limited prod, and full prod.
+
+8. **Every artifact is signed, attested, versioned, and immutable.**
+   Artifact identity is: `repo + main SHA + build run ID + digest`. Generate SBOM, signature, and provenance/attestation. GitHub artifact attestations establish where and how software was built, and SLSA’s build model centers on consistent builds and distributed provenance. ([GitHub Docs][5])
+
+9. **Deployment credentials are short-lived.**
+   Use OIDC from CI/CD to cloud/runtime providers. Do not store long-lived cloud keys in GitHub secrets when OIDC is available; GitHub documents OIDC as a way for workflows to exchange for short-lived provider tokens. ([GitHub Docs][6])
+
+10. **Rollbacks are artifact rollbacks, not emergency edits.**
+    Roll back by redeploying the previous signed artifact. Never patch prod manually.
+
+---
+
+## The mandatory GitHub setup
+
+### Branch/ruleset: `main`
+
+Set this once at the org level and inherit everywhere.
+
+```text
+Target:
+  refs/heads/main
+
+Rules:
+  Require pull request before merging: yes
+  Required approvals: 0
+  Require CODEOWNER review for protected paths: yes
+  Dismiss stale approvals: yes
+  Require status checks: yes
+  Require status checks from specific GitHub Apps only: yes
+  Require branch to be up to date / merge queue validation: yes
+  Require merge queue: yes
+  Require linear history: yes
+  Require signed commits: yes, where practical
+  Block force pushes: yes
+  Block deletions: yes
+  Do not allow bypass: yes
+  Restrict who can push: platform/bot only
+```
+
+Required checks should have unique names, because GitHub warns that duplicate job names can create ambiguous required-check behavior. ([GitHub Docs][2])
+
+### Merge strategy
+
+```text
+Allowed:
+  Squash merge
+
+Forbidden:
+  Merge commits
+  Rebase merge
+  Direct pushes
+  Force pushes
+```
+
+### Merge queue
+
+```text
+Merge queue: enabled
+Only merge non-failing PRs: enabled
+Max PRs per merge group: 1
+CI trigger: pull_request + merge_group + push to main
+```
+
+The `max PRs per merge group = 1` rule is slower than batching, but it is the cleanest rule for agent-heavy development: every production artifact maps to exactly one PR.
+
+---
+
+## The mandatory repo files
+
+```text
+.github/
+  CODEOWNERS
+  pull_request_template.md
+  workflows/
+    pr.yml
+    merge_group.yml
+    main.yml
+    release.yml
+    deploy.yml
+
+.ci/
+  check
+  test
+  build
+  release
+  deploy
+  rollback
+
+.pre-commit-config.yaml
+.gitleaks.toml
+```
+
+The invariant: **CI calls repo scripts, not scattered one-off commands.**
+
+Example:
+
+```yaml
+# .github/workflows/pr.yml
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<FULL_COMMIT_SHA>
+      - run: ./.ci/check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<FULL_COMMIT_SHA>
+      - run: ./.ci/test
+```
+
+Pin third-party GitHub Actions to full-length SHAs. GitHub’s security guidance says full-length commit SHA pinning is the only way to use an action as an immutable release. ([GitHub Docs][7])
+
+---
+
+## The mandatory hooks
+
+Local hooks are for speed. **Server-side rules are for enforcement.** Local hooks can be bypassed, so never trust them as the final control.
+
+### `pre-commit`
+
+Runs fast checks on staged files only.
+
+```text
+- secret scan staged files
+- block private keys, .env, tokens, certs, kubeconfigs
+- block large accidental files
+- block forbidden extensions
+- format check
+- lint check
+- generated-code consistency check
+```
+
+Use `pre-commit` to standardize this because it exists to run simple checks before code review and avoid wasting reviewer time on trivial issues. ([pre-commit][8])
+
+### `commit-msg`
+
+```text
+- require ticket/reference ID
+- require conventional commit shape
+- block vague messages: "fix", "stuff", "updates"
+```
+
+### `pre-push`
+
+```text
+- secret scan pushed commit range
+- run fast unit/smoke tests
+- verify branch is not main
+```
+
+### Server-side / platform enforcement
+
+```text
+- GitHub push protection
+- branch/ruleset protection
+- required status checks
+- CODEOWNER path gates
+- dependency review
+- workflow/action SHA pinning policy
+- protected environments
+```
+
+GitHub push rulesets can also block pushes by file path, extension, path length, and file size across a repository/fork network. ([GitHub Docs][9])
+
+---
+
+## The required CI checks
+
+Every PR must pass these before it can enter the queue:
+
+```text
+policy
+  PR title/body valid
+  linked issue/ticket exists
+  forbidden files not changed
+  risky paths trigger CODEOWNER approval
+  GitHub Actions are SHA-pinned
+  workflow permissions are least-privilege
+
+secrets
+  gitleaks / secret scanner
+  no private keys
+  no .env
+  no credentials in tests, fixtures, docs, logs
+
+format-lint
+  deterministic formatter
+  lint warnings fail
+
+unit
+  fast tests
+
+integration
+  real service/API tests where needed
+
+dependency-review
+  fail vulnerable or disallowed new dependencies
+
+agent-review
+  automated review for obvious bugs, unsafe patterns, missing tests
+
+build
+  prove the artifact can be built
+```
+
+Dependency review should be a required check because it helps catch insecure dependency changes during PR review and can fail a pull request when vulnerable packages are introduced. ([GitHub Docs][10])
+
+---
+
+## The required `main` pipeline
+
+When the merge queue lands a squash commit on `main`:
+
+```text
+1. checkout main SHA
+2. run full CI
+3. build artifact
+4. generate SBOM
+5. sign artifact
+6. generate provenance / attestation
+7. publish immutable artifact by digest
+8. deploy to dev
+9. run dev smoke/integration tests
+10. deploy limited prod/canary
+11. watch health gates
+12. full prod rollout
+13. automatic rollback on failed gates
+```
+
+GitHub environments can enforce deployment protection rules, required reviewers, wait timers, branch/tag restrictions, and custom protection rules using external systems such as observability or change-management tools. ([GitHub Docs][11])
+
+---
+
+## The release ladder
+
+Use exactly this ladder:
+
+```text
+local
+  developer/agent runs the same .ci/check and .ci/test scripts
+
+PR
+  fast CI, policy, secret scan, dependency review, build proof
+
+merge queue
+  validates the exact future main state
+
+main
+  full CI
+
+artifact
+  build once, sign, attest, publish immutable digest
+
+dev
+  automatic deploy from signed artifact
+
+prod-limited
+  canary/limited release from the same artifact
+
+prod-full
+  automatic promotion only if health gates pass
+
+rollback
+  redeploy previous signed artifact
+```
+
+No environment gets its own custom build. Environments receive config, not different code.
+
+---
+
+## The agent-era rules
+
+Agents are allowed to create PRs. Agents are **not** allowed to own the release process.
+
+```text
+Agents may:
+  create branches
+  open PRs
+  write code
+  write tests
+  update docs
+  respond to review
+  run local checks
+
+Agents may not:
+  push to main
+  bypass CI
+  approve their own high-risk changes
+  change branch protection
+  change deployment rules
+  change secrets config
+  deploy directly
+  mutate production
+  create long-lived credentials
+```
+
+Agent tokens should be GitHub App tokens or equivalent scoped automation identities, not shared user PATs. Workflow tokens should default to read-only and be elevated only per job; GitHub’s Actions guidance recommends least privilege and default read access for `GITHUB_TOKEN`. ([GitHub Docs][7])
+
+---
+
+## The protected paths
+
+These paths always require one CODEOWNER approval:
+
+```text
+.github/**
+.ci/**
+infra/**
+deploy/**
+scripts/release/**
+scripts/deploy/**
+Dockerfile
+docker-compose*.yml
+k8s/**
+helm/**
+terraform/**
+pulumi/**
+migrations/**
+**/Cargo.lock
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock
+**/go.sum
+**/poetry.lock
+**/requirements*.txt
+```
+
+The CODEOWNERS file itself must be owned by the repo/platform owner, otherwise agents can change who approves changes.
+
+---
+
+## The forbidden list
+
+```text
+Forbidden:
+  secrets in git
+  direct push to main
+  direct deploy from laptop
+  deploy from PR branch
+  prod rebuilds
+  unsigned artifacts
+  mutable release tags
+  unpinned third-party GitHub Actions
+  broad workflow permissions
+  long-lived cloud credentials
+  manual prod patching
+  flaky tests ignored as "just flaky"
+  hidden release steps
+  bypass accounts
+```
+
+## The shortest possible doctrine
+
+**Propose by PR. Validate by CI. Merge by queue. Build from main. Sign the artifact. Promote the same artifact. Watch the rollout. Roll back by digest.**
+
+Everything else is noise.
+
+[1]: https://docs.github.com/en/code-security/concepts/secret-security/about-push-protection "About push protection - GitHub Docs"
+[2]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches "About protected branches - GitHub Docs"
+[3]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[4]: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners "About code owners - GitHub Docs"
+[5]: https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds "Using artifact attestations to establish provenance for builds - GitHub Docs"
+[6]: https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect "OpenID Connect - GitHub Docs"
+[7]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+[8]: https://pre-commit.com/ "pre-commit"
+[9]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets "About rulesets - GitHub Docs"
+[10]: https://docs.github.com/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review "About dependency review - GitHub Docs"
+[11]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments "Deployments and environments - GitHub Docs"

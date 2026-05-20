@@ -1,0 +1,360 @@
+This is my canonical “no more options” standard:
+
+**Main is read-only. CI is the maintainer. Artifacts are deployed, not branches. Production is promotion of a signed artifact, not a rebuild.**
+
+## The only allowed path
+
+```text
+work/<ticket>-<slug>
+  -> PR
+  -> ship/ready check passes
+  -> merge queue tests the actual merge group
+  -> main
+  -> full main CI
+  -> build exactly once
+  -> sign + attest artifact
+  -> deploy dev
+  -> deploy limited prod / canary
+  -> deploy full prod
+  -> rollback by redeploying previous signed artifact
+```
+
+No branch deploys. No laptop deploys. No rebuilding for prod. No “temporary” bypasses.
+
+## The nonnegotiables
+
+1. **No secrets in git, ever.**
+   Local hooks should catch mistakes, but server-side push protection must block secrets before they reach the repository. GitHub push protection is designed to block detected secrets before they land, across command-line pushes, UI commits, file uploads, API interactions, and some MCP interactions. ([GitHub Docs][1])
+
+2. **Local hooks are convenience, not enforcement.**
+   Git `pre-commit` and `commit-msg` hooks can be bypassed with `--no-verify`, so they reduce noise but cannot be the security boundary. The real boundary is branch rules, push protection, CI, and deploy policy. ([Git][2])
+
+3. **No direct push to `main`.**
+   `main` is protected. Require PRs, required checks, linear history, merge queue, no force-push, no delete, no admin bypass, and restricted push permissions. GitHub branch protection supports these controls directly. ([GitHub Docs][3])
+
+4. **Merge queue is mandatory.**
+   In an agent-heavy world, “each PR is green” is not enough. The queue must test the PR as it will actually merge with the latest `main` and queued changes. GitHub’s merge queue is explicitly meant to keep busy branches from being broken by incompatible changes, and CI must run on `merge_group`, not only `pull_request`. ([GitHub Docs][4])
+
+5. **There is exactly one required merge check: `ship/ready`.**
+   Do not make humans manage 20 required checks. `ship/ready` is the aggregator. It fails unless all required subchecks pass: tests, lint, typecheck, build, secret scan, dependency policy, security scan, PR policy, agent review, and risk classification.
+
+6. **Approvals are 0 or 1. Never 2+.**
+   Default: zero human approvals if `ship/ready` passes and an independent agent review passes.
+   Exactly one code-owner approval is required for danger zones: auth, permissions, secrets, CI/CD, deployment code, infra, migrations, cryptography, new dependencies, release tooling, or policy changes.
+
+7. **Agents cannot approve themselves.**
+   If an agent opens the PR, review must come from a different agent, policy bot, or human owner. The author cannot be the approver.
+
+8. **Main runs full CI.**
+   PR CI proves the change is mergeable. Main CI proves the repository is still releasable. If main fails, no artifact is produced and the merge queue is stopped until fixed.
+
+9. **Build once, promote many.**
+   One `main` commit SHA produces one immutable artifact digest. That exact digest moves through dev, staging, limited prod, and full prod. Rebuilding for prod is forbidden.
+
+10. **Artifacts must be signed and attested.**
+    Use keyless signing or KMS signing. GitHub artifact attestations can create signed build provenance for binaries and container images, and Sigstore keyless signing binds an artifact signature to an OIDC identity with short-lived certificates and transparency logging. ([GitHub Docs][5])
+
+11. **No long-lived deploy credentials.**
+    CI/CD should use OIDC to get short-lived cloud credentials rather than storing long-lived cloud secrets. GitHub documents OIDC specifically for authenticating workflows to cloud providers without long-lived GitHub secrets. ([GitHub Docs][6])
+
+12. **Deployment is progressive and reversible.**
+    Dev deploy is automatic. Prod starts limited/canary. Full prod only happens after health checks pass. Rollback means redeploying the previous signed artifact digest, not pushing a hotfix to `main`.
+
+13. **CI tokens are least-privilege.**
+    Default `GITHUB_TOKEN` permissions should be read-only, then elevated per job only when needed. GitHub also recommends pinning third-party Actions to full-length commit SHAs because that is the immutable form. ([GitHub Docs][7])
+
+14. **Release tags are immutable.**
+    Tags matching `v*` are created only by the release bot after artifact signing. No human-created release tags. No moving tags. No `latest` for deployment decisions.
+
+15. **Environments are gates, not branches.**
+    There is no `dev` branch, `staging` branch, or `prod` branch. There is `main`, signed artifacts, and environment-specific config. GitHub environments can provide deployment rules, secrets, reviewers, and wait timers depending on plan/repo type. ([GitHub Docs][8])
+
+## Canonical repo settings
+
+Use GitHub Rulesets or equivalent, preferably org-level. Rulesets can control branch/tag behavior and block pushes by file paths, extensions, path length, and file size. ([GitHub Docs][9])
+
+For `main`:
+
+```text
+Protected branch: main
+Allowed direct pushes: none
+Allowed force pushes: none
+Allowed deletes: none
+Bypass: none, except break-glass security admin
+Require PR: yes
+Require merge queue: yes
+Require linear history: yes
+Require signed commits: yes
+Required status check: ship/ready
+Require branches up to date: handled by merge queue
+Allowed merge method: squash only
+Auto-delete branch after merge: yes
+```
+
+For tags:
+
+```text
+Protected tags: v*
+Creation allowed: release bot only
+Updates/deletes: forbidden
+```
+
+For Actions:
+
+```text
+Default token permissions: contents:read
+Write permissions: job-specific only
+Third-party actions: pinned to full commit SHA
+Secrets in PR workflows: forbidden
+Deploy workflows: main/tags only
+Cloud auth: OIDC only
+```
+
+## Canonical local git setup
+
+Local setup is only for fast feedback. The server must still block bad changes.
+
+```bash
+git config pull.ff only
+git config core.hooksPath .githooks
+```
+
+Required hooks:
+
+```text
+pre-commit:
+  - scan staged diff for secrets
+  - reject private key files, .env files, kubeconfigs, service account JSON
+  - reject large accidental files
+  - run formatter/linter fast path
+  - reject whitespace/conflict markers
+
+commit-msg:
+  - require ticket ID
+  - reject "skip ci" / "no verify" language
+  - require machine-readable author metadata for agent commits
+
+pre-push:
+  - block pushes to main
+  - run fast tests
+  - run secret scan over pushed commits
+```
+
+Minimal `.pre-commit-config.yaml` shape:
+
+```yaml
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: <pinned-release>
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: <pinned-release>
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+```
+
+Gitleaks supports use as a pre-commit hook, but it is still only the local layer; repository push protection and CI scanning remain mandatory. ([GitHub][10])
+
+## Canonical CI shape
+
+One workflow owns merge readiness:
+
+```yaml
+name: ship-ready
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ready:
+    name: ship/ready
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<full-commit-sha>
+
+      - name: Verify
+        run: ./ci/verify.sh
+```
+
+`./ci/verify.sh` is the contract:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+./ci/check-no-secrets.sh
+./ci/check-policy.sh
+./ci/check-format.sh
+./ci/check-lint.sh
+./ci/check-types.sh
+./ci/check-tests.sh
+./ci/check-build.sh
+./ci/check-agent-review.sh
+./ci/check-risk-approval.sh
+```
+
+Then main-only release:
+
+```yaml
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  packages: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<full-commit-sha>
+      - run: ./ci/verify.sh
+
+  build-sign-attest:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<full-commit-sha>
+      - run: ./ci/build-artifact.sh
+      - run: ./ci/sign-artifact.sh
+      - run: ./ci/attest-artifact.sh
+
+  deploy-dev:
+    needs: build-sign-attest
+    environment: dev
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./deploy/promote.sh dev "$ARTIFACT_DIGEST"
+
+  deploy-prod-limited:
+    needs: deploy-dev
+    environment: prod-limited
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./deploy/promote.sh prod-limited "$ARTIFACT_DIGEST"
+
+  deploy-prod-full:
+    needs: deploy-prod-limited
+    environment: prod-full
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./deploy/promote.sh prod-full "$ARTIFACT_DIGEST"
+```
+
+## Agent-era PR rules
+
+Every agent PR must obey these hard limits:
+
+```text
+Must reference one issue/ticket.
+Must include tests or explain why no test is possible.
+Must include risk classification.
+Must include rollback impact.
+Must not touch danger-zone paths without one approval.
+Must not add dependencies without one approval.
+Must not modify CI/CD policy without one approval.
+Must stay small: one logical change.
+Must pass ship/ready before entering merge queue.
+```
+
+For noisy agent traffic, the merge queue is the throttle. Humans do not sort chaos manually. Failed PRs leave the queue. Flaky tests are treated as failed tests. The bot may retry once; after that the PR is marked broken.
+
+## Danger-zone paths
+
+These require exactly one owner approval:
+
+```text
+.github/**
+ci/**
+deploy/**
+infra/**
+terraform/**
+k8s/**
+helm/**
+migrations/**
+auth/**
+security/**
+secrets/**
+permissions/**
+package.json / package-lock.json / pnpm-lock.yaml / yarn.lock
+Cargo.toml / Cargo.lock
+go.mod / go.sum
+requirements*.txt / pyproject.toml / poetry.lock
+Dockerfile
+```
+
+## The release rule
+
+A release is valid only if all are true:
+
+```text
+Artifact was built from main.
+Main full CI passed.
+Artifact digest is immutable.
+Artifact is signed.
+Artifact has provenance attestation.
+SBOM exists.
+Deployment verifies signature before running.
+Canary health checks pass.
+Rollback target is known before deploy.
+```
+
+## The rollback rule
+
+Rollback does **not** mean “push a fix.”
+
+Rollback means:
+
+```text
+redeploy previous known-good signed artifact digest
+```
+
+Then open a normal PR to fix forward.
+
+## The shortest possible version
+
+```text
+PR only.
+Merge queue only.
+One required check: ship/ready.
+No secrets ever.
+No main pushes.
+No bypass.
+Main must be green.
+Build once from main.
+Sign and attest artifacts.
+Promote the same artifact through environments.
+Canary before full prod.
+Rollback by previous digest.
+```
+
+That is the whole system. Everything else is implementation detail.
+
+[1]: https://docs.github.com/en/code-security/concepts/secret-security/about-push-protection "About push protection - GitHub Docs"
+[2]: https://git-scm.com/docs/githooks "Git - githooks Documentation"
+[3]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches "About protected branches - GitHub Docs"
+[4]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[5]: https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds "Using artifact attestations to establish provenance for builds - GitHub Docs"
+[6]: https://docs.github.com/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-cloud-providers "Configuring OpenID Connect in cloud providers - GitHub Docs"
+[7]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+[8]: https://docs.github.com/actions/deployment/targeting-different-environments/using-environments-for-deployment "Managing environments for deployment - GitHub Docs"
+[9]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets "About rulesets - GitHub Docs"
+[10]: https://github.com/gitleaks/gitleaks "GitHub - gitleaks/gitleaks: Find secrets with Gitleaks  · GitHub"

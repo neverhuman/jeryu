@@ -1,0 +1,881 @@
+Absolutely — after studying the repo, I would implement this as a **project-scoped control plane** inside the existing JeRyu server, with a **weighted roulette runner allocator** and a **project strip TUI mode**. The important point is that this should not be treated as a thin UI feature. JeRyu currently has the right ingredients — GitLab-backed runner pools, persistent state, SmartCache, a Ratatui TUI, local wrappers, and Docker runner managers — but those ingredients are mostly wired around a single global local control plane. The multi-project feature needs first-class project identity everywhere: database rows, runner managers, cache roots, log lookups, release state, TUI snapshots, and cleanup paths. JeRyu’s README describes it as a single-binary CI/CD control plane with GitLab runners, SmartCache, VTI, and a TUI for pools, pipelines, jobs, traces, cache, evidence, secrets, GitOps, and LLM policy surfaces.
+
+## Recommended product shape
+
+The user-facing model should be:
+
+```bash
+jeryu project add ~/work/api \
+  --name api \
+  --priority 300 \
+  --gitlab-project auto \
+  --max-runners 6
+
+jeryu project add ~/work/website \
+  --name web \
+  --priority 100 \
+  --gitlab-project auto \
+  --max-runners 3
+
+jeryu tui
+```
+
+Then the TUI shows a **thin project strip at the very top**:
+
+```text
+[api ● run:2 pend:5 prio:300] [web ● run:1 pend:1 prio:100] [core idle prio:200] [docs idle prio:50]
+```
+
+The strip is sorted **left to right by most recent run**, newest first. The selected project is highlighted. When the operator focuses the strip and presses **Enter**, arrow keys move across projects. As the selected project changes, the currently open pane updates immediately. For example, if the user is on `0:Workflow`, moving from `api` to `web` keeps the user on `0:Workflow`, but changes the workflow board, jobs, cache, evidence, release, and logs to the selected project.
+
+Project config should be editable from both disk and the TUI:
+
+```toml
+# <repo>/.jeryu/project.toml
+[project]
+name = "api"
+enabled = true
+priority = 300
+default_ref = "main"
+gitlab_project_id = 12
+
+[scheduling]
+min_runners = 0
+max_runners = 6
+runner_classes = ["build", "test", "agent"]
+
+[isolation]
+cache = "project"
+docker = "project-socket"
+network = "project"
+```
+
+The global file, `~/.jeryu/settings.json`, should only hold defaults. The actual project identity and priority belong either in the local repo’s `.jeryu/project.toml` or in a project registry persisted by JeRyu.
+
+## What needs to change in today’s backend
+
+JeRyu already has persistent state and runner concepts, but today those concepts are not project-scoped enough. The current state model has global `Pool` rows keyed by `name`, global `Manager` rows that reference only `pool_name`, and job/pipeline rows that carry `project_id` but not a stable local project identity.  The current filesystem layout is also global under `~/.jeryu`, with runner directories, cache roots, manager cache directories, local Cargo caches, and pool caches all derived from that one root.
+
+That means the central backend change is to introduce a **JeRyu project registry** and make all runner/caching/state queries project-aware.
+
+### New database tables
+
+Add a `projects` table:
+
+```sql
+CREATE TABLE IF NOT EXISTS projects (
+    project_uid          TEXT PRIMARY KEY,
+    name                 TEXT NOT NULL,
+    local_root           TEXT NOT NULL UNIQUE,
+    repo_fingerprint     TEXT NOT NULL,
+    gitlab_project_id    INTEGER,
+    default_ref          TEXT NOT NULL DEFAULT 'main',
+    enabled              INTEGER NOT NULL DEFAULT 1,
+    priority             INTEGER NOT NULL DEFAULT 100,
+    min_runners          INTEGER NOT NULL DEFAULT 0,
+    max_runners          INTEGER NOT NULL DEFAULT 4,
+    isolation_mode       TEXT NOT NULL DEFAULT 'project',
+    created_at           TEXT NOT NULL,
+    updated_at           TEXT NOT NULL,
+    last_run_at          TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_recent
+    ON projects(last_run_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_projects_gitlab
+    ON projects(gitlab_project_id);
+```
+
+Add project-scoped pool config:
+
+```sql
+CREATE TABLE IF NOT EXISTS project_pools (
+    project_uid          TEXT NOT NULL REFERENCES projects(project_uid),
+    pool_name            TEXT NOT NULL,
+    gitlab_runner_id     INTEGER,
+    auth_token           TEXT NOT NULL,
+    tags                 TEXT NOT NULL DEFAULT '',
+    executor             TEXT NOT NULL DEFAULT 'docker',
+    min_warm             INTEGER NOT NULL DEFAULT 0,
+    max_managers         INTEGER NOT NULL DEFAULT 4,
+    concurrent           INTEGER NOT NULL DEFAULT 4,
+    request_concurrency  INTEGER NOT NULL DEFAULT 2,
+    paused               INTEGER NOT NULL DEFAULT 0,
+    trust_tier           TEXT NOT NULL DEFAULT 'trusted',
+    PRIMARY KEY(project_uid, pool_name)
+);
+```
+
+Change managers from global pool ownership to project ownership:
+
+```sql
+ALTER TABLE managers ADD COLUMN project_uid TEXT;
+CREATE INDEX IF NOT EXISTS idx_managers_project_pool
+    ON managers(project_uid, pool_name, state);
+```
+
+Long-term, I would replace the existing `managers.pool_name REFERENCES pools(name)` relationship with `project_pools(project_uid, pool_name)`. For a compatibility migration, keep `pools` as a global template table and make `project_pools` the real scheduling surface.
+
+Add `project_uid` to event-bearing tables:
+
+```sql
+ALTER TABLE job_events ADD COLUMN project_uid TEXT;
+ALTER TABLE tracked_pipelines ADD COLUMN project_uid TEXT;
+ALTER TABLE ci_job_runs ADD COLUMN project_uid TEXT;
+ALTER TABLE evidence_capsules ADD COLUMN project_uid TEXT;
+ALTER TABLE retry_decisions ADD COLUMN project_uid TEXT;
+ALTER TABLE test_plans ADD COLUMN project_uid TEXT;
+ALTER TABLE test_executions ADD COLUMN project_uid TEXT;
+ALTER TABLE git_command_events ADD COLUMN project_uid TEXT;
+ALTER TABLE cache_requests ADD COLUMN project_uid TEXT;
+ALTER TABLE cache_objects ADD COLUMN project_uid TEXT;
+ALTER TABLE action_cache ADD COLUMN project_uid TEXT;
+```
+
+Then add indexes like:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_job_events_project_recent
+    ON job_events(project_uid, received_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_tracked_pipelines_project_recent
+    ON tracked_pipelines(project_uid, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_evidence_project_recent
+    ON evidence_capsules(project_uid, created_at DESC);
+```
+
+This matters because some GitLab project IDs can change across re-imports, but the local JeRyu identity should not. `project_uid` should be a stable UUID generated at `jeryu project add`.
+
+## Runner scheduling design
+
+The scheduling system should not try to directly assign GitLab jobs one by one unless JeRyu moves fully to a custom executor queue. Today, JeRyu manages GitLab runner pools and starts runner-manager containers; the pool code creates manager config directories and cache directories, writes GitLab runner config, starts Docker runner manager containers, and persists managers.  That is already a good control seam.
+
+The cleanest model is:
+
+**GitLab still schedules jobs to runners, but JeRyu controls how many project-specific runners exist for each project.**
+
+That means priority affects runner availability. A high-priority project gets more active runner managers, and therefore more job throughput.
+
+### Weighted roulette allocator
+
+Use a deterministic weighted lottery or weighted deficit round robin. I would use **Weighted Deficit Round Robin** internally because it is easier to test and avoids random-looking starvation, while still matching the “roulette” mental model in the UI.
+
+Each enabled project has:
+
+```rust
+struct ProjectScheduleState {
+    project_uid: String,
+    priority: u32,          // default 100
+    min_runners: u32,
+    max_runners: u32,
+    pending_jobs: u32,
+    running_jobs: u32,
+    desired_runners: u32,
+    active_runners: u32,
+    deficit: i64,
+    last_run_at: Option<DateTime<Utc>>,
+}
+```
+
+Allocator:
+
+```rust
+fn allocate_slots(projects: &mut [ProjectScheduleState], total_slots: u32) {
+    // 1. Give min_runners to enabled projects with demand.
+    // 2. Put remaining projects with pending demand into weighted queue.
+    // 3. Each round: deficit += priority.
+    // 4. Allocate one runner to project with highest positive deficit.
+    // 5. deficit -= COST_PER_RUNNER.
+    // 6. Stop at max_runners, no demand, or no global capacity.
+}
+```
+
+Equivalent lottery version:
+
+```rust
+winner = random_weighted(projects, |p| {
+    p.priority
+      * demand_boost(p.pending_jobs)
+      * starvation_boost(p.last_allocated_at)
+});
+```
+
+But for CI infrastructure, I prefer WDRR because acceptance tests can assert exact expected allocations. In the TUI, it can still be described as `roulette priority`.
+
+Example:
+
+| Project | Priority | Pending jobs | Max runners | Expected share |
+| ------- | -------: | -----------: | ----------: | -------------: |
+| api     |      300 |           20 |           6 |        ~3x web |
+| web     |      100 |           20 |           6 |        ~1x api |
+| docs    |       50 |           20 |           2 |     capped low |
+
+With 8 available runners, a likely allocation is:
+
+```text
+api: 5
+web: 2
+docs: 1
+```
+
+Not exactly every tick, but over time it should converge to the weighted share while respecting caps and active demand.
+
+### Scheduler loop
+
+Add `src/scheduler.rs`:
+
+```rust
+pub struct ProjectScheduler {
+    store: Db,
+    docker: DockerCtl,
+    gitlab: GitlabClient,
+    total_runner_budget: usize,
+}
+
+impl ProjectScheduler {
+    pub async fn reconcile_once(&self) -> Result<()> {
+        let projects = self.store.list_enabled_projects().await?;
+        let demand = self.collect_project_demand(&projects).await?;
+        let desired = weighted_project_allocation(demand, self.total_runner_budget);
+        self.apply_allocations(desired).await?;
+        Ok(())
+    }
+}
+```
+
+The apply phase calls a new project-scoped pool function:
+
+```rust
+scale_project_pool_to(
+    store,
+    docker,
+    gitlab,
+    project_uid,
+    pool_name,
+    desired_count,
+).await?;
+```
+
+This should replace or sit next to today’s `scale_pool_to(store, docker, client, pool_name, target)`.
+
+### Project-specific runner registration
+
+Each project should get its own GitLab runner registration/token, even if the logical pool class is the same. Do not reuse a single global `build` runner across projects.
+
+Names:
+
+```text
+jeryu-api-build-<manager-id>
+jeryu-web-build-<manager-id>
+jeryu-core-test-<manager-id>
+```
+
+Tags:
+
+```text
+jeryu,project-api,build
+jeryu,project-web,build
+```
+
+This gives JeRyu two benefits:
+
+1. GitLab cannot accidentally route project A’s job to project B’s runner.
+2. JeRyu can implement scheduling by scaling runner counts per project.
+
+## Isolation design
+
+This is the most important part. I would make project isolation a hard invariant:
+
+> No project may read, write, or delete another project’s worktrees, caches, logs, artifacts, runner config, CAS objects, or secrets by default.
+
+### Project paths
+
+Introduce:
+
+```rust
+pub struct ProjectPaths {
+    pub uid: ProjectUid,
+    pub root: PathBuf,
+    pub repo: PathBuf,
+    pub worktrees: PathBuf,
+    pub runners: PathBuf,
+    pub cache: PathBuf,
+    pub cas: PathBuf,
+    pub artifacts: PathBuf,
+    pub logs: PathBuf,
+    pub tmp: PathBuf,
+    pub secrets_meta: PathBuf,
+}
+```
+
+Layout:
+
+```text
+~/.jeryu/
+  projects/
+    <project_uid>/
+      project.json
+      repo/
+      worktrees/
+      runners/
+        <manager_id>/
+          config/
+          cache/
+      cache/
+        pools/
+          build/
+            cargo-targets/
+            sccache/
+          test/
+            cargo-targets/
+            sccache/
+        local-cargo/
+      cas/
+      artifacts/
+      logs/
+      tmp/
+      secrets/
+```
+
+Then replace global helpers like:
+
+```rust
+config::runners_dir()
+config::manager_cache_dir(manager_id)
+config::pool_cache_root(pool_name)
+config::pool_cargo_targets_root(pool_name)
+config::pool_cargo_sccache_dir(pool_name)
+```
+
+with project-scoped versions:
+
+```rust
+project_paths.runners_dir()
+project_paths.manager_cache_dir(manager_id)
+project_paths.pool_cache_root(pool_name)
+project_paths.pool_cargo_targets_root(pool_name)
+project_paths.pool_cargo_sccache_dir(pool_name)
+```
+
+Today, the current helper layout creates global `~/.jeryu/runners`, `~/.jeryu/cache/managers/<id>`, and `~/.jeryu/cache/pools/<pool>`.  That should become project-scoped.
+
+### Cargo cache isolation
+
+The existing local Cargo layout already hashes the canonical repo path for local cargo target scoping, which is good. The runner pre-build script also uses `CI_PROJECT_PATH_SLUG` inside the cargo target path. However, the runner’s broader pool cache and `sccache` root are still shared at the pool cache level.
+
+For multi-project security, change runner cache roots so the mounted `/pool-cache` is already project-specific:
+
+```text
+host: ~/.jeryu/projects/<uid>/cache/pools/build
+container: /pool-cache
+```
+
+Then inside that:
+
+```text
+/pool-cache/cargo-targets/<project-slug>/<rustc>/<host>/target
+/pool-cache/sccache
+```
+
+For untrusted jobs, add:
+
+```bash
+JERYU_CARGO_TARGET_ISOLATE=job
+```
+
+which already has an intended job-isolation mode in the runner script. That should be enforced for untrusted tiers rather than left optional.
+
+### Docker isolation
+
+Today, `start_runner_manager` mounts the configured Docker socket, defaulting to `/var/run/docker.sock`, and labels containers with `jeryu.managed=true` and `jeryu.manager_id`.  This is the main security concern. A runner manager with the host Docker socket is effectively powerful on the host.
+
+I would implement Docker isolation in two stages:
+
+**Stage 1: file/cache isolation immediately**
+
+Add labels:
+
+```text
+jeryu.managed=true
+jeryu.project_uid=<uid>
+jeryu.project_name=<name>
+jeryu.pool=<pool>
+jeryu.manager_id=<manager_id>
+```
+
+Filter cleanup/listing by `project_uid`. Never remove containers or caches without matching the project label.
+
+**Stage 2: real container authority isolation**
+
+Use the existing `docker_socket: Option<&str>` parameter to mount a project-specific socket instead of the host socket:
+
+```text
+~/.jeryu/projects/<uid>/docker/docker.sock
+```
+
+That socket should be one of:
+
+1. a rootless Docker daemon per project,
+2. a Docker API proxy that only permits containers/volumes/networks with `jeryu.project_uid=<uid>`,
+3. or a container runtime sandbox such as a per-project BuildKit worker.
+
+For the spec, I would set the default to:
+
+```toml
+[isolation]
+docker = "host-socket-with-label-guard"
+```
+
+but mark the secure recommended mode as:
+
+```toml
+[isolation]
+docker = "project-socket"
+```
+
+This is an honest distinction: file/cache isolation can be achieved in the current architecture, but strong security isolation requires not giving every runner the raw host Docker socket.
+
+### Network isolation
+
+Create a per-project Docker network:
+
+```text
+jeryu-<project_uid>
+```
+
+Runner job containers should join only that network, plus whatever egress proxy JeRyu allows. The global GitLab service remains reachable through a controlled alias.
+
+### Secrets isolation
+
+Project tokens, runner tokens, Git credentials, LLM credentials, and release secrets should be scoped by `project_uid`.
+
+Examples:
+
+```text
+vault path: secret/jeryu/projects/<project_uid>/...
+local metadata: ~/.jeryu/projects/<uid>/secrets/
+```
+
+The TUI Secrets tab should show only the selected project’s secrets unless the operator explicitly enters a global admin view.
+
+### Cache/CAS namespace
+
+Do not use global keys alone:
+
+```text
+cache_objects.key = digest
+```
+
+Use:
+
+```text
+cache_objects.project_uid + key
+```
+
+or make the namespace explicit:
+
+```text
+namespace = "project:<uid>"
+```
+
+Same for action cache:
+
+```text
+action_cache(project_uid, action_key)
+```
+
+If cross-project cache reuse is ever added later, make it opt-in through a trusted promotion flow:
+
+```text
+project cache -> org trusted cache
+```
+
+Never by default.
+
+## Backend API changes
+
+Add project APIs:
+
+```http
+GET    /api/projects
+POST   /api/projects
+GET    /api/projects/{project_uid}
+PATCH  /api/projects/{project_uid}
+DELETE /api/projects/{project_uid}
+
+GET    /api/projects/{project_uid}/runs
+POST   /api/projects/{project_uid}/runs
+GET    /api/projects/{project_uid}/jobs
+GET    /api/projects/{project_uid}/pipelines
+GET    /api/projects/{project_uid}/cache
+GET    /api/projects/{project_uid}/evidence
+GET    /api/projects/{project_uid}/runner-allocation
+PATCH  /api/projects/{project_uid}/priority
+```
+
+Internal state methods:
+
+```rust
+Db::upsert_project(...)
+Db::list_projects_ordered_by_recent_run()
+Db::get_project_by_uid(...)
+Db::get_project_by_gitlab_project_id(...)
+Db::set_project_priority(project_uid, priority)
+Db::touch_project_run(project_uid, timestamp)
+
+Db::recent_job_events_for_project(project_uid, limit)
+Db::list_tracked_pipelines_for_project(project_uid, limit)
+Db::list_ci_job_runs_for_project(project_uid, pipeline_id)
+Db::recent_evidence_for_project(project_uid, limit)
+Db::cache_metrics_for_project(project_uid)
+Db::list_project_pools(project_uid)
+Db::list_project_managers(project_uid, pool_name)
+```
+
+The TUI background sync currently builds a single `TuiStateSnapshot`, loads global pools/jobs/pipelines/cache metrics, and in several places uses `release::DEFAULT_RELEASE_PROJECT_ID`, which is currently `2`.   That should become:
+
+```rust
+hydrate_project_snapshot(project_uid)
+```
+
+with global metrics separated from selected-project metrics.
+
+## TUI design
+
+The current TUI has a single `App`, one `TuiStateSnapshot`, active tabs, selected indices, workflow state, live log state, runner feed state, and background sync channels.  The current layout dedicates three rows to header/tabs, then content, activity/logs, and footer.  The current header/tab renderer builds a top status line and a tab line with `0:Workflow` through `9:Evidence`.
+
+### New TUI state
+
+Add:
+
+```rust
+#[derive(Debug, Clone)]
+pub struct ProjectSummary {
+    pub project_uid: String,
+    pub name: String,
+    pub local_root_short: String,
+    pub priority: u32,
+    pub enabled: bool,
+    pub status: String,
+    pub pending_jobs: usize,
+    pub running_jobs: usize,
+    pub desired_runners: usize,
+    pub active_runners: usize,
+    pub last_run_at: Option<DateTime<Utc>>,
+}
+
+pub struct TuiStateSnapshot {
+    pub projects: Vec<ProjectSummary>,
+    pub selected_project_uid: Option<String>,
+    pub selected_project_snapshot: ProjectScopedSnapshot,
+    pub global_runner_budget: RunnerBudgetSnapshot,
+    ...
+}
+```
+
+Keep `active_tab` independent from project selection.
+
+### Project strip
+
+Add a new renderer:
+
+```rust
+draw_project_strip(f, app, area)
+```
+
+Sort:
+
+```rust
+projects.sort_by(|a, b| {
+    b.last_run_at.cmp(&a.last_run_at)
+        .then_with(|| b.running_jobs.cmp(&a.running_jobs))
+        .then_with(|| b.priority.cmp(&a.priority))
+        .then_with(|| a.name.cmp(&b.name))
+});
+```
+
+Display compact segments:
+
+```text
+[api RUN 2/5 r:4/5 p300] [web WAIT 0/2 r:1/2 p100] [docs idle p50]
+```
+
+Where:
+
+```text
+2/5 = running/pending
+r:4/5 = active/desired runners
+p300 = scheduling priority
+```
+
+### Layout
+
+Change the main vertical layout from:
+
+```rust
+Header+tabs: 3
+Content
+Activity/logs
+Footer
+```
+
+to:
+
+```rust
+Project strip: 1
+Header+tabs: 3
+Content
+Activity/logs
+Footer
+```
+
+Fullscreen logs should still show the project strip so the user can switch projects while watching logs.
+
+### Focus and input
+
+The current focus model has pane IDs for workflow, mission, jobs, pools, cache, evidence, secrets, LLMs, Git, and activity panes, but no project strip.  Add:
+
+```rust
+PaneId::ProjectStrip
+```
+
+Add to `App`:
+
+```rust
+pub selected_project_index: usize,
+pub project_nav_active: bool,
+pub active_project_uid: Option<String>,
+```
+
+Input behavior:
+
+```text
+Tab / Shift+Tab: existing tab navigation stays unchanged.
+Ctrl+P or mouse click top strip: focus project strip.
+Enter on project strip: enter project navigation mode.
+Left/Right while in project navigation: select previous/next project.
+Enter again: exit project navigation mode.
+Esc: exit project navigation mode.
+```
+
+The user specifically asked for “hint enter on the tab nav and use arrow keys to go through the projects.” I would implement that as:
+
+1. when focus is on the project strip, show hint: `Enter: project nav`;
+2. pressing Enter toggles project-nav mode;
+3. arrow keys switch projects and immediately call:
+
+```rust
+app.set_active_project(project_uid);
+app.request_project_refresh(project_uid);
+```
+
+The current input handler already routes Enter and arrow keys through the navigation layer, so this is a contained change in `navigation/general.rs`. The existing navigation behavior is centered around `Tab`, `BackTab`, Enter, and arrow keys.
+
+### Realtime pane update
+
+When a project is selected:
+
+```rust
+pub fn set_active_project(&mut self, uid: ProjectUid) {
+    self.active_project_uid = Some(uid);
+    self.selected_job_index = 0;
+    self.selected_job_id = None;
+    self.selected_pipeline_index = 0;
+    self.selected_evidence_index = 0;
+    self.log_target = None;
+    self.state.selected_project_snapshot = ProjectScopedSnapshot::loading(uid);
+}
+```
+
+Then the background sync loop hydrates:
+
+```rust
+hydrate_project_snapshot(uid, active_tab)
+```
+
+To make arrow switching feel realtime, update from cached snapshots immediately and then refresh async:
+
+```rust
+if let Some(cached) = app.project_snapshot_cache.get(&uid) {
+    app.state.selected_project_snapshot = cached.clone();
+}
+app.project_refresh_tx.try_send(uid);
+```
+
+## Setup UX
+
+The first-run flow should be:
+
+```bash
+jeryu init
+jeryu bootstrap
+jeryu project add ~/work/api --name api --priority 300
+jeryu project add ~/work/web --name web --priority 100
+jeryu tui
+```
+
+For discovery:
+
+```bash
+jeryu project scan ~/work
+```
+
+Output:
+
+```text
+Found 7 git repositories
+
+[ ] ~/work/api       branch main    remote git@github.com:org/api.git
+[ ] ~/work/web       branch main    remote git@github.com:org/web.git
+[ ] ~/work/docs      branch main    remote git@github.com:org/docs.git
+
+Use arrows/space to select, Enter to import.
+```
+
+For CLI management:
+
+```bash
+jeryu project list
+jeryu project status api
+jeryu project set-priority api 300
+jeryu project pause api
+jeryu project resume api
+jeryu project remove api --keep-cache
+jeryu project gc api
+```
+
+For TUI management:
+
+```text
+Project strip:
+  Enter        project nav
+  ←/→          select project
+  e            edit priority/caps
+  p            pause/resume project
+  g            garbage collect selected project cache
+  d            disable project
+```
+
+Priority editor modal:
+
+```text
+Project: api
+Priority: [300]
+Min runners: [0]
+Max runners: [6]
+Isolation: project
+Save: Enter   Cancel: Esc
+```
+
+## Migration plan
+
+### Phase 1: Project registry and path isolation
+
+Add:
+
+```text
+src/project.rs
+src/project_paths.rs
+src/scheduler.rs
+src/tui/project_strip.rs
+```
+
+Migrate existing state into a default project:
+
+```text
+project_uid = "default"
+name = "default"
+gitlab_project_id = settings.release.default_project_id
+local_root = current release repo root or current dir
+priority = 100
+```
+
+Do not delete old global caches automatically. Move them to:
+
+```text
+~/.jeryu/legacy-cache/
+```
+
+or leave them in place and mark them read-only for manual cleanup.
+
+### Phase 2: Project-scoped pools and managers
+
+Replace:
+
+```rust
+scale_pool_to(store, docker, gitlab, pool_name, target)
+```
+
+with:
+
+```rust
+scale_project_pool_to(store, docker, gitlab, project_uid, pool_name, target)
+```
+
+Add project labels to Docker containers. Make `list_managed_containers` accept `Option<ProjectUid>`.
+
+### Phase 3: Scheduler
+
+Add a scheduler daemon loop to `jeryu serve`:
+
+```rust
+loop {
+    scheduler.reconcile_once().await?;
+    sleep(settings.scheduler.interval).await;
+}
+```
+
+Record every allocation:
+
+```sql
+CREATE TABLE IF NOT EXISTS runner_allocations (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_uid     TEXT NOT NULL,
+    pool_name        TEXT NOT NULL,
+    desired_count    INTEGER NOT NULL,
+    active_count     INTEGER NOT NULL,
+    priority         INTEGER NOT NULL,
+    pending_jobs     INTEGER NOT NULL,
+    reason           TEXT NOT NULL,
+    created_at       TEXT NOT NULL
+);
+```
+
+This gives the TUI a nice “why did this project get runners?” explanation.
+
+### Phase 4: TUI project strip
+
+Add `ProjectSummary`, render strip, keyboard navigation, and project-scoped snapshot hydration.
+
+### Phase 5: Strong isolation hardening
+
+Add project Docker socket mode. Use the existing `docker_socket` argument in `start_runner_manager` to mount a restricted per-project Docker endpoint instead of the host socket.
+
+## Acceptance criteria
+
+The feature is done when these are true:
+
+1. Adding two projects creates two separate project roots under `~/.jeryu/projects/<uid>`.
+2. No runner manager for project A mounts a cache, config directory, worktree, CAS directory, or artifact directory from project B.
+3. Docker containers are labeled with `jeryu.project_uid`, and cleanup only touches matching containers.
+4. The scheduler gives a project with priority `300` about three times the runner access of a project with priority `100`, subject to demand and max caps.
+5. A paused project receives zero new runner allocations.
+6. The TUI project strip sorts projects by `last_run_at DESC`.
+7. Pressing Enter on the project strip and using arrow keys switches selected project without changing the current tab.
+8. Jobs, workflows, cache metrics, evidence, release status, and logs update to the selected project.
+9. Global caches are not used unless explicitly configured as a trusted shared cache.
+10. Migration preserves existing single-project behavior by creating a default project.
+
+## The most important engineering decision
+
+Use **project-scoped runner managers**, not just project filtering in the TUI.
+
+Filtering the UI would make the feature look right while leaving caches and runner state shared. Project-scoped managers solve the real problem: scheduling priority, cache isolation, logs, cleanup, and security all become much easier because every runner container has one owner:
+
+```text
+project_uid + pool_name + manager_id
+```
+
+That is the core invariant I would build around.
