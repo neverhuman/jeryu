@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.8",
-  "cargo_workspace_version": "3.3.8",
+  "version": "3.3.9",
+  "cargo_workspace_version": "3.3.9",
   "release_line": "V3.3",
   "status": "stable",
   "date": "2026-05-20",
   "tag_policy": {
-    "rc": "v3.3.8-rc.N",
-    "stable": "v3.3.8"
+    "rc": "v3.3.9-rc.N",
+    "stable": "v3.3.9"
   },
-  "headline": "Ship JeRyu v3.3.8 with the RedlineDB file-backed test and parity cleanup."
+  "headline": "Ship JeRyu v3.3.9 with PR-gated publish flow and release metadata cleanup."
 }

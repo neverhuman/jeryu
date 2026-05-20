@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   upstream release has no platform binary asset instead of falling back to a
   source build or Docker service.
 
+## [3.3.9] - 2026-05-20
+
+### Changed
+
+- Bumped the workspace release counter to `3.3.9` across `Cargo.toml`,
+  `VERSION`, and `version.json`.
+- Kept PR publication gated behind local parity by routing the pre-push hook
+  and publish helper through `scripts/ci-parity.sh`.
+
 ## [3.3.8] - 2026-05-20
 
 ### Fixed
