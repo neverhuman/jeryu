@@ -63,8 +63,8 @@ fn git(repo: &Path, args: &[&str]) {
 }
 
 fn copy_profile_autonomy_fixture(repo: &Path) {
-    let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".autonomy");
-    let dst = repo.join(".autonomy");
+    let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy");
+    let dst = repo.join(".jeryu/autonomy");
     std::fs::create_dir_all(dst.join("policies")).unwrap();
     std::fs::create_dir_all(dst.join("prompts")).unwrap();
     for name in [
@@ -122,14 +122,7 @@ fn run_profile_validate_with_url(repo: &Path, db_url: &str) -> Output {
     for attempt in 0..5 {
         let out = Command::new(bin_path())
             .current_dir(repo)
-            .args([
-                "profile",
-                "validate",
-                "--profile",
-                "sovereign_plus",
-                "--autonomy-dir",
-                repo.join(".autonomy").to_str().unwrap(),
-            ])
+            .args(["profile", "validate", "--profile", "sovereign_plus"])
             .env("JERYU_DATABASE_URL", db_url)
             .output()
             .expect("profile validate");
@@ -280,7 +273,7 @@ fn judge_subcommand_reads_stdin_receipts() {
             "--receipts",
             "-",
             "--autonomy-dir",
-            &format!("{}/.autonomy", env!("CARGO_MANIFEST_DIR")),
+            &format!("{}/.jeryu/autonomy", env!("CARGO_MANIFEST_DIR")),
             "--repo",
             "org/proj",
             "--target-branch",
@@ -321,7 +314,7 @@ fn init_subcommand_scaffolds_minimal_layout() {
         "stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
-    let root = tmp.path().join(".autonomy");
+    let root = tmp.path().join(".jeryu/autonomy");
     assert!(root.exists());
     assert!(root.join("autonomy.yml").exists());
     for sub in &[
@@ -346,7 +339,7 @@ fn shadow_subcommand_emits_summary() {
             "--repo-root",
             env!("CARGO_MANIFEST_DIR"),
             "--autonomy-dir",
-            &format!("{}/.autonomy", env!("CARGO_MANIFEST_DIR")),
+            &format!("{}/.jeryu/autonomy", env!("CARGO_MANIFEST_DIR")),
             "--max-commits",
             "3",
             "--since-seconds",
@@ -373,7 +366,7 @@ fn shadow_subcommand_emits_json_when_requested() {
             "--repo-root",
             env!("CARGO_MANIFEST_DIR"),
             "--autonomy-dir",
-            &format!("{}/.autonomy", env!("CARGO_MANIFEST_DIR")),
+            &format!("{}/.jeryu/autonomy", env!("CARGO_MANIFEST_DIR")),
             "--max-commits",
             "3",
             "--since-seconds",
@@ -526,7 +519,7 @@ fn profile_validate_rejects_shadow_report_below_threshold() {
 fn init_subcommand_fails_on_existing_without_force() {
     ensure_built();
     let tmp = tempfile::tempdir().unwrap();
-    std::fs::create_dir(tmp.path().join(".autonomy")).unwrap();
+    std::fs::create_dir_all(tmp.path().join(".jeryu/autonomy")).unwrap();
     let out = Command::new(bin_path())
         .args(["init", "--repo-root", tmp.path().to_str().unwrap()])
         .output()

@@ -12,28 +12,12 @@ pub fn embedded_redline_url(path: &Path) -> String {
     format!("redline://{}", path.display())
 }
 
-/// Optional RedlineDB URL override, with legacy service URLs mapped to the embedded file.
+/// Optional RedlineDB URL override.
 pub fn configured_url() -> Option<String> {
     match std::env::var("JERYU_DATABASE_URL").ok() {
-        Some(value) if !value.trim().is_empty() => {
-            let value = value.trim();
-            if is_legacy_redline_service_url(value) {
-                Some(embedded_redline_url(&state_path()))
-            } else {
-                Some(value.to_string())
-            }
-        }
+        Some(value) if !value.trim().is_empty() => Some(value.trim().to_string()),
         _ => None,
     }
-}
-
-fn is_legacy_redline_service_url(value: &str) -> bool {
-    let value = value.to_ascii_lowercase();
-    (value.starts_with("redline://") || value.starts_with("redlineql://"))
-        && (value.contains("@127.0.0.1")
-            || value.contains("@localhost")
-            || value.contains("://127.0.0.1")
-            || value.contains("://localhost"))
 }
 
 #[cfg(test)]
@@ -60,7 +44,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_redline_service_url_uses_embedded_file_url() {
+    fn configured_url_preserves_service_urls_for_fail_closed_backend_validation() {
         let _guard = ENV_LOCK.lock().unwrap();
         let original = std::env::var("JERYU_DATABASE_URL").ok();
         set_env_var(
@@ -69,8 +53,7 @@ mod tests {
         );
 
         let url = configured_url().expect("database url");
-        assert!(url.starts_with("redline:///"));
-        assert!(url.contains("jeryu.db"));
+        assert_eq!(url, "redline://jeryu:secret@127.0.0.1:15432/jeryu");
 
         match original {
             Some(value) => set_env_var("JERYU_DATABASE_URL", value),

@@ -2,7 +2,7 @@
 //!
 //! Synthesizes an Evidence Pack, runs the security reviewer with a mock
 //! provider, fuses the receipt through the Judge against the real
-//! `.autonomy/policies/` bundle, and asserts the verdict shape.
+//! `.jeryu/autonomy/policies/` bundle, and asserts the verdict shape.
 //!
 //! Runs in the normal `cargo test` profile (no live LLM, no network).
 
@@ -65,8 +65,8 @@ fn router_returning(payload: &str) -> LlmRouter {
 }
 
 fn load_real_policies() -> PolicyBundle {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies");
-    PolicyBundle::from_dir(&dir).expect("loads real .autonomy/policies/")
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies");
+    PolicyBundle::from_dir(&dir).expect("loads real .jeryu/autonomy/policies/")
 }
 
 fn synth_pack(risk: RiskTier, signed: bool) -> jeryu::autonomy::EvidencePack {
@@ -104,7 +104,7 @@ fn synth_pack(risk: RiskTier, signed: bool) -> jeryu::autonomy::EvidencePack {
             feature_flag: None,
             data_migration_reversible: Some(true),
         },
-        legacy_receipts: vec![],
+        gate_receipts: vec![],
     });
     if signed {
         // Use the real ed25519 algo so the judge's

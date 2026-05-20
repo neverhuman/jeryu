@@ -1,6 +1,6 @@
-# .autonomy/autonomy.yml — root config for the Evidence Gate / VibeGate Delivery Spine.
+# .jeryu/autonomy/autonomy.yml — root config for the Evidence Gate / VibeGate Delivery Spine.
 # Schema: vibegate.autonomy.v1
-# This file is protected. Edits land via R4 MR per .autonomy/policies/protected-paths.yml.
+# This file is protected. Edits land via R4 MR per .jeryu/autonomy/policies/protected-paths.yml.
 
 schema: vibegate.autonomy.v1
 public_name: "Evidence Gate"
@@ -100,12 +100,12 @@ allow_training_use: false
 # Freeze windows downgrade R0..R2 from auto-merge to human-required.
 freeze:
   enforce: true
-  source:  .autonomy/policies/freeze.yml
+  source:  .jeryu/autonomy/policies/freeze.yml
 
 # Notification webhooks fire on RequireHuman verdicts and KillBellEngaged ledger events.
 # See src/autonomy/escalation.rs for the consumer; tip1 Law 9 (human emergency stop
 # always wins) is the controlling motivation. URLs are resolved through the same
-# 6-tier secret chain used by src/llm/secrets.rs.
+# canonical secret chain used by src/llm/secrets.rs.
 escalation:
   enabled: true
   escalate_after_minutes: 30
@@ -124,12 +124,12 @@ escalation:
 
 # Reference to other files (paths relative to repo root).
 references:
-  risk_policy:      .autonomy/policies/risk.yml
-  approvals_policy: .autonomy/policies/approvals.yml
-  release_policy:   .autonomy/policies/release.yml
-  protected_paths:  .autonomy/policies/protected-paths.yml
-  providers:        .autonomy/providers/llm.yml
-  schemas_dir:      .autonomy/schemas
-  prompts_dir:      .autonomy/prompts
-  agents_dir:       .autonomy/agents
-  keys_dir:         .autonomy/keys
+  risk_policy:      .jeryu/autonomy/policies/risk.yml
+  approvals_policy: .jeryu/autonomy/policies/approvals.yml
+  release_policy:   .jeryu/autonomy/policies/release.yml
+  protected_paths:  .jeryu/autonomy/policies/protected-paths.yml
+  providers:        .jeryu/autonomy/providers/llm.yml
+  schemas_dir:      .jeryu/autonomy/schemas
+  prompts_dir:      .jeryu/autonomy/prompts
+  agents_dir:       .jeryu/autonomy/agents
+  keys_dir:         .jeryu/autonomy/keys

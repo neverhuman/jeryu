@@ -43,7 +43,7 @@ fn dependency_name(dep_name: &str, dep_value: &toml::Value) -> String {
         .to_ascii_lowercase()
 }
 
-fn dependency_enables_sqlite(dep_value: &toml::Value) -> bool {
+fn dependency_features(dep_value: &toml::Value) -> impl Iterator<Item = String> + '_ {
     dep_value
         .as_table()
         .and_then(|table| table.get("features"))
@@ -51,7 +51,7 @@ fn dependency_enables_sqlite(dep_value: &toml::Value) -> bool {
         .into_iter()
         .flatten()
         .filter_map(toml::Value::as_str)
-        .any(|feature| feature.to_ascii_lowercase().contains("sqlite"))
+        .map(str::to_ascii_lowercase)
 }
 
 fn assert_manifest_stays_redline_only(path: &Path) -> Result<()> {
@@ -78,18 +78,27 @@ fn assert_manifest_stays_redline_only(path: &Path) -> Result<()> {
         for (dep_name, dep_value) in table {
             let package = dependency_name(dep_name, dep_value);
             let dep_name = dep_name.to_ascii_lowercase();
-            if dep_name.contains("sqlite") || package.contains("sqlite") {
+            if dep_name.contains("sqlite")
+                || package.contains("sqlite")
+                || dep_name.contains("postgres")
+                || package.contains("postgres")
+            {
                 bail!(
-                    "{} depends on SQLite package `{}`; use RedlineDB or fix its adapter instead",
+                    "{} depends on forbidden state-store package `{}`; use RedlineDB or fix its adapter instead",
                     path.display(),
                     package
                 );
             }
-            if (dep_name == "sqlx" || package == "sqlx") && dependency_enables_sqlite(dep_value) {
-                bail!(
-                    "{} enables an SQLx SQLite feature; use RedlineDB or fix its adapter instead",
-                    path.display()
-                );
+            if dep_name == "sqlx" || package == "sqlx" {
+                for feature in dependency_features(dep_value) {
+                    if feature.contains("sqlite") || feature.contains("postgres") {
+                        bail!(
+                            "{} enables forbidden SQLx feature `{}`; use RedlineDB or fix its adapter instead",
+                            path.display(),
+                            feature
+                        );
+                    }
+                }
             }
         }
     }

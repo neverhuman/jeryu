@@ -1,4 +1,4 @@
-# .autonomy/policies/release.yml — release passport + canary + rollback rules.
+# .jeryu/autonomy/policies/release.yml — release passport + canary + rollback rules.
 schema: vibegate.release.v1
 
 build:
@@ -25,10 +25,9 @@ nightwatch:
   may_pause_pipeline:  true
   may_page_human:      true
 
-# Mapping back to the legacy jeryu/release-ready 7-receipt gate from
-# release.policy.toml::[gate.jeryu_release_ready]. These become the
-# "legacy_receipts" slice inside an Evidence Pack.
-legacy_release_ready_receipts:
+# Required jeryu/release-ready 7-receipt gate from
+# release.policy.toml::[gate.jeryu_release_ready].
+release_ready_receipts:
   - intake
   - vti-plan
   - proof-receipt

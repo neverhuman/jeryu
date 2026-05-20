@@ -91,21 +91,12 @@ impl ProductionReviewerOrchestrator {
         self
     }
 
-    /// Load the markdown prompt for `role` from `autonomy_dir`. On any I/O
-    /// failure, return a minimal fallback prompt so the reviewer can still
-    /// attempt to dispatch (the LLM error path will then synthesize an
-    /// abstain). The fallback is intentional: missing prompt files must not
-    /// block the orchestrator from running and producing receipts.
-    fn load_prompt(&self, role: ReviewerRole) -> String {
+    /// Load the markdown prompt for `role` from `autonomy_dir`.
+    fn load_prompt(&self, role: ReviewerRole) -> Result<String> {
         let rid = receipt_role_to_id(role);
         let path = self.autonomy_dir.join(rid.prompt_path());
-        match std::fs::read_to_string(&path) {
-            Ok(s) => s,
-            Err(_) => format!(
-                "You are {agent}. Review the diff and emit a strict-schema JSON receipt.",
-                agent = rid.agent_id()
-            ),
-        }
+        std::fs::read_to_string(&path)
+            .map_err(|err| anyhow::anyhow!("missing reviewer prompt {}: {err}", path.display()))
     }
 }
 
@@ -125,13 +116,38 @@ impl ReviewerOrchestrator for ProductionReviewerOrchestrator {
         // (owns its inputs) so we can join them concurrently.
         let mut handles: Vec<tokio::task::JoinHandle<(ReviewerRole, AgentApprovalReceipt)>> =
             Vec::with_capacity(required_roles.len());
+        let mut immediate = Vec::new();
 
         for &role in required_roles {
             let router = self.router.clone();
             let ledger = self.budget_ledger.clone();
             let signing_key = self.signing_key.clone();
             let budget = self.budget.clone();
-            let prompt = self.load_prompt(role);
+            if ledger.would_exceed(&budget, ESTIMATED_REVIEWER_COST_MICRO_USD) {
+                immediate.push(synth_abstain(
+                    role,
+                    &pack.id,
+                    &pack.head_sha,
+                    &pack.policy_sha,
+                    "budget exhausted: would_exceed daily cap".to_string(),
+                    &self.signing_key,
+                ));
+                continue;
+            }
+            let prompt = match self.load_prompt(role) {
+                Ok(prompt) => prompt,
+                Err(err) => {
+                    immediate.push(synth_abstain(
+                        role,
+                        &pack.id,
+                        &pack.head_sha,
+                        &pack.policy_sha,
+                        format!("reviewer prompt unavailable: {err}"),
+                        &self.signing_key,
+                    ));
+                    continue;
+                }
+            };
             // Clone the small string fields we need into owned Strings so the
             // spawned task does not borrow from `pack`.
             let pack_id = pack.id.clone();
@@ -277,7 +293,7 @@ impl ReviewerOrchestrator for ProductionReviewerOrchestrator {
 
         // Join all tasks. A task panic becomes an abstain entry so the batch
         // still completes — never propagate panics as orchestrator errors.
-        let mut out = Vec::with_capacity(handles.len());
+        let mut out = immediate;
         for h in handles {
             match h.await {
                 Ok((_, r)) => out.push(r),
@@ -372,7 +388,7 @@ impl ReviewerOrchestrator for FakeReviewerOrchestrator {
             let head_sha = pack.head_sha.clone();
             let policy_sha = pack.policy_sha.clone();
             handles.push(tokio::spawn(async move {
-                // 0ms is the documented fallback latency when the test hasn't
+                // 0ms is the documented default latency when the test hasn't
                 // registered an artificial per-role delay.
                 let sleep_ms = latencies.lock().unwrap().get(&role).copied().unwrap_or(0);
                 if sleep_ms > 0 {
@@ -601,7 +617,7 @@ mod tests {
                 feature_flag: None,
                 data_migration_reversible: Some(true),
             },
-            legacy_receipts: vec![],
+            gate_receipts: vec![],
             evidence_digest: format!("sha256:{}", "0".repeat(64)),
             created_at: Utc::now(),
             signature: None,
@@ -834,13 +850,13 @@ mod tests {
         let orch = ProductionReviewerOrchestrator::new(
             router.clone(),
             ledger.clone(),
-            PathBuf::from(".autonomy"),
+            PathBuf::from(".jeryu/autonomy"),
             key.clone(),
         );
         assert!(Arc::ptr_eq(&orch.router, &router));
         assert!(Arc::ptr_eq(&orch.budget_ledger, &ledger));
         assert!(Arc::ptr_eq(&orch.signing_key, &key));
-        assert_eq!(orch.autonomy_dir, PathBuf::from(".autonomy"));
+        assert_eq!(orch.autonomy_dir, PathBuf::from(".jeryu/autonomy"));
     }
 
     // ---- 10. Synthesized abstain carries correct role ----------------

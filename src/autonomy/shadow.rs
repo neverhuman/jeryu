@@ -42,7 +42,7 @@ impl Default for ShadowOptions {
     fn default() -> Self {
         Self {
             repo_root: PathBuf::from("."),
-            autonomy_dir: PathBuf::from(".autonomy"),
+            autonomy_dir: PathBuf::from(".jeryu/autonomy"),
             merges_only: true,
             max_commits: Some(100),
             since_seconds: Some(30 * 24 * 3600),
@@ -106,8 +106,8 @@ pub struct ShadowResult {
     pub reason: String,
 }
 
-/// Roll-up of a single shadow run. Carries both legacy aggregates (used by the
-/// CLI JSON encoder) and the new judge-driven `results` + `agreement_rate`.
+/// Roll-up of a single shadow run. Carries compact tier aggregates for the CLI
+/// JSON encoder plus judge-driven `results` and `agreement_rate`.
 #[derive(Debug, Clone)]
 pub struct ShadowSummary {
     // --- new fields (judge-driven) -------------------------------------------
@@ -117,7 +117,7 @@ pub struct ShadowSummary {
     pub agreement_rate: f64,
     pub started_at: DateTime<Utc>,
     pub finished_at: DateTime<Utc>,
-    // --- legacy aggregates (kept for the CLI JSON path) ----------------------
+    // --- tier aggregates for the CLI JSON path -------------------------------
     pub total: usize,
     pub by_tier: [usize; 6],
     pub auto_merge_eligible: usize,
@@ -143,8 +143,8 @@ impl Default for ShadowSummary {
 }
 
 impl ShadowSummary {
-    /// Re-build the legacy aggregates over a precomputed [`ShadowEntry`] slice.
-    /// Preserved so the CLI's JSON encoder still compiles; new callers should
+    /// Re-build tier aggregates over a precomputed [`ShadowEntry`] slice.
+    /// Preserved so the CLI's JSON encoder stays stable; new callers should
     /// read [`ShadowSummary::results`] directly.
     pub fn from_entries(entries: &[ShadowEntry]) -> Self {
         let mut s = Self::default();
@@ -177,7 +177,7 @@ pub enum ShadowError {
 pub fn run_shadow(opts: &ShadowOptions) -> Result<ShadowSummary, ShadowError> {
     let started_at = Utc::now();
 
-    // Load policy bundle once. The .autonomy/policies/ may not exist for some
+    // Load policy bundle once. The .jeryu/autonomy/policies/ may not exist for some
     // repos; surface that as a clean error rather than panicking.
     let policies = PolicyBundle::from_dir(&opts.autonomy_dir.join("policies"))?;
     let classifier = RiskClassifier::new(&policies);
@@ -225,7 +225,7 @@ pub fn run_shadow(opts: &ShadowOptions) -> Result<ShadowSummary, ShadowError> {
             security: default_passing_security(),
             supply_chain: SupplyChainSection::default(),
             rollback: default_revert_rollback(),
-            legacy_receipts: vec![],
+            gate_receipts: vec![],
         });
         // Sign the final pack so `evidence_signature_invalid` doesn't trip.
         let body = serde_json::to_string(&pack).expect("pack serialization");
@@ -463,7 +463,7 @@ fn classify_actual(
         return ActualOutcome::NotOnDefaultBranch;
     };
     // Is target_oid in the ancestry of default_branch? Try local branch
-    // first (full checkout) then fall back to remote-tracking ref (CI).
+    // first (full checkout) then remote-tracking ref (CI).
     let Ok(branch_ref) = repo
         .find_reference(&format!("refs/heads/{default_branch}"))
         .or_else(|_| repo.find_reference(&format!("refs/remotes/origin/{default_branch}")))
@@ -597,7 +597,7 @@ pub fn render_summary(summary: &ShadowSummary, _entries: &[ShadowEntry]) -> Stri
         "\nAgreement: {}% ({} / {})\n",
         pct, matches, applicable
     ));
-    // Legacy footer for back-compat with the older render: tier counts.
+    // Stable footer for the CLI render: tier counts.
     s.push_str("\nby risk tier (would-have-been):\n");
     for (i, tier_name) in ["R0", "R1", "R2", "R3", "R4", "R5"].iter().enumerate() {
         let c = summary.by_tier[i];
@@ -630,7 +630,7 @@ mod tests {
     }
 
     fn autonomy_dir() -> PathBuf {
-        repo_root().join(".autonomy")
+        repo_root().join(".jeryu/autonomy")
     }
 
     fn entry(tier: RiskTier, auto: bool) -> ShadowEntry {
@@ -648,7 +648,7 @@ mod tests {
     }
 
     #[test]
-    fn shadow_summary_aggregates_legacy_tiers() {
+    fn shadow_summary_aggregates_tiers() {
         let entries = vec![entry(RiskTier::R0, true), entry(RiskTier::R4, false)];
         let s = ShadowSummary::from_entries(&entries);
         assert_eq!(s.total, 2);

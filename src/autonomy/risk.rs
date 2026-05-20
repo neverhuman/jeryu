@@ -1,6 +1,6 @@
 //! Path-based + heuristic risk classifier (R0..R5).
 //!
-//! Walks the `.autonomy/policies/risk.yml` tier list in declared order and
+//! Walks the `.jeryu/autonomy/policies/risk.yml` tier list in declared order and
 //! returns the first matching tier. The YAML lists tiers top-down most-
 //! restrictive-first (R5, R4, R3, R2, R1, R0), so the first match wins by
 //! design — that's how veto semantics survive: a hard-stop tier can't be
@@ -196,7 +196,7 @@ mod tests {
     }
 
     fn bundle() -> PolicyBundle {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies");
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies");
         PolicyBundle::from_dir(&dir).expect("loads")
     }
 
@@ -216,7 +216,7 @@ mod tests {
     fn autonomy_path_lands_in_r4() {
         let b = bundle();
         let cls = RiskClassifier::new(&b);
-        let files = [cf(".autonomy/policies/approvals.yml", 3, 1)];
+        let files = [cf(".jeryu/autonomy/policies/approvals.yml", 3, 1)];
         let t = cls.classify(&ClassificationInputs {
             files: &files,
             triggered_conditions: &[],

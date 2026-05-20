@@ -22,7 +22,7 @@ check() {
 log "checking tools required by ops/ci lane scripts"
 check "cargo"        "cargo --version"
 check "rustup"       "rustup --version"
-check "jankurai"     "jankurai --version"
+check "jankurai $JANKURAI_REQUIRED_VERSION" "require_jankurai"
 check "cargo-nextest" "cargo nextest --version"
 check "git"          "git --version"
 check "docker"       "docker --version"

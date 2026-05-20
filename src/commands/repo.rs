@@ -93,7 +93,6 @@ fn standard_options(cmd: crate::cli::RepoStandardCommand) -> RepoStandardOptions
         base_branch: cmd.base_branch,
         repo_slug: cmd.repo,
         autonomy_dir: cmd.autonomy_dir,
-        compat_autonomy_link: cmd.compat_autonomy_link,
         configure_git_hooks: cmd.configure_git_hooks,
         json: cmd.json,
     }

@@ -98,7 +98,7 @@ pub struct CallResponse {
     pub latency_ms: u64,
 }
 
-/// Categorical error so the router can decide whether to fall back.
+/// Categorical error so the router can decide whether to try the next chain entry.
 #[derive(Debug, thiserror::Error)]
 pub enum LlmError {
     #[error("provider auth failed (do NOT retry on next provider)")]
@@ -119,7 +119,7 @@ pub enum LlmError {
 
 impl LlmError {
     /// True if the router should hop to the next provider in the chain.
-    pub fn is_retryable_on_fallback(&self) -> bool {
+    pub fn is_retryable_on_failover(&self) -> bool {
         matches!(
             self,
             LlmError::RateLimited { .. } | LlmError::Transient(_) | LlmError::Permanent(_)
@@ -140,7 +140,7 @@ pub enum DataUse {
 
 #[async_trait]
 pub trait LlmProvider: Send + Sync {
-    /// Stable provider id (matches `.autonomy/providers/llm.yml` `id` field).
+    /// Stable provider id (matches `.jeryu/autonomy/providers/llm.yml` `id` field).
     fn id(&self) -> &str;
     /// Provider-declared training-data policy.
     fn data_use(&self) -> DataUse;

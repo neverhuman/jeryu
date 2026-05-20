@@ -2,7 +2,7 @@
 //! Proof: `cargo test -p jeryu -- llm::sql_budget_ledger`
 //!
 //! Restart-safe successor to `crate::llm::budget::BudgetLedger`. Closes the
-//! safety gap where `.autonomy/autonomy.yml::budget.fail_closed_over_budget
+//! safety gap where `.jeryu/autonomy/autonomy.yml::budget.fail_closed_over_budget
 //! = true` could be silently bypassed by killing the process — the
 //! in-memory ledger forgot everything on restart, so the next launch came
 //! up with a fresh 0-usage day.

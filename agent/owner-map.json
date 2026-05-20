@@ -10,7 +10,7 @@
     ".jeryu/": "evidence-gate",
     ".gitignore": "workspace",
     ".gitleaks.toml": "workspace",
-    ".autonomy/": "evidence-gate",
+    ".jeryu/autonomy/": "evidence-gate",
     "AGENTS.md": "agent",
     "CHANGELOG.md": "workspace",
     "CLAUDE.md": "agent",

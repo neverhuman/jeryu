@@ -91,8 +91,7 @@ pub struct Daemon {
     pub escalation_dispatcher: Arc<dyn EscalationDispatcher>,
     pub signing_key: Arc<EdSigningKey>,
     /// Wave 8.C — optional in-process rejudge service. `None` keeps the
-    /// daemon in Wave 7 detect-only mode (back-compatible with every
-    /// existing deployment that hasn't wired up the Wave 8 primitives).
+    /// daemon in Wave 7 detect-only mode until Wave 8 primitives are wired.
     pub auto_rejudge_service: Option<Arc<AutoRejudgeService>>,
 }
 
@@ -1293,7 +1292,7 @@ mod tests {
         use std::path::Path;
 
         fn policy() -> Arc<PolicyBundle> {
-            let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies");
+            let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies");
             Arc::new(PolicyBundle::from_dir(&dir).expect("policy bundle loads"))
         }
 

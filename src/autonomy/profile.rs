@@ -25,7 +25,7 @@ use crate::db::AnyPool;
 use crate::autonomy::freeze::FreezeWindows;
 use crate::autonomy::kill_bell::{KillBell, KillBellState};
 
-/// The five (now six) named profiles defined in `.autonomy/autonomy.yml`.
+/// The five (now six) named profiles defined in `.jeryu/autonomy/autonomy.yml`.
 ///
 /// Order matches the YAML declaration order; `parse` is case-insensitive on
 /// the `snake_case` name so CLI flags can accept either form.
@@ -68,7 +68,7 @@ impl AutonomyProfile {
 
 /// The set of preconditions `sovereign_plus` requires before it loads.
 ///
-/// `Default` mirrors the `.autonomy/autonomy.yml` `sovereign_plus` block:
+/// `Default` mirrors the `.jeryu/autonomy/autonomy.yml` `sovereign_plus` block:
 /// every boolean is `true` and the shadow agreement floor is `0.95`. A caller
 /// that wants to relax a guardrail (e.g. in a dev env) constructs the struct
 /// explicitly rather than mutating defaults at runtime.
@@ -165,7 +165,7 @@ impl GuardrailReport {
 /// Inputs to the startup validator. The validator is async because the
 /// kill-bell check hits the SQL-backed ledger pool.
 pub struct ValidatorInputs<'a> {
-    /// Root of the `.autonomy/` directory. `freeze.yml` and the nightwatch
+    /// Root of the `.jeryu/autonomy/` directory. `freeze.yml` and the nightwatch
     /// prompt are looked up under this path.
     pub autonomy_dir: &'a Path,
     /// Live ledger pool. `None` skips the kill-bell check; a caller that
@@ -247,7 +247,7 @@ pub async fn validate_sovereign_plus(
             failed.push(GuardrailFailure {
                 guardrail: "freeze_check_wired".into(),
                 reason: format!("freeze policy missing at {}", freeze_path.display()),
-                remediation: "create .autonomy/policies/freeze.yml (schema \
+                remediation: "create .jeryu/autonomy/policies/freeze.yml (schema \
                               vibegate.freeze.v1) with at least one freeze \
                               window declared (it can be `enabled: false` if \
                               you do not want any windows active yet)"
@@ -279,7 +279,7 @@ pub async fn validate_sovereign_plus(
             failed.push(GuardrailFailure {
                 guardrail: "nightwatch_prompt_present".into(),
                 reason: format!("reviewer-nightwatch.md missing at {}", p.display()),
-                remediation: "create .autonomy/prompts/reviewer-nightwatch.md \
+                remediation: "create .jeryu/autonomy/prompts/reviewer-nightwatch.md \
                               with the nightwatch reviewer system prompt; \
                               see tips/fullauto/tip9.txt for the canonical text"
                     .into(),
@@ -381,7 +381,7 @@ mod tests {
         fresh_autonomy_pool().await
     }
 
-    /// Build a fully-populated `.autonomy/` directory under a tempdir: a valid
+    /// Build a fully-populated `.jeryu/autonomy/` directory under a tempdir: a valid
     /// `policies/freeze.yml` and a `prompts/reviewer-nightwatch.md` file.
     /// Tests that want a partial dir can remove files after the fact.
     fn make_autonomy_dir() -> TempDir {

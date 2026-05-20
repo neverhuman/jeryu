@@ -26,10 +26,7 @@ pub(super) async fn resolve_build_unit(
     let taint_manager = crate::taint::TaintManager::with_backend(db.pool(), db.backend());
     let store = cache_brain_adapter::create_action_store(
         db.pool(),
-        match db.backend() {
-            crate::state::StateBackend::RedlineDb => cache_brain_adapter::AdapterBackend::RedlineDb,
-            crate::state::StateBackend::CompatSql => cache_brain_adapter::AdapterBackend::CompatSql,
-        },
+        cache_brain_adapter::AdapterBackend::RedlineDb,
     );
     let cache_brain =
         crate::cache_brain::CacheBrain::with_store(epoch_manager, taint_manager, store);

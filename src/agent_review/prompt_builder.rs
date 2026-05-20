@@ -1,7 +1,7 @@
 //! Prompt construction with prompt-injection defenses baked in.
 //!
 //! Every reviewer sees ONE system message (the canonical reviewer prompt from
-//! `.autonomy/prompts/<role>.md`) and ONE user message that wraps the diff
+//! `.jeryu/autonomy/prompts/<role>.md`) and ONE user message that wraps the diff
 //! in a clearly-untrusted `<diff>...</diff>` envelope.
 
 use crate::autonomy::signing::sha256_digest;

@@ -43,7 +43,6 @@ fn secret_source_label(source: SecretSource) -> &'static str {
         SecretSource::Cli => "cli",
         SecretSource::Env => "env",
         SecretSource::UserDefault => "user-default",
-        SecretSource::UserLegacy => "home-env",
         SecretSource::RepoLocal => "repo-local",
         SecretSource::NotFound => "missing",
     }
@@ -169,10 +168,6 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
                     ),
                 ]),
                 Line::from(vec![
-                    Span::styled("Home:     ", Style::default().fg(Color::DarkGray)),
-                    Span::styled("~/llm.env", Style::default().fg(Color::Yellow)),
-                ]),
-                Line::from(vec![
                     Span::styled("Route:    ", Style::default().fg(Color::DarkGray)),
                     Span::styled(default_role_chain, Style::default().fg(Color::Cyan)),
                 ]),
@@ -186,7 +181,7 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
                 Line::from(vec![
                     Span::styled("Split:    ", Style::default().fg(Color::DarkGray)),
                     Span::styled(
-                        "policy in llm.yml, keys in llm.env",
+                        "policy in llm.yml, keys in ~/.jeryu/secrets",
                         Style::default().fg(Color::Magenta),
                     ),
                 ]),
@@ -220,10 +215,6 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
                         "~/.jeryu/secrets/llm.env",
                         Style::default().fg(Color::Green),
                     ),
-                ]),
-                Line::from(vec![
-                    Span::styled("Home:     ", Style::default().fg(Color::DarkGray)),
-                    Span::styled("~/llm.env", Style::default().fg(Color::Yellow)),
                 ]),
             ];
             (
@@ -346,7 +337,7 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
             Style::default().fg(Color::White),
         )));
         lines.push(Line::from(Span::styled(
-            "  Source labels: cli, env, user-default, home-env, repo-local, missing.",
+            "  Source labels: cli, env, user-default, repo-local, missing.",
             Style::default().fg(Color::DarkGray),
         )));
         lines.push(Line::from(Span::styled(

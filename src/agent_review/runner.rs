@@ -3,7 +3,7 @@
 //!   2. Build the (system, user) message pair with the prompt-injection
 //!      defenses from `prompt_builder.rs`.
 //!   3. Dispatch through the LLM router for the role's chain key.
-//!   4. Parse the strict-schema JSON receipt; fall back to `abstain` on parse
+//!   4. Parse the strict-schema JSON receipt; emit `abstain` on parse
 //!      failure rather than guessing.
 //!   5. Sign the receipt (stub or real ed25519, caller's choice).
 //!
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn prompt_paths_exist_in_repo_autonomy_dir() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy");
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy");
         for role in [
             ReviewerRoleId::Security,
             ReviewerRoleId::TestIntegrity,

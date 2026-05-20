@@ -1,15 +1,12 @@
-//! Per-role LLM router chains loaded from `.autonomy/providers/llm.yml`.
+//! Per-role LLM router chains loaded from `.jeryu/autonomy/providers/llm.yml`.
 //!
-//! Wave 8 replaces the historical `build_default_router(role)` in
-//! `src/bin/autonomy.rs`, which hardcoded a single OpenRouter primary +
-//! fallback chain for every role.
-//! Production needs per-role configurability — `security` may need
-//! Nemotron + Groq Llama, `lockfile` may need only a small free-tier model,
-//! `nightwatch` may need a different stack still.
+//! Production needs per-role configurability: `reviewer-security` may need
+//! Nemotron + Groq Llama, `reviewer-lockfile` may need only a small free-tier
+//! model, and `reviewer-nightwatch` may need a different stack still.
 //!
 //! Public surface:
 //!   * [`ProvidersConfig`] / [`ProviderEntry`] — Serde-derived shape of the YAML.
-//!   * [`load_providers_config`] — read and parse the YAML (missing = empty).
+//!   * [`load_providers_config`] — read and parse the YAML.
 //!   * [`build_router_from_config`] — turn a `ProvidersConfig` into an
 //!     [`LlmRouter`] using the supplied [`SecretResolver`].
 //!   * [`build_router_for_roles`] — convenience: load + build + verify every
@@ -47,12 +44,12 @@ fn default_max_tokens() -> u32 {
     800
 }
 
-/// Top-level providers config: the shape of `.autonomy/providers/llm.yml` for
+/// Top-level providers config: the shape of `.jeryu/autonomy/providers/llm.yml` for
 /// the Wave-8 per-role router.
 ///
-/// Unknown keys are silently ignored so the existing Wave-5 schema (which uses
-/// `providers:`/`default_chain:`) parses without error — call sites will simply
-/// see an empty `chains` map and fall back to their built-in defaults.
+/// Unknown keys are ignored so operators can add comments or future metadata
+/// without changing the runtime contract. Callers still require explicit
+/// `chains.<reviewer-role>` entries before dispatch.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProvidersConfig {
     pub schema: String,
@@ -61,7 +58,7 @@ pub struct ProvidersConfig {
     /// callers can inspect it if they want to implement aliasing.
     #[serde(default)]
     pub default_role_chain: Vec<String>,
-    /// role -> ordered list of fallback entries.
+    /// role -> ordered list of failover entries.
     #[serde(default)]
     pub chains: HashMap<String, Vec<ProviderEntry>>,
 }
@@ -74,7 +71,7 @@ pub struct ProviderEntry {
     pub base_url: String,
     pub model_id: String,
     /// Name of the env var / secret slot that holds the API key. Resolved at
-    /// router-build time via the 6-tier secret chain.
+    /// router-build time via the canonical secret chain.
     pub api_key_secret: String,
     /// "no_train" | "train_on_input" | "unknown".
     pub data_use: String,
@@ -98,18 +95,9 @@ impl ProviderEntry {
     }
 }
 
-/// Read `<autonomy_dir>/providers/llm.yml`. If the file is missing, returns a
-/// `ProvidersConfig` with an empty `chains` HashMap (callers fall back to the
-/// hardcoded default). Returns `Err` only on read/parse failures.
+/// Read `<autonomy_dir>/providers/llm.yml`.
 pub fn load_providers_config(autonomy_dir: &Path) -> Result<ProvidersConfig> {
     let path = autonomy_dir.join("providers").join("llm.yml");
-    if !path.exists() {
-        return Ok(ProvidersConfig {
-            schema: "vibegate.providers.v1".to_string(),
-            default_role_chain: Vec::new(),
-            chains: HashMap::new(),
-        });
-    }
     let body =
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let cfg: ProvidersConfig =
@@ -253,11 +241,14 @@ mod tests {
     // --- 1. file missing -----------------------------------------------------
 
     #[test]
-    fn load_returns_empty_when_file_missing() {
+    fn load_errors_when_file_missing() {
         let td = tempfile::tempdir().unwrap();
-        let cfg = load_providers_config(td.path()).expect("ok");
-        assert!(cfg.chains.is_empty());
-        assert_eq!(cfg.schema, "vibegate.providers.v1");
+        let err = load_providers_config(td.path()).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(
+            msg.contains("providers/llm.yml") || msg.contains("No such file"),
+            "expected missing config error, got: {msg}"
+        );
     }
 
     // --- 2. minimal yaml -----------------------------------------------------
@@ -270,7 +261,7 @@ mod tests {
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: nvidia/nemotron-3-super-120b-a12b:free
@@ -280,7 +271,7 @@ chains:
         );
         let cfg = load_providers_config(td.path()).expect("ok");
         assert_eq!(cfg.chains.len(), 1);
-        let sec = cfg.chains.get("security").unwrap();
+        let sec = cfg.chains.get("reviewer-security").unwrap();
         assert_eq!(sec.len(), 1);
         assert_eq!(sec[0].provider, "openrouter");
         assert_eq!(sec[0].model_id, "nvidia/nemotron-3-super-120b-a12b:free");
@@ -291,9 +282,9 @@ chains:
     fn full_five_chain_yaml() -> &'static str {
         r#"
 schema: vibegate.providers.v1
-default_role_chain: [security]
+default_role_chain: [reviewer-security]
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: nvidia/nemotron-3-super-120b-a12b:free
@@ -308,7 +299,7 @@ chains:
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
-  test_integrity:
+  reviewer-test-integrity:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: nvidia/nemotron-3-super-120b-a12b:free
@@ -323,7 +314,7 @@ chains:
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
-  runtime:
+  reviewer-runtime:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: openai/gpt-oss-120b:free
@@ -338,7 +329,7 @@ chains:
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
-  lockfile:
+  reviewer-lockfile:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: openai/gpt-oss-120b:free
@@ -353,7 +344,7 @@ chains:
       data_use: no_train
       temperature: 0.0
       timeout_ms: 30000
-  nightwatch:
+  reviewer-nightwatch:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: nvidia/nemotron-3-super-120b-a12b:free
@@ -378,17 +369,20 @@ chains:
         let cfg = load_providers_config(td.path()).expect("ok");
         assert_eq!(cfg.chains.len(), 5);
         for role in [
-            "security",
-            "test_integrity",
-            "runtime",
-            "lockfile",
-            "nightwatch",
+            "reviewer-security",
+            "reviewer-test-integrity",
+            "reviewer-runtime",
+            "reviewer-lockfile",
+            "reviewer-nightwatch",
         ] {
             assert!(cfg.chains.contains_key(role), "missing role {role}");
         }
-        assert_eq!(cfg.default_role_chain, vec!["security".to_string()]);
-        // security must have two entries (primary + fallback).
-        assert_eq!(cfg.chains["security"].len(), 2);
+        assert_eq!(
+            cfg.default_role_chain,
+            vec!["reviewer-security".to_string()]
+        );
+        // Security must have two entries (primary + failover).
+        assert_eq!(cfg.chains["reviewer-security"].len(), 2);
     }
 
     // --- 4. unknown keys -----------------------------------------------------
@@ -404,7 +398,7 @@ this_is_unknown: true
 budget:
   daily_micro_usd: 100
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: m
@@ -441,7 +435,7 @@ chains:
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: p
       base_url: https://x
       model_id: m
@@ -450,7 +444,7 @@ chains:
 "#,
         );
         let cfg = load_providers_config(td.path()).unwrap();
-        assert_eq!(cfg.chains["security"][0].temperature, 0.0);
+        assert_eq!(cfg.chains["reviewer-security"][0].temperature, 0.0);
     }
 
     // --- 7. default timeout --------------------------------------------------
@@ -463,7 +457,7 @@ chains:
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: p
       base_url: https://x
       model_id: m
@@ -472,7 +466,7 @@ chains:
 "#,
         );
         let cfg = load_providers_config(td.path()).unwrap();
-        assert_eq!(cfg.chains["security"][0].timeout_ms, 30_000);
+        assert_eq!(cfg.chains["reviewer-security"][0].timeout_ms, 30_000);
     }
 
     // --- 8. build router constructs every role chain -------------------------
@@ -485,11 +479,11 @@ chains:
         let resolver = fake_resolver(&[("OPENROUTER_API_KEY", "test-or-key")]);
         let router = build_router_from_config(&cfg, &resolver).unwrap();
         for role in [
-            "security",
-            "test_integrity",
-            "runtime",
-            "lockfile",
-            "nightwatch",
+            "reviewer-security",
+            "reviewer-test-integrity",
+            "reviewer-runtime",
+            "reviewer-lockfile",
+            "reviewer-nightwatch",
         ] {
             assert!(
                 router.chain(role).is_some(),
@@ -497,7 +491,7 @@ chains:
             );
         }
         // security chain should have BOTH entries resolved.
-        let sec = router.chain("security").unwrap();
+        let sec = router.chain("reviewer-security").unwrap();
         assert_eq!(sec.entries.len(), 2);
         assert!(sec.forbid_train_on_input);
     }
@@ -512,7 +506,7 @@ chains:
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://x
       model_id: m
@@ -529,7 +523,7 @@ chains:
         let resolver = never_resolver();
         let router = build_router_from_config(&cfg, &resolver).unwrap();
         assert!(
-            router.chain("security").is_none(),
+            router.chain("reviewer-security").is_none(),
             "expected chain to be omitted when no secrets resolve"
         );
     }
@@ -544,7 +538,7 @@ chains:
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://x
       model_id: m
@@ -560,7 +554,7 @@ chains:
         let cfg = load_providers_config(td.path()).unwrap();
         let resolver = fake_resolver(&[("PARTIAL_RESOLVE_KEY", "yes")]);
         let router = build_router_from_config(&cfg, &resolver).unwrap();
-        let chain = router.chain("security").expect("chain present");
+        let chain = router.chain("reviewer-security").expect("chain present");
         // Only the second entry should survive.
         assert_eq!(chain.entries.len(), 1);
         assert_eq!(chain.entries[0].provider.id(), "groq");
@@ -576,7 +570,7 @@ chains:
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://x
       model_id: m
@@ -587,13 +581,17 @@ chains:
         let resolver = fake_resolver(&[("OPENROUTER_API_KEY", "k")]);
         let err = build_router_for_roles(
             td.path(),
-            &["security", "lockfile", "nightwatch"],
+            &[
+                "reviewer-security",
+                "reviewer-lockfile",
+                "reviewer-nightwatch",
+            ],
             &resolver,
         )
         .unwrap_err();
         let msg = format!("{err:#}");
         assert!(
-            msg.contains("lockfile") && msg.contains("nightwatch"),
+            msg.contains("reviewer-lockfile") && msg.contains("reviewer-nightwatch"),
             "expected missing roles in err, got: {msg}"
         );
     }
@@ -608,21 +606,21 @@ chains:
         let router = build_router_for_roles(
             td.path(),
             &[
-                "security",
-                "test_integrity",
-                "runtime",
-                "lockfile",
-                "nightwatch",
+                "reviewer-security",
+                "reviewer-test-integrity",
+                "reviewer-runtime",
+                "reviewer-lockfile",
+                "reviewer-nightwatch",
             ],
             &resolver,
         )
         .expect("all roles present");
         for role in [
-            "security",
-            "test_integrity",
-            "runtime",
-            "lockfile",
-            "nightwatch",
+            "reviewer-security",
+            "reviewer-test-integrity",
+            "reviewer-runtime",
+            "reviewer-lockfile",
+            "reviewer-nightwatch",
         ] {
             assert!(router.chain(role).is_some(), "chain present for {role}");
         }
@@ -636,9 +634,9 @@ chains:
     #[test]
     fn load_from_repo_root_actual_providers_yml_round_trips() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let autonomy = root.join(".autonomy");
+        let autonomy = root.join(".jeryu/autonomy");
         let cfg = load_providers_config(&autonomy)
-            .expect("real .autonomy/providers/llm.yml must parse leniently");
+            .expect("real .jeryu/autonomy/providers/llm.yml must parse leniently");
         assert!(!cfg.schema.is_empty(), "schema must be present");
         // Wave 8.F: chains must be populated for all 5 reviewer roles.
         assert_eq!(
@@ -648,11 +646,11 @@ chains:
             cfg.chains.len()
         );
         for role in [
-            "security",
-            "test_integrity",
-            "runtime",
-            "lockfile",
-            "nightwatch",
+            "reviewer-security",
+            "reviewer-test-integrity",
+            "reviewer-runtime",
+            "reviewer-lockfile",
+            "reviewer-nightwatch",
         ] {
             assert!(
                 cfg.chains.contains_key(role),
@@ -666,15 +664,15 @@ chains:
     #[test]
     fn load_actual_repo_yml_has_5_role_chains() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let autonomy = root.join(".autonomy");
+        let autonomy = root.join(".jeryu/autonomy");
         let cfg = load_providers_config(&autonomy).expect("parse");
         assert_eq!(cfg.chains.len(), 5, "expected 5 role chains");
         for role in [
-            "security",
-            "test_integrity",
-            "runtime",
-            "lockfile",
-            "nightwatch",
+            "reviewer-security",
+            "reviewer-test-integrity",
+            "reviewer-runtime",
+            "reviewer-lockfile",
+            "reviewer-nightwatch",
         ] {
             assert!(cfg.chains.contains_key(role), "missing role {role}");
         }
@@ -686,7 +684,10 @@ chains:
     #[test]
     fn actual_yml_has_no_real_api_keys() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let path = root.join(".autonomy").join("providers").join("llm.yml");
+        let path = root
+            .join(".jeryu/autonomy")
+            .join("providers")
+            .join("llm.yml");
         let body =
             fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
         // 1. No common real-key prefixes anywhere.
@@ -745,39 +746,39 @@ chains:
     #[test]
     fn actual_yml_is_free_only_openrouter_profile() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let autonomy = root.join(".autonomy");
+        let autonomy = root.join(".jeryu/autonomy");
         let cfg = load_providers_config(&autonomy).expect("parse");
         let expected = [
             (
-                "security",
+                "reviewer-security",
                 [
                     "nvidia/nemotron-3-super-120b-a12b:free",
                     "openai/gpt-oss-120b:free",
                 ],
             ),
             (
-                "test_integrity",
+                "reviewer-test-integrity",
                 [
                     "nvidia/nemotron-3-super-120b-a12b:free",
                     "openai/gpt-oss-120b:free",
                 ],
             ),
             (
-                "runtime",
+                "reviewer-runtime",
                 [
                     "openai/gpt-oss-120b:free",
                     "nvidia/nemotron-3-super-120b-a12b:free",
                 ],
             ),
             (
-                "lockfile",
+                "reviewer-lockfile",
                 [
                     "openai/gpt-oss-120b:free",
                     "nvidia/nemotron-3-super-120b-a12b:free",
                 ],
             ),
             (
-                "nightwatch",
+                "reviewer-nightwatch",
                 [
                     "nvidia/nemotron-3-super-120b-a12b:free",
                     "openai/gpt-oss-120b:free",
@@ -803,16 +804,16 @@ chains:
         }
     }
 
-    /// Defensive: the security chain MUST have a fallback entry so a single
+    /// Defensive: the security chain MUST have a failover entry so a single
     /// provider outage can't take down the highest-priority reviewer.
     #[test]
-    fn actual_yml_security_chain_has_primary_and_fallback() {
+    fn actual_yml_security_chain_has_primary_and_failover() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let autonomy = root.join(".autonomy");
+        let autonomy = root.join(".jeryu/autonomy");
         let cfg = load_providers_config(&autonomy).expect("parse");
         let sec = cfg
             .chains
-            .get("security")
+            .get("reviewer-security")
             .expect("security chain must exist");
         assert_eq!(sec.len(), 2, "security chain must stay 2-deep");
         assert_eq!(sec[0].provider, "openrouter");
@@ -823,16 +824,17 @@ chains:
         assert_eq!(sec[1].model_id, "openai/gpt-oss-120b:free");
     }
 
-    /// `default_role_chain` should at least name `security` so callers that
-    /// query for unknown roles fall back to the most-vetted chain.
+    /// `default_role_chain` should name `reviewer-security` for diagnostics.
     #[test]
     fn actual_yml_default_role_chain_lists_security() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let autonomy = root.join(".autonomy");
+        let autonomy = root.join(".jeryu/autonomy");
         let cfg = load_providers_config(&autonomy).expect("parse");
         assert!(
-            cfg.default_role_chain.iter().any(|r| r == "security"),
-            "default_role_chain must include 'security', got {:?}",
+            cfg.default_role_chain
+                .iter()
+                .any(|r| r == "reviewer-security"),
+            "default_role_chain must include 'reviewer-security', got {:?}",
             cfg.default_role_chain
         );
     }
@@ -847,7 +849,7 @@ chains:
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://x
       model_id: m
@@ -859,12 +861,12 @@ chains:
 "#,
         );
         let cfg = load_providers_config(td.path()).unwrap();
-        let entry = &cfg.chains["security"][0];
+        let entry = &cfg.chains["reviewer-security"][0];
         assert_eq!(entry.extra_headers.len(), 2);
         assert_eq!(entry.extra_headers.get("X-Title").unwrap(), "jeryu-test");
         // Also build the router so we exercise the with_header path.
         let resolver = fake_resolver(&[("HEADERS_KEY", "k")]);
         let router = build_router_from_config(&cfg, &resolver).unwrap();
-        assert!(router.chain("security").is_some());
+        assert!(router.chain("reviewer-security").is_some());
     }
 }

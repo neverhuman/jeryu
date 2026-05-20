@@ -92,9 +92,9 @@ check: fast score security rust-map rust-witness rust-diagnose
 ci-parity:
 	bash scripts/ci-parity.sh
 
-# Same as ci-parity but skip slow checks (integration tests, jankurai audit).
+# Same as ci-parity but skip slow integration-style checks.
 ci-parity-fast:
-	bash scripts/ci-parity.sh --fast --no-audit
+	bash scripts/ci-parity.sh --fast
 
 # Gate the current branch with ci-parity, then push and open a PR.
 publish-pr base="main" remote="origin":
@@ -109,7 +109,7 @@ autonomy-fast:
 autonomy-e2e:
 	cargo test --test autonomy_e2e
 
-# Run ALL live LLM tests against keys in env / ~/.jeryu/secrets/llm.env / ~/llm.env.
+# Run ALL live LLM tests against keys in env / ~/.jeryu/secrets/llm.env / .env.local.
 # Refuses to run if $CI=true. Pre-PR only.
 live:
 	./scripts/local-live.sh all

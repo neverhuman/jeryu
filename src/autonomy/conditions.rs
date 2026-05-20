@@ -34,7 +34,7 @@ pub struct ConditionRegistry {
 
 impl Default for ConditionRegistry {
     fn default() -> Self {
-        // Every named condition that may appear in `.autonomy/policies/*.yml`
+        // Every named condition that may appear in `.jeryu/autonomy/policies/*.yml`
         // MUST be registered here. Some conditions require richer context
         // than `(EvidencePack, &[Receipt])` provides — those are registered as
         // `cond_externally_supplied`, which returns None unless the caller
@@ -440,8 +440,8 @@ const SECURITY_SCANNER_PATH_PREFIXES: &[&str] = &[
 ];
 
 const RELEASE_DEPLOY_POLICY_PATHS: &[&str] = &[
-    ".autonomy/policies/release.yml",
-    ".autonomy/policies/freeze.yml",
+    ".jeryu/autonomy/policies/release.yml",
+    ".jeryu/autonomy/policies/freeze.yml",
     "agent/proof-lanes.toml",
     "proof-lanes.toml",
     "Justfile",
@@ -460,11 +460,11 @@ const RELEASE_DEPLOY_PATH_PREFIXES: &[&str] = &[
 ];
 
 const PROMPT_OR_JUDGE_PREFIXES: &[&str] = &[
-    ".autonomy/prompts/",
-    ".autonomy/agents/",
-    ".autonomy/policies/approvals.yml",
-    ".autonomy/policies/risk.yml",
-    ".autonomy/policies/protected-paths.yml",
+    ".jeryu/autonomy/prompts/",
+    ".jeryu/autonomy/agents/",
+    ".jeryu/autonomy/policies/approvals.yml",
+    ".jeryu/autonomy/policies/risk.yml",
+    ".jeryu/autonomy/policies/protected-paths.yml",
 ];
 
 const SECRET_HANDLING_PREFIXES: &[&str] = &["secrets/", "src/secrets", "src/llm/secrets"];
@@ -721,7 +721,7 @@ mod tests {
                 feature_flag: None,
                 data_migration_reversible: Some(true),
             },
-            legacy_receipts: vec![],
+            gate_receipts: vec![],
             evidence_digest: format!("sha256:{}", "0".repeat(64)),
             created_at: Utc::now(),
             signature: None,
@@ -882,7 +882,7 @@ mod tests {
     #[test]
     fn changes_agent_prompts_or_judge_policy_fires_on_prompt_edit() {
         let reg = ConditionRegistry::default();
-        let p = with_files(&[(".autonomy/prompts/reviewer-security.md", 10, 2)]);
+        let p = with_files(&[(".jeryu/autonomy/prompts/reviewer-security.md", 10, 2)]);
         let hits = reg.evaluate(&["changes_agent_prompts_or_judge_policy".into()], &p, &[]);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].name, "changes_agent_prompts_or_judge_policy");

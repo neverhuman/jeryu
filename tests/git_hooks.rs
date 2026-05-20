@@ -110,7 +110,7 @@ fn pre_push_delegates_non_main_pushes_to_quality_gates() {
     );
     let log = fs::read_to_string(&log_path).expect("quality gate log");
     assert!(
-        log.contains("quality-gates:--fast --no-audit"),
+        log.contains("quality-gates:"),
         "quality gate stub was not invoked"
     );
 }

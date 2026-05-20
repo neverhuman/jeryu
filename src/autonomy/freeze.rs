@@ -45,7 +45,7 @@ pub struct FreezeWindow {
     pub allow_break_glass: bool,
 }
 
-/// Strict-typed loader for `.autonomy/policies/freeze.yml`.
+/// Strict-typed loader for `.jeryu/autonomy/policies/freeze.yml`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FreezeWindows {
     pub schema: String,
@@ -196,8 +196,8 @@ windows:
 
     #[test]
     fn parse_real_freeze_yml_from_repo() {
-        let path =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies/freeze.yml");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(".jeryu/autonomy/policies/freeze.yml");
         let loaded = FreezeWindows::from_path(&path)
             .expect("repo freeze.yml must parse with the FreezeWindows schema");
         assert_eq!(loaded.schema, "vibegate.freeze.v1");

@@ -4,9 +4,9 @@
 //!   - `RequireHuman` verdicts and `KillBellEngaged` ledger events MUST be
 //!     deliverable to one or more webhooks. Without this, "Needs You" only
 //!     surfaces when a human polls the TUI (tip1 Law 9).
-//!   - Webhook URLs are resolved through the same 6-tier secret chain as
+//!   - Webhook URLs are resolved through the same canonical secret chain as
 //!     LLM provider keys (`src/llm/secrets.rs`); URLs never appear inline in
-//!     `.autonomy/autonomy.yml`.
+//!     `.jeryu/autonomy/autonomy.yml`.
 //!   - A failure (network or secret-missing) on one webhook NEVER aborts the
 //!     others. Each `DispatchResult` records the outcome for one webhook.
 //!   - This module never mutates global state; the caller decides whether to
@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
-// Schema (deserialized from `.autonomy/autonomy.yml::escalation`)
+// Schema (deserialized from `.jeryu/autonomy/autonomy.yml::escalation`)
 // ---------------------------------------------------------------------------
 
 /// Supported webhook integrations. `generic_json` is the escape hatch for
@@ -34,7 +34,7 @@ use std::sync::Arc;
 pub enum EscalationKind {
     Slack,
     /// Deserializes from both `pagerduty` (canonical YAML spelling) and
-    /// `pager_duty` (snake_case fallback). Serializes back as `pagerduty`.
+    /// `pager_duty` (accepted snake_case spelling). Serializes back as `pagerduty`.
     #[serde(rename = "pagerduty", alias = "pager_duty")]
     PagerDuty,
     GenericJson,
@@ -77,7 +77,7 @@ impl EscalationConfig {
 // ---------------------------------------------------------------------------
 
 /// A single escalation moment. New variants must add a matching string in
-/// `EscalationEvent::name()` and document it in `.autonomy/autonomy.yml`.
+/// `EscalationEvent::name()` and document it in `.jeryu/autonomy/autonomy.yml`.
 #[derive(Debug, Clone)]
 pub enum EscalationEvent {
     RequireHuman { verdict: Box<VibeGateVerdict> },
@@ -86,7 +86,7 @@ pub enum EscalationEvent {
 
 impl EscalationEvent {
     /// Stable string used in `on_events` allowlists. Must match
-    /// `.autonomy/autonomy.yml::escalation.on_events` entries.
+    /// `.jeryu/autonomy/autonomy.yml::escalation.on_events` entries.
     pub fn name(&self) -> &'static str {
         match self {
             EscalationEvent::RequireHuman { .. } => "require_human",
@@ -504,7 +504,7 @@ webhooks:
 
     #[test]
     fn parse_empty_escalation_disables_it() {
-        // The Wave 0 default in `.autonomy/autonomy.yml` was just `enabled: true`
+        // The Wave 0 default in `.jeryu/autonomy/autonomy.yml` was just `enabled: true`
         // with an empty webhook list. That MUST parse and MUST result in
         // dispatch_all returning empty (no webhooks = nothing to send).
         let yaml = "enabled: true\nwebhooks: []\n";
@@ -672,7 +672,7 @@ webhooks:
 
     #[test]
     fn event_names_match_yaml_allowlist_strings() {
-        // Guards the contract between `.autonomy/autonomy.yml::on_events`
+        // Guards the contract between `.jeryu/autonomy/autonomy.yml::on_events`
         // and `EscalationEvent::name()`. If a future variant lands without
         // updating both sides, this test breaks loudly.
         assert_eq!(require_human_event().name(), "require_human");

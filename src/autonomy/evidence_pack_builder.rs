@@ -10,7 +10,7 @@
 //! Design choices (called out so future Waves can revisit):
 //!
 //! - **Risk classification reuses [`RiskClassifier`]** against the same
-//!   `.autonomy/policies/*.yml` bundle the live orchestrator uses. We do
+//!   `.jeryu/autonomy/policies/*.yml` bundle the live orchestrator uses. We do
 //!   not invent a parallel "rejudge risk" notion.
 //!
 //! - **Scans are recorded as `Passed`** in the synthetic
@@ -181,7 +181,7 @@ impl EvidencePackBuilder for StandardEvidencePackBuilder {
             security: Self::default_security(),
             supply_chain: SupplyChainSection::default(),
             rollback: Self::default_rollback(),
-            legacy_receipts: Vec::new(),
+            gate_receipts: Vec::new(),
         });
         // Sign over the canonical (unsigned) body. We zero the signature
         // first so the bytes-being-signed are identical at sign time and
@@ -209,8 +209,8 @@ mod tests {
     /// classification is exercised against the same rules the live
     /// orchestrator uses (not a hand-rolled fixture that could drift).
     fn bundle() -> Arc<PolicyBundle> {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies");
-        Arc::new(PolicyBundle::from_dir(&dir).expect("load .autonomy/policies"))
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies");
+        Arc::new(PolicyBundle::from_dir(&dir).expect("load .jeryu/autonomy/policies"))
     }
 
     fn signing_key() -> Arc<EdSigningKey> {
@@ -301,7 +301,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_classifies_auth_path_change_as_r4_or_higher() {
-        // `auth/**` is in `.autonomy/policies/protected-paths.yml::hard_human`.
+        // `auth/**` is in `.jeryu/autonomy/policies/protected-paths.yml::hard_human`.
         // The classifier escalates any change touching a protected glob to
         // R4 minimum via the `any_path_matches_protected: true` matcher.
         // (Note: we use `auth/login.rs`, not `src/auth/login.rs`, because

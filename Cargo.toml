@@ -84,17 +84,11 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 # Docker control
 bollard = "0.18"
 
-# RedlineDB state. Migration to RedlineDB v1.0.8 is tracked in
-# docs/redline-jansu-issues.md. `redlinedb-sqlx` is pinned to an upstream git
-# revision so clean clones do not depend on a sibling checkout. RedlineDB is
-# the only embedded state-store backend allowed here. Do not enable SQLx
-# SQLite features, add sqlx-sqlite, or use SQLite URLs as a fallback; fix
-# RedlineDB or its adapter surface instead.
-#
-# The current SQLx AnyPool surface is the RedlineDB compatibility layer while
-# the native RedlineDB migration remains tracked separately in
-# docs/redline-jansu-issues.md.
-sqlx = { version = "0.8", features = ["runtime-tokio", "any"] }
+# RedlineDB state. The host CLI/native binary is pinned to upstream v1.0.1 in
+# scripts/redlinedb-manifest.json. The SQLx adapter is pinned to the RedlineDB
+# git revision that contains `redlinedb-sqlx`; RedlineDB remains the only
+# embedded state-store backend allowed here.
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "any", "macros"] }
 redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "828667b49fd3adee88c8bdd48681b38c57b95563" }
 
 # Serialization
@@ -147,9 +141,8 @@ async-trait = "0.1"
 # dispatch. URL-pinned to the v0.6.1 feature branch tip including the J-4
 # Consumer batch-tail redelivery fix (jansu PR #11 commit 9f61c0d). Switch
 # to `tag = "v0.6.1"` once neverhuman/jansu cuts the release tag.
-# Optional + default-on so downstream consumers can `--no-default-features`
-# to drop the heavyweight jansu transitives (object_store, rama, etc.) if
-# they don't need the webhook broker path.
+# Default-on webhook broker dependencies. Builds without default features compile
+# only as diagnostics; webhook handling rejects events without this feature.
 jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", optional = true }
 jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", optional = true }
 url = { version = "2", optional = true }
@@ -158,8 +151,7 @@ url = { version = "2", optional = true }
 default = ["jansu-broker"]
 # Route webhook events through an embedded Jansu broker (producer in the HTTP
 # handler, consumer in the autonomy daemon). Adds the jansu-embedded transitive
-# closure (~object_store, rama). Disable with `--no-default-features` for a
-# leaner build that processes webhooks inline.
+# closure (~object_store, rama).
 jansu-broker = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
 
 [dev-dependencies]

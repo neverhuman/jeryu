@@ -53,7 +53,6 @@ pub struct RepoStandardOptions {
     pub base_branch: String,
     pub repo_slug: Option<String>,
     pub autonomy_dir: PathBuf,
-    pub compat_autonomy_link: bool,
     pub configure_git_hooks: bool,
     pub json: bool,
 }
@@ -71,7 +70,6 @@ pub struct RepoStandardReport {
     pub required_check: String,
     pub changes: Vec<ManagedFileChange>,
     pub hook_config: HookConfigChange,
-    pub legacy_autonomy_link: Option<LegacyAutonomyLinkChange>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -103,13 +101,6 @@ pub enum ManagedFileOperation {
 pub struct HookConfigChange {
     pub desired: String,
     pub actual: Option<String>,
-    pub operation: ManagedFileOperation,
-}
-
-#[derive(Debug, Serialize)]
-pub struct LegacyAutonomyLinkChange {
-    pub path: String,
-    pub target: String,
     pub operation: ManagedFileOperation,
 }
 
@@ -150,9 +141,11 @@ pub fn run_standard(mode: RepoStandardMode, opts: RepoStandardOptions) -> Result
         RepoStandardMode::Apply => {
             apply_standard(&spec.repo_root, &files)?;
             if opts.configure_git_hooks && spec.repo_root.join(".git").is_dir() {
-                run_git(&spec.repo_root, &["config", "--local", "core.hooksPath", ".jeryu/hooks"])?;
+                run_git(
+                    &spec.repo_root,
+                    &["config", "--local", "core.hooksPath", ".jeryu/hooks"],
+                )?;
             }
-            apply_legacy_autonomy_link(&spec, &opts)?;
             report = plan_standard(&spec, &files, &opts)?;
             report.status = RepoStandardStatus::Applied;
             print_report(&report, opts.json)?;
@@ -178,6 +171,11 @@ fn build_spec(opts: &RepoStandardOptions) -> Result<StandardSpec> {
         .with_context(|| format!("resolving {}", opts.path.display()))?;
     if !repo_root.is_dir() {
         bail!("{} is not a directory", repo_root.display());
+    }
+    if repo_root.join(".autonomy").exists() {
+        bail!(
+            "root .autonomy is forbidden by {AGENT_FIRST_STANDARD_VERSION}; move policy under {DEFAULT_AUTONOMY_DIR} and remove .autonomy before standardizing"
+        );
     }
 
     let repo_slug = opts
@@ -249,6 +247,11 @@ fn render_standard_files(spec: &StandardSpec) -> Vec<ManagedFile> {
             executable: true,
         },
         ManagedFile {
+            path: ".jeryu/ci/fast.sh",
+            content: render_fast_sh(),
+            executable: true,
+        },
+        ManagedFile {
             path: ".jeryu/hooks/pre-push",
             content: render_pre_push_hook(&spec.base_branch),
             executable: true,
@@ -286,6 +289,11 @@ fn render_standard_files(spec: &StandardSpec) -> Vec<ManagedFile> {
         ManagedFile {
             path: ".github/workflows/jeryu-required.yml",
             content: render_github_required_workflow(),
+            executable: false,
+        },
+        ManagedFile {
+            path: ".github/AGENTS.md",
+            content: render_github_agents_md(),
             executable: false,
         },
         ManagedFile {
@@ -366,7 +374,6 @@ fn plan_standard(
             actual: actual_hooks,
             operation: hook_operation,
         },
-        legacy_autonomy_link: plan_legacy_autonomy_link(spec, opts),
     })
 }
 
@@ -377,7 +384,8 @@ fn apply_standard(repo_root: &Path, files: &[ManagedFile]) -> Result<()> {
             fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
         }
         if fs::read_to_string(&path).ok().as_deref() != Some(file.content.as_str()) {
-            fs::write(&path, &file.content).with_context(|| format!("writing {}", path.display()))?;
+            fs::write(&path, &file.content)
+                .with_context(|| format!("writing {}", path.display()))?;
         }
         set_executable(&path, file.executable)?;
     }
@@ -390,11 +398,6 @@ fn report_is_clean(report: &RepoStandardReport) -> bool {
         .iter()
         .all(|change| change.operation == ManagedFileOperation::Unchanged)
         && report.hook_config.operation == ManagedFileOperation::Unchanged
-        && report
-            .legacy_autonomy_link
-            .as_ref()
-            .map(|link| link.operation == ManagedFileOperation::Unchanged)
-            .unwrap_or(true)
 }
 
 fn print_report(report: &RepoStandardReport, json: bool) -> Result<()> {
@@ -425,21 +428,13 @@ fn print_report(report: &RepoStandardReport, json: bool) -> Result<()> {
             report.hook_config.operation, report.hook_config.desired
         );
     }
-    if let Some(link) = &report.legacy_autonomy_link {
-        if link.operation != ManagedFileOperation::Unchanged {
-            println!("  {:?}: {} -> {}", link.operation, link.path, link.target);
-        }
-    }
     Ok(())
 }
 
 fn render_project_toml(spec: &StandardSpec) -> String {
     format!(
         "schema_version = \"1\"\nstandard = \"agent-first-autonomous\"\nstandard_version = \"{}\"\nproject_id = \"{}\"\nname = \"{}\"\ndefault_branch = \"{}\"\nstate_backend = \"redlinedb\"\ncache_policy = \"isolated\"\nmanaged_policy_root = \".jeryu\"\n",
-        AGENT_FIRST_STANDARD_VERSION,
-        spec.repo_slug,
-        spec.repo_name,
-        spec.base_branch
+        AGENT_FIRST_STANDARD_VERSION, spec.repo_slug, spec.repo_name, spec.base_branch
     )
 }
 
@@ -457,7 +452,7 @@ fn render_delivery_toml(spec: &StandardSpec) -> String {
 
 fn render_release_policy_toml(spec: &StandardSpec) -> String {
     format!(
-        "schema_version = \"1\"\nbase_branch = \"{}\"\nrelease_branches_allowed = false\nenvironment_branches_allowed = false\nmanual_deploy_branches_allowed = false\nmerge_queue_required = true\nrequired_check = \"{}\"\n\n[build]\nsource = \"green-main\"\nonce = true\nrebuild_during_promotion = false\n\n[promotion]\nstages = [\"local\", \"dev-canary\", \"prod-limited\", \"prod-full\"]\nidentity = \"oidc\"\nverify_digest_each_stage = true\n\n[rollback]\nstrategy = \"redeploy-previous-signed-digest\"\nrebuild_allowed = false\n\n[migrations]\nstrategy = \"expand-deploy-contract\"\nbackward_compatible_release_count = 1\n",
+        "schema_version = \"1\"\nbase_branch = \"{}\"\nrelease_branches_allowed = false\nenvironment_branches_allowed = false\nmanual_deploy_branches_allowed = false\nmerge_queue_required = true\nrequired_check = \"{}\"\n\n[build]\nsource = \"green-main\"\nonce = true\nrebuild_during_promotion = false\n\n[promotion]\nstages = [\"local\", \"dev-canary\", \"prod-limited\", \"prod-full\"]\nidentity = \"oidc\"\nverify_digest_each_stage = true\n\n[rollback]\nstrategy = \"redeploy-previous-signed-digest\"\nrebuild_allowed = false\n\n[migrations]\nstrategy = \"expand-deploy-contract\"\ncontract_overlap_release_count = 1\nsuperseded_read_paths_allowed = false\n",
         spec.base_branch, REQUIRED_CHECK_NAME
     )
 }
@@ -493,15 +488,24 @@ jankurai audit . \
   --json target/jankurai/required-audit.json \
   --md target/jankurai/required-audit.md
 
-if [ -x scripts/ci-parity.sh ]; then
-  bash scripts/ci-parity.sh --fast --no-audit
-elif command -v just >/dev/null 2>&1; then
-  just fast
-elif [ -f Cargo.toml ]; then
-  cargo check --workspace --locked
-else
-  echo "jeryu required: no project proof lane found after jankurai audit" >&2
+bash .jeryu/ci/fast.sh
+"#
+    .to_string()
+}
+
+fn render_fast_sh() -> String {
+    r#"#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$repo_root"
+
+if [ ! -f Cargo.toml ]; then
+  echo "jeryu fast: Cargo.toml is required by this standard profile" >&2
+  exit 1
 fi
+
+cargo check --workspace --locked
 "#
     .to_string()
 }
@@ -556,22 +560,19 @@ fn render_autonomy_yml(spec: &StandardSpec) -> String {
 }
 
 fn render_autonomy_approvals_yml() -> String {
-    "schema: vibegate.approvals.v1\ndefaults:\n  low_and_normal_risk_human_approvals: 0\n  protected_path_human_approvals: 1\n  committee_approval_default: false\n  agent_self_approval_allowed: false\ntiers:\n  R0: { human_approvals: 0, agent_review: true }\n  R1: { human_approvals: 0, agent_review: true }\n  R2: { human_approvals: 0, agent_review: true }\n  R3: { human_approvals: 1, agent_review: true }\n  R4: { human_approvals: 1, agent_review: true }\n  R5: { human_approvals: 1, break_glass: true }\n".to_string()
+    "schema: vibegate.approvals.v1\ninvariants:\n  no_self_approval: true\n  exact_sha_required: true\n  target_branch_policy_only: true\n  fail_closed_on_missing_evidence: true\n  fail_closed_on_agent_disagreement: true\n  require_distinct_agent_identities: true\nhard_stops:\n  - name: secret_scan_failed\n  - name: sast_failed\n  - name: reviewer_blocked\n  - name: sha_drift\n  - name: policy_sha_drift\n  - name: missing_required_review_role\n  - name: missing_evidence_pack\n  - name: evidence_signature_invalid\n  - name: prompt_injection_suspected\n  - name: codeowners_not_satisfied\n  - name: freeze_window_active\n  - name: budget_exceeded\n  - name: training_use_required_but_disallowed\n  - name: lockfile_diff_without_manifest_diff\n  - name: judge_signature_invalid\nquorum:\n  R0: { approvals_needed: 0, roles: [], human_required: false }\n  R1: { approvals_needed: 1, roles: [test_integrity], human_required: false }\n  R2: { approvals_needed: 2, roles: [test_integrity, security], human_required: false }\n  R3:\n    approvals_needed: 4\n    roles: [test_integrity, security, runtime, lockfile]\n    human_required: true\n  R4: { approvals_needed: 0, roles: [], human_required: true, fail_closed_without_human: true }\n  R5: { approvals_needed: 0, roles: [], human_required: true, fail_closed: true }\nverdict_ttl_minutes: 60\nre_judge_on:\n  - merge_train_rebase\n  - target_branch_advance\n  - policy_change_on_target\n  - new_commit_on_pr\n".to_string()
 }
 
 fn render_autonomy_risk_yml() -> String {
-    "schema: vibegate.risk.v1\nprotected_path_tier: R4\ndefault_tier: R2\ndocs_only_tier: R0\nsmall_test_only_tier: R1\nhigh_risk_markers:\n  - .github/**\n  - .jeryu/**\n  - ops/ci/**\n  - release.policy.toml\n".to_string()
+    "schema: vibegate.risk.v1\ntiers:\n  - id: R5\n    description: \"missing/tampered evidence, suspicious behavior, emergency, unknown blast radius\"\n    matchers:\n      - conditions: [evidence_missing]\n      - conditions: [evidence_signature_invalid]\n      - conditions: [prompt_injection_suspected]\n      - conditions: [policy_sha_drift]\n    auto_merge: false\n    human_required: true\n    fail_closed: true\n  - id: R4\n    description: \"auth, crypto, secrets, infra, CI, policy, release, prod, prompt/judge rules\"\n    matchers:\n      - any_path_matches_protected: true\n      - conditions: [changes_security_scanner_config]\n      - conditions: [changes_release_or_deploy_policy]\n      - conditions: [changes_agent_prompts_or_judge_policy]\n      - conditions: [touches_secret_handling]\n      - conditions: [destructive_database_change]\n    auto_merge: false\n    human_required: true\n  - id: R3\n    description: \"large, novel, dependency, performance, data, or broad behavior change\"\n    matchers:\n      - conditions: [lockfile_only_change]\n      - conditions: [dependency_count_delta_gte_5]\n      - conditions: [removes_or_weakens_tests]\n      - conditions: [introduces_new_external_code_source]\n      - lines_changed_gte: 800\n      - paths_match: [\"**/migrations/**\"]\n    auto_merge: false\n    required_reviews: [test_integrity, security, runtime, lockfile]\n    human_required: true\n  - id: R0\n    description: \"docs, comments, formatting, harmless metadata\"\n    matchers:\n      - paths_only_in: [\"**/*.md\", \"docs/**\", \"**/*.txt\", \"**/*.rst\", \"**/*.adoc\"]\n      - paths_only_in: [\"**/COMMENTS\", \"**/*.gitignore\", \"**/*.editorconfig\"]\n    auto_merge: true\n    required_reviews: []\n  - id: R1\n    description: \"small isolated code change with strong targeted tests\"\n    matchers:\n      - lines_changed_lte: 60\n        all_files_have_targeted_tests: true\n    auto_merge: true\n    required_reviews: [test_integrity]\n  - id: R2\n    description: \"normal product change (default catch-all; checked last)\"\n    matchers:\n      - default: true\n    auto_merge: true\n    required_reviews: [test_integrity, security]\nevaluation_order: top_down\n".to_string()
 }
 
 fn render_autonomy_protected_paths_yml() -> String {
-    "schema: vibegate.protected-paths.v1\nhuman_approvals: 1\npaths:\n  - .github/**\n  - .gitlab-ci.yml\n  - .jeryu/**\n  - ops/ci/**\n  - release.policy.toml\n  - Cargo.lock\n".to_string()
+    "schema: vibegate.protected-paths.v1\nhard_human:\n  - .github/**\n  - .gitlab-ci.yml\n  - .jeryu/**\n  - ops/ci/**\n  - release.policy.toml\n  - Cargo.lock\nsemantic_triggers:\n  - auth_boundary\n  - secret_handling\n  - release_policy\n".to_string()
 }
 
-fn render_autonomy_release_yml(spec: &StandardSpec) -> String {
-    format!(
-        "schema: vibegate.release.v1\ncanonical_branch: {}\nrequired_check: {}\nmerge_queue_required: true\nbuild_once: true\npromote_same_digest: true\nsignature_required: true\nsbom_required: true\nprovenance_required: true\nrollback_strategy: previous_signed_digest\nstages:\n  - local\n  - dev-canary\n  - prod-limited\n  - prod-full\n",
-        spec.base_branch, REQUIRED_CHECK_NAME
-    )
+fn render_autonomy_release_yml(_spec: &StandardSpec) -> String {
+    "schema: vibegate.release.v1\nbuild:\n  build_once: true\n  require_sbom: true\n  require_slsa_provenance: true\n  require_artifact_signature: true\n  require_rollback_plan: true\ncanary:\n  initial_percent: 1\n  max_percent_without_human: 10\n  analysis_minutes: 30\nrelease_ready_receipts:\n  - intake\n  - vti-plan\n  - proof-receipt\n  - risk-gate\n  - reviewer-agent\n  - rollback-plan\n  - ci-checks\n".to_string()
 }
 
 fn render_github_required_workflow() -> String {
@@ -594,6 +595,17 @@ jobs:
           fetch-depth: 0
       - name: Required lane
         run: bash .jeryu/ci/required.sh
+"#
+    .to_string()
+}
+
+fn render_github_agents_md() -> String {
+    r#"# .github/AGENTS.md
+
+Read `AGENTS.md` first. Workflow files in this directory are adapters for the canonical ops lanes under `ops/ci/`.
+Owns `.github/`.
+Forbidden: product feature code, domain policy, and handwritten release bypasses.
+Proof lane: `bash ops/ci/quality-gates.sh` plus the matching `ops/ci/*-lane.sh` script for the workflow being changed.
 "#
     .to_string()
 }
@@ -635,52 +647,13 @@ fn render_standard_lock(spec: &StandardSpec, files: &[ManagedFile]) -> String {
     for file in files {
         out.push_str("[[managed_file]]\n");
         out.push_str(&format!("path = \"{}\"\n", file.path));
-        out.push_str(&format!("sha256 = \"{}\"\n", sha256_hex(file.content.as_bytes())));
+        out.push_str(&format!(
+            "sha256 = \"{}\"\n",
+            sha256_hex(file.content.as_bytes())
+        ));
         out.push_str(&format!("executable = {}\n\n", file.executable));
     }
     out
-}
-
-fn plan_legacy_autonomy_link(
-    spec: &StandardSpec,
-    opts: &RepoStandardOptions,
-) -> Option<LegacyAutonomyLinkChange> {
-    if !opts.compat_autonomy_link {
-        return None;
-    }
-    let path = spec.repo_root.join(".autonomy");
-    let target = spec.autonomy_dir.clone();
-    let operation = if path.exists() {
-        ManagedFileOperation::Unchanged
-    } else {
-        ManagedFileOperation::Create
-    };
-    Some(LegacyAutonomyLinkChange {
-        path: ".autonomy".to_string(),
-        target,
-        operation,
-    })
-}
-
-fn apply_legacy_autonomy_link(spec: &StandardSpec, opts: &RepoStandardOptions) -> Result<()> {
-    if !opts.compat_autonomy_link {
-        return Ok(());
-    }
-    let link = spec.repo_root.join(".autonomy");
-    if link.exists() {
-        return Ok(());
-    }
-
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(&spec.autonomy_dir, &link)
-            .with_context(|| format!("creating {}", link.display()))?;
-    }
-    #[cfg(not(unix))]
-    {
-        fs::write(&link, &spec.autonomy_dir).with_context(|| format!("writing {}", link.display()))?;
-    }
-    Ok(())
 }
 
 fn infer_remote_slug(repo_root: &Path) -> Result<Option<String>> {
@@ -811,7 +784,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_remote_slug_accepts_common_git_urls() {
+    fn parse_remote_slug_accepts_common_git_remotes() {
         assert_eq!(
             parse_remote_slug("git@github.com:neverhuman/warp.git").as_deref(),
             Some("neverhuman/warp")
@@ -853,7 +826,12 @@ mod tests {
         run_git(tmp.path(), &["init", "-b", "main"]).unwrap();
         run_git(
             tmp.path(),
-            &["remote", "add", "origin", "git@github.com:neverhuman/warp.git"],
+            &[
+                "remote",
+                "add",
+                "origin",
+                "git@github.com:neverhuman/warp.git",
+            ],
         )
         .unwrap();
 
@@ -864,18 +842,44 @@ mod tests {
             base_branch: "main".to_string(),
             repo_slug: None,
             autonomy_dir: PathBuf::from(DEFAULT_AUTONOMY_DIR),
-            compat_autonomy_link: true,
             configure_git_hooks: true,
             json: true,
         };
 
-        assert_eq!(run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(), 0);
+        assert_eq!(
+            run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(),
+            0
+        );
         assert_eq!(run_standard(RepoStandardMode::Verify, opts).unwrap(), 0);
         assert!(tmp.path().join(".jeryu/project.toml").is_file());
         assert!(tmp.path().join(".jeryu/standard.lock").is_file());
         assert_eq!(
-            git_config_get(tmp.path(), "core.hooksPath").unwrap().as_deref(),
+            git_config_get(tmp.path(), "core.hooksPath")
+                .unwrap()
+                .as_deref(),
             Some(".jeryu/hooks")
+        );
+    }
+
+    #[test]
+    fn root_autonomy_tree_is_rejected() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::create_dir_all(tmp.path().join(".autonomy/policies")).unwrap();
+        let opts = RepoStandardOptions {
+            path: tmp.path().to_path_buf(),
+            profile: "sovereign_plus".to_string(),
+            provider: StandardProvider::Github,
+            base_branch: "main".to_string(),
+            repo_slug: Some("neverhuman/warp".to_string()),
+            autonomy_dir: PathBuf::from(DEFAULT_AUTONOMY_DIR),
+            configure_git_hooks: false,
+            json: true,
+        };
+
+        let err = build_spec(&opts).unwrap_err();
+        assert!(
+            err.to_string().contains("root .autonomy is forbidden"),
+            "{err:?}"
         );
     }
 
@@ -885,7 +889,12 @@ mod tests {
         run_git(tmp.path(), &["init", "-b", "main"]).unwrap();
         run_git(
             tmp.path(),
-            &["remote", "add", "origin", "git@github.com:neverhuman/warp.git"],
+            &[
+                "remote",
+                "add",
+                "origin",
+                "git@github.com:neverhuman/warp.git",
+            ],
         )
         .unwrap();
 
@@ -895,15 +904,15 @@ mod tests {
             "schema_version = \"1\"\nrepo = \"stale-owner/stale-repo\"\n",
         )
         .unwrap();
-        fs::create_dir_all(tmp.path().join(".autonomy/policies")).unwrap();
+        fs::create_dir_all(tmp.path().join(".jeryu/autonomy/policies")).unwrap();
         fs::write(
-            tmp.path().join(".autonomy/autonomy.yml"),
-            "schema: vibegate.autonomy.v1\npolicy_root: .autonomy/policies\n",
+            tmp.path().join(".jeryu/autonomy/autonomy.yml"),
+            "schema: vibegate.autonomy.v1\npolicy_root: .jeryu/autonomy/policies\n",
         )
         .unwrap();
         fs::write(
-            tmp.path().join(".autonomy/policies/release.yml"),
-            "schema: vibegate.release.v1\ncanonical_branch: trunk\n",
+            tmp.path().join(".jeryu/autonomy/policies/release.yml"),
+            "schema: vibegate.release.v1\nbuild:\n  build_once: false\n  require_sbom: false\n  require_slsa_provenance: false\n  require_artifact_signature: false\n  require_rollback_plan: false\n",
         )
         .unwrap();
 
@@ -914,7 +923,6 @@ mod tests {
             base_branch: "main".to_string(),
             repo_slug: None,
             autonomy_dir: PathBuf::from(DEFAULT_AUTONOMY_DIR),
-            compat_autonomy_link: false,
             configure_git_hooks: false,
             json: true,
         };
@@ -929,7 +937,6 @@ mod tests {
         assert!(delivery.content.contains("repo = \"neverhuman/warp\""));
         let plan = plan_standard(&spec, &files, &opts).unwrap();
         assert_eq!(plan.repo_slug, "neverhuman/warp");
-        assert!(plan.legacy_autonomy_link.is_none());
         assert_eq!(
             plan.changes
                 .iter()
@@ -938,9 +945,15 @@ mod tests {
                 .operation,
             ManagedFileOperation::Update
         );
-        assert_eq!(run_standard(RepoStandardMode::Plan, opts.clone()).unwrap(), 0);
+        assert_eq!(
+            run_standard(RepoStandardMode::Plan, opts.clone()).unwrap(),
+            0
+        );
 
-        assert_eq!(run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(), 0);
+        assert_eq!(
+            run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(),
+            0
+        );
         let rendered_delivery =
             fs::read_to_string(tmp.path().join(".jeryu/delivery.toml")).unwrap();
         assert!(rendered_delivery.contains("repo = \"neverhuman/warp\""));
@@ -952,6 +965,7 @@ mod tests {
             ".jeryu/autonomy/policies/protected-paths.yml",
             ".jeryu/autonomy/policies/release.yml",
             ".jeryu/autonomy/policies/risk.yml",
+            ".github/AGENTS.md",
             ".github/CODEOWNERS",
             ".github/workflows/jeryu-required.yml",
         ] {
@@ -960,20 +974,22 @@ mod tests {
         let rendered_autonomy =
             fs::read_to_string(tmp.path().join(".jeryu/autonomy/autonomy.yml")).unwrap();
         assert!(rendered_autonomy.contains("policy_root: .jeryu/autonomy/policies"));
-        assert!(!rendered_autonomy.contains("policy_root: .autonomy/policies"));
         let rendered_release =
             fs::read_to_string(tmp.path().join(".jeryu/autonomy/policies/release.yml")).unwrap();
-        assert!(rendered_release.contains("canonical_branch: main"));
-        assert!(!rendered_release.contains("canonical_branch: trunk"));
+        assert!(rendered_release.contains("release_ready_receipts:"));
+        assert!(rendered_release.contains("require_artifact_signature: true"));
+        assert!(!rendered_release.contains("require_artifact_signature: false"));
         assert!(
-            !fs::symlink_metadata(tmp.path().join(".autonomy"))
+            !fs::symlink_metadata(tmp.path().join(".jeryu/autonomy"))
                 .unwrap()
                 .file_type()
                 .is_symlink()
         );
-        assert!(fs::read_to_string(tmp.path().join(".github/CODEOWNERS"))
-            .unwrap()
-            .contains("@neverhuman"));
+        assert!(
+            fs::read_to_string(tmp.path().join(".github/CODEOWNERS"))
+                .unwrap()
+                .contains("@neverhuman")
+        );
         assert!(
             fs::read_to_string(tmp.path().join(".github/workflows/jeryu-required.yml"))
                 .unwrap()
@@ -984,7 +1000,10 @@ mod tests {
         let files = render_standard_files(&spec);
         let clean_plan = plan_standard(&spec, &files, &opts).unwrap();
         assert!(report_is_clean(&clean_plan));
-        assert_eq!(run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(), 0);
+        assert_eq!(
+            run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(),
+            0
+        );
         assert_eq!(run_standard(RepoStandardMode::Verify, opts).unwrap(), 0);
     }
 
@@ -998,12 +1017,14 @@ mod tests {
             base_branch: "main".to_string(),
             repo_slug: Some("neverhuman/warp".to_string()),
             autonomy_dir: PathBuf::from(DEFAULT_AUTONOMY_DIR),
-            compat_autonomy_link: false,
             configure_git_hooks: false,
             json: true,
         };
 
-        assert_eq!(run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(), 0);
+        assert_eq!(
+            run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(),
+            0
+        );
         fs::write(tmp.path().join(".jeryu/project.toml"), "drift\n").unwrap();
         assert_eq!(run_standard(RepoStandardMode::Verify, opts).unwrap(), 1);
     }

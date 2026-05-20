@@ -426,10 +426,11 @@ mod tests {
 
         assert_eq!(gate.overall, ReceiptStatus::Fail);
         assert!(!gate.is_pass());
-        assert!(gate
-            .receipts
-            .iter()
-            .all(|r| r.status == ReceiptStatus::Fail));
+        assert!(
+            gate.receipts
+                .iter()
+                .all(|r| r.status == ReceiptStatus::Fail)
+        );
     }
 
     #[test]
@@ -441,10 +442,11 @@ mod tests {
 
         assert_eq!(gate.overall, ReceiptStatus::Pass);
         assert!(gate.is_pass());
-        assert!(gate
-            .receipts
-            .iter()
-            .all(|r| r.status == ReceiptStatus::Pass));
+        assert!(
+            gate.receipts
+                .iter()
+                .all(|r| r.status == ReceiptStatus::Pass)
+        );
     }
 
     #[test]

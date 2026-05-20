@@ -232,10 +232,11 @@ fn verdict_decision_serializes_snake_case() {
 }
 
 #[test]
-fn reviewer_role_lockfile_aliases() {
-    // The YAML uses `lockfile_scout`; the Rust enum is `Lockfile`.
-    let r: ReviewerRole = serde_yaml::from_str("lockfile_scout").unwrap();
-    assert_eq!(r, ReviewerRole::Lockfile);
+fn reviewer_role_requires_canonical_lockfile_spelling() {
+    assert!(
+        serde_yaml::from_str::<ReviewerRole>("lockfile_scout").is_err(),
+        "lockfile_scout is not a canonical reviewer role"
+    );
     let r: ReviewerRole = serde_yaml::from_str("lockfile").unwrap();
     assert_eq!(r, ReviewerRole::Lockfile);
 }
@@ -270,7 +271,7 @@ fn synth_pack(risk: RiskTier, signed: bool) -> jeryu::autonomy::EvidencePack {
             feature_flag: None,
             data_migration_reversible: Some(true),
         },
-        legacy_receipts: vec![],
+        gate_receipts: vec![],
     });
     if signed {
         p.signature = Some(Signature::stub());

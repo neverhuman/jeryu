@@ -127,9 +127,9 @@ If ALL changed files match these patterns, VTI marks the change as `docs_only` (
 5. **Build selected tests**: merge unit_filter and integration_tests from all affected subsystems → `mode: selected`.
 6. **Compute confidence**: based on coverage of changed files by known subsystems.
 
-Output: `TestPlan { mode, selected_tests, skipped_subsystems, confidence, fallback_reason }`.
+Output: `TestPlan { mode, selected_tests, skipped_subsystems, confidence, escalation_reason }`.
 
-V3.01 adds `TestPlan::receipt(base_sha, head_sha)`, which produces a `VtiReceipt` with a stable receipt id, policy version, mode, confidence, selected tests, skipped subsystems, changed paths, fallback reason, and optional base/head identity. `jeryu test select --emit-receipt <path>` writes this receipt as JSON. Merge proof can require the receipt and reject stale or missing receipt evidence.
+V3.01 adds `TestPlan::receipt(base_sha, head_sha)`, which produces a `VtiReceipt` with a stable receipt id, policy version, mode, confidence, selected tests, skipped subsystems, changed paths, escalation reason, and optional base/head identity. `jeryu test select --emit-receipt <path>` writes this receipt as JSON. Merge proof can require the receipt and reject stale or missing receipt evidence.
 
 ### 2.6 Subsystem Force-Full Triggers
 
@@ -203,10 +203,10 @@ jobs = ["test-frontend"]
 1. **Check global invalidators** from testmap → `mode: full` if any match.
 2. **Check docs-only** from testmap → `mode: docs_only` if all match.
 3. **Map changed files to subsystems** → collect unique `jobs` from matched subsystems.
-4. **Check for unmapped files** — if any changed file doesn't match any subsystem, trigger `mode: full` as a safety fallback.
+4. **Check for unmapped files** — if any changed file doesn't match any subsystem, trigger `mode: full` as a fail-closed escalation.
 5. Otherwise → `mode: selected` with the deduplicated job list.
 
-Output: `ExternalTestPlan { mode, selected_jobs, skipped_jobs, confidence, fallback_reason }`.
+Output: `ExternalTestPlan { mode, selected_jobs, skipped_jobs, confidence, escalation_reason }`.
 
 ### 4.3 Artifact Emission
 
@@ -237,7 +237,7 @@ The external planner can emit three artifacts:
     }
   ],
   "skipped_subsystems": ["tui", "cache", "release"],
-  "fallback_reason": null
+  "escalation_reason": null
 }
 ```
 
@@ -249,7 +249,7 @@ The external planner can emit three artifacts:
   "confidence": 0.92,
   "selected_jobs": ["lint-cargo-fmt", "test-rust-nextest-1"],
   "skipped_jobs": ["test-shell-e2e", "test-frontend"],
-  "fallback_reason": null
+  "escalation_reason": null
 }
 ```
 
@@ -286,7 +286,7 @@ In the `dougx` workspace, the VTI plan flows through a runtime interception arch
    - If `mode == "full"` or job IS in `selected_jobs`:
      - Proceeds with normal test execution
 
-4. **Artifact handoff**: Test jobs must include `plan-tests` in their `needs:` array to receive the `target/jeryu/vti-plan.json` artifact. Jobs without this dependency execute fully (graceful fallback).
+4. **Artifact handoff**: Test jobs must include `plan-tests` in their `needs:` array to receive the `target/jeryu/vti-plan.json` artifact. Jobs without this dependency execute fully as a fail-closed escalation.
 
 ### 6.3 Relevant dougx CI Files
 
@@ -432,7 +432,7 @@ jeryu test select-external --workspace /home/ubuntu/dougx
 | Failure Point | Behavior |
 | --- | --- |
 | `plan-tests` job fails to compile jeryu | Catches error, emits `{"mode": "full"}` — all tests run normally |
-| Changed file not mapped to any subsystem (external) | Triggers `mode: full` — safety fallback |
+| Changed file not mapped to any subsystem (external) | Triggers `mode: full` — fail-closed escalation |
 | GitLab `needs:` array missing `plan-tests` | Job never downloads `vti-plan.json`, executes fully |
 | `vti-plan.json` absent or unparseable | `veox-testctl` skips evaluation, job executes fully |
 | `jeryu test audit` run without `--workspace` in dougx | Uses internal planner rules, pollutes DB with bad misses |

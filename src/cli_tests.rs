@@ -323,7 +323,6 @@ fn repo_standard_apply_parses_defaults_and_overrides() {
         "neverhuman/warp",
         "--autonomy-dir",
         ".jeryu/autonomy",
-        "--compat-autonomy-link",
         "--json",
     ]);
     match cli.command {
@@ -333,8 +332,10 @@ fn repo_standard_apply_parses_defaults_and_overrides() {
             assert_eq!(cmd.provider, StandardProvider::Github);
             assert_eq!(cmd.base_branch, "main");
             assert_eq!(cmd.repo.as_deref(), Some("neverhuman/warp"));
-            assert_eq!(cmd.autonomy_dir, std::path::PathBuf::from(".jeryu/autonomy"));
-            assert!(cmd.compat_autonomy_link);
+            assert_eq!(
+                cmd.autonomy_dir,
+                std::path::PathBuf::from(".jeryu/autonomy")
+            );
             assert!(cmd.configure_git_hooks);
             assert!(cmd.json);
         }

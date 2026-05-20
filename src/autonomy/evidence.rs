@@ -1,13 +1,13 @@
 //! Evidence Pack builder.
 //!
 //! Composes a `EvidencePack` from the inputs available in a single PR/MR
-//! pipeline: change list, scanner outcomes, the legacy 7-receipt slice from
+//! pipeline: change list, scanner outcomes, the release-ready receipt slice from
 //! `src/release/gate.rs`, and a SHA-stamped evidence digest.
 
 use crate::autonomy::signing::sha256_digest;
 use crate::autonomy::types::{
-    ChangedFile, EvidencePack, LegacyReceipt, RiskTier, RollbackSection, SchemaTag,
-    SecuritySection, SupplyChainSection, TestsSection,
+    ChangedFile, EvidencePack, GateReceipt, RiskTier, RollbackSection, SchemaTag, SecuritySection,
+    SupplyChainSection, TestsSection,
 };
 use chrono::{DateTime, Utc};
 
@@ -27,7 +27,7 @@ pub struct EvidenceInputs<'a> {
     pub security: SecuritySection,
     pub supply_chain: SupplyChainSection,
     pub rollback: RollbackSection,
-    pub legacy_receipts: Vec<LegacyReceipt>,
+    pub gate_receipts: Vec<GateReceipt>,
 }
 
 pub fn build_evidence_pack(inp: EvidenceInputs<'_>) -> EvidencePack {
@@ -56,7 +56,7 @@ pub fn build_evidence_pack(inp: EvidenceInputs<'_>) -> EvidencePack {
         security: inp.security,
         supply_chain: inp.supply_chain,
         rollback: inp.rollback,
-        legacy_receipts: inp.legacy_receipts,
+        gate_receipts: inp.gate_receipts,
         evidence_digest: String::new(),
         created_at: now,
         signature: None,
@@ -102,19 +102,19 @@ fn mint_evp_id(now: DateTime<Utc>, head_sha: &str) -> String {
     s
 }
 
-/// Helper: build a `LegacyReceipt` from id/status/detail/evidence fields.
+/// Helper: build a `GateReceipt` from id/status/detail/evidence fields.
 ///
 /// The existing `src/release/gate.rs::Receipt` module is private to
 /// `src/release.rs`. When Codex extends `compose_gate` to take an
 /// `EvidencePack`, we can add a direct From impl. For now, this helper
 /// keeps the conversion ergonomic without forcing a cross-module re-export.
-pub fn make_legacy_receipt(
+pub fn make_gate_receipt(
     id: impl Into<String>,
     status: impl Into<String>,
     detail: impl Into<String>,
     evidence: Option<String>,
-) -> LegacyReceipt {
-    LegacyReceipt {
+) -> GateReceipt {
+    GateReceipt {
         id: id.into(),
         status: status.into(),
         detail: detail.into(),
@@ -170,7 +170,7 @@ mod tests {
                 feature_flag: None,
                 data_migration_reversible: Some(true),
             },
-            legacy_receipts: vec![],
+            gate_receipts: vec![],
         }
     }
 
@@ -207,9 +207,9 @@ mod tests {
     }
 
     #[test]
-    fn legacy_receipt_helper_round_trips() {
-        let r1 = make_legacy_receipt("intake", "pass", "ok", Some("/tmp/x.json".into()));
-        let r2 = make_legacy_receipt("vti-plan", "pending", "awaiting CI", None);
+    fn gate_receipt_helper_round_trips() {
+        let r1 = make_gate_receipt("intake", "pass", "ok", Some("/tmp/x.json".into()));
+        let r2 = make_gate_receipt("vti-plan", "pending", "awaiting CI", None);
         assert_eq!(r1.id, "intake");
         assert_eq!(r1.status, "pass");
         assert_eq!(r1.evidence.as_deref(), Some("/tmp/x.json"));

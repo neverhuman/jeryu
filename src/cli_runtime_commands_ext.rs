@@ -337,8 +337,6 @@ pub(crate) struct RepoStandardCommand {
     pub repo: Option<String>,
     #[arg(long, default_value = ".jeryu/autonomy")]
     pub autonomy_dir: PathBuf,
-    #[arg(long, default_value_t = false)]
-    pub compat_autonomy_link: bool,
     #[arg(long, default_value_t = true)]
     pub configure_git_hooks: bool,
     #[arg(long, default_value_t = false)]

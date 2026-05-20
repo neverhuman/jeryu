@@ -2,7 +2,7 @@
 //! Live end-to-end test: real LLM reviewer → real policy bundle → real judge.
 //!
 //! Proves the Evidence Gate spine works against a real provider (not a mock).
-//! Gated on `JERYU_LLM_LIVE=1`. Uses `OPENROUTER_API_KEY` from `~/llm.env`.
+//! Gated on `JERYU_LLM_LIVE=1`. Uses canonical `OPENROUTER_API_KEY` resolution.
 
 use jeryu::agent_review::{
     JudgeInputs, judge, run_security_review, security::SecurityReviewInputs,
@@ -13,10 +13,9 @@ use jeryu::autonomy::types::{
 };
 use jeryu::autonomy::{EvidenceInputs, PolicyBundle, build_evidence_pack, signing::Signature};
 use jeryu::llm::{
-    CallParams, DataUse, LlmRouter, OpenAiCompatibleClient, RoleChain, RoleChainEntry,
-    SecretResolver, resolve_secret,
+    LlmRouter, SecretResolver,
+    provider_chains::{build_router_for_roles, load_providers_config},
 };
-use std::sync::Arc;
 
 const SQL_INJECTION_DIFF: &str = r#"diff --git a/src/api/users.rs b/src/api/users.rs
 --- a/src/api/users.rs
@@ -36,39 +35,14 @@ const SQL_INJECTION_DIFF: &str = r#"diff --git a/src/api/users.rs b/src/api/user
 
 fn build_live_router() -> LlmRouter {
     let resolver = SecretResolver::from_env();
-    let key = resolve_secret("OPENROUTER_API_KEY", &resolver).expect("OPENROUTER_API_KEY required");
-    let client = OpenAiCompatibleClient::new("openrouter", "https://openrouter.ai/api/v1")
-        .with_api_key(key.value)
-        .with_header("HTTP-Referer", "https://github.com/jeryu/jeryu")
-        .with_header("X-Title", "jeryu-evidence-gate-live-e2e")
-        .with_data_use(DataUse::NoTrain);
-    let client_arc = Arc::new(client);
-    let mut primary = CallParams::default();
-    primary.model = "nvidia/nemotron-3-super-120b-a12b:free".into();
-    primary.temperature = 0.0;
-    primary.max_tokens = 600;
-    primary.timeout_ms = 60_000;
-    let mut fallback = CallParams::default();
-    fallback.model = "openai/gpt-oss-120b:free".into();
-    fallback.temperature = 0.0;
-    fallback.max_tokens = 600;
-    fallback.timeout_ms = 60_000;
-    let mut chain = RoleChain {
-        role: "reviewer-security".into(),
-        entries: vec![],
-        forbid_train_on_input: true,
-    };
-    chain.entries.push(RoleChainEntry {
-        provider: client_arc.clone(),
-        params: primary,
-    });
-    chain.entries.push(RoleChainEntry {
-        provider: client_arc,
-        params: fallback,
-    });
-    let mut r = LlmRouter::new();
-    r.add_chain(chain);
-    r
+    let autonomy = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy");
+    let cfg = load_providers_config(&autonomy).expect("canonical providers/llm.yml must load");
+    assert!(
+        cfg.chains.contains_key("reviewer-security"),
+        "canonical providers/llm.yml must declare reviewer-security"
+    );
+    build_router_for_roles(&autonomy, &["reviewer-security"], &resolver)
+        .expect("reviewer-security chain must build from canonical providers/llm.yml")
 }
 
 fn synth_signed_pack() -> jeryu::autonomy::EvidencePack {
@@ -106,7 +80,7 @@ fn synth_signed_pack() -> jeryu::autonomy::EvidencePack {
             feature_flag: None,
             data_migration_reversible: Some(true),
         },
-        legacy_receipts: vec![],
+        gate_receipts: vec![],
     });
     pack.signature = Some(Signature {
         key_id: "evidence-builder.v1".into(),
@@ -127,12 +101,12 @@ async fn full_spine_live_sqli_lands_reject() {
     let router = build_live_router();
     let pack = synth_signed_pack();
     let policies = PolicyBundle::from_dir(
-        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies"),
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies"),
     )
     .expect("loads policies");
     let prompt = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(".autonomy/prompts/reviewer-security.md"),
+            .join(".jeryu/autonomy/prompts/reviewer-security.md"),
     )
     .expect("loads system prompt");
 

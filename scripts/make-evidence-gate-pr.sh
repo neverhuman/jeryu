@@ -62,7 +62,8 @@ git worktree add "$WT" -b "$BRANCH" "$REMOTE/$BASE" >/dev/null
 
 # --- Copy net-new directories + files -------------------------------------
 log "copying Evidence Gate files..."
-cp -r "$REPO_ROOT/.autonomy" "$WT/"
+mkdir -p "$WT/.jeryu"
+cp -r "$REPO_ROOT/.jeryu/autonomy" "$WT/.jeryu/"
 cp -r "$REPO_ROOT/src/autonomy" "$WT/src/"
 cp -r "$REPO_ROOT/src/llm" "$WT/src/"
 cp -r "$REPO_ROOT/src/agent_review" "$WT/src/"
@@ -106,7 +107,7 @@ with open(work_path) as f:
 # Take any owner-map keys not present in the main version and add only the
 # autonomy-related ones to the base.
 keep_prefixes = (
-    ".autonomy/",
+    ".jeryu/autonomy/",
     "src/autonomy/",
     "src/llm/",
     "src/agent_review/",
@@ -168,12 +169,12 @@ Adds the full autonomous code-review + approval spine described in
 `tips/fullauto/tip1.txt` and `docs/autonomous-delivery.md`.
 
 Highlights:
-- `.autonomy/` per-repo config plane (autonomy.yml + 7 agents + 5 policies +
+- `.jeryu/autonomy/` per-repo config plane (autonomy.yml + 7 agents + 5 policies +
   providers + 4 prompts + 8 JSON schemas).
 - `src/autonomy/`, `src/llm/`, `src/agent_review/`, `src/approval/`,
   `src/git_host/` Rust modules. Pure-policy Judge, prompt-injection-resistant
-  reviewers, OpenAI-compatible LLM router with per-role fallback chain,
-  ed25519 signing, 6-tier secrets resolver, pre-flight gitleaks-style scrub,
+  reviewers, OpenAI-compatible LLM router with per-role failover chain,
+  ed25519 signing, canonical secrets resolver, pre-flight gitleaks-style scrub,
   shadow replay mode, MCP tool descriptors.
 - `src/bin/autonomy` standalone CLI: doctor / review / judge / evidence /
   init / shadow. Exit codes mirror semantics (0=AllowMerge, 78=RequireHuman,
@@ -187,7 +188,7 @@ Highlights:
   evidence-gate-spec.md).
 - Cargo deps added: regex = "1", ed25519-dalek = "2".
 - CHANGELOG, CODEOWNERS, agent/owner-map.json, proof-lanes.toml, .gitignore
-  all updated. CODEOWNERS marks `.autonomy/**` as human-required (Tip1 Law 3).
+  all updated. CODEOWNERS marks `.jeryu/autonomy/**` as human-required (Tip1 Law 3).
 
 Live-verified against OpenRouter + Groq + NVIDIA + GitHub APIs.
 EOF
@@ -209,16 +210,16 @@ Design source of truth: `tips/fullauto/tip1.txt`. Public/conservative name:
 
 ## What's in the box
 
-- **Per-repo config (`.autonomy/`)**: profiles, 5 policies, 7 agent specs,
+- **Per-repo config (`.jeryu/autonomy/`)**: profiles, 5 policies, 7 agent specs,
   4 reviewer prompts, 8 JSON schemas, provider chain, hard-stop registry.
 - **Rust modules** (`src/{autonomy,llm,agent_review,approval,git_host,bin}`):
   typed objects with compile-time `SchemaTag<T>` schema-id binding; risk
   classifier; Evidence Pack builder; named-condition registry (~30
   conditions, no DSL eval); OpenAI-compatible LLM provider trait with
-  per-role fallback router + Retry-After parsing + train-on-input refusal;
+  per-role failover router + Retry-After parsing + train-on-input refusal;
   pre-flight `gitleaks`-style secret scrub; quorum + exact-SHA binding
-  (Tip1 Law 4); 6-tier secrets chain (env / ~/.jeryu/secrets/llm.env /
-  ~/llm.env / .env.local / CI secret); ed25519 signing (`EdSigningKey` /
+  (Tip1 Law 4); canonical secrets chain (env / ~/.jeryu/secrets/llm.env /
+  .env.local / CI secret); ed25519 signing (`EdSigningKey` /
   `EdVerifier`); GitHub adapter (`ping_user`, `post_check_run`,
   `post_mr_comment`, SHA-bound `approve_mr`); GitLab `NotImplemented`
   stub awaiting full Phase 4 work; pure-policy `Judge`.

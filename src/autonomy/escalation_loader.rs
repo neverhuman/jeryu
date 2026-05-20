@@ -1,7 +1,7 @@
 //! Owner: Evidence Gate / escalation loader (Wave 6.B)
 //! Proof: `cargo nextest run -p jeryu -- autonomy::escalation_loader`
 //! Invariants:
-//!   - Reading `.autonomy/autonomy.yml` MUST never panic on a missing file or
+//!   - Reading `.jeryu/autonomy/autonomy.yml` MUST never panic on a missing file or
 //!     missing `escalation:` key — both produce a disabled default config.
 //!   - Unknown YAML fields (e.g. `escalate_after_minutes`, future siblings)
 //!     MUST NOT break parsing — escalation is a long-tail surface.
@@ -56,7 +56,7 @@ pub fn load_escalation_config(autonomy_dir: &Path) -> Result<EscalationConfig> {
 }
 
 /// Build the default production dispatcher, wired to the standard
-/// 6-tier secret resolver chain used everywhere else in jeryu.
+/// Canonical secret resolver chain used everywhere else in jeryu.
 pub fn build_default_dispatcher(secret_resolver: Arc<SecretResolver>) -> ReqwestDispatcher {
     ReqwestDispatcher::new(secret_resolver)
 }
@@ -228,14 +228,14 @@ escalation:
 
     #[test]
     fn load_from_repo_root_actual_autonomy_yml_round_trips() {
-        let repo_autonomy_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy");
+        let repo_autonomy_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy");
         if !repo_autonomy_dir.join("autonomy.yml").exists() {
-            // Not all consumers of this crate keep .autonomy/ at the manifest
+            // Not all consumers of this crate keep .jeryu/autonomy/ at the manifest
             // root; skip rather than fail.
             return;
         }
         let cfg = load_escalation_config(&repo_autonomy_dir)
-            .expect("repo .autonomy/autonomy.yml must parse");
+            .expect("repo .jeryu/autonomy/autonomy.yml must parse");
         assert!(
             !cfg.webhooks.is_empty(),
             "expected the canonical config to ship with at least one webhook"

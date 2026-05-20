@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 cd "$REPO_ROOT"
+require_tool cargo
 
 STAGE="${1:-}"
 if [ -z "$STAGE" ]; then
@@ -21,12 +22,14 @@ case "$STAGE" in
     cargo fmt --all -- --check
     ;;
   clippy)
+    bash scripts/install-redlinedb.sh
     log "cargo clippy --all-targets --all-features -- -D warnings"
     cargo clippy --all-targets --all-features -- -D warnings
     ;;
   build)
-    log "cargo build --release -p jeryu"
-    cargo build --release -p jeryu
+    bash scripts/install-redlinedb.sh
+    log "cargo build --verbose"
+    cargo build --verbose
     ;;
   deny)
     log "cargo deny check"

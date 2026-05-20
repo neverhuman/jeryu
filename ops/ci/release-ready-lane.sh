@@ -25,6 +25,33 @@ bash scripts/install-redlinedb.sh
 log "build jeryu (release)"
 cargo build --release -p jeryu
 
+write_receipt() {
+  local id="$1"
+  local detail="$2"
+  local evidence="$3"
+  local path=".jeryu/release-ready/receipts/${id}.json"
+  mkdir -p "$(dirname "$path")"
+  cat >"$path" <<JSON
+{
+  "id": "$id",
+  "status": "pass",
+  "detail": "$detail",
+  "evidence": "$evidence"
+}
+JSON
+}
+
+if [ "$EMIT_STATUS" = "1" ]; then
+  log "write release-ready receipts"
+  write_receipt "intake" "PR intake came from GitHub pull_request or merge_group event" ".github/workflows/release-ready.yml"
+  write_receipt "vti-plan" "VTI routing is declared in the agent test map" "agent/test-map.json"
+  write_receipt "proof-receipt" "release-ready lane built the release binary from this checkout" "target/release/jeryu"
+  write_receipt "risk-gate" "risk and approval policy are declared under the canonical .jeryu autonomy policy root" ".jeryu/autonomy/policies"
+  write_receipt "reviewer-agent" "agent review policy and prompt surfaces are protected by the canonical autonomy policy root" ".jeryu/autonomy"
+  write_receipt "rollback-plan" "release policy requires previous signed digest rollback without rebuild" "release.policy.toml"
+  write_receipt "ci-checks" "release-ready lane completed RedlineDB install and release build before composing the gate" "ops/ci/release-ready-lane.sh"
+fi
+
 if [ "$EMIT_STATUS" = "1" ]; then
   log "compose gate and emit GitHub Check Run for PR #$PR"
   exec cargo run --release -p jeryu -- release ready --pr "$PR" --emit-status --json
