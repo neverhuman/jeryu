@@ -60,6 +60,7 @@ pub mod api;
 pub mod approval;
 pub mod autonomy;
 pub mod bootstrap;
+pub mod bugtracker;
 pub mod buildkit;
 pub mod cache;
 pub mod cache_brain;

@@ -22,6 +22,12 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             app.help_overlay_open = !app.help_overlay_open;
             Ok(Some(false))
         }
+        KeyCode::Char('b') => {
+            app.active_tab = ActiveTab::Bugs;
+            app.maximize_logs = false;
+            app.focus.set_tab(ActiveTab::Bugs);
+            Ok(Some(false))
+        }
         KeyCode::F(5) => {
             app.force_refresh().await;
             Ok(Some(false))

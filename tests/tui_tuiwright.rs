@@ -238,6 +238,7 @@ fn capture_path_renders_all_primary_tabs() -> anyhow::Result<()> {
         "pools",
         "cache",
         "evidence",
+        "bugs",
         "secrets",
         "llms",
         "git",
@@ -258,7 +259,7 @@ fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
     page.press(Key::Tab)?;
     page.wait_for_text("Mission Control", Duration::from_secs(5))?;
 
-    for _ in 0..12 {
+    for _ in 0..13 {
         page.press(Key::Tab)?;
     }
 

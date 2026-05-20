@@ -27,6 +27,7 @@ pub mod config;
 pub mod admission_repo;
 pub mod autonomy_repo;
 pub mod budget_repo;
+pub mod bugtracker_repo;
 pub mod release_repo;
 
 // Re-exports so callers can name the canonical pool type as

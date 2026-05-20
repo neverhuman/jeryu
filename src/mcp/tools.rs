@@ -19,6 +19,12 @@ pub(crate) enum ToolKind {
     ProposePatch,
     RacePatches,
     RequestMerge,
+    BugSubmit,
+    BugList,
+    BugShow,
+    BugReady,
+    BugUpdate,
+    BugRecordAttempt,
 }
 
 #[derive(Debug, Clone)]
@@ -100,6 +106,63 @@ impl ToolDefinition {
                 source_branch: args.get("source_branch")?.as_str()?.to_string(),
                 target_branch: args.get("target_branch")?.as_str()?.to_string(),
             }),
+            ToolKind::BugSubmit => Some(AgentIntent::BugSubmit {
+                report: serde_json::from_value(args.get("report")?.clone()).ok()?,
+                idempotency_key: args
+                    .get("idempotency_key")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+            }),
+            ToolKind::BugList => Some(AgentIntent::BugList {
+                project: args
+                    .get("project")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                status: args
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                sort: args
+                    .get("sort")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+            }),
+            ToolKind::BugShow => Some(AgentIntent::BugShow {
+                bug_id: args.get("bug_id")?.as_str()?.to_string(),
+            }),
+            ToolKind::BugReady => Some(AgentIntent::BugReady {
+                project: args
+                    .get("project")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+            }),
+            ToolKind::BugUpdate => Some(AgentIntent::BugUpdate {
+                bug_id: args.get("bug_id")?.as_str()?.to_string(),
+                status: args
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                severity: args
+                    .get("severity")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                priority: args
+                    .get("priority")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                component: args
+                    .get("component")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+                owner: args
+                    .get("owner")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string),
+            }),
+            ToolKind::BugRecordAttempt => Some(AgentIntent::BugRecordAttempt {
+                bug_id: args.get("bug_id")?.as_str()?.to_string(),
+                attempt: serde_json::from_value(args.get("attempt")?.clone()).ok()?,
+            }),
         }
     }
 }
@@ -175,6 +238,42 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             "Evaluate whether an MR can be merged through the risk gate.",
             tool_annotations(false, true, false, true),
             ToolKind::RequestMerge,
+        ),
+        "bug_submit" => (
+            "Submit bug",
+            "Submit a canonical bug report to the local RedlineDB tracker.",
+            tool_annotations(false, false, false, true),
+            ToolKind::BugSubmit,
+        ),
+        "bug_list" => (
+            "List bugs",
+            "List bugs from the local RedlineDB tracker.",
+            tool_annotations(true, false, true, false),
+            ToolKind::BugList,
+        ),
+        "bug_show" => (
+            "Show bug",
+            "Show a bug and its history from the local RedlineDB tracker.",
+            tool_annotations(true, false, true, false),
+            ToolKind::BugShow,
+        ),
+        "bug_ready" => (
+            "Ready bugs",
+            "List ready unblocked bugs from the local RedlineDB tracker.",
+            tool_annotations(true, false, true, false),
+            ToolKind::BugReady,
+        ),
+        "bug_update" => (
+            "Update bug",
+            "Update triage fields on a local bug.",
+            tool_annotations(false, false, false, true),
+            ToolKind::BugUpdate,
+        ),
+        "bug_record_attempt" => (
+            "Record bug attempt",
+            "Append agent or human attempt history to a local bug.",
+            tool_annotations(false, false, false, true),
+            ToolKind::BugRecordAttempt,
         ),
         _ => return None,
     };
@@ -308,6 +407,41 @@ fn tool_input_schema(action_id: &str) -> Option<Value> {
                 ("mr_iid", integer_schema()),
                 ("source_branch", string_schema()),
                 ("target_branch", string_schema()),
+            ],
+        ),
+        "bug_submit" => object_schema(
+            &["report"],
+            &[
+                ("report", serde_json::json!({"type": "object"})),
+                ("idempotency_key", string_schema_optional()),
+            ],
+        ),
+        "bug_list" => object_schema(
+            &[],
+            &[
+                ("project", string_schema_optional()),
+                ("status", string_schema_optional()),
+                ("sort", string_schema_optional()),
+            ],
+        ),
+        "bug_show" => object_schema(&["bug_id"], &[("bug_id", string_schema())]),
+        "bug_ready" => object_schema(&[], &[("project", string_schema_optional())]),
+        "bug_update" => object_schema(
+            &["bug_id"],
+            &[
+                ("bug_id", string_schema()),
+                ("status", string_schema_optional()),
+                ("severity", string_schema_optional()),
+                ("priority", string_schema_optional()),
+                ("component", string_schema_optional()),
+                ("owner", string_schema_optional()),
+            ],
+        ),
+        "bug_record_attempt" => object_schema(
+            &["bug_id", "attempt"],
+            &[
+                ("bug_id", string_schema()),
+                ("attempt", serde_json::json!({"type": "object"})),
             ],
         ),
         _ => return None,

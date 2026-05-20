@@ -53,6 +53,7 @@ fn activity_text(app: &App, _height: u16) -> Text<'static> {
         ActiveTab::Pools => lines.extend(pools_activity(app)),
         ActiveTab::Cache => lines.extend(cache_activity(app)),
         ActiveTab::Evidence => lines.extend(evidence_activity(app)),
+        ActiveTab::Bugs => lines.extend(bugs_activity(app)),
         ActiveTab::Secrets => lines.extend(secrets_activity(app)),
         ActiveTab::LLMs => lines.extend(llms_activity(app)),
         ActiveTab::Git => lines.extend(git_activity(app)),
@@ -64,6 +65,27 @@ fn activity_text(app: &App, _height: u16) -> Text<'static> {
         )));
     }
     Text::from(lines)
+}
+
+fn bugs_activity(app: &App) -> Vec<Line<'static>> {
+    vec![
+        row("Open bugs", &app.state.bugs.len().to_string(), Color::Cyan),
+        row(
+            "Ready",
+            &app.state
+                .bugs
+                .iter()
+                .filter(|bug| bug.status == crate::bugtracker::BugStatus::Ready)
+                .count()
+                .to_string(),
+            Color::Green,
+        ),
+        row(
+            "Submit",
+            "jeryu bug submit --file report.json",
+            Color::DarkGray,
+        ),
+    ]
 }
 
 fn workflow_activity(app: &App) -> Vec<Line<'static>> {
