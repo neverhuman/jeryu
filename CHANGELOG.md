@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Removed the generated RedlineDB Docker Compose service and the old
+  `redlinedb/redline:latest` pull path. `jeryu serve` now keeps Docker Compose
+  focused on GitLab and Vault while state remains embedded through `redline:`
+  file URLs.
+- Added `scripts/install-redlinedb.sh` and wired local/CI checks to install the
+  latest upstream RedlineDB binary asset. CI now fails clearly when the latest
+  upstream release has no platform binary asset instead of falling back to a
+  source build or Docker service.
+
+## [3.3.8] - 2026-05-20
+
+### Fixed
+
+- Switched RedlineDB-backed tests and parity smoke checks from in-memory
+  URLs to file-backed temporary databases so the adapter surface is exercised
+  the same way in CI and local runs.
+- Synced the release and deployment metadata with the current RedlineDB and
+  Jankurai pins, keeping the documented serve and install paths aligned with
+  the workspace configuration.
+
 ## [3.3.7] - 2026-05-18
 
 ### Fixed
@@ -22,16 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Cargo.toml` now pins `redlinedb-sqlx` to upstream RedlineDB commit
   `6b346280f2d0740673e457d777d924e7a22301f7` instead of a sibling checkout, so
   clean clones resolve the same adapter revision.
-- `jeryu serve` still starts only `gitlab` and `vault` with
-  `docker compose up -d --no-deps`; the `redline` compose profile remains
-  defined for bootstrap, but it is not part of serve startup.
+- `jeryu serve` starts only `gitlab` and `vault` with
+  `docker compose up -d --no-deps`, keeping RedlineDB out of serve startup.
 
 ### Fixed
 
 - Release metadata in `Cargo.toml`, `VERSION`, and `version.json` was bumped
   together to `3.3.6`.
-- Added a startup-target test so the Redline compose profile cannot silently
-  leak into the serve path.
+- Added a startup-target test so RedlineDB cannot silently leak into the serve
+  path.
 
 ## [3.3.5] - 2026-05-18
 

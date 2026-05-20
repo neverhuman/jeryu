@@ -107,7 +107,7 @@ fn pool_sync_failure_preserves_cached_pools_and_records_error() {
         Err(anyhow::anyhow!("redline pool scan timeout")),
     );
 
-    assert_eq!(outcome, PoolSyncMerge::Stale);
+    assert_eq!(outcome, PoolSyncMerge::CachedFallback);
     assert_eq!(
         snapshot_pools
             .iter()

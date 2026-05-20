@@ -25,7 +25,7 @@ audit-fast base="origin/main":
     mkdir -p target/jankurai
     jankurai audit . --changed-fast --changed-from {{base}} --json target/jankurai/audit-fast.json --md target/jankurai/audit-fast.md --timings-json target/jankurai/audit-timings.json --mode advisory
 
-jankurai-install JANKURAI_TAG="v1.4.1":
+jankurai-install JANKURAI_TAG="v1.5.1":
     # Jankurai MUST be installed from URL with an explicit version tag.
     # Local-path installs are not supported (they produce version drift).
     cargo install --git https://github.com/neverhuman/jankurai.git --tag {{JANKURAI_TAG}} jankurai --locked
@@ -47,7 +47,7 @@ medium:
     cargo run -p cargo-vrc -- map --output-dir .
 
 state-proof:
-    cargo test -p jeryu -- state
+    cargo run -p jeryu -- repo redline-state-proof
 
 deep:
     cargo nextest run -p jeryu

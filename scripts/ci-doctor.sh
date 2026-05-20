@@ -26,6 +26,7 @@ check "jankurai"     "jankurai --version"
 check "cargo-nextest" "cargo nextest --version"
 check "git"          "git --version"
 check "docker"       "docker --version"
+check "redlinedb"    "bash scripts/install-redlinedb.sh"
 check "actionlint"   "actionlint --version"
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

@@ -1,120 +1,101 @@
 use anyhow::{Context, Result, bail};
 use std::fs;
-use std::path::PathBuf;
-use std::process::Stdio;
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
 pub async fn state_proof() -> Result<i32> {
-    let container = match std::env::var("JERYU_REDLINE_PROOF_CONTAINER") {
-        Ok(value) => value,
-        Err(_) => "jeryu-redline-proof".to_string(),
-    };
-    let port = match std::env::var("JERYU_REDLINE_PROOF_PORT") {
-        Ok(value) => value,
-        Err(_) => "15439".to_string(),
-    };
-    let db = match std::env::var("JERYU_REDLINE_PROOF_DB") {
-        Ok(value) => value,
-        Err(_) => "jeryu_test".to_string(),
-    };
-    let user = match std::env::var("JERYU_REDLINE_PROOF_USER") {
-        Ok(value) => value,
-        Err(_) => "jeryu".to_string(),
-    };
-    let password = match std::env::var("JERYU_REDLINE_PROOF_PASSWORD") {
-        Ok(value) => value,
-        Err(_) => "jeryu_test".to_string(),
-    };
-    let image = match std::env::var("JERYU_REDLINE_PROOF_IMAGE") {
-        Ok(value) => value,
-        Err(_) => "redlinedb/redline:latest".to_string(),
-    };
-    let url = format!("redline://{user}:{password}@127.0.0.1:{port}/{db}");
+    let redlinedb_bin = redlinedb_bin_path();
+    validate_redlinedb_bin(&redlinedb_bin)?;
 
-    let _ = Command::new("docker")
-        .args(["rm", "-f", &container])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .await;
-
-    let mut run = Command::new("docker");
-    run.args([
-        "run",
-        "--rm",
-        "-d",
-        "--name",
-        &container,
-        "-e",
-        &format!("REDLINE_DB={db}"),
-        "-e",
-        &format!("REDLINE_USER={user}"),
-        "-e",
-        &format!("REDLINE_PASSWORD={password}"),
-        "-p",
-        &format!("127.0.0.1:{port}:5432"),
-        &image,
-    ]);
-    let status = run
-        .status()
+    let version = Command::new(&redlinedb_bin)
+        .arg("--version")
+        .output()
         .await
-        .context("starting redline proof container")?;
-    if !status.success() {
-        bail!("docker run failed");
+        .with_context(|| {
+            format!(
+                "running {} --version; install or symlink RedlineDB at {}",
+                redlinedb_bin.display(),
+                default_redlinedb_bin_path().display()
+            )
+        })?;
+    if !version.status.success() {
+        bail!(
+            "{} --version failed: {}. Install or symlink RedlineDB at {}",
+            redlinedb_bin.display(),
+            String::from_utf8_lossy(&version.stderr).trim(),
+            default_redlinedb_bin_path().display()
+        );
     }
 
-    let cleanup = container.clone();
-    let keep = match std::env::var("JERYU_KEEP_REDLINE_PROOF") {
-        Ok(value) => value == "1",
-        Err(_) => false,
-    };
-    let result = async {
-        for _ in 0..30 {
-            let ready = Command::new("docker")
-                .args([
-                    "exec",
-                    &container,
-                    "redline-healthcheck",
-                    "-U",
-                    &user,
-                    "-d",
-                    &db,
-                ])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .await
-                .context("probing redline readiness")?;
-            if ready.success() {
-                let mut test = Command::new("cargo");
-                test.args([
-                    "test",
-                    "-p",
-                    "jeryu",
-                    "state::tests::redline_backend_smoke_test_when_configured",
-                    "--",
-                    "--nocapture",
-                ]);
-                test.env("JERYU_TEST_REDLINE_URL", &url);
-                crate::exec::run_status_check(&mut test, "running redline proof test").await?;
-                return Ok(());
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        }
-        bail!("redline proof container did not become ready");
-    }
-    .await;
+    let proof_dir =
+        std::env::temp_dir().join(format!("jeryu-redline-proof-{}", std::process::id()));
+    fs::create_dir_all(&proof_dir).with_context(|| format!("creating {}", proof_dir.display()))?;
+    let proof_db = proof_dir.join("state-proof.redlineDB");
+    let url = format!("redline:{}?mode=rwc", proof_db.display());
 
-    if !keep {
-        let _ = Command::new("docker")
-            .args(["rm", "-f", &cleanup])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .await;
+    let mut test = Command::new("cargo");
+    test.args([
+        "test",
+        "-p",
+        "jeryu",
+        "state::tests::redline_backend_smoke_test_when_configured",
+        "--",
+        "--nocapture",
+    ]);
+    test.env("JERYU_TEST_REDLINE_URL", &url);
+    let result = crate::exec::run_status_check(&mut test, "running redline proof test").await;
+    if std::env::var("JERYU_KEEP_REDLINE_PROOF").ok().as_deref() != Some("1") {
+        let _ = fs::remove_dir_all(&proof_dir);
     }
     result?;
     Ok(0)
+}
+
+fn redlinedb_bin_path() -> PathBuf {
+    std::env::var_os("REDLINEDB_BIN")
+        .map(PathBuf::from)
+        .unwrap_or_else(default_redlinedb_bin_path)
+}
+
+fn default_redlinedb_bin_path() -> PathBuf {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/home/ubuntu"))
+        .join(".local/bin/redlinedb")
+}
+
+fn validate_redlinedb_bin(redlinedb_bin: &Path) -> Result<()> {
+    if !redlinedb_bin.is_file() {
+        bail!(
+            "required RedlineDB binary is missing: {}. Install or symlink RedlineDB at {}",
+            redlinedb_bin.display(),
+            default_redlinedb_bin_path().display()
+        );
+    }
+
+    if !is_executable(redlinedb_bin) {
+        bail!(
+            "required RedlineDB binary is not executable: {}. Install or symlink RedlineDB at {}",
+            redlinedb_bin.display(),
+            default_redlinedb_bin_path().display()
+        );
+    }
+
+    Ok(())
+}
+
+#[cfg(unix)]
+fn is_executable(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::metadata(path)
+        .map(|metadata| metadata.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn is_executable(path: &Path) -> bool {
+    path.is_file()
 }
 
 pub async fn capture_tui_screenshots(output_dir: Option<PathBuf>) -> Result<i32> {

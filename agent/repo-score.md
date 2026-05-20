@@ -1,15 +1,15 @@
 # jankurai Repo Score
 
 - Standard: `jankurai`
-- Auditor: `1.3.0`
+- Auditor: `1.5.1`
 - Schema: `1.9.0`
 - Paper edition: `2026.05-ed8`
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779116616`
-- Started at: `1779116616`
-- Elapsed: `9533` ms
+- Run ID: `1779248554`
+- Started at: `1779248554`
+- Elapsed: `9251` ms
 - Scope: `full`
 - Raw score: `87`
 - Final score: `87`
@@ -70,7 +70,7 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`24` files=`355`
+- Status: `review` hard=`0` warning=`24` files=`356`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
 - Duplicate volume: lines=`28` tokens=`69` bytes=`681`
 
@@ -82,13 +82,13 @@
 | Kind | Severity | Language | Lines | Tokens | Instances | Reason |
 | --- | --- | --- | ---: | ---: | --- | --- |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose.rs:179-180, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:105-106, src/api/entity.rs:114-115, src/api/entity.rs:137-138, src/api/entity.rs:147-148, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1641-1642, db/state.rs:1704-1705, db/state.rs:1795-1796, db/state.rs:1808-1809, db/state.rs:1847-1848, db/state.rs:2769-2770, db/state.rs:2796-2797, db/state.rs:2823-2824, db/state.rs:2842-2843, db/state.rs:3274-3275` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1666-1667, db/state.rs:1729-1730, db/state.rs:1820-1821, db/state.rs:1833-1834, db/state.rs:1872-1873, db/state.rs:2794-2795, db/state.rs:2821-2822, db/state.rs:2848-2849, db/state.rs:2867-2868, db/state.rs:3299-3300` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/autonomy/profile.rs:441-442, src/autonomy/profile.rs:481-482, src/autonomy/profile.rs:513-514, src/autonomy/profile.rs:543-544, src/autonomy/profile.rs:575-576, src/autonomy/profile.rs:604-605, src/autonomy/profile.rs:639-640, src/autonomy/profile.rs:709-710, src/autonomy/profile.rs:758-759` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `src/tui/widgets/status_badge.rs:87-88, src/tui/widgets/status_badge.rs:96-97, src/tui/widgets/status_badge.rs:105-106, src/tui/widgets/status_badge.rs:112-113, src/tui/widgets/status_badge.rs:119-120, src/tui/widgets/status_badge.rs:128-129, src/tui/widgets/status_badge.rs:137-138, src/tui/widgets/status_badge.rs:146-147` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:105-106, src/api/entity.rs:137-138, src/api/snapshot.rs:140-141, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/tui/activity.rs:41-42, src/tui/activity.rs:69-70, src/tui/activity.rs:123-124, src/tui/activity.rs:153-154, src/tui/ui_panels_mission_extra.rs:32-33` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/autonomy/risk.rs:204-205, src/autonomy/risk.rs:216-217, src/autonomy/risk.rs:228-229, src/autonomy/risk.rs:240-241, src/autonomy/risk.rs:253-254` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2080-2081, db/state.rs:2869-2870, db/state.rs:2907-2908, db/state.rs:3009-3010` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2105-2106, db/state.rs:2894-2895, db/state.rs:2932-2933, db/state.rs:3034-3035` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:114-115, src/api/entity.rs:147-148, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/tui/activity.rs:317-318, src/tui/ui_panels_body_tail_extra_tail_help.rs:99-100, src/tui/ui_panels_mission_extra.rs:3-4` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 4 | `src/mcp/tools_schema.rs:29-31, src/mcp/tools_schema.rs:33-35` | `same body appears under different names across files` |
@@ -96,13 +96,13 @@
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `src/capability_execute.rs:267-269, src/capability_inspect.rs:244-246` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 1 | `crates/cargo-aer/src/lib.rs:152-154, crates/cargo-witness/src/graph.rs:161-163` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/tui/widgets/status_badge.rs:72-73, src/tui/widgets/status_badge.rs:81-82` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:1982-1983, db/state.rs:2612-2613` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2007-2008, db/state.rs:2637-2638` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `crates/arc-bench/src/psd_mechanics.rs:347-348, crates/arc-bench/src/repo_shape.rs:104-105` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/tui/graph.rs:45-46, src/tui/graph.rs:76-77` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/tui/widgets/status_badge.rs:160-161, src/tui/widgets/status_badge.rs:172-173` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/secrets.rs:234-235, src/secrets.rs:260-261` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:649-650, db/state.rs:656-657` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `db/state.rs:737-738, db/state.rs:804-805` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:655-656, db/state.rs:662-663` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `db/state.rs:743-744, db/state.rs:822-823` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/api/entity.rs:178-179, src/gateway/singleflight.rs:64-65` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/tui/activity.rs:221-222, src/tui/activity.rs:268-269` | `same body appears under different names across files` |
 
@@ -145,18 +145,6 @@
 - Layered UX lane: `true`
 - Missing: `none`
 
-### Ingested UX QA report (`target/jankurai/ux-qa.json`)
-- Report count: `10`
-- Worst decision: `pass`
-- Total violations: `0`
-- Summary errors / warnings: `0` / `0`
-- Artifact counts: `accessibility=10, aria-snapshot=10, screenshot=10`
-- Artifact fingerprints: `30`
-- Visual baseline counts: missing=`10` changed=`0` review=`0` block=`0`
-- Missing required states: `0` report(s) `none`
-- Missing required artifacts: `0` report(s) `none`
-- Accessibility violations / incomplete / passes: `0` / `0` / `170`
-
 ## Tool Adoption
 
 - Control plane present: `true`
@@ -189,14 +177,6 @@
 | `agent-tool-supply` | `security` | `auto` | `configured` | `manual MCP/tool trust review` | `agent/repo-score.json, agent/repo-score.md` |
 | `release-readiness` | `release` | `auto` | `configured` | `manual launch checklist` | `agent/repo-score.json, agent/repo-score.md` |
 | `cost-budget` | `release` | `auto` | `configured` | `manual spend review` | `agent/repo-score.json, agent/repo-score.md` |
-
-## Security evidence (ingested)
-
-- Source: `target/jankurai/security/evidence.json`
-- Envelope exit code: `0` · elapsed: `10079` ms · strict: `false`
-- Commands — ran: `1`, skipped: `0`, failed: `0`
-- Generated at: `1779115750`
-- Git HEAD (envelope): `5661324796cec2b9f3c4ed829f42688852d61648`
 
 ## Boundary manifest (ingested)
 

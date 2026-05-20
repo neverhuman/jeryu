@@ -22,12 +22,6 @@ fn remove_env_var<K: AsRef<std::ffi::OsStr>>(key: K) {
 #[test]
 fn test_render_compose() {
     let composed = render_compose("example-root-password");
-    assert!(composed.contains("container_name: jeryu-redline"));
-    assert!(composed.contains("redlinedb/redline:latest"));
-    assert!(composed.contains("profiles:"));
-    assert!(composed.contains("- redline"));
-    assert!(composed.contains("REDLINE_DB: \"jeryu\""));
-    assert!(composed.contains("127.0.0.1:15432:5432"));
     assert!(composed.contains("container_name: jeryu-vault"));
     assert!(composed.contains("hashicorp/vault"));
     assert!(composed.contains("GITLAB_ROOT_PASSWORD: \"example-root-password\""));
@@ -40,6 +34,18 @@ fn test_render_compose() {
     assert!(composed.contains("mem_reservation: 4g"));
     assert!(composed.contains("redis['save'] = []"));
     assert!(composed.contains("max-size: \"50m\""));
+}
+
+#[test]
+fn render_compose_starts_external_services_without_redline_container() {
+    let composed = render_compose("example-root-password");
+    assert!(composed.contains("  gitlab:"));
+    assert!(composed.contains("  vault:"));
+    assert!(!composed.contains("jeryu-redline"));
+    assert!(!composed.contains("redlinedb/redline"));
+    assert!(!composed.contains("REDLINE_DB"));
+    assert!(!composed.contains("127.0.0.1:15432:5432"));
+    assert!(!composed.contains("redline-healthcheck"));
 }
 
 #[test]
@@ -140,67 +146,5 @@ fn runner_shutdown_timeout_uses_env_override() {
     match original {
         Some(value) => set_env_var("JERYU_POOL_SHUTDOWN_TIMEOUT_SECS", value),
         None => remove_env_var("JERYU_POOL_SHUTDOWN_TIMEOUT_SECS"),
-    }
-}
-
-#[test]
-fn legacy_redline_service_url_uses_embedded_file_url() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let original = std::env::var("JERYU_DATABASE_URL").ok();
-    set_env_var(
-        "JERYU_DATABASE_URL",
-        "redline://jeryu:secret@127.0.0.1:15432/jeryu",
-    );
-
-    let url = database_url().expect("database url");
-    assert!(url.starts_with("redline:///"));
-    assert!(url.contains("jeryu.db"));
-
-    match original {
-        Some(value) => set_env_var("JERYU_DATABASE_URL", value),
-        None => remove_env_var("JERYU_DATABASE_URL"),
-    }
-}
-
-#[test]
-fn embedded_redline_memory_url_is_preserved() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let original = std::env::var("JERYU_DATABASE_URL").ok();
-    set_env_var("JERYU_DATABASE_URL", "redline::memory:");
-
-    assert_eq!(database_url().as_deref(), Some("redline::memory:"));
-
-    match original {
-        Some(value) => set_env_var("JERYU_DATABASE_URL", value),
-        None => remove_env_var("JERYU_DATABASE_URL"),
-    }
-}
-
-#[test]
-fn embedded_redline_file_urls_are_preserved() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let original = std::env::var("JERYU_DATABASE_URL").ok();
-
-    set_env_var(
-        "JERYU_DATABASE_URL",
-        "redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB",
-    );
-    assert_eq!(
-        database_url().as_deref(),
-        Some("redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB")
-    );
-
-    set_env_var(
-        "JERYU_DATABASE_URL",
-        "redlineDB:///tmp/jeryu/target/jeryu/autonomy.redlineDB",
-    );
-    assert_eq!(
-        database_url().as_deref(),
-        Some("redlineDB:///tmp/jeryu/target/jeryu/autonomy.redlineDB")
-    );
-
-    match original {
-        Some(value) => set_env_var("JERYU_DATABASE_URL", value),
-        None => remove_env_var("JERYU_DATABASE_URL"),
     }
 }

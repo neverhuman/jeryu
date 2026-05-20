@@ -26,45 +26,6 @@ pub fn env_file() -> PathBuf {
     workspace_path(&["jeryu.env"])
 }
 
-/// Where the RedlineDB database lives.
-pub fn db_path() -> PathBuf {
-    workspace_path(&["jeryu.db"])
-}
-
-/// SQLx URL for an embedded RedlineDB file path.
-pub fn embedded_redline_url(path: &std::path::Path) -> String {
-    format!("redline://{}", path.display())
-}
-
-/// Persistent data root for the jeryu RedlineDB service.
-pub fn redline_data_dir() -> PathBuf {
-    workspace_path(&["redline"])
-}
-
-/// Database URL override used for RedlineDB or explicit compatibility paths.
-pub fn database_url() -> Option<String> {
-    match std::env::var("JERYU_DATABASE_URL").ok() {
-        Some(value) if !value.trim().is_empty() => {
-            let value = value.trim();
-            if is_legacy_redline_service_url(value) {
-                Some(embedded_redline_url(&db_path()))
-            } else {
-                Some(value.to_string())
-            }
-        }
-        _ => None,
-    }
-}
-
-fn is_legacy_redline_service_url(value: &str) -> bool {
-    let value = value.to_ascii_lowercase();
-    (value.starts_with("redline://") || value.starts_with("redlineql://"))
-        && (value.contains("@127.0.0.1")
-            || value.contains("@localhost")
-            || value.contains("://127.0.0.1")
-            || value.contains("://localhost"))
-}
-
 /// Where runner config directories are created (one per manager).
 pub fn runners_dir() -> PathBuf {
     workspace_path(&["runners"])

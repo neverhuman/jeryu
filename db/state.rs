@@ -17,6 +17,8 @@ use std::str::FromStr;
 
 use crate::capsule::FailureCapsule;
 use crate::config;
+use crate::db::config as db_config;
+use std::path::{Path, PathBuf};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -691,11 +693,11 @@ impl Db {
             .get_or_try_init(|| async {
                 install_default_drivers();
                 dotenvy::from_path(config::env_file()).ok();
-                if let Some(database_url) = config::database_url() {
+                if let Some(database_url) = db_config::configured_url() {
                     return Self::open_url(&database_url).await;
                 }
 
-                let db_path = config::db_path();
+                let db_path = db_config::state_path();
                 if let Some(parent) = db_path.parent() {
                     std::fs::create_dir_all(parent)
                         .with_context(|| format!("creating db directory: {}", parent.display()))?;
@@ -706,7 +708,7 @@ impl Db {
                     Ok(db) => Ok(db),
                     Err(first_err) => {
                         // Recovery: a previous run was killed mid-write and
-                        // left a stale write-ahead log (.wal) or
+                        // left an orphaned write-ahead log (.wal) or
                         // shared-memory file (.shm). Removing them is safe
                         // per RedlineDB's WAL recovery docs as long as no other
                         // process is holding the DB open — for a single-user
@@ -724,7 +726,7 @@ impl Db {
                                 error = %first_err,
                                 shm = %shm.display(),
                                 wal = %wal.display(),
-                                "removed stale RedlineDB lock files; retrying open"
+                                "removed orphaned RedlineDB lock files; retrying open"
                             );
                             Self::open_url(&database_url).await
                         } else {
@@ -741,14 +743,26 @@ impl Db {
     pub async fn open_url(database_url: &str) -> Result<Self> {
         install_default_drivers();
         let backend = StateBackend::from_url(database_url)?;
-        let pool = AnyPoolOptions::new()
+        let pool = match AnyPoolOptions::new()
             .max_connections(match backend {
                 StateBackend::RedlineDb => 4,
                 StateBackend::CompatSql => 16,
             })
             .connect_with(AnyConnectOptions::from_str(database_url)?)
             .await
-            .with_context(|| format!("opening database: {}", database_url))?;
+        {
+            Ok(pool) => pool,
+            Err(err) => {
+                let mut context = format!("opening database: {}", database_url);
+                if backend == StateBackend::RedlineDb
+                    && let Some(hint) = redline_database_lock_hint(database_url)
+                {
+                    context.push_str(". ");
+                    context.push_str(&hint);
+                }
+                return Err(err).context(context);
+            }
+        };
 
         let mut db = Self {
             pool: pool.clone(),
@@ -807,9 +821,11 @@ impl Db {
     /// to validate schema consistency.
     pub async fn open_memory() -> Result<Self> {
         install_default_drivers();
+        let tmp = tempfile::NamedTempFile::new()?;
+        let database_url = format!("redline:{}?mode=rwc", tmp.path().display());
         let pool = AnyPoolOptions::new()
-            .max_connections(1)
-            .connect("redline::memory:")
+            .max_connections(4)
+            .connect(&database_url)
             .await?;
         let db = Self {
             pool,
@@ -817,10 +833,11 @@ impl Db {
             telemetry_tx: None,
         };
         db.migrate().await?;
+        std::mem::forget(tmp);
         Ok(db)
     }
 
-    /// Open the optional CompatSql integration database from `JERYU_TEST_REDLINE_URL`.
+    /// Open the optional RedlineDB integration database from `JERYU_TEST_REDLINE_URL`.
     pub async fn open_test_redline() -> Result<Option<Self>> {
         match std::env::var("JERYU_TEST_REDLINE_URL") {
             Ok(url) if !url.trim().is_empty() => Self::open_url(&url).await.map(Some),
@@ -829,6 +846,10 @@ impl Db {
     }
 
     async fn inserted_id(&self, result: AnyQueryResult) -> Result<i64> {
+        if let Some(id) = result.last_insert_id() {
+            return Ok(id);
+        }
+
         match self.backend {
             StateBackend::RedlineDb => {
                 let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
@@ -3601,6 +3622,114 @@ impl Db {
     }
 }
 
+fn redline_database_path_from_url(database_url: &str) -> Option<PathBuf> {
+    let lower = database_url.to_ascii_lowercase();
+    let rest = if lower.starts_with("redlinedb://") {
+        &database_url["redlinedb://".len()..]
+    } else if lower.starts_with("redline://") {
+        &database_url["redline://".len()..]
+    } else if lower.starts_with("redlinedb:") {
+        &database_url["redlinedb:".len()..]
+    } else if lower.starts_with("redline:") {
+        &database_url["redline:".len()..]
+    } else {
+        return None;
+    };
+
+    let path = rest.split_once('?').map(|(path, _)| path).unwrap_or(rest);
+    let rest = path.split_once('#').map(|(path, _)| path).unwrap_or(path);
+    if rest.is_empty() || rest == ":memory:" || rest.contains('@') {
+        return None;
+    }
+    Some(PathBuf::from(rest))
+}
+
+fn redline_database_lock_hint(database_url: &str) -> Option<String> {
+    let db_path = redline_database_path_from_url(database_url)?;
+    let holders = redline_database_lock_holders(&db_path);
+    if holders.is_empty() {
+        return None;
+    }
+
+    let mut hint = String::from("RedlineDB path is already open");
+    hint.push_str(" by ");
+    hint.push_str(&holders.join(", "));
+    hint.push_str(
+        "; stop the existing process or set JERYU_DATABASE_URL to a different RedlineDB path.",
+    );
+    Some(hint)
+}
+
+#[cfg(target_os = "linux")]
+fn redline_database_lock_holders(db_path: &Path) -> Vec<String> {
+    let Ok(proc_entries) = std::fs::read_dir("/proc") else {
+        return Vec::new();
+    };
+    let lock_path = db_path.join("owner.lock");
+    let current_pid = std::process::id().to_string();
+    let mut holders = Vec::new();
+
+    for proc_entry in proc_entries.flatten() {
+        let pid = proc_entry.file_name().to_string_lossy().into_owned();
+        if pid == current_pid || pid.parse::<u32>().is_err() {
+            continue;
+        }
+
+        let fd_dir = proc_entry.path().join("fd");
+        let Ok(fd_entries) = std::fs::read_dir(fd_dir) else {
+            continue;
+        };
+        let mut holds_db = false;
+        for fd_entry in fd_entries.flatten() {
+            let Ok(target) = std::fs::read_link(fd_entry.path()) else {
+                continue;
+            };
+            if target == lock_path || target.starts_with(db_path) {
+                holds_db = true;
+                break;
+            }
+        }
+        if holds_db {
+            holders.push(format!(
+                "PID {pid} (`{}`)",
+                process_command_for_pid(&pid).unwrap_or_else(|| "unknown command".to_string())
+            ));
+            if holders.len() >= 3 {
+                break;
+            }
+        }
+    }
+
+    holders
+}
+
+#[cfg(not(target_os = "linux"))]
+fn redline_database_lock_holders(_db_path: &Path) -> Vec<String> {
+    Vec::new()
+}
+
+#[cfg(target_os = "linux")]
+fn process_command_for_pid(pid: &str) -> Option<String> {
+    let cmdline = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    let command = cmdline
+        .split(|byte| *byte == 0)
+        .filter(|part| !part.is_empty())
+        .map(|part| String::from_utf8_lossy(part).into_owned())
+        .collect::<Vec<_>>()
+        .join(" ");
+    if !command.is_empty() {
+        return Some(command);
+    }
+
+    let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).ok()?;
+    let comm = comm.trim();
+    if comm.is_empty() {
+        None
+    } else {
+        Some(comm.to_string())
+    }
+}
+
 pub async fn record_admission_decision_for_hook(
     raw_input: &str,
     evaluation: &crate::admission::AdmissionEvaluation,
@@ -3893,6 +4022,27 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn redline_database_path_parser_handles_file_urls_only() {
+        assert_eq!(
+            redline_database_path_from_url("redline:///tmp/jeryu/state.redlineDB"),
+            Some(PathBuf::from("/tmp/jeryu/state.redlineDB"))
+        );
+        assert_eq!(
+            redline_database_path_from_url("redline:/tmp/jeryu/state.redlineDB?mode=rwc"),
+            Some(PathBuf::from("/tmp/jeryu/state.redlineDB"))
+        );
+        assert_eq!(
+            redline_database_path_from_url("redlinedb:///tmp/jeryu/state.redlineDB#frag"),
+            Some(PathBuf::from("/tmp/jeryu/state.redlineDB"))
+        );
+        assert_eq!(redline_database_path_from_url("redline::memory:"), None);
+        assert_eq!(
+            redline_database_path_from_url("redline://jeryu:secret@127.0.0.1/jeryu"),
+            None
+        );
+    }
+
     #[tokio::test]
     async fn open_memory_uses_redline_recovery() -> Result<()> {
         let db = setup_db().await?;
@@ -4039,7 +4189,7 @@ mod tests {
             return Ok(());
         };
 
-        assert_eq!(db.backend(), StateBackend::CompatSql);
+        assert_eq!(db.backend(), StateBackend::RedlineDb);
         let suffix = unique_suffix();
         exercise_core_state_backend(&db, &suffix).await?;
         let request_id = format!("req-pg-{suffix}");

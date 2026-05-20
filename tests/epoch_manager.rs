@@ -8,14 +8,18 @@
 use cache_brain_adapter::AnyPool;
 use jeryu::db::{AnyPoolOptions, install_default_drivers};
 use jeryu::epoch::EpochManager;
+use tempfile::NamedTempFile;
 
 async fn setup_db() -> AnyPool {
     install_default_drivers();
+    let tmp = NamedTempFile::new().expect("tempfile for epoch manager pool");
+    let url = format!("redline:{}?mode=rwc", tmp.path().display());
     let pool = AnyPoolOptions::new()
-        .max_connections(1)
-        .connect("redline::memory:")
+        .max_connections(4)
+        .connect(&url)
         .await
         .unwrap();
+    std::mem::forget(tmp);
 
     sqlx::query(
         "CREATE TABLE cache_epochs (

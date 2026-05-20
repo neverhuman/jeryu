@@ -196,14 +196,18 @@ mod epoch_tests {
     use super::*;
     use redlinedb_sqlx::install_default_drivers;
     use sqlx::any::AnyPoolOptions;
+    use tempfile::NamedTempFile;
 
     async fn setup_pool() -> sqlx::AnyPool {
         install_default_drivers();
+        let tmp = NamedTempFile::new().expect("tempfile for cache-brain pool");
+        let url = format!("redline:{}?mode=rwc", tmp.path().display());
         let pool = AnyPoolOptions::new()
-            .max_connections(1)
-            .connect("redline::memory:")
+            .max_connections(4)
+            .connect(&url)
             .await
             .unwrap();
+        std::mem::forget(tmp);
         sqlx::query(
             "CREATE TABLE cache_epochs (
                 scope TEXT PRIMARY KEY,

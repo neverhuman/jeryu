@@ -92,15 +92,19 @@ impl BudgetRepo {
 #[cfg(test)]
 pub(crate) async fn fresh_budget_pool() -> AnyPool {
     use crate::db::{AnyPoolOptions, install_default_drivers};
+    use tempfile::NamedTempFile;
     install_default_drivers();
+    let tmp = NamedTempFile::new().expect("tempfile for budget pool");
+    let url = format!("redline:{}?mode=rwc", tmp.path().display());
     let pool = AnyPoolOptions::new()
-        .max_connections(1)
-        .connect("redline::memory:")
+        .max_connections(4)
+        .connect(&url)
         .await
-        .expect("connect in-memory redline");
+        .expect("connect file-backed redline");
     for stmt in budget_schema_ddl() {
         sqlx::query(stmt).execute(&pool).await.unwrap();
     }
+    std::mem::forget(tmp);
     pool
 }
 

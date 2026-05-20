@@ -29,6 +29,8 @@ jobs:
           fetch-depth: 0
       - name: Set up Rust (pinned via rust-toolchain.toml)
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Install cargo-deny
         uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny
       - name: Install cargo-cyclonedx
@@ -107,17 +109,15 @@ jobs:
       #   with:
       #     sarif_file: target/jankurai/jankurai.sarif
       #     category: jankurai
-      - name: Proof lanes (advisory)
+      - name: Proof lanes
         # `jankurai proofbind verify` reads each changed file as UTF-8 and
         # errors on binary assets (assets/tui-demo.gif: "stream did not
-        # contain valid UTF-8"). Workaround: advisory until jankurai
-        # learns to skip binary files. Tracked in
-        # docs/redline-jansu-issues.md (will add J-4).
-        continue-on-error: true
+        # contain valid UTF-8"). This lane now blocks CI so binary-handling
+        # regressions are visible instead of silently bypassed.
         run: bash ops/ci/jankurai-lane.sh proof
-      - name: Audit tools (advisory)
-        # Depends on proofbind output. Advisory while proofbind is advisory.
-        continue-on-error: true
+      - name: Audit tools
+        # Depends on proofbind output and blocks with the rest of the
+        # security/proof lane.
         run: bash ops/ci/jankurai-lane.sh tools
       - name: Bad-behavior checks
         run: bash ops/ci/jankurai-lane.sh bad-behavior

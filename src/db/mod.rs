@@ -20,6 +20,9 @@
 //!
 //! Each repo owns the SQL string; callers own only typed Rust values.
 
+#[path = "../../db/config.rs"]
+pub mod config;
+
 pub mod autonomy_repo;
 pub mod budget_repo;
 pub mod release_repo;

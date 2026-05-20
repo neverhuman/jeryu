@@ -19,7 +19,13 @@ fi
 
 ensure_dirs
 
+install_redlinedb_binary() {
+  log "install RedlineDB binary"
+  bash scripts/install-redlinedb.sh
+}
+
 run_preflight() {
+  install_redlinedb_binary
   log "version consistency check (VERSION vs request)"
   local file_ver
   file_ver="$(tr -d '\n' < VERSION)"
@@ -36,11 +42,13 @@ run_audit() {
 }
 
 run_security() {
+  install_redlinedb_binary
   log "security tests"
   cargo test -p jeryu --release -- secrets exec honeypot admission
 }
 
 run_build() {
+  install_redlinedb_binary
   log "cargo build --release -p jeryu"
   cargo build --release -p jeryu
 }

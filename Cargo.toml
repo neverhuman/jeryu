@@ -13,7 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.7"
+version = "3.3.8"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -95,7 +95,7 @@ bollard = "0.18"
 # the native RedlineDB migration remains tracked separately in
 # docs/redline-jansu-issues.md.
 sqlx = { version = "0.8", features = ["runtime-tokio", "any"] }
-redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "3e73556fe57c32800046082cba826f17b6751284" }
+redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "828667b49fd3adee88c8bdd48681b38c57b95563" }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -166,7 +166,7 @@ jansu-broker = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
 # Tuiwright is NOT managed as a library in this repo. It MUST be pulled from
 # the jankurai workspace at an explicit version tag — never a local path.
 # Bump the `tag` to upgrade; Cargo.lock pins the exact commit.
-tuiwright = { git = "https://github.com/neverhuman/jankurai.git", tag = "v1.4.1" }
+tuiwright = { git = "https://github.com/neverhuman/jankurai.git", tag = "v1.5.1" }
 
 [package.metadata.agent]
 purpose = "Single-binary CI/CD control plane for GitLab-based pipelines"

@@ -220,7 +220,7 @@ pub(crate) enum RepoCommands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
-    /// Run the RedlineDB-backed state proof in a disposable container.
+    /// Run the RedlineDB-backed state proof against embedded file state.
     RedlineStateProof,
     /// Capture the canonical TUI screenshots used in docs.
     CaptureTuiScreenshots {

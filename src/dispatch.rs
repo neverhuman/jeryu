@@ -16,7 +16,12 @@ mod dispatch_back;
 // Helpers
 
 fn env_var_or_empty(name: &str) -> String {
-    std::env::var(name).unwrap_or_else(|_| String::new())
+    match std::env::var(name) {
+        Ok(value) => value,
+        Err(std::env::VarError::NotPresent) | Err(std::env::VarError::NotUnicode(_)) => {
+            String::new()
+        }
+    }
 }
 
 /// Load secrets from jeryu.env and build a GitlabClient.

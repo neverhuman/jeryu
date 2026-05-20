@@ -44,7 +44,7 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     let pools_title = if app.state.pool_sync_error.is_some() {
         format!(
-            " [ Runner Pools ({} cached) stale ] ",
+            " [ Runner Pools ({} cached) sync warning ] ",
             app.state.pools.len()
         )
     } else {
@@ -74,7 +74,7 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
         "  No pool selected.".to_string()
     };
     let detail = if let Some(error) = app.state.pool_sync_error.as_deref() {
-        format!("\n  Pool sync stale: {error}\n\n{detail_body}")
+        format!("\n  Pool sync warning: {error}\n\n{detail_body}")
     } else {
         format!("\n{detail_body}")
     };

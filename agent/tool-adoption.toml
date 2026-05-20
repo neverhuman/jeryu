@@ -1,4 +1,4 @@
-# Mirror of jankurai v1.4.1's own agent/tool-adoption.toml. Jankurai's
+# Mirror of jankurai v1.5.1's own agent/tool-adoption.toml. Jankurai's
 # --strict --profile ci validation expects each canonical tool to be declared
 # here with the same `mode` jankurai uses internally. Drift from the canonical
 # list causes "security lane blocked by required tool evidence: <tool>" errors.

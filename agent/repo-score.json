@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:1b26f108bd2cccadb2a82aba28af029ce2f74c8c926534e14d17c02e761da434",
-  "input_fingerprint": "sha256:4fdc11e62fc108d08f516ed00ec6d51aa51c625d7897ee3785fd81dc14c8ebb2",
+  "report_fingerprint": "sha256:7cd5da5ff15270013c3526564fb9021ee18ba4d16bb85db117250bb146f0fe59",
+  "input_fingerprint": "sha256:2fc54ba597546c0e1134da1da95a85d5134322b7c4aa1775783016c7022d5725",
   "policy_fingerprint": "sha256:7ce2d541357335c48033cf468b153df23198387e5de1e7960af6a036f963240b",
   "manifest_fingerprints": {
     "owner_map": "sha256:95646e7f61984b4b34c8ad5ef742d8245413978f2101e34ef079be46ab316567",
@@ -8,14 +8,14 @@
     "generated_zones": "sha256:5dfe809251017a95ec5a27320d48c17b4abacd36c2b66eee287f4f70fcfb7772",
     "boundaries": "sha256:2d914b24c3ce823e3fc866f49d39c076d235c5f569ed3b8c3112dc8aed6eb0b3",
     "proof_lanes": "sha256:3afaae9e9f004f9061b1e04991e33bb0e6c584ea711eb9f90021e52d5170af81",
-    "standard_version": "sha256:dbd689dff79b940b1d0c2ede6baece556fb5ffd6e1e53e927096c42ffe87e72b"
+    "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779116616",
+  "generated_at": "1779248554",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
-  "auditor_version": "1.3.0",
+  "auditor_version": "1.5.1",
   "schema_version": "1.9.0",
   "paper_edition": "2026.05-ed8",
   "target_stack_id": "rust-ts-vite-react-redline-bounded-python",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779116616",
-  "started_at": "1779116616",
-  "elapsed_ms": 9533,
+  "run_id": "1779248554",
+  "started_at": "1779248554",
+  "elapsed_ms": 9251,
   "scope": {
     "mode": "full",
     "paths": []
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "5661324",
+    "head": "1716294",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -73,7 +73,7 @@
     ],
     "mode": "advisory",
     "standard_version": "0.9.0",
-    "auditor_version": "1.4.3",
+    "auditor_version": "1.5.1",
     "schema_version": "1.9.0",
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
@@ -336,13 +336,9 @@
         "web e2e lane present or no web surface",
         "rendered UX QA lane present or no web surface",
         "DOM geometry UX QA runtime found",
-        "Rust property/integration tests present or no Rust surface",
-        "proofbind artifact found: surfaces=7 missing=7 high_or_critical_missing=3 verdict=review"
+        "Rust property/integration tests present or no Rust surface"
       ],
-      "notes": [
-        "proofbind reports 7 unresolved obligation(s)",
-        "proofbind reports 3 missing high/critical semantic proof obligation(s)"
-      ]
+      "notes": []
     },
     {
       "name": "Security and supply-chain posture",
@@ -357,7 +353,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 1078",
+        "rust bad-behavior advisory signals: 1081",
         "ci bad-behavior advisory signals: 3",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
@@ -374,7 +370,7 @@
         "code file exceeds 500 LOC",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 24 (advisory only, no score impact)",
-        "rust bad-behavior advisory signals: 1078",
+        "rust bad-behavior advisory signals: 1081",
         "ci bad-behavior advisory signals: 3",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
@@ -518,32 +514,6 @@
       "visual_review": [
         "apps/web/ux-qa.ts"
       ]
-    },
-    "artifact": {
-      "path": "target/jankurai/ux-qa.json",
-      "report_count": 10,
-      "worst_decision": "pass",
-      "total_violations": 0,
-      "summary_errors": 0,
-      "summary_warnings": 0,
-      "reports_missing_required_states": 0,
-      "missing_state_names": [],
-      "artifact_counts_by_kind": {
-        "accessibility": 10,
-        "aria-snapshot": 10,
-        "screenshot": 10
-      },
-      "reports_missing_required_artifacts": 0,
-      "missing_artifact_kinds": [],
-      "reports_missing_required_accessibility_artifact": 0,
-      "accessibility_violation_total": 0,
-      "accessibility_incomplete_total": 0,
-      "accessibility_pass_total": 170,
-      "artifact_fingerprint_count": 30,
-      "visual_baseline_missing": 10,
-      "visual_baseline_changed": 0,
-      "visual_baseline_review": 0,
-      "visual_baseline_block": 0
     }
   },
   "tool_adoption": {
@@ -1091,23 +1061,7 @@
       "cost-budget"
     ]
   },
-  "security_evidence": {
-    "artifact": {
-      "path": "target/jankurai/security/evidence.json",
-      "envelope_exit_code": 0,
-      "elapsed_ms": 10079,
-      "wrapper_strict": false,
-      "profile": "local",
-      "commands_ran": 1,
-      "commands_skipped": 0,
-      "commands_failed": 0,
-      "required_commands_skipped": 0,
-      "required_commands_failed": 0,
-      "blocking_commands": [],
-      "generated_at": "1779115750",
-      "git_head": "5661324796cec2b9f3c4ed829f42688852d61648"
-    }
-  },
+  "security_evidence": {},
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
@@ -1125,9 +1079,9 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-18T15:03:26.755738499+00:00",
+    "generated_at": "2026-05-20T03:42:25.733467911+00:00",
     "repo": ".",
-    "auditor_version": "1.4.3",
+    "auditor_version": "1.5.1",
     "status": "review",
     "policy": {
       "active_source_only": true,
@@ -1163,9 +1117,9 @@
       ]
     },
     "summary": {
-      "files_scanned": 651,
-      "files_considered": 355,
-      "active_files": 355,
+      "files_scanned": 653,
+      "files_considered": 356,
+      "active_files": 356,
       "exact_file_classes": 0,
       "hard_classes": 0,
       "warning_classes": 24,
@@ -1299,71 +1253,71 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1641,
-            "end_line": 1642,
+            "start_line": 1666,
+            "end_line": 1667,
             "unit_name": "insert_pool"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1704,
-            "end_line": 1705,
+            "start_line": 1729,
+            "end_line": 1730,
             "unit_name": "insert_manager"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1795,
-            "end_line": 1796,
+            "start_line": 1820,
+            "end_line": 1821,
             "unit_name": "count_active_managers"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1808,
-            "end_line": 1809,
+            "start_line": 1833,
+            "end_line": 1834,
             "unit_name": "upsert_job_event"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1847,
-            "end_line": 1848,
+            "start_line": 1872,
+            "end_line": 1873,
             "unit_name": "upsert_ci_job_run"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2769,
-            "end_line": 2770,
+            "start_line": 2794,
+            "end_line": 2795,
             "unit_name": "record_git_ref_update"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2796,
-            "end_line": 2797,
+            "start_line": 2821,
+            "end_line": 2822,
             "unit_name": "record_git_mirror_job"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2823,
-            "end_line": 2824,
+            "start_line": 2848,
+            "end_line": 2849,
             "unit_name": "record_git_risk_approval"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2842,
-            "end_line": 2843,
+            "start_line": 2867,
+            "end_line": 2868,
             "unit_name": "record_git_command_artifact"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3274,
-            "end_line": 3275,
+            "start_line": 3299,
+            "end_line": 3300,
             "unit_name": "latest_test_plan"
           }
         ]
@@ -1727,29 +1681,29 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2080,
-            "end_line": 2081,
+            "start_line": 2105,
+            "end_line": 2106,
             "unit_name": "upsert_tracked_pipeline"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2869,
-            "end_line": 2870,
+            "start_line": 2894,
+            "end_line": 2895,
             "unit_name": "upsert_secret_authority"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2907,
-            "end_line": 2908,
+            "start_line": 2932,
+            "end_line": 2933,
             "unit_name": "upsert_release_secret_set"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3009,
-            "end_line": 3010,
+            "start_line": 3034,
+            "end_line": 3035,
             "unit_name": "insert_secret_audit_event"
           }
         ]
@@ -2046,15 +2000,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1982,
-            "end_line": 1983,
+            "start_line": 2007,
+            "end_line": 2008,
             "unit_name": "count_pending_jobs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2612,
-            "end_line": 2613,
+            "start_line": 2637,
+            "end_line": 2638,
             "unit_name": "count_recovery_decisions"
           }
         ]
@@ -2222,15 +2176,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 649,
-            "end_line": 650,
+            "start_line": 655,
+            "end_line": 656,
             "unit_name": "backend_sql"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 656,
-            "end_line": 657,
+            "start_line": 662,
+            "end_line": 663,
             "unit_name": "backend_sql_owned"
           }
         ]
@@ -2257,15 +2211,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 737,
-            "end_line": 738,
+            "start_line": 743,
+            "end_line": 744,
             "unit_name": "open_url"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 804,
-            "end_line": 805,
+            "start_line": 822,
+            "end_line": 823,
             "unit_name": "open_memory"
           }
         ]
