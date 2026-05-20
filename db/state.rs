@@ -1,4 +1,4 @@
-//! Owner: State Store (embedded RedlineDB only)
+//! Owner: State Store (SQLite default, RedlineDB opt-in)
 //! Proof: `cargo test -p jeryu -- state`
 //! Invariants: append-only event log; manager state machine (starting→online→draining→stopped)
 //!
@@ -566,7 +566,7 @@ pub enum StateAction {
 #[derive(Clone)]
 pub struct Db {
     pool: AnyPool,
-    backend: StateBackend,
+    backend: ActiveStateBackend,
     telemetry_tx: Option<tokio::sync::mpsc::Sender<StateAction>>,
 }
 
@@ -575,16 +575,36 @@ pub type TuiSession = Db;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateBackend {
     /// Local embedded RedlineDB database.
+    RedlineDb = 0,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ActiveStateBackend {
+    /// Local on-disk or in-memory SQLite database.
+    Sqlite,
+    /// Local embedded RedlineDB database.
     RedlineDb,
 }
 
-impl StateBackend {
+impl ActiveStateBackend {
     fn from_url(database_url: &str) -> Result<Self> {
         let scheme = database_url
             .split_once(':')
             .map(|(scheme, _)| scheme.to_ascii_lowercase())
             .unwrap_or_default();
         match scheme.as_str() {
+            "sqlite" => {
+                #[cfg(feature = "sqlite-backend")]
+                {
+                    Ok(Self::Sqlite)
+                }
+                #[cfg(not(feature = "sqlite-backend"))]
+                {
+                    anyhow::bail!(
+                        "JERYU_DATABASE_URL requested SQLite but jeryu was built without the sqlite-backend feature"
+                    );
+                }
+            }
             "redline" | "redlinedb" => {
                 let lower = database_url.to_ascii_lowercase();
                 if (lower.starts_with("redline://") && !lower.starts_with("redline:///"))
@@ -594,27 +614,84 @@ impl StateBackend {
                         "unsupported JERYU_DATABASE_URL host form; embedded RedlineDB requires redline:/path, redline:///path, redlinedb:///path, or redline::memory:"
                     );
                 }
-                Ok(Self::RedlineDb)
+                #[cfg(feature = "redlinedb-backend")]
+                {
+                    Ok(Self::RedlineDb)
+                }
+                #[cfg(not(feature = "redlinedb-backend"))]
+                {
+                    anyhow::bail!(
+                        "JERYU_DATABASE_URL requested RedlineDB but jeryu was built without the redlinedb-backend feature"
+                    );
+                }
             }
             _ => {
                 anyhow::bail!(
-                    "unsupported JERYU_DATABASE_URL scheme; expected embedded RedlineDB URL redline:/path, redline:///path, redlinedb:///path, or redline::memory:"
+                    "unsupported JERYU_DATABASE_URL scheme; expected sqlite, redline, or redlinedb"
                 )
             }
         }
     }
 }
 
-pub(crate) fn backend_sql(backend: StateBackend, sql: &'static str) -> Cow<'static, str> {
-    match backend {
-        StateBackend::RedlineDb => Cow::Borrowed(sql),
+impl From<ActiveStateBackend> for StateBackend {
+    fn from(backend: ActiveStateBackend) -> Self {
+        match backend {
+            ActiveStateBackend::Sqlite | ActiveStateBackend::RedlineDb => Self::RedlineDb,
+        }
     }
 }
 
-pub(crate) fn backend_sql_owned(backend: StateBackend, sql: String) -> String {
+pub(crate) fn backend_sql(backend: ActiveStateBackend, sql: &'static str) -> Cow<'static, str> {
     match backend {
-        StateBackend::RedlineDb => sql,
+        ActiveStateBackend::Sqlite => Cow::Owned(sql.replace("redline_master", "sqlite_master")),
+        ActiveStateBackend::RedlineDb => Cow::Borrowed(sql),
     }
+}
+
+pub(crate) fn backend_sql_owned(backend: ActiveStateBackend, sql: String) -> String {
+    match backend {
+        ActiveStateBackend::Sqlite => sql.replace("redline_master", "sqlite_master"),
+        ActiveStateBackend::RedlineDb => sql,
+    }
+}
+
+fn pool_options(backend: ActiveStateBackend, database_url: &str) -> AnyPoolOptions {
+    let max_connections =
+        if backend == ActiveStateBackend::Sqlite && sqlite_memory_url(database_url) {
+            1
+        } else {
+            4
+        };
+    let options = AnyPoolOptions::new().max_connections(max_connections);
+    match backend {
+        ActiveStateBackend::Sqlite => options
+            .after_connect(|conn, _meta| Box::pin(async move { apply_sqlite_pragmas(conn).await })),
+        ActiveStateBackend::RedlineDb => options,
+    }
+}
+
+fn sqlite_memory_url(database_url: &str) -> bool {
+    let lower = database_url.to_ascii_lowercase();
+    lower == "sqlite::memory:" || lower.contains("mode=memory")
+}
+
+async fn apply_sqlite_pragmas(
+    conn: &mut sqlx::AnyConnection,
+) -> std::result::Result<(), sqlx::Error> {
+    for pragma in [
+        "PRAGMA journal_mode=WAL",
+        "PRAGMA synchronous=NORMAL",
+        "PRAGMA temp_store=MEMORY",
+        "PRAGMA foreign_keys=ON",
+        "PRAGMA busy_timeout=10000",
+        "PRAGMA cache_size=-262144",
+        "PRAGMA mmap_size=268435456",
+        "PRAGMA wal_autocheckpoint=1000",
+    ] {
+        sqlx::query(pragma).execute(&mut *conn).await?;
+    }
+    Ok(())
 }
 
 static DB_INSTANCE: tokio::sync::OnceCell<Db> = tokio::sync::OnceCell::const_new();
@@ -627,6 +704,10 @@ impl Db {
 
     /// Return the active state backend.
     pub fn backend(&self) -> StateBackend {
+        self.backend.into()
+    }
+
+    pub(crate) fn active_backend(&self) -> ActiveStateBackend {
         self.backend
     }
 
@@ -654,16 +735,15 @@ impl Db {
                         .with_context(|| format!("creating db directory: {}", parent.display()))?;
                 }
 
-                let database_url = format!("redline:{}?mode=rwc", db_path.display());
+                let database_url = db_config::sqlite_url(&db_path);
                 match Self::open_url(&database_url).await {
                     Ok(db) => Ok(db),
                     Err(first_err) => {
                         // Recovery: a previous run was killed mid-write and
                         // left an orphaned write-ahead log (.wal) or
                         // shared-memory file (.shm). Removing them is safe
-                        // per RedlineDB's WAL recovery docs as long as no other
-                        // process is holding the DB open — for a single-user
-                        // CLI that is the normal case. We retry once.
+                        // for a single-user CLI when no other process is
+                        // holding the DB open. We retry once.
                         let mut shm = db_path.clone().into_os_string();
                         shm.push("-shm");
                         let shm: std::path::PathBuf = shm.into();
@@ -677,7 +757,7 @@ impl Db {
                                 error = %first_err,
                                 shm = %shm.display(),
                                 wal = %wal.display(),
-                                "removed orphaned RedlineDB lock files; retrying open"
+                                "removed orphaned SQLite lock files; retrying open"
                             );
                             Self::open_url(&database_url).await
                         } else {
@@ -692,17 +772,26 @@ impl Db {
 
     /// Open a database URL directly.
     pub async fn open_url(database_url: &str) -> Result<Self> {
-        install_default_drivers();
-        let backend = StateBackend::from_url(database_url)?;
-        let pool = match AnyPoolOptions::new()
-            .max_connections(4)
+        let backend = ActiveStateBackend::from_url(database_url)?;
+        match backend {
+            ActiveStateBackend::Sqlite => install_default_drivers(),
+            ActiveStateBackend::RedlineDb => {
+                #[cfg(feature = "redlinedb-backend")]
+                std::panic::catch_unwind(redlinedb_sqlx::install_default_drivers).map_err(|_| {
+                    anyhow::anyhow!(
+                        "RedlineDB SQLx driver cannot be installed after another SQLx Any driver registry is active"
+                    )
+                })?;
+            }
+        }
+        let pool = match pool_options(backend, database_url)
             .connect_with(AnyConnectOptions::from_str(database_url)?)
             .await
         {
             Ok(pool) => pool,
             Err(err) => {
                 let mut context = format!("opening database: {}", database_url);
-                if backend == StateBackend::RedlineDb
+                if backend == ActiveStateBackend::RedlineDb
                     && let Some(hint) = redline_database_lock_hint(database_url)
                 {
                     context.push_str(". ");
@@ -768,25 +857,18 @@ impl Db {
     /// Open an in-memory database for testing. Uses the same migration as production
     /// to validate schema consistency.
     pub async fn open_memory() -> Result<Self> {
-        install_default_drivers();
-        let tmp = tempfile::NamedTempFile::new()?;
-        let database_url = format!("redline:{}?mode=rwc", tmp.path().display());
-        let pool = AnyPoolOptions::new()
-            .max_connections(4)
-            .connect(&database_url)
-            .await?;
-        let db = Self {
-            pool,
-            backend: StateBackend::RedlineDb,
-            telemetry_tx: None,
-        };
-        db.migrate().await?;
-        std::mem::forget(tmp);
+        let mut db = Self::open_url(db_config::sqlite_memory_url()).await?;
+        db.telemetry_tx = None;
         Ok(db)
     }
 
     /// Open the optional RedlineDB integration database from `JERYU_TEST_REDLINE_URL`.
     pub async fn open_test_redline() -> Result<Option<Self>> {
+        #[cfg(not(feature = "redlinedb-backend"))]
+        {
+            return Ok(None);
+        }
+        #[cfg(feature = "redlinedb-backend")]
         match std::env::var("JERYU_TEST_REDLINE_URL") {
             Ok(url) if !url.trim().is_empty() => Self::open_url(&url).await.map(Some),
             _ => Ok(None),
@@ -1432,16 +1514,17 @@ impl Db {
         .execute(&self.pool)
         .await?;
         // Migrate selector_misses.plan_id from NOT NULL to nullable.
-        // RedlineDB cannot ALTER COLUMN, so we rename → recreate → copy → drop.
-        let has_old_schema: bool = sqlx::query_scalar::<_, String>(
-            "SELECT sql FROM redline_master WHERE type='table' AND name='selector_misses'",
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .ok()
-        .flatten()
-        .map(|sql| sql.contains("NOT NULL REFERENCES test_plans"))
-        .unwrap_or(false);
+        // Keep this portable by using rename -> recreate -> copy -> drop.
+        let selector_misses_schema_sql = self
+            .sql("SELECT sql FROM redline_master WHERE type='table' AND name='selector_misses'");
+        let has_old_schema: bool =
+            sqlx::query_scalar::<_, String>(selector_misses_schema_sql.as_ref())
+                .fetch_optional(&self.pool)
+                .await
+                .ok()
+                .flatten()
+                .map(|sql| sql.contains("NOT NULL REFERENCES test_plans"))
+                .unwrap_or(false);
 
         if has_old_schema {
             let _ = sqlx::query("ALTER TABLE selector_misses RENAME TO _selector_misses_old")
@@ -3780,18 +3863,21 @@ mod tests {
         )
         .await?;
 
-        let epoch_manager = crate::epoch::EpochManager::with_backend(db.pool(), db.backend());
+        let epoch_manager =
+            crate::epoch::EpochManager::with_active_backend(db.pool(), db.active_backend());
         assert_eq!(epoch_manager.get_epoch("proof-scope").await?, 0);
         let bumped = epoch_manager
             .bump_epoch("proof-scope", 9001, "proof bump")
             .await?;
         assert_eq!(bumped, 1);
 
-        let taint_manager = crate::taint::TaintManager::with_backend(db.pool(), db.backend());
-        let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
-            db.pool(),
-            cache_brain_adapter::AdapterBackend::RedlineDb,
-        );
+        let taint_manager =
+            crate::taint::TaintManager::with_active_backend(db.pool(), db.active_backend());
+        let cache_backend = match db.active_backend() {
+            ActiveStateBackend::Sqlite => cache_brain_adapter::AdapterBackend::Sqlite,
+            ActiveStateBackend::RedlineDb => cache_brain_adapter::AdapterBackend::RedlineDb,
+        };
+        let store = cache_brain_adapter::SqlxActionCacheStore::boxed(db.pool(), cache_backend);
         let cache_brain =
             crate::cache_brain::CacheBrain::with_store(epoch_manager, taint_manager.clone(), store);
         let unit = crate::cache_brain::BuildUnit {
@@ -3825,28 +3911,51 @@ mod tests {
     #[test]
     fn state_backend_detects_supported_urls() -> Result<()> {
         assert_eq!(
-            StateBackend::from_url("redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB")?,
-            StateBackend::RedlineDb
+            ActiveStateBackend::from_url("sqlite:///tmp/jeryu/target/jeryu/jeryu.sqlite?mode=rwc")?,
+            ActiveStateBackend::Sqlite
         );
         assert_eq!(
-            StateBackend::from_url("redlinedb:///tmp/jeryu/target/jeryu/autonomy.redlineDB")?,
-            StateBackend::RedlineDb
+            ActiveStateBackend::from_url("sqlite::memory:")?,
+            ActiveStateBackend::Sqlite
         );
-        assert_eq!(
-            StateBackend::from_url("redlineDB:///tmp/jeryu/target/jeryu/autonomy.redlineDB")?,
-            StateBackend::RedlineDb
-        );
-        assert_eq!(
-            StateBackend::from_url("redline:/tmp/jeryu.db?mode=rwc")?,
-            StateBackend::RedlineDb
-        );
-        assert_eq!(
-            StateBackend::from_url("redline::memory:")?,
-            StateBackend::RedlineDb
-        );
-        assert!(StateBackend::from_url("redline://jeryu:secret@127.0.0.1/jeryu").is_err());
-        assert!(StateBackend::from_url("redlineql://jeryu:secret@127.0.0.1/jeryu").is_err());
-        assert!(StateBackend::from_url("mysql://localhost/jeryu").is_err());
+
+        #[cfg(feature = "redlinedb-backend")]
+        {
+            assert_eq!(
+                ActiveStateBackend::from_url(
+                    "redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB"
+                )?,
+                ActiveStateBackend::RedlineDb
+            );
+            assert_eq!(
+                ActiveStateBackend::from_url(
+                    "redlinedb:///tmp/jeryu/target/jeryu/autonomy.redlineDB"
+                )?,
+                ActiveStateBackend::RedlineDb
+            );
+            assert_eq!(
+                ActiveStateBackend::from_url(
+                    "redlineDB:///tmp/jeryu/target/jeryu/autonomy.redlineDB"
+                )?,
+                ActiveStateBackend::RedlineDb
+            );
+            assert_eq!(
+                ActiveStateBackend::from_url("redline:/tmp/jeryu.db?mode=rwc")?,
+                ActiveStateBackend::RedlineDb
+            );
+            assert_eq!(
+                ActiveStateBackend::from_url("redline::memory:")?,
+                ActiveStateBackend::RedlineDb
+            );
+        }
+        #[cfg(not(feature = "redlinedb-backend"))]
+        {
+            assert!(ActiveStateBackend::from_url("redline:///tmp/jeryu/state.redlineDB").is_err());
+            assert!(ActiveStateBackend::from_url("redline::memory:").is_err());
+        }
+        assert!(ActiveStateBackend::from_url("redline://jeryu:secret@127.0.0.1/jeryu").is_err());
+        assert!(ActiveStateBackend::from_url("redlineql://jeryu:secret@127.0.0.1/jeryu").is_err());
+        assert!(ActiveStateBackend::from_url("mysql://localhost/jeryu").is_err());
         Ok(())
     }
 
@@ -3872,9 +3981,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_memory_uses_redline_recovery() -> Result<()> {
+    async fn open_memory_uses_sqlite_backend() -> Result<()> {
         let db = setup_db().await?;
-        assert_eq!(db.backend(), StateBackend::RedlineDb);
+        assert_eq!(db.active_backend(), ActiveStateBackend::Sqlite);
         Ok(())
     }
 
@@ -3890,7 +3999,7 @@ mod tests {
     /// `redline_schema` binding for any SQL line-comment (`--`) containing
     /// a `;` and fail loudly with a remediation hint.
     #[test]
-    fn redline_schema_has_no_line_comments_containing_semicolons() {
+    fn state_schema_has_no_line_comments_containing_semicolons() {
         let src = std::fs::read_to_string(file!()).expect("read state.rs source");
         let mut in_schema_literal = false;
         let mut offenders: Vec<(usize, String)> = Vec::new();
@@ -3941,22 +4050,22 @@ mod tests {
         db.migrate().await?;
         // After the second run the schema is still serviceable: we can
         // execute a smoke query against one of the known tables.
-        let _: Vec<(String,)> =
-            sqlx::query_as("SELECT name FROM redline_master WHERE type='table' AND name='pools'")
-                .fetch_all(&db.pool)
-                .await?;
+        let schema_sql =
+            db.sql("SELECT name FROM redline_master WHERE type='table' AND name='pools'");
+        let _: Vec<(String,)> = sqlx::query_as(schema_sql.as_ref())
+            .fetch_all(&db.pool)
+            .await?;
         Ok(())
     }
 
     #[tokio::test]
-    async fn redline_migration_adds_root_pipeline_id_before_index() -> Result<()> {
+    async fn sqlite_migration_adds_root_pipeline_id_before_index() -> Result<()> {
         install_default_drivers();
         let dir = tempfile::tempdir()?;
-        let db_path = dir.path().join(".db");
-        let database_url = format!("redline:{}?mode=rwc", db_path.display());
-        let pool = AnyPoolOptions::new()
-            .max_connections(1)
-            .connect(&database_url)
+        let db_path = dir.path().join("state.sqlite");
+        let database_url = db_config::sqlite_url(&db_path);
+        let pool = pool_options(ActiveStateBackend::Sqlite, &database_url)
+            .connect_with(AnyConnectOptions::from_str(&database_url)?)
             .await?;
         sqlx::query(
             r#"CREATE TABLE ci_job_runs (
@@ -3993,11 +4102,11 @@ mod tests {
             Some("root_pipeline_id")
         );
 
-        let root_index: Option<(String,)> =
-            sqlx::query_as("SELECT name FROM redline_master WHERE type = 'index' AND name = ?")
-                .bind("idx_ci_job_runs_root_pipeline")
-                .fetch_optional(&db.pool)
-                .await?;
+        let index_sql = db.sql("SELECT name FROM redline_master WHERE type = 'index' AND name = ?");
+        let root_index: Option<(String,)> = sqlx::query_as(index_sql.as_ref())
+            .bind("idx_ci_job_runs_root_pipeline")
+            .fetch_optional(&db.pool)
+            .await?;
         assert_eq!(
             root_index.as_ref().map(|row| row.0.as_str()),
             Some("idx_ci_job_runs_root_pipeline")
@@ -4006,9 +4115,44 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn redline_core_state_backend_smoke() -> Result<()> {
+    async fn sqlite_core_state_backend_smoke() -> Result<()> {
         let db = setup_db().await?;
         exercise_core_state_backend(&db, &unique_suffix()).await
+    }
+
+    #[tokio::test]
+    async fn sqlite_file_backend_persists_pool_rows_across_reopen() -> Result<()> {
+        install_default_drivers();
+        let dir = tempfile::tempdir()?;
+        let database_url = db_config::sqlite_url(&dir.path().join("jeryu.sqlite"));
+        let suffix = unique_suffix();
+        let pool_name = format!("persist-{suffix}");
+        let pool = Pool {
+            name: pool_name.clone(),
+            gitlab_runner_id: 42,
+            auth_token: "secret".into(),
+            tags: "sqlite,persist".into(),
+            executor: "docker".into(),
+            min_warm: 1,
+            max_managers: 3,
+            concurrent: 4,
+            request_concurrency: 2,
+            paused: false,
+            trust_tier: "trusted".into(),
+        };
+
+        let db = Db::open_url(&database_url).await?;
+        assert_eq!(db.active_backend(), ActiveStateBackend::Sqlite);
+        db.insert_pool(&pool).await?;
+        db.pool.close().await;
+
+        let reopened = Db::open_url(&database_url).await?;
+        let persisted = reopened.get_pool(&pool_name).await?;
+        assert_eq!(
+            persisted.as_ref().map(|pool| pool.auth_token.as_str()),
+            Some("secret")
+        );
+        Ok(())
     }
 
     #[tokio::test]
@@ -4017,7 +4161,7 @@ mod tests {
             return Ok(());
         };
 
-        assert_eq!(db.backend(), StateBackend::RedlineDb);
+        assert_eq!(db.active_backend(), ActiveStateBackend::RedlineDb);
         let suffix = unique_suffix();
         exercise_core_state_backend(&db, &suffix).await?;
         let request_id = format!("req-pg-{suffix}");

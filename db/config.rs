@@ -1,10 +1,20 @@
-//! RedlineDB configuration surface for the state-store boundary.
+//! Database backend configuration surface for the state-store boundary.
 
 use std::path::{Path, PathBuf};
 
-/// Where the embedded RedlineDB state file lives.
+/// Where the durable SQLite state file lives.
 pub fn state_path() -> PathBuf {
-    crate::config::data_dir().join("jeryu.db")
+    crate::config::data_dir().join("jeryu.sqlite")
+}
+
+/// SQLx URL for an on-disk SQLite file path.
+pub fn sqlite_url(path: &Path) -> String {
+    format!("sqlite://{}?mode=rwc&cache=shared", path.display())
+}
+
+/// SQLx URL for a process-local in-memory SQLite database.
+pub fn sqlite_memory_url() -> &'static str {
+    "sqlite::memory:"
 }
 
 /// SQLx URL for an embedded RedlineDB file path.
@@ -12,12 +22,16 @@ pub fn embedded_redline_url(path: &Path) -> String {
     format!("redline://{}", path.display())
 }
 
-/// Optional RedlineDB URL override.
+/// Optional database URL override.
 pub fn configured_url() -> Option<String> {
     match std::env::var("JERYU_DATABASE_URL").ok() {
         Some(value) if !value.trim().is_empty() => Some(value.trim().to_string()),
         _ => None,
     }
+}
+
+pub fn default_url() -> String {
+    sqlite_url(&state_path())
 }
 
 #[cfg(test)]
@@ -44,6 +58,15 @@ mod tests {
     }
 
     #[test]
+    fn default_url_is_on_disk_sqlite_under_data_dir() {
+        let url = default_url();
+        assert!(url.starts_with("sqlite://"));
+        assert!(url.contains("jeryu.sqlite"));
+        assert!(url.contains("mode=rwc"));
+        assert!(url.contains("cache=shared"));
+    }
+
+    #[test]
     fn configured_url_preserves_service_urls_for_fail_closed_backend_validation() {
         let _guard = ENV_LOCK.lock().unwrap();
         let original = std::env::var("JERYU_DATABASE_URL").ok();
@@ -62,23 +85,17 @@ mod tests {
     }
 
     #[test]
-    fn embedded_redline_memory_url_is_preserved() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let original = std::env::var("JERYU_DATABASE_URL").ok();
-        set_env_var("JERYU_DATABASE_URL", "redline::memory:");
-
-        assert_eq!(configured_url().as_deref(), Some("redline::memory:"));
-
-        match original {
-            Some(value) => set_env_var("JERYU_DATABASE_URL", value),
-            None => remove_env_var("JERYU_DATABASE_URL"),
-        }
+    fn sqlite_memory_url_is_available_for_db_boundary_tests() {
+        assert_eq!(sqlite_memory_url(), "sqlite::memory:");
     }
 
     #[test]
-    fn embedded_redline_file_urls_are_preserved() {
+    fn explicit_redline_urls_are_preserved_for_feature_gated_backend_validation() {
         let _guard = ENV_LOCK.lock().unwrap();
         let original = std::env::var("JERYU_DATABASE_URL").ok();
+
+        set_env_var("JERYU_DATABASE_URL", "redline::memory:");
+        assert_eq!(configured_url().as_deref(), Some("redline::memory:"));
 
         set_env_var(
             "JERYU_DATABASE_URL",

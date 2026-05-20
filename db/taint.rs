@@ -5,21 +5,28 @@
 use anyhow::Result;
 use sqlx::{AnyPool, Row};
 
-use crate::state::{StateBackend, backend_sql};
+use crate::state::{ActiveStateBackend, StateBackend, backend_sql};
 
 /// Manages retroactive taint tracking and graph purging for the Detonation Lane.
 #[derive(Clone)]
 pub struct TaintManager {
     pool: AnyPool,
-    backend: StateBackend,
+    backend: ActiveStateBackend,
 }
 
 impl TaintManager {
     pub fn new(pool: AnyPool) -> Self {
-        Self::with_backend(pool, StateBackend::RedlineDb)
+        Self::with_active_backend(pool, ActiveStateBackend::Sqlite)
     }
 
     pub fn with_backend(pool: AnyPool, backend: StateBackend) -> Self {
+        let backend = match backend {
+            StateBackend::RedlineDb => ActiveStateBackend::RedlineDb,
+        };
+        Self { pool, backend }
+    }
+
+    pub(crate) fn with_active_backend(pool: AnyPool, backend: ActiveStateBackend) -> Self {
         Self { pool, backend }
     }
 
@@ -123,7 +130,7 @@ mod tests {
     async fn setup_db() -> AnyPool {
         install_default_drivers();
         let tmp = NamedTempFile::new().unwrap();
-        let url = format!("redline:{}?mode=rwc", tmp.path().display());
+        let url = crate::db::config::sqlite_url(tmp.path());
         let pool = AnyPoolOptions::new()
             .max_connections(4)
             .acquire_timeout(Duration::from_secs(60))

@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "arc-bench"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "anyhow",
  "cargo-aer",
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "cache-brain-adapter"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -581,7 +581,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-aer"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-vrc"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -622,7 +622,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-witness"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -2474,7 +2474,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2530,11 +2530,11 @@ dependencies = [
 
 [[package]]
 name = "jeryu-domain"
-version = "3.3.12"
+version = "3.3.13"
 
 [[package]]
 name = "jeryu-gcd"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2744,6 +2744,7 @@ version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149"
 dependencies = [
+ "cc",
  "pkg-config",
  "vcpkg",
 ]
@@ -5031,6 +5032,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx-core",
+ "sqlx-sqlite",
  "syn 2.0.117",
  "tokio",
  "url",
@@ -5130,6 +5132,7 @@ dependencies = [
  "libsqlite3-sys",
  "log",
  "percent-encoding",
+ "serde",
  "serde_urlencoded",
  "sqlx-core",
  "thiserror 2.0.18",
@@ -5702,7 +5705,7 @@ checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
 
 [[package]]
 name = "tui-capture"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "anyhow",
  "clap",
@@ -6647,7 +6650,7 @@ dependencies = [
 
 [[package]]
 name = "witness-rt"
-version = "3.3.12"
+version = "3.3.13"
 dependencies = [
  "chrono",
  "serde",

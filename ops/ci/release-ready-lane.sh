@@ -19,8 +19,27 @@ cd "$REPO_ROOT"
 PR="${1:-${PR_NUMBER:-0}}"
 EMIT_STATUS="${JERYU_EMIT_STATUS:-0}"
 
-log "install RedlineDB binary"
-bash scripts/install-redlinedb.sh
+install_redlinedb_if_requested() {
+  local backend="${JERYU_DB_BACKEND:-sqlite}"
+  local url="${JERYU_DATABASE_URL:-}"
+  case "${backend,,}" in
+    redline|redlinedb)
+      log "install RedlineDB binary"
+      bash scripts/install-redlinedb.sh
+      return
+      ;;
+  esac
+  case "${url,,}" in
+    redline:*|redlinedb:*)
+      log "install RedlineDB binary"
+      bash scripts/install-redlinedb.sh
+      return
+      ;;
+  esac
+  log "skip RedlineDB binary install for SQLite backend"
+}
+
+install_redlinedb_if_requested
 
 log "build jeryu (release)"
 cargo build --release -p jeryu
@@ -49,7 +68,7 @@ if [ "$EMIT_STATUS" = "1" ]; then
   write_receipt "risk-gate" "risk and approval policy are declared under the canonical .jeryu autonomy policy root" ".jeryu/autonomy/policies"
   write_receipt "reviewer-agent" "agent review policy and prompt surfaces are protected by the canonical autonomy policy root" ".jeryu/autonomy"
   write_receipt "rollback-plan" "release policy requires previous signed digest rollback without rebuild" "release.policy.toml"
-  write_receipt "ci-checks" "release-ready lane completed RedlineDB install and release build before composing the gate" "ops/ci/release-ready-lane.sh"
+  write_receipt "ci-checks" "release-ready lane completed backend prep and release build before composing the gate" "ops/ci/release-ready-lane.sh"
 fi
 
 if [ "$EMIT_STATUS" = "1" ]; then

@@ -448,7 +448,7 @@ fn print_report(report: &RepoStandardReport, json: bool) -> Result<()> {
 
 fn render_project_toml(spec: &StandardSpec) -> String {
     format!(
-        "schema_version = \"1\"\nstandard = \"agent-first-autonomous\"\nstandard_version = \"{}\"\nproject_id = \"{}\"\nname = \"{}\"\ndefault_branch = \"{}\"\nstate_backend = \"redlinedb\"\ncache_policy = \"isolated\"\nmanaged_policy_root = \".jeryu\"\n",
+        "schema_version = \"1\"\nstandard = \"agent-first-autonomous\"\nstandard_version = \"{}\"\nproject_id = \"{}\"\nname = \"{}\"\ndefault_branch = \"{}\"\nstate_backend = \"sqlite\"\ncache_policy = \"isolated\"\nmanaged_policy_root = \".jeryu\"\n",
         AGENT_FIRST_STANDARD_VERSION, spec.repo_slug, spec.repo_name, spec.base_branch
     )
 }

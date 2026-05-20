@@ -36,6 +36,7 @@ jobs:
         with:
           toolchain: 1.95.0
       - name: Install RedlineDB binary
+        if: env.JERYU_DB_BACKEND == 'redlinedb'
         run: bash scripts/install-redlinedb.sh
       - name: Install cargo-deny
         uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny

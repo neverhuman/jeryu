@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
         },
         witness_rt::CellRegistration {
             id: "state".into(),
-            purpose: "RedlineDB-primary state schema and accessor boundary".into(),
+            purpose: "SQLite-default state schema and accessor boundary".into(),
             owned_paths: vec!["src/state.rs".into()],
             invariants: vec!["all mutations go through state::Db methods or backend-neutral state helpers".into()],
             local_commands: vec!["cargo nextest run -p jeryu --lib -E 'test(/state/)'".into()],
