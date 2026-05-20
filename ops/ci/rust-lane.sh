@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ops/ci/rust-lane.sh — single source of truth for the rust CI lane stages.
-# Usage: bash ops/ci/rust-lane.sh <fmt|clippy|build|install-smoke|test-select|test-lib|test-integration|tui-smoke|supply-chain|witness|vrc-map|vrc-plan|aer|semver-check|ssh-install-e2e|tui-screenshots|tui-recording|fixture-project-test|fixture-project-clippy|deny|vrc>
+# Usage: bash ops/ci/rust-lane.sh <fmt|clippy|build|install-smoke|test-select|test-lib|test-integration|tui-smoke|supply-chain|witness|vrc-map|vrc-plan|aer|semver-check|hardening|ssh-install-e2e|tui-screenshots|tui-recording|fixture-project-test|fixture-project-clippy|deny|vrc>
 #
 # Local rehearsals and `.github/workflows/rust.yml` both call into this so
 # CI/local parity stays true (jankurai HLT-042).
@@ -132,10 +132,26 @@ case "$STAGE" in
     cargo run -p cargo-aer -- scan --output aer-findings.json
     ;;
   semver-check)
-    if cargo semver-checks check-release -p jeryu 2>/dev/null; then
-      exit 0
+    BASELINE_REV="${SEMVER_BASELINE_REV:-origin/main}"
+    if git rev-parse --verify "${BASELINE_REV}^{commit}" >/dev/null 2>&1; then
+      cargo semver-checks check-release -p jeryu --baseline-rev "$BASELINE_REV"
+    else
+      if cargo semver-checks check-release -p jeryu 2>/dev/null; then
+        exit 0
+      fi
+      cargo semver-checks check-release
     fi
-    cargo semver-checks check-release
+    ;;
+  hardening)
+    mkdir -p target/hardening
+    log "cargo semver-checks check-release"
+    SEMVER_STATUS=0
+    bash "$0" semver-check || SEMVER_STATUS=$?
+    log "cargo run -p cargo-aer -- scan --output target/hardening/aer-findings.json"
+    cargo run -p cargo-aer -- scan --output target/hardening/aer-findings.json
+    if [ "$SEMVER_STATUS" -ne 0 ]; then
+      exit "$SEMVER_STATUS"
+    fi
     ;;
   ssh-install-e2e)
     bash scripts/install-redlinedb.sh
@@ -149,7 +165,7 @@ case "$STAGE" in
     mkdir -p target/ci-screenshots
     cargo build --release -p jeryu
     cargo run --release -p jeryu -- install render-demo --output target/ci-screenshots/install-demo.gif --png target/ci-screenshots/install-demo.png
-    TABS="workflow jobs mission agents tests pools cache evidence secrets"
+    TABS="workflow jobs mission agents tests bugs pools cache evidence secrets"
     for tab in $TABS; do
       cargo run --release -p jeryu -- tui --capture --tab "$tab" --output "target/ci-screenshots/${tab}.png"
     done

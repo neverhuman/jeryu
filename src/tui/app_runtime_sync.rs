@@ -185,6 +185,7 @@ impl App {
             self.selected_pipeline_index = self.state.pipelines.len() - 1;
         }
         self.sync_selected_job_index();
+        self.clamp_bug_selection();
         self.update_log_target();
 
         // Fetch inspector capsule when selected job changes
@@ -201,6 +202,20 @@ impl App {
                 self.state.inspector_capsule = None;
             }
         }
+    }
+
+    pub(crate) fn clamp_bug_selection(&mut self) {
+        self.selected_bug_index =
+            crate::tui::bugs::clamp_bug_index(self.selected_bug_index, self.state.bugs.len());
+        let project_count = self
+            .state
+            .bugs
+            .iter()
+            .map(|bug| &bug.target_project)
+            .collect::<std::collections::BTreeSet<_>>()
+            .len();
+        self.selected_bug_project_index =
+            crate::tui::bugs::clamp_bug_index(self.selected_bug_project_index, project_count);
     }
 
     fn apply_flow_snapshot(&mut self, mut flow_snap: crate::tui::flow::FlowSnapshot) {

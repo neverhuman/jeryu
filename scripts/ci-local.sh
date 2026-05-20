@@ -19,7 +19,7 @@ case "$lane" in
     ;;
   rust)
     if [ "$#" -ne 1 ]; then
-      printf 'Usage: scripts/ci-local.sh rust <fmt|clippy|build|install-smoke|test-select|test-lib|test-integration|tui-smoke|supply-chain|witness|vrc-map|vrc-plan|aer|semver-check|ssh-install-e2e|tui-screenshots|tui-recording|fixture-project-test|fixture-project-clippy|deny|vrc>\n' >&2
+      printf 'Usage: scripts/ci-local.sh rust <fmt|clippy|build|install-smoke|test-select|test-lib|test-integration|tui-smoke|supply-chain|witness|vrc-map|vrc-plan|aer|semver-check|hardening|ssh-install-e2e|tui-screenshots|tui-recording|fixture-project-test|fixture-project-clippy|deny|vrc>\n' >&2
       exit 2
     fi
     exec bash "$REPO_ROOT/ops/ci/rust-lane.sh" "$1"

@@ -5,6 +5,7 @@
 pub mod action_registry;
 pub mod activity;
 pub mod app;
+pub mod bugs;
 pub mod flow;
 pub mod focus;
 pub mod jankurai;
