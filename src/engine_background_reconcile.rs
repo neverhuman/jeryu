@@ -119,6 +119,22 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
         warn!(error = %err, "release reconciliation failed");
     }
 
+    match crate::repo_local::reconcile_repo_sidecars(&state.db).await {
+        Ok(runs) => {
+            for run in runs {
+                debug!(
+                    repo = %run.repo,
+                    status = %run.status,
+                    detail = %run.detail,
+                    "repo sidecar reconciliation completed"
+                );
+            }
+        }
+        Err(err) => {
+            warn!(error = %err, "repo sidecar reconciliation failed");
+        }
+    }
+
     Ok(())
 }
 

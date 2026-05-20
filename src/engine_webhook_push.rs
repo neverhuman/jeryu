@@ -15,6 +15,12 @@ pub(crate) struct PushHookPayload {
     after: String,
     #[serde(rename = "ref")]
     ref_name: String,
+    project: Option<PushHookProject>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PushHookProject {
+    path_with_namespace: Option<String>,
 }
 
 pub(crate) async fn handle_push_event_from_body(
@@ -35,6 +41,17 @@ pub(crate) async fn handle_push_event(state: SharedState, payload: PushHookPaylo
         after = %payload.after,
         "intercepted Push Hook for Semantic CI Evaluation"
     );
+
+    crate::repo_local::shadow_main_for_push(
+        &state.db,
+        payload
+            .project
+            .as_ref()
+            .and_then(|project| project.path_with_namespace.as_deref()),
+        &payload.ref_name,
+        &payload.after,
+    )
+    .await;
 
     if ref_name.starts_with("jeryu-test-") {
         debug!(

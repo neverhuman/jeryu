@@ -77,6 +77,8 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
                 jeryu::repo_standard::run_standard(RepoStandardMode::Verify, standard_options(cmd))
             }
         },
+        RepoCommands::Shadow { repo } => jeryu::repo_local::shadow_main_command(repo).await,
+        RepoCommands::Backup { repo } => jeryu::repo_local::backup_command(repo).await,
         RepoCommands::JankuraiFast { changed_from } => repo::jankurai_fast(&changed_from).await,
         RepoCommands::RedlineStateProof => repo::state_proof().await,
         RepoCommands::CaptureTuiScreenshots { output_dir } => {

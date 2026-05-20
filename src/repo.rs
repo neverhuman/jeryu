@@ -272,7 +272,8 @@ async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
             "local JeRyu/GitLab is not reachable; recover with `jeryu install server --yes` or `jeryu init`"
         );
     }
-    let project = ensure_local_gitlab_project(&opts.namespace, &opts.name).await?;
+    let project = ensure_local_gitlab_project(&opts.namespace, &opts.name, opts.new_repo).await?;
+    seed_missing_local_branch(&opts.path, &remote_url, &opts.branch)?;
     if opts.protect_main {
         dotenvy::from_path(crate::config::env_file()).ok();
         let pat = std::env::var("GITLAB_PAT").context(
@@ -286,6 +287,9 @@ async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
     }
 
     configure_remote(&opts.path, remote_name, &remote_url, opts.replace_origin)?;
+    if opts.replace_origin {
+        remove_other_remotes(&opts.path, remote_name)?;
+    }
     if remote_name == "jeryu" {
         run_git(
             &opts.path,
@@ -345,6 +349,7 @@ async fn local_gitlab_reachable() -> bool {
 async fn ensure_local_gitlab_project(
     namespace: &str,
     name: &str,
+    initialize_with_readme: bool,
 ) -> Result<crate::gitlab_client::Project> {
     dotenvy::from_path(crate::config::env_file()).ok();
     let pat = std::env::var("GITLAB_PAT").context(
@@ -363,7 +368,69 @@ async fn ensure_local_gitlab_project(
     {
         return Ok(project);
     }
-    client.create_project(name).await
+    client
+        .create_project_with_readme(name, initialize_with_readme)
+        .await
+}
+
+fn seed_missing_local_branch(repo_root: &Path, remote_url: &str, branch: &str) -> Result<()> {
+    if remote_branch_exists(repo_root, remote_url, branch)? {
+        return Ok(());
+    }
+
+    let Some(source_ref) = seed_source_ref(repo_root, branch)? else {
+        return Ok(());
+    };
+
+    run_git(
+        repo_root,
+        &[
+            "push",
+            "--no-verify",
+            remote_url,
+            &format!("{source_ref}:refs/heads/{branch}"),
+        ],
+    )
+    .with_context(|| {
+        format!("seeding local GitLab branch {branch} from {source_ref} before protection")
+    })
+}
+
+fn remote_branch_exists(repo_root: &Path, remote_url: &str, branch: &str) -> Result<bool> {
+    let output = std::process::Command::new("git")
+        .current_dir(repo_root)
+        .args([
+            "ls-remote",
+            "--exit-code",
+            "--heads",
+            remote_url,
+            &format!("refs/heads/{branch}"),
+        ])
+        .output()
+        .with_context(|| format!("checking remote branch {branch} at {remote_url}"))?;
+    Ok(output.status.success())
+}
+
+fn seed_source_ref(repo_root: &Path, branch: &str) -> Result<Option<String>> {
+    for candidate in [
+        format!("refs/remotes/origin/{branch}"),
+        format!("refs/heads/{branch}"),
+        "HEAD".to_string(),
+    ] {
+        if git_ref_exists(repo_root, &candidate)? {
+            return Ok(Some(candidate));
+        }
+    }
+    Ok(None)
+}
+
+fn git_ref_exists(repo_root: &Path, ref_name: &str) -> Result<bool> {
+    let output = std::process::Command::new("git")
+        .current_dir(repo_root)
+        .args(["rev-parse", "--verify", &format!("{ref_name}^{{commit}}")])
+        .output()
+        .with_context(|| format!("checking local ref {ref_name}"))?;
+    Ok(output.status.success())
 }
 
 fn configure_remote(
@@ -380,6 +447,28 @@ fn configure_remote(
         run_git(repo_root, &["remote", "set-url", remote_name, remote_url])?;
     } else {
         run_git(repo_root, &["remote", "add", remote_name, remote_url])?;
+    }
+    Ok(())
+}
+
+fn remove_other_remotes(repo_root: &Path, keep: &str) -> Result<()> {
+    let output = std::process::Command::new("git")
+        .current_dir(repo_root)
+        .args(["remote"])
+        .output()
+        .context("listing git remotes")?;
+    if !output.status.success() {
+        bail!(
+            "git remote failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    for remote in String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|remote| !remote.is_empty() && *remote != keep)
+    {
+        run_git(repo_root, &["remote", "remove", remote])?;
     }
     Ok(())
 }
@@ -902,6 +991,46 @@ mod tests {
     }
 
     #[test]
+    fn replace_origin_removes_other_remotes() {
+        let repo = tempdir().expect("temp repo");
+        git(repo.path(), &["init"]);
+        git(
+            repo.path(),
+            &[
+                "remote",
+                "add",
+                "origin",
+                "git@example.invalid:team/demo.git",
+            ],
+        );
+        git(
+            repo.path(),
+            &[
+                "remote",
+                "add",
+                "backup",
+                "git@example.invalid:team/backup.git",
+            ],
+        );
+
+        configure_remote(
+            repo.path(),
+            "origin",
+            "ssh://git@127.0.0.1:2224/team/demo.git",
+            true,
+        )
+        .unwrap();
+        remove_other_remotes(repo.path(), "origin").unwrap();
+
+        let output = std::process::Command::new("git")
+            .current_dir(repo.path())
+            .args(["remote"])
+            .output()
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "origin");
+    }
+
+    #[test]
     fn new_repo_uses_origin_as_local_jeryu_remote() {
         let repo = tempdir().expect("temp repo");
         git(repo.path(), &["init"]);
@@ -922,6 +1051,29 @@ mod tests {
         assert_eq!(
             String::from_utf8_lossy(&origin.stdout).trim(),
             "ssh://git@127.0.0.1:2224/team/demo.git"
+        );
+    }
+
+    #[test]
+    fn seed_source_prefers_origin_main() {
+        let repo = tempdir().expect("temp repo");
+        git(repo.path(), &["init", "-b", "main"]);
+        git(
+            repo.path(),
+            &["config", "user.email", "jeryu@example.invalid"],
+        );
+        git(repo.path(), &["config", "user.name", "JeRyu Test"]);
+        fs::write(repo.path().join("README.md"), "demo").unwrap();
+        git(repo.path(), &["add", "README.md"]);
+        git(repo.path(), &["commit", "-m", "init"]);
+        git(
+            repo.path(),
+            &["update-ref", "refs/remotes/origin/main", "HEAD"],
+        );
+
+        assert_eq!(
+            seed_source_ref(repo.path(), "main").unwrap().as_deref(),
+            Some("refs/remotes/origin/main")
         );
     }
 

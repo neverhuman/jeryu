@@ -344,6 +344,25 @@ fn repo_standard_apply_parses_defaults_and_overrides() {
 }
 
 #[test]
+fn repo_sidecar_commands_parse_repo_filter() {
+    let cli = Cli::parse_from(["jeryu", "repo", "shadow", "--repo", "root/veox"]);
+    match cli.command {
+        Commands::Repo(RepoCommands::Shadow { repo }) => {
+            assert_eq!(repo.as_deref(), Some("root/veox"));
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+
+    let cli = Cli::parse_from(["jeryu", "repo", "backup", "--repo", "root/veox"]);
+    match cli.command {
+        Commands::Repo(RepoCommands::Backup { repo }) => {
+            assert_eq!(repo.as_deref(), Some("root/veox"));
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
 fn policy_audit_command_parses_local_gitlab_target() {
     let cli = Cli::parse_from([
         "jeryu",
