@@ -155,6 +155,37 @@ async fn renders_maximized_logs_empty_state() -> Result<()> {
 }
 
 #[tokio::test]
+async fn fullscreen_activity_clears_previous_tab_content() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.active_tab = crate::tui::app::ActiveTab::Jobs;
+    app.active_pane = crate::tui::app::ActivePane::Jobs;
+    app.state.recent_jobs = vec![job(1, "running")];
+    app.state.live_log.text = "line one\nline two".into();
+
+    let backend = TestBackend::new(120, 40);
+    let mut terminal = Terminal::new(backend)?;
+    terminal.draw(|f| ui::draw(f, &mut app))?;
+
+    app.focus.fullscreen = Some(crate::tui::focus::PaneId::ActivityLog(
+        crate::tui::app::ActiveTab::Jobs,
+    ));
+    terminal.draw(|f| ui::draw(f, &mut app))?;
+
+    let buffer = terminal.backend().buffer().clone();
+    let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+    assert!(rendered.contains("Activity / Logs"));
+    assert!(
+        !rendered.contains("Pipeline Progress"),
+        "fullscreen activity should clear the previous jobs pane"
+    );
+    assert!(
+        !rendered.contains("Live Runner Feed"),
+        "fullscreen activity should clear the previous runner feed pane"
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn renders_flow_with_jobs_list_and_live_log() -> Result<()> {
     let mut app = crate::tui::app::test_app().await?;
     app.state.recent_jobs = vec![job(1, "running"), job(2, "pending")];
@@ -194,6 +225,26 @@ async fn renders_jobs_tab_with_live_jobs_and_no_empty_message() -> Result<()> {
     assert!(rendered.contains("test-job-1"));
     assert!(rendered.contains("○"));
     assert!(!rendered.contains("Waiting for active pipelines"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn renders_bugs_tab_with_populated_demo_state() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.apply_demo_fixture();
+    app.active_tab = crate::tui::app::ActiveTab::Bugs;
+
+    let buffer = capture_buffer(&mut app)?;
+    let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
+
+    assert!(rendered.contains("Bug Projects"));
+    assert!(rendered.contains("Bugs sort:rank"));
+    assert!(rendered.contains("BUG-S0-READY"));
+    assert!(rendered.contains("S0/P0"));
+    assert!(rendered.contains("jeryu -> redlinedb"));
+    assert!(rendered.contains("Current behavior"));
+    assert!(rendered.contains("Evidence"));
+    assert!(rendered.contains("Acceptance"));
     Ok(())
 }
 

@@ -7,7 +7,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 
 pub fn draw_activity_pane(f: &mut Frame, app: &mut App, area: Rect) {
@@ -23,6 +23,9 @@ pub fn draw_activity_pane(f: &mut Frame, app: &mut App, area: Rect) {
         " Activity / Logs{} ",
         focus::esc_label(focus::is_active(app, pane))
     );
+    // Clear the full render region first so fullscreen transitions cannot
+    // leave stale panes visible behind the activity log.
+    f.render_widget(Clear, area);
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)

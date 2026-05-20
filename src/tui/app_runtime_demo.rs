@@ -184,6 +184,9 @@ pub(crate) fn apply_demo_fixture(app: &mut App) {
     app.selected_test_index = 0;
     app.selected_test_history = None;
     app.selected_evidence_index = 0;
+    app.selected_bug_index = 0;
+    app.selected_bug_project_index = 0;
+    app.bug_sort_mode = crate::tui::bugs::BugSortMode::Rank;
     app.selected_secret_index = 0;
     app.selected_git_index = 0;
     app.test_view_mode = TestViewMode::Average;

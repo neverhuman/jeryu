@@ -28,6 +28,31 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             app.focus.set_tab(ActiveTab::Bugs);
             Ok(Some(false))
         }
+        KeyCode::Char('s') if app.active_tab == ActiveTab::Bugs => {
+            app.bug_sort_mode = crate::tui::bugs::BugSortMode::Severity;
+            app.selected_bug_index = 0;
+            Ok(Some(false))
+        }
+        KeyCode::Char('p') if app.active_tab == ActiveTab::Bugs => {
+            app.bug_sort_mode = crate::tui::bugs::BugSortMode::Priority;
+            app.selected_bug_index = 0;
+            Ok(Some(false))
+        }
+        KeyCode::Char('d') if app.active_tab == ActiveTab::Bugs => {
+            app.bug_sort_mode = crate::tui::bugs::BugSortMode::Difficulty;
+            app.selected_bug_index = 0;
+            Ok(Some(false))
+        }
+        KeyCode::Char('r') if app.active_tab == ActiveTab::Bugs => {
+            app.bug_sort_mode = crate::tui::bugs::BugSortMode::Ready;
+            app.selected_bug_index = 0;
+            Ok(Some(false))
+        }
+        KeyCode::Char('u') if app.active_tab == ActiveTab::Bugs => {
+            app.bug_sort_mode = crate::tui::bugs::BugSortMode::Updated;
+            app.selected_bug_index = 0;
+            Ok(Some(false))
+        }
         KeyCode::F(5) => {
             app.force_refresh().await;
             Ok(Some(false))
@@ -256,6 +281,30 @@ async fn handle_drilled_arrow(app: &mut App, direction: NavDirection) {
             if !app.state.recent_evidence.is_empty() {
                 app.selected_evidence_index =
                     (app.selected_evidence_index + 1) % app.state.recent_evidence.len();
+            }
+        }
+        (ActiveTab::Bugs, PaneId::BugsProjects, NavDirection::Up) => {
+            app.selected_bug_project_index = app.selected_bug_project_index.saturating_sub(1);
+        }
+        (ActiveTab::Bugs, PaneId::BugsProjects, NavDirection::Down) => {
+            let project_count = app
+                .state
+                .bugs
+                .iter()
+                .map(|bug| &bug.target_project)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len();
+            if project_count > 0 {
+                app.selected_bug_project_index =
+                    (app.selected_bug_project_index + 1).min(project_count - 1);
+            }
+        }
+        (ActiveTab::Bugs, PaneId::BugsTable | PaneId::BugsInspector, NavDirection::Up) => {
+            app.selected_bug_index = app.selected_bug_index.saturating_sub(1);
+        }
+        (ActiveTab::Bugs, PaneId::BugsTable | PaneId::BugsInspector, NavDirection::Down) => {
+            if !app.state.bugs.is_empty() {
+                app.selected_bug_index = (app.selected_bug_index + 1).min(app.state.bugs.len() - 1);
             }
         }
         (ActiveTab::Secrets, PaneId::SecretsList, NavDirection::Up) => {
