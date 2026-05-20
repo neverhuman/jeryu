@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Added the agent-first repository standardizer and hard-switched managed
+  autonomy files to `.jeryu/`, with checked-in release-ready receipts required
+  for non-dry-run releases.
+- Pinned local and CI proof to the checked-in Jankurai v1.5.1 installer
+  manifest and the RedlineDB v1.0.1 binary manifest.
+- Routed Rust, release, and jankurai workflow command bodies through local
+  `ops/ci/` parity scripts so agents can rehearse the same lanes before PR.
 - Removed the generated RedlineDB Docker Compose service and the old
   `redlinedb/redline:latest` pull path. `jeryu serve` now keeps Docker Compose
   focused on GitLab and Vault while state remains embedded through `redline:`
