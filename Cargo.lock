@@ -533,6 +533,7 @@ dependencies = [
  "async-trait",
  "redlinedb-sqlx",
  "sqlx",
+ "tempfile",
  "tokio",
 ]
 
@@ -2526,6 +2527,10 @@ dependencies = [
  "walkdir",
  "witness-rt",
 ]
+
+[[package]]
+name = "jeryu-domain"
+version = "3.3.9"
 
 [[package]]
 name = "jeryu-gcd"

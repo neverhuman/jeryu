@@ -33,4 +33,5 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 
 [dev-dependencies]
 redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "828667b49fd3adee88c8bdd48681b38c57b95563" }
+tempfile = "3.27.0"
 tokio = { workspace = true }

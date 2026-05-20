@@ -7,6 +7,7 @@ members = [
     "crates/cargo-aer",
     "crates/arc-bench",
     "crates/tui-capture",
+    "crates/domain",
     "crates/adapters/cache-brain",
     "crates/jeryu-gcd",
 ]

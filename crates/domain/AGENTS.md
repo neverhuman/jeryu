@@ -7,5 +7,5 @@ When a user provides a paper, release, implementation, or handoff plan in the co
 Owns `crates/domain/`.
 Forbidden: I/O glue, transport routing, and persistence code.
 Required error surface: domain failures must be typed and include `purpose`, `reason`, `common_fixes`, `docs_url`, and `repair_hint` when they cross an agent-facing boundary.
-Proof lane: `unit / property tests` plus `cargo test -p jeryu --lib approval::quorum -- --test-threads=1` for policy changes.
+Proof lane: `cargo test -p jeryu-domain` plus `unit / property tests`; also run `cargo test -p jeryu --lib approval::quorum -- --test-threads=1` for policy changes.
 If jankurai is installed, run `jankurai update --client-start --quiet` before work; do not apply updates unless the user asks.

@@ -31,13 +31,13 @@ case "$STAGE" in
     ;;
   clippy)
     bash scripts/install-redlinedb.sh
-    log "cargo clippy --all-targets --all-features -- -D warnings"
-    cargo clippy --all-targets --all-features -- -D warnings
+    log "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
     ;;
   build)
     bash scripts/install-redlinedb.sh
-    log "cargo build --verbose"
-    cargo build --verbose
+    log "cargo build --workspace --verbose"
+    cargo build --workspace --verbose
     ;;
   install-smoke)
     bash scripts/install-redlinedb.sh

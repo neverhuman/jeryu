@@ -1,0 +1,10 @@
+[package]
+name = "jeryu-domain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "jeryu_domain"
+path = "src/lib.rs"
