@@ -117,14 +117,20 @@ impl TaintManager {
 mod tests {
     use super::*;
     use crate::db::{AnyPoolOptions, install_default_drivers};
+    use std::time::Duration;
+    use tempfile::NamedTempFile;
 
     async fn setup_db() -> AnyPool {
         install_default_drivers();
+        let tmp = NamedTempFile::new().unwrap();
+        let url = format!("redline:{}?mode=rwc", tmp.path().display());
         let pool = AnyPoolOptions::new()
-            .max_connections(1)
-            .connect("redline::memory:")
+            .max_connections(4)
+            .acquire_timeout(Duration::from_secs(60))
+            .connect(&url)
             .await
             .unwrap();
+        std::mem::forget(tmp);
 
         sqlx::query(
             "CREATE TABLE cache_taints (

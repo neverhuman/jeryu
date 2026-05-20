@@ -926,6 +926,7 @@ mod tests {
         use crate::autonomy::signing::EdSigningKey;
         use crate::db::{AnyPoolOptions, install_default_drivers};
         use crate::git_host::GitHubClient;
+        use tempfile::NamedTempFile;
 
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -933,11 +934,14 @@ mod tests {
             .unwrap();
         let adapter = rt.block_on(async {
             install_default_drivers();
+            let tmp = NamedTempFile::new().expect("tempfile for production adapter test");
+            let url = format!("redline:{}?mode=rwc", tmp.path().display());
             let pool = AnyPoolOptions::new()
-                .max_connections(1)
-                .connect("redline::memory:")
+                .max_connections(4)
+                .connect(&url)
                 .await
-                .expect("in-memory redline pool");
+                .expect("file-backed redline pool");
+            std::mem::forget(tmp);
             ProductionActionAdapter::new(
                 Arc::new(GitHubClient::new("ghp_test_kind")),
                 pool,

@@ -1716,13 +1716,17 @@ mod cli_foundry_tests {
         // Route every sqlx-typed name through `jeryu::db` so this binary
         // does not import `sqlx::` directly (closes HLT-006).
         use jeryu::db::{AnyPoolOptions, install_default_drivers, raw_query};
+        use tempfile::NamedTempFile;
 
         install_default_drivers();
+        let tmp = NamedTempFile::new().expect("tempfile for autonomy command test");
+        let url = format!("redline:{}?mode=rwc", tmp.path().display());
         let pool = AnyPoolOptions::new()
-            .max_connections(1)
-            .connect("redline::memory:")
+            .max_connections(4)
+            .connect(&url)
             .await
-            .expect("connect in-memory redline");
+            .expect("connect file-backed redline");
+        std::mem::forget(tmp);
         for stmt in [
             "CREATE TABLE foundry_candidates (
                 id            TEXT PRIMARY KEY,

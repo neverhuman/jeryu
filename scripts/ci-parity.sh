@@ -72,12 +72,13 @@ if [[ "$FAST" == "0" ]]; then
 fi
 
 # ─── 6. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
-run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL=redline::memory: cargo run --quiet -- tui --once
-
-# ─── 7. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
 PARITY_PREFIX="/tmp/jeryu-ci-parity-$$"
 mkdir -p "$PARITY_PREFIX"
 trap 'rm -rf "$PARITY_PREFIX"' EXIT
+PARITY_DB="$PARITY_PREFIX/tui-smoke.redlineDB"
+run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL="redline:$PARITY_DB?mode=rwc" cargo run --quiet -- tui --once
+
+# ─── 7. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
 run "Install Smoke (dry-run)" \
     cargo run --quiet -- install --dry-run --json --color never --prefix "$PARITY_PREFIX"
 

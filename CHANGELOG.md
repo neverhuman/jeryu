@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.8] - 2026-05-20
+
+### Fixed
+
+- Switched RedlineDB-backed tests and parity smoke checks from in-memory
+  URLs to file-backed temporary databases so the adapter surface is exercised
+  the same way in CI and local runs.
+- Synced the release and deployment metadata with the current RedlineDB and
+  Jankurai pins, keeping the documented serve and install paths aligned with
+  the workspace configuration.
+
 ## [3.3.7] - 2026-05-18
 
 ### Fixed

@@ -24,7 +24,7 @@ jeryu is a **single-binary CI/CD control plane** that orchestrates autonomous re
 - **Kill Bell**: A global pause mechanism that instantly freezes all deployments when security or operational issues are detected.
 - **Ledger**: An append-only event log of all decisions, approvals, and deployments for audit and forensics.
 - **Event bus**: Embedded [Jansu](https://github.com/neverhuman/jansu) broker decouples the HTTP webhook handler from inline event work. The webhook handler returns `202 Accepted` after enqueueing; a consumer loop in the autonomy daemon drains records into the existing dispatch path. In-process by design — no separate Kafka/queue infra to operate. Set `JERYU_WEBHOOK_SYNC=1` to force the legacy synchronous path for ops/debug. Compile with `--no-default-features` to drop the broker entirely.
-- **Storage**: SQLite via [sqlx](https://github.com/launchbadge/sqlx) today, migrating to [RedlineDB](https://github.com/neverhuman/RedlineDB) (100% Rust SQLite-compatible engine) in staged Wave 11.C+ work. The async wrapper crate [`redlinedb-tokio`](https://github.com/neverhuman/RedlineDB/pull/7) is the migration foundation — see `docs/redline-jansu-issues.md::R-1` for the staged plan.
+- **Storage**: RedlineDB via `redline:` URLs and the `redlinedb-sqlx` adapter. The async wrapper crate [`redlinedb-tokio`](https://github.com/neverhuman/RedlineDB/pull/7) remains the migration foundation — see `docs/redline-jansu-issues.md::R-1` for the staged plan.
 
 ### Key Components
 
@@ -171,7 +171,7 @@ The judge's structured output:
   "reasoning": "All evidence thresholds met: tests (89.2% coverage), security (0 CVEs), supply chain (low risk)",
   "tier": "R0",
   "issued_at": "2026-05-16T14:32:00Z",
-  "issuer": "evidence-gate-v1.4.1"
+  "issuer": "evidence-gate-v1.5.1"
 }
 ```
 

@@ -807,9 +807,11 @@ impl Db {
     /// to validate schema consistency.
     pub async fn open_memory() -> Result<Self> {
         install_default_drivers();
+        let tmp = tempfile::NamedTempFile::new()?;
+        let database_url = format!("redline:{}?mode=rwc", tmp.path().display());
         let pool = AnyPoolOptions::new()
-            .max_connections(1)
-            .connect("redline::memory:")
+            .max_connections(4)
+            .connect(&database_url)
             .await?;
         let db = Self {
             pool,
@@ -817,6 +819,7 @@ impl Db {
             telemetry_tx: None,
         };
         db.migrate().await?;
+        std::mem::forget(tmp);
         Ok(db)
     }
 
@@ -829,6 +832,10 @@ impl Db {
     }
 
     async fn inserted_id(&self, result: AnyQueryResult) -> Result<i64> {
+        if let Some(id) = result.last_insert_id() {
+            return Ok(id);
+        }
+
         match self.backend {
             StateBackend::RedlineDb => {
                 let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
