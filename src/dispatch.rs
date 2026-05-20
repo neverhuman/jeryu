@@ -254,6 +254,8 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
             crate::commands::pipeline::execute_pipeline_commands(subcmd).await?
         }
 
+        Commands::Bug(subcmd) => return crate::commands::bug::execute_bug_commands(subcmd).await,
+
         other => return dispatch_back::run(other).await,
     }
 

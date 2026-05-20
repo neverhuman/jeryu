@@ -346,6 +346,12 @@ pub(crate) fn start_background_sync(app: &App) {
             if let Ok(events) = store.recent_git_command_events(30).await {
                 snap.recent_git_events = events;
             }
+            if let Ok(bugs) = crate::db::bugtracker_repo::BugTrackerRepo::new(store.pool())
+                .list_bugs(None, None, crate::bugtracker::BugSort::Rank)
+                .await
+            {
+                snap.bugs = bugs;
+            }
             snap.last_sync_at = Some(chrono::Utc::now());
             snap.agent_connected = true; // successful sync = connected
 

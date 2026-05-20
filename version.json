@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.10",
-  "cargo_workspace_version": "3.3.10",
+  "version": "3.3.11",
+  "cargo_workspace_version": "3.3.11",
   "release_line": "V3.3",
   "status": "stable",
   "date": "2026-05-20",
   "tag_policy": {
-    "rc": "v3.3.10-rc.N",
-    "stable": "v3.3.10"
+    "rc": "v3.3.11-rc.N",
+    "stable": "v3.3.11"
   },
-  "headline": "Ship JeRyu v3.3.10 with agent-first autonomous defaults and pinned CI parity."
+  "headline": "Ship JeRyu v3.3.11 with RedlineDB-backed local bug tracking."
 }

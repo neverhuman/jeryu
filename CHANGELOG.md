@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.11] - 2026-05-20
+
+### Added
+
+- Added a RedlineDB-backed local bug tracker with canonical project, bug,
+  event, link, evidence, and attempt storage.
+- Added `jeryu bug` project, submit, list, show, triage, ready, link, attempt,
+  and dry-run sync commands with JSON-first output support.
+- Added MCP bug tools, canonical GitHub/GitLab bug templates, and a Bugs TUI
+  tab for local inspection.
+
 ## [3.3.10] - 2026-05-20
 
 ### Changed

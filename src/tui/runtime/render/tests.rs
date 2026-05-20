@@ -73,6 +73,7 @@ async fn renders_all_primary_tabs_with_empty_state() -> Result<()> {
         crate::tui::app::ActiveTab::Pools,
         crate::tui::app::ActiveTab::Cache,
         crate::tui::app::ActiveTab::Evidence,
+        crate::tui::app::ActiveTab::Bugs,
         crate::tui::app::ActiveTab::Secrets,
         crate::tui::app::ActiveTab::LLMs,
         crate::tui::app::ActiveTab::Git,
@@ -278,6 +279,8 @@ async fn navigation_cycles_tabs_and_panes() -> Result<()> {
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Cache);
     app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Evidence);
+    app.cycle_tab_next();
+    assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Bugs);
     app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Secrets);
     app.cycle_tab_next();

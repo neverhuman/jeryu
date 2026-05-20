@@ -1,41 +1,112 @@
 name: Bug Report
-description: Create a report to help us improve the jeryu hypersor
+description: Submit a canonical jeryu bug report
 title: "[BUG] "
-labels: ["bug", "triage"]
+labels: ["type::bug", "status::needs-triage"]
 body:
-  - type: markdown
+  - type: input
+    id: target_project
     attributes:
-      value: |
-        Thank you for reporting an issue! Please provide as much detail as possible to help us reproduce it.
-  - type: textarea
-    id: description
-    attributes:
-      label: Description
-      description: What happened? What were you trying to do?
-    validations:
-      required: true
-  - type: textarea
-    id: steps
-    attributes:
-      label: Steps To Reproduce
-      description: Please list the exact steps required to reproduce the issue.
-      placeholder: |
-        1. Run `jeryu init`
-        2. Wait for GitLab to boot
-        3. ...
-    validations:
-      required: true
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected Behavior
-      description: What did you expect to happen instead?
+      label: Target project
+      description: Project that owns the fix.
+      placeholder: redlineDB
     validations:
       required: true
   - type: input
-    id: os
+    id: source_project
     attributes:
-      label: Operating System
-      description: What OS are you running on? (e.g. macOS Sonoma, Ubuntu 24.04)
+      label: Source project
+      description: Project where the bug was observed.
+      placeholder: veox
+    validations:
+      required: true
+  - type: input
+    id: component
+    attributes:
+      label: Component
+      placeholder: adapter, tui, mcp, cli
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current behavior
+      description: What is happening now?
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      description: What should happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Reproduction steps
+      description: Exact steps, or point to evidence below if steps are not available.
+      placeholder: |
+        1. Run ...
+        2. Observe ...
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, traces, screenshots, test receipts, or repro scripts. Redact secrets.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, commit SHA, command, runtime, config
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      options:
+        - always
+        - often
+        - intermittent
+        - once
+        - unknown
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who or what is blocked?
+    validations:
+      required: true
+  - type: dropdown
+    id: security_privacy
+    attributes:
+      label: Security or privacy impact
+      options:
+        - no security or privacy impact
+        - possible security or privacy impact
+        - confirmed security or privacy impact
+    validations:
+      required: true
+  - type: checkboxes
+    id: no_secrets
+    attributes:
+      label: Secret handling
+      options:
+        - label: I confirmed this report does not include secrets, credentials, private keys, or unredacted personal data.
+          required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options: ["S0", "S1", "S2", "S3", "S4"]
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: ["P0", "P1", "P2", "P3", "P4"]
+      default: 2
     validations:
       required: true

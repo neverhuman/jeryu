@@ -155,6 +155,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         ActiveTab::Pools => draw_pools_tab(f, app, chunks[1]),
         ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[1]),
         ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[1]),
+        ActiveTab::Bugs => draw_bugs_tab(f, app, chunks[1]),
         ActiveTab::LLMs => draw_llms_tab(f, app, chunks[1]),
         ActiveTab::Git => draw_git_tab(f, app, chunks[1]),
         ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[1]),

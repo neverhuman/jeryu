@@ -54,6 +54,9 @@ pub enum EntityKind {
     ReleaseGate,
     CacheTaint,
     CacheObject,
+    Bug,
+    BugAttempt,
+    Project,
     SecretAccess,
     Grant,
     Pool,
@@ -76,6 +79,9 @@ impl EntityKind {
             Self::ReleaseGate => "gate",
             Self::CacheTaint => "taint",
             Self::CacheObject => "cache_object",
+            Self::Bug => "bug",
+            Self::BugAttempt => "bug_attempt",
+            Self::Project => "project",
             Self::SecretAccess => "secret",
             Self::Grant => "grant",
             Self::Pool => "pool",
@@ -225,6 +231,35 @@ pub struct ActionRef {
     pub risk: Option<RiskTier>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Bug {
+    pub id: String,
+    pub title: String,
+    pub target_project: String,
+    pub source_project: String,
+    pub status: String,
+    pub severity: String,
+    pub priority: String,
+    pub difficulty: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BugAttempt {
+    pub id: i64,
+    pub bug_id: String,
+    pub status: String,
+    pub agent: Option<String>,
+    pub branch: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Project {
+    pub alias: String,
+    pub repo_slug: String,
+    pub provider_kind: String,
+    pub default_branch: String,
+}
+
 // ── Data Freshness ──────────────────────────────────────────────────────
 
 /// Per-source freshness watermarks so the TUI can show freshness indicators per panel.
@@ -267,6 +302,9 @@ mod tests {
             EntityKind::ReleaseGate,
             EntityKind::CacheTaint,
             EntityKind::CacheObject,
+            EntityKind::Bug,
+            EntityKind::BugAttempt,
+            EntityKind::Project,
             EntityKind::SecretAccess,
             EntityKind::Grant,
             EntityKind::Pool,

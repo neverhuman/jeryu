@@ -237,6 +237,7 @@ pub(crate) fn build_demo_state(
             },
         ],
         recent_git_events: vec![],
+        bugs: vec![],
         runner_feeds: demo_runner_feeds(&now_str),
         active_feed_index: 0,
         feed_cycle_tick: 0,

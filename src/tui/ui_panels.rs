@@ -294,3 +294,7 @@ pub(crate) use ui_panels_mission_extra::*;
 #[path = "ui_panels_body_approvals.rs"]
 mod ui_panels_body_approvals;
 pub(crate) use ui_panels_body_approvals::*;
+
+#[path = "ui_panels_body_bugs.rs"]
+mod ui_panels_body_bugs;
+pub(crate) use ui_panels_body_bugs::*;

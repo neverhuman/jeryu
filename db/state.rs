@@ -1384,6 +1384,10 @@ impl Db {
                 .await
                 .with_context(|| format!("running migration statement: {}", statement))?;
         }
+        crate::db::bugtracker_repo::BugTrackerRepo::new(self.pool.clone())
+            .install_schema()
+            .await
+            .context("install bug tracker schema")?;
 
         // Safe alter logic for job_name extension
         let _ = sqlx::query("ALTER TABLE job_events ADD COLUMN job_name TEXT;")

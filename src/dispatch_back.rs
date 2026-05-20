@@ -249,11 +249,11 @@ pub(crate) async fn run(command: Commands) -> Result<i32> {
         // ---- MCP Adapter -------------------------------------------------
         Commands::Mcp(subcmd) => match subcmd {
             McpCommands::Serve => {
-                let (client, _) = load_client()?;
+                let (client, _) = load_client_optional();
                 mcp::start_mcp_stdio(client).await?;
             }
             McpCommands::ServeHttp => {
-                let (client, _) = load_client()?;
+                let (client, _) = load_client_optional();
                 let bind = settings::get().mcp.bind.clone();
                 mcp::start_mcp_http(client, &bind).await?;
             }

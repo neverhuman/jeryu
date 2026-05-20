@@ -64,6 +64,33 @@ pub enum AgentIntent {
         test_ids: Vec<String>,
         ref_name: String,
     },
+    BugSubmit {
+        report: crate::bugtracker::CanonicalBugReport,
+        idempotency_key: Option<String>,
+    },
+    BugList {
+        project: Option<String>,
+        status: Option<String>,
+        sort: Option<String>,
+    },
+    BugShow {
+        bug_id: String,
+    },
+    BugReady {
+        project: Option<String>,
+    },
+    BugUpdate {
+        bug_id: String,
+        status: Option<String>,
+        severity: Option<String>,
+        priority: Option<String>,
+        component: Option<String>,
+        owner: Option<String>,
+    },
+    BugRecordAttempt {
+        bug_id: String,
+        attempt: crate::bugtracker::BugAttemptInput,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -134,9 +161,14 @@ impl CapabilityContext {
             bridge_mode: false,
         }
     }
+
+    pub(crate) fn actor(&self) -> &str {
+        &self.actor
+    }
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)] // AgentIntent is the protocol payload; boxing would churn parser call sites.
 pub(crate) enum ParsedCapabilityRequest {
     Enveloped(Box<AgentActionRequest>),
     Bridge(AgentIntent),

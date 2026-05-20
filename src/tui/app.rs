@@ -37,6 +37,7 @@ pub enum ActiveTab {
     Pools,
     Cache,
     Evidence,
+    Bugs,
     LLMs,
     Git,
     Secrets,
@@ -230,6 +231,7 @@ pub struct TuiStateSnapshot {
     pub agent_pipelines: Vec<crate::state::TrackedPipeline>,
     pub recent_audit_events: Vec<crate::state::EventLog>,
     pub recent_git_events: Vec<crate::state::GitCommandEventRecord>,
+    pub bugs: Vec<crate::bugtracker::BugRecord>,
     // TUI v2 — live runner feeds:
     pub runner_feeds: Vec<RunnerFeed>,
     pub active_feed_index: usize,

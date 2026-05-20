@@ -208,6 +208,7 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
         ("Pools", ActiveTab::Pools, Some(7)),
         ("Cache", ActiveTab::Cache, Some(8)),
         ("Evidence", ActiveTab::Evidence, Some(9)),
+        ("Bugs", ActiveTab::Bugs, None),
         ("Secrets", ActiveTab::Secrets, None),
         ("LLMs", ActiveTab::LLMs, None),
         ("Git", ActiveTab::Git, None),
