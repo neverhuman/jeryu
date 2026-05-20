@@ -8,3 +8,23 @@ rust-version.workspace = true
 [lib]
 name = "jeryu_domain"
 path = "src/lib.rs"
+
+[package.metadata.agent]
+purpose = "Domain-owned typed repair hints and agent-readable domain failures"
+owned_paths = ["src/**", "AGENTS.md", "README.md"]
+entrypoints = ["RepairHint", "DomainFailure"]
+invariants = [
+    "Domain failures crossing an agent boundary include purpose, reason, common fixes, docs_url, and repair_hint",
+    "Domain code does not own transport, persistence, subprocess, or adapter concerns",
+]
+local_validate = [
+    "cargo test -p jeryu-domain",
+    "cargo clippy -p jeryu-domain --all-targets -- -D warnings",
+]
+boundary_validate = [
+    "cargo test -p jeryu --lib approval::quorum -- --test-threads=1",
+]
+public_api = true
+risk = "low"
+consumers = ["jeryu"]
+exceptions = []
