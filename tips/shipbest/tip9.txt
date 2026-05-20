@@ -1,0 +1,447 @@
+# Canonical Git deployment model: no options
+
+**One protected branch. One merge path. One artifact path.**
+
+```text
+feature branch
+  → pull request
+  → required checks
+  → optional 0/1 review or independent agent review
+  → merge queue
+  → main
+  → full CI
+  → immutable signed artifact
+  → dev
+  → prod-limited / canary
+  → prod
+  → rollback by previous artifact digest
+```
+
+**Core rule:** nobody deploys code. The system deploys **signed artifacts built from green `main` commits**.
+
+GitHub branch protection/rulesets can enforce pull requests, required status checks, merge queues, and linear history; merge queues are especially useful when many users or agents are merging frequently because they re-test queued changes against the latest target branch before landing. ([GitHub Docs][1])
+
+---
+
+# The nonnegotiables
+
+## 1. `main` is sacred
+
+`main` is not a working branch. It is the release ledger.
+
+Enforce this:
+
+```text
+main:
+  direct pushes: disabled
+  force pushes: disabled
+  deletions: disabled
+  admin bypass: disabled except audited break-glass
+  merge commits: disabled
+  squash merge: enabled
+  rebase merge: disabled
+  auto-delete merged branches: enabled
+  merge queue: required
+  linear history: required
+  required status checks: required
+  stale approvals: dismissed
+```
+
+There are no long-lived `dev`, `staging`, or `release` branches. **Environments are deployment targets, not branches.**
+
+---
+
+## 2. Secrets never enter Git
+
+This is enforced in three layers:
+
+```text
+local hook      catches mistakes before commit
+push protection blocks secrets before they reach remote
+CI scan         catches history/diff/config mistakes
+```
+
+GitHub push protection is designed to block pushes containing supported secrets before they reach the repository. ([GitHub Docs][2])
+
+Local hooks are useful, but they are not the source of truth: Git’s own docs note that `pre-commit` can be bypassed with `git commit --no-verify`, so all real enforcement must be remote/provider-side and CI-side. ([Git][3])
+
+**Policy:**
+
+```text
+No .env files in Git.
+No private keys in Git.
+No cloud keys in Git.
+No deploy keys in Git.
+No signing keys in Git.
+No production secrets in CI repo secrets unless unavoidable.
+Prefer OIDC + vault/cloud identity over stored long-lived credentials.
+```
+
+GitHub Actions guidance recommends least privilege for workflow credentials and setting default `GITHUB_TOKEN` permissions to read-only, then granting extra permissions only per job. ([GitHub Docs][4])
+
+---
+
+## 3. PRs are mandatory
+
+Every change enters through a PR.
+
+```text
+branch name:   agent/<issue>/<short-name> or human/<issue>/<short-name>
+PR title:      <ISSUE-ID>: <change>
+PR body:       problem, change, tests, risk, rollback
+PR size:       one concern only
+tests:         required with code change
+```
+
+No PR may merge unless the required checks pass on the current merge candidate.
+
+For high agent volume, the merge queue is mandatory. Agents may open PRs. Agents may update PRs. Agents do **not** bypass the queue.
+
+---
+
+## 4. Review policy: 0 by default, 1 for danger
+
+Use this exact policy:
+
+```text
+Normal code path:
+  approvals required: 0
+  required: full CI + independent agent review status check
+
+Danger path:
+  approvals required: 1 code owner
+```
+
+Danger paths:
+
+```text
+.github/**
+infra/**
+deploy/**
+migrations/**
+auth/**
+payments/**
+crypto/**
+permissions/**
+secrets/**
+production config
+dependency manifests / lockfiles
+```
+
+Put that in `CODEOWNERS`. Code owners are meant to assign ownership for paths and trigger review requests from the base branch’s `CODEOWNERS` file. ([GitHub Docs][5])
+
+The important part: the author does not decide whether review is needed. The repository rules do.
+
+---
+
+## 5. Required PR checks
+
+Every PR must run the same named checks. Do not let teams invent their own required gates.
+
+```text
+policy/secrets
+policy/forbidden-files
+policy/dependency-diff
+quality/format
+quality/lint
+test/unit
+test/integration
+test/contracts
+test/security
+build/package-dry-run
+review/agent
+```
+
+For noisy agent PRs, cancel superseded PR runs. GitHub Actions supports workflow/job concurrency groups and `cancel-in-progress` for this. ([GitHub Docs][6])
+
+Canonical PR workflow trigger:
+
+```yaml
+on:
+  pull_request:
+  merge_group:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+```
+
+The `merge_group` trigger matters because the merge queue creates temporary merge candidates that also need required checks.
+
+---
+
+## 6. `main` runs full CI
+
+PR CI is fast. `main` CI is exhaustive.
+
+```text
+on push to main:
+  full lint
+  full unit tests
+  full integration tests
+  full e2e/smoke tests
+  dependency/security scans
+  license policy
+  SBOM generation
+  reproducibility check where practical
+  artifact build
+```
+
+If `main` CI fails, nothing deploys and no release artifact is published.
+
+---
+
+## 7. Only `main` builds release artifacts
+
+No branch artifacts are deployable.
+
+```text
+artifact identity:
+  source repo
+  main commit SHA
+  build run ID
+  artifact digest
+  SBOM digest
+  provenance attestation
+  signature
+```
+
+Use keyless signing where possible. GitHub artifact attestations create signed provenance claims for build artifacts, and SLSA provenance describes what built an artifact, how it was built, and what inputs were used. ([GitHub Docs][7])
+
+Sigstore/Cosign supports identity-based keyless signing using OIDC, including GitHub as an identity provider for container signing. ([Sigstore][8])
+
+Canonical artifact rule:
+
+```text
+Build once.
+Sign once.
+Promote the same digest.
+Never rebuild the same version.
+Never deploy by tag alone.
+Deploy by immutable digest.
+```
+
+---
+
+## 8. Deployments promote artifacts, not branches
+
+Deployment pipeline:
+
+```text
+local smoke:      developer/agent only, non-authoritative
+dev:              automatic after signed artifact
+prod-limited:     automatic or 1 approval, small blast radius
+prod-full:        automatic after health window or 1 approval
+rollback:         redeploy previous known-good artifact digest
+```
+
+GitHub environments can apply deployment protection rules such as required reviewers, wait timers, branch restrictions, and custom protection rules before deployment jobs proceed. ([GitHub Docs][9])
+
+Canonical deploy workflow input:
+
+```text
+artifact_digest only
+```
+
+Not:
+
+```text
+branch
+tag
+local file
+developer machine build
+```
+
+---
+
+# Required repository files
+
+```text
+.github/workflows/pr.yml
+.github/workflows/main.yml
+.github/workflows/release.yml
+.github/workflows/deploy.yml
+.github/CODEOWNERS
+.githooks/pre-commit
+.githooks/pre-push
+.gitleaks.toml
+Makefile
+SECURITY.md
+docs/rollback.md
+```
+
+---
+
+# Canonical local Git setup
+
+Run once per clone:
+
+```bash
+git config core.hooksPath .githooks
+git config pull.rebase true
+git config rebase.autoStash true
+```
+
+Git supports configuring a custom hooks directory with `core.hooksPath`. ([Kernel][10])
+
+## `.githooks/pre-commit`
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+make secret-scan-staged
+make format-check
+make lint-fast
+make test-fast
+make forbidden-files-check
+```
+
+## `.githooks/pre-push`
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/master)
+      echo "ERROR: direct push to protected branch is forbidden. Open a PR."
+      exit 1
+      ;;
+  esac
+done
+
+make secret-scan
+make test
+```
+
+Again: these hooks reduce stupidity. They do not enforce trust. Remote rules and CI enforce trust.
+
+For GitHub Enterprise Server or self-hosted Git, add a server-side `pre-receive` hook to reject direct protected-branch pushes, leaked secrets, mutable release tags, oversized binaries, and unsigned release tags. GitHub Enterprise Server supports pre-receive hooks for enforcing contribution policies before pushes are accepted. ([GitHub Docs][11])
+
+---
+
+# Canonical `Makefile` contract
+
+Every repo gets these targets. Language-specific tooling hides underneath.
+
+```makefile
+format-check:
+	./scripts/format-check.sh
+
+lint-fast:
+	./scripts/lint-fast.sh
+
+test-fast:
+	./scripts/test-fast.sh
+
+test:
+	./scripts/test.sh
+
+secret-scan-staged:
+	./scripts/secret-scan-staged.sh
+
+secret-scan:
+	./scripts/secret-scan.sh
+
+forbidden-files-check:
+	./scripts/forbidden-files-check.sh
+
+build:
+	./scripts/build.sh
+
+sbom:
+	./scripts/sbom.sh
+
+sign:
+	./scripts/sign.sh
+
+attest:
+	./scripts/attest.sh
+
+release:
+	make test build sbom sign attest
+```
+
+Humans and agents do not need to know how the repo works. They run the same contract everywhere.
+
+---
+
+# The agent-era rules
+
+Agents will spam PRs. Fine. The system must make spam harmless.
+
+```text
+Agents may create branches.
+Agents may open PRs.
+Agents may update their own PRs.
+Agents may not push to main.
+Agents may not approve their own PRs.
+Agents may not bypass failed checks.
+Agents may not deploy directly.
+Agents may not create release artifacts outside main CI.
+Agents may not touch danger paths without code-owner approval.
+```
+
+Every agent PR must include:
+
+```text
+issue ID
+summary
+files changed
+tests added/changed
+test output
+risk level
+rollback note
+```
+
+Automatic rejection:
+
+```text
+no issue ID
+no tests for code change
+touches forbidden files
+touches danger path without owner review
+large unrelated diff
+generated files without source change
+dependency changes without explanation
+secret scan finding
+CI config changed without code-owner approval
+```
+
+---
+
+# Deployment constitution
+
+Use this as the actual policy text:
+
+```text
+1. main is the only release source.
+2. main accepts changes only through PR.
+3. PRs merge only through the merge queue.
+4. Required checks are identical for humans and agents.
+5. Secrets are blocked locally, at push, and in CI.
+6. CI failures block merge.
+7. main failures block release.
+8. Release artifacts are built only from green main.
+9. Artifacts are immutable, signed, attested, and deployed by digest.
+10. Deployment promotes the same artifact across environments.
+11. Rollback redeploys the previous known-good digest.
+12. Humans and agents may propose; only the system may merge, build, sign, and deploy.
+```
+
+That is the paved road. Everything else is a permission bug.
+
+[1]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches?utm_source=chatgpt.com "About protected branches"
+[2]: https://docs.github.com/en/code-security/concepts/secret-security/about-push-protection?utm_source=chatgpt.com "About push protection"
+[3]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks?utm_source=chatgpt.com "Git Hooks"
+[4]: https://docs.github.com/en/actions/reference/security/secure-use?utm_source=chatgpt.com "Secure use reference - GitHub Docs"
+[5]: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners?utm_source=chatgpt.com "About code owners"
+[6]: https://docs.github.com/en/enterprise-cloud%40latest/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency?utm_source=chatgpt.com "Control the concurrency of workflows and jobs"
+[7]: https://docs.github.com/en/actions/concepts/security/artifact-attestations?utm_source=chatgpt.com "Artifact attestations"
+[8]: https://docs.sigstore.dev/cosign/signing/overview/?utm_source=chatgpt.com "Overview"
+[9]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments?utm_source=chatgpt.com "Deployments and environments"
+[10]: https://www.kernel.org/pub/software/scm/git/docs/githooks.html?utm_source=chatgpt.com "githooks(5)"
+[11]: https://docs.github.com/en/enterprise-server%403.16/admin/enforcing-policies/enforcing-policy-with-pre-receive-hooks/about-pre-receive-hooks?utm_source=chatgpt.com "About pre-receive hooks - GitHub Enterprise Server 3.16 ..."
+

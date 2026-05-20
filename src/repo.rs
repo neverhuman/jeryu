@@ -43,6 +43,18 @@ pub struct DirectRepoOptions {
     pub offline_release_remote: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct JeryuConfigSpec<'a> {
+    mode: RepoMode,
+    hooks: HookMode,
+    namespace: &'a str,
+    name: &'a str,
+    branch: &'a str,
+    protect_main: bool,
+    main_relay: bool,
+    offline_release_remote: Option<&'a str>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct DirectRepoPlan {
     pub action: String,
@@ -84,7 +96,17 @@ pub async fn set_repo_mode(mode: RepoMode) -> Result<i32> {
         RepoMode::Enforced => HookMode::Enforce,
     };
     write_jeryu_configs(
-        &repo_root, mode, hooks, "root", "unknown", "main", true, false, None,
+        &repo_root,
+        JeryuConfigSpec {
+            mode,
+            hooks,
+            namespace: "root",
+            name: "unknown",
+            branch: "main",
+            protect_main: true,
+            main_relay: false,
+            offline_release_remote: None,
+        },
     )?;
     configure_hook_mode(&repo_root, hooks, HookProfile::All)?;
     println!("Configured JeRyu repo mode: {mode:?}");
@@ -290,14 +312,16 @@ async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
     )?;
     write_jeryu_configs(
         &opts.path,
-        mode,
-        opts.hooks,
-        &opts.namespace,
-        &opts.name,
-        &opts.branch,
-        opts.protect_main,
-        opts.main_relay,
-        opts.offline_release_remote.as_deref(),
+        JeryuConfigSpec {
+            mode,
+            hooks: opts.hooks,
+            namespace: &opts.namespace,
+            name: &opts.name,
+            branch: &opts.branch,
+            protect_main: opts.protect_main,
+            main_relay: opts.main_relay,
+            offline_release_remote: opts.offline_release_remote.as_deref(),
+        },
     )?;
     configure_hook_mode(&opts.path, opts.hooks, HookProfile::All)?;
     println!("Configured direct JeRyu repo at {}", opts.path.display());
@@ -369,41 +393,31 @@ fn git_remote_exists(repo_root: &Path, name: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn write_jeryu_configs(
-    repo_root: &Path,
-    mode: RepoMode,
-    hooks: HookMode,
-    namespace: &str,
-    name: &str,
-    branch: &str,
-    protect_main: bool,
-    main_relay: bool,
-    offline_release_remote: Option<&str>,
-) -> Result<()> {
+fn write_jeryu_configs(repo_root: &Path, spec: JeryuConfigSpec<'_>) -> Result<()> {
     let dir = repo_root.join(".jeryu");
     fs::create_dir_all(&dir)?;
     write_file_if_changed(
         &dir.join("repo.toml"),
         &format!(
             "schema_version = \"1\"\nmode = \"{}\"\nnamespace = \"{}\"\nname = \"{}\"\ndefault_branch = \"{}\"\nremote_url = \"{}\"\n",
-            mode_label(mode),
-            namespace,
-            name,
-            branch,
-            local_gitlab_ssh_url(namespace, name)
+            mode_label(spec.mode),
+            spec.namespace,
+            spec.name,
+            spec.branch,
+            local_gitlab_ssh_url(spec.namespace, spec.name)
         ),
     )?;
     write_file_if_changed(
         &dir.join("policy.toml"),
         &format!(
             "schema_version = \"1\"\nprotect_main = {}\nprotected_branches = [\"{}\"]\nprotected_tags = [\"v*\"]\nhooks = \"{}\"\n\n[main_relay]\nenabled = {}\nactor = \"jeryu\"\nprotected_branch = \"{}\"\nrequire_admission_receipt = true\n\n[offline_release_mirror]\nenabled = {}\nremote = \"{}\"\nrefs = [\"refs/tags/v*\", \"refs/heads/release/*\"]\n",
-            protect_main,
-            branch,
-            hook_label(hooks),
-            main_relay,
-            branch,
-            offline_release_remote.is_some(),
-            offline_release_remote.unwrap_or("")
+            spec.protect_main,
+            spec.branch,
+            hook_label(spec.hooks),
+            spec.main_relay,
+            spec.branch,
+            spec.offline_release_remote.is_some(),
+            spec.offline_release_remote.unwrap_or("")
         ),
     )?;
     write_file_if_changed(
@@ -453,7 +467,7 @@ fn configure_hook_mode(repo_root: &Path, mode: HookMode, profile: HookProfile) -
 fn pre_push_hook(mode: HookMode) -> String {
     let blocking = matches!(mode, HookMode::Enforce);
     format!(
-        "#!/bin/sh\nset -u\njeryu git status >/dev/null 2>&1\nstatus=$?\nif [ \"$status\" -ne 0 ]; then\n  echo \"jeryu advisory pre-push failed\" >&2\n  {}\nfi\nexit 0\n",
+        "#!/bin/sh\nset -u\nREPO_ROOT=\"$(git rev-parse --show-toplevel)\"\ncd \"$REPO_ROOT\"\nbash scripts/ci-parity.sh --fast --no-audit\nstatus=$?\nif [ \"$status\" -ne 0 ]; then\n  echo \"jeryu advisory pre-push failed\" >&2\n  {}\nfi\nexit 0\n",
         if blocking { "exit $status" } else { "exit 0" }
     )
 }
@@ -830,7 +844,8 @@ mod tests {
 
         configure_hook_mode(repo.path(), HookMode::Enforce, HookProfile::PrePush).unwrap();
         let pre_push = fs::read_to_string(repo.path().join(".jeryu/hooks/pre-push")).unwrap();
-        assert!(pre_push.contains("jeryu git status"));
+        assert!(pre_push.contains("ci-parity.sh"));
+        assert!(pre_push.contains("--fast --no-audit"));
         assert!(pre_push.contains("exit $status"));
 
         let output = std::process::Command::new("git")
@@ -916,27 +931,31 @@ mod tests {
         let repo = tempdir().expect("temp repo");
         write_jeryu_configs(
             repo.path(),
-            RepoMode::Observed,
-            HookMode::Advisory,
-            "team",
-            "demo",
-            "main",
-            true,
-            true,
-            Some("https://github.com/neverhuman/warp"),
+            JeryuConfigSpec {
+                mode: RepoMode::Observed,
+                hooks: HookMode::Advisory,
+                namespace: "team",
+                name: "demo",
+                branch: "main",
+                protect_main: true,
+                main_relay: true,
+                offline_release_remote: Some("https://github.com/neverhuman/warp"),
+            },
         )
         .unwrap();
         let first = fs::read_to_string(repo.path().join(".jeryu/policy.toml")).unwrap();
         write_jeryu_configs(
             repo.path(),
-            RepoMode::Observed,
-            HookMode::Advisory,
-            "team",
-            "demo",
-            "main",
-            true,
-            true,
-            Some("https://github.com/neverhuman/warp"),
+            JeryuConfigSpec {
+                mode: RepoMode::Observed,
+                hooks: HookMode::Advisory,
+                namespace: "team",
+                name: "demo",
+                branch: "main",
+                protect_main: true,
+                main_relay: true,
+                offline_release_remote: Some("https://github.com/neverhuman/warp"),
+            },
         )
         .unwrap();
         let second = fs::read_to_string(repo.path().join(".jeryu/policy.toml")).unwrap();

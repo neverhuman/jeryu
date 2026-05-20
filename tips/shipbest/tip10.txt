@@ -1,0 +1,579 @@
+## Canonical law: build once, promote forever
+
+**There is one protected branch: `main`. Everything else is temporary. Every change enters through a PR. `main` must always be releasable. When `main` passes full CI, build exactly one immutable artifact from that commit, sign/attest it, and promote that same artifact through local/dev/prod-canary/prod. Never rebuild per environment. Rollback means redeploying the previous signed artifact digest.**
+
+Git hooks are useful only for fast feedback. They are not the law. Git’s own docs say client-side hooks are not copied on clone and `pre-commit` can be bypassed with `--no-verify`; enforcement belongs in server rules, CI, environment gates, and artifact verification. Server-side hooks or hosted rulesets can reject pushes before refs are accepted. ([Git][1])
+
+---
+
+# The no-options setup
+
+## 1. Repository model
+
+**Use trunk-based development.**
+
+Allowed branches:
+
+```text
+main
+agent/<issue-id>-<slug>
+human/<issue-id>-<slug>
+hotfix/<issue-id>-<slug>
+```
+
+Disallowed:
+
+```text
+develop
+staging
+prod
+release-train branches
+long-lived feature branches
+manual deployment branches
+```
+
+Environment is not a branch. Environment is a place where a signed artifact digest is promoted.
+
+---
+
+## 2. `main` ruleset
+
+Apply one active ruleset to `main`:
+
+```text
+Require pull request before merging: ON
+Required approvals: 0 by default
+Required agent/code review check: ON
+Required human approval: only for protected paths or high-risk labels
+Require required status checks: ON
+Require merge queue: ON
+Require branch up to date / merge-group checks: ON
+Require linear history: ON
+Block force pushes: ON
+Block deletions: ON
+Restrict direct pushes: ON
+Do not allow bypassing rules: ON
+Admins included: ON
+```
+
+For noisy agent-heavy repos, **merge queue is nonnegotiable**. PRs can pass alone and still break when combined with other PRs. The queue retests the merge group against the latest target branch before landing. GitHub documents rules for requiring PRs, linear history, status checks, and merge queues; merge queues are specifically useful on busy branches with many PRs from many users. ([GitHub Docs][2]) ([GitHub Docs][3])
+
+Canonical merge rule:
+
+```text
+PR can merge only if:
+  secrets_clean == true
+  policy_check == pass
+  required_ci == pass
+  merge_group_ci == pass
+  review_gate == pass
+  no_blocking_security_alerts == true
+```
+
+Review gate:
+
+```text
+low-risk PR: independent agent review passes
+high-risk PR: exactly 1 human CODEOWNER approval
+workflow/auth/infra/prod/data-deletion changes: exactly 1 human CODEOWNER approval
+```
+
+No committees. No hero merges. No admin override.
+
+---
+
+## 3. Secrets law
+
+**No secret may ever enter Git history.**
+
+Enforce it in three layers:
+
+```text
+Layer 1: local pre-commit secret scan
+Layer 2: hosted push protection / server-side pre-receive block
+Layer 3: CI secret scan on PR diff and full repository
+```
+
+Use GitHub Secret Protection / push protection, or equivalent server-side enforcement. GitHub push protection blocks pushes containing detected secrets before they reach the repository, covers command-line pushes, GitHub UI commits, file uploads, REST API interactions, and MCP interactions, and can be customized with organization patterns. ([GitHub Docs][4])
+
+Bypass rule:
+
+```text
+Secret scanner bypass: disabled for normal users and agents
+Allowed bypassers: security team only
+Bypass creates alert + audit event
+```
+
+If a secret lands anyway:
+
+```text
+1. Rotate/revoke immediately.
+2. Treat as incident.
+3. Remove from history only after rotation.
+4. Add custom pattern if scanner missed it.
+5. Add regression test.
+```
+
+No “we deleted it in the next commit.” That is still leaked.
+
+---
+
+## 4. Credential law
+
+**CI/CD uses identity, not stored cloud keys.**
+
+Rules:
+
+```text
+No cloud access keys in repo.
+No long-lived deploy keys in repo.
+No long-lived cloud credentials in GitHub secrets unless absolutely unavoidable.
+Use OIDC for cloud/registry/deployment auth.
+Use short-lived, environment-scoped credentials.
+Default workflow token permissions: read-only.
+Elevated permissions only in the exact job that needs them.
+```
+
+GitHub’s OIDC model avoids duplicating long-lived cloud credentials as GitHub secrets and lets workflows request short-lived tokens from the cloud provider for a single job. ([GitHub Docs][5])
+
+Also:
+
+```text
+Pin all GitHub Actions to full commit SHAs.
+No mutable action tags in production workflows.
+No third-party action unless reviewed.
+No self-hosted runner for untrusted PR code.
+```
+
+GitHub’s security guide says pinning an action to a full-length commit SHA is the only way to use an action as an immutable release, and warns that compromised actions can access secrets and repository tokens available to the job. ([GitHub Docs][6])
+
+---
+
+## 5. Required local hooks
+
+Local hooks are not enforcement. They are speed bumps to stop dumb mistakes early.
+
+Install with `pre-commit`:
+
+```yaml
+# .pre-commit-config.yaml
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+  - commit-msg
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: <pin-to-release-or-sha>
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: forbid-main-commit
+        name: forbid commits on main
+        entry: ./scripts/git/forbid-main-commit.sh
+        language: script
+        stages: [pre-commit]
+
+      - id: fast-check
+        name: fast local checks
+        entry: ./scripts/check-fast.sh
+        language: script
+        stages: [pre-commit]
+
+      - id: commit-message
+        name: require issue id in commit message
+        entry: ./scripts/git/commit-msg.sh
+        language: script
+        stages: [commit-msg]
+
+      - id: forbid-main-push
+        name: forbid direct push to main
+        entry: ./scripts/git/forbid-main-push.sh
+        language: script
+        stages: [pre-push]
+```
+
+Minimum hook behavior:
+
+```text
+pre-commit:
+  - gitleaks staged diff
+  - format check
+  - lint check
+  - typecheck if fast
+  - unit-fast if fast
+  - block commits on main
+
+commit-msg:
+  - require issue/ticket id
+  - require machine-readable prefix:
+    fix|feat|test|refactor|docs|chore|security
+
+pre-push:
+  - block push to main
+  - gitleaks outgoing commits
+  - run test-fast
+```
+
+`pre-commit` is a good standard wrapper because it manages multi-language hooks and installs hooks into `.git/hooks`; Gitleaks is a standard secret scanner for passwords, API keys, tokens, repositories, files, and stdin. ([pre-commit][7]) ([GitHub][8])
+
+---
+
+## 6. Server-side / hosted enforcement
+
+For GitHub, use rulesets, branch protection, push protection, and environment protection.
+
+For self-hosted Git, add `pre-receive`:
+
+```text
+Reject push if:
+  target == refs/heads/main and actor != merge-bot
+  update is non-fast-forward
+  update deletes protected ref
+  secret scanner finds secret
+  commit message lacks issue id
+  protected file changed without required approval
+  workflow file changed without human approval
+```
+
+Hosted GitHub equivalent:
+
+```text
+Rulesets:
+  - main protection
+  - tag protection
+  - workflow-file protection
+  - push rules for banned paths/extensions/oversized files
+
+Push protection:
+  - provider patterns
+  - custom org patterns
+  - delegated bypass only
+
+CODEOWNERS:
+  - .github/workflows/*
+  - infra/*
+  - auth/*
+  - migrations/*
+  - deploy/*
+  - security-sensitive paths
+```
+
+---
+
+## 7. PR CI law
+
+Every PR runs the same required checks:
+
+```text
+policy:
+  - issue linked
+  - PR template complete
+  - risk label set
+  - rollback note present
+  - test evidence present
+  - protected files detected
+
+secrets:
+  - staged/diff secret scan
+  - custom org patterns
+  - fail closed
+
+quality:
+  - format
+  - lint
+  - typecheck
+  - dependency review
+  - SAST/code scanning
+
+tests:
+  - unit
+  - integration-fast
+  - changed-package tests
+  - contract tests if API changed
+  - migration dry-run if schema changed
+
+build:
+  - compile
+  - package dry-run
+  - container build dry-run
+```
+
+PR CI must be fast. Full CI belongs on `main`; PR CI proves the change is safe enough to enter the merge queue.
+
+---
+
+## 8. Main CI law
+
+On every merge to `main`:
+
+```text
+1. Run full CI.
+2. Run full test suite.
+3. Run full integration suite.
+4. Run security scans.
+5. Run migration compatibility checks.
+6. Build artifact once.
+7. Generate SBOM.
+8. Generate provenance attestation.
+9. Sign artifact.
+10. Publish immutable artifact by digest.
+```
+
+If `main` fails:
+
+```text
+Stop merges.
+Fix forward only if obvious and fast.
+Otherwise revert the offending PR.
+No new feature PRs merge while main is red.
+```
+
+---
+
+## 9. Artifact law
+
+**Deploy artifacts, never branches.**
+
+Artifact identity:
+
+```text
+name: <service>
+version: <semver-or-date>+<git-sha>
+source: main@<git-sha>
+digest: sha256:<digest>
+sbom: attached
+provenance: attached
+signature: attached
+```
+
+Required:
+
+```text
+artifact is immutable
+artifact is signed
+artifact has provenance
+artifact has SBOM
+artifact was built by trusted CI
+artifact source commit is on main
+artifact deploys by digest, not mutable tag
+```
+
+GitHub artifact attestations establish where and how software was built and can generate provenance for binaries and container images; SLSA’s build track centers on provenance, signed provenance, hosted build platforms, and verification of artifact authenticity. ([GitHub Docs][9]) ([SLSA][10])
+
+For signing, use Sigstore/cosign keyless signing where possible: identity-based signing binds an ephemeral key to an OIDC identity, logs signing events in a transparency log, and avoids long-lived signing keys. ([Sigstore][11])
+
+---
+
+## 10. Deployment law
+
+Promotion order:
+
+```text
+local verification
+dev
+prod-canary
+prod-full
+```
+
+Rules:
+
+```text
+Only signed + attested artifacts may deploy.
+Only artifacts built from main may deploy.
+Deployment uses digest, never branch or mutable tag.
+Dev deploys automatically after signed artifact exists.
+Prod-canary requires environment gate.
+Prod-full requires canary health to pass.
+Rollback is automatic on failed health.
+Emergency rollback needs no approval.
+```
+
+Production gate:
+
+```text
+prod-canary:
+  - one approval OR automated change gate
+  - no self-approval
+  - branch/tag restricted to main-built artifact
+  - no admin bypass
+  - observability check required
+
+prod-full:
+  - automatic only after canary SLO passes
+  - otherwise blocked
+```
+
+GitHub environments support deployment protection rules, required reviewers, wait timers, branch/tag restrictions, custom protection rules, and disabling admin bypass; environment secrets are not available until environment rules pass. ([GitHub Docs][12])
+
+---
+
+## 11. Rollback law
+
+Rollback must be boring.
+
+Every deploy records:
+
+```text
+service
+environment
+new_digest
+previous_digest
+deployed_by
+source_sha
+timestamp
+health_result
+```
+
+Rollback command:
+
+```bash
+deploy rollback --env prod --service <name>
+```
+
+Rollback behavior:
+
+```text
+redeploy previous_digest
+do not rebuild
+do not change source
+do not require PR
+do not require approval
+create incident/audit record
+```
+
+Database rule:
+
+```text
+Only backward-compatible migrations.
+Use expand/contract.
+No destructive schema changes without high-risk human approval.
+Every migration has rollback/forward-fix notes.
+App version N and N-1 must both run during canary.
+```
+
+---
+
+## 12. Agent law
+
+Agents may create PRs. Agents may not own production.
+
+```text
+Agents can:
+  - create branches
+  - open PRs
+  - update their own PRs
+  - run tests
+  - request review
+
+Agents cannot:
+  - push to main
+  - bypass secret scanning
+  - approve their own PR
+  - edit workflow/deploy/auth files without human gate
+  - access prod credentials
+  - deploy manually
+  - disable CI
+  - change branch rules
+```
+
+Agent PRs must be small:
+
+```text
+one issue
+one intent
+one PR
+one rollback note
+one test plan
+```
+
+Large PRs are split by policy bot.
+
+---
+
+# Minimal repo files
+
+```text
+.github/
+  workflows/
+    pr.yml              # required PR checks
+    merge-queue.yml     # merge_group checks
+    main.yml            # full CI on main
+    release.yml         # build/sign/attest/publish
+    deploy.yml          # promote signed digest only
+  CODEOWNERS
+
+.pre-commit-config.yaml
+.gitleaks.toml
+Makefile
+
+scripts/
+  check-fast.sh
+  check-full.sh
+  build.sh
+  attest.sh
+  sign.sh
+  verify-artifact.sh
+  deploy.sh
+  rollback.sh
+  git/
+    forbid-main-commit.sh
+    forbid-main-push.sh
+    commit-msg.sh
+```
+
+Canonical commands:
+
+```bash
+make setup
+make check
+make test
+make build
+make verify-artifact
+make deploy ENV=dev DIGEST=sha256:...
+make deploy ENV=prod-canary DIGEST=sha256:...
+make deploy ENV=prod DIGEST=sha256:...
+make rollback ENV=prod SERVICE=...
+```
+
+Humans and agents get the same commands. CI gets the same commands. No snowflakes.
+
+---
+
+# The final nonnegotiables
+
+```text
+1. main is the only release source.
+2. main accepts changes only through PR + merge queue.
+3. local hooks help, but server/CI enforcement is law.
+4. secrets are blocked before they reach the repo.
+5. no long-lived deployment credentials; use OIDC.
+6. PR CI is required.
+7. main full CI is required.
+8. main red means stop merging.
+9. build once from main.
+10. artifact is immutable, signed, attested, and SBOMed.
+11. deploy by digest only.
+12. promote the same artifact through every environment.
+13. prod starts with canary.
+14. rollback redeploys previous digest, never rebuilds.
+15. agents can propose; only policy can merge; only signed artifacts deploy.
+```
+
+That is the shortest sane path: **PR → merge queue → main CI → signed artifact → dev → prod canary → prod full → automatic rollback by digest.**
+
+[1]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks "Git - Git Hooks"
+[2]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets "Available rules for rulesets - GitHub Docs"
+[3]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[4]: https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection "About push protection - GitHub Docs"
+[5]: https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect "OpenID Connect - GitHub Docs"
+[6]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+[7]: https://pre-commit.com/ "pre-commit"
+[8]: https://github.com/gitleaks/gitleaks "GitHub - gitleaks/gitleaks: Find secrets with Gitleaks  · GitHub"
+[9]: https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds "Using artifact attestations to establish provenance for builds - GitHub Docs"
+[10]: https://slsa.dev/spec/v1.1/levels "SLSA • Security levels"
+[11]: https://docs.sigstore.dev/cosign/signing/overview/ "Overview - Sigstore"
+[12]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments "Deployments and environments - GitHub Docs"
+
