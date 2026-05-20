@@ -118,19 +118,39 @@ fn add_recent_merge_commit(repo: &Path) {
 }
 
 fn run_profile_validate_with_url(repo: &Path, db_url: &str) -> Output {
-    Command::new(bin_path())
-        .current_dir(repo)
-        .args([
-            "profile",
-            "validate",
-            "--profile",
-            "sovereign_plus",
-            "--autonomy-dir",
-            repo.join(".autonomy").to_str().unwrap(),
-        ])
-        .env("JERYU_DATABASE_URL", db_url)
-        .output()
-        .expect("profile validate")
+    let mut last = None;
+    for attempt in 0..5 {
+        let out = Command::new(bin_path())
+            .current_dir(repo)
+            .args([
+                "profile",
+                "validate",
+                "--profile",
+                "sovereign_plus",
+                "--autonomy-dir",
+                repo.join(".autonomy").to_str().unwrap(),
+            ])
+            .env("JERYU_DATABASE_URL", db_url)
+            .output()
+            .expect("profile validate");
+        if out.status.success() || !profile_validate_missed_ledger_pool(&out) {
+            return out;
+        }
+        last = Some(out);
+        if attempt < 4 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+    last.expect("profile validate output")
+}
+
+fn profile_validate_missed_ledger_pool(out: &Output) -> bool {
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    combined.contains("no ledger pool supplied")
 }
 
 fn run_profile_validate(repo: &Path) -> Output {

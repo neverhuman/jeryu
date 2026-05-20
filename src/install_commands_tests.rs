@@ -42,6 +42,53 @@ fn install_plan_stays_user_space() {
 }
 
 #[test]
+fn guided_plan_includes_direct_repo_and_policy_steps() {
+    let mut plan = build_plan(
+        "guided",
+        &InstallOptions {
+            prefix: "/tmp/jeryu".into(),
+            dry_run: true,
+            json: true,
+            yes: true,
+            color: ColorMode::Never,
+            interactive: InteractiveMode::Never,
+            path_mode: PathMode::Advise,
+            verbose: false,
+            install_deps: false,
+            allow_sudo: false,
+        },
+    );
+    plan.steps.push(PlanStep {
+        id: "repo-direct-setup".into(),
+        label: "optionally create or adopt a direct repository".into(),
+        detail: "new repos use origin for local JeRyu/GitLab; existing repos preserve origin and add jeryu unless --replace-origin is selected".into(),
+        command: Some("jeryu repo adopt . --direct --namespace <namespace> --name <repo> --hooks off".into()),
+        requires_sudo: false,
+        estimated_seconds: Some(5),
+    });
+    plan.steps.push(PlanStep {
+        id: "server-policy".into(),
+        label: "apply server-side repository policy".into(),
+        detail: "protect main as merge-request only and install `jeryu server-hook pre-receive` for protected-ref admission".into(),
+        command: Some("jeryu policy audit --target local-gitlab".into()),
+        requires_sudo: false,
+        estimated_seconds: Some(10),
+    });
+    let rendered = serde_json::to_value(&plan).unwrap();
+    let steps = rendered["steps"].as_array().unwrap();
+    assert!(
+        steps
+            .iter()
+            .any(|step| step["id"].as_str() == Some("repo-direct-setup"))
+    );
+    assert!(
+        steps
+            .iter()
+            .any(|step| step["id"].as_str() == Some("server-policy"))
+    );
+}
+
+#[test]
 fn path_snippets_are_shell_specific() {
     assert!(path_snippet(Path::new("/tmp/bin"), Some("/bin/bash")).contains("export PATH"));
     assert!(path_snippet(Path::new("/tmp/bin"), Some("/usr/bin/fish")).contains("set -gx PATH"));

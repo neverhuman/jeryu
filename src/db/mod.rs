@@ -15,6 +15,7 @@
 //!
 //! Boundaries:
 //!   - `autonomy_repo` — launch ledger, kill bell, verdict store.
+//!   - `admission_repo` — hook admission decisions and capability grants.
 //!   - `release_repo` — foundry queue.
 //!   - `budget_repo`  — LLM budget ledger.
 //!
@@ -23,6 +24,7 @@
 #[path = "../../db/config.rs"]
 pub mod config;
 
+pub mod admission_repo;
 pub mod autonomy_repo;
 pub mod budget_repo;
 pub mod release_repo;

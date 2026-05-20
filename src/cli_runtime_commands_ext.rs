@@ -1,7 +1,8 @@
-use clap::Subcommand;
+use clap::{Args, Subcommand};
 use std::path::PathBuf;
 
 use super::{infer_repo_name, parse_expanded_path};
+use jeryu::repo::{HookMode, HookProfile, RepoMode};
 
 #[derive(Subcommand)]
 pub(crate) enum ReleaseCommands {
@@ -209,6 +210,17 @@ pub(crate) enum HostCommands {
 }
 
 #[derive(Subcommand)]
+pub(crate) enum PolicyCommands {
+    /// Audit configured policy against a target control plane.
+    Audit {
+        #[arg(long, default_value = "local-gitlab")]
+        target: String,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
 pub(crate) enum RepoCommands {
     /// Generate the machine-readable agent routing index for jeryu.
     RenderAgentIndex {
@@ -222,11 +234,93 @@ pub(crate) enum RepoCommands {
     },
     /// Configure the repo-managed git hook directory for this checkout.
     InstallGitHooks,
+    /// Initialize a new local checkout backed by local JeRyu/GitLab.
+    Init(RepoInitCommand),
+    /// Adopt an existing checkout into direct local JeRyu/GitLab use.
+    Adopt(RepoAdoptCommand),
+    /// Switch local JeRyu repository mode.
+    Mode {
+        #[arg(value_enum)]
+        mode: RepoMode,
+    },
+    /// Manage optional local hook profiles.
+    #[command(subcommand)]
+    Hooks(RepoHookCommands),
+    /// Run the fast changed-file Jankurai guard manually.
+    JankuraiFast {
+        #[arg(long, default_value = "origin/main")]
+        changed_from: String,
+    },
     /// Run the RedlineDB-backed state proof against embedded file state.
     RedlineStateProof,
     /// Capture the canonical TUI screenshots used in docs.
     CaptureTuiScreenshots {
         #[arg(long, value_parser = parse_expanded_path)]
         output_dir: Option<PathBuf>,
+    },
+}
+
+#[derive(Args)]
+pub(crate) struct RepoInitCommand {
+    pub name: String,
+    #[arg(long, default_value_t = false)]
+    pub direct: bool,
+    #[arg(long, default_value = "root")]
+    pub namespace: String,
+    #[arg(long, default_value = "main")]
+    pub branch: String,
+    #[arg(long, default_value_t = true)]
+    pub protect_main: bool,
+    #[arg(long, value_enum, default_value_t = HookMode::Off)]
+    pub hooks: HookMode,
+    /// Allow JeRyu, and only JeRyu, to relay approved updates to protected main.
+    #[arg(long, default_value_t = false)]
+    pub main_relay: bool,
+    /// Offline release mirror URL for bundles/tags. Credentials must live outside .jeryu.
+    #[arg(long)]
+    pub offline_release_remote: Option<String>,
+    #[arg(long, default_value_t = false)]
+    pub dry_run: bool,
+}
+
+#[derive(Args)]
+pub(crate) struct RepoAdoptCommand {
+    #[arg(default_value = ".", value_parser = parse_expanded_path)]
+    pub path: PathBuf,
+    #[arg(long, default_value_t = false)]
+    pub direct: bool,
+    #[arg(long, default_value = "root")]
+    pub namespace: String,
+    #[arg(long, default_value_t = infer_repo_name())]
+    pub name: String,
+    #[arg(long, default_value_t = true)]
+    pub protect_main: bool,
+    #[arg(long, value_enum, default_value_t = HookMode::Off)]
+    pub hooks: HookMode,
+    /// Allow JeRyu, and only JeRyu, to relay approved updates to protected main.
+    #[arg(long, default_value_t = false)]
+    pub main_relay: bool,
+    /// Offline release mirror URL for bundles/tags. Credentials must live outside .jeryu.
+    #[arg(long)]
+    pub offline_release_remote: Option<String>,
+    #[arg(long, default_value_t = false)]
+    pub replace_origin: bool,
+    #[arg(long, default_value_t = false)]
+    pub dry_run: bool,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum RepoHookCommands {
+    Status,
+    Enable {
+        #[arg(long, value_enum, default_value_t = HookMode::Advisory)]
+        mode: HookMode,
+    },
+    Disable,
+    Install {
+        #[arg(long, value_enum, default_value_t = HookProfile::PrePush)]
+        profile: HookProfile,
+        #[arg(long, value_enum, default_value_t = HookMode::Advisory)]
+        mode: HookMode,
     },
 }

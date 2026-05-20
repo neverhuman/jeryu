@@ -169,6 +169,10 @@ pub async fn run_server(opts: &InstallOptions) -> Result<i32> {
     server(opts).await
 }
 
+pub async fn run_guided(opts: &InstallOptions) -> Result<i32> {
+    guided(opts).await
+}
+
 pub async fn run_uninstall(opts: &InstallOptions) -> Result<i32> {
     uninstall(opts).await
 }
@@ -185,4 +189,4 @@ pub fn expand_tilde(input: impl AsRef<str>) -> PathBuf {
 #[path = "install_commands.rs"]
 mod install_commands;
 
-pub(crate) use install_commands::{doctor, install_local, server, smoke, uninstall};
+pub(crate) use install_commands::{doctor, guided, install_local, server, smoke, uninstall};
