@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.12] - 2026-05-20
+
+### Changed
+
+- Bumped the workspace release counter to `3.3.12` across `Cargo.toml`,
+  `VERSION`, and `version.json`.
+
 ## [3.3.11] - 2026-05-20
 
 ### Added

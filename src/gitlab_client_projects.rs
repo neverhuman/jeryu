@@ -15,13 +15,21 @@ impl GitlabClient {
     }
 
     pub async fn create_project(&self, name: &str) -> Result<Project> {
+        self.create_project_with_readme(name, true).await
+    }
+
+    pub async fn create_project_with_readme(
+        &self,
+        name: &str,
+        initialize_with_readme: bool,
+    ) -> Result<Project> {
         let project: Project = self
             .api_post_json(
                 self.api_url("/projects"),
                 &CreateProjectReq {
                     name,
                     visibility: "private",
-                    initialize_with_readme: true,
+                    initialize_with_readme,
                 },
             )
             .await?;

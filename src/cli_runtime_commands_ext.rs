@@ -250,6 +250,16 @@ pub(crate) enum RepoCommands {
     /// Plan, apply, or verify the canonical agent-first repo standard.
     #[command(subcommand)]
     Standard(RepoStandardCommands),
+    /// Push configured main refs to server-owned shadow remotes.
+    Shadow {
+        #[arg(long)]
+        repo: Option<String>,
+    },
+    /// Sync configured bare mirrors and repo-local sidecar config to backups.
+    Backup {
+        #[arg(long)]
+        repo: Option<String>,
+    },
     /// Run the fast changed-file Jankurai guard manually.
     JankuraiFast {
         #[arg(long, default_value = "origin/main")]

@@ -98,6 +98,7 @@ pub mod redact;
 pub mod release;
 pub mod remote;
 pub mod repo;
+pub mod repo_local;
 pub mod repo_standard;
 pub mod sandbox;
 pub mod sccache_mgr;

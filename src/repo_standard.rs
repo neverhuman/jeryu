@@ -253,7 +253,7 @@ fn render_standard_files(spec: &StandardSpec) -> Vec<ManagedFile> {
         },
         ManagedFile {
             path: ".jeryu/hooks/pre-push",
-            content: render_pre_push_hook(&spec.base_branch),
+            content: render_pre_push_hook(&spec.base_branch, spec.provider),
             executable: true,
         },
         ManagedFile {
@@ -286,27 +286,41 @@ fn render_standard_files(spec: &StandardSpec) -> Vec<ManagedFile> {
             content: render_autonomy_release_yml(spec),
             executable: false,
         },
-        ManagedFile {
-            path: ".github/workflows/jeryu-required.yml",
-            content: render_github_required_workflow(),
-            executable: false,
-        },
-        ManagedFile {
-            path: ".github/AGENTS.md",
-            content: render_github_agents_md(),
-            executable: false,
-        },
-        ManagedFile {
-            path: ".github/CODEOWNERS",
-            content: render_codeowners(spec),
-            executable: false,
-        },
-        ManagedFile {
-            path: ".github/PULL_REQUEST_TEMPLATE.md",
-            content: render_pr_template(),
-            executable: false,
-        },
     ];
+
+    match spec.provider {
+        StandardProvider::Github => {
+            files.extend([
+                ManagedFile {
+                    path: ".github/workflows/jeryu-required.yml",
+                    content: render_github_required_workflow(),
+                    executable: false,
+                },
+                ManagedFile {
+                    path: ".github/AGENTS.md",
+                    content: render_github_agents_md(),
+                    executable: false,
+                },
+                ManagedFile {
+                    path: ".github/CODEOWNERS",
+                    content: render_codeowners(spec),
+                    executable: false,
+                },
+                ManagedFile {
+                    path: ".github/PULL_REQUEST_TEMPLATE.md",
+                    content: render_pr_template(),
+                    executable: false,
+                },
+            ]);
+        }
+        StandardProvider::Gitlab => {
+            files.push(ManagedFile {
+                path: ".gitlab-ci.yml",
+                content: render_gitlab_ci_yml(),
+                executable: false,
+            });
+        }
+    }
 
     let lock = render_standard_lock(spec, &files);
     files.push(ManagedFile {
@@ -440,14 +454,23 @@ fn render_project_toml(spec: &StandardSpec) -> String {
 }
 
 fn render_delivery_toml(spec: &StandardSpec) -> String {
+    let provider_controls = match spec.provider {
+        StandardProvider::Github => {
+            "github_actions_required = true\nactions_must_be_pinned_to_sha = true\njob_permissions_default = \"read-only\"\n".to_string()
+        }
+        StandardProvider::Gitlab => {
+            "github_actions_required = false\nlocal_gitlab_required = true\ngitlab_required_job = \"jeryu/required\"\n".to_string()
+        }
+    };
     format!(
-        "schema_version = \"1\"\nprofile = \"{}\"\nprovider = \"{}\"\nrepo = \"{}\"\nbase_branch = \"{}\"\nautonomy_dir = \"{}\"\nrequired_check = \"{}\"\nmerge_queue_required = true\nmain_is_only_release_branch = true\nactions_must_be_pinned_to_sha = true\njob_permissions_default = \"read-only\"\ndeploy_identity = \"oidc\"\nlong_lived_deploy_credentials_allowed = false\n\n[artifact]\nbuild_once = true\npromote_same_digest = true\nrequire_signature = true\nrequire_sbom = true\nrequire_provenance = true\nrollback = \"previous_signed_digest\"\n\n[approvals]\ndefault_human_approvals = 0\nprotected_path_human_approvals = 1\ncommittee_approval_default = false\nagent_self_approval_allowed = false\n",
+        "schema_version = \"1\"\nprofile = \"{}\"\nprovider = \"{}\"\nrepo = \"{}\"\nbase_branch = \"{}\"\nautonomy_dir = \"{}\"\nrequired_check = \"{}\"\nmerge_queue_required = true\nmain_is_only_release_branch = true\n{}deploy_identity = \"oidc\"\nlong_lived_deploy_credentials_allowed = false\n\n[artifact]\nbuild_once = true\npromote_same_digest = true\nrequire_signature = true\nrequire_sbom = true\nrequire_provenance = true\nrollback = \"previous_signed_digest\"\n\n[approvals]\ndefault_human_approvals = 0\nprotected_path_human_approvals = 1\ncommittee_approval_default = false\nagent_self_approval_allowed = false\n",
         spec.profile,
         spec.provider,
         spec.repo_slug,
         spec.base_branch,
         spec.autonomy_dir,
-        REQUIRED_CHECK_NAME
+        REQUIRED_CHECK_NAME,
+        provider_controls
     )
 }
 
@@ -463,9 +486,13 @@ fn render_risk_policy_toml() -> String {
 }
 
 fn render_protected_paths_toml(spec: &StandardSpec) -> String {
+    let host_paths = match spec.provider {
+        StandardProvider::Github => "  \".github/**\",\n  \".gitlab-ci.yml\",\n",
+        StandardProvider::Gitlab => "  \".gitlab-ci.yml\",\n",
+    };
     format!(
-        "schema_version = \"1\"\nowner = \"@{}\"\nhuman_approvals = 1\npaths = [\n  \".github/**\",\n  \".gitlab-ci.yml\",\n  \".jeryu/**\",\n  \"ops/ci/**\",\n  \"release.policy.toml\",\n  \"Cargo.lock\",\n]\n",
-        spec.repo_owner
+        "schema_version = \"1\"\nowner = \"@{}\"\nhuman_approvals = 1\npaths = [\n{}  \".jeryu/**\",\n  \"ops/ci/**\",\n  \"release.policy.toml\",\n  \"Cargo.lock\",\n]\n",
+        spec.repo_owner, host_paths
     )
 }
 
@@ -511,7 +538,11 @@ cargo check --workspace --locked
     .to_string()
 }
 
-fn render_pre_push_hook(base_branch: &str) -> String {
+fn render_pre_push_hook(base_branch: &str, provider: StandardProvider) -> String {
+    let merge_surface = match provider {
+        StandardProvider::Github => "PR plus merge queue",
+        StandardProvider::Gitlab => "merge request plus local JeRyu/GitLab gate",
+    };
     format!(
         r#"#!/usr/bin/env bash
 set -euo pipefail
@@ -519,7 +550,7 @@ set -euo pipefail
 protected_branch="{base_branch}"
 while read -r _local_ref _local_sha remote_ref _remote_sha; do
   if [ "$remote_ref" = "refs/heads/$protected_branch" ]; then
-    echo "jeryu: direct push to $protected_branch is blocked; use PR plus merge queue" >&2
+    echo "jeryu: direct push to $protected_branch is blocked; use {merge_surface}" >&2
     exit 1
   fi
 done
@@ -569,7 +600,7 @@ fn render_autonomy_risk_yml() -> String {
 }
 
 fn render_autonomy_protected_paths_yml() -> String {
-    "schema: vibegate.protected-paths.v1\nhard_human:\n  - .github/**\n  - .gitlab-ci.yml\n  - .jeryu/**\n  - ops/ci/**\n  - release.policy.toml\n  - Cargo.lock\nsemantic_triggers:\n  - auth_boundary\n  - secret_handling\n  - release_policy\n".to_string()
+    "schema: vibegate.protected-paths.v1\nhard_human:\n  - .gitlab-ci.yml\n  - .jeryu/**\n  - ops/ci/**\n  - release.policy.toml\n  - Cargo.lock\nsemantic_triggers:\n  - auth_boundary\n  - secret_handling\n  - release_policy\n".to_string()
 }
 
 fn render_autonomy_release_yml(_spec: &StandardSpec) -> String {
@@ -596,6 +627,21 @@ jobs:
           fetch-depth: 0
       - name: Required lane
         run: bash .jeryu/ci/required.sh
+"#
+    .to_string()
+}
+
+fn render_gitlab_ci_yml() -> String {
+    r#"stages:
+  - required
+
+jeryu/required:
+  stage: required
+  script:
+    - bash .jeryu/ci/required.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 "#
     .to_string()
 }
@@ -819,6 +865,42 @@ mod tests {
                 file.path
             );
         }
+    }
+
+    #[test]
+    fn gitlab_provider_renders_no_github_files() {
+        let spec = StandardSpec {
+            repo_root: PathBuf::from("."),
+            profile: "sovereign_plus".to_string(),
+            provider: StandardProvider::Gitlab,
+            base_branch: "main".to_string(),
+            repo_slug: "root/veox".to_string(),
+            repo_owner: "root".to_string(),
+            repo_name: "veox".to_string(),
+            autonomy_dir: DEFAULT_AUTONOMY_DIR.to_string(),
+        };
+        let files = render_standard_files(&spec);
+        assert!(files.iter().any(|file| file.path == ".gitlab-ci.yml"));
+        assert!(files.iter().all(|file| !file.path.starts_with(".github/")));
+
+        let delivery = files
+            .iter()
+            .find(|file| file.path == ".jeryu/delivery.toml")
+            .unwrap();
+        assert!(delivery.content.contains("github_actions_required = false"));
+        assert!(delivery.content.contains("local_gitlab_required = true"));
+
+        let protected = files
+            .iter()
+            .find(|file| file.path == ".jeryu/protected-paths.toml")
+            .unwrap();
+        assert!(!protected.content.contains(".github"));
+
+        let lock = files
+            .iter()
+            .find(|file| file.path == ".jeryu/standard.lock")
+            .unwrap();
+        assert!(!lock.content.contains(".github/"));
     }
 
     #[test]
