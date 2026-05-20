@@ -460,7 +460,9 @@ pub fn register_pane(app: &mut App, pane: PaneId, rect: Rect) {
 
 pub fn register_esc_hotspot(app: &mut App, pane: PaneId, rect: Rect) {
     if should_show_esc(app, pane) {
-        let width = rect.width.saturating_sub(2).min(24);
+        // Make the full title row clickable so the close affordance is not
+        // sensitive to title placement or terminal width differences.
+        let width = rect.width.saturating_sub(2);
         if width > 0 {
             let esc = Rect::new(rect.x + 1, rect.y, width, 1);
             app.focus_map.register_esc(pane, esc);
