@@ -97,6 +97,11 @@ ci-parity:
 ci-parity-fast:
 	bash scripts/ci-parity.sh --fast --no-audit
 
+# Gate the current branch with ci-parity, then push and open a PR.
+publish-pr base="main" remote="origin":
+	branch="$(git branch --show-current)"
+	bash scripts/publish-pr.sh --remote "{{remote}}" --branch "$branch" --base "{{base}}" -- gh pr create --base "{{base}}" --head "$branch" --fill
+
 # Run the autonomy-only unit tests (no network).
 autonomy-fast:
 	cargo test -p jeryu --lib autonomy:: llm:: agent_review:: approval:: -- --test-threads=4

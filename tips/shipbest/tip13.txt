@@ -1,0 +1,473 @@
+# Canonical software deployment model
+
+Assume GitHub terms. On GitLab or self-hosted Git, map these to protected branches, merge trains, push rules, pre-receive hooks, protected environments, and signed artifacts.
+
+The rule is:
+
+> **Humans and agents may propose code. Only policy, CI, merge queue, signed artifacts, health gates, and rollback automation may ship code.**
+
+## 1. The one true flow
+
+```text
+issue / task
+  -> short-lived branch
+  -> PR
+  -> required PR checks
+  -> 0 human approvals if agent-review passes, 1 human/code-owner approval for risky paths
+  -> merge queue
+  -> main
+  -> full CI
+  -> build once
+  -> sign artifact + provenance + SBOM
+  -> deploy same artifact by digest
+  -> local/dev
+  -> limited prod/canary
+  -> full prod
+  -> automatic rollback to previous signed digest on failure
+```
+
+There is no other path.
+
+## 2. The branch model
+
+Use **trunk-based development**.
+
+```text
+main                    protected, append-only, deployable
+agent/<agent>/<issue>   short-lived PR branches
+human/<name>/<issue>    short-lived PR branches
+release/*               forbidden unless you absolutely need long-lived release trains
+hotfix/*                forbidden; hotfixes are PRs to main
+```
+
+`main` is not a collaboration branch. It is an audited artifact source.
+
+Configure the `main` ruleset/branch protection as follows:
+
+| Rule                              | Setting                                                  |
+| --------------------------------- | -------------------------------------------------------- |
+| Direct push to `main`             | **Blocked for everyone, including admins and bots**      |
+| Merge path                        | **PR only**                                              |
+| Merge method                      | **Squash or rebase only; no merge commits**              |
+| History                           | **Require linear history**                               |
+| Status checks                     | **Required**                                             |
+| Merge queue                       | **Required**                                             |
+| Force push                        | **Disabled**                                             |
+| Branch deletion                   | **Disabled**                                             |
+| Signed commits                    | **Required on `main`**                                   |
+| Bypass list                       | **Empty except audited break-glass**                     |
+| Required deployments before merge | Use only when needed; prefer deploy after `main` full CI |
+
+GitHub branch protection supports requiring PRs, approvals, required status checks, signed commits, linear history, merge queue, and required deployments before merging. ([GitHub Docs][1]) Merge queue is especially appropriate for a noisy future with many users or agents because it validates queued PRs against the latest base branch and earlier queued changes before merging. ([GitHub Docs][2])
+
+## 3. The security law: local hooks help, server rules decide
+
+Local hooks are useful, but they are not security controls. Git’s own docs note that `pre-commit` can be bypassed with `git commit --no-verify`, so local hooks are only a speed bump. ([Git][3])
+
+The real rule is:
+
+```text
+local hook catches mistakes early
+server push protection rejects secrets
+CI verifies every PR
+ruleset blocks unsafe merge
+release pipeline signs artifact
+deployment verifies artifact
+```
+
+For secrets, use **three layers**:
+
+| Layer        | Required control                                                       |
+| ------------ | ---------------------------------------------------------------------- |
+| Local commit | `pre-commit` secret scan                                               |
+| Push/server  | GitHub secret scanning push protection or self-hosted pre-receive hook |
+| CI           | Full repo + diff secret scan                                           |
+
+GitHub push protection is designed to block hardcoded credentials before they reach the repository. ([GitHub Docs][4]) Use Gitleaks or equivalent in local hooks and CI; Gitleaks describes itself as a tool for detecting passwords, API keys, and tokens in Git repos and files. ([GitHub][5])
+
+## 4. Required local hooks
+
+Every repo gets this. No per-team creativity.
+
+```text
+pre-commit:
+  - secret scan staged files
+  - detect private keys
+  - block known dangerous files: .env, *.pem, id_rsa, credentials.json, kubeconfig
+  - format changed files
+  - lint changed files
+  - block huge files unless explicitly allowed
+
+pre-push:
+  - refuse push to main
+  - secret scan commits being pushed
+  - run fastest unit/smoke tests only
+```
+
+Keep hooks fast. The hook is not where you run the full test suite. Full truth lives in CI.
+
+Minimal `.pre-commit-config.yaml` shape:
+
+```yaml
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: <pinned-version-or-sha>
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: <pinned-version-or-sha>
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+```
+
+Pin hook versions. Never float.
+
+## 5. Required PR checks
+
+Every PR must have exactly one final required status check named:
+
+```text
+required
+```
+
+That `required` job depends on all other jobs. This prevents humans from forgetting to add new checks to branch protection.
+
+Required PR jobs:
+
+```text
+policy
+secrets
+format
+lint
+unit-fast
+build
+dependency-audit
+license-check
+sast-or-codeql
+agent-review-or-human-review
+required
+```
+
+The `policy` job enforces:
+
+```text
+- PR is linked to an issue/ticket
+- PR title is structured
+- PR has a test plan
+- branch name is allowed
+- author is known: human or registered agent
+- diff is not enormous unless labeled high-risk
+- forbidden files are not changed without code-owner approval
+- generated files are not changed unless generation command is recorded
+- CI config changes require code-owner approval
+- deployment/signing/security files require code-owner approval
+```
+
+Use `CODEOWNERS` for sensitive paths: CI workflows, release scripts, infra, auth, crypto, migrations, production config. GitHub uses the base branch’s `CODEOWNERS` file to request reviews for affected files. ([GitHub Docs][6])
+
+Canonical `CODEOWNERS`:
+
+```text
+/.github/              @org/platform
+/.github/workflows/    @org/platform @org/security
+/infra/                @org/platform
+/deploy/               @org/platform
+/scripts/release*      @org/platform @org/security
+/**/migrations/        @org/backend
+/**/auth*/             @org/security
+/**/crypto*/           @org/security
+```
+
+## 6. Review rule: 0 or 1, never committee hell
+
+Default:
+
+```text
+If PR is low-risk and agent-review passes: 0 human approvals.
+If PR touches owned/risky paths: 1 code-owner approval.
+If PR changes release, auth, secrets, infra, or CI: 1 security/platform approval.
+```
+
+Do not require 2+ approvals for normal work. That creates queues, not safety. Safety comes from narrow PRs, required checks, merge queue, signed artifacts, and rollback.
+
+An agent review only counts if it is a **required status check**, not a comment. Comments are advisory. Checks are policy.
+
+## 7. Merge queue is mandatory
+
+No one clicks “merge” directly into `main`.
+
+PRs enter the merge queue only after required checks pass. The queue reruns required checks against the real future state of `main`. Configure workflows to run on both:
+
+```yaml
+on:
+  pull_request:
+  merge_group:
+```
+
+GitHub warns that merge queue requires CI to report checks for the `merge_group` event, or required checks will not run correctly for queued merges. ([GitHub Docs][2])
+
+Rule:
+
+```text
+A PR that passes alone has proven almost nothing.
+A PR that passes in the merge queue has proven it works with the next main.
+```
+
+## 8. Main CI
+
+When `main` changes:
+
+```text
+main full CI runs
+if full CI fails:
+  - freeze merge queue
+  - block release
+  - page owner if prod-risk
+  - fix forward by PR or revert by PR
+```
+
+Main CI is allowed to be slower than PR CI. PR CI catches obvious failures. Main CI proves the trunk.
+
+Main CI includes:
+
+```text
+- full unit suite
+- integration tests
+- e2e tests
+- migration tests
+- compatibility tests
+- performance smoke tests
+- dependency audit
+- secret scan
+- build reproducibility check if feasible
+```
+
+## 9. Build once, promote forever
+
+Never rebuild per environment.
+
+```text
+main SHA abc123
+  -> artifact digest sha256:...
+  -> signature
+  -> provenance
+  -> SBOM
+  -> dev deploy
+  -> prod canary
+  -> prod full
+```
+
+The artifact digest is the release identity. Environment is not part of the build. Environment is only config.
+
+SLSA’s provenance requirements emphasize that consumers must be able to validate provenance authenticity and integrity, usually through a digital signature controlled by the build platform. ([SLSA][7]) Cosign supports signing containers and other artifacts, including keyless signing with Sigstore Fulcio and Rekor transparency log support. ([GitHub][8])
+
+Canonical release output:
+
+```text
+artifact
+artifact.sha256
+artifact.sig
+artifact.provenance.intoto.jsonl
+sbom.spdx.json or sbom.cyclonedx.json
+build-metadata.json
+```
+
+`build-metadata.json`:
+
+```json
+{
+  "repo": "org/repo",
+  "commit": "abc123",
+  "branch": "main",
+  "workflow_run": "123456",
+  "artifact_digest": "sha256:...",
+  "built_at": "2026-05-20T00:00:00Z",
+  "builder": "github-actions",
+  "version": "vX.Y.Z"
+}
+```
+
+## 10. CI credentials: no long-lived cloud secrets
+
+Use OIDC for cloud and registry access.
+
+GitHub Actions OIDC lets workflows exchange identity for short-lived cloud tokens; GitHub’s docs specifically describe avoiding duplicated long-lived cloud credentials in GitHub secrets and using short-lived tokens instead. ([GitHub Docs][9])
+
+Required Actions defaults:
+
+```yaml
+permissions: read-all
+```
+
+Only release/deploy jobs get elevated permissions:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+  attestations: write
+```
+
+Also require:
+
+```text
+- actions pinned to full commit SHA
+- only approved actions allowed
+- no unreviewed third-party actions
+- no pull_request_target except in audited workflows
+- no secrets exposed to PR code
+```
+
+GitHub supports restricting which actions and reusable workflows may run, and can require actions to be pinned to a full-length commit SHA. ([GitHub Docs][10]) GitHub’s Actions security guidance also calls out least privilege for workflow credentials. ([GitHub Docs][11])
+
+## 11. Deployment progression
+
+Deployments consume only signed artifacts by digest.
+
+```text
+local:
+  run artifact locally or in ephemeral env
+  smoke test
+
+dev:
+  automatic on signed main artifact
+  integration tests
+
+prod-limited:
+  1% / one cell / one tenant / one region
+  automatic health checks
+  short bake window
+
+prod-full:
+  progressive rollout
+  stop on error budget burn, crash rate, latency, saturation, failed synthetic checks
+
+rollback:
+  redeploy previous known-good signed digest
+  no rebuild
+  no emergency branch
+```
+
+Rollback is not a Git operation. Rollback is artifact promotion in reverse.
+
+## 12. Agent flood controls
+
+For many agents opening PRs constantly, add these nonnegotiables:
+
+```text
+- every agent PR must link to exactly one issue
+- every PR has one objective
+- max changed files unless explicitly labeled
+- max open PRs per agent
+- superseded PRs auto-closed
+- duplicate PRs auto-closed
+- CI concurrency cancels stale runs on same branch
+- agents cannot approve their own work
+- agents cannot change CI/release/security files without owner approval
+- agents cannot bypass merge queue
+- agents cannot deploy
+```
+
+Agent branch format:
+
+```text
+agent/<agent-name>/<issue-id>-<short-purpose>
+```
+
+Agent PR template:
+
+```md
+## Objective
+One sentence.
+
+## Linked issue
+Fixes #
+
+## Risk
+low | medium | high
+
+## What changed
+-
+
+## Tests
+-
+
+## Rollback
+Revert PR or redeploy previous artifact digest.
+
+## Agent attestation
+Generated by: <agent>
+Prompt/task id: <id>
+```
+
+## 13. The minimal repo skeleton
+
+Every repo has this:
+
+```text
+.github/
+  workflows/
+    pr.yml
+    main.yml
+    release.yml
+    deploy.yml
+  pull_request_template.md
+CODEOWNERS
+.pre-commit-config.yaml
+.gitleaks.toml
+SECURITY.md
+Makefile or justfile
+```
+
+Required commands:
+
+```bash
+make setup       # install hooks/tooling
+make check       # local fast checks
+make test        # local unit tests
+make ci          # same checks CI runs where practical
+make build       # build artifact
+make smoke       # smoke artifact
+```
+
+No bespoke tribal commands.
+
+## 14. The shortest nonnegotiable list
+
+1. **No secrets in Git, ever.** Local scan, push protection, CI scan.
+2. **No direct push to `main`, ever.** PR only.
+3. **No bypass.** Admin bypass is disabled except audited break-glass.
+4. **One protected trunk.** `main` is linear, signed, append-only, deployable.
+5. **Required checks are the law.** Humans cannot “feel good” a broken PR into `main`.
+6. **Merge queue required.** Passing alone is not enough; pass against the future trunk.
+7. **0–1 approvals.** Agent review for low-risk; one code-owner for risky paths.
+8. **Main runs full CI.** Failure freezes release and merge queue.
+9. **Build once from `main`.** Never rebuild per environment.
+10. **Artifacts are immutable, signed, and traceable.** Commit SHA → digest → signature → provenance.
+11. **Deploy by digest only.** No branch deploys, no local rebuild deploys.
+12. **Promotion is progressive.** Dev → limited prod → full prod.
+13. **Rollback is automatic.** Redeploy previous signed digest.
+14. **CI credentials are short-lived.** Use OIDC; no long-lived cloud keys.
+15. **Agents are untrusted contributors.** They propose; policy disposes.
+
+The canonical sentence:
+
+> **All code enters through PR, merges only through a green merge queue, builds once from green `main`, ships only as a signed immutable artifact, promotes through health-gated environments, and rolls back by digest.**
+
+[1]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/managing-a-branch-protection-rule "Managing a branch protection rule - GitHub Docs"
+[2]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[3]: https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks "Git - Git Hooks"
+[4]: https://docs.github.com/en/code-security/concepts/secret-security/about-push-protection "About push protection - GitHub Docs"
+[5]: https://github.com/gitleaks/gitleaks "GitHub - gitleaks/gitleaks: Find secrets with Gitleaks  · GitHub"
+[6]: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners "About code owners - GitHub Docs"
+[7]: https://slsa.dev/spec/v1.0/requirements "SLSA • Producing artifacts"
+[8]: https://github.com/sigstore/cosign "GitHub - sigstore/cosign: Code signing and transparency for containers and binaries · GitHub"
+[9]: https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect "OpenID Connect - GitHub Docs"
+[10]: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository "Managing GitHub Actions settings for a repository - GitHub Docs"
+[11]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+

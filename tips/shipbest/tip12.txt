@@ -1,0 +1,893 @@
+## The canonical rule
+
+**`main` is the product. Every commit on `main` is releasable. Nothing enters `main` except through a PR, a merge queue, required checks, and an immutable artifact pipeline. Deployments promote one signed artifact digest forward; they never rebuild.**
+
+That is the whole system.
+
+---
+
+# The no-options software delivery path
+
+```text
+short-lived branch
+  -> PR
+  -> local hooks / preflight
+  -> required PR CI
+  -> required secret scan
+  -> required policy check
+  -> required agent review
+  -> 0 human approvals for normal-risk PRs
+  -> 1 human approval for high-risk PRs
+  -> merge queue
+  -> main
+  -> full CI
+  -> build artifact once
+  -> sign + attest + SBOM
+  -> deploy dev
+  -> deploy prod canary / limited release
+  -> automated health gates
+  -> full prod
+  -> rollback = redeploy previous signed digest
+```
+
+GitHub supports the core enforcement pieces directly: protected branches/rulesets can require PRs, status checks, signed commits, linear history, merge queue, deployments, and can block force pushes/deletions; merge queue is specifically designed to protect busy branches from incompatible PRs in high-volume environments. ([GitHub Docs][1])
+
+---
+
+# The nonnegotiables
+
+## 1. No secrets in git. Ever.
+
+**Local hook, remote push protection, CI scan, and post-merge scanning all run.**
+
+Local hooks are convenience. They are not trust. A human or agent can bypass them. The real control is remote push protection plus CI failure. GitHub push protection is designed to block hardcoded credentials before they reach the repository, including command-line pushes, UI commits, file uploads, REST API requests, and some MCP-server interactions. ([GitHub Docs][2])
+
+Required controls:
+
+```text
+pre-commit: secret scan staged files
+pre-push: secret scan commits being pushed
+server: push protection enabled
+PR CI: secret scan diff + working tree
+main CI: full repository secret scan
+nightly: full history scan
+```
+
+Use **OIDC instead of long-lived deployment credentials** wherever possible. GitHub Actions workflows can authenticate to cloud providers using OIDC tokens instead of storing long-lived cloud secrets in CI. ([GitHub Docs][3])
+
+**Forbidden in repo:**
+
+```text
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+kubeconfig
+service-account*.json
+credentials.json
+secrets.*
+```
+
+Allowed:
+
+```text
+.env.example
+config.example.yaml
+secrets.example.yaml
+```
+
+---
+
+## 2. No direct push to `main`.
+
+`main` is locked.
+
+Required repo rule:
+
+```text
+main:
+  require pull request: yes
+  direct push: no
+  force push: no
+  delete branch: no
+  bypass admins: no
+  bypass apps: only break-glass release/security bot
+  signed commits: yes
+  linear history: yes
+  merge queue: yes
+  required checks: yes
+```
+
+GitHub branch protection can require reviews, required status checks, signed commits, linear history, merge queue, successful deployments, and “do not allow bypassing.” ([GitHub Docs][1])
+
+---
+
+## 3. Trunk-based development only.
+
+There is one permanent branch:
+
+```text
+main
+```
+
+Everything else is disposable:
+
+```text
+agent/<issue-id>-<slug>
+human/<issue-id>-<slug>
+fix/<issue-id>-<slug>
+```
+
+No permanent `develop`. No long-lived release branches unless legally or operationally required. No “integration branch.” The merge queue is the integration branch.
+
+---
+
+## 4. PRs are small, typed, and disposable.
+
+Every PR must have:
+
+```text
+issue id
+summary
+risk classification
+tests added or explanation why not
+rollback note
+agent/human author
+```
+
+Canonical PR classes:
+
+```text
+safe:
+  docs, tests, small refactors, bug fixes with tests
+
+normal:
+  feature work, dependency patch/minor updates, non-critical infra
+
+high-risk:
+  auth, billing, secrets, crypto, permissions, production deploy logic,
+  database migrations, public API changes, workflow changes, security controls,
+  major dependency upgrades, data deletion, data export
+```
+
+Merge policy:
+
+```text
+safe/normal PR:
+  0 human approvals allowed
+  required: CI + policy + secret scan + agent review
+
+high-risk PR:
+  exactly 1 human CODEOWNER approval
+  required: CI + policy + secret scan + agent review
+```
+
+Do **not** let a generic CI workflow approve PRs. GitHub’s own security guidance warns that allowing automation to create or approve PRs can be risky if the PR can merge without proper oversight. Use a dedicated GitHub App / review service with a locked identity and read-only access to PR code, not a workflow modified by the PR being reviewed. ([GitHub Docs][4])
+
+---
+
+## 5. Merge queue is mandatory.
+
+For an agent-heavy future, this is nonnegotiable.
+
+Required triggers:
+
+```yaml
+on:
+  pull_request:
+  merge_group:
+```
+
+GitHub says workflows must include the `merge_group` event when required checks are used with merge queue; otherwise required checks may not report for queued merges. ([GitHub Docs][5])
+
+Policy:
+
+```text
+PR green is not enough.
+Queue commit green is required.
+Only merge queue writes to main.
+```
+
+---
+
+## 6. PR CI is fast; main CI is complete.
+
+PR CI answers:
+
+```text
+Is this safe to consider merging?
+```
+
+Main CI answers:
+
+```text
+Is this exact main commit safe to release?
+```
+
+Required PR checks:
+
+```text
+secret-scan
+policy-check
+format
+lint
+typecheck
+unit-tests
+integration-smoke
+dependency-audit
+agent-review
+```
+
+Required main checks:
+
+```text
+full secret scan
+full test suite
+full integration tests
+e2e tests
+security scan
+dependency audit
+container/image scan
+migration validation
+performance smoke
+build reproducibility sanity check
+```
+
+---
+
+## 7. Build once. Promote forever.
+
+Never build separately for dev, staging, and prod.
+
+Correct:
+
+```text
+main SHA abc123
+  -> build artifact digest sha256:deadbeef
+  -> sign digest
+  -> attest digest
+  -> deploy digest to dev
+  -> deploy same digest to prod-canary
+  -> deploy same digest to prod-full
+```
+
+Wrong:
+
+```text
+build for dev
+build again for staging
+build again for prod
+```
+
+The artifact identity is the digest, not the tag.
+
+```text
+GOOD: app@sha256:deadbeef...
+BAD:  app:latest
+BAD:  app:prod
+```
+
+SLSA requires provenance that identifies output artifacts by cryptographic digest and describes how they were produced; provenance should be distributed to consumers and verifiable for authenticity. ([SLSA][6])
+
+---
+
+## 8. Every artifact is signed, attested, and SBOM’d.
+
+Required release outputs:
+
+```text
+artifact digest
+signature
+build provenance attestation
+SBOM
+test report
+source commit SHA
+builder identity
+release manifest
+```
+
+GitHub Actions can generate artifact attestations for binaries and container images, and the workflow needs explicit permissions such as `id-token: write`, `contents: read`, and `attestations: write`. ([GitHub Docs][7])
+
+Use keyless signing where possible. Cosign supports signing containers using OIDC-backed ephemeral keys, including GitHub-backed OIDC flows. ([Sigstore][8])
+
+Canonical release manifest:
+
+```yaml
+release:
+  commit: "<git-sha>"
+  artifact: "ghcr.io/org/app@sha256:<digest>"
+  sbom: "sbom.spdx.json"
+  provenance: "provenance.intoto.jsonl"
+  signature: "cosign"
+  built_by: "github-actions"
+  built_from: "refs/heads/main"
+  created_at: "<timestamp>"
+```
+
+---
+
+## 9. Deployments are gates, not scripts.
+
+Environment path:
+
+```text
+local
+  -> dev
+  -> prod-limited
+  -> prod-full
+```
+
+GitHub deployment environments can require manual approval, wait timers, branch restrictions, and custom protection rules from third-party systems such as observability or change-management systems. ([GitHub Docs][9])
+
+Canonical deployment rules:
+
+```text
+dev:
+  auto deploy every signed main artifact
+
+prod-limited:
+  deploy only signed + attested artifacts from main
+  verify artifact digest before deploy
+  canary: 1% -> 5% -> 25%
+  automated health checks required
+
+prod-full:
+  continue from limited release only if health gates pass
+  1 human approval only for high-risk release class
+  otherwise automatic
+
+rollback:
+  redeploy previous known-good digest
+  never rebuild
+```
+
+---
+
+## 10. Rollback is a first-class feature.
+
+Every deploy records:
+
+```text
+environment
+artifact digest
+commit SHA
+deployer identity
+started_at
+completed_at
+health result
+previous digest
+rollback command
+```
+
+Rollback command should be boring:
+
+```bash
+deploy --env prod --digest "$PREVIOUS_GOOD_DIGEST"
+```
+
+Database rule:
+
+```text
+Every migration must be backward-compatible across at least one release.
+No destructive migration in the same release that introduces the new code path.
+Use expand -> migrate -> contract.
+```
+
+---
+
+# Required repository setup
+
+## Branch/ruleset settings for `main`
+
+Set these and do not debate them:
+
+```text
+Require a pull request before merging: yes
+Required approvals: 0 default, 1 for CODEOWNER/high-risk paths
+Dismiss stale approvals: yes
+Require review from Code Owners: yes for protected paths
+Require status checks: yes
+Require branches to be up to date: replaced by merge queue
+Require merge queue: yes
+Require signed commits: yes
+Require linear history: yes
+Require conversation resolution: yes
+Block force pushes: yes
+Block deletions: yes
+Restrict who can push: only merge queue / release bot
+Allow bypass: no, except break-glass admin group
+```
+
+GitHub rulesets can also restrict updates/deletions, require linear history, require PRs, require status checks, block force pushes, and restrict file paths/extensions/sizes. ([GitHub Docs][10])
+
+---
+
+## Merge settings
+
+```text
+Allowed merge methods:
+  squash only
+
+Disabled:
+  merge commits
+  rebase merge
+  direct admin merge
+```
+
+Why squash only?
+
+```text
+one PR = one main commit
+easy revert
+clean audit trail
+less agent noise
+```
+
+---
+
+## CODEOWNERS
+
+Protect the dangerous paths:
+
+```text
+.github/workflows/*        @org/platform-security
+.github/actions/*          @org/platform-security
+deploy/**                  @org/platform-security
+infra/**                   @org/platform-security
+migrations/**              @org/db-owners
+src/auth/**                @org/security
+src/billing/**             @org/billing
+src/permissions/**         @org/security
+SECURITY.md                @org/security
+.gitleaks.toml             @org/security
+```
+
+GitHub’s security docs specifically recommend using CODEOWNERS to control workflow file changes. ([GitHub Docs][4])
+
+---
+
+# Required local git hooks
+
+Local hooks are not trust boundaries. They are seatbelts.
+
+Install:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Repo layout:
+
+```text
+.githooks/
+  pre-commit
+  commit-msg
+  pre-push
+
+.pre-commit-config.yaml
+.gitleaks.toml
+```
+
+## `.githooks/pre-commit`
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+pre-commit run --hook-stage pre-commit
+```
+
+## `.githooks/commit-msg`
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+MSG_FILE="$1"
+MSG="$(cat "$MSG_FILE")"
+
+# Require issue id and conventional-ish type.
+echo "$MSG" | grep -Eq '^(feat|fix|test|docs|refactor|chore|security|perf)\([A-Z]+-[0-9]+\): .+' || {
+  echo "Commit message must look like: fix(WO-123): short summary"
+  exit 1
+}
+```
+
+## `.githooks/pre-push`
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Running fast pre-push checks..."
+
+gitleaks git --redact --verbose
+make test-fast
+```
+
+Gitleaks supports scanning git repositories, directories/files, and stdin, and its README documents pre-commit integration. ([GitHub][11])
+
+## `.pre-commit-config.yaml`
+
+```yaml
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: format
+        name: format
+        entry: make fmt-check
+        language: system
+        pass_filenames: false
+
+      - id: lint
+        name: lint
+        entry: make lint
+        language: system
+        pass_filenames: false
+
+      - id: fast-tests
+        name: fast tests
+        entry: make test-fast
+        language: system
+        pass_filenames: false
+```
+
+Gitleaks’ latest listed release in the current GitHub releases page is `v8.30.1`; keep the pinned version updated through dependency automation, not by floating tags. ([GitHub][12])
+
+---
+
+# Required GitHub Actions posture
+
+## Default permissions
+
+Every workflow starts with:
+
+```yaml
+permissions:
+  contents: read
+```
+
+Then each job grants only what it needs.
+
+GitHub recommends least-privilege credentials and says the default `GITHUB_TOKEN` permission should be read-only for repository contents, with additional permissions granted only as required per workflow/job. ([GitHub Docs][4])
+
+## Pin Actions
+
+All third-party actions are pinned to full commit SHAs.
+
+```yaml
+# Good
+uses: actions/checkout@<full-commit-sha>
+
+# Bad
+uses: actions/checkout@v4
+uses: some/action@main
+```
+
+GitHub’s secure-use guidance says pinning actions to a full-length commit SHA is the only way to use an action as an immutable release, and GitHub provides policies to require SHA pinning. ([GitHub Docs][4])
+
+---
+
+# Minimal workflow skeleton
+
+## `.github/workflows/pr.yml`
+
+```yaml
+name: pr
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: gitleaks git --redact --verbose
+
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+      - run: ./scripts/policy/check-pr.sh
+
+  ci-fast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+      - run: make fmt-check
+      - run: make lint
+      - run: make typecheck
+      - run: make test-fast
+
+  agent-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+      - run: ./scripts/agent-review/run.sh
+```
+
+## `.github/workflows/main.yml`
+
+```yaml
+name: main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main
+  cancel-in-progress: false
+
+jobs:
+  full-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+        with:
+          fetch-depth: 0
+      - run: gitleaks git --redact --verbose
+      - run: make ci-full
+
+  build:
+    needs: full-ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+      - name: build
+        id: build
+        run: ./scripts/release/build.sh
+      - name: sbom
+        run: ./scripts/release/sbom.sh
+      - name: sign
+        run: ./scripts/release/sign.sh
+      - name: attest
+        run: ./scripts/release/attest.sh
+      - name: release manifest
+        run: ./scripts/release/manifest.sh
+
+  deploy-dev:
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+      digest: ${{ needs.build.outputs.digest }}
+```
+
+## `.github/workflows/deploy.yml`
+
+```yaml
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      digest:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<pinned-sha>
+      - name: verify artifact
+        run: ./scripts/release/verify.sh "${{ inputs.digest }}"
+      - name: deploy digest
+        run: ./scripts/deploy/deploy.sh "${{ inputs.environment }}" "${{ inputs.digest }}"
+      - name: health gate
+        run: ./scripts/deploy/health-gate.sh "${{ inputs.environment }}" "${{ inputs.digest }}"
+```
+
+---
+
+# The agent-era rules
+
+When many agents are pushing PRs, the rules become stricter, not looser.
+
+```text
+Agents may open PRs.
+Agents may update their own PR branches.
+Agents may not push to main.
+Agents may not bypass CI.
+Agents may not approve their own PRs.
+Agents may not modify workflow/deploy/security files without human CODEOWNER approval.
+Agents may not create long-lived branches.
+Agents may not merge outside the merge queue.
+```
+
+PR limits:
+
+```text
+max normal PR size: 500 changed lines
+max high-risk PR size: 250 changed lines
+max open PRs per agent: 3
+stale PR TTL: 7 days
+one issue per PR
+one PR per issue unless explicitly split
+```
+
+Required machine-readable footer:
+
+```yaml
+risk: safe|normal|high
+tests: added|updated|not-needed
+rollback: revert|redeploy-previous-digest|manual
+touches_protected_paths: true|false
+agent_generated: true|false
+```
+
+---
+
+# The minimal policy bot
+
+The policy bot decides whether a PR is mergeable.
+
+It checks:
+
+```text
+secret scan passed
+required CI passed
+agent review passed
+PR has issue id
+PR has tests
+PR does not exceed size limit
+PR does not touch forbidden files
+PR risk classification is valid
+high-risk PR has exactly one CODEOWNER approval
+workflow/security/deploy changes have human approval
+```
+
+Output:
+
+```json
+{
+  "mergeable": true,
+  "risk": "normal",
+  "human_approval_required": false,
+  "reason": "all required checks passed"
+}
+```
+
+Or:
+
+```json
+{
+  "mergeable": false,
+  "risk": "high",
+  "human_approval_required": true,
+  "reason": "touches .github/workflows/deploy.yml"
+}
+```
+
+---
+
+# The canonical Makefile interface
+
+Humans and agents get one interface:
+
+```makefile
+fmt:
+	./scripts/dev/fmt.sh
+
+fmt-check:
+	./scripts/dev/fmt-check.sh
+
+lint:
+	./scripts/dev/lint.sh
+
+typecheck:
+	./scripts/dev/typecheck.sh
+
+test-fast:
+	./scripts/test/fast.sh
+
+test-full:
+	./scripts/test/full.sh
+
+ci-pr:
+	$(MAKE) fmt-check lint typecheck test-fast
+
+ci-full:
+	$(MAKE) fmt-check lint typecheck test-full
+
+build:
+	./scripts/release/build.sh
+
+sign:
+	./scripts/release/sign.sh
+
+attest:
+	./scripts/release/attest.sh
+
+verify:
+	./scripts/release/verify.sh
+
+deploy:
+	./scripts/deploy/deploy.sh
+```
+
+No agent should invent commands. No human should need to remember commands.
+
+---
+
+# The final short version
+
+Use this as the canonical internal rule:
+
+```text
+1. main is protected, linear, signed, and releasable.
+2. No direct pushes. PR + merge queue only.
+3. No secrets in git. Local hooks help; remote push protection and CI enforce.
+4. Every PR runs secret scan, policy, fast CI, and agent review.
+5. 0 human approvals for normal-risk green PRs.
+6. 1 human CODEOWNER approval for high-risk PRs.
+7. Merge queue retests the exact queued commit.
+8. main runs full CI.
+9. main builds one immutable artifact.
+10. Artifact is signed, attested, SBOM’d, and published by digest.
+11. Dev, canary, and prod promote the same digest.
+12. Every deploy verifies signature/provenance before running.
+13. Rollback redeploys the previous known-good digest.
+14. Agents may create PRs, never bypass rules.
+15. The system, not humans, decides whether code can ship.
+```
+
+That is the minimal sane deployment system.
+
+[1]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches "About protected branches - GitHub Docs"
+[2]: https://docs.github.com/en/code-security/concepts/secret-security/about-push-protection "About push protection - GitHub Docs"
+[3]: https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect "OpenID Connect - GitHub Docs"
+[4]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+[5]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[6]: https://slsa.dev/spec/v1.0/requirements "SLSA • Producing artifacts"
+[7]: https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds "Using artifact attestations to establish provenance for builds - GitHub Docs"
+[8]: https://docs.sigstore.dev/cosign/signing/signing_with_containers/ "Signing Containers - Sigstore"
+[9]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments "Deployments and environments - GitHub Docs"
+[10]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets "Available rules for rulesets - GitHub Docs"
+[11]: https://github.com/gitleaks/gitleaks "GitHub - gitleaks/gitleaks: Find secrets with Gitleaks  · GitHub"
+[12]: https://github.com/gitleaks/gitleaks/releases?utm_source=chatgpt.com "Releases · gitleaks/gitleaks"
+

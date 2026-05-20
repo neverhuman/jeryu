@@ -54,10 +54,8 @@ run "Install RedlineDB binary" bash scripts/install-redlinedb.sh
 # ─── 2. Format (matches CI: cargo fmt --all -- --check) ──────────────────────
 run "Format" cargo fmt --all -- --check
 
-# ─── 3. Clippy (matches CI: cargo clippy --all-targets --all-features) ───────
-# Note: jeryu uses --tests instead of --all-features because the redlinedb
-# feature is intentionally not built (toolchain blocker — see issue tracker).
-run "Clippy" cargo clippy --tests -- -D warnings
+# ─── 3. Clippy (matches CI: cargo clippy --all-targets --all-features -- -D warnings) ───────
+run "Clippy" cargo clippy --all-targets --all-features -- -D warnings
 
 # ─── 4. Build (matches CI: cargo build --verbose) ────────────────────────────
 run "Build" cargo build --verbose

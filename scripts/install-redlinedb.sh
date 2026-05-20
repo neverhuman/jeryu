@@ -1,29 +1,107 @@
 #!/usr/bin/env bash
-# Install the required RedlineDB CLI/native binary from a pinned upstream release
-# by default, with checksum verification before extraction.
+# Install the required RedlineDB CLI/native binary from the checked-in pinned
+# release manifest. The manifest keeps the exact release tag, asset name,
+# download URL, and SHA256 in-repo, so installs do not depend on GitHub API
+# lookups or auth.
 #
 # Use REDLINEDB_INSTALL_MODE=verify only when intentionally checking an
 # already-installed binary without network access.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MANIFEST_PATH="${REDLINEDB_MANIFEST:-$SCRIPT_DIR/redlinedb-manifest.json}"
 REDLINEDB_INSTALL_MODE="${REDLINEDB_INSTALL_MODE:-release}"
-REDLINEDB_VERSION="${REDLINEDB_VERSION:-v1.0.1}"
-REPO="${REDLINEDB_REPO:-neverhuman/RedlineDB}"
 PREFIX="${REDLINEDB_PREFIX:-$HOME/.local}"
 BIN_DIR="$PREFIX/bin"
 INSTALL_NAME="${REDLINEDB_INSTALL_NAME:-redlinedb}"
 REDLINEDB_BIN="${REDLINEDB_BIN:-$BIN_DIR/$INSTALL_NAME}"
-if [ "$REDLINEDB_VERSION" = "latest" ]; then
-    API_URL="https://api.github.com/repos/${REPO}/releases/latest"
-else
-    API_URL="https://api.github.com/repos/${REPO}/releases/tags/${REDLINEDB_VERSION}"
-fi
 
 need() {
     command -v "$1" >/dev/null 2>&1 || {
         echo "install-redlinedb: missing required tool: $1" >&2
         exit 1
     }
+}
+
+platform_key() {
+    local os arch
+
+    case "$(uname -s)" in
+        Linux) os="linux" ;;
+        Darwin) os="macos" ;;
+        *)
+            echo "install-redlinedb: unsupported OS: $(uname -s)" >&2
+            exit 1
+            ;;
+    esac
+
+    case "$(uname -m)" in
+        x86_64|amd64) arch="x86_64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *)
+            echo "install-redlinedb: unsupported architecture: $(uname -m)" >&2
+            exit 1
+            ;;
+    esac
+
+    printf '%s-%s\n' "$os" "$arch"
+}
+
+manifest_entry() {
+    python3 - "$MANIFEST_PATH" "$1" <<'PY'
+import json
+import pathlib
+import sys
+
+manifest_path = pathlib.Path(sys.argv[1])
+platform_key = sys.argv[2]
+
+try:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+except FileNotFoundError:
+    print(f"install-redlinedb: missing release manifest: {manifest_path}", file=sys.stderr)
+    raise SystemExit(1)
+except json.JSONDecodeError as exc:
+    print(f"install-redlinedb: invalid release manifest {manifest_path}: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+
+release_tag = manifest.get("release_tag")
+assets = manifest.get("assets")
+if not isinstance(release_tag, str) or not release_tag:
+    print(
+        f"install-redlinedb: release manifest {manifest_path} is missing release_tag",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+if not isinstance(assets, dict):
+    print(
+        f"install-redlinedb: release manifest {manifest_path} must map assets by platform",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+entry = assets.get(platform_key)
+if not isinstance(entry, dict):
+    supported = ", ".join(sorted(assets)) or "<none>"
+    print(
+        f"install-redlinedb: release manifest {manifest_path} has no asset for platform "
+        f"{platform_key}; supported platforms: {supported}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+for field in ("asset_name", "download_url", "sha256"):
+    value = entry.get(field)
+    if not isinstance(value, str) or not value:
+        print(
+            f"install-redlinedb: release manifest {manifest_path} entry for {platform_key} "
+            f"is missing {field}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+print(f"OK\t{release_tag}\t{entry['asset_name']}\t{entry['download_url']}\t{entry['sha256']}")
+PY
 }
 
 verify_installed_binary() {
@@ -53,28 +131,10 @@ install_from_release() {
     need curl
     need python3
 
-    case "$(uname -s)" in
-        Linux) OS_TOKENS="linux" ;;
-        Darwin) OS_TOKENS="darwin macos apple" ;;
-        MINGW*|MSYS*|CYGWIN*) OS_TOKENS="windows win32 win64 pc" ;;
-        *)
-            echo "install-redlinedb: unsupported OS: $(uname -s)" >&2
-            exit 1
-            ;;
-    esac
+    local platform selection status release_tag asset_name asset_url asset_sha256
+    local asset_path extract_dir binary tmp
+    platform="$(platform_key)"
 
-    case "$(uname -m)" in
-        x86_64|amd64) ARCH_TOKENS="x86_64 x64 amd64" ;;
-        aarch64|arm64) ARCH_TOKENS="aarch64 arm64" ;;
-        armv7l) ARCH_TOKENS="armv7 arm" ;;
-        *)
-            echo "install-redlinedb: unsupported architecture: $(uname -m)" >&2
-            exit 1
-            ;;
-    esac
-
-    local release_json selection status tag asset_name asset_url checksum_name checksum_url
-    local asset_path checksum_path extract_dir binary
     tmp="$(mktemp -d)"
     cleanup() {
         if [ -n "${tmp:-}" ]; then
@@ -83,140 +143,23 @@ install_from_release() {
     }
     trap cleanup EXIT
 
-    local auth_args=()
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
-        auth_args=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+    selection="$(manifest_entry "$platform")"
+    IFS=$'\t' read -r status release_tag asset_name asset_url asset_sha256 <<< "$selection"
+    if [ "$status" != "OK" ]; then
+        echo "install-redlinedb: could not parse RedlineDB release manifest" >&2
+        exit 1
     fi
 
-    release_json="$tmp/release.json"
-    curl -fsSL "${auth_args[@]}" \
-        -H "Accept: application/vnd.github+json" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        "$API_URL" > "$release_json"
-
-    selection="$(
-        REDLINEDB_OS_TOKENS="$OS_TOKENS" REDLINEDB_ARCH_TOKENS="$ARCH_TOKENS" \
-            python3 - "$release_json" <<'PY'
-import json
-import os
-import re
-import sys
-
-release = json.load(open(sys.argv[1], encoding="utf-8"))
-tag = release.get("tag_name") or release.get("name") or "unknown"
-assets = release.get("assets") or []
-if not assets:
-    print(f"NO_ASSETS\t{tag}")
-    raise SystemExit(0)
-
-os_tokens = os.environ["REDLINEDB_OS_TOKENS"].split()
-arch_tokens = os.environ["REDLINEDB_ARCH_TOKENS"].split()
-archive_exts = (
-    ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2", ".zip", ".gz", ".xz",
-)
-ignore_exts = (
-    ".sha256", ".sha256sum", ".sig", ".asc", ".pem", ".spdx", ".sbom",
-    ".json", ".txt",
-)
-
-def split_name(name: str) -> list[str]:
-    return [part for part in re.split(r"[^A-Za-z0-9_]+", name.lower()) if part]
-
-best = None
-for asset in assets:
-    name = asset.get("name") or ""
-    url = asset.get("browser_download_url") or ""
-    lower = name.lower()
-    if not url or lower.endswith(ignore_exts):
-        continue
-    tokens = split_name(name)
-    has_os = any(token in tokens or token in lower for token in os_tokens)
-    has_arch = any(token in tokens or token in lower for token in arch_tokens)
-    has_redline = "redline" in lower
-    has_archive = lower.endswith(archive_exts)
-    looks_raw_binary = lower in {"redlinedb", "redline", "redlinedb.exe", "redline.exe"}
-    if not (has_os and has_arch and has_redline):
-        continue
-    score = 0
-    score += 20 if "redlinedb" in lower else 0
-    score += 10 if has_archive else 0
-    score += 15 if looks_raw_binary else 0
-    score += max(0, 10 - len(tokens))
-    candidate = (score, name, url)
-    if best is None or candidate > best:
-        best = candidate
-
-if best is None:
-    names = ", ".join(asset.get("name") or "<unnamed>" for asset in assets)
-    print(f"NO_MATCH\t{tag}\t{names}")
-else:
-    _, name, url = best
-    checksum_name = f"{name}.sha256"
-    checksum_url = next(
-        (
-            asset.get("browser_download_url") or ""
-            for asset in assets
-            if (asset.get("name") or "") == checksum_name
-        ),
-        "",
-    )
-    if not checksum_url:
-        print(f"NO_CHECKSUM\t{tag}\t{name}")
-    else:
-        print(f"OK\t{tag}\t{name}\t{url}\t{checksum_name}\t{checksum_url}")
-PY
-    )"
-
-    IFS=$'\t' read -r status tag asset_name asset_url checksum_name checksum_url <<< "$selection"
-    case "$status" in
-        OK) ;;
-        NO_CHECKSUM)
-            echo "install-redlinedb: upstream RedlineDB release ${tag} has no checksum asset for ${asset_name}." >&2
-            echo "install-redlinedb: refusing to install without checksum verification." >&2
-            exit 1
-            ;;
-        NO_ASSETS)
-            echo "install-redlinedb: upstream RedlineDB release ${tag} has no binary assets." >&2
-            echo "install-redlinedb: publish platform binary release assets before CI/local install can succeed." >&2
-            exit 1
-            ;;
-        NO_MATCH)
-            echo "install-redlinedb: upstream RedlineDB release ${tag} has no binary asset for $(uname -s)/$(uname -m)." >&2
-            if [ -n "${asset_name:-}" ]; then
-                echo "install-redlinedb: available assets: ${asset_name}" >&2
-            fi
-            echo "install-redlinedb: publish platform binary release assets before CI/local install can succeed." >&2
-            exit 1
-            ;;
-        *)
-            echo "install-redlinedb: could not parse RedlineDB release asset metadata" >&2
-            exit 1
-            ;;
-    esac
-
     asset_path="$tmp/$asset_name"
-    checksum_path="$tmp/$checksum_name"
-    curl -fL "${auth_args[@]}" -o "$asset_path" "$asset_url"
-    curl -fL "${auth_args[@]}" -o "$checksum_path" "$checksum_url"
+    curl -fsSL -o "$asset_path" "$asset_url"
 
-    python3 - "$asset_path" "$checksum_path" <<'PY'
+    python3 - "$asset_path" "$asset_sha256" <<'PY'
 import hashlib
 import pathlib
-import re
 import sys
 
 asset = pathlib.Path(sys.argv[1])
-checksum_file = pathlib.Path(sys.argv[2])
-checksum_text = checksum_file.read_text(encoding="utf-8", errors="strict")
-match = re.search(r"\b([a-fA-F0-9]{64})\b", checksum_text)
-if not match:
-    print(
-        f"install-redlinedb: checksum file {checksum_file.name} does not contain a SHA256 digest",
-        file=sys.stderr,
-    )
-    raise SystemExit(1)
-
-expected = match.group(1).lower()
+expected = sys.argv[2].strip().lower()
 actual = hashlib.sha256(asset.read_bytes()).hexdigest()
 if actual != expected:
     print(
@@ -289,7 +232,7 @@ PY
         exit 1
     fi
 
-    echo "install-redlinedb: installed ${tag} from ${asset_name} to $BIN_DIR/$INSTALL_NAME"
+    echo "install-redlinedb: installed ${release_tag} from ${asset_name} to $BIN_DIR/$INSTALL_NAME"
 }
 
 case "$REDLINEDB_INSTALL_MODE" in

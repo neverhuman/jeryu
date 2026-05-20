@@ -108,9 +108,6 @@ existing 489 lib tests still pass.
 EOF
 )"
 
-log "pushing to $REMOTE/$BRANCH..."
-git push -u "$REMOTE" "$BRANCH"
-
 log "opening PR via gh..."
 PR_BODY_FILE="$(mktemp)"
 cat > "$PR_BODY_FILE" <<'EOF'
@@ -175,7 +172,11 @@ let style = theme.path_style(base_style, in_critical_path);
 
 EOF
 
-PR_URL="$(gh pr create \
+PR_URL="$(bash "$REPO_ROOT/scripts/publish-pr.sh" \
+  --remote "$REMOTE" \
+  --branch "$BRANCH" \
+  --base "$BASE" \
+  -- gh pr create \
   --base "$BASE" \
   --head "$BRANCH" \
   --title "feat(tui/theme): cockpit palette + Tone/chip helpers" \

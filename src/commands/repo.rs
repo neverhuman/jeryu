@@ -18,6 +18,54 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
             Ok(0)
         }
         RepoCommands::InstallGitHooks => repo::install_git_hooks().await,
+        RepoCommands::Init(cmd) => {
+            if !cmd.direct {
+                anyhow::bail!("repo init currently requires --direct");
+            }
+            repo::init_direct_repo(repo::DirectRepoOptions {
+                path: std::env::current_dir()?.join(&cmd.name),
+                name: cmd.name,
+                namespace: cmd.namespace,
+                branch: cmd.branch,
+                protect_main: cmd.protect_main,
+                hooks: cmd.hooks,
+                replace_origin: true,
+                new_repo: true,
+                dry_run: cmd.dry_run,
+                main_relay: cmd.main_relay,
+                offline_release_remote: cmd.offline_release_remote,
+            })
+            .await
+        }
+        RepoCommands::Adopt(cmd) => {
+            if !cmd.direct {
+                anyhow::bail!("repo adopt currently requires --direct");
+            }
+            repo::adopt_direct_repo(repo::DirectRepoOptions {
+                path: cmd.path,
+                name: cmd.name,
+                namespace: cmd.namespace,
+                branch: "main".into(),
+                protect_main: cmd.protect_main,
+                hooks: cmd.hooks,
+                replace_origin: cmd.replace_origin,
+                new_repo: false,
+                dry_run: cmd.dry_run,
+                main_relay: cmd.main_relay,
+                offline_release_remote: cmd.offline_release_remote,
+            })
+            .await
+        }
+        RepoCommands::Mode { mode } => repo::set_repo_mode(mode).await,
+        RepoCommands::Hooks(subcmd) => match subcmd {
+            crate::cli::RepoHookCommands::Status => repo::hooks_status().await,
+            crate::cli::RepoHookCommands::Enable { mode } => repo::hooks_enable(mode).await,
+            crate::cli::RepoHookCommands::Disable => repo::hooks_disable().await,
+            crate::cli::RepoHookCommands::Install { profile, mode } => {
+                repo::hooks_install(profile, mode).await
+            }
+        },
+        RepoCommands::JankuraiFast { changed_from } => repo::jankurai_fast(&changed_from).await,
         RepoCommands::RedlineStateProof => repo::state_proof().await,
         RepoCommands::CaptureTuiScreenshots { output_dir } => {
             repo::capture_tui_screenshots(output_dir).await

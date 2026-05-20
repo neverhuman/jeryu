@@ -2,6 +2,7 @@ use super::*;
 use clap::{CommandFactory, Parser};
 use jeryu::install::{ColorMode, InteractiveMode, PathMode};
 use jeryu::remote::ServiceMode;
+use jeryu::repo::{HookMode, HookProfile, RepoMode};
 
 #[test]
 fn release_watch_accepts_ref_alias() {
@@ -56,6 +57,23 @@ fn install_smoke_accepts_common_flags_after_action() {
             ..
         }) => {
             assert!(dry_run);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
+fn install_guided_accepts_dry_run_json_flags() {
+    let cli = Cli::parse_from(["jeryu", "install", "guided", "--dry-run", "--json"]);
+    match cli.command {
+        Commands::Install(InstallCommand {
+            dry_run,
+            json,
+            action: Some(InstallActionCommands::Guided),
+            ..
+        }) => {
+            assert!(dry_run);
+            assert!(json);
         }
         _ => panic!("unexpected command parsed"),
     }
@@ -192,6 +210,114 @@ fn remote_install_accepts_service_and_ui_flags() {
             assert_eq!(interactive, InteractiveMode::Always);
             assert_eq!(service_mode, ServiceMode::Manual);
             assert!(verbose);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
+fn repo_init_direct_parses_policy_options() {
+    let cli = Cli::parse_from([
+        "jeryu",
+        "repo",
+        "init",
+        "demo",
+        "--direct",
+        "--namespace",
+        "team",
+        "--branch",
+        "main",
+        "--hooks",
+        "advisory",
+        "--main-relay",
+        "--offline-release-remote",
+        "https://github.com/neverhuman/warp",
+        "--dry-run",
+    ]);
+    match cli.command {
+        Commands::Repo(RepoCommands::Init(cmd)) => {
+            assert!(cmd.direct);
+            assert_eq!(cmd.name, "demo");
+            assert_eq!(cmd.namespace, "team");
+            assert_eq!(cmd.hooks, HookMode::Advisory);
+            assert!(cmd.main_relay);
+            assert_eq!(
+                cmd.offline_release_remote.as_deref(),
+                Some("https://github.com/neverhuman/warp")
+            );
+            assert!(cmd.dry_run);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
+fn repo_adopt_direct_preserves_origin_by_default() {
+    let cli = Cli::parse_from([
+        "jeryu",
+        "repo",
+        "adopt",
+        ".",
+        "--direct",
+        "--namespace",
+        "team",
+        "--name",
+        "demo",
+        "--hooks",
+        "enforce",
+    ]);
+    match cli.command {
+        Commands::Repo(RepoCommands::Adopt(cmd)) => {
+            assert!(cmd.direct);
+            assert_eq!(cmd.path, std::path::PathBuf::from("."));
+            assert_eq!(cmd.hooks, HookMode::Enforce);
+            assert!(!cmd.replace_origin);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
+fn repo_mode_and_hooks_commands_parse() {
+    let cli = Cli::parse_from(["jeryu", "repo", "mode", "observed"]);
+    match cli.command {
+        Commands::Repo(RepoCommands::Mode { mode }) => assert_eq!(mode, RepoMode::Observed),
+        _ => panic!("unexpected command parsed"),
+    }
+
+    let cli = Cli::parse_from([
+        "jeryu",
+        "repo",
+        "hooks",
+        "install",
+        "--profile",
+        "pre-commit-jankurai",
+        "--mode",
+        "advisory",
+    ]);
+    match cli.command {
+        Commands::Repo(RepoCommands::Hooks(RepoHookCommands::Install { profile, mode })) => {
+            assert_eq!(profile, HookProfile::PreCommitJankurai);
+            assert_eq!(mode, HookMode::Advisory);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
+fn policy_audit_command_parses_local_gitlab_target() {
+    let cli = Cli::parse_from([
+        "jeryu",
+        "policy",
+        "audit",
+        "--target",
+        "local-gitlab",
+        "--json",
+    ]);
+    match cli.command {
+        Commands::Policy(PolicyCommands::Audit { target, json }) => {
+            assert_eq!(target, "local-gitlab");
+            assert!(json);
         }
         _ => panic!("unexpected command parsed"),
     }

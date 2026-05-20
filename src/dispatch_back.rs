@@ -160,6 +160,29 @@ pub(crate) async fn run(command: Commands) -> Result<i32> {
             return crate::commands::repo::execute_repo_commands(subcmd).await;
         }
 
+        // ---- Policy ------------------------------------------------------
+        Commands::Policy(subcmd) => match subcmd {
+            PolicyCommands::Audit { target, json } => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "target": target,
+                            "protected_branches": ["main"],
+                            "main_relay_actor": "jeryu",
+                            "github_actions_required": false,
+                            "status": "planned"
+                        }))?
+                    );
+                } else {
+                    println!("JeRyu policy audit target: {target}");
+                    println!("  protected branches: main");
+                    println!("  main relay actor:   jeryu");
+                    println!("  GitHub Actions:     not required for deploy readiness");
+                }
+            }
+        },
+
         // ---- Host --------------------------------------------------------
         Commands::Host(subcmd) => {
             return crate::commands::host::execute_host_commands(subcmd).await;

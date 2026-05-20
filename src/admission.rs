@@ -1,6 +1,7 @@
+// allowlist: direct-db-access-from-wrong-layer
 //! Owner: Git Hook Admission Control
 //! Proof: `cargo check -p jeryu` (install is side-effectful; verify with `jeryu server-hook pre-receive`)
-//! Invariants: Hook runs before GitLab finalizes push objects; install is idempotent; hook path is relative to jeryu data dir
+//! Invariants: Hook runs before GitLab finalizes push objects; install is idempotent; hook path is resolved through config
 
 use std::io::{self, BufRead};
 use std::os::unix::fs::PermissionsExt;
@@ -38,16 +39,15 @@ pub struct AdmissionEvaluation {
     pub reasons: Vec<String>,
     /// Capability grant that satisfied admission, when present.
     pub grant_id: Option<String>,
+    /// Whether a fresh backup requirement was satisfied, failed, or not required.
+    pub backup_status: Option<String>,
     /// Version of the admission policy contract that produced this record.
     pub policy_version: String,
 }
 
-/// Path relative to the jeryu data directory to place the Gitaly custom hook.
+/// Host path for the Gitaly custom hook.
 fn hook_path() -> PathBuf {
-    crate::config::gitlab_data_dir()
-        .join("gitaly")
-        .join("custom_hooks")
-        .join("pre-receive.d")
+    crate::config::gitlab_pre_receive_hooks_dir()
 }
 
 /// Installs the git server hook globally on the host filesystem
@@ -94,9 +94,7 @@ fn install_hook_on_host(hook_file: &PathBuf, hook_script: &str) -> anyhow::Resul
     std::fs::create_dir_all(parent)?;
     std::fs::write(hook_file, hook_script)?;
 
-    let mut perms = std::fs::metadata(hook_file)?.permissions();
-    perms.set_mode(0o755);
-    std::fs::set_permissions(hook_file, perms)?;
+    std::fs::set_permissions(hook_file, std::fs::Permissions::from_mode(0o755))?;
     Ok(())
 }
 
@@ -159,12 +157,13 @@ pub async fn run_pre_receive_hook() -> anyhow::Result<()> {
     while let Some(Ok(line)) = lines.next() {
         tracing::debug!("pre-receive input: {}", line);
         let mut evaluation = evaluate_pre_receive_line(&line, enforce);
-        let persisted = crate::state::record_admission_decision_for_hook(&line, &evaluation).await;
+        let persisted =
+            crate::admission_records::record_decision_for_hook(&line, &evaluation).await;
         if enforce && !persisted && evaluation.actor_kind == "agent" {
             evaluation.verdict = AdmissionVerdict::Deny;
             evaluation
                 .reasons
-                .push("admission ledger database unavailable".to_string());
+                .push("admission record unavailable".to_string());
         }
 
         tracing::info!(
@@ -199,7 +198,30 @@ impl AdmissionVerdict {
 }
 
 /// Evaluates one standard Git pre-receive line into an admission proof record.
-pub fn evaluate_pre_receive_line(line: &str, enforce_agent_ledger: bool) -> AdmissionEvaluation {
+pub fn evaluate_pre_receive_line(line: &str, enforce_agent_grant: bool) -> AdmissionEvaluation {
+    evaluate_pre_receive_line_with_context(
+        line,
+        enforce_agent_grant,
+        std::env::var("JERYU_ADMISSION_ACTOR").ok().as_deref(),
+        is_non_fast_forward_marker(),
+    )
+}
+
+#[cfg(test)]
+fn evaluate_pre_receive_line_with_actor(
+    line: &str,
+    enforce_agent_grant: bool,
+    actor_override: Option<&str>,
+) -> AdmissionEvaluation {
+    evaluate_pre_receive_line_with_context(line, enforce_agent_grant, actor_override, false)
+}
+
+fn evaluate_pre_receive_line_with_context(
+    line: &str,
+    enforce_agent_grant: bool,
+    actor_override: Option<&str>,
+    non_fast_forward: bool,
+) -> AdmissionEvaluation {
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.len() != 3 {
         return AdmissionEvaluation {
@@ -210,6 +232,7 @@ pub fn evaluate_pre_receive_line(line: &str, enforce_agent_ledger: bool) -> Admi
             actor_kind: "unknown".to_string(),
             reasons: vec!["malformed pre-receive input".to_string()],
             grant_id: None,
+            backup_status: None,
             policy_version: "admission-v3.01".to_string(),
         };
     }
@@ -218,7 +241,9 @@ pub fn evaluate_pre_receive_line(line: &str, enforce_agent_ledger: bool) -> Admi
     let new_sha = parts[1].to_string();
     let ref_name = parts[2].to_string();
     let mut reasons = Vec::new();
-    let actor_kind = if is_agent_ref(&ref_name) {
+    let actor_kind = if actor_override == Some("jeryu") {
+        "jeryu"
+    } else if is_agent_ref(&ref_name) {
         "agent"
     } else {
         "human_or_system"
@@ -234,13 +259,27 @@ pub fn evaluate_pre_receive_line(line: &str, enforce_agent_ledger: bool) -> Admi
     }
 
     if actor_kind == "agent" {
-        reasons.push("agent intent ledger verification pending".to_string());
+        reasons.push("agent intent grant verification pending".to_string());
     }
+    apply_protected_ref_policy(
+        &old_sha,
+        &new_sha,
+        &ref_name,
+        &actor_kind,
+        non_fast_forward,
+        &mut reasons,
+    );
 
     let invalid_ref = reasons.iter().any(|reason| {
         reason.contains("not a git object id") || reason.contains("not fully qualified")
     });
-    let verdict = if invalid_ref || actor_kind == "agent" && enforce_agent_ledger {
+    let protected_denial = reasons.iter().any(|reason| {
+        reason.starts_with("protected branch")
+            || reason.starts_with("protected tag")
+            || reason.starts_with("non-fast-forward")
+    });
+    let verdict = if invalid_ref || protected_denial || actor_kind == "agent" && enforce_agent_grant
+    {
         AdmissionVerdict::Deny
     } else if actor_kind == "agent" {
         AdmissionVerdict::Audit
@@ -256,47 +295,60 @@ pub fn evaluate_pre_receive_line(line: &str, enforce_agent_ledger: bool) -> Admi
         actor_kind,
         reasons,
         grant_id: None,
+        backup_status: Some("not_required".to_string()),
         policy_version: "admission-v3.01".to_string(),
     }
 }
 
-/// Evaluates one pre-receive line and consults the durable capability ledger.
-pub async fn evaluate_pre_receive_line_with_db(
-    line: &str,
-    enforce_agent_ledger: bool,
-    db: &crate::state::Db,
-) -> AdmissionEvaluation {
-    let mut evaluation = evaluate_pre_receive_line(line, enforce_agent_ledger);
-    if evaluation.actor_kind != "agent" {
-        return evaluation;
+fn apply_protected_ref_policy(
+    old_sha: &str,
+    new_sha: &str,
+    ref_name: &str,
+    actor_kind: &str,
+    non_fast_forward: bool,
+    reasons: &mut Vec<String>,
+) {
+    if is_protected_branch(ref_name) {
+        if is_delete(new_sha) {
+            reasons.push("protected branch removal denied".to_string());
+        } else if actor_kind != "jeryu" && !is_create(old_sha) {
+            reasons.push("protected branch direct push denied; use JeRyu main-relay".to_string());
+        }
+        if non_fast_forward {
+            reasons.push("non-fast-forward protected branch push denied".to_string());
+        }
     }
 
-    let Some(ref_name) = evaluation.ref_name.as_deref() else {
-        return evaluation;
-    };
-    let new_sha = evaluation.new_sha.as_deref();
-    match db.active_capability_grant_for_ref(ref_name, new_sha).await {
-        Ok(Some(grant)) => {
-            evaluation.verdict = AdmissionVerdict::Allow;
-            evaluation.grant_id = Some(grant.grant_id);
-            evaluation
-                .reasons
-                .retain(|reason| reason != "agent intent ledger verification pending");
-            evaluation
-                .reasons
-                .push("agent write matched active capability grant".to_string());
-        }
-        Ok(None) => {}
-        Err(e) => {
-            if enforce_agent_ledger {
-                evaluation.verdict = AdmissionVerdict::Deny;
-            }
-            evaluation
-                .reasons
-                .push(format!("admission ledger lookup failed: {e}"));
+    if is_protected_tag(ref_name) && !is_create(old_sha) {
+        if is_delete(new_sha) {
+            reasons.push("protected tag removal denied".to_string());
+        } else {
+            reasons.push("protected tag rewrite denied".to_string());
         }
     }
-    evaluation
+}
+
+fn is_protected_branch(ref_name: &str) -> bool {
+    matches!(ref_name, "refs/heads/main" | "refs/heads/master")
+}
+
+fn is_protected_tag(ref_name: &str) -> bool {
+    ref_name.starts_with("refs/tags/v")
+}
+
+fn is_create(old_sha: &str) -> bool {
+    old_sha.bytes().all(|b| b == b'0')
+}
+
+fn is_delete(new_sha: &str) -> bool {
+    new_sha.bytes().all(|b| b == b'0')
+}
+
+fn is_non_fast_forward_marker() -> bool {
+    std::env::var("JERYU_ADMISSION_NON_FAST_FORWARD")
+        .ok()
+        .as_deref()
+        == Some("1")
 }
 
 fn is_agent_ref(ref_name: &str) -> bool {

@@ -1,0 +1,1026 @@
+Absolutely. The ideal answer is: **Jeryu should become a local-first Git control plane, not a Git replacement and not a mandatory hook system.** Hooks and `jeryu git` should be optional power tools. The durable source of truth should be a real Git repository store, guarded by server-side policy, mirrored aggressively, and backed up append-only.
+
+The repo already frames Jeryu as a “single-binary Rust control plane that wraps Git first” and keeps normal Git workflows familiar; it also currently supports `jeryu git ...`, optional repo-managed hook activation, GitLab/Vault/runners in server bootstrap, and remote/SSH provisioning. That is the right foundation, but I would separate “observability wrappers” from “enforcement” much more sharply. ([GitHub][1])
+
+## The core design decision
+
+There should be **three explicit modes**:
+
+| Mode                              |    User command |   Hooks? |              Enforcement? | Use case                      |
+| --------------------------------- | --------------: | -------: | ------------------------: | ----------------------------- |
+| **Direct Git / localhost server** |       `git ...` |       No |        Yes, on push/merge | Recommended default           |
+| **Jeryu wrapped Git**             | `jeryu git ...` | Optional | Client-side + server-side | Agent auditability            |
+| **Bind-only / pure local watch**  |       `git ...` |       No |       No hard enforcement | Maximum freedom / experiments |
+
+The important truth: **you cannot have “no hook, no remote, full direct Git” and also enforce “no main pushes.”** If a user has raw local Git access, they can always move local refs. Enforcement only becomes real when the update crosses a boundary: a server-side receive path, a GitLab/Gitaly path, or a hook/wrapper. Git’s own server-side receive hooks can reject pushes before refs update, while client hooks are local and bypassable. ([Git][2])
+
+So the best compromise is:
+
+> **No external remote. Yes localhost remote/server. No hook required. Full stock `git` commands.**
+
+That gives you real Git power while still letting Jeryu enforce protected branch policy when users push to the local Jeryu canonical repo.
+
+---
+
+# 1. Recommended command UX
+
+## New repo, local Jeryu source of truth, no hooks
+
+```bash
+jeryu serve --daemon --listen 127.0.0.1:8929
+
+mkdir my-app
+cd my-app
+
+jeryu repo init \
+  --name my-app \
+  --branch main \
+  --mode localhost \
+  --remote-name jeryu \
+  --no-hooks
+```
+
+Internally this should do approximately:
+
+```bash
+git init --initial-branch=main
+jeryu repo create --bare my-app
+git remote add jeryu http://127.0.0.1:8929/git/my-app.git
+git config remote.pushDefault jeryu
+git config branch.main.remote jeryu
+git config branch.main.merge refs/heads/main
+```
+
+Git already supports `git init --initial-branch=<branch>` and bare repositories, so this should stay boring and standards-compliant. ([Git][3])
+
+Then the user works normally:
+
+```bash
+git add .
+git commit -m "init"
+git push -u jeryu main
+
+git switch -c feat/parser
+git push -u jeryu feat/parser
+
+jeryu pr create --base main --head feat/parser
+jeryu pr merge 1
+```
+
+No `jeryu git`. No hook. No GitHub remote. No cloud dependency.
+
+## Existing repo
+
+```bash
+cd existing-project
+
+jeryu repo link \
+  --mode localhost \
+  --remote-name jeryu \
+  --no-hooks
+```
+
+This should **not overwrite `origin`**. Add a `jeryu` remote by default. If the user explicitly wants localhost to become `origin`, make that a separate scary flag:
+
+```bash
+jeryu repo link --mode localhost --remote-name origin --replace-origin
+```
+
+## Absolute “DIRECT, no hook, no Jeryu” escape hatch
+
+Even if hooks are installed, users should always be able to do:
+
+```bash
+git -c core.hooksPath=/dev/null status
+git -c core.hooksPath=/dev/null commit -m "raw git commit"
+git -c core.hooksPath=/dev/null rebase -i HEAD~10
+```
+
+Git documents that `core.hooksPath=/dev/null` disables hooks, so Jeryu should expose this cleanly too: ([Git][4])
+
+```bash
+jeryu repo hooks disable
+jeryu repo hooks status
+jeryu repo hooks enable
+```
+
+And internally:
+
+```bash
+git config --local --unset-all core.hooksPath || true
+```
+
+For a guaranteed one-command bypass, use the `-c core.hooksPath=/dev/null` form.
+
+---
+
+# 2. Localhost Git server: the cleanest architecture
+
+Jeryu should run a local Git smart HTTP or SSH service:
+
+```text
+Working tree
+  │
+  │ stock git push/fetch
+  ▼
+127.0.0.1:8929 / git-remote-jeryu
+  │
+  │ pre-receive policy
+  │ audit/evidence
+  │ backup queue
+  ▼
+Bare Git repo / Gitaly-backed repo
+```
+
+The canonical repo store should be **real Git**, not a custom Jeryu storage format:
+
+```text
+~/.jeryu/
+  repos/
+    my-app.git/          # bare Git repo
+  state/
+    redlinedb/
+  evidence/
+  backups/
+  logs/
+```
+
+Or, if you are leaning fully into the GitLab fork path:
+
+```text
+GitLab/Gitaly repo storage = canonical Git object store
+Jeryu = policy/control/agent/evidence layer
+```
+
+The GitLab-oriented route is excellent because GitLab already has protected branches, merge requests, runners, backup tooling, and restore semantics. Jeryu should add agent-first governance, better local UX, direct Git modes, evidence, backup paranoia, and resilience.
+
+## Add a Git remote helper too
+
+Install a `git-remote-jeryu` binary so this works:
+
+```bash
+git remote add jeryu jeryu://my-app
+git push jeryu main
+git fetch jeryu
+```
+
+Git supports custom remote helpers: when it sees an unsupported transport like `jeryu://`, it invokes `git remote-jeryu` as an independent process. That gives you a beautiful “direct Git” interface without pretending to be Git. ([Git][5])
+
+Recommended transport options:
+
+```bash
+# Simple, debuggable
+http://127.0.0.1:8929/git/my-app.git
+
+# Pretty, requires git-remote-jeryu
+jeryu://my-app
+
+# Local filesystem fallback
+file://$HOME/.jeryu/repos/my-app.git
+```
+
+Use HTTP or `jeryu://` for policy enforcement. Use file path only as a fallback because direct file pushes can bypass parts of the Jeryu server unless the bare repo itself has server hooks installed.
+
+---
+
+# 3. Policy model: `.jeryu/` as source of truth
+
+Use `.jeryu/` for Jeryu-specific config, but do **not** make Git automatically read arbitrary `.jeryu/gitconfig` by default. Git config includes are powerful, and Git supports `include.path` / `includeIf`, but auto-including repo-controlled config can become a footgun. ([Git][4])
+
+Recommended layout:
+
+```text
+.
+├── .jeryu/
+│   ├── policy.toml          # committed, authoritative repo policy
+│   ├── ci.toml              # Jeryu CI/test selection rules
+│   ├── backups.toml         # backup policy requirements
+│   ├── owners.toml          # optional source for generated CODEOWNERS
+│   ├── gitconfig.safe       # optional, whitelist-only Git defaults
+│   ├── hooks/               # optional hooks, never mandatory
+│   └── README.md
+├── CODEOWNERS               # shared GitHub/GitLab-compatible default
+├── .github/
+│   └── workflows/
+│       └── jeryu.yml
+├── .gitlab-ci.yml
+└── README.md
+```
+
+Example `.jeryu/policy.toml`:
+
+```toml
+version = 1
+
+[repo]
+default_branch = "main"
+canonical_remote = "jeryu"
+allow_raw_git = true
+hooks_required = false
+
+[branches.main]
+protected = true
+direct_push = "deny"
+force_push = "deny"
+delete = "deny"
+merge_strategy = "pr"
+required_reviews = 1
+require_code_owner_review = true
+required_checks = [
+  "jeryu/validate",
+  "jeryu/fmt",
+  "jeryu/test",
+]
+require_signed_commits = false
+require_linear_history = true
+
+[branches."release/*"]
+protected = true
+direct_push = "deny"
+force_push = "deny"
+delete = "deny"
+required_reviews = 2
+require_code_owner_review = true
+required_checks = ["jeryu/release-readiness"]
+
+[branches."feat/*"]
+protected = false
+force_push = "author-only"
+delete = "author-only"
+
+[tags]
+protect = ["v*"]
+allow_rewrite = false
+allow_delete = false
+
+[break_glass]
+enabled = true
+requires_reason = true
+requires_signed_commit = true
+requires_fresh_backup_minutes = 15
+notify = ["owners"]
+
+[backups]
+require_before_main_merge = true
+max_replication_lag_seconds = 300
+```
+
+## Policy precedence
+
+Use this order:
+
+```text
+Instance policy          /etc/jeryu/policy.toml
+Team/org policy          ~/.config/jeryu/orgs/<org>.toml
+Repo policy              .jeryu/policy.toml
+Local developer prefs    .jeryu/local.toml, untracked
+CLI flags                current command only
+```
+
+But for protected branches, **server policy wins**. A repo should be able to ask for stricter rules, not weaken instance-level safety.
+
+## Safe Git config import
+
+If you want `.jeryu/gitconfig.safe`, make it opt-in:
+
+```bash
+jeryu repo trust-gitconfig
+```
+
+Then Jeryu writes a local include:
+
+```ini
+[include]
+    path = ../.jeryu/gitconfig.safe
+```
+
+But only allow safe keys. Whitelist things like:
+
+```ini
+[pull]
+    rebase = true
+
+[rebase]
+    autoStash = true
+
+[push]
+    default = current
+
+[merge]
+    ff = only
+```
+
+Block dangerous or surprising keys unless explicitly approved:
+
+```text
+core.hooksPath
+core.sshCommand
+filter.*
+credential.*
+alias.*
+url.*.insteadOf
+include.*
+http.*
+remote.*
+```
+
+That keeps `.jeryu/` useful without creating a stealth execution/config injection problem.
+
+---
+
+# 4. Main branch protection and PR/MR flow
+
+The default should be:
+
+```text
+main:
+  no direct push
+  no force push
+  no delete
+  merge by Jeryu merge bot only
+  required status checks
+  required review
+  optional CODEOWNERS approval
+```
+
+GitLab’s own protected branch docs explicitly call out the important part: to prevent direct pushes, “Allowed to push and merge” must be set to **No one**, and merge requests should be required. ([GitLab][6])
+
+GitHub branch protection similarly supports requiring PR reviews, status checks, signed commits, linear history, merge queue, push restrictions, and deletion/force-push controls. ([GitHub Docs][7])
+
+## Server-side enforcement
+
+On push to `refs/heads/main`, Jeryu should reject with something human-readable:
+
+```text
+remote: JERYU POLICY: direct push to main is denied.
+remote:
+remote: Create a PR:
+remote:   git switch -c feat/my-change
+remote:   git push -u jeryu feat/my-change
+remote:   jeryu pr create --base main --head feat/my-change
+remote:
+remote: Emergency path:
+remote:   git push -o jeryu.break_glass=TICKET-123 ...
+```
+
+## Break-glass, but safely
+
+Emergency bypass should exist, but it should be audited and paranoid:
+
+```bash
+git push \
+  -o jeryu.break_glass=TICKET-123 \
+  -o jeryu.reason="production hotfix" \
+  jeryu HEAD:main
+```
+
+Jeryu should require:
+
+```text
+fresh backup exists
+actor is allowed
+reason is present
+audit record is written
+old main ref is archived
+notification is sent
+```
+
+Before accepting a break-glass push, Jeryu should snapshot the previous ref:
+
+```text
+refs/archive/main/2026-05-20T18-45-00Z
+```
+
+Do not rely only on reflogs. Reflogs expire and are not a substitute for backup.
+
+---
+
+# 5. GitHub and GitLab compatibility
+
+Keep standard files standard.
+
+GitHub workflows live in `.github/workflows`, and GitHub looks there for workflow files. ([GitHub Docs][8])
+GitLab CI starts from `.gitlab-ci.yml` at the project root by default. ([GitLab][9])
+
+So Jeryu should not invent weird replacements. It should generate or validate compatible files:
+
+```bash
+jeryu policy apply --target local
+jeryu policy apply --target gitlab
+jeryu policy apply --target github
+jeryu policy doctor --target all
+```
+
+## CODEOWNERS
+
+Use root `CODEOWNERS` as the shared default because both GitHub and GitLab support it. GitHub checks `.github/`, root, then `docs/`; GitLab checks root, `docs/`, then `.gitlab/`. A root `CODEOWNERS` is the least surprising common choice. ([GitHub Docs][10])
+
+Example:
+
+```text
+# CODEOWNERS
+*                       @neverhuman/core
+/.jeryu/                @neverhuman/core
+/.github/              @neverhuman/core
+/.gitlab-ci.yml         @neverhuman/core
+/crates/                @neverhuman/rust
+/docs/                  @neverhuman/docs
+```
+
+## Adapter strategy
+
+Jeryu policy should be the higher-level source:
+
+```text
+.jeryu/policy.toml
+      │
+      ├── local Jeryu protected branch rules
+      ├── GitLab protected branches / MR approvals
+      ├── GitHub branch protection / rulesets
+      ├── .github/workflows/jeryu.yml
+      └── .gitlab-ci.yml validation job
+```
+
+But do **not** assume GitHub/GitLab settings are fully represented by files in the repo. Branch protection settings are platform settings/API state. That means `jeryu policy doctor` is essential:
+
+```bash
+jeryu policy doctor --target github
+jeryu policy doctor --target gitlab
+```
+
+It should report drift:
+
+```text
+github/main:
+  expected: require PR reviews = true
+  actual:   false
+  fix:      jeryu policy apply --target github --branch main
+```
+
+## CI independence
+
+Given the GitHub Actions billing failure you hit, Jeryu should treat GitHub Actions as a **mirror/integration signal**, not the primary source of deploy readiness.
+
+Recommended:
+
+```text
+Primary CI:     Jeryu runners / GitLab runners / local runners
+GitHub Actions: optional mirror validation
+Merge gate:     Jeryu status checks
+GitHub mirror:  pushed after Jeryu green, not before
+```
+
+So when GitHub says “jobs not started because billing/spending limit,” Jeryu still has actionable local readiness logs.
+
+---
+
+# 6. Backups: do not trust one box, one GitLab, or one volume
+
+This is the part I would be most aggressive about.
+
+Git itself is distributed, so every clone is a partial safety net. But clones do **not** preserve everything: PRs/MRs, issues, CI logs, GitLab DB state, LFS, artifacts, secrets, runner config, project settings, and Jeryu evidence need separate backups.
+
+GitLab’s backup docs say the built-in backup archive includes database data, account/group settings, CI artifacts/logs, Git repositories, LFS objects, registries, wikis, uploads, snippets, and more; but it does **not** include `/etc/gitlab`, TLS/SSH keys, global/file hooks, object storage in some deployments, and other system files. ([GitLab][11])
+
+Also, restores require the exact same GitLab version/type and the GitLab secrets file, or encrypted data and auth flows can break. ([GitLab][12])
+
+## Backup principle
+
+Use this rule:
+
+```text
+Every repo gets:
+  1 local canonical bare repo
+  1 same-node snapshot
+  1 off-node Git mirror
+  1 off-node append-only bundle stream
+  1 full GitLab/Jeryu app backup
+  1 encrypted config/secrets backup stored separately
+```
+
+## Backup layers
+
+### Layer 0: server-side safety before refs move
+
+Before any destructive operation:
+
+```text
+force push
+branch delete
+tag delete
+main update
+release update
+```
+
+Jeryu should archive old refs:
+
+```text
+refs/archive/<repo>/<timestamp>/heads/main
+refs/archive/<repo>/<timestamp>/tags/v1.2.3
+```
+
+And create an emergency bundle:
+
+```bash
+git bundle create /var/backups/jeryu/bundles/my-app-before-main-20260520T184500Z.bundle --all
+```
+
+### Layer 1: Git mirror, no deletes
+
+Maintain off-node bare mirrors, but **never prune by default**.
+
+Initial setup:
+
+```bash
+ssh backup1 'mkdir -p /srv/git-mirrors/my-app.git && git init --bare /srv/git-mirrors/my-app.git'
+```
+
+Replication:
+
+```bash
+git push backup1 refs/heads/*:refs/heads/*
+git push backup1 refs/tags/*:refs/tags/*
+```
+
+For paranoid preservation, also push timestamped snapshots:
+
+```bash
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+git push backup1 "refs/heads/*:refs/snapshots/$STAMP/heads/*"
+git push backup1 "refs/tags/*:refs/snapshots/$STAMP/tags/*"
+```
+
+That way, even if someone deletes a branch locally later, old snapshots remain.
+
+### Layer 2: append-only bundles
+
+Every repo should emit timestamped bundles:
+
+```bash
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+git -C ~/.jeryu/repos/my-app.git bundle create \
+  "/srv/jeryu-backups/bundles/my-app-$STAMP.bundle" \
+  --all
+```
+
+Then verify:
+
+```bash
+git bundle verify "/srv/jeryu-backups/bundles/my-app-$STAMP.bundle"
+sha256sum "/srv/jeryu-backups/bundles/my-app-$STAMP.bundle" \
+  > "/srv/jeryu-backups/bundles/my-app-$STAMP.bundle.sha256"
+```
+
+Bundles are beautiful because they are portable, append-only, easy to rsync, and restorable without GitLab.
+
+### Layer 3: GitLab/Jeryu application backup
+
+For GitLab Omnibus:
+
+```bash
+sudo gitlab-backup create
+sudo gitlab-ctl backup-etc
+```
+
+GitLab documents `gitlab-ctl backup-etc` for configuration backups and says app backups default to `/var/opt/gitlab/backups`; Docker setups should mount volumes for app data and backups outside the container. ([GitLab][13])
+
+For Docker:
+
+```bash
+docker exec -t gitlab gitlab-backup create
+
+docker exec -t gitlab /bin/sh -c \
+  'gitlab-ctl backup-etc && cd /etc/gitlab/config_backup && cp $(ls -t | head -n1) /secret/gitlab/backups/'
+```
+
+For Jeryu state:
+
+```bash
+jeryu backup create --state --evidence --repos --manifest
+```
+
+This should include:
+
+```text
+Jeryu database
+repo registry
+policy cache
+PR/MR metadata
+audit events
+agent evidence
+runner config
+backup manifests
+```
+
+### Layer 4: rsync, no delete
+
+This is the off-node copy pattern I would use:
+
+```bash
+rsync -aHAX \
+  --numeric-ids \
+  --partial \
+  --ignore-existing \
+  --info=progress2 \
+  /srv/jeryu-backups/ \
+  backup@backup1:/srv/backups/jeryu/$(hostname)/
+```
+
+Do **not** use `--delete` for backup replication.
+
+`--ignore-existing` tells rsync to skip files that already exist on the destination, which is good for append-only backup files, but be careful: write backup files to a temporary name first, then atomically rename them to the final name before rsync sees them. Otherwise an interrupted transfer plus `--ignore-existing` can preserve a partial file forever. ([Linux Die][14])
+
+Recommended local staging pattern:
+
+```bash
+tmp="/srv/jeryu-backups/bundles/my-app-$STAMP.bundle.tmp"
+final="/srv/jeryu-backups/bundles/my-app-$STAMP.bundle"
+
+git -C "$repo" bundle create "$tmp" --all
+git bundle verify "$tmp"
+mv "$tmp" "$final"
+sha256sum "$final" > "$final.sha256"
+```
+
+Then rsync only finalized files.
+
+### Layer 5: cloud/offsite immutable storage
+
+Use at least one of:
+
+```text
+second physical server
+NAS in another building
+VPS with encrypted storage
+S3-compatible bucket with versioning/object lock
+Backblaze B2 / Wasabi / MinIO / rsync.net
+offline disk rotated weekly
+```
+
+Encrypt before leaving your control:
+
+```bash
+age -r "$BACKUP_RECIPIENT" \
+  -o "$final.age" \
+  "$final"
+```
+
+Store secrets/config backups separately from application backups. GitLab’s restore path needs secrets, but storing encrypted data and the decryption keys in the same place defeats the point.
+
+---
+
+# 7. A concrete backup script shape
+
+Something like this should exist as `jeryu backup run`, but the shell version makes the intent clear:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+HOST="$(hostname -f 2>/dev/null || hostname)"
+
+BACKUP_ROOT="/srv/jeryu-backups"
+BUNDLE_DIR="$BACKUP_ROOT/bundles"
+MANIFEST_DIR="$BACKUP_ROOT/manifests"
+GITLAB_DIR="$BACKUP_ROOT/gitlab"
+
+mkdir -p "$BUNDLE_DIR" "$MANIFEST_DIR" "$GITLAB_DIR"
+
+manifest="$MANIFEST_DIR/manifest-$HOST-$STAMP.txt"
+: > "$manifest"
+
+# 1. Bundle every Jeryu bare repo.
+for repo in "$HOME/.jeryu/repos/"*.git; do
+  [ -d "$repo" ] || continue
+
+  name="$(basename "$repo" .git)"
+  tmp="$BUNDLE_DIR/$name-$STAMP.bundle.tmp"
+  final="$BUNDLE_DIR/$name-$STAMP.bundle"
+
+  git -C "$repo" fsck --full
+  git -C "$repo" bundle create "$tmp" --all
+  git bundle verify "$tmp"
+
+  mv "$tmp" "$final"
+  sha256sum "$final" | tee -a "$manifest" > "$final.sha256"
+done
+
+# 2. GitLab application/config backups, if present.
+if command -v gitlab-backup >/dev/null 2>&1; then
+  sudo gitlab-backup create
+  sudo gitlab-ctl backup-etc --backup-path "$GITLAB_DIR"
+fi
+
+# 3. Jeryu state backup.
+if command -v jeryu >/dev/null 2>&1; then
+  jeryu backup create --state --evidence --output "$BACKUP_ROOT/jeryu-state-$STAMP.tar"
+  sha256sum "$BACKUP_ROOT/jeryu-state-$STAMP.tar" | tee -a "$manifest"
+fi
+
+# 4. Sync append-only to off-node.
+rsync -aHAX \
+  --numeric-ids \
+  --partial \
+  --ignore-existing \
+  "$BACKUP_ROOT/" \
+  "backup@backup1:/srv/backups/jeryu/$HOST/"
+```
+
+Jeryu should add:
+
+```bash
+jeryu backup verify --remote backup1
+jeryu backup restore-dry-run --latest --target /tmp/jeryu-restore-test
+jeryu backup doctor
+```
+
+The restore drill matters more than the backup command. A backup you have not restored is a rumor.
+
+---
+
+# 8. Merge safety: require backup before main moves
+
+For protected branches:
+
+```toml
+[backups]
+require_before_main_merge = true
+max_backup_age_minutes = 15
+require_off_node_replication = true
+min_replicas = 1
+```
+
+Merge flow:
+
+```text
+1. PR approved
+2. checks pass
+3. Jeryu creates pre-merge bundle
+4. Jeryu verifies local bundle
+5. Jeryu syncs bundle to at least one off-node target
+6. Jeryu merges using merge bot
+7. Jeryu archives old main ref
+8. Jeryu enqueues mirror updates
+```
+
+If off-node backup is unavailable, policy decides:
+
+```text
+main: block merge
+feature branch: allow push but warn
+break-glass: require explicit reason
+```
+
+That is exactly where the paranoia belongs.
+
+---
+
+# 9. Cool Jeryu extensions that should not break GitHub/GitLab
+
+## Use normal Git refs where possible
+
+Good:
+
+```text
+refs/heads/*
+refs/tags/*
+refs/notes/jeryu
+```
+
+Potentially okay locally, but do not require public hosts to preserve them:
+
+```text
+refs/jeryu/evidence/*
+refs/jeryu/archive/*
+refs/jeryu/pr/*
+```
+
+For maximum compatibility, keep Jeryu-only metadata in the Jeryu database and optionally export it to:
+
+```text
+.jeryu/evidence/*.json
+Git notes
+release artifacts
+backup manifests
+```
+
+## Features worth building
+
+### `jeryu policy doctor`
+
+Compares:
+
+```text
+.jeryu/policy.toml
+local Jeryu server policy
+GitLab protected branches
+GitHub branch protection/rulesets
+CODEOWNERS
+CI files
+```
+
+### `jeryu rescue`
+
+```bash
+jeryu rescue snapshot
+jeryu rescue list
+jeryu rescue restore refs/archive/main/...
+jeryu rescue bundle --all
+```
+
+### `jeryu mirror`
+
+```bash
+jeryu mirror add github git@github.com:neverhuman/jeryu.git
+jeryu mirror add backup1 ssh://backup1/srv/git-mirrors/jeryu.git --no-delete
+jeryu mirror status
+jeryu mirror sync --all
+```
+
+### `jeryu backup panic`
+
+Before risky operations:
+
+```bash
+jeryu backup panic --reason "before history rewrite"
+```
+
+Creates bundles, verifies them, and ships them off-node before continuing.
+
+### Agent-safe branches
+
+```toml
+[branches."agents/*"]
+protected = false
+max_lifetime_days = 14
+required_checks = ["jeryu/agent-audit"]
+allow_force_push = true
+
+[agents]
+require_identity = true
+record_prompts = false
+record_commands = true
+require_human_merge = true
+```
+
+### Evidence receipts
+
+For every merge:
+
+```text
+commit SHA
+base SHA
+head SHA
+actor
+reviews
+checks
+test selection proof
+backup manifest ID
+bundle checksum
+runner logs
+policy version
+```
+
+That is extremely Jeryu-native and does not interfere with GitHub/GitLab.
+
+---
+
+# 10. Implementation phases
+
+## Phase 1: direct mode MVP
+
+Build:
+
+```bash
+jeryu serve --daemon
+jeryu repo init --mode localhost --no-hooks
+jeryu repo link --mode localhost --no-hooks
+jeryu repo hooks enable|disable|status
+```
+
+Must support:
+
+```text
+stock git fetch
+stock git push
+stock git clone from localhost
+no hook required
+no origin overwrite
+```
+
+## Phase 2: protected branch enforcement
+
+Build server-side policy:
+
+```text
+deny direct push to main
+deny force-push to protected refs
+deny branch/tag deletion
+archive old refs before updates
+clear rejection messages
+break-glass path
+```
+
+## Phase 3: PR/MR and merge bot
+
+Build:
+
+```bash
+jeryu pr create
+jeryu pr status
+jeryu pr merge
+jeryu pr close
+```
+
+Merge bot is the only actor that can update protected `main`.
+
+## Phase 4: GitHub/GitLab adapters
+
+Build:
+
+```bash
+jeryu policy apply --target github
+jeryu policy apply --target gitlab
+jeryu policy doctor --target all
+jeryu ci emit --target github
+jeryu ci emit --target gitlab
+```
+
+Keep `.github/` and `.gitlab-ci.yml` standard.
+
+## Phase 5: backup/restore suite
+
+Build:
+
+```bash
+jeryu backup init
+jeryu backup create
+jeryu backup sync --no-delete
+jeryu backup verify
+jeryu backup restore-dry-run
+jeryu backup panic
+```
+
+This should be treated as a first-class product area, not an ops afterthought.
+
+---
+
+# The best default setup
+
+This is the setup I would ship as the default:
+
+```bash
+jeryu serve --daemon --listen 127.0.0.1:8929
+
+jeryu repo init \
+  --name my-app \
+  --branch main \
+  --mode localhost \
+  --remote-name jeryu \
+  --no-hooks \
+  --policy best-practices \
+  --backup-profile paranoid
+```
+
+It creates:
+
+```text
+stock Git repo
+localhost Jeryu remote
+bare canonical repo
+.jeryu/policy.toml
+root CODEOWNERS
+optional GitHub/GitLab CI adapters
+protected main policy
+backup manifest
+off-node backup instructions
+```
+
+And the user experience stays simple:
+
+```bash
+git status
+git add .
+git commit -m "change"
+git push jeryu feat/change
+jeryu pr create
+jeryu pr merge
+```
+
+That gives you the full power of Git, zero dependency on GitHub Actions billing, no mandatory hook, GitHub/GitLab compatibility, protected-main governance, and a backup posture that is appropriately paranoid.
+
+[1]: https://github.com/neverhuman/jeryu/ "GitHub - neverhuman/jeryu: Agent-first git, Gitlab fork with full agent support and TUI · GitHub"
+[2]: https://git-scm.com/docs/githooks "Git - githooks Documentation"
+[3]: https://git-scm.com/docs/git-init "Git - git-init Documentation"
+[4]: https://git-scm.com/docs/git-config "Git - git-config Documentation"
+[5]: https://git-scm.com/docs/gitremote-helpers "Git - gitremote-helpers Documentation"
+[6]: https://docs.gitlab.com/user/project/repository/branches/protected/ "Protected branches | GitLab Docs"
+[7]: https://docs.github.com/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches "About protected branches - GitHub Docs"
+[8]: https://docs.github.com/en/actions/concepts/workflows-and-actions/workflows "Workflows - GitHub Docs"
+[9]: https://docs.gitlab.com/ci/ "Get started with GitLab CI/CD | GitLab Docs"
+[10]: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners "About code owners - GitHub Docs"
+[11]: https://docs.gitlab.com/administration/backup_restore/backup_gitlab/ "Back up GitLab | GitLab Docs"
+[12]: https://docs.gitlab.com/administration/backup_restore/restore_gitlab/ "Restore GitLab | GitLab Docs"
+[13]: https://docs.gitlab.com/omnibus/settings/backups/ "Backup | GitLab Docs"
+[14]: https://linux.die.net/man/1/rsync?utm_source=chatgpt.com "rsync(1) - Linux man page"

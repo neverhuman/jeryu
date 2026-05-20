@@ -45,6 +45,12 @@ pub fn gitlab_logs_dir() -> PathBuf {
 pub fn gitlab_data_dir() -> PathBuf {
     data_dir().join("gitlab").join("data")
 }
+pub fn gitlab_pre_receive_hooks_dir() -> PathBuf {
+    gitlab_data_dir()
+        .join("gitaly")
+        .join("custom_hooks")
+        .join("pre-receive.d")
+}
 
 // ---------------------------------------------------------------------------
 // Defaults

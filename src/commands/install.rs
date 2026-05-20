@@ -23,6 +23,7 @@ pub(crate) async fn execute_install_command(cmd: InstallCommand) -> Result<i32> 
     };
     match cmd.action {
         None => install::run_local(&opts).await,
+        Some(InstallActionCommands::Guided) => install::run_guided(&opts).await,
         Some(InstallActionCommands::Doctor) => install::run_doctor(&opts).await,
         Some(InstallActionCommands::Smoke) => install::run_smoke(&opts).await,
         Some(InstallActionCommands::Server) => install::run_server(&opts).await,

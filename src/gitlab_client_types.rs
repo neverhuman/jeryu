@@ -199,6 +199,14 @@ pub(crate) struct CreateBranchReq<'a> {
 }
 
 #[derive(Serialize)]
+pub(crate) struct ProtectBranchReq<'a> {
+    pub(crate) name: &'a str,
+    pub(crate) push_access_level: i32,
+    pub(crate) merge_access_level: i32,
+    pub(crate) allow_force_push: bool,
+}
+
+#[derive(Serialize)]
 pub(crate) struct CreateProjectReq<'a> {
     pub(crate) name: &'a str,
     pub(crate) visibility: &'a str,

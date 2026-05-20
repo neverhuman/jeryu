@@ -193,9 +193,6 @@ Live-verified against OpenRouter + Groq + NVIDIA + GitHub APIs.
 EOF
 )"
 
-log "pushing to $REMOTE/$BRANCH..."
-git push -u "$REMOTE" "$BRANCH"
-
 # --- Open PR -----------------------------------------------------------
 log "opening PR via gh..."
 PR_BODY_FILE="$(mktemp)"
@@ -268,7 +265,11 @@ Design source of truth: `tips/fullauto/tip1.txt`. Public/conservative name:
 
 EOF
 
-PR_URL="$(gh pr create \
+PR_URL="$(bash "$REPO_ROOT/scripts/publish-pr.sh" \
+  --remote "$REMOTE" \
+  --branch "$BRANCH" \
+  --base "$BASE" \
+  -- gh pr create \
   --base "$BASE" \
   --head "$BRANCH" \
   --title "feat(autonomy): Evidence Gate / VibeGate Delivery Spine" \

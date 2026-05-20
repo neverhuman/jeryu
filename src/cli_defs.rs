@@ -6,8 +6,8 @@ use jeryu::remote::ServiceMode;
 
 use super::{
     AgentCommands, CacheCommands, HostCommands, JobCommands, LocalCommands, PipelineCommands,
-    PoolCommands, ReleaseCommands, RepoCommands, SecretsCommands, SettingsCommands, TestCommands,
-    parse_exec_script_path, parse_expanded_path,
+    PolicyCommands, PoolCommands, ReleaseCommands, RepoCommands, SecretsCommands, SettingsCommands,
+    TestCommands, parse_exec_script_path, parse_expanded_path,
 };
 
 #[derive(Args)]
@@ -43,6 +43,7 @@ pub(crate) struct InstallCommand {
 
 #[derive(Subcommand)]
 pub(crate) enum InstallActionCommands {
+    Guided,
     Doctor,
     Smoke,
     Server,
@@ -199,6 +200,8 @@ pub(crate) enum Commands {
     },
     #[command(subcommand)]
     Repo(RepoCommands),
+    #[command(subcommand)]
+    Policy(PolicyCommands),
     #[command(subcommand)]
     Host(HostCommands),
     #[command(subcommand, hide = true)]

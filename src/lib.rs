@@ -69,6 +69,7 @@ pub mod capsule;
 pub mod cargo_cache;
 pub mod config;
 pub mod db;
+pub use db::admission_repo as admission_records;
 pub mod decision;
 pub mod docker;
 pub mod engine;

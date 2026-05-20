@@ -1,0 +1,267 @@
+## The canonical path
+
+**Only `main` ships. Nothing reaches `main` except a PR that passed required checks. `main` builds exactly one immutable, signed artifact. Every environment deploys that same artifact by digest. Rollback means redeploy the previous known-good signed artifact.**
+
+That is the whole system.
+
+## The nonnegotiables
+
+1. **No secrets in Git. Ever.**
+   Enable server-side secret push protection or pre-receive scanning. Add local hooks too, but never trust them as the only control because Git client hooks can be bypassed with `--no-verify`. GitHub push protection is designed to block detected hardcoded credentials before they reach the repository, across command-line pushes, UI commits, file uploads, REST API requests, and public-repo MCP interactions. ([GitHub Docs][1])
+
+2. **No direct writes to `main`.**
+   `main` is protected by a ruleset. No human, bot, admin, agent, or release script pushes to it directly. Require a pull request before merging, block force-pushes, block deletions, require status checks, and require linear history. GitHub rulesets explicitly support requiring PRs, required checks, signed commits, linear history, and blocking force-pushes. ([GitHub Docs][2])
+
+3. **PRs are cheap; merges are controlled.**
+   Default: **0 human approvals** when CI, security checks, and agent review pass.
+   Exception: **1 human approval** for protected paths: auth, permissions, infra, deploy config, database migrations, billing, cryptography, public API contracts, safety-sensitive code. Use `CODEOWNERS`/required reviewers for those paths. CODEOWNERS can automatically request owners on PRs, and protected branch/ruleset settings can require approving reviews. ([GitHub Docs][3])
+
+4. **Use a merge queue for `main`.**
+   Agents will create high PR volume, so humans should not manually sequence merges. A merge queue validates each queued PR against the latest target branch plus earlier queued PRs before merging, which is exactly what you want when many contributors or agents are opening PRs concurrently. Configure CI to run on `merge_group`, not only `pull_request`, or queue checks will not fire. ([GitHub Docs][4])
+
+5. **Required checks must come from trusted apps only.**
+   Do not accept status checks from “any source.” Required checks should be bound to the expected CI app because status/check APIs can otherwise be updated by actors with sufficient repository permissions. GitHub rulesets allow selecting the expected source app for a required status check. ([GitHub Docs][5])
+
+6. **`main` runs full CI.**
+   PR CI may be optimized. `main` CI is the final truth. It runs full tests, security scanning, dependency checks, policy checks, packaging, artifact generation, signing, and provenance.
+
+7. **Build once. Promote the artifact. Never rebuild per environment.**
+   The release identity is the artifact digest, not a branch, tag, or version string. `dev`, `limited-prod`, and `full-prod` all deploy the same signed digest.
+
+8. **Artifacts are signed and attested.**
+   Use keyless signing where possible. Sigstore/Cosign supports signing containers with ephemeral keys using OIDC, and GitHub artifact attestations establish where and how software was built. Attestations are useful only when verified, so verification must be a deploy gate. ([Sigstore][6])
+
+9. **No long-lived deploy keys or cloud credentials in CI.**
+   Use OIDC to obtain short-lived cloud credentials. GitHub Actions OIDC lets workflows authenticate to cloud providers without static secrets and helps eliminate static, long-lived credentials from repositories. ([GitHub Docs][7])
+
+10. **Every deploy has automated rollback.**
+    Rollback means: stop rollout, redeploy the last known-good signed digest, verify health, then open a follow-up issue/PR. Do not “fix forward” during an incident unless rollback is impossible.
+
+---
+
+## The required repo setup
+
+For every repository:
+
+```text
+main ruleset:
+  require pull request before merging: true
+  required approvals: 0
+  required CODEOWNER/path approvals: 1 for protected paths
+  require status checks: true
+  required status check source: trusted CI app only
+  require merge queue: true
+  require CI on merge_group: true
+  require linear history: true
+  allowed merge method: squash only
+  block force pushes: true
+  block deletions: true
+  require signed commits: preferred
+  bypass list: empty, except break-glass security admin group
+```
+
+For GitHub Actions:
+
+```text
+actions policy:
+  only approved actions allowed
+  third-party actions pinned to full commit SHA
+  default workflow permissions: read-only
+  job permissions: least privilege
+  OIDC required for cloud auth
+  no repository deploy secrets unless impossible
+```
+
+GitHub’s own secure-use guidance says pinning an action to a full-length commit SHA is the way to use an action as an immutable release, and repository/org policies can require SHA pinning. ([GitHub Docs][8])
+
+---
+
+## The required hooks
+
+Local hooks are developer/agent convenience. Server-side controls are the law.
+
+### `.pre-commit-config.yaml`
+
+```yaml
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: <pin-to-release-or-full-sha>
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: <pin-to-release-or-full-sha>
+    hooks:
+      - id: check-added-large-files
+      - id: check-yaml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: check-merge-conflict
+```
+
+Use:
+
+```bash
+pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg
+pre-commit run --all-files
+```
+
+`pre-commit` manages hooks across languages and can install `pre-commit`, `pre-push`, and `commit-msg` hooks; Gitleaks detects secrets such as passwords, API keys, and tokens in repos and files. ([pre-commit.com][9])
+
+### Hook policy
+
+```text
+pre-commit:
+  block secrets
+  block malformed config
+  block huge accidental files
+  auto-format where safe
+
+pre-push:
+  run fast tests
+  run secret scan
+  block pushing directly to main locally
+
+commit-msg:
+  require useful message format
+  require ticket/change ID if your org uses one
+```
+
+But again: **hooks are not authority**. The remote must still block bad pushes.
+
+---
+
+## The CI/CD contract
+
+Every PR must produce:
+
+```text
+1. lint
+2. unit tests
+3. type/static checks
+4. secret scan
+5. dependency/vulnerability scan
+6. policy check
+7. agent review check
+8. changed-area tests
+9. merge_queue compatibility check
+```
+
+Every `main` commit must produce:
+
+```text
+1. full CI
+2. full security scan
+3. SBOM
+4. immutable artifact
+5. artifact signature
+6. provenance attestation
+7. deploy to local/dev
+8. verify signature + attestation before deploy
+9. promote same digest to limited prod
+10. promote same digest to full prod
+```
+
+Artifact attestations should include build provenance such as workflow, repository, environment, commit SHA, and triggering event; GitHub’s docs also warn that attestations must be verified for the benefit to be realized. ([GitHub Docs][10])
+
+---
+
+## The release path
+
+```text
+agent/human branch
+  -> PR
+  -> required PR checks
+  -> optional 0/1 review
+  -> merge queue
+  -> main
+  -> full CI
+  -> build artifact once
+  -> sign artifact
+  -> attest provenance
+  -> deploy dev
+  -> verify
+  -> deploy limited prod
+  -> observe
+  -> deploy full prod
+  -> observe
+```
+
+Deployment environments should have protection rules. GitHub environments can require conditions before a deployment job proceeds, including manual approval, wait timers, branch restrictions, or custom protection rules backed by external systems such as observability or change-management tools. ([GitHub Docs][11])
+
+---
+
+## The agent-era rules
+
+Agents are allowed to make PRs. They are not allowed to weaken the system.
+
+```text
+Agent rules:
+  one agent identity per agent/service
+  least-privilege token
+  no admin permissions
+  no direct main writes
+  no bypass permissions
+  no secret access on PR workflows from forks
+  no self-approval
+  no merging without trusted CI
+  every PR must state intent, risk, tests, rollback
+  every PR must be small enough to review quickly
+  duplicate PRs are auto-closed or queued behind the first
+```
+
+The canonical PR template:
+
+```md
+## Intent
+What is this changing?
+
+## Risk
+Low / Medium / High
+
+## Tests
+What passed?
+
+## Rollback
+How do we revert or disable this safely?
+
+## Agent
+Human / Agent name / Model / Run ID
+```
+
+---
+
+## The shortest possible doctrine
+
+```text
+Protect main.
+PR only.
+No bypass.
+No secrets.
+Trusted CI only.
+Merge queue always.
+Build once from main.
+Sign and attest every release artifact.
+Verify before every deploy.
+Promote the same digest through environments.
+Rollback by redeploying the previous signed digest.
+Agents may propose; the system decides.
+```
+
+That is the golden path. Everything else is a footgun until proven otherwise.
+
+[1]: https://docs.github.com/en/code-security/concepts/secret-security/about-push-protection "About push protection - GitHub Docs"
+[2]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets "Available rules for rulesets - GitHub Docs"
+[3]: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners "About code owners - GitHub Docs"
+[4]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue "Managing a merge queue - GitHub Docs"
+[5]: https://docs.github.com/articles/about-status-checks "About status checks - GitHub Docs"
+[6]: https://docs.sigstore.dev/cosign/signing/signing_with_containers/ "Signing Containers - Sigstore"
+[7]: https://docs.github.com/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect "OpenID Connect - GitHub Docs"
+[8]: https://docs.github.com/en/actions/reference/security/secure-use "Secure use reference - GitHub Docs"
+[9]: https://pre-commit.com/ "pre-commit"
+[10]: https://docs.github.com/en/actions/concepts/security/artifact-attestations "Artifact attestations - GitHub Docs"
+[11]: https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments "Deployments and environments - GitHub Docs"

@@ -22,7 +22,7 @@ fn quality_gate_stub(log_path: &Path) -> PathBuf {
     fs::write(
         &stub,
         format!(
-            "#!/usr/bin/env bash\nprintf 'quality-gates\\n' >> '{}'\n",
+            "#!/usr/bin/env bash\nprintf 'quality-gates:%s\\n' \"$*\" >> '{}'\n",
             log_path.display()
         ),
     )
@@ -110,7 +110,7 @@ fn pre_push_delegates_non_main_pushes_to_quality_gates() {
     );
     let log = fs::read_to_string(&log_path).expect("quality gate log");
     assert!(
-        log.contains("quality-gates"),
+        log.contains("quality-gates:--fast --no-audit"),
         "quality gate stub was not invoked"
     );
 }
