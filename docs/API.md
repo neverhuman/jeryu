@@ -711,7 +711,7 @@ Critical guardrails:
 
 ## 10. State API
 
-State is owned by `Db` in `src/state.rs`. RedlineDB is the embedded state backend and is selected with `JERYU_DATABASE_URL=redline:...` file URLs. RedlineDB remains the embedded fallback when `JERYU_DATABASE_URL` is absent, and explicit `redline:` URLs are supported for tests and development. `scripts/install-redlinedb.sh` installs the pinned RedlineDB v1.0.1 host binary from the upstream release tarball, requires the matching `.sha256` asset, and verifies the archive before extraction. Use `REDLINEDB_VERSION` only when intentionally moving to another RedlineDB release, and use `REDLINEDB_INSTALL_MODE=verify` only for offline checks of an already-installed binary. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped backend-neutral helpers.
+State is owned by `Db` in `src/state.rs`. RedlineDB is the embedded state backend and is selected with `JERYU_DATABASE_URL=redline:...` file URLs. RedlineDB remains the embedded fallback when `JERYU_DATABASE_URL` is absent, and explicit `redline:` URLs are supported for tests and development. `scripts/install-redlinedb.sh` installs the pinned RedlineDB v1.0.1 host binary from the checked-in `scripts/redlinedb-manifest.json`, verifies the archive against its pinned SHA256 before extraction, and installs `redlinedb` under `$HOME/.local/bin`. Use `REDLINEDB_INSTALL_MODE=verify` only for offline checks of an already-installed binary. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped backend-neutral helpers.
 
 ### 10.1 Core Tables
 
