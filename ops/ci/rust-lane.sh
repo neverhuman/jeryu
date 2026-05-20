@@ -96,7 +96,7 @@ case "$STAGE" in
     ;;
   test-integration)
     bash scripts/install-redlinedb.sh
-    cargo test --tests --verbose
+    cargo test --tests --verbose -- --test-threads=1
     ;;
   tui-smoke)
     bash scripts/install-redlinedb.sh

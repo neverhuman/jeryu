@@ -126,7 +126,8 @@ run "cargo clippy --workspace --exclude jeryu --all-targets --all-features -- -D
 run "just fast" just fast
 run "cargo build --verbose" cargo build --verbose
 run "cargo test --lib --verbose" cargo test --lib --verbose
-run "cargo test --tests --verbose" cargo test --tests --verbose
+run "cargo test --tests --verbose -- --test-threads=1" \
+    cargo test --tests --verbose -- --test-threads=1
 run "TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1" \
     env TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1
 run "cargo test --test ssh_install_test -- --ignored --test-threads=1" \

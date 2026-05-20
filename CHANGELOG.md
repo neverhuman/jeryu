@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `VERSION`, and `version.json`.
 - Made the domain `RepairHint` API, metadata, and docs identify the
   agent-friendly exception pattern used for local repair routing.
+- Aligned local and CI integration lanes with the documented
+  `--test-threads=1` RedlineDB proof command.
 - Added the agent-first repository standardizer and hard-switched managed
   autonomy files to `.jeryu/`, with checked-in release-ready receipts required
   for non-dry-run releases.

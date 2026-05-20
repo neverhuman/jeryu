@@ -62,9 +62,9 @@ run "Build" cargo build --verbose
 # ─── 5. Library tests (matches CI: cargo nextest run -p jeryu --lib) ─────────
 run "Library Tests (nextest)" cargo nextest run -p jeryu --lib
 
-# ─── 6. Integration tests (matches CI: cargo test --tests --verbose) ─────────
+# ─── 6. Integration tests (matches CI: cargo test --tests --verbose -- --test-threads=1) ──
 if [[ "$FAST" == "0" ]]; then
-    run "Integration Tests" cargo test --tests
+    run "Integration Tests" cargo test --tests --verbose -- --test-threads=1
 fi
 
 # ─── 7. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
