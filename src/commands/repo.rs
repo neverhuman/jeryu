@@ -6,6 +6,7 @@ use anyhow::Result;
 
 use crate::cli::RepoCommands;
 use jeryu::repo;
+use jeryu::repo_standard::{RepoStandardMode, RepoStandardOptions};
 
 pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
     match cmd {
@@ -65,10 +66,34 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
                 repo::hooks_install(profile, mode).await
             }
         },
+        RepoCommands::Standard(subcmd) => match subcmd {
+            crate::cli::RepoStandardCommands::Plan(cmd) => {
+                jeryu::repo_standard::run_standard(RepoStandardMode::Plan, standard_options(cmd))
+            }
+            crate::cli::RepoStandardCommands::Apply(cmd) => {
+                jeryu::repo_standard::run_standard(RepoStandardMode::Apply, standard_options(cmd))
+            }
+            crate::cli::RepoStandardCommands::Verify(cmd) => {
+                jeryu::repo_standard::run_standard(RepoStandardMode::Verify, standard_options(cmd))
+            }
+        },
         RepoCommands::JankuraiFast { changed_from } => repo::jankurai_fast(&changed_from).await,
         RepoCommands::RedlineStateProof => repo::state_proof().await,
         RepoCommands::CaptureTuiScreenshots { output_dir } => {
             repo::capture_tui_screenshots(output_dir).await
         }
+    }
+}
+
+fn standard_options(cmd: crate::cli::RepoStandardCommand) -> RepoStandardOptions {
+    RepoStandardOptions {
+        path: cmd.path,
+        profile: cmd.profile,
+        provider: cmd.provider,
+        base_branch: cmd.base_branch,
+        repo_slug: cmd.repo,
+        autonomy_dir: cmd.autonomy_dir,
+        configure_git_hooks: cmd.configure_git_hooks,
+        json: cmd.json,
     }
 }

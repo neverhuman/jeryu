@@ -1,4 +1,4 @@
-//! Per-role fallback router.
+//! Per-role failover router.
 //!
 //! Walks a chain of (provider, model, params) entries and returns the first
 //! successful response. On `Auth` it stops (key is bad globally); on
@@ -67,7 +67,7 @@ impl LlmRouter {
                     last_err = Some(e);
                     break;
                 }
-                Err(e) if e.is_retryable_on_fallback() => {
+                Err(e) if e.is_retryable_on_failover() => {
                     last_err = Some(e);
                     continue;
                 }

@@ -3,6 +3,7 @@ use clap::{CommandFactory, Parser};
 use jeryu::install::{ColorMode, InteractiveMode, PathMode};
 use jeryu::remote::ServiceMode;
 use jeryu::repo::{HookMode, HookProfile, RepoMode};
+use jeryu::repo_standard::StandardProvider;
 
 #[test]
 fn release_watch_accepts_ref_alias() {
@@ -299,6 +300,44 @@ fn repo_mode_and_hooks_commands_parse() {
         Commands::Repo(RepoCommands::Hooks(RepoHookCommands::Install { profile, mode })) => {
             assert_eq!(profile, HookProfile::PreCommitJankurai);
             assert_eq!(mode, HookMode::Advisory);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
+fn repo_standard_apply_parses_defaults_and_overrides() {
+    let cli = Cli::parse_from([
+        "jeryu",
+        "repo",
+        "standard",
+        "apply",
+        ".",
+        "--profile",
+        "sovereign_plus",
+        "--provider",
+        "github",
+        "--base-branch",
+        "main",
+        "--repo",
+        "neverhuman/warp",
+        "--autonomy-dir",
+        ".jeryu/autonomy",
+        "--json",
+    ]);
+    match cli.command {
+        Commands::Repo(RepoCommands::Standard(crate::cli::RepoStandardCommands::Apply(cmd))) => {
+            assert_eq!(cmd.path, std::path::PathBuf::from("."));
+            assert_eq!(cmd.profile, "sovereign_plus");
+            assert_eq!(cmd.provider, StandardProvider::Github);
+            assert_eq!(cmd.base_branch, "main");
+            assert_eq!(cmd.repo.as_deref(), Some("neverhuman/warp"));
+            assert_eq!(
+                cmd.autonomy_dir,
+                std::path::PathBuf::from(".jeryu/autonomy")
+            );
+            assert!(cmd.configure_git_hooks);
+            assert!(cmd.json);
         }
         _ => panic!("unexpected command parsed"),
     }

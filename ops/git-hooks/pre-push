@@ -3,7 +3,7 @@
 # Wire up with: cargo run -p jeryu -- repo install-git-hooks
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-QUALITY_GATES_SCRIPT="${JERYU_PRE_PUSH_QUALITY_GATES:-$SCRIPT_DIR/../../scripts/ci-parity.sh}"
+QUALITY_GATES_SCRIPT="${JERYU_PRE_PUSH_QUALITY_GATES:-$SCRIPT_DIR/../ci/quality-gates.sh}"
 
 while true; do
   local_ref=""
@@ -22,4 +22,4 @@ while true; do
   fi
 done
 
-exec bash "$QUALITY_GATES_SCRIPT" --fast --no-audit
+exec bash "$QUALITY_GATES_SCRIPT"

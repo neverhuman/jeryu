@@ -8,7 +8,7 @@
 //! shared between producer and consumer via a `OnceCell` singleton.
 //!
 //! Feature-gated behind `jansu-broker` (default-on). With the feature off,
-//! webhook handlers fall back to the legacy inline call path.
+//! webhook handlers reject events instead of changing delivery semantics.
 
 #[cfg(feature = "jansu-broker")]
 pub mod broker;

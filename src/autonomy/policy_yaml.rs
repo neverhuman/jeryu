@@ -1,9 +1,7 @@
-//! Strict-typed loaders for `.autonomy/policies/*.yml`.
+//! Strict-typed loaders for `.jeryu/autonomy/policies/*.yml`.
 //!
 //! Decision #3: YAML-only policy with named-condition references; no DSL.
-//! These loaders are deliberately permissive on optional fields so policy
-//! edits in real .autonomy/ files don't break compile, but every meaningful
-//! field is materialized as a typed Rust value.
+//! These loaders accept only canonical policy keys so policy drift fails closed.
 
 use crate::autonomy::freeze::FreezeWindows;
 use crate::autonomy::types::{ReviewerRole, RiskTier};
@@ -14,6 +12,7 @@ use std::path::Path;
 // --- risk.yml ------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct RiskMatcher {
     #[serde(default)]
     pub paths_match: Vec<String>,
@@ -36,6 +35,7 @@ pub struct RiskMatcher {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RiskTierEntry {
     pub id: RiskTier,
     #[serde(default)]
@@ -53,6 +53,7 @@ pub struct RiskTierEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RiskPolicy {
     pub schema: String,
     pub tiers: Vec<RiskTierEntry>,
@@ -63,6 +64,7 @@ pub struct RiskPolicy {
 // --- approvals.yml -------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApprovalRules {
     #[serde(default = "true_default")]
     pub no_self_approval: bool,
@@ -92,6 +94,7 @@ impl Default for ApprovalRules {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct HardStopEntry {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -99,6 +102,7 @@ pub struct HardStopEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct QuorumEntry {
     #[serde(default)]
     pub approvals_needed: u32,
@@ -113,15 +117,14 @@ pub struct QuorumEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApprovalsPolicy {
     pub schema: String,
-    /// Tip1 calls this `invariants`; some configs name it `rules`. Accept both.
-    #[serde(default, alias = "rules")]
+    /// Required invariants for approval evaluation.
     pub invariants: ApprovalRules,
     #[serde(default)]
     pub hard_stops: Vec<HardStopEntry>,
     /// Per-tier quorum, keyed by `R0..R5`.
-    #[serde(default)]
     pub quorum: HashMap<RiskTier, QuorumEntry>,
     #[serde(default)]
     pub verdict_ttl_minutes: Option<u32>,
@@ -132,6 +135,16 @@ pub struct ApprovalsPolicy {
 // --- release.yml ---------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CanaryRollbackOn {
+    pub error_rate_relative_increase: f64,
+    pub p95_latency_relative_increase: f64,
+    pub crash_loop: bool,
+    pub security_signal: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CanaryRules {
     #[serde(default)]
     pub initial_percent: u8,
@@ -139,33 +152,49 @@ pub struct CanaryRules {
     pub max_percent_without_human: u8,
     #[serde(default)]
     pub analysis_minutes: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rollback_on: Option<CanaryRollbackOn>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NightwatchRules {
+    pub may_rollback: bool,
+    pub may_promote: bool,
+    pub may_pause_pipeline: bool,
+    pub may_page_human: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReleaseBuildRules {
+    pub build_once: bool,
+    pub require_sbom: bool,
+    pub require_slsa_provenance: bool,
+    pub require_artifact_signature: bool,
+    pub require_rollback_plan: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReleasePolicy {
     pub schema: String,
-    #[serde(default)]
-    pub build_once: bool,
-    #[serde(default)]
-    pub require_sbom: bool,
-    #[serde(default)]
-    pub require_slsa_provenance: bool,
-    #[serde(default)]
-    pub require_artifact_signature: bool,
-    #[serde(default)]
-    pub require_rollback_plan: bool,
+    pub build: ReleaseBuildRules,
     #[serde(default)]
     pub canary: Option<CanaryRules>,
+    #[serde(default)]
+    pub nightwatch: Option<NightwatchRules>,
+    #[serde(default)]
+    pub release_ready_receipts: Vec<String>,
 }
 
 // --- protected-paths.yml -------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProtectedPathsPolicy {
     pub schema: String,
     /// Paths whose change ALWAYS requires a human (R4 floor).
-    /// Tip1 uses `hard_human`; some configs use `paths`. Accept both.
-    #[serde(default, alias = "paths")]
     pub hard_human: Vec<String>,
     /// Path-based semantic triggers (documentation; logic lives in conditions registry).
     #[serde(default)]
@@ -175,6 +204,7 @@ pub struct ProtectedPathsPolicy {
 // --- freeze.yml ----------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct FreezeRules {
     #[serde(default)]
     pub weekends: bool,
@@ -185,6 +215,7 @@ pub struct FreezeRules {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FreezePolicy {
     pub schema: String,
     #[serde(default)]
@@ -200,7 +231,7 @@ pub struct PolicyBundle {
     pub release: ReleasePolicy,
     pub protected_paths: ProtectedPathsPolicy,
     /// Strict-typed freeze schedule (vibegate.freeze.v1). `None` when
-    /// `.autonomy/policies/freeze.yml` is missing — in which case no freeze
+    /// `.jeryu/autonomy/policies/freeze.yml` is missing — in which case no freeze
     /// enforcement runs, but operators see no error either.
     pub freeze: Option<FreezeWindows>,
 }
@@ -248,11 +279,22 @@ mod tests {
 
     #[test]
     fn loads_repo_autonomy_policies() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies");
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies");
         let bundle = PolicyBundle::from_dir(&dir).expect("loads policy bundle");
         assert_eq!(bundle.risk.schema, "vibegate.risk.v1");
         assert!(bundle.risk.tiers.iter().any(|t| t.id == RiskTier::R5));
         assert!(bundle.approvals.invariants.no_self_approval);
+        assert!(bundle.release.build.build_once);
+        assert!(bundle.release.build.require_sbom);
+        assert!(bundle.release.build.require_slsa_provenance);
+        assert!(bundle.release.build.require_artifact_signature);
+        assert!(bundle.release.build.require_rollback_plan);
+        assert!(
+            bundle
+                .release
+                .release_ready_receipts
+                .contains(&"proof-receipt".to_string())
+        );
         assert!(!bundle.protected_paths.hard_human.is_empty());
         assert!(
             bundle
@@ -288,5 +330,32 @@ quorum:
         assert_eq!(p.hard_stops.len(), 2);
         assert_eq!(p.quorum.get(&RiskTier::R2).unwrap().approvals_needed, 2);
         assert!(p.quorum.get(&RiskTier::R4).unwrap().human_required);
+    }
+
+    #[test]
+    fn noncanonical_policy_keys_are_rejected() {
+        let approvals = r#"
+schema: vibegate.approvals.v1
+rules: { no_self_approval: true }
+hard_stops: []
+quorum: {}
+"#;
+        assert!(serde_yaml::from_str::<ApprovalsPolicy>(approvals).is_err());
+
+        let protected_paths = r#"
+schema: vibegate.protected-paths.v1
+paths: [".github/**"]
+"#;
+        assert!(serde_yaml::from_str::<ProtectedPathsPolicy>(protected_paths).is_err());
+
+        let release = r#"
+schema: vibegate.release.v1
+build_once: true
+require_sbom: true
+require_slsa_provenance: true
+require_artifact_signature: true
+require_rollback_plan: true
+"#;
+        assert!(serde_yaml::from_str::<ReleasePolicy>(release).is_err());
     }
 }

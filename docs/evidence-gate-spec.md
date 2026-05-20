@@ -19,7 +19,7 @@ The spec is split into three parts:
 2. **The risk model** — the six tiers R0 through R5, with the matchers and
    quorum each tier triggers.
 3. **The eight typed objects** — JSON Schema definitions, copied verbatim
-   from the canonical files under `.autonomy/schemas/`, with a short
+   from the canonical files under `.jeryu/autonomy/schemas/`, with a short
    preamble explaining why each object exists and how it is produced.
 
 Throughout this document the terms **agent**, **reviewer**, **judge**, and
@@ -63,7 +63,7 @@ voids the trust model.
 ### Law 3 — Policy comes from the target branch, never the PR branch
 
 > A malicious or mistaken agent must not be able to weaken
-> `.autonomy/**`, CI, CODEOWNERS, security policy, or deployment rules
+> `.jeryu/autonomy/**`, CI, CODEOWNERS, security policy, or deployment rules
 > inside the same branch it wants approved.
 
 ### Law 4 — Every decision is exact-SHA-bound
@@ -98,13 +98,13 @@ Failure of any row is non-conforming.
 
 | Law | Test | Where enforced today |
 | --- | --- | --- |
-| 1 | A direct push to a protected branch by an agent identity is rejected at the platform layer. | `.autonomy/policies/protected-paths.yml`, branch protection on the hosting platform. |
+| 1 | A direct push to a protected branch by an agent identity is rejected at the platform layer. | `.jeryu/autonomy/policies/protected-paths.yml`, branch protection on the hosting platform. |
 | 2 | An `AgentApprovalReceipt` whose `agent_id` matches `EvidencePack.author_agent` is dropped from quorum. | `src/approval/quorum.rs` `no_self_approval` check. |
 | 3 | The `policy_sha` on every receipt and verdict is loaded from the target branch's commit, not the PR branch. | `src/autonomy/policy_yaml.rs` (`PolicyBundle::from_dir`), `src/agent_review/judge.rs:42-50`. |
 | 4 | A `VibeGateVerdict` is valid only when `head_sha`, `policy_sha`, and `evidence_pack_digest` all match the current MR/PR head. Drift → `RequireHuman`. | `src/approval/sha_bind.rs`, `src/agent_review/judge.rs:46-52`. |
-| 5 | Any triggered hard-stop in `.autonomy/policies/approvals.yml::hard_stops` overrides every passing reviewer. | `src/autonomy/conditions.rs`, `src/agent_review/judge.rs:55-67`. |
-| 6 | The artifact digest in `ReleasePassport.artifact_digest` is reused unchanged across all `allowed_environments`. | `.autonomy/schemas/release-passport.schema.json`. |
-| 7 | Deploys to `prod` require a non-empty `ReleasePassport.rollback_plan.tested == true`. | `.autonomy/schemas/release-passport.schema.json`. |
+| 5 | Any triggered hard-stop in `.jeryu/autonomy/policies/approvals.yml::hard_stops` overrides every passing reviewer. | `src/autonomy/conditions.rs`, `src/agent_review/judge.rs:55-67`. |
+| 6 | The artifact digest in `ReleasePassport.artifact_digest` is reused unchanged across all `allowed_environments`. | `.jeryu/autonomy/schemas/release-passport.schema.json`. |
+| 7 | Deploys to `prod` require a non-empty `ReleasePassport.rollback_plan.tested == true`. | `.jeryu/autonomy/schemas/release-passport.schema.json`. |
 | 5b | The single visible required check posted to the git host is named **exactly** `vibegate/merge-passport`. No per-reviewer check-run is required by branch protection. | `src/git_host/mod.rs` (`VIBEGATE_MERGE_PASSPORT_CHECK_NAME`), `src/git_host/github.rs` (`GitHubClient::post_merge_passport_check`). See "Visible required check name" below. |
 
 ---
@@ -113,7 +113,7 @@ Failure of any row is non-conforming.
 
 The risk model has six tiers, R0 through R5. Each MR/PR is classified
 into exactly one tier by the rules in
-`/home/ubuntu/jeryu/.autonomy/policies/risk.yml`. The classifier walks
+`/home/ubuntu/jeryu/.jeryu/autonomy/policies/risk.yml`. The classifier walks
 the tiers top-down (R5 first) and the first matching tier wins. This
 intentionally implements **veto semantics**: a hard-stop tier (R5 or R4)
 cannot be undone by a lower tier matcher applying later.
@@ -125,7 +125,7 @@ cannot be undone by a lower tier matcher applying later.
 | **R0** | Docs, comments, formatting, harmless metadata | Yes | none | No |
 | **R1** | Small isolated code change with strong targeted tests | Yes | `test_integrity` | No |
 | **R2** | Normal product change (default catch-all) | Yes | `test_integrity`, `security` | No |
-| **R3** | Large, novel, dependency, performance, data, or broad behavior change | No | `test_integrity`, `security`, `runtime`, `lockfile_scout` | Yes |
+| **R3** | Large, novel, dependency, performance, data, or broad behavior change | No | `test_integrity`, `security`, `runtime`, `lockfile` | Yes |
 | **R4** | Auth, crypto, secrets, infra, CI, policy, release, prod, prompt/judge rules | No | n/a | Yes (fail-closed without human) |
 | **R5** | Missing/tampered evidence, suspicious behavior, emergency, unknown blast radius | No | n/a | Yes (fail-closed) |
 
@@ -139,7 +139,7 @@ Every matcher referenced under `tiers[].matchers[]` in
 - `paths_only_in: ["glob", ...]` — every changed file matches at least
   one of the globs. (Stronger than `paths_match`.)
 - `any_path_matches_protected: true` — any changed file matches the
-  union of globs in `.autonomy/policies/protected-paths.yml`.
+  union of globs in `.jeryu/autonomy/policies/protected-paths.yml`.
 - `lines_changed_gte: N` / `lines_changed_lte: N` — total added plus
   removed lines across the diff.
 - `all_files_have_targeted_tests: true` — every changed source file has
@@ -205,7 +205,7 @@ for the reference implementation.
 ### Quorum per tier
 
 The quorum table is loaded from
-`/home/ubuntu/jeryu/.autonomy/policies/approvals.yml`. Each entry names
+`/home/ubuntu/jeryu/.jeryu/autonomy/policies/approvals.yml`. Each entry names
 the reviewer roles that must emit `decision == "pass"` for the verdict
 to be `allow_merge`. `human_required: true` forces `RequireHuman` even
 when every reviewer passes.
@@ -217,7 +217,7 @@ quorum:
   R2: { approvals_needed: 2, roles: [test_integrity, security], human_required: false }
   R3:
     approvals_needed: 4
-    roles: [test_integrity, security, runtime, lockfile_scout]
+    roles: [test_integrity, security, runtime, lockfile]
     human_required: true
   R4: { approvals_needed: 0, roles: [], human_required: true, fail_closed_without_human: true }
   R5: { approvals_needed: 0, roles: [], human_required: true, fail_closed: true }
@@ -249,9 +249,9 @@ merge lands.
 
 Every durable autonomy decision is a JSON object that conforms to one
 of the eight schemas below. The schemas live at
-`/home/ubuntu/jeryu/.autonomy/schemas/*.schema.json` and are loaded at
+`/home/ubuntu/jeryu/.jeryu/autonomy/schemas/*.schema.json` and are loaded at
 deserialization time via the `SchemaTag<T>` type — an unknown or
-mismatched `schema` field is a hard parse error, not a fallback case.
+mismatched `schema` field is a hard parse error, not a recovery path.
 
 The objects are presented in the order they appear in a normal
 end-to-end flow.
@@ -395,9 +395,9 @@ The Evidence Pack carries a `policy_sha` field that names the
 target-branch policy commit so reviewers and the judge enforce Law 3
 (policy from target branch, never PR branch).
 
-The `legacy_receipts` array carries pre-existing receipt records from
-`src/release/gate.rs` verbatim, so this object is back-compatible with
-the older `release.policy.toml` flow.
+The `gate_receipts` array carries required receipt records from
+`src/release/gate.rs` verbatim, binding the Evidence Pack to the
+`release.policy.toml` gate.
 
 ```json
 {
@@ -471,9 +471,9 @@ the older `release.policy.toml` flow.
         "data_migration_reversible": { "type": ["boolean", "null"] }
       }
     },
-    "legacy_receipts": {
+    "gate_receipts": {
       "type": "array",
-      "description": "Slice carrying the existing src/release/gate.rs::Receipt entries verbatim, so the system back-compats with release.policy.toml.",
+      "description": "Slice carrying required src/release/gate.rs::Receipt entries.",
       "items": {
         "type": "object",
         "required": ["id", "status", "detail"],
@@ -885,7 +885,7 @@ Every typed object carries a `signature` block:
 
 In the current implementation the signing is a SHA-256 HMAC stub. Real
 ed25519 lands in Phase 8 alongside `ed25519-dalek` and per-agent key
-custody in `.autonomy/keys/`. Until then, the
+custody in `.jeryu/autonomy/keys/`. Until then, the
 `evidence_signature_invalid` and `judge_signature_invalid` hard-stops
 fire whenever the algo is `stub`, which forces enforcement mode to
 fail closed. See `src/autonomy/conditions.rs:133-147` for the check.

@@ -7,8 +7,7 @@
 #
 # Usage:
 #   bash scripts/ci-parity.sh           # run everything
-#   bash scripts/ci-parity.sh --fast    # skip slow checks (integration, audit)
-#   bash scripts/ci-parity.sh --no-audit  # skip jankurai audit (if not installed)
+#   bash scripts/ci-parity.sh --fast    # skip slow integration-style checks
 #
 # Exits non-zero on first failure. Output is grouped per-check.
 
@@ -17,11 +16,9 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 FAST=0
-NO_AUDIT=0
 for arg in "$@"; do
     case "$arg" in
         --fast) FAST=1 ;;
-        --no-audit) NO_AUDIT=1 ;;
         *) echo "unknown arg: $arg" >&2; exit 2 ;;
     esac
 done
@@ -50,6 +47,8 @@ run() {
 
 # ─── 1. RedlineDB binary proof (embedded DB tooling, not a service) ──────────
 run "Install RedlineDB binary" bash scripts/install-redlinedb.sh
+run "Install Jankurai binary" bash scripts/install-jankurai.sh
+run "Jankurai version pin" bash -c 'jankurai --version | grep -Fx "jankurai 1.5.1"'
 
 # ─── 2. Format (matches CI: cargo fmt --all -- --check) ──────────────────────
 run "Format" cargo fmt --all -- --check
@@ -61,15 +60,11 @@ run "Clippy" cargo clippy --all-targets --all-features -- -D warnings
 run "Build" cargo build --verbose
 
 # ─── 5. Library tests (matches CI: cargo nextest run -p jeryu --lib) ─────────
-if command -v cargo-nextest >/dev/null 2>&1; then
-    run "Library Tests (nextest)" cargo nextest run -p jeryu --lib
-else
-    run "Library Tests (cargo test)" cargo test -p jeryu --lib
-fi
+run "Library Tests (nextest)" cargo nextest run -p jeryu --lib
 
-# ─── 6. Integration tests (matches CI: cargo test --tests --verbose) ─────────
+# ─── 6. Integration tests (matches CI: cargo test --tests --verbose -- --test-threads=1) ──
 if [[ "$FAST" == "0" ]]; then
-    run "Integration Tests" cargo test --tests
+    run "Integration Tests" cargo test --tests --verbose -- --test-threads=1
 fi
 
 # ─── 7. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
@@ -92,31 +87,19 @@ run "Fixture Project Validation" \
     bash -c 'cd tests/fixtures/fixture_project && cargo test --quiet'
 
 # ─── 11. actionlint (matches CI's "Workflow lint" step in jankurai.yml) ──────
-if command -v actionlint >/dev/null 2>&1; then
-    # shellcheck disable=SC2046  # we want word-splitting from the glob
-    run "Workflow Lint (actionlint)" actionlint $(ls .github/workflows/*.yml)
-else
-    printf '%s⊘ actionlint not installed locally — skipped (remote CI will check)%s\n' "$DIM" "$RESET"
-fi
+# shellcheck disable=SC2046  # we want word-splitting from the glob
+run "Workflow Lint (actionlint)" actionlint $(ls .github/workflows/*.yml)
 
 # ─── 12. Jankurai audit (matches CI: bash ops/ci/jankurai-lane.sh audit) ─────
-if [[ "$NO_AUDIT" == "0" ]] && command -v jankurai >/dev/null 2>&1; then
-    mkdir -p target/ci-parity
-    run "Jankurai Audit" jankurai audit . \
-        --full \
-        --mode advisory \
-        --json target/ci-parity/repo-score.json \
-        --md target/ci-parity/repo-score.md
-else
-    printf '%s⊘ jankurai audit skipped (use --no-audit or install jankurai)%s\n' "$DIM" "$RESET"
-fi
+mkdir -p target/ci-parity
+run "Jankurai Audit" jankurai audit . \
+    --full \
+    --mode advisory \
+    --json target/ci-parity/repo-score.json \
+    --md target/ci-parity/repo-score.md
 
 # ─── 13. Cargo deny (matches CI: cargo deny check) ───────────────────────────
-if command -v cargo-deny >/dev/null 2>&1; then
-    run "Cargo Deny" cargo deny check
-else
-    printf '%s⊘ cargo-deny not installed locally — skipped (remote CI will check)%s\n' "$DIM" "$RESET"
-fi
+run "Cargo Deny" cargo deny check
 
 # ─── 14. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
 # Validates that the embedded broker + consumer-loop wire correctly. Skipped
@@ -130,7 +113,7 @@ if [[ "$FAST" == "0" ]]; then
             -- --test-threads=1
 fi
 
-# ─── 15. No-default-features compile (canary for feature gating regressions) ─
+# ─── 15. No-default-features compile (diagnostic build-surface canary) ──────
 if [[ "$FAST" == "0" ]]; then
     run "No-default-features Check" cargo check --no-default-features
 fi

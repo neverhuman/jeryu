@@ -1,6 +1,6 @@
 //! The 8 canonical typed objects.
 //!
-//! Schemas: `.autonomy/schemas/*.schema.json`. These Rust types and those JSON
+//! Schemas: `.jeryu/autonomy/schemas/*.schema.json`. These Rust types and those JSON
 //! schemas evolve together; any change must update BOTH (CI lints this).
 
 use crate::autonomy::signing::Signature;
@@ -33,8 +33,6 @@ pub enum ReviewerRole {
     Security,
     TestIntegrity,
     Runtime,
-    /// Either `lockfile` or the legacy `lockfile_scout` spelling deserializes here.
-    #[serde(alias = "lockfile_scout")]
     Lockfile,
     Judge,
     ReleaseShepherd,
@@ -347,10 +345,9 @@ pub struct RollbackSection {
     pub data_migration_reversible: Option<bool>,
 }
 
-/// Slice carrying the existing src/release/gate.rs::Receipt entries so we
-/// remain back-compatible with `release.policy.toml`.
+/// Slice carrying required src/release/gate.rs::Receipt entries.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct LegacyReceipt {
+pub struct GateReceipt {
     pub id: String,
     pub status: String,
     pub detail: String,
@@ -383,7 +380,7 @@ pub struct EvidencePack {
     pub supply_chain: SupplyChainSection,
     pub rollback: RollbackSection,
     #[serde(default)]
-    pub legacy_receipts: Vec<LegacyReceipt>,
+    pub gate_receipts: Vec<GateReceipt>,
     pub evidence_digest: String,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -814,7 +811,7 @@ mod tests {
                 feature_flag: None,
                 data_migration_reversible: Some(true),
             },
-            legacy_receipts: vec![],
+            gate_receipts: vec![],
             evidence_digest: format!("sha256:00{}", "0".repeat(62)),
             created_at: now(),
             signature: None,
@@ -944,14 +941,14 @@ mod tests {
             "builder.v1",
             &["mr.create"],
             &[],
-            &[".autonomy/**", "secrets/**"],
+            &[".jeryu/autonomy/**", "secrets/**"],
             3600,
         );
         let err = l
             .permits(
                 "mr.create",
                 "builder.v1",
-                &["src/foo.rs", ".autonomy/policies/risk.yml"],
+                &["src/foo.rs", ".jeryu/autonomy/policies/risk.yml"],
                 now(),
             )
             .unwrap_err();
@@ -960,7 +957,13 @@ mod tests {
 
     #[test]
     fn permits_allows_paths_not_in_denied_list() {
-        let l = lease_for("builder.v1", &["mr.create"], &[], &[".autonomy/**"], 3600);
+        let l = lease_for(
+            "builder.v1",
+            &["mr.create"],
+            &[],
+            &[".jeryu/autonomy/**"],
+            3600,
+        );
         assert!(
             l.permits("mr.create", "builder.v1", &["src/main.rs"], now())
                 .is_ok()
@@ -982,7 +985,7 @@ mod tests {
         // Round-trips back through deserialize.
         let back: LedgerKind = serde_json::from_str(&j).expect("deserializes");
         assert_eq!(back, LedgerKind::WebhookReceived);
-        // The legacy human-decision variant still works for back-compat.
+        // Human-decision entries keep their canonical ledger spelling.
         let human = serde_json::to_string(&LedgerKind::HumanDecisionRecorded).unwrap();
         assert_eq!(human, "\"human_decision_recorded\"");
     }

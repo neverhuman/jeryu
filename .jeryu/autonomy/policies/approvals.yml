@@ -1,4 +1,4 @@
-# .autonomy/policies/approvals.yml — quorum + hard stops.
+# .jeryu/autonomy/policies/approvals.yml — quorum + hard stops.
 # Veto logic, not averaging: one valid hard_stop kills the verdict.
 # Each `hard_stops` entry references a vetted Rust fn name in
 # src/autonomy/conditions.rs. Unknown names are rejected at policy load.
@@ -37,7 +37,7 @@ quorum:
   R2: { approvals_needed: 2, roles: [test_integrity, security], human_required: false }
   R3:
     approvals_needed: 4
-    roles: [test_integrity, security, runtime, lockfile_scout]
+    roles: [test_integrity, security, runtime, lockfile]
     human_required: true
   R4: { approvals_needed: 0, roles: [], human_required: true, fail_closed_without_human: true }
   R5: { approvals_needed: 0, roles: [], human_required: true, fail_closed: true }

@@ -103,11 +103,8 @@ impl AutoRejudgeService {
         //    evidence (Tip1 Law 4) — so we bubble it up.
         let pack = self.pack_builder.build(repo, mr_iid).await?;
 
-        // 2. Look up required reviewer roles for the pack's risk tier.
-        // A tier with no configured quorum (e.g. R0) returns `None` from
-        // `quorum_for`; an empty role list is the documented semantic — it
-        // tells `judge()` "no reviewers required" rather than signaling an
-        // error path.
+        // 2. Look up required reviewer roles for the pack's risk tier. If the
+        // policy has no quorum entry, `judge()` fails closed to human review.
         let required_roles: Vec<ReviewerRole> = self
             .policy
             .quorum_for(pack.risk)
@@ -347,7 +344,7 @@ pub(crate) mod test_helpers {
                 feature_flag: None,
                 data_migration_reversible: Some(true),
             },
-            legacy_receipts: vec![],
+            gate_receipts: vec![],
         });
         p.signature = Some(Signature {
             key_id: "evidence-builder.test".into(),
@@ -441,7 +438,7 @@ mod tests {
     }
 
     fn policy() -> Arc<PolicyBundle> {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies");
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies");
         Arc::new(PolicyBundle::from_dir(&dir).expect("policy bundle loads"))
     }
 

@@ -23,7 +23,7 @@ The repository root is `/home/ubuntu/JeRyu`. The binary is the Rust crate/packag
 | Git server hook | stdin/stdout process hook | GitLab Gitaly/server hook | `jeryu server-hook pre-receive` |
 | Custom executor | GitLab Runner custom executor protocol | GitLab Runner | `jeryu exec ...` |
 | Action registry | Static registry, CLI list, TUI palette | agents, TUI, CLI | `src/tui/action_registry.rs` |
-| State API | RedlineDB-primary/sqlx methods with RedlineDB fallback | internal modules and tests | `src/state.rs` |
+| State API | RedlineDB-only sqlx adapter methods | internal modules and tests | `src/state.rs` |
 | Settings API | JSON file + singleton | all modules | `src/settings.rs` |
 | GitLab REST client | reqwest HTTP wrapper | internal modules | `src/gitlab_client.rs` |
 | Release API | CLI + internal orchestration | engine, humans, agents | `src/release.rs` |
@@ -711,7 +711,7 @@ Critical guardrails:
 
 ## 10. State API
 
-State is owned by `Db` in `src/state.rs`. RedlineDB is the embedded state backend and is selected with `JERYU_DATABASE_URL=redline:...` file URLs. RedlineDB remains the embedded fallback when `JERYU_DATABASE_URL` is absent, and explicit `redline:` URLs are supported for tests and development. `scripts/install-redlinedb.sh` installs the pinned RedlineDB v1.0.1 host binary from the checked-in `scripts/redlinedb-manifest.json`, verifies the archive against its pinned SHA256 before extraction, and installs `redlinedb` under `$HOME/.local/bin`. Use `REDLINEDB_INSTALL_MODE=verify` only for offline checks of an already-installed binary. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped backend-neutral helpers.
+State is owned by `Db` in `src/state.rs`. RedlineDB is the only embedded state backend and is selected with embedded `JERYU_DATABASE_URL=redline:...` file URLs. When `JERYU_DATABASE_URL` is absent, JeRyu opens its default embedded RedlineDB file. Host-style SQL service URLs such as `redline://user@host/db`, `redlineql://...`, SQLite URLs, and Postgres URLs are rejected. `scripts/install-redlinedb.sh` installs the pinned RedlineDB v1.0.1 host binary from the checked-in `scripts/redlinedb-manifest.json`, verifies the archive against its pinned SHA256 before extraction, and installs `redlinedb` under `$HOME/.local/bin`. Use `REDLINEDB_INSTALL_MODE=verify` only for offline checks of an already-installed binary. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped RedlineDB adapter helpers.
 
 ### 10.1 Core Tables
 

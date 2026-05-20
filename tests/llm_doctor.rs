@@ -7,7 +7,10 @@
 //! JERYU_LLM_LIVE=1 cargo test --test llm_doctor -- --ignored --nocapture
 //! ```
 
-use jeryu::llm::{DoctorProbe, ProviderStatus, SecretResolver, render_report, sweep_providers};
+use jeryu::llm::{
+    DoctorProbe, ProviderStatus, SecretResolver, provider_chains::load_providers_config,
+    render_report, sweep_providers,
+};
 
 #[tokio::test]
 #[ignore = "live LLM call; set JERYU_LLM_LIVE=1 to run"]
@@ -16,14 +19,20 @@ async fn sweep_all_providers() {
         eprintln!("JERYU_LLM_LIVE not set; skipping");
         return;
     }
-    let probes = DoctorProbe::default_set();
+    let autonomy = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy");
+    let cfg = load_providers_config(&autonomy).expect("canonical providers/llm.yml must load");
+    let probes = DoctorProbe::from_providers_config(&cfg);
+    assert!(
+        !probes.is_empty(),
+        "canonical providers/llm.yml must declare at least one probe"
+    );
     let resolver = SecretResolver::from_env();
     let results = sweep_providers(&probes, &resolver).await;
     let report = render_report(&results);
     eprintln!("\n{report}");
 
-    // We assert that at least one provider was OK — that's the
-    // user's contract: "your ~/llm.env should give you a working stack."
+    // We assert that at least one provider was OK; canonical env or
+    // `~/.jeryu/secrets/llm.env` keys should give a working stack.
     let ok_count = results
         .iter()
         .filter(|r| r.status == ProviderStatus::Ok)

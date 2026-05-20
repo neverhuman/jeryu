@@ -7,8 +7,8 @@
 #   ./scripts/local-live.sh doctor      # provider sweep only
 #   ./scripts/local-live.sh e2e         # full-spine end-to-end live
 #
-# Secrets are read via the standard 6-tier chain (env → ~/.jeryu/secrets/llm.env →
-# ~/llm.env → repo .env.local). CI mode (CI=true) refuses local files for safety.
+# Secrets are read via the canonical chain (env → ~/.jeryu/secrets/llm.env →
+# repo .env.local). CI mode (CI=true) refuses local files for safety.
 #
 # This script sets JERYU_LLM_LIVE=1 so the `#[ignore]`-gated tests run.
 # It MUST NOT be invoked from CI; CI lanes never source it.
@@ -29,18 +29,15 @@ if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
   HAVE_KEY=1
 elif [[ -f "$HOME/.jeryu/secrets/llm.env" ]] && grep -q '^OPENROUTER_API_KEY=' "$HOME/.jeryu/secrets/llm.env"; then
   HAVE_KEY=1
-elif [[ -f "$HOME/llm.env" ]] && grep -q '^OPENROUTER_API_KEY=' "$HOME/llm.env"; then
-  HAVE_KEY=1
 elif [[ -f .env.local ]] && grep -q '^OPENROUTER_API_KEY=' .env.local; then
   HAVE_KEY=1
 fi
 
 if [[ "$HAVE_KEY" != "1" ]]; then
-  echo "error: no OPENROUTER_API_KEY found in the 6-tier secrets chain" >&2
+  echo "error: no OPENROUTER_API_KEY found in the canonical secrets chain" >&2
   echo "  add it to one of:" >&2
   echo "    - env var OPENROUTER_API_KEY=..." >&2
   echo "    - ~/.jeryu/secrets/llm.env (canonical user default)" >&2
-  echo "    - ~/llm.env (legacy)" >&2
   echo "    - ./.env.local (repo-local, gitignored)" >&2
   exit 3
 fi

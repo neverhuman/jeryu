@@ -13,11 +13,10 @@ use async_trait::async_trait;
 /// directly when only a pool handle is required.
 pub use sqlx::AnyPool;
 
-/// Backend kind for SQL bind-parameter dialect rewriting.
+/// Backend kind for SQL execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdapterBackend {
     RedlineDb,
-    CompatSql,
 }
 
 /// A row in the `action_cache` table mapped to its trust namespace.
@@ -28,8 +27,7 @@ pub struct ActionCacheEntry {
 
 /// Adapter trait the application uses to query the action_cache.
 ///
-/// Implementations are responsible for any DB-specific dialect handling
-/// (e.g. rewriting `?` to `$N` for the compatibility backend) and for the actual SQL.
+/// Implementations are responsible for the actual SQL.
 #[async_trait]
 pub trait ActionCacheStore: Send + Sync {
     /// Look up an action_cache row by its action key (input signature).
@@ -39,8 +37,7 @@ pub trait ActionCacheStore: Send + Sync {
 /// sqlx-backed implementation of `ActionCacheStore`.
 ///
 /// Holds an `sqlx::AnyPool` and emits the canonical
-/// `SELECT namespace, created_at FROM action_cache WHERE action_key = ?`
-/// query, rewriting bind parameters for the compatibility backend when needed.
+/// `SELECT namespace, created_at FROM action_cache WHERE action_key = ?` query.
 pub struct SqlxActionCacheStore {
     pool: sqlx::AnyPool,
     backend: AdapterBackend,
@@ -72,48 +69,12 @@ pub fn create_action_store(
     SqlxActionCacheStore::boxed(pool, backend)
 }
 
-fn bind_params(sql: &str) -> String {
-    let mut converted = String::with_capacity(sql.len() + 16);
-    let mut next = 1;
-    let mut in_single = false;
-    let mut in_double = false;
-    let mut chars = sql.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\'' if !in_double => {
-                converted.push(ch);
-                if in_single && chars.peek() == Some(&'\'') {
-                    converted.push(chars.next().expect("peeked escaped quote"));
-                } else {
-                    in_single = !in_single;
-                }
-            }
-            '"' if !in_single => {
-                in_double = !in_double;
-                converted.push(ch);
-            }
-            '?' if !in_single && !in_double => {
-                converted.push('$');
-                converted.push_str(&next.to_string());
-                next += 1;
-            }
-            _ => converted.push(ch),
-        }
-    }
-
-    converted
-}
-
 #[async_trait]
 impl ActionCacheStore for SqlxActionCacheStore {
     async fn lookup(&self, action_key: &str) -> Result<Option<ActionCacheEntry>> {
-        let base = "SELECT namespace, created_at FROM action_cache WHERE action_key = ?";
-        let sql = match self.backend {
-            AdapterBackend::RedlineDb => base.to_string(),
-            AdapterBackend::CompatSql => bind_params(base),
-        };
-        let row: Option<(String, String)> = sqlx::query_as(&sql)
+        let _backend = self.backend;
+        let sql = "SELECT namespace, created_at FROM action_cache WHERE action_key = ?";
+        let row: Option<(String, String)> = sqlx::query_as(sql)
             .bind(action_key)
             .fetch_optional(&self.pool)
             .await?;
@@ -132,13 +93,6 @@ pub async fn count_active_cache_taints(pool: &sqlx::AnyPool) -> Result<i64> {
     Ok(count)
 }
 
-fn dialect_sql(backend: AdapterBackend, sql: &str) -> String {
-    match backend {
-        AdapterBackend::RedlineDb => sql.to_string(),
-        AdapterBackend::CompatSql => bind_params(sql),
-    }
-}
-
 /// Look up the current epoch for a given scope. Returns `0` when the row is missing.
 ///
 /// Owns the `SELECT current_epoch FROM cache_epochs WHERE scope = ?` query.
@@ -147,11 +101,9 @@ pub async fn current_epoch_for(
     backend: AdapterBackend,
     scope: &str,
 ) -> Result<i64> {
-    let sql = dialect_sql(
-        backend,
-        "SELECT current_epoch FROM cache_epochs WHERE scope = ?",
-    );
-    let epoch: i64 = sqlx::query_scalar(&sql)
+    let _backend = backend;
+    let sql = "SELECT current_epoch FROM cache_epochs WHERE scope = ?";
+    let epoch: i64 = sqlx::query_scalar(sql)
         .bind(scope)
         .fetch_optional(pool)
         .await?
@@ -170,17 +122,15 @@ pub async fn upsert_epoch_for(
     author_job_id: i64,
     reason: &str,
 ) -> Result<()> {
-    let sql = dialect_sql(
-        backend,
-        r#"INSERT INTO cache_epochs (scope, current_epoch, updated_at, author_job_id, reason)
+    let _backend = backend;
+    let sql = r#"INSERT INTO cache_epochs (scope, current_epoch, updated_at, author_job_id, reason)
            VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(scope) DO UPDATE SET
              current_epoch = excluded.current_epoch,
              updated_at = excluded.updated_at,
              author_job_id = excluded.author_job_id,
-             reason = excluded.reason"#,
-    );
-    sqlx::query(&sql)
+             reason = excluded.reason"#;
+    sqlx::query(sql)
         .bind(scope)
         .bind(next_epoch)
         .bind(updated_at)

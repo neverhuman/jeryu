@@ -1,4 +1,4 @@
-//! Owner: State Store (CompatSql primary, RedlineDB recovery)
+//! Owner: State Store (embedded RedlineDB only)
 //! Proof: `cargo test -p jeryu -- state`
 //! Invariants: append-only event log; manager state machine (starting→online→draining→stopped)
 //!
@@ -277,27 +277,6 @@ const POOL_SELECT: &str = r#"SELECT
     CAST(CASE WHEN paused THEN 1 ELSE 0 END AS BIGINT) AS paused,
     trust_tier
 FROM pools"#;
-
-fn render_redline_schema(redline_schema: &str) -> String {
-    redline_schema
-        .replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY")
-        .replace("INTEGER PRIMARY KEY", "BIGINT PRIMARY KEY")
-        .replace(" INTEGER", " BIGINT")
-        .replace(" REAL", " DOUBLE PRECISION")
-        .replace(
-            "paused              BIGINT NOT NULL DEFAULT 0",
-            "paused              BOOLEAN NOT NULL DEFAULT FALSE",
-        )
-        .replace(
-            "enabled BIGINT NOT NULL DEFAULT 0",
-            "enabled BOOLEAN NOT NULL DEFAULT FALSE",
-        )
-        .replace("hit BIGINT NOT NULL", "hit BOOLEAN NOT NULL")
-        .replace(
-            "repaired        BIGINT NOT NULL DEFAULT 0",
-            "repaired        BOOLEAN NOT NULL DEFAULT FALSE",
-        )
-}
 
 #[derive(Debug, Clone, FromRow)]
 pub struct SecretAuthority {
@@ -597,8 +576,6 @@ pub type TuiSession = Db;
 pub enum StateBackend {
     /// Local embedded RedlineDB database.
     RedlineDb,
-    /// Production CompatSql database.
-    CompatSql,
 }
 
 impl StateBackend {
@@ -608,61 +585,35 @@ impl StateBackend {
             .map(|(scheme, _)| scheme.to_ascii_lowercase())
             .unwrap_or_default();
         match scheme.as_str() {
-            "redline" | "redlinedb" => Ok(Self::RedlineDb),
-            "redlineql" => Ok(Self::CompatSql),
+            "redline" | "redlinedb" => {
+                let lower = database_url.to_ascii_lowercase();
+                if (lower.starts_with("redline://") && !lower.starts_with("redline:///"))
+                    || (lower.starts_with("redlinedb://") && !lower.starts_with("redlinedb:///"))
+                {
+                    anyhow::bail!(
+                        "unsupported JERYU_DATABASE_URL host form; embedded RedlineDB requires redline:/path, redline:///path, redlinedb:///path, or redline::memory:"
+                    );
+                }
+                Ok(Self::RedlineDb)
+            }
             _ => {
                 anyhow::bail!(
-                    "unsupported JERYU_DATABASE_URL scheme; expected redline://, redlinedb://, redlineDB://, redline:, or redlineql://"
+                    "unsupported JERYU_DATABASE_URL scheme; expected embedded RedlineDB URL redline:/path, redline:///path, redlinedb:///path, or redline::memory:"
                 )
             }
         }
     }
 }
 
-pub(crate) fn redline_bind_params(sql: &str) -> String {
-    let mut converted = String::with_capacity(sql.len() + 16);
-    let mut next = 1;
-    let mut in_single_quote = false;
-    let mut in_double_quote = false;
-    let mut chars = sql.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\'' if !in_double_quote => {
-                converted.push(ch);
-                if in_single_quote && chars.peek() == Some(&'\'') {
-                    converted.push(chars.next().expect("peeked escaped quote"));
-                } else {
-                    in_single_quote = !in_single_quote;
-                }
-            }
-            '"' if !in_single_quote => {
-                in_double_quote = !in_double_quote;
-                converted.push(ch);
-            }
-            '?' if !in_single_quote && !in_double_quote => {
-                converted.push('$');
-                converted.push_str(&next.to_string());
-                next += 1;
-            }
-            _ => converted.push(ch),
-        }
-    }
-
-    converted
-}
-
 pub(crate) fn backend_sql(backend: StateBackend, sql: &'static str) -> Cow<'static, str> {
     match backend {
         StateBackend::RedlineDb => Cow::Borrowed(sql),
-        StateBackend::CompatSql => Cow::Owned(redline_bind_params(sql)),
     }
 }
 
 pub(crate) fn backend_sql_owned(backend: StateBackend, sql: String) -> String {
     match backend {
         StateBackend::RedlineDb => sql,
-        StateBackend::CompatSql => redline_bind_params(&sql),
     }
 }
 
@@ -744,10 +695,7 @@ impl Db {
         install_default_drivers();
         let backend = StateBackend::from_url(database_url)?;
         let pool = match AnyPoolOptions::new()
-            .max_connections(match backend {
-                StateBackend::RedlineDb => 4,
-                StateBackend::CompatSql => 16,
-            })
+            .max_connections(4)
             .connect_with(AnyConnectOptions::from_str(database_url)?)
             .await
         {
@@ -850,17 +798,10 @@ impl Db {
             return Ok(id);
         }
 
-        match self.backend {
-            StateBackend::RedlineDb => {
-                let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
-                    .fetch_one(&self.pool)
-                    .await?;
-                Ok(row.0)
-            }
-            StateBackend::CompatSql => result
-                .last_insert_id()
-                .ok_or_else(|| anyhow::anyhow!("CompatSql insert did not return an id")),
-        }
+        let row: (i64,) = sqlx::query_as("SELECT last_insert_rowid()")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
     }
 
     async fn migrate(&self) -> Result<()> {
@@ -1314,7 +1255,7 @@ impl Db {
                 selected_count  INTEGER NOT NULL,
                 skipped_count   INTEGER NOT NULL,
                 subsystems      TEXT NOT NULL,
-                fallback_reason TEXT,
+                escalation_reason TEXT,
                 payload         TEXT NOT NULL,
                 created_at      TEXT NOT NULL
             );
@@ -1433,11 +1374,7 @@ impl Db {
             CREATE INDEX IF NOT EXISTS idx_llm_budget_ledger_scope_time
                 ON llm_budget_ledger(repo_scope, recorded_at DESC);
             "#;
-        let schema = match self.backend {
-            StateBackend::RedlineDb => redline_schema.to_string(),
-            StateBackend::CompatSql => render_redline_schema(redline_schema),
-        };
-        for statement in schema.split(';') {
+        for statement in redline_schema.split(';') {
             let statement = statement.trim();
             if statement.is_empty() {
                 continue;
@@ -1446,10 +1383,6 @@ impl Db {
                 .execute(&self.pool)
                 .await
                 .with_context(|| format!("running migration statement: {}", statement))?;
-        }
-
-        if self.backend == StateBackend::CompatSql {
-            return Ok(());
         }
 
         // Safe alter logic for job_name extension
@@ -3182,37 +3115,14 @@ impl Db {
         selected_count: i64,
         skipped_count: i64,
         subsystems: &str,
-        fallback_reason: Option<&str>,
+        escalation_reason: Option<&str>,
         payload: &str,
     ) -> Result<i64> {
         let created_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::CompatSql {
-            let row: (i64,) = sqlx::query_as(
-                r#"INSERT INTO test_plans
-                   (project_id, base_sha, head_sha, mode, confidence,
-                    selected_count, skipped_count, subsystems, fallback_reason, payload, created_at)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                   RETURNING id"#,
-            )
-            .bind(project_id)
-            .bind(base_sha)
-            .bind(head_sha)
-            .bind(mode)
-            .bind(confidence)
-            .bind(selected_count)
-            .bind(skipped_count)
-            .bind(subsystems)
-            .bind(fallback_reason)
-            .bind(payload)
-            .bind(&created_at)
-            .fetch_one(&self.pool)
-            .await?;
-            return Ok(row.0);
-        }
         let result = sqlx::query(
             r#"INSERT INTO test_plans
                (project_id, base_sha, head_sha, mode, confidence,
-                selected_count, skipped_count, subsystems, fallback_reason, payload, created_at)
+                    selected_count, skipped_count, subsystems, escalation_reason, payload, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
         )
         .bind(project_id)
@@ -3223,7 +3133,7 @@ impl Db {
         .bind(selected_count)
         .bind(skipped_count)
         .bind(subsystems)
-        .bind(fallback_reason)
+        .bind(escalation_reason)
         .bind(payload)
         .bind(created_at)
         .execute(&self.pool)
@@ -3408,27 +3318,6 @@ impl Db {
 
     pub async fn record_capability_intent(&self, intent: NewCapabilityIntent<'_>) -> Result<i64> {
         let created_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::CompatSql {
-            let row: (i64,) = sqlx::query_as(
-                r#"INSERT INTO capability_intents
-                   (request_id, intent_type, action_id, project_id, ref_name, target_ref, actor, status, payload, created_at)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                   RETURNING id"#,
-            )
-            .bind(intent.request_id)
-            .bind(intent.intent_type)
-            .bind(intent.action_id)
-            .bind(intent.project_id)
-            .bind(intent.ref_name)
-            .bind(intent.target_ref)
-            .bind(intent.actor)
-            .bind(intent.status)
-            .bind(intent.payload)
-            .bind(&created_at)
-            .fetch_one(&self.pool)
-            .await?;
-            return Ok(row.0);
-        }
         let result = sqlx::query(
             r#"INSERT INTO capability_intents
                (request_id, intent_type, action_id, project_id, ref_name, target_ref, actor, status, payload, created_at)
@@ -3451,28 +3340,6 @@ impl Db {
 
     pub async fn approve_capability_grant(&self, grant: NewCapabilityGrant<'_>) -> Result<i64> {
         let issued_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::CompatSql {
-            let row: (i64,) = sqlx::query_as(
-                r#"INSERT INTO capability_grants
-                   (intent_id, grant_id, action_id, project_id, ref_name, new_sha, required_grant, status, issued_at, expires_at, payload)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                   RETURNING id"#,
-            )
-            .bind(grant.intent_id)
-            .bind(grant.grant_id)
-            .bind(grant.action_id)
-            .bind(grant.project_id)
-            .bind(grant.ref_name)
-            .bind(grant.new_sha)
-            .bind(grant.required_grant)
-            .bind(grant.status)
-            .bind(&issued_at)
-            .bind(grant.expires_at)
-            .bind(grant.payload)
-            .fetch_one(&self.pool)
-            .await?;
-            return Ok(row.0);
-        }
         let result = sqlx::query(
             r#"INSERT INTO capability_grants
                (intent_id, grant_id, action_id, project_id, ref_name, new_sha, required_grant, status, issued_at, expires_at, payload)
@@ -3523,28 +3390,6 @@ impl Db {
         decision: NewAdmissionDecision<'_>,
     ) -> Result<i64> {
         let created_at = chrono::Utc::now().to_rfc3339();
-        if self.backend == StateBackend::CompatSql {
-            let row: (i64,) = sqlx::query_as(
-                r#"INSERT INTO admission_decisions
-                   (raw_input, verdict, actor_kind, ref_name, old_sha, new_sha, grant_id, policy_version, reasons_json, payload, created_at)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                   RETURNING id"#,
-            )
-            .bind(decision.raw_input)
-            .bind(decision.verdict)
-            .bind(decision.actor_kind)
-            .bind(decision.ref_name)
-            .bind(decision.old_sha)
-            .bind(decision.new_sha)
-            .bind(decision.grant_id)
-            .bind(decision.policy_version)
-            .bind(decision.reasons_json)
-            .bind(decision.payload)
-            .bind(&created_at)
-            .fetch_one(&self.pool)
-            .await?;
-            return Ok(row.0);
-        }
         let result = sqlx::query(
             r#"INSERT INTO admission_decisions
                (raw_input, verdict, actor_kind, ref_name, old_sha, new_sha, grant_id, policy_version, reasons_json, payload, created_at)
@@ -3941,14 +3786,7 @@ mod tests {
         let taint_manager = crate::taint::TaintManager::with_backend(db.pool(), db.backend());
         let store = cache_brain_adapter::SqlxActionCacheStore::boxed(
             db.pool(),
-            match db.backend() {
-                crate::state::StateBackend::RedlineDb => {
-                    cache_brain_adapter::AdapterBackend::RedlineDb
-                }
-                crate::state::StateBackend::CompatSql => {
-                    cache_brain_adapter::AdapterBackend::CompatSql
-                }
-            },
+            cache_brain_adapter::AdapterBackend::RedlineDb,
         );
         let cache_brain =
             crate::cache_brain::CacheBrain::with_store(epoch_manager, taint_manager.clone(), store);
@@ -3981,27 +3819,7 @@ mod tests {
     }
 
     #[test]
-    fn redline_bind_rewrite_skips_quoted_question_marks() {
-        assert_eq!(
-            redline_bind_params("SELECT '?' AS q, col FROM t WHERE a = ? AND b = ?"),
-            "SELECT '?' AS q, col FROM t WHERE a = $1 AND b = $2"
-        );
-        assert_eq!(
-            redline_bind_params("SELECT 'it''s ?' AS q WHERE id = ?"),
-            "SELECT 'it''s ?' AS q WHERE id = $1"
-        );
-    }
-
-    #[test]
     fn state_backend_detects_supported_urls() -> Result<()> {
-        assert_eq!(
-            StateBackend::from_url("redline://jeryu:secret@127.0.0.1/jeryu")?,
-            StateBackend::RedlineDb
-        );
-        assert_eq!(
-            StateBackend::from_url("redlineql://jeryu:secret@127.0.0.1/jeryu")?,
-            StateBackend::CompatSql
-        );
         assert_eq!(
             StateBackend::from_url("redline:///tmp/jeryu/target/jeryu/autonomy.redlineDB")?,
             StateBackend::RedlineDb
@@ -4018,6 +3836,12 @@ mod tests {
             StateBackend::from_url("redline:/tmp/jeryu.db?mode=rwc")?,
             StateBackend::RedlineDb
         );
+        assert_eq!(
+            StateBackend::from_url("redline::memory:")?,
+            StateBackend::RedlineDb
+        );
+        assert!(StateBackend::from_url("redline://jeryu:secret@127.0.0.1/jeryu").is_err());
+        assert!(StateBackend::from_url("redlineql://jeryu:secret@127.0.0.1/jeryu").is_err());
         assert!(StateBackend::from_url("mysql://localhost/jeryu").is_err());
         Ok(())
     }

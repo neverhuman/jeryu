@@ -73,7 +73,7 @@ or caller-owned connections.
 ## Typed repair hint
 
 When a scan or proof needs a structured next step, emit a `RepairHint`-style
-payload with:
+payload with the agent-friendly exception pattern:
 
 - `purpose`
 - `reason`
@@ -117,10 +117,26 @@ need to route the next rerun to a specific local command.
 
 ## Escalation rules
 
-- Any global invalidator or unmapped path falls back to full testing.
+- Any global invalidator or unmapped path requires full testing.
 - Changes under `src/test_intel/*` force full testing.
 - A low-confidence selector result should not be treated as release-ready
   without broader validation.
+
+## Local CI Parity
+
+The local parity entrypoint is `scripts/ci-local.sh`. It dispatches to the same
+`ops/ci/*.sh` scripts that GitHub Actions calls:
+
+- `scripts/ci-local.sh rust fmt`
+- `scripts/ci-local.sh rust clippy`
+- `scripts/ci-local.sh rust build`
+- `scripts/ci-local.sh rust test-lib`
+- `scripts/ci-local.sh rust test-integration`
+- `scripts/ci-local.sh security`
+- `scripts/ci-local.sh release-preflight <version>`
+
+Do not add inline-only workflow logic. If CI needs a new behavior, put it in
+`ops/ci/` first and call that script from both CI and local proof.
 
 ## Cost budgets and stop conditions
 

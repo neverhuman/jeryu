@@ -34,9 +34,9 @@ must live behind a typed adapter; this is what the
 
 RedlineDB is the only embedded state-store backend allowed in this repo.
 Do not enable SQLite features, add SQLite SQLx packages, or use SQLite URLs
-as a test fixture, compatibility fallback, or local workaround. If the current
-SQLx compatibility surface cannot open a `redline:` URL, the fix belongs in
-RedlineDB or the RedlineDB adapter layer, not in a SQLite fallback.
+as a test fixture, alternate backend, or local workaround. If the current
+SQLx adapter surface cannot open a `redline:` URL, the fix belongs in
+RedlineDB or the RedlineDB adapter layer, not in a SQLite path.
 
 ## Queues and contracts
 

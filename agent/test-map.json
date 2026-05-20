@@ -28,6 +28,10 @@
       "command": "just score",
       "purpose": "verify GitHub scaffolding remains routed"
     },
+    ".jeryu/": {
+      "command": "cargo test -p jeryu --lib repo_standard",
+      "purpose": "verify agent-first managed repo standards stay deterministic"
+    },
     ".gitignore": {
       "command": "just score",
       "purpose": "verify root file exclusion rules remain routed"
@@ -36,7 +40,7 @@
       "command": "just score",
       "purpose": "verify root security config remains routed"
     },
-    ".autonomy/": {
+    ".jeryu/autonomy/": {
       "command": "cargo test -p jeryu --lib autonomy::",
       "purpose": "verify Evidence Gate config + schemas stay in sync with the autonomy module"
     },

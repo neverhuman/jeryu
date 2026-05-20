@@ -23,7 +23,7 @@ jeryu is a **single-binary CI/CD control plane** that orchestrates autonomous re
 - **Release Pipeline**: A batching train system that groups commits into release candidates, applies approval gates, and promotes to production.
 - **Kill Bell**: A global pause mechanism that instantly freezes all deployments when security or operational issues are detected.
 - **Ledger**: An append-only event log of all decisions, approvals, and deployments for audit and forensics.
-- **Event bus**: Embedded [Jansu](https://github.com/neverhuman/jansu) broker decouples the HTTP webhook handler from inline event work. The webhook handler returns `202 Accepted` after enqueueing; a consumer loop in the autonomy daemon drains records into the existing dispatch path. In-process by design — no separate Kafka/queue infra to operate. Set `JERYU_WEBHOOK_SYNC=1` to force the legacy synchronous path for ops/debug. Compile with `--no-default-features` to drop the broker entirely.
+- **Event bus**: Embedded [Jansu](https://github.com/neverhuman/jansu) broker decouples the HTTP webhook handler from event work. The webhook handler returns `202 Accepted` only after enqueueing; a consumer loop in the autonomy daemon drains records into the dispatch path. In-process by design — no separate Kafka/queue infra to operate. If the broker is disabled or unavailable, webhook handling rejects with `503` instead of changing delivery semantics.
 - **Storage**: embedded RedlineDB via `redline:` file URLs and the `redlinedb-sqlx` adapter. Local and CI environments install the pinned RedlineDB v1.0.1 host `redlinedb` CLI/native binary with `scripts/install-redlinedb.sh`; the installer reads the checked-in `scripts/redlinedb-manifest.json`, downloads the platform tarball, verifies it against the pinned SHA256 before extraction, and exports `REDLINEDB_BIN` in GitHub Actions. RedlineDB is not a Docker Compose service. The async wrapper crate [`redlinedb-tokio`](https://github.com/neverhuman/RedlineDB/pull/7) remains the migration foundation — see `docs/redline-jansu-issues.md::R-1` for the staged plan.
 
 ### Key Components
@@ -195,15 +195,15 @@ When paused:
 
 ## Configuration & Setup
 
-### 1. `.autonomy/autonomy.yml` (Global Profile)
+### 1. `.jeryu/autonomy/autonomy.yml` (Global Profile)
 
 ```yaml
 profile: "sovereign_plus"  # Full autonomous control (no human gates by default)
 
 providers:
   llm:
-    default: "openrouter"
-    fallback: "rule_based"  # If LLM is unavailable, use hardcoded rules
+    config: ".jeryu/autonomy/providers/llm.yml"
+    unavailable: "require_human"
 
 evidence:
   # Which signals to collect before judging
@@ -233,7 +233,7 @@ kill_bell:
   require_human_resume: false  # Autonomous resume after timeout
 ```
 
-### 2. `.autonomy/policies/approvals.yml` (Approval Rules)
+### 2. `.jeryu/autonomy/policies/approvals.yml` (Approval Rules)
 
 Define quorum and auto-approval thresholds:
 
@@ -278,7 +278,7 @@ approvals:
       - "pagerduty"
 ```
 
-### 3. `.autonomy/policies/risk.yml` (Risk Classification)
+### 3. `.jeryu/autonomy/policies/risk.yml` (Risk Classification)
 
 Map file paths to risk tiers:
 
@@ -347,7 +347,7 @@ pipelines:
           baseline: "main"
 
     judge:
-      policy_path: ".autonomy/policies/approvals.yml"
+      policy_path: ".jeryu/autonomy/policies/approvals.yml"
       escalate_on:
         - "test_failure"
         - "security_finding_critical"
@@ -483,14 +483,14 @@ Production: promoted with audit trail linking to both reviewer approvals
 
 **Configuration Files**:
 
-**`.autonomy/autonomy.yml`**:
+**`.jeryu/autonomy/autonomy.yml`**:
 ```yaml
 profile: "sovereign_plus"
 
 providers:
   llm:
-    default: "openrouter"
-    fallback: "rule_based"
+    config: ".jeryu/autonomy/providers/llm.yml"
+    unavailable: "require_human"
 
 evidence:
   required:
@@ -514,7 +514,7 @@ kill_bell:
   require_human_resume: false  # Auto-resume after timeout
 ```
 
-**`.autonomy/policies/approvals.yml`**:
+**`.jeryu/autonomy/policies/approvals.yml`**:
 ```yaml
 ---
 version: "1.0"
@@ -548,7 +548,7 @@ approvals:
     auto_reject_on_timeout: false  # Resume after 2 hours
 ```
 
-**`.autonomy/policies/risk.yml`**:
+**`.jeryu/autonomy/policies/risk.yml`**:
 ```yaml
 ---
 version: "1.0"
@@ -588,7 +588,7 @@ default_tier: "R1"
 
 **Goal**: Human reviewers approve all R1+ changes before production, but R0 is autonomous.
 
-**`.autonomy/policies/approvals.yml`**:
+**`.jeryu/autonomy/policies/approvals.yml`**:
 ```yaml
 ---
 version: "1.0"
@@ -719,7 +719,7 @@ jeryu release history <service-name>
    ```
 
 **Fix**: 
-- Adjust the auto-approve threshold in `.autonomy/policies/approvals.yml`:
+- Adjust the auto-approve threshold in `.jeryu/autonomy/policies/approvals.yml`:
   ```yaml
   R0:
     auto_approve_rule:
@@ -734,9 +734,9 @@ jeryu release history <service-name>
 **Symptom**: Kill bell paused deployments, but on-call didn't get paged.
 
 **Diagnosis**:
-1. Check escalation config in `.autonomy/autonomy.yml`:
+1. Check escalation config in `.jeryu/autonomy/autonomy.yml`:
    ```bash
-   grep -A 5 "escalation:" .autonomy/autonomy.yml
+   grep -A 5 "escalation:" .jeryu/autonomy/autonomy.yml
    ```
 2. Verify PagerDuty integration is enabled and API key is set.
 
@@ -778,8 +778,8 @@ escalation:
 
 ## Next Steps
 
-1. **Review** `.autonomy/autonomy.yml` in your fork/branch
-2. **Define** your `.autonomy/policies/` rules for your risk tiers
+1. **Review** `.jeryu/autonomy/autonomy.yml` in your fork/branch
+2. **Define** your `.jeryu/autonomy/policies/` rules for your risk tiers
 3. **Test** locally with jeryu TUI: `jeryu tui` (requires `jeryu serve` daemon running)
 4. **Iterate** on thresholds using dry-run verdicts: `jeryu judge --dry-run <evidence-pack-id>`
 5. **Deploy** the config as a PR; once merged, jeryu daemon picks it up automatically

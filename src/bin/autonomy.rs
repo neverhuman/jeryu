@@ -13,7 +13,7 @@
 //!   review   — run one reviewer role against a diff on stdin; print receipt
 //!   judge    — fuse receipts + policy → emit verdict
 //!   evidence — build an Evidence Pack from JSON inputs
-//!   init     — scaffold .autonomy/ in the current repo (follow-up: phase 10)
+//!   init     — scaffold .jeryu/autonomy/ in the current repo (follow-up: phase 10)
 //!   shadow   — follow-up: phase 10
 //!   replay   — follow-up: phase 10
 
@@ -33,8 +33,7 @@ use jeryu::autonomy::{
     },
 };
 use jeryu::llm::{
-    CallParams, DataUse, DoctorProbe, LlmRouter, OpenAiCompatibleClient, RoleChain, RoleChainEntry,
-    SecretResolver, render_report, resolve_secret, sweep_providers,
+    DoctorProbe, LlmRouter, SecretResolver, render_report, resolve_secret, sweep_providers,
 };
 use jeryu::release::{
     ArtifactBuilder, CanaryController, DryRunRollbackExecutor, FileTelemetry, FoundryConfig,
@@ -47,6 +46,7 @@ use std::sync::Arc;
 
 const PROFILE_SHADOW_MAX_COMMITS: usize = 50;
 const PROFILE_SHADOW_SINCE_SECONDS: u64 = 604_800;
+const DEFAULT_AUTONOMY_DIR: &str = ".jeryu/autonomy";
 
 #[derive(Parser)]
 #[command(
@@ -86,7 +86,7 @@ enum ProfileOp {
         /// Profile name (currently only sovereign_plus has guardrails).
         #[arg(long, default_value = "sovereign_plus")]
         profile: String,
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
     },
 }
@@ -106,7 +106,7 @@ enum EscalateOp {
     Test {
         #[arg(long, default_value = "require_human")]
         event: String,
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
         #[arg(long, default_value_t = false)]
         live: bool,
@@ -129,7 +129,7 @@ enum DaemonOp {
         /// Where to write the TickReport JSON.
         #[arg(long)]
         report_out: Option<PathBuf>,
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
         /// Use a FakeGitHost with no PRs (for CI smoke without a real token).
         #[arg(long, default_value_t = false)]
@@ -147,7 +147,7 @@ enum FreezeOp {
     Check {
         #[arg(long, default_value = "R2")]
         risk: String,
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
     },
 }
@@ -175,8 +175,8 @@ enum CanaryOp {
 enum Cmd {
     /// Probe every configured LLM provider; report OK / NOKEY / AUTH / RATE / DOWN.
     Doctor {
-        /// Path to the .autonomy/ directory (defaults to ./.autonomy).
-        #[arg(long, default_value = ".autonomy")]
+        /// Path to the autonomy directory (defaults to ./.jeryu/autonomy).
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
     },
     /// Run one reviewer role against a diff read from stdin. Prints the receipt JSON.
@@ -184,8 +184,8 @@ enum Cmd {
         /// Role to run.
         #[arg(long, default_value = "security")]
         role: String,
-        /// Path to .autonomy/ (used to load prompts + providers).
-        #[arg(long, default_value = ".autonomy")]
+        /// Path to the autonomy directory (used to load prompts + providers).
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
         /// Repo identifier (e.g. "org/proj"). Free-form.
         #[arg(long, default_value = "local")]
@@ -210,7 +210,7 @@ enum Cmd {
         pack: PathBuf,
         #[arg(long)]
         receipts: String,
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
         #[arg(long, default_value = "local")]
         repo: String,
@@ -243,7 +243,7 @@ enum Cmd {
         #[arg(long, default_value = "false")]
         sign: bool,
     },
-    /// Scaffold .autonomy/ in the current repo from defaults. (Phase 10 minimal.)
+    /// Scaffold .jeryu/autonomy/ in the current repo from defaults. (Phase 10 minimal.)
     Init {
         #[arg(long, default_value = ".")]
         repo_root: PathBuf,
@@ -279,7 +279,7 @@ enum Cmd {
     /// Run the Nightwatch reviewer against a telemetry summary on stdin.
     /// Emits an AgentApprovalReceipt JSON.
     Nightwatch {
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
         #[arg(long, default_value = "local")]
         repo: String,
@@ -336,7 +336,7 @@ enum Cmd {
         bind: String,
         #[arg(long)]
         shutdown_after_requests: Option<u64>,
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
     },
     /// Live orchestrator daemon: poll open PRs, detect verdict drift, escalate.
@@ -361,7 +361,7 @@ enum Cmd {
     Shadow {
         #[arg(long, default_value = ".")]
         repo_root: PathBuf,
-        #[arg(long, default_value = ".autonomy")]
+        #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
         /// Only walk merge commits.
         #[arg(long, default_value_t = false)]
@@ -588,6 +588,7 @@ fn cmd_shadow(
 fn profile_shadow_repo_root(autonomy_dir: &Path) -> PathBuf {
     autonomy_dir
         .parent()
+        .and_then(|jeryu_dir| jeryu_dir.parent())
         .filter(|p| !p.as_os_str().is_empty())
         .map(Path::to_path_buf)
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
@@ -614,8 +615,16 @@ fn latest_shadow_agreement_for_profile(autonomy_dir: &Path) -> Option<f64> {
     }
 }
 
-async fn cmd_doctor(_autonomy_dir: &PathBuf) -> Result<()> {
-    let probes = DoctorProbe::default_set();
+async fn cmd_doctor(autonomy_dir: &PathBuf) -> Result<()> {
+    let cfg = jeryu::llm::provider_chains::load_providers_config(autonomy_dir)
+        .with_context(|| format!("loading {}/providers/llm.yml", autonomy_dir.display()))?;
+    let probes = DoctorProbe::from_providers_config(&cfg);
+    if probes.is_empty() {
+        return Err(anyhow!(
+            "{}/providers/llm.yml contains no provider entries",
+            autonomy_dir.display()
+        ));
+    }
     let resolver = SecretResolver::from_env();
     let results = sweep_providers(&probes, &resolver).await;
     print!("{}", render_report(&results));
@@ -789,7 +798,7 @@ fn cmd_evidence(
             feature_flag: None,
             data_migration_reversible: Some(true),
         },
-        legacy_receipts: vec![],
+        gate_receipts: vec![],
     });
     if sign {
         // Sign with a freshly-generated ed25519 key. In production the
@@ -804,7 +813,7 @@ fn cmd_evidence(
 }
 
 fn cmd_init(repo_root: &PathBuf, profile: &str, force: bool) -> Result<()> {
-    let dst = repo_root.join(".autonomy");
+    let dst = repo_root.join(DEFAULT_AUTONOMY_DIR);
     if dst.exists() && !force {
         return Err(anyhow!(
             "{} already exists (use --force to overwrite)",
@@ -828,7 +837,7 @@ fn cmd_init(repo_root: &PathBuf, profile: &str, force: bool) -> Result<()> {
         "schema: vibegate.autonomy.v1\npublic_name: \"Evidence Gate\"\ninternal_brand: \"VibeGate Delivery Spine\"\n\
          \ndefault_profile: {profile}\n\n# See https://github.com/jeryu/jeryu/blob/main/docs/autonomous-delivery.md\n\
          # Profile definitions land via `jeryu autonomy init --force` against a richer template,\n\
-         # or copy from the canonical .autonomy/ in the jeryu repository itself.\n"
+         # or copy from the canonical .jeryu/autonomy/ in the jeryu repository itself.\n"
     );
     std::fs::write(dst.join("autonomy.yml"), autonomy_yml)?;
     std::fs::write(dst.join("flags").join(".gitkeep"), "")?;
@@ -838,83 +847,41 @@ fn cmd_init(repo_root: &PathBuf, profile: &str, force: bool) -> Result<()> {
         dst.display()
     );
     println!(
-        "Next: copy `.autonomy/{{policies,providers,prompts,agents,schemas}}/*` from the jeryu reference repo."
+        "Next: copy `.jeryu/autonomy/{{policies,providers,prompts,agents,schemas}}/*` from the jeryu reference repo."
     );
     Ok(())
 }
 
-/// Per-role router resolution (Wave 8.F): try `.autonomy/providers/llm.yml`
-/// first, fall back to the hardcoded [`build_default_router`] if the YAML
-/// has no chain for this role (or can't be parsed at all).
-///
-/// The new YAML schema stores chains under `chains.<role>`; the legacy
-/// Wave-5 schema uses `default_chain.<reviewer-role>` and is silently
-/// treated as "no per-role override" (the loader is lenient and ignores
-/// unknown keys).
+fn reviewer_chain_key(role: &str) -> String {
+    if role.starts_with("reviewer-") {
+        role.to_string()
+    } else {
+        format!("reviewer-{role}")
+    }
+}
+
+/// Per-role router resolution: `.jeryu/autonomy/providers/llm.yml` is the
+/// required source of truth, and the requested reviewer chain must be present.
 fn build_router_for_role(role: &str, autonomy_dir: &std::path::Path) -> Result<LlmRouter> {
     use jeryu::llm::provider_chains::{build_router_from_config, load_providers_config};
-    if let Ok(cfg) = load_providers_config(autonomy_dir) {
-        let resolver = SecretResolver::from_env();
-        if let Ok(router) = build_router_from_config(&cfg, &resolver)
-            && router.chain(role).is_some()
-        {
-            return Ok(router);
-        }
+    let chain_key = reviewer_chain_key(role);
+    let cfg = load_providers_config(autonomy_dir)
+        .with_context(|| format!("loading {}/providers/llm.yml", autonomy_dir.display()))?;
+    let resolver = SecretResolver::from_env();
+    let router = build_router_from_config(&cfg, &resolver)
+        .with_context(|| format!("building LLM router from {}", autonomy_dir.display()))?;
+    if router.chain(&chain_key).is_none() {
+        return Err(anyhow!(
+            "providers/llm.yml missing required chain `{chain_key}`"
+        ));
     }
-    build_default_router(role)
+    Ok(router)
 }
 
 /// Thin wrapper used by every reviewer call site so the per-role chain logic
-/// stays in exactly one place. Prefer the per-role chain from
-/// `.autonomy/providers/llm.yml`; on any failure (file missing, parse error,
-/// secret unresolvable, chain not present) fall through to the hardcoded
-/// [`build_default_router`] so production never loses its review capability.
+/// stays in exactly one place.
 fn select_router(role: &str, autonomy_dir: &std::path::Path) -> Result<LlmRouter> {
     build_router_for_role(role, autonomy_dir)
-}
-
-fn build_default_router(role: &str) -> Result<LlmRouter> {
-    let resolver = SecretResolver::from_env();
-    let key = resolve_secret("OPENROUTER_API_KEY", &resolver).ok_or_else(|| {
-        anyhow!("OPENROUTER_API_KEY not found in env, ~/.jeryu/secrets/llm.env, or ~/llm.env")
-    })?;
-    let client = OpenAiCompatibleClient::new("openrouter", "https://openrouter.ai/api/v1")
-        .with_api_key(key.value)
-        .with_header("HTTP-Referer", "https://github.com/jeryu/jeryu")
-        .with_header("X-Title", "jeryu-autonomy-cli")
-        .with_data_use(DataUse::NoTrain);
-    let client_arc = Arc::new(client);
-    let primary = CallParams {
-        model: "nvidia/nemotron-3-super-120b-a12b:free".into(),
-        temperature: 0.0,
-        max_tokens: 800,
-        timeout_ms: 60_000,
-        ..CallParams::default()
-    };
-    let fallback = CallParams {
-        model: "openai/gpt-oss-120b:free".into(),
-        temperature: 0.0,
-        max_tokens: 800,
-        timeout_ms: 60_000,
-        ..CallParams::default()
-    };
-    let chain_role = format!("reviewer-{role}");
-    let mut chain = RoleChain {
-        role: chain_role,
-        entries: vec![],
-        forbid_train_on_input: true,
-    };
-    chain.entries.push(RoleChainEntry {
-        provider: client_arc.clone(),
-        params: primary,
-    });
-    chain.entries.push(RoleChainEntry {
-        provider: client_arc,
-        params: fallback,
-    });
-    let mut r = LlmRouter::new();
-    r.add_chain(chain);
-    Ok(r)
 }
 
 // ---------------------------------------------------------------------------
@@ -964,7 +931,7 @@ async fn cmd_foundry(
     // If the queue did not return our candidate in this drain (it had not
     // yet crossed the time/commit threshold for the configured cfg), fall
     // back to the original `candidate` value — that is the documented
-    // single-tenant CLI semantic, not an error fallback.
+    // single-tenant CLI semantic, not error recovery.
     let to_build = drained
         .into_iter()
         .find(|c| c.id == candidate.id)
@@ -1394,10 +1361,9 @@ async fn cmd_daemon(op: DaemonOp) -> Result<()> {
             let verdict_store: Arc<dyn jeryu::autonomy::verdict_store::VerdictStore> =
                 Arc::new(SqlVerdictStore::new(db.pool()));
 
-            // If escalation config is missing or unreadable we fall back to
-            // an explicit "escalation disabled" config. Using `match` (not
-            // `unwrap_or_else`) so the audit reader can see that the
-            // disabled branch is deliberate, not an accidental swallow.
+            // If escalation config is missing or unreadable we use an
+            // explicit "escalation disabled" config. Using `match` keeps the
+            // disabled branch visible to audit readers.
             let escalation_config = match load_escalation_config(&autonomy_dir) {
                 Ok(cfg) => cfg,
                 Err(_) => jeryu::autonomy::escalation::EscalationConfig {
@@ -1440,7 +1406,7 @@ async fn cmd_daemon(op: DaemonOp) -> Result<()> {
                 let orchestrator: Arc<dyn ReviewerOrchestrator> = if fake_git_host {
                     Arc::new(FakeReviewerOrchestrator::new())
                 } else {
-                    let router = build_default_router("security")?;
+                    let router = select_router("security", &autonomy_dir)?;
                     let budget = Arc::new(BudgetLedger::default());
                     Arc::new(ProductionReviewerOrchestrator::new(
                         Arc::new(router),
@@ -1612,10 +1578,7 @@ async fn cmd_escalate(op: EscalateOp) -> Result<()> {
 #[cfg(test)]
 mod cli_router_tests {
     //! Wave-8.F: prove `select_router` actually picks up per-role chains from
-    //! a real `.autonomy/providers/llm.yml` when one exists, and falls back
-    //! to the hardcoded default otherwise. The hardcoded default path is
-    //! already exercised by `build_default_router`'s own tests; here we only
-    //! need to verify the per-role branch fires.
+    //! the canonical providers config.
     use super::select_router;
     use std::fs;
 
@@ -1635,7 +1598,7 @@ mod cli_router_tests {
             r#"
 schema: vibegate.providers.v1
 chains:
-  security:
+  reviewer-security:
     - provider: openrouter
       base_url: https://openrouter.ai/api/v1
       model_id: nvidia/llama-3.1-nemotron-70b-instruct:free
@@ -1664,23 +1627,45 @@ chains:
 
         let router = select_router("security", td.path()).expect("router should build");
 
-        // Per-role chain ID is the role name as declared in yml ("security").
-        // The hardcoded fallback uses the role name "reviewer-security". If
-        // the yml branch fired, we'll see the unprefixed name.
         let chain = router
-            .chain("security")
+            .chain("reviewer-security")
             .expect("per-role yml chain must be present");
         assert_eq!(chain.entries.len(), 2, "both yml entries must be present");
-        // Hardcoded fallback would have built `reviewer-security` instead.
-        assert!(
-            router.chain("reviewer-security").is_none(),
-            "hardcoded fallback chain should NOT have been built when yml chain exists"
-        );
 
         // SAFETY: same uniqueness invariant as the set_var above.
         unsafe {
             std::env::remove_var(TEST_SECRET_NAME);
         }
+    }
+
+    #[test]
+    fn select_router_fails_when_required_chain_missing() {
+        let td = tempfile::tempdir().unwrap();
+        let providers = td.path().join("providers");
+        fs::create_dir_all(&providers).unwrap();
+        fs::write(
+            providers.join("llm.yml"),
+            r#"
+schema: vibegate.providers.v1
+chains:
+  reviewer-runtime:
+    - provider: openrouter
+      base_url: https://openrouter.ai/api/v1
+      model_id: openai/gpt-oss-120b:free
+      api_key_secret: __JERYU_NEVER_DEFINED_SELECT_ROUTER_KEY__
+      data_use: no_train
+      temperature: 0.0
+      timeout_ms: 30000
+"#,
+        )
+        .unwrap();
+
+        let err = select_router("security", td.path()).expect_err("missing security chain fails");
+        assert!(
+            err.to_string()
+                .contains("missing required chain `reviewer-security`"),
+            "{err:?}"
+        );
     }
 }
 

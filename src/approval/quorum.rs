@@ -1,7 +1,7 @@
 //! Quorum evaluator.
 //!
 //! Given a set of `AgentApprovalReceipt` and a `QuorumEntry` from
-//! `.autonomy/policies/approvals.yml`, decide whether the quorum is met,
+//! `.jeryu/autonomy/policies/approvals.yml`, decide whether the quorum is met,
 //! short of one approval, or impossible.
 //!
 //! Tip1 invariants enforced here:
@@ -10,7 +10,7 @@
 //!   - All required `roles:` must emit `Pass`
 //!   - Any `Block` decision short-circuits to `Vetoed`
 
-use crate::autonomy::policy_yaml::{ApprovalsPolicy, QuorumEntry};
+use crate::autonomy::policy_yaml::ApprovalsPolicy;
 use crate::autonomy::types::{AgentApprovalReceipt, ReviewDecision, ReviewerRole, RiskTier};
 use std::collections::HashSet;
 
@@ -38,11 +38,16 @@ pub fn evaluate_quorum(
     policy: &ApprovalsPolicy,
     author_agent: Option<&str>,
 ) -> QuorumOutcome {
-    let entry = policy
-        .quorum
-        .get(&risk)
-        .cloned()
-        .unwrap_or_else(QuorumEntry::default);
+    let Some(entry) = policy.quorum.get(&risk).cloned() else {
+        return QuorumOutcome {
+            decision: QuorumDecision::HumanRequired,
+            passing_roles: vec![],
+            blocking_roles: vec![],
+            missing_roles: vec![],
+            abstaining_roles: vec![],
+            reason: format!("missing quorum policy for {risk:?}; failing closed"),
+        };
+    };
 
     // Filter out author receipts (no self-approval).
     let mut counted: Vec<&AgentApprovalReceipt> = receipts.iter().collect();
@@ -136,6 +141,7 @@ pub fn evaluate_quorum(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::autonomy::policy_yaml::QuorumEntry;
     use crate::autonomy::signing::Signature;
     use crate::autonomy::types::*;
     use chrono::Utc;
@@ -266,6 +272,21 @@ mod tests {
         let p = policy_with_quorum(RiskTier::R4, 0, vec![], true);
         let outcome = evaluate_quorum(RiskTier::R4, &[], &p, None);
         assert_eq!(outcome.decision, QuorumDecision::HumanRequired);
+    }
+
+    #[test]
+    fn missing_quorum_policy_fails_closed() {
+        let p = ApprovalsPolicy {
+            schema: "vibegate.approvals.v1".into(),
+            invariants: ApprovalRulesDefault::default().0,
+            hard_stops: vec![],
+            quorum: std::collections::HashMap::new(),
+            verdict_ttl_minutes: Some(60),
+            re_judge_on: vec![],
+        };
+        let outcome = evaluate_quorum(RiskTier::R1, &[], &p, None);
+        assert_eq!(outcome.decision, QuorumDecision::HumanRequired);
+        assert!(outcome.reason.contains("missing quorum policy"));
     }
 
     // --- Wave 5 coverage-boost addition ------------------------------------

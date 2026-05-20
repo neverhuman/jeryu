@@ -1,4 +1,4 @@
-# .autonomy/policies/freeze.yml — change-window / freeze schedule.
+# .jeryu/autonomy/policies/freeze.yml — change-window / freeze schedule.
 #
 # Schema: vibegate.freeze.v1 (see src/autonomy/freeze.rs).
 # When a window is active, any change above `max_allowed_risk` is downgraded

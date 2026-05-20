@@ -14,7 +14,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 cd "$REPO_ROOT"
 ensure_dirs
-require_tool jankurai
+require_jankurai
 
 # ── Sub-commands ───────────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ prepare_ux_qa_cli() {
   if [ ! -f "$cli" ]; then
     rm -rf "$tool_root"
     mkdir -p "$tool_root"
-    git clone --branch v1.4.1 --depth 1 https://github.com/neverhuman/jankurai "$checkout" >/dev/null 2>&1
+    git clone --branch "v$JANKURAI_REQUIRED_VERSION" --depth 1 https://github.com/neverhuman/jankurai "$checkout" >/dev/null 2>&1
     (
       cd "$checkout"
       npm ci >/dev/null 2>&1

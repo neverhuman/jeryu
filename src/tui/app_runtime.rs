@@ -28,7 +28,7 @@ impl App {
             gitlab,
             autonomy_dir: std::env::current_dir()
                 .unwrap_or_else(|_| PathBuf::from("."))
-                .join(".autonomy"),
+                .join(".jeryu/autonomy"),
             llm_secret_resolver: None,
             state: TuiStateSnapshot::default(),
             active_tab: ActiveTab::default(),

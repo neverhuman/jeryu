@@ -8,7 +8,7 @@
 //! Implements the typed object model and policy fusion for the
 //! "Evidence Gate" / VibeGate Delivery Spine standard.
 //! See `tips/fullauto/tip1.txt` for the controlling design and
-//! `.autonomy/schemas/*.schema.json` for the on-the-wire schemas.
+//! `.jeryu/autonomy/schemas/*.schema.json` for the on-the-wire schemas.
 
 pub mod auto_rejudge; // Wave 8.C — auto-rejudge service composer. Re-exports
 // handled by Wave 8.E integration.
@@ -35,7 +35,7 @@ pub mod verdict_store;
 
 pub use conditions::{ConditionRegistry, HardStop, NamedCondition};
 pub use evidence::{
-    EvidenceInputs, build_evidence_pack, make_legacy_receipt, verify_evidence_digest,
+    EvidenceInputs, build_evidence_pack, make_gate_receipt, verify_evidence_digest,
 };
 pub use ledger::{LedgerFilter, SqlLedger, sign_entry, verdict_issued_entry};
 pub use policy_yaml::{ApprovalsPolicy, PolicyBundle, ReleasePolicy, RiskPolicy};

@@ -28,11 +28,10 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = "0.1"
-# RedlineDB is the only embedded state-store backend allowed. Keep this on the
-# SQLx AnyPool compatibility surface only; never add SQLite features or
-# sqlx-sqlite as a fallback.
-sqlx = { version = "0.8", features = ["runtime-tokio", "any"] }
+# RedlineDB is the only embedded state-store backend allowed.
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "any"] }
 
 [dev-dependencies]
 redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "828667b49fd3adee88c8bdd48681b38c57b95563" }
+tempfile = "3.27.0"
 tokio = { workspace = true }

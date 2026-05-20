@@ -1,4 +1,4 @@
-# .autonomy/policies/risk.yml — R0..R5 classification.
+# .jeryu/autonomy/policies/risk.yml — R0..R5 classification.
 # Each tier lists matchers. First matching tier (in declared order) wins.
 # Path globs are gitignore-style. `conditions:` references vetted Rust fns
 # in src/autonomy/conditions.rs — unknown names fail closed to R5.
@@ -38,7 +38,7 @@ tiers:
       - lines_changed_gte: 800
       - paths_match: ["**/migrations/**"]
     auto_merge: false
-    required_reviews: [test_integrity, security, runtime, lockfile_scout]
+    required_reviews: [test_integrity, security, runtime, lockfile]
     human_required: true
 
   # R0/R1 are checked BEFORE R2-default so safe patterns don't get over-classified.

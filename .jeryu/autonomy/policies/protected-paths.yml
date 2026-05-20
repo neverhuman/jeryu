@@ -1,12 +1,12 @@
-# .autonomy/policies/protected-paths.yml — hard-human-review paths.
+# .jeryu/autonomy/policies/protected-paths.yml — hard-human-review paths.
 # Any PR/MR touching these paths is automatically classified R4 minimum
 # regardless of profile. Mirrors tip1 §5 (canonical control plane).
 schema: vibegate.protected_paths.v1
 
 # Paths use gitignore-style globs evaluated against the union of changed files.
-paths:
+hard_human:
   # autonomy plane itself
-  - ".autonomy/**"
+  - ".jeryu/autonomy/**"
   - "AGENTS.md"
   - "CODEOWNERS"
 

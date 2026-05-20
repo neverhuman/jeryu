@@ -6,5 +6,5 @@ Read `AGENTS.md` first. Use `agent/JANKURAI_STANDARD.md` as the canonical jankur
 When a user provides a paper, release, implementation, or handoff plan in the conversation, treat that plan as the controlling plan. Do not route such plans through the separate local phase workflow unless the user explicitly names MASTER_PLAN phase work.
 Owns `ops/`.
 Forbidden: product feature code, domain policy, and direct DB writes.
-Proof lane: `security lane / workflow lint`.
+Proof lane: `bash ops/ci/quality-gates.sh` and `bash ops/ci/jankurai-lane.sh security`.
 If jankurai is installed, run `jankurai update --client-start --quiet` before work; do not apply updates unless the user asks.

@@ -1,14 +1,13 @@
-//! 6-tier secret lookup chain for LLM provider keys.
+//! Canonical secret lookup chain for LLM provider keys.
 //!
 //! Precedence (first hit wins):
 //!   1. Explicit `--llm-key <PROVIDER>=<VALUE>` CLI flag (caller-supplied).
 //!   2. Process env var.
 //!   3. `~/.jeryu/secrets/llm.env` (dotenvy; canonical user-default).
-//!   4. `~/llm.env`  (legacy / current user-provided path; supported for back-compat).
-//!   5. `.env.local` at repo root (gitignored).
-//!   6. CI secret (env var injected by GitHub/GitLab CI — handled by tier #2 in CI).
+//!   4. `.env.local` at repo root (gitignored).
+//!   5. CI secret (env var injected by GitHub/GitLab CI — handled by tier #2 in CI).
 //!
-//! In CI mode (`CI=true`), local file tiers (3, 4, 5) are skipped to avoid
+//! In CI mode (`CI=true`), local file tiers (3 and 4) are skipped to avoid
 //! accidentally reading developer keys.
 
 use std::collections::HashMap;
@@ -19,7 +18,6 @@ pub enum SecretSource {
     Cli,
     Env,
     UserDefault,
-    UserLegacy,
     RepoLocal,
     NotFound,
 }
@@ -49,7 +47,7 @@ impl SecretResolver {
     }
 }
 
-/// Resolve a named secret (e.g. `OPENROUTER_API_KEY`) using the 6-tier chain.
+/// Resolve a named secret (e.g. `OPENROUTER_API_KEY`) using the canonical chain.
 pub fn resolve_secret(name: &str, resolver: &SecretResolver) -> Option<ResolvedSecret> {
     if let Some(v) = resolver.cli_overrides.get(name) {
         return Some(ResolvedSecret {
@@ -73,13 +71,6 @@ pub fn resolve_secret(name: &str, resolver: &SecretResolver) -> Option<ResolvedS
         if let Some(v) = read_env_value(&user_default, name) {
             return Some(ResolvedSecret {
                 source: SecretSource::UserDefault,
-                value: v,
-            });
-        }
-        let legacy = home.join("llm.env");
-        if let Some(v) = read_env_value(&legacy, name) {
-            return Some(ResolvedSecret {
-                source: SecretSource::UserLegacy,
                 value: v,
             });
         }
@@ -166,7 +157,7 @@ mod tests {
             ci_mode: true,
             ..Default::default()
         };
-        // Even if ~/llm.env exists with the key, CI mode must not read it.
+        // Even if local key files exist, CI mode must not read them.
         let result = resolve_secret("__JERYU_NEVER_DEFINED__", &r);
         assert!(result.is_none());
     }

@@ -881,8 +881,7 @@ mod tests {
         // mutations and restores prior values before the assertion barrier.
         unsafe {
             std::env::remove_var("GITHUB_TOKEN");
-            // SecretResolver walks file tiers (~/.jeryu/secrets/llm.env,
-            // ~/llm.env, .env.local) when not in CI mode. Force CI=true so
+            // SecretResolver walks local file tiers when not in CI mode. Force CI=true so
             // the test never picks up a developer-machine GITHUB_TOKEN from
             // one of those files.
             std::env::set_var("CI", "true");

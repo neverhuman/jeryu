@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "arc-bench"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "anyhow",
  "cargo-aer",
@@ -527,12 +527,13 @@ dependencies = [
 
 [[package]]
 name = "cache-brain-adapter"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "anyhow",
  "async-trait",
  "redlinedb-sqlx",
  "sqlx",
+ "tempfile",
  "tokio",
 ]
 
@@ -580,7 +581,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-aer"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -606,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-vrc"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -621,7 +622,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-witness"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -2473,7 +2474,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2528,8 +2529,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "jeryu-domain"
+version = "3.3.10"
+
+[[package]]
 name = "jeryu-gcd"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5026,9 +5031,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sqlx-core",
- "sqlx-mysql",
- "sqlx-postgres",
- "sqlx-sqlite",
  "syn 2.0.117",
  "tokio",
  "url",
@@ -5065,7 +5067,6 @@ dependencies = [
  "percent-encoding",
  "rand 0.8.6",
  "rsa",
- "serde",
  "sha1",
  "sha2 0.10.9",
  "smallvec",
@@ -5129,7 +5130,6 @@ dependencies = [
  "libsqlite3-sys",
  "log",
  "percent-encoding",
- "serde",
  "serde_urlencoded",
  "sqlx-core",
  "thiserror 2.0.18",
@@ -5702,7 +5702,7 @@ checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
 
 [[package]]
 name = "tui-capture"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "anyhow",
  "clap",
@@ -6647,7 +6647,7 @@ dependencies = [
 
 [[package]]
 name = "witness-rt"
-version = "3.3.9"
+version = "3.3.10"
 dependencies = [
  "chrono",
  "serde",

@@ -6,5 +6,6 @@ Read `AGENTS.md` first. Use `agent/JANKURAI_STANDARD.md` as the canonical jankur
 When a user provides a paper, release, implementation, or handoff plan in the conversation, treat that plan as the controlling plan. Do not route such plans through the separate local phase workflow unless the user explicitly names MASTER_PLAN phase work.
 Owns `crates/domain/`.
 Forbidden: I/O glue, transport routing, and persistence code.
-Proof lane: `unit / property tests`.
+Required error surface: domain failures must be typed and include `purpose`, `reason`, `common_fixes`, `docs_url`, and `repair_hint` when they cross an agent-facing boundary.
+Proof lane: `cargo test -p jeryu-domain` plus `unit / property tests`; also run `cargo test -p jeryu --lib approval::quorum -- --test-threads=1` for policy changes.
 If jankurai is installed, run `jankurai update --client-start --quiet` before work; do not apply updates unless the user asks.

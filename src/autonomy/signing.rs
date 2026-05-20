@@ -8,7 +8,7 @@
 //! - `ed25519` — real per-agent ed25519 signing via `EdSigningKey`;
 //!   accepted by enforcement-mode verifiers
 //!
-//! Public keys live under `.autonomy/keys/<agent_id>.ed25519.pub` (32 bytes,
+//! Public keys live under `.jeryu/autonomy/keys/<agent_id>.ed25519.pub` (32 bytes,
 //! base64). Private key material is vaulted via `src/secrets.rs`.
 
 use ed25519_dalek::{Signer, SigningKey as DalekSigningKey, Verifier, VerifyingKey};
@@ -69,7 +69,7 @@ impl Signature {
 
 /// Symmetric placeholder "key" until ed25519 lands. In real use:
 /// - private key material comes from vault
-/// - public key material lives under .autonomy/keys/
+/// - public key material lives under .jeryu/autonomy/keys/
 pub struct SigningKey {
     pub key_id: String,
     pub secret: Vec<u8>,
@@ -154,7 +154,7 @@ impl EdSigningKey {
     }
 
     /// Export the public-key bytes as 32-byte hex. Suitable for writing to
-    /// `.autonomy/keys/<agent_id>.ed25519.pub`.
+    /// `.jeryu/autonomy/keys/<agent_id>.ed25519.pub`.
     pub fn public_key_hex(&self) -> String {
         hex::encode(self.inner.verifying_key().to_bytes())
     }
@@ -175,7 +175,7 @@ pub struct EdVerifier {
 }
 
 impl EdVerifier {
-    /// Reconstruct from the 32-byte hex string written to `.autonomy/keys/*.ed25519.pub`.
+    /// Reconstruct from the 32-byte hex string written to `.jeryu/autonomy/keys/*.ed25519.pub`.
     pub fn from_public_key_hex(key_id: impl Into<String>, hex_str: &str) -> Result<Self, String> {
         let bytes = hex::decode(hex_str.trim()).map_err(|e| format!("hex decode: {e}"))?;
         let arr: [u8; 32] = bytes

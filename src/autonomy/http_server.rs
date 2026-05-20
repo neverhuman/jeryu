@@ -600,7 +600,7 @@ async fn handle_webhook(request: &HttpRequest, body: &[u8], state: &AppState) ->
     // Sign with the configured webhook key, or generate an ephemeral one.
     // The ephemeral path is acceptable because the ledger only enforces
     // "non-stub algo" — the verifier separately resolves keys via
-    // `.autonomy/keys/`. Production callers should always wire a key.
+    // `.jeryu/autonomy/keys/`. Production callers should always wire a key.
     let mut entry = LaunchLedgerEntry {
         schema: SchemaTag::default(),
         id: event_id.clone(),
@@ -651,7 +651,7 @@ async fn handle_webhook(request: &HttpRequest, body: &[u8], state: &AppState) ->
 /// byte arrays).
 ///
 /// Header format is `sha256=<64 hex chars>`. We do not support the
-/// legacy `sha1=` form — GitHub deprecated it in 2019 and `sha2` is
+/// deprecated `sha1=` form — GitHub deprecated it in 2019 and `sha2` is
 /// already in our dep graph.
 pub fn verify_hub_signature(body: &[u8], header: &str, secret: &str) -> bool {
     let Some(rest) = header.strip_prefix("sha256=") else {

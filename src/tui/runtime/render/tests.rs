@@ -218,7 +218,7 @@ async fn renders_cached_pools_with_pool_sync_warning() -> Result<()> {
 #[tokio::test]
 async fn renders_llms_tab_with_redacted_secret_values() -> Result<()> {
     let td = tempfile::tempdir()?;
-    let autonomy_dir = td.path().join(".autonomy");
+    let autonomy_dir = td.path().join(".jeryu/autonomy");
     std::fs::create_dir_all(autonomy_dir.join("providers"))?;
     std::fs::write(
         autonomy_dir.join("providers").join("llm.yml"),

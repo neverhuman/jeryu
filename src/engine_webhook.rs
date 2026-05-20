@@ -17,18 +17,6 @@ pub(crate) async fn health() -> &'static str {
     "ok"
 }
 
-/// Decide whether to dispatch via the embedded jansu broker. Controlled by the
-/// `jansu-broker` Cargo feature *and* the `JERYU_WEBHOOK_SYNC` env var: setting
-/// the env var to `1` forces the legacy inline path even with the feature on,
-/// useful for ops/debug.
-#[cfg(feature = "jansu-broker")]
-fn use_broker() -> bool {
-    !matches!(
-        std::env::var("JERYU_WEBHOOK_SYNC").as_deref(),
-        Ok("1") | Ok("true")
-    )
-}
-
 pub(crate) async fn handle_webhook(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -54,12 +42,17 @@ pub(crate) async fn handle_webhook(
     debug!(event_type, delivery_uuid, "received webhook");
 
     #[cfg(feature = "jansu-broker")]
-    if use_broker() {
-        return dispatch_via_broker(event_type, delivery_uuid, body).await;
+    {
+        dispatch_via_broker(event_type, delivery_uuid, body).await
     }
 
-    dispatch_inline(&state, event_type, body).await;
-    Ok(StatusCode::OK)
+    #[cfg(not(feature = "jansu-broker"))]
+    {
+        let _ = state;
+        let _ = body;
+        warn!("webhook broker feature is disabled; rejecting webhook");
+        Err(StatusCode::SERVICE_UNAVAILABLE)
+    }
 }
 
 /// Dispatch a webhook payload to the appropriate per-event handler. Public
@@ -118,9 +111,7 @@ async fn dispatch_via_broker(
     let broker = match broker_handle() {
         Ok(b) => b,
         Err(e) => {
-            // Singleton wasn't initialized — fall back to inline so we never
-            // drop a webhook on the floor due to startup ordering.
-            warn!(error = %e, "broker not ready; falling back to inline dispatch");
+            warn!(error = %e, "broker not ready; rejecting webhook");
             return Err(StatusCode::SERVICE_UNAVAILABLE);
         }
     };

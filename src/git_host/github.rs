@@ -122,7 +122,7 @@ impl GitHubClient {
             .header("User-Agent", &self.user_agent)
     }
 
-    /// Read every `*.yml` under `.autonomy/policies/` on `target_branch`,
+    /// Read every `*.yml` under `.jeryu/autonomy/policies/` on `target_branch`,
     /// decode base64 bodies if needed, and hash the concatenation in
     /// alphabetical filename order. Returns `Ok(None)` when the directory
     /// is absent on the target branch (404); other HTTP failures surface
@@ -138,9 +138,9 @@ impl GitHubClient {
         repo: &RepoRef,
         target_branch: &str,
     ) -> Result<Option<String>, HostError> {
-        // 1) List the .autonomy/policies directory on the target branch.
+        // 1) List the .jeryu/autonomy/policies directory on the target branch.
         let dir_path = format!(
-            "/repos/{}/{}/contents/.autonomy/policies?ref={}",
+            "/repos/{}/{}/contents/.jeryu/autonomy/policies?ref={}",
             repo.owner,
             repo.name,
             urlencoding::encode(target_branch)
@@ -153,7 +153,7 @@ impl GitHubClient {
         let status = r.status();
         let headers = r.headers().clone();
         if status == reqwest::StatusCode::NOT_FOUND {
-            // Legitimate: target branch has no `.autonomy/policies` dir.
+            // Legitimate: target branch has no `.jeryu/autonomy/policies` dir.
             return Ok(None);
         }
         if !status.is_success() {
@@ -174,15 +174,15 @@ impl GitHubClient {
         policy_files.sort_by(|a, b| a.name.cmp(&b.name));
 
         // 3) Fetch each file body. Prefer `download_url` (raw content,
-        // no base64 round-trip); fall back to the metadata endpoint and
-        // decode base64 if the raw URL is unavailable.
+        // no base64 round-trip); otherwise use the metadata endpoint and
+        // decode base64.
         let mut bodies: Vec<(String, String)> = Vec::with_capacity(policy_files.len());
         for entry in &policy_files {
             let body = if let Some(url) = entry.download_url.as_ref() {
                 self.fetch_raw_url(url).await?
             } else {
                 let file_path = format!(
-                    "/repos/{}/{}/contents/.autonomy/policies/{}?ref={}",
+                    "/repos/{}/{}/contents/.jeryu/autonomy/policies/{}?ref={}",
                     repo.owner,
                     repo.name,
                     urlencoding::encode(&entry.name),
@@ -913,7 +913,7 @@ mod tests {
 
     /// The Contents-API codepath actually runs (no silent short-circuit):
     /// point the client at an unreachable port and assert the failure is
-    /// `Transient` AND the in-flight request hit `/contents/.autonomy/policies`.
+    /// `Transient` AND the in-flight request hit `/contents/.jeryu/autonomy/policies`.
     /// We verify the path indirectly via the error string, which the
     /// `map_http_err` / Transient wrapper carries through from reqwest.
     #[tokio::test]
@@ -927,7 +927,7 @@ mod tests {
         match err {
             HostError::Transient(msg) => {
                 assert!(
-                    msg.contains("/contents/.autonomy/policies"),
+                    msg.contains("/contents/.jeryu/autonomy/policies"),
                     "expected Contents-API path in transport error, got: {msg}"
                 );
             }
@@ -979,7 +979,7 @@ mod tests {
     async fn gitlab_stub_default_impl_returns_none_for_target_policy_sha() {
         // The GitLab stub does NOT override `fetch_target_policy_sha`,
         // so it must inherit the trait default `Ok(None)`. This locks
-        // the back-compat contract: adding a new GitHost trait method
+        // the trait-extension contract: adding a new GitHost trait method
         // with a default impl must not break existing adapters.
         let s = crate::git_host::GitLabStubClient::new();
         let r = RepoRef::parse("anthropics/claude-code").unwrap();

@@ -17,7 +17,7 @@
 //! Write tools (lease-gated; land in a later phase):
 //!   - `vibegate.run_review` — kick off a reviewer call.
 //!   - `vibegate.approve_mr` — judge → host approval.
-//!   - `vibegate.propose_autonomy_edit` — open an MR against `.autonomy/`.
+//!   - `vibegate.propose_autonomy_edit` — open an MR against `.jeryu/autonomy/`.
 
 use serde::{Deserialize, Serialize};
 
@@ -41,13 +41,13 @@ pub fn descriptors() -> Vec<ToolDescriptor> {
     vec![
         ToolDescriptor {
             name: "vibegate.inspect_autonomy_pack".into(),
-            description: "Load and return the parsed .autonomy/ PolicyBundle for the current repo.".into(),
+            description: "Load and return the parsed .jeryu/autonomy PolicyBundle for the current repo.".into(),
             category: ToolCategory::ReadOnly,
             requires_lease: false,
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "autonomy_dir": { "type": "string", "default": ".autonomy" }
+                    "autonomy_dir": { "type": "string", "default": ".jeryu/autonomy" }
                 }
             }),
         },
@@ -138,14 +138,14 @@ pub fn descriptors() -> Vec<ToolDescriptor> {
         },
         ToolDescriptor {
             name: "vibegate.propose_autonomy_edit".into(),
-            description: "Open an MR proposing changes to `.autonomy/`. Never direct-writes; always goes through review per Tip1 Law 3.".into(),
+            description: "Open an MR proposing changes to `.jeryu/autonomy/`. Never direct-writes; always goes through review per Tip1 Law 3.".into(),
             category: ToolCategory::Mutating,
             requires_lease: true,
             input_schema: serde_json::json!({
                 "type": "object",
                 "required": ["path", "new_content", "rationale"],
                 "properties": {
-                    "path": { "type": "string", "pattern": "^\\.autonomy/" },
+                    "path": { "type": "string", "pattern": "^\\.jeryu/autonomy/" },
                     "new_content": { "type": "string" },
                     "rationale": { "type": "string", "maxLength": 1000 }
                 }

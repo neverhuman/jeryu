@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.9",
-  "cargo_workspace_version": "3.3.9",
+  "version": "3.3.10",
+  "cargo_workspace_version": "3.3.10",
   "release_line": "V3.3",
   "status": "stable",
   "date": "2026-05-20",
   "tag_policy": {
-    "rc": "v3.3.9-rc.N",
-    "stable": "v3.3.9"
+    "rc": "v3.3.10-rc.N",
+    "stable": "v3.3.10"
   },
-  "headline": "Ship JeRyu v3.3.9 with PR-gated publish flow and release metadata cleanup."
+  "headline": "Ship JeRyu v3.3.10 with agent-first autonomous defaults and pinned CI parity."
 }

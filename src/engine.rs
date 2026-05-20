@@ -93,9 +93,8 @@ pub async fn run_engine(
     });
 
     // Bring up the embedded jansu broker and the consumer loop that drains
-    // webhook events into the inline dispatch path. Best-effort: if broker
-    // init fails the engine still serves HTTP, but webhooks will reject with
-    // 503 until the operator restarts. (Inline fallback is via JERYU_WEBHOOK_SYNC=1.)
+    // webhook events into the dispatch path. If broker init fails the engine
+    // still serves HTTP, but webhooks reject with 503 until the operator restarts.
     #[cfg(feature = "jansu-broker")]
     {
         match crate::messaging::init_broker().await {

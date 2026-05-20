@@ -138,7 +138,7 @@ impl FakeGitHost {
 
     /// Wave 7.B: seed the `fetch_target_policy_sha` return value for a
     /// `(repo, target_branch)` pair. Pass `Some(sha)` to model "the
-    /// target branch has `.autonomy/policies` and hashes to this SHA",
+    /// target branch has `.jeryu/autonomy/policies` and hashes to this SHA",
     /// or `None` to model "host reports no policy on the target branch"
     /// (the trait default behavior, but explicit here so tests can
     /// assert the daemon still recorded the call).

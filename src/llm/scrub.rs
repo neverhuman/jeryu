@@ -1,5 +1,5 @@
 //! Pre-flight secret scrub: refuses to send any byte to an LLM provider when
-//! gitleaks (or a pure-Rust fallback) flags a candidate secret in the diff.
+//! gitleaks or the built-in pure-Rust scanner flags a candidate secret in the diff.
 //!
 //! Always runs in `fail_closed` mode unless `JERYU_LLM_SCRUB_SKIP=1`
 //! (intended only for opt-in unit/integration scenarios — never CI default).
@@ -27,7 +27,7 @@ pub struct ScrubReport {
 /// 1. If `gitleaks` binary is available and the env var
 ///    `JERYU_LLM_SCRUB_TOOL=gitleaks` is set or default, shell out to it.
 ///    (Deferred: requires runtime check; Phase 2 implements this.)
-/// 2. Otherwise use a pure-Rust regex fallback covering the common shapes.
+/// 2. Otherwise use a pure-Rust regex scanner covering the common shapes.
 pub fn scrub_diff(diff: &str) -> ScrubReport {
     if std::env::var("JERYU_LLM_SCRUB_SKIP").as_deref() == Ok("1") {
         return ScrubReport {
@@ -40,7 +40,7 @@ pub fn scrub_diff(diff: &str) -> ScrubReport {
     ScrubReport {
         passed: findings.is_empty(),
         findings,
-        tool: "regex-fallback",
+        tool: "regex-scanner",
     }
 }
 

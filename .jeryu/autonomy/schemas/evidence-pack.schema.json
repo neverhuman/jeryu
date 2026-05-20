@@ -69,9 +69,9 @@
         "data_migration_reversible": { "type": ["boolean", "null"] }
       }
     },
-    "legacy_receipts": {
+    "gate_receipts": {
       "type": "array",
-      "description": "Slice carrying the existing src/release/gate.rs::Receipt entries verbatim, so the system back-compats with release.policy.toml.",
+      "description": "Slice carrying required src/release/gate.rs::Receipt entries.",
       "items": {
         "type": "object",
         "required": ["id", "status", "detail"],

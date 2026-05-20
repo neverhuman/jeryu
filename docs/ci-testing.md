@@ -18,8 +18,8 @@ To run these environments locally, the following commands are used:
 # Run standard library unit tests
 cargo test --lib
 
-# Run all integration tests (must have local GitLab and Docker running)
-cargo test --tests
+# Run all integration tests with RedlineDB-backed state isolated per test
+cargo test --tests -- --test-threads=1
 ```
 
 ## 2. GitHub Actions CI Configuration
@@ -101,7 +101,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
       - name: Run integration tests
-        run: cargo test --tests --verbose
+        run: cargo test --tests --verbose -- --test-threads=1
 
   tui-smoke:
     name: TUI Smoke

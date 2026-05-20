@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "repo": "neverhuman/jankurai",
+  "release_tag": "v1.5.1",
+  "version": "1.5.1",
+  "source_tarball_url": "https://github.com/neverhuman/jankurai/archive/refs/tags/v1.5.1.tar.gz",
+  "source_tarball_sha256": "ffb38d4e1499a366f7125ffed82a7190ff9f2873e0edf1f9765ef07f80910cca",
+  "assets": {
+    "linux-x86_64": {
+      "asset_name": "jankurai-1.5.1-x86_64-unknown-linux-gnu.tar.gz",
+      "download_url": "https://github.com/neverhuman/jankurai/releases/download/v1.5.1/jankurai-1.5.1-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "a12dbb4a3805dee807fc101d4b073ac9386936b33c5579f606a655fe90d0bbac"
+    },
+    "macos-arm64": {
+      "asset_name": "jankurai-1.5.1-aarch64-apple-darwin.tar.gz",
+      "download_url": "https://github.com/neverhuman/jankurai/releases/download/v1.5.1/jankurai-1.5.1-aarch64-apple-darwin.tar.gz",
+      "sha256": "7f47c5dc04ad007c073a8a1ec1108605b271ced47346dda928f5e082a5be4058"
+    }
+  }
+}

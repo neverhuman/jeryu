@@ -2,8 +2,8 @@ schema: vibegate.agent.v1
 id: nightwatch
 version: 1
 role: nightwatch
-chain_ref: judge
-prompt_path: null
+chain_ref: reviewer-nightwatch
+prompt_path: prompts/reviewer-nightwatch.md
 output_schema: schemas/launch-ledger-entry.schema.json
 signing_key_pub: keys/nightwatch.ed25519.pub
 authority:

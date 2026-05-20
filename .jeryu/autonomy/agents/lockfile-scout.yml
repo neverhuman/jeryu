@@ -2,7 +2,7 @@ schema: vibegate.agent.v1
 id: lockfile-scout
 version: 1
 role: lockfile
-chain_ref: lockfile-scout
+chain_ref: reviewer-lockfile
 prompt_path: prompts/lockfile-scout.md
 output_schema: schemas/agent-approval-receipt.schema.json
 signing_key_pub: keys/lockfile-scout.ed25519.pub

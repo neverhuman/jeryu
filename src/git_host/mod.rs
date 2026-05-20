@@ -3,12 +3,12 @@
 //! Invariants:
 //!   - `approve_merge_request` ALWAYS includes an exact-SHA binding (Tip1 Law 4).
 //!   - No write call is made unless `dry_run = false` is explicitly requested.
-//!   - Auth failures surface as `HostError::Auth` (caller decides whether to fall back).
+//!   - Auth failures surface as `HostError::Auth` (caller decides next action).
 //!
 //! Trait-based GitHost surface. GitLab is Codex's territory; this module ships
 //! a minimal **GitHub** adapter so the live e2e can exercise check-runs and
-//! reviewer comments today using `GITHUB_TOKEN` from `~/llm.env`. The GitLab
-//! stub here is intentionally minimal — Codex's Phase 4 work owns the rich
+//! reviewer comments today using `GITHUB_TOKEN` from the canonical secret
+//! chain. The GitLab stub here is intentionally minimal — Codex's Phase 4 work owns the rich
 //! MR/approval/status-check/deployment-approval surface.
 
 use async_trait::async_trait;
@@ -143,7 +143,7 @@ pub struct PrSummary {
 /// verdicts are still bound to the same head + base.
 ///
 /// `target_policy_sha` is intentionally `Option<String>` because computing
-/// the policy SHA requires reading `.autonomy/policies/*.yml` from the
+/// the policy SHA requires reading `.jeryu/autonomy/policies/*.yml` from the
 /// target branch, which is more than a single GraphQL/REST call. Wave 8
 /// wires that computation; for now adapters return `None`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,14 +228,14 @@ pub trait GitHost: Send + Sync {
     /// fails at compile time when a new adapter is added.
     async fn fetch_pr_diff(&self, repo: &RepoRef, mr_iid: &str) -> Result<PrDiff, HostError>;
 
-    /// Compute the canonical SHA over `.autonomy/policies/*.yml` as they
+    /// Compute the canonical SHA over `.jeryu/autonomy/policies/*.yml` as they
     /// exist on the protected target branch. This is the surface Wave 8's
     /// auto-rejudge logic uses to detect target-branch policy drift
     /// (Tip1 Law 3: policy MUST be evaluated from the protected target
     /// branch, not from the contributor branch).
     ///
     /// Contract:
-    /// - `Ok(None)` means "there is no `.autonomy/policies` directory on
+    /// - `Ok(None)` means "there is no `.jeryu/autonomy/policies` directory on
     ///   the target branch" (legitimate "no policy" state).
     /// - `Ok(Some("sha256:..."))` is the hex SHA-256 over the concatenated
     ///   policy YAML files in alphabetical filename order, newline-joined.
@@ -245,7 +245,7 @@ pub trait GitHost: Send + Sync {
     ///   handles.
     ///
     /// Default impl returns `Ok(None)` so adapters that don't speak the
-    /// `.autonomy/policies/*.yml` surface (GitLab stub, in-memory fake)
+    /// `.jeryu/autonomy/policies/*.yml` surface (GitLab stub, in-memory fake)
     /// don't break — only `GitHubClient` overrides. Brainstorm reference:
     /// Tip1 Law 3 ("policy evaluated from protected target branch").
     async fn fetch_target_policy_sha(
@@ -322,9 +322,8 @@ mod tests {
     // --- Wave 7.B: trait-level default impl for fetch_target_policy_sha ---
 
     /// A bare-bones adapter that overrides nothing must inherit the
-    /// `Ok(None)` default from the trait. This guards the back-compat
-    /// contract documented above: existing adapters MUST NOT need to
-    /// add code to keep compiling.
+    /// `Ok(None)` default from the trait. This guards the trait-extension
+    /// contract documented above: existing adapters MUST NOT need code changes.
     struct MinimalHost;
 
     #[async_trait]

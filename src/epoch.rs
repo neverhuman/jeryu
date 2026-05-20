@@ -10,7 +10,6 @@ use crate::state::StateBackend;
 fn adapter_backend(backend: StateBackend) -> AdapterBackend {
     match backend {
         StateBackend::RedlineDb => AdapterBackend::RedlineDb,
-        StateBackend::CompatSql => AdapterBackend::CompatSql,
     }
 }
 

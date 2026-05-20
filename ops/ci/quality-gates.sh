@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 cd "$REPO_ROOT"
 ensure_dirs
-require_tool jankurai
+require_jankurai
 require_tool cargo
 
 log "jankurai doctor"

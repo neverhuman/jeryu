@@ -467,7 +467,7 @@ fn configure_hook_mode(repo_root: &Path, mode: HookMode, profile: HookProfile) -
 fn pre_push_hook(mode: HookMode) -> String {
     let blocking = matches!(mode, HookMode::Enforce);
     format!(
-        "#!/bin/sh\nset -u\nREPO_ROOT=\"$(git rev-parse --show-toplevel)\"\ncd \"$REPO_ROOT\"\nbash scripts/ci-parity.sh --fast --no-audit\nstatus=$?\nif [ \"$status\" -ne 0 ]; then\n  echo \"jeryu advisory pre-push failed\" >&2\n  {}\nfi\nexit 0\n",
+        "#!/bin/sh\nset -u\nREPO_ROOT=\"$(git rev-parse --show-toplevel)\"\ncd \"$REPO_ROOT\"\nbash ops/ci/quality-gates.sh\nstatus=$?\nif [ \"$status\" -ne 0 ]; then\n  echo \"jeryu advisory pre-push failed\" >&2\n  {}\nfi\nexit 0\n",
         if blocking { "exit $status" } else { "exit 0" }
     )
 }
@@ -844,8 +844,7 @@ mod tests {
 
         configure_hook_mode(repo.path(), HookMode::Enforce, HookProfile::PrePush).unwrap();
         let pre_push = fs::read_to_string(repo.path().join(".jeryu/hooks/pre-push")).unwrap();
-        assert!(pre_push.contains("ci-parity.sh"));
-        assert!(pre_push.contains("--fast --no-audit"));
+        assert!(pre_push.contains("ops/ci/quality-gates.sh"));
         assert!(pre_push.contains("exit $status"));
 
         let output = std::process::Command::new("git")

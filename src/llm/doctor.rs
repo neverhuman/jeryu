@@ -4,7 +4,9 @@
 
 use crate::llm::{
     CallParams, ChatMessage, DataUse, LlmError, LlmProvider, OpenAiCompatibleClient,
-    SecretResolver, resolve_secret,
+    SecretResolver,
+    provider_chains::{ProviderEntry, ProvidersConfig},
+    resolve_secret,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -39,60 +41,34 @@ pub struct DoctorProbe {
 }
 
 impl DoctorProbe {
-    /// Default probe set chosen from the live-verified providers on 2026-05-16.
-    /// Includes the ones in `~/llm.env` that responded successfully + the
-    /// most reliable model per provider.
-    pub fn default_set() -> Vec<Self> {
-        vec![
-            Self {
-                provider_id: "openrouter".into(),
-                base_url: "https://openrouter.ai/api/v1".into(),
-                api_env_var: "OPENROUTER_API_KEY".into(),
-                model: "nvidia/nemotron-3-super-120b-a12b:free".into(),
-                extra_headers: vec![
-                    (
-                        "HTTP-Referer".into(),
-                        "https://github.com/jeryu/jeryu".into(),
-                    ),
-                    ("X-Title".into(), "jeryu-evidence-gate-doctor".into()),
-                ],
-            },
-            Self {
-                provider_id: "groq".into(),
-                base_url: "https://api.groq.com/openai/v1".into(),
-                api_env_var: "GROQ_API_KEY".into(),
-                model: "llama-3.3-70b-versatile".into(),
-                extra_headers: vec![],
-            },
-            Self {
-                provider_id: "gemini".into(),
-                base_url: "https://generativelanguage.googleapis.com/v1beta/openai".into(),
-                api_env_var: "GEMINI_API_KEY".into(),
-                model: "gemini-2.0-flash".into(),
-                extra_headers: vec![],
-            },
-            Self {
-                provider_id: "cerebras".into(),
-                base_url: "https://api.cerebras.ai/v1".into(),
-                api_env_var: "CEREBRAS_API_KEY".into(),
-                model: "llama-3.3-70b".into(),
-                extra_headers: vec![],
-            },
-            Self {
-                provider_id: "nvidia".into(),
-                base_url: "https://integrate.api.nvidia.com/v1".into(),
-                api_env_var: "NVIDIA_API_KEY".into(),
-                model: "meta/llama-3.3-70b-instruct".into(),
-                extra_headers: vec![],
-            },
-            Self {
-                provider_id: "fireworks".into(),
-                base_url: "https://api.fireworks.ai/inference/v1".into(),
-                api_env_var: "FIREWORKS_API_KEY".into(),
-                model: "accounts/fireworks/models/llama-v3p3-70b-instruct".into(),
-                extra_headers: vec![],
-            },
-        ]
+    pub fn from_providers_config(config: &ProvidersConfig) -> Vec<Self> {
+        let mut roles: Vec<&String> = config.chains.keys().collect();
+        roles.sort();
+        let mut probes = Vec::new();
+        for role in roles {
+            if let Some(entries) = config.chains.get(role) {
+                for (idx, entry) in entries.iter().enumerate() {
+                    probes.push(Self::from_provider_entry(role, idx, entry));
+                }
+            }
+        }
+        probes
+    }
+
+    fn from_provider_entry(role: &str, idx: usize, entry: &ProviderEntry) -> Self {
+        let mut extra_headers: Vec<(String, String)> = entry
+            .extra_headers
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        extra_headers.sort_by(|a, b| a.0.cmp(&b.0));
+        Self {
+            provider_id: format!("{}#{}:{}", role, idx + 1, entry.provider),
+            base_url: entry.base_url.clone(),
+            api_env_var: entry.api_key_secret.clone(),
+            model: entry.model_id.clone(),
+            extra_headers,
+        }
     }
 }
 
@@ -175,6 +151,72 @@ async fn probe_one(probe: &DoctorProbe, resolver: &SecretResolver) -> ProviderCh
     }
 }
 
+#[cfg(test)]
+mod provider_config_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn probes_are_derived_from_provider_config_in_stable_order() {
+        let mut headers = HashMap::new();
+        headers.insert("X-Title".to_string(), "jeryu".to_string());
+        headers.insert(
+            "HTTP-Referer".to_string(),
+            "https://example.com".to_string(),
+        );
+        let config = ProvidersConfig {
+            schema: "vibegate.providers.v1".to_string(),
+            default_role_chain: vec!["reviewer-security".to_string()],
+            chains: HashMap::from([
+                (
+                    "reviewer-runtime".to_string(),
+                    vec![ProviderEntry {
+                        provider: "openrouter".to_string(),
+                        base_url: "https://openrouter.ai/api/v1".to_string(),
+                        model_id: "openai/gpt-oss-120b:free".to_string(),
+                        api_key_secret: "OPENROUTER_API_KEY".to_string(),
+                        data_use: "no_train".to_string(),
+                        temperature: 0.0,
+                        timeout_ms: 30_000,
+                        max_tokens: 800,
+                        extra_headers: HashMap::new(),
+                    }],
+                ),
+                (
+                    "reviewer-security".to_string(),
+                    vec![ProviderEntry {
+                        provider: "openrouter".to_string(),
+                        base_url: "https://openrouter.ai/api/v1".to_string(),
+                        model_id: "nvidia/nemotron-3-super-120b-a12b:free".to_string(),
+                        api_key_secret: "OPENROUTER_API_KEY".to_string(),
+                        data_use: "no_train".to_string(),
+                        temperature: 0.0,
+                        timeout_ms: 30_000,
+                        max_tokens: 800,
+                        extra_headers: headers,
+                    }],
+                ),
+            ]),
+        };
+
+        let probes = DoctorProbe::from_providers_config(&config);
+
+        assert_eq!(probes.len(), 2);
+        assert_eq!(probes[0].provider_id, "reviewer-runtime#1:openrouter");
+        assert_eq!(probes[1].provider_id, "reviewer-security#1:openrouter");
+        assert_eq!(
+            probes[1].extra_headers,
+            vec![
+                (
+                    "HTTP-Referer".to_string(),
+                    "https://example.com".to_string()
+                ),
+                ("X-Title".to_string(), "jeryu".to_string()),
+            ]
+        );
+    }
+}
+
 /// Pretty-print a sweep report (one provider per line; safe to redirect to a log).
 pub fn render_report(results: &[ProviderCheckResult]) -> String {
     let mut s = String::new();
@@ -200,15 +242,6 @@ pub fn render_report(results: &[ProviderCheckResult]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn default_probe_set_covers_known_providers() {
-        let s = DoctorProbe::default_set();
-        let ids: Vec<&str> = s.iter().map(|p| p.provider_id.as_str()).collect();
-        assert!(ids.contains(&"openrouter"));
-        assert!(ids.contains(&"groq"));
-        assert!(ids.contains(&"gemini"));
-    }
 
     #[test]
     fn render_handles_all_statuses() {

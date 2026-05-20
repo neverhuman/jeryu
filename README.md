@@ -530,12 +530,15 @@ jeryu action list --json
 
 All service ports are configurable through `~/.jeryu/settings.json`. RedlineDB
 state is embedded through `redline:` file URLs and has no Docker service port.
-Install the pinned RedlineDB v1.0.1 host CLI/tooling binary with
-`bash scripts/install-redlinedb.sh`; the installer reads the checked-in
-`scripts/redlinedb-manifest.json`, downloads the platform tarball, verifies the
-archive against its pinned SHA256, and installs `redlinedb` under
-`$HOME/.local/bin`. Use `REDLINEDB_INSTALL_MODE=verify` only for offline checks
-of an already-installed binary.
+Install the pinned Jankurai v1.5.1 host binary with
+`bash scripts/install-jankurai.sh`; the installer reads the checked-in
+`scripts/jankurai-manifest.json`, downloads the platform tarball, verifies the
+archive against its pinned SHA256, and installs `jankurai` under
+`$HOME/.local/bin`. Install the pinned RedlineDB v1.0.1 host CLI/tooling binary
+with `bash scripts/install-redlinedb.sh`; the RedlineDB installer follows the
+same checked-in manifest pattern. Use `JANKURAI_INSTALL_MODE=verify` or
+`REDLINEDB_INSTALL_MODE=verify` only for offline checks of an already-installed
+binary.
 
 ---
 

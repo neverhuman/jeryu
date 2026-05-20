@@ -222,7 +222,7 @@ mod tests {
     use std::path::Path;
 
     fn bundle() -> PolicyBundle {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".autonomy/policies");
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(".jeryu/autonomy/policies");
         PolicyBundle::from_dir(&dir).expect("loads")
     }
 
@@ -260,13 +260,13 @@ mod tests {
                 feature_flag: None,
                 data_migration_reversible: Some(true),
             },
-            legacy_receipts: vec![],
+            gate_receipts: vec![],
         });
         if signed {
             // Use ed25519 algo so cond_evidence_signature_invalid accepts it.
             // The judge does not verify the signature bytes against a key here
             // — it only checks the declared algo. A separate verification path
-            // would consume the pubkey from .autonomy/keys/.
+            // would consume the pubkey from .jeryu/autonomy/keys/.
             p.signature = Some(Signature {
                 key_id: "evidence-builder.v1".into(),
                 algo: "ed25519".into(),

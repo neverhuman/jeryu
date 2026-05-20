@@ -25,10 +25,9 @@ audit-fast base="origin/main":
     mkdir -p target/jankurai
     jankurai audit . --changed-fast --changed-from {{base}} --json target/jankurai/audit-fast.json --md target/jankurai/audit-fast.md --timings-json target/jankurai/audit-timings.json --mode advisory
 
-jankurai-install JANKURAI_TAG="v1.5.1":
-    # Jankurai MUST be installed from URL with an explicit version tag.
-    # Local-path installs are not supported (they produce version drift).
-    cargo install --git https://github.com/neverhuman/jankurai.git --tag {{JANKURAI_TAG}} jankurai --locked
+jankurai-install:
+    # Jankurai MUST be installed from the checked-in pinned binary manifest.
+    bash scripts/install-jankurai.sh
 
 bench:
     cargo bench --workspace --no-fail-fast
@@ -93,9 +92,9 @@ check: fast score security rust-map rust-witness rust-diagnose
 ci-parity:
 	bash scripts/ci-parity.sh
 
-# Same as ci-parity but skip slow checks (integration tests, jankurai audit).
+# Same as ci-parity but skip slow integration-style checks.
 ci-parity-fast:
-	bash scripts/ci-parity.sh --fast --no-audit
+	bash scripts/ci-parity.sh --fast
 
 # Gate the current branch with ci-parity, then push and open a PR.
 publish-pr base="main" remote="origin":
@@ -110,7 +109,7 @@ autonomy-fast:
 autonomy-e2e:
 	cargo test --test autonomy_e2e
 
-# Run ALL live LLM tests against keys in env / ~/.jeryu/secrets/llm.env / ~/llm.env.
+# Run ALL live LLM tests against keys in env / ~/.jeryu/secrets/llm.env / .env.local.
 # Refuses to run if $CI=true. Pre-PR only.
 live:
 	./scripts/local-live.sh all
