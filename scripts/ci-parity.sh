@@ -48,49 +48,52 @@ run() {
     fi
 }
 
-# ─── 1. Format (matches CI: cargo fmt --all -- --check) ──────────────────────
+# ─── 1. RedlineDB binary proof (embedded DB tooling, not a service) ──────────
+run "Install RedlineDB binary" bash scripts/install-redlinedb.sh
+
+# ─── 2. Format (matches CI: cargo fmt --all -- --check) ──────────────────────
 run "Format" cargo fmt --all -- --check
 
-# ─── 2. Clippy (matches CI: cargo clippy --all-targets --all-features) ───────
+# ─── 3. Clippy (matches CI: cargo clippy --all-targets --all-features) ───────
 # Note: jeryu uses --tests instead of --all-features because the redlinedb
 # feature is intentionally not built (toolchain blocker — see issue tracker).
 run "Clippy" cargo clippy --tests -- -D warnings
 
-# ─── 3. Build (matches CI: cargo build --verbose) ────────────────────────────
+# ─── 4. Build (matches CI: cargo build --verbose) ────────────────────────────
 run "Build" cargo build --verbose
 
-# ─── 4. Library tests (matches CI: cargo nextest run -p jeryu --lib) ─────────
+# ─── 5. Library tests (matches CI: cargo nextest run -p jeryu --lib) ─────────
 if command -v cargo-nextest >/dev/null 2>&1; then
     run "Library Tests (nextest)" cargo nextest run -p jeryu --lib
 else
     run "Library Tests (cargo test)" cargo test -p jeryu --lib
 fi
 
-# ─── 5. Integration tests (matches CI: cargo test --tests --verbose) ─────────
+# ─── 6. Integration tests (matches CI: cargo test --tests --verbose) ─────────
 if [[ "$FAST" == "0" ]]; then
     run "Integration Tests" cargo test --tests
 fi
 
-# ─── 6. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
+# ─── 7. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
 PARITY_PREFIX="/tmp/jeryu-ci-parity-$$"
 mkdir -p "$PARITY_PREFIX"
 trap 'rm -rf "$PARITY_PREFIX"' EXIT
 PARITY_DB="$PARITY_PREFIX/tui-smoke.redlineDB"
 run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL="redline:$PARITY_DB?mode=rwc" cargo run --quiet -- tui --once
 
-# ─── 7. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
+# ─── 8. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
 run "Install Smoke (dry-run)" \
     cargo run --quiet -- install --dry-run --json --color never --prefix "$PARITY_PREFIX"
 
-# ─── 8. TUI tuiwright tests (matches CI: TERM=xterm-256color cargo test --test tui_tuiwright) ──
+# ─── 9. TUI tuiwright tests (matches CI: TERM=xterm-256color cargo test --test tui_tuiwright) ──
 run "TUI Tuiwright Tests" \
     env TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1
 
-# ─── 9. Fixture Project Validation (matches CI: cd fixture && cargo test) ────
+# ─── 10. Fixture Project Validation (matches CI: cd fixture && cargo test) ───
 run "Fixture Project Validation" \
     bash -c 'cd tests/fixtures/fixture_project && cargo test --quiet'
 
-# ─── 10. actionlint (matches CI's "Workflow lint" step in jankurai.yml) ─────
+# ─── 11. actionlint (matches CI's "Workflow lint" step in jankurai.yml) ──────
 if command -v actionlint >/dev/null 2>&1; then
     # shellcheck disable=SC2046  # we want word-splitting from the glob
     run "Workflow Lint (actionlint)" actionlint $(ls .github/workflows/*.yml)
@@ -98,7 +101,7 @@ else
     printf '%s⊘ actionlint not installed locally — skipped (remote CI will check)%s\n' "$DIM" "$RESET"
 fi
 
-# ─── 11. Jankurai audit (matches CI: bash ops/ci/jankurai-lane.sh audit) ─────
+# ─── 12. Jankurai audit (matches CI: bash ops/ci/jankurai-lane.sh audit) ─────
 if [[ "$NO_AUDIT" == "0" ]] && command -v jankurai >/dev/null 2>&1; then
     mkdir -p target/ci-parity
     run "Jankurai Audit" jankurai audit . \
@@ -110,14 +113,14 @@ else
     printf '%s⊘ jankurai audit skipped (use --no-audit or install jankurai)%s\n' "$DIM" "$RESET"
 fi
 
-# ─── 12. Cargo deny (matches CI: cargo deny check) ───────────────────────────
+# ─── 13. Cargo deny (matches CI: cargo deny check) ───────────────────────────
 if command -v cargo-deny >/dev/null 2>&1; then
     run "Cargo Deny" cargo deny check
 else
     printf '%s⊘ cargo-deny not installed locally — skipped (remote CI will check)%s\n' "$DIM" "$RESET"
 fi
 
-# ─── 13. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
+# ─── 14. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
 # Validates that the embedded broker + consumer-loop wire correctly. Skipped
 # automatically when --no-default-features builds drop jansu-embedded.
 if [[ "$FAST" == "0" ]]; then
@@ -129,7 +132,7 @@ if [[ "$FAST" == "0" ]]; then
             -- --test-threads=1
 fi
 
-# ─── 14. No-default-features compile (canary for feature gating regressions) ─
+# ─── 15. No-default-features compile (canary for feature gating regressions) ─
 if [[ "$FAST" == "0" ]]; then
     run "No-default-features Check" cargo check --no-default-features
 fi

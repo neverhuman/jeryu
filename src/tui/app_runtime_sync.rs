@@ -341,7 +341,7 @@ impl App {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PoolSyncMerge {
     Fresh,
-    Stale,
+    CachedFallback,
 }
 
 pub(crate) fn merge_pool_sync_result(
@@ -359,7 +359,7 @@ pub(crate) fn merge_pool_sync_result(
         Err(error) => {
             *snapshot_pools = last_good_pools.to_vec();
             *pool_sync_error = Some(compact_pool_sync_error(error));
-            PoolSyncMerge::Stale
+            PoolSyncMerge::CachedFallback
         }
     }
 }

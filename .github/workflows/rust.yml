@@ -43,6 +43,8 @@ jobs:
           components: clippy
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -58,6 +60,8 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Build workspace
         run: cargo build --verbose
 
@@ -75,6 +79,8 @@ jobs:
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Run install commands
         run: |
           cargo run -p jeryu -- install --dry-run --json --color never --prefix /tmp/jeryu-install-test
@@ -103,6 +109,8 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Compute test plan
         id: plan
         run: |
@@ -171,6 +179,8 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Download VTI plan
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -207,6 +217,8 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Run integration tests
         run: cargo test --tests --verbose
 
@@ -223,6 +235,8 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Render one TUI frame
         run: cargo run -- tui --once
 
@@ -403,6 +417,8 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Build jeryu (release)
         run: cargo build --release -p jeryu
       - name: Run SSH install integration test
@@ -434,6 +450,8 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Build jeryu
         run: cargo build --release -p jeryu
       - name: Render deterministic TUI PNG captures
@@ -473,6 +491,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+      - name: Install RedlineDB binary
+        run: bash scripts/install-redlinedb.sh
       - name: Build and test fixture project
         working-directory: tests/fixtures/fixture_project
         run: |

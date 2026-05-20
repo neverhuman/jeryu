@@ -521,11 +521,17 @@ jeryu action list --json
 | `9777` | JeRyu Webhook/API | Configurable via `settings.webhook.bind` |
 | `9778` | MCP HTTP | Configurable via `settings.mcp.bind` |
 | `18200` | Vault | Configurable via `settings.vault.http_port` |
-| `15432` | RedlineDB | State database |
 | `19800` | SmartCache proxy | Crates.io singleflight proxy |
 | `19801` | OCI registry mirror | Local container image cache |
 
-All ports are configurable through `~/.jeryu/settings.json`.
+All service ports are configurable through `~/.jeryu/settings.json`. RedlineDB
+state is embedded through `redline:` file URLs and has no Docker service port.
+Install the pinned RedlineDB v1.0.1 host CLI/tooling binary with
+`bash scripts/install-redlinedb.sh`; the installer downloads the platform
+tarball, requires its matching `.sha256` asset, verifies the archive, and
+installs `redlinedb` under `$HOME/.local/bin`. Use
+`REDLINEDB_INSTALL_MODE=verify` only for offline checks of an already-installed
+binary.
 
 ---
 

@@ -44,8 +44,6 @@ The repository root is `/home/ubuntu/JeRyu`. The binary is the Rust crate/packag
 | `VAULT_IMAGE` | `hashicorp/vault:1.17.5` | Vault image |
 | `VAULT_CONTAINER_NAME` | `jeryu-vault` | Vault container |
 | `VAULT_HTTP_PORT` | `18200` | Host Vault port |
-| `REDLINE_IMAGE` | `redlinedb/redline:latest` | Optional RedlineDB service image (`jeryu-redline` compose profile) |
-| `REDLINE_PORT` | `15432` | Host RedlineDB port bound to `127.0.0.1` |
 | `VAULT_DEFAULT_MOUNT` | `secret` | Vault KV mount |
 | `VAULT_DEFAULT_PREFIX` | `veox` | Vault path prefix |
 | `CACHE_PROXY_PORT` | `19800` | SmartCache proxy/gateway port |
@@ -57,8 +55,7 @@ All constants are configurable through `~/.jeryu/settings.json` — see the Sett
 
 Configuration paths are rooted under `crate::config::data_dir()`:
 - `jeryu.env`: primary jeryu environment/secrets file
-- `redline/`: RedlineDB data directory for the bootstrap-managed state database
-- `jeryu.db`: RedlineDB fallback state database when `JERYU_DATABASE_URL` is unset
+- `jeryu.db`: embedded RedlineDB state database when `JERYU_DATABASE_URL` is unset
 - `runners/`: runner manager config directories
 - `cache/`: manager cache, crate cache, CAS, and SmartCache state
 - Vault config/storage/env/bootstrap files
@@ -85,7 +82,7 @@ Clap subcommands are kebab-case on the command line. Hidden/internal commands ar
 
 #### `jeryu init`
 
-Alias: hidden `jeryu bootstrap`. Bootstraps the full local control plane (secrets → compose → GitLab → DB → pools → smoke).
+Alias: hidden `jeryu bootstrap`. Bootstraps the full local control plane (secrets → compose for GitLab/Vault → embedded RedlineDB state → pools → smoke).
 
 #### `jeryu serve`
 
@@ -708,7 +705,7 @@ Critical guardrails:
 
 ## 10. State API
 
-State is owned by `Db` in `src/state.rs`. RedlineDB is the preferred backend for concurrent agent fleets and is selected with `JERYU_DATABASE_URL=redline://...`. RedlineDB remains the embedded fallback when `JERYU_DATABASE_URL` is absent, and explicit `redline:` URLs are supported for tests and development. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped backend-neutral helpers.
+State is owned by `Db` in `src/state.rs`. RedlineDB is the embedded state backend and is selected with `JERYU_DATABASE_URL=redline:...` file URLs. RedlineDB remains the embedded fallback when `JERYU_DATABASE_URL` is absent, and explicit `redline:` URLs are supported for tests and development. `scripts/install-redlinedb.sh` installs the pinned RedlineDB v1.0.1 host binary from the upstream release tarball, requires the matching `.sha256` asset, and verifies the archive before extraction. Use `REDLINEDB_VERSION` only when intentionally moving to another RedlineDB release, and use `REDLINEDB_INSTALL_MODE=verify` only for offline checks of an already-installed binary. Callers use `Db` methods — never raw SQL except in state-owned migrations or narrowly scoped backend-neutral helpers.
 
 ### 10.1 Core Tables
 
@@ -880,7 +877,7 @@ Logs are polled every 650ms, syntax-highlighted, and tail-following. The Flow Bo
 
 `JERYU_GITLAB_INSECURE_TLS=1` allows invalid GitLab TLS certificates for development-only self-signed HTTPS setups. The default is certificate validation enabled.
 
-**State test override:** `JERYU_TEST_REDLINE_URL` enables optional RedlineDB integration smoke tests; normal test runs use in-memory RedlineDB and skip the Redline smoke when unset. `jeryu repo state-proof` runs the core state/cache smoke and removes any disposable runtime unless `JERYU_KEEP_REDLINE_PROOF=1`.
+**State test override:** `JERYU_TEST_REDLINE_URL` enables optional RedlineDB integration smoke tests; normal test runs use in-memory or file-backed embedded RedlineDB and skip the Redline smoke when unset. `jeryu repo redline-state-proof` checks `$REDLINEDB_BIN --version` when set, otherwise `$HOME/.local/bin/redlinedb --version`, runs the core state/cache smoke against a disposable file-backed `redline:` URL, and removes the disposable file unless `JERYU_KEEP_REDLINE_PROOF=1`.
 
 **Vault:** `JERYU_VAULT_ADDR`, `JERYU_VAULT_TOKEN`, `JERYU_VAULT_MOUNT`, `JERYU_VAULT_PREFIX`.
 

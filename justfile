@@ -47,7 +47,7 @@ medium:
     cargo run -p cargo-vrc -- map --output-dir .
 
 state-proof:
-    cargo test -p jeryu -- state
+    cargo run -p jeryu -- repo redline-state-proof
 
 deep:
     cargo nextest run -p jeryu

@@ -19,6 +19,9 @@ cd "$REPO_ROOT"
 PR="${1:-${PR_NUMBER:-0}}"
 EMIT_STATUS="${JERYU_EMIT_STATUS:-0}"
 
+log "install RedlineDB binary"
+bash scripts/install-redlinedb.sh
+
 log "build jeryu (release)"
 cargo build --release -p jeryu
 

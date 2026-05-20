@@ -59,8 +59,6 @@ pub const WEBHOOK_LISTEN_PORT: u16 = 9777;
 pub const VAULT_IMAGE: &str = "hashicorp/vault:1.17.5";
 pub const VAULT_CONTAINER_NAME: &str = "jeryu-vault";
 pub const VAULT_HTTP_PORT: u16 = 18200;
-pub const REDLINE_IMAGE: &str = "redlinedb/redline:latest";
-pub const REDLINE_PORT: u16 = 15432;
 pub const VAULT_DEFAULT_MOUNT: &str = "secret";
 pub const VAULT_DEFAULT_PREFIX: &str = "jeryu";
 
