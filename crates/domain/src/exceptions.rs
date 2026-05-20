@@ -1,6 +1,16 @@
 use std::error::Error;
 use std::fmt;
 
+/// Agent-friendly exception pattern fields required on domain repair hints.
+pub const AGENT_FRIENDLY_EXCEPTION_PATTERN_FIELDS: [&str; 5] = [
+    "purpose",
+    "reason",
+    "common_fixes",
+    "docs_url",
+    "repair_hint",
+];
+
+/// Agent-friendly exception pattern for domain failures crossing agent boundaries.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepairHint {
     pub purpose: &'static str,
@@ -11,6 +21,10 @@ pub struct RepairHint {
 }
 
 impl RepairHint {
+    pub const fn required_fields() -> [&'static str; 5] {
+        AGENT_FRIENDLY_EXCEPTION_PATTERN_FIELDS
+    }
+
     pub fn new(
         purpose: &'static str,
         reason: impl Into<String>,
@@ -75,6 +89,10 @@ mod tests {
         );
 
         assert!(hint.is_agent_actionable());
+        assert_eq!(
+            RepairHint::required_fields(),
+            AGENT_FRIENDLY_EXCEPTION_PATTERN_FIELDS
+        );
     }
 
     #[test]

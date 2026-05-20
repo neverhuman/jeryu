@@ -11,6 +11,7 @@ path = "src/lib.rs"
 
 [package.metadata.agent]
 purpose = "Domain-owned typed repair hints and agent-readable domain failures"
+exception_pattern = "agent-friendly exception pattern: RepairHint carries purpose, reason, common fixes, docs_url, and repair_hint"
 owned_paths = ["src/**", "AGENTS.md", "README.md"]
 entrypoints = ["RepairHint", "DomainFailure"]
 invariants = [

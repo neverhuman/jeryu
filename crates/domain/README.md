@@ -1,7 +1,8 @@
 # Domain Repair Surface
 
 Domain-facing failures must cross agent boundaries as typed repair hints, not
-free-form prose. The required shape is:
+free-form prose. `RepairHint` is the domain agent-friendly exception pattern,
+and the required shape is:
 
 ```yaml
 repair_hint:

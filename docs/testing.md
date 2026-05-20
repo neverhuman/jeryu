@@ -73,7 +73,7 @@ or caller-owned connections.
 ## Typed repair hint
 
 When a scan or proof needs a structured next step, emit a `RepairHint`-style
-payload with:
+payload with the agent-friendly exception pattern:
 
 - `purpose`
 - `reason`
