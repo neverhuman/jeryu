@@ -1,0 +1,1410 @@
+## The answer: there is no single global “bug issue standard,” so use a portable canonical contract
+
+There is **no universally accepted GitHub/GitLab issue workflow** that everyone follows. The closest formal standards are **IEEE 1044-2009**, which standardizes classification of software anomalies, and **ISO/IEC/IEEE 29119-3**, which standardizes software test documentation templates. IEEE explicitly says it provides anomaly classifications and data items, but does **not** prescribe a required procedure or format. ISO/IEC/IEEE 29119-3 provides internationally agreed test-documentation templates that can be used across lifecycle models, but it is not a GitHub/GitLab operating model. ([IEEE Standards Association][1])
+
+So the canonical engineering answer is:
+
+> **A bug is a structured, reproducible problem report with typed metadata, evidence, ownership, acceptance criteria, linked code change, test proof, release proof, and a clear closure reason.**
+
+Everything else—GitHub labels, GitLab scoped labels, milestones, projects, boards, epics, issues, work items—is just the provider-specific implementation of that contract.
+
+---
+
+# Canonical bug-tracking spec
+
+## 1. Nonnegotiable principles
+
+A bug issue must be useful to a low-context human or agent. That means every bug should answer these questions without a meeting:
+
+**What broke?**
+**Where did it break?**
+**Who is affected?**
+**How do we reproduce it?**
+**What should have happened?**
+**What actually happened?**
+**How severe is it?**
+**What priority does it have?**
+**Who owns it?**
+**What proves it is fixed?**
+**Where is the fixing PR/MR?**
+**Where was it released?**
+
+The issue system must support five jobs:
+
+1. **Intake** from users, support, QA, monitoring, agents, and developers.
+2. **Triage** into type, severity, priority, component, owner, and status.
+3. **Execution** through branch, PR/MR, CI, review, and release.
+4. **Verification** through tests, reproduction, release validation, and reporter/customer confirmation when possible.
+5. **Learning** through root cause, regression tests, duplicate patterns, and metrics.
+
+---
+
+# 2. Provider reality: GitHub vs GitLab
+
+## GitHub
+
+GitHub supports issue templates and **Issue Forms** in `/.github/ISSUE_TEMPLATE`; issue forms can define input types, validation, default labels, and assignees. GitHub notes that Issue Forms are currently in public preview, so use them, but keep your schema simple and parseable. ([GitHub Docs][2])
+
+GitHub also supports organization-level **issue types**; default types include `task`, `bug`, and `feature`, and issue types can be used for filtering and planning. ([GitHub Docs][3]) GitHub issues can be organized with labels, milestones, dependencies, projects, and project fields; GitHub’s own project guidance recommends classifying work, defining blocking relationships, and using milestones or labels to connect smaller issues to larger goals. ([GitHub Docs][4])
+
+GitHub supports automatic issue closure through PR or commit keywords such as `close`, `fix`, and `resolve`, including forms like `Closes #10` and `Fixes owner/repo#100`. ([GitHub Docs][5]) The GitHub Issues REST API can manage issues, assignees, comments, labels, milestones, dependencies, and issue field values. ([GitHub Docs][6])
+
+## GitLab
+
+GitLab uses **description templates** stored in `.gitlab/issue_templates` and `.gitlab/merge_request_templates`; templates standardize issue/MR creation, support group and instance-level reuse, and can include quick actions to add labels, assignees, and milestones. ([GitLab Documentation][7])
+
+GitLab’s strongest native pattern is **scoped labels**, especially for `type::`, `severity::`, and `priority::`. GitLab explicitly recommends deciding criteria for types, severity, and priority, documenting them, and creating scoped labels; scoped labels with the same scope are mutually exclusive, for example replacing `type::bug` with `type::feature`. ([GitLab Documentation][8]) GitLab labels can categorize issues/MRs/epics, filter boards, prioritize work, track priority/severity, and structure workflows. ([GitLab Documentation][9])
+
+GitLab also has work item **status** values and categories. Default statuses include `To do`, `In progress`, `Done`, `Won’t do`, and `Duplicate`, and status categories include `Triage`, `To do`, `In progress`, `Done`, and `Canceled`. ([GitLab Documentation][10]) GitLab milestones group related issues, epics, and merge requests toward goals, support dates, work with iterations, and can track releases. ([GitLab Documentation][11]) GitLab issue boards can be scoped by milestone, labels, assignee, weight, and iteration. ([GitLab Documentation][12])
+
+GitLab closes issues automatically through a configurable closing pattern in commit messages or MR descriptions; when matching commits or MRs land in the default branch, referenced issues close. ([GitLab Documentation][13]) GitLab’s Issues API can create/update/delete issues, manage metadata, cross-reference issues and merge requests, track movement between projects and epics, and handle access checks. ([GitLab Documentation][14])
+
+---
+
+# 3. Canonical issue object
+
+Every provider-specific issue should map to this internal object.
+
+```yaml
+issue:
+  id: provider_issue_id
+  provider: github | gitlab
+  repository: owner/repo
+  type: bug
+  status: new | triage | needs-info | accepted | ready | in-progress | review | fixed-pending-release | released | verified | closed | duplicate | wont-do | invalid | cannot-reproduce
+  severity: S0 | S1 | S2 | S3 | S4
+  priority: P0 | P1 | P2 | P3 | P4
+  component: string
+  platform: web | api | cli | ios | android | desktop | infra | docs | other
+  environment: prod | staging | dev | local | test
+  source: customer | support | qa | monitoring | agent | developer | security
+  title: string
+  summary: string
+  affected_version: string
+  affected_build_sha: string
+  first_seen_at: timestamp
+  last_seen_at: timestamp
+  reproduction:
+    frequency: always | often | intermittent | once | unknown
+    steps: string[]
+    expected: string
+    actual: string
+    minimal_repro: string | null
+  impact:
+    user_impact: string
+    affected_users: number | unknown
+    business_impact: string | null
+    workaround: string | null
+  evidence:
+    logs: string[]
+    screenshots: attachment[]
+    traces: string[]
+    request_ids: string[]
+    metrics: string[]
+  ownership:
+    assignee: user | team | null
+    reviewer: user | team | null
+    component_owner: team | null
+  planning:
+    milestone: string | null
+    iteration: string | null
+    due_date: date | null
+    dependencies: issue_id[]
+    duplicates: issue_id[]
+    related: issue_id[]
+  fix:
+    branch: string | null
+    pr_or_mr: string | null
+    test_plan: string
+    regression_test_added: true | false
+    root_cause: string | null
+    fixed_version: string | null
+    release_artifact: string | null
+  closure:
+    closed_reason: fixed | duplicate | invalid | cannot-reproduce | wont-do | external | obsolete
+    verification: string | null
+    closed_by: user | bot | agent
+    closed_at: timestamp | null
+```
+
+This object is the real standard. GitHub/GitLab labels, fields, templates, projects, boards, and APIs are just ways to store and automate it.
+
+---
+
+# 4. Canonical bug title
+
+Use one title format everywhere:
+
+```text
+bug(<component>): <user-visible symptom> [<env>/<version>]
+```
+
+Examples:
+
+```text
+bug(auth): password reset link expires immediately [prod/v2.8.1]
+bug(api): POST /orders returns 500 for empty coupon code [prod/sha.abc123]
+bug(ui): dashboard chart overlaps legend on Safari 17 [prod/v4.2.0]
+bug(worker): invoice job retries forever after timeout [staging/sha.78aa91]
+```
+
+Bad titles:
+
+```text
+Bug
+Broken
+Login issue
+App does not work
+URGENT!!!
+```
+
+---
+
+# 5. Canonical intake template
+
+This is the minimum user-facing bug template.
+
+```markdown
+## Summary
+
+What is broken, in one or two sentences?
+
+## Impact
+
+Who is affected and how bad is it?
+- Affected users/accounts:
+- Business/customer impact:
+- Workaround available? yes/no/unknown
+
+## Environment
+
+- Product:
+- Component/page/API/command:
+- Environment: prod/staging/dev/local
+- Version/build/commit:
+- Browser/OS/device/runtime:
+- Account/user role:
+- Time first seen:
+
+## Steps to reproduce
+
+1.
+2.
+3.
+
+## Expected behavior
+
+What should have happened?
+
+## Actual behavior
+
+What happened instead?
+
+## Frequency
+
+Always / often / intermittent / once / unknown
+
+## Evidence
+
+- Logs:
+- Screenshots/video:
+- Request IDs / trace IDs:
+- Error messages:
+- Related links:
+
+## Regression check
+
+- Did this work before? yes/no/unknown
+- Last known good version/date:
+- First known bad version/date:
+
+## Security or privacy concern?
+
+Does this expose secrets, PII, payment data, auth bypass, data loss, or privilege escalation?
+yes/no/unknown
+
+## Acceptance criteria
+
+The bug is fixed when:
+- [ ] The reproduction no longer fails.
+- [ ] A regression test exists or a documented reason is provided.
+- [ ] The fix is released or explicitly marked as fixed-pending-release.
+```
+
+For user-submitted issues, require only the fields that users can realistically know: summary, environment, steps, expected, actual, frequency, evidence, and security/privacy concern. Let the triage agent fill in severity, priority, component, owner, duplicate links, root cause, branch, tests, and release data.
+
+---
+
+# 6. Severity and priority are separate
+
+Do **not** merge severity and priority. Severity is the objective impact. Priority is the scheduling decision.
+
+## Severity
+
+```text
+S0 Critical
+Production outage, active security exploit, data loss/corruption, payment/auth broken, no workaround.
+
+S1 High
+Major user-facing functionality broken, serious degradation, large customer impact, partial workaround.
+
+S2 Medium
+Normal product bug, clear user impact, workaround exists, limited scope.
+
+S3 Low
+Minor defect, visual issue, confusing behavior, small functional impact.
+
+S4 Trivial
+Typo, polish, low-risk annoyance, improvement-level defect.
+```
+
+## Priority
+
+```text
+P0 Immediate
+Stop the line. Page/on-call/incident/hotfix.
+
+P1 Current release
+Must be fixed in the active milestone/iteration.
+
+P2 Next release
+Important, scheduled after current critical work.
+
+P3 Backlog
+Valid bug, not currently scheduled.
+
+P4 Defer / maybe never
+Track only if useful; close if no longer valuable.
+```
+
+## Default mapping
+
+```text
+S0 -> P0 unless already mitigated
+S1 -> P1 unless narrow scope or workaround exists
+S2 -> P2 by default
+S3 -> P3 by default
+S4 -> P4 by default
+```
+
+Priority may be higher or lower than severity, but the issue must explain why.
+
+Example: a typo in a pricing page may be `S3/P1` because it affects revenue. A rare crash in an internal admin-only screen may be `S1/P3` if there is a safe workaround and low exposure.
+
+---
+
+# 7. Canonical labels
+
+Use scoped labels conceptually everywhere. GitLab supports true scoped labels. GitHub labels are ordinary repository labels, so encode the scope in the label name.
+
+## Required labels
+
+```text
+type::bug
+
+status::new
+status::triage
+status::needs-info
+status::accepted
+status::ready
+status::in-progress
+status::review
+status::fixed-pending-release
+status::released
+status::verified
+status::duplicate
+status::wont-do
+status::invalid
+status::cannot-reproduce
+
+severity::S0
+severity::S1
+severity::S2
+severity::S3
+severity::S4
+
+priority::P0
+priority::P1
+priority::P2
+priority::P3
+priority::P4
+
+area::<component>
+platform::web
+platform::api
+platform::cli
+platform::ios
+platform::android
+platform::infra
+platform::docs
+
+env::prod
+env::staging
+env::dev
+env::local
+
+source::customer
+source::support
+source::qa
+source::monitoring
+source::agent
+source::developer
+source::security
+```
+
+## Optional labels
+
+```text
+kind::regression
+kind::performance
+kind::flaky
+kind::data-loss
+kind::security
+kind::accessibility
+kind::usability
+kind::localization
+
+needs::repro
+needs::logs
+needs::owner
+needs::decision
+needs::test
+needs::release-verification
+needs::reporter-confirmation
+
+blocked::dependency
+blocked::upstream
+blocked::vendor
+blocked::legal
+blocked::security-review
+
+privacy::pii
+privacy::secret
+privacy::customer-data
+```
+
+Rules:
+
+```text
+Exactly one type::* label.
+Exactly one status::* label.
+Exactly one severity::* label after triage.
+Exactly one priority::* label after triage.
+At least one area::* label after triage.
+At least one source::* label.
+Use needs::* labels only for actionable missing information.
+Use blocked::* labels only when the next action is outside the owner’s control.
+```
+
+---
+
+# 8. Canonical lifecycle
+
+Use this workflow whether the UI is GitHub Projects, GitLab issue boards, GitLab work item status, or labels.
+
+```text
+New
+  -> Triage
+  -> Needs Info
+  -> Accepted
+  -> Ready
+  -> In Progress
+  -> Review
+  -> Fixed Pending Release
+  -> Released
+  -> Verified
+  -> Closed
+```
+
+Terminal non-fixed states:
+
+```text
+Duplicate
+Won’t Do
+Invalid
+Cannot Reproduce
+External / Upstream
+Obsolete
+```
+
+## State definitions
+
+### New
+
+The issue has been created. No one has validated it.
+
+Required:
+
+```text
+type::bug
+status::new
+source::<source>
+```
+
+### Triage
+
+A maintainer, support engineer, QA engineer, or agent is classifying it.
+
+Actions:
+
+```text
+Check for security/private data.
+Check for duplicates.
+Check whether this is bug vs feature vs support request.
+Assign severity.
+Assign priority.
+Assign component.
+Assign owner or team.
+Check reproduction quality.
+```
+
+### Needs Info
+
+The issue cannot be acted on without more information.
+
+Allowed only when the missing information is explicit:
+
+```text
+Missing version/build.
+Missing reproduction steps.
+Missing actual vs expected behavior.
+Missing logs/request ID for a backend failure.
+Cannot identify affected environment.
+```
+
+Bad `Needs Info` comment:
+
+```text
+Can you provide more details?
+```
+
+Good `Needs Info` comment:
+
+```text
+We need exactly one of these to proceed:
+1. A request ID or trace ID from the failed checkout attempt, or
+2. The timestamp, account ID, and region where it failed.
+
+Without that we cannot identify the backend error path.
+```
+
+### Accepted
+
+The team agrees this is a valid bug.
+
+Acceptance requirements:
+
+```text
+Bug is real or highly credible.
+Type, severity, priority, component, and owner are set.
+Expected vs actual behavior is clear.
+Security/privacy classification is clear.
+There is enough information for an agent or engineer to start.
+```
+
+### Ready
+
+The bug is ready to implement.
+
+Ready requirements:
+
+```text
+Repro exists or diagnostic path is sufficient.
+Acceptance criteria are written.
+Test strategy is known.
+Dependencies are linked.
+No open needs::* labels remain except needs::release-verification.
+```
+
+### In Progress
+
+A branch or PR/MR exists.
+
+Required:
+
+```text
+Assignee set.
+Branch linked.
+PR/MR linked or imminent.
+Issue comment says what fix path is being attempted.
+```
+
+### Review
+
+Code exists and is under review.
+
+Required:
+
+```text
+PR/MR linked.
+CI running or passed.
+Test plan included.
+Risk noted.
+```
+
+### Fixed Pending Release
+
+The fix has merged but has not yet reached the affected users.
+
+Use this state when merging to the default branch does **not** equal production release. This matters because GitHub/GitLab closing keywords can close issues on merge, but many teams still need release, rollout, or customer verification after merge. GitHub and GitLab both support automatic closure through PR/MR/commit text, so use closing keywords only when “merged” means “done enough to close.” ([GitHub Docs][5])
+
+### Released
+
+The fix is in a released build, deployment, package, or image.
+
+Required:
+
+```text
+Fixed version/build/deployment recorded.
+Release artifact or deployment link recorded.
+```
+
+### Verified
+
+Someone or something has verified the original failure no longer occurs.
+
+Verification may be:
+
+```text
+Automated regression test.
+Manual reproduction retest.
+Synthetic monitor.
+Production metric.
+Customer/support confirmation.
+QA signoff.
+```
+
+### Closed
+
+The issue is closed with an explicit reason.
+
+Required for fixed closure:
+
+```text
+PR/MR link.
+Regression test or reason no test was added.
+Fixed version/release.
+Verification note.
+```
+
+Required for non-fixed closure:
+
+```text
+Duplicate: link canonical issue.
+Cannot reproduce: list exact attempts.
+Invalid: explain why expected behavior was misunderstood.
+Won’t do: explain product/engineering decision.
+External/upstream: link upstream issue/vendor case.
+```
+
+---
+
+# 9. Acceptance and completion gates
+
+## A bug is accepted when
+
+```text
+[ ] It is actually a bug, not a feature request or support request.
+[ ] The expected behavior is known.
+[ ] The actual behavior is known.
+[ ] Impact is understood well enough to assign severity.
+[ ] Business/user urgency is understood well enough to assign priority.
+[ ] A component/team owner is assigned.
+[ ] There is enough evidence to reproduce or diagnose.
+[ ] Duplicates have been checked.
+[ ] Security/privacy risk has been checked.
+[ ] Acceptance criteria are written.
+```
+
+## A bug is completed when
+
+```text
+[ ] Linked PR/MR is merged.
+[ ] CI passed.
+[ ] Regression test added, or no-test rationale documented.
+[ ] Original reproduction no longer fails.
+[ ] Fixed version/build/deployment is recorded.
+[ ] Security/privacy follow-up is complete, if applicable.
+[ ] Release verification is done, if release is separate from merge.
+[ ] Issue has a clear closure reason.
+```
+
+---
+
+# 10. Security and privacy handling
+
+Security vulnerabilities and privacy leaks should not be handled like normal public bugs. GitHub supports private vulnerability reporting so security researchers can disclose vulnerabilities securely and privately, and repository security advisories allow maintainers to privately discuss, fix, and later publish vulnerability information. ([GitHub Docs][15]) GitLab supports confidential issues for vulnerabilities or sensitive work that should only be visible to sufficiently privileged project members. ([GitLab Documentation][16])
+
+Canonical rule:
+
+```text
+If the issue contains or implies:
+- secret exposure
+- credential leakage
+- auth bypass
+- privilege escalation
+- PII exposure
+- payment data exposure
+- customer data leakage
+- data loss/corruption
+- active exploitation
+
+Then route it to private/security handling immediately.
+```
+
+Secrets must also be blocked at push time. GitHub push protection blocks pushes containing detected hardcoded credentials before they reach the repository. ([GitHub Docs][17]) GitLab secret push protection checks commits during pre-receive and blocks pushes when secrets are detected by default; GitLab also recommends a multi-layered approach including push protection, pipeline secret detection, and client-side secret detection. ([GitLab Documentation][18])
+
+---
+
+# 11. Minimal-context agent workflow
+
+This is the agent playbook.
+
+## On issue creation
+
+The triage agent must:
+
+```text
+1. Parse the issue body into the canonical issue object.
+2. Detect whether it is security/private.
+3. Detect missing required fields.
+4. Search for duplicates.
+5. Classify type.
+6. Assign severity.
+7. Assign priority.
+8. Assign area/component.
+9. Assign owner/team if routing rules exist.
+10. Set status.
+11. Ask exactly one concise follow-up if blocked.
+```
+
+## Duplicate detection
+
+Use all of:
+
+```text
+Title similarity.
+Same component.
+Same error message.
+Same stack trace.
+Same request path.
+Same affected version.
+Same reproduction steps.
+Same logs/trace signatures.
+Same customer/source cluster.
+```
+
+If duplicate:
+
+```text
+status::duplicate
+Duplicate of #123
+Close or link depending on provider convention.
+Move all unique evidence to canonical issue.
+```
+
+GitHub supports marking duplicates by commenting `Duplicate of` followed by the issue/PR number. ([GitHub Docs][5])
+
+## Reproduction agent
+
+The reproduction agent must output:
+
+```markdown
+## Reproduction result
+
+Status: reproduced | not reproduced | partially reproduced | blocked
+
+Environment:
+- commit:
+- version:
+- OS/runtime:
+- config:
+
+Steps attempted:
+1.
+2.
+3.
+
+Observed:
+Expected:
+Artifacts:
+- logs:
+- screenshots:
+- traces:
+
+Conclusion:
+```
+
+## Fix agent
+
+The fix agent must:
+
+```text
+Create branch: fix/<issue-id>-<short-slug>
+Create PR/MR linked to issue.
+Include reproduction summary.
+Include root cause.
+Include fix summary.
+Include test plan.
+Add or update regression test.
+Avoid unrelated changes.
+```
+
+## PR/MR description
+
+```markdown
+## Fixes
+
+Fixes #<issue-id>
+
+## Root cause
+
+What caused the bug?
+
+## Change
+
+What changed?
+
+## Test plan
+
+- [ ] Unit test
+- [ ] Integration test
+- [ ] Regression test
+- [ ] Manual reproduction test
+- [ ] Not applicable, because:
+
+## Risk
+
+Low / Medium / High
+
+## Rollback
+
+How to revert or mitigate if this fails.
+```
+
+Use `Fixes #123` / `Closes #123` only when merging should close the issue. If release verification must happen later, use `Refs #123` or equivalent, move the issue to `fixed-pending-release`, and let a release bot close it after deployment verification.
+
+---
+
+# 12. GitHub implementation
+
+## GitHub labels
+
+Use these exact GitHub labels, even though GitHub labels are not truly scoped:
+
+```text
+type::bug
+status::new
+status::triage
+status::needs-info
+status::accepted
+status::ready
+status::in-progress
+status::review
+status::fixed-pending-release
+status::released
+status::verified
+status::duplicate
+status::wont-do
+status::invalid
+status::cannot-reproduce
+severity::S0
+severity::S1
+severity::S2
+severity::S3
+severity::S4
+priority::P0
+priority::P1
+priority::P2
+priority::P3
+priority::P4
+area::<component>
+platform::<platform>
+env::<environment>
+source::<source>
+needs::<need>
+blocked::<reason>
+kind::<kind>
+```
+
+## GitHub Issue Form
+
+```yaml
+name: Bug report
+description: Report a reproducible product or code defect
+title: "bug(<component>): <symptom> [<env>/<version>]"
+labels:
+  - type::bug
+  - status::new
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do not include secrets, tokens, passwords, or private customer data.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is broken?
+      placeholder: "Password reset links expire immediately after being sent."
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who is affected and how bad is it?
+      placeholder: "All users requesting password reset in prod; no workaround."
+    validations:
+      required: true
+
+  - type: input
+    id: component
+    attributes:
+      label: Component
+      placeholder: "auth, api, billing, web-dashboard, worker"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - prod
+        - staging
+        - dev
+        - local
+        - unknown
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version, build, or commit
+      placeholder: "v2.8.1 / sha abc123 / unknown"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      options:
+        - always
+        - often
+        - intermittent
+        - once
+        - unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, screenshots, request IDs, trace IDs, error messages.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: security
+    attributes:
+      label: Security or privacy concern?
+      options:
+        - "no"
+        - "yes"
+        - "unknown"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        The bug is fixed when:
+        - [ ] The reproduction no longer fails.
+        - [ ] A regression test exists or a documented reason is provided.
+        - [ ] The fix is released or explicitly marked fixed-pending-release.
+```
+
+## GitHub Projects fields
+
+Use GitHub Project fields for planning, but do not depend on them as the only source of truth for public repos. GitHub organization-level issue fields provide typed metadata such as priority, effort, and dates, but GitHub notes issue fields are public preview and currently supported only in private projects. ([GitHub Docs][19])
+
+Recommended fields:
+
+```text
+Status
+Severity
+Priority
+Component
+Owner team
+Environment
+Affected version
+Fixed version
+Source
+Due date
+Release
+```
+
+## GitHub automation
+
+```text
+On issue opened:
+  Add status::new.
+  Parse form.
+  If security == yes/unknown and sensitive terms found:
+    comment with private reporting instructions.
+    notify security team.
+  If required fields missing:
+    set status::needs-info.
+  Else:
+    set status::triage.
+
+On label status::accepted:
+  Require severity, priority, area, owner.
+
+On PR opened:
+  Require linked issue.
+  Require test plan.
+  Require risk/rollback.
+  Add status::in-progress or status::review.
+
+On PR merged:
+  If PR uses Fixes/Closes and main == release:
+    allow close.
+  Else:
+    set status::fixed-pending-release.
+
+On deployment/release:
+  Set fixed version.
+  Run verification.
+  Set status::released or status::verified.
+  Close when verified.
+```
+
+---
+
+# 13. GitLab implementation
+
+## GitLab scoped labels
+
+Prefer GitLab scoped labels:
+
+```text
+type::bug
+status::new
+status::triage
+status::needs-info
+status::accepted
+status::ready
+status::in-progress
+status::review
+status::fixed-pending-release
+status::released
+status::verified
+status::duplicate
+status::wont-do
+status::invalid
+status::cannot-reproduce
+severity::S0
+severity::S1
+severity::S2
+severity::S3
+severity::S4
+priority::P0
+priority::P1
+priority::P2
+priority::P3
+priority::P4
+area::<component>
+platform::<platform>
+env::<environment>
+source::<source>
+```
+
+On GitLab Premium/Ultimate, scoped labels make mutually exclusive groups enforceable. On Free, use the same label names, but enforce mutual exclusion with automation because regular labels are not mutually exclusive. ([GitLab Documentation][8])
+
+## GitLab issue template
+
+Create:
+
+```text
+.gitlab/issue_templates/Bug.md
+```
+
+Template:
+
+```markdown
+# Bug report
+
+Do not include secrets, tokens, passwords, or private customer data.
+
+## Summary
+
+What is broken?
+
+## Impact
+
+Who is affected and how bad is it?
+
+- Affected users/accounts:
+- Business/customer impact:
+- Workaround available:
+
+## Environment
+
+- Product:
+- Component/page/API/command:
+- Environment: prod/staging/dev/local
+- Version/build/commit:
+- Browser/OS/device/runtime:
+- Account/user role:
+- Time first seen:
+
+## Steps to reproduce
+
+1.
+2.
+3.
+
+## Expected behavior
+
+What should have happened?
+
+## Actual behavior
+
+What happened instead?
+
+## Frequency
+
+Always / often / intermittent / once / unknown
+
+## Evidence
+
+- Logs:
+- Screenshots/video:
+- Request IDs / trace IDs:
+- Error messages:
+- Related links:
+
+## Regression check
+
+- Did this work before?
+- Last known good version/date:
+- First known bad version/date:
+
+## Security or privacy concern?
+
+yes/no/unknown
+
+## Acceptance criteria
+
+The bug is fixed when:
+
+- [ ] The reproduction no longer fails.
+- [ ] A regression test exists or a documented reason is provided.
+- [ ] The fix is released or explicitly marked fixed-pending-release.
+
+/label ~"type::bug" ~"status::new"
+```
+
+GitLab templates can include quick actions to add labels, assignees, and milestones, but quick actions execute only if the submitting user has permission. ([GitLab Documentation][7])
+
+## GitLab boards
+
+Create boards/views:
+
+```text
+Triage board:
+  status::new
+  status::triage
+  status::needs-info
+  status::accepted
+
+Execution board:
+  status::ready
+  status::in-progress
+  status::review
+  status::fixed-pending-release
+
+Release board:
+  status::released
+  status::verified
+  status::closed
+
+Severity board:
+  severity::S0
+  severity::S1
+  severity::S2
+  severity::S3
+  severity::S4
+```
+
+For larger orgs, use group-level labels, group templates, milestones, iterations, and boards so every project inherits the same language.
+
+## GitLab MR rules
+
+Use this MR title format:
+
+```text
+fix(<component>): <short symptom> (!<mr-id>)
+```
+
+Use this branch format:
+
+```text
+fix/<issue-id>-<short-slug>
+```
+
+Use MR description:
+
+```markdown
+## Issue
+
+Closes #<issue-id>
+
+## Root cause
+
+## Fix
+
+## Test plan
+
+## Risk
+
+## Rollback
+```
+
+Again: use `Closes #123` only if merge should close the issue. Otherwise use `Related to #123` or a non-closing reference, keep the issue in `fixed-pending-release`, and close after release verification.
+
+---
+
+# 14. Required automation checks
+
+Your issue system should enforce these checks.
+
+## Intake checks
+
+```text
+Reject or flag empty reports.
+Detect missing expected/actual behavior.
+Detect missing environment/version.
+Detect security/privacy keywords.
+Detect possible secrets.
+Detect duplicates.
+Normalize labels.
+Route by component.
+Assign initial owner.
+```
+
+## Triage checks
+
+```text
+No accepted bug without severity.
+No accepted bug without priority.
+No accepted bug without area/component.
+No ready bug with needs::repro.
+No ready bug with needs::logs.
+No P0/P1 bug without assignee.
+No S0 bug in public if it may expose security/private details.
+```
+
+## PR/MR checks
+
+```text
+No PR/MR without linked issue unless explicitly exempt.
+No bug-fix PR/MR without test plan.
+No S0/S1 fix without rollback note.
+No merged fix without regression test or no-test rationale.
+No close-on-merge keyword unless merge means close-worthy.
+```
+
+## Release checks
+
+```text
+No close as fixed without fixed version/build.
+No close as fixed without verification note.
+No release of P0/P1 fix without post-release validation.
+```
+
+---
+
+# 15. Metrics to track
+
+Track these automatically:
+
+```text
+Time to triage
+Time to first human/agent response
+Time in needs-info
+Time to accepted
+Time to ready
+Time to first PR/MR
+Time to merge
+Time from merge to release
+Time from release to verification
+Total time to close
+Reopen rate
+Duplicate rate
+Cannot reproduce rate
+Regression rate
+S0/S1 count by component
+Bugs per release
+Bugs per KLOC or per shipped change
+Top root causes
+Top missing intake fields
+```
+
+The most useful quality metrics are not “number of bugs closed.” They are:
+
+```text
+How many bugs were prevented?
+How fast were severe bugs understood?
+How often did fixes regress?
+How many issues were unactionable?
+Which components create repeated failure modes?
+```
+
+---
+
+# 16. Root cause taxonomy
+
+At closure, require one root cause label or field:
+
+```text
+root-cause::requirements-gap
+root-cause::logic-error
+root-cause::state-management
+root-cause::race-condition
+root-cause::data-contract
+root-cause::api-contract
+root-cause::migration
+root-cause::dependency
+root-cause::configuration
+root-cause::infrastructure
+root-cause::test-gap
+root-cause::release-process
+root-cause::observability-gap
+root-cause::human-error
+root-cause::unknown
+```
+
+For `S0` and `S1`, require a short postmortem note:
+
+```markdown
+## Root cause
+
+## Why tests did not catch it
+
+## Why monitoring did or did not catch it
+
+## Prevention
+
+## Follow-up issues
+```
+
+---
+
+# 17. Bug quality scoring
+
+Use a 0–5 score so agents can decide whether to work or ask for more information.
+
+```text
+0 - Not actionable
+No clear symptom, environment, expected behavior, or evidence.
+
+1 - Symptom only
+Something is described as broken, but no reproduction path.
+
+2 - Basic report
+Has actual behavior and environment, but weak reproduction or missing expected behavior.
+
+3 - Actionable
+Has steps, expected, actual, environment, and frequency.
+
+4 - Strong
+Includes logs/screenshots/request IDs, impact, version, and regression information.
+
+5 - Excellent
+Includes minimal reproduction, exact build/commit, evidence, acceptance criteria, and suspected cause.
+```
+
+Policy:
+
+```text
+Quality >= 3: triage can proceed.
+Quality < 3: move to needs-info unless S0/S1/security.
+S0/S1/security: proceed immediately even with incomplete data.
+```
+
+---
+
+# 18. The shortest canonical standard
+
+Use this everywhere:
+
+```text
+1. All bugs use a structured template.
+2. Every bug has exactly one type, status, severity, priority, owner, and component after triage.
+3. Severity is user/system impact; priority is scheduling urgency.
+4. New -> Triage -> Accepted -> Ready -> In Progress -> Review -> Fixed Pending Release -> Released -> Verified -> Closed.
+5. Needs Info is allowed only with a precise missing-data request.
+6. Security/privacy bugs are private/confidential, never normal public issues.
+7. Every fix links to the issue through PR/MR.
+8. Every fix has a test plan and regression test or no-test rationale.
+9. Close only when fixed, released if applicable, and verified.
+10. Every non-fixed closure has a reason and supporting explanation.
+```
+
+That is the canonical, provider-portable bug standard. Use GitHub Issue Forms or GitLab description templates for intake; use GitLab scoped labels or GitHub label naming conventions for metadata; use projects/boards for workflow visualization; use PR/MR closing keywords carefully; and let agents enforce the contract continuously.
+
+[1]: https://standards.ieee.org/standard/1044-2009.html "IEEE SA - IEEE 1044-2009"
+[2]: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms "Syntax for issue forms - GitHub Docs"
+[3]: https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/managing-issue-types-in-an-organization "Managing issue types in an organization - GitHub Docs"
+[4]: https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/best-practices-for-projects "Best practices for Projects - GitHub Docs"
+[5]: https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/using-keywords-in-issues-and-pull-requests "Using keywords in issues and pull requests - GitHub Docs"
+[6]: https://docs.github.com/rest/issues "REST API endpoints for issues - GitHub Docs"
+[7]: https://docs.gitlab.com/user/project/description_templates/ "Description templates | GitLab Docs"
+[8]: https://docs.gitlab.com/tutorials/issue_triage/ "Tutorial: Set up a project for issue triage | GitLab Docs"
+[9]: https://docs.gitlab.com/user/project/labels/ "Labels | GitLab Docs"
+[10]: https://docs.gitlab.com/user/work_items/status/ "Status | GitLab Docs"
+[11]: https://docs.gitlab.com/user/project/milestones/ "Milestones | GitLab Docs"
+[12]: https://docs.gitlab.com/user/project/issue_board/ "Issue boards | GitLab Docs"
+[13]: https://docs.gitlab.com/user/project/issues/managing_issues/ "Manage issues | GitLab Docs"
+[14]: https://docs.gitlab.com/api/issues/ "Issues API | GitLab Docs"
+[15]: https://docs.github.com/code-security/security-advisories/working-with-repository-security-advisories/configuring-private-vulnerability-reporting-for-a-repository "Configuring private vulnerability reporting for a repository - GitHub Docs"
+[16]: https://docs.gitlab.com/user/project/issues/confidential_issues/ "Confidential issues | GitLab Docs"
+[17]: https://docs.github.com/en/code-security/concepts/secret-security/about-push-protection "About push protection - GitHub Docs"
+[18]: https://docs.gitlab.com/user/application_security/secret_detection/secret_push_protection/ "Secret push protection | GitLab Docs"
+[19]: https://docs.github.com/en/issues/planning-and-tracking-with-projects/understanding-fields/about-issue-fields "About issue fields in projects - GitHub Docs"
+
