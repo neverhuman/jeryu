@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use super::{infer_repo_name, parse_expanded_path};
 use jeryu::repo::{HookMode, HookProfile, RepoMode};
+use jeryu::repo_standard::StandardProvider;
 
 #[derive(Subcommand)]
 pub(crate) enum ReleaseCommands {
@@ -246,6 +247,9 @@ pub(crate) enum RepoCommands {
     /// Manage optional local hook profiles.
     #[command(subcommand)]
     Hooks(RepoHookCommands),
+    /// Plan, apply, or verify the canonical agent-first repo standard.
+    #[command(subcommand)]
+    Standard(RepoStandardCommands),
     /// Run the fast changed-file Jankurai guard manually.
     JankuraiFast {
         #[arg(long, default_value = "origin/main")]
@@ -307,6 +311,38 @@ pub(crate) struct RepoAdoptCommand {
     pub replace_origin: bool,
     #[arg(long, default_value_t = false)]
     pub dry_run: bool,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum RepoStandardCommands {
+    /// Print the managed-file changes needed to match the standard.
+    Plan(RepoStandardCommand),
+    /// Write the managed standard files and configure local hooks.
+    Apply(RepoStandardCommand),
+    /// Fail if the checkout has drifted from the managed standard.
+    Verify(RepoStandardCommand),
+}
+
+#[derive(Args, Clone)]
+pub(crate) struct RepoStandardCommand {
+    #[arg(default_value = ".", value_parser = parse_expanded_path)]
+    pub path: PathBuf,
+    #[arg(long, default_value = "sovereign_plus")]
+    pub profile: String,
+    #[arg(long, value_enum, default_value_t = StandardProvider::Github)]
+    pub provider: StandardProvider,
+    #[arg(long, default_value = "main")]
+    pub base_branch: String,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long, default_value = ".jeryu/autonomy")]
+    pub autonomy_dir: PathBuf,
+    #[arg(long, default_value_t = false)]
+    pub compat_autonomy_link: bool,
+    #[arg(long, default_value_t = true)]
+    pub configure_git_hooks: bool,
+    #[arg(long, default_value_t = false)]
+    pub json: bool,
 }
 
 #[derive(Subcommand)]
