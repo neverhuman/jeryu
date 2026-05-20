@@ -128,10 +128,7 @@ pub(crate) fn build_globset(patterns: &[String]) -> Result<GlobSet> {
 
 pub(crate) fn boundary_trigger(path: &str, package: &PackageSnapshot) -> bool {
     let path = Path::new(path);
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or_default();
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     file_name == "Cargo.toml"
         || (package.agent.public_api && (file_name == "lib.rs" || file_name == "mod.rs"))
         || path
@@ -304,10 +301,7 @@ pub fn context_metrics(workspace_root: &Path, package_root: &Path) -> Result<(us
         if !path.is_file() {
             continue;
         }
-        let extension = path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .unwrap_or_default();
+        let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
         if !matches!(extension, "rs" | "toml" | "md" | "json" | "yaml" | "yml") {
             continue;
         }

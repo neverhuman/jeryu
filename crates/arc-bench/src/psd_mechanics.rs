@@ -247,13 +247,13 @@ fn repo_shape_delta(report: &ScenarioReport) -> RepoShapeDelta {
         .iter()
         .find(|result| result.variant == "monolith")
         .and_then(|result| result.context_bytes)
-        .unwrap_or_default();
+        .unwrap_or(0);
     let arcified = report
         .results
         .iter()
         .find(|result| result.variant == "arcified")
         .and_then(|result| result.context_bytes)
-        .unwrap_or_default();
+        .unwrap_or(0);
     let ratio = if arcified == 0 {
         0.0
     } else {
