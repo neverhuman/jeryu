@@ -880,6 +880,115 @@ mod tests {
     }
 
     #[test]
+    fn veox_hard_switch_repo_infers_remote_slug_and_writes_jeryu_policy() {
+        let tmp = tempfile::tempdir().unwrap();
+        run_git(tmp.path(), &["init", "-b", "main"]).unwrap();
+        run_git(
+            tmp.path(),
+            &["remote", "add", "origin", "git@github.com:neverhuman/warp.git"],
+        )
+        .unwrap();
+
+        fs::create_dir_all(tmp.path().join(".jeryu")).unwrap();
+        fs::write(
+            tmp.path().join(".jeryu/delivery.toml"),
+            "schema_version = \"1\"\nrepo = \"stale-owner/stale-repo\"\n",
+        )
+        .unwrap();
+        fs::create_dir_all(tmp.path().join(".autonomy/policies")).unwrap();
+        fs::write(
+            tmp.path().join(".autonomy/autonomy.yml"),
+            "schema: vibegate.autonomy.v1\npolicy_root: .autonomy/policies\n",
+        )
+        .unwrap();
+        fs::write(
+            tmp.path().join(".autonomy/policies/release.yml"),
+            "schema: vibegate.release.v1\ncanonical_branch: trunk\n",
+        )
+        .unwrap();
+
+        let opts = RepoStandardOptions {
+            path: tmp.path().to_path_buf(),
+            profile: "sovereign_plus".to_string(),
+            provider: StandardProvider::Github,
+            base_branch: "main".to_string(),
+            repo_slug: None,
+            autonomy_dir: PathBuf::from(DEFAULT_AUTONOMY_DIR),
+            compat_autonomy_link: false,
+            configure_git_hooks: false,
+            json: true,
+        };
+
+        let spec = build_spec(&opts).unwrap();
+        assert_eq!(spec.repo_slug, "neverhuman/warp");
+        let files = render_standard_files(&spec);
+        let delivery = files
+            .iter()
+            .find(|file| file.path == ".jeryu/delivery.toml")
+            .unwrap();
+        assert!(delivery.content.contains("repo = \"neverhuman/warp\""));
+        let plan = plan_standard(&spec, &files, &opts).unwrap();
+        assert_eq!(plan.repo_slug, "neverhuman/warp");
+        assert!(plan.legacy_autonomy_link.is_none());
+        assert_eq!(
+            plan.changes
+                .iter()
+                .find(|change| change.path == ".jeryu/delivery.toml")
+                .unwrap()
+                .operation,
+            ManagedFileOperation::Update
+        );
+        assert_eq!(run_standard(RepoStandardMode::Plan, opts.clone()).unwrap(), 0);
+
+        assert_eq!(run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(), 0);
+        let rendered_delivery =
+            fs::read_to_string(tmp.path().join(".jeryu/delivery.toml")).unwrap();
+        assert!(rendered_delivery.contains("repo = \"neverhuman/warp\""));
+        assert!(!rendered_delivery.contains("stale-owner/stale-repo"));
+
+        for path in [
+            ".jeryu/autonomy/autonomy.yml",
+            ".jeryu/autonomy/policies/approvals.yml",
+            ".jeryu/autonomy/policies/protected-paths.yml",
+            ".jeryu/autonomy/policies/release.yml",
+            ".jeryu/autonomy/policies/risk.yml",
+            ".github/CODEOWNERS",
+            ".github/workflows/jeryu-required.yml",
+        ] {
+            assert!(tmp.path().join(path).is_file(), "missing {path}");
+        }
+        let rendered_autonomy =
+            fs::read_to_string(tmp.path().join(".jeryu/autonomy/autonomy.yml")).unwrap();
+        assert!(rendered_autonomy.contains("policy_root: .jeryu/autonomy/policies"));
+        assert!(!rendered_autonomy.contains("policy_root: .autonomy/policies"));
+        let rendered_release =
+            fs::read_to_string(tmp.path().join(".jeryu/autonomy/policies/release.yml")).unwrap();
+        assert!(rendered_release.contains("canonical_branch: main"));
+        assert!(!rendered_release.contains("canonical_branch: trunk"));
+        assert!(
+            !fs::symlink_metadata(tmp.path().join(".autonomy"))
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert!(fs::read_to_string(tmp.path().join(".github/CODEOWNERS"))
+            .unwrap()
+            .contains("@neverhuman"));
+        assert!(
+            fs::read_to_string(tmp.path().join(".github/workflows/jeryu-required.yml"))
+                .unwrap()
+                .contains("jeryu/required")
+        );
+
+        let spec = build_spec(&opts).unwrap();
+        let files = render_standard_files(&spec);
+        let clean_plan = plan_standard(&spec, &files, &opts).unwrap();
+        assert!(report_is_clean(&clean_plan));
+        assert_eq!(run_standard(RepoStandardMode::Apply, opts.clone()).unwrap(), 0);
+        assert_eq!(run_standard(RepoStandardMode::Verify, opts).unwrap(), 0);
+    }
+
+    #[test]
     fn verify_reports_drift_when_managed_file_changes() {
         let tmp = tempfile::tempdir().unwrap();
         let opts = RepoStandardOptions {
