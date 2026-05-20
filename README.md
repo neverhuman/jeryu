@@ -155,6 +155,9 @@ cargo run -p jeryu -- install --dry-run --yes
 
 # Install safely in user-space (~/.jeryu/bin/jeryu)
 cargo run -p jeryu -- install --yes
+
+# Activate the repo-managed git hooks for this checkout
+cargo run -p jeryu -- repo install-git-hooks
 ```
 
 The installer:
@@ -162,6 +165,7 @@ The installer:
 2. Verifies the installed binary responds to `--version`
 3. Prints shell-specific `PATH` advice if `~/.jeryu/bin` isn't on your `PATH`
 4. Never modifies shell startup files unless you explicitly opt in with `--path-mode update`
+5. Leaves git hook activation to the repo-managed `jeryu repo install-git-hooks` command
 
 ### Install Options
 

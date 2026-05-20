@@ -3,6 +3,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 
+pub async fn install_git_hooks() -> Result<i32> {
+    let repo_root = git_repo_root()?;
+    configure_git_hooks(&repo_root)?;
+    println!("Configured local core.hooksPath to ops/git-hooks");
+    Ok(0)
+}
+
 pub async fn state_proof() -> Result<i32> {
     let redlinedb_bin = redlinedb_bin_path();
     validate_redlinedb_bin(&redlinedb_bin)?;
@@ -49,6 +56,29 @@ pub async fn state_proof() -> Result<i32> {
     }
     result?;
     Ok(0)
+}
+
+pub(crate) fn configure_git_hooks(repo_root: &Path) -> Result<()> {
+    let hooks_dir = repo_root.join("ops/git-hooks");
+    let pre_push = hooks_dir.join("pre-push");
+    if !pre_push.is_file() {
+        bail!("repo-managed hook is missing: {}", pre_push.display());
+    }
+
+    let output = std::process::Command::new("git")
+        .current_dir(repo_root)
+        .args(["config", "--local", "core.hooksPath", "ops/git-hooks"])
+        .output()
+        .with_context(|| "configuring repo-managed git hooks".to_string())?;
+
+    if !output.status.success() {
+        bail!(
+            "failed to configure core.hooksPath: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    Ok(())
 }
 
 fn redlinedb_bin_path() -> PathBuf {
@@ -215,5 +245,77 @@ fn repo_root() -> Result<PathBuf> {
         if !dir.pop() {
             bail!("unable to locate repo root");
         }
+    }
+}
+
+fn git_repo_root() -> Result<PathBuf> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .context("resolving git repository root")?;
+
+    if !output.status.success() {
+        bail!(
+            "failed to resolve git repository root: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    Ok(PathBuf::from(
+        String::from_utf8_lossy(&output.stdout).trim().to_string(),
+    ))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::tempdir;
+
+    fn git(repo_root: &Path, args: &[&str]) {
+        let output = std::process::Command::new("git")
+            .current_dir(repo_root)
+            .args(args)
+            .output()
+            .expect("git command");
+        assert!(
+            output.status.success(),
+            "git {:?} failed\nstdout={}\nstderr={}",
+            args,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn configure_git_hooks_sets_repo_local_hooks_path() {
+        let repo = tempdir().expect("temp repo");
+        git(repo.path(), &["init"]);
+
+        let hooks_dir = repo.path().join("ops/git-hooks");
+        fs::create_dir_all(&hooks_dir).expect("create hooks dir");
+        let source_hook = Path::new(env!("CARGO_MANIFEST_DIR")).join("ops/git-hooks/pre-push");
+        let target_hook = hooks_dir.join("pre-push");
+        fs::copy(&source_hook, &target_hook).expect("copy hook");
+        let mut perms = fs::metadata(&target_hook)
+            .expect("hook metadata")
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&target_hook, perms).expect("set hook perms");
+
+        configure_git_hooks(repo.path()).expect("configure hooks");
+
+        let output = std::process::Command::new("git")
+            .current_dir(repo.path())
+            .args(["config", "--local", "--get", "core.hooksPath"])
+            .output()
+            .expect("git config read");
+        assert!(output.status.success());
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            "ops/git-hooks"
+        );
+        assert!(repo.path().join("ops/git-hooks/pre-push").is_file());
     }
 }

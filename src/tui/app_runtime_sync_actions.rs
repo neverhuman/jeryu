@@ -277,7 +277,9 @@ impl App {
         if let Some(next) = self.focus_map.neighbor(self.focus.active, direction) {
             self.maximize_logs = false;
             self.focus.active = next;
-        } else if let Some(first) = self.focus_map.first_visible() {
+        } else if self.focus_map.rect_of(self.focus.active).is_none()
+            && let Some(first) = self.focus_map.first_visible()
+        {
             self.maximize_logs = false;
             self.focus.active = first;
         }

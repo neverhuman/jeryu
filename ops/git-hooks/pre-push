@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 # ops/git-hooks/pre-push — quality gate that runs before every git push
-# Wire up with: git config core.hooksPath ops/git-hooks
+# Wire up with: cargo run -p jeryu -- repo install-git-hooks
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec bash "$SCRIPT_DIR/../ci/quality-gates.sh"
+QUALITY_GATES_SCRIPT="${JERYU_PRE_PUSH_QUALITY_GATES:-$SCRIPT_DIR/../ci/quality-gates.sh}"
+
+while true; do
+  local_ref=""
+  local_sha=""
+  remote_ref=""
+  remote_sha=""
+  if ! IFS=' ' read -r local_ref local_sha remote_ref remote_sha; then
+    if [[ -z "${local_ref}${local_sha}${remote_ref}${remote_sha}" ]]; then
+      break
+    fi
+  fi
+
+  if [[ "${remote_ref:-}" == "refs/heads/main" ]]; then
+    printf 'error: direct pushes to main are forbidden; open a pull request instead.\n' >&2
+    exit 1
+  fi
+done
+
+exec bash "$QUALITY_GATES_SCRIPT"

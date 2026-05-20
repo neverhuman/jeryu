@@ -220,6 +220,8 @@ pub(crate) enum RepoCommands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
+    /// Configure the repo-managed git hook directory for this checkout.
+    InstallGitHooks,
     /// Run the RedlineDB-backed state proof against embedded file state.
     RedlineStateProof,
     /// Capture the canonical TUI screenshots used in docs.

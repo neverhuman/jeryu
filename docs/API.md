@@ -398,6 +398,12 @@ Generates or checks the machine-readable agent routing index for the repo.
 
 Audits routing docs, generated index freshness, and agent-facing surfaces.
 
+#### `jeryu repo install-git-hooks`
+
+Configures the current checkout to use the repo-managed `ops/git-hooks`
+directory as `core.hooksPath`. This activates the local pre-push guard that
+blocks direct pushes to `main`.
+
 ### 4.18 Host Operations
 
 #### `jeryu host storage-audit`
