@@ -50,6 +50,7 @@ run() {
 
 # ─── 1. RedlineDB binary proof (embedded DB tooling, not a service) ──────────
 run "Install RedlineDB binary" bash scripts/install-redlinedb.sh
+run "Install Jankurai binary" bash scripts/install-jankurai.sh
 
 # ─── 2. Format (matches CI: cargo fmt --all -- --check) ──────────────────────
 run "Format" cargo fmt --all -- --check
@@ -100,7 +101,7 @@ else
 fi
 
 # ─── 12. Jankurai audit (matches CI: bash ops/ci/jankurai-lane.sh audit) ─────
-if [[ "$NO_AUDIT" == "0" ]] && command -v jankurai >/dev/null 2>&1; then
+if [[ "$NO_AUDIT" == "0" ]]; then
     mkdir -p target/ci-parity
     run "Jankurai Audit" jankurai audit . \
         --full \
@@ -108,7 +109,7 @@ if [[ "$NO_AUDIT" == "0" ]] && command -v jankurai >/dev/null 2>&1; then
         --json target/ci-parity/repo-score.json \
         --md target/ci-parity/repo-score.md
 else
-    printf '%s⊘ jankurai audit skipped (use --no-audit or install jankurai)%s\n' "$DIM" "$RESET"
+    printf '%s⊘ jankurai audit skipped (--no-audit)%s\n' "$DIM" "$RESET"
 fi
 
 # ─── 13. Cargo deny (matches CI: cargo deny check) ───────────────────────────

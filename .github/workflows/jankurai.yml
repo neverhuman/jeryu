@@ -44,14 +44,9 @@ jobs:
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Install jankurai
-        # Jankurai MUST be installed from a URL with an explicit commit SHA.
-        # Local-path installs are not supported (they produce version drift
-        # between dev machines and CI). Bump JANKURAI_REV to upgrade.
-        env:
-          JANKURAI_GIT: https://github.com/neverhuman/jankurai.git
-          JANKURAI_REV: 407362865d6a7e56bc609a934f4bd4eb36d64e00
-        run: |
-          cargo install --git "$JANKURAI_GIT" --rev "$JANKURAI_REV" jankurai --locked
+        # Jankurai MUST be installed from the checked-in pinned binary
+        # manifest so local proof lanes and CI run the same release artifact.
+        run: bash scripts/install-jankurai.sh
       - run: jankurai --version
       - name: Install gitleaks (needed by tools/security-lane.sh preflight)
         run: |
