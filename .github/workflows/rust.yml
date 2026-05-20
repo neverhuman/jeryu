@@ -339,17 +339,13 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
         run: sudo apt-get install -y mold
-      - name: Install cargo-semver-checks
-        uses: taiki-e/install-action@2917690e52aa4d7197c24238e2a04e6775cc8170 # cargo-semver-checks
-      - name: Semver check
-        run: bash ops/ci/rust-lane.sh semver-check
-      - name: AER structural audit
-        run: bash ops/ci/rust-lane.sh aer
+      - name: Hardening lane
+        run: bash ops/ci/rust-lane.sh hardening
       - name: Upload hardening findings
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: hardening-aer-findings
-          path: aer-findings.json
+          path: target/hardening/aer-findings.json
           if-no-files-found: warn
 
   # ─────────────────────────────────────────────────────────────────────────
