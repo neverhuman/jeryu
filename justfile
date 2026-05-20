@@ -63,8 +63,11 @@ release:
     cargo run -p cargo-aer -- scan --output aer-findings.json
     cargo run -p cargo-vrc -- map --output-dir .
 
+hardening:
+    bash ops/ci/rust-lane.sh hardening
+
 tui-screenshots:
-    scripts/capture-tui-screenshots.sh
+    bash ops/ci/rust-lane.sh tui-screenshots
 
 tui-screenshot-smoke:
     cargo run --release -p tui-capture -- --cols 48 --rows 6 --out target/tui-capture/smoke.png --dump-text target/tui-capture/smoke.txt -- bash -lc "printf '┌────────────────────────┐\n│ Unicode border test    │\n│ Blocks: █ ▓ ▒ ░        │\n└────────────────────────┘\n'; sleep 2"

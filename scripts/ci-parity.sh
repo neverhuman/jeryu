@@ -101,6 +101,13 @@ run "Jankurai Audit" jankurai audit . \
 # ─── 13. Cargo deny (matches CI: cargo deny check) ───────────────────────────
 run "Cargo Deny" cargo deny check
 
+# ─── 13a. Scheduled hardening (matches weekly CI hardening job) ──────────────
+if [[ "$FAST" == "0" ]]; then
+    run "Scheduled Hardening" bash ops/ci/rust-lane.sh hardening
+else
+    echo "scheduled hardening skipped in fast mode"
+fi
+
 # ─── 14. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
 # Validates that the embedded broker + consumer-loop wire correctly. Skipped
 # automatically when --no-default-features builds drop jansu-embedded.

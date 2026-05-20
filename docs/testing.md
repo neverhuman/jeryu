@@ -132,11 +132,19 @@ The local parity entrypoint is `scripts/ci-local.sh`. It dispatches to the same
 - `scripts/ci-local.sh rust build`
 - `scripts/ci-local.sh rust test-lib`
 - `scripts/ci-local.sh rust test-integration`
+- `scripts/ci-local.sh rust hardening`
 - `scripts/ci-local.sh security`
 - `scripts/ci-local.sh release-preflight <version>`
 
 Do not add inline-only workflow logic. If CI needs a new behavior, put it in
 `ops/ci/` first and call that script from both CI and local proof.
+
+The shared hardening stage is `scripts/ci-local.sh rust hardening` or
+`just hardening`. It runs semver compatibility checks plus AER and writes
+`target/hardening/aer-findings.json`. Full `scripts/ci-parity.sh` includes this
+stage; `scripts/ci-parity.sh --fast` prints `scheduled hardening skipped in
+fast mode` and skips it. Semver uses `origin/main` by default for unpublished
+local crates; override with `SEMVER_BASELINE_REV=<rev>`.
 
 ## Cost budgets and stop conditions
 
@@ -162,7 +170,9 @@ GitHub kills the job when exceeded:
 - `supply-chain`: 20 minutes
 - `witness`: 20 minutes
 - `vrc-map`, `vrc-plan`, `aer-scan`: 15 minutes each
-- `scheduled-hardening` (weekly cron): 30 minutes
+- `scheduled-hardening` (weekly cron): 30 minutes; runs semver checks plus AER.
+  Full local parity covers the same checks through the shared `hardening`
+  rust-lane stage and writes `target/hardening/aer-findings.json`.
 
 Concurrency on a ref is bounded by `cancel-in-progress: true` so superseded
 runs free their minutes immediately.
