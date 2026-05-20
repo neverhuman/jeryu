@@ -388,6 +388,17 @@ impl FocusMap {
             .filter_map(|pane| {
                 let cx = center_x(pane.rect);
                 let cy = center_y(pane.rect);
+                let axis_overlaps = match direction {
+                    NavDirection::Left | NavDirection::Right => {
+                        ranges_overlap(origin.y, origin.height, pane.rect.y, pane.rect.height)
+                    }
+                    NavDirection::Up | NavDirection::Down => {
+                        ranges_overlap(origin.x, origin.width, pane.rect.x, pane.rect.width)
+                    }
+                };
+                if !axis_overlaps {
+                    return None;
+                }
                 let directional_ok = match direction {
                     NavDirection::Left => cx < ox,
                     NavDirection::Right => cx > ox,
@@ -471,4 +482,10 @@ fn center_y(rect: Rect) -> u16 {
 
 fn rect_contains(rect: Rect, x: u16, y: u16) -> bool {
     x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
+}
+
+fn ranges_overlap(a_start: u16, a_len: u16, b_start: u16, b_len: u16) -> bool {
+    let a_end = a_start.saturating_add(a_len);
+    let b_end = b_start.saturating_add(b_len);
+    a_start < b_end && b_start < a_end
 }

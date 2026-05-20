@@ -6,14 +6,15 @@ use image::RgbImage;
 use std::{
     path::{Path, PathBuf},
     process::Command,
-    time::Duration,
+    time::{Duration, Instant},
 };
-use tuiwright::{Key, Page, SpawnConfig};
+use tuiwright::{Key, Page, ScreenSnapshot, SpawnConfig};
 
 const CAPTURE_COLS: u16 = 120;
 const CAPTURE_ROWS: u16 = 36;
 const CELL_W: u32 = 8;
 const CELL_H: u32 = 12;
+const XTERM_YELLOW: (u8, u8, u8) = (0xcd, 0xcd, 0x00);
 
 /// Locate the `jeryu` binary built by cargo.
 fn jeryu_bin() -> String {
@@ -149,6 +150,7 @@ fn spawn_interactive_tui(tab: &str) -> anyhow::Result<Page> {
             .size(160, 40)
             .env("TERM", "xterm-256color")
             .env("COLORTERM", "truecolor")
+            .env("NO_COLOR", "")
             .env("JERYU_TUI_WORKFLOW_INSPECT_OPEN", "1")
             .timeout(Duration::from_secs(8)),
     )?;
@@ -158,6 +160,69 @@ fn spawn_interactive_tui(tab: &str) -> anyhow::Result<Page> {
 
 fn screen_text(page: &Page) -> String {
     page.screen().plain_text()
+}
+
+fn is_yellow_cell(cell: &tuiwright::CellSnapshot) -> bool {
+    (cell.fg.r, cell.fg.g, cell.fg.b) == XTERM_YELLOW
+}
+
+fn title_row_yellow_cell_count(screen: &ScreenSnapshot, title: &str) -> Option<usize> {
+    let title_match = screen.find_text(title).into_iter().next()?;
+    Some(
+        (0..screen.cols)
+            .filter_map(|col| screen.cell(title_match.row, col))
+            .filter(|cell| is_yellow_cell(cell))
+            .count(),
+    )
+}
+
+fn title_row_fg_summary(screen: &ScreenSnapshot, title: &str) -> String {
+    let Some(title_match) = screen.find_text(title).into_iter().next() else {
+        return "title not found".into();
+    };
+    let mut counts = std::collections::BTreeMap::<(u8, u8, u8), usize>::new();
+    for col in 0..screen.cols {
+        if let Some(cell) = screen.cell(title_match.row, col) {
+            *counts.entry((cell.fg.r, cell.fg.g, cell.fg.b)).or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .map(|((r, g, b), count)| format!("#{r:02x}{g:02x}{b:02x}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn assert_focused_title_row(screen: &ScreenSnapshot, title: &str) -> anyhow::Result<()> {
+    let yellow_cells = title_row_yellow_cell_count(screen, title).ok_or_else(|| {
+        anyhow::anyhow!(
+            "expected pane title {title:?} to be visible\n\nscreen:\n{}",
+            screen.plain_text()
+        )
+    })?;
+    anyhow::ensure!(
+        yellow_cells >= 8,
+        "expected pane title {title:?} to have a yellow focused border/title row, found {yellow_cells} yellow cells; row colors: {}\n\nscreen:\n{}",
+        title_row_fg_summary(screen, title),
+        screen.plain_text()
+    );
+    Ok(())
+}
+
+fn wait_for_focused_title(page: &Page, title: &str) -> anyhow::Result<()> {
+    let timeout = Duration::from_secs(5);
+    let deadline = Instant::now() + timeout;
+    let mut last = page.screen();
+    loop {
+        if title_row_yellow_cell_count(&last, title).unwrap_or(0) >= 8 {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            assert_focused_title_row(&last, title)?;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+        last = page.screen();
+    }
 }
 
 #[test]
@@ -200,6 +265,66 @@ fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
     page.wait_for_text("Pre-merge CI", Duration::from_secs(5))?;
     let text = screen_text(&page);
     assert!(text.contains("#1842"));
+    Ok(())
+}
+
+#[test]
+fn keyboard_macro_focuses_activity_log_and_drills_down() -> anyhow::Result<()> {
+    let page = spawn_interactive_tui("jobs")?;
+
+    page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
+    wait_for_focused_title(&page, "Live Runner Feed")?;
+
+    page.press(Key::Left)?;
+    wait_for_focused_title(&page, "Live Runner Feed")?;
+
+    page.press(Key::Down)?;
+    wait_for_focused_title(&page, "Activity / Logs")?;
+
+    page.press(Key::Left)?;
+    wait_for_focused_title(&page, "Activity / Logs")?;
+
+    page.press(Key::Right)?;
+    let before_enter = page.screen();
+    assert_focused_title_row(&before_enter, "Activity / Logs")?;
+
+    page.press(Key::Enter)?;
+    page.wait_for_text("[esc]", Duration::from_secs(5))?;
+    let fullscreen = page.screen();
+    let fullscreen_text = fullscreen.plain_text();
+    assert!(fullscreen_text.contains("Activity / Logs"));
+    assert!(
+        fullscreen_text.contains("Job") || fullscreen_text.contains("Jobs"),
+        "fullscreen activity/log content should remain visible\n\nscreen:\n{fullscreen_text}"
+    );
+    assert!(
+        !fullscreen_text.contains("Pipeline Progress"),
+        "fullscreen activity/log should hide the jobs pipeline pane\n\nscreen:\n{fullscreen_text}"
+    );
+    assert!(
+        !fullscreen_text.contains("Live Runner Feed"),
+        "fullscreen activity/log should hide the live runner feed\n\nscreen:\n{fullscreen_text}"
+    );
+    assert!(
+        !fullscreen_text.contains("Job Matrix"),
+        "fullscreen activity/log should hide the job matrix\n\nscreen:\n{fullscreen_text}"
+    );
+
+    page.press(Key::Esc)?;
+    page.wait_for_text("Pipeline Progress", Duration::from_secs(5))?;
+    let restored = page.screen();
+    let restored_text = restored.plain_text();
+    assert!(
+        !restored_text
+            .lines()
+            .nth(3)
+            .unwrap_or_default()
+            .contains("[esc]"),
+        "fullscreen activity/log title should be gone after Esc\n\nscreen:\n{restored_text}"
+    );
+
+    page.press(Key::Up)?;
+    wait_for_focused_title(&page, "Inspector")?;
     Ok(())
 }
 
