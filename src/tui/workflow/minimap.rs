@@ -12,7 +12,7 @@ use ratatui::{
 
 use super::model::*;
 use super::nav::WorkflowNav;
-use crate::tui::theme::Theme;
+use crate::tui::{focus::PaneChrome, theme::Theme};
 
 pub fn draw_minimap(
     f: &mut Frame,
@@ -20,14 +20,21 @@ pub fn draw_minimap(
     delivery: &DeliverySnapshot,
     nav: &WorkflowNav,
     theme: &Theme,
+    chrome: Option<PaneChrome>,
 ) {
     if area.width == 0 || area.height == 0 {
         return;
     }
+    let title = chrome
+        .map(|chrome| chrome.title("Map"))
+        .unwrap_or_else(|| crate::tui::focus::title_with_esc("Map", false));
+    let border_style = chrome
+        .map(|chrome| chrome.border_style)
+        .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
     let block = Block::default()
-        .title(" Map ")
+        .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_subtle));
+        .border_style(border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 

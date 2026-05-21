@@ -62,6 +62,18 @@ pub enum NavDirection {
     Right,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct PaneChrome {
+    pub border_style: Style,
+    pub show_esc: bool,
+}
+
+impl PaneChrome {
+    pub fn title(self, label: &str) -> String {
+        title_with_esc(label, self.show_esc)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FocusPane {
     pub id: PaneId,
@@ -468,6 +480,17 @@ pub fn should_show_esc(app: &App, pane: PaneId) -> bool {
     is_active(app, pane) || app.focus.stack.last().copied() == Some(pane)
 }
 
+pub fn should_show_drill_esc(app: &App, pane: PaneId) -> bool {
+    app.focus.is_drilled() && should_show_esc(app, pane)
+}
+
+pub fn pane_chrome(app: &App, pane: PaneId) -> PaneChrome {
+    PaneChrome {
+        border_style: border_style(app, pane),
+        show_esc: should_show_drill_esc(app, pane),
+    }
+}
+
 pub fn register_pane(app: &mut App, pane: PaneId, rect: Rect) {
     app.focus_map.register(pane, rect);
 }
@@ -483,8 +506,19 @@ pub fn register_esc_hotspot(app: &mut App, pane: PaneId, rect: Rect) {
     }
 }
 
+pub fn register_drill_esc_hotspot(app: &mut App, pane: PaneId, rect: Rect) {
+    if should_show_drill_esc(app, pane) && rect.width > 0 {
+        let esc = Rect::new(rect.x, rect.y, rect.width, 1);
+        app.focus_map.register_esc(pane, esc);
+    }
+}
+
 pub fn esc_label(active: bool) -> &'static str {
     if active { " [esc] " } else { "" }
+}
+
+pub fn title_with_esc(label: &str, show_esc: bool) -> String {
+    format!(" {label}{} ", esc_label(show_esc))
 }
 
 fn center_x(rect: Rect) -> u16 {

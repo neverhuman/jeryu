@@ -20,12 +20,21 @@ use super::nav::{
 use super::phase_rail::draw_phase_rail;
 use super::pr_rail::draw_pr_rail;
 use super::regions::{DeliveryRegions, compute_regions};
-use crate::tui::theme::Theme;
+use crate::tui::{focus::PaneChrome, theme::Theme};
 
 /// Height of one full phase row on the virtual canvas
 /// (header + card body + edge gutter below).
 /// Height of one full phase row on the virtual canvas.
 const _PHASE_ROW_H: i32 = PHASE_HEADER_H as i32 + NODE_CARD_H as i32 + EDGE_GUTTER_H as i32;
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DeliveryChrome {
+    pub mission: Option<PaneChrome>,
+    pub pr_rail: Option<PaneChrome>,
+    pub phase_rail: Option<PaneChrome>,
+    pub canvas: Option<PaneChrome>,
+    pub minimap: Option<PaneChrome>,
+}
 
 /// Draw the full workflow tab: summary banner + scrollable DAG with edges.
 /// Legacy entry point retained for the single-workflow code path.
@@ -70,6 +79,31 @@ pub fn draw_delivery_tab(
     tick: u64,
     hit_map: &mut DeliveryHitMap,
 ) {
+    draw_delivery_tab_with_chrome(
+        f,
+        area,
+        delivery,
+        nav,
+        theme,
+        tick,
+        hit_map,
+        DeliveryChrome::default(),
+    );
+}
+
+/// Focus-aware Delivery view renderer. The optional chrome is supplied by
+/// `ui.rs`; pure widget tests can use the default unfocused chrome.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_delivery_tab_with_chrome(
+    f: &mut Frame,
+    area: Rect,
+    delivery: &DeliverySnapshot,
+    nav: &WorkflowNav,
+    theme: &Theme,
+    tick: u64,
+    hit_map: &mut DeliveryHitMap,
+    chrome: DeliveryChrome,
+) {
     let regions = compute_regions(area);
     hit_map.mission = visible(regions.mission);
     hit_map.pr_rail = visible(regions.pr_rail);
@@ -79,39 +113,48 @@ pub fn draw_delivery_tab(
     hit_map.cards.clear();
 
     if DeliveryRegions::is_visible(regions.mission) {
-        draw_mission_strip(f, regions.mission, delivery, theme);
+        draw_mission_strip(f, regions.mission, delivery, theme, chrome.mission);
     }
     if DeliveryRegions::is_visible(regions.pr_rail) {
-        draw_pr_rail(f, regions.pr_rail, delivery, theme);
+        draw_pr_rail(f, regions.pr_rail, delivery, theme, chrome.pr_rail);
     }
     if DeliveryRegions::is_visible(regions.phase_rail) {
-        draw_phase_rail(f, regions.phase_rail, delivery, theme);
+        draw_phase_rail(f, regions.phase_rail, delivery, theme, chrome.phase_rail);
     }
     if DeliveryRegions::is_visible(regions.canvas) {
+        let canvas_inner = draw_canvas_frame(f, regions.canvas, theme, chrome.canvas);
         if let Some(pr) = delivery.selected() {
             if pr.snapshot.phases.is_empty() {
-                draw_empty_state(f, regions.canvas, &pr.snapshot, theme);
+                draw_empty_state(f, canvas_inner, &pr.snapshot, theme);
             } else {
-                draw_dag_canvas_with_hits(
-                    f,
-                    regions.canvas,
-                    &pr.snapshot,
-                    nav,
-                    theme,
-                    tick,
-                    hit_map,
-                );
+                draw_dag_canvas_with_hits(f, canvas_inner, &pr.snapshot, nav, theme, tick, hit_map);
             }
         } else {
-            draw_no_pr_state(f, regions.canvas, theme);
+            draw_no_pr_state(f, canvas_inner, theme);
         }
     }
     if DeliveryRegions::is_visible(regions.minimap) {
-        draw_minimap(f, regions.minimap, delivery, nav, theme);
+        draw_minimap(f, regions.minimap, delivery, nav, theme, chrome.minimap);
     }
     if DeliveryRegions::is_visible(regions.footer) {
         draw_delivery_footer(f, regions.footer, delivery, theme);
     }
+}
+
+fn draw_canvas_frame(f: &mut Frame, area: Rect, theme: &Theme, chrome: Option<PaneChrome>) -> Rect {
+    let title = chrome
+        .map(|chrome| chrome.title("Canvas"))
+        .unwrap_or_else(|| crate::tui::focus::title_with_esc("Canvas", false));
+    let border_style = chrome
+        .map(|chrome| chrome.border_style)
+        .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+    inner
 }
 
 fn visible(r: Rect) -> Option<Rect> {

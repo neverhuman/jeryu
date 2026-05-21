@@ -11,17 +11,29 @@ use ratatui::{
 };
 
 use super::model::*;
-use crate::tui::theme::Theme;
+use crate::tui::{focus::PaneChrome, theme::Theme};
 
-pub fn draw_phase_rail(f: &mut Frame, area: Rect, delivery: &DeliverySnapshot, theme: &Theme) {
+pub fn draw_phase_rail(
+    f: &mut Frame,
+    area: Rect,
+    delivery: &DeliverySnapshot,
+    theme: &Theme,
+    chrome: Option<PaneChrome>,
+) {
     if area.width == 0 || area.height == 0 {
         return;
     }
 
+    let title = chrome
+        .map(|chrome| chrome.title("Phase"))
+        .unwrap_or_else(|| crate::tui::focus::title_with_esc("Phase", false));
+    let border_style = chrome
+        .map(|chrome| chrome.border_style)
+        .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
     let block = Block::default()
-        .title(" Phase ")
+        .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_subtle));
+        .border_style(border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 

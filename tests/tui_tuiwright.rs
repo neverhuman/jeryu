@@ -155,6 +155,10 @@ fn assert_main_layout_regions(tab: &str, image: &RgbImage) {
 }
 
 fn spawn_interactive_tui(tab: &str) -> anyhow::Result<Page> {
+    spawn_interactive_tui_size(tab, 160, 40)
+}
+
+fn spawn_interactive_tui_size(tab: &str, cols: u16, rows: u16) -> anyhow::Result<Page> {
     let bin = jeryu_bin();
     let page = Page::spawn(
         SpawnConfig::new(&bin)
@@ -162,7 +166,7 @@ fn spawn_interactive_tui(tab: &str) -> anyhow::Result<Page> {
             .arg("--demo")
             .arg("--tab")
             .arg(tab)
-            .size(160, 40)
+            .size(cols, rows)
             .env("TERM", "xterm-256color")
             .env("COLORTERM", "truecolor")
             .env("NO_COLOR", "")
@@ -182,23 +186,55 @@ fn is_yellow_cell(cell: &tuiwright::CellSnapshot) -> bool {
     (cell.fg.r, cell.fg.g, cell.fg.b) == XTERM_YELLOW
 }
 
+fn find_text_cell_region(screen: &ScreenSnapshot, needle: &str) -> Option<(u16, u16, u16)> {
+    for row in 0..screen.rows {
+        let mut line = String::new();
+        let mut byte_to_col = Vec::<(usize, u16)>::new();
+        for col in 0..screen.cols {
+            let cell = screen.cell(row, col)?;
+            if cell.wide_continuation {
+                continue;
+            }
+            byte_to_col.push((line.len(), col));
+            if cell.text.is_empty() {
+                line.push(' ');
+            } else {
+                line.push_str(&cell.text);
+            }
+        }
+        if let Some(byte_pos) = line.find(needle) {
+            let col = byte_to_col
+                .iter()
+                .rev()
+                .find(|(offset, _)| *offset <= byte_pos)
+                .map(|(_, col)| *col)?;
+            return Some((row, col, needle.chars().count() as u16));
+        }
+    }
+    None
+}
+
 fn title_row_yellow_cell_count(screen: &ScreenSnapshot, title: &str) -> Option<usize> {
-    let title_match = screen.find_text(title).into_iter().next()?;
+    let (row, col, width) = find_text_cell_region(screen, title)?;
+    let start = col.saturating_sub(2);
+    let end = col.saturating_add(width).saturating_add(8).min(screen.cols);
     Some(
-        (0..screen.cols)
-            .filter_map(|col| screen.cell(title_match.row, col))
+        (start..end)
+            .filter_map(|col| screen.cell(row, col))
             .filter(|cell| is_yellow_cell(cell))
             .count(),
     )
 }
 
 fn title_row_fg_summary(screen: &ScreenSnapshot, title: &str) -> String {
-    let Some(title_match) = screen.find_text(title).into_iter().next() else {
+    let Some((row, col, width)) = find_text_cell_region(screen, title) else {
         return "title not found".into();
     };
+    let start = col.saturating_sub(2);
+    let end = col.saturating_add(width).saturating_add(8).min(screen.cols);
     let mut counts = std::collections::BTreeMap::<(u8, u8, u8), usize>::new();
-    for col in 0..screen.cols {
-        if let Some(cell) = screen.cell(title_match.row, col) {
+    for col in start..end {
+        if let Some(cell) = screen.cell(row, col) {
             *counts.entry((cell.fg.r, cell.fg.g, cell.fg.b)).or_default() += 1;
         }
     }
@@ -235,6 +271,31 @@ fn wait_for_focused_title(page: &Page, title: &str) -> anyhow::Result<()> {
         }
         if Instant::now() >= deadline {
             assert_focused_title_row(&last, title)?;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+        last = page.screen();
+    }
+}
+
+fn assert_text_absent(screen: &ScreenSnapshot, needle: &str) -> anyhow::Result<()> {
+    let text = screen.plain_text();
+    anyhow::ensure!(
+        !text.contains(needle),
+        "expected screen not to contain {needle:?}\n\nscreen:\n{text}"
+    );
+    Ok(())
+}
+
+fn wait_for_text_absent(page: &Page, needle: &str) -> anyhow::Result<()> {
+    let timeout = Duration::from_secs(5);
+    let deadline = Instant::now() + timeout;
+    let mut last = page.screen();
+    loop {
+        if !last.plain_text().contains(needle) {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            assert_text_absent(&last, needle)?;
         }
         std::thread::sleep(Duration::from_millis(50));
         last = page.screen();
@@ -335,14 +396,9 @@ fn bugs_global_shortcut_focus_navigation_and_inspector_drilldown_work() -> anyho
     wait_for_focused_title(&page, "Bug Projects")?;
     page.press(Key::Right)?;
     wait_for_focused_title(&page, "Bugs sort:rank")?;
-    page.press(Key::Right)?;
-    wait_for_focused_title(&page, "Inspector")?;
     page.press(Key::Down)?;
     wait_for_focused_title(&page, "Activity / Logs")?;
     page.press(Key::Up)?;
-    wait_for_focused_title(&page, "Inspector")?;
-
-    page.press(Key::Left)?;
     wait_for_focused_title(&page, "Bugs sort:rank")?;
     page.press(Key::Enter)?;
     page.wait_for_text("[esc]", Duration::from_secs(5))?;
@@ -398,6 +454,62 @@ fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
     page.wait_for_text("Pre-merge CI", Duration::from_secs(5))?;
     let text = screen_text(&page);
     assert!(text.contains("#1842"));
+    Ok(())
+}
+
+#[test]
+fn workflow_macro_micro_focus_and_drilldown_work() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
+    let page = spawn_interactive_tui_size("workflow", 220, 44)?;
+
+    page.wait_for_text("PRs", Duration::from_secs(5))?;
+    wait_for_focused_title(&page, "PRs")?;
+    assert_text_absent(&page.screen(), "[esc]")?;
+
+    page.press(Key::Up)?;
+    wait_for_focused_title(&page, "Mission Control")?;
+    page.press(Key::Down)?;
+    wait_for_focused_title(&page, "PRs")?;
+    page.press(Key::Down)?;
+    wait_for_focused_title(&page, "Canvas")?;
+    page.press(Key::Left)?;
+    wait_for_focused_title(&page, "Phase")?;
+    page.press(Key::Right)?;
+    wait_for_focused_title(&page, "Canvas")?;
+    page.press(Key::Right)?;
+    wait_for_focused_title(&page, "Map")?;
+    page.press(Key::Left)?;
+    wait_for_focused_title(&page, "Canvas")?;
+    page.press(Key::Down)?;
+    wait_for_focused_title(&page, "Activity / Logs")?;
+    page.press(Key::Up)?;
+    wait_for_focused_title(&page, "Canvas")?;
+    page.press(Key::Up)?;
+    wait_for_focused_title(&page, "PRs")?;
+
+    let before_drill = screen_text(&page);
+    assert!(
+        before_drill.contains("#1842"),
+        "expected initial selected PR #1842 before drill\n\nscreen:\n{before_drill}"
+    );
+    page.press(Key::Enter)?;
+    page.wait_for_text("[esc]", Duration::from_secs(5))?;
+    page.press(Key::Right)?;
+    page.wait_for_text("#1841", Duration::from_secs(5))?;
+    wait_for_focused_title(&page, "PRs")?;
+    page.press(Key::Esc)?;
+    page.wait_for_text("Canvas", Duration::from_secs(5))?;
+    wait_for_text_absent(&page, "[esc]")?;
+
+    page.press(Key::Down)?;
+    wait_for_focused_title(&page, "Canvas")?;
+    page.press(Key::Enter)?;
+    page.wait_for_text("[esc]", Duration::from_secs(5))?;
+    page.press(Key::Left)?;
+    page.wait_for_text("fmt [SEL]", Duration::from_secs(5))?;
+    wait_for_focused_title(&page, "Canvas")?;
+    page.press(Key::Esc)?;
+    wait_for_text_absent(&page, "[esc]")?;
     Ok(())
 }
 

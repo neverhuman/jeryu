@@ -389,6 +389,23 @@ Below ~160 cols the minimap collapses; below ~120 cols the phase rail
 collapses; below ~80 cols the PR rail collapses. Region math lives in
 `src/tui/workflow/regions.rs` (with no-overlap tests).
 
+### Macro/micro focus model
+
+The TUI has two focus modes:
+
+- **Root / macro mode**: arrow keys move the yellow pane focus among visible
+  panes for the active tab. On Delivery, the registered macro panes are
+  Mission Control, PRs, Phase, Canvas, Map, Inspector, and Activity / Logs.
+- **Drill / micro mode**: `Enter` keeps focus inside the active pane and
+  routes arrow keys to pane-specific behavior. The active pane title shows
+  `[esc]`; `Esc` returns to root mode and removes the affordance.
+
+Delivery micro behavior is pane-specific: PRs cycles the selected PR,
+Canvas changes the selected DAG node, Phase follows vertical DAG selection,
+and fullscreen Activity / Logs scrolls the log buffer. Macro pane focus is
+always the shared yellow border/title-row highlight; status colors remain
+inside PR chips, phase rows, node cards, badges, and rollups.
+
 ### Mission strip
 
 Two lines that always answer the canonical PM questions:
@@ -398,8 +415,9 @@ Two lines that always answer the canonical PM questions:
 
 ### Side-pane inspector
 
-`Enter` toggles an inspector pane on the right (or the legacy modal at
-narrow widths). Five sub-tabs cycle with `Tab` / `Shift+Tab`:
+The inspector pane opens on the right when `JERYU_TUI_WORKFLOW_INSPECT_OPEN`
+is enabled and the terminal is wide enough (or falls back to the legacy
+modal at narrow widths). Five sub-tabs cycle with `Tab` / `Shift+Tab`:
 
 - **Overview** — status, kind, command, progress, ETA, duration, VTI,
   cache verdict, reason, tags.
@@ -436,11 +454,16 @@ Failed/blocked cards gain a `⚠ blocks K · reason` chip on the badge line.
 
 ### Keymap
 
+At root, arrow keys move yellow macro focus between visible panes. Press
+`Enter` to drill into the focused pane; while drilled, arrows affect the
+pane's own selection/scroll state and the title row shows `[esc]`.
+
 ```
-↑↓←→ / hjkl  select node within / across phases
+↑↓←→ / hjkl  root: move pane focus; drilled: pane-specific micro action
 Tab          next node (or next inspector sub-tab when inspector is open)
 Shift+Tab    previous inspector sub-tab
-Enter        toggle inspector pane (side pane ≥140 cols; modal otherwise)
+Enter        drill into the focused pane
+Esc          leave drill/fullscreen mode and return to root pane focus
 PgUp/PgDn    pan viewport ½-screen vertically
 Space        pan down ½-screen
 [  /  ]      pan viewport ½-screen horizontally
@@ -1170,19 +1193,20 @@ fn status_color(status: &str) -> Color {
 }
 ```
 
-Pane focus is shown primarily via border color:
+Current pane focus is owned by `src/tui/focus.rs`. Every visible registered
+pane participates in the same contract:
 
-```rust
-fn pane_border(pane: ActivePane, app: &App) -> Color {
-    if app.active_pane == pane {
-        Color::Cyan
-    } else {
-        Color::DarkGray
-    }
-}
+```text
+Root arrows move the yellow macro pane highlight.
+Enter drills into the active pane without moving macro focus.
+Drilled panes show [esc] in the title row.
+Esc exits drill/fullscreen mode and restores root pane focus.
 ```
 
-The active Flow layout uses the `Pipelines` border color for the Flow Board and `Jobs` border color for the jobs/log area.
+Delivery uses that shared focus chrome for Mission Control, PRs, Phase,
+Canvas, Map, Inspector, and Activity / Logs. DAG node selection (`[SEL]`),
+status borders, and badges remain micro/content styling and do not replace
+the yellow macro pane focus.
 
 ## Tests and Proof Commands
 
@@ -1190,6 +1214,10 @@ The TUI has focused tests covering:
 
 - rendering all primary tabs with empty state
 - rendering maximized logs with empty state
+- Delivery root/macro pane focus color across wide and narrow layouts
+- Delivery drill mode `[esc]` rendering and title-row escape hotspots
+- Workflow root arrows versus drilled PR/canvas micro-selection
+- Tuiwright black-box Workflow macro/micro focus and drilldown
 - Mission default tab selection and action-first cockpit rendering
 - command palette preview rendering from the canonical action registry
 - rendering Flow with jobs list and live log
@@ -1203,6 +1231,9 @@ Useful proof commands:
 
 ```bash
 cargo check -p jeryu --message-format=json
+cargo test -p jeryu --lib tui::
+cargo test -p jeryu --lib tui::workflow
+TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1
 cargo test -p jeryu -- tui -- --nocapture
 cargo run -p jeryu -- tui --once
 ```

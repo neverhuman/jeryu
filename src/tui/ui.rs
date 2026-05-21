@@ -67,8 +67,9 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             let theme = crate::tui::theme::Theme::dark();
 
             use crate::tui::workflow::inspector::{
-                INSPECTOR_MIN_TERM_W, INSPECTOR_W, draw_inspector_pane,
+                INSPECTOR_MIN_TERM_W, INSPECTOR_W, draw_inspector_pane_with_chrome,
             };
+            use crate::tui::workflow::widget::DeliveryChrome;
             let main_area = chunks[1];
             // Show the side-pane inspector when open AND there's room. Otherwise
             // fall back to the legacy modal overlay (rendered below).
@@ -102,7 +103,14 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 app.delivery_hit_map = crate::tui::workflow::hit_map::DeliveryHitMap::default();
             } else {
                 let mut hit_map = crate::tui::workflow::hit_map::DeliveryHitMap::default();
-                crate::tui::workflow::widget::draw_delivery_tab(
+                let delivery_chrome = DeliveryChrome {
+                    mission: Some(focus::pane_chrome(app, PaneId::WorkflowMissionStrip)),
+                    pr_rail: Some(focus::pane_chrome(app, PaneId::WorkflowPrRail)),
+                    phase_rail: Some(focus::pane_chrome(app, PaneId::WorkflowPhaseRail)),
+                    canvas: Some(focus::pane_chrome(app, PaneId::WorkflowCanvas)),
+                    minimap: Some(focus::pane_chrome(app, PaneId::WorkflowMinimap)),
+                };
+                crate::tui::workflow::widget::draw_delivery_tab_with_chrome(
                     f,
                     delivery_area,
                     &app.delivery_snapshot,
@@ -110,6 +118,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     &theme,
                     app.tick_count,
                     &mut hit_map,
+                    delivery_chrome,
                 );
                 hit_map.inspector = inspector_area;
                 app.delivery_hit_map = hit_map;
@@ -121,9 +130,14 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             focus::register_pane(app, PaneId::WorkflowPhaseRail, regions.phase_rail);
             focus::register_pane(app, PaneId::WorkflowCanvas, regions.canvas);
             focus::register_pane(app, PaneId::WorkflowMinimap, regions.minimap);
+            focus::register_drill_esc_hotspot(app, PaneId::WorkflowMissionStrip, regions.mission);
+            focus::register_drill_esc_hotspot(app, PaneId::WorkflowPrRail, regions.pr_rail);
+            focus::register_drill_esc_hotspot(app, PaneId::WorkflowPhaseRail, regions.phase_rail);
+            focus::register_drill_esc_hotspot(app, PaneId::WorkflowCanvas, regions.canvas);
+            focus::register_drill_esc_hotspot(app, PaneId::WorkflowMinimap, regions.minimap);
             if let Some(area) = inspector_area {
                 focus::register_pane(app, PaneId::WorkflowInspector, area);
-                focus::register_esc_hotspot(app, PaneId::WorkflowInspector, area);
+                focus::register_drill_esc_hotspot(app, PaneId::WorkflowInspector, area);
             }
 
             if let Some(area) = inspector_area {
@@ -131,7 +145,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     .workflow_nav
                     .selected_node_id(&app.workflow_snapshot)
                     .map(str::to_string);
-                draw_inspector_pane(
+                draw_inspector_pane_with_chrome(
                     f,
                     area,
                     &app.delivery_snapshot,
@@ -140,6 +154,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     &app.state.live_log,
                     app.delivery_action_message.as_deref(),
                     &theme,
+                    Some(focus::pane_chrome(app, PaneId::WorkflowInspector)),
                 );
             } else if app.workflow_inspect_open {
                 // Narrow-terminal fallback: legacy modal overlay.
