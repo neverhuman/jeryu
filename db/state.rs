@@ -723,7 +723,6 @@ impl Db {
     pub async fn open() -> Result<Self> {
         let db = DB_INSTANCE
             .get_or_try_init(|| async {
-                install_default_drivers();
                 dotenvy::from_path(config::env_file()).ok();
                 if let Some(database_url) = db_config::configured_url() {
                     return Self::open_url(&database_url).await;

@@ -27,9 +27,6 @@ async fn main() -> Result<()> {
     let cli = cli::Cli::parse();
     let is_tui = matches!(cli.command, cli::Commands::Tui { .. });
 
-    // Install the state storage driver before any pool construction.
-    jeryu::install_state_storage_drivers();
-
     if !is_tui {
         let env_filter = match EnvFilter::try_from_default_env() {
             Ok(filter) => filter,

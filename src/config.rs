@@ -195,7 +195,7 @@ pub fn render_runner_config(
     enabled = true
 
   [runners.docker]
-    image = "alpine:latest"
+    image = "rust:1.92.0"
     pull_policy = "if-not-present"
     allowed_pull_policies = ["always", "if-not-present", "never"]
     privileged = {privileged}
