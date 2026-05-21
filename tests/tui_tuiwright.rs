@@ -6,6 +6,7 @@ use image::RgbImage;
 use std::{
     path::{Path, PathBuf},
     process::Command,
+    sync::{Mutex, MutexGuard},
     time::{Duration, Instant},
 };
 use tuiwright::{Key, Page, ScreenSnapshot, SpawnConfig};
@@ -15,6 +16,11 @@ const CAPTURE_ROWS: u16 = 36;
 const CELL_W: u32 = 8;
 const CELL_H: u32 = 12;
 const XTERM_YELLOW: (u8, u8, u8) = (0xcd, 0xcd, 0x00);
+static TUIWRIGHT_LOCK: Mutex<()> = Mutex::new(());
+
+fn tuiwright_lock() -> MutexGuard<'static, ()> {
+    TUIWRIGHT_LOCK.lock().unwrap_or_else(|err| err.into_inner())
+}
 
 /// Locate the `jeryu` binary built by cargo.
 fn jeryu_bin() -> String {
@@ -55,7 +61,7 @@ fn capture_tui_size(tab: &str, cols: u16, rows: u16) -> anyhow::Result<PathBuf> 
         .arg(rows.to_string())
         .env("TERM", "xterm-256color")
         .env("COLORTERM", "truecolor")
-        .env("JERYU_DATABASE_URL", "redline::memory:")
+        .env("JERYU_DATABASE_URL", jeryu::db::config::sqlite_memory_url())
         .output()?;
 
     anyhow::ensure!(
@@ -161,6 +167,7 @@ fn spawn_interactive_tui(tab: &str) -> anyhow::Result<Page> {
             .env("COLORTERM", "truecolor")
             .env("NO_COLOR", "")
             .env("JERYU_TUI_WORKFLOW_INSPECT_OPEN", "1")
+            .env("JERYU_DATABASE_URL", jeryu::db::config::sqlite_memory_url())
             .timeout(Duration::from_secs(8)),
     )?;
     std::thread::sleep(Duration::from_millis(2000));
@@ -249,6 +256,7 @@ fn assert_text_order(text: &str, first: &str, second: &str) {
 
 #[test]
 fn capture_path_renders_all_primary_tabs() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     for tab in [
         "workflow",
         "mission",
@@ -275,6 +283,7 @@ fn capture_path_renders_all_primary_tabs() -> anyhow::Result<()> {
 
 #[test]
 fn bugs_capture_has_populated_demo_data_and_narrow_layout() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let path = capture_tui("bugs")?;
     let image = read_png(&path)?;
     assert_png_shape_and_ink(&path, &image);
@@ -291,6 +300,7 @@ fn bugs_capture_has_populated_demo_data_and_narrow_layout() -> anyhow::Result<()
 
 #[test]
 fn bugs_tab_exposes_semantic_bug_details() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("bugs")?;
 
     for expected in [
@@ -314,6 +324,7 @@ fn bugs_tab_exposes_semantic_bug_details() -> anyhow::Result<()> {
 
 #[test]
 fn bugs_global_shortcut_focus_navigation_and_inspector_drilldown_work() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("workflow")?;
 
     page.press(Key::Char('b'))?;
@@ -345,6 +356,7 @@ fn bugs_global_shortcut_focus_navigation_and_inspector_drilldown_work() -> anyho
 
 #[test]
 fn bugs_sort_keys_change_indicator_and_visible_order() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("bugs")?;
     page.wait_for_text("Bugs sort:rank", Duration::from_secs(5))?;
 
@@ -372,6 +384,7 @@ fn bugs_sort_keys_change_indicator_and_visible_order() -> anyhow::Result<()> {
 
 #[test]
 fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("workflow")?;
 
     page.wait_for_text("#1842", Duration::from_secs(5))?;
@@ -390,6 +403,7 @@ fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
 
 #[test]
 fn keyboard_macro_focuses_activity_log_and_drills_down() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("jobs")?;
 
     page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
@@ -450,6 +464,7 @@ fn keyboard_macro_focuses_activity_log_and_drills_down() -> anyhow::Result<()> {
 
 #[test]
 fn activity_log_enter_expands_and_esc_restores() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("jobs")?;
 
     page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
@@ -471,6 +486,7 @@ fn activity_log_enter_expands_and_esc_restores() -> anyhow::Result<()> {
 
 #[test]
 fn esc_badge_click_exits_entered_pane() -> anyhow::Result<()> {
+    let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("jobs")?;
 
     page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;

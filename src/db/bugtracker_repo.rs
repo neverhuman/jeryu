@@ -333,7 +333,7 @@ impl BugTrackerRepo {
         actor: &str,
     ) -> Result<BugAttempt> {
         let now = Utc::now().to_rfc3339();
-        let result = sqlx::query(
+        sqlx::query(
             "INSERT INTO bug_attempts
                 (bug_id, agent, status, sandbox_path, branch, base_sha, head_sha, pr_url, ci_evidence, notes, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -353,7 +353,13 @@ impl BugTrackerRepo {
         .execute(&self.pool)
         .await
         .context("insert bug attempt")?;
-        let id = result.last_insert_id().unwrap_or(0) as i64;
+        let id: i64 = sqlx::query_scalar(
+            "SELECT id FROM bug_attempts WHERE bug_id = ? ORDER BY id DESC LIMIT 1",
+        )
+        .bind(bug_id)
+        .fetch_one(&self.pool)
+        .await
+        .context("load inserted bug attempt id")?;
         self.append_event(
             bug_id,
             "attempt_recorded",
@@ -657,12 +663,12 @@ pub(crate) async fn fresh_bugtracker_pool() -> AnyPool {
     use crate::db::{AnyPoolOptions, install_default_drivers};
     install_default_drivers();
     let tmp = tempfile::NamedTempFile::new().expect("tempfile for bugtracker pool");
-    let url = format!("redline:{}?mode=rwc", tmp.path().display());
+    let url = crate::db::config::sqlite_url(tmp.path());
     let pool = AnyPoolOptions::new()
         .max_connections(4)
         .connect(&url)
         .await
-        .expect("connect bugtracker redline");
+        .expect("connect bugtracker sqlite");
     BugTrackerRepo::new(pool.clone())
         .install_schema()
         .await

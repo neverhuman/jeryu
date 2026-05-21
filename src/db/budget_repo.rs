@@ -95,12 +95,12 @@ pub(crate) async fn fresh_budget_pool() -> AnyPool {
     use tempfile::NamedTempFile;
     install_default_drivers();
     let tmp = NamedTempFile::new().expect("tempfile for budget pool");
-    let url = format!("redline:{}?mode=rwc", tmp.path().display());
+    let url = crate::db::config::sqlite_url(tmp.path());
     let pool = AnyPoolOptions::new()
         .max_connections(4)
         .connect(&url)
         .await
-        .expect("connect file-backed redline");
+        .expect("connect file-backed sqlite");
     for stmt in budget_schema_ddl() {
         sqlx::query(stmt).execute(&pool).await.unwrap();
     }

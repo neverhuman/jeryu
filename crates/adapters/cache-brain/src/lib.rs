@@ -16,6 +16,7 @@ pub use sqlx::AnyPool;
 /// Backend kind for SQL execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdapterBackend {
+    Sqlite,
     RedlineDb,
 }
 

@@ -180,12 +180,12 @@ pub(crate) async fn fresh_release_pool() -> AnyPool {
     use tempfile::NamedTempFile;
     install_default_drivers();
     let tmp = NamedTempFile::new().expect("tempfile for release pool");
-    let url = format!("redline:{}?mode=rwc", tmp.path().display());
+    let url = crate::db::config::sqlite_url(tmp.path());
     let pool = AnyPoolOptions::new()
         .max_connections(4)
         .connect(&url)
         .await
-        .expect("connect file-backed redline");
+        .expect("connect file-backed sqlite");
     for stmt in release_schema_ddl() {
         sqlx::query(stmt).execute(&pool).await.unwrap();
     }
@@ -194,7 +194,7 @@ pub(crate) async fn fresh_release_pool() -> AnyPool {
 }
 
 /// Shared-cache pool for the concurrent-write test. Each
-/// `redline::memory:` connection has its own DB unless `cache=shared`
+/// in-memory connection has its own DB unless `cache=shared`
 /// is set.
 #[cfg(test)]
 pub(crate) async fn fresh_release_pool_shared() -> AnyPool {
@@ -207,12 +207,12 @@ pub(crate) async fn fresh_release_pool_shared() -> AnyPool {
     // commits. A file-backed temp DB guarantees all connections in the pool
     // see the same on-disk schema.
     let tmp = tempfile::NamedTempFile::new().expect("tempfile for shared release pool");
-    let url = format!("redline:{}?mode=rwc", tmp.path().display());
+    let url = crate::db::config::sqlite_url(tmp.path());
     let pool = AnyPoolOptions::new()
         .max_connections(4)
         .connect(&url)
         .await
-        .expect("connect file-backed shared redline");
+        .expect("connect file-backed shared sqlite");
     // Leak the tempfile so it lives for the duration of the test process —
     // RedlineDB needs the underlying file to stay valid while connections hold it.
     std::mem::forget(tmp);

@@ -20,8 +20,23 @@ fi
 ensure_dirs
 
 install_redlinedb_binary() {
-  log "install RedlineDB binary"
-  bash scripts/install-redlinedb.sh
+  local backend="${JERYU_DB_BACKEND:-sqlite}"
+  local url="${JERYU_DATABASE_URL:-}"
+  case "${backend,,}" in
+    redline|redlinedb)
+      log "install RedlineDB binary"
+      bash scripts/install-redlinedb.sh
+      return
+      ;;
+  esac
+  case "${url,,}" in
+    redline:*|redlinedb:*)
+      log "install RedlineDB binary"
+      bash scripts/install-redlinedb.sh
+      return
+      ;;
+  esac
+  log "skip RedlineDB binary install for SQLite backend"
 }
 
 run_preflight() {

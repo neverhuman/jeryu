@@ -17,23 +17,10 @@ fn bin_path() -> PathBuf {
     p
 }
 
-fn autonomy_ledger_url(scheme: &str, root: &Path) -> String {
-    let path = root.join("target").join("jeryu").join("autonomy.redlineDB");
+fn autonomy_ledger_url(root: &Path) -> String {
+    let path = root.join("target").join("jeryu").join("autonomy.sqlite");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    format!("{scheme}://{}", path.display())
-}
-
-fn assert_no_sqlite_fallback(out: &Output) {
-    let combined = format!(
-        "{}\n{}",
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    )
-    .to_ascii_lowercase();
-    assert!(
-        !combined.contains("sqlite"),
-        "unexpected sqlite fallback mention in output:\n{combined}"
-    );
+    jeryu::db::config::sqlite_url(&path)
 }
 
 fn ensure_built() {
@@ -148,7 +135,7 @@ fn profile_validate_missed_ledger_pool(out: &Output) -> bool {
 
 fn run_profile_validate(repo: &Path) -> Output {
     let ledger = tempfile::tempdir().expect("temp ledger dir");
-    let db_url = autonomy_ledger_url("redline", ledger.path());
+    let db_url = autonomy_ledger_url(ledger.path());
     run_profile_validate_with_url(repo, &db_url)
 }
 
@@ -387,10 +374,10 @@ fn shadow_subcommand_emits_json_when_requested() {
 }
 
 #[test]
-fn kill_bell_status_accepts_redline_autonomy_ledger_url() {
+fn kill_bell_status_accepts_sqlite_autonomy_ledger_url() {
     ensure_built();
     let ledger = tempfile::tempdir().unwrap();
-    let db_url = autonomy_ledger_url("redline", ledger.path());
+    let db_url = autonomy_ledger_url(ledger.path());
 
     let out = run_kill_bell_status(&db_url);
 
@@ -400,16 +387,15 @@ fn kill_bell_status_accepts_redline_autonomy_ledger_url() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    assert_no_sqlite_fallback(&out);
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("kill-bell JSON");
     assert_eq!(v["state"], "armed");
 }
 
 #[test]
-fn kill_bell_status_accepts_mixed_case_redlinedb_autonomy_ledger_url() {
+fn kill_bell_status_reuses_sqlite_autonomy_ledger_url() {
     ensure_built();
     let ledger = tempfile::tempdir().unwrap();
-    let db_url = autonomy_ledger_url("redlineDB", ledger.path());
+    let db_url = autonomy_ledger_url(ledger.path());
 
     let out = run_kill_bell_status(&db_url);
 
@@ -419,7 +405,6 @@ fn kill_bell_status_accepts_mixed_case_redlinedb_autonomy_ledger_url() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    assert_no_sqlite_fallback(&out);
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("kill-bell JSON");
     assert_eq!(v["state"], "armed");
 }
@@ -429,7 +414,7 @@ fn profile_validate_uses_recent_shadow_report_when_above_threshold() {
     ensure_built();
     let tmp = tempfile::tempdir().unwrap();
     let ledger = tempfile::tempdir().unwrap();
-    let db_url = autonomy_ledger_url("redline", ledger.path());
+    let db_url = autonomy_ledger_url(ledger.path());
     copy_profile_autonomy_fixture(tmp.path());
     init_repo_with_single_commit(tmp.path());
     add_recent_merge_commit(tmp.path());
@@ -449,7 +434,6 @@ fn profile_validate_uses_recent_shadow_report_when_above_threshold() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    assert_no_sqlite_fallback(&out);
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("profile validate JSON");
     assert_eq!(v["effective_profile"], "sovereign_plus");
     assert_eq!(v["all_passed"], true);

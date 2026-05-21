@@ -176,6 +176,10 @@
       "command": "jankurai doctor --fail-on critical",
       "purpose": "advisory database boundary health check"
     },
+    "db/state.rs": {
+      "command": "just runtime-sqlite-kafka && just runtime-redlinedb-jansu",
+      "purpose": "verify state backend URL detection across runtime profiles"
+    },
     "db/constraints/": {
       "command": "jankurai doctor --fail-on critical",
       "purpose": "advisory constraint-lane health check until DB proof exists"
@@ -283,6 +287,14 @@
     "src/": {
       "command": "just fast",
       "purpose": "verify Rust source files remain routed"
+    },
+    "src/runtime_support/": {
+      "command": "just runtime-sqlite-kafka && just runtime-redlinedb-jansu",
+      "purpose": "verify runtime profile vocabulary and compile-time backend selection"
+    },
+    "src/messaging/": {
+      "command": "just runtime-sqlite-kafka && just runtime-redlinedb-jansu",
+      "purpose": "verify Kafka/Jansu message-log backend factory wiring"
     },
     "src/agent_review/": {
       "command": "cargo test -p jeryu --lib agent_review::",

@@ -1700,17 +1700,17 @@ mod cli_foundry_tests {
         use chrono::{Duration, TimeZone, Utc};
         // Route every sqlx-typed name through `jeryu::db` so this binary
         // does not import `sqlx::` directly (closes HLT-006).
-        use jeryu::db::{AnyPoolOptions, install_default_drivers, raw_query};
+        use jeryu::db::{AnyPoolOptions, config as db_config, install_default_drivers, raw_query};
         use tempfile::NamedTempFile;
 
         install_default_drivers();
         let tmp = NamedTempFile::new().expect("tempfile for autonomy command test");
-        let url = format!("redline:{}?mode=rwc", tmp.path().display());
+        let url = db_config::sqlite_url(tmp.path());
         let pool = AnyPoolOptions::new()
             .max_connections(4)
             .connect(&url)
             .await
-            .expect("connect file-backed redline");
+            .expect("connect file-backed sqlite");
         std::mem::forget(tmp);
         for stmt in [
             "CREATE TABLE foundry_candidates (

@@ -9,9 +9,9 @@
 //! Public re-exports (`AnyPool`, `AnyPoolOptions`, `install_default_drivers`,
 //! `query`) exist so the rest of the crate — and the existing in-memory
 //! test fixtures — can name those types as `crate::db::AnyPool` etc.
-//! without taking a fresh `sqlx::` dependency. The RedlineDB SQLx bridge is
-//! installed through this module so the consumer startup path has one place
-//! to initialize the driver registry before any `AnyPool` is opened.
+//! without taking a fresh `sqlx::` dependency. SQLx driver installation is
+//! centralized here so the consumer startup path has one place to initialize
+//! the registry before any `AnyPool` is opened.
 //!
 //! Boundaries:
 //!   - `autonomy_repo` — launch ledger, kill bell, verdict store.
@@ -35,10 +35,17 @@ pub mod release_repo;
 pub use sqlx::AnyPool;
 pub use sqlx::any::AnyPoolOptions;
 
-/// Install the RedlineDB SQLx driver exactly once for this process.
+/// Install SQLx drivers exactly once for this process.
 pub fn install_default_drivers() {
     static INSTALLED: std::sync::Once = std::sync::Once::new();
-    INSTALLED.call_once(redlinedb_sqlx::install_default_drivers);
+    INSTALLED.call_once(|| {
+        #[cfg(all(feature = "sqlite-backend", not(feature = "redlinedb-backend")))]
+        sqlx::any::install_default_drivers();
+        #[cfg(all(feature = "sqlite-backend", feature = "redlinedb-backend"))]
+        sqlx::any::install_default_drivers();
+        #[cfg(all(feature = "redlinedb-backend", not(feature = "sqlite-backend")))]
+        redlinedb_sqlx::install_default_drivers();
+    });
 }
 
 /// Re-export of `sqlx::query` so test fixtures that install DDL through

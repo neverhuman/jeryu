@@ -2,6 +2,10 @@ use super::*;
 use tracing::info;
 
 impl GitlabClient {
+    pub async fn list_all_runners(&self) -> Result<Vec<RunnerInfo>> {
+        self.get_paginated_json("/runners/all").await
+    }
+
     pub async fn create_runner(
         &self,
         description: &str,

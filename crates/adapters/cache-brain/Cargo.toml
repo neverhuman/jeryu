@@ -28,8 +28,8 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = "0.1"
-# RedlineDB is the only embedded state-store backend allowed.
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "any"] }
+# The parent jeryu crate selects the concrete SQLx backend feature.
+sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "any"] }
 
 [dev-dependencies]
 redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "828667b49fd3adee88c8bdd48681b38c57b95563" }

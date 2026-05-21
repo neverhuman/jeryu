@@ -134,6 +134,14 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
             // Start SmartCache supervisor
             cache::SmartCache::new(db.clone()).start().await?;
 
+            let repaired_pools = pool::ensure_default_pool_rows(&db, &client).await?;
+            if repaired_pools > 0 {
+                tracing::warn!(
+                    repaired_pools,
+                    "repaired missing default runner pool rows before reconciliation"
+                );
+            }
+
             // Reconcile every pool to min_warm, including zero-warm pools.
             // This drains outdated ad hoc managers instead of leaving them alive
             // indefinitely between serve restarts.

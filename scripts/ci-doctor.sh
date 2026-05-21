@@ -26,7 +26,9 @@ check "jankurai $JANKURAI_REQUIRED_VERSION" "require_jankurai"
 check "cargo-nextest" "cargo nextest --version"
 check "git"          "git --version"
 check "docker"       "docker --version"
-check "redlinedb"    "bash scripts/install-redlinedb.sh"
+if [ "${JERYU_DB_BACKEND:-sqlite}" = "redlinedb" ] || [[ "${JERYU_DATABASE_URL:-}" == redline:* || "${JERYU_DATABASE_URL:-}" == redlinedb:* ]]; then
+  check "redlinedb"    "bash scripts/install-redlinedb.sh"
+fi
 check "actionlint"   "actionlint --version"
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

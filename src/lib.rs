@@ -13,7 +13,7 @@
 //! |---|---|---|
 //! | `engine` | Webhook server, reconciliation | `api-change` |
 //! | `release` | Release pipeline, canary | `release-change` |
-//! | `state` | RedlineDB-primary state, backend-neutral path, all queries | `state-change` |
+//! | `state` | SQLite-default state, backend-neutral path, all queries | `state-change` |
 //! | `exec` | Custom executor, sandbox | `security-relevant` |
 //! | `secrets` | Vault, rotation | `security-relevant` |
 //! | `honeypot` | Supply-chain detonation | `security-relevant` |
@@ -100,6 +100,7 @@ pub mod remote;
 pub mod repo;
 pub mod repo_local;
 pub mod repo_standard;
+pub mod runtime_support;
 pub mod sandbox;
 pub mod sccache_mgr;
 pub mod secrets;

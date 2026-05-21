@@ -14,7 +14,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::{debug, error, info, warn};
 
-use super::{broker::BrokerHandle, topics};
+use super::{MessageLogHandle, topics};
 use crate::engine::{SharedState, dispatch_inline};
 
 const POLL_BUDGET: Duration = Duration::from_millis(250);
@@ -34,12 +34,12 @@ fn event_type_for_topic(topic: &str) -> &'static str {
 /// to true. The caller owns the JoinHandle.
 async fn drain_topic(
     state: SharedState,
-    broker: BrokerHandle,
+    message_log: MessageLogHandle,
     topic: &'static str,
     mut shutdown: watch::Receiver<bool>,
 ) {
     let event_type = event_type_for_topic(topic);
-    let mut consumer = broker.consumer(topic, 0);
+    let mut consumer = message_log.consumer(topic, 0);
     info!(topic, event_type, "consumer started");
 
     loop {
@@ -91,7 +91,7 @@ async fn drain_topic(
 /// all three when awaited.
 pub fn spawn(
     state: SharedState,
-    broker: BrokerHandle,
+    message_log: MessageLogHandle,
     shutdown: watch::Receiver<bool>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -99,7 +99,7 @@ pub fn spawn(
         for &topic in topics::ALL {
             handles.push(tokio::spawn(drain_topic(
                 state.clone(),
-                broker.clone(),
+                message_log.clone(),
                 topic,
                 shutdown.clone(),
             )));

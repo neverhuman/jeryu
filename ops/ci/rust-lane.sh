@@ -24,23 +24,41 @@ write_github_output() {
   fi
 }
 
+install_redlinedb_if_requested() {
+  local backend="${JERYU_DB_BACKEND:-sqlite}"
+  local url="${JERYU_DATABASE_URL:-}"
+  case "${backend,,}" in
+    redline|redlinedb)
+      bash scripts/install-redlinedb.sh
+      return
+      ;;
+  esac
+  case "${url,,}" in
+    redline:*|redlinedb:*)
+      bash scripts/install-redlinedb.sh
+      return
+      ;;
+  esac
+  log "skip RedlineDB binary install for SQLite backend"
+}
+
 case "$STAGE" in
   fmt)
     log "cargo fmt --all -- --check"
     cargo fmt --all -- --check
     ;;
   clippy)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     log "cargo clippy --workspace --all-targets --all-features -- -D warnings"
     cargo clippy --workspace --all-targets --all-features -- -D warnings
     ;;
   build)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     log "cargo build --workspace --verbose"
     cargo build --workspace --verbose
     ;;
   install-smoke)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     cargo run -p jeryu -- install --dry-run --json --color never --prefix /tmp/jeryu-install-test
     PREFIX="$(mktemp -d)"
     cargo run -p jeryu -- install --yes --prefix "$PREFIX" --path-mode skip
@@ -50,7 +68,7 @@ case "$STAGE" in
     cargo run -p jeryu -- remote install xbabe1 --dry-run --yes --setup-key --json
     ;;
   test-select)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     mkdir -p target/jeryu
     cargo build --bin jeryu
     if ./target/debug/jeryu test select \
@@ -87,7 +105,7 @@ case "$STAGE" in
   test-lib)
     MODE="${2:-full}"
     FILTER="${3:-}"
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     if [ "$MODE" = "selected" ] && [ -n "$FILTER" ]; then
       cargo nextest run -p jeryu --lib --profile ci -E "$FILTER"
     else
@@ -95,11 +113,11 @@ case "$STAGE" in
     fi
     ;;
   test-integration)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     cargo test --tests --verbose -- --test-threads=1
     ;;
   tui-smoke)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     cargo run -- tui --once
     ;;
   supply-chain)
@@ -154,14 +172,14 @@ case "$STAGE" in
     fi
     ;;
   ssh-install-e2e)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     cargo build --release -p jeryu
     export JERYU_BIN="$PWD/target/release/jeryu"
     export EVIDENCE_DIR="$PWD/target/ci-evidence/ssh-install"
     bash ops/ci/ssh_install_integration.sh
     ;;
   tui-screenshots)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     mkdir -p target/ci-screenshots
     cargo build --release -p jeryu
     cargo run --release -p jeryu -- install render-demo --output target/ci-screenshots/install-demo.gif --png target/ci-screenshots/install-demo.png
@@ -175,7 +193,7 @@ case "$STAGE" in
     cargo test --test tui_recording -- --ignored --exact tui_demo_recording
     ;;
   fixture-project-test)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     (
       cd tests/fixtures/fixture_project
       cargo test --verbose
@@ -183,7 +201,7 @@ case "$STAGE" in
     )
     ;;
   fixture-project-clippy)
-    bash scripts/install-redlinedb.sh
+    install_redlinedb_if_requested
     (
       cd tests/fixtures/fixture_project
       cargo clippy -- -D warnings 2>&1 || echo "clippy warnings (non-blocking)"

@@ -38,6 +38,19 @@ check-fast:
 test-fast:
     CARGO_INCREMENTAL=1 cargo nextest run -p jeryu --lib --no-fail-fast
 
+runtime-sqlite-kafka:
+    cargo check -p jeryu --features profile-sqlite-kafka --message-format=json
+    cargo test -p jeryu --lib runtime_support:: -- --test-threads=1
+    cargo test -p jeryu --lib messaging::backend:: -- --test-threads=1
+    cargo test -p jeryu --lib messaging::kafka:: -- --test-threads=1
+    cargo test -p jeryu --lib state_backend_detects_supported_urls -- --test-threads=1
+
+runtime-redlinedb-jansu:
+    cargo check -p jeryu --no-default-features --features profile-redlinedb-jansu --message-format=json
+    cargo test -p jeryu --no-default-features --features profile-redlinedb-jansu --lib runtime_support:: -- --test-threads=1
+    cargo test -p jeryu --no-default-features --features profile-redlinedb-jansu --lib messaging::backend:: -- --test-threads=1
+    cargo test -p jeryu --no-default-features --features profile-redlinedb-jansu --lib state_backend_detects_supported_urls -- --test-threads=1
+
 medium:
     CARGO_INCREMENTAL=0 cargo check --workspace --message-format=json
     CARGO_INCREMENTAL=0 cargo nextest run -p jeryu --lib

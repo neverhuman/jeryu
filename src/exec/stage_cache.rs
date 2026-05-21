@@ -22,8 +22,10 @@ pub(super) async fn resolve_build_unit(
         return Ok(None);
     }
 
-    let epoch_manager = crate::epoch::EpochManager::with_backend(db.pool(), db.backend());
-    let taint_manager = crate::taint::TaintManager::with_backend(db.pool(), db.backend());
+    let epoch_manager =
+        crate::epoch::EpochManager::with_active_backend(db.pool(), db.active_backend());
+    let taint_manager =
+        crate::taint::TaintManager::with_active_backend(db.pool(), db.active_backend());
     let store = cache_brain_adapter::create_action_store(
         db.pool(),
         cache_brain_adapter::AdapterBackend::RedlineDb,
