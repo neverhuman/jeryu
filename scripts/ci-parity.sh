@@ -45,8 +45,10 @@ run() {
     fi
 }
 
-# ─── 1. RedlineDB binary proof (embedded DB tooling, not a service) ──────────
-run "Install RedlineDB binary" bash scripts/install-redlinedb.sh
+# ─── 1. Backend-specific native binary proof ────────────────────────────────
+if [[ "${JERYU_DB_BACKEND:-sqlite}" == "redlinedb" || "${JERYU_DATABASE_URL:-}" == redline:* || "${JERYU_DATABASE_URL:-}" == redlinedb:* ]]; then
+    run "Install RedlineDB binary" bash scripts/install-redlinedb.sh
+fi
 run "Install Jankurai binary" bash scripts/install-jankurai.sh
 run "Jankurai version pin" bash -c 'jankurai --version | grep -Fx "jankurai 1.5.1"'
 
@@ -71,8 +73,8 @@ fi
 PARITY_PREFIX="/tmp/jeryu-ci-parity-$$"
 mkdir -p "$PARITY_PREFIX"
 trap 'rm -rf "$PARITY_PREFIX"' EXIT
-PARITY_DB="$PARITY_PREFIX/tui-smoke.redlineDB"
-run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL="redline:$PARITY_DB?mode=rwc" cargo run --quiet -- tui --once
+PARITY_DB="$PARITY_PREFIX/tui-smoke.sqlite"
+run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL="sqlite://$PARITY_DB?mode=rwc&cache=shared" cargo run --quiet -- tui --once
 
 # ─── 8. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
 run "Install Smoke (dry-run)" \

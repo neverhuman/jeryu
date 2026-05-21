@@ -5,11 +5,12 @@
 use anyhow::Result;
 use cache_brain_adapter::{AdapterBackend, AnyPool};
 
-use crate::state::StateBackend;
+use crate::state::{ActiveStateBackend, StateBackend};
 
-fn adapter_backend(backend: StateBackend) -> AdapterBackend {
+fn adapter_backend(backend: ActiveStateBackend) -> AdapterBackend {
     match backend {
-        StateBackend::RedlineDb => AdapterBackend::RedlineDb,
+        ActiveStateBackend::Sqlite => AdapterBackend::Sqlite,
+        ActiveStateBackend::RedlineDb => AdapterBackend::RedlineDb,
     }
 }
 
@@ -21,15 +22,22 @@ fn adapter_backend(backend: StateBackend) -> AdapterBackend {
 #[derive(Clone)]
 pub struct EpochManager {
     pool: AnyPool,
-    backend: StateBackend,
+    backend: ActiveStateBackend,
 }
 
 impl EpochManager {
     pub fn new(pool: AnyPool) -> Self {
-        Self::with_backend(pool, StateBackend::RedlineDb)
+        Self::with_active_backend(pool, ActiveStateBackend::Sqlite)
     }
 
     pub fn with_backend(pool: AnyPool, backend: StateBackend) -> Self {
+        let backend = match backend {
+            StateBackend::RedlineDb => ActiveStateBackend::RedlineDb,
+        };
+        Self { pool, backend }
+    }
+
+    pub(crate) fn with_active_backend(pool: AnyPool, backend: ActiveStateBackend) -> Self {
         Self { pool, backend }
     }
 

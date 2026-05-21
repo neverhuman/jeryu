@@ -14,7 +14,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.12"
+version = "3.3.13"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -85,12 +85,10 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 # Docker control
 bollard = "0.18"
 
-# RedlineDB state. The host CLI/native binary is pinned to upstream v1.0.1 in
-# scripts/redlinedb-manifest.json. The SQLx adapter is pinned to the RedlineDB
-# git revision that contains `redlinedb-sqlx`; RedlineDB remains the only
-# embedded state-store backend allowed here.
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "any", "macros"] }
-redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "828667b49fd3adee88c8bdd48681b38c57b95563" }
+# SQLite is the default embedded state backend. RedlineDB remains available
+# behind the explicit `redlinedb-backend` feature for compatibility lanes.
+sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "any", "macros"] }
+redlinedb-sqlx = { git = "https://github.com/neverhuman/RedlineDB.git", rev = "828667b49fd3adee88c8bdd48681b38c57b95563", optional = true }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -149,7 +147,9 @@ jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0
 url = { version = "2", optional = true }
 
 [features]
-default = ["jansu-broker"]
+default = ["jansu-broker", "sqlite-backend"]
+sqlite-backend = ["sqlx/sqlite"]
+redlinedb-backend = ["dep:redlinedb-sqlx"]
 # Route webhook events through an embedded Jansu broker (producer in the HTTP
 # handler, consumer in the autonomy daemon). Adds the jansu-embedded transitive
 # closure (~object_store, rama).

@@ -23,6 +23,13 @@ pub struct RunnerCreated {
     pub token: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RunnerInfo {
+    pub id: i64,
+    pub description: Option<String>,
+    pub paused: Option<bool>,
+}
+
 #[derive(Serialize)]
 pub(crate) struct CreateRunnerReq<'a> {
     pub(crate) description: &'a str,

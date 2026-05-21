@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.12",
-  "cargo_workspace_version": "3.3.12",
+  "version": "3.3.13",
+  "cargo_workspace_version": "3.3.13",
   "release_line": "V3.3",
   "status": "stable",
   "date": "2026-05-20",
   "tag_policy": {
-    "rc": "v3.3.12-rc.N",
-    "stable": "v3.3.12"
+    "rc": "v3.3.13-rc.N",
+    "stable": "v3.3.13"
   },
-  "headline": "Ship JeRyu v3.3.12 with RedlineDB-backed local bug tracking."
+  "headline": "Ship JeRyu v3.3.13 with SQLite as the default state backend."
 }

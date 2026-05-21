@@ -817,14 +817,14 @@ mod tests {
         let prev_db = std::env::var("JERYU_DATABASE_URL").ok();
 
         // `Db::open` memoizes the first successful pool in a global
-        // OnceCell. Use a tempfile-backed RedlineDB so the multi-connection
+        // OnceCell. Use a tempfile-backed SQLite DB so the multi-connection
         // pool (`open_url` uses max_connections=4) sees a shared schema
         // after migration, instead of the per-connection isolation that
-        // `redline::memory:` would create. Safe to set even if the
+        // in-memory DB would create. Safe to set even if the
         // singleton was already initialized — the call just reuses the
         // cached pool.
         let tmp = tempfile::NamedTempFile::new().expect("tempfile");
-        let db_url = format!("redline:{}?mode=rwc", tmp.path().display());
+        let db_url = crate::db::config::sqlite_url(tmp.path());
         // Rust 2024 marks `std::env::set_var` as unsafe because it
         // races with other threads reading env. Test runs single-threaded
         // via `cargo test -- --test-threads=1` (see scripts/pre-pr.sh) and
@@ -923,7 +923,7 @@ mod tests {
         // Build a ProductionActionAdapter without going through Db::open so
         // we exercise the `kind()` default impl without env/DB side effects.
         use crate::autonomy::signing::EdSigningKey;
-        use crate::db::{AnyPoolOptions, install_default_drivers};
+        use crate::db::{AnyPoolOptions, config as db_config, install_default_drivers};
         use crate::git_host::GitHubClient;
         use tempfile::NamedTempFile;
 
@@ -934,12 +934,12 @@ mod tests {
         let adapter = rt.block_on(async {
             install_default_drivers();
             let tmp = NamedTempFile::new().expect("tempfile for production adapter test");
-            let url = format!("redline:{}?mode=rwc", tmp.path().display());
+            let url = db_config::sqlite_url(tmp.path());
             let pool = AnyPoolOptions::new()
                 .max_connections(4)
                 .connect(&url)
                 .await
-                .expect("file-backed redline pool");
+                .expect("file-backed sqlite pool");
             std::mem::forget(tmp);
             ProductionActionAdapter::new(
                 Arc::new(GitHubClient::new("ghp_test_kind")),

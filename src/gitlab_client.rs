@@ -20,7 +20,7 @@ use gitlab_client_types::{
 };
 pub use gitlab_client_types::{
     Issue, Job, JobRunner, MergeRequest, Pipeline, PipelineBridge, PipelineRef, PipelineVariable,
-    PipelineVariableValue, Project, ProjectPatResp, RunnerCreated, RunnerManager,
+    PipelineVariableValue, Project, ProjectPatResp, RunnerCreated, RunnerInfo, RunnerManager,
 };
 
 #[path = "gitlab_client_branches.rs"]

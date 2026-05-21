@@ -54,7 +54,7 @@ fn dependency_features(dep_value: &toml::Value) -> impl Iterator<Item = String> 
         .map(str::to_ascii_lowercase)
 }
 
-fn assert_manifest_stays_redline_only(path: &Path) -> Result<()> {
+fn assert_manifest_keeps_sqlite_at_backend_boundary(path: &Path) -> Result<()> {
     let contents = fs::read_to_string(path)
         .with_context(|| format!("reading Cargo manifest {}", path.display()))?;
     let manifest: toml::Value = contents
@@ -84,7 +84,7 @@ fn assert_manifest_stays_redline_only(path: &Path) -> Result<()> {
                 || package.contains("postgres")
             {
                 bail!(
-                    "{} depends on forbidden state-store package `{}`; use RedlineDB or fix its adapter instead",
+                    "{} depends on forbidden state-store package `{}` outside the approved SQLx backend boundary",
                     path.display(),
                     package
                 );
@@ -93,7 +93,7 @@ fn assert_manifest_stays_redline_only(path: &Path) -> Result<()> {
                 for feature in dependency_features(dep_value) {
                     if feature.contains("sqlite") || feature.contains("postgres") {
                         bail!(
-                            "{} enables forbidden SQLx feature `{}`; use RedlineDB or fix its adapter instead",
+                            "{} enables forbidden SQLx feature `{}` outside the approved backend config",
                             path.display(),
                             feature
                         );
@@ -136,6 +136,10 @@ fn collect_guarded_db_sources_under(root: &Path, files: &mut Vec<PathBuf>) -> Re
 }
 
 fn assert_no_sqlite_db_fixture(path: &Path) -> Result<()> {
+    let sqlite_allowed = matches!(
+        path.to_string_lossy().as_ref(),
+        "db/config.rs" | "db/state.rs" | "src/db/mod.rs"
+    );
     let contents = fs::read_to_string(path)
         .with_context(|| format!("reading guarded DB source {}", path.display()))?;
     for forbidden in [
@@ -146,8 +150,11 @@ fn assert_no_sqlite_db_fixture(path: &Path) -> Result<()> {
         "SqliteConnection",
     ] {
         if contents.contains(forbidden) {
+            if sqlite_allowed {
+                continue;
+            }
             bail!(
-                "{} contains `{}`; use redline::memory: or fix RedlineDB/adapter support",
+                "{} contains `{}`; SQLite is allowed only in the db backend boundary",
                 path.display(),
                 forbidden
             );
@@ -157,11 +164,11 @@ fn assert_no_sqlite_db_fixture(path: &Path) -> Result<()> {
 }
 
 #[test]
-fn redlinedb_boundary_rejects_sqlite_fallbacks() -> Result<()> {
+fn db_boundary_rejects_ad_hoc_sqlite_fallbacks() -> Result<()> {
     let mut manifests = Vec::new();
     collect_files_named(Path::new("."), "Cargo.toml", &mut manifests)?;
     for manifest in manifests {
-        assert_manifest_stays_redline_only(&manifest)?;
+        assert_manifest_keeps_sqlite_at_backend_boundary(&manifest)?;
     }
 
     let mut db_sources = Vec::new();
@@ -171,8 +178,8 @@ fn redlinedb_boundary_rejects_sqlite_fallbacks() -> Result<()> {
     }
 
     write_lane_log(
-        "target/jankurai/redlinedb-boundary.log",
-        "RedlineDB boundary verified: no SQLite manifest features or DB fixture URLs\n",
+        "target/jankurai/db-boundary.log",
+        "DB boundary verified: SQLite is confined to approved backend surfaces\n",
     )
 }
 
