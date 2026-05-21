@@ -19,6 +19,16 @@ command = "just check"
 purpose = "full merge gate"
 
 [[lane]]
+name = "runtime-sqlite-kafka"
+command = "just runtime-sqlite-kafka"
+purpose = "compile and test default SQLite/Kafka runtime profile"
+
+[[lane]]
+name = "runtime-redlinedb-jansu"
+command = "just runtime-redlinedb-jansu"
+purpose = "compile and test alternate RedlineDB/Jansu runtime profile"
+
+[[lane]]
 name = "release-control-plane"
 command = "cargo test -p jeryu --lib reconcile_prefers_existing_release_attempt_until_prod_finishes -- --nocapture && cargo test -p jeryu --lib should_resume_existing_release_attempt -- --nocapture && cargo test -p jeryu --lib auto_promotion_requires_complete_canary_evidence -- --nocapture && rustfmt --edition 2021 --check src/release/lifecycle.rs src/release/release_status_report.rs src/tui/ui_panels_body_evidence.rs src/release/tests.rs"
 purpose = "narrow proof for release control-plane resume-first changes"

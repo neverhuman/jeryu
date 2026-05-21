@@ -6,6 +6,7 @@
 //! managers, and job events. This is the single source of truth for
 //! fleet state that survives restarts.
 
+pub use crate::runtime_support::StateBackend;
 use anyhow::{Context, Result};
 use sqlx::any::AnyQueryResult;
 use sqlx::any::{AnyConnectOptions, AnyPoolOptions, AnyRow};
@@ -573,12 +574,6 @@ pub struct Db {
 pub type TuiSession = Db;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StateBackend {
-    /// Local embedded RedlineDB database.
-    RedlineDb = 0,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ActiveStateBackend {
     /// Local on-disk or in-memory SQLite database.
     Sqlite,
@@ -637,7 +632,8 @@ impl ActiveStateBackend {
 impl From<ActiveStateBackend> for StateBackend {
     fn from(backend: ActiveStateBackend) -> Self {
         match backend {
-            ActiveStateBackend::Sqlite | ActiveStateBackend::RedlineDb => Self::RedlineDb,
+            ActiveStateBackend::Sqlite => Self::Sqlite,
+            ActiveStateBackend::RedlineDb => Self::RedlineDb,
         }
     }
 }
@@ -728,16 +724,25 @@ impl Db {
                     return Self::open_url(&database_url).await;
                 }
 
-                let db_path = db_config::state_path();
+                let db_path =
+                    match crate::runtime_support::RuntimeProfile::compiled().state_backend() {
+                        StateBackend::Sqlite => db_config::state_path(),
+                        StateBackend::RedlineDb => db_config::redline_state_path(),
+                    };
                 if let Some(parent) = db_path.parent() {
                     std::fs::create_dir_all(parent)
                         .with_context(|| format!("creating db directory: {}", parent.display()))?;
                 }
 
-                let database_url = db_config::sqlite_url(&db_path);
+                let database_url = db_config::default_url();
                 match Self::open_url(&database_url).await {
                     Ok(db) => Ok(db),
                     Err(first_err) => {
+                        if crate::runtime_support::RuntimeProfile::compiled().state_backend()
+                            != StateBackend::Sqlite
+                        {
+                            return Err(first_err);
+                        }
                         // Recovery: a previous run was killed mid-write and
                         // left an orphaned write-ahead log (.wal) or
                         // shared-memory file (.shm). Removing them is safe
@@ -3909,14 +3914,29 @@ mod tests {
 
     #[test]
     fn state_backend_detects_supported_urls() -> Result<()> {
-        assert_eq!(
-            ActiveStateBackend::from_url("sqlite:///tmp/jeryu/target/jeryu/jeryu.sqlite?mode=rwc")?,
-            ActiveStateBackend::Sqlite
-        );
-        assert_eq!(
-            ActiveStateBackend::from_url("sqlite::memory:")?,
-            ActiveStateBackend::Sqlite
-        );
+        #[cfg(feature = "sqlite-backend")]
+        {
+            assert_eq!(
+                ActiveStateBackend::from_url(
+                    "sqlite:///tmp/jeryu/target/jeryu/jeryu.sqlite?mode=rwc"
+                )?,
+                ActiveStateBackend::Sqlite
+            );
+            assert_eq!(
+                ActiveStateBackend::from_url("sqlite::memory:")?,
+                ActiveStateBackend::Sqlite
+            );
+        }
+        #[cfg(not(feature = "sqlite-backend"))]
+        {
+            assert!(
+                ActiveStateBackend::from_url(
+                    "sqlite:///tmp/jeryu/target/jeryu/jeryu.sqlite?mode=rwc"
+                )
+                .is_err()
+            );
+            assert!(ActiveStateBackend::from_url("sqlite::memory:").is_err());
+        }
 
         #[cfg(feature = "redlinedb-backend")]
         {

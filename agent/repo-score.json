@@ -1,17 +1,17 @@
 {
-  "report_fingerprint": "sha256:7685e93434f82a1756fe9c76b3ae1fd07a0d3c24919522fb5bf6ac75a78a4c7e",
-  "input_fingerprint": "sha256:b59441e7a14fa9f846c09f7a2e07b3655e103d82470f0fd736e78741159e34b1",
+  "report_fingerprint": "sha256:adefed4407e215f425166bcba83d0a1331a2858489279aff0b6b482fcbfbab35",
+  "input_fingerprint": "sha256:c2f5eddab4ccbb461532aeb57a71639ae1436f153a408f4b1e85922956533c86",
   "policy_fingerprint": "sha256:7ce2d541357335c48033cf468b153df23198387e5de1e7960af6a036f963240b",
   "manifest_fingerprints": {
     "owner_map": "sha256:df78c04ec46327d5928fc59744a5fadd394a9999377fbfdb5334992c6b579b08",
-    "test_map": "sha256:1f8d1567d2d9532d1d2469e6720897d7ac65efe8fc092c4f6a665f51866f9019",
+    "test_map": "sha256:35286d954d09961f81ffa2b5e17d33058d6aae1119e043706e804f075b187f5a",
     "generated_zones": "sha256:5dfe809251017a95ec5a27320d48c17b4abacd36c2b66eee287f4f70fcfb7772",
-    "boundaries": "sha256:2d914b24c3ce823e3fc866f49d39c076d235c5f569ed3b8c3112dc8aed6eb0b3",
-    "proof_lanes": "sha256:3afaae9e9f004f9061b1e04991e33bb0e6c584ea711eb9f90021e52d5170af81",
+    "boundaries": "sha256:8c0f2e218f7051ae23dadddb9e63b23c2a3a76dad42feba43e631036ffa8247f",
+    "proof_lanes": "sha256:b69c7bb26f226f3885278c7ab58b8ade787ad5402582cb420b8137db166ad2c7",
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779320750",
+  "generated_at": "1779337671",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -30,9 +30,9 @@
     "HLT-001-DEAD-MARKER on src/commands/bug.rs"
   ],
   "repo": ".",
-  "run_id": "1779320750",
-  "started_at": "1779320750",
-  "elapsed_ms": 11368,
+  "run_id": "1779337671",
+  "started_at": "1779337671",
+  "elapsed_ms": 11390,
   "scope": {
     "mode": "full",
     "paths": []
@@ -59,7 +59,7 @@
     }
   },
   "git": {
-    "head": "9b109fc",
+    "head": "0f72771",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -360,7 +360,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 1244",
+        "rust bad-behavior advisory signals: 1265",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 1",
         "gittools bad-behavior advisory signals: 1",
@@ -378,10 +378,10 @@
         "code file exceeds 500 LOC",
         "code file exceeds 1000 LOC",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 42 (advisory only, no score impact)",
+        "copy-code advisory classes found: 48 (advisory only, no score impact)",
         "TODO/stub marker found",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 1244",
+        "rust bad-behavior advisory signals: 1265",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 1",
         "gittools bad-behavior advisory signals: 1",
@@ -1080,21 +1080,21 @@
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
-      "content_fingerprint": "sha256:2d914b24c3ce823e3fc866f49d39c076d235c5f569ed3b8c3112dc8aed6eb0b3",
+      "content_fingerprint": "sha256:8c0f2e218f7051ae23dadddb9e63b23c2a3a76dad42feba43e631036ffa8247f",
       "stack_id": "rust-ts-vite-react-redline-jansu-bounded-python",
       "stack_version": "0.4.0",
       "adapter_path_count": 2,
       "event_contract_path_count": 1,
       "generated_type_path_count": 1,
       "client_marker_count": 6,
-      "streaming_exception_count": 1
+      "streaming_exception_count": 2
     },
     "reclassifications": []
   },
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-20T23:45:39.776028085+00:00",
+    "generated_at": "2026-05-21T04:27:40.788591502+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1132,20 +1132,20 @@
       ]
     },
     "summary": {
-      "files_scanned": 674,
-      "files_considered": 367,
-      "active_files": 367,
+      "files_scanned": 677,
+      "files_considered": 370,
+      "active_files": 370,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 42,
+      "warning_classes": 48,
       "hard_instances": 0,
-      "warning_instances": 158,
-      "duplicate_lines": 62,
-      "duplicate_tokens": 204,
-      "duplicate_bytes": 1822,
-      "total_redundant_lines": 136,
-      "total_redundant_tokens": 451,
-      "total_redundant_bytes": 4002
+      "warning_instances": 180,
+      "duplicate_lines": 70,
+      "duplicate_tokens": 224,
+      "duplicate_bytes": 2038,
+      "total_redundant_lines": 154,
+      "total_redundant_tokens": 494,
+      "total_redundant_bytes": 4438
     },
     "classes": [
       {
@@ -1157,13 +1157,13 @@
         "duplicate_lines": 1,
         "duplicate_tokens": 2,
         "duplicate_bytes": 20,
-        "instance_count": 13,
-        "total_redundant_lines": 12,
-        "total_redundant_tokens": 24,
-        "total_redundant_bytes": 240,
+        "instance_count": 19,
+        "total_redundant_lines": 18,
+        "total_redundant_tokens": 36,
+        "total_redundant_bytes": 360,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "fd5e506e6da74fc4",
+        "fingerprint": "cdc3bba258dd0472",
         "reason": "same body appears under different names across files",
         "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
         "instances": [
@@ -1245,6 +1245,48 @@
             "unit_name": "as_str"
           },
           {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 57,
+            "end_line": 58,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 74,
+            "end_line": 75,
+            "unit_name": "is_compiled"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 103,
+            "end_line": 104,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 131,
+            "end_line": 132,
+            "unit_name": "state_backend"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 138,
+            "end_line": 139,
+            "unit_name": "message_log_backend"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 172,
+            "end_line": 173,
+            "unit_name": "fmt"
+          },
+          {
             "path": "src/tui/action_registry.rs",
             "language": "rust",
             "start_line": 79,
@@ -1282,71 +1324,71 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1686,
-            "end_line": 1687,
+            "start_line": 1690,
+            "end_line": 1691,
             "unit_name": "insert_pool"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1749,
-            "end_line": 1750,
+            "start_line": 1753,
+            "end_line": 1754,
             "unit_name": "insert_manager"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1840,
-            "end_line": 1841,
+            "start_line": 1844,
+            "end_line": 1845,
             "unit_name": "count_active_managers"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1853,
-            "end_line": 1854,
+            "start_line": 1857,
+            "end_line": 1858,
             "unit_name": "upsert_job_event"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1892,
-            "end_line": 1893,
+            "start_line": 1896,
+            "end_line": 1897,
             "unit_name": "upsert_ci_job_run"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2814,
-            "end_line": 2815,
+            "start_line": 2818,
+            "end_line": 2819,
             "unit_name": "record_git_ref_update"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2841,
-            "end_line": 2842,
+            "start_line": 2845,
+            "end_line": 2846,
             "unit_name": "record_git_mirror_job"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2868,
-            "end_line": 2869,
+            "start_line": 2872,
+            "end_line": 2873,
             "unit_name": "record_git_risk_approval"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2887,
-            "end_line": 2888,
+            "start_line": 2891,
+            "end_line": 2892,
             "unit_name": "record_git_command_artifact"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3296,
-            "end_line": 3297,
+            "start_line": 3300,
+            "end_line": 3301,
             "unit_name": "latest_test_plan"
           }
         ]
@@ -2118,30 +2160,80 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2125,
-            "end_line": 2126,
+            "start_line": 2129,
+            "end_line": 2130,
             "unit_name": "upsert_tracked_pipeline"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2914,
-            "end_line": 2915,
+            "start_line": 2918,
+            "end_line": 2919,
             "unit_name": "upsert_secret_authority"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2952,
-            "end_line": 2953,
+            "start_line": 2956,
+            "end_line": 2957,
             "unit_name": "upsert_release_secret_set"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3054,
-            "end_line": 3055,
+            "start_line": 3058,
+            "end_line": 3059,
             "unit_name": "insert_secret_audit_event"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-1ea761005cc65f3e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "as_str",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 60,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "41bc3a6347371fe3",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/bugtracker/mod.rs",
+            "language": "rust",
+            "start_line": 79,
+            "end_line": 80,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/bugtracker/mod.rs",
+            "language": "rust",
+            "start_line": 166,
+            "end_line": 167,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 57,
+            "end_line": 58,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 103,
+            "end_line": 104,
+            "unit_name": "as_str"
           }
         ]
       },
@@ -2238,6 +2330,92 @@
         ]
       },
       {
+        "id": "copy-code-unit-rust-38a448361e29a6b9",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 34,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 8,
+        "total_redundant_bytes": 68,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "123e83a96805ed01",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 37,
+            "end_line": 38,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 83,
+            "end_line": 84,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 147,
+            "end_line": 148,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-f912689717eb914e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "from_str",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 26,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 52,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "123e83a96805ed01",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 45,
+            "end_line": 46,
+            "unit_name": "from_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 91,
+            "end_line": 92,
+            "unit_name": "from_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 155,
+            "end_line": 156,
+            "unit_name": "from_str"
+          }
+        ]
+      },
+      {
         "id": "copy-code-body-rust-4bc7d056d416ed07",
         "kind": "exact_unit_different_name",
         "severity": "warning",
@@ -2276,6 +2454,76 @@
             "start_line": 3,
             "end_line": 4,
             "unit_name": "readiness_line"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-100f629ba5aa7370",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 48,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 48,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e8364fcd3098ca54",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 191,
+            "end_line": 193,
+            "unit_name": "init_jansu"
+          },
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 203,
+            "end_line": 205,
+            "unit_name": "jansu_handle"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-764811cf481772e9",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 48,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 48,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e8364fcd3098ca54",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 167,
+            "end_line": 169,
+            "unit_name": "init_kafka"
+          },
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 179,
+            "end_line": 181,
+            "unit_name": "kafka_handle"
           }
         ]
       },
@@ -2748,15 +2996,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2027,
-            "end_line": 2028,
+            "start_line": 2031,
+            "end_line": 2032,
             "unit_name": "count_pending_jobs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2657,
-            "end_line": 2658,
+            "start_line": 2661,
+            "end_line": 2662,
             "unit_name": "count_recovery_decisions"
           }
         ]
@@ -2829,6 +3077,42 @@
             "start_line": 104,
             "end_line": 105,
             "unit_name": "workspace_root"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-a5d9d60ccab97c9a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "parse",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 41,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 41,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "dbc839f6ea887937",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 64,
+            "end_line": 65,
+            "unit_name": "parse"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 110,
+            "end_line": 111,
+            "unit_name": "parse"
           }
         ]
       },
@@ -3008,42 +3292,6 @@
         ]
       },
       {
-        "id": "copy-code-unit-rust-1ea761005cc65f3e",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "as_str",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 20,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 2,
-        "total_redundant_bytes": 20,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "ab6ded6b79929229",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "src/bugtracker/mod.rs",
-            "language": "rust",
-            "start_line": 79,
-            "end_line": 80,
-            "unit_name": "as_str"
-          },
-          {
-            "path": "src/bugtracker/mod.rs",
-            "language": "rust",
-            "start_line": 166,
-            "end_line": 167,
-            "unit_name": "as_str"
-          }
-        ]
-      },
-      {
         "id": "copy-code-body-rust-ccc64ef680a9ddd0",
         "kind": "exact_unit_different_name",
         "severity": "warning",
@@ -3065,16 +3313,51 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 645,
-            "end_line": 646,
+            "start_line": 641,
+            "end_line": 642,
             "unit_name": "backend_sql"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 652,
-            "end_line": 653,
+            "start_line": 648,
+            "end_line": 649,
             "unit_name": "backend_sql_owned"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e84266e9b6b27597",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 19,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 19,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "ff661e7117275fd3",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/repo_standard.rs",
+            "language": "rust",
+            "start_line": 834,
+            "end_line": 835,
+            "unit_name": "parse_remote_slug_accepts_common_git_remotes"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 244,
+            "end_line": 245,
+            "unit_name": "config_parser_default_profile_is_kafka"
           }
         ]
       },

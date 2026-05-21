@@ -1,20 +1,26 @@
-//! Owner: messaging module — webhook → embedded jansu broker → autonomy consumer
-//! Proof: `cargo nextest run -p jeryu --features jansu-broker messaging::`
+//! Owner: messaging module — webhook → selected message log → autonomy consumer
+//! Proof: `cargo test -p jeryu --lib messaging::`
 //! Invariants: producer fan-out is fire-and-forget; consumer commits offsets idempotently.
 //!
 //! Webhooks land on the HTTP path → producer enqueues to a typed topic →
 //! the autonomy daemon's consumer loop drains it and calls the existing
-//! `handle_*_event_from_body` functions. The broker is in-process (no TCP),
-//! shared between producer and consumer via a `OnceCell` singleton.
-//!
-//! Feature-gated behind `jansu-broker` (default-on). With the feature off,
-//! webhook handlers reject events instead of changing delivery semantics.
+//! `handle_*_event_from_body` functions. The selected message log is shared
+//! between producer and consumer through a process singleton.
 
+#[cfg(any(feature = "kafka-backend", feature = "jansu-broker"))]
+pub mod backend;
 #[cfg(feature = "jansu-broker")]
 pub mod broker;
-#[cfg(feature = "jansu-broker")]
+#[cfg(any(feature = "kafka-backend", feature = "jansu-broker"))]
 pub mod consumer_loop;
+#[cfg(feature = "kafka-backend")]
+pub mod kafka;
 pub mod topics;
 
+#[cfg(any(feature = "kafka-backend", feature = "jansu-broker"))]
+pub use backend::{
+    MessageLogConsumer, MessageLogError, MessageLogHandle, MessageRecord, init_message_log,
+    message_log_handle,
+};
 #[cfg(feature = "jansu-broker")]
 pub use broker::{BrokerError, BrokerHandle, ConsumerHandle, broker_handle, init_broker};

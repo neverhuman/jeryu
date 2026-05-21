@@ -32,6 +32,7 @@ impl EpochManager {
 
     pub fn with_backend(pool: AnyPool, backend: StateBackend) -> Self {
         let backend = match backend {
+            StateBackend::Sqlite => ActiveStateBackend::Sqlite,
             StateBackend::RedlineDb => ActiveStateBackend::RedlineDb,
         };
         Self { pool, backend }

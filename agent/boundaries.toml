@@ -74,6 +74,13 @@ migration_path = "Keep Jansu behind generated event contracts and observable Rus
 owner = "platform"
 runtime = "jansu"
 
+[[streaming_exception]]
+classification = "brownfield"
+expires = "2026-12-31"
+migration_path = "Keep Kafka profile selection behind generated event contracts and observable Rust message-log adapters while runtime cutover proofs mature."
+owner = "platform"
+runtime = "kafka"
+
 [typescript]
 forbidden_web_imports = [
     "sqlx",

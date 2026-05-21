@@ -14,7 +14,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.13"
+version = "3.3.14"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -51,6 +51,8 @@ validation_order = [
 ci_profiles = [
     { name = "inner-loop", commands = ["cargo check --workspace", "cargo nextest run -p jeryu --lib"] },
     { name = "pull-request", commands = ["cargo check --workspace", "cargo nextest run -p jeryu --lib", "cargo run -p cargo-witness -- build", "cargo run -p cargo-vrc -- map --output-dir .", "cargo run -p cargo-aer -- scan --output aer-findings.json"] },
+    { name = "runtime-sqlite-kafka", commands = ["just runtime-sqlite-kafka"] },
+    { name = "runtime-redlinedb-jansu", commands = ["just runtime-redlinedb-jansu"] },
     { name = "release-blocking", commands = ["cargo nextest run -p jeryu", "cargo deny check", "cargo run -p arc-bench -- run psd-mechanics"] },
     { name = "scheduled-hardening", commands = ["cargo semver-checks check-release", "cargo run -p cargo-aer -- scan --output aer-findings.json"] },
 ]
@@ -142,18 +144,22 @@ async-trait = "0.1"
 # to `tag = "v0.6.1"` once neverhuman/jansu cuts the release tag.
 # Default-on webhook broker dependencies. Builds without default features compile
 # only as diagnostics; webhook handling rejects events without this feature.
-jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", optional = true }
-jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", optional = true }
+jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
+jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
 url = { version = "2", optional = true }
 
 [features]
-default = ["jansu-broker", "sqlite-backend"]
+default = ["profile-sqlite-kafka"]
 sqlite-backend = ["sqlx/sqlite"]
 redlinedb-backend = ["dep:redlinedb-sqlx"]
+kafka-backend = []
+jansu-backend = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
+profile-sqlite-kafka = ["sqlite-backend", "kafka-backend"]
+profile-redlinedb-jansu = ["redlinedb-backend", "jansu-broker"]
 # Route webhook events through an embedded Jansu broker (producer in the HTTP
 # handler, consumer in the autonomy daemon). Adds the jansu-embedded transitive
 # closure (~object_store, rama).
-jansu-broker = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
+jansu-broker = ["jansu-backend"]
 
 [dev-dependencies]
 # Tuiwright is NOT managed as a library in this repo. It MUST be pulled from
@@ -191,5 +197,7 @@ exceptions = [
 ci_profiles = [
     { name = "inner-loop",       commands = ["cargo check -p jeryu --message-format=json", "cargo nextest run -p jeryu --lib"] },
     { name = "pull-request",     commands = ["cargo check -p jeryu --message-format=json", "cargo nextest run -p jeryu --lib", "cargo test -p jeryu --test '*' -- --test-threads=1"] },
+    { name = "runtime-sqlite-kafka", commands = ["just runtime-sqlite-kafka"] },
+    { name = "runtime-redlinedb-jansu", commands = ["just runtime-redlinedb-jansu"] },
     { name = "release-blocking", commands = ["cargo nextest run -p jeryu", "cargo deny check"] },
 ]

@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779320750`
-- Started at: `1779320750`
-- Elapsed: `11368` ms
+- Run ID: `1779337671`
+- Started at: `1779337671`
+- Elapsed: `11390` ms
 - Scope: `full`
 - Raw score: `77`
 - Final score: `66`
@@ -70,9 +70,9 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`42` files=`367`
+- Status: `review` hard=`0` warning=`48` files=`370`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
-- Duplicate volume: lines=`62` tokens=`204` bytes=`1822`
+- Duplicate volume: lines=`70` tokens=`224` bytes=`2038`
 
 - Notes:
   - hard classes are limited to exact active-source file matches and substantial exact same-name units
@@ -81,8 +81,8 @@
 
 | Kind | Severity | Language | Lines | Tokens | Instances | Reason |
 | --- | --- | --- | ---: | ---: | --- | --- |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose.rs:179-180, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:111-112, src/api/entity.rs:120-121, src/api/entity.rs:143-144, src/api/entity.rs:153-154, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/bugtracker/mod.rs:79-80, src/bugtracker/mod.rs:166-167, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1686-1687, db/state.rs:1749-1750, db/state.rs:1840-1841, db/state.rs:1853-1854, db/state.rs:1892-1893, db/state.rs:2814-2815, db/state.rs:2841-2842, db/state.rs:2868-2869, db/state.rs:2887-2888, db/state.rs:3296-3297` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose.rs:179-180, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:111-112, src/api/entity.rs:120-121, src/api/entity.rs:143-144, src/api/entity.rs:153-154, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/bugtracker/mod.rs:79-80, src/bugtracker/mod.rs:166-167, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:74-75, src/runtime_support/mod.rs:103-104, src/runtime_support/mod.rs:131-132, src/runtime_support/mod.rs:138-139, src/runtime_support/mod.rs:172-173, src/tui/action_registry.rs:79-80, src/tui/action_registry.rs:106-107` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1690-1691, db/state.rs:1753-1754, db/state.rs:1844-1845, db/state.rs:1857-1858, db/state.rs:1896-1897, db/state.rs:2818-2819, db/state.rs:2845-2846, db/state.rs:2872-2873, db/state.rs:2891-2892, db/state.rs:3300-3301` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 9 | 32 | `src/commands/bug.rs:350-359, src/db/bugtracker_repo.rs:539-548` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 9 | 32 | `src/commands/bug.rs:339-348, src/db/bugtracker_repo.rs:528-537` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/autonomy/profile.rs:441-442, src/autonomy/profile.rs:481-482, src/autonomy/profile.rs:513-514, src/autonomy/profile.rs:543-544, src/autonomy/profile.rs:575-576, src/autonomy/profile.rs:604-605, src/autonomy/profile.rs:639-640, src/autonomy/profile.rs:709-710, src/autonomy/profile.rs:758-759` | `same body appears under different names across files` |
@@ -95,10 +95,15 @@
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/tui/activity.rs:44-45, src/tui/activity.rs:94-95, src/tui/activity.rs:148-149, src/tui/activity.rs:178-179, src/tui/ui_panels_mission_extra.rs:32-33` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/autonomy/risk.rs:204-205, src/autonomy/risk.rs:216-217, src/autonomy/risk.rs:228-229, src/autonomy/risk.rs:240-241, src/autonomy/risk.rs:253-254` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/repo_standard.rs:907-908, src/repo_standard.rs:948-949, src/repo_standard.rs:970-971, src/repo_standard.rs:1094-1095` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2125-2126, db/state.rs:2914-2915, db/state.rs:2952-2953, db/state.rs:3054-3055` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2129-2130, db/state.rs:2918-2919, db/state.rs:2956-2957, db/state.rs:3058-3059` | `same body appears under different names across files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/bugtracker/mod.rs:79-80, src/bugtracker/mod.rs:166-167, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:103-104` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:120-121, src/api/entity.rs:153-154, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/repo_standard.rs:499-500, src/repo_standard.rs:524-525, src/repo_standard.rs:565-566` | `same body appears under different names across files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:37-38, src/runtime_support/mod.rs:83-84, src/runtime_support/mod.rs:147-148` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 3 | `src/runtime_support/mod.rs:45-46, src/runtime_support/mod.rs:91-92, src/runtime_support/mod.rs:155-156` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/tui/activity.rs:342-343, src/tui/ui_panels_body_tail_extra_tail_help.rs:100-101, src/tui/ui_panels_mission_extra.rs:3-4` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 4 | `src/messaging/backend.rs:191-193, src/messaging/backend.rs:203-205` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 4 | `src/messaging/backend.rs:167-169, src/messaging/backend.rs:179-181` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 4 | `src/mcp/tools_schema.rs:29-31, src/mcp/tools_schema.rs:33-35` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/bugtracker/mod.rs:105-106, src/bugtracker/mod.rs:140-141, src/bugtracker/mod.rs:177-178` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `src/repo.rs:530-531, src/repo.rs:623-624, src/repo.rs:631-632` | `same body appears under different names across files` |
@@ -111,16 +116,17 @@
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 6 | `src/repo.rs:556-557, src/repo.rs:564-565` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 6 | `src/repo.rs:696-697, src/repo_standard.rs:784-785` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/tui/widgets/status_badge.rs:72-73, src/tui/widgets/status_badge.rs:81-82` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2027-2028, db/state.rs:2657-2658` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2031-2032, db/state.rs:2661-2662` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/bugtracker/mod.rs:353-354, src/repo_standard.rs:769-770` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `crates/arc-bench/src/psd_mechanics.rs:341-342, crates/arc-bench/src/repo_shape.rs:104-105` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:64-65, src/runtime_support/mod.rs:110-111` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/tui/graph.rs:45-46, src/tui/graph.rs:76-77` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/tui/widgets/status_badge.rs:160-161, src/tui/widgets/status_badge.rs:172-173` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `src/bugtracker/mod.rs:448-449, src/bugtracker/mod.rs:455-456` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/repo.rs:83-84, src/repo.rs:87-88` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 3 | `src/secrets.rs:234-235, src/secrets.rs:260-261` | `same body appears under different names across files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/bugtracker/mod.rs:79-80, src/bugtracker/mod.rs:166-167` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:645-646, db/state.rs:652-653` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:641-642, db/state.rs:648-649` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/repo_standard.rs:834-835, src/runtime_support/mod.rs:244-245` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/api/entity.rs:184-185, src/gateway/singleflight.rs:64-65` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/db/bugtracker_repo.rs:564-565, src/exec/support.rs:63-64` | `same body appears under different names across files` |
 
@@ -200,8 +206,8 @@
 
 - Path: `agent/boundaries.toml`
 - Stack: `rust-ts-vite-react-redline-jansu-bounded-python` · version: `0.4.0`
-- Queue path counts — adapter: `2`, event_contract: `1`, generated_type: `1`, client_marker: `6`, streaming_exception: `1`
-- Content fingerprint: `sha256:2d914b24c3ce823e3fc866f49d39c076d235c5f569ed3b8c3112dc8aed6eb0b3`
+- Queue path counts — adapter: `2`, event_contract: `1`, generated_type: `1`, client_marker: `6`, streaming_exception: `2`
+- Content fingerprint: `sha256:8c0f2e218f7051ae23dadddb9e63b23c2a3a76dad42feba43e631036ffa8247f`
 
 ## Boundary Reclassifications
 

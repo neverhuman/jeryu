@@ -7,6 +7,11 @@ pub fn state_path() -> PathBuf {
     crate::config::data_dir().join("jeryu.sqlite")
 }
 
+/// Where the durable embedded RedlineDB state directory lives.
+pub fn redline_state_path() -> PathBuf {
+    crate::config::data_dir().join("jeryu.redlineDB")
+}
+
 /// SQLx URL for an on-disk SQLite file path.
 pub fn sqlite_url(path: &Path) -> String {
     format!("sqlite://{}?mode=rwc&cache=shared", path.display())
@@ -31,7 +36,12 @@ pub fn configured_url() -> Option<String> {
 }
 
 pub fn default_url() -> String {
-    sqlite_url(&state_path())
+    match crate::runtime_support::RuntimeProfile::compiled().state_backend() {
+        crate::runtime_support::StateBackend::Sqlite => sqlite_url(&state_path()),
+        crate::runtime_support::StateBackend::RedlineDb => {
+            embedded_redline_url(&redline_state_path())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -60,10 +70,17 @@ mod tests {
     #[test]
     fn default_url_is_on_disk_sqlite_under_data_dir() {
         let url = default_url();
-        assert!(url.starts_with("sqlite://"));
-        assert!(url.contains("jeryu.sqlite"));
-        assert!(url.contains("mode=rwc"));
-        assert!(url.contains("cache=shared"));
+        if crate::runtime_support::RuntimeProfile::compiled().state_backend()
+            == crate::runtime_support::StateBackend::RedlineDb
+        {
+            assert!(url.starts_with("redline://"));
+            assert!(url.contains("jeryu.redlineDB"));
+        } else {
+            assert!(url.starts_with("sqlite://"));
+            assert!(url.contains("jeryu.sqlite"));
+            assert!(url.contains("mode=rwc"));
+            assert!(url.contains("cache=shared"));
+        }
     }
 
     #[test]

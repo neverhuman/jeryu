@@ -41,12 +41,13 @@ pub(crate) async fn handle_webhook(
         .and_then(|v| v.to_str().ok());
     debug!(event_type, delivery_uuid, "received webhook");
 
-    #[cfg(feature = "jansu-broker")]
+    #[cfg(any(feature = "kafka-backend", feature = "jansu-broker"))]
     {
-        dispatch_via_broker(event_type, delivery_uuid, body).await
+        let _ = state;
+        dispatch_via_message_log(event_type, delivery_uuid, body).await
     }
 
-    #[cfg(not(feature = "jansu-broker"))]
+    #[cfg(not(any(feature = "kafka-backend", feature = "jansu-broker")))]
     {
         let _ = state;
         let _ = body;
@@ -86,13 +87,13 @@ pub(crate) async fn dispatch_inline(state: &SharedState, event_type: &str, body:
     }
 }
 
-#[cfg(feature = "jansu-broker")]
-async fn dispatch_via_broker(
+#[cfg(any(feature = "kafka-backend", feature = "jansu-broker"))]
+async fn dispatch_via_message_log(
     event_type: &str,
     delivery_uuid: Option<&str>,
     body: String,
 ) -> Result<StatusCode, StatusCode> {
-    use crate::messaging::{broker_handle, topics};
+    use crate::messaging::{message_log_handle, topics};
 
     let topic = match event_type {
         "Job Hook" => topics::JOBS,
@@ -108,16 +109,16 @@ async fn dispatch_via_broker(
         }
     };
 
-    let broker = match broker_handle() {
+    let message_log = match message_log_handle() {
         Ok(b) => b,
         Err(e) => {
-            warn!(error = %e, "broker not ready; rejecting webhook");
+            warn!(error = %e, "message log not ready; rejecting webhook");
             return Err(StatusCode::SERVICE_UNAVAILABLE);
         }
     };
 
     let key_bytes = delivery_uuid.map(str::as_bytes);
-    if let Err(e) = broker.send(topic, key_bytes, body.as_bytes()).await {
+    if let Err(e) = message_log.send(topic, key_bytes, body.as_bytes()).await {
         warn!(error = %e, topic, "broker produce failed");
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
