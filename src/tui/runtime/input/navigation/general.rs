@@ -84,6 +84,9 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
         KeyCode::Left | KeyCode::Char('h') => {
             if app.focus.is_drilled() {
                 handle_drilled_arrow(app, NavDirection::Left).await;
+            } else if app.active_tab == ActiveTab::Bugs && app.focus.active == PaneId::BugsInspector
+            {
+                app.focus.active = PaneId::BugsTable;
             } else {
                 app.focus_move(NavDirection::Left);
             }
@@ -92,6 +95,8 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
         KeyCode::Right | KeyCode::Char('l') => {
             if app.focus.is_drilled() {
                 handle_drilled_arrow(app, NavDirection::Right).await;
+            } else if app.active_tab == ActiveTab::Bugs && app.focus.active == PaneId::BugsTable {
+                app.focus.active = PaneId::BugsInspector;
             } else {
                 app.focus_move(NavDirection::Right);
             }
@@ -337,6 +342,7 @@ fn is_activity_fullscreen(app: &App) -> bool {
 mod tests {
     use super::*;
     use crate::tui::app::test_app;
+    use ratatui::layout::Rect;
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)
@@ -379,6 +385,80 @@ mod tests {
 
         assert_eq!(handle(&mut app, key(KeyCode::Esc)).await?, Some(false));
         assert_eq!(app.focus.fullscreen, None);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workflow_root_arrows_move_macro_focus_without_micro_selection() -> Result<()> {
+        let mut app = test_app().await?;
+        app.apply_demo_fixture();
+        app.active_tab = ActiveTab::Workflow;
+        app.refresh_workflow_snapshot();
+        app.focus.set_tab(ActiveTab::Workflow);
+        app.focus_map.clear_for_tab(ActiveTab::Workflow);
+        app.focus_map
+            .register(PaneId::WorkflowMissionStrip, Rect::new(0, 3, 200, 3));
+        app.focus_map
+            .register(PaneId::WorkflowPrRail, Rect::new(0, 6, 200, 3));
+        app.focus_map
+            .register(PaneId::WorkflowCanvas, Rect::new(17, 9, 160, 24));
+        app.focus.active = PaneId::WorkflowPrRail;
+
+        let selected_pr = app.delivery_snapshot.selected_pr_idx;
+        let selected_node = (app.workflow_nav.phase_idx, app.workflow_nav.node_idx);
+        assert_eq!(handle(&mut app, key(KeyCode::Down)).await?, Some(false));
+
+        assert_eq!(app.focus.active, PaneId::WorkflowCanvas);
+        assert_eq!(app.delivery_snapshot.selected_pr_idx, selected_pr);
+        assert_eq!(
+            (app.workflow_nav.phase_idx, app.workflow_nav.node_idx),
+            selected_node
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workflow_enter_and_escape_restore_root_focus() -> Result<()> {
+        let mut app = test_app().await?;
+        app.active_tab = ActiveTab::Workflow;
+        app.focus.set_tab(ActiveTab::Workflow);
+        app.focus.active = PaneId::WorkflowPrRail;
+
+        assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
+        assert!(app.focus.is_drilled());
+        assert_eq!(app.focus.active, PaneId::WorkflowPrRail);
+
+        assert_eq!(handle(&mut app, key(KeyCode::Esc)).await?, Some(false));
+        assert!(!app.focus.is_drilled());
+        assert_eq!(app.focus.active, PaneId::WorkflowPrRail);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn workflow_drilled_arrows_mutate_micro_selection() -> Result<()> {
+        let mut app = test_app().await?;
+        app.apply_demo_fixture();
+        app.active_tab = ActiveTab::Workflow;
+        app.refresh_workflow_snapshot();
+        app.focus.set_tab(ActiveTab::Workflow);
+        app.focus.active = PaneId::WorkflowPrRail;
+
+        let initial_pr = app.delivery_snapshot.selected_pr_idx;
+        assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
+        assert_eq!(handle(&mut app, key(KeyCode::Right)).await?, Some(false));
+        assert_ne!(app.delivery_snapshot.selected_pr_idx, initial_pr);
+        assert_eq!(app.focus.active, PaneId::WorkflowPrRail);
+        assert_eq!(handle(&mut app, key(KeyCode::Esc)).await?, Some(false));
+
+        app.focus.active = PaneId::WorkflowCanvas;
+        let initial_node = (app.workflow_nav.phase_idx, app.workflow_nav.node_idx);
+        assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
+        assert_eq!(handle(&mut app, key(KeyCode::Right)).await?, Some(false));
+        assert_ne!(
+            (app.workflow_nav.phase_idx, app.workflow_nav.node_idx),
+            initial_node
+        );
+        assert_eq!(app.focus.active, PaneId::WorkflowCanvas);
         Ok(())
     }
 }
