@@ -255,6 +255,12 @@ pub struct PipelineVariable<'a> {
 #[derive(Deserialize)]
 pub(crate) struct PipelineResp {
     pub(crate) id: i64,
+    pub(crate) sha: String,
+    #[serde(rename = "ref")]
+    pub(crate) ref_name: String,
+    pub(crate) status: String,
+    pub(crate) web_url: Option<String>,
+    pub(crate) source: Option<String>,
 }
 
 #[cfg(test)]

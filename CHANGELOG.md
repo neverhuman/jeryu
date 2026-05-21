@@ -7,16 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.3.13] - 2026-05-20
+## [4.0.0] - 2026-05-21
+
+### Added
+
+- Added `jeryu pipeline trigger` so manually triggered GitLab pipelines are
+  stored in `tracked_pipelines` and visible in the TUI.
 
 ### Changed
 
 - Made on-disk SQLite under the Jeryu data dir the default durable state
   backend, with RedlineDB kept as an explicit `redlinedb-backend` and URL
   opt-in.
+- Made Kafka the default webhook message-log profile while keeping Jansu as
+  explicit `profile-redlinedb-jansu` coverage.
 - Added SQLite backend coverage for default URL parsing, in-memory operation,
   on-disk reopen persistence, backend detection, and observable SQLite PRAGMA
   behavior.
+- Pipeline explanations now surface failed materialized jobs before VTI omission
+  summaries.
 - Tightened the language guard so SQLite and SQLx backend wiring stay confined
   to declared database boundary and feature configuration files.
 

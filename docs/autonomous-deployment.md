@@ -23,7 +23,7 @@ jeryu is a **single-binary CI/CD control plane** that orchestrates autonomous re
 - **Release Pipeline**: A batching train system that groups commits into release candidates, applies approval gates, and promotes to production.
 - **Kill Bell**: A global pause mechanism that instantly freezes all deployments when security or operational issues are detected.
 - **Ledger**: An append-only event log of all decisions, approvals, and deployments for audit and forensics.
-- **Event bus**: Embedded [Jansu](https://github.com/neverhuman/jansu) broker decouples the HTTP webhook handler from event work. The webhook handler returns `202 Accepted` only after enqueueing; a consumer loop in the autonomy daemon drains records into the dispatch path. In-process by design — no separate Kafka/queue infra to operate. If the broker is disabled or unavailable, webhook handling rejects with `503` instead of changing delivery semantics.
+- **Event bus**: The default runtime uses Kafka. The explicit `profile-redlinedb-jansu` runtime can use an embedded [Jansu](https://github.com/neverhuman/jansu) broker to decouple the HTTP webhook handler from event work: the webhook handler returns `202 Accepted` only after enqueueing, and a consumer loop in the autonomy daemon drains records into the dispatch path. If the requested broker is disabled or unavailable, webhook handling rejects with `503` instead of changing delivery semantics.
 - **Storage**: embedded RedlineDB via `redline:` file URLs and the `redlinedb-sqlx` adapter. Local and CI environments install the pinned RedlineDB v1.0.1 host `redlinedb` CLI/native binary with `scripts/install-redlinedb.sh`; the installer reads the checked-in `scripts/redlinedb-manifest.json`, downloads the platform tarball, verifies it against the pinned SHA256 before extraction, and exports `REDLINEDB_BIN` in GitHub Actions. RedlineDB is not a Docker Compose service. The async wrapper crate [`redlinedb-tokio`](https://github.com/neverhuman/RedlineDB/pull/7) remains the migration foundation — see `docs/redline-jansu-issues.md::R-1` for the staged plan.
 
 ### Key Components
@@ -40,7 +40,7 @@ jeryu is a **single-binary CI/CD control plane** that orchestrates autonomous re
 │         Embedded Jansu Broker (in-process, no TCP)          │
 │  Topics: jeryu.webhook.{jobs,pipelines,pushes}              │
 │  Message key: X-Gitlab-Webhook-UUID (idempotent redelivery) │
-│  Feature: jansu-broker (default-on, see Cargo.toml)         │
+│  Feature: jansu-broker (explicit alternate profile)         │
 └──────────────────────┬──────────────────────────────────────┘
                        │ consumer-loop drains records
                        ▼

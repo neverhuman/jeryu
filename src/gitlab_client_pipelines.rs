@@ -2,12 +2,12 @@ use super::*;
 use tracing::info;
 
 impl GitlabClient {
-    pub async fn trigger_pipeline(
+    pub async fn trigger_pipeline_details(
         &self,
         project_id: i64,
         ref_name: &str,
         variables: Vec<(&str, &str)>,
-    ) -> Result<i64> {
+    ) -> Result<Pipeline> {
         let vars: Vec<PipelineVariable> = variables
             .into_iter()
             .map(|(k, v)| PipelineVariable { key: k, value: v })
@@ -21,8 +21,28 @@ impl GitlabClient {
                 },
             )
             .await?;
-        info!(project_id, pipeline_id = resp.id, "triggered pipeline");
-        Ok(resp.id)
+        let pipeline = Pipeline {
+            id: resp.id,
+            sha: resp.sha,
+            ref_name: resp.ref_name,
+            status: resp.status,
+            web_url: resp.web_url,
+            source: resp.source,
+        };
+        info!(project_id, pipeline_id = pipeline.id, "triggered pipeline");
+        Ok(pipeline)
+    }
+
+    pub async fn trigger_pipeline(
+        &self,
+        project_id: i64,
+        ref_name: &str,
+        variables: Vec<(&str, &str)>,
+    ) -> Result<i64> {
+        Ok(self
+            .trigger_pipeline_details(project_id, ref_name, variables)
+            .await?
+            .id)
     }
 
     pub async fn list_pipelines(

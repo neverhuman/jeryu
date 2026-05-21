@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.13",
-  "cargo_workspace_version": "3.3.13",
-  "release_line": "V3.3",
+  "version": "4.0.0",
+  "cargo_workspace_version": "4.0.0",
+  "release_line": "V4.0",
   "status": "stable",
-  "date": "2026-05-20",
+  "date": "2026-05-21",
   "tag_policy": {
-    "rc": "v3.3.13-rc.N",
-    "stable": "v3.3.13"
+    "rc": "v4.0.0-rc.N",
+    "stable": "v4.0.0"
   },
-  "headline": "Ship JeRyu v3.3.13 with SQLite as the default state backend."
+  "headline": "Ship JeRyu v4.0.0 with SQLite/Kafka defaults and explicit RedlineDB/Jansu coverage."
 }

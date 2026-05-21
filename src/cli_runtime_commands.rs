@@ -84,6 +84,15 @@ pub(crate) enum PipelineCommands {
         project_id: i64,
         pipeline_id: i64,
     },
+    /// Trigger a pipeline and add it to the local TUI tracking ledger.
+    Trigger {
+        #[arg(long, default_value = "2")]
+        project_id: i64,
+        #[arg(long = "ref")]
+        ref_name: String,
+        #[arg(long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+    },
     /// Cancel a superseded or unwanted pipeline.
     Cancel {
         #[arg(long, default_value = "2")]

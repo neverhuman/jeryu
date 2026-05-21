@@ -183,8 +183,8 @@ consumer_loop,topics}.rs` (PR-C). The HTTP webhook handler enqueues to
 task per topic that drains records into the existing inline `dispatch_inline`.
 
 `JERYU_WEBHOOK_SYNC=1` keeps the legacy path callable. The whole jansu transitive
-closure is feature-gated behind `jansu-broker` (default-on) so downstream
-consumers can `--no-default-features` to drop it.
+closure is feature-gated behind the explicit `jansu-broker` alternate profile;
+the default runtime remains `profile-sqlite-kafka`.
 
 Three integration tests cover the dispatch path (`tests/jansu_*.rs`).
 

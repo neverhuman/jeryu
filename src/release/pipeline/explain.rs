@@ -6,15 +6,14 @@ fn explain_release_candidate_blocker(
     blocking_failed: &[PipelineExplainItem],
     incomplete_milestones: &[PipelineExplainMilestone],
 ) -> Option<String> {
-    if !release_candidate_materialized {
-        return Some(if aggregated.is_empty() {
-            "materialized pipeline is empty".to_string()
-        } else {
-            "release candidate jobs omitted by VTI".to_string()
-        });
+    if !release_candidate_materialized && aggregated.is_empty() {
+        return Some("materialized pipeline is empty".to_string());
     }
     if let Some(item) = blocking_failed.first() {
         return Some(format!("{} failed on {}", item.id, item.runner_pool));
+    }
+    if !release_candidate_materialized {
+        return Some("release candidate jobs omitted by VTI".to_string());
     }
     incomplete_milestones.first().map(|milestone| {
         format!(
@@ -258,5 +257,32 @@ mod tests {
             blocker.as_deref(),
             Some("release candidate jobs omitted by VTI")
         );
+    }
+
+    #[test]
+    fn materialized_failure_takes_precedence_over_vti_omission() {
+        let aggregated = HashMap::from([(
+            "jeryu/required".to_string(),
+            AggregatedPipelineJob {
+                status: "failed".to_string(),
+                stage: Some("required".to_string()),
+            },
+        )]);
+        let blocking_failed = vec![PipelineExplainItem {
+            id: "jeryu/required".to_string(),
+            status: "failed".to_string(),
+            stage: Some("required".to_string()),
+            runner_pool: "default".to_string(),
+            kind: "required".to_string(),
+            component: "jeryu".to_string(),
+            evidence_driven: true,
+            estimated_cost: "small".to_string(),
+            evidence_outputs: vec![],
+            depends_on: vec![],
+        }];
+
+        let blocker = explain_release_candidate_blocker(&aggregated, false, &blocking_failed, &[]);
+
+        assert_eq!(blocker.as_deref(), Some("jeryu/required failed on default"));
     }
 }

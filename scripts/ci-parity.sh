@@ -28,6 +28,16 @@ RED=$'\033[31m'
 DIM=$'\033[2m'
 RESET=$'\033[0m'
 
+PARITY_PREFIX="/tmp/jeryu-ci-parity-$$"
+PARITY_DB="$PARITY_PREFIX/jeryu.sqlite"
+PARITY_SQLITE_URL="sqlite://$PARITY_DB?mode=rwc&cache=shared"
+mkdir -p "$PARITY_PREFIX"
+trap 'rm -rf "$PARITY_PREFIX"' EXIT
+
+with_sqlite_default() {
+    env JERYU_DB_BACKEND=sqlite JERYU_DATABASE_URL="$PARITY_SQLITE_URL" "$@"
+}
+
 step() {
     printf '\n%s━━ %s ━━%s\n' "$DIM" "$1" "$RESET"
 }
@@ -56,33 +66,29 @@ run "Jankurai version pin" bash -c 'jankurai --version | grep -Fx "jankurai 1.5.
 run "Format" cargo fmt --all -- --check
 
 # ─── 3. Clippy (matches CI: cargo clippy --all-targets --all-features -- -D warnings) ───────
-run "Clippy" cargo clippy --all-targets --all-features -- -D warnings
+run "Clippy" with_sqlite_default cargo clippy --all-targets --all-features -- -D warnings
 
 # ─── 4. Build (matches CI: cargo build --verbose) ────────────────────────────
-run "Build" cargo build --verbose
+run "Build" with_sqlite_default cargo build --verbose
 
 # ─── 5. Library tests (matches CI: cargo nextest run -p jeryu --lib) ─────────
-run "Library Tests (nextest)" cargo nextest run -p jeryu --lib
+run "Library Tests (nextest)" with_sqlite_default cargo nextest run -p jeryu --lib
 
 # ─── 6. Integration tests (matches CI: cargo test --tests --verbose -- --test-threads=1) ──
 if [[ "$FAST" == "0" ]]; then
-    run "Integration Tests" cargo test --tests --verbose -- --test-threads=1
+    run "Integration Tests" with_sqlite_default cargo test --tests --verbose -- --test-threads=1
 fi
 
 # ─── 7. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
-PARITY_PREFIX="/tmp/jeryu-ci-parity-$$"
-mkdir -p "$PARITY_PREFIX"
-trap 'rm -rf "$PARITY_PREFIX"' EXIT
-PARITY_DB="$PARITY_PREFIX/tui-smoke.sqlite"
-run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL="sqlite://$PARITY_DB?mode=rwc&cache=shared" cargo run --quiet -- tui --once
+run "TUI Smoke (1-frame render)" with_sqlite_default cargo run --quiet -- tui --once
 
 # ─── 8. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
 run "Install Smoke (dry-run)" \
-    cargo run --quiet -- install --dry-run --json --color never --prefix "$PARITY_PREFIX"
+    with_sqlite_default cargo run --quiet -- install --dry-run --json --color never --prefix "$PARITY_PREFIX"
 
 # ─── 9. TUI tuiwright tests (matches CI: TERM=xterm-256color cargo test --test tui_tuiwright) ──
 run "TUI Tuiwright Tests" \
-    env TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1
+    with_sqlite_default env TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1
 
 # ─── 10. Fixture Project Validation (matches CI: cd fixture && cargo test) ───
 run "Fixture Project Validation" \
@@ -105,17 +111,17 @@ run "Cargo Deny" cargo deny check
 
 # ─── 13a. Scheduled hardening (matches weekly CI hardening job) ──────────────
 if [[ "$FAST" == "0" ]]; then
-    run "Scheduled Hardening" bash ops/ci/rust-lane.sh hardening
+    run "Scheduled Hardening" with_sqlite_default bash ops/ci/rust-lane.sh hardening
 else
     echo "scheduled hardening skipped in fast mode"
 fi
 
-# ─── 14. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
-# Validates that the embedded broker + consumer-loop wire correctly. Skipped
-# automatically when --no-default-features builds drop jansu-embedded.
+# ─── 14. Jansu messaging smoke (explicit alternate profile) ─────────────────
+# Validates that the embedded broker + consumer-loop wire correctly when the
+# jansu-broker feature is requested.
 if [[ "$FAST" == "0" ]]; then
     run "Jansu Messaging Smoke" \
-        cargo test --features jansu-broker \
+        with_sqlite_default cargo test --features jansu-broker \
             --test jansu_webhook_jobs_roundtrip \
             --test jansu_consumer_resumes_after_restart \
             --test jansu_three_topics_no_crosstalk \

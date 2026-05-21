@@ -1,7 +1,46 @@
 use crate::cli::PipelineCommands;
 use crate::dispatch::{fetch_ci_job_runs, load_client};
-use anyhow::Result;
-use jeryu::{release, state};
+use anyhow::{Result, bail};
+use jeryu::{
+    gitlab_client::{GitlabClient, Pipeline},
+    release, state,
+};
+
+fn parse_pipeline_trigger_vars(vars: &[String]) -> Result<Vec<(&str, &str)>> {
+    let mut parsed = Vec::with_capacity(vars.len());
+    for var in vars {
+        let Some((key, value)) = var.split_once('=') else {
+            bail!("pipeline variable must be KEY=VALUE: {var}");
+        };
+        if key.is_empty() {
+            bail!("pipeline variable key must not be empty: {var}");
+        }
+        parsed.push((key, value));
+    }
+    Ok(parsed)
+}
+
+fn tracked_pipeline(project_id: i64, pipeline: &Pipeline) -> state::TrackedPipeline {
+    state::TrackedPipeline {
+        pipeline_id: pipeline.id,
+        project_id,
+        ref_name: pipeline.ref_name.clone(),
+        sha: pipeline.sha.clone(),
+        status: pipeline.status.clone(),
+        updated_at: chrono::Utc::now().to_rfc3339(),
+    }
+}
+
+async fn track_existing_pipeline(
+    client: &GitlabClient,
+    db: &state::Db,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<()> {
+    let pipeline = client.get_pipeline(project_id, pipeline_id).await?;
+    db.upsert_tracked_pipeline(&tracked_pipeline(project_id, &pipeline))
+        .await
+}
 
 pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Result<()> {
     let (client, _) = load_client()?;
@@ -42,6 +81,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             let runs = fetch_ci_job_runs(&client, project_id, pipeline_id).await?;
             if ingest {
                 db.upsert_ci_job_runs(&runs).await?;
+                track_existing_pipeline(&client, &db, project_id, pipeline_id).await?;
             }
             if json {
                 println!("{}", serde_json::to_string_pretty(&runs)?);
@@ -78,10 +118,28 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             let db = state::Db::open().await?;
             let runs = fetch_ci_job_runs(&client, project_id, pipeline_id).await?;
             db.upsert_ci_job_runs(&runs).await?;
+            track_existing_pipeline(&client, &db, project_id, pipeline_id).await?;
             println!(
                 "ingested {} job runs for pipeline {}",
                 runs.len(),
                 pipeline_id
+            );
+        }
+        PipelineCommands::Trigger {
+            project_id,
+            ref_name,
+            vars,
+        } => {
+            let parsed_vars = parse_pipeline_trigger_vars(&vars)?;
+            let pipeline = client
+                .trigger_pipeline_details(project_id, &ref_name, parsed_vars)
+                .await?;
+            let db = state::Db::open().await?;
+            db.upsert_tracked_pipeline(&tracked_pipeline(project_id, &pipeline))
+                .await?;
+            println!(
+                "triggered pipeline {} on {} ({})",
+                pipeline.id, pipeline.ref_name, pipeline.status
             );
         }
         PipelineCommands::Cancel {

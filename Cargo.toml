@@ -14,7 +14,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.14"
+version = "4.0.0"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -138,12 +138,11 @@ witness-rt = { path = "crates/witness-rt" }
 cache-brain-adapter = { path = "crates/adapters/cache-brain" }
 async-trait = "0.1"
 
-# Jansu — in-process embedded broker, used for webhook event
-# dispatch. URL-pinned to the v0.6.1 feature branch tip including the J-4
+# Jansu is the explicit alternate message-log backend, enabled through
+# `profile-redlinedb-jansu` / `jansu-broker`. URL-pinned to the v0.6.1 feature
+# branch tip including the J-4
 # Consumer batch-tail redelivery fix (jansu PR #11 commit 9f61c0d). Switch
 # to `tag = "v0.6.1"` once neverhuman/jansu cuts the release tag.
-# Default-on webhook broker dependencies. Builds without default features compile
-# only as diagnostics; webhook handling rejects events without this feature.
 jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
 jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
 url = { version = "2", optional = true }
@@ -156,9 +155,8 @@ kafka-backend = []
 jansu-backend = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
 profile-sqlite-kafka = ["sqlite-backend", "kafka-backend"]
 profile-redlinedb-jansu = ["redlinedb-backend", "jansu-broker"]
-# Route webhook events through an embedded Jansu broker (producer in the HTTP
-# handler, consumer in the autonomy daemon). Adds the jansu-embedded transitive
-# closure (~object_store, rama).
+# Route webhook events through an embedded Jansu broker for explicit alternate-profile coverage.
+# Adds the jansu-embedded transitive closure (~object_store, rama).
 jansu-broker = ["jansu-backend"]
 
 [dev-dependencies]

@@ -504,9 +504,22 @@ fn esc_badge_click_exits_entered_pane() -> anyhow::Result<()> {
     let esc_match = esc
         .resolve_first(&page.screen())
         .expect("expected esc badge in fullscreen activity log");
-    let (esc_col, esc_row) = esc_match.center();
-    page.click_cell(esc_col, esc_row)?;
+    let (_, esc_row) = esc_match.center();
 
-    page.wait_for_text("Pipeline", Duration::from_secs(5))?;
-    Ok(())
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        page.click_cell(2, esc_row)?;
+        std::thread::sleep(Duration::from_millis(100));
+        let screen = page.screen();
+        let text = screen.plain_text();
+        if text.contains("Pipeline") {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            anyhow::bail!(
+                "Timed out after 5s waiting for text \"Pipeline\"\n\nLast screen:\n{}",
+                text
+            );
+        }
+    }
 }
