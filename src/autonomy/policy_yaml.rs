@@ -177,6 +177,20 @@ pub struct ReleaseBuildRules {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ProdLimitedGate {
+    pub required: bool,
+    pub initial_ring_percent: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReleaseGates {
+    #[serde(default)]
+    pub prod_limited: Option<ProdLimitedGate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReleasePolicy {
     pub schema: String,
     pub build: ReleaseBuildRules,
@@ -184,6 +198,8 @@ pub struct ReleasePolicy {
     pub canary: Option<CanaryRules>,
     #[serde(default)]
     pub nightwatch: Option<NightwatchRules>,
+    #[serde(default)]
+    pub gates: Option<ReleaseGates>,
     #[serde(default)]
     pub release_ready_receipts: Vec<String>,
 }
@@ -357,5 +373,35 @@ require_artifact_signature: true
 require_rollback_plan: true
 "#;
         assert!(serde_yaml::from_str::<ReleasePolicy>(release).is_err());
+    }
+
+    #[test]
+    fn release_policy_accepts_prod_limited_gate() {
+        let release = r#"
+schema: vibegate.release.v1
+build:
+  build_once: true
+  require_sbom: true
+  require_slsa_provenance: true
+  require_artifact_signature: true
+  require_rollback_plan: true
+canary:
+  initial_percent: 1
+  max_percent_without_human: 10
+  analysis_minutes: 30
+gates:
+  prod_limited:
+    required: true
+    initial_ring_percent: 10
+release_ready_receipts:
+  - proof-receipt
+"#;
+        let policy: ReleasePolicy = serde_yaml::from_str(release).unwrap();
+        let prod_limited = policy
+            .gates
+            .and_then(|gates| gates.prod_limited)
+            .expect("prod limited gate");
+        assert!(prod_limited.required);
+        assert_eq!(prod_limited.initial_ring_percent, 10);
     }
 }
