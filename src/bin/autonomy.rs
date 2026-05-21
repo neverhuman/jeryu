@@ -595,8 +595,13 @@ fn profile_shadow_repo_root(autonomy_dir: &Path) -> PathBuf {
 }
 
 fn latest_shadow_agreement_for_profile(autonomy_dir: &Path) -> Option<f64> {
+    let repo_root = profile_shadow_repo_root(autonomy_dir);
+    if let Some(rate) = latest_persisted_shadow_agreement(&repo_root) {
+        return Some(rate);
+    }
+
     let opts = ShadowOptions {
-        repo_root: profile_shadow_repo_root(autonomy_dir),
+        repo_root,
         autonomy_dir: autonomy_dir.to_path_buf(),
         merges_only: true,
         max_commits: Some(PROFILE_SHADOW_MAX_COMMITS),
@@ -613,6 +618,46 @@ fn latest_shadow_agreement_for_profile(autonomy_dir: &Path) -> Option<f64> {
             None
         }
     }
+}
+
+fn latest_persisted_shadow_agreement(repo_root: &Path) -> Option<f64> {
+    let shadow_root = repo_root.join("artifacts/shadow");
+    let entries = std::fs::read_dir(shadow_root).ok()?;
+    let mut latest = None;
+
+    for entry in entries.flatten() {
+        let report = entry.path().join("report.json");
+        if !report.is_file() {
+            continue;
+        }
+        let modified = entry
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        let Some(rate) = shadow_agreement_from_report(&report) else {
+            continue;
+        };
+        match latest {
+            Some((current_modified, _)) if modified <= current_modified => {}
+            _ => latest = Some((modified, rate)),
+        }
+    }
+
+    latest.map(|(_, rate)| rate)
+}
+
+fn shadow_agreement_from_report(path: &Path) -> Option<f64> {
+    let data = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&data).ok()?;
+    value
+        .get("agreement_rate")
+        .and_then(serde_json::Value::as_f64)
+        .or_else(|| {
+            value
+                .get("summary")
+                .and_then(|summary| summary.get("agreement_rate"))
+                .and_then(serde_json::Value::as_f64)
+        })
 }
 
 async fn cmd_doctor(autonomy_dir: &PathBuf) -> Result<()> {
@@ -1809,5 +1854,38 @@ mod cli_escalate_tests {
         let summary = kb_pd["payload"]["summary"].as_str().unwrap();
         assert!(summary.contains("autonomy.cli.test"));
         assert!(summary.contains("synthetic"));
+    }
+}
+
+#[cfg(test)]
+mod profile_shadow_report_tests {
+    use super::{latest_persisted_shadow_agreement, shadow_agreement_from_report};
+    use std::fs;
+
+    #[test]
+    fn reads_summary_agreement_rate_from_shadow_report() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let report = dir.path().join("report.json");
+        fs::write(
+            &report,
+            r#"{"summary":{"agreement_rate":0.95},"results":[]}"#,
+        )
+        .expect("write report");
+
+        assert_eq!(shadow_agreement_from_report(&report), Some(0.95));
+    }
+
+    #[test]
+    fn latest_persisted_shadow_agreement_uses_artifacts_report() {
+        let repo = tempfile::tempdir().expect("repo tempdir");
+        let workdir = repo.path().join("artifacts/shadow/ci-final-green");
+        fs::create_dir_all(&workdir).expect("create shadow dir");
+        fs::write(
+            workdir.join("report.json"),
+            r#"{"summary":{"agreement_rate":0.98},"results":[]}"#,
+        )
+        .expect("write report");
+
+        assert_eq!(latest_persisted_shadow_agreement(repo.path()), Some(0.98));
     }
 }
