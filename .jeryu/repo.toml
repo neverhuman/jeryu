@@ -1,0 +1,6 @@
+schema_version = "1"
+mode = "direct"
+namespace = "root"
+name = "jeryu"
+default_branch = "main"
+remote_url = "ssh://git@127.0.0.1:2224/root/jeryu.git"

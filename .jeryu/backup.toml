@@ -1,0 +1,6 @@
+schema_version = "1"
+local_bundle = true
+bare_mirror = true
+prune_mirror = false
+ssh_target = ""
+require_fresh_backup = "warn"
