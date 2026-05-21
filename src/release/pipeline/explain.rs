@@ -4,13 +4,23 @@ fn explain_release_candidate_blocker(
     aggregated: &HashMap<String, AggregatedPipelineJob>,
     release_candidate_materialized: bool,
     blocking_failed: &[PipelineExplainItem],
+    blocking_pending: &[PipelineExplainItem],
     incomplete_milestones: &[PipelineExplainMilestone],
 ) -> Option<String> {
     if !release_candidate_materialized && aggregated.is_empty() {
         return Some("materialized pipeline is empty".to_string());
     }
     if let Some(item) = blocking_failed.first() {
-        return Some(format!("{} failed on {}", item.id, item.runner_pool));
+        return Some(format!(
+            "{} {} on {}",
+            item.id, item.status, item.runner_pool
+        ));
+    }
+    if let Some(item) = blocking_pending.first() {
+        return Some(format!(
+            "{} {} on {}",
+            item.id, item.status, item.runner_pool
+        ));
     }
     if !release_candidate_materialized {
         return Some("release candidate jobs omitted by VTI".to_string());
@@ -22,6 +32,50 @@ fn explain_release_candidate_blocker(
             milestone.incomplete_jobs.join(", ")
         )
     })
+}
+
+fn is_untracked_required_job(name: &str, state: &AggregatedPipelineJob) -> bool {
+    name == "jeryu/required" || state.stage.as_deref() == Some("required")
+}
+
+fn untracked_required_item(
+    name: &str,
+    state: &AggregatedPipelineJob,
+) -> Option<PipelineExplainItem> {
+    if !is_untracked_required_job(name, state)
+        || matches!(
+            state.status.as_str(),
+            "success" | "skipped" | "omitted" | "vti-skipped"
+        )
+    {
+        return None;
+    }
+
+    Some(PipelineExplainItem {
+        id: name.to_string(),
+        status: display_job_status(&state.status).to_string(),
+        stage: state.stage.clone(),
+        runner_pool: "default".to_string(),
+        kind: "required".to_string(),
+        component: name.split('/').next().unwrap_or("untracked").to_string(),
+        evidence_driven: true,
+        estimated_cost: "unknown".to_string(),
+        evidence_outputs: vec![],
+        depends_on: vec![],
+    })
+}
+
+fn untracked_required_items(
+    aggregated: &HashMap<String, AggregatedPipelineJob>,
+    tracked_ids: &HashSet<&str>,
+) -> Vec<PipelineExplainItem> {
+    let mut items = aggregated
+        .iter()
+        .filter(|(name, _)| !tracked_ids.contains(name.as_str()))
+        .filter_map(|(name, state)| untracked_required_item(name, state))
+        .collect::<Vec<_>>();
+    items.sort_by(|left, right| left.id.cmp(&right.id));
+    items
 }
 
 pub async fn build_pipeline_explain_report(
@@ -53,11 +107,12 @@ pub async fn build_pipeline_explain_report(
         .iter()
         .map(|job| job.id.as_str())
         .collect::<std::collections::HashSet<_>>();
-    let untracked_jobs = aggregated
+    let mut untracked_jobs = aggregated
         .keys()
         .filter(|name| !tracked_ids.contains(name.as_str()))
         .cloned()
         .collect::<Vec<_>>();
+    untracked_jobs.sort();
 
     let relevant_jobs = schema
         .jobs
@@ -95,6 +150,13 @@ pub async fn build_pipeline_explain_report(
     let mut blocking_pending = Vec::new();
     let mut non_blocking_failed = Vec::new();
     let mut non_blocking_pending = Vec::new();
+    for item in untracked_required_items(&aggregated, &tracked_ids) {
+        if matches!(item.status.as_str(), "failed" | "canceled") {
+            blocking_failed.push(item);
+        } else {
+            blocking_pending.push(item);
+        }
+    }
     for job in &relevant_jobs {
         let state = aggregated.get(&job.id);
         let status = effective_job_status(state, &pipeline.status);
@@ -154,6 +216,7 @@ pub async fn build_pipeline_explain_report(
         &aggregated,
         release_candidate_materialized,
         &blocking_failed,
+        &blocking_pending,
         &incomplete_milestones,
     );
     let release_eligible =
@@ -242,7 +305,7 @@ mod tests {
 
     #[test]
     fn empty_pipeline_reports_its_own_blocker() {
-        let blocker = explain_release_candidate_blocker(&HashMap::new(), false, &[], &[]);
+        let blocker = explain_release_candidate_blocker(&HashMap::new(), false, &[], &[], &[]);
         assert_eq!(blocker.as_deref(), Some("materialized pipeline is empty"));
     }
 
@@ -252,7 +315,7 @@ mod tests {
             "compile-workspace".to_string(),
             AggregatedPipelineJob::default(),
         )]);
-        let blocker = explain_release_candidate_blocker(&aggregated, false, &[], &[]);
+        let blocker = explain_release_candidate_blocker(&aggregated, false, &[], &[], &[]);
         assert_eq!(
             blocker.as_deref(),
             Some("release candidate jobs omitted by VTI")
@@ -281,8 +344,64 @@ mod tests {
             depends_on: vec![],
         }];
 
-        let blocker = explain_release_candidate_blocker(&aggregated, false, &blocking_failed, &[]);
+        let blocker =
+            explain_release_candidate_blocker(&aggregated, false, &blocking_failed, &[], &[]);
 
         assert_eq!(blocker.as_deref(), Some("jeryu/required failed on default"));
+    }
+
+    #[test]
+    fn untracked_required_failure_takes_precedence_over_vti_omission() {
+        let aggregated = HashMap::from([
+            (
+                "compile-workspace".to_string(),
+                AggregatedPipelineJob {
+                    status: "success".to_string(),
+                    stage: Some("compile".to_string()),
+                },
+            ),
+            (
+                "jeryu/required".to_string(),
+                AggregatedPipelineJob {
+                    status: "failed".to_string(),
+                    stage: Some("required".to_string()),
+                },
+            ),
+        ]);
+        let tracked = HashSet::from(["compile-workspace"]);
+        let items = untracked_required_items(&aggregated, &tracked);
+
+        let blocker = explain_release_candidate_blocker(&aggregated, false, &items, &[], &[]);
+
+        assert_eq!(blocker.as_deref(), Some("jeryu/required failed on default"));
+    }
+
+    #[test]
+    fn untracked_required_pending_takes_precedence_over_vti_omission() {
+        let aggregated = HashMap::from([
+            (
+                "compile-workspace".to_string(),
+                AggregatedPipelineJob {
+                    status: "success".to_string(),
+                    stage: Some("compile".to_string()),
+                },
+            ),
+            (
+                "jeryu/required".to_string(),
+                AggregatedPipelineJob {
+                    status: "pending".to_string(),
+                    stage: Some("required".to_string()),
+                },
+            ),
+        ]);
+        let tracked = HashSet::from(["compile-workspace"]);
+        let items = untracked_required_items(&aggregated, &tracked);
+
+        let blocker = explain_release_candidate_blocker(&aggregated, false, &[], &items, &[]);
+
+        assert_eq!(
+            blocker.as_deref(),
+            Some("jeryu/required pending on default")
+        );
     }
 }
