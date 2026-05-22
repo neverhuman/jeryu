@@ -334,7 +334,7 @@ Diagnoses what is blocking canary or production for a release version. Reports: 
 
 ### 4.12 Secrets and Vault
 
-#### `jeryu secrets init`
+#### `jeryu secrets provision [--json]`
 
 Bootstraps the jeryu-managed Vault, configures KV mount/prefix and records authority.
 
@@ -342,19 +342,23 @@ Bootstraps the jeryu-managed Vault, configures KV mount/prefix and records autho
 
 Shows Vault health and latest release secret-set tracking.
 
-#### `jeryu secrets rotate [--repo dougx] --version <version> --target <target>`
+#### `jeryu secrets doctor [--json]`
 
-Rotates release-scoped secrets, writes deploy/runtime env handoff files, stores references in Vault, records `release_secret_set`. Only `--repo dougx` is supported.
+Runs read-only Vault diagnostics and exits non-zero if the Vault is unhealthy.
 
-#### `jeryu secrets finalize [--repo dougx] --version <version> --target <target>`
+#### `jeryu secrets rotate [--repo dougx] [--repo-root <path>] --version <version> --target <target>`
+
+Rotates release-scoped secrets, writes deploy/runtime env handoff files, stores references in Vault, records `release_secret_set`. `--repo` defaults to the current repo name and `--repo-root` can override the release artifact tree.
+
+#### `jeryu secrets finalize [--repo dougx] [--repo-root <path>] --version <version> --target <target>`
 
 Marks a secret set finalized after promotion succeeds.
 
-#### `jeryu secrets report [--repo dougx] --version <version>`
+#### `jeryu secrets report [--repo dougx] [--repo-root <path>] --version <version>`
 
 Regenerates the release handoff report from current artifacts.
 
-#### `jeryu secrets recover [--repo dougx] --version <version>`
+#### `jeryu secrets recover [--repo dougx] [--repo-root <path>] --version <version>`
 
 Prints recovery instructions for a release bundle.
 
@@ -852,7 +856,7 @@ Key functions: `build_release_status_report`, `render_release_status_text`, `wat
 
 Key types: `SecretTarget`, `VaultStatusReport`, `RotateSecretOutcome`, `SecretAuthority`, `ReleaseSecretSet`, `SecretAuditEvent`.
 
-Key functions: `run_secrets_init`, `vault_status`, `rotate_release_secrets`, `finalize_release_secrets`, `build_release_secret_report`, `recover_release_secrets`, `default_release_paths`.
+Key functions: `run_secrets_provision`, `run_secrets_init`, `vault_status`, `rotate_release_secrets`, `finalize_release_secrets`, `build_release_secret_report`, `recover_release_secrets`, `default_release_paths`, `release_paths`.
 
 Environment variables: `JERYU_VAULT_ADDR`, `JERYU_VAULT_TOKEN`, `JERYU_VAULT_MOUNT`, `JERYU_VAULT_PREFIX`, `JERYU_RELEASE_REPO_ROOT`.
 

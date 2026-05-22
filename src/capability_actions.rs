@@ -106,9 +106,8 @@ pub(crate) async fn execute_intent(
     }
 }
 
-async fn bug_repo() -> anyhow::Result<crate::db::bugtracker_repo::BugTrackerRepo> {
-    let db = crate::state::Db::open().await?;
-    Ok(crate::db::bugtracker_repo::BugTrackerRepo::new(db.pool()))
+async fn bug_repo() -> anyhow::Result<crate::bugtracker_records::BugTrackerRepo> {
+    crate::bugtracker_records::BugTrackerRepo::open_default().await
 }
 
 async fn bug_submit(

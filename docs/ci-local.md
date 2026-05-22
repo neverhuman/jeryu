@@ -1,10 +1,19 @@
 # Local CI Parity
 
-`scripts/ci-local.sh` is the local entrypoint for CI-equivalent proof. GitHub
-Actions jobs call the same `ops/ci/*.sh` scripts, so a lane can be rehearsed
+`scripts/ci-parity.sh` is the canonical full CI parity gate. It mirrors the
+GitHub workflow command set closely enough to use as the final local check
 before opening a PR.
 
-## Required Commands
+`scripts/ci-local.sh` remains the lane-level helper when you want to rehearse
+one CI slice at a time.
+
+## Before PR
+
+- `just ci-parity`
+- `scripts/ci-parity.sh --fast` for the faster local mirror when you want to
+  skip the slow integration-style checks
+
+## Lane Helper
 
 - `scripts/ci-local.sh doctor`
 - `scripts/ci-local.sh rust fmt`

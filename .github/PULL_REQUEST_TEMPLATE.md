@@ -61,6 +61,6 @@
 ## Local proof checklist
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo clippy --workspace --exclude jeryu --all-targets -- -D warnings`
-- [ ] `just fast` (check + unit)
+- [ ] `just ci-parity` (full CI mirror; `just ci-parity --fast` for the quicker lane)
 - [ ] Integration tests for changed surfaces
 - [ ] `jankurai audit . --changed-fast --mode advisory` clean (or noted)

@@ -7,8 +7,6 @@
 use clap::Subcommand;
 use std::path::PathBuf;
 
-use super::{infer_repo_name, parse_expanded_path};
-
 #[derive(Subcommand)]
 pub(crate) enum PoolCommands {
     /// List all pools and their managers.

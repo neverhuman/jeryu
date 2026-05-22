@@ -20,17 +20,29 @@ pub fn draw_minimap(
     delivery: &DeliverySnapshot,
     nav: &WorkflowNav,
     theme: &Theme,
+) {
+    draw_minimap_with_chrome(f, area, delivery, nav, theme, None);
+}
+
+pub(crate) fn draw_minimap_with_chrome(
+    f: &mut Frame,
+    area: Rect,
+    delivery: &DeliverySnapshot,
+    nav: &WorkflowNav,
+    theme: &Theme,
     chrome: Option<PaneChrome>,
 ) {
     if area.width == 0 || area.height == 0 {
         return;
     }
-    let title = chrome
-        .map(|chrome| chrome.title("Map"))
-        .unwrap_or_else(|| crate::tui::focus::title_with_esc("Map", false));
-    let border_style = chrome
-        .map(|chrome| chrome.border_style)
-        .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
+    let title = match chrome {
+        Some(chrome) => chrome.title("Map"),
+        None => crate::tui::focus::title_with_esc("Map", false),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(theme.border_subtle),
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)

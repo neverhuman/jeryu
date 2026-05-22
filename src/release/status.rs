@@ -1,8 +1,15 @@
 use super::*;
+use anyhow::{Context, Result};
+use std::collections::HashMap;
+use std::path::Path;
+use tokio::process::Command;
 
 #[path = "status_pipeline.rs"]
 mod pipeline_helpers;
+#[path = "status_pipeline_vti.rs"]
+mod pipeline_vti;
 pub(crate) use pipeline_helpers::*;
+pub(crate) use pipeline_vti::*;
 
 impl ReleaseHealth {
     fn as_str(self) -> &'static str {

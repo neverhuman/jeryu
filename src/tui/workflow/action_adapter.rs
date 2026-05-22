@@ -121,7 +121,7 @@ impl ActionAdapter for ProductionActionAdapter {
         summary: &str,
     ) -> Result<String, String> {
         let repo_ref = RepoRef::parse(repo)
-            .ok_or_else(|| format!("invalid repo slug '{repo}' (expected owner/name)"))?;
+            .ok_or(format!("invalid repo slug '{repo}' (expected owner/name)"))?;
         let res = self
             .github
             .post_merge_passport_check(&repo_ref, head_sha, decision, summary, None)
@@ -137,7 +137,7 @@ impl ActionAdapter for ProductionActionAdapter {
         body: &str,
     ) -> Result<String, String> {
         let repo_ref = RepoRef::parse(repo)
-            .ok_or_else(|| format!("invalid repo slug '{repo}' (expected owner/name)"))?;
+            .ok_or(format!("invalid repo slug '{repo}' (expected owner/name)"))?;
         self.github
             .post_mr_comment(&repo_ref, mr_iid, body)
             .await
@@ -810,7 +810,10 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]
     async fn try_install_production_adapter_succeeds_when_secrets_resolve() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = match ENV_LOCK.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         // SAFETY: tests in this crate co-operatively guard env mutation via
         // ENV_LOCK; we restore the prior values before returning.
         let prev_token = std::env::var("GITHUB_TOKEN").ok();
@@ -873,7 +876,10 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::await_holding_lock)]
     async fn try_install_production_adapter_keeps_fake_when_token_missing() {
-        let _guard = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let _guard = match ENV_LOCK.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         let prev_token = std::env::var("GITHUB_TOKEN").ok();
         let prev_ci = std::env::var("CI").ok();
         // SAFETY: Rust 2024 marks env mutation unsafe (unsynchronized

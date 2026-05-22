@@ -13,7 +13,11 @@ use ratatui::{
 use super::model::*;
 use crate::tui::{focus::PaneChrome, theme::Theme};
 
-pub fn draw_phase_rail(
+pub fn draw_phase_rail(f: &mut Frame, area: Rect, delivery: &DeliverySnapshot, theme: &Theme) {
+    draw_phase_rail_with_chrome(f, area, delivery, theme, None);
+}
+
+pub(crate) fn draw_phase_rail_with_chrome(
     f: &mut Frame,
     area: Rect,
     delivery: &DeliverySnapshot,
@@ -24,12 +28,14 @@ pub fn draw_phase_rail(
         return;
     }
 
-    let title = chrome
-        .map(|chrome| chrome.title("Phase"))
-        .unwrap_or_else(|| crate::tui::focus::title_with_esc("Phase", false));
-    let border_style = chrome
-        .map(|chrome| chrome.border_style)
-        .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
+    let title = match chrome {
+        Some(chrome) => chrome.title("Phase"),
+        None => crate::tui::focus::title_with_esc("Phase", false),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(theme.border_subtle),
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)

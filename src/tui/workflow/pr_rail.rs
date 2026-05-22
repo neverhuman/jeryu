@@ -17,7 +17,11 @@ use crate::tui::{focus::PaneChrome, theme::Theme};
 pub const CHIP_W: u16 = 30;
 const TITLE_MAX: usize = 22;
 
-pub fn draw_pr_rail(
+pub fn draw_pr_rail(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
+    draw_pr_rail_with_chrome(f, area, snap, theme, None);
+}
+
+pub(crate) fn draw_pr_rail_with_chrome(
     f: &mut Frame,
     area: Rect,
     snap: &DeliverySnapshot,
@@ -28,12 +32,14 @@ pub fn draw_pr_rail(
         return;
     }
 
-    let title = chrome
-        .map(|chrome| chrome.title("PRs"))
-        .unwrap_or_else(|| crate::tui::focus::title_with_esc("PRs", false));
-    let border_style = chrome
-        .map(|chrome| chrome.border_style)
-        .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
+    let title = match chrome {
+        Some(chrome) => chrome.title("PRs"),
+        None => crate::tui::focus::title_with_esc("PRs", false),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(theme.border_subtle),
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)

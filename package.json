@@ -1,0 +1,12 @@
+{
+  "name": "jeryu-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "ux-qa": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
+    "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",
+    "ux-qa:test": "npm --workspace @jankurai/ux-qa run test"
+  }
+}

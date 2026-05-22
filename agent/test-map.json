@@ -28,6 +28,10 @@
       "command": "just score",
       "purpose": "verify GitHub scaffolding remains routed"
     },
+    ".gitlab/issue_templates/bug.md": {
+      "command": "just score",
+      "purpose": "verify GitLab bug issue template remains routed"
+    },
     ".jeryu/": {
       "command": "cargo test -p jeryu --lib repo_standard",
       "purpose": "verify agent-first managed repo standards stay deterministic"
@@ -75,6 +79,10 @@
     "Cargo.toml": {
       "command": "just fast",
       "purpose": "verify workspace manifest remains routed"
+    },
+    "package.json": {
+      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
+      "purpose": "verify the root npm workspace routes rendered UX QA evidence"
     },
     "GEMINI.md": {
       "command": "just score",
@@ -275,6 +283,10 @@
     "schemas/coverage-*.schema.json": {
       "command": "just score",
       "purpose": "verify coverage evidence schemas and fixtures"
+    },
+    "schemas/vault-doctor.schema.json": {
+      "command": "cargo test -p jeryu --test vault_doctor_schema vault_doctor_report_matches_schema",
+      "purpose": "verify the secrets/Vault doctor schema matches the serialized report"
     },
     "scratch.rs": {
       "command": "just fast",

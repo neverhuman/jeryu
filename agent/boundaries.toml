@@ -4,6 +4,7 @@ constraint_paths = ["db/constraints"]
 migration_paths = ["db/migrations"]
 root_paths = [
     "db",
+    "src/db/",
     "src/cache/",
     "src/state.rs",
     "src/taint.rs",
@@ -31,19 +32,7 @@ generated_type_paths = ["contracts/generated"]
 
 [rust]
 domain_paths = [
-    "src/cli.rs",
-    "src/dispatch.rs",
-    "src/main.rs",
-    "src/capability.rs",
-    "src/mcp.rs",
-    "src/engine.rs",
-    "src/release.rs",
-    "src/secrets.rs",
-    "src/test_intel/",
-    "src/state.rs",
     "src/decision.rs",
-    "src/capsule.rs",
-    "src/impact.rs",
     "crates/domain",
     "crates/*/src/domain",
 ]

@@ -7,6 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use super::entity::{ActionRef, BlockerSummary, DataFreshness, EntityRef, HealthLevel, Severity};
 
+#[path = "read_model_health.rs"]
+mod health;
+pub use health::{ComponentHealth, RunnerHealth};
+
 /// Schema version for forward-compatibility checks.
 pub const SCHEMA_VERSION: &str = "tui.v1.0";
 
@@ -186,53 +190,6 @@ impl Default for SystemHealth {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComponentHealth {
-    pub name: String,
-    pub status: HealthLevel,
-    pub latency_ms: Option<u64>,
-    pub detail: Option<String>,
-}
-
-impl ComponentHealth {
-    pub fn unknown(name: &str) -> Self {
-        Self {
-            name: name.into(),
-            status: HealthLevel::Degraded,
-            latency_ms: None,
-            detail: Some("not yet checked".into()),
-        }
-    }
-
-    pub fn ok(name: &str, latency_ms: u64) -> Self {
-        Self {
-            name: name.into(),
-            status: HealthLevel::Healthy,
-            latency_ms: Some(latency_ms),
-            detail: None,
-        }
-    }
-
-    /// Human-readable status label for display.
-    pub fn status_label(&self) -> String {
-        match self.status {
-            HealthLevel::Healthy => "healthy".to_string(),
-            HealthLevel::Warning => "warning".to_string(),
-            HealthLevel::Degraded => "degraded".to_string(),
-            HealthLevel::Critical => "critical".to_string(),
-            HealthLevel::Unknown => "unknown".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct RunnerHealth {
-    pub online: u32,
-    pub busy: u32,
-    pub idle: u32,
-    pub degraded: u32,
-}
-
 // ── Tests ───────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -251,18 +208,5 @@ mod tests {
         assert!(mission.safe_to_code);
         assert!(!mission.safe_to_merge);
         assert!(!mission.safe_to_release);
-    }
-
-    #[test]
-    fn component_health_ok_reports_latency() {
-        let h = ComponentHealth::ok("gitlab", 12);
-        assert_eq!(h.latency_ms, Some(12));
-        assert!(matches!(h.status, HealthLevel::Healthy));
-    }
-
-    #[test]
-    fn component_health_unknown_is_degraded() {
-        let h = ComponentHealth::unknown("vault");
-        assert!(matches!(h.status, HealthLevel::Degraded));
     }
 }

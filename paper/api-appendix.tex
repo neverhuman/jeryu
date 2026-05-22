@@ -214,12 +214,13 @@ jeryu release promote-prod [--project-id <id>] [--ref-name <ref>] [--version <ve
 jeryu release preflight [--ssh-host <host>] [--json]
 jeryu release doctor [--version <version>] [--preflight[=true|false]] [--json]
 
-jeryu secrets init
+jeryu secrets provision [--json]
 jeryu secrets status [--json]
-jeryu secrets rotate [--repo <name>] --version <version> --target <target>
-jeryu secrets finalize [--repo <name>] --version <version> --target <target>
-jeryu secrets report [--repo <name>] --version <version>
-jeryu secrets recover [--repo <name>] --version <version>
+jeryu secrets doctor [--json]
+jeryu secrets rotate [--repo <name>] [--repo-root <path>] --version <version> --target <target>
+jeryu secrets finalize [--repo <name>] [--repo-root <path>] --version <version> --target <target>
+jeryu secrets report [--repo <name>] [--repo-root <path>] --version <version>
+jeryu secrets recover [--repo <name>] [--repo-root <path>] --version <version>
 
 jeryu host storage-audit
 jeryu host doctor [--json]

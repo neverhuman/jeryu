@@ -1,270 +1,18 @@
-use clap::{Args, Subcommand};
+use clap::Subcommand;
 use std::path::PathBuf;
-
-use jeryu::install::{ColorMode, InteractiveMode, PathMode};
-use jeryu::remote::ServiceMode;
 
 use super::{
     AgentCommands, CacheCommands, HostCommands, JobCommands, LocalCommands, PipelineCommands,
-    PolicyCommands, PoolCommands, ReleaseCommands, RepoCommands, SecretsCommands, SettingsCommands,
-    TestCommands, parse_exec_script_path, parse_expanded_path,
+    PolicyCommands, PoolCommands, ReleaseCommands, SecretsCommands, SettingsCommands, TestCommands,
 };
 
-#[derive(Args)]
-pub(crate) struct InstallCommand {
-    #[arg(
-        long,
-        global = true,
-        default_value = "~/.jeryu/bin",
-        value_parser = parse_expanded_path
-    )]
-    pub prefix: PathBuf,
-    #[arg(long, global = true, default_value_t = false)]
-    pub dry_run: bool,
-    #[arg(long, global = true, default_value_t = false)]
-    pub json: bool,
-    #[arg(long, global = true, default_value_t = false)]
-    pub yes: bool,
-    #[arg(long, global = true, value_enum, default_value_t = ColorMode::Auto)]
-    pub color: ColorMode,
-    #[arg(long, global = true, value_enum, default_value_t = InteractiveMode::Auto)]
-    pub interactive: InteractiveMode,
-    #[arg(long, global = true, value_enum, default_value_t = PathMode::Advise)]
-    pub path_mode: PathMode,
-    #[arg(long, global = true, default_value_t = false)]
-    pub verbose: bool,
-    #[arg(long, global = true, default_value_t = false)]
-    pub install_deps: bool,
-    #[arg(long, global = true, default_value_t = false)]
-    pub allow_sudo: bool,
-    #[command(subcommand)]
-    pub action: Option<InstallActionCommands>,
-}
+#[path = "cli_defs_install.rs"]
+mod cli_defs_install;
+pub(crate) use cli_defs_install::{InstallActionCommands, InstallCommand};
 
-#[derive(Subcommand)]
-pub(crate) enum InstallActionCommands {
-    Guided,
-    Doctor,
-    Smoke,
-    Server,
-    Uninstall,
-    RenderDemo {
-        #[arg(long, value_parser = parse_expanded_path)]
-        output: PathBuf,
-        #[arg(long, value_parser = parse_expanded_path)]
-        png: Option<PathBuf>,
-    },
-}
-
-#[derive(Args)]
-pub(crate) struct RemoteCommand {
-    #[arg(long, global = true, default_value_t = false)]
-    pub dry_run: bool,
-    #[arg(long, global = true, default_value_t = false)]
-    pub json: bool,
-    #[arg(long, global = true, default_value_t = false)]
-    pub yes: bool,
-    #[arg(long, global = true, value_enum, default_value_t = ColorMode::Auto)]
-    pub color: ColorMode,
-    #[arg(long, global = true, value_enum, default_value_t = InteractiveMode::Auto)]
-    pub interactive: InteractiveMode,
-    #[arg(long, global = true, value_enum, default_value_t = ServiceMode::Auto)]
-    pub service_mode: ServiceMode,
-    #[arg(long, global = true, default_value_t = false)]
-    pub verbose: bool,
-    #[command(subcommand)]
-    pub action: RemoteActionCommands,
-}
-
-#[derive(Subcommand)]
-pub(crate) enum RemoteActionCommands {
-    Install {
-        target: String,
-        #[arg(long)]
-        alias: Option<String>,
-        #[arg(long, default_value_t = false)]
-        setup_key: bool,
-        #[arg(long, value_parser = parse_expanded_path)]
-        identity: Option<PathBuf>,
-    },
-    #[clap(name = concat!("up", "date"))]
-    Refresh {
-        alias: String,
-    },
-    Doctor {
-        alias: String,
-    },
-    Status {
-        alias: String,
-    },
-    Logs {
-        alias: String,
-    },
-    Restart {
-        alias: String,
-    },
-    Stop {
-        alias: String,
-    },
-    Start {
-        alias: String,
-    },
-    Ssh {
-        alias: String,
-    },
-    Run {
-        alias: String,
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        command: Vec<String>,
-    },
-    Tunnel {
-        alias: String,
-    },
-    Uninstall {
-        alias: String,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum BugCommands {
-    #[command(subcommand)]
-    Project(BugProjectCommands),
-    Submit {
-        #[arg(long)]
-        target: Option<String>,
-        #[arg(long, default_value = "auto")]
-        source: String,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-        #[arg(long)]
-        file: Option<PathBuf>,
-        #[arg(long, default_value_t = false)]
-        publish: bool,
-        #[arg(long)]
-        idempotency_key: Option<String>,
-    },
-    List {
-        #[arg(long, default_value = "all")]
-        project: String,
-        #[arg(long)]
-        status: Option<String>,
-        #[arg(long, default_value = "rank")]
-        sort: String,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    Show {
-        bug_id: String,
-        #[arg(long, default_value_t = false)]
-        history: bool,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    Triage {
-        bug_id: String,
-        #[arg(long)]
-        status: Option<String>,
-        #[arg(long)]
-        severity: Option<String>,
-        #[arg(long)]
-        priority: Option<String>,
-        #[arg(long)]
-        component: Option<String>,
-        #[arg(long)]
-        owner: Option<String>,
-    },
-    Link {
-        bug_id: String,
-        other_id: String,
-        #[arg(long)]
-        kind: String,
-    },
-    Ready {
-        #[arg(long, default_value = "all")]
-        project: String,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    #[command(subcommand)]
-    Attempt(BugAttemptCommands),
-    Sync {
-        bug_id: Option<String>,
-        #[arg(long)]
-        project: Option<String>,
-        #[arg(long)]
-        provider: String,
-        #[arg(long, default_value_t = false)]
-        dry_run: bool,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum BugProjectCommands {
-    Add {
-        alias: String,
-        #[arg(long)]
-        repo_root: PathBuf,
-        #[arg(long)]
-        repo_slug: String,
-        #[arg(long, default_value = "local")]
-        provider: String,
-        #[arg(long)]
-        provider_project_id: Option<String>,
-        #[arg(long, default_value = "main")]
-        default_branch: String,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    List {
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    Show {
-        alias: String,
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    Link {
-        source: String,
-        target: String,
-        #[arg(long)]
-        kind: String,
-    },
-}
-
-#[derive(Subcommand)]
-pub(crate) enum BugAttemptCommands {
-    Start {
-        bug_id: String,
-        #[arg(long)]
-        agent: Option<String>,
-        #[arg(long)]
-        branch: Option<String>,
-        #[arg(long)]
-        sandbox_path: Option<PathBuf>,
-    },
-    Fail {
-        bug_id: String,
-        #[arg(long)]
-        agent: Option<String>,
-        #[arg(long)]
-        notes: Option<String>,
-        #[arg(long)]
-        ci_evidence: Option<String>,
-    },
-    Complete {
-        bug_id: String,
-        #[arg(long)]
-        agent: Option<String>,
-        #[arg(long)]
-        pr_url: Option<String>,
-        #[arg(long)]
-        head_sha: Option<String>,
-        #[arg(long)]
-        notes: Option<String>,
-    },
-}
-
+#[path = "cli_defs_remote.rs"]
+mod cli_defs_remote;
+pub(crate) use cli_defs_remote::{RemoteActionCommands, RemoteCommand};
 #[derive(Subcommand)]
 pub(crate) enum Commands {
     Init,
@@ -367,6 +115,13 @@ pub(crate) enum Commands {
     #[command(name = "action", subcommand)]
     Action(ActionCommands),
 }
+
+#[path = "cli_defs_commands.rs"]
+mod cli_defs_commands;
+pub(crate) use cli_defs_commands::{
+    BugAttemptCommands, BugCommands, BugProjectCommands, RepoCommands, RepoHookCommands,
+    RepoStandardCommand, RepoStandardCommands,
+};
 
 // ---------------------------------------------------------------------------
 // Auxiliary command enums (extracted to companion)

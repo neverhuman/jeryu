@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jeryu.local/schemas/vault-doctor.schema.json",
+  "title": "VaultDoctorReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "issues", "ok"],
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/vaultStatusReport"
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ok": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "vaultStatusReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "addr",
+        "reachable",
+        "initialized",
+        "sealed",
+        "healthy",
+        "token_present",
+        "mount",
+        "prefix",
+        "bootstrap_file",
+        "env_file"
+      ],
+      "properties": {
+        "addr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reachable": {
+          "type": "boolean"
+        },
+        "initialized": {
+          "type": "boolean"
+        },
+        "sealed": {
+          "type": "boolean"
+        },
+        "healthy": {
+          "type": "boolean"
+        },
+        "token_present": {
+          "type": "boolean"
+        },
+        "mount": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prefix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bootstrap_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "env_file": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

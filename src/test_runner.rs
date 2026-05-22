@@ -9,7 +9,6 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::cmp::max;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -108,9 +107,9 @@ pub fn plan_test_run(opts: &TestRunOpts) -> TestRunPlan {
     };
     let inferred = match opts.tags.clone() {
         Some(value) => value,
-        None => infer_test_tags(&opts.test_command),
+        None => routing::infer_test_tags(&opts.test_command),
     };
-    let routing = infer_test_routing(&opts.test_command);
+    let routing = routing::infer_test_routing(&opts.test_command);
     let timeout_secs = if opts.timeout_secs == TestRunOpts::default().timeout_secs {
         routing.timeout_secs
     } else {
@@ -156,81 +155,8 @@ pub(crate) fn render_ephemeral_ci_yaml(plan: &TestRunPlan) -> String {
     )
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-struct TestRoutingInference {
-    tags: Vec<String>,
-    risk_class: String,
-    timeout_secs: u64,
-    rationale: Vec<String>,
-}
-
-fn infer_test_tags(command: &str) -> Vec<String> {
-    infer_test_routing(command).tags
-}
-
-fn infer_test_routing(command: &str) -> TestRoutingInference {
-    let lower = command.to_ascii_lowercase();
-
-    let untrusted_patterns = [
-        "security",
-        "chaos",
-        "ip_exfiltration",
-        "ip guard",
-        "ip-guard",
-        "sandbox",
-        "fuzz",
-    ];
-    if untrusted_patterns
-        .iter()
-        .any(|pattern| lower.contains(pattern))
-    {
-        return TestRoutingInference {
-            tags: vec!["untrusted".to_string()],
-            risk_class: "untrusted".to_string(),
-            timeout_secs: 1800,
-            rationale: vec!["matched untrusted/risky command pattern".to_string()],
-        };
-    }
-
-    let build_patterns = [
-        "deployctl",
-        "payloadctl",
-        "build-local",
-        "publish-rc",
-        "cargo check",
-        "cargo build",
-        "cargo nextest",
-        "cargo test --workspace",
-        "cargo test -p veox-deploy",
-        "cargo test -p veox-bootstrap",
-        "cargo test -p veox-rc-gate",
-        "cargo test -p cargo-vrc",
-        "cargo test -p cargo-aer",
-        "cargo test -p cargo-witness",
-        "cargo test -p nht",
-        "test-local-built",
-        "test-local-rc",
-        "deploy-canary",
-    ];
-    if build_patterns.iter().any(|pattern| lower.contains(pattern)) {
-        return TestRoutingInference {
-            tags: vec!["build".to_string()],
-            risk_class: "build".to_string(),
-            timeout_secs: 1200,
-            rationale: vec!["matched build-heavy command pattern".to_string()],
-        };
-    }
-
-    TestRoutingInference {
-        tags: vec!["default".to_string()],
-        risk_class: "default".to_string(),
-        timeout_secs: max(600, TestRunOpts::default().timeout_secs),
-        rationale: vec!["no heavy/risky pattern matched; using default runner".to_string()],
-    }
-}
+#[path = "test_runner_routing.rs"]
+mod routing;
 
 #[path = "test_runner_runtime.rs"]
 mod runtime;

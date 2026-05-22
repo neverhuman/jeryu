@@ -4,138 +4,20 @@
 
 use anyhow::{Context, Result};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::fs;
-use thiserror::Error;
 
 use crate::config;
+
+#[path = "secrets_types.rs"]
+mod types;
+pub use types::*;
 
 #[path = "secrets_support.rs"]
 mod secrets_support;
 use secrets_support::*;
 
-/// Typed errors for Vault secrets lifecycle.
-#[derive(Debug, Error)]
-pub enum SecretError {
-    #[error("unknown secret target: {0}")]
-    UnknownTarget(String),
-    #[error("Vault did not become reachable at {0}")]
-    VaultUnreachable(String),
-    #[error("unexpected Vault health status: {0}")]
-    VaultUnexpectedStatus(reqwest::StatusCode),
-    #[error("Vault init failed: {0}")]
-    VaultInitFailed(reqwest::StatusCode),
-    #[error("Vault unseal failed: {0}")]
-    VaultUnsealFailed(reqwest::StatusCode),
-    #[error("Vault mount `{0}` exists but is not kv-v2")]
-    VaultMountNotKvV2(String),
-    #[error("Vault mount creation failed: {0}")]
-    VaultMountCreationFailed(reqwest::StatusCode),
-    #[error("writing Vault policy failed: {0}")]
-    VaultPolicyFailed(reqwest::StatusCode),
-    #[error("creating Vault ops token failed: {0}")]
-    VaultTokenCreationFailed(reqwest::StatusCode),
-    #[error("{0} failed with exit code {1:?}")]
-    CommandFailed(String, Option<i32>),
-}
-
 const OPS_POLICY_NAME: &str = "jeryu-release-ops";
 const OPS_DISPLAY_NAME: &str = "jeryu-release-control-plane";
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum SecretTarget {
-    Canary,
-    Prod,
-}
-
-impl SecretTarget {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Canary => "canary",
-            Self::Prod => "prod",
-        }
-    }
-}
-
-impl std::str::FromStr for SecretTarget {
-    type Err = anyhow::Error;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "canary" => Ok(Self::Canary),
-            "prod" | "production" => Ok(Self::Prod),
-            other => Err(SecretError::UnknownTarget(other.to_string()).into()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct VaultBootstrapMaterial {
-    root_token: String,
-    unseal_keys_b64: Vec<String>,
-    initialized_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct VaultEnv {
-    addr: String,
-    token: String,
-    mount: String,
-    prefix: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VaultStatusReport {
-    pub addr: String,
-    pub initialized: bool,
-    pub sealed: bool,
-    pub healthy: bool,
-    pub token_present: bool,
-    pub mount: String,
-    pub prefix: String,
-    pub bootstrap_file: String,
-    pub env_file: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RotateSecretOutcome {
-    pub repo_root: String,
-    pub version: String,
-    pub target: String,
-    pub rendered_deploy_env: String,
-    pub rendered_runtime_env: String,
-    pub audit_path: String,
-    pub bundle_path: Option<String>,
-    pub report_path: Option<String>,
-    pub runtime_secret_vault_path: Option<String>,
-    pub recovery_password_vault_path: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct VaultHealthResponse {
-    initialized: bool,
-    sealed: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct VaultInitResponse {
-    root_token: String,
-    #[serde(default)]
-    unseal_keys_b64: Vec<String>,
-    #[serde(default)]
-    keys_base64: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct VaultTokenCreateResponse {
-    auth: VaultAuth,
-}
-
-#[derive(Debug, Deserialize)]
-struct VaultAuth {
-    client_token: String,
-}
 
 async fn ensure_kv_v2_mount(
     client: &Client,
@@ -273,4 +155,5 @@ async fn token_is_usable(client: &Client, env: &VaultEnv) -> Result<bool> {
 
 #[path = "secrets_runtime.rs"]
 mod secrets_runtime;
+pub use secrets_runtime::vault_status_observed;
 pub use secrets_runtime::*;

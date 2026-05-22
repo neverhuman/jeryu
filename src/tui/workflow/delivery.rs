@@ -486,9 +486,10 @@ fn deployment_canary_url(
     dep: &DeploymentProgress,
     release: Option<&ReleaseAttemptView>,
 ) -> Option<String> {
-    dep.canary_url
-        .clone()
-        .or_else(|| release.and_then(|v| v.canary_public_url.clone()))
+    match dep.canary_url.clone() {
+        Some(url) => Some(url),
+        None => release.and_then(|v| v.canary_public_url.clone()),
+    }
 }
 
 fn derive_furthest_phase(snap: &WorkflowSnapshot) -> CanonicalPhase {
@@ -615,22 +616,25 @@ fn compute_fleet_summary(
     let canary_in_flight = prs.iter().any(|pr| pr.phase == CanonicalPhase::PromoteDev);
     let prod_in_flight = prs.iter().any(|pr| pr.phase == CanonicalPhase::PromoteProd);
 
-    let canary_url = release
-        .and_then(|v| v.canary_public_url.clone())
-        .or_else(|| {
-            prs.iter().find_map(|pr| {
-                pr.snapshot.nodes.iter().find_map(|n| {
-                    matches!(
-                        n.kind,
-                        WorkflowNodeKind::Promote {
-                            env: Environment::Dev
-                        }
-                    )
-                    .then(|| n.reason.clone())
-                    .flatten()
-                })
+    let release_canary_url = release.and_then(|v| v.canary_public_url.clone());
+    let node_canary_url = || {
+        prs.iter().find_map(|pr| {
+            pr.snapshot.nodes.iter().find_map(|n| {
+                matches!(
+                    n.kind,
+                    WorkflowNodeKind::Promote {
+                        env: Environment::Dev
+                    }
+                )
+                .then(|| n.reason.clone())
+                .flatten()
             })
-        });
+        })
+    };
+    let canary_url = match release_canary_url {
+        Some(url) => Some(url),
+        None => node_canary_url(),
+    };
 
     FleetSummary {
         open_prs,

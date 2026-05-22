@@ -17,6 +17,10 @@ use crate::test_intel::subsystem::{
 mod types;
 pub use types::{SelectedTest, TestPlan, TestPlanMode, VtiReceipt};
 
+#[path = "planner_support.rs"]
+mod support;
+pub(crate) use support::*;
+
 // ---------------------------------------------------------------------------
 // Core planner
 // ---------------------------------------------------------------------------
@@ -169,52 +173,6 @@ pub fn plan_tests(changed_paths: &[String]) -> TestPlan {
         sentinel_tests: Vec::new(), // populated later by the sentinel sampler
         rationale,
     }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-fn compute_confidence(affected: &[&Subsystem], changed_paths: &[String]) -> f64 {
-    if affected.is_empty() {
-        return 0.0;
-    }
-
-    // Start at 1.0, reduce for risk factors
-    let mut confidence = 1.0;
-
-    // Cross-cutting subsystems reduce confidence
-    let has_cross_cutting = affected.iter().any(|s| s.cross_cutting);
-    if has_cross_cutting {
-        confidence -= 0.10;
-    }
-
-    // Many affected subsystems reduce confidence
-    if affected.len() > 3 {
-        confidence -= 0.05 * (affected.len() as f64 - 3.0);
-    }
-
-    // Unmatched paths reduce confidence
-    let matched_count = changed_paths
-        .iter()
-        .filter(|p| {
-            affected
-                .iter()
-                .any(|s| subsystem::matches_any(p, s.owned_paths))
-        })
-        .count();
-    let unmatched = changed_paths.len() - matched_count;
-    if unmatched > 0 {
-        // Some files didn't match any subsystem
-        confidence -= 0.15 * (unmatched as f64 / changed_paths.len() as f64);
-    }
-
-    confidence.clamp(0.0, 1.0)
-}
-
-fn dedup_selected_tests(tests: &mut Vec<SelectedTest>) {
-    let mut seen = BTreeSet::new();
-    tests.retain(|t| seen.insert(t.command.clone()));
 }
 
 // ---------------------------------------------------------------------------

@@ -214,7 +214,7 @@ impl WorkflowNav {
             self.node_idx = ni;
             return;
         }
-        // Fallback: clamp current coords against new snapshot.
+        // Reconcile current coords against the new snapshot.
         if self.phase_idx >= snap.phases.len() {
             self.phase_idx = 0;
             self.node_idx = 0;

@@ -185,7 +185,13 @@ pub async fn recover_release_secrets(
 }
 
 pub fn default_release_paths() -> (PathBuf, PathBuf, PathBuf) {
-    let root = crate::settings::release_repo_root();
+    release_paths(None)
+}
+
+pub fn release_paths(repo_root: Option<&Path>) -> (PathBuf, PathBuf, PathBuf) {
+    let root = repo_root
+        .map(Path::to_path_buf)
+        .unwrap_or_else(crate::settings::release_repo_root);
     (
         root.clone(),
         root.join("env/prod.deploy.env"),

@@ -7,6 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::tui::action_registry::RiskTier;
 
+#[path = "entity_support.rs"]
+mod support;
+#[allow(unused_imports)]
+pub use support::{
+    ActionRef, BlockerSummary, Bug, BugAttempt, DataFreshness, EvidenceRef, Project, TimelineEvent,
+};
+
 // ── Entity Reference ────────────────────────────────────────────────────
 
 /// Lightweight pointer to any entity in the control plane.
@@ -198,141 +205,8 @@ impl Default for EntityDetail {
     }
 }
 
-// ── Supporting types ────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TimelineEvent {
-    pub timestamp: DateTime<Utc>,
-    pub summary: String,
-    pub severity: Severity,
-    pub entity: Option<EntityRef>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockerSummary {
-    pub kind: String,
-    pub severity: Severity,
-    pub summary: String,
-    pub entity: Option<EntityRef>,
-    pub recommended_action: Option<ActionRef>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EvidenceRef {
-    pub kind: String,
-    pub id: String,
-    pub summary: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActionRef {
-    pub action_id: String,
-    pub label: String,
-    pub risk: Option<RiskTier>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Bug {
-    pub id: String,
-    pub title: String,
-    pub target_project: String,
-    pub source_project: String,
-    pub status: String,
-    pub severity: String,
-    pub priority: String,
-    pub difficulty: u8,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BugAttempt {
-    pub id: i64,
-    pub bug_id: String,
-    pub status: String,
-    pub agent: Option<String>,
-    pub branch: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Project {
-    pub alias: String,
-    pub repo_slug: String,
-    pub provider_kind: String,
-    pub default_branch: String,
-}
-
-// ── Data Freshness ──────────────────────────────────────────────────────
-
-/// Per-source freshness watermarks so the TUI can show freshness indicators per panel.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct DataFreshness {
-    pub gitlab_ms: Option<u64>,
-    pub db_ms: Option<u64>,
-    pub docker_ms: Option<u64>,
-    pub cache_ms: Option<u64>,
-    pub vault_ms: Option<u64>,
-    pub overall_stale: bool,
-}
-
 // ── Tests ───────────────────────────────────────────────────────────────
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn entity_ref_display() {
-        let r = EntityRef::new(EntityKind::Job, "14445");
-        assert_eq!(r.display(), "job:14445");
-        assert_eq!(format!("{r}"), "job:14445");
-    }
-
-    #[test]
-    fn entity_kinds_have_unique_labels() {
-        use std::collections::HashSet;
-        let kinds = [
-            EntityKind::Job,
-            EntityKind::Pipeline,
-            EntityKind::Agent,
-            EntityKind::AgentTask,
-            EntityKind::MergeRequest,
-            EntityKind::TestPlan,
-            EntityKind::TestCase,
-            EntityKind::EvidenceCapsule,
-            EntityKind::ReleaseAttempt,
-            EntityKind::ReleaseGate,
-            EntityKind::CacheTaint,
-            EntityKind::CacheObject,
-            EntityKind::Bug,
-            EntityKind::BugAttempt,
-            EntityKind::Project,
-            EntityKind::SecretAccess,
-            EntityKind::Grant,
-            EntityKind::Pool,
-            EntityKind::Runner,
-            EntityKind::System,
-        ];
-        let mut labels = HashSet::new();
-        for kind in &kinds {
-            assert!(
-                labels.insert(kind.label()),
-                "duplicate label: {}",
-                kind.label()
-            );
-        }
-    }
-
-    #[test]
-    fn severity_ordering() {
-        assert!(Severity::Critical < Severity::Error);
-        assert!(Severity::Error < Severity::Warning);
-        assert!(Severity::Warning < Severity::Info);
-    }
-
-    #[test]
-    fn entity_detail_default_is_unknown() {
-        let detail = EntityDetail::default();
-        assert_eq!(detail.state, "unknown");
-        assert!(detail.timeline.is_empty());
-        assert!(detail.blockers.is_empty());
-    }
-}
+#[path = "entity_tests.rs"]
+mod tests;

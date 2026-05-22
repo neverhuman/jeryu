@@ -11,14 +11,14 @@ use ratatui::{
 };
 
 use super::hit_map::DeliveryHitMap;
-use super::minimap::draw_minimap;
-use super::mission_strip::draw_mission_strip;
+use super::minimap::draw_minimap_with_chrome;
+use super::mission_strip::draw_mission_strip_with_chrome;
 use super::model::*;
 use super::nav::{
     BANNER_H, EDGE_GUTTER_H, NODE_CARD_H, NODE_CARD_W, PHASE_HEADER_H, WorkflowNav, WorkflowZoom,
 };
-use super::phase_rail::draw_phase_rail;
-use super::pr_rail::draw_pr_rail;
+use super::phase_rail::draw_phase_rail_with_chrome;
+use super::pr_rail::draw_pr_rail_with_chrome;
 use super::regions::{DeliveryRegions, compute_regions};
 use crate::tui::{focus::PaneChrome, theme::Theme};
 
@@ -113,13 +113,13 @@ pub fn draw_delivery_tab_with_chrome(
     hit_map.cards.clear();
 
     if DeliveryRegions::is_visible(regions.mission) {
-        draw_mission_strip(f, regions.mission, delivery, theme, chrome.mission);
+        draw_mission_strip_with_chrome(f, regions.mission, delivery, theme, chrome.mission);
     }
     if DeliveryRegions::is_visible(regions.pr_rail) {
-        draw_pr_rail(f, regions.pr_rail, delivery, theme, chrome.pr_rail);
+        draw_pr_rail_with_chrome(f, regions.pr_rail, delivery, theme, chrome.pr_rail);
     }
     if DeliveryRegions::is_visible(regions.phase_rail) {
-        draw_phase_rail(f, regions.phase_rail, delivery, theme, chrome.phase_rail);
+        draw_phase_rail_with_chrome(f, regions.phase_rail, delivery, theme, chrome.phase_rail);
     }
     if DeliveryRegions::is_visible(regions.canvas) {
         let canvas_inner = draw_canvas_frame(f, regions.canvas, theme, chrome.canvas);
@@ -134,7 +134,7 @@ pub fn draw_delivery_tab_with_chrome(
         }
     }
     if DeliveryRegions::is_visible(regions.minimap) {
-        draw_minimap(f, regions.minimap, delivery, nav, theme, chrome.minimap);
+        draw_minimap_with_chrome(f, regions.minimap, delivery, nav, theme, chrome.minimap);
     }
     if DeliveryRegions::is_visible(regions.footer) {
         draw_delivery_footer(f, regions.footer, delivery, theme);
@@ -142,12 +142,14 @@ pub fn draw_delivery_tab_with_chrome(
 }
 
 fn draw_canvas_frame(f: &mut Frame, area: Rect, theme: &Theme, chrome: Option<PaneChrome>) -> Rect {
-    let title = chrome
-        .map(|chrome| chrome.title("Canvas"))
-        .unwrap_or_else(|| crate::tui::focus::title_with_esc("Canvas", false));
-    let border_style = chrome
-        .map(|chrome| chrome.border_style)
-        .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
+    let title = match chrome {
+        Some(chrome) => chrome.title("Canvas"),
+        None => crate::tui::focus::title_with_esc("Canvas", false),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(theme.border_subtle),
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -663,10 +665,13 @@ fn draw_node_card(
     if matches!(node.status, WorkflowStatus::Error | WorkflowStatus::Blocked) {
         let downstream =
             crate::tui::workflow::intelligence::compute_downstream_impact(snap, &node.id);
-        let reason_excerpt = node.reason.as_deref().map_or_else(String::new, |r| {
-            let max = area.width.saturating_sub(20) as usize;
-            r.chars().take(max.max(6)).collect::<String>()
-        });
+        let reason_excerpt = match node.reason.as_deref() {
+            Some(reason) => {
+                let max = area.width.saturating_sub(20) as usize;
+                reason.chars().take(max.max(6)).collect::<String>()
+            }
+            None => String::new(),
+        };
         let chip = if downstream > 0 {
             format!(" ⚠ blocks {}", downstream)
         } else {

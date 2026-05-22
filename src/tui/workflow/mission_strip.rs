@@ -20,7 +20,11 @@ use super::intelligence::{
 use super::model::*;
 use crate::tui::{focus::PaneChrome, theme::Theme};
 
-pub fn draw_mission_strip(
+pub fn draw_mission_strip(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
+    draw_mission_strip_with_chrome(f, area, snap, theme, None);
+}
+
+pub(crate) fn draw_mission_strip_with_chrome(
     f: &mut Frame,
     area: Rect,
     snap: &DeliverySnapshot,
@@ -33,12 +37,14 @@ pub fn draw_mission_strip(
 
     let banner_color = banner_color_for(snap, theme);
     let lines = build_lines(snap, theme, banner_color);
-    let title = chrome
-        .map(|chrome| chrome.title("Mission Control"))
-        .unwrap_or_else(|| " [ 0:Delivery — CI Mission Control ] ".into());
-    let border_style = chrome
-        .map(|chrome| chrome.border_style)
-        .unwrap_or_else(|| Style::default().fg(banner_color));
+    let title = match chrome {
+        Some(chrome) => chrome.title("Mission Control"),
+        None => " [ 0:Delivery — CI Mission Control ] ".into(),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(banner_color),
+    };
 
     f.render_widget(
         Paragraph::new(lines).block(

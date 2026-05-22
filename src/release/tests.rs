@@ -1,5 +1,5 @@
 use super::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 fn job(name: &str, status: &str, allow_failure: bool) -> Job {
     Job {

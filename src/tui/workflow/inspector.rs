@@ -118,12 +118,14 @@ pub fn draw_inspector_pane_with_chrome(
     }
 
     let Some(pr) = delivery.selected() else {
-        let title = chrome
-            .map(|chrome| chrome.title("Inspector"))
-            .unwrap_or_else(|| " Inspector ".into());
-        let border_style = chrome
-            .map(|chrome| chrome.border_style)
-            .unwrap_or_else(|| Style::default().fg(theme.border_subtle));
+        let title = match chrome {
+            Some(chrome) => chrome.title("Inspector"),
+            None => " Inspector ".into(),
+        };
+        let border_style = match chrome {
+            Some(chrome) => chrome.border_style,
+            None => Style::default().fg(theme.border_subtle),
+        };
         f.render_widget(
             Block::default()
                 .title(title)
@@ -185,12 +187,14 @@ fn draw_tab_strip(
         None => format!("PR #{}", pr.number),
     };
     let title_text = format!("Inspector · {selected_text}");
-    let title = chrome
-        .map(|chrome| chrome.title(&title_text))
-        .unwrap_or_else(|| crate::tui::focus::title_with_esc(&title_text, false));
-    let border_style = chrome
-        .map(|chrome| chrome.border_style)
-        .unwrap_or_else(|| Style::default().fg(theme.border_accent));
+    let title = match chrome {
+        Some(chrome) => chrome.title(&title_text),
+        None => crate::tui::focus::title_with_esc(&title_text, false),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(theme.border_accent),
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)

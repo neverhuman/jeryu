@@ -201,74 +201,14 @@ impl fmt::Display for RuntimeProfileError {
 
 impl std::error::Error for RuntimeProfileError {}
 
-pub fn select_message_log_backend(
-    env_value: Option<&str>,
-) -> Result<MessageLogBackend, RuntimeProfileError> {
-    let backend = match env_value.map(str::trim).filter(|value| !value.is_empty()) {
-        Some(value) => MessageLogBackend::parse(value)?,
-        None => RuntimeProfile::compiled().message_log_backend(),
-    };
-    ensure_message_log_backend_compiled(backend)?;
-    Ok(backend)
-}
-
-pub fn ensure_message_log_backend_compiled(
-    backend: MessageLogBackend,
-) -> Result<(), RuntimeProfileError> {
-    match backend {
-        MessageLogBackend::Kafka if !backend.is_compiled() => {
-            Err(RuntimeProfileError::BackendNotCompiled {
-                requested: "kafka",
-                feature: "kafka-backend",
-            })
-        }
-        MessageLogBackend::Jansu if !backend.is_compiled() => {
-            Err(RuntimeProfileError::BackendNotCompiled {
-                requested: "jansu",
-                feature: "jansu-backend",
-            })
-        }
-        _ => Ok(()),
-    }
-}
+#[path = "runtime_support_select.rs"]
+mod select;
+pub use select::{ensure_message_log_backend_compiled, select_message_log_backend};
 
 fn normalize(value: &str) -> String {
     value.trim().to_ascii_lowercase().replace(['-', '_'], "")
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn config_parser_default_profile_is_kafka() {
-        assert_eq!(
-            RuntimeProfile::compiled().message_log_backend(),
-            if cfg!(all(
-                feature = "profile-redlinedb-jansu",
-                not(feature = "profile-sqlite-kafka")
-            )) {
-                MessageLogBackend::Jansu
-            } else {
-                MessageLogBackend::Kafka
-            }
-        );
-    }
-
-    #[test]
-    fn parses_runtime_vocabulary() {
-        assert_eq!(StateBackend::parse("sqlite").unwrap(), StateBackend::Sqlite);
-        assert_eq!(
-            StateBackend::parse("redline").unwrap(),
-            StateBackend::RedlineDb
-        );
-        assert_eq!(
-            MessageLogBackend::parse("kafka").unwrap(),
-            MessageLogBackend::Kafka
-        );
-        assert_eq!(
-            RuntimeProfile::parse("redlinedb-jansu").unwrap(),
-            RuntimeProfile::RedlineDbJansu
-        );
-    }
-}
+#[path = "runtime_support_tests.rs"]
+mod tests;
