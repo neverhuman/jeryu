@@ -124,8 +124,11 @@ need to route the next rerun to a specific local command.
 
 ## Local CI Parity
 
-The local parity entrypoint is `scripts/ci-local.sh`. It dispatches to the same
-`ops/ci/*.sh` scripts that GitHub Actions calls:
+The canonical full parity entrypoint is `just ci-parity` or
+`bash scripts/ci-parity.sh`. It mirrors the GitHub workflow command set and is
+the right command to run before a PR when you want the full local gate.
+
+`scripts/ci-local.sh` is the lane-level helper for targeted runs:
 
 - `scripts/ci-local.sh rust fmt`
 - `scripts/ci-local.sh rust clippy`

@@ -1,11 +1,14 @@
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use cargo_metadata::{Metadata, MetadataCommand, Package};
 
 use crate::model::{PackageAgentMetadata, WorkspaceAgentMetadata};
+
+#[path = "workspace_paths.rs"]
+mod paths;
+use paths::{display_relative, normalize_manifest_path, normalize_workspace_path, workspace_root};
 
 #[derive(Debug, Clone)]
 pub struct PackageSnapshot {
@@ -51,7 +54,7 @@ pub fn load_workspace(manifest_path: Option<&Path>) -> Result<WorkspaceSnapshot>
     let metadata = metadata_query
         .exec() // allowlist: structured cargo_metadata invocation, path-validated manifest
         .context("failed to read cargo metadata (see normalize_manifest_path)")?;
-    let workspace_root = normalize_existing_path(metadata.workspace_root.as_std_path())?;
+    let workspace_root = paths::normalize_existing_path(metadata.workspace_root.as_std_path())?;
     let workspace_agent = parse_workspace_agent(&metadata.workspace_metadata)?;
     let member_ids: HashSet<_> = metadata.workspace_members.iter().cloned().collect();
     let package_by_id: HashMap<_, _> = metadata
@@ -101,13 +104,6 @@ pub fn load_workspace(manifest_path: Option<&Path>) -> Result<WorkspaceSnapshot>
         workspace_agent,
         packages,
     })
-}
-
-fn workspace_root() -> Result<PathBuf> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let crate_root = manifest_dir.parent().context("workspace crate root")?;
-    let root = crate_root.parent().context("workspace root")?;
-    Ok(root.to_path_buf())
 }
 
 fn parse_workspace_agent(value: &serde_json::Value) -> Result<WorkspaceAgentMetadata> {
@@ -182,165 +178,9 @@ fn package_snapshot(
 }
 
 fn sorted_lookup(map: &HashMap<String, Vec<String>>, key: &str) -> Vec<String> {
-    let mut values = match map.get(key) {
-        Some(values) => values.clone(),
-        None => Vec::new(),
-    };
-    values.sort();
-    values.dedup();
-    values
-}
-
-fn normalize_existing_path(path: &Path) -> Result<PathBuf> {
-    fs::canonicalize(path)
-        .with_context(|| format!("failed to canonicalize path {}", path.display()))
-}
-
-fn normalize_manifest_path(path: &Path) -> Result<PathBuf> {
-    let normalized = normalize_existing_path(path)?;
-    let root = workspace_root()?;
-    if !normalized.starts_with(&root) {
-        anyhow::bail!(
-            "manifest path {} escapes workspace root {}",
-            normalized.display(),
-            root.display()
-        );
-    }
-    if normalized.file_name().and_then(|name| name.to_str()) != Some("Cargo.toml") {
-        anyhow::bail!("workspace manifest path must point to Cargo.toml");
-    }
-    Ok(normalized)
-}
-
-fn normalize_workspace_path(root: &Path, path: &Path) -> Result<PathBuf> {
-    let normalized_path = normalize_existing_path(path)?;
-    if normalized_path.starts_with(root) {
-        Ok(normalized_path)
-    } else {
-        anyhow::bail!(
-            "workspace path {} escapes workspace root {}",
-            normalized_path.display(),
-            root.display()
-        );
-    }
-}
-
-fn display_relative(root: &Path, path: &Path) -> String {
-    match path.strip_prefix(root).ok() {
-        Some(relative) if !relative.as_os_str().is_empty() => relative.display().to_string(),
-        _ if path == root => ".".to_string(),
-        _ => path.display().to_string(),
-    }
+    paths::sorted_lookup(map, key)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn unique_path(prefix: &str) -> PathBuf {
-        let stamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock moved backwards")
-            .as_nanos();
-        workspace_root()
-            .expect("workspace root")
-            .join("target")
-            .join("cargo-vrc-tests")
-            .join(format!("{prefix}-{stamp}"))
-    }
-
-    #[test]
-    fn normalize_workspace_path_accepts_paths_inside_root() {
-        let root = unique_path("workspace-root");
-        let nested = root.join("nested");
-        fs::create_dir_all(&nested).expect("create nested directory");
-        let file = nested.join("Cargo.toml");
-        fs::write(&file, "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n")
-            .expect("write manifest");
-
-        let root = fs::canonicalize(&root).expect("canonicalize root");
-        let normalized = normalize_workspace_path(&root, &file).expect("normalize path");
-        assert!(normalized.starts_with(&root));
-
-        let _ = fs::remove_file(&file);
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn normalize_manifest_path_requires_cargo_toml() {
-        let root = unique_path("workspace-manifest");
-        fs::create_dir_all(&root).expect("create root directory");
-        let manifest = root.join("not-a-manifest.txt");
-        fs::write(&manifest, "manifest fixture").expect("write manifest-like file");
-
-        let err = normalize_manifest_path(&manifest).expect_err("reject non-manifest path");
-        assert!(err.to_string().contains("Cargo.toml"));
-
-        let _ = fs::remove_file(&manifest);
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn normalize_manifest_path_rejects_traversal_outside_workspace() {
-        // Negative test for HLT-023-INPUT-BOUNDARY-GAP: confirm that a
-        // user-supplied manifest path that canonicalizes outside the workspace
-        // is refused before it can reach `MetadataCommand::exec`.
-        //
-        // The OS-provided ephemeral directory canonicalizes to a location
-        // outside the compile-time workspace root on macOS (e.g.
-        // /private/var/...), so a manifest written there is rejected by the
-        // allowlist enforced by `normalize_manifest_path`.
-        let outside_root = std::env::temp_dir().join(format!(
-            "cargo-vrc-outside-{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("clock moved backwards")
-                .as_nanos()
-        ));
-        fs::create_dir_all(&outside_root).expect("create outside root");
-        let outside_manifest = outside_root.join("Cargo.toml");
-        fs::write(
-            &outside_manifest,
-            "[package]\nname = \"hostile\"\nversion = \"0.0.0\"\n",
-        )
-        .expect("write outside manifest");
-
-        let err = normalize_manifest_path(&outside_manifest)
-            .expect_err("reject manifest outside workspace");
-        let message = err.to_string();
-        assert!(
-            message.contains("escapes workspace root"),
-            "unexpected error: {message}"
-        );
-
-        let _ = fs::remove_file(&outside_manifest);
-        let _ = fs::remove_dir_all(&outside_root);
-    }
-
-    #[test]
-    fn normalize_workspace_path_rejects_paths_outside_root() {
-        let root = unique_path("workspace-root");
-        let nested = root.join("nested");
-        fs::create_dir_all(&nested).expect("create nested directory");
-        let inside = nested.join("Cargo.toml");
-        fs::write(&inside, "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n")
-            .expect("write manifest");
-
-        let outside = unique_path("workspace-outside.toml");
-        fs::write(
-            &outside,
-            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
-        )
-        .expect("write outside manifest");
-
-        let root = fs::canonicalize(&root).expect("canonicalize root");
-        let err = normalize_workspace_path(&root, &outside).expect_err("reject outside path");
-        assert!(err.to_string().contains("escapes workspace root"));
-
-        let _ = fs::remove_file(&inside);
-        let _ = fs::remove_file(&outside);
-        let _ = fs::remove_dir_all(&root);
-    }
-}
+#[path = "workspace_tests.rs"]
+mod tests;

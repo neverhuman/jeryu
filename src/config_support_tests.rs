@@ -25,6 +25,8 @@ fn test_render_compose() {
     assert!(composed.contains("container_name: jeryu-vault"));
     assert!(composed.contains("hashicorp/vault"));
     assert!(composed.contains("GITLAB_ROOT_PASSWORD: \"example-root-password\""));
+    assert!(composed.contains("127.0.0.1:18200:8200"));
+    assert!(!composed.contains("0.0.0.0:18200:8200"));
     assert!(composed.contains("gitlab_workhorse['api_ci_long_polling_duration']"));
     assert!(composed.contains("docker-compose.yml")); // Should have some identifying comment
     assert!(composed.contains("puma['worker_processes'] = 0"));

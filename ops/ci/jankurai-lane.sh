@@ -8,6 +8,7 @@
 #   JANKURAI_REPAIR_QUEUE  — repair-queue JSONL path for the audit step
 #   JANKURAI_BASELINE      — override baseline path (default: agent/repo-score.json)
 #   JANKURAI_AUDIT_MODE    — audit mode (default: advisory)
+#   JANKURAI_CHANGED_FROM  — changed-path base ref for proofbind (default: origin/main)
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -41,9 +42,77 @@ run_audit() {
     "${extra[@]}"
 }
 
+is_proofbind_binary_artifact() {
+  local path="$1"
+  case "$path" in
+    assets/*.gif|assets/*.png) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_utf8_file() {
+  local path="$1"
+  [ ! -s "$path" ] && return 0
+  iconv -f UTF-8 -t UTF-8 "$path" >/dev/null 2>&1
+}
+
+write_empty_proofbind_outputs() {
+  log "proofbind changed set has no text inputs after binary filtering"
+  local head generated
+  head="$(git rev-parse --short HEAD 2>/dev/null || printf 'unknown')"
+  generated="$(date +%s)"
+  mkdir -p target/jankurai/proofbind
+  cat >target/jankurai/proofbind/surface-witness.json <<JSON
+{"schema_version":"1.0.0","standard_version":"0.7.0","generated_at":"$generated","repo_root":".","git_head":"$head","mode":"advisory","changed_paths":[],"surfaces":[],"summary":{"changed_surface_count":0,"high_or_critical_surface_count":0,"by_surface_type":{},"by_owner":{},"verdict":"pass"}}
+JSON
+  cat >target/jankurai/proofbind/obligations.json <<JSON
+{"schema_version":"1.0.0","standard_version":"0.7.0","generated_at":"$generated","repo_root":".","git_head":"$head","mode":"advisory","obligations":[],"summary":{"total":0,"satisfied":0,"missing":0,"high_or_critical_missing":0,"changed_surface_count":0,"verdict":"pass"}}
+JSON
+  cat >target/jankurai/proofbind/proofbind.md <<'MD'
+# Proofbind
+
+No UTF-8 changed files remained after binary artifact filtering.
+MD
+}
+
+proofbind_changed_args() {
+  local base="${JANKURAI_CHANGED_FROM:-origin/main}"
+  local path
+  local skipped=0
+  local diff_ref="$base...HEAD"
+  PROOFBIND_CHANGED_ARGS=()
+
+  if ! git rev-parse --verify "$base" >/dev/null 2>&1; then
+    die "proofbind base ref is not available: $base"
+  fi
+
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    [ -f "$path" ] || continue
+    if is_proofbind_binary_artifact "$path"; then
+      log "proofbind skip generated binary artifact: $path"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    if ! is_utf8_file "$path"; then
+      die "proofbind cannot read non-UTF-8 changed file: $path"
+    fi
+    PROOFBIND_CHANGED_ARGS+=(--changed "$path")
+  done < <(git diff --name-only "$diff_ref")
+
+  if [ "$skipped" -gt 0 ]; then
+    log "proofbind skipped $skipped generated binary artifact(s)"
+  fi
+}
+
 run_proof() {
   log "proofbind verify"
-  jankurai proofbind verify . --changed-from origin/main
+  proofbind_changed_args
+  if [ "${#PROOFBIND_CHANGED_ARGS[@]}" -eq 0 ]; then
+    write_empty_proofbind_outputs
+  else
+    jankurai proofbind verify . "${PROOFBIND_CHANGED_ARGS[@]}"
+  fi
   log "proofmark rust"
   jankurai proofmark rust . \
     --obligations target/jankurai/proofbind/obligations.json
@@ -79,6 +148,7 @@ prepare_ux_qa_cli() {
 }
 
 prepare_ux_qa_smoke_config() {
+  local smoke_port="$1"
   local smoke_dir="target/jankurai/ux-qa-smoke"
   mkdir -p "$smoke_dir"
   cat >"$smoke_dir/index.html" <<'HTML'
@@ -130,10 +200,35 @@ stateQueryParam = "state"
 
 [[routes]]
 id = "ux-qa-smoke"
-url = "file://$REPO_ROOT/target/jankurai/ux-qa-smoke/index.html"
+url = "http://127.0.0.1:$smoke_port/index.html"
 states = ["loading", "empty", "error", "success", "permission-denied"]
 EOF
   printf '%s\n' "$smoke_dir/ux-qa.toml"
+}
+
+start_ux_qa_smoke_server() {
+  local smoke_dir="$1"
+  local smoke_port_file="$2"
+  local smoke_log="$3"
+  local smoke_port="$4"
+  python3 -m http.server "$smoke_port" --bind 127.0.0.1 --directory "$smoke_dir" >"$smoke_log" 2>&1 &
+  local smoke_pid=$!
+  printf '%s\n' "$smoke_pid" >"$smoke_port_file"
+  for _ in 1 2 3 4 5; do
+    if python3 - "$smoke_port" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+port = int(sys.argv[1])
+with socket.create_connection(("127.0.0.1", port), timeout=1):
+    pass
+PY
+    then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
 }
 
 run_tools() {
@@ -145,10 +240,27 @@ run_tools() {
   jankurai migrate . --analyze --out target/jankurai/migration-report.json
   log "UX QA smoke"
   local ux_cli ux_config
+  local smoke_port smoke_pid smoke_log smoke_dir
+  smoke_dir="target/jankurai/ux-qa-smoke"
+  smoke_port="$(python3 - <<'PY'
+import socket
+with socket.socket() as s:
+    s.bind(("127.0.0.1", 0))
+    print(s.getsockname()[1])
+PY
+)"
+  smoke_log="target/jankurai/ux-qa-smoke/http.log"
   ux_cli="$(prepare_ux_qa_cli)"
-  ux_config="$(prepare_ux_qa_smoke_config)"
+  ux_config="$(prepare_ux_qa_smoke_config "$smoke_port")"
+  start_ux_qa_smoke_server "$smoke_dir" "target/jankurai/ux-qa-smoke/http.pid" "$smoke_log" "$smoke_port"
+  smoke_pid="$(cat target/jankurai/ux-qa-smoke/http.pid)"
+  trap 'if [ -n "${smoke_pid:-}" ] && kill "$smoke_pid" >/dev/null 2>&1; then wait "$smoke_pid" >/dev/null 2>&1 || true; fi' EXIT
   node "$ux_cli" audit --config "$ux_config" \
     --out target/jankurai/ux-qa.json
+  if kill "$smoke_pid" >/dev/null 2>&1; then
+    wait "$smoke_pid" >/dev/null 2>&1 || true
+  fi
+  trap - EXIT
 }
 
 run_bad_behavior() {

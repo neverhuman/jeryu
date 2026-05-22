@@ -11,21 +11,39 @@ use ratatui::{
 };
 
 use super::model::*;
-use crate::tui::theme::Theme;
+use crate::tui::{focus::PaneChrome, theme::Theme};
 
 /// Width of each PR chip including 1 column of spacing.
 pub const CHIP_W: u16 = 30;
 const TITLE_MAX: usize = 22;
 
 pub fn draw_pr_rail(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
+    draw_pr_rail_with_chrome(f, area, snap, theme, None);
+}
+
+pub(crate) fn draw_pr_rail_with_chrome(
+    f: &mut Frame,
+    area: Rect,
+    snap: &DeliverySnapshot,
+    theme: &Theme,
+    chrome: Option<PaneChrome>,
+) {
     if area.width == 0 || area.height == 0 {
         return;
     }
 
+    let title = match chrome {
+        Some(chrome) => chrome.title("PRs"),
+        None => crate::tui::focus::title_with_esc("PRs", false),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(theme.border_subtle),
+    };
     let block = Block::default()
-        .title(" PRs ")
+        .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_subtle));
+        .border_style(border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 

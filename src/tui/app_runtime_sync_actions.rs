@@ -276,6 +276,49 @@ impl App {
         if self.focus.is_drilled() {
             return;
         }
+        if self.active_tab == ActiveTab::Workflow {
+            match (self.focus.active, direction) {
+                (
+                    crate::tui::focus::PaneId::WorkflowMinimap,
+                    crate::tui::focus::NavDirection::Right,
+                ) if self.delivery_hit_map.inspector.is_some() => {
+                    self.maximize_logs = false;
+                    self.focus.active = crate::tui::focus::PaneId::WorkflowInspector;
+                    return;
+                }
+                (
+                    crate::tui::focus::PaneId::WorkflowInspector,
+                    crate::tui::focus::NavDirection::Left,
+                ) if self
+                    .focus_map
+                    .rect_of(crate::tui::focus::PaneId::WorkflowMinimap)
+                    .is_some() =>
+                {
+                    self.maximize_logs = false;
+                    self.focus.active = crate::tui::focus::PaneId::WorkflowMinimap;
+                    return;
+                }
+                _ => {}
+            }
+        }
+        if self.active_tab == ActiveTab::Bugs {
+            match (self.focus.active, direction) {
+                (crate::tui::focus::PaneId::BugsTable, crate::tui::focus::NavDirection::Right) => {
+                    self.maximize_logs = false;
+                    self.focus.active = crate::tui::focus::PaneId::BugsInspector;
+                    return;
+                }
+                (
+                    crate::tui::focus::PaneId::BugsInspector,
+                    crate::tui::focus::NavDirection::Left,
+                ) => {
+                    self.maximize_logs = false;
+                    self.focus.active = crate::tui::focus::PaneId::BugsTable;
+                    return;
+                }
+                _ => {}
+            }
+        }
         if let Some(next) = self.focus_map.neighbor(self.focus.active, direction) {
             self.maximize_logs = false;
             self.focus.active = next;

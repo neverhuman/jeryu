@@ -69,3 +69,52 @@ pub(super) fn current_exe_mount_source(result: std::io::Result<PathBuf>) -> Path
         Err(_) => PathBuf::from("/usr/local/bin/jeryu"),
     }
 }
+
+pub(super) async fn compose_up(_docker: &DockerCtl) -> Result<()> {
+    let data_dir = config::data_dir();
+    let output = tokio::process::Command::new("docker")
+        .args(["compose", "up", "-d", "--no-deps"])
+        .args(compose_up_targets())
+        .current_dir(&data_dir)
+        .output()
+        .await
+        .context("running docker compose up")?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("docker compose up failed: {}", stderr);
+    }
+    info!("docker compose up completed");
+    Ok(())
+}
+
+pub(super) async fn compose_up_service(_docker: &DockerCtl, service: &str) -> Result<()> {
+    let data_dir = config::data_dir();
+    let output = tokio::process::Command::new("docker")
+        .args(["compose", "up", "-d", "--no-deps", service])
+        .current_dir(&data_dir)
+        .output()
+        .await
+        .with_context(|| format!("running docker compose up {service}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("docker compose up {service} failed: {}", stderr);
+    }
+    info!(service, "docker compose up service completed");
+    Ok(())
+}
+
+pub(super) async fn compose_down(_docker: &DockerCtl) -> Result<()> {
+    let data_dir = config::data_dir();
+    let output = tokio::process::Command::new("docker")
+        .args(["compose", "down"])
+        .current_dir(&data_dir)
+        .output()
+        .await
+        .context("running docker compose down")?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!("docker compose down warning: {}", stderr);
+    }
+    info!("docker compose down completed");
+    Ok(())
+}

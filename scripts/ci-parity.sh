@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# ci-parity.sh — run the same checks remote CI runs, locally.
+# ci-parity.sh — canonical full CI parity gate for local pre-PR validation.
 #
-# Goal: if this script exits 0 locally, you can have FULL confidence that
-# remote CI on PR #2 will pass. Mirrors `.github/workflows/rust.yml` +
-# `.github/workflows/jankurai.yml`.
+# Goal: if this script exits 0 locally, you have the same lane coverage the
+# GitHub workflows exercise for the PR surface.
 #
 # Usage:
 #   bash scripts/ci-parity.sh           # run everything
@@ -51,66 +50,50 @@ if [[ "${JERYU_DB_BACKEND:-sqlite}" == "redlinedb" || "${JERYU_DATABASE_URL:-}" 
 fi
 run "Install Jankurai binary" bash scripts/install-jankurai.sh
 run "Jankurai version pin" bash -c 'jankurai --version | grep -Fx "jankurai 1.5.1"'
+run "Workflow lint" actionlint .github/workflows/*.yml
 
-# ─── 2. Format (matches CI: cargo fmt --all -- --check) ──────────────────────
-run "Format" cargo fmt --all -- --check
-
-# ─── 3. Clippy (matches CI: cargo clippy --all-targets --all-features -- -D warnings) ───────
-run "Clippy" cargo clippy --all-targets --all-features -- -D warnings
-
-# ─── 4. Build (matches CI: cargo build --verbose) ────────────────────────────
-run "Build" cargo build --verbose
-
-# ─── 5. Library tests (matches CI: cargo nextest run -p jeryu --lib) ─────────
-run "Library Tests (nextest)" cargo nextest run -p jeryu --lib
-
-# ─── 6. Integration tests (matches CI: cargo test --tests --verbose -- --test-threads=1) ──
+# ─── 2. Rust workflow parity ────────────────────────────────────────────────
+run "Format" bash ops/ci/rust-lane.sh fmt
+run "Clippy" bash ops/ci/rust-lane.sh clippy
+run "Build" bash ops/ci/rust-lane.sh build
+run "Install Smoke" bash ops/ci/rust-lane.sh install-smoke
+run "Test Selection" bash ops/ci/rust-lane.sh test-select
+run "Library Tests (nextest)" bash ops/ci/rust-lane.sh test-lib
 if [[ "$FAST" == "0" ]]; then
-    run "Integration Tests" cargo test --tests --verbose -- --test-threads=1
+    run "Integration Tests" bash ops/ci/rust-lane.sh test-integration
 fi
+run "TUI Smoke (1-frame render)" bash ops/ci/rust-lane.sh tui-smoke
+run "Supply Chain Audit" bash ops/ci/rust-lane.sh supply-chain
+run "Witness Graph" bash ops/ci/rust-lane.sh witness
+run "VRC Map" bash ops/ci/rust-lane.sh vrc-map
+run "VRC Plan" bash ops/ci/rust-lane.sh vrc-plan
+run "AER Scan" bash ops/ci/rust-lane.sh aer
+run "SSH Install E2E" bash ops/ci/rust-lane.sh ssh-install-e2e
+run "TUI Screenshots" bash ops/ci/rust-lane.sh tui-screenshots
+run "TUI Recording" bash ops/ci/rust-lane.sh tui-recording
+run "Fixture Project Validation" bash ops/ci/rust-lane.sh fixture-project-test
+run "Fixture Project Clippy" bash ops/ci/rust-lane.sh fixture-project-clippy
+run "Rust Deny" bash ops/ci/rust-lane.sh deny
 
-# ─── 7. TUI Smoke (matches CI: cargo run -- tui --once) ──────────────────────
-PARITY_PREFIX="/tmp/jeryu-ci-parity-$$"
-mkdir -p "$PARITY_PREFIX"
-trap 'rm -rf "$PARITY_PREFIX"' EXIT
-PARITY_DB="$PARITY_PREFIX/tui-smoke.sqlite"
-run "TUI Smoke (1-frame render)" env JERYU_DATABASE_URL="sqlite://$PARITY_DB?mode=rwc&cache=shared" cargo run --quiet -- tui --once
-
-# ─── 8. Install Smoke (matches CI: cargo run -- install --dry-run) ──────────
-run "Install Smoke (dry-run)" \
-    cargo run --quiet -- install --dry-run --json --color never --prefix "$PARITY_PREFIX"
-
-# ─── 9. TUI tuiwright tests (matches CI: TERM=xterm-256color cargo test --test tui_tuiwright) ──
-run "TUI Tuiwright Tests" \
-    env TERM=xterm-256color cargo test --test tui_tuiwright -- --test-threads=1
-
-# ─── 10. Fixture Project Validation (matches CI: cd fixture && cargo test) ───
-run "Fixture Project Validation" \
-    bash -c 'cd tests/fixtures/fixture_project && cargo test --quiet'
-
-# ─── 11. actionlint (matches CI's "Workflow lint" step in jankurai.yml) ──────
-# shellcheck disable=SC2046  # we want word-splitting from the glob
-run "Workflow Lint (actionlint)" actionlint $(ls .github/workflows/*.yml)
-
-# ─── 12. Jankurai audit (matches CI: bash ops/ci/jankurai-lane.sh audit) ─────
+# ─── 3. Jankurai workflow parity ─────────────────────────────────────────────
 mkdir -p target/ci-parity
-run "Jankurai Audit" jankurai audit . \
-    --full \
-    --mode advisory \
-    --json target/ci-parity/repo-score.json \
-    --md target/ci-parity/repo-score.md
+run "Security strict preflight" bash ops/ci/jankurai-lane.sh security
+run "Jankurai Audit" bash ops/ci/jankurai-lane.sh audit
+run "Proof lanes" bash ops/ci/jankurai-lane.sh proof
+run "Audit tools" bash ops/ci/jankurai-lane.sh tools
+run "Bad-behavior checks" bash ops/ci/jankurai-lane.sh bad-behavior
 
-# ─── 13. Cargo deny (matches CI: cargo deny check) ───────────────────────────
+# ─── 4. Additional parity and hardening checks ──────────────────────────────
 run "Cargo Deny" cargo deny check
 
-# ─── 13a. Scheduled hardening (matches weekly CI hardening job) ──────────────
+# ─── 5. Scheduled hardening (matches weekly CI hardening job) ──────────────
 if [[ "$FAST" == "0" ]]; then
     run "Scheduled Hardening" bash ops/ci/rust-lane.sh hardening
 else
     echo "scheduled hardening skipped in fast mode"
 fi
 
-# ─── 14. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
+# ─── 6. Jansu messaging smoke (jansu-broker feature default-on) ─────────────
 # Validates that the embedded broker + consumer-loop wire correctly. Skipped
 # automatically when --no-default-features builds drop jansu-embedded.
 if [[ "$FAST" == "0" ]]; then
@@ -122,7 +105,7 @@ if [[ "$FAST" == "0" ]]; then
             -- --test-threads=1
 fi
 
-# ─── 15. No-default-features compile (diagnostic build-surface canary) ──────
+# ─── 7. No-default-features compile (diagnostic build-surface canary) ──────
 if [[ "$FAST" == "0" ]]; then
     run "No-default-features Check" cargo check --no-default-features
 fi

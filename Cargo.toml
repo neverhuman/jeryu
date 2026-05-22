@@ -14,7 +14,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.14"
+version = "3.3.15"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -165,6 +165,7 @@ jansu-broker = ["jansu-backend"]
 # Tuiwright is NOT managed as a library in this repo. It MUST be pulled from
 # the jankurai workspace at an explicit version tag — never a local path.
 # Bump the `tag` to upgrade; Cargo.lock pins the exact commit.
+jsonschema = "0.45.1"
 tuiwright = { git = "https://github.com/neverhuman/jankurai.git", tag = "v1.5.1" }
 
 [package.metadata.agent]

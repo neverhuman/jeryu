@@ -2,15 +2,30 @@
 //! Proof: `cargo test -p jeryu --lib db::bugtracker_repo`
 //! Invariants: all bug tracker persistence uses RedlineDB through this typed repo.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use chrono::Utc;
 use sqlx::{AnyPool, Row};
 
 use crate::bugtracker::{
-    AttemptStatus, BugAttempt, BugAttemptInput, BugDetail, BugEvent, BugPriority, BugProject,
-    BugProjectInput, BugRecord, BugSeverity, BugSort, BugStatus, CanonicalBugReport,
-    generate_bug_id, ranking_key, validate_transition,
+    BugAttempt, BugAttemptInput, BugDetail, BugEvent, BugPriority, BugProject, BugProjectInput,
+    BugRecord, BugSeverity, BugSort, BugStatus, CanonicalBugReport, generate_bug_id,
+    validate_transition,
 };
+
+#[path = "bugtracker_repo_decode.rs"]
+mod bugtracker_repo_decode;
+use bugtracker_repo_decode::{base_select_with, decode_attempt, decode_bug_record, sort_bugs};
+
+#[path = "bugtracker_repo_schema.rs"]
+mod bugtracker_repo_schema;
+pub use bugtracker_repo_schema::bugtracker_schema_ddl;
+
+#[cfg(test)]
+pub(crate) use bugtracker_repo_schema::fresh_bugtracker_pool;
+
+#[cfg(test)]
+#[path = "bugtracker_repo_tests.rs"]
+mod tests;
 
 #[derive(Debug, Clone)]
 pub struct BugTrackerRepo {
@@ -20,6 +35,11 @@ pub struct BugTrackerRepo {
 impl BugTrackerRepo {
     pub fn new(pool: AnyPool) -> Self {
         Self { pool }
+    }
+
+    pub async fn open_default() -> Result<Self> {
+        let db = crate::state::Db::open().await?;
+        Ok(Self::new(db.pool()))
     }
 
     pub async fn install_schema(&self) -> Result<()> {
@@ -467,302 +487,5 @@ impl BugTrackerRepo {
         .fetch_one(&self.pool)
         .await?;
         decode_attempt(row)
-    }
-}
-
-fn base_select_with(where_clause: &str) -> String {
-    format!(
-        "SELECT id, title, source_project, target_project, component, status, severity, priority,
-                difficulty, impact, security, owner, body_json, created_at, updated_at
-         FROM bugs
-         {where_clause}"
-    )
-}
-
-fn decode_bug_record(row: sqlx::any::AnyRow) -> Result<BugRecord> {
-    let body_json: String = row.try_get("body_json")?;
-    let body: CanonicalBugReport = serde_json::from_str(&body_json).context("decode bug body")?;
-    let status_s: String = row.try_get("status")?;
-    let severity_s: String = row.try_get("severity")?;
-    let priority_s: String = row.try_get("priority")?;
-    Ok(BugRecord {
-        id: row.try_get("id")?,
-        title: row.try_get("title")?,
-        source_project: row.try_get("source_project")?,
-        target_project: row.try_get("target_project")?,
-        component: row.try_get("component")?,
-        status: BugStatus::parse(&status_s)?,
-        severity: parse_severity(&severity_s)?,
-        priority: parse_priority(&priority_s)?,
-        difficulty: row.try_get::<i64, _>("difficulty")? as u8,
-        impact: row.try_get("impact")?,
-        security: row.try_get::<i64, _>("security")? != 0,
-        owner: row.try_get("owner")?,
-        body,
-        created_at: row.try_get("created_at")?,
-        updated_at: row.try_get("updated_at")?,
-        attempt_count: 0,
-        failed_attempt_count: 0,
-    })
-}
-
-fn decode_attempt(row: sqlx::any::AnyRow) -> Result<BugAttempt> {
-    let status: String = row.try_get("status")?;
-    Ok(BugAttempt {
-        id: row.try_get("id")?,
-        bug_id: row.try_get("bug_id")?,
-        agent: row.try_get("agent")?,
-        status: AttemptStatus::parse(&status)?,
-        sandbox_path: row.try_get("sandbox_path")?,
-        branch: row.try_get("branch")?,
-        base_sha: row.try_get("base_sha")?,
-        head_sha: row.try_get("head_sha")?,
-        pr_url: row.try_get("pr_url")?,
-        ci_evidence: row.try_get("ci_evidence")?,
-        notes: row.try_get("notes")?,
-        created_at: row.try_get("created_at")?,
-        updated_at: row.try_get("updated_at")?,
-    })
-}
-
-fn parse_severity(input: &str) -> Result<BugSeverity> {
-    match input {
-        "S0" | "s0" => Ok(BugSeverity::S0),
-        "S1" | "s1" => Ok(BugSeverity::S1),
-        "S2" | "s2" => Ok(BugSeverity::S2),
-        "S3" | "s3" => Ok(BugSeverity::S3),
-        "S4" | "s4" => Ok(BugSeverity::S4),
-        other => bail!("unknown severity '{other}'"),
-    }
-}
-
-fn parse_priority(input: &str) -> Result<BugPriority> {
-    match input {
-        "P0" | "p0" => Ok(BugPriority::P0),
-        "P1" | "p1" => Ok(BugPriority::P1),
-        "P2" | "p2" => Ok(BugPriority::P2),
-        "P3" | "p3" => Ok(BugPriority::P3),
-        "P4" | "p4" => Ok(BugPriority::P4),
-        other => bail!("unknown priority '{other}'"),
-    }
-}
-
-fn sort_bugs(bugs: &mut [BugRecord], sort: BugSort) {
-    match sort {
-        BugSort::Rank => bugs.sort_by_key(ranking_key),
-        BugSort::Severity => bugs.sort_by_key(|bug| bug.severity),
-        BugSort::Priority => bugs.sort_by_key(|bug| bug.priority),
-        BugSort::Difficulty => bugs.sort_by_key(|bug| bug.difficulty),
-        BugSort::Ready => {
-            bugs.sort_by_key(|bug| if bug.status == BugStatus::Ready { 0 } else { 1 })
-        }
-        BugSort::Updated => bugs.sort_by(|a, b| b.updated_at.cmp(&a.updated_at)),
-        BugSort::Attempts => bugs.sort_by_key(|bug| -bug.attempt_count),
-    }
-}
-
-pub fn bugtracker_schema_ddl() -> &'static str {
-    r#"
-    CREATE TABLE IF NOT EXISTS bug_projects (
-        alias TEXT PRIMARY KEY,
-        repo_root TEXT NOT NULL,
-        repo_slug TEXT NOT NULL,
-        provider_kind TEXT NOT NULL,
-        provider_project_id TEXT,
-        default_branch TEXT NOT NULL DEFAULT 'main',
-        metadata_json TEXT NOT NULL DEFAULT '{}',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS bug_project_edges (
-        source_project TEXT NOT NULL,
-        target_project TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        PRIMARY KEY (source_project, target_project, kind)
-    );
-    CREATE TABLE IF NOT EXISTS bugs (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        source_project TEXT NOT NULL,
-        target_project TEXT NOT NULL,
-        component TEXT,
-        status TEXT NOT NULL,
-        severity TEXT NOT NULL,
-        priority TEXT NOT NULL,
-        difficulty INTEGER NOT NULL,
-        repro_state TEXT NOT NULL,
-        impact TEXT NOT NULL,
-        security INTEGER NOT NULL DEFAULT 0,
-        owner TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        body_json TEXT NOT NULL,
-        idempotency_key TEXT UNIQUE
-    );
-    CREATE INDEX IF NOT EXISTS idx_bugs_target_status ON bugs(target_project, status, severity, priority);
-    CREATE INDEX IF NOT EXISTS idx_bugs_updated ON bugs(updated_at);
-    CREATE TABLE IF NOT EXISTS bug_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        bug_id TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        actor TEXT NOT NULL,
-        payload_json TEXT NOT NULL,
-        created_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_bug_events_bug ON bug_events(bug_id, id);
-    CREATE TABLE IF NOT EXISTS bug_attempts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        bug_id TEXT NOT NULL,
-        agent TEXT,
-        status TEXT NOT NULL,
-        sandbox_path TEXT,
-        branch TEXT,
-        base_sha TEXT,
-        head_sha TEXT,
-        pr_url TEXT,
-        ci_evidence TEXT,
-        notes TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_bug_attempts_bug ON bug_attempts(bug_id, id);
-    CREATE TABLE IF NOT EXISTS bug_links (
-        bug_id TEXT NOT NULL,
-        linked_bug_id TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        PRIMARY KEY (bug_id, linked_bug_id, kind)
-    );
-    CREATE TABLE IF NOT EXISTS bug_external_refs (
-        bug_id TEXT NOT NULL,
-        provider TEXT NOT NULL,
-        external_id TEXT,
-        url TEXT,
-        labels_json TEXT NOT NULL DEFAULT '[]',
-        sync_status TEXT NOT NULL DEFAULT 'local',
-        updated_at TEXT NOT NULL,
-        PRIMARY KEY (bug_id, provider)
-    );
-    CREATE TABLE IF NOT EXISTS bug_evidence (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        bug_id TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        path TEXT,
-        url TEXT,
-        digest TEXT,
-        redacted INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL
-    );
-    "#
-}
-
-#[cfg(test)]
-pub(crate) async fn fresh_bugtracker_pool() -> AnyPool {
-    use crate::db::{AnyPoolOptions, install_default_drivers};
-    install_default_drivers();
-    let tmp = tempfile::NamedTempFile::new().expect("tempfile for bugtracker pool");
-    let url = crate::db::config::sqlite_url(tmp.path());
-    let pool = AnyPoolOptions::new()
-        .max_connections(4)
-        .connect(&url)
-        .await
-        .expect("connect bugtracker sqlite");
-    BugTrackerRepo::new(pool.clone())
-        .install_schema()
-        .await
-        .unwrap();
-    std::mem::forget(tmp);
-    pool
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn project(alias: &str) -> BugProjectInput {
-        BugProjectInput {
-            alias: alias.into(),
-            repo_root: format!("/tmp/{alias}"),
-            repo_slug: format!("neverhuman/{alias}"),
-            provider_kind: "github".into(),
-            provider_project_id: None,
-            default_branch: "main".into(),
-        }
-    }
-
-    fn report() -> CanonicalBugReport {
-        CanonicalBugReport {
-            target_project: "redlinedb".into(),
-            source_project: "veox".into(),
-            title: "adapter loses writes".into(),
-            component: Some("adapter".into()),
-            current_behavior: "writes disappear".into(),
-            expected_behavior: "writes persist".into(),
-            environment: "local".into(),
-            frequency: "always".into(),
-            impact: "blocks local agents".into(),
-            security_privacy: "none".into(),
-            no_secrets_confirmed: true,
-            reproduction_steps: vec!["write row".into(), "read row".into()],
-            evidence: Vec::new(),
-            acceptance_criteria: Vec::new(),
-            severity: BugSeverity::S1,
-            priority: BugPriority::P1,
-            difficulty: 2,
-        }
-    }
-
-    #[tokio::test]
-    async fn submit_list_show_ready_attempts() {
-        let repo = BugTrackerRepo::new(fresh_bugtracker_pool().await);
-        repo.add_project(&project("veox")).await.unwrap();
-        repo.add_project(&project("redlinedb")).await.unwrap();
-        repo.link_projects("veox", "redlinedb", "depends_on")
-            .await
-            .unwrap();
-        let bug = repo
-            .submit_bug(&report(), Some("idem-1"), "test")
-            .await
-            .unwrap();
-        let same = repo
-            .submit_bug(&report(), Some("idem-1"), "test")
-            .await
-            .unwrap();
-        assert_eq!(bug.id, same.id);
-        repo.update_bug(
-            &bug.id,
-            Some(BugStatus::Ready),
-            None,
-            None,
-            None,
-            None,
-            "triager",
-        )
-        .await
-        .unwrap();
-        let ready = repo.ready_bugs(Some("redlinedb")).await.unwrap();
-        assert_eq!(ready.len(), 1);
-        repo.record_attempt(
-            &bug.id,
-            &BugAttemptInput {
-                agent: Some("codex".into()),
-                status: AttemptStatus::Failed,
-                sandbox_path: None,
-                branch: Some("bug/x".into()),
-                base_sha: None,
-                head_sha: None,
-                pr_url: None,
-                ci_evidence: Some("test failed".into()),
-                notes: Some("learned thing".into()),
-            },
-            "codex",
-        )
-        .await
-        .unwrap();
-        let detail = repo.show_bug(&bug.id).await.unwrap();
-        assert_eq!(detail.events.len(), 3);
-        assert_eq!(detail.attempts.len(), 1);
     }
 }

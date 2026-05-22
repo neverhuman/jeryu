@@ -253,13 +253,13 @@ pub(super) fn draw_node_card(
     if matches!(node.status, WorkflowStatus::Error | WorkflowStatus::Blocked) {
         let downstream =
             crate::tui::workflow::intelligence::compute_downstream_impact(snap, &node.id);
-        let reason_excerpt = node
-            .reason
-            .as_deref()
-            .map_or_else(String::new, |r| {
+        let reason_excerpt = match node.reason.as_deref() {
+            Some(reason) => {
                 let max = area.width.saturating_sub(20) as usize;
-                r.chars().take(max.max(6)).collect::<String>()
-            });
+                reason.chars().take(max.max(6)).collect::<String>()
+            }
+            None => String::new(),
+        };
         let chip = if downstream > 0 {
             format!(" ⚠ blocks {}", downstream)
         } else {

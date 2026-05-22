@@ -9,58 +9,16 @@
 //! that VTI would have skipped but actually failed), and records them for
 //! subsystem rule improvement.
 
-use serde::{Deserialize, Serialize};
+#[path = "nightly_types.rs"]
+mod types;
+pub use types::{AuditReport, LearnResult, SelectorMiss};
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+#[path = "nightly_helpers.rs"]
+mod helpers;
 
-/// A single audit finding: a test that was skipped by VTI but failed in full.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SelectorMiss {
-    /// The test ID (e.g., "cargo test --lib pool_tests")
-    pub missed_test: String,
-    /// The subsystem that should have caught this
-    pub responsible_subsystem: Option<String>,
-    /// The SHA where the failure was detected
-    pub failed_sha: String,
-    /// How this miss was detected
-    pub detected_by: String,
-}
-
-/// Summary of a nightly audit run.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditReport {
-    /// The SHA of the nightly full run
-    pub nightly_sha: String,
-    /// Total tests in the full run
-    pub total_tests: usize,
-    /// Tests that failed in the full run
-    pub failed_tests: Vec<String>,
-    /// What VTI would have selected for this SHA
-    pub vti_selected: Vec<String>,
-    /// What VTI would have skipped for this SHA
-    pub vti_skipped: Vec<String>,
-    /// Tests that VTI would have missed (failed + skipped)
-    pub misses: Vec<SelectorMiss>,
-    /// Overall VTI accuracy for this run
-    pub accuracy: f64,
-    /// Was the full run clean (all passed)?
-    pub full_run_clean: bool,
-}
-
-/// Result of learning from a pipeline's test outcomes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LearnResult {
-    /// Number of test outcomes processed
-    pub processed: usize,
-    /// Number of new misses detected
-    pub new_misses: usize,
-    /// Subsystems that need attention
-    pub flagged_subsystems: Vec<String>,
-    /// Suggested actions
-    pub suggestions: Vec<String>,
-}
+#[cfg(test)]
+#[path = "nightly_tests.rs"]
+mod tests;
 
 // ---------------------------------------------------------------------------
 // Audit logic
@@ -97,14 +55,14 @@ pub fn audit_selector(
         // Check if this test would have been covered by a selected command
         let covered = selected_commands.iter().any(|cmd| {
             // Simple heuristic: if the test name appears in the command filter
-            extract_test_patterns(cmd)
+            helpers::extract_test_patterns(cmd)
                 .iter()
                 .any(|pat| failed.contains(pat))
         });
 
         if !covered {
             // This is a miss — VTI would have skipped it
-            let responsible = find_responsible_subsystem(failed);
+            let responsible = helpers::find_responsible_subsystem(failed);
             misses.push(SelectorMiss {
                 missed_test: failed.clone(),
                 responsible_subsystem: responsible,
@@ -188,80 +146,5 @@ pub fn learn_from_audit(report: &AuditReport) -> LearnResult {
         new_misses: report.misses.len(),
         flagged_subsystems,
         suggestions,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Extract test name patterns from a nextest -E filter expression.
-fn extract_test_patterns(command: &str) -> Vec<String> {
-    // Pattern: 'test(/foo|bar|baz/)'
-    let mut patterns = Vec::new();
-    if let Some(start) = command.find("test(/") {
-        let rest = &command[start + 6..];
-        if let Some(end) = rest.find("/)") {
-            let inner = &rest[..end];
-            for part in inner.split('|') {
-                let clean = part.trim().to_string();
-                if !clean.is_empty() {
-                    patterns.push(clean);
-                }
-            }
-        }
-    }
-    if patterns.is_empty() && !command.is_empty() {
-        // Recovery path: use the whole command as a pattern
-        patterns.push(command.to_string());
-    }
-    patterns
-}
-
-/// Try to identify which subsystem should have owned a failed test.
-fn find_responsible_subsystem(test_name: &str) -> Option<String> {
-    use super::subsystem::SUBSYSTEMS;
-
-    let test_lower = test_name.to_lowercase();
-    for rule in SUBSYSTEMS {
-        // Check if the subsystem's test command patterns match this test name
-        let filter = rule.unit_filter;
-        let patterns = extract_test_patterns(filter);
-        if patterns
-            .iter()
-            .any(|p| test_lower.contains(&p.to_lowercase()))
-        {
-            return Some(rule.id.to_string());
-        }
-    }
-    None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn extract_patterns_from_nextest_filter() {
-        let patterns = extract_test_patterns("cargo nextest run -E 'test(/pool|docker|runner/)'");
-        assert_eq!(patterns, vec!["pool", "docker", "runner"]);
-    }
-
-    #[test]
-    fn extract_patterns_recovery() {
-        let patterns = extract_test_patterns("cargo test --lib");
-        assert_eq!(patterns, vec!["cargo test --lib"]);
-    }
-
-    #[test]
-    fn find_subsystem_for_pool_test() {
-        let sub = find_responsible_subsystem("pool_connection_test");
-        assert_eq!(sub, Some("pool".to_string()));
-    }
-
-    #[test]
-    fn find_subsystem_for_cache_test() {
-        let sub = find_responsible_subsystem("cache_eviction_test");
-        assert_eq!(sub, Some("cache".to_string()));
     }
 }

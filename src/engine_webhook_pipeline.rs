@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use tracing::{debug, error, info};
 
 use super::SharedState;
@@ -6,34 +5,9 @@ use super::normalize_ref;
 use crate::release;
 use crate::state::TrackedPipeline;
 
-#[derive(Debug, Deserialize)]
-pub(crate) struct PipelineHookPayload {
-    project: Option<ProjectInfo>,
-    object_attributes: Option<PipelineAttributes>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ProjectInfo {
-    id: Option<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PipelineAttributes {
-    id: Option<i64>,
-    status: Option<String>,
-    sha: Option<String>,
-    #[serde(rename = "ref")]
-    ref_name: Option<String>,
-}
-
-pub(crate) async fn handle_pipeline_event_from_body(
-    state: SharedState,
-    body: &str,
-) -> Result<(), serde_json::Error> {
-    let payload = serde_json::from_str::<PipelineHookPayload>(body)?;
-    handle_pipeline_event(state, payload).await;
-    Ok(())
-}
+#[path = "engine_webhook_pipeline_types.rs"]
+mod types;
+pub(crate) use types::{PipelineHookPayload, handle_pipeline_event_from_body};
 
 pub(crate) async fn handle_pipeline_event(state: SharedState, payload: PipelineHookPayload) {
     if let Some(attrs) = payload.object_attributes {

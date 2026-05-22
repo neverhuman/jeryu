@@ -182,81 +182,10 @@ pub async fn build_pipeline_explain_report(
     })
 }
 
-pub fn render_pipeline_explain_text(report: &PipelineExplainReport) -> String {
-    let mut out = String::new();
-    use std::fmt::Write as _;
-    let _ = writeln!(out, "━━━ jeryu pipeline explain ━━━");
-    let _ = writeln!(out, "  Pipeline:          {}", report.pipeline_id);
-    let _ = writeln!(
-        out,
-        "  Ref/SHA:           {} / {}",
-        report.pipeline_ref, report.pipeline_sha
-    );
-    let _ = writeln!(out, "  Status:            {}", report.pipeline_status);
-    let _ = writeln!(out, "  Release eligible:  {}", report.release_eligible);
-    let _ = writeln!(
-        out,
-        "  Current blocker:   {}",
-        report.current_blocker.as_deref().unwrap_or("(none)")
-    );
-    let _ = writeln!(out);
-    let _ = writeln!(out, "  Lane progress:");
-    write_lane_progress_summary(&mut out, report, "    ", "Release-critical");
-    if report.release_execution.total > 0 {
-        let _ = writeln!(
-            out,
-            "    Release execution: {}/{} ({:.1}%)",
-            report.release_execution.passed,
-            report.release_execution.total,
-            report.release_execution.percent
-        );
-    }
-    write_pipeline_item_section(&mut out, "Blocking failed", &report.blocking_failed);
-    write_pipeline_item_section(&mut out, "Blocking pending", &report.blocking_pending);
-    write_pipeline_item_section(&mut out, "Non-blocking failed", &report.non_blocking_failed);
-    if !report.incomplete_milestones.is_empty() {
-        let _ = writeln!(out);
-        let _ = writeln!(out, "  Incomplete milestones:");
-        for milestone in &report.incomplete_milestones {
-            let _ = writeln!(
-                out,
-                "    - {} [{}] :: {}",
-                milestone.title,
-                milestone.status,
-                milestone.incomplete_jobs.join(", ")
-            );
-        }
-    }
-    if !report.untracked_jobs.is_empty() {
-        let _ = writeln!(out);
-        let _ = writeln!(out, "  Untracked pipeline jobs:");
-        for job in &report.untracked_jobs {
-            let _ = writeln!(out, "    - {}", job);
-        }
-    }
-    out
-}
+#[path = "explain_render.rs"]
+mod explain_render;
+pub use explain_render::render_pipeline_explain_text;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn empty_pipeline_reports_its_own_blocker() {
-        let blocker = explain_release_candidate_blocker(&HashMap::new(), false, &[], &[]);
-        assert_eq!(blocker.as_deref(), Some("materialized pipeline is empty"));
-    }
-
-    #[test]
-    fn omitted_release_candidate_jobs_keep_the_vti_blocker() {
-        let aggregated = HashMap::from([(
-            "compile-workspace".to_string(),
-            AggregatedPipelineJob::default(),
-        )]);
-        let blocker = explain_release_candidate_blocker(&aggregated, false, &[], &[]);
-        assert_eq!(
-            blocker.as_deref(),
-            Some("release candidate jobs omitted by VTI")
-        );
-    }
-}
+#[path = "explain_tests.rs"]
+mod tests;

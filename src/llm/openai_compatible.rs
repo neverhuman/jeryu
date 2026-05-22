@@ -6,7 +6,6 @@
 
 use crate::llm::{CallParams, CallResponse, ChatMessage, DataUse, LlmError, LlmProvider};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::{Duration, Instant};
 
@@ -51,43 +50,9 @@ impl OpenAiCompatibleClient {
     }
 }
 
-#[derive(Serialize)]
-struct ChatRequest<'a> {
-    model: &'a str,
-    messages: &'a [ChatMessage],
-    temperature: f32,
-    max_tokens: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    seed: Option<u64>,
-}
-
-#[derive(Deserialize, Debug)]
-struct ChatResponse {
-    #[serde(default)]
-    model: Option<String>,
-    choices: Vec<Choice>,
-    #[serde(default)]
-    usage: Option<Usage>,
-}
-
-#[derive(Deserialize, Debug)]
-struct Choice {
-    message: ChoiceMessage,
-}
-
-#[derive(Deserialize, Debug)]
-struct ChoiceMessage {
-    #[serde(default)]
-    content: Option<String>,
-}
-
-#[derive(Deserialize, Debug, Default)]
-struct Usage {
-    #[serde(default)]
-    prompt_tokens: Option<u32>,
-    #[serde(default)]
-    completion_tokens: Option<u32>,
-}
+#[path = "openai_compatible_types.rs"]
+mod types;
+use types::{ChatRequest, ChatResponse, Usage};
 
 #[async_trait]
 impl LlmProvider for OpenAiCompatibleClient {
@@ -227,16 +192,5 @@ impl LlmProvider for OpenAiCompatibleClient {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn auth_error_maps_correctly() {
-        // No live network in unit tests; only construct + verify id.
-        let c = OpenAiCompatibleClient::new("openrouter", "https://example.invalid")
-            .with_api_key("nope")
-            .with_data_use(DataUse::NoTrain);
-        assert_eq!(c.id(), "openrouter");
-        assert_eq!(c.data_use(), DataUse::NoTrain);
-    }
-}
+#[path = "openai_compatible_tests.rs"]
+mod tests;

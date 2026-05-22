@@ -69,101 +69,6 @@ pub(crate) fn path_snippet(prefix: &Path, shell: Option<&str>) -> String {
     }
 }
 
-pub(crate) fn build_plan(mode: &str, opts: &InstallOptions) -> InstallPlan {
-    let prefix = opts.prefix.display().to_string();
-    let target = install_target(&opts.prefix);
-    let source = current_exe_string();
-    let platform = detect_platform(&opts.prefix);
-    let path_advice = if platform.in_path {
-        None
-    } else {
-        let rc_file = shell_profile_path(platform.shell.as_deref());
-        Some(PathAdvice {
-            shell: platform.shell.clone(),
-            rc_file: rc_file.as_ref().map(|path| path.display().to_string()),
-            snippet: rc_file
-                .as_ref()
-                .map(|_| path_snippet(&opts.prefix, platform.shell.as_deref())),
-            refresh_performed: matches!(opts.path_mode, PathMode::Refresh),
-        })
-    };
-    let mut steps = vec![
-        PlanStep {
-            id: "ensure-prefix".into(),
-            label: "ensure install prefix exists".into(),
-            detail: format!("create {}", opts.prefix.display()),
-            command: Some(format!("mkdir -p {}", opts.prefix.display())),
-            requires_sudo: false,
-            estimated_seconds: Some(1),
-        },
-        PlanStep {
-            id: "install-binary".into(),
-            label: "replace the binary atomically".into(),
-            detail: format!("copy {} -> {}", source, target.display()),
-            command: Some(format!(
-                "install -m 0755 <current-exe> {}",
-                target.display()
-            )),
-            requires_sudo: false,
-            estimated_seconds: Some(2),
-        },
-    ];
-    if !platform.in_path {
-        let detail = match opts.path_mode {
-            PathMode::Advise => "print shell-specific PATH advice".to_string(),
-            PathMode::Refresh => "write the shell profile with a guarded PATH block".to_string(),
-            PathMode::Skip => "skip PATH advice and leave shell profiles untouched".to_string(),
-        };
-        steps.push(PlanStep {
-            id: "path".into(),
-            label: "handle PATH visibility".into(),
-            detail,
-            command: Some(match opts.path_mode {
-                PathMode::Advise => format!(
-                    "echo {}",
-                    path_snippet(&opts.prefix, platform.shell.as_deref())
-                ),
-                PathMode::Refresh => {
-                    if let Some(rc) = shell_profile_path(platform.shell.as_deref()) {
-                        format!("append {} to {}", opts.prefix.display(), rc.display())
-                    } else {
-                        "no supported shell profile found".into()
-                    }
-                }
-                PathMode::Skip => "no PATH mutation".into(),
-            }),
-            requires_sudo: false,
-            estimated_seconds: Some(1),
-        });
-    }
-    steps.push(PlanStep {
-        id: "verify".into(),
-        label: "verify the installed binary".into(),
-        detail: "run jeryu --version from the target binary".into(),
-        command: Some(format!("{} --version", target.display())),
-        requires_sudo: false,
-        estimated_seconds: Some(1),
-    });
-    InstallPlan {
-        action: "install".into(),
-        mode: mode.into(),
-        prefix,
-        target_binary: target.display().to_string(),
-        source_binary: source,
-        platform,
-        path_advice,
-        dry_run: opts.dry_run,
-        json: opts.json,
-        color: opts.color,
-        interactive: opts.interactive,
-        path_mode: opts.path_mode,
-        verbose: opts.verbose,
-        install_deps: opts.install_deps,
-        allow_sudo: opts.allow_sudo,
-        steps,
-    }
-}
-
 pub(crate) fn should_colorize(mode: ColorMode, json: bool) -> bool {
     if json {
         return false;
@@ -193,6 +98,30 @@ pub(crate) fn color_text(enabled: bool, code: &str, text: &str) -> String {
 
 pub(crate) fn status_label(enabled: bool, label: &str, code: &str) -> String {
     format!("[{}]", color_text(enabled, code, label))
+}
+
+pub(crate) fn prompt_for_confirmation_with_message(
+    prompt: &str,
+    refusal_message: &str,
+    interactive: InteractiveMode,
+    yes: bool,
+) -> Result<bool> {
+    if yes {
+        return Ok(true);
+    }
+    if !should_interactive(interactive) {
+        bail!("{}", refusal_message);
+    }
+    print!("{}", prompt);
+    io::stdout().flush().ok();
+    let mut input = String::new();
+    io::stdin()
+        .read_line(&mut input)
+        .context("reading confirmation")?;
+    Ok(matches!(
+        input.trim().to_ascii_lowercase().as_str(),
+        "y" | "yes"
+    ))
 }
 
 #[allow(clippy::too_many_arguments)] // install renderer: closures + style codes inline by design; struct-wrap is tracked as a follow-up
@@ -227,93 +156,12 @@ pub(crate) fn render_plan_steps<T, FReq, FLabel, FDetail, FCommand>(
     }
 }
 
-pub(crate) fn prompt_for_confirmation_with_message(
-    prompt: &str,
-    refusal_message: &str,
-    interactive: InteractiveMode,
-    yes: bool,
-) -> Result<bool> {
-    if yes {
-        return Ok(true);
-    }
-    if !should_interactive(interactive) {
-        bail!("{}", refusal_message);
-    }
-    print!("{}", prompt);
-    io::stdout().flush().ok();
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .context("reading confirmation")?;
-    Ok(matches!(
-        input.trim().to_ascii_lowercase().as_str(),
-        "y" | "yes"
-    ))
-}
+#[path = "install_support_plan.rs"]
+mod plan;
 
-pub(crate) fn render_plan(plan: &InstallPlan) {
-    let color = should_colorize(plan.color, plan.json);
-    println!(
-        "{} {}",
-        status_label(color, "PLAN", "36;1"),
-        color_text(color, "1", &format!("JeRyu {} plan", plan.mode))
-    );
-    println!("  prefix: {}", plan.prefix);
-    println!("  target: {}", plan.target_binary);
-    println!("  source: {}", plan.source_binary);
-    println!(
-        "  platform: {} / {}{}",
-        plan.platform.os,
-        plan.platform.arch,
-        if plan.platform.tty { " / tty" } else { "" }
-    );
-    println!(
-        "  PATH: {}",
-        if plan.platform.in_path {
-            "already on PATH"
-        } else {
-            "not on PATH"
-        }
-    );
-    render_plan_steps(
-        &plan.steps,
-        plan.verbose,
-        |step| step.requires_sudo,
-        |step| step.label.as_str(),
-        |step| step.detail.as_str(),
-        |step| step.command.as_deref(),
-        color,
-        "WARN",
-        "RUN",
-        "33;1",
-        "36;1",
-    );
-    if let Some(advice) = &plan.path_advice {
-        match plan.path_mode {
-            PathMode::Skip => {
-                println!("  PATH: skipped by request");
-            }
-            PathMode::Advise | PathMode::Refresh => {
-                if let Some(snippet) = &advice.snippet {
-                    println!("  PATH snippet:");
-                    for line in snippet.lines() {
-                        println!("      {}", line);
-                    }
-                }
-            }
-        }
-    }
-}
+pub(crate) use plan::build_plan;
 
-pub(crate) fn prompt_for_confirmation(_plan: &InstallPlan, opts: &InstallOptions) -> Result<bool> {
-    prompt_for_confirmation_with_message(
-        "Proceed with this install? [y/N] ",
-        "refusing to mutate the machine without --yes in non-interactive mode; rerun with --yes or --dry-run",
-        opts.interactive,
-        opts.yes,
-    )
-}
+#[path = "install_support_render.rs"]
+mod render;
 
-pub(crate) fn version_hint(binary: &Path) -> String {
-    format!("Try: {} --version", binary.display())
-}
+pub(crate) use render::{prompt_for_confirmation, render_plan, version_hint};

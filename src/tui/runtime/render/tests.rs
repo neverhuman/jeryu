@@ -2,6 +2,7 @@ use super::*;
 use crate::tui::{app::App, ui};
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
+use ratatui::style::Color;
 
 fn draw_once(app: &mut App) -> Result<()> {
     let backend = TestBackend::new(120, 40);
@@ -11,7 +12,11 @@ fn draw_once(app: &mut App) -> Result<()> {
 }
 
 fn capture_buffer(app: &mut App) -> Result<Buffer> {
-    let backend = TestBackend::new(120, 40);
+    capture_buffer_size(app, 120, 40)
+}
+
+fn capture_buffer_size(app: &mut App, width: u16, height: u16) -> Result<Buffer> {
+    let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend)?;
     terminal.draw(|f| ui::draw(f, app))?;
     Ok(terminal.backend().buffer().clone())
@@ -27,6 +32,16 @@ fn buffer_lines(buffer: &Buffer) -> Vec<String> {
                 .collect::<String>()
         })
         .collect()
+}
+
+fn yellow_cells_on_row(buffer: &Buffer, row: u16) -> usize {
+    (0..buffer.area.width)
+        .filter(|x| buffer[(*x, row)].fg == Color::Yellow)
+        .count()
+}
+
+fn rendered_text(buffer: &Buffer) -> String {
+    buffer.content.iter().map(|cell| cell.symbol()).collect()
 }
 
 fn job(job_id: i64, status: &str) -> crate::state::JobEvent {
@@ -181,6 +196,131 @@ async fn fullscreen_activity_clears_previous_tab_content() -> Result<()> {
     assert!(
         !rendered.contains("Live Runner Feed"),
         "fullscreen activity should clear the previous runner feed pane"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn workflow_visible_panes_render_yellow_macro_focus_wide() -> Result<()> {
+    let panes = [
+        crate::tui::focus::PaneId::WorkflowMissionStrip,
+        crate::tui::focus::PaneId::WorkflowPrRail,
+        crate::tui::focus::PaneId::WorkflowPhaseRail,
+        crate::tui::focus::PaneId::WorkflowCanvas,
+        crate::tui::focus::PaneId::WorkflowMinimap,
+        crate::tui::focus::PaneId::WorkflowInspector,
+        crate::tui::focus::PaneId::ActivityLog(crate::tui::app::ActiveTab::Workflow),
+    ];
+
+    for pane in panes {
+        let mut app = crate::tui::app::test_app().await?;
+        app.apply_demo_fixture();
+        app.active_tab = crate::tui::app::ActiveTab::Workflow;
+        app.workflow_inspect_open = true;
+        app.focus.active = pane;
+        app.focus.stack.clear();
+        app.focus.fullscreen = None;
+
+        let buffer = capture_buffer_size(&mut app, 220, 44)?;
+        let rect = app
+            .focus_map
+            .rect_of(pane)
+            .unwrap_or_else(|| panic!("expected {pane:?} to be registered at 220x44"));
+        let yellow = yellow_cells_on_row(&buffer, rect.y);
+        assert!(
+            yellow >= 8,
+            "expected {pane:?} title row to be yellow-focused, found {yellow}"
+        );
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn workflow_narrow_layout_registers_and_focus_paints_visible_panes() -> Result<()> {
+    let visible = [
+        crate::tui::focus::PaneId::WorkflowMissionStrip,
+        crate::tui::focus::PaneId::WorkflowPrRail,
+        crate::tui::focus::PaneId::WorkflowCanvas,
+        crate::tui::focus::PaneId::ActivityLog(crate::tui::app::ActiveTab::Workflow),
+    ];
+    let hidden = [
+        crate::tui::focus::PaneId::WorkflowPhaseRail,
+        crate::tui::focus::PaneId::WorkflowMinimap,
+        crate::tui::focus::PaneId::WorkflowInspector,
+    ];
+
+    for pane in visible {
+        let mut app = crate::tui::app::test_app().await?;
+        app.apply_demo_fixture();
+        app.active_tab = crate::tui::app::ActiveTab::Workflow;
+        app.workflow_inspect_open = true;
+        app.focus.active = pane;
+
+        let buffer = capture_buffer_size(&mut app, 100, 40)?;
+        let rect = app
+            .focus_map
+            .rect_of(pane)
+            .unwrap_or_else(|| panic!("expected {pane:?} to be registered at 100x40"));
+        assert!(
+            yellow_cells_on_row(&buffer, rect.y) >= 8,
+            "expected visible narrow pane {pane:?} to be focus-painted"
+        );
+        for hidden_pane in hidden {
+            assert!(
+                app.focus_map.rect_of(hidden_pane).is_none(),
+                "expected {hidden_pane:?} to be hidden at 100x40"
+            );
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn workflow_drilled_pane_renders_esc_and_hotspot() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.apply_demo_fixture();
+    app.active_tab = crate::tui::app::ActiveTab::Workflow;
+    app.workflow_inspect_open = true;
+    app.focus.active = crate::tui::focus::PaneId::WorkflowCanvas;
+
+    let root = capture_buffer_size(&mut app, 220, 44)?;
+    assert!(
+        !rendered_text(&root).contains("[esc]"),
+        "root macro focus should not show the drill exit affordance"
+    );
+
+    app.focus.push();
+    let drilled = capture_buffer_size(&mut app, 220, 44)?;
+    let text = rendered_text(&drilled);
+    assert!(
+        text.contains("[esc]"),
+        "drilled Workflow pane should expose the esc affordance"
+    );
+    let rect = app
+        .focus_map
+        .rect_of(crate::tui::focus::PaneId::WorkflowCanvas)
+        .expect("canvas should be registered");
+    assert_eq!(
+        app.focus_map.esc_at(rect.x + 1, rect.y),
+        Some(crate::tui::focus::PaneId::WorkflowCanvas)
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn workflow_minimap_right_focuses_inline_inspector() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.apply_demo_fixture();
+    app.active_tab = crate::tui::app::ActiveTab::Workflow;
+    app.workflow_inspect_open = true;
+    app.focus.active = crate::tui::focus::PaneId::WorkflowMinimap;
+
+    let _ = capture_buffer_size(&mut app, 220, 44)?;
+    assert!(app.delivery_hit_map.inspector.is_some());
+    app.focus_move(crate::tui::focus::NavDirection::Right);
+    assert_eq!(
+        app.focus.active,
+        crate::tui::focus::PaneId::WorkflowInspector
     );
     Ok(())
 }

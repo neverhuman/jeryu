@@ -1,83 +1,12 @@
 use super::*;
+use std::fs;
 
-pub(super) fn ssh_bash_command(cfg: &RemoteConfig, script: &str) -> Command {
-    let mut cmd = Command::new("ssh");
-    cmd.args(ssh_args(cfg));
-    cmd.arg(&cfg.target);
-    // SSH joins all remaining args with spaces and passes them as ONE shell
-    // command string to the remote sh. If we send `bash -c <script>` as
-    // three args, the remote sh sees:
-    //     bash -c <first-word-of-script> <rest-positional-args>
-    // — bash only treats the first word as the command. So a script like
-    // `mkdir -p $HOME/x && cat > $HOME/y` runs `mkdir` with no operands.
-    // Wrap the whole `bash -c <script>` in a single argument with the
-    // script quoted, so the remote shell re-parses it as one bash invocation.
-    //
-    // We use `-c` (not `-lc`): the prior `-l` (login shell) sourced
-    // /etc/profile on the remote, which on some images triggers init
-    // logic (e.g., the docker-installer's profile fragment can launch
-    // a docker compose pull). We don't need login mode — these scripts
-    // either set their own env (uploads, install) or invoke a self-
-    // contained binary that needs no shell init.
-    cmd.arg(format!("bash -c {}", shell_single_quote(script)));
-    cmd
-}
-
-pub(super) async fn capture_ssh_bash_output(
-    cfg: &RemoteConfig,
-    script: &str,
-    context_msg: &'static str,
-) -> Result<std::process::Output> {
-    ssh_bash_command(cfg, script)
-        .output()
-        .await
-        .context(context_msg)
-}
-
-pub(super) fn shell_single_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', r"'\''"))
-}
-
-pub(crate) fn push_local_forward(cmd: &mut Command, local_port: u16, remote_port: u16) {
-    cmd.arg("-L");
-    cmd.arg(format!(
-        "127.0.0.1:{}:127.0.0.1:{}",
-        local_port, remote_port
-    ));
-}
-
-pub(crate) fn print_action_envelope(
-    opts: &RemoteCommonOptions,
-    payload: serde_json::Value,
-) -> Result<()> {
-    if opts.json {
-        println!("{}", serde_json::to_string_pretty(&payload)?);
-    }
-    Ok(())
-}
-
-pub(crate) fn print_remote_report(
-    label: &str,
-    report: &RemoteReport,
-    opts: &RemoteCommonOptions,
-) -> Result<()> {
-    if opts.json {
-        println!("{}", serde_json::to_string_pretty(report)?);
-    } else {
-        println!("Remote {}: {}", label, report.alias);
-        println!("  target:         {}", report.target);
-        println!("  binary:         {}", report.remote_bin);
-        println!("  installed:      {}", report.installed);
-        println!("  service active: {}", report.service_active);
-        println!("  docker ready:   {}", report.docker_ready);
-        if label == "doctor"
-            && let Some(version) = &report.version_output
-        {
-            println!("  version:        {}", version.trim());
-        }
-    }
-    Ok(())
-}
+#[path = "remote_shell_exec.rs"]
+mod remote_shell_exec;
+pub(crate) use remote_shell_exec::{
+    run_interactive_ssh, run_remote_binary, run_remote_shell, run_remote_shell_capture,
+    run_remote_shell_status,
+};
 
 pub(crate) async fn remote_uninstall(
     cfg: &RemoteConfig,
@@ -256,80 +185,6 @@ pub(crate) async fn upload_current_binary(cfg: &RemoteConfig) -> Result<()> {
         started.elapsed().as_secs_f32()
     );
     Ok(())
-}
-
-pub(crate) async fn run_remote_binary(
-    cfg: &RemoteConfig,
-    args: &[&str],
-    allow_fail: bool,
-) -> Result<Option<String>> {
-    // Wrap in bash -lc so a tilde-prefixed remote_bin (e.g. ~/.jeryu/bin/jeryu)
-    // gets word-split with tilde expansion. Without this, ssh hands
-    // `~/.jeryu/bin/jeryu --version` to the remote sh as a literal command,
-    // and POSIX sh only expands `~` at specific syntactic positions —
-    // when not expanded, the binary path doesn't exist and exec fails.
-    let script = format!(
-        "{} {}",
-        cfg.remote_bin,
-        args.iter()
-            .map(|a| shell_single_quote(a))
-            .collect::<Vec<_>>()
-            .join(" ")
-    );
-    let mut cmd = ssh_bash_command(cfg, &script);
-    let output = cmd.output().await.context("running remote binary")?;
-    if output.status.success() {
-        Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
-    } else if allow_fail {
-        Ok(None)
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!(
-            "remote binary exited with {}: {}",
-            output.status.code().unwrap_or(-1),
-            stderr.trim()
-        );
-    }
-}
-
-pub(crate) async fn run_interactive_ssh(
-    mut cmd: Command,
-    _label: &'static str,
-    context_msg: &'static str,
-) -> Result<i32> {
-    crate::exec::run_status_check(&mut cmd, context_msg).await?;
-    Ok(0)
-}
-
-pub(crate) async fn run_remote_shell(
-    cfg: &RemoteConfig,
-    script: &str,
-    allow_fail: bool,
-) -> Result<()> {
-    let output = capture_ssh_bash_output(cfg, script, "running remote shell").await?;
-    if output.status.success() || allow_fail {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        bail!("{}", stderr.trim());
-    }
-}
-
-pub(crate) async fn run_remote_shell_status(cfg: &RemoteConfig, script: &str) -> Result<bool> {
-    let output = capture_ssh_bash_output(cfg, script, "running remote shell status").await?;
-    Ok(output.status.success())
-}
-
-pub(crate) async fn run_remote_shell_capture(
-    cfg: &RemoteConfig,
-    script: &str,
-) -> Result<Option<String>> {
-    let output = capture_ssh_bash_output(cfg, script, "running remote shell capture").await?;
-    if output.status.success() {
-        Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
-    } else {
-        Ok(None)
-    }
 }
 
 #[cfg(test)]

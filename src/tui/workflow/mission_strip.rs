@@ -18,22 +18,40 @@ use super::intelligence::{
     compute_critical_path, compute_downstream_impact, compute_first_blocker, compute_ship_readiness,
 };
 use super::model::*;
-use crate::tui::theme::Theme;
+use crate::tui::{focus::PaneChrome, theme::Theme};
 
 pub fn draw_mission_strip(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
+    draw_mission_strip_with_chrome(f, area, snap, theme, None);
+}
+
+pub(crate) fn draw_mission_strip_with_chrome(
+    f: &mut Frame,
+    area: Rect,
+    snap: &DeliverySnapshot,
+    theme: &Theme,
+    chrome: Option<PaneChrome>,
+) {
     if area.width == 0 || area.height == 0 {
         return;
     }
 
     let banner_color = banner_color_for(snap, theme);
     let lines = build_lines(snap, theme, banner_color);
+    let title = match chrome {
+        Some(chrome) => chrome.title("Mission Control"),
+        None => " [ 0:Delivery — CI Mission Control ] ".into(),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(banner_color),
+    };
 
     f.render_widget(
         Paragraph::new(lines).block(
             Block::default()
-                .title(" [ 0:Delivery — CI Mission Control ] ")
+                .title(title)
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(banner_color)),
+                .border_style(border_style),
         ),
         area,
     );

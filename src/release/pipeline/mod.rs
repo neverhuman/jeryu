@@ -1,10 +1,13 @@
 use super::*;
 
 mod doctor;
+#[path = "doctor_render.rs"]
+mod doctor_render;
 mod explain;
 mod promotion;
 
-pub use doctor::{build_pipeline_doctor_report, render_pipeline_doctor_text};
+pub use doctor::build_pipeline_doctor_report;
+pub use doctor_render::render_pipeline_doctor_text;
 pub use explain::{build_pipeline_explain_report, render_pipeline_explain_text};
 pub use promotion::{maybe_trigger_production_promotion, trigger_production_promotion};
 

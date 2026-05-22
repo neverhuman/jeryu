@@ -84,6 +84,17 @@ tui-screenshots:
 
 tui-screenshot-smoke:
     cargo run --release -p tui-capture -- --cols 48 --rows 6 --out target/tui-capture/smoke.png --dump-text target/tui-capture/smoke.txt -- bash -lc "printf '┌────────────────────────┐\n│ Unicode border test    │\n│ Blocks: █ ▓ ▒ ░        │\n└────────────────────────┘\n'; sleep 2"
+
+ux-qa-build:
+    npm --workspace @jankurai/ux-qa run build
+
+ux-qa-test:
+    npm --workspace @jankurai/ux-qa run test
+
+ux-qa:
+    npm --workspace @jankurai/ux-qa run build
+    npm --workspace @jankurai/ux-qa run test
+
 score:
 	jankurai audit . --full --mode advisory --json agent/repo-score.json --md agent/repo-score.md --score-history agent/score-history.jsonl --score-history-csv agent/score-history.csv
 doctor:

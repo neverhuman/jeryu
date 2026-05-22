@@ -22,8 +22,7 @@ use ratatui::{
 };
 
 use super::model::*;
-use crate::tui::app::LiveLogState;
-use crate::tui::theme::Theme;
+use crate::tui::{app::LiveLogState, focus::PaneChrome, theme::Theme};
 
 /// Recommended width of the inspector pane in cols.
 pub const INSPECTOR_W: u16 = 48;
@@ -89,12 +88,51 @@ pub fn draw_inspector_pane(
     action_message: Option<&str>,
     theme: &Theme,
 ) {
+    draw_inspector_pane_with_chrome(
+        f,
+        area,
+        delivery,
+        nav_node_id,
+        tab,
+        live_log,
+        action_message,
+        theme,
+        None,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn draw_inspector_pane_with_chrome(
+    f: &mut Frame,
+    area: Rect,
+    delivery: &DeliverySnapshot,
+    nav_node_id: Option<&str>,
+    tab: InspectorTab,
+    live_log: &LiveLogState,
+    action_message: Option<&str>,
+    theme: &Theme,
+    chrome: Option<PaneChrome>,
+) {
     if area.width == 0 || area.height == 0 {
         return;
     }
 
     let Some(pr) = delivery.selected() else {
-        f.render_widget(empty_block(theme, " Inspect "), area);
+        let title = match chrome {
+            Some(chrome) => chrome.title("Inspector"),
+            None => " Inspector ".into(),
+        };
+        let border_style = match chrome {
+            Some(chrome) => chrome.border_style,
+            None => Style::default().fg(theme.border_subtle),
+        };
+        f.render_widget(
+            Block::default()
+                .title(title)
+                .borders(Borders::ALL)
+                .border_style(border_style),
+            area,
+        );
         return;
     };
     let node = nav_node_id.and_then(|id| pr.snapshot.node(id));
@@ -109,7 +147,7 @@ pub fn draw_inspector_pane(
         area.height.saturating_sub(header_h),
     );
 
-    draw_tab_strip(f, header_area, pr, node, tab, theme);
+    draw_tab_strip(f, header_area, pr, node, tab, theme, chrome);
 
     if content_area.height == 0 {
         return;
@@ -138,19 +176,29 @@ fn draw_tab_strip(
     node: Option<&WorkflowNode>,
     selected: InspectorTab,
     theme: &Theme,
+    chrome: Option<PaneChrome>,
 ) {
-    let title_text = match node {
+    let selected_text = match node {
         Some(n) => format!(
-            " {} {} ",
+            "{} {}",
             n.status.glyph(),
             n.label.chars().take(28).collect::<String>()
         ),
-        None => format!(" PR #{} ", pr.number),
+        None => format!("PR #{}", pr.number),
+    };
+    let title_text = format!("Inspector · {selected_text}");
+    let title = match chrome {
+        Some(chrome) => chrome.title(&title_text),
+        None => crate::tui::focus::title_with_esc(&title_text, false),
+    };
+    let border_style = match chrome {
+        Some(chrome) => chrome.border_style,
+        None => Style::default().fg(theme.border_accent),
     };
     let block = Block::default()
-        .title(title_text)
+        .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.border_accent));
+        .border_style(border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 

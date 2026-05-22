@@ -1,4 +1,5 @@
 use super::*;
+use crate::install::{ColorMode, InteractiveMode};
 
 fn sample_remote_config(alias: &str) -> RemoteConfig {
     let alias = alias.to_string();

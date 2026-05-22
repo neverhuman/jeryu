@@ -13,86 +13,14 @@
 //! - E2E tests: **never cacheable**
 //! - Tests with flake history: **never cacheable**
 
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+#[path = "cache_types.rs"]
+mod types;
+pub use types::*;
 
 // ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
-
-/// Cacheability classification for a test command.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Cacheability {
-    /// Fully cacheable; can skip if cache hit
-    Cacheable,
-    /// Not cacheable due to external dependencies
-    Uncacheable,
-    /// Forced uncacheable due to flakiness history
-    FlakyUncacheable,
-}
-
-/// A cache key for a specific test execution context.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TestCacheKey {
-    /// The computed SHA-256 digest
-    pub digest: String,
-    /// Human-readable description of inputs
-    pub inputs_description: String,
-    /// Whether this key represents a cacheable result
-    pub cacheability: Cacheability,
-    /// Reasons why it's uncacheable (if applicable)
-    pub uncacheable_reasons: Vec<String>,
-}
-
-/// A cached test verdict.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CachedVerdict {
-    /// The cache key that produced this verdict
-    pub cache_key: String,
-    /// The test identifier
-    pub test_id: String,
-    /// Pass or fail
-    pub passed: bool,
-    /// Duration of the original run in milliseconds
-    pub duration_ms: u64,
-    /// When this was cached
-    pub cached_at: String,
-    /// Cache epoch at time of caching
-    pub epoch: i64,
-}
-
-/// Result of checking the cache for a set of tests.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CacheLookupResult {
-    /// Tests that had a cache hit (can be skipped)
-    pub hits: Vec<CacheHit>,
-    /// Tests that need to be re-run
-    pub misses: Vec<CacheMiss>,
-    /// Total time saved by cache hits (ms)
-    pub time_saved_ms: u64,
-    /// Summary statistics
-    pub hit_rate: f64,
-}
-
-/// A single cache hit.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CacheHit {
-    pub test_id: String,
-    pub cache_key: String,
-    pub original_duration_ms: u64,
-    pub cached_at: String,
-}
-
-/// A single cache miss.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CacheMiss {
-    pub test_id: String,
-    pub reason: String,
-}
-
-// ---------------------------------------------------------------------------
-// Cache key computation
 // ---------------------------------------------------------------------------
 
 /// Compute a deterministic cache key for a test execution.
@@ -216,122 +144,13 @@ pub fn mark_flaky(key: &mut TestCacheKey) {
         .push("Test has flake history — cache disabled".into());
 }
 
-// ---------------------------------------------------------------------------
-// Cache lookup simulation
-// ---------------------------------------------------------------------------
+#[path = "cache_lookup.rs"]
+mod lookup;
+pub use lookup::*;
 
-/// Given a set of tests and their cache keys, check which have cached verdicts.
-///
-/// In production, this would query the `cache_verdicts` table. Here we provide
-/// the lookup logic that consumers (engine, test_runner) use.
-pub fn check_cache(
-    tests: &[(String, TestCacheKey)],
-    cached_verdicts: &[CachedVerdict],
-) -> CacheLookupResult {
-    let mut hits = Vec::new();
-    let mut misses = Vec::new();
-    let mut time_saved_ms = 0u64;
-
-    for (test_id, key) in tests {
-        // Uncacheable tests are always misses
-        if key.cacheability != Cacheability::Cacheable {
-            misses.push(CacheMiss {
-                test_id: test_id.clone(),
-                reason: match key.uncacheable_reasons.first().cloned() {
-                    Some(reason) => reason,
-                    None => "uncacheable".into(),
-                },
-            });
-            continue;
-        }
-
-        // Look for a matching verdict
-        if let Some(verdict) = cached_verdicts
-            .iter()
-            .find(|v| v.cache_key == key.digest && v.passed)
-        {
-            hits.push(CacheHit {
-                test_id: test_id.clone(),
-                cache_key: key.digest.clone(),
-                original_duration_ms: verdict.duration_ms,
-                cached_at: verdict.cached_at.clone(),
-            });
-            time_saved_ms += verdict.duration_ms;
-        } else {
-            misses.push(CacheMiss {
-                test_id: test_id.clone(),
-                reason: "no cache hit".into(),
-            });
-        }
-    }
-
-    let total = tests.len().max(1);
-    let hit_rate = hits.len() as f64 / total as f64;
-
-    CacheLookupResult {
-        hits,
-        misses,
-        time_saved_ms,
-        hit_rate,
-    }
-}
-
-/// Human-readable cache lookup report.
-pub fn explain_cache_lookup(result: &CacheLookupResult) -> String {
-    let mut out = String::new();
-    out.push_str("╭─ VTI Test Cache Lookup ───────────────────────╮\n");
-    out.push_str(&format!("│ Hits:       {:<34} │\n", result.hits.len()));
-    out.push_str(&format!("│ Misses:     {:<34} │\n", result.misses.len()));
-    out.push_str(&format!(
-        "│ Hit rate:   {:<34.1}% │\n",
-        result.hit_rate * 100.0
-    ));
-    out.push_str(&format!(
-        "│ Time saved: {:<34} │\n",
-        format_duration_ms(result.time_saved_ms)
-    ));
-    out.push_str("╰───────────────────────────────────────────────╯\n\n");
-
-    if !result.hits.is_empty() {
-        out.push_str("Cache hits (skippable):\n");
-        for hit in &result.hits {
-            out.push_str(&format!(
-                "  ✓ {} (saved {})\n",
-                hit.test_id,
-                format_duration_ms(hit.original_duration_ms)
-            ));
-        }
-        out.push('\n');
-    }
-
-    if !result.misses.is_empty() {
-        out.push_str("Cache misses (must run):\n");
-        for miss in &result.misses {
-            out.push_str(&format!("  ● {} ({})\n", miss.test_id, miss.reason));
-        }
-    }
-
-    out
-}
-
-/// JSON representation.
-pub fn explain_cache_json(result: &CacheLookupResult) -> serde_json::Value {
-    serde_json::json!({
-        "hits": result.hits,
-        "misses": result.misses,
-        "time_saved_ms": result.time_saved_ms,
-        "hit_rate": result.hit_rate,
-    })
-}
-
-fn format_duration_ms(ms: u64) -> String {
-    if ms < 1000 {
-        format!("{}ms", ms)
-    } else if ms < 60_000 {
-        format!("{:.1}s", ms as f64 / 1000.0)
-    } else {
-        format!("{:.1}m", ms as f64 / 60_000.0)
-    }
+#[cfg(test)]
+pub(crate) fn format_duration_ms(ms: u64) -> String {
+    lookup::format_duration_ms(ms)
 }
 
 // ---------------------------------------------------------------------------

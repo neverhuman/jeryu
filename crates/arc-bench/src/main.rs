@@ -2,6 +2,7 @@
 mod exceptions;
 mod model;
 mod psd_mechanics;
+mod psd_mechanics_support;
 mod repo_shape;
 mod runtime;
 mod support;

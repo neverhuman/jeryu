@@ -1,4 +1,4 @@
-use super::CanonicalBugReport;
+use super::types::CanonicalBugReport;
 
 pub fn canonical_markdown(report: &CanonicalBugReport) -> String {
     let mut out = String::new();

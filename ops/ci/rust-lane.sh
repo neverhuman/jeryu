@@ -136,9 +136,10 @@ case "$STAGE" in
     cargo run -p cargo-vrc -- map --output-dir .
     ;;
   vrc-plan)
-    git diff --name-only origin/main...HEAD > changed-files.txt
-    cat changed-files.txt
-    mapfile -t CHANGED < changed-files.txt
+    mkdir -p target/jeryu
+    git diff --name-only origin/main...HEAD > target/jeryu/changed-files.txt
+    cat target/jeryu/changed-files.txt
+    mapfile -t CHANGED < target/jeryu/changed-files.txt
     if [ "${#CHANGED[@]}" -gt 0 ]; then
       cargo run -p cargo-vrc -- plan "${CHANGED[@]}" --output vrc-plan.json
     else

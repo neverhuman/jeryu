@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.15] - 2026-05-22
+
+### Added
+
+- Added Vault provisioning and doctor commands with JSON output and a checked
+  `vault-doctor` report schema.
+- Added local UX QA workspace routing for rendered Jankurai evidence.
+
+### Changed
+
+- Bumped release metadata to `3.3.15` across Cargo, `VERSION`, and
+  `version.json`.
+- Kept release, repo, bug tracker, and TUI command surfaces split into focused
+  companion modules while preserving existing command behavior.
+
+### Fixed
+
+- Routed repo helper exports and bug command imports through public module
+  boundaries so the split command modules compile cleanly.
+- Updated local CI and audit routing so generated score artifacts are refreshed
+  by `just score`.
+
 ## [3.3.13] - 2026-05-20
 
 ### Changed

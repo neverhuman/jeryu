@@ -71,6 +71,8 @@ pub mod cargo_cache;
 pub mod config;
 pub mod db;
 pub use db::admission_repo as admission_records;
+pub use db::bugtracker_repo as bugtracker_records;
+pub use db::capability_repo as capability_records;
 pub mod decision;
 pub mod docker;
 pub mod engine;

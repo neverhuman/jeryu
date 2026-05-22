@@ -112,10 +112,8 @@ jobs:
       #     sarif_file: target/jankurai/jankurai.sarif
       #     category: jankurai
       - name: Proof lanes
-        # `jankurai proofbind verify` reads each changed file as UTF-8 and
-        # errors on binary assets (assets/tui-demo.gif: "stream did not
-        # contain valid UTF-8"). This lane now blocks CI so binary-handling
-        # regressions are visible instead of silently bypassed.
+        # The lane filters generated binary README media before proofbind,
+        # then runs proofmark/rust-witness against the resulting obligations.
         run: bash ops/ci/jankurai-lane.sh proof
       - name: Audit tools
         # Depends on proofbind output and blocks with the rest of the

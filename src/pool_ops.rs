@@ -1,3 +1,4 @@
+use super::pool_scale::remove_manager_cache_dir;
 use super::*;
 
 /// Pause a pool in GitLab (stops accepting new jobs) but keeps managers alive.
