@@ -58,6 +58,7 @@ pub(crate) fn build_demo_state(
             },
         ],
         flow,
+        fleet: demo_fleet_snapshot(&now_str),
         live_log: LiveLogState {
             target: Some(LogTarget {
                 project_id: release::DEFAULT_RELEASE_PROJECT_ID,
@@ -247,6 +248,51 @@ pub(crate) fn build_demo_state(
         release_stages: demo_release_stages(),
         approvals_queue: demo_approvals_queue(),
         agent_connected: true, // demo is "connected"
+    }
+}
+
+fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
+    use crate::repo_fleet::{FleetRepoSnapshot, FleetSnapshot, RepoLocalStatus, RepoRunSummary};
+
+    let repo =
+        |alias: &str, slug: &str, status: &str, running: u32, failed: u32| FleetRepoSnapshot {
+            alias: alias.into(),
+            slug: slug.into(),
+            provider: "github".into(),
+            default_branch: "main".into(),
+            visibility: "private".into(),
+            health_profile: "rust-workspace".into(),
+            status: status.into(),
+            running_count: running,
+            failed_count: failed,
+            stale: false,
+            score_badge: Some("92".into()),
+            local: RepoLocalStatus {
+                exists: true,
+                branch: Some("main".into()),
+                sha_short: Some("abc1234".into()),
+                dirty: false,
+            },
+            latest_run: Some(RepoRunSummary {
+                run_id: Some(42),
+                name: Some("jeryu/required".into()),
+                status: Some("completed".into()),
+                conclusion: Some(if failed > 0 { "failure" } else { "success" }.into()),
+                html_url: None,
+                updated_at: Some(now_str.into()),
+            }),
+            next_command: format!("cd /home/ubuntu/veox-split/{alias} && just fast"),
+        };
+
+    FleetSnapshot {
+        generated_at: now_str.into(),
+        registry_path: ".jeryu/repos.toml".into(),
+        repos: vec![
+            repo("nht", "neverhuman/veox-nht", "running", 1, 0),
+            repo("shared", "neverhuman/veox-shared", "green", 0, 0),
+            repo("warp", "neverhuman/veox-warp", "failed", 0, 1),
+        ],
+        events: Vec::new(),
     }
 }
 

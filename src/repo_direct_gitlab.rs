@@ -71,17 +71,17 @@ pub(crate) fn seed_missing_local_branch(
 }
 
 fn remote_branch_exists(repo_root: &Path, remote_url: &str, branch: &str) -> Result<bool> {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args([
+    let output = super::git_output(
+        repo_root,
+        &[
             "ls-remote",
             "--exit-code",
             "--heads",
             remote_url,
             &format!("refs/heads/{branch}"),
-        ])
-        .output()
-        .with_context(|| format!("checking remote branch {branch} at {remote_url}"))?;
+        ],
+    )
+    .with_context(|| format!("checking remote branch {branch} at {remote_url}"))?;
     Ok(output.status.success())
 }
 
@@ -99,10 +99,10 @@ pub(crate) fn seed_source_ref(repo_root: &Path, branch: &str) -> Result<Option<S
 }
 
 fn git_ref_exists(repo_root: &Path, ref_name: &str) -> Result<bool> {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(["rev-parse", "--verify", &format!("{ref_name}^{{commit}}")])
-        .output()
-        .with_context(|| format!("checking local ref {ref_name}"))?;
+    let output = super::git_output(
+        repo_root,
+        &["rev-parse", "--verify", &format!("{ref_name}^{{commit}}")],
+    )
+    .with_context(|| format!("checking local ref {ref_name}"))?;
     Ok(output.status.success())
 }

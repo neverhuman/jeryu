@@ -69,11 +69,11 @@ pub(crate) fn configure_git_hooks(repo_root: &Path) -> Result<()> {
         bail!("repo-managed hook is missing: {}", pre_push.display());
     }
 
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(["config", "--local", "core.hooksPath", "ops/git-hooks"])
-        .output()
-        .with_context(|| "configuring repo-managed git hooks".to_string())?;
+    let output = super::git_output(
+        repo_root,
+        &["config", "--local", "core.hooksPath", "ops/git-hooks"],
+    )
+    .with_context(|| "configuring repo-managed git hooks".to_string())?;
 
     if !output.status.success() {
         bail!(

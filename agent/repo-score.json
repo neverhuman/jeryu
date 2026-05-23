@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:cbd06d915d703ef2f2fede60cbaf8fc05f639de4f18506f6da23e394d76df224",
-  "input_fingerprint": "sha256:6fe8981581b08883d9aa5fdb68e496fbee619d7d4714c15bcbd027186e79109d",
+  "report_fingerprint": "sha256:ed8bcc0d5ee41a243ebc58750a54d31cab400ed9f092e85f4dbae92aabab0981",
+  "input_fingerprint": "sha256:7afbb5e747c10d47a10144871bf2882311915603b701255e59da233df33cf9d6",
   "policy_fingerprint": "sha256:a16e2d20c2aa770a2b7495b7aca700888a427efd11607cc1f1d4eae693fd3fef",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779483855",
+  "generated_at": "1779559098",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -21,29 +21,37 @@
   "target_stack_id": "rust-ts-vite-react-redline-bounded-python",
   "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
   "claimed_conformance_level": "HL3",
-  "observed_conformance_level": "HL3",
-  "conformance_decision": "pass",
-  "conformance_blockers": [],
+  "observed_conformance_level": "HL2",
+  "conformance_decision": "block",
+  "conformance_blockers": [
+    "HLT-001-DEAD-MARKER on src/repo_fleet.rs",
+    "HLT-001-DEAD-MARKER on src/repo_fleet.rs",
+    "HLT-001-DEAD-MARKER on src/repo_fleet.rs",
+    "HLT-001-DEAD-MARKER on src/repo_fleet.rs",
+    "HLT-001-DEAD-MARKER on src/repo_fleet.rs",
+    "HLT-001-DEAD-MARKER on src/repo_fleet.rs",
+    "HLT-001-DEAD-MARKER on src/repo_fleet.rs"
+  ],
   "repo": ".",
-  "run_id": "1779483855",
-  "started_at": "1779483855",
-  "elapsed_ms": 6881,
+  "run_id": "1779559098",
+  "started_at": "1779559098",
+  "elapsed_ms": 8360,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 89,
-  "raw_score": 89,
+  "score": 64,
+  "raw_score": 86,
   "decision": {
     "status": "advisory",
     "minimum_score": 85,
     "passed": true,
-    "hard_findings": 0,
+    "hard_findings": 7,
     "soft_findings": 1,
     "ratchet": {
-      "baseline_score": 89,
+      "baseline_score": 64,
       "allowed_drop": 0,
-      "passed": true,
+      "passed": false,
       "score_delta": 0,
       "baseline_report_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "baseline_input_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -54,7 +62,7 @@
     }
   },
   "git": {
-    "head": "7110562",
+    "head": "6fcd2f2",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -78,7 +86,9 @@
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
   },
-  "caps_applied": [],
+  "caps_applied": [
+    "future-hostile-dead-language-in-product-code"
+  ],
   "hard_rules": [
     {
       "id": "no-root-agent-instructions",
@@ -336,13 +346,9 @@
         "web e2e lane present or no web surface",
         "rendered UX QA lane present or no web surface",
         "DOM geometry UX QA runtime found",
-        "Rust property/integration tests present or no Rust surface",
-        "proofbind artifact found: surfaces=76 missing=76 high_or_critical_missing=5 verdict=review"
+        "Rust property/integration tests present or no Rust surface"
       ],
-      "notes": [
-        "proofbind reports 76 unresolved obligation(s)",
-        "proofbind reports 5 missing high/critical semantic proof obligation(s)"
-      ]
+      "notes": []
     },
     {
       "name": "Security and supply-chain posture",
@@ -357,7 +363,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 678",
+        "rust bad-behavior advisory signals: 709",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -368,20 +374,23 @@
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 70,
-      "weighted_points": 8.4,
+      "score": 46,
+      "weighted_points": 5.52,
       "evidence": [
-        "largest authored code file: src/commands/secrets.rs (233 LOC)",
+        "largest authored code file: src/repo_fleet.rs (385 LOC)",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 22 (advisory only, no score impact)",
+        "copy-code advisory classes found: 21 (advisory only, no score impact)",
+        "future-hostile/dead-language marker found",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 678",
+        "rust bad-behavior advisory signals: 709",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
       ],
-      "notes": []
+      "notes": [
+        "product/runtime code contains future-hostile or dead-language terms"
+      ]
     },
     {
       "name": "Data truth and workflow safety",
@@ -525,32 +534,6 @@
       "visual_review": [
         "apps/web/ux-qa.ts"
       ]
-    },
-    "artifact": {
-      "path": "target/jankurai/ux-qa.json",
-      "report_count": 10,
-      "worst_decision": "pass",
-      "total_violations": 0,
-      "summary_errors": 0,
-      "summary_warnings": 0,
-      "reports_missing_required_states": 0,
-      "missing_state_names": [],
-      "artifact_counts_by_kind": {
-        "accessibility": 10,
-        "aria-snapshot": 10,
-        "screenshot": 10
-      },
-      "reports_missing_required_artifacts": 0,
-      "missing_artifact_kinds": [],
-      "reports_missing_required_accessibility_artifact": 0,
-      "accessibility_violation_total": 0,
-      "accessibility_incomplete_total": 0,
-      "accessibility_pass_total": 170,
-      "artifact_fingerprint_count": 30,
-      "visual_baseline_missing": 10,
-      "visual_baseline_changed": 0,
-      "visual_baseline_review": 0,
-      "visual_baseline_block": 0
     }
   },
   "tool_adoption": {
@@ -1098,23 +1081,7 @@
       "cost-budget"
     ]
   },
-  "security_evidence": {
-    "artifact": {
-      "path": "target/jankurai/security/evidence.json",
-      "envelope_exit_code": 0,
-      "elapsed_ms": 3855,
-      "wrapper_strict": true,
-      "profile": "ci",
-      "commands_ran": 1,
-      "commands_skipped": 0,
-      "commands_failed": 0,
-      "required_commands_skipped": 0,
-      "required_commands_failed": 0,
-      "blocking_commands": [],
-      "generated_at": "1779483715",
-      "git_head": "71105623fdc1b720abd3a73c9f7c1949010db287"
-    }
-  },
+  "security_evidence": {},
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
@@ -1132,7 +1099,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-22T21:04:09.016716605+00:00",
+    "generated_at": "2026-05-23T17:58:10.083947600+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1170,20 +1137,20 @@
       ]
     },
     "summary": {
-      "files_scanned": 760,
-      "files_considered": 412,
-      "active_files": 412,
+      "files_scanned": 762,
+      "files_considered": 413,
+      "active_files": 413,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 22,
+      "warning_classes": 21,
       "hard_instances": 0,
-      "warning_instances": 80,
-      "duplicate_lines": 34,
-      "duplicate_tokens": 86,
-      "duplicate_bytes": 866,
-      "total_redundant_lines": 71,
-      "total_redundant_tokens": 183,
-      "total_redundant_bytes": 1709
+      "warning_instances": 77,
+      "duplicate_lines": 33,
+      "duplicate_tokens": 79,
+      "duplicate_bytes": 816,
+      "total_redundant_lines": 69,
+      "total_redundant_tokens": 169,
+      "total_redundant_bytes": 1609
     },
     "classes": [
       {
@@ -1348,72 +1315,72 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1690,
-            "end_line": 1691,
+            "start_line": 1756,
+            "end_line": 1757,
             "unit_name": "insert_pool"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1753,
-            "end_line": 1754,
+            "start_line": 1819,
+            "end_line": 1820,
             "unit_name": "insert_manager"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1844,
-            "end_line": 1845,
+            "start_line": 1910,
+            "end_line": 1911,
             "unit_name": "count_active_managers"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1857,
-            "end_line": 1858,
+            "start_line": 1923,
+            "end_line": 1924,
             "unit_name": "upsert_job_event"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1896,
-            "end_line": 1897,
+            "start_line": 1982,
+            "end_line": 1983,
             "unit_name": "upsert_ci_job_run"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2818,
-            "end_line": 2819,
+            "start_line": 2626,
+            "end_line": 2627,
+            "unit_name": "upsert_tracked_repository"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 2977,
+            "end_line": 2978,
             "unit_name": "record_git_ref_update"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2845,
-            "end_line": 2846,
+            "start_line": 3004,
+            "end_line": 3005,
             "unit_name": "record_git_mirror_job"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2872,
-            "end_line": 2873,
+            "start_line": 3031,
+            "end_line": 3032,
             "unit_name": "record_git_risk_approval"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2891,
-            "end_line": 2892,
+            "start_line": 3050,
+            "end_line": 3051,
             "unit_name": "record_git_command_artifact"
-          },
-          {
-            "path": "db/state.rs",
-            "language": "rust",
-            "start_line": 3300,
-            "end_line": 3301,
-            "unit_name": "latest_test_plan"
           }
         ]
       },
@@ -1518,29 +1485,29 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2129,
-            "end_line": 2130,
+            "start_line": 2240,
+            "end_line": 2241,
             "unit_name": "upsert_tracked_pipeline"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2918,
-            "end_line": 2919,
+            "start_line": 3077,
+            "end_line": 3078,
             "unit_name": "upsert_secret_authority"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2956,
-            "end_line": 2957,
+            "start_line": 3115,
+            "end_line": 3116,
             "unit_name": "upsert_release_secret_set"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3058,
-            "end_line": 3059,
+            "start_line": 3217,
+            "end_line": 3218,
             "unit_name": "insert_secret_audit_event"
           }
         ]
@@ -1692,48 +1659,6 @@
             "start_line": 87,
             "end_line": 88,
             "unit_name": "glyph"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-8abd57d4755fa7ad",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 7,
-        "duplicate_bytes": 50,
-        "instance_count": 3,
-        "total_redundant_lines": 2,
-        "total_redundant_tokens": 14,
-        "total_redundant_bytes": 100,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "f29193f81dea228e",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "src/repo_direct.rs",
-            "language": "rust",
-            "start_line": 48,
-            "end_line": 49,
-            "unit_name": "remove_other_remotes"
-          },
-          {
-            "path": "src/repo_direct.rs",
-            "language": "rust",
-            "start_line": 124,
-            "end_line": 125,
-            "unit_name": "run_git"
-          },
-          {
-            "path": "src/repo_direct.rs",
-            "language": "rust",
-            "start_line": 140,
-            "end_line": 141,
-            "unit_name": "git_config_get"
           }
         ]
       },
@@ -2100,15 +2025,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2031,
-            "end_line": 2032,
+            "start_line": 2142,
+            "end_line": 2143,
             "unit_name": "count_pending_jobs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2661,
-            "end_line": 2662,
+            "start_line": 2820,
+            "end_line": 2821,
             "unit_name": "count_recovery_decisions"
           }
         ]
@@ -2171,15 +2096,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 641,
-            "end_line": 642,
+            "start_line": 655,
+            "end_line": 656,
             "unit_name": "backend_sql"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 648,
-            "end_line": 649,
+            "start_line": 662,
+            "end_line": 663,
             "unit_name": "backend_sql_owned"
           }
         ]
@@ -2530,28 +2455,199 @@
       "severity": "medium",
       "category": "shape",
       "path": ".",
-      "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
+      "problem": "`Code shape and semantic surface` scored 46 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/commands/secrets.rs (233 LOC)",
+        "largest authored code file: src/repo_fleet.rs (385 LOC)",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 22 (advisory only, no score impact)",
-        "IO markers found in domain/core files"
+        "copy-code advisory classes found: 21 (advisory only, no score impact)",
+        "future-hostile/dead-language marker found"
       ],
       "check_id": "HLT-001-DEAD-MARKER:shape",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:0b73096cd3ffb00a3803057882ff31709719fef71265cb28921488213306ee44",
+      "fingerprint": "sha256:fd31a35b04a456b40a102bb872f5de8e5ce74ff5159b95d8ed277f1d9e5a3d49",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "tools"
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/repo_fleet.rs",
+      "problem": "future-hostile/dead-language term `stale` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/repo_fleet.rs:74",
+        "future-hostile/dead-language term `stale` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:46b082df1c987a568b47afa5fd5d7ac3490c77ad9e731b9edef98f54cb5b1672",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 74
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/repo_fleet.rs",
+      "problem": "future-hostile/dead-language term `stale` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/repo_fleet.rs:101",
+        "future-hostile/dead-language term `stale` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:77ed1955ada1643765fb373c1a241638b7b292f26bdc3ddead3407b7d5692b02",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 101
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/repo_fleet.rs",
+      "problem": "future-hostile/dead-language term `stale` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/repo_fleet.rs:164",
+        "future-hostile/dead-language term `stale` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:9add2ff158ddef6e752d9554515a67b9c5016e12abc7ea4370c563f41d164d99",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 164
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/repo_fleet.rs",
+      "problem": "future-hostile/dead-language term `stale` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/repo_fleet.rs:205",
+        "future-hostile/dead-language term `stale` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:54905e545ebdb44a56ea3e41e9e3d7c7ebb2d0b23c7c18821868fe0674091580",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 205
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/repo_fleet.rs",
+      "problem": "future-hostile/dead-language term `stale` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/repo_fleet.rs:229",
+        "future-hostile/dead-language term `stale` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:8e77285b0dff45b34faeed66b1176904d3990d0622a83bce6112c8bc28c0d73e",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 229
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/repo_fleet.rs",
+      "problem": "future-hostile/dead-language term `stale` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/repo_fleet.rs:265",
+        "future-hostile/dead-language term `stale` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:fb9200c2486592e0cb913d332a33e97ebf5c4ca411b47d409966e77a03851f89",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 265
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/repo_fleet.rs",
+      "problem": "future-hostile/dead-language term `stale` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/repo_fleet.rs:274",
+        "future-hostile/dead-language term `stale` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:dadc9090e2fb7c644556e9220f40def297da547b7e4281bd45c73255f33ad9e6",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 274
     }
   ],
   "agent_fix_queue": [
+    {
+      "path": "src/repo_fleet.rs",
+      "priority": "high",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "why": "future-hostile/dead-language term `stale` appears in product/runtime code"
+    },
     {
       "path": ".",
       "priority": "medium",
@@ -2560,7 +2656,7 @@
       "lane": "fast",
       "owner": "tools",
       "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
-      "why": "`Code shape and semantic surface` scored 70 below the standard floor of 85"
+      "why": "`Code shape and semantic surface` scored 46 below the standard floor of 85"
     }
   ]
 }

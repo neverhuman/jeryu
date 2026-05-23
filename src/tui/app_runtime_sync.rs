@@ -120,6 +120,11 @@ impl App {
         });
         snap.recent_jobs = jobs;
         snap.gitlab_ready = gitlab.is_ready().await;
+        if let Ok(repo_root) = std::env::current_dir()
+            && let Ok(fleet) = crate::repo_fleet::collect_fleet_snapshot(&repo_root, None).await
+        {
+            snap.fleet = fleet;
+        }
     }
 
     pub async fn tick(&mut self) {
@@ -128,6 +133,9 @@ impl App {
         while let Ok(mut state) = self.sync_rx.try_recv() {
             // Preserve live sub-state that is updated on separate channels
             state.flow = self.state.flow.clone();
+            if state.fleet.repos.is_empty() {
+                state.fleet = self.state.fleet.clone();
+            }
             state.live_log = self.state.live_log.clone();
             state.inspector_capsule = self.state.inspector_capsule.clone();
             state.inspector_job_id = self.state.inspector_job_id;
@@ -189,6 +197,9 @@ impl App {
             self.selected_pipeline_index = self.state.pipelines.len() - 1;
         }
         self.sync_selected_job_index();
+        if self.selected_repo_index > self.state.fleet.repos.len() {
+            self.selected_repo_index = self.state.fleet.repos.len();
+        }
         self.clamp_bug_selection();
         self.update_log_target();
 

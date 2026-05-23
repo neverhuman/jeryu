@@ -115,5 +115,5 @@ pub(crate) enum BugProjectCommands {
 #[path = "cli_defs_commands_repo.rs"]
 mod cli_defs_commands_repo;
 pub(crate) use cli_defs_commands_repo::{
-    RepoCommands, RepoHookCommands, RepoStandardCommand, RepoStandardCommands,
+    RepoCommands, RepoFleetCommands, RepoHookCommands, RepoStandardCommand, RepoStandardCommands,
 };

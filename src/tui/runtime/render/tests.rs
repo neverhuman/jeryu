@@ -139,7 +139,7 @@ async fn renders_approvals_tab_with_pending_pr() -> Result<()> {
         age: "3m".into(),
         head_sha: "abc123def456".into(),
     }];
-    let buffer = capture_buffer(&mut app)?;
+    let buffer = capture_buffer_size(&mut app, 120, 64)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
     assert!(rendered.contains("#42"));
     assert!(rendered.contains("claude"));
@@ -158,9 +158,16 @@ async fn renders_maximized_logs_empty_state() -> Result<()> {
     assert!(
         lines
             .get(3)
+            .map(|line| line.contains("All: none"))
+            .unwrap_or(false),
+        "fullscreen activity view should render the fleet bar under the header"
+    );
+    assert!(
+        lines
+            .get(4)
             .map(|line| line.contains("Activity / Logs"))
             .unwrap_or(false),
-        "fullscreen activity view should sit directly under the header"
+        "fullscreen activity view should sit under the fleet bar"
     );
     assert!(
         lines.iter().any(|line| line.contains("[esc]")),
@@ -360,7 +367,7 @@ async fn renders_jobs_tab_with_live_jobs_and_no_empty_message() -> Result<()> {
     app.active_tab = crate::tui::app::ActiveTab::Jobs;
     app.active_pane = crate::tui::app::ActivePane::Jobs;
 
-    let buffer = capture_buffer(&mut app)?;
+    let buffer = capture_buffer_size(&mut app, 120, 64)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
     assert!(rendered.contains("test-job-1"));
     assert!(rendered.contains("○"));
@@ -374,7 +381,7 @@ async fn renders_bugs_tab_with_populated_demo_state() -> Result<()> {
     app.apply_demo_fixture();
     app.active_tab = crate::tui::app::ActiveTab::Bugs;
 
-    let buffer = capture_buffer(&mut app)?;
+    let buffer = capture_buffer_size(&mut app, 120, 64)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
 
     assert!(rendered.contains("Bug Projects"));

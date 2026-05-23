@@ -15,6 +15,10 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
         }
         KeyCode::Char('q') => Ok(Some(true)),
         KeyCode::Esc => {
+            if app.repo_detail_open || app.selected_repo_index != 0 {
+                app.close_repo_detail();
+                app.repo_select_all();
+            }
             let _ = app.close_focus_overlay();
             Ok(Some(false))
         }
@@ -78,11 +82,16 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             Ok(Some(false))
         }
         KeyCode::Enter => {
+            if !matches!(app.focus.active, PaneId::ActivityLog(_)) {
+                app.open_repo_detail();
+            }
             handle_enter(app).await;
             Ok(Some(false))
         }
         KeyCode::Left | KeyCode::Char('h') => {
-            if app.focus.is_drilled() {
+            if app.repo_detail_open && !app.focus.is_drilled() {
+                app.repo_select_prev();
+            } else if app.focus.is_drilled() {
                 handle_drilled_arrow(app, NavDirection::Left).await;
             } else if app.active_tab == ActiveTab::Bugs && app.focus.active == PaneId::BugsInspector
             {
@@ -93,7 +102,9 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             Ok(Some(false))
         }
         KeyCode::Right | KeyCode::Char('l') => {
-            if app.focus.is_drilled() {
+            if app.repo_detail_open && !app.focus.is_drilled() {
+                app.repo_select_next();
+            } else if app.focus.is_drilled() {
                 handle_drilled_arrow(app, NavDirection::Right).await;
             } else if app.active_tab == ActiveTab::Bugs && app.focus.active == PaneId::BugsTable {
                 app.focus.active = PaneId::BugsInspector;
@@ -385,6 +396,26 @@ mod tests {
 
         assert_eq!(handle(&mut app, key(KeyCode::Esc)).await?, Some(false));
         assert_eq!(app.focus.fullscreen, None);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn repo_detail_opens_selects_and_esc_returns_all() -> Result<()> {
+        let mut app = test_app().await?;
+        app.apply_demo_fixture();
+        app.active_tab = ActiveTab::Jobs;
+        app.focus.set_tab(ActiveTab::Jobs);
+
+        assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
+        assert!(app.repo_detail_open);
+        let _ = app.close_focus_overlay();
+
+        assert_eq!(handle(&mut app, key(KeyCode::Right)).await?, Some(false));
+        assert_eq!(app.selected_repo_index, 1);
+
+        assert_eq!(handle(&mut app, key(KeyCode::Esc)).await?, Some(false));
+        assert!(!app.repo_detail_open);
+        assert_eq!(app.selected_repo_index, 0);
         Ok(())
     }
 

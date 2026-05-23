@@ -58,12 +58,18 @@ fn render_protected_paths_toml(spec: &StandardSpec) -> String {
     )
 }
 
-fn render_required_sh() -> String {
-    r#"#!/usr/bin/env bash
+fn render_required_sh(spec: &StandardSpec) -> String {
+    let mut script = r#"#!/usr/bin/env bash
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
+"#
+    .to_string();
+    script.push_str("# profile: ");
+    script.push_str(&spec.profile);
+    script.push_str(
+        r#"
 mkdir -p target/jankurai
 
 if ! command -v jankurai >/dev/null 2>&1; then
@@ -79,25 +85,82 @@ jankurai audit . \
   --md target/jankurai/required-audit.md
 
 bash .jeryu/ci/fast.sh
-"#
-    .to_string()
+"#,
+    );
+    script
 }
 
-fn render_fast_sh() -> String {
-    r#"#!/usr/bin/env bash
+fn render_fast_sh(spec: &StandardSpec) -> String {
+    let body = match spec.profile.as_str() {
+        "node-frontend" => {
+            r#"
+if [ ! -f package.json ]; then
+  echo "jeryu fast: package.json is required by node-frontend profile" >&2
+  exit 1
+fi
+
+node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+if npm run | grep -Eq '(^|[[:space:]])typecheck($|[[:space:]])'; then
+  npm run typecheck
+fi
+if npm run | grep -Eq '(^|[[:space:]])build($|[[:space:]])'; then
+  npm run build
+fi
+"#
+        }
+        "data-client" => {
+            r#"
+manifest="crates/neverhuman-data/Cargo.toml"
+if [ ! -f "$manifest" ]; then
+  manifest="$(find crates -mindepth 2 -maxdepth 2 -name Cargo.toml | sort | head -n 1)"
+fi
+if [ -z "${manifest:-}" ] || [ ! -f "$manifest" ]; then
+  echo "jeryu fast: nested data client Cargo.toml is required by data-client profile" >&2
+  exit 1
+fi
+cargo metadata --manifest-path "$manifest" --no-deps >/dev/null
+cargo check --manifest-path "$manifest" --locked
+"#
+        }
+        "artifact-catalog" => {
+            r#"
+if [ ! -f catalog.toml ] && [ ! -f manifest.toml ] && [ ! -d seeds ]; then
+  echo "jeryu fast: catalog.toml, manifest.toml, or seeds/ is required by artifact-catalog profile" >&2
+  exit 1
+fi
+find . -type f \( -name '*.toml' -o -name '*.json' \) -print | sort | head -n 200 >/dev/null
+"#
+        }
+        "docs-meta" => {
+            r#"
+if ! find . -type f \( -name '*.md' -o -name '*.mdx' \) | grep -q .; then
+  echo "jeryu fast: markdown docs are required by docs-meta profile" >&2
+  exit 1
+fi
+find . -type f \( -name '*.md' -o -name '*.mdx' \) -print | sort | head -n 200 >/dev/null
+"#
+        }
+        _ => {
+            r#"
+if [ ! -f Cargo.toml ]; then
+  echo "jeryu fast: Cargo.toml is required by rust-workspace profile" >&2
+  exit 1
+fi
+
+cargo metadata --no-deps >/dev/null
+cargo check --workspace --locked
+"#
+        }
+    };
+    let mut script = r#"#!/usr/bin/env bash
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
-
-if [ ! -f Cargo.toml ]; then
-  echo "jeryu fast: Cargo.toml is required by this standard profile" >&2
-  exit 1
-fi
-
-cargo check --workspace --locked
 "#
-    .to_string()
+    .to_string();
+    script.push_str(body);
+    script
 }
 
 fn render_pre_push_hook(base_branch: &str, provider: StandardProvider) -> String {

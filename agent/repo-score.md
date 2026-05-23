@@ -7,15 +7,15 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779483855`
-- Started at: `1779483855`
-- Elapsed: `6881` ms
+- Run ID: `1779559098`
+- Started at: `1779559098`
+- Elapsed: `8360` ms
 - Scope: `full`
-- Raw score: `89`
-- Final score: `89`
+- Raw score: `86`
+- Final score: `64`
 - Decision: `advisory`
 - Minimum score: `85`
-- Caps applied: `none`
+- Caps applied: `future-hostile-dead-language-in-product-code`
 
 ## Hard Rule Caps
 
@@ -35,7 +35,7 @@
 | `boundary-reclassification-evidence-gap` | 72 | no |
 | `vibe-placeholders-in-product-code` | 68 | no |
 | `fallback-soup-in-product-code` | 70 | no |
-| `future-hostile-dead-language-in-product-code` | 64 | no |
+| `future-hostile-dead-language-in-product-code` | 64 | yes |
 | `severe-duplication-in-product-code` | 70 | no |
 | `generated-zone-mutation-risk` | 76 | no |
 | `direct-db-access-from-wrong-layer` | 66 | no |
@@ -70,9 +70,9 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`22` files=`412`
+- Status: `review` hard=`0` warning=`21` files=`413`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
-- Duplicate volume: lines=`34` tokens=`86` bytes=`866`
+- Duplicate volume: lines=`33` tokens=`79` bytes=`816`
 
 - Notes:
   - hard classes are limited to exact active-source file matches and substantial exact same-name units
@@ -82,14 +82,13 @@
 | Kind | Severity | Language | Lines | Tokens | Instances | Reason |
 | --- | --- | --- | ---: | ---: | --- | --- |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose_workspace.rs:166-167, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:118-119, src/api/entity.rs:127-128, src/api/entity.rs:150-151, src/api/entity.rs:160-161, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:74-75, src/runtime_support/mod.rs:103-104, src/runtime_support/mod.rs:131-132, src/runtime_support/mod.rs:138-139, src/runtime_support/mod.rs:172-173` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1690-1691, db/state.rs:1753-1754, db/state.rs:1844-1845, db/state.rs:1857-1858, db/state.rs:1896-1897, db/state.rs:2818-2819, db/state.rs:2845-2846, db/state.rs:2872-2873, db/state.rs:2891-2892, db/state.rs:3300-3301` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1756-1757, db/state.rs:1819-1820, db/state.rs:1910-1911, db/state.rs:1923-1924, db/state.rs:1982-1983, db/state.rs:2626-2627, db/state.rs:2977-2978, db/state.rs:3004-3005, db/state.rs:3031-3032, db/state.rs:3050-3051` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 6 | 22 | `crates/cargo-aer/src/helpers.rs:93-99, crates/cargo-vrc/src/planner_support_paths.rs:168-174` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `src/capability_execute.rs:86-88, src/capability_inspect.rs:20-22, src/capability_inspect_read.rs:132-134` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2129-2130, db/state.rs:2918-2919, db/state.rs:2956-2957, db/state.rs:3058-3059` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2240-2241, db/state.rs:3077-3078, db/state.rs:3115-3116, db/state.rs:3217-3218` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:103-104` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:118-119, src/api/entity.rs:150-151, src/api/snapshot.rs:140-141` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:127-128, src/api/entity.rs:160-161, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 7 | `src/repo_direct.rs:48-49, src/repo_direct.rs:124-125, src/repo_direct.rs:140-141` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:37-38, src/runtime_support/mod.rs:83-84, src/runtime_support/mod.rs:147-148` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 3 | `src/runtime_support/mod.rs:45-46, src/runtime_support/mod.rs:91-92, src/runtime_support/mod.rs:155-156` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 4 | `src/messaging/backend.rs:191-193, src/messaging/backend.rs:203-205` | `same body appears under different names across files` |
@@ -99,9 +98,9 @@
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `crates/arc-bench/src/exceptions.rs:130-132, crates/arc-bench/src/witness_loop.rs:154-156` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 3 | `src/repo.rs:88-90, src/repo.rs:92-94` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 1 | `crates/cargo-aer/src/helpers.rs:101-103, crates/cargo-vrc/src/planner_support_paths.rs:176-178` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2031-2032, db/state.rs:2661-2662` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2142-2143, db/state.rs:2820-2821` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:64-65, src/runtime_support/mod.rs:110-111` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:641-642, db/state.rs:648-649` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:655-656, db/state.rs:662-663` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/api/entity.rs:191-192, src/gateway/singleflight.rs:64-65` | `same body appears under different names across files` |
 
 ## Dimensions
@@ -112,7 +111,7 @@
 | Contract and boundary integrity | 13 | 98 | 12.74 | contract surface found; generated contract artifacts found |
 | Proof lanes and test routing | 12 | 100 | 12.00 | one-command setup/validation lane found; deterministic fast lane found |
 | Security and supply-chain posture | 12 | 86 | 10.32 | lockfile present; secret or dependency scan tooling found |
-| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/commands/secrets.rs (233 LOC); most code files stay under 300 LOC |
+| Code shape and semantic surface | 12 | 46 | 5.52 | largest authored code file: src/repo_fleet.rs (385 LOC); most code files stay under 300 LOC |
 | Data truth and workflow safety | 8 | 95 | 7.60 | database surface present; structured db boundary manifest present |
 | Observability and repair evidence | 8 | 98 | 7.84 | observability libraries or patterns found; diagnostic shaping hints found |
 | Context economy and agent instructions | 7 | 100 | 7.00 | root `AGENTS.md` present; root `AGENTS.md` stays short |
@@ -142,18 +141,6 @@
 - Web surface: `true`
 - Layered UX lane: `true`
 - Missing: `none`
-
-### Ingested UX QA report (`target/jankurai/ux-qa.json`)
-- Report count: `10`
-- Worst decision: `pass`
-- Total violations: `0`
-- Summary errors / warnings: `0` / `0`
-- Artifact counts: `accessibility=10, aria-snapshot=10, screenshot=10`
-- Artifact fingerprints: `30`
-- Visual baseline counts: missing=`10` changed=`0` review=`0` block=`0`
-- Missing required states: `0` report(s) `none`
-- Missing required artifacts: `0` report(s) `none`
-- Accessibility violations / incomplete / passes: `0` / `0` / `170`
 
 ## Tool Adoption
 
@@ -188,14 +175,6 @@
 | `release-readiness` | `release` | `auto` | `configured` | `manual launch checklist` | `agent/repo-score.json, agent/repo-score.md` |
 | `cost-budget` | `release` | `auto` | `configured` | `manual spend review` | `agent/repo-score.json, agent/repo-score.md` |
 
-## Security evidence (ingested)
-
-- Source: `target/jankurai/security/evidence.json`
-- Envelope exit code: `0` · elapsed: `3855` ms · strict: `true`
-- Commands — ran: `1`, skipped: `0`, failed: `0`
-- Generated at: `1779483715`
-- Git HEAD (envelope): `71105623fdc1b720abd3a73c9f7c1949010db287`
-
 ## Boundary manifest (ingested)
 
 - Path: `agent/boundaries.toml`
@@ -214,11 +193,81 @@ No audited runtime boundary reclassifications declared.
    Check: `HLT-001-DEAD-MARKER:shape` `soft` confidence `0.76`
    Route: TLR `Entropy`, lane `fast`, owner `tools`
    Docs: `docs/audit-rubric.md#future-hostile-language-rule`
-   Reason: `Code shape and semantic surface` scored 70 below the standard floor of 85
+   Reason: `Code shape and semantic surface` scored 46 below the standard floor of 85
    Fix: split large or ambiguous authored code into smaller semantic modules with focused tests
    Rerun: `just fast`
-   Fingerprint: `sha256:0b73096cd3ffb00a3803057882ff31709719fef71265cb28921488213306ee44`
-   Evidence: largest authored code file: src/commands/secrets.rs (233 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 22 (advisory only, no score impact), IO markers found in domain/core files
+   Fingerprint: `sha256:fd31a35b04a456b40a102bb872f5de8e5ce74ff5159b95d8ed277f1d9e5a3d49`
+   Evidence: largest authored code file: src/repo_fleet.rs (385 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 21 (advisory only, no score impact), future-hostile/dead-language marker found
+2. `high` `vibe` `src/repo_fleet.rs:74`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
+   Route: TLR `Entropy`, lane `fast`, owner `workspace`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: future-hostile/dead-language term `stale` appears in product/runtime code
+   Fix: remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Rerun: `just fast`
+   Fingerprint: `sha256:46b082df1c987a568b47afa5fd5d7ac3490c77ad9e731b9edef98f54cb5b1672`
+   Evidence: src/repo_fleet.rs:74, future-hostile/dead-language term `stale` appears
+3. `high` `vibe` `src/repo_fleet.rs:101`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
+   Route: TLR `Entropy`, lane `fast`, owner `workspace`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: future-hostile/dead-language term `stale` appears in product/runtime code
+   Fix: remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Rerun: `just fast`
+   Fingerprint: `sha256:77ed1955ada1643765fb373c1a241638b7b292f26bdc3ddead3407b7d5692b02`
+   Evidence: src/repo_fleet.rs:101, future-hostile/dead-language term `stale` appears
+4. `high` `vibe` `src/repo_fleet.rs:164`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
+   Route: TLR `Entropy`, lane `fast`, owner `workspace`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: future-hostile/dead-language term `stale` appears in product/runtime code
+   Fix: remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Rerun: `just fast`
+   Fingerprint: `sha256:9add2ff158ddef6e752d9554515a67b9c5016e12abc7ea4370c563f41d164d99`
+   Evidence: src/repo_fleet.rs:164, future-hostile/dead-language term `stale` appears
+5. `high` `vibe` `src/repo_fleet.rs:205`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
+   Route: TLR `Entropy`, lane `fast`, owner `workspace`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: future-hostile/dead-language term `stale` appears in product/runtime code
+   Fix: remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Rerun: `just fast`
+   Fingerprint: `sha256:54905e545ebdb44a56ea3e41e9e3d7c7ebb2d0b23c7c18821868fe0674091580`
+   Evidence: src/repo_fleet.rs:205, future-hostile/dead-language term `stale` appears
+6. `high` `vibe` `src/repo_fleet.rs:229`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
+   Route: TLR `Entropy`, lane `fast`, owner `workspace`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: future-hostile/dead-language term `stale` appears in product/runtime code
+   Fix: remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Rerun: `just fast`
+   Fingerprint: `sha256:8e77285b0dff45b34faeed66b1176904d3990d0622a83bce6112c8bc28c0d73e`
+   Evidence: src/repo_fleet.rs:229, future-hostile/dead-language term `stale` appears
+7. `high` `vibe` `src/repo_fleet.rs:265`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
+   Route: TLR `Entropy`, lane `fast`, owner `workspace`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: future-hostile/dead-language term `stale` appears in product/runtime code
+   Fix: remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Rerun: `just fast`
+   Fingerprint: `sha256:fb9200c2486592e0cb913d332a33e97ebf5c4ca411b47d409966e77a03851f89`
+   Evidence: src/repo_fleet.rs:265, future-hostile/dead-language term `stale` appears
+8. `high` `vibe` `src/repo_fleet.rs:274`
+   Rule: `HLT-001-DEAD-MARKER`
+   Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`
+   Route: TLR `Entropy`, lane `fast`, owner `workspace`
+   Docs: `docs/audit-rubric.md#future-hostile-language-rule`
+   Reason: future-hostile/dead-language term `stale` appears in product/runtime code
+   Fix: remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Rerun: `just fast`
+   Fingerprint: `sha256:dadc9090e2fb7c644556e9220f40def297da547b7e4281bd45c73255f33ad9e6`
+   Evidence: src/repo_fleet.rs:274, future-hostile/dead-language term `stale` appears
 
 ## Policy
 
@@ -228,5 +277,7 @@ No audited runtime boundary reclassifications declared.
 
 ## Agent Fix Queue
 
-1. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
+1. `high` `HLT-001-DEAD-MARKER` `src/repo_fleet.rs` - remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context
+   Route: `Entropy`/`fast`
+2. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
    Route: `Entropy`/`fast`

@@ -198,6 +198,7 @@ pub struct TuiStateSnapshot {
     pub recent_jobs: Vec<JobEvent>,
     pub pipelines: Vec<PipelineMetrics>,
     pub flow: crate::tui::flow::FlowSnapshot,
+    pub fleet: crate::repo_fleet::FleetSnapshot,
     pub live_log: LiveLogState,
     pub hot_cache_usage_bytes: i64,
     pub cache_hits: i64,
@@ -312,6 +313,8 @@ pub struct App {
     pub selected_job_id: Option<i64>,
     pub selected_secret_index: usize,
     pub selected_git_index: usize,
+    pub selected_repo_index: usize,
+    pub repo_detail_open: bool,
 
     pub maximize_logs: bool,
     pub log_scroll_offset: u16,

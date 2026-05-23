@@ -76,6 +76,50 @@ fn gitlab_provider_renders_no_github_files() {
 }
 
 #[test]
+fn node_frontend_profile_renders_node_fast_lane() {
+    let spec = StandardSpec {
+        repo_root: PathBuf::from("."),
+        profile: "node-frontend".to_string(),
+        provider: StandardProvider::Github,
+        base_branch: "main".to_string(),
+        repo_slug: "neverhuman/veox-warp".to_string(),
+        repo_owner: "neverhuman".to_string(),
+        repo_name: "veox-warp".to_string(),
+        autonomy_dir: DEFAULT_AUTONOMY_DIR.to_string(),
+    };
+    let files = render_standard_files(&spec);
+    let fast = files
+        .iter()
+        .find(|file| file.path == ".jeryu/ci/fast.sh")
+        .unwrap();
+    assert!(fast.content.contains("package.json"));
+    assert!(fast.content.contains("npm run typecheck"));
+    assert!(!fast.content.contains("Cargo.toml is required"));
+}
+
+#[test]
+fn data_client_profile_renders_nested_manifest_fast_lane() {
+    let spec = StandardSpec {
+        repo_root: PathBuf::from("."),
+        profile: "data-client".to_string(),
+        provider: StandardProvider::Github,
+        base_branch: "main".to_string(),
+        repo_slug: "neverhuman/veox-neverhuman-data".to_string(),
+        repo_owner: "neverhuman".to_string(),
+        repo_name: "veox-neverhuman-data".to_string(),
+        autonomy_dir: DEFAULT_AUTONOMY_DIR.to_string(),
+    };
+    let files = render_standard_files(&spec);
+    let fast = files
+        .iter()
+        .find(|file| file.path == ".jeryu/ci/fast.sh")
+        .unwrap();
+    assert!(fast.content.contains("crates/neverhuman-data/Cargo.toml"));
+    assert!(fast.content.contains("cargo metadata --manifest-path"));
+    assert!(!fast.content.contains("cargo check --workspace"));
+}
+
+#[test]
 fn apply_then_verify_is_clean_in_temp_git_repo() {
     let tmp = tempfile::tempdir().unwrap();
     run_git(tmp.path(), &["init", "-b", "main"]).unwrap();
