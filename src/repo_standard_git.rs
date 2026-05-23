@@ -2,6 +2,7 @@ use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
+use std::process::{Command, Output};
 
 pub(crate) fn infer_remote_slug(repo_root: &Path) -> Result<Option<String>> {
     let Some(remote) = git_config_get(repo_root, "remote.origin.url")? else {
@@ -88,10 +89,7 @@ pub(crate) fn set_executable(_path: &Path, _executable: bool) -> Result<()> {
 }
 
 pub(crate) fn git_config_get(repo_root: &Path, key: &str) -> Result<Option<String>> {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(["config", "--local", "--get", key])
-        .output()
+    let output = git_output(repo_root, &["config", "--local", "--get", key])
         .with_context(|| format!("reading git config {key}"))?;
     if output.status.success() {
         Ok(Some(
@@ -103,11 +101,7 @@ pub(crate) fn git_config_get(repo_root: &Path, key: &str) -> Result<Option<Strin
 }
 
 pub(crate) fn run_git(repo_root: &Path, args: &[&str]) -> Result<()> {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(args)
-        .output()
-        .with_context(|| format!("running git {:?}", args))?;
+    let output = git_output(repo_root, args).with_context(|| format!("running git {:?}", args))?;
     if !output.status.success() {
         bail!(
             "git {:?} failed: {}",
@@ -116,4 +110,15 @@ pub(crate) fn run_git(repo_root: &Path, args: &[&str]) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn git_output(repo_root: &Path, args: &[&str]) -> std::io::Result<Output> {
+    #[cfg(test)]
+    let _guard = crate::test_sync::PATH_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    Command::new("git")
+        .current_dir(repo_root)
+        .args(args)
+        .output()
 }

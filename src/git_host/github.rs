@@ -12,7 +12,7 @@ use crate::git_host::{
 };
 use async_trait::async_trait;
 use base64::Engine as _;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
 
@@ -120,6 +120,43 @@ impl GitHubClient {
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .header("User-Agent", &self.user_agent)
+    }
+
+    /// Read recent GitHub Actions workflow runs for a registered repository.
+    ///
+    /// This intentionally stays outside the `GitHost` trait: the fleet
+    /// dashboard consumes host activity summaries, not merge-gate semantics.
+    pub async fn list_workflow_runs(
+        &self,
+        repo: &RepoRef,
+        branch: Option<&str>,
+        limit: u8,
+    ) -> Result<Vec<GitHubWorkflowRun>, HostError> {
+        let per_page = limit.clamp(1, 100);
+        let mut path = format!(
+            "/repos/{}/{}/actions/runs?per_page={per_page}",
+            repo.owner, repo.name
+        );
+        if let Some(branch) = branch.filter(|value| !value.trim().is_empty()) {
+            path.push_str("&branch=");
+            path.push_str(&urlencoding::encode(branch));
+        }
+        let r = self
+            .req(reqwest::Method::GET, &path)
+            .send()
+            .await
+            .map_err(|e| HostError::Transient(e.to_string()))?;
+        let status = r.status();
+        let headers = r.headers().clone();
+        if !status.is_success() {
+            let body = response_text_or_empty(r).await;
+            return Err(map_http_err(status, &headers, body));
+        }
+        let body: WorkflowRunsResp = r
+            .json()
+            .await
+            .map_err(|e| HostError::Permanent(e.to_string()))?;
+        Ok(body.workflow_runs)
     }
 
     /// Read every `*.yml` under `.jeryu/autonomy/policies/` on `target_branch`,
@@ -333,6 +370,25 @@ struct PullRefResp {
     sha: String,
     #[serde(rename = "ref")]
     ref_name: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct GitHubWorkflowRun {
+    pub id: Option<i64>,
+    pub name: Option<String>,
+    pub status: Option<String>,
+    pub conclusion: Option<String>,
+    pub html_url: Option<String>,
+    pub head_branch: Option<String>,
+    pub head_sha: Option<String>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct WorkflowRunsResp {
+    #[serde(default)]
+    workflow_runs: Vec<GitHubWorkflowRun>,
 }
 
 /// Subset of the GitHub PR object we care about. We deliberately ignore
@@ -874,6 +930,30 @@ mod tests {
         assert!(
             matches!(err, HostError::Transient(_)),
             "expected Transient, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn github_workflow_runs_deserialize_minimal_payload() {
+        let raw = r#"{
+          "workflow_runs": [{
+            "id": 42,
+            "name": "jeryu/required",
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/neverhuman/veox-shared/actions/runs/42",
+            "head_branch": "main",
+            "head_sha": "abc123",
+            "created_at": "2026-05-23T00:00:00Z",
+            "updated_at": "2026-05-23T00:01:00Z"
+          }]
+        }"#;
+        let parsed: WorkflowRunsResp = serde_json::from_str(raw).unwrap();
+        assert_eq!(parsed.workflow_runs.len(), 1);
+        assert_eq!(parsed.workflow_runs[0].id, Some(42));
+        assert_eq!(
+            parsed.workflow_runs[0].conclusion.as_deref(),
+            Some("success")
         );
     }
 

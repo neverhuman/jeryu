@@ -44,6 +44,8 @@ impl App {
             selected_job_id: None,
             selected_secret_index: 0,
             selected_git_index: 0,
+            selected_repo_index: 0,
+            repo_detail_open: false,
             maximize_logs: false,
             log_scroll_offset: 0,
             follow_log_tail: true,
@@ -137,6 +139,35 @@ impl App {
     /// Toggle the visibility of the Mission Control action pane.
     pub fn toggle_action_pane(&mut self) {
         self.action_pane.visible = !self.action_pane.visible;
+    }
+
+    pub fn repo_select_next(&mut self) {
+        let max_index = self.state.fleet.repos.len();
+        if max_index == 0 {
+            self.selected_repo_index = 0;
+        } else {
+            self.selected_repo_index = (self.selected_repo_index + 1).min(max_index);
+        }
+    }
+
+    pub fn repo_select_prev(&mut self) {
+        self.selected_repo_index = self.selected_repo_index.saturating_sub(1);
+    }
+
+    pub fn repo_select_all(&mut self) {
+        self.selected_repo_index = 0;
+    }
+
+    pub fn open_repo_detail(&mut self) {
+        self.repo_detail_open = true;
+    }
+
+    pub fn close_repo_detail(&mut self) {
+        self.repo_detail_open = false;
+    }
+
+    pub fn selected_repo(&self) -> Option<&crate::repo_fleet::FleetRepoSnapshot> {
+        self.state.fleet.selected(self.selected_repo_index)
     }
 
     /// Route a key into the action pane. Returns `true` when the pane

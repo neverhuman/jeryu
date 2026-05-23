@@ -36,14 +36,19 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3), // Header + tabs
+                Constraint::Length(1), // Fleet activity bar
                 Constraint::Min(10),   // Full log view
                 Constraint::Length(1), // Footer
             ])
             .split(f.area());
 
         draw_header_tabs(f, app, chunks[0]);
-        activity::draw_activity_pane(f, app, chunks[1]);
-        draw_footer(f, app, chunks[2]);
+        crate::tui::repo_fleet_bar::draw_fleet_bar(f, app, chunks[1]);
+        activity::draw_activity_pane(f, app, chunks[2]);
+        draw_footer(f, app, chunks[3]);
+        if app.repo_detail_open {
+            crate::tui::repo_fleet_bar::draw_repo_detail_overlay(f, app);
+        }
         return;
     }
 
@@ -51,6 +56,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // Header + tabs
+            Constraint::Length(1), // Fleet activity bar
             Constraint::Min(10),   // Content
             Constraint::Length(7), // Activity / Logs
             Constraint::Length(1), // Footer
@@ -58,6 +64,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         .split(f.area());
 
     draw_header_tabs(f, app, chunks[0]);
+    crate::tui::repo_fleet_bar::draw_fleet_bar(f, app, chunks[1]);
 
     match app.active_tab {
         ActiveTab::Workflow => {
@@ -70,7 +77,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 INSPECTOR_MIN_TERM_W, INSPECTOR_W, draw_inspector_pane_with_chrome,
             };
             use crate::tui::workflow::widget::DeliveryChrome;
-            let main_area = chunks[1];
+            let main_area = chunks[2];
             // Show the side-pane inspector when open AND there's room. Otherwise
             // fall back to the legacy modal overlay (rendered below).
             let inline_pane = app.workflow_inspect_open
@@ -161,29 +168,32 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 draw_workflow_inspect_overlay(f, app);
             }
         }
-        ActiveTab::Mission => draw_mission_tab(f, app, chunks[1]),
-        ActiveTab::Release => draw_release_tab(f, app, chunks[1]),
-        ActiveTab::Approvals => draw_approvals_tab(f, app, chunks[1]),
-        ActiveTab::Jobs => draw_jobs_tab(f, app, chunks[1]),
-        ActiveTab::Agents => draw_agents_tab(f, app, chunks[1]),
-        ActiveTab::Tests => draw_tests_tab(f, app, chunks[1]),
-        ActiveTab::Pools => draw_pools_tab(f, app, chunks[1]),
-        ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[1]),
-        ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[1]),
-        ActiveTab::Bugs => draw_bugs_tab(f, app, chunks[1]),
-        ActiveTab::LLMs => draw_llms_tab(f, app, chunks[1]),
-        ActiveTab::Git => draw_git_tab(f, app, chunks[1]),
-        ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[1]),
+        ActiveTab::Mission => draw_mission_tab(f, app, chunks[2]),
+        ActiveTab::Release => draw_release_tab(f, app, chunks[2]),
+        ActiveTab::Approvals => draw_approvals_tab(f, app, chunks[2]),
+        ActiveTab::Jobs => draw_jobs_tab(f, app, chunks[2]),
+        ActiveTab::Agents => draw_agents_tab(f, app, chunks[2]),
+        ActiveTab::Tests => draw_tests_tab(f, app, chunks[2]),
+        ActiveTab::Pools => draw_pools_tab(f, app, chunks[2]),
+        ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[2]),
+        ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[2]),
+        ActiveTab::Bugs => draw_bugs_tab(f, app, chunks[2]),
+        ActiveTab::LLMs => draw_llms_tab(f, app, chunks[2]),
+        ActiveTab::Git => draw_git_tab(f, app, chunks[2]),
+        ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[2]),
     }
 
-    activity::draw_activity_pane(f, app, chunks[2]);
-    draw_footer(f, app, chunks[3]);
+    activity::draw_activity_pane(f, app, chunks[3]);
+    draw_footer(f, app, chunks[4]);
 
     if app.command_palette_open {
         draw_command_palette(f, app);
     }
     if app.help_overlay_open {
         draw_help_overlay(f, app);
+    }
+    if app.repo_detail_open {
+        crate::tui::repo_fleet_bar::draw_repo_detail_overlay(f, app);
     }
 }
 

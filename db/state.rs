@@ -206,6 +206,20 @@ pub struct TrackedPipeline {
 }
 
 #[derive(Debug, Clone, FromRow, serde::Serialize)]
+pub struct TrackedRepository {
+    pub slug: String,
+    pub alias: String,
+    pub provider: String,
+    pub remote: String,
+    pub local_root: String,
+    pub default_branch: String,
+    pub visibility: String,
+    pub health_profile: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, FromRow, serde::Serialize)]
 pub struct ReleaseAttempt {
     pub id: i64,
     pub project_id: i64,
@@ -919,6 +933,7 @@ impl Db {
 
             CREATE TABLE IF NOT EXISTS job_events (
                 job_id          INTEGER NOT NULL,
+                repo_slug       TEXT NOT NULL DEFAULT 'neverhuman/jeryu',
                 project_id      INTEGER NOT NULL,
                 pipeline_id     INTEGER,
                 status          TEXT NOT NULL,
@@ -932,6 +947,7 @@ impl Db {
 
             CREATE TABLE IF NOT EXISTS ci_job_runs (
                 job_id                 INTEGER PRIMARY KEY,
+                repo_slug              TEXT NOT NULL DEFAULT 'neverhuman/jeryu',
                 project_id             INTEGER NOT NULL,
                 pipeline_id            INTEGER NOT NULL,
                 root_pipeline_id       INTEGER NOT NULL,
@@ -1017,6 +1033,7 @@ impl Db {
 
             CREATE TABLE IF NOT EXISTS tracked_pipelines (
                 pipeline_id      INTEGER PRIMARY KEY,
+                repo_slug        TEXT NOT NULL DEFAULT 'neverhuman/jeryu',
                 project_id       INTEGER NOT NULL,
                 ref_name         TEXT NOT NULL,
                 sha              TEXT NOT NULL,
@@ -1026,6 +1043,22 @@ impl Db {
 
             CREATE INDEX IF NOT EXISTS idx_tracked_pipelines_ref
             ON tracked_pipelines (project_id, ref_name, status);
+
+            CREATE TABLE IF NOT EXISTS tracked_repositories (
+                slug             TEXT PRIMARY KEY,
+                alias            TEXT NOT NULL,
+                provider         TEXT NOT NULL,
+                remote           TEXT NOT NULL,
+                local_root       TEXT NOT NULL,
+                default_branch   TEXT NOT NULL,
+                visibility       TEXT NOT NULL,
+                health_profile   TEXT NOT NULL,
+                created_at       TEXT NOT NULL,
+                updated_at       TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_tracked_repositories_alias
+            ON tracked_repositories (alias);
 
             CREATE TABLE IF NOT EXISTS release_attempts (
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1517,6 +1550,39 @@ impl Db {
         )
         .execute(&self.pool)
         .await?;
+        let _ = sqlx::query(
+            "ALTER TABLE job_events ADD COLUMN repo_slug TEXT NOT NULL DEFAULT 'neverhuman/jeryu';",
+        )
+        .execute(&self.pool)
+        .await;
+        let _ = sqlx::query(
+            "ALTER TABLE ci_job_runs ADD COLUMN repo_slug TEXT NOT NULL DEFAULT 'neverhuman/jeryu';",
+        )
+        .execute(&self.pool)
+        .await;
+        let _ = sqlx::query(
+            "ALTER TABLE tracked_pipelines ADD COLUMN repo_slug TEXT NOT NULL DEFAULT 'neverhuman/jeryu';",
+        )
+        .execute(&self.pool)
+        .await;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_job_events_repo_received
+                ON job_events(repo_slug, received_at)",
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_ci_job_runs_repo_pipeline
+                ON ci_job_runs(repo_slug, project_id, pipeline_id)",
+        )
+        .execute(&self.pool)
+        .await?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_tracked_pipelines_repo_ref
+                ON tracked_pipelines(repo_slug, project_id, ref_name, status)",
+        )
+        .execute(&self.pool)
+        .await?;
         // Migrate selector_misses.plan_id from NOT NULL to nullable.
         // Keep this portable by using rename -> recreate -> copy -> drop.
         let selector_misses_schema_sql = self
@@ -1893,6 +1959,26 @@ impl Db {
         Ok(events)
     }
 
+    pub async fn recent_job_events_for_repo(
+        &self,
+        repo_slug: Option<&str>,
+        limit: i64,
+    ) -> Result<Vec<JobEvent>> {
+        if let Some(repo_slug) = repo_slug {
+            let sql = self.sql(
+                "SELECT * FROM job_events WHERE repo_slug = ? ORDER BY received_at DESC LIMIT ?",
+            );
+            sqlx::query_as::<_, JobEvent>(&sql)
+                .bind(repo_slug)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(Into::into)
+        } else {
+            self.recent_job_events(limit).await
+        }
+    }
+
     pub async fn upsert_ci_job_run(&self, run: &CiJobRun) -> Result<()> {
         let sql = self.sql(
             r#"INSERT INTO ci_job_runs
@@ -1965,6 +2051,31 @@ impl Db {
             .fetch_all(&self.pool)
             .await
             .map_err(Into::into)
+    }
+
+    pub async fn list_ci_job_runs_for_repo(
+        &self,
+        repo_slug: Option<&str>,
+        project_id: i64,
+        pipeline_id: i64,
+    ) -> Result<Vec<CiJobRun>> {
+        if let Some(repo_slug) = repo_slug {
+            let sql = self.sql(
+                r#"SELECT * FROM ci_job_runs
+                   WHERE repo_slug = ? AND project_id = ? AND (pipeline_id = ? OR root_pipeline_id = ?)
+                   ORDER BY stage, job_name"#,
+            );
+            sqlx::query_as::<_, CiJobRun>(&sql)
+                .bind(repo_slug)
+                .bind(project_id)
+                .bind(pipeline_id)
+                .bind(pipeline_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(Into::into)
+        } else {
+            self.list_ci_job_runs(project_id, pipeline_id).await
+        }
     }
 
     pub async fn ci_job_bottlenecks(
@@ -2507,6 +2618,54 @@ impl Db {
             "SELECT * FROM tracked_pipelines ORDER BY updated_at DESC LIMIT ?",
         )
         .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    pub async fn upsert_tracked_repository(&self, repo: &TrackedRepository) -> Result<()> {
+        let sql = self.sql(
+            r#"INSERT INTO tracked_repositories
+               (slug, alias, provider, remote, local_root, default_branch,
+                visibility, health_profile, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(slug) DO UPDATE SET
+                   alias = excluded.alias,
+                   provider = excluded.provider,
+                   remote = excluded.remote,
+                   local_root = excluded.local_root,
+                   default_branch = excluded.default_branch,
+                   visibility = excluded.visibility,
+                   health_profile = excluded.health_profile,
+                   updated_at = excluded.updated_at"#,
+        );
+        sqlx::query(&sql)
+            .bind(&repo.slug)
+            .bind(&repo.alias)
+            .bind(&repo.provider)
+            .bind(&repo.remote)
+            .bind(&repo.local_root)
+            .bind(&repo.default_branch)
+            .bind(&repo.visibility)
+            .bind(&repo.health_profile)
+            .bind(&repo.created_at)
+            .bind(&repo.updated_at)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn upsert_tracked_repositories(&self, repos: &[TrackedRepository]) -> Result<()> {
+        for repo in repos {
+            self.upsert_tracked_repository(repo).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn list_tracked_repositories(&self) -> Result<Vec<TrackedRepository>> {
+        let rows = sqlx::query_as::<_, TrackedRepository>(
+            "SELECT * FROM tracked_repositories ORDER BY alias",
+        )
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
@@ -4130,6 +4289,102 @@ mod tests {
             root_index.as_ref().map(|row| row.0.as_str()),
             Some("idx_ci_job_runs_root_pipeline")
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn sqlite_migration_backfills_repo_tracking_columns() -> Result<()> {
+        install_default_drivers();
+        let dir = tempfile::tempdir()?;
+        let db_path = dir.path().join("state.sqlite");
+        let database_url = db_config::sqlite_url(&db_path);
+        let pool = pool_options(ActiveStateBackend::Sqlite, &database_url)
+            .connect_with(AnyConnectOptions::from_str(&database_url)?)
+            .await?;
+        sqlx::query(
+            r#"CREATE TABLE job_events (
+                job_id          INTEGER NOT NULL,
+                project_id      INTEGER NOT NULL,
+                pipeline_id     INTEGER,
+                status          TEXT NOT NULL,
+                job_name        TEXT,
+                pool_name       TEXT,
+                system_id       TEXT,
+                queued_duration REAL,
+                received_at     TEXT NOT NULL,
+                PRIMARY KEY (job_id, status)
+            )"#,
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            r#"CREATE TABLE ci_job_runs (
+                job_id                 INTEGER PRIMARY KEY,
+                project_id             INTEGER NOT NULL,
+                pipeline_id            INTEGER NOT NULL,
+                pipeline_sha           TEXT NOT NULL,
+                ref_name               TEXT NOT NULL,
+                job_name               TEXT NOT NULL,
+                stage                  TEXT NOT NULL,
+                status                 TEXT NOT NULL,
+                runner                 TEXT,
+                runner_pool            TEXT,
+                queued_duration_secs   REAL,
+                duration_secs          REAL,
+                started_at             TEXT,
+                finished_at            TEXT,
+                web_url                TEXT,
+                observed_at            TEXT NOT NULL
+            )"#,
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            r#"CREATE TABLE tracked_pipelines (
+                pipeline_id      INTEGER PRIMARY KEY,
+                project_id       INTEGER NOT NULL,
+                ref_name         TEXT NOT NULL,
+                sha              TEXT NOT NULL,
+                status           TEXT NOT NULL,
+                updated_at       TEXT NOT NULL
+            )"#,
+        )
+        .execute(&pool)
+        .await?;
+        pool.close().await;
+
+        let db = Db::open_url(&database_url).await?;
+        for (table, column) in [
+            ("job_events", "repo_slug"),
+            ("ci_job_runs", "repo_slug"),
+            ("tracked_pipelines", "repo_slug"),
+        ] {
+            let got: Option<(String,)> = sqlx::query_as(&format!(
+                "SELECT name FROM pragma_table_info('{table}') WHERE name = ?"
+            ))
+            .bind(column)
+            .fetch_optional(&db.pool)
+            .await?;
+            assert_eq!(got.as_ref().map(|row| row.0.as_str()), Some(column));
+        }
+
+        let now = chrono::Utc::now().to_rfc3339();
+        db.upsert_tracked_repository(&TrackedRepository {
+            slug: "neverhuman/veox-nht".into(),
+            alias: "nht".into(),
+            provider: "github".into(),
+            remote: "https://github.com/neverhuman/veox-nht.git".into(),
+            local_root: "/home/ubuntu/veox-split/veox-nht".into(),
+            default_branch: "main".into(),
+            visibility: "private".into(),
+            health_profile: "rust-workspace".into(),
+            created_at: now.clone(),
+            updated_at: now,
+        })
+        .await?;
+        let repos = db.list_tracked_repositories().await?;
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].slug, "neverhuman/veox-nht");
         Ok(())
     }
 

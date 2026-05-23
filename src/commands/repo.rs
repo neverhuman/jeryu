@@ -2,11 +2,13 @@
 //! Proof: `cargo test -p jeryu -- repo`
 //! Invariants: Repo-local maintenance paths stay in Rust and avoid shell helpers.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::cli::RepoCommands;
 use jeryu::repo;
+use jeryu::repo_fleet::{DEFAULT_REGISTRY_PATH, RepoRegistry};
 use jeryu::repo_standard::{RepoStandardMode, RepoStandardOptions};
+use std::path::PathBuf;
 
 pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
     match cmd {
@@ -77,6 +79,7 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
                 jeryu::repo_standard::run_standard(RepoStandardMode::Verify, standard_options(cmd))
             }
         },
+        RepoCommands::Fleet(subcmd) => execute_repo_fleet_commands(subcmd).await,
         RepoCommands::Shadow { repo } => jeryu::repo_local::shadow_main_command(repo).await,
         RepoCommands::Backup { repo } => jeryu::repo_local::backup_command(repo).await,
         RepoCommands::JankuraiFast { changed_from } => repo::jankurai_fast(&changed_from).await,
@@ -85,6 +88,85 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
             repo::capture_tui_screenshots(output_dir).await
         }
     }
+}
+
+async fn execute_repo_fleet_commands(cmd: crate::cli::RepoFleetCommands) -> Result<i32> {
+    match cmd {
+        crate::cli::RepoFleetCommands::List(cmd) => {
+            let (registry, _path) = load_fleet_registry(cmd.registry)?;
+            if cmd.json {
+                println!("{}", serde_json::to_string_pretty(&registry)?);
+            } else {
+                jeryu::repo_fleet::print_registry_list(&registry);
+            }
+            Ok(0)
+        }
+        crate::cli::RepoFleetCommands::Status(cmd) => {
+            let (registry, path) = load_fleet_registry(cmd.registry)?;
+            let github = if cmd.github {
+                let token = std::env::var("GITHUB_TOKEN")
+                    .context("GITHUB_TOKEN is required for `jeryu repo fleet status --github`")?;
+                Some(jeryu::git_host::GitHubClient::new(token))
+            } else {
+                None
+            };
+            let snapshot = jeryu::repo_fleet::collect_fleet_snapshot_from_registry(
+                &registry,
+                path,
+                github.as_ref(),
+            )
+            .await?;
+            if cmd.json {
+                println!("{}", serde_json::to_string_pretty(&snapshot)?);
+            } else {
+                jeryu::repo_fleet::print_fleet_status(&snapshot);
+            }
+            Ok(0)
+        }
+        crate::cli::RepoFleetCommands::Sync(cmd) => {
+            let (registry, _path) = load_fleet_registry(cmd.registry)?;
+            let db = jeryu::state::Db::open().await?;
+            let repos = tracked_repositories_from_registry(&registry);
+            db.upsert_tracked_repositories(&repos).await?;
+            if cmd.json {
+                println!("{}", serde_json::to_string_pretty(&repos)?);
+            } else {
+                println!("synced {} tracked repositories", repos.len());
+            }
+            Ok(0)
+        }
+    }
+}
+
+fn load_fleet_registry(path: Option<PathBuf>) -> Result<(RepoRegistry, PathBuf)> {
+    let path = match path {
+        Some(path) => path,
+        None => std::env::current_dir()?.join(DEFAULT_REGISTRY_PATH),
+    };
+    let registry = jeryu::repo_fleet::load_registry_path(&path)?;
+    Ok((registry, path))
+}
+
+fn tracked_repositories_from_registry(
+    registry: &RepoRegistry,
+) -> Vec<jeryu::state::TrackedRepository> {
+    let now = chrono::Utc::now().to_rfc3339();
+    registry
+        .repo
+        .iter()
+        .map(|repo| jeryu::state::TrackedRepository {
+            slug: repo.slug.clone(),
+            alias: repo.alias.clone(),
+            provider: repo.provider.clone(),
+            remote: repo.remote.clone(),
+            local_root: repo.local_root.display().to_string(),
+            default_branch: repo.default_branch.clone(),
+            visibility: repo.visibility.clone(),
+            health_profile: repo.health_profile.clone(),
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        })
+        .collect()
 }
 
 fn standard_options(cmd: crate::cli::RepoStandardCommand) -> RepoStandardOptions {

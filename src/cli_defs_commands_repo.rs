@@ -35,6 +35,9 @@ pub(crate) enum RepoCommands {
     /// Plan, apply, or verify the canonical agent-first repo standard.
     #[command(subcommand)]
     Standard(RepoStandardCommands),
+    /// List, status, or sync registered multi-repo fleet entries.
+    #[command(subcommand)]
+    Fleet(RepoFleetCommands),
     /// Push configured main refs to server-owned shadow remotes.
     Shadow {
         #[arg(long)]
@@ -136,6 +139,34 @@ pub(crate) struct RepoStandardCommand {
     pub configure_git_hooks: bool,
     #[arg(long, default_value_t = false)]
     pub json: bool,
+}
+
+#[derive(Subcommand)]
+pub(crate) enum RepoFleetCommands {
+    /// List registered repositories from the fleet registry.
+    List(RepoFleetCommand),
+    /// Print local and optional GitHub status for registered repositories.
+    Status(RepoFleetStatusCommand),
+    /// Persist registered repositories into the Jeryu state store.
+    Sync(RepoFleetCommand),
+}
+
+#[derive(Args, Clone)]
+pub(crate) struct RepoFleetCommand {
+    #[arg(long, value_parser = parse_expanded_path)]
+    pub registry: Option<PathBuf>,
+    #[arg(long, default_value_t = false)]
+    pub json: bool,
+}
+
+#[derive(Args, Clone)]
+pub(crate) struct RepoFleetStatusCommand {
+    #[arg(long, value_parser = parse_expanded_path)]
+    pub registry: Option<PathBuf>,
+    #[arg(long, default_value_t = false)]
+    pub json: bool,
+    #[arg(long, default_value_t = false)]
+    pub github: bool,
 }
 
 #[derive(Subcommand)]

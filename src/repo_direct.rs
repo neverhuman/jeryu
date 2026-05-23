@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, bail};
 use std::fs;
 use std::path::Path;
+use std::process::{Command, Output};
 
 use super::{HookMode, HookProfile, RepoMode};
 
@@ -46,11 +47,7 @@ pub(super) fn configure_remote(
 }
 
 pub(super) fn remove_other_remotes(repo_root: &Path, keep: &str) -> Result<()> {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(["remote"])
-        .output()
-        .context("listing git remotes")?;
+    let output = git_output(repo_root, &["remote"]).context("listing git remotes")?;
     if !output.status.success() {
         bail!(
             "git remote failed: {}",
@@ -68,10 +65,7 @@ pub(super) fn remove_other_remotes(repo_root: &Path, keep: &str) -> Result<()> {
 }
 
 fn git_remote_exists(repo_root: &Path, name: &str) -> bool {
-    std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(["remote", "get-url", name])
-        .output()
+    git_output(repo_root, &["remote", "get-url", name])
         .map(|output| output.status.success())
         .unwrap_or(false)
 }
@@ -122,11 +116,7 @@ fn write_file_if_changed(path: &Path, content: &str) -> Result<()> {
 }
 
 pub(super) fn run_git(repo_root: &Path, args: &[&str]) -> Result<()> {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(args)
-        .output()
-        .with_context(|| format!("running git {:?}", args))?;
+    let output = git_output(repo_root, args).with_context(|| format!("running git {:?}", args))?;
     if !output.status.success() {
         bail!(
             "git {:?} failed: {}",
@@ -138,10 +128,7 @@ pub(super) fn run_git(repo_root: &Path, args: &[&str]) -> Result<()> {
 }
 
 pub(super) fn git_config_get(repo_root: &Path, key: &str) -> Result<Option<String>> {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(["config", "--local", "--get", key])
-        .output()
+    let output = git_output(repo_root, &["config", "--local", "--get", key])
         .with_context(|| format!("reading git config {key}"))?;
     if output.status.success() {
         Ok(Some(
@@ -153,11 +140,19 @@ pub(super) fn git_config_get(repo_root: &Path, key: &str) -> Result<Option<Strin
 }
 
 pub(super) fn unset_git_config(repo_root: &Path, key: &str) -> Result<()> {
-    let _ = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(["config", "--local", "--unset-all", key])
-        .output();
+    let _ = git_output(repo_root, &["config", "--local", "--unset-all", key]);
     Ok(())
+}
+
+pub(super) fn git_output(repo_root: &Path, args: &[&str]) -> std::io::Result<Output> {
+    #[cfg(test)]
+    let _guard = crate::test_sync::PATH_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    Command::new("git")
+        .current_dir(repo_root)
+        .args(args)
+        .output()
 }
 
 pub(super) fn configure_git_hooks(repo_root: &Path) -> Result<()> {

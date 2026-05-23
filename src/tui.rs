@@ -10,6 +10,7 @@ pub mod flow;
 pub mod focus;
 pub mod jankurai;
 pub mod live;
+pub mod repo_fleet_bar;
 pub mod runner;
 pub mod runtime;
 pub mod theme;

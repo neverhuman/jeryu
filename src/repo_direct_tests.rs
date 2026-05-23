@@ -6,11 +6,7 @@ use std::path::Path;
 use tempfile::tempdir;
 
 fn git(repo_root: &Path, args: &[&str]) {
-    let output = std::process::Command::new("git")
-        .current_dir(repo_root)
-        .args(args)
-        .output()
-        .expect("git command");
+    let output = git_output(repo_root, args).expect("git command");
     assert!(
         output.status.success(),
         "git {:?} failed\nstdout={}\nstderr={}",
@@ -38,11 +34,11 @@ fn configure_git_hooks_sets_repo_local_hooks_path() {
 
     configure_git_hooks(repo.path()).expect("configure hooks");
 
-    let output = std::process::Command::new("git")
-        .current_dir(repo.path())
-        .args(["config", "--local", "--get", "core.hooksPath"])
-        .output()
-        .expect("git config read");
+    let output = git_output(
+        repo.path(),
+        &["config", "--local", "--get", "core.hooksPath"],
+    )
+    .expect("git config read");
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).trim(),
@@ -62,11 +58,11 @@ fn direct_mode_unsets_local_hooks_path() {
 
     configure_hook_mode(repo.path(), HookMode::Off, HookProfile::All).unwrap();
 
-    let output = std::process::Command::new("git")
-        .current_dir(repo.path())
-        .args(["config", "--local", "--get", "core.hooksPath"])
-        .output()
-        .expect("git config read");
+    let output = git_output(
+        repo.path(),
+        &["config", "--local", "--get", "core.hooksPath"],
+    )
+    .expect("git config read");
     assert!(!output.status.success());
 }
 
@@ -90,11 +86,11 @@ fn observed_and_enforced_modes_install_expected_hooks() {
     assert!(pre_push.contains("ops/ci/quality-gates.sh"));
     assert!(pre_push.contains("exit $status"));
 
-    let output = std::process::Command::new("git")
-        .current_dir(repo.path())
-        .args(["config", "--local", "--get", "core.hooksPath"])
-        .output()
-        .expect("git config read");
+    let output = git_output(
+        repo.path(),
+        &["config", "--local", "--get", "core.hooksPath"],
+    )
+    .expect("git config read");
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).trim(),
@@ -124,16 +120,8 @@ fn existing_repo_preserves_origin_and_adds_jeryu_remote() {
     )
     .unwrap();
 
-    let origin = std::process::Command::new("git")
-        .current_dir(repo.path())
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .unwrap();
-    let jeryu = std::process::Command::new("git")
-        .current_dir(repo.path())
-        .args(["remote", "get-url", "jeryu"])
-        .output()
-        .unwrap();
+    let origin = git_output(repo.path(), &["remote", "get-url", "origin"]).unwrap();
+    let jeryu = git_output(repo.path(), &["remote", "get-url", "jeryu"]).unwrap();
     assert_eq!(
         String::from_utf8_lossy(&origin.stdout).trim(),
         "git@example.invalid:team/demo.git"
@@ -176,11 +164,7 @@ fn replace_origin_removes_other_remotes() {
     .unwrap();
     remove_other_remotes(repo.path(), "origin").unwrap();
 
-    let output = std::process::Command::new("git")
-        .current_dir(repo.path())
-        .args(["remote"])
-        .output()
-        .unwrap();
+    let output = git_output(repo.path(), &["remote"]).unwrap();
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "origin");
 }
 
@@ -197,11 +181,7 @@ fn new_repo_uses_origin_as_local_jeryu_remote() {
     )
     .unwrap();
 
-    let origin = std::process::Command::new("git")
-        .current_dir(repo.path())
-        .args(["remote", "get-url", "origin"])
-        .output()
-        .unwrap();
+    let origin = git_output(repo.path(), &["remote", "get-url", "origin"]).unwrap();
     assert_eq!(
         String::from_utf8_lossy(&origin.stdout).trim(),
         "ssh://git@127.0.0.1:2224/team/demo.git"

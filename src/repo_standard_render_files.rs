@@ -44,12 +44,12 @@ pub(crate) fn render_standard_files(spec: &StandardSpec) -> Vec<ManagedFile> {
         },
         ManagedFile {
             path: ".jeryu/ci/required.sh",
-            content: render_required_sh(),
+            content: render_required_sh(spec),
             executable: true,
         },
         ManagedFile {
             path: ".jeryu/ci/fast.sh",
-            content: render_fast_sh(),
+            content: render_fast_sh(spec),
             executable: true,
         },
         ManagedFile {
