@@ -1,0 +1,41 @@
+schema_version = "1"
+name = "veox-fusion"
+kind = "mocked-contract-stack"
+owner = "jeryu"
+report = "target/veox-fusion/report.json"
+
+repos = [
+  "veox-systems/veox-shared",
+  "veox-systems/veox-proofs",
+  "veox-systems/veox-neverhuman-data",
+  "veox-systems/veox-docs-meta",
+  "veox-systems/veox-enclave",
+  "veox-systems/veox-nht",
+  "veox-systems/veox-warp",
+  "veox-systems/veox-stage-catalog",
+  "veox-systems/veox-deploy",
+]
+
+[inputs]
+fleet_root = "/home/ubuntu/veox-repos"
+registry = ".jeryu/repos.toml"
+shared_contracts_tag = "veox-shared-v0.1.1-split.1"
+proofs_tag = "veox-proofs-v0.1.1-split.2"
+deploy_tag = "veox-deploy-v0.1.1-split.2"
+nht_tag = "veox-nht-v0.1.1-split.2"
+
+[mocks]
+enclave_service = "fake-enclave-gateway"
+nht_service = "fake-nht-gateway"
+image_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+seed_bundle = "veox-stage-catalog:seed_data/.veox-stage-manifest.json"
+data_catalog = "veox-neverhuman-data:NeverHumanData/catalog-manifest.json"
+release_manifest = "fake-release-manifest:v0"
+
+[[acceptance]]
+name = "standalone repo checks recorded"
+command = "bash .jeryu/fusion/veox-fusion-smoke.sh"
+
+[[acceptance]]
+name = "no source checkout dependency"
+command = "rg '/home/ubuntu/veox(/|$)|/home/ubuntu/veox-split|/home/ubuntu/jansu|\\.\\./jansu' /home/ubuntu/veox-repos --glob 'Cargo.toml' --glob 'package.json' --glob 'justfile' --glob '*.sh' --glob '.github/workflows/*.yml'"
