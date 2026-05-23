@@ -4374,7 +4374,7 @@ mod tests {
             alias: "nht".into(),
             provider: "github".into(),
             remote: "https://github.com/neverhuman/veox-nht.git".into(),
-            local_root: "/home/ubuntu/veox-split/veox-nht".into(),
+            local_root: "/home/ubuntu/veox-repos/veox-nht".into(),
             default_branch: "main".into(),
             visibility: "private".into(),
             health_profile: "rust-workspace".into(),

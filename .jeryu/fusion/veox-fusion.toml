@@ -5,15 +5,15 @@ owner = "jeryu"
 report = "target/veox-fusion/report.json"
 
 repos = [
-  "veox-systems/veox-shared",
-  "veox-systems/veox-proofs",
-  "veox-systems/veox-neverhuman-data",
-  "veox-systems/veox-docs-meta",
-  "veox-systems/veox-enclave",
-  "veox-systems/veox-nht",
-  "veox-systems/veox-warp",
-  "veox-systems/veox-stage-catalog",
-  "veox-systems/veox-deploy",
+  "neverhuman/veox-shared",
+  "neverhuman/veox-proofs",
+  "neverhuman/veox-neverhuman-data",
+  "neverhuman/veox-docs-meta",
+  "neverhuman/veox-enclave",
+  "neverhuman/veox-nht",
+  "neverhuman/veox-warp",
+  "neverhuman/veox-stage-catalog",
+  "neverhuman/veox-deploy",
 ]
 
 [inputs]
@@ -37,5 +37,5 @@ name = "standalone repo checks recorded"
 command = "bash .jeryu/fusion/veox-fusion-smoke.sh"
 
 [[acceptance]]
-name = "no source checkout dependency"
-command = "rg '/home/ubuntu/veox(/|$)|/home/ubuntu/veox-split|/home/ubuntu/jansu|\\.\\./jansu' /home/ubuntu/veox-repos --glob 'Cargo.toml' --glob 'package.json' --glob 'justfile' --glob '*.sh' --glob '.github/workflows/*.yml'"
+name = "canonical neverhuman fleet smoke passes"
+command = "bash .jeryu/fusion/veox-fusion-smoke.sh"

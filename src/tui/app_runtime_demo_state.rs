@@ -254,8 +254,9 @@ pub(crate) fn build_demo_state(
 fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
     use crate::repo_fleet::{FleetRepoSnapshot, FleetSnapshot, RepoLocalStatus, RepoRunSummary};
 
-    let repo =
-        |alias: &str, slug: &str, status: &str, running: u32, failed: u32| FleetRepoSnapshot {
+    let repo = |alias: &str, slug: &str, status: &str, running: u32, failed: u32| {
+        let repo_name = slug.rsplit('/').next().unwrap_or(slug);
+        FleetRepoSnapshot {
             alias: alias.into(),
             slug: slug.into(),
             provider: "github".into(),
@@ -281,8 +282,9 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
                 html_url: None,
                 updated_at: Some(now_str.into()),
             }),
-            next_command: format!("cd /home/ubuntu/veox-split/{alias} && just fast"),
-        };
+            next_command: format!("cd /home/ubuntu/veox-repos/{repo_name} && just fast"),
+        }
+    };
 
     FleetSnapshot {
         generated_at: now_str.into(),

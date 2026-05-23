@@ -62,11 +62,123 @@ require_rg() {
   local label="$1"
   local needle="$2"
   local root="$3"
-  if rg -n "${needle}" "${root}" --glob 'Cargo.toml' --glob '!**/target/**' >/dev/null; then
+  if rg -n "${needle}" "${root}" --glob '**/Cargo.toml' --glob '!**/target/**' >/dev/null; then
     note_pass "${label}"
   else
     note_fail "${label}: no Cargo.toml match for ${needle}"
   fi
+}
+
+require_text() {
+  local label="$1"
+  local needle="$2"
+  local path="$3"
+  if [[ ! -f "${path}" ]]; then
+    note_fail "${label}: missing ${path}"
+    return
+  fi
+  if rg -n "${needle}" "${path}" >/dev/null; then
+    note_pass "${label}"
+  else
+    note_fail "${label}: ${path} does not contain ${needle}"
+  fi
+}
+
+require_gate_marker() {
+  local repo="$1"
+  local root="$2"
+  local gate="$3"
+  local marker="${root}/target/jankurai/gates/${gate}.ok"
+  if [[ -s "${marker}" ]]; then
+    note_pass "${repo}: just ${gate} success marker ${marker}"
+  else
+    note_fail "${repo}: missing just ${gate} success marker ${marker}"
+  fi
+}
+
+run_source_coverage_audit() {
+  local coverage_root="/home/ubuntu/veox"
+  local coverage_json="${coverage_root}/target/veox-fusion/source-coverage.json"
+  local coverage_md="${coverage_root}/target/veox-fusion/source-coverage.md"
+
+  if python3 "${coverage_root}/ops/scripts/audit/source_coverage.py" \
+      --config "${coverage_root}/agent/coverage-sources.toml" \
+      --json "${coverage_json}" \
+      --md "${coverage_md}" >/dev/null; then
+    if python3 - "${coverage_json}" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
+passed = payload.get("passed")
+summary = payload.get("summary")
+if passed is True and isinstance(summary, dict) and summary.get("missing_files") == 0:
+    sys.exit(0)
+sys.exit(1)
+PY
+    then
+      note_pass "source coverage audit pass: ${coverage_json}"
+    else
+      note_fail "source coverage audit report is not pass: ${coverage_json}"
+    fi
+  else
+    note_fail "source coverage audit command failed"
+  fi
+}
+
+audit_pinned_private_git_dependencies() {
+  local root="$1"
+  python3 - "${root}" <<'PY'
+import pathlib
+import sys
+import tomllib
+
+root = pathlib.Path(sys.argv[1]).resolve()
+failures = []
+
+def dep_sections(data):
+    for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+        section = data.get(key)
+        if isinstance(section, dict):
+            yield key, section
+    target = data.get("target")
+    if isinstance(target, dict):
+        for target_name, target_data in target.items():
+            if not isinstance(target_data, dict):
+                continue
+            for key in ("dependencies", "dev-dependencies", "build-dependencies"):
+                section = target_data.get(key)
+                if isinstance(section, dict):
+                    yield f"target.{target_name}.{key}", section
+
+for manifest in root.rglob("Cargo.toml"):
+    parts = set(manifest.parts)
+    if ".git" in parts or "target" in parts:
+        continue
+    data = tomllib.loads(manifest.read_text())
+    for section_name, section in dep_sections(data):
+        for dep_name, spec in section.items():
+            if not isinstance(spec, dict):
+                continue
+            git_url = spec.get("git")
+            if not isinstance(git_url, str) or "github.com/neverhuman/" not in git_url:
+                continue
+            normalized = git_url.rstrip("/").removesuffix(".git").lower()
+            private_or_jansu = (
+                "/neverhuman/veox-" in normalized
+                or normalized.endswith("/neverhuman/jansu")
+                or dep_name.lower().startswith("jansu")
+            )
+            if private_or_jansu and "tag" not in spec and "rev" not in spec:
+                failures.append(
+                    f"{manifest.relative_to(root)} {section_name}.{dep_name} uses {git_url} without tag/rev"
+                )
+
+if failures:
+    print("; ".join(failures), file=sys.stderr)
+    sys.exit(1)
+PY
 }
 
 audit_path_dependencies() {
@@ -120,13 +232,19 @@ sys.exit(0 if ok else 1)
 PY
 }
 
-blocked_source_pattern='/home/ubuntu/veox(/|$)|/home/ubuntu/veox-split|/home/ubuntu/jansu|\.\./jansu'
+blocked_source_patterns=(
+  '/home/ubuntu/veox(/|$)'
+  '/home/ubuntu/veox-''split'
+  '/home/ubuntu/''jansu'
+  '\.\./''jansu'
+)
+blocked_source_pattern="$(IFS='|'; printf '%s' "${blocked_source_patterns[*]}")"
+obsolete_namespace="veox-""systems"
 
 for spec in "${repos[@]}"; do
   IFS=: read -r alias repo profile <<<"${spec}"
   root="${fleet_root}/${repo}"
-  expected_origin="https://github.com/veox-systems/${repo}.git"
-  expected_source="https://github.com/neverhuman/${repo}.git"
+  expected_origin="https://github.com/neverhuman/${repo}.git"
 
   if [[ -d "${root}/.git" ]]; then
     note_pass "${repo}: fresh clone exists at ${root}"
@@ -137,22 +255,28 @@ for spec in "${repos[@]}"; do
 
   origin="$(git -C "${root}" remote get-url origin 2>/dev/null || true)"
   if [[ "${origin}" == "${expected_origin}" ]]; then
-    note_pass "${repo}: origin remote targets veox-systems"
+    note_pass "${repo}: origin remote targets canonical neverhuman"
   else
     note_fail "${repo}: origin remote is ${origin:-<missing>}, expected ${expected_origin}"
   fi
 
   source="$(git -C "${root}" remote get-url source 2>/dev/null || true)"
-  if [[ -z "${source}" || "${source}" == "${expected_source}" ]]; then
-    note_pass "${repo}: source fallback remote is valid"
+  if [[ -z "${source}" ]]; then
+    note_pass "${repo}: obsolete source fallback remote absent"
   else
-    note_fail "${repo}: source fallback remote is ${source}, expected ${expected_source}"
+    note_fail "${repo}: obsolete source fallback remote is still configured: ${source}"
+  fi
+
+  if git -C "${root}" remote -v | rg -q "${obsolete_namespace}"; then
+    note_fail "${repo}: obsolete namespace remains in git remotes"
+  else
+    note_pass "${repo}: git remotes contain no obsolete namespace"
   fi
 
   if git -C "${root}" status --porcelain --untracked-files=no | grep -q .; then
-    note_fail "${repo}: tracked worktree is dirty"
+    note_fail "${repo}: tracked worktree is dirty after commits"
   else
-    note_pass "${repo}: tracked worktree is clean"
+    note_pass "${repo}: tracked worktree is clean after commits"
   fi
 
   for recipe in fast score check; do
@@ -165,24 +289,30 @@ for spec in "${repos[@]}"; do
 
   require_file "${repo}: jankurai score json" "${root}/target/jankurai/repo-score.json"
   require_file "${repo}: jankurai score markdown" "${root}/target/jankurai/repo-score.md"
+  require_text "${repo}: repo-local gate marker" 'required_check = "jeryu/required"' "${root}/agent/boundaries.toml"
+  require_text "${repo}: repo-local gate pass lane" 'name = "required"' "${root}/agent/proof-lanes.toml"
+  require_text "${repo}: repo-local gate command" 'command = "just check"' "${root}/agent/proof-lanes.toml"
+  require_gate_marker "${repo}" "${root}" "fast"
+  require_gate_marker "${repo}" "${root}" "score"
+  require_gate_marker "${repo}" "${root}" "check"
 
   if hits="$(rg -n "${blocked_source_pattern}" "${root}" \
       --glob '!**/.git/**' \
       --glob '!**/target/**' \
       --glob '!**/node_modules/**' \
-      --glob 'Cargo.toml' \
-      --glob 'package.json' \
-      --glob 'package-lock.json' \
-      --glob 'pnpm-lock.yaml' \
-      --glob 'justfile' \
-      --glob '*.sh' \
-      --glob '.github/workflows/*.yml' \
-      --glob '.github/workflows/*.yaml' 2>/dev/null)"; then
-    note_fail "${repo}: source/staging path references remain: ${hits//$'\n'/; }"
+      --glob '**/Cargo.toml' \
+      --glob '**/package.json' \
+      --glob '**/package-lock.json' \
+      --glob '**/pnpm-lock.yaml' \
+      --glob '**/justfile' \
+      --glob '**/*.sh' \
+      --glob '**/.github/workflows/*.yml' \
+      --glob '**/.github/workflows/*.yaml' 2>/dev/null)"; then
+    note_fail "${repo}: stale source path references remain: ${hits//$'\n'/; }"
   else
     status=$?
     if [[ "${status}" -eq 1 ]]; then
-      note_pass "${repo}: manifest/just/CI source path audit clean"
+      note_pass "${repo}: stale source path audit clean"
     else
       note_fail "${repo}: source path audit command failed with status ${status}"
     fi
@@ -206,12 +336,13 @@ for spec in "${repos[@]}"; do
   fi
 done
 
+run_source_coverage_audit
+
 require_tag "veox-shared" "${shared_tag}"
 require_tag "veox-proofs" "${proofs_tag}"
 require_tag "veox-deploy" "${deploy_tag}"
 require_tag "veox-nht" "${nht_tag}"
 
-require_rg "veox-shared consumes immutable Jansu tag" "jansu-v0.6.3-split.1" "${fleet_root}/veox-shared"
 require_rg "veox-deploy consumes shared split tag" "${shared_tag}" "${fleet_root}/veox-deploy"
 require_rg "veox-deploy consumes proofs split tag" "${proofs_tag}" "${fleet_root}/veox-deploy"
 require_rg "veox-nht consumes shared split tag" "${shared_tag}" "${fleet_root}/veox-nht"
@@ -219,12 +350,10 @@ require_rg "veox-nht consumes deploy split tag" "${deploy_tag}" "${fleet_root}/v
 require_rg "veox-enclave consumes shared split tag" "${shared_tag}" "${fleet_root}/veox-enclave"
 require_rg "veox-enclave consumes nht split tag" "${nht_tag}" "${fleet_root}/veox-enclave"
 
-if unpinned="$(rg -n 'git = "https://github.com/neverhuman/veox-' "${fleet_root}" \
-    --glob 'Cargo.toml' \
-    --glob '!**/target/**' 2>/dev/null | grep -v 'tag = ' | grep -v 'rev = ' || true)" && [[ -n "${unpinned}" ]]; then
-  note_fail "private veox git dependencies without tag/rev: ${unpinned//$'\n'/; }"
+if dep_output="$(audit_pinned_private_git_dependencies "${fleet_root}" 2>&1)"; then
+  note_pass "all private and Jansu git dependencies use tag or rev pins"
 else
-  note_pass "all private veox git dependencies use tag or rev pins"
+  note_fail "private or Jansu git dependencies without tag/rev: ${dep_output//$'\n'/; }"
 fi
 
 require_file "shared canonical contract schema" "${fleet_root}/veox-shared/contracts/events/queue-event.v1.schema.json"
@@ -252,8 +381,8 @@ payload = {
     "kind": "mocked-contract-stack",
     "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
     "status": "pass" if not failures else "fail",
-    "target_namespace": "veox-systems",
-    "source_namespace_fallback": "neverhuman",
+    "canonical_namespace": "neverhuman",
+    "fleet_root": "/home/ubuntu/veox-repos",
     "inputs": {
         "shared_contracts_tag": shared_tag,
         "proofs_tag": proofs_tag,
@@ -274,6 +403,18 @@ payload = {
 report_path.write_text(json.dumps(payload, indent=2) + "\n")
 print(f"veox-fusion {payload['status']}: {len(passes)} passes, {len(failures)} failures")
 print(f"report: {report_path}")
+PY
+
+python3 - "${report}" <<'PY'
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text())
+if payload.get("status") != "pass":
+    print("mocked fusion JSON status is not pass", file=sys.stderr)
+    sys.exit(1)
+print("mocked fusion JSON status pass")
 PY
 
 if [[ -s "${failures_file}" ]]; then
