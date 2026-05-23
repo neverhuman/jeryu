@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Refresh README-visible TUI media from deterministic demo data.
+#
+# Uses tuiwright's TerminalRenderer (embedded JetBrains Mono TTF) for all
+# outputs, producing crisp, font-rendered PNGs and a high-quality animated GIF.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -16,23 +19,15 @@ export JERYU_TUI_WORKFLOW_INSPECT_OPEN="${JERYU_TUI_WORKFLOW_INSPECT_OPEN:-1}"
 
 cargo build --release -p jeryu
 
-capture_tab() {
-  local tab="$1"
-  local output="$2"
-  cargo run --release -p jeryu -- tui \
-    --capture \
-    --tab "$tab" \
-    --output "$output" \
-    --width "${JERYU_TUI_MEDIA_COLS:-160}" \
-    --height "${JERYU_TUI_MEDIA_ROWS:-44}"
-}
+# Capture font-rendered PNG screenshots via tuiwright's TerminalRenderer.
+# This produces crisp, readable PNGs with embedded JetBrains Mono TTF — not
+# the pixel-block rectangles from the old `jeryu tui --capture` path.
+JERYU_TUI_SCREENSHOTS_DIR="$OUT_DIR" \
+  cargo test --release --test tui_recording -- --ignored --exact tui_readme_screenshots
 
-capture_tab workflow "$OUT_DIR/tui-workflow.png"
-capture_tab jobs "$OUT_DIR/tui-jobs.png"
-capture_tab bugs "$OUT_DIR/tui-bugs.png"
-
+# Record the animated demo GIF (also via tuiwright's renderer).
 JERYU_TUI_RECORDING_OUT="$OUT_DIR/tui-demo.gif" \
-  cargo test --test tui_recording -- --ignored --exact tui_demo_recording
+  cargo test --release --test tui_recording -- --ignored --exact tui_demo_recording
 
 cp "$OUT_DIR/tui-demo.gif" "$ASSET_DIR/tui-demo.gif"
 cp "$OUT_DIR/tui-workflow.png" "$ASSET_DIR/tui-workflow.png"
