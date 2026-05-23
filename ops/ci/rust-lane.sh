@@ -184,14 +184,13 @@ case "$STAGE" in
     mkdir -p target/ci-screenshots
     cargo build --release -p jeryu
     cargo run --release -p jeryu -- install render-demo --output target/ci-screenshots/install-demo.gif --png target/ci-screenshots/install-demo.png
-    TABS="workflow jobs mission agents tests bugs pools cache evidence secrets"
-    for tab in $TABS; do
-      cargo run --release -p jeryu -- tui --capture --tab "$tab" --output "target/ci-screenshots/${tab}.png"
-    done
+    # Produce font-rendered PNGs via tuiwright's TerminalRenderer.
+    JERYU_TUI_SCREENSHOTS_DIR="target/ci-screenshots" \
+      cargo test --release --test tui_recording -- --ignored --exact tui_readme_screenshots
     ls -la target/ci-screenshots/
     ;;
   tui-recording)
-    cargo test --test tui_recording -- --ignored --exact tui_demo_recording
+    cargo test --release --test tui_recording -- --ignored --exact tui_demo_recording
     ;;
   fixture-project-test)
     install_redlinedb_if_requested

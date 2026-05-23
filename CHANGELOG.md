@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.16] - 2026-05-23
+
+### Changed
+
+- **README TUI media pipeline switched to tuiwright font-rendered output.**
+  Static PNGs and the animated GIF are now produced via tuiwright's
+  `TerminalRenderer` (embedded JetBrains Mono TTF at 10×20 px cells) instead
+  of the old pixel-block `write_buffer_png` renderer (4×6 px colored
+  rectangles with no font). Output resolution is now 1616×896 across all
+  assets.
+- GIF recording redesigned to showcase the Workflow tab's macro/micro box
+  arrow-key navigation (PRs → Canvas → Phase → Map → drill-down) before
+  visiting Jobs and Bugs tabs.
+- GIF color quantization quality improved (`gif::Frame::from_rgb_speed` speed
+  parameter 30 → 10) and the 720 px max-width downscale cap removed.
+- `ops/ci/update-tui-readme-media.sh` and `ops/ci/rust-lane.sh` CI lanes
+  updated to use `cargo test --test tui_recording` for all README media
+  generation.
+- README layout updated: full-width Workflow hero image, GIF below, Jobs and
+  Bugs as 48 % side-by-side thumbnails.
+- Bumped release metadata to `3.3.16` across Cargo, `VERSION`, and changelog.
+
+### Added
+
+- `tui_readme_screenshots` ignored test in `tests/tui_recording.rs` — spawns
+  tuiwright `Page` sessions at 160×44 cells for workflow, jobs, and bugs tabs
+  and writes font-rendered PNGs to `$JERYU_TUI_SCREENSHOTS_DIR`.
+
 ## [3.3.15] - 2026-05-22
 
 ### Added

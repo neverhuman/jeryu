@@ -870,7 +870,7 @@ impl Db {
     pub async fn open_test_redline() -> Result<Option<Self>> {
         #[cfg(not(feature = "redlinedb-backend"))]
         {
-            return Ok(None);
+            Ok(None)
         }
         #[cfg(feature = "redlinedb-backend")]
         match std::env::var("JERYU_TEST_REDLINE_URL") {

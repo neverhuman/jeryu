@@ -24,7 +24,7 @@ fn tui_demo_recording() -> anyhow::Result<()> {
     let bin = jeryu_bin();
     let config = SpawnConfig::new(&bin)
         .args(["tui", "--demo", "--tab", "workflow"])
-        .size(120, 34)
+        .size(160, 44)
         .env("TERM", "xterm-256color")
         .env("COLORTERM", "truecolor")
         .env("JERYU_TUI_WORKFLOW_INSPECT_OPEN", "1")
@@ -33,68 +33,123 @@ fn tui_demo_recording() -> anyhow::Result<()> {
     let page = Page::spawn(config)?;
 
     // Wait for initial synthetic activity to render.
-    std::thread::sleep(Duration::from_millis(900));
+    std::thread::sleep(Duration::from_millis(1200));
 
     let mut frames = Vec::new();
-    capture_frame(&page, &frame_dir, &mut frames, "workflow")?;
 
-    // Workflow: drill into PRs and canvas so the recording shows activity and
-    // the macro/micro focus affordances.
-    std::thread::sleep(Duration::from_millis(500));
-    page.press(Key::Enter)?;
+    // --- Workflow: Macro box arrow navigation showcase ---
+    // Start on PRs (default focus).
+    capture_frame(&page, &frame_dir, &mut frames, "workflow-prs")?;
+
+    // Arrow Down → Canvas box.
+    page.press(Key::Down)?;
+    std::thread::sleep(Duration::from_millis(400));
+    capture_frame(&page, &frame_dir, &mut frames, "workflow-canvas")?;
+
+    // Arrow Left → Phase box.
+    page.press(Key::Left)?;
+    std::thread::sleep(Duration::from_millis(400));
+    capture_frame(&page, &frame_dir, &mut frames, "workflow-phase")?;
+
+    // Arrow Right back → Canvas, then Right → Map box.
+    page.press(Key::Right)?;
+    std::thread::sleep(Duration::from_millis(250));
+    page.press(Key::Right)?;
+    std::thread::sleep(Duration::from_millis(400));
+    capture_frame(&page, &frame_dir, &mut frames, "workflow-map")?;
+
+    // Arrow Up → PRs again, then drill into PR list.
+    page.press(Key::Up)?;
     std::thread::sleep(Duration::from_millis(300));
+    page.press(Key::Up)?;
+    std::thread::sleep(Duration::from_millis(300));
+    capture_frame(&page, &frame_dir, &mut frames, "workflow-prs-again")?;
+
+    // Enter → drill into PRs, Right → next PR.
+    page.press(Key::Enter)?;
+    std::thread::sleep(Duration::from_millis(400));
     capture_frame(&page, &frame_dir, &mut frames, "workflow-pr-drill")?;
     page.press(Key::Right)?;
     std::thread::sleep(Duration::from_millis(500));
     capture_frame(&page, &frame_dir, &mut frames, "workflow-next-pr")?;
+
+    // Esc → exit drill, Down → Canvas, Enter → drill into canvas.
     page.press(Key::Esc)?;
-    std::thread::sleep(Duration::from_millis(250));
+    std::thread::sleep(Duration::from_millis(300));
     page.press(Key::Down)?;
-    std::thread::sleep(Duration::from_millis(250));
+    std::thread::sleep(Duration::from_millis(300));
     page.press(Key::Enter)?;
-    std::thread::sleep(Duration::from_millis(250));
-    page.press(Key::Right)?;
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(400));
     capture_frame(&page, &frame_dir, &mut frames, "workflow-canvas-drill")?;
     page.press(Key::Esc)?;
-
-    // Mission tab.
-    page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(700));
-    capture_frame(&page, &frame_dir, &mut frames, "mission")?;
-
-    // Release tab.
-    page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(700));
-    capture_frame(&page, &frame_dir, &mut frames, "release")?;
-
-    // Jobs tab with fullscreen activity drill.
-    page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(350));
-    page.press(Key::Down)?;
-    std::thread::sleep(Duration::from_millis(250));
-    page.press(Key::Enter)?;
-    std::thread::sleep(Duration::from_millis(500));
-    capture_frame(&page, &frame_dir, &mut frames, "jobs-log-drill")?;
-    page.press(Key::Esc)?;
     std::thread::sleep(Duration::from_millis(250));
 
-    // Agents, Tests, and Bugs show the rest of the synthetic control-plane
-    // story without making the README animation too long.
+    // --- Jobs tab ---
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(550));
-    capture_frame(&page, &frame_dir, &mut frames, "agents")?;
+    std::thread::sleep(Duration::from_millis(300));
     page.press(Key::Tab)?;
-    std::thread::sleep(Duration::from_millis(350));
-    page.press(Key::Down)?;
-    std::thread::sleep(Duration::from_millis(450));
-    capture_frame(&page, &frame_dir, &mut frames, "tests")?;
+    std::thread::sleep(Duration::from_millis(300));
+    page.press(Key::Tab)?;
+    std::thread::sleep(Duration::from_millis(600));
+    capture_frame(&page, &frame_dir, &mut frames, "jobs")?;
+
+    // --- Bugs tab ---
     page.press(Key::Char('b'))?;
-    std::thread::sleep(Duration::from_millis(650));
+    std::thread::sleep(Duration::from_millis(600));
     capture_frame(&page, &frame_dir, &mut frames, "bugs")?;
 
     page.kill()?;
     write_gif(&frames, std::path::Path::new(&output))?;
+
+    Ok(())
+}
+
+/// Capture high-quality, font-rendered PNG screenshots of the README hero tabs
+/// using tuiwright's TerminalRenderer (embedded JetBrains Mono TTF).
+#[test]
+#[ignore] // Run manually or in CI via `cargo test --test tui_recording`
+fn tui_readme_screenshots() -> anyhow::Result<()> {
+    let out_dir = std::env::var("JERYU_TUI_SCREENSHOTS_DIR")
+        .unwrap_or_else(|_| "target/ci-screenshots".to_string());
+    std::fs::create_dir_all(&out_dir)?;
+
+    let bin = jeryu_bin();
+
+    // Use 160x44 to match the existing README media dimensions.
+    let cols: u16 = 160;
+    let rows: u16 = 44;
+
+    for (tab, output_name) in [
+        ("workflow", "tui-workflow.png"),
+        ("jobs", "tui-jobs.png"),
+        ("bugs", "tui-bugs.png"),
+    ] {
+        let config = SpawnConfig::new(&bin)
+            .args(["tui", "--demo", "--tab", tab])
+            .size(cols, rows)
+            .env("TERM", "xterm-256color")
+            .env("COLORTERM", "truecolor")
+            .env("JERYU_TUI_WORKFLOW_INSPECT_OPEN", "1")
+            .env("JERYU_DATABASE_URL", jeryu::db::config::sqlite_memory_url());
+
+        let page = Page::spawn(config)?;
+
+        // Wait for synthetic demo data to render fully.
+        std::thread::sleep(Duration::from_millis(1200));
+
+        let path = std::path::PathBuf::from(&out_dir).join(output_name);
+        page.screenshot(&path)?;
+        page.kill()?;
+
+        // Verify the output exists and is non-trivial.
+        let meta = std::fs::metadata(&path)?;
+        anyhow::ensure!(
+            meta.len() > 10_000,
+            "screenshot {} is suspiciously small ({} bytes)",
+            path.display(),
+            meta.len()
+        );
+    }
 
     Ok(())
 }
@@ -130,7 +185,7 @@ fn write_gif(frames: &[std::path::PathBuf], output: &std::path::Path) -> anyhow:
             "GIF frame dimensions changed for {}",
             frame_path.display()
         );
-        let mut frame = gif::Frame::from_rgb_speed(width as u16, height as u16, image.as_raw(), 30);
+        let mut frame = gif::Frame::from_rgb_speed(width as u16, height as u16, image.as_raw(), 10);
         frame.delay = 70;
         encoder.write_frame(&frame)?;
     }
@@ -139,16 +194,5 @@ fn write_gif(frames: &[std::path::PathBuf], output: &std::path::Path) -> anyhow:
 }
 
 fn load_gif_frame(path: &std::path::Path) -> anyhow::Result<image::RgbImage> {
-    let image = image::open(path)?.to_rgb8();
-    let max_width = 720;
-    if image.width() <= max_width {
-        return Ok(image);
-    }
-    let height = image.height() * max_width / image.width();
-    Ok(image::imageops::resize(
-        &image,
-        max_width,
-        height,
-        image::imageops::FilterType::Triangle,
-    ))
+    Ok(image::open(path)?.to_rgb8())
 }
