@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.18] - 2026-05-24
+
+### Added
+
+- **Fleet bar multi-repo selection UX** — the fleet bar is now a focusable pane
+  (`PaneId::FleetBar`) that participates in arrow-key navigation across all tabs.
+  Arrow Up from the first content pane reaches the fleet bar; Enter opens the
+  repo detail overlay and drills focus so Left/Right cycle through registered
+  repos; Esc resets to "All" and closes the overlay.
+- `PaneId::is_global()` method for panes that appear on every tab (FleetBar),
+  preventing focus resets when switching tabs while a global pane is active.
+- 3 new TUIwright black-box tests (`fleet_bar_shows_repo_names_on_initial_render`,
+  `fleet_bar_focus_enter_opens_detail_and_arrows_cycle_repos`,
+  `fleet_bar_esc_resets_to_all_from_selected_repo`).
+
+### Changed
+
+- Enter no longer unconditionally opens the repo detail overlay from every pane.
+  It now only opens when FleetBar is the focused pane, resolving the UX coupling
+  that previously conflated overlay opening with focus drilling.
+- Bumped release metadata to `3.3.18` across Cargo, `VERSION`, `version.json`,
+  and the changelog.
+
 ## [3.3.17] - 2026-05-24
 
 ### Changed

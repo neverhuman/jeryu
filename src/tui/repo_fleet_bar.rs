@@ -16,6 +16,8 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
+    let focused = app.focus.active == crate::tui::focus::PaneId::FleetBar;
+
     let mut spans = Vec::new();
     let (running, failed, aged) = app.state.fleet.counts();
     let all_label = if app.state.fleet.repos.is_empty() {
@@ -48,7 +50,16 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
     }
 
     let line = Line::from(spans);
-    f.render_widget(Paragraph::new(line), area);
+    if focused {
+        // Focused: render with a yellow-tinted base style so it stands out
+        // as the active pane without needing borders (bar is only 1 row).
+        f.render_widget(
+            Paragraph::new(line).style(Style::default().bg(Color::Rgb(40, 40, 20))),
+            area,
+        );
+    } else {
+        f.render_widget(Paragraph::new(line), area);
+    }
 }
 
 pub fn draw_repo_detail_overlay(f: &mut Frame, app: &App) {

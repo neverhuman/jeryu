@@ -22,7 +22,7 @@ use ui_chrome::*;
 use ui_panels::*;
 
 pub fn draw(f: &mut Frame, app: &mut App) {
-    if app.focus.active.tab() != app.active_tab {
+    if !app.focus.active.is_global() && app.focus.active.tab() != app.active_tab {
         app.maximize_logs = false;
         app.focus.set_tab(app.active_tab);
     }
@@ -44,6 +44,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
         draw_header_tabs(f, app, chunks[0]);
         crate::tui::repo_fleet_bar::draw_fleet_bar(f, app, chunks[1]);
+        focus::register_pane(app, PaneId::FleetBar, chunks[1]);
         activity::draw_activity_pane(f, app, chunks[2]);
         draw_footer(f, app, chunks[3]);
         if app.repo_detail_open {
@@ -65,6 +66,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
     draw_header_tabs(f, app, chunks[0]);
     crate::tui::repo_fleet_bar::draw_fleet_bar(f, app, chunks[1]);
+    focus::register_pane(app, PaneId::FleetBar, chunks[1]);
 
     match app.active_tab {
         ActiveTab::Workflow => {

@@ -9,6 +9,8 @@ mod focus_map;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PaneId {
+    /// Global fleet bar — visible on every tab, above the content area.
+    FleetBar,
     WorkflowMissionStrip,
     WorkflowPrRail,
     WorkflowPhaseRail,
@@ -154,8 +156,16 @@ impl FocusState {
 }
 
 impl PaneId {
+    /// Returns `true` for panes that appear on every tab (e.g. FleetBar).
+    pub fn is_global(self) -> bool {
+        matches!(self, PaneId::FleetBar)
+    }
+
     pub fn tab(self) -> ActiveTab {
         match self {
+            // FleetBar is global — report as Workflow as a fallback; callers
+            // should check `is_global()` first when the mapping matters.
+            PaneId::FleetBar => ActiveTab::Workflow,
             PaneId::WorkflowMissionStrip
             | PaneId::WorkflowPrRail
             | PaneId::WorkflowPhaseRail
@@ -200,6 +210,7 @@ impl PaneId {
 
     pub fn label(self) -> String {
         match self {
+            PaneId::FleetBar => "Fleet".into(),
             PaneId::WorkflowMissionStrip => "Mission Strip".into(),
             PaneId::WorkflowPrRail => "PRs".into(),
             PaneId::WorkflowPhaseRail => "Phase".into(),
