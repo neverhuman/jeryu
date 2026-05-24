@@ -507,10 +507,7 @@ fn draw_agent(f: &mut Frame, area: Rect, node: Option<&WorkflowNode>, theme: &Th
                     format!("    [{}]", finding.severity),
                     Style::default().fg(color).add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(
-                    format!(" {}{}", finding.class, file),
-                    theme.secondary(),
-                ),
+                Span::styled(format!(" {}{}", finding.class, file), theme.secondary()),
             ]));
         }
     }

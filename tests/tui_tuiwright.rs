@@ -457,7 +457,10 @@ fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
 
     page.wait_for_text("Pre-merge CI", Duration::from_secs(5))?;
     let text = screen_text(&page);
-    assert!(text.contains("#1842"), "should be back on Workflow tab showing PR #1842");
+    assert!(
+        text.contains("#1842"),
+        "should be back on Workflow tab showing PR #1842"
+    );
     Ok(())
 }
 

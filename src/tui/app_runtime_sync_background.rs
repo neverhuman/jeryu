@@ -365,8 +365,8 @@ pub(crate) fn start_background_sync(app: &App) {
             // bucket each in-flight release by its `status` field. Missing
             // directory → empty snapshot (renderer shows "No active
             // releases" placeholder).
-            let repo_root = std::env::current_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let repo_root =
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             snap.release_stages =
                 crate::release::draft_loader::load_release_stage_snapshot(&repo_root);
             // VRC plan: poll `vrc-plan.json` so the Tests tab can show

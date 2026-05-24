@@ -48,7 +48,7 @@ pub(crate) fn load_snapshot_from(repo_root: &Path) -> WitnessSnapshot {
     let raw = match std::fs::read_to_string(&path) {
         Ok(raw) => raw,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return WitnessSnapshot::default()
+            return WitnessSnapshot::default();
         }
         Err(err) => {
             return WitnessSnapshot {
@@ -64,7 +64,11 @@ pub(crate) fn load_snapshot_from(repo_root: &Path) -> WitnessSnapshot {
             for c in &file.crates {
                 let n = c.pub_items.len();
                 total += n;
-                if largest.as_ref().map(|(_, count)| n > *count).unwrap_or(true) {
+                if largest
+                    .as_ref()
+                    .map(|(_, count)| n > *count)
+                    .unwrap_or(true)
+                {
                     largest = Some((c.name.clone(), n));
                 }
             }

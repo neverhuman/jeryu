@@ -386,10 +386,7 @@ pub fn draw_workflow_empty_state(
     theme: &Theme,
     status: &crate::tui::app::DeliverySourceStatus,
 ) {
-    let source = status
-        .source_label
-        .as_deref()
-        .unwrap_or("(not configured)");
+    let source = status.source_label.as_deref().unwrap_or("(not configured)");
     let last_sync = status
         .last_sync_at
         .map(|t| t.format("%Y-%m-%d %H:%M:%SZ").to_string())

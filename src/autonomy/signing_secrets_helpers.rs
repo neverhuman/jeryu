@@ -6,10 +6,10 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
-use base64::Engine;
 use crate::autonomy::signing::EdSigningKey;
 use crate::env_file;
+use anyhow::{Context, Result, anyhow};
+use base64::Engine;
 
 pub(super) fn is_ci() -> bool {
     std::env::var("CI")
@@ -35,10 +35,7 @@ pub(super) fn signing_env_path() -> Result<PathBuf> {
     Ok(home.join(".jeryu/secrets/signing.env"))
 }
 
-pub(super) fn read_named_secret_from_file(
-    slot: &str,
-    slot_env: &str,
-) -> Result<Option<String>> {
+pub(super) fn read_named_secret_from_file(slot: &str, slot_env: &str) -> Result<Option<String>> {
     let path = signing_env_path()?;
     let contents = match env_file::read_text_file_optional(&path, "read")? {
         Some(contents) => contents,

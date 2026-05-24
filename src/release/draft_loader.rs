@@ -62,11 +62,7 @@ pub fn load_release_stage_snapshot(repo_root: &Path) -> ReleaseStageSnapshot {
                 attempt.version.clone()
             },
             agent_id: if attempt.release_manager.is_empty() {
-                attempt
-                    .sha
-                    .get(..8)
-                    .map(str::to_string)
-                    .unwrap_or_default()
+                attempt.sha.get(..8).map(str::to_string).unwrap_or_default()
             } else {
                 attempt.release_manager.clone()
             },

@@ -673,16 +673,18 @@ impl App {
     /// Cycle to the next pull request in the Delivery view.
     pub fn delivery_next_pr(&mut self) {
         let filter = self.repo_filter().to_owned();
-        self.delivery_snapshot
-            .next_pr_matching(|pr| filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref()));
+        self.delivery_snapshot.next_pr_matching(|pr| {
+            filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref())
+        });
         self.mirror_selected_pr_into_workflow();
     }
 
     /// Cycle to the previous pull request in the Delivery view.
     pub fn delivery_prev_pr(&mut self) {
         let filter = self.repo_filter().to_owned();
-        self.delivery_snapshot
-            .prev_pr_matching(|pr| filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref()));
+        self.delivery_snapshot.prev_pr_matching(|pr| {
+            filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref())
+        });
         self.mirror_selected_pr_into_workflow();
     }
 
@@ -741,8 +743,9 @@ impl App {
         // PR that does. PRs in other repos remain in the snapshot but are
         // hidden by render-time filtering in pr_rail.
         let filter = self.repo_filter().to_owned();
-        self.delivery_snapshot
-            .ensure_selection_matches(|pr| filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref()));
+        self.delivery_snapshot.ensure_selection_matches(|pr| {
+            filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref())
+        });
 
         // Mirror the currently selected PR's per-pipeline DAG into the
         // legacy workflow_snapshot so the existing WorkflowNav helpers keep

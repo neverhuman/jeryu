@@ -936,7 +936,10 @@ mod tests {
         let mut c = demo_pr(3);
         c.repo_alias = Some("nht".into());
         snap.pull_requests = vec![a, b, c];
-        assert_eq!(snap.count_matching(|pr| pr.repo_alias.as_deref() == Some("nht")), 2);
+        assert_eq!(
+            snap.count_matching(|pr| pr.repo_alias.as_deref() == Some("nht")),
+            2
+        );
         assert_eq!(snap.count_matching(|_| true), 3);
     }
 }

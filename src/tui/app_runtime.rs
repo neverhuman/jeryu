@@ -197,7 +197,10 @@ impl App {
 
     /// Currently-selected jankurai finding, if any.
     pub fn selected_jankurai_entry(&self) -> Option<&crate::tui::jankurai::JankuraiEntry> {
-        self.state.jankurai.entries.get(self.selected_jankurai_index)
+        self.state
+            .jankurai
+            .entries
+            .get(self.selected_jankurai_index)
     }
 
     /// Active repo filter — `RepoFilter::All` when index is 0 or no repo is

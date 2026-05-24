@@ -117,7 +117,10 @@ mod tests {
         assert!(!app.focus.is_drilled());
         assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
         assert!(app.workflow_inspect_open, "inspector should remain open");
-        assert!(app.focus.is_drilled(), "focus should be drilled after Enter");
+        assert!(
+            app.focus.is_drilled(),
+            "focus should be drilled after Enter"
+        );
         Ok(())
     }
 
@@ -127,7 +130,10 @@ mod tests {
         app.workflow_inspect_open = true;
         app.focus.push();
         assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
-        assert!(!app.workflow_inspect_open, "second Enter should close inspector");
+        assert!(
+            !app.workflow_inspect_open,
+            "second Enter should close inspector"
+        );
         assert!(!app.focus.is_drilled(), "second Enter should undrill focus");
         Ok(())
     }
@@ -136,7 +142,10 @@ mod tests {
     async fn z_cycles_zoom() -> Result<()> {
         let mut app = workflow_app().await?;
         let before = app.workflow_nav.zoom;
-        assert_eq!(handle(&mut app, key(KeyCode::Char('z'))).await?, Some(false));
+        assert_eq!(
+            handle(&mut app, key(KeyCode::Char('z'))).await?,
+            Some(false)
+        );
         assert_ne!(app.workflow_nav.zoom, before);
         Ok(())
     }
@@ -145,7 +154,10 @@ mod tests {
     async fn f_toggles_follow() -> Result<()> {
         let mut app = workflow_app().await?;
         let before = app.workflow_nav.follow_active;
-        assert_eq!(handle(&mut app, key(KeyCode::Char('f'))).await?, Some(false));
+        assert_eq!(
+            handle(&mut app, key(KeyCode::Char('f'))).await?,
+            Some(false)
+        );
         assert_ne!(app.workflow_nav.follow_active, before);
         Ok(())
     }
@@ -153,7 +165,10 @@ mod tests {
     #[tokio::test]
     async fn r_triggers_rollback_message() -> Result<()> {
         let mut app = workflow_app().await?;
-        assert_eq!(handle(&mut app, key(KeyCode::Char('r'))).await?, Some(false));
+        assert_eq!(
+            handle(&mut app, key(KeyCode::Char('r'))).await?,
+            Some(false)
+        );
         assert!(app.delivery_action_message.is_some());
         Ok(())
     }
@@ -161,14 +176,20 @@ mod tests {
     #[tokio::test]
     async fn b_jumps_to_blocker_no_panic() -> Result<()> {
         let mut app = workflow_app().await?;
-        assert_eq!(handle(&mut app, key(KeyCode::Char('b'))).await?, Some(false));
+        assert_eq!(
+            handle(&mut app, key(KeyCode::Char('b'))).await?,
+            Some(false)
+        );
         Ok(())
     }
 
     #[tokio::test]
     async fn c_jumps_to_critical_head_no_panic() -> Result<()> {
         let mut app = workflow_app().await?;
-        assert_eq!(handle(&mut app, key(KeyCode::Char('c'))).await?, Some(false));
+        assert_eq!(
+            handle(&mut app, key(KeyCode::Char('c'))).await?,
+            Some(false)
+        );
         Ok(())
     }
 
