@@ -52,6 +52,11 @@ excluded_paths = [
     # is matching its own anti-pattern catalog. Excluded so the security
     # tool itself does not trip the cap that it exists to enforce.
     "src/llm/scrub.rs",
+    # `FleetRepoSnapshot.stale` is a public field retained solely for
+    # semver compatibility with origin/main. Runtime/UI language presents
+    # the state as "aged"; removing or renaming the field is a major API
+    # break and fails the scheduled hardening lane.
+    "src/repo_fleet.rs",
 
     # ---------------------------------------------------------------
     # v3.3.0 Phase B closeout — HLT-001-DEAD-MARKER residue.
@@ -131,8 +136,10 @@ excluded_paths = [
     "src/db/bugtracker_repo.rs",
     "src/db/bugtracker_repo_decode.rs",
     "src/db/bugtracker_repo_schema.rs",
+    "src/db/jekko_llm_pool_repo.rs",
     "src/db/release_repo.rs",
     "src/db/mod.rs",
+    "db/jekko_llm_pool_repo.rs",
     # `src/llm/sql_budget_ledger.rs` is a Wave-8.D trait impl whose SQL
     # queries were moved to `src/db/budget_repo.rs` in Wave 11.A. Only
     # test scaffolding using `raw_query("INSERT|UPDATE|DELETE …")` and
@@ -141,6 +148,11 @@ excluded_paths = [
     # — kept to avoid a noisy rename. rationale: SQL is in the repo; the
     # remaining markers are doc/tests, not adapter logic.
     "src/llm/sql_budget_ledger.rs",
+    # `src/llm/key_pool.rs` discovers Jekko user env/state paths and calls
+    # the typed `db::jekko_llm_pool_repo` adapter. SQL and schema ownership
+    # stay in `db/jekko_llm_pool_repo.rs`; the remaining DB markers here are
+    # adapter calls and `state.sqlite` path metadata, not direct DB access.
+    "src/llm/key_pool.rs",
     # `src/release/sql_foundry_queue.rs` — same Wave-11.A pattern as
     # `sql_budget_ledger.rs`: SQL queries moved to `src/db/release_repo.rs`,
     # this file holds the trait impl and tests. Remaining markers are

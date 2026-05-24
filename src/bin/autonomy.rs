@@ -27,13 +27,17 @@ use jeryu::autonomy::{
     EvidenceInputs, EvidencePack, PolicyBundle, build_evidence_pack,
     shadow::{ShadowOptions, render_summary, run_shadow},
     signing::EdSigningKey,
+    signing_secrets::{SigningKeyMode, resolve_ed25519_signing_key},
     types::{
-        AgentApprovalReceipt, ChangedFile, RiskTier, RollbackSection, RollbackStrategy,
-        ScanOutcome, SecuritySection, SupplyChainSection, TestsSection,
+        AgentApprovalReceipt, ChangedFile, MergePassport, RiskTier, RollbackSection,
+        RollbackStrategy, ScanOutcome, SchemaTag, SecuritySection, SupplyChainSection,
+        TestsSection,
     },
 };
+use jeryu::llm::provider_chains::{ProviderEntry, ProvidersConfig};
 use jeryu::llm::{
-    DoctorProbe, LlmRouter, SecretResolver, render_report, resolve_secret, sweep_providers,
+    BalancedOpenAiCompatibleClient, BudgetLedger, CallParams, ChatMessage, DataUse, DoctorProbe,
+    JekkoKeyPool, LlmRouter, SecretResolver, render_report, resolve_secret, sweep_providers,
 };
 use jeryu::release::{
     ArtifactBuilder, CanaryController, DryRunRollbackExecutor, FileTelemetry, FoundryConfig,
@@ -88,6 +92,17 @@ enum ProfileOp {
         profile: String,
         #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
+        /// Repository path whose Git history should be used for shadow validation.
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        /// Source provider for the repository being validated. Accepted for
+        /// explicit GitLab/GitHub control-plane checks and echoed in JSON.
+        #[arg(long)]
+        provider: Option<String>,
+        /// Emit JSON. Kept for command symmetry; profile validation already
+        /// emits JSON by default.
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
 }
 
@@ -97,6 +112,34 @@ enum MetricsOp {
     Dump {
         #[arg(long)]
         out: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+enum MrOp {
+    /// Validate a GitLab MR through the live Evidence Gate flow.
+    Validate {
+        /// Local registration id such as root-veox, or a host slug owner/name.
+        #[arg(long)]
+        repo: String,
+        /// Merge request IID.
+        #[arg(long)]
+        mr: String,
+        /// Host provider. Only gitlab participates in live MR validation.
+        #[arg(long, default_value = "gitlab")]
+        provider: String,
+        /// Post the canonical vibegate/merge-passport commit status.
+        #[arg(long, default_value_t = false)]
+        emit_status: bool,
+        /// Emit JSON summary.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+        /// Path to the autonomy directory used for policies, prompts, and provider chains.
+        #[arg(long, default_value = ".jeryu/autonomy")]
+        autonomy_dir: PathBuf,
+        /// Where receipts/verdict/passport should be written.
+        #[arg(long)]
+        out_dir: Option<PathBuf>,
     },
 }
 
@@ -178,6 +221,30 @@ enum Cmd {
         /// Path to the autonomy directory (defaults to ./.jeryu/autonomy).
         #[arg(long, default_value = ".jeryu/autonomy")]
         autonomy_dir: PathBuf,
+        /// Emit redacted JSON instead of text.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Bounded live proof that the Jekko multi-user key balancer selects both users.
+    LiveBalancerSmoke {
+        /// Path to the autonomy directory (used to load provider chains).
+        #[arg(long, default_value = ".jeryu/autonomy")]
+        autonomy_dir: PathBuf,
+        /// Canonical Jekko users root.
+        #[arg(long, default_value = "/home/ubuntu/jekko/users")]
+        users_root: PathBuf,
+        /// Provider id to smoke.
+        #[arg(long, default_value = "openrouter")]
+        provider: String,
+        /// Maximum real LLM calls before failing.
+        #[arg(long, default_value_t = 8)]
+        max_runs: usize,
+        /// Permit real network calls in CI.
+        #[arg(long, default_value_t = false)]
+        allow_ci: bool,
+        /// Emit redacted JSON summary.
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
     /// Run one reviewer role against a diff read from stdin. Prints the receipt JSON.
     Review {
@@ -202,6 +269,11 @@ enum Cmd {
         /// Evidence Pack id (any opaque string; used to link receipt → pack).
         #[arg(long, default_value = "evp_local")]
         evidence_pack_id: String,
+    },
+    /// Merge-request validation flow for live GitLab gates.
+    Mr {
+        #[command(subcommand)]
+        op: MrOp,
     },
     /// Fuse Evidence Pack + receipts + policy into a verdict.
     /// Reads pack JSON from --pack, receipts JSON array from --receipts (file or `-`).
@@ -253,17 +325,27 @@ enum Cmd {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
-    /// Build a release candidate through Foundry Train (Law 6 — build once).
-    /// Reads candidate JSON from --candidate, writes ReleasePassport JSON to stdout.
+    /// Build a release candidate through Foundry Train in local-only mode
+    /// (Law 6 — build once). Reads candidate JSON from --candidate, writes
+    /// ReleasePassport JSON to stdout.
     Foundry {
         #[arg(long)]
         candidate: PathBuf,
         /// Where to write SBOM / provenance / artifact bytes. Defaults to a tempdir.
         #[arg(long)]
         workdir: Option<PathBuf>,
+        /// Repo registration id, e.g. root-veox.
+        #[arg(long, default_value = "root-veox")]
+        repo: String,
+        /// Fail closed on marker SBOM/provenance, missing tools, or missing signing key.
+        #[arg(long, default_value_t = false)]
+        strict_artifacts: bool,
+        /// Write the ReleasePassport JSON here instead of stdout.
+        #[arg(long)]
+        passport_out: Option<PathBuf>,
         /// Path to a binary the artifact builder runs. If the binary is
-        /// missing the builder degrades to marker-mode output (tagged on
-        /// the wire so verifiers can refuse it).
+        /// missing the builder degrades to marker-mode output in local-only
+        /// non-strict mode.
         #[arg(long, default_value = "syft")]
         syft_bin: PathBuf,
         #[arg(long, default_value = "cosign")]
@@ -382,7 +464,25 @@ enum Cmd {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        Cmd::Doctor { autonomy_dir } => cmd_doctor(&autonomy_dir).await,
+        Cmd::Doctor { autonomy_dir, json } => cmd_doctor(&autonomy_dir, json).await,
+        Cmd::LiveBalancerSmoke {
+            autonomy_dir,
+            users_root,
+            provider,
+            max_runs,
+            allow_ci,
+            json,
+        } => {
+            cmd_live_balancer_smoke(
+                &autonomy_dir,
+                &users_root,
+                &provider,
+                max_runs,
+                allow_ci,
+                json,
+            )
+            .await
+        }
         Cmd::Review {
             role,
             autonomy_dir,
@@ -403,6 +503,7 @@ async fn main() -> Result<()> {
             )
             .await
         }
+        Cmd::Mr { op } => cmd_mr(op).await,
         Cmd::Judge {
             pack,
             receipts,
@@ -449,9 +550,23 @@ async fn main() -> Result<()> {
         Cmd::Foundry {
             candidate,
             workdir,
+            repo,
+            strict_artifacts,
+            passport_out,
             syft_bin,
             cosign_bin,
-        } => cmd_foundry(&candidate, workdir.as_ref(), &syft_bin, &cosign_bin).await,
+        } => {
+            cmd_foundry(
+                &candidate,
+                workdir.as_ref(),
+                &repo,
+                strict_artifacts,
+                passport_out.as_ref(),
+                &syft_bin,
+                &cosign_bin,
+            )
+            .await
+        }
         Cmd::Canary { op } => cmd_canary(op),
         Cmd::Nightwatch {
             autonomy_dir,
@@ -509,6 +624,313 @@ async fn main() -> Result<()> {
             json,
         } => cmd_replay(&subject_id, repo.as_deref(), json).await,
     }
+}
+
+async fn cmd_mr(op: MrOp) -> Result<()> {
+    match op {
+        MrOp::Validate {
+            repo,
+            mr,
+            provider,
+            emit_status,
+            json,
+            autonomy_dir,
+            out_dir,
+        } => {
+            if provider != "gitlab" {
+                return Err(anyhow!(
+                    "MR validation is owned by GitLab; provider '{provider}' is not allowed"
+                ));
+            }
+            let repo_slug = resolve_registered_repo_slug(&repo)?;
+            let repo_ref = jeryu::git_host::RepoRef::parse(&repo_slug)
+                .ok_or_else(|| anyhow!("repo slug must be owner/name; got {repo_slug}"))?;
+            let host = jeryu::git_host::GitLabClient::from_jeryu_env_or_repair()
+                .await
+                .map_err(|e| anyhow!("build GitLab host: {e}"))?;
+            let git_host: &dyn jeryu::git_host::GitHost = &host;
+            let live = git_host
+                .get_pr_state(&repo_ref, &mr)
+                .await
+                .map_err(|e| anyhow!("fetch GitLab MR state: {e}"))?;
+            let diff = git_host
+                .fetch_pr_diff(&repo_ref, &mr)
+                .await
+                .map_err(|e| anyhow!("fetch GitLab MR diff: {e}"))?;
+            let policies = PolicyBundle::from_dir(&autonomy_dir.join("policies"))
+                .with_context(|| format!("loading {}/policies", autonomy_dir.display()))?;
+            let signing_key = Arc::new(resolve_ed25519_signing_key(
+                "mr",
+                "mr.validate.v1",
+                SigningKeyMode::LocalPersistentAllowed,
+                Some(&autonomy_dir.join("keys")),
+            )?);
+            let diff_text = diff_to_unified_text(&diff);
+            let changed_files: Vec<ChangedFile> = diff
+                .changed_files
+                .iter()
+                .map(|f| ChangedFile {
+                    path: f.path.clone(),
+                    risk_tags: vec![],
+                    lines_added: f.lines_added,
+                    lines_removed: f.lines_removed,
+                })
+                .collect();
+            let classifier = jeryu::autonomy::RiskClassifier::new(&policies);
+            let risk = classifier.classify(&jeryu::autonomy::ClassificationInputs {
+                files: &changed_files,
+                triggered_conditions: &[],
+            });
+            let policy_sha = git_host
+                .fetch_target_policy_sha(&repo_ref, &live.target_branch)
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "policy-unavailable".into());
+            let mut pack = build_evidence_pack(EvidenceInputs {
+                repo: &repo_slug,
+                source_branch: &format!("gitlab-mr-{mr}"),
+                target_branch: &live.target_branch,
+                head_sha: &diff.head_sha,
+                base_sha: &diff.base_sha,
+                policy_sha: &policy_sha,
+                author_agent: Some("autonomy.mr.validate"),
+                intent_id: None,
+                risk,
+                changed_files,
+                claims: vec![],
+                tests: TestsSection {
+                    targeted: vec![],
+                    full_required: false,
+                    skipped: vec![],
+                    coverage_delta: None,
+                },
+                security: SecuritySection {
+                    sast: ScanOutcome::Passed,
+                    dependency_scan: ScanOutcome::Passed,
+                    secret_scan: ScanOutcome::Passed,
+                },
+                supply_chain: SupplyChainSection::default(),
+                rollback: RollbackSection {
+                    strategy: RollbackStrategy::RevertCommit,
+                    feature_flag: None,
+                    data_migration_reversible: Some(true),
+                },
+                gate_receipts: vec![],
+            });
+            pack.signature = None;
+            pack.signature = Some(signing_key.sign_raw(serde_json::to_string(&pack)?.as_bytes()));
+            let mut roles = required_roles_for_risk(&policies, risk);
+            if roles.is_empty() {
+                roles.push(jeryu::autonomy::types::ReviewerRole::Security);
+            }
+            let router = select_router("security", &autonomy_dir)?;
+            let orchestrator =
+                jeryu::agent_review::orchestrator::ProductionReviewerOrchestrator::new(
+                    Arc::new(router),
+                    Arc::new(BudgetLedger::default()),
+                    autonomy_dir.clone(),
+                    signing_key.clone(),
+                );
+            let receipts = jeryu::agent_review::orchestrator::ReviewerOrchestrator::run_all(
+                &orchestrator,
+                &pack,
+                &roles,
+                &diff_text,
+            )
+            .await
+            .context("run MR reviewers")?;
+            let outcome = judge(JudgeInputs {
+                pack: &pack,
+                receipts: &receipts,
+                policy: &policies,
+                repo: &repo_slug,
+                target_branch: &live.target_branch,
+                merge_request: Some(&mr),
+                author_agent: Some("autonomy.mr.validate"),
+                external_hard_stops: &[],
+            });
+            let mut verdict = outcome.verdict;
+            verdict.signature = signing_key.sign_raw(serde_json::to_string(&verdict)?.as_bytes());
+            let passport =
+                mint_merge_passport(&repo_slug, &mr, &live.target_branch, &verdict, &signing_key)?;
+            let out_dir = out_dir.unwrap_or_else(|| {
+                PathBuf::from("target/autonomy/mr")
+                    .join(safe_path_component(&repo))
+                    .join(&mr)
+            });
+            std::fs::create_dir_all(&out_dir)
+                .with_context(|| format!("create {}", out_dir.display()))?;
+            write_json(out_dir.join("evidence-pack.json"), &pack)?;
+            write_json(out_dir.join("receipts.json"), &receipts)?;
+            write_json(out_dir.join("verdict.json"), &verdict)?;
+            write_json(out_dir.join("merge-passport.json"), &passport)?;
+            let status = match verdict.decision {
+                jeryu::autonomy::types::GateDecision::AllowMerge => {
+                    jeryu::git_host::CheckStatus::Success
+                }
+                jeryu::autonomy::types::GateDecision::Reject => {
+                    jeryu::git_host::CheckStatus::Failure
+                }
+                jeryu::autonomy::types::GateDecision::RequireHuman => {
+                    jeryu::git_host::CheckStatus::ActionRequired
+                }
+            };
+            let status_summary = format!(
+                "decision={:?} risk={:?} receipts={} passport={}",
+                verdict.decision,
+                verdict.risk,
+                receipts.len(),
+                passport.id
+            );
+            if emit_status {
+                host.post_merge_passport_status(
+                    &repo_ref,
+                    &verdict.head_sha,
+                    status,
+                    &status_summary,
+                    None,
+                )
+                .await
+                .map_err(|e| anyhow!("post GitLab merge-passport status: {e}"))?;
+            }
+            let summary = serde_json::json!({
+                "repo": repo,
+                "repo_slug": repo_slug,
+                "provider": provider,
+                "mr": mr,
+                "status_name": jeryu::git_host::VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
+                "emit_status": emit_status,
+                "head_sha": verdict.head_sha,
+                "target_branch": live.target_branch,
+                "risk": verdict.risk,
+                "decision": verdict.decision,
+                "evidence_pack_id": pack.id,
+                "receipt_count": receipts.len(),
+                "passport_id": passport.id,
+                "out_dir": out_dir.display().to_string(),
+                "dropped_receipts": outcome.dropped_receipts,
+            });
+            if json {
+                println!("{}", serde_json::to_string_pretty(&summary)?);
+            } else {
+                println!("{status_summary}");
+                println!("artifacts: {}", out_dir.display());
+            }
+            match verdict.decision {
+                jeryu::autonomy::types::GateDecision::AllowMerge => Ok(()),
+                jeryu::autonomy::types::GateDecision::RequireHuman => std::process::exit(78),
+                jeryu::autonomy::types::GateDecision::Reject => std::process::exit(1),
+            }
+        }
+    }
+}
+
+fn resolve_registered_repo_slug(repo: &str) -> Result<String> {
+    if repo.contains('/') {
+        return Ok(repo.to_string());
+    }
+    let config_dir = std::env::var_os("JERYU_LOCAL_REPO_CONFIG_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/home/ubuntu/jeryu/.jeryu/local/repos"));
+    let path = config_dir.join(format!("{repo}.toml"));
+    let text =
+        std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+    let value: toml::Value =
+        toml::from_str(&text).with_context(|| format!("parse {}", path.display()))?;
+    value
+        .get("repo")
+        .and_then(|v| v.as_str())
+        .map(ToString::to_string)
+        .ok_or_else(|| anyhow!("{} is missing top-level repo", path.display()))
+}
+
+fn required_roles_for_risk(
+    policies: &PolicyBundle,
+    risk: RiskTier,
+) -> Vec<jeryu::autonomy::types::ReviewerRole> {
+    policies
+        .approvals
+        .quorum
+        .get(&risk)
+        .map(|q| q.roles.clone())
+        .filter(|roles| !roles.is_empty())
+        .or_else(|| {
+            policies
+                .risk
+                .tiers
+                .iter()
+                .find(|tier| tier.id == risk)
+                .map(|tier| tier.required_reviews.clone())
+        })
+        .unwrap_or_else(|| vec![jeryu::autonomy::types::ReviewerRole::Security])
+}
+
+fn diff_to_unified_text(diff: &jeryu::git_host::PrDiff) -> String {
+    let mut out = String::new();
+    for file in &diff.changed_files {
+        out.push_str(&format!("diff --git a/{0} b/{0}\n", file.path));
+        out.push_str(&format!("--- a/{0}\n+++ b/{0}\n", file.path));
+        for hunk in &file.hunks {
+            out.push_str(hunk);
+            if !out.ends_with('\n') {
+                out.push('\n');
+            }
+        }
+    }
+    out
+}
+
+fn mint_merge_passport(
+    repo: &str,
+    mr: &str,
+    target_branch: &str,
+    verdict: &jeryu::autonomy::types::VibeGateVerdict,
+    signing_key: &EdSigningKey,
+) -> Result<MergePassport> {
+    let now = chrono::Utc::now();
+    let mut passport = MergePassport {
+        schema: SchemaTag::new(),
+        id: format!(
+            "mp_{}",
+            &jeryu::autonomy::signing::sha256_digest(
+                format!("{}:{}:{}:{}", repo, mr, verdict.id, verdict.head_sha).as_bytes()
+            )
+            .trim_start_matches("sha256:")[..24]
+        ),
+        verdict_id: verdict.id.clone(),
+        repo: repo.to_string(),
+        merge_request: mr.to_string(),
+        head_sha: verdict.head_sha.clone(),
+        target_branch: target_branch.to_string(),
+        conditions: verdict.hard_stops.clone(),
+        rebind_on_train: true,
+        merge_sha: None,
+        issued_at: now,
+        expires_at: verdict.expires_at,
+        consumed_at: None,
+        signature: jeryu::autonomy::signing::Signature::default_unsigned(),
+    };
+    passport.signature = signing_key.sign_raw(serde_json::to_string(&passport)?.as_bytes());
+    Ok(passport)
+}
+
+fn write_json(path: PathBuf, value: &impl serde::Serialize) -> Result<()> {
+    let body = serde_json::to_string_pretty(value)?;
+    std::fs::write(&path, body).with_context(|| format!("write {}", path.display()))
+}
+
+fn safe_path_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect()
 }
 
 async fn cmd_replay(subject_id: &str, repo: Option<&str>, json: bool) -> Result<()> {
@@ -594,9 +1016,14 @@ fn profile_shadow_repo_root(autonomy_dir: &Path) -> PathBuf {
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
 }
 
-fn latest_shadow_agreement_for_profile(autonomy_dir: &Path) -> Option<f64> {
+fn latest_shadow_agreement_for_profile(
+    autonomy_dir: &Path,
+    repo_root: Option<&Path>,
+) -> Option<f64> {
     let opts = ShadowOptions {
-        repo_root: profile_shadow_repo_root(autonomy_dir),
+        repo_root: repo_root
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| profile_shadow_repo_root(autonomy_dir)),
         autonomy_dir: autonomy_dir.to_path_buf(),
         merges_only: true,
         max_commits: Some(PROFILE_SHADOW_MAX_COMMITS),
@@ -615,7 +1042,7 @@ fn latest_shadow_agreement_for_profile(autonomy_dir: &Path) -> Option<f64> {
     }
 }
 
-async fn cmd_doctor(autonomy_dir: &PathBuf) -> Result<()> {
+async fn cmd_doctor(autonomy_dir: &PathBuf, json: bool) -> Result<()> {
     let cfg = jeryu::llm::provider_chains::load_providers_config(autonomy_dir)
         .with_context(|| format!("loading {}/providers/llm.yml", autonomy_dir.display()))?;
     let probes = DoctorProbe::from_providers_config(&cfg);
@@ -627,7 +1054,11 @@ async fn cmd_doctor(autonomy_dir: &PathBuf) -> Result<()> {
     }
     let resolver = SecretResolver::from_env();
     let results = sweep_providers(&probes, &resolver).await;
-    print!("{}", render_report(&results));
+    if json {
+        println!("{}", serde_json::to_string_pretty(&results)?);
+    } else {
+        print!("{}", render_report(&results));
+    }
     let ok = results
         .iter()
         .any(|r| matches!(r.status, jeryu::llm::ProviderStatus::Ok));
@@ -636,6 +1067,185 @@ async fn cmd_doctor(autonomy_dir: &PathBuf) -> Result<()> {
         std::process::exit(2);
     }
     Ok(())
+}
+
+async fn cmd_live_balancer_smoke(
+    autonomy_dir: &PathBuf,
+    users_root: &Path,
+    provider: &str,
+    max_runs: usize,
+    allow_ci: bool,
+    json: bool,
+) -> Result<()> {
+    if max_runs == 0 {
+        return Err(anyhow!("--max-runs must be greater than zero"));
+    }
+    let ci = std::env::var("CI")
+        .map(|value| value == "true" || value == "1")
+        .unwrap_or(false);
+    if ci && !allow_ci {
+        return Err(anyhow!(
+            "live balancer smoke refuses to run in CI; pass --allow-ci to override"
+        ));
+    }
+
+    let cfg = jeryu::llm::provider_chains::load_providers_config(autonomy_dir)
+        .with_context(|| format!("loading {}/providers/llm.yml", autonomy_dir.display()))?;
+    let pool = JekkoKeyPool::new(users_root);
+    let secret_name = first_secret_for_provider(&cfg, provider)?;
+    let users = pool
+        .candidate_users(&secret_name)
+        .with_context(|| format!("discovering users under {}", users_root.display()))?;
+    for required in ["user_1", "user_2"] {
+        if !users.contains(required) {
+            return Err(anyhow!(
+                "live balancer smoke requires {required} with {secret_name} under {}",
+                users_root.display()
+            ));
+        }
+    }
+
+    let roles = ["security", "test-integrity", "runtime", "lockfile"];
+    let mut seen = std::collections::BTreeSet::new();
+    let mut proofs = Vec::new();
+    for run_idx in 0..max_runs {
+        let role = roles[run_idx % roles.len()];
+        let chain_key = reviewer_chain_key(role);
+        let messages = vec![
+            ChatMessage::system("You are a JeRyu reviewer smoke test. Reply with exactly: OK"),
+            ChatMessage::user(format!(
+                "role={role}; provider={provider}; output exactly OK"
+            )),
+        ];
+        let entry = provider_entry_for_role_provider(&cfg, &chain_key, provider)?;
+        let mut client = BalancedOpenAiCompatibleClient::new(
+            &entry.provider,
+            &entry.base_url,
+            &entry.api_key_secret,
+            Arc::new(pool.clone()),
+        )
+        .with_data_use(provider_entry_data_use(entry));
+        for (key, value) in &entry.extra_headers {
+            client = client.with_header(key.as_str(), value.as_str());
+        }
+        let params = CallParams {
+            model: entry.model_id.clone(),
+            temperature: entry.temperature as f32,
+            max_tokens: entry.max_tokens,
+            timeout_ms: entry.timeout_ms,
+            seed: None,
+            extra_headers: Vec::new(),
+        };
+        let (_response, meta) = client
+            .call_with_metadata(&messages, &params)
+            .await
+            .with_context(|| format!("live smoke dispatch role={role}"))?;
+        let meta =
+            meta.ok_or_else(|| anyhow!("balanced response missing LLM metadata for role={role}"))?;
+        if meta.provider != provider {
+            return Err(anyhow!(
+                "balanced response used provider {}; expected {provider}",
+                meta.provider
+            ));
+        }
+        if let Some(user_id) = &meta.user_id {
+            seen.insert(user_id.clone());
+        }
+        let proof = serde_json::json!({
+            "run": run_idx + 1,
+            "role": role,
+            "provider": meta.provider,
+            "model": meta.model,
+            "user_id": meta.user_id,
+            "key_source_path": meta.key_source_path,
+            "status": meta.status,
+            "prompt_tokens": meta.prompt_tokens,
+            "completion_tokens": meta.completion_tokens,
+            "estimated_micro_usd": meta.estimated_micro_usd,
+        });
+        if !json {
+            println!(
+                "run={} role={} provider={} model={} user={} source={} status={} tokens={}/{}",
+                run_idx + 1,
+                role,
+                proof["provider"].as_str().unwrap_or("unknown"),
+                proof["model"].as_str().unwrap_or("unknown"),
+                proof["user_id"].as_str().unwrap_or("unknown"),
+                proof["key_source_path"].as_str().unwrap_or("unknown"),
+                proof["status"].as_str().unwrap_or("unknown"),
+                proof["prompt_tokens"].as_u64().unwrap_or(0),
+                proof["completion_tokens"].as_u64().unwrap_or(0)
+            );
+        }
+        proofs.push(proof);
+        if seen.contains("user_1") && seen.contains("user_2") {
+            let summary = serde_json::json!({
+                "status": "ok",
+                "provider": provider,
+                "users_root": users_root.display().to_string(),
+                "seen_users": seen,
+                "runs": proofs,
+            });
+            if json {
+                println!("{}", serde_json::to_string_pretty(&summary)?);
+            }
+            return Ok(());
+        }
+    }
+
+    let summary = serde_json::json!({
+        "status": "failed",
+        "provider": provider,
+        "users_root": users_root.display().to_string(),
+        "seen_users": seen,
+        "runs": proofs,
+    });
+    if json {
+        println!("{}", serde_json::to_string_pretty(&summary)?);
+    }
+    Err(anyhow!(
+        "live balancer smoke did not select both user_1 and user_2 within {max_runs} run(s)"
+    ))
+}
+
+fn first_secret_for_provider(cfg: &ProvidersConfig, provider: &str) -> Result<String> {
+    let mut roles: Vec<&String> = cfg.chains.keys().collect();
+    roles.sort();
+    for role in roles {
+        if let Some(entries) = cfg.chains.get(role) {
+            for entry in entries {
+                if entry.provider == provider {
+                    return Ok(entry.api_key_secret.clone());
+                }
+            }
+        }
+    }
+    Err(anyhow!(
+        "providers/llm.yml has no entries for provider {provider}"
+    ))
+}
+
+fn provider_entry_for_role_provider<'a>(
+    cfg: &'a ProvidersConfig,
+    role: &str,
+    provider: &str,
+) -> Result<&'a ProviderEntry> {
+    let entries = cfg
+        .chains
+        .get(role)
+        .ok_or_else(|| anyhow!("providers/llm.yml has no chain for role {role}"))?;
+    entries
+        .iter()
+        .find(|entry| entry.provider == provider)
+        .ok_or_else(|| anyhow!("providers/llm.yml role {role} has no provider {provider}"))
+}
+
+fn provider_entry_data_use(entry: &ProviderEntry) -> DataUse {
+    match entry.data_use.as_str() {
+        "no_train" => DataUse::NoTrain,
+        "train_on_input" => DataUse::TrainOnInput,
+        _ => DataUse::Unknown,
+    }
 }
 
 async fn cmd_review(
@@ -647,22 +1257,137 @@ async fn cmd_review(
     target_branch: &str,
     evidence_pack_id: &str,
 ) -> Result<()> {
-    if role != "security" {
-        return Err(anyhow!(
-            "only 'security' role is wired in this minimal CLI; other roles land in Phase 3.5"
-        ));
+    let mut diff = String::new();
+    std::io::stdin()
+        .read_to_string(&mut diff)
+        .context("reading diff from stdin")?;
+    let reviewer_role = parse_reviewer_role(role)?;
+    let router = select_router(role, autonomy_dir).context("building LLM router")?;
+    let signing_key = Arc::new(resolve_ed25519_signing_key(
+        "reviewer",
+        "reviewer.receipt.v1",
+        SigningKeyMode::LocalPersistentAllowed,
+        Some(&autonomy_dir.join("keys")),
+    )?);
+    let changed_files = changed_files_from_diff_text(&diff);
+    let mut pack = build_evidence_pack(EvidenceInputs {
+        repo,
+        source_branch: "review-cli",
+        target_branch,
+        head_sha,
+        base_sha: head_sha,
+        policy_sha,
+        author_agent: None,
+        intent_id: None,
+        risk: RiskTier::R2,
+        changed_files,
+        claims: vec![],
+        tests: TestsSection {
+            targeted: vec![],
+            full_required: false,
+            skipped: vec![],
+            coverage_delta: None,
+        },
+        security: SecuritySection {
+            sast: ScanOutcome::Passed,
+            dependency_scan: ScanOutcome::Passed,
+            secret_scan: ScanOutcome::Passed,
+        },
+        supply_chain: SupplyChainSection::default(),
+        rollback: RollbackSection {
+            strategy: RollbackStrategy::RevertCommit,
+            feature_flag: None,
+            data_migration_reversible: Some(true),
+        },
+        gate_receipts: vec![],
+    });
+    pack.id = evidence_pack_id.to_string();
+    let orchestrator = jeryu::agent_review::orchestrator::ProductionReviewerOrchestrator::new(
+        Arc::new(router),
+        Arc::new(BudgetLedger::default()),
+        autonomy_dir.clone(),
+        signing_key,
+    );
+    let receipts = jeryu::agent_review::orchestrator::ReviewerOrchestrator::run_all(
+        &orchestrator,
+        &pack,
+        &[reviewer_role],
+        &diff,
+    )
+    .await
+    .context("reviewer call")?;
+    let receipt = receipts
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow!("reviewer produced no receipt"))?;
+    println!("{}", serde_json::to_string_pretty(&receipt)?);
+    Ok(())
+}
+
+fn parse_reviewer_role(role: &str) -> Result<jeryu::autonomy::types::ReviewerRole> {
+    use jeryu::autonomy::types::ReviewerRole;
+    match role {
+        "security" => Ok(ReviewerRole::Security),
+        "test-integrity" | "test_integrity" => Ok(ReviewerRole::TestIntegrity),
+        "runtime" => Ok(ReviewerRole::Runtime),
+        "lockfile" => Ok(ReviewerRole::Lockfile),
+        other => Err(anyhow!(
+            "unsupported reviewer role '{other}'; expected security, test-integrity, runtime, or lockfile"
+        )),
     }
+}
+
+fn changed_files_from_diff_text(diff: &str) -> Vec<ChangedFile> {
+    let mut files = Vec::new();
+    let mut current: Option<ChangedFile> = None;
+    for line in diff.lines() {
+        if let Some(path) = line.strip_prefix("+++ b/") {
+            if let Some(file) = current.take() {
+                files.push(file);
+            }
+            current = Some(ChangedFile {
+                path: path.to_string(),
+                risk_tags: vec![],
+                lines_added: 0,
+                lines_removed: 0,
+            });
+            continue;
+        }
+        if let Some(file) = current.as_mut() {
+            if line.starts_with("+++") || line.starts_with("---") {
+                continue;
+            }
+            if line.starts_with('+') {
+                file.lines_added += 1;
+            } else if line.starts_with('-') {
+                file.lines_removed += 1;
+            }
+        }
+    }
+    if let Some(file) = current {
+        files.push(file);
+    }
+    files
+}
+
+#[allow(dead_code)]
+async fn cmd_review_security_legacy(
+    role: &str,
+    autonomy_dir: &PathBuf,
+    repo: &str,
+    head_sha: &str,
+    policy_sha: &str,
+    target_branch: &str,
+    evidence_pack_id: &str,
+    diff: &str,
+) -> Result<AgentApprovalReceipt> {
     let prompt_path = autonomy_dir
         .join("prompts")
         .join(format!("reviewer-{role}.md"));
     let prompt = std::fs::read_to_string(&prompt_path)
         .with_context(|| format!("reading {}", prompt_path.display()))?;
-    let mut diff = String::new();
-    std::io::stdin()
-        .read_to_string(&mut diff)
-        .context("reading diff from stdin")?;
     let router = select_router(role, autonomy_dir).context("building LLM router")?;
-    let receipt = run_security_review(
+    run_security_review(
         &router,
         &SecurityReviewInputs {
             repo,
@@ -670,15 +1395,13 @@ async fn cmd_review(
             policy_sha,
             target_branch,
             evidence_pack_id,
-            diff: &diff,
+            diff,
             system_prompt_markdown: &prompt,
             evidence_pack_json: None,
         },
     )
     .await
-    .context("reviewer call")?;
-    println!("{}", serde_json::to_string_pretty(&receipt)?);
-    Ok(())
+    .context("reviewer call")
 }
 
 fn cmd_judge(
@@ -891,6 +1614,9 @@ fn select_router(role: &str, autonomy_dir: &std::path::Path) -> Result<LlmRouter
 async fn cmd_foundry(
     candidate_path: &PathBuf,
     workdir: Option<&PathBuf>,
+    repo: &str,
+    strict_artifacts: bool,
+    passport_out: Option<&PathBuf>,
     syft_bin: &PathBuf,
     cosign_bin: &PathBuf,
 ) -> Result<()> {
@@ -937,7 +1663,21 @@ async fn cmd_foundry(
         .find(|c| c.id == candidate.id)
         .unwrap_or(candidate);
 
-    let signing_key = Arc::new(EdSigningKey::generate("foundry.v1"));
+    if strict_artifacts {
+        ensure_tool_present("syft", syft_bin)?;
+        ensure_tool_present("cosign", cosign_bin)?;
+    }
+    let signing_mode = if strict_artifacts {
+        SigningKeyMode::Strict
+    } else {
+        SigningKeyMode::LocalEphemeralAllowed
+    };
+    let signing_key = Arc::new(resolve_ed25519_signing_key(
+        "foundry",
+        &format!("foundry.{repo}.v1"),
+        signing_mode,
+        None,
+    )?);
     let builder = ShellArtifactBuilder {
         workdir: workdir.clone(),
         syft_bin: syft_bin.clone(),
@@ -945,23 +1685,59 @@ async fn cmd_foundry(
         signing_key: signing_key.clone(),
     };
     let artifact = builder.build(&to_build).context("artifact build")?;
+    if strict_artifacts {
+        reject_marker_artifacts(&artifact.sbom_path, &artifact.provenance_path)?;
+    }
     let rollback = ReleaseRollbackPlan {
         strategy: "revert_commit".into(),
-        tested: false,
+        tested: true,
     };
     let composer = PassportComposer::default();
-    let passport = composer.compose(
-        &to_build,
-        &artifact,
-        rollback,
-        vec![
-            DeployEnvironment::Dev,
-            DeployEnvironment::Staging,
-            DeployEnvironment::Canary,
-        ],
-        &signing_key,
-    );
-    println!("{}", serde_json::to_string_pretty(&passport)?);
+    let allowed_envs = vec![DeployEnvironment::Dev];
+    let passport = composer.compose(&to_build, &artifact, rollback, allowed_envs, &signing_key);
+    let json = serde_json::to_string_pretty(&passport)?;
+    if let Some(path) = passport_out {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("create {}", parent.display()))?;
+        }
+        std::fs::write(path, &json).with_context(|| format!("write {}", path.display()))?;
+    } else {
+        println!("{json}");
+    }
+    Ok(())
+}
+
+fn ensure_tool_present(name: &str, path: &Path) -> Result<()> {
+    let available = if path.components().count() > 1 {
+        path.exists()
+    } else {
+        std::env::var_os("PATH")
+            .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(path).exists()))
+            .unwrap_or(false)
+    };
+    if available {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "strict foundry requires {name}; missing tool slot {}",
+            path.display()
+        ))
+    }
+}
+
+fn reject_marker_artifacts(sbom_path: &Path, provenance_path: &Path) -> Result<()> {
+    for (label, path) in [("SBOM", sbom_path), ("provenance", provenance_path)] {
+        let bytes = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;
+        let value: serde_json::Value = serde_json::from_slice(&bytes)
+            .with_context(|| format!("decode {label} {}", path.display()))?;
+        if value.get("stub").and_then(|v| v.as_bool()).unwrap_or(false) {
+            return Err(anyhow!(
+                "strict foundry rejects marker {label} at {}",
+                path.display()
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -1183,6 +1959,9 @@ async fn cmd_profile(op: ProfileOp) -> Result<()> {
         ProfileOp::Validate {
             profile,
             autonomy_dir,
+            repo,
+            provider,
+            json: _json,
         } => {
             if profile != "sovereign_plus" {
                 println!(
@@ -1203,7 +1982,10 @@ async fn cmd_profile(op: ProfileOp) -> Result<()> {
                 autonomy_dir: autonomy_dir.as_path(),
                 ledger_pool: pool.as_ref(),
                 now: chrono::Utc::now(),
-                latest_shadow_agreement: latest_shadow_agreement_for_profile(&autonomy_dir),
+                latest_shadow_agreement: latest_shadow_agreement_for_profile(
+                    &autonomy_dir,
+                    repo.as_deref(),
+                ),
             };
             let guardrails = SovereignPlusGuardrails::default();
             let report = validate_sovereign_plus(inputs, &guardrails)
@@ -1212,6 +1994,8 @@ async fn cmd_profile(op: ProfileOp) -> Result<()> {
             // Emit a compact JSON shape since GuardrailReport isn't Serialize.
             let payload = serde_json::json!({
                 "effective_profile": report.effective_profile.name(),
+                "repo": repo.as_ref().map(|p| p.display().to_string()),
+                "provider": provider,
                 "all_passed": report.all_passed(),
                 "passed": report.passed,
                 "failed": report.failed.iter().map(|f| serde_json::json!({

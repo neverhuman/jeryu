@@ -70,7 +70,7 @@ fn pre_push_rejects_updates_to_main_before_quality_gates() {
     assert!(!output.status.success(), "main pushes should be rejected");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("direct pushes to main are forbidden"),
+        stderr.contains("direct pushes to main are blocked"),
         "stderr did not explain the refusal: {stderr}"
     );
     assert!(

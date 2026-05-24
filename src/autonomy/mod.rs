@@ -30,6 +30,7 @@ pub mod replay;
 pub mod risk;
 pub mod shadow;
 pub mod signing;
+pub mod signing_secrets;
 pub mod types;
 pub mod verdict_store;
 

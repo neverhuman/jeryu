@@ -29,7 +29,15 @@ mod tests;
 
 pub const AGENT_FIRST_STANDARD_VERSION: &str = "agent-first-autonomous-v1";
 const DEFAULT_AUTONOMY_DIR: &str = ".jeryu/autonomy";
-const REQUIRED_CHECK_NAME: &str = "jeryu/required";
+const GITHUB_REQUIRED_CHECK_NAME: &str = "jeryu/required";
+const GITLAB_REQUIRED_CHECK_NAME: &str = "vibegate/merge-passport";
+
+fn required_check_name(provider: StandardProvider) -> &'static str {
+    match provider {
+        StandardProvider::Github => GITHUB_REQUIRED_CHECK_NAME,
+        StandardProvider::Gitlab => GITLAB_REQUIRED_CHECK_NAME,
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]

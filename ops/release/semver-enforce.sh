@@ -39,7 +39,18 @@ if [ ! -f "$CARGO_TOML" ]; then
   exit 1
 fi
 # Extract workspace.package version from Cargo.toml
-VERSION_FROM_CARGO=$(grep -A 20 '^\[workspace.package\]' "$CARGO_TOML" | grep -E '^version = "' | head -1 | sed 's/version = "$$.*$$"/\1/')
+VERSION_FROM_CARGO=$(
+  awk '
+    /^\[workspace\.package\]$/ { in_section = 1; next }
+    in_section && /^\[/ { exit }
+    in_section && /^[[:space:]]*version[[:space:]]*=[[:space:]]*"/ {
+      sub(/^[[:space:]]*version[[:space:]]*=[[:space:]]*"/, "")
+      sub(/".*$/, "")
+      print
+      exit
+    }
+  ' "$CARGO_TOML"
+)
 
 # Validate semver format (x.y.z or x.y.z-prerelease)
 SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'

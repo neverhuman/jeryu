@@ -65,7 +65,7 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             fresh,
             json,
         } => {
-            let (client, _) = load_client()?;
+            let (client, _) = load_client().await?;
             let db = state::Db::open().await?;
             let report =
                 release::reconcile_release_for_ref(&db, &client, project_id, &ref_name, fresh)
@@ -81,7 +81,7 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             ref_name,
             version,
         } => {
-            let (client, _) = load_client()?;
+            let (client, _) = load_client().await?;
             let db = state::Db::open().await?;
             let pipeline_id =
                 release::trigger_production_promotion(&db, &client, project_id, &ref_name, version)

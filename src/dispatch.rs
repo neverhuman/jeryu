@@ -20,37 +20,30 @@ pub use dispatch_support::fetch_ci_job_runs;
 // Helpers
 
 fn env_var_or_empty(name: &str) -> String {
-    match std::env::var(name) {
-        Ok(value) => value,
-        Err(std::env::VarError::NotPresent) | Err(std::env::VarError::NotUnicode(_)) => {
-            String::new()
-        }
+    if let Ok(value) = std::env::var(name) {
+        return value;
+    }
+    match gitlab_auth::load_env_value(name) {
+        Ok(Some(value)) => value,
+        Ok(None) | Err(_) => String::new(),
     }
 }
 
 /// Load secrets from jeryu.env and build a GitlabClient.
-pub fn load_client() -> Result<(gitlab_client::GitlabClient, String)> {
-    let env_path = config::env_file();
-    dotenvy::from_path(&env_path).ok();
-
-    let pat = std::env::var("GITLAB_PAT")
-        .map_err(|_| anyhow::anyhow!("GITLAB_PAT not found — run `jeryu bootstrap` first"))?;
+pub async fn load_client() -> Result<(gitlab_client::GitlabClient, String)> {
+    let auth = gitlab_auth::resolve_or_repair_default().await?;
     let webhook_secret = env_var_or_empty("JERYU_WEBHOOK_SECRET");
 
-    let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
-    let client = gitlab_client::GitlabClient::new(&url, Some(pat));
+    let client = gitlab_client::GitlabClient::new(&auth.url, Some(auth.token));
 
     Ok((client, webhook_secret))
 }
 
 fn load_client_optional() -> (gitlab_client::GitlabClient, String) {
-    let env_path = config::env_file();
-    dotenvy::from_path(&env_path).ok();
-
-    let pat = std::env::var("GITLAB_PAT").ok();
+    let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
+    let pat = gitlab_auth::load_token_for_url(&url).ok().flatten();
     let webhook_secret = env_var_or_empty("JERYU_WEBHOOK_SECRET");
 
-    let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
     let client = gitlab_client::GitlabClient::new(&url, pat);
 
     (client, webhook_secret)
@@ -69,7 +62,7 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
 
         // ---- Serve -------------------------------------------------------
         Commands::Serve => {
-            let (client, webhook_secret) = load_client()?;
+            let (client, webhook_secret) = load_client().await?;
             let db = state::Db::open().await?;
             let docker_ctl = docker::DockerCtl::connect()?;
 
@@ -146,7 +139,7 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
             let (client, _) = if once || capture || screenshot || demo {
                 load_client_optional()
             } else {
-                load_client()?
+                load_client().await?
             };
             let docker_ctl = if once || capture || screenshot || demo {
                 // Screenshot/capture/demo modes never interact with Docker.

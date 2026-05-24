@@ -55,7 +55,7 @@ pub(crate) fn plan_standard(
         base_branch: spec.base_branch.clone(),
         repo_slug: spec.repo_slug.clone(),
         autonomy_dir: spec.autonomy_dir.clone(),
-        required_check: REQUIRED_CHECK_NAME.to_string(),
+        required_check: required_check_name(spec.provider).to_string(),
         changes,
         hook_config: HookConfigChange {
             desired: ".jeryu/hooks".to_string(),

@@ -22,7 +22,7 @@ use test_pipeline_commands::{
 };
 
 pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
-    let (client, _) = load_client()?;
+    let (client, _) = load_client().await?;
     let db = state::Db::open().await?;
 
     match subcmd {

@@ -5,7 +5,7 @@ use crate::config;
 use crate::gitlab_client::GitlabClient;
 use crate::state::{Db, Pool};
 
-use super::super::{append_env, generate_password};
+use super::super::append_env;
 
 pub(crate) async fn wait_for_gitlab_ready(client: &GitlabClient) -> Result<()> {
     let max_wait = Duration::from_secs(300); // 5 minutes
@@ -35,34 +35,8 @@ pub(crate) async fn wait_for_gitlab_ready(client: &GitlabClient) -> Result<()> {
 }
 
 pub(crate) async fn create_authenticated_client(gitlab_url: &str) -> Result<GitlabClient> {
-    let pat = format!("jeryu-pat-{}", generate_password(20));
-
-    let rails_script = format!(
-        "u = User.find_by_username('root');\
-         t = u.personal_access_tokens.create!(scopes: ['api', 'create_runner', 'manage_runner', 'read_repository', 'write_repository'], name: 'jeryu-control-plane', expires_at: 365.days.from_now);\
-         t.set_token('{}');\
-         t.save!",
-        pat
-    );
-
-    let output = tokio::process::Command::new("docker")
-        .args([
-            "exec",
-            "jeryu-gitlab",
-            "gitlab-rails",
-            "runner",
-            &rails_script,
-        ])
-        .output()
-        .await
-        .context("running gitlab-rails runner to create PAT")?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("failed to create PAT via gitlab-rails: {}", stderr);
-    }
-
-    append_env("GITLAB_PAT", &pat)?;
+    let pat = crate::gitlab_auth::mint_local_root_pat(gitlab_url).await?;
+    crate::gitlab_auth::upsert_pat(&pat)?;
     println!("    ✅ PAT stored in jeryu.env");
     Ok(GitlabClient::new(gitlab_url, Some(pat)))
 }

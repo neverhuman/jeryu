@@ -33,48 +33,45 @@ pub(crate) async fn gitlab_redis_write_check() -> HostDoctorCheck {
 }
 
 pub(crate) async fn gitlab_artifact_size_check() -> HostDoctorCheck {
-    let env_file = crate::config::env_file();
-    let script = format!(
-        "set -a; . '{}'; set +a; curl -fsS -H \"PRIVATE-TOKEN: $GITLAB_PAT\" http://localhost:{}/api/v4/application/settings",
-        env_file.display(),
-        crate::config::GITLAB_HTTP_PORT
-    );
-    let output = tokio::process::Command::new("sh")
-        .args(["-lc", &script])
-        .output()
-        .await;
+    let url = format!("http://localhost:{}", crate::config::GITLAB_HTTP_PORT);
+    let auth = crate::gitlab_auth::resolve_or_repair(&url).await;
 
-    match output {
-        Ok(output) if output.status.success() => {
-            let parsed = serde_json::from_slice::<serde_json::Value>(&output.stdout);
-            match parsed.ok().and_then(|json| {
-                json.get("max_artifacts_size")
+    match auth {
+        Ok(auth) => {
+            let client = crate::gitlab_client::GitlabClient::new(&auth.url, Some(auth.token));
+            let parsed = client
+                .api_get_json::<serde_json::Value>(client.api_url("/application/settings"))
+                .await;
+            match parsed {
+                Ok(json) => match json
+                    .get("max_artifacts_size")
                     .and_then(|value| value.as_u64())
-            }) {
-                Some(max_mb) => HostDoctorCheck {
-                    id: "gitlab-artifact-size".to_string(),
-                    ok: max_mb >= MIN_GITLAB_ARTIFACT_SIZE_MB,
-                    detail: format!(
-                        "max_artifacts_size={}MiB (required >= {}MiB)",
-                        max_mb, MIN_GITLAB_ARTIFACT_SIZE_MB
-                    ),
+                {
+                    Some(max_mb) => HostDoctorCheck {
+                        id: "gitlab-artifact-size".to_string(),
+                        ok: max_mb >= MIN_GITLAB_ARTIFACT_SIZE_MB,
+                        detail: format!(
+                            "max_artifacts_size={}MiB (required >= {}MiB)",
+                            max_mb, MIN_GITLAB_ARTIFACT_SIZE_MB
+                        ),
+                    },
+                    None => HostDoctorCheck {
+                        id: "gitlab-artifact-size".to_string(),
+                        ok: false,
+                        detail: "could not parse max_artifacts_size".to_string(),
+                    },
                 },
-                None => HostDoctorCheck {
+                Err(err) => HostDoctorCheck {
                     id: "gitlab-artifact-size".to_string(),
                     ok: false,
-                    detail: "could not parse max_artifacts_size".to_string(),
+                    detail: err.to_string(),
                 },
             }
         }
-        Ok(output) => HostDoctorCheck {
-            id: "gitlab-artifact-size".to_string(),
-            ok: false,
-            detail: String::from_utf8_lossy(&output.stderr).trim().to_string(),
-        },
         Err(err) => HostDoctorCheck {
             id: "gitlab-artifact-size".to_string(),
             ok: false,
-            detail: err.to_string(),
+            detail: format!("GitLab auth unavailable: {err}"),
         },
     }
 }

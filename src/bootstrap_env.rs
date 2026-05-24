@@ -4,6 +4,7 @@ use tracing::info;
 
 use crate::config;
 use crate::db::config as db_config;
+use crate::gitlab_auth;
 
 pub(crate) fn generate_password(len: usize) -> String {
     use rand::Rng;
@@ -27,6 +28,7 @@ pub(crate) fn generate_env_file() -> Result<(String, String)> {
 
     if env_path.exists() {
         // Load existing
+        gitlab_auth::ensure_env_file_permissions()?;
         info!("jeryu.env already exists, loading existing secrets");
         dotenvy::from_path(&env_path).ok();
         let root_pw = std::env::var("GITLAB_ROOT_PASSWORD")
@@ -55,6 +57,7 @@ pub(crate) fn generate_env_file() -> Result<(String, String)> {
     );
 
     fs::write(&env_path, &content).with_context(|| format!("writing {}", env_path.display()))?;
+    gitlab_auth::ensure_env_file_permissions()?;
 
     info!(path = %env_path.display(), "generated jeryu.env");
     Ok((root_password, webhook_secret))
@@ -62,15 +65,5 @@ pub(crate) fn generate_env_file() -> Result<(String, String)> {
 
 /// Append a key=value to jeryu.env
 pub(crate) fn append_env(key: &str, value: &str) -> Result<()> {
-    let env_path = config::env_file();
-    let line = format!("{}={}\n", key, value);
-    fs::OpenOptions::new()
-        .append(true)
-        .open(&env_path)
-        .with_context(|| format!("opening {} for append", env_path.display()))?;
-    fs::write(
-        &env_path,
-        format!("{}{}", fs::read_to_string(&env_path)?, line),
-    )?;
-    Ok(())
+    gitlab_auth::upsert_env_value(key, value)
 }

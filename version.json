@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.15",
-  "cargo_workspace_version": "3.3.15",
+  "version": "3.3.17",
+  "cargo_workspace_version": "3.3.17",
   "release_line": "V3.3",
   "status": "stable",
-  "date": "2026-05-22",
+  "date": "2026-05-24",
   "tag_policy": {
-    "rc": "v3.3.15-rc.N",
-    "stable": "v3.3.15"
+    "rc": "v3.3.17-rc.N",
+    "stable": "v3.3.17"
   },
-  "headline": "Ship JeRyu v3.3.15 with Vault, CI, and audit cleanup."
+  "headline": "Ship JeRyu v3.3.17 with CI parity, GitLab auth, and LLM cleanup."
 }

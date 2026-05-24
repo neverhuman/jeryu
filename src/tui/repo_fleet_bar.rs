@@ -17,11 +17,11 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
     }
 
     let mut spans = Vec::new();
-    let (running, failed, stale) = app.state.fleet.counts();
+    let (running, failed, aged) = app.state.fleet.counts();
     let all_label = if app.state.fleet.repos.is_empty() {
         " All: none ".to_string()
     } else {
-        format!(" All run:{} fail:{} stale:{} ", running, failed, stale)
+        format!(" All run:{} fail:{} aged:{} ", running, failed, aged)
     };
     spans.push(segment(all_label, app.selected_repo_index == 0, "local"));
 
@@ -32,7 +32,7 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
             repo.alias, repo.status, repo.running_count, repo.failed_count
         );
         if repo.stale {
-            label.push_str(" stale");
+            label.push_str(" aged");
         }
         if let Some(score) = repo.score_badge.as_deref() {
             label.push_str(" score:");
@@ -85,7 +85,7 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &App) {
                 Span::styled("Status  ", muted()),
                 Span::styled(repo.status.clone(), status_style(&repo.status)),
                 Span::raw(format!(
-                    "  run:{} fail:{} stale:{}",
+                    "  run:{} fail:{} aged:{}",
                     repo.running_count, repo.failed_count, repo.stale
                 )),
             ]),
@@ -130,11 +130,11 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &App) {
             Line::from("Left/right or h/l selects repos. Esc returns to All."),
         ]
     } else {
-        let (running, failed, stale) = app.state.fleet.counts();
+        let (running, failed, aged) = app.state.fleet.counts();
         vec![
             Line::from(format!("Repositories: {}", app.state.fleet.repos.len())),
             Line::from(format!(
-                "Running: {running}  Failed: {failed}  Stale: {stale}"
+                "Running: {running}  Failed: {failed}  Aged: {aged}"
             )),
             Line::from(format!("Registry: {}", app.state.fleet.registry_path)),
             Line::from(""),
@@ -167,7 +167,7 @@ fn status_style(status: &str) -> Style {
         "green" | "success" => Style::default().fg(Color::Green),
         "running" => Style::default().fg(Color::Yellow),
         "failed" => Style::default().fg(Color::Red),
-        "dirty" | "stale" => Style::default().fg(Color::Magenta),
+        "dirty" | "aged" => Style::default().fg(Color::Magenta),
         "missing" => Style::default().fg(Color::DarkGray),
         _ => Style::default().fg(Color::Cyan),
     }
@@ -201,7 +201,7 @@ mod tests {
         let mut terminal = Terminal::new(TestBackend::new(100, 6))?;
         terminal.draw(|f| draw_fleet_bar(f, &app, f.area()))?;
         let text = rendered_text(&terminal);
-        assert!(text.contains("All run:1 fail:1 stale:0"));
+        assert!(text.contains("All run:1 fail:1 aged:0"));
         assert!(text.contains("nht running r1 f0"));
         Ok(())
     }

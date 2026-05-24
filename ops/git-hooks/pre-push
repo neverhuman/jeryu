@@ -17,7 +17,7 @@ while true; do
   fi
 
   if [[ "${remote_ref:-}" == "refs/heads/main" ]]; then
-    printf 'error: direct pushes to main are forbidden; open a pull request instead.\n' >&2
+    printf 'error: direct pushes to main are blocked.\n' >&2
     exit 1
   fi
 done

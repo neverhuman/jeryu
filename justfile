@@ -97,6 +97,7 @@ ux-qa:
 
 score:
 	jankurai audit . --full --mode advisory --json agent/repo-score.json --md agent/repo-score.md --score-history agent/score-history.jsonl --score-history-csv agent/score-history.csv
+	bash scripts/sync-readme-jankurai-score.sh --update --score-json agent/repo-score.json --readme README.md
 doctor:
 	jankurai doctor --fail-on high
 	jankurai security run . --out target/jankurai/security/evidence.json
@@ -130,7 +131,10 @@ publish-pr base="main" remote="origin":
 
 # Run the autonomy-only unit tests (no network).
 autonomy-fast:
-	cargo test -p jeryu --lib autonomy:: llm:: agent_review:: approval:: -- --test-threads=4
+	cargo test -p jeryu --lib autonomy:: -- --test-threads=4
+	cargo test -p jeryu --lib llm:: -- --test-threads=4
+	cargo test -p jeryu --lib agent_review:: -- --test-threads=4
+	cargo test -p jeryu --lib approval:: -- --test-threads=4
 
 # Run the mock end-to-end pipeline test (no network).
 autonomy-e2e:

@@ -21,11 +21,8 @@ pub(crate) async fn ensure_local_gitlab_project(
     name: &str,
     initialize_with_readme: bool,
 ) -> Result<crate::gitlab_client::Project> {
-    dotenvy::from_path(crate::config::env_file()).ok();
-    let pat = std::env::var("GITLAB_PAT").context(
-        "GITLAB_PAT not found; recover with `jeryu bootstrap` or `jeryu install server --yes`",
-    )?;
-    let client = crate::gitlab_client::GitlabClient::new("http://127.0.0.1:8929", Some(pat));
+    let auth = crate::gitlab_auth::resolve_or_repair("http://127.0.0.1:8929").await?;
+    let client = crate::gitlab_client::GitlabClient::new(&auth.url, Some(auth.token));
     let expected = format!(
         "{}/{}",
         namespace.trim_matches('/'),
