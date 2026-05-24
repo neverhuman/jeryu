@@ -29,6 +29,8 @@ pub mod autonomy_repo;
 pub mod budget_repo;
 pub mod bugtracker_repo;
 pub mod capability_repo;
+#[path = "../../db/jekko_llm_pool_repo.rs"]
+pub mod jekko_llm_pool_repo;
 pub mod release_repo;
 
 // Re-exports so callers can name the canonical pool type as

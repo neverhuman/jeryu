@@ -23,8 +23,8 @@ use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 
 use crate::llm::{
-    CallParams, DataUse, LlmRouter, OpenAiCompatibleClient, RoleChain, RoleChainEntry,
-    SecretResolver, resolve_secret,
+    BalancedOpenAiCompatibleClient, CallParams, DataUse, JekkoKeyPool, LlmRouter,
+    OpenAiCompatibleClient, RoleChain, RoleChainEntry, SecretResolver, resolve_secret,
 };
 
 /// Default temperature for entries that omit it. Reviewer roles must be
@@ -123,6 +123,19 @@ pub fn build_router_from_config(
     config: &ProvidersConfig,
     resolver: &SecretResolver,
 ) -> Result<LlmRouter> {
+    let use_balancer = !resolver.ci_mode
+        || std::env::var("JERYU_LLM_BALANCER_IN_CI")
+            .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+    let pool = use_balancer.then(JekkoKeyPool::from_env_or_default);
+    build_router_from_config_with_pool(config, resolver, pool.as_ref())
+}
+
+pub fn build_router_from_config_with_pool(
+    config: &ProvidersConfig,
+    resolver: &SecretResolver,
+    pool: Option<&JekkoKeyPool>,
+) -> Result<LlmRouter> {
     let mut router = LlmRouter::new();
     for (role, entries) in &config.chains {
         let mut chain = RoleChain {
@@ -131,6 +144,33 @@ pub fn build_router_from_config(
             forbid_train_on_input: true,
         };
         for entry in entries {
+            if let Some(pool) = pool
+                && pool.has_secret_candidates(&entry.api_key_secret)
+            {
+                let mut client = BalancedOpenAiCompatibleClient::new(
+                    &entry.provider,
+                    &entry.base_url,
+                    &entry.api_key_secret,
+                    Arc::new(pool.clone()),
+                )
+                .with_data_use(entry.data_use_enum());
+                for (k, v) in &entry.extra_headers {
+                    client = client.with_header(k.as_str(), v.as_str());
+                }
+                let params = CallParams {
+                    model: entry.model_id.clone(),
+                    temperature: entry.temperature as f32,
+                    max_tokens: entry.max_tokens,
+                    timeout_ms: entry.timeout_ms,
+                    seed: None,
+                    extra_headers: Vec::new(),
+                };
+                chain.entries.push(RoleChainEntry {
+                    provider: Arc::new(client),
+                    params,
+                });
+                continue;
+            }
             let key = match resolve_secret(&entry.api_key_secret, resolver) {
                 Some(r) => r,
                 None => {

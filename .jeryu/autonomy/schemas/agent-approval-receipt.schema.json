@@ -51,6 +51,21 @@
         "completion": { "type": "integer", "minimum": 0 }
       }
     },
+    "llm": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "user_id": { "type": ["string", "null"] },
+        "key_source_path": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 },
+        "estimated_micro_usd": { "type": "integer", "minimum": 0 },
+        "failure_reason": { "type": ["string", "null"] }
+      }
+    },
     "created_at": { "type": "string", "format": "date-time" },
     "signature": {
       "type": "object",

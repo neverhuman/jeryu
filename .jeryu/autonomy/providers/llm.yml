@@ -11,14 +11,17 @@
 # SECURITY NOTE — keys NEVER live in this file.
 # -----------------------------------------------------------------------------
 # Every entry declares `api_key_secret: <ENV_NAME>` (a *name*, never a value).
-# Real values are resolved at runtime by the canonical `SecretResolver` chain in
-# `src/llm/secrets.rs`:
+# JeRyu first consumes the canonical multi-user Jekko pool:
+#     /home/ubuntu/jekko/users/<user>/llm.env
+# and records provider/model usage to each user's sibling `state.sqlite`
+# key_usage table. If no user-pool candidate exists for the secret name,
+# runtime falls back to the legacy `SecretResolver` chain in `src/llm/secrets.rs`:
 #     1. --llm-key CLI flag
 #     2. process env var
-#     3. ~/.jeryu/secrets/llm.env  (canonical user-default; dotenvy format)
+#     3. ~/.jeryu/secrets/llm.env
 #     4. <repo>/.env.local         (gitignored)
 #     5. CI secret (injected as env var; tier #2 catches it)
-# In CI mode (CI=true) tiers 3-4 are skipped — only env wins.
+# In CI mode (CI=true), local files are skipped unless explicitly overridden.
 #
 # If you accidentally paste a real key here: revoke it at the provider, scrub
 # it from git history, and re-read `docs/llm-reviewers.md`. Gitleaks is wired

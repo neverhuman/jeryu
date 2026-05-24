@@ -499,8 +499,25 @@ are important about how it is structured.
 ### 10.1 Secrets are never in this file
 
 Every entry references an environment variable name, never a literal
-key. The Rust `LlmRouter` resolves the value via the canonical secrets
-chain (from the file header):
+key. The Rust `LlmRouter` first checks the canonical Jekko multi-user
+pool and only falls back to the legacy secrets chain when that pool has
+no candidate for the requested secret name:
+
+```text
+/home/ubuntu/jekko/users/<user>/llm.env
+> --llm-key flag
+> env var
+> ~/.jeryu/secrets/llm.env
+> .env.local (repo, gitignored)
+> CI secret
+```
+
+Jekko pool calls record provider/model attempts in each user's
+`/home/ubuntu/jekko/users/<user>/state.sqlite` `key_usage` table.
+Rendered doctor output and receipts include only redacted metadata:
+provider, model, user id, source path, status, and token/cost totals.
+
+The fallback chain remains:
 
 ```text
 --llm-key flag  >  env var  >  ~/.jeryu/secrets/llm.env
@@ -508,8 +525,6 @@ chain (from the file header):
 ```
 
 CI mode refuses local files for safety.
-
-`~/.jeryu/secrets/llm.env` is the canonical home for LLM keys.
 
 ### 10.2 Each role has its own ordered chain with deterministic failover
 
@@ -521,9 +536,9 @@ sub-command can probe the chain end-to-end:
 cargo run --bin autonomy -- doctor
 ```
 
-The provider list is now intentionally small: a single OpenRouter API
-key, resolved through the canonical secret chain, feeds the free-model
-chains in `.jeryu/autonomy/providers/llm.yml`. The live profile uses
+The provider list is now intentionally small: OpenRouter keys from the
+multi-user Jekko pool feed the free-model chains in
+`.jeryu/autonomy/providers/llm.yml`. The live profile uses
 `nvidia/nemotron-3-super-120b-a12b:free` and
 `openai/gpt-oss-120b:free` across the reviewer roles, with no paid or
 train-on-input providers in the default path.

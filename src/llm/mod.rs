@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 
 pub mod budget;
 pub mod doctor;
+pub mod key_pool;
+mod key_pool_env;
 pub mod openai_compatible;
 pub mod provider_chains;
 pub mod router;
@@ -27,6 +29,9 @@ pub mod sql_budget_ledger;
 pub use budget::{Budget, BudgetLedger, BudgetTracker, TokenUsage};
 pub use doctor::{
     DoctorProbe, ProviderCheckResult, ProviderStatus, render_report, sweep_providers,
+};
+pub use key_pool::{
+    BalancedOpenAiCompatibleClient, BalancerHealth, DEFAULT_JEKKO_USERS_ROOT, JekkoKeyPool,
 };
 pub use openai_compatible::OpenAiCompatibleClient;
 pub use router::{LlmRouter, RoleChain, RoleChainEntry};
@@ -96,6 +101,22 @@ pub struct CallResponse {
     pub raw_response_sha: String,
     /// Wall-clock latency in ms.
     pub latency_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct LlmCallMetadata {
+    pub provider: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_source_path: Option<String>,
+    pub status: String,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub estimated_micro_usd: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_reason: Option<String>,
 }
 
 /// Categorical error so the router can decide whether to try the next chain entry.

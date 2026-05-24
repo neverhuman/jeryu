@@ -74,6 +74,7 @@ mod provider_config_tests {
 
         assert_eq!(probes.len(), 2);
         assert_eq!(probes[0].provider_id, "reviewer-runtime#1:openrouter");
+        assert_eq!(probes[0].provider_name(), "openrouter");
         assert_eq!(probes[1].provider_id, "reviewer-security#1:openrouter");
         assert_eq!(
             probes[1].extra_headers,
