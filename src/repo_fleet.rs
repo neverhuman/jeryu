@@ -518,6 +518,55 @@ fn parse_utc(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
         .map(|dt| dt.with_timezone(&chrono::Utc))
 }
 
+/// Find the workspace root that owns a `.jeryu/repos.toml` fleet registry.
+///
+/// Three strategies are tried in order, and the first match wins:
+///
+/// 1. `JERYU_WORKSPACE_ROOT` env var — explicit override for daemon / remote contexts.
+/// 2. Walk upward from `current_dir()` — works regardless of which subdirectory the
+///    TUI was launched from (mirrors how `git` finds `.git/`).
+/// 3. `git rev-parse --show-toplevel` — handles detached worktrees, symlinks, and
+///    other edge cases where the upward walk might miss.
+///
+/// Returns `None` when no parent directory with `.jeryu/repos.toml` is found, which
+/// is a valid configuration (first-run or non-monorepo workspace).
+pub(crate) async fn resolve_workspace_root() -> Option<PathBuf> {
+    // Strategy 1: explicit env override
+    if let Ok(p) = std::env::var("JERYU_WORKSPACE_ROOT") {
+        let p = PathBuf::from(p);
+        if p.join(DEFAULT_REGISTRY_PATH).exists() {
+            return Some(p);
+        }
+    }
+
+    // Strategy 2: walk upward from cwd
+    if let Ok(mut dir) = std::env::current_dir() {
+        loop {
+            if dir.join(DEFAULT_REGISTRY_PATH).exists() {
+                return Some(dir);
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+
+    // Strategy 3: git rev-parse --show-toplevel
+    if let Ok(out) = tokio::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .await
+        && out.status.success()
+    {
+        let root = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+        if root.join(DEFAULT_REGISTRY_PATH).exists() {
+            return Some(root);
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -602,5 +651,89 @@ project_id = "veox-shared"
             ..RepoLocalStatus::default()
         };
         assert_eq!(classify_repo_status(&local, None, 0, 0), "dirty");
+    }
+
+    #[tokio::test]
+    async fn resolve_workspace_root_finds_toml_by_walking_up() {
+        use tempfile::TempDir;
+
+        // Build: <tmp>/child/grandchild  with  <tmp>/.jeryu/repos.toml
+        let tmp = TempDir::new().unwrap();
+        let registry_dir = tmp.path().join(".jeryu");
+        std::fs::create_dir_all(&registry_dir).unwrap();
+        std::fs::write(registry_dir.join("repos.toml"), b"schema_version = \"1\"\n").unwrap();
+
+        let child = tmp.path().join("child").join("grandchild");
+        std::fs::create_dir_all(&child).unwrap();
+
+        // Setup under lock, then drop before the await (clippy::await_holding_lock).
+        let prev_cwd = {
+            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            let prev_ws = std::env::var("JERYU_WORKSPACE_ROOT").ok();
+            // Clear env override so we exercise the upward-walk strategy.
+            // SAFETY: serialised by PATH_ENV_LOCK.
+            if prev_ws.is_some() {
+                unsafe { std::env::remove_var("JERYU_WORKSPACE_ROOT") };
+            }
+            let prev_cwd = std::env::current_dir().unwrap();
+            std::env::set_current_dir(&child).unwrap();
+            prev_cwd
+            // _guard dropped; env restored in the cleanup block below.
+        };
+
+        let result = resolve_workspace_root().await;
+
+        // Restore cwd and env; acquire lock to serialise the removal.
+        {
+            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            std::env::set_current_dir(&prev_cwd).unwrap();
+        }
+
+        let found = result.expect("resolve_workspace_root should find the toml via upward walk");
+        // Canonicalize both sides so tmp symlinks don't cause spurious mismatches.
+        assert_eq!(
+            found.canonicalize().unwrap(),
+            tmp.path().canonicalize().unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_workspace_root_respects_env_override() {
+        use tempfile::TempDir;
+
+        let tmp = TempDir::new().unwrap();
+        let registry_dir = tmp.path().join(".jeryu");
+        std::fs::create_dir_all(&registry_dir).unwrap();
+        std::fs::write(registry_dir.join("repos.toml"), b"schema_version = \"1\"\n").unwrap();
+
+        // Setup under lock, then drop before the await (clippy::await_holding_lock).
+        let prev_ws = {
+            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
+            // SAFETY: serialised by PATH_ENV_LOCK.
+            unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", tmp.path()) };
+            prev
+            // _guard dropped here.
+        };
+
+        let result = resolve_workspace_root().await;
+
+        // Restore env under lock.
+        {
+            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            // SAFETY: serialised by PATH_ENV_LOCK.
+            unsafe {
+                match prev_ws {
+                    Some(v) => std::env::set_var("JERYU_WORKSPACE_ROOT", v),
+                    None => std::env::remove_var("JERYU_WORKSPACE_ROOT"),
+                }
+            }
+        }
+
+        let found = result.expect("resolve_workspace_root should honour JERYU_WORKSPACE_ROOT");
+        assert_eq!(
+            found.canonicalize().unwrap(),
+            tmp.path().canonicalize().unwrap()
+        );
     }
 }

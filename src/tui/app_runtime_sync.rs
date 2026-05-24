@@ -131,10 +131,13 @@ impl App {
         });
         snap.recent_jobs = jobs;
         snap.gitlab_ready = gitlab.is_ready().await;
-        if let Ok(repo_root) = std::env::current_dir()
-            && let Ok(fleet) = crate::repo_fleet::collect_fleet_snapshot(&repo_root, None).await
-        {
-            snap.fleet = fleet;
+        if let Some(repo_root) = crate::repo_fleet::resolve_workspace_root().await {
+            match crate::repo_fleet::collect_fleet_snapshot(&repo_root, None).await {
+                Ok(fleet) => snap.fleet = fleet,
+                Err(e) => {
+                    tracing::warn!("fleet hydration failed for {}: {e:#}", repo_root.display())
+                }
+            }
         }
         if snap.fleet.repos.is_empty()
             && let Ok(repos) = store.list_tracked_repositories().await

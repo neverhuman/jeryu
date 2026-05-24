@@ -42,6 +42,14 @@ pub fn render_runner_config(
 ) -> String {
     let pool_cache_mount = pool_cache_mount_path(executor);
     let builds_dir = manager_builds_dir(pool_name, manager_id);
+    let cargo_host_cores = std::thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(4);
+    let cargo_total_runner_slots = DEFAULT_POOLS
+        .iter()
+        .map(|pool| pool.max_managers.saturating_mul(pool.concurrent))
+        .sum::<i64>()
+        .max(20);
     let cargo_pre_build_script =
         crate::cargo_cache::render_runner_cargo_pre_build_script(pool_cache_mount, executor);
     let executor_block = match executor {
@@ -119,6 +127,8 @@ shutdown_timeout = 3600
     "JERYU_CARGO_INCREMENTAL=0",
     "JERYU_CARGO_CACHE=1",
     "JERYU_CARGO_CACHE_ROOT={pool_cache_mount}",
+    "JERYU_CARGO_HOST_CORES={cargo_host_cores}",
+    "JERYU_CARGO_TOTAL_RUNNER_SLOTS={cargo_total_runner_slots}",
     "JERYU_CARGO_TARGET_ISOLATE=slot",
   ]
 {executor_block}
@@ -138,5 +148,7 @@ shutdown_timeout = 3600
         sccache_cache_size = crate::settings::get().sccache.cache_size,
         sccache_binary_version = crate::settings::get().sccache.binary_version,
         pool_cache_mount = pool_cache_mount,
+        cargo_host_cores = cargo_host_cores,
+        cargo_total_runner_slots = cargo_total_runner_slots,
     )
 }
