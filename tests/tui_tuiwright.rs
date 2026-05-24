@@ -911,3 +911,93 @@ fn workflow_repo_filter_changes_pr_rail_title() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Fleet discovery: resolve_workspace_root via JERYU_WORKSPACE_ROOT override
+// ---------------------------------------------------------------------------
+
+/// When `JERYU_WORKSPACE_ROOT` is set to a directory that contains
+/// `.jeryu/repos.toml`, the fleet bar should render those repo aliases even
+/// if the TUI was launched from an unrelated working directory.
+///
+/// This test exercises the Strategy-1 (env-override) path of
+/// `resolve_workspace_root()` end-to-end through the TUI render loop.
+/// It does NOT use `--demo`; instead it provides a synthetic workspace root
+/// with two custom aliases ("myalpha", "mybeta") that are impossible to
+/// confuse with the demo fixture or any production repo.
+#[test]
+fn fleet_bar_discovers_repos_via_workspace_root_env() -> anyhow::Result<()> {
+    use tempfile::TempDir;
+
+    let _guard = tuiwright_lock();
+
+    // Build a synthetic .jeryu/repos.toml with unique aliases.
+    let tmp = TempDir::new()?;
+    let registry_dir = tmp.path().join(".jeryu");
+    std::fs::create_dir_all(&registry_dir)?;
+    std::fs::write(
+        registry_dir.join("repos.toml"),
+        r#"schema_version = "1"
+workspace = "synthetic-test"
+
+[[repo]]
+alias = "myalpha"
+slug = "testorg/myalpha"
+provider = "github"
+remote = "https://github.com/testorg/myalpha.git"
+local_root = "/tmp/myalpha-does-not-exist"
+default_branch = "main"
+visibility = "private"
+health_profile = "rust-workspace"
+
+[[repo]]
+alias = "mybeta"
+slug = "testorg/mybeta"
+provider = "github"
+remote = "https://github.com/testorg/mybeta.git"
+local_root = "/tmp/mybeta-does-not-exist"
+default_branch = "main"
+visibility = "private"
+health_profile = "rust-workspace"
+"#,
+    )?;
+
+    // Launch the TUI without --demo.  The runner calls hydrate_smoke_state()
+    // synchronously before the event loop, which calls resolve_workspace_root()
+    // and finds our synthetic repos.toml via the env override.
+    // GitLab / Docker calls fail fast (no credentials / socket), but the
+    // fleet-loading path is pure filesystem and always succeeds.
+    let bin = jeryu_bin();
+    let page = Page::spawn(
+        SpawnConfig::new(&bin)
+            .arg("tui")
+            .arg("--tab")
+            .arg("workflow")
+            .size(220, 44)
+            .env("TERM", "xterm-256color")
+            .env("COLORTERM", "truecolor")
+            .env("NO_COLOR", "")
+            .env("JERYU_DATABASE_URL", jeryu::db::config::sqlite_memory_url())
+            .env("JERYU_WORKSPACE_ROOT", tmp.path().to_str().unwrap())
+            .timeout(Duration::from_secs(12)),
+    )?;
+
+    // Give the TUI time to run hydrate_smoke_state + initial render.
+    std::thread::sleep(Duration::from_millis(3500));
+
+    let text = screen_text(&page);
+
+    // Both synthetic aliases must appear in the fleet bar.
+    assert!(
+        text.contains("myalpha"),
+        "fleet bar should show 'myalpha' from JERYU_WORKSPACE_ROOT repos.toml; screen:\n{text}"
+    );
+    assert!(
+        text.contains("mybeta"),
+        "fleet bar should show 'mybeta' from JERYU_WORKSPACE_ROOT repos.toml; screen:\n{text}"
+    );
+
+    // tmp stays alive until here — repos.toml is present for the full test.
+    drop(tmp);
+    Ok(())
+}
