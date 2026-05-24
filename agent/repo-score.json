@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:77c199be0dc8dc9f077367e23fadfca0c4dc3fb66c8d0bb5ec111c0297f255c6",
-  "input_fingerprint": "sha256:8481328f9c22d9e5c87cc5decb681c5e9ccf7c695c252e200a290110c16e8e9e",
+  "report_fingerprint": "sha256:f2cac97d813075fb9a9a7e684611e0018c37215ea673a7748fe04b8aa30b2234",
+  "input_fingerprint": "sha256:24f3de9a73640cac2a5a1fa57932d228bb830ee85df86004b9bd95382117d246",
   "policy_fingerprint": "sha256:7f4c2dc6ecf39f28a2a9937545f1a4fc3843ee17a20baa84b5a1dd91d5e0fe51",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779649378",
+  "generated_at": "1779649729",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779649378",
-  "started_at": "1779649378",
-  "elapsed_ms": 7421,
+  "run_id": "1779649729",
+  "started_at": "1779649729",
+  "elapsed_ms": 7228,
   "scope": {
     "mode": "full",
     "paths": []
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "bc292f5",
+    "head": "914381b",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -354,7 +354,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 731",
+        "rust bad-behavior advisory signals: 732",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -368,11 +368,11 @@
       "score": 70,
       "weighted_points": 8.4,
       "evidence": [
-        "largest authored code file: src/git_host/gitlab.rs (339 LOC)",
+        "largest authored code file: src/llm/doctor.rs (303 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 22 (advisory only, no score impact)",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 731",
+        "rust bad-behavior advisory signals: 732",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -1129,7 +1129,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-24T19:02:51.164556338+00:00",
+    "generated_at": "2026-05-24T19:08:42.084999892+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1167,9 +1167,9 @@
       ]
     },
     "summary": {
-      "files_scanned": 774,
-      "files_considered": 421,
-      "active_files": 421,
+      "files_scanned": 775,
+      "files_considered": 422,
+      "active_files": 422,
       "exact_file_classes": 0,
       "hard_classes": 0,
       "warning_classes": 22,
@@ -1714,22 +1714,22 @@
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 215,
-            "end_line": 216,
+            "start_line": 113,
+            "end_line": 114,
             "unit_name": "list_open_prs"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 227,
-            "end_line": 228,
+            "start_line": 125,
+            "end_line": 126,
             "unit_name": "get_pr_state"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 248,
-            "end_line": 249,
+            "start_line": 146,
+            "end_line": 147,
             "unit_name": "fetch_pr_diff"
           }
         ]
@@ -2530,7 +2530,7 @@
       "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/git_host/gitlab.rs (339 LOC)",
+        "largest authored code file: src/llm/doctor.rs (303 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 22 (advisory only, no score impact)",
         "IO markers found in domain/core files"
@@ -2540,7 +2540,7 @@
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:f203b5ec1db2f9466904c2f29348e3d467a909cdf9458a4ae77ff616cdd726f2",
+      "fingerprint": "sha256:98592c041e00d5f13786a28c6456b27d2170e4f20e37525e17f355b7068dd1aa",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
