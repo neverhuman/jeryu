@@ -230,6 +230,6 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
 // TUI v2 — Live Runner Feed
 // ---------------------------------------------------------------------------
 
-#[path = "ui_panels_body_runtime_extra.rs"]
-mod ui_panels_body_runtime_extra;
-pub(crate) use ui_panels_body_runtime_extra::*;
+#[path = "ui_panels_body_live_feed.rs"]
+mod ui_panels_body_live_feed;
+pub(crate) use ui_panels_body_live_feed::*;

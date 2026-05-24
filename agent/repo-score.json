@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:1103639e252e3ab297ac4ba302a85a72e15638ceb28904ab0063911164940d4a",
-  "input_fingerprint": "sha256:79b165d80d806d9ff0df89ec61e197e4a7486f1ce3b6d0b9014c9ed981e95f16",
+  "report_fingerprint": "sha256:3485238c984932993b0bca473ffa37fcff5c0add6145cf5ee5db71ac4894bcbf",
+  "input_fingerprint": "sha256:c02d6f058c9530226f03d4292647f6764963b0853aa64a2549176ac64cfc19a4",
   "policy_fingerprint": "sha256:7f4c2dc6ecf39f28a2a9937545f1a4fc3843ee17a20baa84b5a1dd91d5e0fe51",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779648051",
+  "generated_at": "1779648438",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -21,49 +21,29 @@
   "target_stack_id": "rust-ts-vite-react-redline-bounded-python",
   "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
   "claimed_conformance_level": "HL3",
-  "observed_conformance_level": "HL2",
-  "conformance_decision": "block",
-  "conformance_blockers": [
-    "HLT-000-SCORE-DIMENSION:proof on .",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/jankurai.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/release-ready.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/release.yml",
-    "HLT-042-CI-LOCAL-PARITY on .github/workflows/rust.yml",
-    "HLT-008-FALSE-GREEN-RISK on crates/",
-    "HLT-017-OPAQUE-OBSERVABILITY on crates/domain",
-    "HLT-025-RELEASE-READINESS-GAP on docs/release.md",
-    "HLT-022-AUTHZ-ISOLATION-GAP on src/gitlab_auth.rs"
-  ],
+  "observed_conformance_level": "HL3",
+  "conformance_decision": "pass",
+  "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779648051",
-  "started_at": "1779648051",
-  "elapsed_ms": 593,
+  "run_id": "1779648438",
+  "started_at": "1779648438",
+  "elapsed_ms": 7322,
   "scope": {
-    "mode": "changed-fast",
-    "paths": [
-      "agent/repo-score.json",
-      "agent/repo-score.md",
-      "src/gitlab_auth.rs",
-      "src/llm/doctor.rs"
-    ]
+    "mode": "full",
+    "paths": []
   },
-  "score": 69,
-  "raw_score": 69,
+  "score": 89,
+  "raw_score": 89,
   "decision": {
-    "status": "fail",
+    "status": "pass",
     "minimum_score": 85,
-    "passed": false,
-    "hard_findings": 14,
-    "soft_findings": 11,
+    "passed": true,
+    "hard_findings": 0,
+    "soft_findings": 1,
     "ratchet": {
-      "baseline_score": 69,
+      "baseline_score": 89,
       "allowed_drop": 0,
-      "passed": false,
+      "passed": true,
       "score_delta": 0,
       "baseline_report_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "baseline_input_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -74,10 +54,10 @@
     }
   },
   "git": {
-    "head": "b1e61f1",
+    "head": "5df7132",
     "base": null,
-    "changed_files": 4,
-    "mode": "changed-fast",
+    "changed_files": 0,
+    "mode": "full",
     "dirty_worktree": true
   },
   "policy": {
@@ -98,15 +78,7 @@
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
   },
-  "caps_applied": [
-    "no-one-command-setup-or-validation",
-    "authz-or-data-isolation-gap",
-    "release-readiness-gap",
-    "missing-rust-property-or-integration-tests",
-    "no-agent-friendly-exception-pattern",
-    "missing-agent-readable-docs",
-    "ci-local-parity"
-  ],
+  "caps_applied": [],
   "hard_rules": [
     {
       "id": "no-root-agent-instructions",
@@ -297,84 +269,112 @@
     {
       "name": "Ownership and navigation surface",
       "weight": 13,
-      "score": 78,
-      "weighted_points": 10.14,
+      "score": 100,
+      "weighted_points": 13.0,
       "evidence": [
         "root `AGENTS.md` present",
+        "`CODEOWNERS` present",
         "owner map present",
         "test/proof routing map present",
+        "local `AGENTS.md` file(s)",
+        "reference-profile cell `web` is canonical",
+        "reference-profile cell `web` has local AGENTS.md guidance",
+        "reference-profile cell `api` is canonical",
+        "reference-profile cell `api` has local AGENTS.md guidance",
+        "reference-profile cell `domain` is canonical",
+        "reference-profile cell `domain` has local AGENTS.md guidance",
+        "reference-profile cell `application` is canonical",
+        "reference-profile cell `application` has local AGENTS.md guidance",
+        "reference-profile cell `adapters` is canonical",
+        "reference-profile cell `adapters` has local AGENTS.md guidance",
+        "reference-profile cell `workers` is canonical",
+        "reference-profile cell `workers` has local AGENTS.md guidance",
+        "reference-profile cell `contracts` is canonical",
+        "reference-profile cell `contracts` has local AGENTS.md guidance",
+        "reference-profile cell `db` is canonical",
+        "reference-profile cell `db` has local AGENTS.md guidance",
+        "reference-profile cell `python-ai` is canonical",
+        "reference-profile cell `python-ai` has local AGENTS.md guidance",
+        "reference-profile cell `ops` is canonical",
+        "reference-profile cell `ops` has local AGENTS.md guidance",
+        "root `README.md` routes to workspace layout",
         "owner map covers audited paths",
         "test map covers audited paths"
       ],
-      "notes": [
-        "reference-profile cell `ops` is detected outside its canonical folder",
-        "reference-profile cell `ops` lacks local AGENTS.md guidance"
-      ]
+      "notes": []
     },
     {
       "name": "Contract and boundary integrity",
       "weight": 13,
-      "score": 88,
-      "weighted_points": 11.44,
+      "score": 98,
+      "weighted_points": 12.74,
       "evidence": [
         "contract surface found",
         "generated contract artifacts found",
+        "polyglot boundary layout present",
         "boundary manifest present",
+        "machine-readable schemas present",
         "Rust typed boundary helpers found",
-        "all contract sources have generated zone entries"
+        "handwritten web DTO/API marker found",
+        "all contract sources have generated zone entries",
+        "schema/tooling contract posture is clean"
       ],
       "notes": []
     },
     {
       "name": "Proof lanes and test routing",
       "weight": 12,
-      "score": 67,
-      "weighted_points": 8.04,
+      "score": 100,
+      "weighted_points": 12.0,
       "evidence": [
+        "one-command setup/validation lane found",
         "deterministic fast lane found",
+        "test runner present in automation surface",
         "GitHub workflow files present",
         "test/proof routing map present",
         "jankurai audit lane found in CI",
         "web e2e lane present or no web surface",
         "rendered UX QA lane present or no web surface",
         "DOM geometry UX QA runtime found",
+        "Rust property/integration tests present or no Rust surface",
         "proofbind artifact found: surfaces=0 missing=0 high_or_critical_missing=0 verdict=pass"
       ],
-      "notes": [
-        "no one-command setup/validation lane",
-        "Rust surface lacks property or integration tests"
-      ]
+      "notes": []
     },
     {
       "name": "Security and supply-chain posture",
       "weight": 12,
-      "score": 74,
-      "weighted_points": 8.88,
+      "score": 86,
+      "weighted_points": 10.32,
       "evidence": [
         "lockfile present",
         "secret or dependency scan tooling found",
         "provenance/SBOM tooling found",
         "workflow linting tooling found",
         "security lane present",
+        "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 15",
+        "rust bad-behavior advisory signals: 731",
         "ci bad-behavior advisory signals: 3",
-        "git bad-behavior advisory signals: 1",
-        "gittools bad-behavior advisory signals: 1"
+        "git bad-behavior advisory signals: 2",
+        "gittools bad-behavior advisory signals: 1",
+        "secret scanning command is operational"
       ],
       "notes": []
     },
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 90,
-      "weighted_points": 10.8,
+      "score": 70,
+      "weighted_points": 8.4,
       "evidence": [
-        "largest authored code file: src/llm/doctor.rs (303 LOC)",
-        "authored code stays below hard LOC limits with no shape markers",
-        "rust bad-behavior advisory signals: 15",
+        "largest authored code file: src/git_host/gitlab.rs (453 LOC)",
+        "most code files stay under 300 LOC",
+        "copy-code advisory classes found: 22 (advisory only, no score impact)",
+        "IO markers found in domain/core files",
+        "rust bad-behavior advisory signals: 731",
         "ci bad-behavior advisory signals: 3",
-        "git bad-behavior advisory signals: 1",
+        "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
       ],
@@ -383,40 +383,50 @@
     {
       "name": "Data truth and workflow safety",
       "weight": 8,
-      "score": 60,
-      "weighted_points": 4.8,
+      "score": 95,
+      "weighted_points": 7.6,
       "evidence": [
+        "database surface present",
         "structured db boundary manifest present",
-        "db boundary routes roots, migrations, and constraints"
+        "db boundary routes roots, migrations, and constraints",
+        "migration directory present",
+        "data access appears compartmentalized"
       ],
       "notes": []
     },
     {
       "name": "Observability and repair evidence",
       "weight": 8,
-      "score": 38,
-      "weighted_points": 3.04,
+      "score": 98,
+      "weighted_points": 7.84,
       "evidence": [
-        "observability libraries or patterns found"
+        "observability libraries or patterns found",
+        "diagnostic shaping hints found",
+        "ops/observability directory present",
+        "repair receipts or raw artifact language found",
+        "agent-friendly exception pattern found",
+        "repair-hint and receipt convention are documented",
+        "repair receipt guidance is documented"
       ],
       "notes": [
-        "no agent-friendly exception pattern found"
+        "free-form logging appears in scope"
       ]
     },
     {
       "name": "Context economy and agent instructions",
       "weight": 7,
-      "score": 55,
-      "weighted_points": 3.85,
+      "score": 100,
+      "weighted_points": 7.0,
       "evidence": [
         "root `AGENTS.md` present",
         "root `AGENTS.md` stays short",
         "machine-readable routing artifacts present",
-        "thin IDE/agent adapters are present"
+        "thin IDE/agent adapters are present",
+        "local instruction files present",
+        "root README routes to the right docs",
+        "core agent-readable docs present"
       ],
-      "notes": [
-        "missing agent-readable docs: README.md, docs/architecture.md or docs/boundaries.md, docs/testing.md"
-      ]
+      "notes": []
     },
     {
       "name": "Jankurai tool adoption and CI replacement",
@@ -425,8 +435,8 @@
       "weighted_points": 2.1,
       "evidence": [
         "control-plane files present",
-        "applicable=15",
-        "configured=15",
+        "applicable=18",
+        "configured=18",
         "ci_evidence=0",
         "artifact_verified=0"
       ],
@@ -451,44 +461,67 @@
     {
       "name": "Build speed signals",
       "weight": 4,
-      "score": 50,
-      "weighted_points": 2.0,
+      "score": 95,
+      "weighted_points": 3.8,
       "evidence": [
         "build acceleration markers found",
+        "targeted test/build commands found",
         "locked dependency graph present",
-        "CI cache hint found"
+        "CI cache hint found",
+        "focused Rust and UX QA build/test lanes are available",
+        "explicit cache marker plus narrow per-package target found"
       ],
-      "notes": [
-        "missing one-command setup/validation"
-      ]
+      "notes": []
     }
   ],
   "ux_qa": {
-    "web_surface": false,
+    "web_surface": true,
     "has_rendered_ux_lane": true,
     "missing_categories": [],
     "evidence": {
       "accessibility": [
         "agent/repo-score.json",
-        "agent/repo-score.md"
+        "agent/repo-score.md",
+        "apps/web/ux-qa.ts",
+        "ops/releases/v1.0.0/jankurai-score.json"
       ],
-      "api_mocks": [],
+      "api_mocks": [
+        "apps/web/ux-qa.ts"
+      ],
       "artifact_backed_proof": [
+        ".github/ISSUE_TEMPLATE/bug_report.yml",
         "Cargo.toml",
-        "agent/ux-qa.toml"
+        "aer-records/EXAMPLE.yaml",
+        "aer-records/mega-file-release.yaml",
+        "agent-index.json"
       ],
-      "design_tokens": [],
+      "design_tokens": [
+        "apps/web/ux-qa.ts"
+      ],
       "geometry_runtime": [
         "agent/test-map.json",
         "agent/ux-qa.toml",
-        "package.json"
+        "apps/web/package.json",
+        "apps/web/ux-qa-check.mjs",
+        "apps/web/ux-qa.md"
       ],
-      "layout_stability": [],
-      "playwright_visual": [],
+      "layout_stability": [
+        "apps/web/ux-qa.ts",
+        "src/autonomy/risk_tests.rs"
+      ],
+      "playwright_visual": [
+        "apps/web/ux-qa.ts",
+        "tests/tui_recording.rs"
+      ],
       "storybook": [
-        "agent/repo-score.json"
+        "agent/repo-score.json",
+        "apps/web/ux-qa-check.mjs",
+        "apps/web/ux-qa.ts",
+        "ops/releases/v1.0.0/jankurai-score.json"
       ],
-      "visual_review": []
+      "visual_review": [
+        "apps/web/ux-qa.ts"
+      ]
     },
     "artifact": {
       "path": "target/jankurai/ux-qa.json",
@@ -519,8 +552,8 @@
   },
   "tool_adoption": {
     "control_plane_present": true,
-    "applicable_count": 15,
-    "configured_count": 15,
+    "applicable_count": 18,
+    "configured_count": 18,
     "ci_evidence_count": 0,
     "artifact_verified_count": 0,
     "replaced_count": 0,
@@ -746,17 +779,20 @@
         "id": "ux-qa",
         "category": "ux",
         "mode": "auto",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "configured",
         "replaced_tools": [
           "playwright",
           "axe-core",
           "visual baselines"
         ],
         "evidence": [
-          "mode=auto"
+          "mode=auto",
+          "tool-adoption config entry present"
         ],
-        "missing": [],
+        "missing": [
+          "CI command evidence"
+        ],
         "local_command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
         "ci_command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
         "artifact_paths": [
@@ -767,15 +803,18 @@
         "id": "db-migration-analyze",
         "category": "db",
         "mode": "auto",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "configured",
         "replaced_tools": [
           "manual migration review"
         ],
         "evidence": [
-          "mode=auto"
+          "mode=auto",
+          "tool-adoption config entry present"
         ],
-        "missing": [],
+        "missing": [
+          "CI command evidence"
+        ],
         "local_command": "jankurai migrate . --analyze --json target/jankurai/migration-report.json",
         "ci_command": "jankurai migrate . --analyze --json target/jankurai/migration-report.json",
         "artifact_paths": [
@@ -896,15 +935,18 @@
         "id": "input-boundary",
         "category": "security",
         "mode": "auto",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "configured",
         "replaced_tools": [
           "manual unsafe sink review"
         ],
         "evidence": [
-          "mode=auto"
+          "mode=auto",
+          "tool-adoption config entry present"
         ],
-        "missing": [],
+        "missing": [
+          "CI command evidence"
+        ],
         "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
         "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
         "artifact_paths": [
@@ -983,7 +1025,7 @@
       }
     ],
     "evidence": {
-      "applicable_count": 15,
+      "applicable_count": 18,
       "applicable_tools": [
         "audit-ci",
         "proof-routing",
@@ -994,9 +1036,12 @@
         "ci-bad-behavior",
         "git-bad-behavior",
         "release-bad-behavior",
+        "ux-qa",
+        "db-migration-analyze",
         "contract-drift",
         "rust-witness",
         "authz-matrix",
+        "input-boundary",
         "agent-tool-supply",
         "release-readiness",
         "cost-budget"
@@ -1006,7 +1051,7 @@
       "ci_evidence_count": 0,
       "ci_evidence_tools": [],
       "config_present": true,
-      "configured_count": 15,
+      "configured_count": 18,
       "configured_tools": [
         "audit-ci",
         "proof-routing",
@@ -1017,9 +1062,12 @@
         "ci-bad-behavior",
         "git-bad-behavior",
         "release-bad-behavior",
+        "ux-qa",
+        "db-migration-analyze",
         "contract-drift",
         "rust-witness",
         "authz-matrix",
+        "input-boundary",
         "agent-tool-supply",
         "release-readiness",
         "cost-budget"
@@ -1036,9 +1084,12 @@
       "ci-bad-behavior",
       "git-bad-behavior",
       "release-bad-behavior",
+      "ux-qa",
+      "db-migration-analyze",
       "contract-drift",
       "rust-witness",
       "authz-matrix",
+      "input-boundary",
       "agent-tool-supply",
       "release-readiness",
       "cost-budget"
@@ -1078,10 +1129,10 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "",
-    "repo": "",
+    "generated_at": "2026-05-24T18:47:11.055261343+00:00",
+    "repo": ".",
     "auditor_version": "1.5.1",
-    "status": "skipped",
+    "status": "review",
     "policy": {
       "active_source_only": true,
       "include_tests": false,
@@ -1089,170 +1140,1250 @@
       "min_tokens": 100,
       "max_findings": 50,
       "strict": false,
-      "excluded_roots": [],
-      "warning_only_roots": []
+      "excluded_roots": [
+        "build/",
+        "cache/",
+        "dist/",
+        "docs/",
+        "generated/",
+        "node_modules/",
+        "paper/",
+        "reference/",
+        "target/",
+        "tips/",
+        "vendor/"
+      ],
+      "warning_only_roots": [
+        "config/",
+        "docker/",
+        "fixtures/",
+        "migrations/",
+        "ops/scripts/",
+        "python_runtime/",
+        "stories/",
+        "runtime_payload/",
+        "seed_data/",
+        "tests/"
+      ]
     },
     "summary": {
-      "files_scanned": 0,
-      "files_considered": 0,
-      "active_files": 0,
+      "files_scanned": 772,
+      "files_considered": 419,
+      "active_files": 419,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 0,
+      "warning_classes": 22,
       "hard_instances": 0,
-      "warning_instances": 0,
-      "duplicate_lines": 0,
-      "duplicate_tokens": 0,
-      "duplicate_bytes": 0,
-      "total_redundant_lines": 0,
-      "total_redundant_tokens": 0,
-      "total_redundant_bytes": 0
+      "warning_instances": 80,
+      "duplicate_lines": 34,
+      "duplicate_tokens": 84,
+      "duplicate_bytes": 862,
+      "total_redundant_lines": 71,
+      "total_redundant_tokens": 179,
+      "total_redundant_bytes": 1701
     },
-    "classes": [],
-    "notes": []
+    "classes": [
+      {
+        "id": "copy-code-body-rust-0a76d27a920f262f",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 17,
+        "total_redundant_lines": 16,
+        "total_redundant_tokens": 32,
+        "total_redundant_bytes": 320,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "14a7a0723f3976ac",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/cargo-witness/src/diagnose_workspace.rs",
+            "language": "rust",
+            "start_line": 166,
+            "end_line": 167,
+            "unit_name": "span"
+          },
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 123,
+            "end_line": 124,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 198,
+            "end_line": 199,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 118,
+            "end_line": 119,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 127,
+            "end_line": 128,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 150,
+            "end_line": 151,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 160,
+            "end_line": 161,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 87,
+            "end_line": 88,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 140,
+            "end_line": 141,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/bugtracker/types_enums.rs",
+            "language": "rust",
+            "start_line": 71,
+            "end_line": 72,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/bugtracker/types_enums.rs",
+            "language": "rust",
+            "start_line": 158,
+            "end_line": 159,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 57,
+            "end_line": 58,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 74,
+            "end_line": 75,
+            "unit_name": "is_compiled"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 103,
+            "end_line": 104,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 131,
+            "end_line": 132,
+            "unit_name": "state_backend"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 138,
+            "end_line": 139,
+            "unit_name": "message_log_backend"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 172,
+            "end_line": 173,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e60581c6d4098d8b",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 27,
+        "instance_count": 10,
+        "total_redundant_lines": 9,
+        "total_redundant_tokens": 36,
+        "total_redundant_bytes": 243,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "66871699c03d4e8b",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 1756,
+            "end_line": 1757,
+            "unit_name": "insert_pool"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 1819,
+            "end_line": 1820,
+            "unit_name": "insert_manager"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 1910,
+            "end_line": 1911,
+            "unit_name": "count_active_managers"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 1923,
+            "end_line": 1924,
+            "unit_name": "upsert_job_event"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 1982,
+            "end_line": 1983,
+            "unit_name": "upsert_ci_job_run"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 2626,
+            "end_line": 2627,
+            "unit_name": "upsert_tracked_repository"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 2977,
+            "end_line": 2978,
+            "unit_name": "record_git_ref_update"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3004,
+            "end_line": 3005,
+            "unit_name": "record_git_mirror_job"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3031,
+            "end_line": 3032,
+            "unit_name": "record_git_risk_approval"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3050,
+            "end_line": 3051,
+            "unit_name": "record_git_command_artifact"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-4192f37674603cbc",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "display_relative",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 22,
+        "duplicate_bytes": 222,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 22,
+        "total_redundant_bytes": 222,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6b59658d3b1a520a",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/cargo-aer/src/helpers.rs",
+            "language": "rust",
+            "start_line": 93,
+            "end_line": 99,
+            "unit_name": "display_relative"
+          },
+          {
+            "path": "crates/cargo-vrc/src/planner_support_paths.rs",
+            "language": "rust",
+            "start_line": 168,
+            "end_line": 174,
+            "unit_name": "display_relative"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-b6cdcfeb5575d6b6",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "err",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 36,
+        "instance_count": 3,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 72,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "b8560cc0ea641615",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/capability_execute.rs",
+            "language": "rust",
+            "start_line": 86,
+            "end_line": 88,
+            "unit_name": "err"
+          },
+          {
+            "path": "src/capability_inspect.rs",
+            "language": "rust",
+            "start_line": 20,
+            "end_line": 22,
+            "unit_name": "err"
+          },
+          {
+            "path": "src/capability_inspect_read.rs",
+            "language": "rust",
+            "start_line": 132,
+            "end_line": 134,
+            "unit_name": "err"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e29226e00efd9857",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 60,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "4ef6a73438ffbad1",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 2240,
+            "end_line": 2241,
+            "unit_name": "upsert_tracked_pipeline"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3077,
+            "end_line": 3078,
+            "unit_name": "upsert_secret_authority"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3115,
+            "end_line": 3116,
+            "unit_name": "upsert_release_secret_set"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3217,
+            "end_line": 3218,
+            "unit_name": "insert_secret_audit_event"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-1ea761005cc65f3e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "as_str",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 60,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c9697bfcc4fba279",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/bugtracker/types_enums.rs",
+            "language": "rust",
+            "start_line": 71,
+            "end_line": 72,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/bugtracker/types_enums.rs",
+            "language": "rust",
+            "start_line": 158,
+            "end_line": 159,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 57,
+            "end_line": 58,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 103,
+            "end_line": 104,
+            "unit_name": "as_str"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-5c97e73af8e01f30",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "label",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 60,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "98fa6135c45d3c68",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 123,
+            "end_line": 124,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 118,
+            "end_line": 119,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 150,
+            "end_line": 151,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 140,
+            "end_line": 141,
+            "unit_name": "label"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-e80c1f5cbf7cefbc",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "glyph",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 60,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "98fa6135c45d3c68",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 198,
+            "end_line": 199,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 127,
+            "end_line": 128,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 160,
+            "end_line": 161,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 87,
+            "end_line": 88,
+            "unit_name": "glyph"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-4a613b53e5433cfa",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 46,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 10,
+        "total_redundant_bytes": 92,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "b313e10f32420503",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/git_host/gitlab.rs",
+            "language": "rust",
+            "start_line": 211,
+            "end_line": 212,
+            "unit_name": "list_open_prs"
+          },
+          {
+            "path": "src/git_host/gitlab.rs",
+            "language": "rust",
+            "start_line": 223,
+            "end_line": 224,
+            "unit_name": "get_pr_state"
+          },
+          {
+            "path": "src/git_host/gitlab.rs",
+            "language": "rust",
+            "start_line": 244,
+            "end_line": 245,
+            "unit_name": "fetch_pr_diff"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-38a448361e29a6b9",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 34,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 8,
+        "total_redundant_bytes": 68,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "123e83a96805ed01",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 37,
+            "end_line": 38,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 83,
+            "end_line": 84,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 147,
+            "end_line": 148,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-f912689717eb914e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "from_str",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 26,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 52,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "123e83a96805ed01",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 45,
+            "end_line": 46,
+            "unit_name": "from_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 91,
+            "end_line": 92,
+            "unit_name": "from_str"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 155,
+            "end_line": 156,
+            "unit_name": "from_str"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-100f629ba5aa7370",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 48,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 48,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e8364fcd3098ca54",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 191,
+            "end_line": 193,
+            "unit_name": "init_jansu"
+          },
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 203,
+            "end_line": 205,
+            "unit_name": "jansu_handle"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-764811cf481772e9",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 48,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 48,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e8364fcd3098ca54",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 167,
+            "end_line": 169,
+            "unit_name": "init_kafka"
+          },
+          {
+            "path": "src/messaging/backend.rs",
+            "language": "rust",
+            "start_line": 179,
+            "end_line": 181,
+            "unit_name": "kafka_handle"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-6423d6e331bc1b57",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 45,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 45,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa35d288e145c6bb",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/mcp/tools_schema.rs",
+            "language": "rust",
+            "start_line": 29,
+            "end_line": 31,
+            "unit_name": "string_schema"
+          },
+          {
+            "path": "src/mcp/tools_schema.rs",
+            "language": "rust",
+            "start_line": 33,
+            "end_line": 35,
+            "unit_name": "string_schema_optional"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-4f4ba7fd7ea0cf5e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "parse",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 21,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 42,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "96e1fe708513f0f9",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/bugtracker/types_enums.rs",
+            "language": "rust",
+            "start_line": 97,
+            "end_line": 98,
+            "unit_name": "parse"
+          },
+          {
+            "path": "src/bugtracker/types_enums.rs",
+            "language": "rust",
+            "start_line": 132,
+            "end_line": 133,
+            "unit_name": "parse"
+          },
+          {
+            "path": "src/bugtracker/types_enums.rs",
+            "language": "rust",
+            "start_line": 169,
+            "end_line": 170,
+            "unit_name": "parse"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-fb6d6c73a1c24f2a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "workspace_root",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 38,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 38,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "775c8bb84db95c3d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/arc-bench/src/exceptions.rs",
+            "language": "rust",
+            "start_line": 130,
+            "end_line": 132,
+            "unit_name": "workspace_root"
+          },
+          {
+            "path": "crates/arc-bench/src/witness_loop.rs",
+            "language": "rust",
+            "start_line": 154,
+            "end_line": 156,
+            "unit_name": "workspace_root"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-645024ac0b6ad44f",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 35,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 35,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "38b5c876ef42984c",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/repo.rs",
+            "language": "rust",
+            "start_line": 88,
+            "end_line": 90,
+            "unit_name": "init_direct_repo"
+          },
+          {
+            "path": "src/repo.rs",
+            "language": "rust",
+            "start_line": 92,
+            "end_line": 94,
+            "unit_name": "adopt_direct_repo"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-322ccf847162f00e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "display_workspace_root",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 21,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 21,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "238def50be39ed05",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/cargo-aer/src/helpers.rs",
+            "language": "rust",
+            "start_line": 101,
+            "end_line": 103,
+            "unit_name": "display_workspace_root"
+          },
+          {
+            "path": "crates/cargo-vrc/src/planner_support_paths.rs",
+            "language": "rust",
+            "start_line": 176,
+            "end_line": 178,
+            "unit_name": "display_workspace_root"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-14595f13c53e85a8",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 41,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 41,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e76a7c6c4ade0b63",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 2142,
+            "end_line": 2143,
+            "unit_name": "count_pending_jobs"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 2820,
+            "end_line": 2821,
+            "unit_name": "count_recovery_decisions"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-a5d9d60ccab97c9a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "parse",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 41,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 41,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "dbc839f6ea887937",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 64,
+            "end_line": 65,
+            "unit_name": "parse"
+          },
+          {
+            "path": "src/runtime_support/mod.rs",
+            "language": "rust",
+            "start_line": 110,
+            "end_line": 111,
+            "unit_name": "parse"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-ccc64ef680a9ddd0",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 19,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 19,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e76a7c6c4ade0b63",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 655,
+            "end_line": 656,
+            "unit_name": "backend_sql"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 662,
+            "end_line": 663,
+            "unit_name": "backend_sql_owned"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-a8cc7acd4ec90937",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 14,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 14,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "b1c3bd4337becda9",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 191,
+            "end_line": 192,
+            "unit_name": "default"
+          },
+          {
+            "path": "src/gateway/singleflight.rs",
+            "language": "rust",
+            "start_line": 64,
+            "end_line": 65,
+            "unit_name": "new"
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "hard classes are limited to exact active-source file matches and substantial exact same-name units",
+      "warning classes include same-body different-name units and token/block duplication",
+      "tests, fixtures, stories, config, Docker, and migrations are omitted unless --include-tests is set"
+    ]
   },
   "profile_structure": {
-    "applicable_count": 1,
-    "canonical_count": 0,
-    "noncanonical_count": 1,
-    "guidance_missing_count": 1,
+    "applicable_count": 10,
+    "canonical_count": 10,
+    "noncanonical_count": 0,
+    "guidance_missing_count": 0,
     "cells": [
       {
         "id": "web",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "apps/web/",
-        "detected_paths": [],
+        "detected_paths": [
+          "apps/web"
+        ],
         "aliases": [
           "frontend/",
           "ui/",
           "packages/web/",
           "packages/ui/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "apps/web",
         "proof_lane": "rendered UX / Playwright",
-        "agent_fix": "no action"
+        "agent_fix": "keep `apps/web/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "api",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "apps/api/",
-        "detected_paths": [],
+        "detected_paths": [
+          "apps/api"
+        ],
         "aliases": [
           "api/",
           "server/",
           "backend/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "apps/api",
         "proof_lane": "edge handler / contract tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `apps/api/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "domain",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/domain/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/domain"
+        ],
         "aliases": [
           "domain/",
           "core/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/domain",
         "proof_lane": "unit / property tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/domain/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "application",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/application/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/application"
+        ],
         "aliases": [
           "application/",
           "usecases/",
           "use-cases/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/application",
         "proof_lane": "use-case / authz tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/application/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "adapters",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/adapters/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/adapters"
+        ],
         "aliases": [
           "adapters/",
           "infra/",
           "integrations/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/adapters",
         "proof_lane": "adapter integration tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/adapters/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "workers",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/workers/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/workers"
+        ],
         "aliases": [
           "workers/",
           "jobs/",
           "scheduler/",
           "queue/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/workers",
         "proof_lane": "workflow / replay tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/workers/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "contracts",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "contracts/",
-        "detected_paths": [],
+        "detected_paths": [
+          "contracts"
+        ],
         "aliases": [
           "openapi/",
           "protobuf/",
           "json-schema/",
           "generated/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "contracts",
         "proof_lane": "generation / drift checks",
-        "agent_fix": "no action"
+        "agent_fix": "keep `contracts/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "db",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "db/",
-        "detected_paths": [],
+        "detected_paths": [
+          "db"
+        ],
         "aliases": [
           "migrations/",
           "constraints/",
           "sql/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "db",
         "proof_lane": "migration / constraint tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `db/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "python-ai",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "python/ai-service/",
-        "detected_paths": [],
+        "detected_paths": [
+          "python",
+          "python/ai-service"
+        ],
         "aliases": [
           "python/",
           "ai-service/",
@@ -1260,19 +2391,20 @@
           "embeddings/",
           "model/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "python/ai-service",
         "proof_lane": "eval / contract tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `python/ai-service/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "ops",
         "applicable": true,
-        "status": "noncanonical",
+        "status": "canonical",
         "canonical_path": "ops/",
         "detected_paths": [
           ".github",
-          ".github/workflows"
+          ".github/workflows",
+          "ops"
         ],
         "aliases": [
           ".github/",
@@ -1282,901 +2414,150 @@
           "observability/",
           "security/"
         ],
-        "guidance_status": "missing",
+        "guidance_status": "present",
         "owner": "ops",
         "proof_lane": "security lane / workflow lint",
-        "agent_fix": "migrate the detected ops surface to `ops/` or document an alternate profile with owner, proof lane, expiry, and migration plan"
+        "agent_fix": "keep `ops/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       }
     ],
     "evidence": {
-      "applicable_count": 1,
-      "canonical_count": 0,
+      "applicable_count": 10,
+      "canonical_count": 10,
       "detected_cells": [
+        {
+          "canonical_path": "apps/web/",
+          "detected_paths": [
+            "apps/web"
+          ],
+          "guidance_status": "present",
+          "id": "web",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "apps/api/",
+          "detected_paths": [
+            "apps/api"
+          ],
+          "guidance_status": "present",
+          "id": "api",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/domain/",
+          "detected_paths": [
+            "crates/domain"
+          ],
+          "guidance_status": "present",
+          "id": "domain",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/application/",
+          "detected_paths": [
+            "crates/application"
+          ],
+          "guidance_status": "present",
+          "id": "application",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/adapters/",
+          "detected_paths": [
+            "crates/adapters"
+          ],
+          "guidance_status": "present",
+          "id": "adapters",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/workers/",
+          "detected_paths": [
+            "crates/workers"
+          ],
+          "guidance_status": "present",
+          "id": "workers",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "contracts/",
+          "detected_paths": [
+            "contracts"
+          ],
+          "guidance_status": "present",
+          "id": "contracts",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "db/",
+          "detected_paths": [
+            "db"
+          ],
+          "guidance_status": "present",
+          "id": "db",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "python/ai-service/",
+          "detected_paths": [
+            "python",
+            "python/ai-service"
+          ],
+          "guidance_status": "present",
+          "id": "python-ai",
+          "status": "canonical"
+        },
         {
           "canonical_path": "ops/",
           "detected_paths": [
             ".github",
-            ".github/workflows"
+            ".github/workflows",
+            "ops"
           ],
-          "guidance_status": "missing",
+          "guidance_status": "present",
           "id": "ops",
-          "status": "noncanonical"
+          "status": "canonical"
         }
       ],
-      "guidance_missing_count": 1,
-      "noncanonical_count": 1
+      "guidance_missing_count": 0,
+      "noncanonical_count": 0
     }
   },
   "findings": [
     {
-      "severity": "high",
-      "category": "proof",
+      "severity": "medium",
+      "category": "shape",
       "path": ".",
-      "problem": "no one-command setup or validation lane was detected",
-      "agent_fix": "add a canonical `setup`, `check`, `test`, or `verify` lane in one root command file",
+      "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
+      "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "no root setup/check/test/verify target surfaced"
+        "largest authored code file: src/git_host/gitlab.rs (453 LOC)",
+        "most code files stay under 300 LOC",
+        "copy-code advisory classes found: 22 (advisory only, no score impact)",
+        "IO markers found in domain/core files"
       ],
-      "check_id": "HLT-000-SCORE-DIMENSION:proof",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:7010147691f443ae19d3d8603c11ec84958d455885b09e09eca0b9fa91933bde",
-      "tlr": "Verification",
-      "lane": "fast"
-    },
-    {
-      "severity": "medium",
-      "category": "context",
-      "path": ".github",
-      "problem": "reference-profile cell `ops` is detected at a noncanonical path",
-      "agent_fix": "migrate the detected ops surface to `ops/` or document an alternate profile with owner, proof lane, expiry, and migration plan",
-      "evidence": [
-        "canonical_path=ops/",
-        "detected_paths=.github, .github/workflows",
-        "aliases=.github/, .github/workflows/, ci/, release/, observability/, security/",
-        "guidance_status=missing",
-        "owner=ops",
-        "proof_lane=security lane / workflow lint"
-      ],
-      "check_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP:context",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:12a7cb3de44727e5607afe0a2df603f1f07be2916aa0ede17340426bdc33d1f7",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "agent"
-    },
-    {
-      "severity": "medium",
-      "category": "security",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "`Security and supply-chain posture` scored 74 below the standard floor of 85",
-      "agent_fix": "wire secret, dependency, provenance, and workflow scans into an operational CI lane",
-      "evidence": [
-        "lockfile present",
-        "secret or dependency scan tooling found",
-        "provenance/SBOM tooling found",
-        "workflow linting tooling found"
-      ],
-      "check_id": "HLT-016-SUPPLY-CHAIN-DRIFT:security",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "workflow-command",
-      "rerun_command": "just security",
-      "fingerprint": "sha256:01fc7a432f2156e053bba436bec7bbf27acbd481603cb754abb49c6b1443010e",
-      "rule_id": "HLT-016-SUPPLY-CHAIN-DRIFT",
-      "tlr": "Security, secrets, agency",
-      "lane": "security",
-      "docs_url": "docs/audit-rubric.md#top-level-risk-mapping",
-      "owner": "ops"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "ops/ci/lib.sh is missing",
-      "agent_fix": "add ops/ci/lib.sh defining shared helpers and tool version pins",
-      "evidence": [
-        "detector=ci.local-parity.lib-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:37915fba1911bbff8067832d71760cb1c395b643f8bf5d61e8dd1f4ab2bcc5ca",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.lib-missing",
-      "reason": "ops/ci/lib.sh is the shared helper module (artifact assertions, tool pins) every lane sources"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "ops/git-hooks/pre-push is missing",
-      "agent_fix": "add ops/git-hooks/pre-push that runs `bash ops/ci/quality-gates.sh` and wire it via `git config core.hooksPath ops/git-hooks`",
-      "evidence": [
-        "detector=ci.local-parity.pre-push-hook-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:1eddecd5e7ed9fc3919ef4f85fe6c719399ff0704e889c28f7134662a1512fd7",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.pre-push-hook-missing",
-      "reason": "without a mandatory pre-push gate, broken code can be pushed and CI is the first place a failure shows up"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "rust-toolchain.toml is missing",
-      "agent_fix": "add rust-toolchain.toml pinning the channel and required components",
-      "evidence": [
-        "detector=ci.local-parity.toolchain-not-pinned",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:aeda4ba55313d39812e5517df9776cbc1051614d2130136364997739c8fe1f42",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.toolchain-not-pinned",
-      "reason": "without a pinned toolchain, local and CI Rust versions can drift silently"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "scripts/ci-doctor.sh is missing",
-      "agent_fix": "add scripts/ci-doctor.sh listing every tool the ops/ci scripts depend on",
-      "evidence": [
-        "detector=ci.local-parity.doctor-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:4f3bac5529ba53c005699b913af04e7bdeaa4a5538bcd3cd0d736f210438a6e5",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.doctor-missing",
-      "reason": "without a doctor script, developers cannot confirm their local environment matches CI"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "scripts/ci-local.sh is missing",
-      "agent_fix": "add scripts/ci-local.sh exposing each CI lane locally",
-      "evidence": [
-        "detector=ci.local-parity.runner-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:8c0df3fda16a40e9a6b8ccf848f557b954f5560e130076937fc056ae021e3fce",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.runner-missing",
-      "reason": "scripts/ci-local.sh is the local entry point that delegates to the same ops/ci scripts the workflows call"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "workflow references missing script `ops/ci/jankurai-lane.sh`",
-      "agent_fix": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "evidence": [
-        "detector=ci.local-parity.script-missing",
-        "path=.github/workflows/jankurai.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: jankurai"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:c91ab322872c5468a71c79edd53f858aea807aed717972692e3747e145e22b0d",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.script-missing",
-      "reason": "missing scripts mean the local runner cannot reproduce the CI step"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/release-ready.yml",
-      "problem": "workflow references missing script `ops/ci/release-ready-lane.sh`",
-      "agent_fix": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "evidence": [
-        "detector=ci.local-parity.script-missing",
-        "path=.github/workflows/release-ready.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: release-ready"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:e515578030d79937245ec35152132fac2cd1ae33dba195376a79ebd500bbbf5f",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.script-missing",
-      "reason": "missing scripts mean the local runner cannot reproduce the CI step"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/release.yml",
-      "problem": "workflow references missing script `ops/ci/release-lane.sh`",
-      "agent_fix": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "evidence": [
-        "detector=ci.local-parity.script-missing",
-        "path=.github/workflows/release.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: Release"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:b6fffda026d3065ffa3bedb80fd974c4c1af87b5ef55e58230a4b91167c77dcd",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.script-missing",
-      "reason": "missing scripts mean the local runner cannot reproduce the CI step"
-    },
-    {
-      "severity": "high",
-      "category": "ci",
-      "path": ".github/workflows/rust.yml",
-      "problem": "workflow references missing script `ops/ci/rust-lane.sh`",
-      "agent_fix": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "evidence": [
-        "detector=ci.local-parity.script-missing",
-        "path=.github/workflows/rust.yml",
-        "line=1",
-        "proof_window=None",
-        "snippet=name: Rust"
-      ],
-      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
-      "hardness": "hard",
-      "confidence": 0.95,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:0b7267e6a486eb538849aea0062851ab22c26fb93c39cc554f136345679da064",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/ci-local.md",
-      "owner": "ops",
-      "line": 1,
-      "matched_term": "ci.local-parity.script-missing",
-      "reason": "missing scripts mean the local runner cannot reproduce the CI step"
-    },
-    {
-      "severity": "medium",
-      "category": "context",
-      "path": "AGENTS.md",
-      "problem": "`Context economy and agent instructions` scored 55 below the standard floor of 85",
-      "agent_fix": "keep root guidance short and route durable detail through agent-readable manifests and docs",
-      "evidence": [
-        "root `AGENTS.md` present",
-        "root `AGENTS.md` stays short",
-        "machine-readable routing artifacts present",
-        "thin IDE/agent adapters are present"
-      ],
-      "check_id": "HLT-015-CONTEXT-SETUP-GAP:context",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:2bff722fd945ed436b8ecb595b6281e2ea086ca47bca37f5c0e7e56142706f39",
-      "rule_id": "HLT-015-CONTEXT-SETUP-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "docs/agent-native-standard.md",
-      "owner": "agent"
-    },
-    {
-      "severity": "medium",
-      "category": "proof",
-      "path": "Justfile",
-      "problem": "`Build speed signals` scored 50 below the standard floor of 85",
-      "agent_fix": "add fast deterministic build/test targets, caches, and narrow proof lanes for agent iteration",
-      "evidence": [
-        "build acceleration markers found",
-        "locked dependency graph present",
-        "CI cache hint found",
-        "missing one-command setup/validation"
-      ],
-      "check_id": "HLT-018-PERF-CONCURRENCY-DRIFT:proof",
+      "check_id": "HLT-001-DEAD-MARKER:shape",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:865e1d16c42efbc42c756e4fd48ff0c751d36cda71e4934c8c05a19a65d9aa55",
-      "rule_id": "HLT-018-PERF-CONCURRENCY-DRIFT",
-      "tlr": "Verification",
+      "fingerprint": "sha256:feee2c25710bef5f23300f4d8d8dfbd8637a2bdfe903e11cc18f7f7f56b45dd9",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
       "lane": "fast",
-      "docs_url": "docs/testing.md",
-      "owner": "workspace"
-    },
-    {
-      "severity": "medium",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "`Ownership and navigation surface` scored 78 below the standard floor of 85",
-      "agent_fix": "tighten owner/test maps and root routing until agents can localize ownership without inference",
-      "evidence": [
-        "root `AGENTS.md` present",
-        "owner map present",
-        "test/proof routing map present",
-        "owner map covers audited paths"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:50b75235e0417de46f72c67838a5e57b786789ff288dd26a70944c6bea9e9ebd",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "medium",
-      "category": "proof",
-      "path": "agent/test-map.json",
-      "problem": "`Proof lanes and test routing` scored 67 below the standard floor of 85",
-      "agent_fix": "route each owned path to a deterministic proof command and make the lane executable in CI",
-      "evidence": [
-        "deterministic fast lane found",
-        "GitHub workflow files present",
-        "test/proof routing map present",
-        "jankurai audit lane found in CI"
-      ],
-      "check_id": "HLT-004-UNMAPPED-PROOF:proof",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:fc8e7534b8c6e968060e4ed0a77b0967425381577bf19215a7738404685ea237",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#proof-lanes",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "test",
-      "path": "crates/",
-      "problem": "Rust surface lacks required property and/or integration tests",
-      "agent_fix": "add `proptest` or equivalent invariant tests plus `tests/` integration coverage routed through `cargo nextest` or `cargo test`",
-      "evidence": [
-        "Rust surface detected"
-      ],
-      "check_id": "HLT-008-FALSE-GREEN-RISK:test",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "test",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:8ece7234070a20910736663e65a530625acd16dac7fa57476cfc7c9a74bd745c",
-      "rule_id": "HLT-008-FALSE-GREEN-RISK",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "docs/testing.md",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "tools"
-    },
-    {
-      "severity": "high",
-      "category": "exceptions",
-      "path": "crates/domain",
-      "problem": "no agent-friendly exception/error pattern was detected",
-      "agent_fix": "define a typed exception surface with purpose, reason, common fixes, docs_url, and repair_hint so the next rerun is local",
-      "evidence": [
-        "route repair work to the next agent",
-        "opaque failures slow local debugging and reruns",
-        "add a typed repair hint; name the common fixes; point at the local docs URL",
-        "docs/testing.md"
-      ],
-      "check_id": "HLT-017-OPAQUE-OBSERVABILITY:exceptions",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just score",
-      "fingerprint": "sha256:538667a01e35d8e91eae100627364816dd225911862fa2fa1578642af63d4af8",
-      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
-      "tlr": "Repair",
-      "lane": "observability",
-      "docs_url": "agent/JANKURAI_STANDARD.md#repair-receipts",
-      "owner": "tools"
-    },
-    {
-      "severity": "medium",
-      "category": "data",
-      "path": "db/",
-      "problem": "`Data truth and workflow safety` scored 60 below the standard floor of 85",
-      "agent_fix": "move durable truth into migrations, constraints, adapters, and application-owned transactions",
-      "evidence": [
-        "structured db boundary manifest present",
-        "db boundary routes roots, migrations, and constraints"
-      ],
-      "check_id": "HLT-006-DIRECT-DB-WRONG-LAYER:data",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "sql",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:bc3c154999ceeadf008cf312a5b1205941d2a5bc9868961a1358cefa07b821ae",
-      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
-      "tlr": "Contracts/data",
-      "lane": "db",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "data"
-    },
-    {
-      "severity": "medium",
-      "category": "docs",
-      "path": "docs/",
-      "problem": "agent-readable documentation is incomplete",
-      "agent_fix": "add concise docs for architecture, boundaries, tests, generated zones, and audit rules; route them from root `AGENTS.md`",
-      "evidence": [
-        "README.md",
-        "docs/architecture.md or docs/boundaries.md",
-        "docs/testing.md"
-      ],
-      "check_id": "HLT-000-SCORE-DIMENSION:docs",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "documentation",
-      "rerun_command": "just score",
-      "fingerprint": "sha256:7a7bbff17bd45fa833f208a469d73fc717e5fd8687e3d8d20098aa2ce66f2e92",
-      "tlr": "Context/setup",
-      "lane": "audit",
-      "owner": "standard"
-    },
-    {
-      "severity": "high",
-      "category": "release",
-      "path": "docs/release.md",
-      "problem": "release management structure is incomplete",
-      "agent_fix": "add a release control surface with version source, changelog, release process docs, CI or script evidence, integrity/provenance evidence, and rollback guidance",
-      "evidence": [
-        "release structure missing: changelog, release process doc"
-      ],
-      "check_id": "HLT-025-RELEASE-READINESS-GAP:release",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "workflow-command",
-      "rerun_command": "just check",
-      "fingerprint": "sha256:c7eefce130f9057e693ec4f1e52a32ae746bb45e440d5f623037f50ad020472e",
-      "rule_id": "HLT-025-RELEASE-READINESS-GAP",
-      "tlr": "Verification",
-      "lane": "release",
-      "docs_url": "docs/testing.md",
-      "owner": "standard",
-      "matched_term": "release structure",
-      "reason": "launch gates need artifact-backed release evidence"
-    },
-    {
-      "severity": "medium",
-      "category": "observability",
-      "path": "docs/testing.md",
-      "problem": "`Observability and repair evidence` scored 38 below the standard floor of 85",
-      "agent_fix": "add structured errors, telemetry, and repair receipts that tell the next agent where to rerun proof",
-      "evidence": [
-        "observability libraries or patterns found",
-        "no agent-friendly exception pattern found"
-      ],
-      "check_id": "HLT-017-OPAQUE-OBSERVABILITY:observability",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just score",
-      "fingerprint": "sha256:4c1e67e787263871c688fc1dc278b4e0cb4b428b9bd63da4ee5fd5818c530ded",
-      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
-      "tlr": "Repair",
-      "lane": "observability",
-      "docs_url": "agent/JANKURAI_STANDARD.md#repair-receipts",
-      "owner": "standard"
-    },
-    {
-      "severity": "medium",
-      "category": "release",
-      "path": "docs/testing.md",
-      "problem": "cost or spend-risk surface lacks budget proof",
-      "agent_fix": "add explicit budgets, quotas, stop conditions, and kill-switch evidence for paid or unbounded operations",
-      "evidence": [
-        "cost surface found without budget/stop-condition policy"
-      ],
-      "check_id": "HLT-026-COST-BUDGET-GAP:release",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just check",
-      "fingerprint": "sha256:edd248b7afc24b644107205fa5b84a88103ac4b622009ff9f19b779de8798f59",
-      "rule_id": "HLT-026-COST-BUDGET-GAP",
-      "tlr": "Verification",
-      "lane": "release",
-      "docs_url": "docs/testing.md",
-      "owner": "standard",
-      "matched_term": "budget",
-      "reason": "unbounded paid work needs budgets and stop conditions"
-    },
-    {
-      "severity": "medium",
-      "category": "context",
-      "path": "ops/",
-      "problem": "reference-profile cell `ops` lacks local AGENTS.md guidance",
-      "agent_fix": "add `ops/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "evidence": [
-        "canonical_path=ops/",
-        "detected_paths=.github, .github/workflows",
-        "guidance_status=missing",
-        "owner=ops",
-        "proof_lane=security lane / workflow lint"
-      ],
-      "check_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP:context",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:afd6d62dcc0304f7e4872a9edce56c957a74d6c2101cdf6218dce16b4297ba55",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "docs/audit-rubric.md#required-shape",
-      "owner": "ops"
-    },
-    {
-      "severity": "high",
-      "category": "security",
-      "path": "src/gitlab_auth.rs",
-      "problem": "authorization or data-isolation surface lacks direct negative proof",
-      "agent_fix": "add owner/non-owner authorization tests or RLS evidence for the touched data boundary",
-      "evidence": [
-        "//! non-local GitLab URLs, but local GitLab credentials are normalized back into"
-      ],
-      "check_id": "HLT-022-AUTHZ-ISOLATION-GAP:security",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "boundary-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:e695e393f566f7335e555cd1b9657b2dc5e6a1b7b011865550d1818c3ed7acfc",
-      "rule_id": "HLT-022-AUTHZ-ISOLATION-GAP",
-      "tlr": "Business truth",
-      "lane": "db",
-      "docs_url": "docs/audit-rubric.md#top-level-risk-mapping",
-      "owner": "workspace",
-      "line": 5,
-      "matched_term": "rls",
-      "reason": "authz/data isolation requires negative proof evidence"
     }
   ],
   "agent_fix_queue": [
     {
-      "path": "src/gitlab_auth.rs",
-      "priority": "high",
-      "rule_id": "HLT-022-AUTHZ-ISOLATION-GAP",
-      "tlr": "Business truth",
-      "lane": "db",
-      "owner": "workspace",
-      "task": "add owner/non-owner authorization tests or RLS evidence for the touched data boundary",
-      "why": "authorization or data-isolation surface lacks direct negative proof"
-    },
-    {
-      "path": "db/",
-      "priority": "medium",
-      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
-      "tlr": "Contracts/data",
-      "lane": "db",
-      "owner": "data",
-      "task": "move durable truth into migrations, constraints, adapters, and application-owned transactions",
-      "why": "`Data truth and workflow safety` scored 60 below the standard floor of 85"
-    },
-    {
       "path": ".",
-      "priority": "high",
-      "tlr": "Verification",
-      "lane": "fast",
-      "task": "add a canonical `setup`, `check`, `test`, or `verify` lane in one root command file",
-      "why": "no one-command setup or validation lane was detected"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add ops/ci/lib.sh defining shared helpers and tool version pins",
-      "why": "ops/ci/lib.sh is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add ops/git-hooks/pre-push that runs `bash ops/ci/quality-gates.sh` and wire it via `git config core.hooksPath ops/git-hooks`",
-      "why": "ops/git-hooks/pre-push is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add rust-toolchain.toml pinning the channel and required components",
-      "why": "rust-toolchain.toml is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add scripts/ci-doctor.sh listing every tool the ops/ci scripts depend on",
-      "why": "scripts/ci-doctor.sh is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add scripts/ci-local.sh exposing each CI lane locally",
-      "why": "scripts/ci-local.sh is missing"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "why": "workflow references missing script `ops/ci/jankurai-lane.sh`"
-    },
-    {
-      "path": ".github/workflows/release-ready.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "why": "workflow references missing script `ops/ci/release-ready-lane.sh`"
-    },
-    {
-      "path": ".github/workflows/release.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "why": "workflow references missing script `ops/ci/release-lane.sh`"
-    },
-    {
-      "path": ".github/workflows/rust.yml",
-      "priority": "high",
-      "rule_id": "HLT-042-CI-LOCAL-PARITY",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "create the referenced ops/ci script with the same commands the workflow used to run",
-      "why": "workflow references missing script `ops/ci/rust-lane.sh`"
-    },
-    {
-      "path": "crates/",
-      "priority": "high",
-      "rule_id": "HLT-008-FALSE-GREEN-RISK",
-      "tlr": "Verification",
+      "priority": "medium",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
       "lane": "fast",
       "owner": "tools",
-      "task": "add `proptest` or equivalent invariant tests plus `tests/` integration coverage routed through `cargo nextest` or `cargo test`",
-      "why": "Rust surface lacks required property and/or integration tests"
-    },
-    {
-      "path": "docs/release.md",
-      "priority": "high",
-      "rule_id": "HLT-025-RELEASE-READINESS-GAP",
-      "tlr": "Verification",
-      "lane": "release",
-      "owner": "standard",
-      "task": "add a release control surface with version source, changelog, release process docs, CI or script evidence, integrity/provenance evidence, and rollback guidance",
-      "why": "release management structure is incomplete"
-    },
-    {
-      "path": "Justfile",
-      "priority": "medium",
-      "rule_id": "HLT-018-PERF-CONCURRENCY-DRIFT",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "workspace",
-      "task": "add fast deterministic build/test targets, caches, and narrow proof lanes for agent iteration",
-      "why": "`Build speed signals` scored 50 below the standard floor of 85"
-    },
-    {
-      "path": "agent/test-map.json",
-      "priority": "medium",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "agent",
-      "task": "route each owned path to a deterministic proof command and make the lane executable in CI",
-      "why": "`Proof lanes and test routing` scored 67 below the standard floor of 85"
-    },
-    {
-      "path": "docs/testing.md",
-      "priority": "medium",
-      "rule_id": "HLT-026-COST-BUDGET-GAP",
-      "tlr": "Verification",
-      "lane": "release",
-      "owner": "standard",
-      "task": "add explicit budgets, quotas, stop conditions, and kill-switch evidence for paid or unbounded operations",
-      "why": "cost or spend-risk surface lacks budget proof"
-    },
-    {
-      "path": "crates/domain",
-      "priority": "high",
-      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
-      "tlr": "Repair",
-      "lane": "observability",
-      "owner": "tools",
-      "task": "define a typed exception surface with purpose, reason, common fixes, docs_url, and repair_hint so the next rerun is local",
-      "why": "no agent-friendly exception/error pattern was detected"
-    },
-    {
-      "path": "docs/testing.md",
-      "priority": "medium",
-      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
-      "tlr": "Repair",
-      "lane": "observability",
-      "owner": "standard",
-      "task": "add structured errors, telemetry, and repair receipts that tell the next agent where to rerun proof",
-      "why": "`Observability and repair evidence` scored 38 below the standard floor of 85"
-    },
-    {
-      "path": ".github",
-      "priority": "medium",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "agent",
-      "task": "migrate the detected ops surface to `ops/` or document an alternate profile with owner, proof lane, expiry, and migration plan",
-      "why": "reference-profile cell `ops` is detected at a noncanonical path"
-    },
-    {
-      "path": "AGENTS.md",
-      "priority": "medium",
-      "rule_id": "HLT-015-CONTEXT-SETUP-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "agent",
-      "task": "keep root guidance short and route durable detail through agent-readable manifests and docs",
-      "why": "`Context economy and agent instructions` scored 55 below the standard floor of 85"
-    },
-    {
-      "path": "agent/owner-map.json",
-      "priority": "medium",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "agent",
-      "task": "tighten owner/test maps and root routing until agents can localize ownership without inference",
-      "why": "`Ownership and navigation surface` scored 78 below the standard floor of 85"
-    },
-    {
-      "path": "docs/",
-      "priority": "medium",
-      "tlr": "Context/setup",
-      "lane": "audit",
-      "owner": "standard",
-      "task": "add concise docs for architecture, boundaries, tests, generated zones, and audit rules; route them from root `AGENTS.md`",
-      "why": "agent-readable documentation is incomplete"
-    },
-    {
-      "path": "ops/",
-      "priority": "medium",
-      "rule_id": "HLT-038-REFERENCE-PROFILE-STRUCTURE-GAP",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "ops",
-      "task": "add `ops/AGENTS.md` with owns / forbidden / proof lane guidance",
-      "why": "reference-profile cell `ops` lacks local AGENTS.md guidance"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "medium",
-      "rule_id": "HLT-016-SUPPLY-CHAIN-DRIFT",
-      "tlr": "Security, secrets, agency",
-      "lane": "security",
-      "owner": "ops",
-      "task": "wire secret, dependency, provenance, and workflow scans into an operational CI lane",
-      "why": "`Security and supply-chain posture` scored 74 below the standard floor of 85"
+      "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "why": "`Code shape and semantic surface` scored 70 below the standard floor of 85"
     }
   ]
 }

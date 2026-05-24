@@ -145,6 +145,6 @@ pub(crate) fn format_duration(secs: i64) -> String {
 // Command Palette overlay (Ctrl-K)
 // ---------------------------------------------------------------------------
 
-#[path = "ui_panels_body_tail_extra_tail.rs"]
-mod ui_panels_body_tail_extra_tail;
-pub(crate) use ui_panels_body_tail_extra_tail::*;
+#[path = "ui_panels_body_palette.rs"]
+mod ui_panels_body_palette;
+pub(crate) use ui_panels_body_palette::*;

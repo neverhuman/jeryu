@@ -317,6 +317,6 @@ pub(crate) fn draw_logs(f: &mut Frame, app: &mut App, area: Rect) {
     f.render_widget(p, log_area);
 }
 
-#[path = "ui_panels_body_tail_extra.rs"]
-mod ui_panels_body_tail_extra;
-pub(crate) use ui_panels_body_tail_extra::*;
+#[path = "ui_panels_body_logs.rs"]
+mod ui_panels_body_logs;
+pub(crate) use ui_panels_body_logs::*;

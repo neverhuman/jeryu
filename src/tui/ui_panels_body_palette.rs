@@ -271,6 +271,6 @@ pub(crate) fn action_enabled_reason(app: &App, action_id: &str) -> Option<String
 // TUI v2 — Help overlay (extracted to companion file)
 // ---------------------------------------------------------------------------
 
-#[path = "ui_panels_body_tail_extra_tail_help.rs"]
-mod ui_panels_body_tail_extra_tail_help;
-pub(crate) use ui_panels_body_tail_extra_tail_help::*;
+#[path = "ui_panels_body_help.rs"]
+mod ui_panels_body_help;
+pub(crate) use ui_panels_body_help::*;

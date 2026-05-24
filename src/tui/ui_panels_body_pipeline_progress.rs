@@ -196,6 +196,6 @@ pub(crate) fn draw_job_matrix(f: &mut Frame, app: &App, area: Rect) {
 // Pipeline nav + Job inspector + Agents tab (extracted to companion)
 // ---------------------------------------------------------------------------
 
-#[path = "ui_panels_body_runtime_extra_tail_inspect.rs"]
-mod ui_panels_body_runtime_extra_tail_inspect;
-pub(crate) use ui_panels_body_runtime_extra_tail_inspect::*;
+#[path = "ui_panels_body_job_inspector.rs"]
+mod ui_panels_body_job_inspector;
+pub(crate) use ui_panels_body_job_inspector::*;

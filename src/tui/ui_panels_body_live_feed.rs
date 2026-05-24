@@ -189,6 +189,6 @@ pub(crate) fn draw_live_runner_feed(f: &mut Frame, app: &App, area: Rect) {
 // TUI v2 — Pipeline Progress
 // ---------------------------------------------------------------------------
 
-#[path = "ui_panels_body_runtime_extra_tail.rs"]
-mod ui_panels_body_runtime_extra_tail;
-pub(crate) use ui_panels_body_runtime_extra_tail::*;
+#[path = "ui_panels_body_pipeline_progress.rs"]
+mod ui_panels_body_pipeline_progress;
+pub(crate) use ui_panels_body_pipeline_progress::*;
