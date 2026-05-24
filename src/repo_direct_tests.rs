@@ -83,6 +83,7 @@ fn observed_and_enforced_modes_install_expected_hooks() {
 
     configure_hook_mode(repo.path(), HookMode::Enforce, HookProfile::PrePush).unwrap();
     let pre_push = fs::read_to_string(repo.path().join(".jeryu/hooks/pre-push")).unwrap();
+    assert!(!pre_push.contains("JERYU_MAINLINE_BYPASS"));
     assert!(pre_push.contains("ops/ci/quality-gates.sh"));
     assert!(pre_push.contains("exit $status"));
 
@@ -208,6 +209,67 @@ fn seed_source_prefers_origin_main() {
     assert_eq!(
         seed_source_ref(repo.path(), "main").unwrap().as_deref(),
         Some("refs/remotes/origin/main")
+    );
+}
+
+#[test]
+fn enforced_pre_push_hook_blocks_main() {
+    let repo = tempdir().expect("temp repo");
+    git(repo.path(), &["init"]);
+
+    configure_hook_mode(repo.path(), HookMode::Enforce, HookProfile::PrePush).unwrap();
+    let pre_push = repo.path().join(".jeryu/hooks/pre-push");
+
+    let temp = tempdir().expect("temp quality gate dir");
+    let log_path = temp.path().join("quality-gates.log");
+    let stub = temp.path().join("quality-gates-stub.sh");
+    fs::write(
+        &stub,
+        format!(
+            "#!/usr/bin/env bash\nprintf 'quality-gates:%s\\n' \"$*\" >> '{}'\n",
+            log_path.display()
+        ),
+    )
+    .unwrap();
+    let mut perms = fs::metadata(&stub).unwrap().permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&stub, perms).unwrap();
+
+    let mut child = std::process::Command::new("bash")
+        .arg(pre_push)
+        .env("JERYU_PRE_PUSH_QUALITY_GATES", &stub)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    use std::io::Write as _;
+    stdin
+        .write_all(
+            format!(
+                "refs/heads/main {} refs/heads/main {}\n",
+                "a".repeat(40),
+                "b".repeat(40)
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+    drop(stdin);
+    let output = child.wait_with_output().unwrap();
+
+    assert!(
+        !output.status.success(),
+        "main pushes should be blocked before quality gates"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("direct pushes to main are blocked"),
+        "stderr did not explain the refusal: {stderr}"
+    );
+    assert!(
+        !log_path.exists(),
+        "quality gate should not run when main is targeted"
     );
 }
 

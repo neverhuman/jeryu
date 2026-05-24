@@ -1,7 +1,7 @@
 use super::*;
 
 pub(crate) async fn run_serve() -> Result<()> {
-    let (client, webhook_secret) = load_client()?;
+    let (client, webhook_secret) = load_client().await?;
     let db = state::Db::open().await?;
     let docker_ctl = docker::DockerCtl::connect()?;
 
@@ -123,7 +123,7 @@ pub(crate) async fn run_agent(subcmd: AgentCommands) -> Result<()> {
         return Ok(());
     }
 
-    let (client, _) = load_client()?;
+    let (client, _) = load_client().await?;
     match subcmd {
         AgentCommands::Spawn { project_id, task } => {
             let agent_task = agent::spawn_agent(&client, project_id, &task).await?;
@@ -161,7 +161,7 @@ pub(crate) async fn run_agent(subcmd: AgentCommands) -> Result<()> {
 }
 
 pub(crate) async fn run_progress(project_id: i64, ref_name: String, json: bool) -> Result<()> {
-    let (client, _) = load_client()?;
+    let (client, _) = load_client().await?;
     let db = state::Db::open().await?;
     let report = release::build_progress_report(&db, &client, project_id, &ref_name).await?;
     if json {

@@ -46,7 +46,7 @@ pub(crate) async fn run_action(subcmd: ActionCommands) -> Result<()> {
 pub(crate) async fn run_capability(subcmd: CapabilityCommands) -> Result<()> {
     match subcmd {
         CapabilityCommands::Serve { socket_path } => {
-            let (client, _) = load_client()?;
+            let (client, _) = load_client().await?;
             capability::start_capability_server(&socket_path, client).await?;
         }
     }

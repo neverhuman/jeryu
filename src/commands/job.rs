@@ -4,7 +4,7 @@ use anyhow::Result;
 use jeryu::{logs, state};
 
 pub(crate) async fn execute_job_commands(subcmd: JobCommands) -> Result<()> {
-    let (client, _) = load_client()?;
+    let (client, _) = load_client().await?;
 
     match subcmd {
         JobCommands::Clear => {

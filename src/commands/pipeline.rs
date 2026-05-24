@@ -4,7 +4,7 @@ use anyhow::Result;
 use jeryu::{release, state};
 
 pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Result<()> {
-    let (client, _) = load_client()?;
+    let (client, _) = load_client().await?;
     match subcmd {
         PipelineCommands::Explain {
             project_id,

@@ -3,7 +3,7 @@ use anyhow::Result;
 use jeryu::{docker, pool, state};
 
 pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
-    let (client, _) = crate::dispatch::load_client()?;
+    let (client, _) = crate::dispatch::load_client().await?;
     let db = state::Db::open().await?;
     let docker_ctl = docker::DockerCtl::connect()?;
 

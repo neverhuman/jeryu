@@ -3,7 +3,7 @@ use anyhow::Result;
 use jeryu::{config, docker, gitlab_client, pool, release, secrets, state};
 
 pub async fn execute_down() -> Result<()> {
-    let (client, _) = load_client()?;
+    let (client, _) = load_client().await?;
     let db = state::Db::open().await?;
     let docker_ctl = docker::DockerCtl::connect()?;
 

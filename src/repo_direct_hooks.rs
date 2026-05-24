@@ -37,7 +37,7 @@ pub(crate) fn configure_hook_mode(
 fn pre_push_hook(mode: HookMode) -> String {
     let blocking = matches!(mode, HookMode::Enforce);
     format!(
-        "#!/bin/sh\nset -u\nREPO_ROOT=\"$(git rev-parse --show-toplevel)\"\ncd \"$REPO_ROOT\"\nbash ops/ci/quality-gates.sh\nstatus=$?\nif [ \"$status\" -ne 0 ]; then\n  echo \"jeryu advisory pre-push failed\" >&2\n  {}\nfi\nexit 0\n",
+        "#!/bin/sh\nset -u\nREPO_ROOT=\"$(git rev-parse --show-toplevel)\"\ncd \"$REPO_ROOT\"\nQUALITY_GATES_SCRIPT=\"${{JERYU_PRE_PUSH_QUALITY_GATES:-$REPO_ROOT/ops/ci/quality-gates.sh}}\"\nwhile true; do\n  local_ref=\"\"\n  local_sha=\"\"\n  remote_ref=\"\"\n  remote_sha=\"\"\n  if ! IFS=' ' read -r local_ref local_sha remote_ref remote_sha; then\n    if [ -z \"${{local_ref}}${{local_sha}}${{remote_ref}}${{remote_sha}}\" ]; then\n      break\n    fi\n  fi\n  if [ \"${{remote_ref:-}}\" = \"refs/heads/main\" ]; then\n    echo \"error: direct pushes to main are blocked.\" >&2\n    exit 1\n  fi\ndone\nbash \"$QUALITY_GATES_SCRIPT\"\nstatus=$?\nif [ \"$status\" -ne 0 ]; then\n  echo \"jeryu advisory pre-push failed\" >&2\n  {}\nfi\nexit 0\n",
         if blocking { "exit $status" } else { "exit 0" }
     )
 }
