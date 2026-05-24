@@ -33,7 +33,7 @@ env:
 jobs:
   preflight:
     name: Preflight
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -54,7 +54,7 @@ jobs:
 
   audit:
     name: Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: preflight
     steps:
@@ -67,7 +67,7 @@ jobs:
 
   security:
     name: Security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: preflight
     steps:
@@ -80,7 +80,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: preflight
     steps:
@@ -99,7 +99,7 @@ jobs:
 
   provenance:
     name: Provenance + SBOM
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     # Needs preflight for `${{ needs.preflight.outputs.version }}` on line 116
     # and needs build for the downloaded binary artifact.
@@ -132,7 +132,7 @@ jobs:
 
   evidence:
     name: Evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [preflight, audit, security, build, provenance]
     steps:
@@ -146,7 +146,7 @@ jobs:
 
   rollback-check:
     name: Rollback target
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     needs: preflight
     steps:
@@ -155,7 +155,7 @@ jobs:
 
   publish:
     name: Publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [preflight, audit, security, build, provenance, evidence, rollback-check]
     if: needs.preflight.outputs.dry_run != 'true'

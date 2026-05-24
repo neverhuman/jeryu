@@ -40,6 +40,11 @@ run_audit() {
     --json target/jankurai/repo-score.json \
     --md  target/jankurai/repo-score.md \
     "${extra[@]}"
+  log "README jankurai score freshness"
+  bash scripts/sync-readme-jankurai-score.sh \
+    --check \
+    --score-json target/jankurai/repo-score.json \
+    --readme README.md
 }
 
 is_proofbind_binary_artifact() {

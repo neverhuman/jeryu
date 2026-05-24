@@ -20,7 +20,7 @@ env:
 jobs:
   fmt:
     name: Format
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -34,7 +34,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -50,7 +50,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -72,7 +72,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
@@ -86,7 +86,7 @@ jobs:
 
   test-select:
     name: VTI Test Selection
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 20
     outputs:
@@ -115,7 +115,7 @@ jobs:
 
   test-lib:
     name: Library Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build, test-select]
     timeout-minutes: 30
     # Skip unit tests entirely when VTI says docs_only (no logic changed)
@@ -152,7 +152,7 @@ jobs:
 
   test-integration:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test-select]
     timeout-minutes: 45
     # Only run integration tests when VTI says Full or Selected (not DocsOnly)
@@ -175,7 +175,7 @@ jobs:
 
   tui-smoke:
     name: TUI Smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 15
     steps:
@@ -193,7 +193,7 @@ jobs:
 
   supply-chain:
     name: Supply Chain Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 20
     permissions:
@@ -225,7 +225,7 @@ jobs:
 
   witness:
     name: Witness Graph
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 20
     steps:
@@ -249,7 +249,7 @@ jobs:
 
   vrc-map:
     name: VRC Map
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 15
     steps:
@@ -275,7 +275,7 @@ jobs:
 
   vrc-plan:
     name: VRC Plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 15
     steps:
@@ -301,7 +301,7 @@ jobs:
 
   aer-scan:
     name: AER Structural Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 15
     steps:
@@ -325,7 +325,7 @@ jobs:
 
   scheduled-hardening:
     name: Scheduled Hardening
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     # Only run on the weekly schedule trigger, not on push/PR
     if: github.event_name == 'schedule'
@@ -353,7 +353,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   ssh-install-e2e:
     name: SSH Install E2E
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 30
     steps:
@@ -381,7 +381,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   tui-screenshots:
     name: TUI Screenshots
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build]
     timeout-minutes: 20
     permissions:
@@ -433,7 +433,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   fixture-project-tests:
     name: Fixture Project Validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
