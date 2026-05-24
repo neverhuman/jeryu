@@ -71,12 +71,13 @@ pub(crate) fn draw_agent_actions(f: &mut Frame, app: &App, area: Rect) {
     ];
     f.render_widget(
         Paragraph::new(lines)
-            .block(
+            .block({
+                let chrome = focus::pane_chrome(app, PaneId::AgentsActions);
                 Block::default()
-                    .title(" [ Actions / Grants ] ")
+                    .title(chrome.title("Actions / Grants"))
                     .borders(Borders::ALL)
-                    .border_style(focus::border_style(app, PaneId::AgentsActions)),
-            )
+                    .border_style(chrome.border_style)
+            })
             .wrap(Wrap { trim: false }),
         area,
     );
@@ -100,6 +101,8 @@ pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     focus::register_pane(app, PaneId::EvidenceList, cols[0]);
     focus::register_pane(app, PaneId::EvidenceDetail, cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::EvidenceList, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::EvidenceDetail, cols[1]);
 
     // Left: evidence record list
     let items: Vec<ListItem> = app
@@ -146,22 +149,24 @@ pub(crate) fn draw_evidence_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let list_chrome = focus::pane_chrome(app, PaneId::EvidenceList);
     let list = List::new(items).block(
         Block::default()
-            .title(format!(
-                " [ Evidence Capsules ({}) — 'a': audit ledger ] ",
+            .title(list_chrome.title(&format!(
+                "Evidence Capsules ({}) — 'a': audit ledger",
                 app.state.recent_evidence.len()
-            ))
+            )))
             .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::EvidenceList)),
+            .border_style(list_chrome.border_style),
     );
     f.render_widget(list, cols[0]);
 
     // Right: capsule detail
+    let detail_chrome = focus::pane_chrome(app, PaneId::EvidenceDetail);
     let detail_block = Block::default()
-        .title(" [ Capsule Detail ] ")
+        .title(detail_chrome.title("Capsule Detail"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::EvidenceDetail));
+        .border_style(detail_chrome.border_style);
     let detail_inner = detail_block.inner(cols[1]);
     f.render_widget(detail_block, cols[1]);
 

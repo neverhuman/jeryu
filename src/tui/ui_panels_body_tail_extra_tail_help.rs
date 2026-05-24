@@ -29,6 +29,7 @@ pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
         ActiveTab::LLMs => "LLMs",
         ActiveTab::Git => "Git",
         ActiveTab::Secrets => "Secrets",
+        ActiveTab::Jankurai => "Jankurai",
     };
 
     let mut lines: Vec<Line> = vec![
@@ -50,6 +51,21 @@ pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
 
     // Tab-specific bindings
     match app.active_tab {
+        ActiveTab::Workflow => {
+            lines.push(Line::from(Span::styled(
+                " ── Workflow ──",
+                Style::default().fg(Color::Cyan),
+            )));
+            lines.push(help_row("↑↓←→", "Move between panes / drilled selection"));
+            lines.push(help_row("Enter", "Open Inspector (on canvas)"));
+            lines.push(help_row("Tab/BackTab", "Cycle Inspector sub-tabs"));
+            lines.push(help_row("f", "Toggle follow active node"));
+            lines.push(help_row("b", "Jump to next blocker"));
+            lines.push(help_row("c", "Jump to critical-path head"));
+            lines.push(help_row("z", "Cycle DAG zoom"));
+            lines.push(help_row("r", "Trigger rollback (Promote node)"));
+            lines.push(help_row("</>", "Cycle PR"));
+        }
         ActiveTab::Jobs => {
             lines.push(Line::from(Span::styled(
                 " ── Runner Feed ──",

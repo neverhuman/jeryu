@@ -205,6 +205,17 @@ pub(crate) fn apply_demo_fixture(app: &mut App) {
     });
     app.log_target_tx.send(app.log_target).ok();
     app.remember_selected_job();
+
+    // Explicitly seed the delivery snapshot with the demo PR story. After
+    // killing the silent prod fallback in `refresh_delivery_snapshot`, demo
+    // mode needs its own seed call so `--demo` keeps showing the 5-PR view.
+    app.delivery_snapshot = crate::tui::workflow::delivery::build_demo_delivery();
+    app.state.delivery_source_status = crate::tui::app::DeliverySourceStatus {
+        configured: true,
+        source_label: Some("demo (in-memory)".into()),
+        last_sync_at: Some(now),
+        last_sync_error: None,
+    };
 }
 
 pub(crate) fn tick_demo_state(app: &mut App) {

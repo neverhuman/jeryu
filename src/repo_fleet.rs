@@ -102,6 +102,85 @@ impl FleetSnapshot {
     }
 }
 
+/// The active repo scope of the TUI. Derived from `App::selected_repo_index`
+/// via `App::repo_filter()`. Default of `All` is the multi-repo overview;
+/// `Only { alias, slug }` filters every pane to a single repository.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RepoFilter<'a> {
+    All,
+    Only { alias: &'a str, slug: &'a str },
+}
+
+impl<'a> RepoFilter<'a> {
+    pub fn is_all(&self) -> bool {
+        matches!(self, RepoFilter::All)
+    }
+
+    /// Returns the alias of the selected repo, or `"All"` for the multi-repo
+    /// view. Useful for top-chrome indicators.
+    pub fn label(&self) -> &'a str {
+        match self {
+            RepoFilter::All => "All",
+            RepoFilter::Only { alias, .. } => alias,
+        }
+    }
+
+    /// Test whether an item with the given (optional) repo identifiers
+    /// passes the current filter. An item carrying `None` for both is
+    /// shown only under `All` — unfiltered items should not leak into a
+    /// per-repo view.
+    pub fn matches(&self, item_alias: Option<&str>, item_slug: Option<&str>) -> bool {
+        match self {
+            RepoFilter::All => true,
+            RepoFilter::Only { alias, slug } => {
+                item_alias == Some(alias) || item_slug == Some(slug)
+            }
+        }
+    }
+
+    /// Convert to an owned form that does not borrow from any source. Used
+    /// by callers that need to hold the filter across a mutable borrow of
+    /// the same data structure that produced it.
+    pub fn to_owned(self) -> OwnedRepoFilter {
+        match self {
+            RepoFilter::All => OwnedRepoFilter::All,
+            RepoFilter::Only { alias, slug } => OwnedRepoFilter::Only {
+                alias: alias.to_string(),
+                slug: slug.to_string(),
+            },
+        }
+    }
+}
+
+/// Owned counterpart of [`RepoFilter`]. Use when you need the filter to
+/// outlive the borrow of the snapshot that produced it (typically in
+/// methods that take `&mut self`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OwnedRepoFilter {
+    All,
+    Only { alias: String, slug: String },
+}
+
+impl OwnedRepoFilter {
+    pub fn as_ref(&self) -> RepoFilter<'_> {
+        match self {
+            OwnedRepoFilter::All => RepoFilter::All,
+            OwnedRepoFilter::Only { alias, slug } => RepoFilter::Only {
+                alias: alias.as_str(),
+                slug: slug.as_str(),
+            },
+        }
+    }
+
+    pub fn is_all(&self) -> bool {
+        matches!(self, OwnedRepoFilter::All)
+    }
+
+    pub fn matches(&self, item_alias: Option<&str>, item_slug: Option<&str>) -> bool {
+        self.as_ref().matches(item_alias, item_slug)
+    }
+}
+
 pub fn load_registry_from(repo_root: &Path) -> Result<RepoRegistry> {
     let path = repo_root.join(DEFAULT_REGISTRY_PATH);
     let raw = std::fs::read_to_string(&path)

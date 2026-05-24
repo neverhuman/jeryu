@@ -41,6 +41,11 @@ pub struct PrInput {
     pub post_merge_tests: Vec<TestSpec>,
     /// Build/promotion progress for merged PRs; ignored for unmerged PRs.
     pub deployment: DeploymentProgress,
+    /// Fleet alias of the repo this PR lives in. Populated by repo-aware
+    /// collectors; `None` for legacy single-repo callers.
+    pub repo_alias: Option<String>,
+    /// Fleet slug of the repo (`"owner/repo"`).
+    pub repo_slug: Option<String>,
 }
 
 /// A single test/check that runs as part of a CI batch.
@@ -120,6 +125,8 @@ fn build_pr_view(
         labels: pr.labels.clone(),
         current_node_id,
         snapshot,
+        repo_alias: pr.repo_alias.clone(),
+        repo_slug: pr.repo_slug.clone(),
     }
 }
 
@@ -170,6 +177,7 @@ fn build_canonical_pipeline(
         deps: pre_test_ids.clone(),
         reason: Some(agent_review_reason(agent_pre_status)),
         tags: vec![CanonicalPhase::AgentReviewPreMerge.slug().into()],
+        agent_call: demo_agent_call(agent_pre_status, AgentStage::PreMerge),
         ..Default::default()
     });
     for dep in &pre_test_ids {
@@ -270,6 +278,7 @@ fn build_canonical_pipeline(
         deps: post_test_ids.clone(),
         reason: Some(agent_review_reason(agent_post_status)),
         tags: vec![CanonicalPhase::AgentReviewPostMerge.slug().into()],
+        agent_call: demo_agent_call(agent_post_status, AgentStage::PostMerge),
         ..Default::default()
     });
     for dep in &post_test_ids {
@@ -458,6 +467,51 @@ fn agent_review_reason(status: WorkflowStatus) -> String {
         WorkflowStatus::Running => "Agent-review session is running.".into(),
         _ => "Waiting for signed agent-review receipt.".into(),
     }
+}
+
+/// Demo agent call detail used until live `AgentApprovalReceipt` plumbing
+/// lands. Status drives the decision so the demo tells a consistent story.
+fn demo_agent_call(status: WorkflowStatus, stage: AgentStage) -> Option<AgentCallDetail> {
+    use crate::tui::workflow::model::AgentFindingBrief;
+    let agent_id = match stage {
+        AgentStage::PreMerge => "reviewer/pre-merge",
+        AgentStage::PostMerge => "reviewer/post-merge",
+    };
+    let (decision, reason, findings) = match status {
+        WorkflowStatus::Ran => (
+            Some("pass".to_string()),
+            Some("No blocking issues. All proofs reproduce.".to_string()),
+            Vec::new(),
+        ),
+        WorkflowStatus::Blocked | WorkflowStatus::Error => (
+            Some("block".to_string()),
+            Some(
+                "Type error in src/pages/runs.tsx:42 — schema mismatch with pagination cursor."
+                    .to_string(),
+            ),
+            vec![AgentFindingBrief {
+                severity: "high".into(),
+                class: "type-error".into(),
+                file: Some("src/pages/runs.tsx:42".into()),
+            }],
+        ),
+        WorkflowStatus::Running => (
+            None,
+            Some("Reviewing diff; structured findings will populate on completion.".to_string()),
+            Vec::new(),
+        ),
+        _ => return None,
+    };
+    Some(AgentCallDetail {
+        model: Some("claude-opus-4-7".into()),
+        provider: Some("anthropic".into()),
+        agent_id: Some(agent_id.into()),
+        decision,
+        reason,
+        raw_response_sha: Some("0123abcdef456789".into()),
+        findings,
+        decision_json: None,
+    })
 }
 
 fn auto_merge_gate_status(pre_ci: WorkflowStatus, agent_pre: WorkflowStatus) -> WorkflowStatus {
@@ -721,6 +775,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
             merged_into_main: false,
             post_merge_tests: vec![],
             deployment: DeploymentProgress::default(),
+            repo_alias: Some("nht".into()),
+            repo_slug: Some("neverhuman/veox-nht".into()),
         },
         // PR 1841: pre-merge in flight, agent review running.
         PrInput {
@@ -739,6 +795,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
             merged_into_main: false,
             post_merge_tests: vec![],
             deployment: DeploymentProgress::default(),
+            repo_alias: Some("shared".into()),
+            repo_slug: Some("neverhuman/veox-shared".into()),
         },
         // PR 1839: just opened, draft.
         PrInput {
@@ -756,6 +814,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
             merged_into_main: false,
             post_merge_tests: vec![],
             deployment: DeploymentProgress::default(),
+            repo_alias: Some("warp".into()),
+            repo_slug: Some("neverhuman/veox-warp".into()),
         },
         // PR 1837: merged, post-merge CI clean, building artifact.
         PrInput {
@@ -785,6 +845,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
                 monitor_status: WorkflowStatus::Waiting,
                 canary_url: None,
             },
+            repo_alias: Some("nht".into()),
+            repo_slug: Some("neverhuman/veox-nht".into()),
         },
         // PR 1835: live in canary (dev environment).
         PrInput {
@@ -812,6 +874,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
                 monitor_status: WorkflowStatus::Waiting,
                 canary_url: Some("https://canary.jeryu.dev/1835".into()),
             },
+            repo_alias: Some("shared".into()),
+            repo_slug: Some("neverhuman/veox-shared".into()),
         },
     ];
 

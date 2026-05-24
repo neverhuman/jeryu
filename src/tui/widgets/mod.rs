@@ -3,7 +3,6 @@
 //! Invariants: Widgets are pure rendering functions; they never mutate control-plane state.
 
 pub mod action_dispatch;
-pub mod action_preview;
 pub mod agent_fleet;
 pub mod attention;
 pub mod inspector;

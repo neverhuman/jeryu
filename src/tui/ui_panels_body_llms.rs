@@ -130,6 +130,8 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     focus::register_pane(app, PaneId::LLMsPolicyMatrix, cols[0]);
     focus::register_pane(app, PaneId::LLMsPolicySplit, cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::LLMsPolicyMatrix, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::LLMsPolicySplit, cols[1]);
 
     let policy_path = app.autonomy_dir.join("providers").join("llm.yml");
     let resolver = app
@@ -304,20 +306,22 @@ pub(crate) fn draw_llms_tab(f: &mut Frame, app: &mut App, area: Rect) {
         items
     };
 
+    let matrix_chrome = focus::pane_chrome(app, PaneId::LLMsPolicyMatrix);
     f.render_widget(
         List::new(table_lines).block(
             Block::default()
-                .title(" [ LLM Role Wiring ] ")
+                .title(matrix_chrome.title("LLM Role Wiring"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::LLMsPolicyMatrix)),
+                .border_style(matrix_chrome.border_style),
         ),
         list_inner,
     );
 
+    let split_chrome = focus::pane_chrome(app, PaneId::LLMsPolicySplit);
     let detail_block = Block::default()
-        .title(" [ Model Policy Split ] ")
+        .title(split_chrome.title("Model Policy Split"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::LLMsPolicySplit));
+        .border_style(split_chrome.border_style);
     let detail_inner = detail_block.inner(cols[1]);
     f.render_widget(detail_block, cols[1]);
 

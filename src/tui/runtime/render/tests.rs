@@ -486,6 +486,8 @@ async fn navigation_cycles_tabs_and_panes() -> Result<()> {
     app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Git);
     app.cycle_tab_next();
+    assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Jankurai);
+    app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Workflow);
 
     assert_eq!(app.active_pane, crate::tui::app::ActivePane::Jobs);

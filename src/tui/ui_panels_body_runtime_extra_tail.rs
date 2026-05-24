@@ -1,10 +1,11 @@
 use super::*;
 
 pub(crate) fn draw_pipeline_progress(f: &mut Frame, app: &App, area: Rect) {
+    let chrome = focus::pane_chrome(app, PaneId::JobsProgress);
     let block = Block::default()
-        .title(" [ Pipeline Progress ] ")
+        .title(chrome.title("Pipeline Progress"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsProgress));
+        .border_style(chrome.border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -126,10 +127,11 @@ pub(crate) fn draw_pipeline_progress(f: &mut Frame, app: &App, area: Rect) {
 // ---------------------------------------------------------------------------
 
 pub(crate) fn draw_job_matrix(f: &mut Frame, app: &App, area: Rect) {
+    let chrome = focus::pane_chrome(app, PaneId::JobsMatrix);
     let block = Block::default()
-        .title(" [ Job Matrix ] ")
+        .title(chrome.title("Job Matrix"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsMatrix));
+        .border_style(chrome.border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 

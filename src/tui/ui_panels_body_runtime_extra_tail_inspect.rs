@@ -42,10 +42,11 @@ pub(crate) fn draw_pipeline_nav(f: &mut Frame, app: &App, area: Rect) {
 }
 
 pub(crate) fn draw_job_inspector_panel(f: &mut Frame, app: &App, area: Rect) {
+    let chrome = focus::pane_chrome(app, PaneId::JobsInspector);
     let block = Block::default()
-        .title(" [ Inspector ] ")
+        .title(chrome.title("Inspector"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::JobsInspector));
+        .border_style(chrome.border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 

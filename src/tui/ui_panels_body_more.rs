@@ -1,5 +1,22 @@
 use super::*;
 pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
+    // When the store exposes a real agent-sessions list, render the dedicated
+    // agent-fleet cockpit widget. Until then, fall back to the pipeline-derived
+    // view below with a banner explaining the data source.
+    if !app.state.agent_sessions.is_empty() {
+        let theme = crate::tui::theme::Theme::dark();
+        focus::register_pane(app, PaneId::AgentsSessions, area);
+        focus::register_drill_esc_hotspot(app, PaneId::AgentsSessions, area);
+        crate::tui::widgets::agent_fleet::render_agent_fleet(
+            f,
+            area,
+            &app.state.agent_sessions,
+            app.selected_job_index,
+            &theme,
+        );
+        return;
+    }
+
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -10,6 +27,7 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .split(area);
 
     focus::register_pane(app, PaneId::AgentsSessions, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsSessions, cols[0]);
 
     let items: Vec<ListItem> = app
         .state
@@ -46,14 +64,15 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let sessions_chrome = focus::pane_chrome(app, PaneId::AgentsSessions);
     let list = List::new(items).block(
         Block::default()
-            .title(format!(
-                " [ Agent Sessions ({}) ] ",
+            .title(sessions_chrome.title(&format!(
+                "Agent Sessions ({})",
                 app.state.agent_pipelines.len()
-            ))
+            )))
             .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::AgentsSessions)),
+            .border_style(sessions_chrome.border_style),
     );
     f.render_widget(list, cols[0]);
 
@@ -65,11 +84,15 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
     focus::register_pane(app, PaneId::AgentsCockpit, rows[0]);
     focus::register_pane(app, PaneId::AgentsTimeline, rows[1]);
     focus::register_pane(app, PaneId::AgentsActions, cols[2]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsCockpit, rows[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsTimeline, rows[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsActions, cols[2]);
 
+    let cockpit_chrome = focus::pane_chrome(app, PaneId::AgentsCockpit);
     let detail_block = Block::default()
-        .title(" [ Agent Cockpit ] ")
+        .title(cockpit_chrome.title("Agent Cockpit"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::AgentsCockpit));
+        .border_style(cockpit_chrome.border_style);
     let detail_inner = detail_block.inner(rows[0]);
     f.render_widget(detail_block, rows[0]);
 
@@ -149,10 +172,11 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         );
     }
 
+    let timeline_chrome = focus::pane_chrome(app, PaneId::AgentsTimeline);
     let cap_block = Block::default()
-        .title(" [ Agent Timeline ] ")
+        .title(timeline_chrome.title("Agent Timeline"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::AgentsTimeline));
+        .border_style(timeline_chrome.border_style);
     let cap_inner = cap_block.inner(rows[1]);
     f.render_widget(cap_block, rows[1]);
 
@@ -215,13 +239,50 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
 // ---------------------------------------------------------------------------
 
 pub(crate) fn draw_tests_tab(f: &mut Frame, app: &mut App, area: Rect) {
+    // Optional VRC plan banner + Witness graph summary across the top.
+    let vrc_visible = app.state.vrc.loaded && !app.state.vrc.plan.mode.is_empty();
+    let witness_visible = app.state.witness.loaded && app.state.witness.crate_count > 0;
+    let banner_height = match (vrc_visible, witness_visible) {
+        (true, true) => 6,
+        (true, false) | (false, true) => 3,
+        (false, false) => 0,
+    };
+    let (vrc_area, witness_area, body_area) = if banner_height > 0 {
+        let rows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(banner_height), Constraint::Min(8)])
+            .split(area);
+        let banner = rows[0];
+        if vrc_visible && witness_visible {
+            let split = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(3), Constraint::Length(3)])
+                .split(banner);
+            (Some(split[0]), Some(split[1]), rows[1])
+        } else if vrc_visible {
+            (Some(banner), None, rows[1])
+        } else {
+            (None, Some(banner), rows[1])
+        }
+    } else {
+        (None, None, area)
+    };
+    if let Some(banner) = vrc_area {
+        draw_vrc_banner(f, app, banner);
+    }
+    if let Some(banner) = witness_area {
+        draw_witness_summary(f, app, banner);
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(area);
+        .split(body_area);
 
     focus::register_pane(app, PaneId::TestsBottlenecks, chunks[0]);
     focus::register_pane(app, PaneId::TestsHistory, chunks[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::TestsBottlenecks, chunks[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::TestsHistory, chunks[1]);
 
     let (bottlenecks, label) = match app.test_view_mode {
         crate::tui::app::TestViewMode::Average => (&app.state.test_bottlenecks_avg, "Average"),
@@ -286,18 +347,20 @@ pub(crate) fn draw_tests_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let bottlenecks_chrome = focus::pane_chrome(app, PaneId::TestsBottlenecks);
     let list = List::new(items).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(format!(" [ Bottlenecks ({}) - 'v' to toggle ] ", label))
-            .border_style(focus::border_style(app, PaneId::TestsBottlenecks)),
+            .title(bottlenecks_chrome.title(&format!("Bottlenecks ({}) - 'v' to toggle", label)))
+            .border_style(bottlenecks_chrome.border_style),
     );
     f.render_widget(list, chunks[0]);
 
+    let history_chrome = focus::pane_chrome(app, PaneId::TestsHistory);
     let history_block = Block::default()
         .borders(Borders::ALL)
-        .title(" [ History Drill-Down - Enter to load ] ")
-        .border_style(focus::border_style(app, PaneId::TestsHistory));
+        .title(history_chrome.title("History Drill-Down - Enter to load"))
+        .border_style(history_chrome.border_style);
 
     if let Some(hist) = &app.selected_test_history {
         let h_items: Vec<ListItem> = hist
@@ -333,6 +396,90 @@ pub(crate) fn draw_tests_tab(f: &mut Frame, app: &mut App, area: Rect) {
             chunks[1],
         );
     }
+}
+
+fn draw_witness_summary(f: &mut Frame, app: &App, area: Rect) {
+    let w = &app.state.witness;
+    let largest = w
+        .largest_crate
+        .as_ref()
+        .map(|(name, n)| format!("largest: {name} ({n} items)"))
+        .unwrap_or_else(|| "no pub_items".into());
+    let spans = vec![
+        Span::styled(
+            "  Witness ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!("crates:{}  pub_items:{}  ", w.crate_count, w.pub_item_count),
+            Style::default().fg(Color::White),
+        ),
+        Span::styled(largest, Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            format!("   at: {}", w.generated_at),
+            Style::default().fg(Color::DarkGray),
+        ),
+    ];
+    f.render_widget(
+        Paragraph::new(Line::from(spans)).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        ),
+        area,
+    );
+}
+
+fn draw_vrc_banner(f: &mut Frame, app: &App, area: Rect) {
+    let plan = &app.state.vrc.plan;
+    let mode_color = match plan.mode.as_str() {
+        "full" => Color::Cyan,
+        "selected" => Color::Green,
+        "none" => Color::DarkGray,
+        _ => Color::Yellow,
+    };
+    let mut spans: Vec<Span> = vec![
+        Span::styled(
+            "  VRC plan ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!("mode={} ", plan.mode),
+            Style::default().fg(mode_color).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!("· {}", plan.reason),
+            Style::default().fg(Color::Gray),
+        ),
+    ];
+    if !plan.selected_tests.is_empty() || !plan.skipped_tests.is_empty() {
+        spans.push(Span::styled(
+            format!(
+                "   selected:{}  skipped:{}",
+                plan.selected_tests.len(),
+                plan.skipped_tests.len()
+            ),
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+    if let Some(conf) = plan.confidence {
+        spans.push(Span::styled(
+            format!("  conf:{:.0}%", conf * 100.0),
+            Style::default().fg(Color::Cyan),
+        ));
+    }
+    f.render_widget(
+        Paragraph::new(Line::from(spans)).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        ),
+        area,
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -27,6 +27,12 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
     focus::register_pane(app, PaneId::MissionAttention, body_cols[0]);
     focus::register_pane(app, PaneId::MissionProofLanes, body_cols[1]);
     focus::register_pane(app, PaneId::MissionActions, body_cols[2]);
+    focus::register_drill_esc_hotspot(app, PaneId::MissionTopSignal, headline_cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::MissionReadiness, headline_cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::MissionMetrics, rows[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::MissionAttention, body_cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::MissionProofLanes, body_cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::MissionActions, body_cols[2]);
 
     let pool_active = app.state.pools.iter().filter(|p| !p.paused).count();
     let pool_total = app.state.pools.len();
@@ -130,12 +136,13 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
                 ),
             ]),
         ])
-        .block(
+        .block({
+            let chrome = focus::pane_chrome(app, PaneId::MissionTopSignal);
             Block::default()
-                .title(" [ Mission Control ] ")
+                .title(chrome.title("Mission Control"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionTopSignal)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         headline_cols[0],
     );
 
@@ -191,13 +198,34 @@ pub(crate) fn draw_mission_tab(f: &mut Frame, app: &mut App, area: Rect) {
                 &app.state.active_containers.to_string(),
                 Color::Cyan,
             ),
+            {
+                // Audit-score line wired to the Jankurai snapshot. Falls
+                // through gracefully when no scan has been observed yet.
+                let scan = app.state.jankurai.last_scan.as_ref();
+                let (audit_label, audit_color) = match scan {
+                    Some(s) => {
+                        let label = format!("{}/100 (min {})", s.score, s.minimum_score);
+                        let color = if s.score >= s.minimum_score + 10 {
+                            Color::Green
+                        } else if s.score >= s.minimum_score {
+                            Color::Yellow
+                        } else {
+                            Color::Red
+                        };
+                        (label, color)
+                    }
+                    None => ("(no scan yet)".to_string(), Color::DarkGray),
+                };
+                readiness_line("Audit", &audit_label, audit_color)
+            },
         ])
-        .block(
+        .block({
+            let chrome = focus::pane_chrome(app, PaneId::MissionReadiness);
             Block::default()
-                .title(" [ Readiness ] ")
+                .title(chrome.title("Readiness"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionReadiness)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         headline_cols[1],
     );
 
@@ -298,3 +326,7 @@ pub(crate) use ui_panels_body_approvals::*;
 #[path = "ui_panels_body_bugs.rs"]
 mod ui_panels_body_bugs;
 pub(crate) use ui_panels_body_bugs::*;
+
+#[path = "ui_panels_jankurai.rs"]
+mod ui_panels_jankurai;
+pub(crate) use ui_panels_jankurai::*;

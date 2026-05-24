@@ -139,7 +139,7 @@ pub fn render_inspector(f: &mut Frame, area: Rect, detail: &EntityDetail, theme:
                 .unwrap_or(theme.text_muted);
             action_lines.push(Line::from(vec![
                 Span::styled(
-                    format!("  {} ", action.risk.map(|r| r.label()).unwrap_or("—")),
+                    format!("  {} ", action.risk.map(|r| r.label()).unwrap_or("info")),
                     Style::default().fg(risk_color),
                 ),
                 Span::styled(&action.label, theme.primary()),

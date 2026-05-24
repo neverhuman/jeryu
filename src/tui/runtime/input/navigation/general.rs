@@ -212,6 +212,18 @@ async fn handle_enter(app: &mut App) {
             app.focus.push();
             app.feed_toggle_pin();
         }
+        // Explicit Enter → drill arms for every list-bearing tab. The
+        // detail/inspector pane renderers (already wired in P0.4) read
+        // `selected_*_index` from `App` and update as drilled arrows move.
+        (ActiveTab::Approvals, PaneId::ApprovalsQueue)
+        | (ActiveTab::Agents, PaneId::AgentsSessions)
+        | (ActiveTab::Pools, PaneId::PoolsList)
+        | (ActiveTab::Evidence, PaneId::EvidenceList)
+        | (ActiveTab::Secrets, PaneId::SecretsList)
+        | (ActiveTab::Git, PaneId::GitLedger)
+        | (ActiveTab::Bugs, PaneId::BugsTable) => {
+            app.focus.push();
+        }
         _ => {
             app.focus.push();
         }
@@ -394,7 +406,7 @@ mod tests {
         app.active_tab = ActiveTab::Workflow;
         app.focus.set_tab(ActiveTab::Workflow);
         assert_eq!(handle(&mut app, key(KeyCode::BackTab)).await?, Some(false));
-        assert_eq!(app.active_tab, ActiveTab::Git);
+        assert_eq!(app.active_tab, ActiveTab::Jankurai);
         Ok(())
     }
 

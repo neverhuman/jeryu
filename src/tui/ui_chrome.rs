@@ -212,7 +212,30 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
         ("Secrets", ActiveTab::Secrets, None),
         ("LLMs", ActiveTab::LLMs, None),
         ("Git", ActiveTab::Git, None),
+        ("Jankurai", ActiveTab::Jankurai, None),
     ];
+
+    let repo_filter = app.repo_filter();
+    let repo_filter_span = match repo_filter {
+        crate::repo_fleet::RepoFilter::All => {
+            let n = app.state.fleet.repos.len();
+            if n == 0 {
+                Span::styled(" repo:All ", Style::default().fg(Color::DarkGray))
+            } else {
+                Span::styled(
+                    format!(" repo:All({}) ", n),
+                    Style::default().fg(Color::Cyan),
+                )
+            }
+        }
+        crate::repo_fleet::RepoFilter::Only { alias, .. } => Span::styled(
+            format!(" repo:{} ", alias),
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+    };
 
     let top_spans: Vec<Span> = vec![
         Span::styled(
@@ -221,6 +244,7 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
+        repo_filter_span,
         Span::raw(" "),
         gitlab_span,
         Span::styled(

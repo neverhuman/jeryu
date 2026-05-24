@@ -33,6 +33,7 @@ pub const INSPECTOR_MIN_TERM_W: u16 = 140;
 pub enum InspectorTab {
     #[default]
     Overview,
+    Agent,
     Logs,
     Deps,
     Evidence,
@@ -40,8 +41,9 @@ pub enum InspectorTab {
 }
 
 impl InspectorTab {
-    pub const ALL: [InspectorTab; 5] = [
+    pub const ALL: [InspectorTab; 6] = [
         Self::Overview,
+        Self::Agent,
         Self::Logs,
         Self::Deps,
         Self::Evidence,
@@ -51,6 +53,7 @@ impl InspectorTab {
     pub fn label(self) -> &'static str {
         match self {
             Self::Overview => "Overview",
+            Self::Agent => "Agent",
             Self::Logs => "Logs",
             Self::Deps => "Deps",
             Self::Evidence => "Evidence",
@@ -58,20 +61,50 @@ impl InspectorTab {
         }
     }
 
+    /// Returns true when this tab is visible for the given node. The
+    /// `Agent` tab is hidden when the node isn't an `AgentReview`.
+    pub fn visible_for(self, node: Option<&WorkflowNode>) -> bool {
+        if self != Self::Agent {
+            return true;
+        }
+        matches!(
+            node.map(|n| &n.kind),
+            Some(WorkflowNodeKind::AgentReview { .. })
+        )
+    }
+
+    /// Cycle forward, skipping tabs that aren't visible for `node`.
+    pub fn next_for(self, node: Option<&WorkflowNode>) -> Self {
+        let n = Self::ALL.len();
+        let start = Self::ALL.iter().position(|t| *t == self).unwrap_or(0);
+        for offset in 1..=n {
+            let idx = (start + offset) % n;
+            if Self::ALL[idx].visible_for(node) {
+                return Self::ALL[idx];
+            }
+        }
+        self
+    }
+
+    /// Cycle backward, skipping tabs that aren't visible for `node`.
+    pub fn prev_for(self, node: Option<&WorkflowNode>) -> Self {
+        let n = Self::ALL.len();
+        let start = Self::ALL.iter().position(|t| *t == self).unwrap_or(0);
+        for offset in 1..=n {
+            let idx = (start + n - offset) % n;
+            if Self::ALL[idx].visible_for(node) {
+                return Self::ALL[idx];
+            }
+        }
+        self
+    }
+
     pub fn next(self) -> Self {
-        let mut idx = Self::ALL.iter().position(|t| *t == self).unwrap_or(0);
-        idx = (idx + 1) % Self::ALL.len();
-        Self::ALL[idx]
+        self.next_for(None)
     }
 
     pub fn prev(self) -> Self {
-        let mut idx = Self::ALL.iter().position(|t| *t == self).unwrap_or(0);
-        idx = if idx == 0 {
-            Self::ALL.len() - 1
-        } else {
-            idx - 1
-        };
-        Self::ALL[idx]
+        self.prev_for(None)
     }
 }
 
@@ -155,6 +188,7 @@ pub fn draw_inspector_pane_with_chrome(
 
     match tab {
         InspectorTab::Overview => draw_overview(f, content_area, node, theme),
+        InspectorTab::Agent => draw_agent(f, content_area, node, theme),
         InspectorTab::Logs => draw_logs(f, content_area, node, live_log, theme),
         InspectorTab::Deps => draw_deps(f, content_area, &pr.snapshot, node, theme),
         InspectorTab::Evidence => draw_evidence(f, content_area, node, theme),
@@ -204,6 +238,9 @@ fn draw_tab_strip(
 
     let mut spans: Vec<Span> = Vec::new();
     for tab in InspectorTab::ALL {
+        if !tab.visible_for(node) {
+            continue;
+        }
         let style = if tab == selected {
             Style::default()
                 .fg(theme.text_inverse)
@@ -397,6 +434,117 @@ fn draw_deps(
     );
 }
 
+fn draw_agent(f: &mut Frame, area: Rect, node: Option<&WorkflowNode>, theme: &Theme) {
+    let Some(node) = node else {
+        return draw_placeholder(f, area, "no node selected", theme);
+    };
+    if !matches!(node.kind, WorkflowNodeKind::AgentReview { .. }) {
+        return draw_placeholder(f, area, "not an agent-review node", theme);
+    }
+    let Some(detail) = node.agent_call.as_ref() else {
+        return draw_placeholder(
+            f,
+            area,
+            "agent call payload not yet attached — live receipt wiring pending",
+            theme,
+        );
+    };
+    let mut lines = Vec::new();
+    lines.push(row(
+        "Model",
+        detail.model.as_deref().unwrap_or("(unknown)"),
+        theme.bold(theme.agent),
+        theme,
+    ));
+    if let Some(provider) = detail.provider.as_deref() {
+        lines.push(row("Provider", provider, theme.secondary(), theme));
+    }
+    if let Some(agent_id) = detail.agent_id.as_deref() {
+        lines.push(row("Agent", agent_id, theme.secondary(), theme));
+    }
+    let (decision_text, decision_style) = match detail.decision.as_deref() {
+        Some("pass") => ("PASS", theme.bold(theme.ok)),
+        Some("block") => ("BLOCK", theme.bold(theme.fail)),
+        Some("concern") => ("CONCERN", theme.bold(theme.warning)),
+        Some(other) => (other, theme.bold(theme.text_primary)),
+        None => ("(pending)", theme.muted()),
+    };
+    lines.push(row("Decision", decision_text, decision_style, theme));
+    if let Some(reason) = detail.reason.as_deref() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  Reason:",
+            theme.bold(theme.text_primary),
+        )));
+        for chunk in reason.lines().take(8) {
+            lines.push(Line::from(Span::styled(
+                format!("    {}", chunk),
+                theme.secondary(),
+            )));
+        }
+    }
+    if !detail.findings.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  Findings:",
+            theme.bold(theme.text_primary),
+        )));
+        for finding in detail.findings.iter().take(8) {
+            let color = match finding.severity.as_str() {
+                "critical" => theme.fail,
+                "high" => theme.fail,
+                "medium" => theme.warning,
+                "low" => theme.text_muted,
+                _ => theme.text_muted,
+            };
+            let file = finding
+                .file
+                .as_deref()
+                .map(|f| format!(" {}", f))
+                .unwrap_or_default();
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("    [{}]", finding.severity),
+                    Style::default().fg(color).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!(" {}{}", finding.class, file),
+                    theme.secondary(),
+                ),
+            ]));
+        }
+    }
+    if let Some(sha) = detail.raw_response_sha.as_deref() {
+        lines.push(Line::from(""));
+        lines.push(row(
+            "Raw SHA",
+            &sha[..sha.len().min(16)],
+            theme.muted(),
+            theme,
+        ));
+    }
+    if let Some(json) = detail.decision_json.as_deref() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  Decision JSON:",
+            theme.bold(theme.text_primary),
+        )));
+        for chunk in json.lines().take(16) {
+            lines.push(Line::from(Span::styled(
+                format!("    {}", chunk),
+                theme.primary(),
+            )));
+        }
+    }
+
+    f.render_widget(
+        Paragraph::new(lines)
+            .wrap(Wrap { trim: true })
+            .block(empty_block(theme, " Agent Call ")),
+        area,
+    );
+}
+
 fn draw_evidence(f: &mut Frame, area: Rect, node: Option<&WorkflowNode>, theme: &Theme) {
     let Some(node) = node else {
         return draw_placeholder(f, area, "no node selected", theme);
@@ -532,9 +680,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tab_cycles_next_and_prev() {
+    fn tab_cycles_next_and_prev_without_agent() {
+        // With no node, `next()` and `prev()` skip the Agent tab. Visible
+        // count is ALL.len() - 1 = 5; cycling that many lands back at start.
+        let visible = InspectorTab::ALL
+            .iter()
+            .filter(|t| t.visible_for(None))
+            .count();
+        assert_eq!(visible, 5);
+
         let mut t = InspectorTab::Overview;
-        for _ in 0..InspectorTab::ALL.len() {
+        for _ in 0..visible {
             t = t.next();
         }
         assert_eq!(t, InspectorTab::Overview);
@@ -542,5 +698,34 @@ mod tests {
         let mut t = InspectorTab::Logs;
         t = t.prev();
         assert_eq!(t, InspectorTab::Overview);
+    }
+
+    #[test]
+    fn agent_tab_visible_only_for_agent_review_nodes() {
+        let agent_node = WorkflowNode {
+            kind: WorkflowNodeKind::AgentReview {
+                stage: AgentStage::PreMerge,
+            },
+            ..Default::default()
+        };
+        let plain_node = WorkflowNode {
+            kind: WorkflowNodeKind::UnitTest,
+            ..Default::default()
+        };
+        assert!(InspectorTab::Agent.visible_for(Some(&agent_node)));
+        assert!(!InspectorTab::Agent.visible_for(Some(&plain_node)));
+        assert!(!InspectorTab::Agent.visible_for(None));
+    }
+
+    #[test]
+    fn next_for_includes_agent_on_agent_node() {
+        let agent_node = WorkflowNode {
+            kind: WorkflowNodeKind::AgentReview {
+                stage: AgentStage::PreMerge,
+            },
+            ..Default::default()
+        };
+        let t = InspectorTab::Overview.next_for(Some(&agent_node));
+        assert_eq!(t, InspectorTab::Agent);
     }
 }

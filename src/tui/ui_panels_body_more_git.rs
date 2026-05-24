@@ -5,10 +5,11 @@ use super::*;
 // ---------------------------------------------------------------------------
 
 pub(crate) fn draw_audit_ledger(f: &mut Frame, app: &App, area: Rect) {
+    let chrome = focus::pane_chrome(app, PaneId::EvidenceDetail);
     let block = Block::default()
-        .title(" [ Audit Ledger — 'a': capsule view ] ")
+        .title(chrome.title("Audit Ledger — 'a': capsule view"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::EvidenceDetail));
+        .border_style(chrome.border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -93,6 +94,8 @@ pub(crate) fn draw_secrets_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     focus::register_pane(app, PaneId::SecretsList, cols[0]);
     focus::register_pane(app, PaneId::SecretsDetail, cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::SecretsList, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::SecretsDetail, cols[1]);
 
     let items: Vec<ListItem> = app
         .state
@@ -120,24 +123,38 @@ pub(crate) fn draw_secrets_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let list_chrome = focus::pane_chrome(app, PaneId::SecretsList);
     let list = List::new(items).block(
         Block::default()
-            .title(format!(
-                " [ Secret Audit Events ({}) ] ",
+            .title(list_chrome.title(&format!(
+                "Secret Audit Events ({})",
                 app.state.secret_audit_events.len()
-            ))
+            )))
             .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::SecretsList)),
+            .border_style(list_chrome.border_style),
     );
     f.render_widget(list, cols[0]);
 
+    // Right pane: per-event detail when an event is selected; vault status otherwise.
+    let selected = app
+        .selected_secret_index
+        .min(app.state.secret_audit_events.len().saturating_sub(1));
+    let detail_body = if let Some(ev) = app.state.secret_audit_events.get(selected) {
+        format!(
+            "\n  Repo:     {}\n  Action:   {}\n  Status:   {}\n  Created:  {}\n",
+            ev.repo_name, ev.action, ev.status, ev.created_at,
+        )
+    } else {
+        "\n  Vault integration active.\n\n  Events appear here as secrets\n  are rotated, fetched, or revoked.\n\n  [RISK] = Security event requiring review.".to_string()
+    };
+    let detail_chrome = focus::pane_chrome(app, PaneId::SecretsDetail);
     f.render_widget(
-        Paragraph::new("\n  Vault integration active.\n\n  Events appear here as secrets\n  are rotated, fetched, or revoked.\n\n  [RISK] = Security event requiring review.")
+        Paragraph::new(detail_body)
             .block(
-            Block::default()
-                .title(" [ Vault Status ] ")
-                .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::SecretsDetail)),
+                Block::default()
+                    .title(detail_chrome.title("Vault Status"))
+                    .borders(Borders::ALL)
+                    .border_style(detail_chrome.border_style),
             )
             .style(Style::default().fg(Color::White))
             .wrap(Wrap { trim: false }),
@@ -184,6 +201,7 @@ pub(crate) fn draw_git_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .collect();
 
     focus::register_pane(app, PaneId::GitLedger, area);
+    focus::register_drill_esc_hotspot(app, PaneId::GitLedger, area);
 
     let body = if rows.is_empty() {
         List::new(vec![ListItem::new("  No git commands recorded yet.")])
@@ -191,15 +209,16 @@ pub(crate) fn draw_git_tab(f: &mut Frame, app: &mut App, area: Rect) {
         List::new(rows)
     };
 
+    let chrome = focus::pane_chrome(app, PaneId::GitLedger);
     f.render_widget(
         body.block(
             Block::default()
-                .title(format!(
-                    " [ Git Command Ledger ({}) ] ",
+                .title(chrome.title(&format!(
+                    "Git Command Ledger ({})",
                     app.state.recent_git_events.len()
-                ))
+                )))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::GitLedger)),
+                .border_style(chrome.border_style),
         ),
         area,
     );

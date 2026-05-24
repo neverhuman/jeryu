@@ -22,6 +22,7 @@ pub(crate) use types_schema::*;
 
 mod canary;
 mod capsule;
+pub mod draft_loader;
 // `foundry` is `pub mod` (not just `mod`) so the Wave 11.A db-boundary
 // extraction in `src/db/release_repo.rs` can name its concrete types
 // (`FoundryConfig`, `ReleaseCandidate`) via the explicit submodule path.

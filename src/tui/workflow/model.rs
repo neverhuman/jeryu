@@ -197,6 +197,73 @@ pub struct WorkflowNode {
     pub cache_verdict: Option<CacheVerdict>,
     pub progress_pct: Option<u16>,
     pub tags: Vec<String>,
+    /// Populated only when `kind == AgentReview { .. }`. Projection of the
+    /// reviewer's signed approval receipt for display in the Inspector's
+    /// `Agent` sub-tab.
+    #[serde(default)]
+    pub agent_call: Option<AgentCallDetail>,
+}
+
+/// TUI projection of an agent reviewer's call. Sourced from
+/// `crate::autonomy::types::AgentApprovalReceipt` by the sync layer; not
+/// mutated by the TUI itself.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AgentCallDetail {
+    pub model: Option<String>,
+    pub provider: Option<String>,
+    pub agent_id: Option<String>,
+    /// `"pass"` / `"block"` / `"concern"` / etc.
+    pub decision: Option<String>,
+    pub reason: Option<String>,
+    pub raw_response_sha: Option<String>,
+    pub findings: Vec<AgentFindingBrief>,
+    /// Truncated raw decision JSON. Useful for debugging when the reviewer
+    /// produces structured output that can't be summarized in `reason`.
+    pub decision_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AgentFindingBrief {
+    pub severity: String,
+    pub class: String,
+    pub file: Option<String>,
+}
+
+impl From<&crate::autonomy::types::AgentApprovalReceipt> for AgentCallDetail {
+    fn from(r: &crate::autonomy::types::AgentApprovalReceipt) -> Self {
+        use crate::autonomy::types::{ReviewDecision, Severity};
+        let decision = Some(match r.decision {
+            ReviewDecision::Pass => "pass".to_string(),
+            ReviewDecision::Concern => "concern".to_string(),
+            ReviewDecision::Block => "block".to_string(),
+            ReviewDecision::Abstain => "abstain".to_string(),
+        });
+        let findings = r
+            .findings
+            .iter()
+            .map(|f| AgentFindingBrief {
+                severity: match f.severity {
+                    Severity::Info => "info".into(),
+                    Severity::Low => "low".into(),
+                    Severity::Medium => "medium".into(),
+                    Severity::High => "high".into(),
+                    Severity::Critical => "critical".into(),
+                },
+                class: f.class.clone(),
+                file: Some(f.file.clone()),
+            })
+            .collect();
+        AgentCallDetail {
+            model: r.model.clone(),
+            provider: r.provider.clone(),
+            agent_id: Some(r.agent_id.clone()),
+            decision,
+            reason: r.reason.clone(),
+            raw_response_sha: r.raw_response_sha.clone(),
+            findings,
+            decision_json: None,
+        }
+    }
 }
 
 /// Where a node's live status comes from.
@@ -455,6 +522,15 @@ pub struct PullRequestView {
     pub current_node_id: Option<String>,
     /// Full canonical-pipeline DAG snapshot for this PR.
     pub snapshot: WorkflowSnapshot,
+    /// Fleet alias of the repo that owns this PR (e.g. `"nht"`). `None` when
+    /// the source isn't yet repo-aware; such PRs are visible only under
+    /// `RepoFilter::All`.
+    #[serde(default)]
+    pub repo_alias: Option<String>,
+    /// Fleet slug of the repo (e.g. `"neverhuman/veox"`). Same semantics as
+    /// `repo_alias`.
+    #[serde(default)]
+    pub repo_slug: Option<String>,
 }
 
 impl PullRequestView {
@@ -558,6 +634,72 @@ impl DeliverySnapshot {
         } else {
             false
         }
+    }
+
+    /// Move to the next PR that satisfies `keep`, wrapping. No-op when no PR
+    /// matches the predicate.
+    pub fn next_pr_matching<F>(&mut self, keep: F)
+    where
+        F: Fn(&PullRequestView) -> bool,
+    {
+        if self.pull_requests.is_empty() {
+            return;
+        }
+        let n = self.pull_requests.len();
+        for offset in 1..=n {
+            let i = (self.selected_pr_idx + offset) % n;
+            if keep(&self.pull_requests[i]) {
+                self.selected_pr_idx = i;
+                return;
+            }
+        }
+    }
+
+    /// Move to the previous PR that satisfies `keep`, wrapping.
+    pub fn prev_pr_matching<F>(&mut self, keep: F)
+    where
+        F: Fn(&PullRequestView) -> bool,
+    {
+        if self.pull_requests.is_empty() {
+            return;
+        }
+        let n = self.pull_requests.len();
+        for offset in 1..=n {
+            let i = (self.selected_pr_idx + n - offset) % n;
+            if keep(&self.pull_requests[i]) {
+                self.selected_pr_idx = i;
+                return;
+            }
+        }
+    }
+
+    /// If the currently selected PR does not satisfy `keep`, advance to the
+    /// first PR that does. No-op if the selection already matches or if no
+    /// PR matches at all.
+    pub fn ensure_selection_matches<F>(&mut self, keep: F)
+    where
+        F: Fn(&PullRequestView) -> bool,
+    {
+        if self.pull_requests.is_empty() {
+            return;
+        }
+        if let Some(pr) = self.pull_requests.get(self.selected_pr_idx)
+            && keep(pr)
+        {
+            return;
+        }
+        if let Some(idx) = self.pull_requests.iter().position(&keep) {
+            self.selected_pr_idx = idx;
+        }
+    }
+
+    /// How many PRs satisfy `keep`. Used by renderers that report a count
+    /// of visible items under the active repo filter.
+    pub fn count_matching<F>(&self, keep: F) -> usize
+    where
+        F: Fn(&PullRequestView) -> bool,
+    {
+        self.pull_requests.iter().filter(|pr| keep(pr)).count()
     }
 }
 
@@ -751,6 +893,50 @@ mod tests {
             labels: vec![],
             current_node_id: None,
             snapshot: WorkflowSnapshot::empty(),
+            repo_alias: None,
+            repo_slug: None,
         }
+    }
+
+    #[test]
+    fn next_pr_matching_skips_non_matching() {
+        let mut snap = DeliverySnapshot::empty();
+        let mut a = demo_pr(1);
+        a.repo_alias = Some("nht".into());
+        let mut b = demo_pr(2);
+        b.repo_alias = Some("shared".into());
+        let mut c = demo_pr(3);
+        c.repo_alias = Some("nht".into());
+        snap.pull_requests = vec![a, b, c];
+        snap.selected_pr_idx = 0;
+        snap.next_pr_matching(|pr| pr.repo_alias.as_deref() == Some("nht"));
+        assert_eq!(snap.selected_pr_idx, 2);
+    }
+
+    #[test]
+    fn ensure_selection_matches_jumps_to_first_matching() {
+        let mut snap = DeliverySnapshot::empty();
+        let mut a = demo_pr(1);
+        a.repo_alias = Some("nht".into());
+        let mut b = demo_pr(2);
+        b.repo_alias = Some("shared".into());
+        snap.pull_requests = vec![a, b];
+        snap.selected_pr_idx = 0;
+        snap.ensure_selection_matches(|pr| pr.repo_alias.as_deref() == Some("shared"));
+        assert_eq!(snap.selected_pr_idx, 1);
+    }
+
+    #[test]
+    fn count_matching_counts_correctly() {
+        let mut snap = DeliverySnapshot::empty();
+        let mut a = demo_pr(1);
+        a.repo_alias = Some("nht".into());
+        let mut b = demo_pr(2);
+        b.repo_alias = Some("shared".into());
+        let mut c = demo_pr(3);
+        c.repo_alias = Some("nht".into());
+        snap.pull_requests = vec![a, b, c];
+        assert_eq!(snap.count_matching(|pr| pr.repo_alias.as_deref() == Some("nht")), 2);
+        assert_eq!(snap.count_matching(|_| true), 3);
     }
 }

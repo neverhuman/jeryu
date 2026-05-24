@@ -53,6 +53,7 @@ impl App {
             selected_test_index: 0,
             selected_test_history: None,
             selected_evidence_index: 0,
+            selected_jankurai_index: 0,
             command_palette_open: false,
             command_palette_query: String::new(),
             selected_palette_index: 0,
@@ -168,6 +169,31 @@ impl App {
 
     pub fn selected_repo(&self) -> Option<&crate::repo_fleet::FleetRepoSnapshot> {
         self.state.fleet.selected(self.selected_repo_index)
+    }
+
+    /// Returns true when the jankurai binary or report data is present in
+    /// the repo. Drives the "installed" hint in the Jankurai pane.
+    pub fn jankurai_available(&self) -> bool {
+        self.state.jankurai.installed
+    }
+
+    /// Currently-selected jankurai finding, if any.
+    pub fn selected_jankurai_entry(&self) -> Option<&crate::tui::jankurai::JankuraiEntry> {
+        self.state.jankurai.entries.get(self.selected_jankurai_index)
+    }
+
+    /// Active repo filter — `RepoFilter::All` when index is 0 or no repo is
+    /// selected, otherwise `RepoFilter::Only { alias, slug }`. Renderers in
+    /// every pane should call this and apply `.matches()` to per-item repo
+    /// metadata before drawing.
+    pub fn repo_filter(&self) -> crate::repo_fleet::RepoFilter<'_> {
+        match self.selected_repo() {
+            None => crate::repo_fleet::RepoFilter::All,
+            Some(repo) => crate::repo_fleet::RepoFilter::Only {
+                alias: repo.alias.as_str(),
+                slug: repo.slug.as_str(),
+            },
+        }
     }
 
     /// Route a key into the action pane. Returns `true` when the pane

@@ -41,6 +41,9 @@ pub enum ActiveTab {
     LLMs,
     Git,
     Secrets,
+    /// Jankurai audit overview. Reached via Tab / BackTab cycling — no
+    /// digit shortcut so the 0-9 layout stays stable.
+    Jankurai,
 }
 
 impl ActiveTab {
@@ -247,6 +250,37 @@ pub struct TuiStateSnapshot {
     pub approvals_queue: Vec<PendingApproval>,
     // TUI connection status: true if state was fetched within the last 10s
     pub agent_connected: bool,
+    /// Status of the delivery (PR) source — populated by the live PR
+    /// collector when one is configured. Drives the empty-state card in
+    /// `workflow::widget::draw_workflow_empty_state`.
+    pub delivery_source_status: DeliverySourceStatus,
+    /// Jankurai audit snapshot, refreshed from `agent/repo-score.json` and
+    /// `agent/score-history.jsonl` on the background sync tick.
+    pub jankurai: crate::tui::jankurai::JankuraiSnapshot,
+    /// AER (Audit Error Report) findings — refreshed from
+    /// `<repo_root>/aer-findings.json` on the background sync tick.
+    pub aer: crate::tui::aer::AerSnapshot,
+    /// VRC test-selection plan — refreshed from `<repo_root>/vrc-plan.json`.
+    pub vrc: crate::tui::vrc::VrcSnapshot,
+    /// Witness build-graph summary — refreshed from `.witness/witness-graph.json`.
+    pub witness: crate::tui::witness::WitnessSnapshot,
+    /// Proof lanes definition + last-run status, sourced from `proof-lanes.toml`.
+    pub proof_lanes: crate::tui::proof_lanes::ProofLanesSnapshot,
+    /// Active agent sessions, surfaced on the Agents tab via
+    /// `widgets::agent_fleet::render_agent_fleet`. Empty when the store
+    /// does not yet expose a sessions list — the tab falls back to the
+    /// pipeline-based view derived from `agent_pipelines`.
+    pub agent_sessions: Vec<crate::api::agent_session::AgentSession>,
+}
+
+/// Configuration + last-sync diagnostics for the PR source. Defaults to
+/// `configured=false` until the operator wires a GitHub/GitLab source.
+#[derive(Debug, Clone, Default)]
+pub struct DeliverySourceStatus {
+    pub configured: bool,
+    pub source_label: Option<String>,
+    pub last_sync_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub last_sync_error: Option<String>,
 }
 
 /// Counts of in-flight items per stage of the release funnel. Sourced from
@@ -325,6 +359,7 @@ pub struct App {
     pub selected_test_history: Option<Vec<crate::state::TestExecution>>,
 
     pub selected_evidence_index: usize,
+    pub selected_jankurai_index: usize,
     pub selected_palette_index: usize,
     pub command_palette_open: bool,
     pub command_palette_query: String,

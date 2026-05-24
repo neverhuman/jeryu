@@ -84,12 +84,13 @@ pub(crate) fn draw_attention_queue(f: &mut Frame, app: &App, area: Rect) {
         )));
     }
     f.render_widget(
-        Paragraph::new(lines).block(
+        Paragraph::new(lines).block({
+            let chrome = focus::pane_chrome(app, PaneId::MissionAttention);
             Block::default()
-                .title(" [ Attention Queue ] ")
+                .title(chrome.title("Attention Queue"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionAttention)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         area,
     );
 }
@@ -123,73 +124,126 @@ pub(crate) fn draw_proof_lanes(f: &mut Frame, app: &App, area: Rect) {
         .as_ref()
         .map(|rel| rel.canary_state.as_str())
         .unwrap_or("none");
-    let lanes = vec![
-        (
-            "Capability grants",
+    // Sandbox status derived from real cache + detonation counters instead
+    // of the previous hardcoded label.
+    let sandbox_state = if app.state.detonation_breaches > 0 {
+        "breach"
+    } else if app.state.active_taint_count > 0 {
+        "taint active"
+    } else {
+        "strict closed"
+    };
+    // Build a string-owned lane list. When `proof-lanes.toml` is loaded,
+    // surface those lanes with the derived live status; otherwise fall back
+    // to the legacy heuristic set above.
+    let mut lanes: Vec<(String, String)> = Vec::new();
+    if app.state.proof_lanes.loaded {
+        for lane in &app.state.proof_lanes.lanes {
+            let id = lane.id.as_str();
+            let status: &str = if app
+                .state
+                .recent_audit_events
+                .iter()
+                .any(|ev| ev.event_type.contains(id))
+            {
+                "observed"
+            } else if lane.required_for.iter().any(|tag| tag == "any") {
+                "needed"
+            } else {
+                "scoped"
+            };
+            // Capitalize the lane id for the label.
+            let title = if let Some(first) = id.chars().next() {
+                let mut s = first.to_ascii_uppercase().to_string();
+                s.push_str(&id[first.len_utf8()..]);
+                s
+            } else {
+                id.to_string()
+            };
+            lanes.push((title, status.to_string()));
+        }
+    }
+    if lanes.is_empty() {
+        // Legacy fallback when no proof-lanes.toml is present.
+        lanes.push((
+            "Capability grants".into(),
             if app
                 .state
                 .recent_audit_events
                 .iter()
                 .any(|ev| ev.event_type.contains("capability"))
             {
-                "observed"
+                "observed".into()
             } else {
-                "quiet"
+                "quiet".into()
             },
-        ),
-        (
-            "VTI receipts",
+        ));
+        lanes.push((
+            "VTI receipts".into(),
             if app
                 .state
                 .recent_audit_events
                 .iter()
                 .any(|ev| ev.event_type.contains("vti"))
             {
-                "observed"
+                "observed".into()
             } else {
-                "needed"
+                "needed".into()
             },
-        ),
-        (
-            "Merge proof",
+        ));
+        lanes.push((
+            "Merge proof".into(),
             if failed_or_tainted(app) {
-                "blocked"
+                "blocked".into()
             } else {
-                "dry-run"
+                "dry-run".into()
             },
-        ),
-        ("Release gate", release_state),
-        ("Sandbox", "strict fails closed"),
-        (
-            "Evidence ledger",
+        ));
+        lanes.push(("Release gate".into(), release_state.into()));
+        lanes.push(("Sandbox".into(), sandbox_state.into()));
+        lanes.push((
+            "Evidence ledger".into(),
             if app.state.recent_evidence.is_empty() {
-                "empty"
+                "empty".into()
             } else {
-                "capsules"
+                "capsules".into()
             },
-        ),
-    ];
+        ));
+    } else {
+        // Append release + sandbox + evidence as derived signals not in toml.
+        lanes.push(("Release gate".into(), release_state.into()));
+        lanes.push(("Sandbox".into(), sandbox_state.into()));
+        lanes.push((
+            "Evidence ledger".into(),
+            if app.state.recent_evidence.is_empty() {
+                "empty".into()
+            } else {
+                "capsules".into()
+            },
+        ));
+    }
     let lines: Vec<Line> = lanes
         .into_iter()
         .map(|(lane, state)| {
-            let (badge, color) = status_badge(state);
+            let (badge, color) = status_badge(state.as_str());
             Line::from(vec![
                 Span::styled(
                     format!(" {badge:<5} "),
                     Style::default().fg(color).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(format!("{lane:<18}"), Style::default().fg(Color::White)),
-                Span::styled(state.to_string(), Style::default().fg(Color::DarkGray)),
+                Span::styled(state, Style::default().fg(Color::DarkGray)),
             ])
         })
         .collect();
     f.render_widget(
-        Paragraph::new(lines).block(
+        Paragraph::new(lines).block({
+            let chrome = focus::pane_chrome(app, PaneId::MissionProofLanes);
             Block::default()
-                .title(" [ Proof Stack ] ")
+                .title(chrome.title("Proof Stack"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionProofLanes)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         area,
     );
 }
@@ -264,12 +318,13 @@ pub(crate) fn draw_action_stack(f: &mut Frame, app: &App, area: Rect) {
         )),
     ];
     f.render_widget(
-        Paragraph::new(lines).block(
+        Paragraph::new(lines).block({
+            let chrome = focus::pane_chrome(app, PaneId::MissionActions);
             Block::default()
-                .title(" [ Next Actions ] ")
+                .title(chrome.title("Next Actions"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::MissionActions)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         area,
     );
 }

@@ -57,6 +57,12 @@ pub enum PaneId {
     LLMsPolicyMatrix,
     LLMsPolicySplit,
     GitLedger,
+    JankSummary,
+    JankStatus,
+    JankScoreChart,
+    JankBreakdown,
+    JankIssues,
+    JankEntryDetail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -205,6 +211,12 @@ impl PaneId {
             PaneId::SecretsList | PaneId::SecretsDetail => ActiveTab::Secrets,
             PaneId::LLMsPolicyMatrix | PaneId::LLMsPolicySplit => ActiveTab::LLMs,
             PaneId::GitLedger => ActiveTab::Git,
+            PaneId::JankSummary
+            | PaneId::JankStatus
+            | PaneId::JankScoreChart
+            | PaneId::JankBreakdown
+            | PaneId::JankIssues
+            | PaneId::JankEntryDetail => ActiveTab::Jankurai,
         }
     }
 
@@ -257,6 +269,12 @@ impl PaneId {
             PaneId::LLMsPolicyMatrix => "Policy Matrix".into(),
             PaneId::LLMsPolicySplit => "Policy Split".into(),
             PaneId::GitLedger => "Ledger".into(),
+            PaneId::JankSummary => "Jankurai Summary".into(),
+            PaneId::JankStatus => "Jankurai Status".into(),
+            PaneId::JankScoreChart => "Score History".into(),
+            PaneId::JankBreakdown => "Last Scan Dimensions".into(),
+            PaneId::JankIssues => "Caps / Findings".into(),
+            PaneId::JankEntryDetail => "Entry Detail".into(),
         }
     }
 
@@ -276,6 +294,7 @@ impl PaneId {
             ActiveTab::LLMs => PaneId::LLMsPolicyMatrix,
             ActiveTab::Git => PaneId::GitLedger,
             ActiveTab::Secrets => PaneId::SecretsList,
+            ActiveTab::Jankurai => PaneId::JankIssues,
         }
     }
 
@@ -366,6 +385,14 @@ impl PaneId {
                 PaneId::ActivityLog(LLMs),
             ],
             Git => &[PaneId::GitLedger, PaneId::ActivityLog(Git)],
+            Jankurai => &[
+                PaneId::JankSummary,
+                PaneId::JankStatus,
+                PaneId::JankScoreChart,
+                PaneId::JankBreakdown,
+                PaneId::JankIssues,
+                PaneId::JankEntryDetail,
+            ],
         }
     }
 }
