@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.17] - 2026-05-24
+
+### Changed
+
+- Hardened the release/CI lane wiring so generated score artifacts, workflow
+  parity checks, and pre-push enforcement stay aligned with the real
+  `origin/main` base.
+- Added local GitLab auth repairs, shared env-file helpers, and the new GitLab
+  host/client surface needed by the current Evidence Gate flow.
+- Expanded the LLM key-pool and doctor metadata surfaces, including the
+  approval receipt schema update and reviewer docs.
+- Bumped release metadata to `3.3.17` across Cargo, `VERSION`, `version.json`,
+  and the changelog.
+
 ## [3.3.16] - 2026-05-23
 
 ### Changed
