@@ -15,6 +15,16 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
         }
         KeyCode::Char('q') => Ok(Some(true)),
         KeyCode::Esc => {
+            // FleetBar-specific: close detail and reset to All
+            if app.focus.active == PaneId::FleetBar {
+                if app.repo_detail_open || app.selected_repo_index != 0 {
+                    app.close_repo_detail();
+                    app.repo_select_all();
+                }
+                // Pop drill so Left/Right go back to macro focus nav
+                let _ = app.focus.escape();
+                return Ok(Some(false));
+            }
             if app.repo_detail_open || app.selected_repo_index != 0 {
                 app.close_repo_detail();
                 app.repo_select_all();
@@ -82,14 +92,25 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             Ok(Some(false))
         }
         KeyCode::Enter => {
-            if !matches!(app.focus.active, PaneId::ActivityLog(_)) {
-                app.open_repo_detail();
+            // FleetBar-specific: Enter opens the detail overlay and drills
+            // focus so Left/Right cycle repos.
+            if app.focus.active == PaneId::FleetBar {
+                if app.repo_detail_open {
+                    app.close_repo_detail();
+                } else {
+                    app.open_repo_detail();
+                    app.focus.push(); // drill so L/R cycle repos
+                }
+                return Ok(Some(false));
             }
             handle_enter(app).await;
             Ok(Some(false))
         }
         KeyCode::Left | KeyCode::Char('h') => {
-            if app.repo_detail_open && !app.focus.is_drilled() {
+            // Fleet bar drilled OR repo detail open (not drilled elsewhere): cycle repos
+            if (app.focus.active == PaneId::FleetBar && app.focus.is_drilled())
+                || (app.repo_detail_open && !app.focus.is_drilled())
+            {
                 app.repo_select_prev();
             } else if app.focus.is_drilled() {
                 handle_drilled_arrow(app, NavDirection::Left).await;
@@ -102,7 +123,10 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             Ok(Some(false))
         }
         KeyCode::Right | KeyCode::Char('l') => {
-            if app.repo_detail_open && !app.focus.is_drilled() {
+            // Fleet bar drilled OR repo detail open (not drilled elsewhere): cycle repos
+            if (app.focus.active == PaneId::FleetBar && app.focus.is_drilled())
+                || (app.repo_detail_open && !app.focus.is_drilled())
+            {
                 app.repo_select_next();
             } else if app.focus.is_drilled() {
                 handle_drilled_arrow(app, NavDirection::Right).await;
@@ -405,10 +429,12 @@ mod tests {
         app.apply_demo_fixture();
         app.active_tab = ActiveTab::Jobs;
         app.focus.set_tab(ActiveTab::Jobs);
+        // Focus the fleet bar, then Enter to open detail + drill
+        app.focus.active = PaneId::FleetBar;
 
         assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
         assert!(app.repo_detail_open);
-        let _ = app.close_focus_overlay();
+        assert!(app.focus.is_drilled()); // drilled so L/R cycle repos
 
         assert_eq!(handle(&mut app, key(KeyCode::Right)).await?, Some(false));
         assert_eq!(app.selected_repo_index, 1);
