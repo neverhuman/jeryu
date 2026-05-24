@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779649181`
-- Started at: `1779649181`
-- Elapsed: `7324` ms
+- Run ID: `1779649378`
+- Started at: `1779649378`
+- Elapsed: `7421` ms
 - Scope: `full`
 - Raw score: `89`
 - Final score: `89`
@@ -70,7 +70,7 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`22` files=`420`
+- Status: `review` hard=`0` warning=`22` files=`421`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
 - Duplicate volume: lines=`34` tokens=`84` bytes=`862`
 
@@ -112,7 +112,7 @@
 | Contract and boundary integrity | 13 | 98 | 12.74 | contract surface found; generated contract artifacts found |
 | Proof lanes and test routing | 12 | 100 | 12.00 | one-command setup/validation lane found; deterministic fast lane found |
 | Security and supply-chain posture | 12 | 86 | 10.32 | lockfile present; secret or dependency scan tooling found |
-| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/autonomy/signing_secrets.rs (362 LOC); most code files stay under 300 LOC |
+| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/git_host/gitlab.rs (339 LOC); most code files stay under 300 LOC |
 | Data truth and workflow safety | 8 | 95 | 7.60 | database surface present; structured db boundary manifest present |
 | Observability and repair evidence | 8 | 98 | 7.84 | observability libraries or patterns found; diagnostic shaping hints found |
 | Context economy and agent instructions | 7 | 100 | 7.00 | root `AGENTS.md` present; root `AGENTS.md` stays short |
@@ -217,8 +217,8 @@ No audited runtime boundary reclassifications declared.
    Reason: `Code shape and semantic surface` scored 70 below the standard floor of 85
    Fix: split large or ambiguous authored code into smaller semantic modules with focused tests
    Rerun: `just fast`
-   Fingerprint: `sha256:de3528d4796f5936b8bf1e7c6f816437ccecdc3981c12d3e405ecedee446c5a1`
-   Evidence: largest authored code file: src/autonomy/signing_secrets.rs (362 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 22 (advisory only, no score impact), IO markers found in domain/core files
+   Fingerprint: `sha256:f203b5ec1db2f9466904c2f29348e3d467a909cdf9458a4ae77ff616cdd726f2`
+   Evidence: largest authored code file: src/git_host/gitlab.rs (339 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 22 (advisory only, no score impact), IO markers found in domain/core files
 
 ## Policy
 
