@@ -92,13 +92,31 @@ impl App {
         }
     }
 
+    /// Replace `App` state with the in-memory demo fixture used by
+    /// `jeryu tui --demo`. The real implementation lives in
+    /// `app_runtime_demo.rs` and only compiles when the `demo-fixtures`
+    /// feature is on (default) or under `#[cfg(test)]`. Release builds that
+    /// opt out via `--no-default-features` get a no-op that logs a warning.
+    #[cfg(any(feature = "demo-fixtures", test))]
     pub fn apply_demo_fixture(&mut self) {
         app_runtime_demo::apply_demo_fixture(self);
     }
 
+    #[cfg(not(any(feature = "demo-fixtures", test)))]
+    pub fn apply_demo_fixture(&mut self) {
+        tracing::warn!(
+            target: "tui",
+            "--demo requested but binary built without `demo-fixtures` feature; ignoring"
+        );
+    }
+
+    #[cfg(any(feature = "demo-fixtures", test))]
     pub fn tick_demo_state(&mut self) {
         app_runtime_demo::tick_demo_state(self);
     }
+
+    #[cfg(not(any(feature = "demo-fixtures", test)))]
+    pub fn tick_demo_state(&mut self) {}
 
     /// Try to upgrade the default `FakeActionAdapter` to a real
     /// `ProductionActionAdapter`. Returns `Ok(())` when the database pool,
@@ -491,6 +509,7 @@ impl App {
     }
 }
 
+#[cfg(any(feature = "demo-fixtures", test))]
 #[path = "app_runtime_demo.rs"]
 mod app_runtime_demo;
 

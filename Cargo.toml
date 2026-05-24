@@ -149,13 +149,17 @@ jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0
 url = { version = "2", optional = true }
 
 [features]
-default = ["profile-sqlite-kafka"]
+default = ["profile-sqlite-kafka", "demo-fixtures"]
 sqlite-backend = ["sqlx/sqlite"]
 redlinedb-backend = ["dep:redlinedb-sqlx"]
 kafka-backend = []
 jansu-backend = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
 profile-sqlite-kafka = ["sqlite-backend", "kafka-backend"]
 profile-redlinedb-jansu = ["redlinedb-backend", "jansu-broker"]
+# In-memory demo fixtures (5-PR walkthrough used by `jeryu tui --demo`).
+# Default-on so the demo flag keeps working. Release builds that don't
+# need the demo path opt out with `--no-default-features`.
+demo-fixtures = []
 # Route webhook events through an embedded Jansu broker (producer in the HTTP
 # handler, consumer in the autonomy daemon). Adds the jansu-embedded transitive
 # closure (~object_store, rama).

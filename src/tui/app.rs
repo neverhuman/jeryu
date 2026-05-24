@@ -16,8 +16,10 @@ use tokio::sync::watch;
 // Demo data helpers (extracted)
 // ---------------------------------------------------------------------------
 
+#[cfg(any(feature = "demo-fixtures", test))]
 #[path = "app_demo.rs"]
 mod app_demo;
+#[cfg(any(feature = "demo-fixtures", test))]
 pub(crate) use app_demo::*;
 
 const LIVE_LOG_MAX_BYTES: usize = 160_000;

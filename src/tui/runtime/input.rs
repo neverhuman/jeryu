@@ -54,6 +54,8 @@ pub(crate) async fn run_loop(
 
         app.tick().await;
         if demo {
+            // The method is feature-gated: real impl with the `demo-fixtures`
+            // feature, no-op (with warning) otherwise — so callers stay clean.
             app.tick_demo_state();
         }
     }
