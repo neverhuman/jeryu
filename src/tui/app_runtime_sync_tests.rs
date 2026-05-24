@@ -25,6 +25,28 @@ fn job_without_pipeline(job_id: i64, status: &str, received_at: &str) -> JobEven
     }
 }
 
+fn ci_job_run(job_id: i64, status: &str) -> crate::state::CiJobRun {
+    crate::state::CiJobRun {
+        job_id,
+        project_id: 2,
+        pipeline_id: 163,
+        root_pipeline_id: 163,
+        pipeline_sha: "0123456789abcdef0123456789abcdef01234567".into(),
+        ref_name: "main".into(),
+        job_name: format!("release-job-{job_id}"),
+        stage: "release".into(),
+        status: status.into(),
+        runner: Some("jeryu-build".into()),
+        runner_pool: Some("build".into()),
+        queued_duration_secs: Some(1.5),
+        duration_secs: Some(42.0),
+        started_at: Some("2026-05-24T20:00:00Z".into()),
+        finished_at: Some("2026-05-24T20:42:00Z".into()),
+        web_url: None,
+        observed_at: "2026-05-24T20:43:00Z".into(),
+    }
+}
+
 fn pool(name: &str, paused: bool) -> crate::state::Pool {
     crate::state::Pool {
         name: name.into(),
@@ -210,6 +232,20 @@ fn live_jobs_sort_running_ahead_of_created_and_pending() {
             "created"
         ]
     );
+}
+
+#[test]
+fn ci_job_runs_backfill_recent_jobs_for_tui() {
+    let job = super::ci_job_run_to_recent_job(ci_job_run(608, "failed"));
+
+    assert_eq!(job.job_id, 608);
+    assert_eq!(job.project_id, 2);
+    assert_eq!(job.pipeline_id, Some(163));
+    assert_eq!(job.status, "failed");
+    assert_eq!(job.job_name.as_deref(), Some("release-job-608"));
+    assert_eq!(job.pool_name.as_deref(), Some("build"));
+    assert_eq!(job.queued_duration, Some(1.5));
+    assert_eq!(job.received_at, "2026-05-24T20:42:00Z");
 }
 
 #[tokio::test]

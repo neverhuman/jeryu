@@ -4,7 +4,7 @@
 
 use crate::git_host::{GitHubClient, RepoRef};
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -19,7 +19,7 @@ pub struct RepoRegistry {
     pub repo: Vec<RepoConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RepoConfig {
     pub alias: String,
     pub slug: String,
@@ -29,6 +29,54 @@ pub struct RepoConfig {
     pub default_branch: String,
     pub visibility: String,
     pub health_profile: String,
+}
+
+impl<'de> Deserialize<'de> for RepoConfig {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawRepoConfig {
+            alias: String,
+            slug: String,
+            #[serde(default)]
+            provider: Option<String>,
+            remote: String,
+            #[serde(default)]
+            local_root: Option<PathBuf>,
+            #[serde(default)]
+            path: Option<PathBuf>,
+            default_branch: String,
+            #[serde(default)]
+            visibility: Option<String>,
+            #[serde(default)]
+            health_profile: Option<String>,
+            #[serde(default)]
+            profile: Option<String>,
+        }
+
+        let raw = RawRepoConfig::deserialize(deserializer)?;
+        let local_root = raw
+            .local_root
+            .or(raw.path)
+            .ok_or_else(|| serde::de::Error::missing_field("local_root"))?;
+        Ok(Self {
+            alias: raw.alias,
+            provider: raw
+                .provider
+                .unwrap_or_else(|| infer_provider(&raw.slug, &raw.remote).to_string()),
+            slug: raw.slug,
+            remote: raw.remote,
+            local_root,
+            default_branch: raw.default_branch,
+            visibility: raw.visibility.unwrap_or_else(|| "private".to_string()),
+            health_profile: raw
+                .health_profile
+                .or(raw.profile)
+                .unwrap_or_else(|| "default".to_string()),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
@@ -198,6 +246,40 @@ pub fn load_registry_path(path: &Path) -> Result<RepoRegistry> {
 
 pub fn registry_path_for(repo_root: &Path) -> PathBuf {
     repo_root.join(DEFAULT_REGISTRY_PATH)
+}
+
+pub fn registry_from_tracked_repositories(
+    repos: &[crate::state::TrackedRepository],
+) -> RepoRegistry {
+    RepoRegistry {
+        schema_version: Some("state-store".to_string()),
+        repo: repos
+            .iter()
+            .map(|repo| RepoConfig {
+                alias: repo.alias.clone(),
+                slug: repo.slug.clone(),
+                provider: repo.provider.clone(),
+                remote: repo.remote.clone(),
+                local_root: PathBuf::from(&repo.local_root),
+                default_branch: repo.default_branch.clone(),
+                visibility: repo.visibility.clone(),
+                health_profile: repo.health_profile.clone(),
+            })
+            .collect(),
+    }
+}
+
+pub async fn collect_fleet_snapshot_from_tracked_repositories(
+    repos: &[crate::state::TrackedRepository],
+    github: Option<&GitHubClient>,
+) -> Result<FleetSnapshot> {
+    let registry = registry_from_tracked_repositories(repos);
+    collect_fleet_snapshot_from_registry(
+        &registry,
+        PathBuf::from("state:tracked_repositories"),
+        github,
+    )
+    .await
 }
 
 pub fn local_git_status(repo: &RepoConfig) -> RepoLocalStatus {
@@ -421,6 +503,15 @@ fn is_failed_conclusion(conclusion: Option<&str>) -> bool {
     )
 }
 
+fn infer_provider(slug: &str, remote: &str) -> &'static str {
+    let remote = remote.to_ascii_lowercase();
+    if slug.starts_with("root/") || remote.contains("gitlab") {
+        "gitlab"
+    } else {
+        "github"
+    }
+}
+
 fn parse_utc(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
     chrono::DateTime::parse_from_rfc3339(value)
         .ok()
@@ -450,6 +541,57 @@ health_profile = "rust-workspace"
         assert_eq!(registry.repo.len(), 1);
         assert_eq!(registry.repo[0].alias, "nht");
         assert_eq!(registry.repo[0].health_profile, "rust-workspace");
+    }
+
+    #[test]
+    fn parses_legacy_veox_split_registry_defaults() {
+        let raw = r#"
+schema_version = "1"
+workspace = "veox-fusion"
+
+[[repo]]
+name = "veox-shared"
+alias = "shared"
+slug = "neverhuman/veox-shared"
+path = "/tmp/veox-shared"
+remote = "https://github.com/neverhuman/veox-shared.git"
+default_branch = "main"
+profile = "rust-workspace"
+project_id = "veox-shared"
+"#;
+        let registry: RepoRegistry = toml::from_str(raw).unwrap();
+        assert_eq!(registry.repo.len(), 1);
+        assert_eq!(registry.repo[0].alias, "shared");
+        assert_eq!(registry.repo[0].provider, "github");
+        assert_eq!(registry.repo[0].visibility, "private");
+        assert_eq!(registry.repo[0].health_profile, "rust-workspace");
+        assert_eq!(
+            registry.repo[0].local_root,
+            PathBuf::from("/tmp/veox-shared")
+        );
+    }
+
+    #[test]
+    fn tracked_repositories_render_as_fleet_registry() {
+        let registry = registry_from_tracked_repositories(&[crate::state::TrackedRepository {
+            slug: "neverhuman/veox-shared".into(),
+            alias: "shared".into(),
+            provider: "github".into(),
+            remote: "https://github.com/neverhuman/veox-shared.git".into(),
+            local_root: "/tmp/veox-shared".into(),
+            default_branch: "main".into(),
+            visibility: "private".into(),
+            health_profile: "split-required".into(),
+            created_at: "2026-05-24T00:00:00Z".into(),
+            updated_at: "2026-05-24T00:00:00Z".into(),
+        }]);
+
+        assert_eq!(registry.schema_version.as_deref(), Some("state-store"));
+        assert_eq!(registry.repo[0].alias, "shared");
+        assert_eq!(
+            registry.repo[0].local_root,
+            PathBuf::from("/tmp/veox-shared")
+        );
     }
 
     #[test]

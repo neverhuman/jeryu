@@ -41,6 +41,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             let db = state::Db::open().await?;
             let runs = fetch_ci_job_runs(&client, project_id, pipeline_id).await?;
             if ingest {
+                upsert_tracked_pipeline_from_gitlab(&db, &client, project_id, pipeline_id).await?;
                 db.upsert_ci_job_runs(&runs).await?;
             }
             if json {
@@ -77,6 +78,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
         } => {
             let db = state::Db::open().await?;
             let runs = fetch_ci_job_runs(&client, project_id, pipeline_id).await?;
+            upsert_tracked_pipeline_from_gitlab(&db, &client, project_id, pipeline_id).await?;
             db.upsert_ci_job_runs(&runs).await?;
             println!(
                 "ingested {} job runs for pipeline {}",
@@ -127,4 +129,22 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
         }
     }
     Ok(())
+}
+
+async fn upsert_tracked_pipeline_from_gitlab(
+    db: &state::Db,
+    client: &jeryu::gitlab_client::GitlabClient,
+    project_id: i64,
+    pipeline_id: i64,
+) -> Result<()> {
+    let pipeline = client.get_pipeline(project_id, pipeline_id).await?;
+    db.upsert_tracked_pipeline(&state::TrackedPipeline {
+        pipeline_id: pipeline.id,
+        project_id,
+        ref_name: pipeline.ref_name,
+        sha: pipeline.sha,
+        status: pipeline.status,
+        updated_at: chrono::Utc::now().to_rfc3339(),
+    })
+    .await
 }
