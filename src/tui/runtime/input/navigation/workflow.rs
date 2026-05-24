@@ -21,11 +21,23 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
         // Enter on the canvas opens (or closes) the right-side Inspector and
         // keeps drilled focus so arrow keys keep mutating node selection while
         // the Inspector is visible.
+        //
+        // State machine:
+        //   (closed, not-drilled) → open + drill
+        //   (open,   not-drilled) → drill only (inspector already visible; just enter micro-mode)
+        //   (open,   drilled)     → close + undrill  (second Enter is the toggle-off)
+        //   (closed, drilled)     → this shouldn't occur; treat as drill-only
         KeyCode::Enter if app.focus.active == PaneId::WorkflowCanvas => {
-            app.workflow_toggle_inspect();
-            if app.workflow_inspect_open && !app.focus.is_drilled() {
+            if !app.workflow_inspect_open {
+                // Inspector is closed: open it then drill.
+                app.workflow_toggle_inspect();
                 app.focus.push();
-            } else if !app.workflow_inspect_open && app.focus.is_drilled() {
+            } else if !app.focus.is_drilled() {
+                // Inspector already open but focus is still at macro level: just drill in.
+                app.focus.push();
+            } else {
+                // Inspector open and already drilled: second Enter closes and undrills.
+                app.workflow_toggle_inspect();
                 let _ = app.focus.pop();
             }
             Ok(Some(false))
@@ -96,13 +108,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn enter_on_canvas_when_open_closes_inspector() -> Result<()> {
+    async fn enter_on_canvas_when_open_and_not_drilled_just_drills() -> Result<()> {
+        // When the inspector is already open (e.g. via JERYU_TUI_WORKFLOW_INSPECT_OPEN)
+        // but focus is still at the macro level, Enter should drill in WITHOUT
+        // closing the inspector.
+        let mut app = workflow_app().await?;
+        app.workflow_inspect_open = true;
+        assert!(!app.focus.is_drilled());
+        assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
+        assert!(app.workflow_inspect_open, "inspector should remain open");
+        assert!(app.focus.is_drilled(), "focus should be drilled after Enter");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn enter_on_canvas_when_open_and_drilled_closes_inspector() -> Result<()> {
         let mut app = workflow_app().await?;
         app.workflow_inspect_open = true;
         app.focus.push();
         assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
-        assert!(!app.workflow_inspect_open);
-        assert!(!app.focus.is_drilled());
+        assert!(!app.workflow_inspect_open, "second Enter should close inspector");
+        assert!(!app.focus.is_drilled(), "second Enter should undrill focus");
         Ok(())
     }
 

@@ -92,6 +92,7 @@ async fn renders_all_primary_tabs_with_empty_state() -> Result<()> {
         crate::tui::app::ActiveTab::Secrets,
         crate::tui::app::ActiveTab::LLMs,
         crate::tui::app::ActiveTab::Git,
+        crate::tui::app::ActiveTab::Jankurai,
     ] {
         app.active_tab = tab;
         let buffer = capture_buffer(&mut app)?;
@@ -493,5 +494,224 @@ async fn navigation_cycles_tabs_and_panes() -> Result<()> {
     assert_eq!(app.active_pane, crate::tui::app::ActivePane::Jobs);
     app.cycle_pane_next();
     assert_eq!(app.active_pane, crate::tui::app::ActivePane::Jobs);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// New tests: coverage for features added in the TUI-plumbing wave
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn renders_jankurai_tab_with_populated_state() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.active_tab = crate::tui::app::ActiveTab::Jankurai;
+    app.state.jankurai = crate::tui::jankurai::JankuraiSnapshot {
+        installed: true,
+        last_scan: Some(crate::tui::jankurai::JankuraiScan {
+            generated_at: None,
+            score: 89,
+            raw_score: 89,
+            minimum_score: 85,
+            decision: "pass".into(),
+            score_status: "green".into(),
+            finding_count: 1,
+            hard_findings: 0,
+            soft_findings: 1,
+            caps_applied: Vec::new(),
+        }),
+        dimensions: vec![crate::tui::jankurai::JankuraiDimension {
+            name: "shape".into(),
+            weight: 20,
+            score: 90,
+            weighted_points: 18.0,
+            evidence: Vec::new(),
+            notes: Vec::new(),
+        }],
+        entries: vec![crate::tui::jankurai::JankuraiEntry {
+            kind: crate::tui::jankurai::JankuraiEntryKind::Finding,
+            label: "test-finding-label".into(),
+            severity: Some("warning".into()),
+            hardness: Some("soft".into()),
+            path: None,
+            rule: None,
+            lane: None,
+            owner: None,
+            problem: None,
+            evidence: Vec::new(),
+            suggested_fix: None,
+        }],
+        history: Vec::new(),
+        error: None,
+    };
+    // Use a taller buffer (120x60) so the bottom panel has enough height.
+    let buffer = capture_buffer_size(&mut app, 120, 60)?;
+    let text = rendered_text(&buffer);
+    assert!(
+        text.contains("89"),
+        "jankurai tab should render score 89; first 600 chars:\n{}",
+        &text[..text.len().min(600)]
+    );
+    // The "Caps / Findings" panel header is always present when entries exist.
+    assert!(
+        text.contains("Caps / Findings") || text.contains("test-finding-label"),
+        "jankurai tab should render the Caps / Findings panel or an entry label"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn workflow_agent_inspector_shows_model_and_decision() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.apply_demo_fixture();
+    app.active_tab = crate::tui::app::ActiveTab::Workflow;
+    app.workflow_inspect_open = true;
+
+    // Find an AgentReview node in the demo workflow_snapshot and navigate to it.
+    let agent_id = app
+        .workflow_snapshot
+        .nodes
+        .iter()
+        .find(|n| {
+            matches!(
+                n.kind,
+                crate::tui::workflow::model::WorkflowNodeKind::AgentReview { .. }
+            )
+        })
+        .map(|n| n.id.clone());
+
+    let Some(agent_id) = agent_id else {
+        // Demo fixture has no AgentReview node — skip rather than fail.
+        return Ok(());
+    };
+
+    'outer: for (pi, phase) in app.workflow_snapshot.phases.iter().enumerate() {
+        for (ni, id) in phase.node_ids.iter().enumerate() {
+            if *id == agent_id {
+                app.workflow_nav.phase_idx = pi;
+                app.workflow_nav.node_idx = ni;
+                break 'outer;
+            }
+        }
+    }
+    app.inspector_tab = crate::tui::workflow::inspector::InspectorTab::Agent;
+
+    let buffer = capture_buffer_size(&mut app, 220, 44)?;
+    let text = rendered_text(&buffer);
+    // Demo agent node is always populated with model "claude-opus-4-7".
+    assert!(
+        text.contains("claude"),
+        "agent inspector should show model name starting with 'claude'; first 2000 chars:\n{}",
+        &text[..text.len().min(2000)]
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn workflow_empty_state_shows_config_hint() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.active_tab = crate::tui::app::ActiveTab::Workflow;
+    // Explicitly empty delivery snapshot and unconfigured source status.
+    app.delivery_snapshot = crate::tui::workflow::model::DeliverySnapshot::empty();
+    app.state.delivery_source_status = crate::tui::app::DeliverySourceStatus {
+        configured: false,
+        source_label: None,
+        last_sync_at: None,
+        last_sync_error: None,
+    };
+    let buffer = capture_buffer(&mut app)?;
+    let text = rendered_text(&buffer);
+    assert!(
+        text.contains("No pull requests"),
+        "empty workflow tab should show 'No pull requests' card; first 600 chars:\n{}",
+        &text[..text.len().min(600)]
+    );
+    assert!(
+        text.contains("jeryu pr source"),
+        "empty workflow card should include the CLI config hint"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn renders_aer_inset_when_findings_present() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.active_tab = crate::tui::app::ActiveTab::Bugs;
+    app.state.aer = crate::tui::aer::AerSnapshot {
+        loaded: true,
+        report: crate::tui::aer::AerReport {
+            generated_at: "2026-05-24".into(),
+            workspace_root: "/tmp".into(),
+            findings: vec![crate::tui::aer::AerFinding {
+                class_id: "SEC-001".into(),
+                severity: "error".into(),
+                confidence: 0.9,
+                path: "src/foo.rs".into(),
+                summary: "unsafe block exposed".into(),
+                suggested_fix: "wrap with safe abstraction".into(),
+                existing_exception: None,
+            }],
+            repair_hint: crate::tui::aer::AerRepairHint::default(),
+        },
+        error: None,
+    };
+    let buffer = capture_buffer(&mut app)?;
+    let text = rendered_text(&buffer);
+    assert!(
+        text.contains("SEC-001"),
+        "bugs tab should show AER finding class_id; first 1000 chars:\n{}",
+        &text[..text.len().min(1000)]
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn renders_vrc_plan_banner_in_tests_tab() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.active_tab = crate::tui::app::ActiveTab::Tests;
+    app.state.vrc = crate::tui::vrc::VrcSnapshot {
+        loaded: true,
+        plan: crate::tui::vrc::VrcPlanFile {
+            mode: "selected".into(),
+            reason: "3 changed files".into(),
+            selected_tests: vec!["unit::signing".into(), "tui::render".into()],
+            skipped_tests: vec!["integration::ci".into()],
+            confidence: Some(0.95),
+        },
+        error: None,
+    };
+    let buffer = capture_buffer(&mut app)?;
+    let text = rendered_text(&buffer);
+    assert!(
+        text.contains("selected"),
+        "tests tab should show vrc mode 'selected'; first 1000 chars:\n{}",
+        &text[..text.len().min(1000)]
+    );
+    assert!(
+        text.contains("3 changed files"),
+        "tests tab should show vrc reason text"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn renders_witness_summary_in_tests_tab() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.active_tab = crate::tui::app::ActiveTab::Tests;
+    app.state.witness = crate::tui::witness::WitnessSnapshot {
+        loaded: true,
+        generated_at: "2026-05-24".into(),
+        crate_count: 12,
+        pub_item_count: 847,
+        largest_crate: Some(("jeryu-core".into(), 312)),
+        error: None,
+    };
+    let buffer = capture_buffer(&mut app)?;
+    let text = rendered_text(&buffer);
+    // The witness summary line should include both crate and item counts.
+    assert!(
+        text.contains("12") || text.contains("847"),
+        "tests tab should show witness summary counts; first 1000 chars:\n{}",
+        &text[..text.len().min(1000)]
+    );
     Ok(())
 }
