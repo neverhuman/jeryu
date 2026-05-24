@@ -925,6 +925,12 @@ fn workflow_repo_filter_changes_pr_rail_title() -> anyhow::Result<()> {
 /// It does NOT use `--demo`; instead it provides a synthetic workspace root
 /// with two custom aliases ("myalpha", "mybeta") that are impossible to
 /// confuse with the demo fixture or any production repo.
+///
+/// **CI bootstrap notes** — non-demo mode calls `load_client()` which needs a
+/// GitLab token in the auth chain.  We point `GITLAB_URL` at port 1 (always
+/// ECONNREFUSED) and set `GITLAB_TOKEN` to a dummy value so the auth resolver
+/// returns immediately (non-local URL path, no validation call).  Every
+/// subsequent GitLab API call also gets ECONNREFUSED with no 30 s timeout.
 #[test]
 fn fleet_bar_discovers_repos_via_workspace_root_env() -> anyhow::Result<()> {
     use tempfile::TempDir;
@@ -962,11 +968,13 @@ health_profile = "rust-workspace"
 "#,
     )?;
 
-    // Launch the TUI without --demo.  The runner calls hydrate_smoke_state()
-    // synchronously before the event loop, which calls resolve_workspace_root()
-    // and finds our synthetic repos.toml via the env override.
-    // GitLab / Docker calls fail fast (no credentials / socket), but the
-    // fleet-loading path is pure filesystem and always succeeds.
+    // Launch the TUI without --demo.  The dispatch layer calls load_client()
+    // which reads GITLAB_TOKEN from the environment.  We provide:
+    //   GITLAB_URL=http://127.0.0.1:1  — non-local URL (port 1 ≠ GITLAB_HTTP_PORT)
+    //   GITLAB_TOKEN=dummy             — satisfies the auth chain immediately
+    // Because the URL is non-local, resolve_or_repair returns the dummy token
+    // without making any network call.  All subsequent GitLab API calls get
+    // ECONNREFUSED at once (port 1), so hydrate_smoke_state completes quickly.
     let bin = jeryu_bin();
     let page = Page::spawn(
         SpawnConfig::new(&bin)
@@ -977,13 +985,16 @@ health_profile = "rust-workspace"
             .env("TERM", "xterm-256color")
             .env("COLORTERM", "truecolor")
             .env("NO_COLOR", "")
+            .env("GITLAB_URL", "http://127.0.0.1:1")
+            .env("GITLAB_TOKEN", "dummy-tuiwright-token")
             .env("JERYU_DATABASE_URL", jeryu::db::config::sqlite_memory_url())
             .env("JERYU_WORKSPACE_ROOT", tmp.path().to_str().unwrap())
-            .timeout(Duration::from_secs(12)),
+            .timeout(Duration::from_secs(15)),
     )?;
 
     // Give the TUI time to run hydrate_smoke_state + initial render.
-    std::thread::sleep(Duration::from_millis(3500));
+    // Use 5 s to absorb any CI timing slack.
+    std::thread::sleep(Duration::from_millis(5000));
 
     let text = screen_text(&page);
 
