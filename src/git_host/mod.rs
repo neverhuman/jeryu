@@ -15,11 +15,13 @@ use async_trait::async_trait;
 
 pub mod codeowners;
 pub mod github;
+pub mod gitlab;
 pub mod gitlab_stub;
 pub mod test_utils;
 
 pub use codeowners::{CodeOwners, CodeOwnersCheck};
 pub use github::GitHubClient;
+pub use gitlab::GitLabClient;
 pub use gitlab_stub::GitLabStubClient;
 
 /// The single canonical name for the GitHub required status check that wraps

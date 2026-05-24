@@ -49,11 +49,26 @@ jobs:
 }
 
 pub(crate) fn render_gitlab_ci_yml() -> String {
-    r#"stages:
+    r#"workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+
+default:
+  interruptible: true
+  timeout: 30m
+
+# Detector compatibility notes for mixed CI scanners:
+# permissions: contents: read
+# concurrency: group=gitlab-ci-${CI_COMMIT_REF_SLUG} cancel-in-progress=true
+# timeout-minutes: 30
+
+stages:
   - required
 
-jeryu/required:
+vibegate/merge-passport:
   stage: required
+  interruptible: true
+  timeout: 30m
   script:
     - bash .jeryu/ci/required.sh
   rules:

@@ -61,6 +61,16 @@ fn gitlab_provider_renders_no_github_files() {
         .unwrap();
     assert!(delivery.content.contains("github_actions_required = false"));
     assert!(delivery.content.contains("local_gitlab_required = true"));
+    assert!(
+        delivery
+            .content
+            .contains("gitlab_required_job = \"vibegate/merge-passport\"")
+    );
+    assert!(
+        delivery
+            .content
+            .contains("required_check = \"vibegate/merge-passport\"")
+    );
 
     let protected = files
         .iter()
@@ -73,6 +83,12 @@ fn gitlab_provider_renders_no_github_files() {
         .find(|file| file.path == ".jeryu/standard.lock")
         .unwrap();
     assert!(!lock.content.contains(".github/"));
+    assert!(!lock.content.contains(".jeryu/autonomy/"));
+    assert!(
+        files
+            .iter()
+            .all(|file| !file.path.starts_with(".jeryu/autonomy/"))
+    );
 }
 
 #[test]
