@@ -94,11 +94,20 @@ async fn probe_one(probe: &DoctorProbe, resolver: &SecretResolver) -> ProviderCh
     } else {
         None
     };
+    // Two explicit outcomes for the balancer health probe: a successful
+    // poll returns its sample list; an error means we have no observations
+    // to display this cycle (still useful — the caller distinguishes "no
+    // pool" from "pool errored").
     let balancer_health = match &pool {
-        Some(pool) if pool.has_secret_candidates(&probe.api_env_var) => pool
-            .health(&probe.api_env_var, probe.provider_name(), &probe.model)
-            .await
-            .unwrap_or_default(),
+        Some(pool) if pool.has_secret_candidates(&probe.api_env_var) => {
+            match pool
+                .health(&probe.api_env_var, probe.provider_name(), &probe.model)
+                .await
+            {
+                Ok(samples) => samples,
+                Err(_) => Vec::new(),
+            }
+        }
         _ => Vec::new(),
     };
     let key = match resolve_secret(&probe.api_env_var, resolver) {

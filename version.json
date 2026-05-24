@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.18",
-  "cargo_workspace_version": "3.3.18",
+  "version": "3.3.19",
+  "cargo_workspace_version": "3.3.19",
   "release_line": "V3.3",
   "status": "stable",
   "date": "2026-05-24",
   "tag_policy": {
-    "rc": "v3.3.18-rc.N",
-    "stable": "v3.3.18"
+    "rc": "v3.3.19-rc.N",
+    "stable": "v3.3.19"
   },
-  "headline": "Ship JeRyu v3.3.18 with fleet bar UX and multi-repo selection."
+  "headline": "Ship JeRyu v3.3.19 with full TUIwright coverage and reliable infra test serialization."
 }

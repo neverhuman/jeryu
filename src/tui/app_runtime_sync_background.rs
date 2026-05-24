@@ -355,6 +355,31 @@ pub(crate) fn start_background_sync(app: &App) {
             snap.last_sync_at = Some(chrono::Utc::now());
             snap.agent_connected = true; // successful sync = connected
 
+            // Jankurai audit snapshot: poll `agent/repo-score.json` and
+            // `agent/score-history.jsonl` every cycle (file I/O is small).
+            snap.jankurai = crate::tui::jankurai::load_snapshot();
+            // AER findings: poll `aer-findings.json` on every cycle. Missing
+            // file → empty snapshot, no error.
+            snap.aer = crate::tui::aer::load_snapshot();
+            // Release stages: walk `ops/releases/*/release-attempt.json` and
+            // bucket each in-flight release by its `status` field. Missing
+            // directory → empty snapshot (renderer shows "No active
+            // releases" placeholder).
+            let repo_root =
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            snap.release_stages =
+                crate::release::draft_loader::load_release_stage_snapshot(&repo_root);
+            // VRC plan: poll `vrc-plan.json` so the Tests tab can show
+            // the currently-active test selection mode + reason.
+            snap.vrc = crate::tui::vrc::load_snapshot_from(&repo_root);
+            // Witness graph: poll `.witness/witness-graph.json` summary
+            // (counts + largest crate by pub_items). File is large but the
+            // parse only computes counts, not the full graph.
+            snap.witness = crate::tui::witness::load_snapshot_from(&repo_root);
+            // Proof lanes: load `proof-lanes.toml` so the Mission tab
+            // shows real lane definitions instead of hardcoded labels.
+            snap.proof_lanes = crate::tui::proof_lanes::load_snapshot_from(&repo_root);
+
             // Storage Metrics background queries
             if let Ok(df_output) = tokio::process::Command::new("df")
                 .args(["-k", "/"])

@@ -60,6 +60,7 @@ fn activity_text(app: &App, _height: u16) -> Text<'static> {
         ActiveTab::Secrets => lines.extend(secrets_activity(app)),
         ActiveTab::LLMs => lines.extend(llms_activity(app)),
         ActiveTab::Git => lines.extend(git_activity(app)),
+        ActiveTab::Jankurai => {} // Jankurai pane has its own self-contained surface.
     }
     if lines.is_empty() {
         lines.push(Line::from(Span::styled(

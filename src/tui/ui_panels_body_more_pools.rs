@@ -12,6 +12,8 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     focus::register_pane(app, PaneId::PoolsList, cols[0]);
     focus::register_pane(app, PaneId::PoolsDetail, cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::PoolsList, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::PoolsDetail, cols[1]);
 
     // Left: pools list
     let active = app.active_tab == ActiveTab::Pools;
@@ -42,20 +44,21 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let list_chrome = focus::pane_chrome(app, PaneId::PoolsList);
     let pools_title = if app.state.pool_sync_error.is_some() {
-        format!(
-            " [ Runner Pools ({} cached) sync warning ] ",
+        list_chrome.title(&format!(
+            "Runner Pools ({} cached) sync warning",
             app.state.pools.len()
-        )
+        ))
     } else {
-        format!(" [ Runner Pools ({}) ] ", app.state.pools.len())
+        list_chrome.title(&format!("Runner Pools ({})", app.state.pools.len()))
     };
 
     let list = List::new(items).block(
         Block::default()
             .title(pools_title)
             .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::PoolsList)),
+            .border_style(list_chrome.border_style),
     );
     f.render_widget(list, cols[0]);
 
@@ -79,13 +82,14 @@ pub(crate) fn draw_pools_tab(f: &mut Frame, app: &mut App, area: Rect) {
         format!("\n{detail_body}")
     };
 
+    let detail_chrome = focus::pane_chrome(app, PaneId::PoolsDetail);
     f.render_widget(
         Paragraph::new(detail)
             .block(
                 Block::default()
-                    .title(" [ Pool Detail ] ")
+                    .title(detail_chrome.title("Pool Detail"))
                     .borders(Borders::ALL)
-                    .border_style(focus::border_style(app, PaneId::PoolsDetail)),
+                    .border_style(detail_chrome.border_style),
             )
             .wrap(Wrap { trim: false }),
         cols[1],

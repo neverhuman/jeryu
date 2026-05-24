@@ -5,7 +5,7 @@
 <div align="left">
   <p>
     <a href="agent/repo-score.md">
-      <img alt="jankurai score 70" src="https://img.shields.io/badge/jankurai-70-yellow" />
+      <img alt="jankurai score 89" src="https://img.shields.io/badge/jankurai-89-green" />
     </a>
     <a href="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml">
       <img alt="CI" src="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml/badge.svg" />
@@ -14,7 +14,7 @@
     <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
   </p>
   <!-- jankurai-score:start -->
-  <p><strong>Jankurai score:</strong> <a href="agent/repo-score.md"><code>70/100</code></a> (advisory, minimum 85, HL2, auditor 1.5.1)</p>
+  <p><strong>Jankurai score:</strong> <a href="agent/repo-score.md"><code>89/100</code></a> (advisory, minimum 85, HL3, auditor 1.5.1)</p>
   <!-- jankurai-score:end -->
   <h3>The Git-Compatible Version Control Layer for the AI Era</h3>
 </div>

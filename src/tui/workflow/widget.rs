@@ -7,7 +7,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 use super::hit_map::DeliveryHitMap;
@@ -88,11 +88,13 @@ pub fn draw_delivery_tab(
         tick,
         hit_map,
         DeliveryChrome::default(),
+        crate::repo_fleet::RepoFilter::All,
     );
 }
 
 /// Focus-aware Delivery view renderer. The optional chrome is supplied by
 /// `ui.rs`; pure widget tests can use the default unfocused chrome.
+/// `repo_filter` restricts which PRs are visible in the rail and clickable.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_delivery_tab_with_chrome(
     f: &mut Frame,
@@ -103,6 +105,7 @@ pub fn draw_delivery_tab_with_chrome(
     tick: u64,
     hit_map: &mut DeliveryHitMap,
     chrome: DeliveryChrome,
+    repo_filter: crate::repo_fleet::RepoFilter<'_>,
 ) {
     let regions = compute_regions(area);
     hit_map.mission = visible(regions.mission);
@@ -116,7 +119,14 @@ pub fn draw_delivery_tab_with_chrome(
         draw_mission_strip_with_chrome(f, regions.mission, delivery, theme, chrome.mission);
     }
     if DeliveryRegions::is_visible(regions.pr_rail) {
-        draw_pr_rail_with_chrome(f, regions.pr_rail, delivery, theme, chrome.pr_rail);
+        draw_pr_rail_with_chrome(
+            f,
+            regions.pr_rail,
+            delivery,
+            theme,
+            chrome.pr_rail,
+            repo_filter,
+        );
     }
     if DeliveryRegions::is_visible(regions.phase_rail) {
         draw_phase_rail_with_chrome(f, regions.phase_rail, delivery, theme, chrome.phase_rail);
@@ -363,6 +373,90 @@ fn draw_no_pr_state(f: &mut Frame, area: Rect, theme: &Theme) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(theme.border_subtle)),
         ),
+        area,
+    );
+}
+
+/// Render an explicit "no PRs configured" card. Shown by `ui.rs` when the
+/// delivery snapshot is empty. Replaces the silent demo fallback that used
+/// to show a fake 5-PR story in production.
+pub fn draw_workflow_empty_state(
+    f: &mut Frame,
+    area: Rect,
+    theme: &Theme,
+    status: &crate::tui::app::DeliverySourceStatus,
+) {
+    let source = status.source_label.as_deref().unwrap_or("(not configured)");
+    let last_sync = status
+        .last_sync_at
+        .map(|t| t.format("%Y-%m-%d %H:%M:%SZ").to_string())
+        .unwrap_or_else(|| "(never)".into());
+    let status_line = match (&status.last_sync_error, status.configured) {
+        (Some(err), _) => format!("error: {err}"),
+        (None, true) => "ok".into(),
+        (None, false) => "(no PR source configured)".into(),
+    };
+
+    let mut lines = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  No pull requests configured",
+            theme.bold(theme.text_primary),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Pull requests will appear here as the agents open them.",
+            theme.muted(),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  Source:    ", theme.muted()),
+            Span::styled(source.to_string(), theme.secondary()),
+        ]),
+        Line::from(vec![
+            Span::styled("  Last sync: ", theme.muted()),
+            Span::styled(last_sync, theme.secondary()),
+        ]),
+        Line::from(vec![
+            Span::styled("  Status:    ", theme.muted()),
+            Span::styled(
+                status_line,
+                if status.last_sync_error.is_some() {
+                    theme.bold(theme.fail)
+                } else if status.configured {
+                    theme.bold(theme.ok)
+                } else {
+                    theme.muted()
+                },
+            ),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Configure: jeryu pr source add --github <owner>/<repo>",
+            theme.primary(),
+        )),
+        Line::from(Span::styled(
+            "             jeryu pr source add --gitlab <project_id>",
+            theme.primary(),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Or run: jeryu tui --demo  (in-memory 5-PR walkthrough)",
+            theme.muted(),
+        )),
+    ];
+    while lines.len() < (area.height as usize).saturating_sub(2) {
+        lines.push(Line::from(""));
+    }
+    f.render_widget(
+        Paragraph::new(lines)
+            .block(
+                Block::default()
+                    .title(" [ Workflow ] ")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(theme.border_subtle)),
+            )
+            .wrap(Wrap { trim: false }),
         area,
     );
 }

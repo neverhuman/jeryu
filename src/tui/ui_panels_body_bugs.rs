@@ -11,11 +11,83 @@ pub(crate) fn draw_bugs_tab(f: &mut Frame, app: &mut App, area: Rect) {
     app.selected_bug_index = vm.selected_bug_index;
     app.selected_bug_project_index = vm.selected_project_index;
 
-    if area.width < 110 {
-        draw_bugs_compact(f, app, area, &vm);
+    // Reserve a strip for the AER findings inset when there are any. The
+    // inset shows audit-error findings emitted by `cargo aer scan`.
+    let aer_visible = app.state.aer.loaded && !app.state.aer.report.findings.is_empty();
+    let (aer_area, bugs_area) = if aer_visible {
+        let rows = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(6), Constraint::Min(8)])
+            .split(area);
+        (Some(rows[0]), rows[1])
     } else {
-        draw_bugs_wide(f, app, area, &vm);
+        (None, area)
+    };
+    if let Some(aer_area) = aer_area {
+        draw_aer_inset(f, app, aer_area);
     }
+
+    if bugs_area.width < 110 {
+        draw_bugs_compact(f, app, bugs_area, &vm);
+    } else {
+        draw_bugs_wide(f, app, bugs_area, &vm);
+    }
+}
+
+fn draw_aer_inset(f: &mut Frame, app: &App, area: Rect) {
+    let findings = &app.state.aer.report.findings;
+    let mut lines: Vec<Line> = Vec::with_capacity(findings.len().min(6) + 1);
+    lines.push(Line::from(vec![
+        Span::styled(
+            "  AER findings ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!("({}) ", findings.len()),
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled(
+            app.state.aer.report.repair_hint.repair_hint.as_str(),
+            Style::default().fg(Color::Yellow),
+        ),
+    ]));
+    for finding in findings.iter().take(area.height.saturating_sub(2) as usize) {
+        let sev_color = match finding.severity.as_str() {
+            "critical" => Color::Red,
+            "error" => Color::LightRed,
+            "warning" => Color::Yellow,
+            _ => Color::Cyan,
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("  [{}] ", finding.severity),
+                Style::default().fg(sev_color).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("{} ", finding.class_id),
+                Style::default().fg(Color::White),
+            ),
+            Span::styled(
+                format!("{} ", finding.path),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                short_text(&finding.summary, area.width.saturating_sub(40) as usize),
+                Style::default().fg(Color::Gray),
+            ),
+        ]));
+    }
+    f.render_widget(
+        Paragraph::new(lines).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" [ AER (Audit Error Report) ] ")
+                .border_style(Style::default().fg(Color::Cyan)),
+        ),
+        area,
+    );
 }
 
 fn draw_bugs_wide(f: &mut Frame, app: &mut App, area: Rect, vm: &crate::tui::bugs::BugsViewModel) {

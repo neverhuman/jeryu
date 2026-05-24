@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:1c6a0382589c2dfe4cea9153f05db366eb4844660fb79642963f01f70ae42de6",
-  "input_fingerprint": "sha256:1d2c22a60c5f9f9c56b19132f7e0d568c2dc308a8a8c4d6b3ec0ef5903d9533b",
+  "report_fingerprint": "sha256:cbaf829a51521be40b8be3950857bd8979d4eee51c834cb1ad926036ed48ac79",
+  "input_fingerprint": "sha256:e237f02f86b2e8f97c014248de5c74d2b438eb55cf59b80e3f69cb33aafa949e",
   "policy_fingerprint": "sha256:7f4c2dc6ecf39f28a2a9937545f1a4fc3843ee17a20baa84b5a1dd91d5e0fe51",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
@@ -10,8 +10,8 @@
     "proof_lanes": "sha256:b69c7bb26f226f3885278c7ab58b8ade787ad5402582cb420b8137db166ad2c7",
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
-  "dirty_worktree": true,
-  "generated_at": "1779631283",
+  "dirty_worktree": false,
+  "generated_at": "1779656082",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -21,31 +21,29 @@
   "target_stack_id": "rust-ts-vite-react-redline-bounded-python",
   "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
   "claimed_conformance_level": "HL3",
-  "observed_conformance_level": "HL2",
-  "conformance_decision": "block",
-  "conformance_blockers": [
-    "HLT-001-DEAD-MARKER on src/gitlab_auth.rs"
-  ],
+  "observed_conformance_level": "HL3",
+  "conformance_decision": "pass",
+  "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779631283",
-  "started_at": "1779631283",
-  "elapsed_ms": 7200,
+  "run_id": "1779656082",
+  "started_at": "1779656082",
+  "elapsed_ms": 7296,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 70,
-  "raw_score": 87,
+  "score": 89,
+  "raw_score": 89,
   "decision": {
     "status": "advisory",
     "minimum_score": 85,
     "passed": true,
-    "hard_findings": 1,
+    "hard_findings": 0,
     "soft_findings": 1,
     "ratchet": {
-      "baseline_score": 70,
+      "baseline_score": 89,
       "allowed_drop": 0,
-      "passed": false,
+      "passed": true,
       "score_delta": 0,
       "baseline_report_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "baseline_input_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -56,11 +54,11 @@
     }
   },
   "git": {
-    "head": "e2c5f56",
+    "head": "3013e5b",
     "base": null,
     "changed_files": 0,
     "mode": "full",
-    "dirty_worktree": true
+    "dirty_worktree": false
   },
   "policy": {
     "path": "./agent/audit-policy.toml",
@@ -80,9 +78,7 @@
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
   },
-  "caps_applied": [
-    "fallback-soup-in-product-code"
-  ],
+  "caps_applied": [],
   "hard_rules": [
     {
       "id": "no-root-agent-instructions",
@@ -358,7 +354,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 719",
+        "rust bad-behavior advisory signals: 732",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -369,15 +365,14 @@
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 52,
-      "weighted_points": 6.24,
+      "score": 70,
+      "weighted_points": 8.4,
       "evidence": [
-        "largest authored code file: src/git_host/gitlab.rs (453 LOC)",
+        "largest authored code file: src/llm/doctor.rs (303 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 22 (advisory only, no score impact)",
-        "fallback soup marker found",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 719",
+        "rust bad-behavior advisory signals: 732",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -1134,7 +1129,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-24T14:01:16.295909487+00:00",
+    "generated_at": "2026-05-24T20:54:35.046277453+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1172,9 +1167,9 @@
       ]
     },
     "summary": {
-      "files_scanned": 771,
-      "files_considered": 418,
-      "active_files": 418,
+      "files_scanned": 775,
+      "files_considered": 422,
+      "active_files": 422,
       "exact_file_classes": 0,
       "hard_classes": 0,
       "warning_classes": 22,
@@ -1719,22 +1714,22 @@
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 211,
-            "end_line": 212,
+            "start_line": 113,
+            "end_line": 114,
             "unit_name": "list_open_prs"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 223,
-            "end_line": 224,
+            "start_line": 125,
+            "end_line": 126,
             "unit_name": "get_pr_state"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 244,
-            "end_line": 245,
+            "start_line": 146,
+            "end_line": 147,
             "unit_name": "fetch_pr_diff"
           }
         ]
@@ -2532,60 +2527,28 @@
       "severity": "medium",
       "category": "shape",
       "path": ".",
-      "problem": "`Code shape and semantic surface` scored 52 below the standard floor of 85",
+      "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/git_host/gitlab.rs (453 LOC)",
+        "largest authored code file: src/llm/doctor.rs (303 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 22 (advisory only, no score impact)",
-        "fallback soup marker found"
+        "IO markers found in domain/core files"
       ],
       "check_id": "HLT-001-DEAD-MARKER:shape",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:2f614243bc1b36020db63d3960c0efc9b127bc1feaad79498ea9f56d89542eb2",
+      "fingerprint": "sha256:98592c041e00d5f13786a28c6456b27d2170e4f20e37525e17f355b7068dd1aa",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "tools"
-    },
-    {
-      "severity": "high",
-      "category": "vibe",
-      "path": "src/gitlab_auth.rs",
-      "problem": "fallback soup detected in product code",
-      "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
-      "evidence": [
-        "src/gitlab_auth.rs:149 let existing = env_file::read_text_file_optional(&path, \"reading\")?.unwrap_or_default();"
-      ],
-      "check_id": "HLT-001-DEAD-MARKER:vibe",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:802b50c1deb75f0e396672d0fe32d9a83dbb3ad782b3dd34bd85bc6250fc0a72",
-      "rule_id": "HLT-001-DEAD-MARKER",
-      "tlr": "Entropy",
-      "lane": "fast",
-      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
-      "owner": "workspace",
-      "line": 149
     }
   ],
   "agent_fix_queue": [
-    {
-      "path": "src/gitlab_auth.rs",
-      "priority": "high",
-      "rule_id": "HLT-001-DEAD-MARKER",
-      "tlr": "Entropy",
-      "lane": "fast",
-      "owner": "workspace",
-      "task": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
-      "why": "fallback soup detected in product code"
-    },
     {
       "path": ".",
       "priority": "medium",
@@ -2594,7 +2557,7 @@
       "lane": "fast",
       "owner": "tools",
       "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
-      "why": "`Code shape and semantic surface` scored 52 below the standard floor of 85"
+      "why": "`Code shape and semantic surface` scored 70 below the standard floor of 85"
     }
   ]
 }

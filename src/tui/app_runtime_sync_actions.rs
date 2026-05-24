@@ -17,7 +17,8 @@ impl App {
             ActiveTab::Bugs => ActiveTab::Secrets,
             ActiveTab::Secrets => ActiveTab::LLMs,
             ActiveTab::LLMs => ActiveTab::Git,
-            ActiveTab::Git => ActiveTab::Workflow,
+            ActiveTab::Git => ActiveTab::Jankurai,
+            ActiveTab::Jankurai => ActiveTab::Workflow,
         };
         self.focus.set_tab(self.active_tab);
     }
@@ -25,7 +26,7 @@ impl App {
     pub fn cycle_tab_prev(&mut self) {
         self.maximize_logs = false;
         self.active_tab = match self.active_tab {
-            ActiveTab::Workflow => ActiveTab::Git,
+            ActiveTab::Workflow => ActiveTab::Jankurai,
             ActiveTab::Mission => ActiveTab::Workflow,
             ActiveTab::Release => ActiveTab::Mission,
             ActiveTab::Approvals => ActiveTab::Release,
@@ -39,6 +40,7 @@ impl App {
             ActiveTab::Git => ActiveTab::LLMs,
             ActiveTab::Secrets => ActiveTab::Bugs,
             ActiveTab::Bugs => ActiveTab::Evidence,
+            ActiveTab::Jankurai => ActiveTab::Git,
         };
         self.focus.set_tab(self.active_tab);
     }
@@ -597,7 +599,10 @@ impl App {
         }
         let env = match node.kind {
             WorkflowNodeKind::Promote { env } => env.label(),
-            _ => "?",
+            // The guard above (`is_rollback_eligible`) excludes any other
+            // kind from reaching this arm. Use `unreachable!` rather than
+            // a "?" sentinel that would mislead users on the inspector.
+            _ => unreachable!("non-Promote nodes are filtered above"),
         };
         let pr_num = self
             .delivery_snapshot
@@ -616,11 +621,25 @@ impl App {
     }
 
     pub fn inspector_cycle_next(&mut self) {
-        self.inspector_tab = self.inspector_tab.next();
+        let node_id = self
+            .workflow_nav
+            .selected_node_id(&self.workflow_snapshot)
+            .map(str::to_string);
+        let node = node_id
+            .as_deref()
+            .and_then(|id| self.workflow_snapshot.node(id));
+        self.inspector_tab = self.inspector_tab.next_for(node);
     }
 
     pub fn inspector_cycle_prev(&mut self) {
-        self.inspector_tab = self.inspector_tab.prev();
+        let node_id = self
+            .workflow_nav
+            .selected_node_id(&self.workflow_snapshot)
+            .map(str::to_string);
+        let node = node_id
+            .as_deref()
+            .and_then(|id| self.workflow_snapshot.node(id));
+        self.inspector_tab = self.inspector_tab.prev_for(node);
     }
 
     /// Jump selection to the first blocker (failing/blocked node) in the
@@ -653,43 +672,44 @@ impl App {
 
     /// Cycle to the next pull request in the Delivery view.
     pub fn delivery_next_pr(&mut self) {
-        self.delivery_snapshot.next_pr();
-        // Mirror the new PR's pipeline and reset nav to its current node.
-        if let Some(pr) = self.delivery_snapshot.selected() {
-            self.workflow_snapshot = pr.snapshot.clone();
-            self.workflow_nav.phase_idx = 0;
-            self.workflow_nav.node_idx = 0;
-            self.workflow_nav
-                .compute_canvas_size(&self.workflow_snapshot);
-            if let Some(cn) = pr.current_node_id.clone()
-                && let Some((pi, ni)) = self.workflow_snapshot.locate_node(&cn)
-            {
-                self.workflow_nav.phase_idx = pi;
-                self.workflow_nav.node_idx = ni;
-            }
-            self.workflow_nav
-                .ensure_selected_visible(self.last_dag_h(), self.last_dag_w());
-        }
+        let filter = self.repo_filter().to_owned();
+        self.delivery_snapshot.next_pr_matching(|pr| {
+            filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref())
+        });
+        self.mirror_selected_pr_into_workflow();
     }
 
     /// Cycle to the previous pull request in the Delivery view.
     pub fn delivery_prev_pr(&mut self) {
-        self.delivery_snapshot.prev_pr();
-        if let Some(pr) = self.delivery_snapshot.selected() {
-            self.workflow_snapshot = pr.snapshot.clone();
-            self.workflow_nav.phase_idx = 0;
-            self.workflow_nav.node_idx = 0;
-            self.workflow_nav
-                .compute_canvas_size(&self.workflow_snapshot);
-            if let Some(cn) = pr.current_node_id.clone()
-                && let Some((pi, ni)) = self.workflow_snapshot.locate_node(&cn)
-            {
-                self.workflow_nav.phase_idx = pi;
-                self.workflow_nav.node_idx = ni;
-            }
-            self.workflow_nav
-                .ensure_selected_visible(self.last_dag_h(), self.last_dag_w());
+        let filter = self.repo_filter().to_owned();
+        self.delivery_snapshot.prev_pr_matching(|pr| {
+            filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref())
+        });
+        self.mirror_selected_pr_into_workflow();
+    }
+
+    /// Reflect the currently-selected PR's pipeline into `workflow_snapshot`
+    /// and reset DAG nav to its current node. Shared by `delivery_next_pr`,
+    /// `delivery_prev_pr`, and `refresh_delivery_snapshot`.
+    fn mirror_selected_pr_into_workflow(&mut self) {
+        let Some(pr) = self.delivery_snapshot.selected() else {
+            return;
+        };
+        self.workflow_snapshot = pr.snapshot.clone();
+        self.workflow_nav.phase_idx = 0;
+        self.workflow_nav.node_idx = 0;
+        self.workflow_nav
+            .compute_canvas_size(&self.workflow_snapshot);
+        let current_node = pr.current_node_id.clone();
+        if let Some(cn) = current_node
+            && let Some((pi, ni)) = self.workflow_snapshot.locate_node(&cn)
+        {
+            self.workflow_nav.phase_idx = pi;
+            self.workflow_nav.node_idx = ni;
         }
+        let dh = self.last_dag_h();
+        let dw = self.last_dag_w();
+        self.workflow_nav.ensure_selected_visible(dh, dw);
     }
 
     /// Rebuild the workflow snapshot from the collector (called on tick).
@@ -701,8 +721,6 @@ impl App {
     /// per-pipeline DAG into `workflow_snapshot` for the legacy nav/render
     /// codepath, and reapply persistent selection + follow-active.
     pub fn refresh_delivery_snapshot(&mut self) {
-        use crate::tui::workflow::delivery::build_demo_delivery;
-
         // Remember the previously focused node id so selection survives the
         // rebuild (panes/cards may reshuffle as live data arrives).
         let remembered_node_id = self
@@ -711,15 +729,23 @@ impl App {
             .map(str::to_string);
         let remembered_pr = self.delivery_snapshot.selected().map(|pr| pr.number);
 
-        // TODO: when live PR/CI data is wired, plug collect_delivery_snapshot
-        // with PrInput from the GitLab + agent layer here. Until then the
-        // demo factory tells the canonical 5-PR story.
-        if self.delivery_snapshot.pull_requests.is_empty() {
-            self.delivery_snapshot = build_demo_delivery();
-        }
+        // Live PR/CI integration plugs in here: convert PrInput from the
+        // GitHub/GitLab + agent layer into delivery_snapshot. When no source
+        // is configured the snapshot stays empty and the workflow tab
+        // renders an explicit empty-state card. Demo mode seeds the snapshot
+        // via `App::apply_demo_fixture`.
         if let Some(num) = remembered_pr {
             self.delivery_snapshot.select_by_number(num);
         }
+
+        // Repo filter: if the selected PR no longer matches the active filter
+        // (e.g. user just switched repos in the fleet bar), jump to the first
+        // PR that does. PRs in other repos remain in the snapshot but are
+        // hidden by render-time filtering in pr_rail.
+        let filter = self.repo_filter().to_owned();
+        self.delivery_snapshot.ensure_selection_matches(|pr| {
+            filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref())
+        });
 
         // Mirror the currently selected PR's per-pipeline DAG into the
         // legacy workflow_snapshot so the existing WorkflowNav helpers keep

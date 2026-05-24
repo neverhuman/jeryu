@@ -15,8 +15,12 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    symbols::Marker,
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Wrap},
+    widgets::{
+        Axis, Block, Borders, Chart, Clear, Dataset, Gauge, GraphType, List, ListItem, Paragraph,
+        Wrap,
+    },
 };
 use ui_chrome::*;
 use ui_panels::*;
@@ -101,13 +105,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             };
 
             if app.delivery_snapshot.pull_requests.is_empty() {
-                crate::tui::workflow::widget::draw_workflow_tab(
+                crate::tui::workflow::widget::draw_workflow_empty_state(
                     f,
                     delivery_area,
-                    &app.workflow_snapshot,
-                    &app.workflow_nav,
                     &theme,
-                    app.tick_count,
+                    &app.state.delivery_source_status,
                 );
                 app.delivery_hit_map = crate::tui::workflow::hit_map::DeliveryHitMap::default();
             } else {
@@ -119,6 +121,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     canvas: Some(focus::pane_chrome(app, PaneId::WorkflowCanvas)),
                     minimap: Some(focus::pane_chrome(app, PaneId::WorkflowMinimap)),
                 };
+                let repo_filter = app.repo_filter();
                 crate::tui::workflow::widget::draw_delivery_tab_with_chrome(
                     f,
                     delivery_area,
@@ -128,6 +131,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     app.tick_count,
                     &mut hit_map,
                     delivery_chrome,
+                    repo_filter,
                 );
                 hit_map.inspector = inspector_area;
                 app.delivery_hit_map = hit_map;
@@ -183,6 +187,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         ActiveTab::LLMs => draw_llms_tab(f, app, chunks[2]),
         ActiveTab::Git => draw_git_tab(f, app, chunks[2]),
         ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[2]),
+        ActiveTab::Jankurai => draw_jank_tab(f, app, chunks[2]),
     }
 
     activity::draw_activity_pane(f, app, chunks[3]);

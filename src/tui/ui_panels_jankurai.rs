@@ -117,7 +117,9 @@ fn render_summary_block(
             Span::styled("score:   ", Style::default().fg(Color::DarkGray)),
             Span::styled(
                 score_text,
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
             ),
             Span::styled("   raw: ", Style::default().fg(Color::DarkGray)),
             Span::styled(raw_score_text, Style::default().fg(Color::White)),
@@ -128,7 +130,9 @@ fn render_summary_block(
             Span::styled("   decision: ", Style::default().fg(Color::DarkGray)),
             Span::styled(
                 decision_text,
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(vec![
@@ -191,12 +195,18 @@ fn render_status_block(f: &mut Frame, area: Rect, app: &App) {
             status_inner,
         );
     } else {
-        let installed = if app.jankurai_available() { "installed" } else { "not installed" };
+        let installed = if app.jankurai_available() {
+            "installed"
+        } else {
+            "not installed"
+        };
         f.render_widget(
             Paragraph::new(vec![
                 Line::from(Span::styled(
                     "Jankurai",
-                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 )),
                 Line::from(""),
                 Line::from(vec![
@@ -279,7 +289,10 @@ fn render_score_chart(
     // Zoom Y-axis to the actual score range so the trend line is clearly visible
     // instead of appearing as a flat line at the top of a 0-100 scale.
     let y_min = data.iter().map(|(_, y)| *y).fold(f64::INFINITY, f64::min);
-    let y_max = data.iter().map(|(_, y)| *y).fold(f64::NEG_INFINITY, f64::max);
+    let y_max = data
+        .iter()
+        .map(|(_, y)| *y)
+        .fold(f64::NEG_INFINITY, f64::max);
     let y_pad = ((y_max - y_min) * 0.3).max(5.0);
     let y_lo = (y_min - y_pad).max(0.0);
     let y_hi = (y_max + y_pad).min(100.0);

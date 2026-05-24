@@ -44,7 +44,9 @@ test_retry:
     let mut pipeline_id = 0;
     let mut last_status = String::from("no job observed");
     println!("Waiting for job to fail...");
-    for _ in 0..15 {
+    // 60 × 2s = 120 s: give the runner time to start the container, run the
+    // script, and report failure before we assert.
+    for _ in 0..60 {
         sleep(Duration::from_secs(2)).await;
         let pipelines = client.list_pipelines(project.id, Some("main")).await?;
         let Some(pipeline) = pipelines.first() else {

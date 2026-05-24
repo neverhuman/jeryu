@@ -248,6 +248,18 @@ pub(crate) fn build_demo_state(
         release_stages: demo_release_stages(),
         approvals_queue: demo_approvals_queue(),
         agent_connected: true, // demo is "connected"
+        delivery_source_status: crate::tui::app::DeliverySourceStatus {
+            configured: true,
+            source_label: Some("demo (in-memory)".into()),
+            last_sync_at: Some(now),
+            last_sync_error: None,
+        },
+        jankurai: crate::tui::jankurai::JankuraiSnapshot::default(),
+        aer: crate::tui::aer::AerSnapshot::default(),
+        vrc: crate::tui::vrc::VrcSnapshot::default(),
+        witness: crate::tui::witness::WitnessSnapshot::default(),
+        proof_lanes: crate::tui::proof_lanes::ProofLanesSnapshot::default(),
+        agent_sessions: Vec::new(),
     }
 }
 

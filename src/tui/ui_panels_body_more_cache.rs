@@ -32,6 +32,11 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
     focus::register_pane(app, PaneId::CacheGateway, top_chunks[1]);
     focus::register_pane(app, PaneId::CacheSingleflight, bottom_chunks[0]);
     focus::register_pane(app, PaneId::CacheTaint, bottom_chunks[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::CacheDisk, outer[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::CacheStorage, top_chunks[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::CacheGateway, top_chunks[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::CacheSingleflight, bottom_chunks[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::CacheTaint, bottom_chunks[1]);
 
     let objects_str = format!(
         "\n  Total Cached Objects: {}\n  Hot Cache Bandwidth:  {} MB\n  Exact Hits:  {} / {} ({:.1}%)\n  Misses:      {}\n\n  CAS Disk:    {} MiB\n  Crate Cache: {} MiB",
@@ -45,12 +50,13 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         app.state.crate_cache_disk_bytes / 1024 / 1024
     );
     f.render_widget(
-        Paragraph::new(objects_str).block(
+        Paragraph::new(objects_str).block({
+            let chrome = focus::pane_chrome(app, PaneId::CacheStorage);
             Block::default()
-                .title(" [ Storage Overview ] ")
+                .title(chrome.title("Storage Overview"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheStorage)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         top_chunks[0],
     );
 
@@ -69,12 +75,13 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         proxy_str, reg_str, app.state.ca_mounted
     );
     f.render_widget(
-        Paragraph::new(services_str).block(
+        Paragraph::new(services_str).block({
+            let chrome = focus::pane_chrome(app, PaneId::CacheGateway);
             Block::default()
-                .title(" [ Gateway Health ] ")
+                .title(chrome.title("Gateway Health"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheGateway)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         top_chunks[1],
     );
 
@@ -84,12 +91,13 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         app.state.singleflight_requests * 5
     );
     f.render_widget(
-        Paragraph::new(sf_str).block(
+        Paragraph::new(sf_str).block({
+            let chrome = focus::pane_chrome(app, PaneId::CacheSingleflight);
             Block::default()
-                .title(" [ Singleflight Analytics ] ")
+                .title(chrome.title("Singleflight Analytics"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheSingleflight)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         bottom_chunks[0],
     );
 
@@ -105,12 +113,13 @@ pub(crate) fn draw_cache_dashboard(f: &mut Frame, app: &mut App, area: Rect) {
         }
     );
     f.render_widget(
-        Paragraph::new(taint_str).block(
+        Paragraph::new(taint_str).block({
+            let chrome = focus::pane_chrome(app, PaneId::CacheTaint);
             Block::default()
-                .title(" [ Trust & Taint Boundaries ] ")
+                .title(chrome.title("Trust & Taint Boundaries"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheTaint)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         bottom_chunks[1],
     );
 }
@@ -144,12 +153,13 @@ fn draw_disk_pressure_panel(f: &mut Frame, app: &App, area: Rect) {
     );
 
     f.render_widget(
-        Paragraph::new(body).block(
+        Paragraph::new(body).block({
+            let chrome = focus::pane_chrome(app, PaneId::CacheDisk);
             Block::default()
-                .title(" [ Disk Pressure ] ")
+                .title(chrome.title("Disk Pressure"))
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::CacheDisk)),
-        ),
+                .border_style(chrome.border_style)
+        }),
         area,
     );
 }

@@ -1,5 +1,22 @@
 use super::*;
 pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
+    // When the store exposes a real agent-sessions list, render the dedicated
+    // agent-fleet cockpit widget. Until then, fall back to the pipeline-derived
+    // view below with a banner explaining the data source.
+    if !app.state.agent_sessions.is_empty() {
+        let theme = crate::tui::theme::Theme::dark();
+        focus::register_pane(app, PaneId::AgentsSessions, area);
+        focus::register_drill_esc_hotspot(app, PaneId::AgentsSessions, area);
+        crate::tui::widgets::agent_fleet::render_agent_fleet(
+            f,
+            area,
+            &app.state.agent_sessions,
+            app.selected_job_index,
+            &theme,
+        );
+        return;
+    }
+
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -10,6 +27,7 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .split(area);
 
     focus::register_pane(app, PaneId::AgentsSessions, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsSessions, cols[0]);
 
     let items: Vec<ListItem> = app
         .state
@@ -46,14 +64,15 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let sessions_chrome = focus::pane_chrome(app, PaneId::AgentsSessions);
     let list = List::new(items).block(
         Block::default()
-            .title(format!(
-                " [ Agent Sessions ({}) ] ",
+            .title(sessions_chrome.title(&format!(
+                "Agent Sessions ({})",
                 app.state.agent_pipelines.len()
-            ))
+            )))
             .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::AgentsSessions)),
+            .border_style(sessions_chrome.border_style),
     );
     f.render_widget(list, cols[0]);
 
@@ -65,11 +84,15 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
     focus::register_pane(app, PaneId::AgentsCockpit, rows[0]);
     focus::register_pane(app, PaneId::AgentsTimeline, rows[1]);
     focus::register_pane(app, PaneId::AgentsActions, cols[2]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsCockpit, rows[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsTimeline, rows[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::AgentsActions, cols[2]);
 
+    let cockpit_chrome = focus::pane_chrome(app, PaneId::AgentsCockpit);
     let detail_block = Block::default()
-        .title(" [ Agent Cockpit ] ")
+        .title(cockpit_chrome.title("Agent Cockpit"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::AgentsCockpit));
+        .border_style(cockpit_chrome.border_style);
     let detail_inner = detail_block.inner(rows[0]);
     f.render_widget(detail_block, rows[0]);
 
@@ -149,10 +172,11 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
         );
     }
 
+    let timeline_chrome = focus::pane_chrome(app, PaneId::AgentsTimeline);
     let cap_block = Block::default()
-        .title(" [ Agent Timeline ] ")
+        .title(timeline_chrome.title("Agent Timeline"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::AgentsTimeline));
+        .border_style(timeline_chrome.border_style);
     let cap_inner = cap_block.inner(rows[1]);
     f.render_widget(cap_block, rows[1]);
 
@@ -211,133 +235,12 @@ pub(crate) fn draw_agents_tab(f: &mut Frame, app: &mut App, area: Rect) {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 5 — Tests (existing)
+// Companion module wiring — Tests, Pools, Cache, Evidence, LLMs, Git, Secrets
 // ---------------------------------------------------------------------------
 
-pub(crate) fn draw_tests_tab(f: &mut Frame, app: &mut App, area: Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(area);
-
-    focus::register_pane(app, PaneId::TestsBottlenecks, chunks[0]);
-    focus::register_pane(app, PaneId::TestsHistory, chunks[1]);
-
-    let (bottlenecks, label) = match app.test_view_mode {
-        crate::tui::app::TestViewMode::Average => (&app.state.test_bottlenecks_avg, "Average"),
-        crate::tui::app::TestViewMode::Latest => (&app.state.test_bottlenecks_latest, "Latest"),
-    };
-
-    let items: Vec<ListItem> = bottlenecks
-        .iter()
-        .enumerate()
-        .map(|(i, b)| {
-            let color = if i == app.selected_test_index {
-                Color::Black
-            } else if match app.test_view_mode {
-                crate::tui::app::TestViewMode::Average => b.avg_duration_ms > 300_000.0,
-                crate::tui::app::TestViewMode::Latest => b.latest_duration_ms > 300_000,
-            } {
-                Color::Red
-            } else if match app.test_view_mode {
-                crate::tui::app::TestViewMode::Average => b.avg_duration_ms > 60_000.0,
-                crate::tui::app::TestViewMode::Latest => b.latest_duration_ms > 60_000,
-            } {
-                Color::Yellow
-            } else {
-                Color::Green
-            };
-
-            let bg = if i == app.selected_test_index {
-                Color::Cyan
-            } else {
-                Color::Reset
-            };
-
-            let dur_text = match app.test_view_mode {
-                crate::tui::app::TestViewMode::Average => {
-                    format!("{:.1}s", b.avg_duration_ms / 1000.0)
-                }
-                crate::tui::app::TestViewMode::Latest => {
-                    format!("{:.1}s", b.latest_duration_ms as f64 / 1000.0)
-                }
-            };
-
-            ListItem::new(Line::from(vec![
-                Span::styled(
-                    format!("{:<10} ", dur_text),
-                    Style::default().fg(color).bg(bg),
-                ),
-                Span::styled(
-                    format!("({:02}x) ", b.count),
-                    Style::default().fg(Color::DarkGray).bg(bg),
-                ),
-                Span::styled(
-                    b.test_name.clone(),
-                    Style::default()
-                        .fg(if i == app.selected_test_index {
-                            Color::Black
-                        } else {
-                            Color::White
-                        })
-                        .bg(bg),
-                ),
-            ]))
-        })
-        .collect();
-
-    let list = List::new(items).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(format!(" [ Bottlenecks ({}) - 'v' to toggle ] ", label))
-            .border_style(focus::border_style(app, PaneId::TestsBottlenecks)),
-    );
-    f.render_widget(list, chunks[0]);
-
-    let history_block = Block::default()
-        .borders(Borders::ALL)
-        .title(" [ History Drill-Down - Enter to load ] ")
-        .border_style(focus::border_style(app, PaneId::TestsHistory));
-
-    if let Some(hist) = &app.selected_test_history {
-        let h_items: Vec<ListItem> = hist
-            .iter()
-            .map(|h| {
-                let color = match h.status.as_str() {
-                    "success" | "passed" => Color::Green,
-                    "failed" => Color::Red,
-                    _ => Color::Yellow,
-                };
-                ListItem::new(Line::from(vec![
-                    Span::styled(
-                        format!(
-                            "{:<15} ",
-                            h.created_at.split('T').next().unwrap_or(&h.created_at)
-                        ),
-                        Style::default().fg(Color::DarkGray),
-                    ),
-                    Span::styled(format!("{:<8} ", h.status), Style::default().fg(color)),
-                    Span::styled(
-                        format!("{:.1}s", h.duration_ms as f64 / 1000.0),
-                        Style::default().fg(Color::White),
-                    ),
-                ]))
-            })
-            .collect();
-        f.render_widget(List::new(h_items).block(history_block), chunks[1]);
-    } else {
-        f.render_widget(
-            Paragraph::new("\n  Choose a test and press [Enter] to view execution history.")
-                .block(history_block)
-                .style(Style::default().fg(Color::DarkGray)),
-            chunks[1],
-        );
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tab 6 — Pools and Tab 7 — Cache + shared renderers
-// ---------------------------------------------------------------------------
+#[path = "ui_panels_body_tests.rs"]
+mod ui_panels_body_tests;
+pub(crate) use ui_panels_body_tests::*;
 
 #[path = "ui_panels_body_more_pools.rs"]
 mod ui_panels_body_more_pools;

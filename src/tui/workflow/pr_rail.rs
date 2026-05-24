@@ -11,6 +11,7 @@ use ratatui::{
 };
 
 use super::model::*;
+use crate::repo_fleet::RepoFilter;
 use crate::tui::{focus::PaneChrome, theme::Theme};
 
 /// Width of each PR chip including 1 column of spacing.
@@ -18,7 +19,7 @@ pub const CHIP_W: u16 = 30;
 const TITLE_MAX: usize = 22;
 
 pub fn draw_pr_rail(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
-    draw_pr_rail_with_chrome(f, area, snap, theme, None);
+    draw_pr_rail_with_chrome(f, area, snap, theme, None, RepoFilter::All);
 }
 
 pub(crate) fn draw_pr_rail_with_chrome(
@@ -27,14 +28,26 @@ pub(crate) fn draw_pr_rail_with_chrome(
     snap: &DeliverySnapshot,
     theme: &Theme,
     chrome: Option<PaneChrome>,
+    filter: RepoFilter<'_>,
 ) {
     if area.width == 0 || area.height == 0 {
         return;
     }
 
+    let visible: Vec<(usize, &PullRequestView)> = snap
+        .pull_requests
+        .iter()
+        .enumerate()
+        .filter(|(_, pr)| filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref()))
+        .collect();
+    let title_label = if filter.is_all() {
+        "PRs".to_string()
+    } else {
+        format!("PRs · {}", filter.label())
+    };
     let title = match chrome {
-        Some(chrome) => chrome.title("PRs"),
-        None => crate::tui::focus::title_with_esc("PRs", false),
+        Some(chrome) => chrome.title(&title_label),
+        None => crate::tui::focus::title_with_esc(&title_label, false),
     };
     let border_style = match chrome {
         Some(chrome) => chrome.border_style,
@@ -47,22 +60,31 @@ pub(crate) fn draw_pr_rail_with_chrome(
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    if snap.pull_requests.is_empty() {
+    if visible.is_empty() {
+        let msg = if snap.pull_requests.is_empty() {
+            " no active PRs"
+        } else {
+            " no PRs in this repo"
+        };
         f.render_widget(
-            Paragraph::new(Line::from(Span::styled(" no active PRs", theme.muted()))),
+            Paragraph::new(Line::from(Span::styled(msg, theme.muted()))),
             inner,
         );
         return;
     }
 
-    let spans = build_chip_spans(snap, theme);
+    let spans = build_chip_spans(snap, theme, &visible);
     f.render_widget(Paragraph::new(Line::from(spans)), inner);
 }
 
-fn build_chip_spans<'a>(snap: &'a DeliverySnapshot, theme: &Theme) -> Vec<Span<'a>> {
-    let mut spans = Vec::with_capacity(snap.pull_requests.len() * 2 + 1);
+fn build_chip_spans<'a>(
+    snap: &'a DeliverySnapshot,
+    theme: &Theme,
+    visible: &[(usize, &'a PullRequestView)],
+) -> Vec<Span<'a>> {
+    let mut spans = Vec::with_capacity(visible.len() * 2 + 1);
     spans.push(Span::raw(" "));
-    for (idx, pr) in snap.pull_requests.iter().enumerate() {
+    for (idx, pr) in visible.iter().copied() {
         let is_selected = idx == snap.selected_pr_idx;
         let color = color_for(pr.status, theme);
 
@@ -103,9 +125,21 @@ fn color_for(status: PrStatus, theme: &Theme) -> ratatui::style::Color {
 /// Hit-test: given an X column relative to the rail's interior, return the
 /// PR index whose chip occupies that column, if any. Used by mouse click.
 pub fn pr_at_column(snap: &DeliverySnapshot, x_in_inner: u16) -> Option<usize> {
-    // Layout mirrors build_chip_spans: 1 leading space, then chips separated by 1 space.
+    pr_at_column_filtered(snap, x_in_inner, RepoFilter::All)
+}
+
+/// Filter-aware hit-test. Only PRs matching `filter` are clickable; their
+/// chips are laid out left-to-right with the same 1-column spacing.
+pub fn pr_at_column_filtered(
+    snap: &DeliverySnapshot,
+    x_in_inner: u16,
+    filter: RepoFilter<'_>,
+) -> Option<usize> {
     let mut cursor: usize = 1; // leading space
     for (idx, pr) in snap.pull_requests.iter().enumerate() {
+        if !filter.matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref()) {
+            continue;
+        }
         let chip_len = chip_width(pr);
         let start = cursor;
         let end = cursor + chip_len;

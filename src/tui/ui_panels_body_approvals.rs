@@ -12,6 +12,8 @@ pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     focus::register_pane(app, PaneId::ApprovalsQueue, cols[0]);
     focus::register_pane(app, PaneId::ApprovalsInspector, cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::ApprovalsQueue, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::ApprovalsInspector, cols[1]);
 
     let queue = &app.state.approvals_queue;
     let selected = app
@@ -66,19 +68,21 @@ pub(crate) fn draw_approvals_tab(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
+    let queue_chrome = focus::pane_chrome(app, PaneId::ApprovalsQueue);
     let left = List::new(items).block(
         Block::default()
-            .title(format!(" [ Awaiting approval ({}) ] ", queue.len()))
+            .title(queue_chrome.title(&format!("Awaiting approval ({})", queue.len())))
             .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::ApprovalsQueue)),
+            .border_style(queue_chrome.border_style),
     );
     f.render_widget(left, cols[0]);
 
     // Right: detail card for the selected PR.
+    let insp_chrome = focus::pane_chrome(app, PaneId::ApprovalsInspector);
     let right_block = Block::default()
-        .title(" [ Inspector ] ")
+        .title(insp_chrome.title("Inspector"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::ApprovalsInspector));
+        .border_style(insp_chrome.border_style);
     let right_inner = right_block.inner(cols[1]);
     f.render_widget(right_block, cols[1]);
 

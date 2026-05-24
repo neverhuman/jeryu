@@ -37,20 +37,14 @@ pub(super) fn render_breakdown_panel(
                         Style::default().fg(Color::Cyan),
                     ),
                     Span::styled(
-                        short_text(
-                            &dimension.name,
-                            inner.width.saturating_sub(16) as usize,
-                        ),
+                        short_text(&dimension.name, inner.width.saturating_sub(16) as usize),
                         Style::default().fg(Color::White),
                     ),
                     Span::styled(notes, Style::default().fg(Color::DarkGray)),
                 ])
             })
             .collect::<Vec<_>>();
-        f.render_widget(
-            Paragraph::new(lines).wrap(Wrap { trim: false }),
-            inner,
-        );
+        f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
     }
     let _ = area; // layout area passed for potential future use
 }
@@ -62,12 +56,11 @@ pub(super) fn render_issues_panel(
     selected_index: usize,
     inner: Rect,
 ) {
-    let (visible_start, visible_end) =
-        super::ui_panels_jankurai_helpers::visible_entry_window(
-            entries.len(),
-            selected_index,
-            inner.height as usize,
-        );
+    let (visible_start, visible_end) = super::ui_panels_jankurai_helpers::visible_entry_window(
+        entries.len(),
+        selected_index,
+        inner.height as usize,
+    );
     let items: Vec<ListItem> = entries
         .iter()
         .enumerate()
@@ -237,8 +230,5 @@ pub(super) fn render_entry_detail(
         }
     }
 
-    f.render_widget(
-        Paragraph::new(lines).wrap(Wrap { trim: false }),
-        inner,
-    );
+    f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
 }

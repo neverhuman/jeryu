@@ -13,19 +13,23 @@ pub(crate) fn draw_release_tab(f: &mut Frame, app: &mut App, area: Rect) {
         .split(area);
 
     focus::register_pane(app, PaneId::ReleaseSelector, split[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::ReleaseSelector, split[0]);
     draw_release_subpane_tabs(f, app, split[0]);
 
     match app.release_subpane {
         ReleaseSubPane::Pipeline => {
             focus::register_pane(app, PaneId::ReleasePipeline, split[1]);
+            focus::register_drill_esc_hotspot(app, PaneId::ReleasePipeline, split[1]);
             draw_release_pipeline_pane(f, app, split[1])
         }
         ReleaseSubPane::Evidence => {
             focus::register_pane(app, PaneId::ReleaseInspector, split[1]);
+            focus::register_drill_esc_hotspot(app, PaneId::ReleaseInspector, split[1]);
             draw_release_evidence_pane(f, app, split[1])
         }
         ReleaseSubPane::Rollback => {
             focus::register_pane(app, PaneId::ReleaseRollback, split[1]);
+            focus::register_drill_esc_hotspot(app, PaneId::ReleaseRollback, split[1]);
             draw_release_rollback_pane(f, app, split[1])
         }
     }
@@ -91,8 +95,14 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
         ("Stable", &snap.stable, Color::Green),
     ];
 
+    let chrome = focus::pane_chrome(app, PaneId::ReleasePipeline);
     for (i, (name, cards, color)) in stages.iter().enumerate() {
-        let title = format!(" {} [{}] ", name, cards.len());
+        let title_label = format!("{} [{}]", name, cards.len());
+        let title = if i == 0 {
+            chrome.title(&title_label)
+        } else {
+            crate::tui::focus::title_with_esc(&title_label, false)
+        };
         let items: Vec<ListItem> = cards
             .iter()
             .map(|c| {
@@ -110,7 +120,7 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .title(title)
                 .borders(Borders::ALL)
-                .border_style(focus::border_style(app, PaneId::ReleasePipeline)),
+                .border_style(chrome.border_style),
         );
         f.render_widget(list, cols[i]);
     }
@@ -134,20 +144,22 @@ fn draw_release_rollback_pane(f: &mut Frame, app: &App, area: Rect) {
             ]))
         })
         .collect();
+    let chrome = focus::pane_chrome(app, PaneId::ReleaseRollback);
     let list = List::new(items).block(
         Block::default()
-            .title(" [ Rollback ladder ] ")
+            .title(chrome.title("Rollback ladder"))
             .borders(Borders::ALL)
-            .border_style(focus::border_style(app, PaneId::ReleaseRollback)),
+            .border_style(chrome.border_style),
     );
     f.render_widget(list, area);
 }
 
 pub(crate) fn draw_release_inspector(f: &mut Frame, app: &App, area: Rect) {
+    let chrome = focus::pane_chrome(app, PaneId::ReleaseInspector);
     let block = Block::default()
-        .title(" [ Inspector ] ")
+        .title(chrome.title("Inspector"))
         .borders(Borders::ALL)
-        .border_style(focus::border_style(app, PaneId::ReleaseInspector));
+        .border_style(chrome.border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -162,7 +174,7 @@ pub(crate) fn draw_release_inspector(f: &mut Frame, app: &App, area: Rect) {
             rel.eligibility,
         )
     } else {
-        "No release attempt.\n\nActions available:\n  n/a".to_string()
+        "No release attempt.\n\nStart one with:\n  jeryu release start".to_string()
     };
 
     f.render_widget(
@@ -189,6 +201,7 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
     // Left column: Live Runner Feed
     focus::register_pane(app, PaneId::JobsRunnerFeed, cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::JobsRunnerFeed, cols[0]);
     draw_live_runner_feed(f, app, cols[0]);
 
     // Right column: Pipeline Progress on top, Job Matrix below, Inspector at bottom
@@ -204,6 +217,9 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
     focus::register_pane(app, PaneId::JobsProgress, right_rows[0]);
     focus::register_pane(app, PaneId::JobsMatrix, right_rows[1]);
     focus::register_pane(app, PaneId::JobsInspector, right_rows[2]);
+    focus::register_drill_esc_hotspot(app, PaneId::JobsProgress, right_rows[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::JobsMatrix, right_rows[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::JobsInspector, right_rows[2]);
 
     draw_pipeline_progress(f, app, right_rows[0]);
     draw_job_matrix(f, app, right_rows[1]);
@@ -214,6 +230,6 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
 // TUI v2 — Live Runner Feed
 // ---------------------------------------------------------------------------
 
-#[path = "ui_panels_body_runtime_extra.rs"]
-mod ui_panels_body_runtime_extra;
-pub(crate) use ui_panels_body_runtime_extra::*;
+#[path = "ui_panels_body_live_feed.rs"]
+mod ui_panels_body_live_feed;
+pub(crate) use ui_panels_body_live_feed::*;
