@@ -14,7 +14,7 @@
     <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
   </p>
   <!-- jankurai-score:start -->
-  <p><strong>Jankurai score:</strong> <a href="agent/repo-score.md"><code>89/100</code></a> (pass, minimum 85, HL3, auditor 1.5.1)</p>
+  <p><strong>Jankurai score:</strong> <a href="agent/repo-score.md"><code>89/100</code></a> (advisory, minimum 85, HL3, auditor 1.5.1)</p>
   <!-- jankurai-score:end -->
   <h3>The Git-Compatible Version Control Layer for the AI Era</h3>
 </div>

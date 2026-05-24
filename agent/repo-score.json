@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:5adbefecea3ac17a3738453eb165851dc2ca50d8e9f9a20dedeae28281a248bb",
-  "input_fingerprint": "sha256:ebceccebe6e92e4cab7aef1a45f092b268c0af39129dd4099f952f14ad649084",
+  "report_fingerprint": "sha256:cbaf829a51521be40b8be3950857bd8979d4eee51c834cb1ad926036ed48ac79",
+  "input_fingerprint": "sha256:e237f02f86b2e8f97c014248de5c74d2b438eb55cf59b80e3f69cb33aafa949e",
   "policy_fingerprint": "sha256:7f4c2dc6ecf39f28a2a9937545f1a4fc3843ee17a20baa84b5a1dd91d5e0fe51",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": false,
-  "generated_at": "1779649832",
+  "generated_at": "1779656082",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779649832",
-  "started_at": "1779649832",
-  "elapsed_ms": 7249,
+  "run_id": "1779656082",
+  "started_at": "1779656082",
+  "elapsed_ms": 7296,
   "scope": {
     "mode": "full",
     "paths": []
@@ -35,7 +35,7 @@
   "score": 89,
   "raw_score": 89,
   "decision": {
-    "status": "pass",
+    "status": "advisory",
     "minimum_score": 85,
     "passed": true,
     "hard_findings": 0,
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "8098643",
+    "head": "3013e5b",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -71,7 +71,7 @@
       "medium",
       "low"
     ],
-    "mode": "standard",
+    "mode": "advisory",
     "standard_version": "0.9.0",
     "auditor_version": "1.5.1",
     "schema_version": "1.9.0",
@@ -1129,7 +1129,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-24T19:10:25.196309838+00:00",
+    "generated_at": "2026-05-24T20:54:35.046277453+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
