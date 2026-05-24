@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::cargo_cache::{
-    LEASES_DIR_NAME, current_rustc_toolchain, sanitize_segment, usable_sccache_binary,
+    LEASES_DIR_NAME, current_rustc_toolchain, sanitize_segment, shell_quote, usable_sccache_binary,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,27 +180,71 @@ pub fn runner_cargo_layout(
 
 pub fn render_runner_cargo_pre_build_script(pool_cache_mount: &str, executor: &str) -> String {
     let _ = executor;
+    let pool_cache_mount = shell_quote(pool_cache_mount);
+    let sccache_version = shell_quote(&crate::settings::get().sccache.binary_version);
     format!(
         r#"set -eu
-if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && command -v cargo >/dev/null 2>&1 && command -v rustc >/dev/null 2>&1; then
+JERYU_CARGO_PREREQS_OK=1
+for tool in awk cat cut date mkdir rm rmdir sha256sum; do
+  command -v "$tool" >/dev/null 2>&1 || JERYU_CARGO_PREREQS_OK=0
+done
+if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && [ "$JERYU_CARGO_PREREQS_OK" = "1" ] && command -v cargo >/dev/null 2>&1 && command -v rustc >/dev/null 2>&1; then
   RUSTC_INFO="$(rustc -vV)"
   HOST_TRIPLE="$(printf '%s\n' "$RUSTC_INFO" | awk '/^host: / {{ print $2; exit }}')"
   RUSTC_VERSION="$(printf '%s\n' "$RUSTC_INFO" | awk '/^release: / {{ print $2; exit }}')"
   if [ -n "$HOST_TRIPLE" ] && [ -n "$RUSTC_VERSION" ]; then
     RUSTC_KEY="$(printf '%s\n' "$RUSTC_INFO" | sha256sum | cut -c1-12)"
     JERYU_CARGO_SCOPE_KEY="${{CI_PROJECT_PATH_SLUG:-unknown-project}}"
-    JERYU_CARGO_CACHE_ROOT="{pool_cache_mount}"
+    JERYU_CARGO_CACHE_ROOT={pool_cache_mount}
+    JERYU_SCCACHE_VERSION={sccache_version}
     JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_CACHE_ROOT/cargo-targets/$JERYU_CARGO_SCOPE_KEY/$RUSTC_KEY/$HOST_TRIPLE"
-    if [ "${{JERYU_CARGO_TARGET_ISOLATE:-}}" = "job" ]; then
-      JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_TARGET_ROOT/jobs/${{CI_JOB_ID:-unknown}}"
-    fi
+    case "${{JERYU_CARGO_TARGET_ISOLATE:-slot}}" in
+      job)
+        JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_TARGET_ROOT/jobs/${{CI_JOB_ID:-unknown}}"
+        ;;
+      slot|concurrent)
+        JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_TARGET_ROOT/slots/${{CI_CONCURRENT_ID:-${{CI_RUNNER_ID:-unknown}}}}"
+        ;;
+    esac
     export JERYU_CARGO_CACHE_ROOT JERYU_CARGO_SCOPE_KEY JERYU_CARGO_RUSTC_KEY="$RUSTC_KEY" JERYU_CARGO_RUSTC_VERSION="$RUSTC_VERSION" JERYU_CARGO_HOST_TRIPLE="$HOST_TRIPLE"
     export CARGO_TARGET_DIR="$JERYU_CARGO_TARGET_ROOT/target"
     mkdir -p "$CARGO_TARGET_DIR"
+    JERYU_CARGO_LEASE_DIR="$CARGO_TARGET_DIR/{leases_dir}"
+    mkdir -p "$JERYU_CARGO_LEASE_DIR"
+    JERYU_CARGO_LEASE_FILE="$JERYU_CARGO_LEASE_DIR/${{CI_JOB_ID:-job}}-$$.json"
+    cat > "$JERYU_CARGO_LEASE_FILE" <<EOF
+{{"kind":"runner-cargo","scope_key":"$JERYU_CARGO_SCOPE_KEY","target_dir":"$CARGO_TARGET_DIR","pid":$$,"created_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","rustc_key":"$JERYU_CARGO_RUSTC_KEY","rustc_version":"$JERYU_CARGO_RUSTC_VERSION","host_triple":"$JERYU_CARGO_HOST_TRIPLE"}}
+EOF
+    trap 'rm -f "$JERYU_CARGO_LEASE_FILE"; rmdir "$JERYU_CARGO_LEASE_DIR" 2>/dev/null || true' EXIT
     if [ -n "${{JERYU_CARGO_INCREMENTAL:-}}" ]; then
       export CARGO_INCREMENTAL="$JERYU_CARGO_INCREMENTAL"
     else
       export CARGO_INCREMENTAL=0
+    fi
+    if [ "${{JERYU_SCCACHE_ENABLED:-1}}" != "0" ] && ! command -v sccache >/dev/null 2>&1; then
+      JERYU_TOOLS_DIR="$JERYU_CARGO_CACHE_ROOT/tools"
+      JERYU_SCCACHE_BIN="$JERYU_TOOLS_DIR/sccache"
+      if [ ! -x "$JERYU_SCCACHE_BIN" ] && command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1; then
+        mkdir -p "$JERYU_TOOLS_DIR/.tmp"
+        JERYU_SCCACHE_TMP="$JERYU_TOOLS_DIR/.tmp/sccache-$JERYU_SCCACHE_VERSION-$$.tar.gz"
+        JERYU_SCCACHE_EXTRACT="$JERYU_TOOLS_DIR/.tmp/sccache-$JERYU_SCCACHE_VERSION-$$"
+        rm -rf "$JERYU_SCCACHE_EXTRACT"
+        mkdir -p "$JERYU_SCCACHE_EXTRACT"
+        if curl -fsSL "https://github.com/mozilla/sccache/releases/download/$JERYU_SCCACHE_VERSION/sccache-$JERYU_SCCACHE_VERSION-x86_64-unknown-linux-musl.tar.gz" -o "$JERYU_SCCACHE_TMP"; then
+          if tar -xzf "$JERYU_SCCACHE_TMP" -C "$JERYU_SCCACHE_EXTRACT" "sccache-$JERYU_SCCACHE_VERSION-x86_64-unknown-linux-musl/sccache" 2>/dev/null; then
+            if mv "$JERYU_SCCACHE_EXTRACT/sccache-$JERYU_SCCACHE_VERSION-x86_64-unknown-linux-musl/sccache" "$JERYU_SCCACHE_BIN" && chmod 0755 "$JERYU_SCCACHE_BIN"; then
+              :
+            else
+              rm -f "$JERYU_SCCACHE_BIN"
+            fi
+          fi
+        fi
+        rm -f "$JERYU_SCCACHE_TMP"
+        rm -rf "$JERYU_SCCACHE_EXTRACT"
+      fi
+      if [ -x "$JERYU_SCCACHE_BIN" ]; then
+        export PATH="$JERYU_TOOLS_DIR:$PATH"
+      fi
     fi
     if [ "${{JERYU_SCCACHE_ENABLED:-1}}" != "0" ] && command -v sccache >/dev/null 2>&1; then
       export SCCACHE_DIR="$JERYU_CARGO_CACHE_ROOT/sccache"
@@ -215,6 +259,9 @@ if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && command -v cargo >/dev/null 2>&1 &&
     fi
   fi
 fi
-"#
+"#,
+        leases_dir = LEASES_DIR_NAME,
+        pool_cache_mount = pool_cache_mount,
+        sccache_version = sccache_version,
     )
 }

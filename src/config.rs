@@ -115,9 +115,11 @@ shutdown_timeout = 3600
     "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
     "JERYU_SCCACHE_ENABLED={sccache_enabled}",
     "JERYU_SCCACHE_CACHE_SIZE={sccache_cache_size}",
+    "JERYU_SCCACHE_BINARY_VERSION={sccache_binary_version}",
     "JERYU_CARGO_INCREMENTAL=0",
     "JERYU_CARGO_CACHE=1",
     "JERYU_CARGO_CACHE_ROOT={pool_cache_mount}",
+    "JERYU_CARGO_TARGET_ISOLATE=slot",
   ]
 {executor_block}
 "#,
@@ -134,6 +136,7 @@ shutdown_timeout = 3600
             "0"
         },
         sccache_cache_size = crate::settings::get().sccache.cache_size,
+        sccache_binary_version = crate::settings::get().sccache.binary_version,
         pool_cache_mount = pool_cache_mount,
     )
 }
