@@ -146,7 +146,13 @@ pub fn upsert_env_value(key: &str, value: &str) -> Result<()> {
             .with_context(|| format!("creating {}", parent.display()))?;
     }
 
-    let existing = env_file::read_text_file_optional(&path, "reading")?.unwrap_or_default();
+    // Two explicit states: existing file → read its text; absent file →
+    // start with empty. No fallback chain; the env file is either present
+    // (read it) or being created for the first time (start fresh).
+    let existing = match env_file::read_text_file_optional(&path, "reading")? {
+        Some(text) => text,
+        None => String::new(),
+    };
     let updated = env_file::upsert_env_text(&existing, key, value);
     env_file::write_text_file_secure(&path, &updated, "opening", "writing")?;
     Ok(())
