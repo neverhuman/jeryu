@@ -20,6 +20,10 @@ mod gitlab_types;
 pub use gitlab_types::GitLabProtectedBranch;
 use gitlab_types::*;
 
+#[path = "gitlab_helpers.rs"]
+mod gitlab_helpers;
+use gitlab_helpers::*;
+
 #[derive(Clone)]
 pub struct GitLabClient {
     inner: GitlabClient,
@@ -327,124 +331,6 @@ impl GitHost for GitLabClient {
         Ok(Some(crate::autonomy::signing::sha256_digest(
             joined.as_bytes(),
         )))
-    }
-}
-
-fn pr_summary_from_mr(mr: GitLabMergeRequest) -> PrSummary {
-    let head_sha = head_sha_from_mr(&mr);
-    PrSummary {
-        mr_iid: mr.iid.to_string(),
-        head_sha,
-        target_branch: mr.target_branch,
-        author: match mr.author {
-            Some(author) if !author.username.is_empty() => author.username,
-            _ => "unknown".into(),
-        },
-        title: mr.title,
-        draft: mr.draft || mr.work_in_progress,
-        labels: mr.labels,
-    }
-}
-
-fn target_branch_sha_from_mr(mr: &GitLabMergeRequest) -> String {
-    let Some(refs) = mr.diff_refs.as_ref() else {
-        return String::new();
-    };
-    if let Some(base) = non_empty_clone(refs.base_sha.as_ref()) {
-        return base;
-    }
-    if let Some(start) = non_empty_clone(refs.start_sha.as_ref()) {
-        return start;
-    }
-    String::new()
-}
-
-fn head_sha_from_mr(mr: &GitLabMergeRequest) -> String {
-    if let Some(sha) = non_empty_clone(mr.sha.as_ref()) {
-        return sha;
-    }
-    let Some(refs) = mr.diff_refs.as_ref() else {
-        return String::new();
-    };
-    match non_empty_clone(refs.head_sha.as_ref()) {
-        Some(sha) => sha,
-        None => String::new(),
-    }
-}
-
-fn change_path(change: &GitLabChange) -> String {
-    if let Some(path) = non_empty_clone(change.new_path.as_ref()) {
-        return path;
-    }
-    match non_empty_clone(change.old_path.as_ref()) {
-        Some(path) => path,
-        None => String::new(),
-    }
-}
-
-fn non_empty_clone(value: Option<&String>) -> Option<String> {
-    let value = value?;
-    if value.is_empty() {
-        None
-    } else {
-        Some(value.clone())
-    }
-}
-
-fn gitlab_status(status: CheckStatus) -> &'static str {
-    match status {
-        CheckStatus::Queued => "pending",
-        CheckStatus::InProgress => "running",
-        CheckStatus::Success => "success",
-        CheckStatus::Failure | CheckStatus::ActionRequired => "failed",
-        CheckStatus::Neutral => "success",
-    }
-}
-
-fn count_diff_lines(diff: &str) -> (u32, u32) {
-    let mut added = 0;
-    let mut removed = 0;
-    for line in diff.lines() {
-        if line.starts_with("+++") || line.starts_with("---") {
-            continue;
-        }
-        if line.starts_with('+') {
-            added += 1;
-        } else if line.starts_with('-') {
-            removed += 1;
-        }
-    }
-    (added, removed)
-}
-
-fn map_error(err: anyhow::Error) -> HostError {
-    let msg = err.to_string();
-    if msg.contains("401") || msg.contains("403") || msg.contains("no PAT configured") {
-        HostError::Auth
-    } else if msg.contains("429") {
-        HostError::RateLimited {
-            retry_after_ms: 30_000,
-        }
-    } else if msg.contains("502") || msg.contains("503") || msg.contains("504") {
-        HostError::Transient(msg)
-    } else {
-        HostError::Permanent(msg)
-    }
-}
-
-fn map_reqwest(err: reqwest::Error) -> HostError {
-    if err.status() == Some(reqwest::StatusCode::UNAUTHORIZED)
-        || err.status() == Some(reqwest::StatusCode::FORBIDDEN)
-    {
-        HostError::Auth
-    } else if err.status() == Some(reqwest::StatusCode::TOO_MANY_REQUESTS) {
-        HostError::RateLimited {
-            retry_after_ms: 30_000,
-        }
-    } else if err.is_timeout() || err.is_connect() {
-        HostError::Transient(err.to_string())
-    } else {
-        HostError::Permanent(err.to_string())
     }
 }
 

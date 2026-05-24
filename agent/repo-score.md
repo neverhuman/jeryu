@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779649028`
-- Started at: `1779649028`
-- Elapsed: `7259` ms
+- Run ID: `1779649181`
+- Started at: `1779649181`
+- Elapsed: `7324` ms
 - Scope: `full`
 - Raw score: `89`
 - Final score: `89`
@@ -70,7 +70,7 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`22` files=`419`
+- Status: `review` hard=`0` warning=`22` files=`420`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
 - Duplicate volume: lines=`34` tokens=`84` bytes=`862`
 
@@ -89,7 +89,7 @@
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:103-104` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:118-119, src/api/entity.rs:150-151, src/api/snapshot.rs:140-141` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:127-128, src/api/entity.rs:160-161, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/git_host/gitlab.rs:211-212, src/git_host/gitlab.rs:223-224, src/git_host/gitlab.rs:244-245` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/git_host/gitlab.rs:215-216, src/git_host/gitlab.rs:227-228, src/git_host/gitlab.rs:248-249` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:37-38, src/runtime_support/mod.rs:83-84, src/runtime_support/mod.rs:147-148` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 3 | `src/runtime_support/mod.rs:45-46, src/runtime_support/mod.rs:91-92, src/runtime_support/mod.rs:155-156` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 4 | `src/messaging/backend.rs:191-193, src/messaging/backend.rs:203-205` | `same body appears under different names across files` |
@@ -112,7 +112,7 @@
 | Contract and boundary integrity | 13 | 98 | 12.74 | contract surface found; generated contract artifacts found |
 | Proof lanes and test routing | 12 | 100 | 12.00 | one-command setup/validation lane found; deterministic fast lane found |
 | Security and supply-chain posture | 12 | 86 | 10.32 | lockfile present; secret or dependency scan tooling found |
-| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/git_host/gitlab.rs (453 LOC); most code files stay under 300 LOC |
+| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/autonomy/signing_secrets.rs (362 LOC); most code files stay under 300 LOC |
 | Data truth and workflow safety | 8 | 95 | 7.60 | database surface present; structured db boundary manifest present |
 | Observability and repair evidence | 8 | 98 | 7.84 | observability libraries or patterns found; diagnostic shaping hints found |
 | Context economy and agent instructions | 7 | 100 | 7.00 | root `AGENTS.md` present; root `AGENTS.md` stays short |
@@ -217,8 +217,8 @@ No audited runtime boundary reclassifications declared.
    Reason: `Code shape and semantic surface` scored 70 below the standard floor of 85
    Fix: split large or ambiguous authored code into smaller semantic modules with focused tests
    Rerun: `just fast`
-   Fingerprint: `sha256:feee2c25710bef5f23300f4d8d8dfbd8637a2bdfe903e11cc18f7f7f56b45dd9`
-   Evidence: largest authored code file: src/git_host/gitlab.rs (453 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 22 (advisory only, no score impact), IO markers found in domain/core files
+   Fingerprint: `sha256:de3528d4796f5936b8bf1e7c6f816437ccecdc3981c12d3e405ecedee446c5a1`
+   Evidence: largest authored code file: src/autonomy/signing_secrets.rs (362 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 22 (advisory only, no score impact), IO markers found in domain/core files
 
 ## Policy
 

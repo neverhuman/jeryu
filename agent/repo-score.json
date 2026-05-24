@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:8dd2f7ae7999beb9487266c4e3eed4bc166c0663d061636f9701d4ecc3cb3591",
-  "input_fingerprint": "sha256:d5841a25bd6971c3142baea0ee8a3f108b1d0a839c9468d7eacf0bcd02c08a65",
+  "report_fingerprint": "sha256:4bf8dc1fc73e1518de5394a85b994f7cf285b2e386614e2521ae61b932a9a4fe",
+  "input_fingerprint": "sha256:bb33c51dd10a17c24df0bf343bddec6c127118a593a1a52cc106f877cdde02c1",
   "policy_fingerprint": "sha256:7f4c2dc6ecf39f28a2a9937545f1a4fc3843ee17a20baa84b5a1dd91d5e0fe51",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779649028",
+  "generated_at": "1779649181",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779649028",
-  "started_at": "1779649028",
-  "elapsed_ms": 7259,
+  "run_id": "1779649181",
+  "started_at": "1779649181",
+  "elapsed_ms": 7324,
   "scope": {
     "mode": "full",
     "paths": []
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "154a6dc",
+    "head": "3b0307f",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -368,7 +368,7 @@
       "score": 70,
       "weighted_points": 8.4,
       "evidence": [
-        "largest authored code file: src/git_host/gitlab.rs (453 LOC)",
+        "largest authored code file: src/autonomy/signing_secrets.rs (362 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 22 (advisory only, no score impact)",
         "IO markers found in domain/core files",
@@ -1129,7 +1129,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-24T18:57:01.362997209+00:00",
+    "generated_at": "2026-05-24T18:59:34.650290974+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1167,9 +1167,9 @@
       ]
     },
     "summary": {
-      "files_scanned": 772,
-      "files_considered": 419,
-      "active_files": 419,
+      "files_scanned": 773,
+      "files_considered": 420,
+      "active_files": 420,
       "exact_file_classes": 0,
       "hard_classes": 0,
       "warning_classes": 22,
@@ -1714,22 +1714,22 @@
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 211,
-            "end_line": 212,
+            "start_line": 215,
+            "end_line": 216,
             "unit_name": "list_open_prs"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 223,
-            "end_line": 224,
+            "start_line": 227,
+            "end_line": 228,
             "unit_name": "get_pr_state"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 244,
-            "end_line": 245,
+            "start_line": 248,
+            "end_line": 249,
             "unit_name": "fetch_pr_diff"
           }
         ]
@@ -2530,7 +2530,7 @@
       "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/git_host/gitlab.rs (453 LOC)",
+        "largest authored code file: src/autonomy/signing_secrets.rs (362 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 22 (advisory only, no score impact)",
         "IO markers found in domain/core files"
@@ -2540,7 +2540,7 @@
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:feee2c25710bef5f23300f4d8d8dfbd8637a2bdfe903e11cc18f7f7f56b45dd9",
+      "fingerprint": "sha256:de3528d4796f5936b8bf1e7c6f816437ccecdc3981c12d3e405ecedee446c5a1",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
