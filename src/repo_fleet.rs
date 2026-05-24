@@ -97,8 +97,8 @@ impl FleetSnapshot {
     pub fn counts(&self) -> (u32, u32, u32) {
         let running = self.repos.iter().map(|repo| repo.running_count).sum();
         let failed = self.repos.iter().map(|repo| repo.failed_count).sum();
-        let stale = self.repos.iter().filter(|repo| repo.stale).count() as u32;
-        (running, failed, stale)
+        let aged = self.repos.iter().filter(|repo| repo.stale).count() as u32;
+        (running, failed, aged)
     }
 }
 
@@ -262,7 +262,7 @@ pub fn print_registry_list(registry: &RepoRegistry) {
 pub fn print_fleet_status(snapshot: &FleetSnapshot) {
     println!(
         "{:<10} {:<10} {:<7} {:<7} {:<6} {:<8} command",
-        "alias", "status", "running", "failed", "stale", "score"
+        "alias", "status", "running", "failed", "aged", "score"
     );
     for repo in &snapshot.repos {
         println!(

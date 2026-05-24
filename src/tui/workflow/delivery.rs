@@ -5,9 +5,9 @@
 //! Assembles a `DeliverySnapshot` (multiple PRs, each with a canonical-pipeline
 //! `WorkflowSnapshot`) from whatever inputs are available.
 //!
-//! Two synthesized nodes that will be replaced as JeRyu grows:
-//!   * `AgentReview { stage }` — auto-passes after `AGENT_REVIEW_AUTO_PASS_DELAY`.
-//!   * `AutoMerge` — auto-passes once every pre-merge node has succeeded
+//! Two controller nodes:
+//!   * `AgentReview { stage }` — driven by receipt status emitted by reviewers.
+//!   * `AutoMerge` — passes once every pre-merge node has succeeded
 //!     (mirrors the user-stated policy: PRs auto-merge when pre-merge CI
 //!     passes).
 
@@ -17,8 +17,8 @@ use super::builder;
 use super::model::*;
 use crate::release::ReleaseAttemptView;
 
-/// How long the synthesized agent-review node takes to "pass" in demo + live
-/// until the real agent review wiring lands.
+/// Kept as a public API compatibility constant. Receipt-backed agent review
+/// no longer auto-passes after this delay.
 pub const AGENT_REVIEW_AUTO_PASS_DELAY_SECS: i64 = 5;
 
 /// Lightweight input describing a single PR to render.
@@ -127,7 +127,7 @@ fn build_pr_view(
 fn build_canonical_pipeline(
     pr: &PrInput,
     release: Option<&ReleaseAttemptView>,
-    now: DateTime<Utc>,
+    _now: DateTime<Utc>,
 ) -> WorkflowSnapshot {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
@@ -155,20 +155,20 @@ fn build_canonical_pipeline(
     }
     let pre_ci_aggregate = aggregate_status(&pr.pre_merge_tests);
 
-    // ── Phase: Agent review (pre-merge) — synthesized auto-pass ────
+    // ── Phase: Agent review (pre-merge) — receipt-backed ───────────
     let agent_pre_id = format!("pr{}::agent-review-pre", pr.number);
-    let agent_pre_status = agent_review_auto_pass_status(pre_ci_aggregate, pr.created_at, now);
+    let agent_pre_status = agent_review_receipt_status(pre_ci_aggregate, &pr.labels);
     nodes.push(WorkflowNode {
         id: agent_pre_id.clone(),
         label: "agent code review".into(),
-        command: Some("(synthesized) jeryu agent review --pre-merge".into()),
+        command: Some("autonomy mr validate --emit-status".into()),
         kind: WorkflowNodeKind::AgentReview {
             stage: AgentStage::PreMerge,
         },
         status: agent_pre_status,
         required: true,
         deps: pre_test_ids.clone(),
-        reason: Some("Synthesized: auto-passes once pre-merge CI is green.".into()),
+        reason: Some(agent_review_reason(agent_pre_status)),
         tags: vec![CanonicalPhase::AgentReviewPreMerge.slug().into()],
         ..Default::default()
     });
@@ -251,24 +251,24 @@ fn build_canonical_pipeline(
     }
     let post_ci_aggregate = aggregate_status(&pr.post_merge_tests);
 
-    // ── Phase: Agent review (post-merge) — synthesized auto-pass ───
+    // ── Phase: Agent review (post-merge) — receipt-backed ──────────
     let agent_post_id = format!("pr{}::agent-review-post", pr.number);
     let agent_post_status = if pr.merged_into_main {
-        agent_review_auto_pass_status(post_ci_aggregate, pr.created_at, now)
+        agent_review_receipt_status(post_ci_aggregate, &pr.labels)
     } else {
         WorkflowStatus::Waiting
     };
     nodes.push(WorkflowNode {
         id: agent_post_id.clone(),
         label: "agent regression review".into(),
-        command: Some("(synthesized) jeryu agent review --post-merge".into()),
+        command: Some("autonomy mr validate --emit-status".into()),
         kind: WorkflowNodeKind::AgentReview {
             stage: AgentStage::PostMerge,
         },
         status: agent_post_status,
         required: false,
         deps: post_test_ids.clone(),
-        reason: Some("Stub: auto-passes once post-merge CI is green.".into()),
+        reason: Some(agent_review_reason(agent_post_status)),
         tags: vec![CanonicalPhase::AgentReviewPostMerge.slug().into()],
         ..Default::default()
     });
@@ -419,24 +419,44 @@ fn aggregate_status(tests: &[TestSpec]) -> WorkflowStatus {
     }
 }
 
-fn agent_review_auto_pass_status(
-    upstream: WorkflowStatus,
-    created_at: DateTime<Utc>,
-    now: DateTime<Utc>,
-) -> WorkflowStatus {
+fn agent_review_receipt_status(upstream: WorkflowStatus, labels: &[String]) -> WorkflowStatus {
     match upstream {
-        WorkflowStatus::Ran | WorkflowStatus::Cached => {
-            if now - created_at >= ChronoDuration::seconds(AGENT_REVIEW_AUTO_PASS_DELAY_SECS) {
-                WorkflowStatus::Ran
-            } else {
-                WorkflowStatus::Running
-            }
-        }
+        WorkflowStatus::Ran | WorkflowStatus::Cached => receipt_status_from_labels(labels),
         WorkflowStatus::Error => WorkflowStatus::Blocked,
         WorkflowStatus::Running | WorkflowStatus::Waiting => WorkflowStatus::Waiting,
         WorkflowStatus::Skipped => WorkflowStatus::Skipped,
         WorkflowStatus::Blocked => WorkflowStatus::Blocked,
         WorkflowStatus::Unknown => WorkflowStatus::Unknown,
+    }
+}
+
+fn receipt_status_from_labels(labels: &[String]) -> WorkflowStatus {
+    for label in labels {
+        let normalized = label.trim().to_ascii_lowercase();
+        match normalized.as_str() {
+            "agent-review:pass" | "agent-review=pass" | "jeryu:agent-review=pass" => {
+                return WorkflowStatus::Ran;
+            }
+            "agent-review:block" | "agent-review=block" | "jeryu:agent-review=block" => {
+                return WorkflowStatus::Blocked;
+            }
+            "agent-review:running" | "agent-review=running" | "jeryu:agent-review=running" => {
+                return WorkflowStatus::Running;
+            }
+            _ => {}
+        }
+    }
+    WorkflowStatus::Waiting
+}
+
+fn agent_review_reason(status: WorkflowStatus) -> String {
+    match status {
+        WorkflowStatus::Ran => "Signed agent-review receipt accepted.".into(),
+        WorkflowStatus::Blocked | WorkflowStatus::Error => {
+            "Signed agent-review receipt blocks the MR.".into()
+        }
+        WorkflowStatus::Running => "Agent-review session is running.".into(),
+        _ => "Waiting for signed agent-review receipt.".into(),
     }
 }
 
@@ -889,26 +909,25 @@ mod tests {
     }
 
     #[test]
-    fn agent_review_stub_passes_after_delay() {
-        let now = Utc::now();
-        let old = now - ChronoDuration::seconds(60);
-        let young = now - ChronoDuration::seconds(1);
+    fn agent_review_passes_only_with_receipt_status() {
         assert_eq!(
-            agent_review_auto_pass_status(WorkflowStatus::Ran, old, now),
+            agent_review_receipt_status(WorkflowStatus::Ran, &["agent-review:pass".into()]),
             WorkflowStatus::Ran
         );
         assert_eq!(
-            agent_review_auto_pass_status(WorkflowStatus::Ran, young, now),
-            WorkflowStatus::Running
+            agent_review_receipt_status(WorkflowStatus::Ran, &[]),
+            WorkflowStatus::Waiting
         );
     }
 
     #[test]
-    fn agent_review_stub_blocks_on_upstream_error() {
-        let now = Utc::now();
-        let old = now - ChronoDuration::seconds(60);
+    fn agent_review_blocks_on_upstream_error_or_block_receipt() {
         assert_eq!(
-            agent_review_auto_pass_status(WorkflowStatus::Error, old, now),
+            agent_review_receipt_status(WorkflowStatus::Error, &[]),
+            WorkflowStatus::Blocked
+        );
+        assert_eq!(
+            agent_review_receipt_status(WorkflowStatus::Ran, &["agent-review:block".into()]),
             WorkflowStatus::Blocked
         );
     }
