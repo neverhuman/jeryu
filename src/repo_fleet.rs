@@ -772,7 +772,9 @@ project_id = "veox-shared"
 
         // Setup under lock, then drop before the await (clippy::await_holding_lock).
         let prev_cwd = {
-            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             let prev_ws = std::env::var("JERYU_WORKSPACE_ROOT").ok();
             // Clear env override so we exercise the upward-walk strategy.
             // SAFETY: serialised by PATH_ENV_LOCK.
@@ -789,7 +791,9 @@ project_id = "veox-shared"
 
         // Restore cwd and env; acquire lock to serialise the removal.
         {
-            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             std::env::set_current_dir(&prev_cwd).unwrap();
         }
 
@@ -812,7 +816,9 @@ project_id = "veox-shared"
 
         // Setup under lock, then drop before the await (clippy::await_holding_lock).
         let prev_ws = {
-            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
             // SAFETY: serialised by PATH_ENV_LOCK.
             unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", tmp.path()) };
@@ -824,7 +830,9 @@ project_id = "veox-shared"
 
         // Restore env under lock.
         {
-            let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             // SAFETY: serialised by PATH_ENV_LOCK.
             unsafe {
                 match prev_ws {
@@ -891,7 +899,11 @@ project_id = "veox-shared"
 
     #[test]
     fn ensure_workspace_root_default_sets_known_local_workspace() {
-        let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+        // Acquire lock with poison recovery so a previous test's panic does not
+        // prevent this test from running.
+        let _guard = crate::test_sync::PATH_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
         // SAFETY: serialized by PATH_ENV_LOCK.
         unsafe {
@@ -900,15 +912,35 @@ project_id = "veox-shared"
 
         ensure_workspace_root_default();
 
-        let resolved = std::env::var("JERYU_WORKSPACE_ROOT").unwrap();
-        assert_eq!(resolved, LOCAL_WORKSPACE_ROOT_DEFAULT);
+        let resolved = std::env::var("JERYU_WORKSPACE_ROOT").unwrap_or_default();
 
-        // Restore the previous environment value before releasing the lock.
+        // Restore the previous environment value before the assertion so the lock
+        // is not held across a potential panic.
         unsafe {
             match prev {
-                Some(value) => std::env::set_var("JERYU_WORKSPACE_ROOT", value),
+                Some(ref value) => std::env::set_var("JERYU_WORKSPACE_ROOT", value),
                 None => std::env::remove_var("JERYU_WORKSPACE_ROOT"),
             }
+        }
+
+        // When LOCAL_WORKSPACE_ROOT_DEFAULT exists on this machine, it is the
+        // first match and must be returned exactly.  In CI environments where
+        // that directory does not exist, the function falls through to the
+        // upward-cwd walk and returns the runner's repo root instead — assert
+        // only that a valid workspace was found.
+        if Path::new(LOCAL_WORKSPACE_ROOT_DEFAULT)
+            .join(DEFAULT_REGISTRY_PATH)
+            .exists()
+        {
+            assert_eq!(
+                resolved, LOCAL_WORKSPACE_ROOT_DEFAULT,
+                "hardcoded default should be preferred when it exists"
+            );
+        } else {
+            assert!(
+                !resolved.is_empty() && Path::new(&resolved).join(DEFAULT_REGISTRY_PATH).exists(),
+                "ensure_workspace_root_default must find a workspace with {DEFAULT_REGISTRY_PATH}; got {resolved:?}"
+            );
         }
     }
 }
