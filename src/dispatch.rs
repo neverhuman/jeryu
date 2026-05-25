@@ -62,6 +62,7 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
 
         // ---- Serve -------------------------------------------------------
         Commands::Serve => {
+            jeryu::repo_fleet::ensure_workspace_root_default();
             let (client, webhook_secret) = load_client().await?;
             let db = state::Db::open().await?;
             let docker_ctl = docker::DockerCtl::connect()?;
@@ -136,6 +137,7 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
             height,
             screenshot_hold_ms,
         } => {
+            jeryu::repo_fleet::ensure_workspace_root_default();
             let (client, _) = if once || capture || screenshot || demo {
                 load_client_optional()
             } else {

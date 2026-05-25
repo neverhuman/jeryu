@@ -10,6 +10,7 @@ use std::process::Command;
 
 pub const DEFAULT_REGISTRY_PATH: &str = ".jeryu/repos.toml";
 pub const DEFAULT_REPO_SLUG: &str = "neverhuman/jeryu";
+const LOCAL_WORKSPACE_ROOT_DEFAULT: &str = "/home/ubuntu/veox";
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RepoRegistry {
@@ -299,6 +300,9 @@ pub fn local_git_status(repo: &RepoConfig) -> RepoLocalStatus {
     }
 }
 
+/// Ensure the local daemon/TUI has a stable workspace-root default when no
+/// explicit override is present. This is only applied when the configured
+/// fallback workspace actually exists on disk.
 pub async fn collect_fleet_snapshot(
     repo_root: &Path,
     github: Option<&GitHubClient>,
@@ -518,6 +522,45 @@ fn parse_utc(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
         .map(|dt| dt.with_timezone(&chrono::Utc))
 }
 
+/// Set `JERYU_WORKSPACE_ROOT` to a durable local default if it is not already
+/// set. Called once at process startup (from `dispatch::run`) so that the
+/// daemon/TUI inherit the local workspace path and child processes see the
+/// same value.
+pub fn ensure_workspace_root_default() {
+    // Already set — nothing to do.
+    if std::env::var("JERYU_WORKSPACE_ROOT").is_ok() {
+        return;
+    }
+
+    let default_root = Path::new(LOCAL_WORKSPACE_ROOT_DEFAULT);
+    if default_root.join(DEFAULT_REGISTRY_PATH).exists() {
+        // SAFETY: single-threaded startup; no other thread reads this var yet.
+        unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", default_root) };
+        return;
+    }
+
+    // Upward cwd walk (sync, no subprocess).
+    if let Ok(mut dir) = std::env::current_dir() {
+        loop {
+            if dir.join(DEFAULT_REGISTRY_PATH).exists() {
+                // SAFETY: single-threaded startup; no other thread reads this var yet.
+                unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", &dir) };
+                return;
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+
+    // Daemon /proc scan (Linux only).
+    #[cfg(target_os = "linux")]
+    if let Some(root) = serve_daemon_workspace_root() {
+        // SAFETY: single-threaded startup; no other thread reads this var yet.
+        unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", &root) };
+    }
+}
+
 /// Find the workspace root that owns a `.jeryu/repos.toml` fleet registry.
 ///
 /// Three strategies are tried in order, and the first match wins:
@@ -580,10 +623,14 @@ pub(crate) async fn resolve_workspace_root() -> Option<PathBuf> {
 /// on any I/O error or permission failure).
 #[cfg(target_os = "linux")]
 fn serve_daemon_workspace_root() -> Option<PathBuf> {
-    let entries = std::fs::read_dir("/proc").ok()?;
+    serve_daemon_workspace_root_from_proc(Path::new("/proc"))
+}
+
+#[cfg(target_os = "linux")]
+fn serve_daemon_workspace_root_from_proc(proc_root: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(proc_root).ok()?;
     for entry in entries.flatten() {
         let pid_dir = entry.path();
-        // Only numeric directories (process entries)
         if !pid_dir
             .file_name()
             .and_then(|n| n.to_str())
@@ -592,29 +639,36 @@ fn serve_daemon_workspace_root() -> Option<PathBuf> {
         {
             continue;
         }
-        // Read cmdline; look for a jeryu serve invocation
-        let Ok(cmdline) = std::fs::read(pid_dir.join("cmdline")) else {
-            continue;
-        };
-        // cmdline bytes are NUL-delimited argv
-        let args: Vec<&[u8]> = cmdline.split(|&b| b == 0).collect();
-        let is_jeryu = args
-            .first()
-            .and_then(|a| std::str::from_utf8(a).ok())
-            .map(|a| a.ends_with("jeryu") || a.ends_with("/jeryu"))
-            .unwrap_or(false);
-        let has_serve = args.iter().skip(1).any(|a| *a == b"serve");
-        if !(is_jeryu && has_serve) {
+        if !process_is_jeryu_serve(&pid_dir.join("cmdline")) {
             continue;
         }
-        // Found a `jeryu serve` process — read its cwd symlink
-        if let Ok(cwd) = std::fs::read_link(pid_dir.join("cwd"))
+        if let Some(cwd) = serve_pid_cwd(&pid_dir)
             && cwd.join(DEFAULT_REGISTRY_PATH).exists()
         {
             return Some(cwd);
         }
     }
     None
+}
+
+#[cfg(target_os = "linux")]
+fn process_is_jeryu_serve(cmdline_path: &Path) -> bool {
+    let Ok(cmdline) = std::fs::read(cmdline_path) else {
+        return false;
+    };
+    let args: Vec<&[u8]> = cmdline.split(|&b| b == 0).collect();
+    let is_jeryu = args
+        .first()
+        .and_then(|a| std::str::from_utf8(a).ok())
+        .map(|a| a.ends_with("jeryu") || a.ends_with("/jeryu"))
+        .unwrap_or(false);
+    let has_serve = args.iter().skip(1).any(|a| *a == b"serve");
+    is_jeryu && has_serve
+}
+
+#[cfg(target_os = "linux")]
+fn serve_pid_cwd(pid_dir: &Path) -> Option<PathBuf> {
+    std::fs::read_link(pid_dir.join("cwd")).ok()
 }
 
 #[cfg(test)]
@@ -826,45 +880,35 @@ project_id = "veox-shared"
         // Create a cwd symlink in the fake /proc pid dir pointing to the workspace
         std::os::unix::fs::symlink(workspace.path(), pid_dir.join("cwd")).unwrap();
 
-        // Now run the scanner against our fake /proc, mimicking the real function.
-        let result: Option<PathBuf> = (|| {
-            let entries = std::fs::read_dir(fake_proc.path()).ok()?;
-            for entry in entries.flatten() {
-                let p = entry.path();
-                if !p
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .map(|n| n.chars().all(|c| c.is_ascii_digit()))
-                    .unwrap_or(false)
-                {
-                    continue;
-                }
-                let Ok(cmdline) = std::fs::read(p.join("cmdline")) else {
-                    continue;
-                };
-                let args: Vec<&[u8]> = cmdline.split(|&b| b == 0).collect();
-                let is_jeryu = args
-                    .first()
-                    .and_then(|a| std::str::from_utf8(a).ok())
-                    .map(|a| a.ends_with("jeryu") || a.ends_with("/jeryu"))
-                    .unwrap_or(false);
-                let has_serve = args.iter().skip(1).any(|a| *a == b"serve");
-                if !(is_jeryu && has_serve) {
-                    continue;
-                }
-                if let Ok(cwd) = std::fs::read_link(p.join("cwd"))
-                    && cwd.join(DEFAULT_REGISTRY_PATH).exists()
-                {
-                    return Some(cwd);
-                }
-            }
-            None
-        })();
+        let result = serve_daemon_workspace_root_from_proc(fake_proc.path());
 
         let found = result.expect("should discover workspace from fake daemon cwd");
         assert_eq!(
             found.canonicalize().unwrap(),
             workspace.path().canonicalize().unwrap()
         );
+    }
+
+    #[test]
+    fn ensure_workspace_root_default_sets_known_local_workspace() {
+        let _guard = crate::test_sync::PATH_ENV_LOCK.lock().unwrap();
+        let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
+        // SAFETY: serialized by PATH_ENV_LOCK.
+        unsafe {
+            std::env::remove_var("JERYU_WORKSPACE_ROOT");
+        }
+
+        ensure_workspace_root_default();
+
+        let resolved = std::env::var("JERYU_WORKSPACE_ROOT").unwrap();
+        assert_eq!(resolved, LOCAL_WORKSPACE_ROOT_DEFAULT);
+
+        // Restore the previous environment value before releasing the lock.
+        unsafe {
+            match prev {
+                Some(value) => std::env::set_var("JERYU_WORKSPACE_ROOT", value),
+                None => std::env::remove_var("JERYU_WORKSPACE_ROOT"),
+            }
+        }
     }
 }
