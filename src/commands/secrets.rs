@@ -46,8 +46,8 @@ pub(crate) async fn execute_secrets_commands(subcmd: SecretsCommands) -> Result<
     let db = state::Db::open().await?;
     match subcmd {
         SecretsCommands::Provision { json } => {
-            let observed = secrets::vault_status_observed(Some(&db)).await?;
-            let status = VaultStatusView::from((&observed.report, observed.reachable));
+            let report = secrets::run_secrets_provision(Some(&db)).await?;
+            let status = VaultStatusView::from((&report, report.is_reachable()));
             if json {
                 println!("{}", serde_json::to_string_pretty(&status)?);
             } else {

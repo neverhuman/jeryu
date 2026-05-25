@@ -157,7 +157,7 @@ dependencies = [
 
 [[package]]
 name = "arc-bench"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "anyhow",
  "cargo-aer",
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "cache-brain-adapter"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -581,7 +581,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-aer"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-vrc"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -622,7 +622,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-witness"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "anyhow",
  "cargo-vrc",
@@ -1904,9 +1904,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.4.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
+checksum = "8be7462df143984c4598a256ef469b251d7d7f9e271135073e78fc535414f3d0"
 dependencies = [
  "bytes",
  "itoa",
@@ -2474,7 +2474,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
@@ -2531,11 +2531,11 @@ dependencies = [
 
 [[package]]
 name = "jeryu-domain"
-version = "3.3.21"
+version = "3.3.22"
 
 [[package]]
 name = "jeryu-gcd"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2641,7 +2641,7 @@ dependencies = [
  "referencing",
  "regex",
  "regex-syntax",
- "reqwest 0.13.3",
+ "reqwest 0.13.4",
  "rustls",
  "serde",
  "serde_json",
@@ -4228,9 +4228,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62e0021ea2c22aed41653bc7e1419abb2c97e038ff2c33d0e1309e49a97deec0"
+checksum = "219c5811de6525e5416c7d5d53bb656d3afdbc6c5af816e0802bcfa42dbdc1c3"
 dependencies = [
  "base64",
  "bytes",
@@ -5754,7 +5754,7 @@ checksum = "7b3e06c9b9d80ed6b745c7159c40b311ad2916abb34a49e9be2653b90db0d8dd"
 
 [[package]]
 name = "tui-capture"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "anyhow",
  "clap",
@@ -6714,7 +6714,7 @@ dependencies = [
 
 [[package]]
 name = "witness-rt"
-version = "3.3.21"
+version = "3.3.22"
 dependencies = [
  "chrono",
  "serde",

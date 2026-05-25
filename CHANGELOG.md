@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.22] - 2026-05-25
+
+### Changed
+
+- **CLI `--project-id` is now settings-backed** — all `pipeline`, `release`, and `test`
+  sub-commands accept `--project-id` as an optional argument (`Option<i64>`); when
+  omitted, the value resolves from `settings.release.default_project_id` (48) via
+  the new `resolve_project_id()` helper instead of a hardcoded clap default.
+- **`resolve_project_id(opt: Option<i64>) -> i64`** — new single resolution point in
+  `commands/mod.rs`; replaces scattered `.unwrap_or_else(default_release_project_id)`
+  calls across `pipeline`, `release`, `test`, and `dispatch_back` dispatch paths.
+  Documented with explicit fallback semantics (not silent).
+- **`commands/secrets.rs`**: `vault_status_observed` → `run_secrets_provision` API
+  (current secrets module surface); `VaultStatusView` built from the provision report.
+- **`secrets_runtime_env.rs`**: `env.addr` assignment hoisted before the health-check
+  call to ensure the addr is available to error-path code; duplicate assignment removed.
+
+### Jankurai
+
+- Full-audit score: 89/100, no caps, 0 blocking findings (fallback-soup cap resolved
+  by introducing `resolve_project_id`).
+- All 1079 lib tests pass.
+
 ## [3.3.21] - 2026-05-25
 
 ### Changed

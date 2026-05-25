@@ -11,6 +11,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             pipeline_id,
             json,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let report =
                 release::build_pipeline_explain_report(&client, project_id, pipeline_id).await?;
             if json {
@@ -24,6 +25,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             pipeline_id,
             json,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let report =
                 release::build_pipeline_doctor_report(&client, project_id, pipeline_id).await?;
             if json {
@@ -38,6 +40,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             ingest,
             json,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let db = state::Db::open().await?;
             let runs = fetch_ci_job_runs(&client, project_id, pipeline_id).await?;
             if ingest {
@@ -76,6 +79,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             project_id,
             pipeline_id,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let db = state::Db::open().await?;
             let runs = fetch_ci_job_runs(&client, project_id, pipeline_id).await?;
             upsert_tracked_pipeline_from_gitlab(&db, &client, project_id, pipeline_id).await?;
@@ -90,6 +94,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             project_id,
             pipeline_id,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             client.cancel_pipeline(project_id, pipeline_id).await?;
             println!("cancelled pipeline {}", pipeline_id);
         }
@@ -99,6 +104,7 @@ pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Resul
             limit,
             json,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let db = state::Db::open().await?;
             let rows = db
                 .ci_job_bottlenecks(project_id, ref_name.as_deref(), limit)

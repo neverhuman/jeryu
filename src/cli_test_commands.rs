@@ -14,8 +14,8 @@ pub(crate) enum TestCommands {
         /// The test command to execute.
         #[arg(short, long)]
         command: String,
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long, default_value = "rust:1.92.0")]
         image: String,
         #[arg(long)]
@@ -29,8 +29,8 @@ pub(crate) enum TestCommands {
     Plan {
         #[arg(short, long)]
         command: String,
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long, default_value = "rust:1.92.0")]
         image: String,
         #[arg(long)]
@@ -42,8 +42,8 @@ pub(crate) enum TestCommands {
     Batch {
         #[arg(short = 'c', long = "command", required = true)]
         commands: Vec<String>,
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long, default_value = "rust:1.92.0")]
         image: String,
         #[arg(long)]
@@ -59,21 +59,21 @@ pub(crate) enum TestCommands {
     /// Show results of all jobs in a pipeline.
     Results {
         pipeline_id: i64,
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
     },
     /// Requeue a specific failed job by name.
     Requeue {
         pipeline_id: i64,
         job_name: String,
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
     },
     /// Show only failed jobs from a pipeline with their traces.
     Failed {
         pipeline_id: i64,
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
     },
     /// Ask the checked-out project which CI jobs and release gates a diff needs.
     Impact {

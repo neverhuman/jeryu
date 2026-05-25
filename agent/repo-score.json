@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:c140829f793759f5453b9780e382dbd23199a07557404467497be75ce7617a8e",
-  "input_fingerprint": "sha256:ec8f523e52ee019cddee64ec8c7fb2aa81a70265b0298f5a79a8d67ac75fb5f2",
+  "report_fingerprint": "sha256:15f46db88e857e701068040dc5b43f76cad89fd86d69ad09ac0157d11057c74f",
+  "input_fingerprint": "sha256:663c566bce51fc363aa2b11f900ced0622afcb343de7ded0a941022f26c7df37",
   "policy_fingerprint": "sha256:7f4c2dc6ecf39f28a2a9937545f1a4fc3843ee17a20baa84b5a1dd91d5e0fe51",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779694011",
+  "generated_at": "1779737507",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779694011",
-  "started_at": "1779694011",
-  "elapsed_ms": 7373,
+  "run_id": "1779737507",
+  "started_at": "1779737507",
+  "elapsed_ms": 7622,
   "scope": {
     "mode": "full",
     "paths": []
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "8522530",
+    "head": "c49c266",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -357,7 +357,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 739",
+        "rust bad-behavior advisory signals: 740",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -375,7 +375,7 @@
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 22 (advisory only, no score impact)",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 739",
+        "rust bad-behavior advisory signals: 740",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -1132,7 +1132,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-25T07:26:44.483059222+00:00",
+    "generated_at": "2026-05-25T19:31:39.951633165+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",

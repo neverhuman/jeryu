@@ -52,24 +52,24 @@ pub(crate) enum JobCommands {
 pub(crate) enum PipelineCommands {
     /// Explain blocking vs non-blocking state for a specific pipeline.
     Explain {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         pipeline_id: i64,
         #[arg(long, default_value_t = false)]
         json: bool,
     },
     /// Diagnose active jobs, runner assignment, and outdated trace symptoms.
     Doctor {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         pipeline_id: i64,
         #[arg(long, default_value_t = false)]
         json: bool,
     },
     /// List all jobs with start/end/runtime fields and optionally ingest them.
     Jobs {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         pipeline_id: i64,
         #[arg(long, default_value_t = false)]
         ingest: bool,
@@ -78,20 +78,20 @@ pub(crate) enum PipelineCommands {
     },
     /// Persist all current GitLab job timings for a pipeline.
     Ingest {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         pipeline_id: i64,
     },
     /// Cancel a superseded or unwanted pipeline.
     Cancel {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         pipeline_id: i64,
     },
     /// Show historical slow CI jobs from the local jeryu timing ledger.
     Bottlenecks {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long = "ref-name", alias = "ref")]
         ref_name: Option<String>,
         #[arg(long, default_value = "25")]

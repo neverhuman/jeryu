@@ -79,8 +79,8 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Secrets(SecretsCommands),
     Progress {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long = "ref-name", alias = "ref", default_value = "main")]
         ref_name: String,
         #[arg(long, default_value_t = false)]
@@ -103,8 +103,8 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Mcp(McpCommands),
     Next {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long = "ref-name", alias = "ref", default_value = "main")]
         ref_name: String,
     },

@@ -34,6 +34,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             timeout,
             force,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             handle_run_command(
                 &client, &db, command, project_id, image, tags, timeout, force,
             )
@@ -46,6 +47,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             tags,
             timeout,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             handle_plan_command(command, project_id, image, tags, timeout)?;
         }
         TestCommands::Batch {
@@ -57,6 +59,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             max_parallel,
             force,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             handle_batch_command(
                 &client,
                 &db,
@@ -74,6 +77,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             pipeline_id,
             project_id,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             handle_results_command(&client, pipeline_id, project_id).await?;
         }
         TestCommands::Requeue {
@@ -81,12 +85,14 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             job_name,
             project_id,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             handle_requeue_command(&client, pipeline_id, job_name, project_id).await?;
         }
         TestCommands::Failed {
             pipeline_id,
             project_id,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             handle_failed_command(&client, pipeline_id, project_id).await?;
         }
         TestCommands::Impact {
