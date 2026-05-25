@@ -4,8 +4,8 @@ use clap::Subcommand;
 pub(crate) enum ReleaseCommands {
     /// Show the latest release attempts and canary state.
     Status {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long = "ref-name", alias = "ref", default_value = "main")]
         ref_name: String,
         #[arg(long)]
@@ -17,8 +17,8 @@ pub(crate) enum ReleaseCommands {
     },
     /// Continuously refresh the latest release status.
     Watch {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long = "ref-name", alias = "ref", default_value = "main")]
         ref_name: String,
         #[arg(long)]
@@ -32,8 +32,8 @@ pub(crate) enum ReleaseCommands {
     },
     /// Reconcile release attempts, resuming the current release by default.
     Reconcile {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long = "ref-name", alias = "ref", default_value = "main")]
         ref_name: String,
         /// Force a fresh upstream pipeline selection instead of resuming the current release.
@@ -44,8 +44,8 @@ pub(crate) enum ReleaseCommands {
     },
     /// Trigger approved A/B production promotion for a passed canary.
     PromoteProd {
-        #[arg(long, default_value = "2")]
-        project_id: i64,
+        #[arg(long)]
+        project_id: Option<i64>,
         #[arg(long = "ref-name", alias = "ref", default_value = "main")]
         ref_name: String,
         #[arg(long)]

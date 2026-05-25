@@ -25,6 +25,7 @@ pub(crate) async fn provision_operational_env() -> Result<VaultEnv> {
         mount: config::VAULT_DEFAULT_MOUNT.to_string(),
         prefix: config::VAULT_DEFAULT_PREFIX.to_string(),
     });
+    env.addr = addr.clone();
 
     let mut health = fetch_vault_health(&client, &addr).await?;
     let mut bootstrap = load_bootstrap_material()?;
@@ -56,7 +57,6 @@ pub(crate) async fn provision_operational_env() -> Result<VaultEnv> {
         env.token = create_ops_token(&client, &env, &bootstrap.root_token).await?;
         save_vault_env(&env)?;
     } else {
-        env.addr = addr;
         save_vault_env(&env)?;
     }
     Ok(env)

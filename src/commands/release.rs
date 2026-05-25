@@ -20,6 +20,7 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             limit,
             json,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let db = state::Db::open().await?;
             let report = release::build_release_status_report(
                 &db,
@@ -45,6 +46,7 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             interval_secs,
             json,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let db = state::Db::open().await?;
             release::watch_release_status(
                 &db,
@@ -65,6 +67,7 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             fresh,
             json,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let (client, _) = load_client().await?;
             let db = state::Db::open().await?;
             let report =
@@ -81,6 +84,7 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
             ref_name,
             version,
         } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
             let (client, _) = load_client().await?;
             let db = state::Db::open().await?;
             let pipeline_id =
@@ -104,7 +108,7 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
                 let report = release::build_release_status_report(
                     &db,
                     release::ReleaseStatusQuery {
-                        project_id: Some(release::DEFAULT_RELEASE_PROJECT_ID),
+                        project_id: Some(crate::commands::default_release_project_id()),
                         ref_name: Some("main".into()),
                         sha: None,
                         limit: 1,

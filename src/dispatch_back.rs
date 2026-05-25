@@ -43,7 +43,10 @@ pub(crate) async fn run(command: Commands) -> Result<i32> {
             project_id,
             ref_name,
             json,
-        } => ops::run_progress(project_id, ref_name, json).await?,
+        } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
+            ops::run_progress(project_id, ref_name, json).await?
+        }
 
         // ---- Repo --------------------------------------------------------
         Commands::Repo(subcmd) => {
@@ -101,7 +104,10 @@ pub(crate) async fn run(command: Commands) -> Result<i32> {
         Commands::Next {
             project_id,
             ref_name,
-        } => late::run_next(project_id, ref_name).await?,
+        } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
+            late::run_next(project_id, ref_name).await?
+        }
 
         // ---- ExplainBlocker ----------------------------------------------
         Commands::ExplainBlocker {
