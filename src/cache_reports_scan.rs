@@ -142,3 +142,56 @@ pub(crate) async fn scan_nextest_extract_dirs(
     statuses.sort_by(|a, b| b.bytes.cmp(&a.bytes).then_with(|| a.path.cmp(&b.path)));
     Ok(statuses)
 }
+
+pub(crate) fn count_named_marker_files(root: &Path, marker_dir: &str) -> Result<u64> {
+    if !root.is_dir() {
+        return Ok(0);
+    }
+
+    let mut count = 0_u64;
+    for entry in WalkDir::new(root).follow_links(false) {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        if entry
+            .path()
+            .parent()
+            .and_then(|parent| parent.file_name())
+            .and_then(|name| name.to_str())
+            != Some(marker_dir)
+        {
+            continue;
+        }
+        if entry.path().parent().and_then(|parent| parent.parent()) != Some(root) {
+            continue;
+        }
+        count += 1;
+    }
+    Ok(count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn count_named_marker_files_only_counts_direct_children() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let marker_dir = dir.path().join(".jeryu-cache-seeds");
+        std::fs::create_dir_all(&marker_dir).unwrap();
+        std::fs::write(marker_dir.join("one.json"), b"{}").unwrap();
+        std::fs::write(marker_dir.join("two.json"), b"{}").unwrap();
+        std::fs::create_dir_all(dir.path().join("nested/.jeryu-cache-seeds")).unwrap();
+        std::fs::write(
+            dir.path().join("nested/.jeryu-cache-seeds/ignored.json"),
+            b"{}",
+        )
+        .unwrap();
+
+        let count = count_named_marker_files(dir.path(), ".jeryu-cache-seeds").unwrap();
+        assert_eq!(count, 2);
+    }
+}

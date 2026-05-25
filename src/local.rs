@@ -23,6 +23,14 @@ pub async fn run_cargo(repo: PathBuf, cargo_args: Vec<String>) -> Result<()> {
             .with_context(|| format!("creating {}", layout.sccache_dir.display()))?;
     }
     if layout.cargo_cache_enabled {
+        if let Some(cargo_home) = layout.env.get("CARGO_HOME") {
+            std::fs::create_dir_all(cargo_home)
+                .with_context(|| format!("creating {}", cargo_home))?;
+        }
+        if let Some(rustup_home) = layout.env.get("RUSTUP_HOME") {
+            std::fs::create_dir_all(rustup_home)
+                .with_context(|| format!("creating {}", rustup_home))?;
+        }
         if let Some(parent) = layout.target_dir.parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("creating {}", parent.display()))?;

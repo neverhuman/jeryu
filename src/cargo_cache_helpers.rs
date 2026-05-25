@@ -105,9 +105,9 @@ pub fn shell_exports(layout: &crate::cargo_cache::CargoCacheLayout) -> Vec<Strin
         lines.push(format!("export {}={}", key, shell_quote(value)));
     }
     if !layout.cargo_cache_enabled {
-        lines.push("unset CARGO_TARGET_DIR".to_string());
+        lines.push("unset CARGO_TARGET_DIR CARGO_HOME RUSTUP_HOME".to_string());
     }
-    if !layout.env.contains_key("RUSTC_WRAPPER") {
+    if !layout.env.contains_key("SCCACHE_DIR") {
         lines.push(
             "unset RUSTC_WRAPPER SCCACHE_DIR SCCACHE_NO_DAEMON SCCACHE_CACHE_SIZE".to_string(),
         );

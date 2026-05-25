@@ -136,6 +136,11 @@ fn layout_uses_expected_segments() {
     assert!(layout.target_dir.ends_with("target"));
     assert!(layout.target_root.to_string_lossy().contains("job-123"));
     assert!(layout.env.contains_key("CARGO_TARGET_DIR"));
+    assert!(layout.env.contains_key("CARGO_HOME"));
+    assert!(layout.env.contains_key("RUSTUP_HOME"));
+    assert_eq!(layout.env["JERYU_CARGO_TARGET_PROFILE"], "debug");
+    assert!(layout.env.contains_key("SCCACHE_DIR"));
+    assert!(layout.env.contains_key("SCCACHE_NO_DAEMON"));
     assert_eq!(layout.env["CARGO_INCREMENTAL"], "1");
     assert!(!layout.env.contains_key("RUSTC_WRAPPER"));
 
@@ -216,6 +221,10 @@ fn layout_adds_sccache_when_usable() {
     .unwrap();
     assert!(layout.env.contains_key("RUSTC_WRAPPER"));
     assert!(layout.env.contains_key("SCCACHE_DIR"));
+    assert!(layout.env.contains_key("CARGO_HOME"));
+    assert!(layout.env.contains_key("RUSTUP_HOME"));
+    assert_eq!(layout.env["JERYU_CARGO_TARGET_PROFILE"], "debug");
+    assert_eq!(layout.env["SCCACHE_NO_DAEMON"], "1");
     assert_eq!(layout.env["SCCACHE_CACHE_SIZE"], "10G");
     match original_path {
         Some(value) => set_env_var("PATH", value),
@@ -326,6 +335,18 @@ fn runner_pre_build_script_sets_target_dir_without_sccache() {
         Some(value) => set_env_var("PATH", value),
         None => remove_env_var("PATH"),
     }
+}
+
+#[test]
+fn runner_pre_build_script_exports_cargo_and_rustup_homes() {
+    let pool_cache = TempDir::new().unwrap();
+    let script =
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker");
+    assert!(script.contains("export CARGO_HOME="));
+    assert!(script.contains("export RUSTUP_HOME="));
+    assert!(script.contains(".jeryu-cache-stamp.json"));
+    assert!(script.contains(".jeryu-cache-seeds"));
+    assert!(script.contains(".jeryu-cache-promotions"));
 }
 
 #[test]
