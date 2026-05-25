@@ -10,7 +10,7 @@ use std::process::Command;
 
 pub const DEFAULT_REGISTRY_PATH: &str = ".jeryu/repos.toml";
 pub const DEFAULT_REPO_SLUG: &str = "neverhuman/jeryu";
-const LOCAL_WORKSPACE_ROOT_DEFAULT: &str = "/home/ubuntu/veox";
+const LOCAL_WORKSPACE_ROOT_DEFAULT: &str = "/home/ubuntu/veox-repos";
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RepoRegistry {

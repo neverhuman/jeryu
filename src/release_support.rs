@@ -22,7 +22,7 @@ pub enum ReleaseError {
     CiSchemaFailed { stderr: String },
 }
 
-pub const DEFAULT_RELEASE_PROJECT_ID: i64 = 2;
+pub const DEFAULT_RELEASE_PROJECT_ID: i64 = 48;
 
 pub(crate) fn render_release_version(sha: &str) -> String {
     format!("ci-{}", sha.chars().take(12).collect::<String>())

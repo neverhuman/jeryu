@@ -417,7 +417,7 @@ jeryu test select --base origin/main --head HEAD
 ### 10.3 External CI Pipeline Selection
 
 ```
-jeryu test select-external --workspace /home/ubuntu/dougx
+jeryu test select-external --workspace /home/ubuntu/veox-repos/veox-deploy
 → load .jeryu/testmap.toml
 → git diff --name-only base head (in workspace)
 → testmap::plan_from_testmap(map, changed_paths)

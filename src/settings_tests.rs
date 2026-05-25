@@ -8,7 +8,11 @@ fn defaults_round_trip() {
     assert_eq!(s2.gitlab.http_port, 8929);
     assert_eq!(s2.git.mode, "after_success");
     assert_eq!(s2.mirror.remote, "jeryu");
-    assert_eq!(s2.release.repo_root.as_deref(), Some("/home/ubuntu/dougx"));
+    assert_eq!(
+        s2.release.repo_root.as_deref(),
+        Some("/home/ubuntu/veox-repos/veox-deploy")
+    );
+    assert_eq!(s2.release.default_project_id, 48);
     assert_eq!(s2.webhook.bind, "127.0.0.1:9777");
     assert_eq!(s2.mcp.bind, "127.0.0.1:9778");
     assert_eq!(s2.pool.runner_shutdown_timeout_secs, 3600);

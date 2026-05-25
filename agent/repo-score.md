@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779656082`
-- Started at: `1779656082`
-- Elapsed: `7296` ms
+- Run ID: `1779694011`
+- Started at: `1779694011`
+- Elapsed: `7373` ms
 - Scope: `full`
 - Raw score: `89`
 - Final score: `89`
@@ -82,10 +82,10 @@
 | Kind | Severity | Language | Lines | Tokens | Instances | Reason |
 | --- | --- | --- | ---: | ---: | --- | --- |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose_workspace.rs:166-167, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:118-119, src/api/entity.rs:127-128, src/api/entity.rs:150-151, src/api/entity.rs:160-161, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:74-75, src/runtime_support/mod.rs:103-104, src/runtime_support/mod.rs:131-132, src/runtime_support/mod.rs:138-139, src/runtime_support/mod.rs:172-173` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1756-1757, db/state.rs:1819-1820, db/state.rs:1910-1911, db/state.rs:1923-1924, db/state.rs:1982-1983, db/state.rs:2626-2627, db/state.rs:2977-2978, db/state.rs:3004-3005, db/state.rs:3031-3032, db/state.rs:3050-3051` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1756-1757, db/state.rs:1819-1820, db/state.rs:1910-1911, db/state.rs:1923-1924, db/state.rs:1982-1983, db/state.rs:2081-2082, db/state.rs:2639-2640, db/state.rs:2990-2991, db/state.rs:3017-3018, db/state.rs:3044-3045, db/state.rs:3063-3064` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 6 | 22 | `crates/cargo-aer/src/helpers.rs:93-99, crates/cargo-vrc/src/planner_support_paths.rs:168-174` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `src/capability_execute.rs:86-88, src/capability_inspect.rs:20-22, src/capability_inspect_read.rs:132-134` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2240-2241, db/state.rs:3077-3078, db/state.rs:3115-3116, db/state.rs:3217-3218` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2253-2254, db/state.rs:3090-3091, db/state.rs:3128-3129, db/state.rs:3230-3231` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:103-104` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:118-119, src/api/entity.rs:150-151, src/api/snapshot.rs:140-141` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:127-128, src/api/entity.rs:160-161, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
@@ -99,7 +99,7 @@
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `crates/arc-bench/src/exceptions.rs:130-132, crates/arc-bench/src/witness_loop.rs:154-156` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 2 | 3 | `src/repo.rs:88-90, src/repo.rs:92-94` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 1 | `crates/cargo-aer/src/helpers.rs:101-103, crates/cargo-vrc/src/planner_support_paths.rs:176-178` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2142-2143, db/state.rs:2820-2821` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2155-2156, db/state.rs:2833-2834` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:64-65, src/runtime_support/mod.rs:110-111` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:655-656, db/state.rs:662-663` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/api/entity.rs:191-192, src/gateway/singleflight.rs:64-65` | `same body appears under different names across files` |
@@ -112,7 +112,7 @@
 | Contract and boundary integrity | 13 | 98 | 12.74 | contract surface found; generated contract artifacts found |
 | Proof lanes and test routing | 12 | 100 | 12.00 | one-command setup/validation lane found; deterministic fast lane found |
 | Security and supply-chain posture | 12 | 86 | 10.32 | lockfile present; secret or dependency scan tooling found |
-| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/llm/doctor.rs (303 LOC); most code files stay under 300 LOC |
+| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/cargo_cache_layout.rs (395 LOC); most code files stay under 300 LOC |
 | Data truth and workflow safety | 8 | 95 | 7.60 | database surface present; structured db boundary manifest present |
 | Observability and repair evidence | 8 | 98 | 7.84 | observability libraries or patterns found; diagnostic shaping hints found |
 | Context economy and agent instructions | 7 | 100 | 7.00 | root `AGENTS.md` present; root `AGENTS.md` stays short |
@@ -191,10 +191,10 @@
 ## Security evidence (ingested)
 
 - Source: `target/jankurai/security/evidence.json`
-- Envelope exit code: `0` · elapsed: `3746` ms · strict: `true`
+- Envelope exit code: `0` · elapsed: `3785` ms · strict: `true`
 - Commands — ran: `1`, skipped: `0`, failed: `0`
-- Generated at: `1779628252`
-- Git HEAD (envelope): `5225999f17824b139a4164be0bdd1878b7501262`
+- Generated at: `1779671912`
+- Git HEAD (envelope): `0fe29e08935061817d002221052ef45494379613`
 
 ## Boundary manifest (ingested)
 
@@ -217,8 +217,8 @@ No audited runtime boundary reclassifications declared.
    Reason: `Code shape and semantic surface` scored 70 below the standard floor of 85
    Fix: split large or ambiguous authored code into smaller semantic modules with focused tests
    Rerun: `just fast`
-   Fingerprint: `sha256:98592c041e00d5f13786a28c6456b27d2170e4f20e37525e17f355b7068dd1aa`
-   Evidence: largest authored code file: src/llm/doctor.rs (303 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 22 (advisory only, no score impact), IO markers found in domain/core files
+   Fingerprint: `sha256:68fe4bf5bbcda65a00f4e1329648b7b771527ad4148b1b7119bc5892affed620`
+   Evidence: largest authored code file: src/cargo_cache_layout.rs (395 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 22 (advisory only, no score impact), IO markers found in domain/core files
 
 ## Policy
 

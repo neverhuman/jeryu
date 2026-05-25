@@ -212,6 +212,7 @@ pub(crate) fn apply_demo_fixture(app: &mut App) {
     app.delivery_snapshot = crate::tui::workflow::delivery::build_demo_delivery();
     app.state.delivery_source_status = crate::tui::app::DeliverySourceStatus {
         configured: true,
+        backend_label: Some("demo".into()),
         source_label: Some("demo (in-memory)".into()),
         last_sync_at: Some(now),
         last_sync_error: None,

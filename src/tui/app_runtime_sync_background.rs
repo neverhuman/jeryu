@@ -9,6 +9,7 @@ pub(crate) fn start_background_sync(app: &App) {
     let tx = app.sync_tx.clone();
     let log_tx = app.log_tx.clone();
     let mut log_rx = app.log_target_tx.subscribe();
+    let delivery_tx = app.delivery_tx.clone();
 
     let store_flow = store.clone();
     let docker_flow = app.docker.clone();
@@ -139,6 +140,24 @@ pub(crate) fn start_background_sync(app: &App) {
             }
 
             if feed_tx.send(feeds).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let delivery_hosts = crate::tui::workflow::live_delivery::DeliveryHosts::from_env();
+    tokio::spawn(async move {
+        let mut collector = crate::tui::workflow::live_delivery::LiveDeliveryCollector::new();
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(5000));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+            let workspace_root = crate::repo_fleet::resolve_workspace_root().await;
+            let update = collector
+                .sync(workspace_root.as_deref(), &delivery_hosts, None)
+                .await;
+            if delivery_tx.send(update).await.is_err() {
                 break;
             }
         }

@@ -37,7 +37,10 @@ pub(crate) fn draw_release_tab(f: &mut Frame, app: &mut App, area: Rect) {
 
 fn draw_release_subpane_tabs(f: &mut Frame, app: &App, area: Rect) {
     let mut spans: Vec<Span> = vec![Span::styled(
-        " release ",
+        format!(
+            " release · project {} · veox-deploy ",
+            crate::release::DEFAULT_RELEASE_PROJECT_ID
+        ),
         Style::default()
             .fg(Color::Cyan)
             .add_modifier(Modifier::BOLD),
@@ -75,6 +78,23 @@ fn draw_release_subpane_tabs(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(2), Constraint::Min(6)])
+        .split(area);
+    let summary = release_surface_summary(app);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(
+                " project 48 · veox-deploy ",
+                Style::default().fg(Color::Cyan),
+            ),
+            Span::styled(" ", Style::default()),
+            Span::styled(summary, Style::default().fg(Color::Green)),
+        ])),
+        rows[0],
+    );
+
     let snap = &app.state.release_stages;
     let cols = Layout::default()
         .direction(Direction::Horizontal)
@@ -85,7 +105,7 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Percentage(20),
             Constraint::Percentage(20),
         ])
-        .split(area);
+        .split(rows[1]);
 
     let stages: [(&str, &Vec<crate::tui::app::ReleaseStageCard>, Color); 5] = [
         ("Plan", &snap.plan, Color::Blue),
@@ -127,7 +147,23 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_release_rollback_pane(f: &mut Frame, app: &App, area: Rect) {
-    let _ = app;
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(2), Constraint::Min(4)])
+        .split(area);
+    let summary = release_surface_summary(app);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(
+                " project 48 · veox-deploy ",
+                Style::default().fg(Color::Cyan),
+            ),
+            Span::styled(" ", Style::default()),
+            Span::styled(summary, Style::default().fg(Color::Green)),
+        ])),
+        rows[0],
+    );
+
     let ladder = crate::release::default_ladder();
     let items: Vec<ListItem> = ladder
         .iter()
@@ -151,7 +187,33 @@ fn draw_release_rollback_pane(f: &mut Frame, app: &App, area: Rect) {
             .borders(Borders::ALL)
             .border_style(chrome.border_style),
     );
-    f.render_widget(list, area);
+    f.render_widget(list, rows[1]);
+}
+
+fn release_surface_summary(app: &App) -> String {
+    let Some(rel) = app.state.release_status.as_ref() else {
+        return "canary: waiting · prod: waiting · rollback: ready".into();
+    };
+    let canary = match rel.attempt.canary_status.as_str() {
+        "passed" | "e2e-passed" | "green" | "released" => "ready".to_string(),
+        "running" | "canary-authorized" | "in-flight" => "in flight".to_string(),
+        other => other.to_string(),
+    };
+    let prod = match rel.attempt.production_pipeline_status.as_deref() {
+        Some("success") => "ready".to_string(),
+        Some("running" | "pending" | "created" | "manual") => "in flight".to_string(),
+        Some(other) => other.to_string(),
+        None => "waiting".to_string(),
+    };
+    let rollback = if matches!(
+        rel.attempt.canary_status.as_str(),
+        "passed" | "e2e-passed" | "green" | "released"
+    ) {
+        "ready".to_string()
+    } else {
+        "waiting".to_string()
+    };
+    format!("canary: {canary} · prod: {prod} · rollback: {rollback}")
 }
 
 pub(crate) fn draw_release_inspector(f: &mut Frame, app: &App, area: Rect) {

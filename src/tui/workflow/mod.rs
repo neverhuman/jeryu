@@ -10,6 +10,7 @@ pub mod delivery;
 pub mod hit_map;
 pub mod inspector;
 pub mod intelligence;
+pub mod live_delivery;
 pub mod minimap;
 pub mod mission_strip;
 pub mod model;

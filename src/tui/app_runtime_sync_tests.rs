@@ -1,4 +1,5 @@
 use super::{LiveLogState, PoolSyncMerge, TuiStateSnapshot};
+use crate::release;
 use crate::state::JobEvent;
 use crate::tui::flow::{FlowGraph, FlowSnapshot, PipelineFlow};
 use crate::tui::live::live_job_status_rank;
@@ -7,7 +8,7 @@ use anyhow::Result;
 fn job(job_id: i64, status: &str, received_at: &str) -> JobEvent {
     JobEvent {
         job_id,
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         pipeline_id: Some(10),
         status: status.into(),
         job_name: Some(format!("test-job-{job_id}")),
@@ -28,7 +29,7 @@ fn job_without_pipeline(job_id: i64, status: &str, received_at: &str) -> JobEven
 fn ci_job_run(job_id: i64, status: &str) -> crate::state::CiJobRun {
     crate::state::CiJobRun {
         job_id,
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         pipeline_id: 163,
         root_pipeline_id: 163,
         pipeline_sha: "0123456789abcdef0123456789abcdef01234567".into(),
@@ -239,7 +240,7 @@ fn ci_job_runs_backfill_recent_jobs_for_tui() {
     let job = super::ci_job_run_to_recent_job(ci_job_run(608, "failed"));
 
     assert_eq!(job.job_id, 608);
-    assert_eq!(job.project_id, 2);
+    assert_eq!(job.project_id, release::DEFAULT_RELEASE_PROJECT_ID);
     assert_eq!(job.pipeline_id, Some(163));
     assert_eq!(job.status, "failed");
     assert_eq!(job.job_name.as_deref(), Some("release-job-608"));

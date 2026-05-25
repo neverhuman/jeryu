@@ -34,8 +34,8 @@ pub struct TuiSettings {
 impl Default for ReleaseSettings {
     fn default() -> Self {
         Self {
-            repo_root: Some("/home/ubuntu/dougx".into()),
-            default_project_id: 2,
+            repo_root: Some("/home/ubuntu/veox-repos/veox-deploy".into()),
+            default_project_id: 48,
         }
     }
 }

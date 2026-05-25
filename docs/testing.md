@@ -32,7 +32,7 @@ Security-relevant module changes also require:
 VTI owns diff-to-test selection and audit visibility:
 
 - `jeryu test select`
-- `jeryu test select-external --workspace /home/ubuntu/dougx`
+- `jeryu test select-external --workspace /home/ubuntu/veox-repos/veox-deploy`
 - `jeryu test audit`
 - `jeryu test learn`
 - `jeryu test cache-status`

@@ -774,6 +774,22 @@ impl App {
         }
     }
 
+    /// Replace the live delivery snapshot while preserving the current PR
+    /// selection when the same PR still exists in the new snapshot.
+    pub fn set_delivery_snapshot(
+        &mut self,
+        snapshot: crate::tui::workflow::model::DeliverySnapshot,
+        source_status: crate::tui::app::DeliverySourceStatus,
+    ) {
+        let remembered_pr = self.delivery_snapshot.selected().map(|pr| pr.number);
+        self.delivery_snapshot = snapshot;
+        if let Some(num) = remembered_pr {
+            self.delivery_snapshot.select_by_number(num);
+        }
+        self.state.delivery_source_status = source_status;
+        self.refresh_delivery_snapshot();
+    }
+
     /// Approximate visible DAG height (terminal height minus chrome).
     /// Used for viewport panning calculations.
     fn last_dag_h(&self) -> u16 {

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.21] - 2026-05-25
+
+### Changed
+
+- **Re-home paths** — `DEFAULT_RELEASE_PROJECT_ID` promoted from a magic literal `2`
+  to a named constant (`48`) used everywhere (tests, defaults, CLI docs, paper appendix).
+- **Release repo root** — default changed from `/home/ubuntu/dougx` to
+  `/home/ubuntu/veox-repos/veox-deploy` (`settings_types_tail.rs`,
+  `settings_support.rs`, docs, paper).
+- **Local workspace root** — `LOCAL_WORKSPACE_ROOT_DEFAULT` changed from
+  `/home/ubuntu/veox` to `/home/ubuntu/veox-repos` (`repo_fleet.rs`).
+
+### Improved
+
+- **TUI fleet-registry empty state** — `draw_workflow_empty_state` now renders a
+  context-aware headline and body: "No active pull requests" + fleet-open hint when
+  configured; "No pull requests configured" + `jeryu repo fleet sync` instruction when
+  not. Replaces the old `jeryu pr source add` pair of hints.
+- **`DeliverySourceStatus` hydration** — `app_runtime_sync` now populates
+  `delivery_source_status` with `configured: true`, source label, and sync timestamp
+  on both the fleet-registry and tracked-repo hydration paths.
+
+### Fixed
+
+- Settings round-trip test (`settings_tests`) extended to assert
+  `default_project_id == 48` alongside the repo-root assertion.
+- Test files updated to reference `release::DEFAULT_RELEASE_PROJECT_ID` constant
+  rather than bare `2`, so future project-id changes are single-source.
+
 ## [3.3.20] - 2026-05-25
 
 ### Added

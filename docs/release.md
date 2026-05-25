@@ -30,7 +30,7 @@ Release state is recorded in the database, mainly through:
 - `release_secret_sets`
 - `secret_audit_events`
 
-The default release repo root is `/home/ubuntu/dougx`, unless overridden by
+The default release repo root is `/home/ubuntu/veox-repos/veox-deploy`, unless overridden by
 `JERYU_RELEASE_REPO_ROOT` or `settings.release.repo_root`.
 
 ## Commands

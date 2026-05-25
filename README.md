@@ -106,7 +106,7 @@ Maps your changes to the smallest conservative validation plan. Uses SmartCache 
 jeryu test select --base origin/main --head HEAD --explain
 
 # Run tests through the CI pipeline
-jeryu test run --command "cargo test --lib" --project-id 2
+jeryu test run --command "cargo test --lib" --project-id 48
 
 # See what the plan would look like without running
 jeryu test plan --command "cargo test --lib"

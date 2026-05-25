@@ -38,7 +38,7 @@ Action registry & static JSON contract & CLI, TUI, capability clients & canonica
 \begin{lstlisting}[style=api,language=bash,caption={Agent discovery and status entrypoints}]
 jeryu action list --json
 jeryu status
-jeryu next --project-id 2 --ref-name main
+jeryu next --project-id 48 --ref-name main
 jeryu explain-blocker job 14445
 jeryu capability serve /tmp/jeryu-capability.sock
 jeryu mcp serve
@@ -68,8 +68,8 @@ All command names are kebab-case at the shell. Defaults below match the current 
 \apicmd{jeryu tui [--once]} & UI/read & Launch the Ratatui dashboard or render one smoke frame.\\
 \apicmd{jeryu tui --capture --tab <tab> --output <png>} & read/artifact & Deterministic Ratatui PNG capture. Tabs: mission, release, jobs, agents, tests, pools, cache, evidence, secrets.\\
 \apicmd{jeryu tui --screenshot --tab <tab> --screenshot-hold-ms <ms>} & read/session & Hold a real terminal render for external screenshot tooling.\\
-\apicmd{jeryu progress --project-id 2 --ref-name main [--json]} & read & Show lane-aware CI and release progress.\\
-\apicmd{jeryu next --project-id 2 --ref-name main} & read & Print the highest-priority next action for a branch.\\
+\apicmd{jeryu progress --project-id 48 --ref-name main [--json]} & read & Show lane-aware CI and release progress.\\
+\apicmd{jeryu next --project-id 48 --ref-name main} & read & Print the highest-priority next action for a branch.\\
 \apicmd{jeryu explain-blocker <job|release|merge> <id>} & read & Explain why an entity is blocked using DB/GitLab evidence.\\
 \apicmd{jeryu action list [--json]} & read & Emit the canonical action registry for humans or agents.\\
 \bottomrule
@@ -95,9 +95,9 @@ All command names are kebab-case at the shell. Defaults below match the current 
 \apicmd{jeryu job play|cancel|retry <project> <job>} & mutating & Start manual jobs, cancel jobs, or retry failed jobs.\\
 \apicmd{jeryu job explain <project> <job>} & read & Print latest structured failure capsule and retry advice.\\
 \apicmd{jeryu job clear} & mutating & Clear local job and pipeline history.\\
-\apicmd{jeryu pipeline explain|doctor|jobs <pipeline> [--project-id 2] [--json]} & read & Inspect release eligibility, health, and job timing.\\
+\apicmd{jeryu pipeline explain|doctor|jobs <pipeline> [--project-id 48] [--json]} & read & Inspect release eligibility, health, and job timing.\\
 \apicmd{jeryu pipeline jobs <pipeline> --ingest} & mutating & Store current job timing rows.\\
-\apicmd{jeryu pipeline ingest|cancel <pipeline> [--project-id 2]} & mutating & Persist timings or cancel a pipeline.\\
+\apicmd{jeryu pipeline ingest|cancel <pipeline> [--project-id 48]} & mutating & Persist timings or cancel a pipeline.\\
 \apicmd{jeryu pipeline bottlenecks [--limit 25] [--json]} & read & Report historical slow jobs from local timing ledger.\\
 \apicmd{jeryu cache enable} & mutating & Configure Docker for SmartCache registry mirror.\\
 \apicmd{jeryu cache doctor|status [--json]} & read & Check proxy/registry/cache state and metrics.\\

@@ -377,15 +377,19 @@ fn draw_no_pr_state(f: &mut Frame, area: Rect, theme: &Theme) {
     );
 }
 
-/// Render an explicit "no PRs configured" card. Shown by `ui.rs` when the
-/// delivery snapshot is empty. Replaces the silent demo fallback that used
-/// to show a fake 5-PR story in production.
+/// Render an explicit empty-state card. Shown by `ui.rs` when the delivery
+/// snapshot is empty. It still reports backend/source health so operators can
+/// tell whether live sync is configured or just temporarily empty.
 pub fn draw_workflow_empty_state(
     f: &mut Frame,
     area: Rect,
     theme: &Theme,
     status: &crate::tui::app::DeliverySourceStatus,
 ) {
+    let backend = status
+        .backend_label
+        .as_deref()
+        .unwrap_or("(backend unavailable)");
     let source = status.source_label.as_deref().unwrap_or("(not configured)");
     let last_sync = status
         .last_sync_at
@@ -394,21 +398,31 @@ pub fn draw_workflow_empty_state(
     let status_line = match (&status.last_sync_error, status.configured) {
         (Some(err), _) => format!("error: {err}"),
         (None, true) => "ok".into(),
-        (None, false) => "(no PR source configured)".into(),
+        (None, false) => "(no fleet registry configured)".into(),
+    };
+    let headline = if status.configured {
+        "  No active pull requests"
+    } else {
+        "  No pull requests configured"
     };
 
     let mut lines = vec![
         Line::from(""),
-        Line::from(Span::styled(
-            "  No pull requests configured",
-            theme.bold(theme.text_primary),
-        )),
+        Line::from(Span::styled(headline, theme.bold(theme.text_primary))),
         Line::from(""),
         Line::from(Span::styled(
-            "  Pull requests will appear here as the agents open them.",
+            if status.configured {
+                "  Open a merge request in one of the tracked repos to populate this rail."
+            } else {
+                "  Waiting for fleet registry and host backends to report live work."
+            },
             theme.muted(),
         )),
         Line::from(""),
+        Line::from(vec![
+            Span::styled("  Backend:  ", theme.muted()),
+            Span::styled(backend.to_string(), theme.secondary()),
+        ]),
         Line::from(vec![
             Span::styled("  Source:    ", theme.muted()),
             Span::styled(source.to_string(), theme.secondary()),
@@ -432,17 +446,16 @@ pub fn draw_workflow_empty_state(
         ]),
         Line::from(""),
         Line::from(Span::styled(
-            "  Configure: jeryu pr source add --github <owner>/<repo>",
-            theme.primary(),
-        )),
-        Line::from(Span::styled(
-            "             jeryu pr source add --gitlab <project_id>",
-            theme.primary(),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "  Or run: jeryu tui --demo  (in-memory 5-PR walkthrough)",
-            theme.muted(),
+            if status.configured {
+                "  Live PR/MR sync is active for the tracked fleet."
+            } else {
+                "  Live PR/MR sync is not configured yet."
+            },
+            if status.configured {
+                theme.bold(theme.ok)
+            } else {
+                theme.muted()
+            },
         )),
     ];
     while lines.len() < (area.height as usize).saturating_sub(2) {

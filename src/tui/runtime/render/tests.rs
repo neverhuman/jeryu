@@ -1,4 +1,5 @@
 use super::*;
+use crate::release;
 use crate::tui::{app::App, ui};
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
@@ -47,7 +48,7 @@ fn rendered_text(buffer: &Buffer) -> String {
 fn job(job_id: i64, status: &str) -> crate::state::JobEvent {
     crate::state::JobEvent {
         job_id,
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         pipeline_id: Some(10),
         status: status.into(),
         job_name: Some(format!("test-job-{job_id}")),
@@ -124,6 +125,22 @@ async fn renders_release_subpanes() -> Result<()> {
         app.release_subpane = sub;
         draw_once(&mut app)?;
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn release_tab_shows_project_and_readiness() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.apply_demo_fixture();
+    app.active_tab = crate::tui::app::ActiveTab::Release;
+    app.release_subpane = crate::tui::app::ReleaseSubPane::Pipeline;
+    let buffer = capture_buffer_size(&mut app, 140, 40)?;
+    let text = rendered_text(&buffer);
+    assert!(text.contains("project 48"));
+    assert!(text.contains("veox-deploy"));
+    assert!(text.contains("canary:"));
+    assert!(text.contains("prod:"));
+    assert!(text.contains("rollback:"));
     Ok(())
 }
 
@@ -340,7 +357,7 @@ async fn renders_flow_with_jobs_list_and_live_log() -> Result<()> {
     app.state.live_log.text = "cargo test\nwarning: slow test\nerror: sample failure".into();
     app.state.flow.active_pipelines = vec![crate::tui::flow::PipelineFlow {
         pipeline_id: 10,
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         ref_name: "main".into(),
         sha: Some("abc123".into()),
         status: "running".into(),
@@ -607,27 +624,36 @@ async fn workflow_agent_inspector_shows_model_and_decision() -> Result<()> {
 }
 
 #[tokio::test]
-async fn workflow_empty_state_shows_config_hint() -> Result<()> {
+async fn workflow_empty_state_shows_live_source_state() -> Result<()> {
     let mut app = crate::tui::app::test_app().await?;
     app.active_tab = crate::tui::app::ActiveTab::Workflow;
     // Explicitly empty delivery snapshot and unconfigured source status.
     app.delivery_snapshot = crate::tui::workflow::model::DeliverySnapshot::empty();
     app.state.delivery_source_status = crate::tui::app::DeliverySourceStatus {
-        configured: false,
-        source_label: None,
-        last_sync_at: None,
+        configured: true,
+        backend_label: Some("GitHub + GitLab".into()),
+        source_label: Some("fleet registry: /home/ubuntu/veox-repos/.jeryu/repos.toml".into()),
+        last_sync_at: Some(chrono::Utc::now()),
         last_sync_error: None,
     };
     let buffer = capture_buffer(&mut app)?;
     let text = rendered_text(&buffer);
     assert!(
-        text.contains("No pull requests"),
-        "empty workflow tab should show 'No pull requests' card; first 600 chars:\n{}",
+        text.contains("No active pull requests"),
+        "empty workflow tab should show 'No active pull requests' card; first 600 chars:\n{}",
         &text[..text.len().min(600)]
     );
     assert!(
-        text.contains("jeryu pr source"),
-        "empty workflow card should include the CLI config hint"
+        text.contains("GitHub + GitLab"),
+        "empty workflow card should include the live backend label"
+    );
+    assert!(
+        text.contains("/home/ubuntu/veox-repos/.jeryu/repos.toml"),
+        "empty workflow card should include the registry path"
+    );
+    assert!(
+        !text.contains("jeryu repo fleet sync"),
+        "empty workflow card should no longer show the stale setup command"
     );
     Ok(())
 }
