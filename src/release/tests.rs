@@ -392,6 +392,17 @@ fn allow_failure_release_candidate_jobs_do_not_block_reconcile() {
 }
 
 #[test]
+fn native_release_artifact_jobs_materialize_release_candidate() {
+    let jobs = vec![
+        job("test-rust-nht-handshake-native", "success", false),
+        job("test-rust-release-artifacts-native", "success", false),
+    ];
+
+    assert!(jobs_materialize_release_candidate(&jobs));
+    assert!(failed_release_candidate_jobs(&jobs).is_empty());
+}
+
+#[test]
 fn hard_release_candidate_failures_still_block_reconcile() {
     let jobs = vec![
         job("build-enclave-server", "success", true),

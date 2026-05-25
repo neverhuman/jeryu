@@ -105,6 +105,8 @@ pub(crate) fn is_release_candidate_job(name: &str) -> bool {
             | "test-local-built"
             | "publish-rc-dry-run"
             | "test-local-rc"
+            | "test-rust-nht-handshake-native"
+            | "test-rust-release-artifacts-native"
     )
 }
 
