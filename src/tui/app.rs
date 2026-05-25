@@ -280,6 +280,7 @@ pub struct TuiStateSnapshot {
 #[derive(Debug, Clone, Default)]
 pub struct DeliverySourceStatus {
     pub configured: bool,
+    pub backend_label: Option<String>,
     pub source_label: Option<String>,
     pub last_sync_at: Option<chrono::DateTime<chrono::Utc>>,
     pub last_sync_error: Option<String>,
@@ -413,6 +414,9 @@ pub struct App {
 
     sync_rx: mpsc::Receiver<TuiStateSnapshot>,
     sync_tx: mpsc::Sender<TuiStateSnapshot>,
+
+    delivery_rx: mpsc::Receiver<crate::tui::workflow::live_delivery::LiveDeliveryUpdate>,
+    delivery_tx: mpsc::Sender<crate::tui::workflow::live_delivery::LiveDeliveryUpdate>,
 
     log_rx: mpsc::Receiver<LiveLogState>,
     log_tx: mpsc::Sender<LiveLogState>,

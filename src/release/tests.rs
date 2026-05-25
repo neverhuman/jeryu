@@ -122,7 +122,7 @@ fn lint_shell_schema_job() -> CiSchemaJob {
 fn sample_release_attempt(version: &str) -> ReleaseAttempt {
     ReleaseAttempt {
         id: 1,
-        project_id: 2,
+        project_id: DEFAULT_RELEASE_PROJECT_ID,
         ref_name: "main".into(),
         sha: "abcdef1234567890".into(),
         version: version.into(),
@@ -161,7 +161,7 @@ fn status_text_includes_state_paths() {
     };
     let report = ReleaseStatusReport {
         generated_at: "2026-04-16T00:00:02Z".into(),
-        project_id: Some(2),
+        project_id: Some(DEFAULT_RELEASE_PROJECT_ID),
         ref_name: Some("main".into()),
         sha: None,
         limit: 5,
@@ -232,7 +232,7 @@ fn should_resume_existing_release_attempt() {
 fn pipeline_explain_text_lists_all_item_sections() {
     let report = PipelineExplainReport {
         generated_at: "2026-04-16T00:00:00Z".into(),
-        project_id: 2,
+        project_id: DEFAULT_RELEASE_PROJECT_ID,
         pipeline_id: 88,
         pipeline_sha: "abcdef1234567890".into(),
         pipeline_ref: "main".into(),

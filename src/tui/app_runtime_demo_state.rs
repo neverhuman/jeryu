@@ -250,6 +250,7 @@ pub(crate) fn build_demo_state(
         agent_connected: true, // demo is "connected"
         delivery_source_status: crate::tui::app::DeliverySourceStatus {
             configured: true,
+            backend_label: Some("demo".into()),
             source_label: Some("demo (in-memory)".into()),
             last_sync_at: Some(now),
             last_sync_error: None,

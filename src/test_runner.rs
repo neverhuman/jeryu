@@ -7,6 +7,7 @@
 //! GitLab CI pipeline and get structured results back. Works by creating
 //! a dynamic pipeline with just the requested test command.
 
+use crate::release;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
@@ -54,7 +55,7 @@ pub struct TestRunOpts {
 impl Default for TestRunOpts {
     fn default() -> Self {
         Self {
-            project_id: 2,
+            project_id: release::DEFAULT_RELEASE_PROJECT_ID,
             test_command: String::new(),
             job_name: None,
             image: "rust:1.92.0".to_string(),
@@ -83,7 +84,7 @@ pub struct TestBatchOpts {
 impl Default for TestBatchOpts {
     fn default() -> Self {
         Self {
-            project_id: 2,
+            project_id: release::DEFAULT_RELEASE_PROJECT_ID,
             test_commands: Vec::new(),
             job_name_prefix: None,
             image: "rust:1.92.0".to_string(),

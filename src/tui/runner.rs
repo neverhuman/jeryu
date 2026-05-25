@@ -56,6 +56,7 @@ pub async fn run_tui(
             tracing::warn!(target: "tui.cockpit", err = %e, "action adapter stays fake");
         }
         hydrate_smoke_state(&mut app).await;
+        app.hydrate_delivery_status().await;
         app.start_background_sync();
     }
 

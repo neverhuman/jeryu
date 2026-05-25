@@ -1,4 +1,5 @@
 use super::*;
+use crate::tui::workflow::live_delivery::{DeliveryHosts, LiveDeliveryCollector};
 #[path = "app_runtime_sync_background.rs"]
 mod background;
 #[path = "app_runtime_sync_progress.rs"]
@@ -40,6 +41,31 @@ impl App {
             self.state.release_status_generated_at = Some(report.generated_at);
             self.state.release_status = report.latest;
         }
+    }
+
+    pub async fn hydrate_delivery_status(&mut self) {
+        let Some(_) = self.store.as_ref() else {
+            self.state.delivery_source_status = crate::tui::app::DeliverySourceStatus {
+                configured: false,
+                backend_label: None,
+                source_label: None,
+                last_sync_at: Some(chrono::Utc::now()),
+                last_sync_error: None,
+            };
+            return;
+        };
+
+        let workspace_root = crate::repo_fleet::resolve_workspace_root().await;
+        let hosts = DeliveryHosts::from_env();
+        let mut collector = LiveDeliveryCollector::new();
+        let update = collector
+            .sync(
+                workspace_root.as_deref(),
+                &hosts,
+                self.state.release_status.as_ref(),
+            )
+            .await;
+        self.set_delivery_snapshot(update.snapshot, update.source_status);
     }
 
     async fn hydrate_core_snapshot(
@@ -133,7 +159,16 @@ impl App {
         snap.gitlab_ready = gitlab.is_ready().await;
         if let Some(repo_root) = crate::repo_fleet::resolve_workspace_root().await {
             match crate::repo_fleet::collect_fleet_snapshot(&repo_root, None).await {
-                Ok(fleet) => snap.fleet = fleet,
+                Ok(fleet) => {
+                    snap.delivery_source_status = crate::tui::app::DeliverySourceStatus {
+                        configured: true,
+                        backend_label: Some("GitHub".into()),
+                        source_label: Some(format!("fleet registry: {}", fleet.registry_path)),
+                        last_sync_at: Some(chrono::Utc::now()),
+                        last_sync_error: None,
+                    };
+                    snap.fleet = fleet;
+                }
                 Err(e) => {
                     tracing::warn!("fleet hydration failed for {}: {e:#}", repo_root.display())
                 }
@@ -146,6 +181,13 @@ impl App {
                 crate::repo_fleet::collect_fleet_snapshot_from_tracked_repositories(&repos, None)
                     .await
         {
+            snap.delivery_source_status = crate::tui::app::DeliverySourceStatus {
+                configured: true,
+                backend_label: Some("GitHub".into()),
+                source_label: Some("tracked repositories".into()),
+                last_sync_at: Some(chrono::Utc::now()),
+                last_sync_error: None,
+            };
             snap.fleet = fleet;
         }
     }
@@ -173,6 +215,10 @@ impl App {
             }
             state.event_ticker_offset = self.state.event_ticker_offset;
             self.state = state;
+        }
+
+        while let Ok(update) = self.delivery_rx.try_recv() {
+            self.set_delivery_snapshot(update.snapshot, update.source_status);
         }
 
         while let Ok(flow_snap) = self.flow_rx.try_recv() {

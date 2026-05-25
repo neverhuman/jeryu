@@ -49,7 +49,7 @@ The repository root is `/home/ubuntu/JeRyu`. The binary is the Rust crate/packag
 | `CACHE_PROXY_PORT` | `19800` | SmartCache proxy/gateway port |
 | `CACHE_REGISTRY_PORT` | `19801` | Local OCI registry mirror port |
 | `DEFAULT_RELEASE_PROJECT_ID` | `2` | Default release project |
-| Default release repo root | `/home/ubuntu/dougx` | Overridable via `JERYU_RELEASE_REPO_ROOT` or `settings.release.repo_root` |
+| Default release repo root | `/home/ubuntu/veox-repos/veox-deploy` | Overridable via `JERYU_RELEASE_REPO_ROOT` or `settings.release.repo_root` |
 
 All constants are configurable through `~/.jeryu/settings.json` — see the Settings API section.
 
@@ -178,27 +178,27 @@ Clears local job and pipeline history from the state database.
 
 ### 4.5 Pipeline Inspection and Control
 
-#### `jeryu pipeline explain <pipeline_id> [--project-id 2] [--json]`
+#### `jeryu pipeline explain <pipeline_id> [--project-id 48] [--json]`
 
 Builds a blocking/non-blocking release eligibility report for a pipeline. Groups jobs into release-critical, extended, research, and release-execution categories.
 
-#### `jeryu pipeline doctor <pipeline_id> [--project-id 2] [--json]`
+#### `jeryu pipeline doctor <pipeline_id> [--project-id 48] [--json]`
 
 Diagnoses active jobs, runner assignment, stale trace symptoms, and likely pipeline health issues.
 
-#### `jeryu pipeline jobs <pipeline_id> [--project-id 2] [--ingest] [--json]`
+#### `jeryu pipeline jobs <pipeline_id> [--project-id 48] [--ingest] [--json]`
 
 Lists all GitLab jobs for a pipeline with timing fields. With `--ingest`, stores job timing rows into `ci_job_runs`.
 
-#### `jeryu pipeline ingest <pipeline_id> [--project-id 2]`
+#### `jeryu pipeline ingest <pipeline_id> [--project-id 48]`
 
 Fetches and stores all current GitLab job timings for the pipeline.
 
-#### `jeryu pipeline cancel <pipeline_id> [--project-id 2]`
+#### `jeryu pipeline cancel <pipeline_id> [--project-id 48]`
 
 Cancels a pipeline in GitLab.
 
-#### `jeryu pipeline bottlenecks [--project-id 2] [--ref-name <ref>] [--limit 25] [--json]`
+#### `jeryu pipeline bottlenecks [--project-id 48] [--ref-name <ref>] [--limit 25] [--json]`
 
 Reports historical slow CI jobs from `ci_job_runs`.
 
@@ -254,11 +254,11 @@ Runs the risk gate before accepting a merge request.
 
 ### 4.9 Test Runner and VTI Controls
 
-#### `jeryu test run --command <cmd> [--project-id 2] [--image rust:1.92.0] [--tags a,b] [--timeout 600] [--force]`
+#### `jeryu test run --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600] [--force]`
 
 Runs one test command through an ephemeral GitLab CI branch and dynamic `.gitlab-ci.yml`. Infers tags/risk/timeout unless tags are supplied. Checks local test cache unless `--force`. Creates scratch branch, commits CI config, waits, prints result, records execution, cleans up.
 
-#### `jeryu test plan --command <cmd> [--project-id 2] [--image rust:1.92.0] [--tags a,b] [--timeout 600]`
+#### `jeryu test plan --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600]`
 
 Prints inferred risk class, tags, timeout, and rationale without running.
 
@@ -266,19 +266,19 @@ Prints inferred risk class, tags, timeout, and rationale without running.
 
 Runs multiple test commands in parallel through separate CI pipelines.
 
-#### `jeryu test results <pipeline_id> [--project-id 2]`
+#### `jeryu test results <pipeline_id> [--project-id 48]`
 
 Shows pass/fail/skipped/running summary for a pipeline's jobs.
 
-#### `jeryu test retry <pipeline_id> <job_name> [--project-id 2]`
+#### `jeryu test retry <pipeline_id> <job_name> [--project-id 48]`
 
 Retries a failed job selected by name.
 
-#### `jeryu test failed <pipeline_id> [--project-id 2]`
+#### `jeryu test failed <pipeline_id> [--project-id 48]`
 
 Prints only failed jobs and recent trace tails.
 
-#### `jeryu test impact --base <ref> --head <ref> [--repo-root /home/ubuntu/dougx] [--json]`
+#### `jeryu test impact --base <ref> --head <ref> [--repo-root /home/ubuntu/veox-repos/veox-deploy] [--json]`
 
 Delegates to `veox-testctl ci-impact` in the target repo and prints release-impacting/full-build/jobs/rules.
 
@@ -308,19 +308,19 @@ Computes selected tests and deterministic cache keys from changed files, `Cargo.
 
 ### 4.11 Release Management
 
-#### `jeryu release status [--project-id 2] [--ref-name main] [--sha <sha>] [--limit 5] [--json]`
+#### `jeryu release status [--project-id 48] [--ref-name main] [--sha <sha>] [--limit 5] [--json]`
 
 Shows recent release attempts with upstream/release-execution/production pipelines, canary status, gate files, release identity state, public canary URL.
 
-#### `jeryu release watch [--project-id 2] [--ref-name main] [--sha <sha>] [--limit 5] [--interval-secs 5] [--json]`
+#### `jeryu release watch [--project-id 48] [--ref-name main] [--sha <sha>] [--limit 5] [--interval-secs 5] [--json]`
 
 Continuously refreshes release status.
 
-#### `jeryu release reconcile [--project-id 2] [--ref-name main] [--json]`
+#### `jeryu release reconcile [--project-id 48] [--ref-name main] [--json]`
 
 Reconciles release attempts against latest successful upstream pipeline. Also run by engine reconciliation loop.
 
-#### `jeryu release promote-prod [--project-id 2] [--ref-name main] [--version <version>]`
+#### `jeryu release promote-prod [--project-id 48] [--ref-name main] [--version <version>]`
 
 Triggers production promotion when canary/E2E-passed and handoff/validation artifacts exist. Variables: `CI_PIPELINE_PRODUCT=production-promotion`, `JERYU_PROD_APPROVED=1`, `JERYU_RELEASE_SHA`, `JERYU_RELEASE_VERSION`.
 
@@ -364,13 +364,13 @@ Prints recovery instructions for a release bundle.
 
 ### 4.13 Progress
 
-#### `jeryu progress [--project-id 2] [--ref-name main] [--json]`
+#### `jeryu progress [--project-id 48] [--ref-name main] [--json]`
 
 Builds a lane-aware CI/release progress report for a ref. Combines tracked pipeline state, GitLab job state, release lane classification, blockers, and release execution status.
 
 ### 4.14 Next Action
 
-#### `jeryu next [--project-id 2] [--ref-name main]`
+#### `jeryu next [--project-id 48] [--ref-name main]`
 
 Shows the highest-priority recommended action for the current branch. Checks in order: recent job failures, active pipelines, release gate state, selector misses (7-day window). Prints specific suggested `jeryu` commands.
 

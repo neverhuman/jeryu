@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.20",
-  "cargo_workspace_version": "3.3.20",
+  "version": "3.3.21",
+  "cargo_workspace_version": "3.3.21",
   "release_line": "V3.3",
   "status": "stable",
   "date": "2026-05-25",
   "tag_policy": {
-    "rc": "v3.3.20-rc.N",
-    "stable": "v3.3.20"
+    "rc": "v3.3.21-rc.N",
+    "stable": "v3.3.21"
   },
-  "headline": "Ship JeRyu v3.3.20 with Cargo/Rustup home warming, seed & promotion markers."
+  "headline": "Ship JeRyu v3.3.21 — re-home to veox-repos, project-id 48, fleet-registry TUI UX."
 }

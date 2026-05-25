@@ -15,5 +15,5 @@ pub fn release_repo_root() -> PathBuf {
     {
         return PathBuf::from(value);
     }
-    PathBuf::from("/home/ubuntu/dougx")
+    PathBuf::from("/home/ubuntu/veox-repos/veox-deploy")
 }

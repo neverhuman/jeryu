@@ -1,9 +1,12 @@
-use crate::test_runner::{TestRunOpts, plan_test_run, render_ephemeral_ci_yaml};
+use crate::{
+    release,
+    test_runner::{TestRunOpts, plan_test_run, render_ephemeral_ci_yaml},
+};
 
 #[test]
 fn infers_build_routing_for_deploy_commands() {
     let plan = plan_test_run(&TestRunOpts {
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         test_command: "cargo test -p veox-deploy".to_string(),
         job_name: None,
         image: "rust:1.92.0".to_string(),
@@ -20,7 +23,7 @@ fn infers_build_routing_for_deploy_commands() {
 #[test]
 fn infers_untrusted_routing_for_security_commands() {
     let plan = plan_test_run(&TestRunOpts {
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         test_command: "cargo test -p dougx security-scan".to_string(),
         job_name: None,
         image: "rust:1.92.0".to_string(),
@@ -37,7 +40,7 @@ fn infers_untrusted_routing_for_security_commands() {
 #[test]
 fn defaults_to_default_routing_for_simple_commands() {
     let plan = plan_test_run(&TestRunOpts {
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         test_command: "cargo test -p veox-testctl".to_string(),
         job_name: None,
         image: "rust:1.92.0".to_string(),
@@ -53,7 +56,7 @@ fn defaults_to_default_routing_for_simple_commands() {
 #[test]
 fn ephemeral_ci_yaml_uses_isolated_clone_path() {
     let plan = plan_test_run(&TestRunOpts {
-        project_id: 2,
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
         test_command: "cargo test -p jeryu".to_string(),
         job_name: Some("smoke".to_string()),
         image: "rust:1.92.0".to_string(),

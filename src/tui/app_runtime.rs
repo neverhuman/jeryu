@@ -21,6 +21,7 @@ impl App {
         let (flow_tx, flow_rx) = mpsc::channel(4);
         let (log_tx, log_rx) = mpsc::channel(8);
         let (feed_tx, feed_rx) = mpsc::channel(4);
+        let (delivery_tx, delivery_rx) = mpsc::channel(4);
         let (log_target_tx, _log_target_rx) = watch::channel(None);
         Self {
             store,
@@ -89,6 +90,8 @@ impl App {
             flow_tx,
             feed_rx,
             feed_tx,
+            delivery_rx,
+            delivery_tx,
         }
     }
 
