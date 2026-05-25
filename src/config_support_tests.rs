@@ -70,8 +70,12 @@ fn test_render_runner_config() {
     assert!(docker_cfg.contains("pull_policy = \"if-not-present\""));
     assert!(docker_cfg.contains("JERYU_CARGO_CACHE=1"));
     assert!(docker_cfg.contains("JERYU_CARGO_CACHE_ROOT=/cache"));
+    assert!(docker_cfg.contains("JERYU_CARGO_HOST_CORES="));
+    assert!(docker_cfg.contains("JERYU_CARGO_TOTAL_RUNNER_SLOTS=20"));
     assert!(docker_cfg.contains("pre_build_script"));
     assert!(docker_cfg.contains("JERYU_SCCACHE_ENABLED=1"));
+    assert!(docker_cfg.contains("JERYU_SCCACHE_BINARY_VERSION=v0.9.1"));
+    assert!(docker_cfg.contains("JERYU_CARGO_TARGET_ISOLATE=slot"));
     assert!(!docker_cfg.contains("/usr/local/bin/sccache:/usr/local/bin/sccache:ro"));
     assert!(!docker_cfg.contains("find /cache -mindepth 1 -maxdepth 1 -exec rm -rf"));
     assert!(!docker_cfg.contains("executor = \"custom\""));

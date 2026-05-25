@@ -4,12 +4,13 @@
 
 use crate::git_host::{GitHubClient, RepoRef};
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 pub const DEFAULT_REGISTRY_PATH: &str = ".jeryu/repos.toml";
 pub const DEFAULT_REPO_SLUG: &str = "neverhuman/jeryu";
+const LOCAL_WORKSPACE_ROOT_DEFAULT: &str = "/home/ubuntu/veox";
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RepoRegistry {
@@ -19,7 +20,7 @@ pub struct RepoRegistry {
     pub repo: Vec<RepoConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RepoConfig {
     pub alias: String,
     pub slug: String,
@@ -29,6 +30,54 @@ pub struct RepoConfig {
     pub default_branch: String,
     pub visibility: String,
     pub health_profile: String,
+}
+
+impl<'de> Deserialize<'de> for RepoConfig {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawRepoConfig {
+            alias: String,
+            slug: String,
+            #[serde(default)]
+            provider: Option<String>,
+            remote: String,
+            #[serde(default)]
+            local_root: Option<PathBuf>,
+            #[serde(default)]
+            path: Option<PathBuf>,
+            default_branch: String,
+            #[serde(default)]
+            visibility: Option<String>,
+            #[serde(default)]
+            health_profile: Option<String>,
+            #[serde(default)]
+            profile: Option<String>,
+        }
+
+        let raw = RawRepoConfig::deserialize(deserializer)?;
+        let local_root = raw
+            .local_root
+            .or(raw.path)
+            .ok_or_else(|| serde::de::Error::missing_field("local_root"))?;
+        Ok(Self {
+            alias: raw.alias,
+            provider: raw
+                .provider
+                .unwrap_or_else(|| infer_provider(&raw.slug, &raw.remote).to_string()),
+            slug: raw.slug,
+            remote: raw.remote,
+            local_root,
+            default_branch: raw.default_branch,
+            visibility: raw.visibility.unwrap_or_else(|| "private".to_string()),
+            health_profile: raw
+                .health_profile
+                .or(raw.profile)
+                .unwrap_or_else(|| "default".to_string()),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
@@ -200,6 +249,40 @@ pub fn registry_path_for(repo_root: &Path) -> PathBuf {
     repo_root.join(DEFAULT_REGISTRY_PATH)
 }
 
+pub fn registry_from_tracked_repositories(
+    repos: &[crate::state::TrackedRepository],
+) -> RepoRegistry {
+    RepoRegistry {
+        schema_version: Some("state-store".to_string()),
+        repo: repos
+            .iter()
+            .map(|repo| RepoConfig {
+                alias: repo.alias.clone(),
+                slug: repo.slug.clone(),
+                provider: repo.provider.clone(),
+                remote: repo.remote.clone(),
+                local_root: PathBuf::from(&repo.local_root),
+                default_branch: repo.default_branch.clone(),
+                visibility: repo.visibility.clone(),
+                health_profile: repo.health_profile.clone(),
+            })
+            .collect(),
+    }
+}
+
+pub async fn collect_fleet_snapshot_from_tracked_repositories(
+    repos: &[crate::state::TrackedRepository],
+    github: Option<&GitHubClient>,
+) -> Result<FleetSnapshot> {
+    let registry = registry_from_tracked_repositories(repos);
+    collect_fleet_snapshot_from_registry(
+        &registry,
+        PathBuf::from("state:tracked_repositories"),
+        github,
+    )
+    .await
+}
+
 pub fn local_git_status(repo: &RepoConfig) -> RepoLocalStatus {
     if !repo.local_root.is_dir() {
         return RepoLocalStatus::default();
@@ -217,6 +300,9 @@ pub fn local_git_status(repo: &RepoConfig) -> RepoLocalStatus {
     }
 }
 
+/// Ensure the local daemon/TUI has a stable workspace-root default when no
+/// explicit override is present. This is only applied when the configured
+/// fallback workspace actually exists on disk.
 pub async fn collect_fleet_snapshot(
     repo_root: &Path,
     github: Option<&GitHubClient>,
@@ -421,10 +507,168 @@ fn is_failed_conclusion(conclusion: Option<&str>) -> bool {
     )
 }
 
+fn infer_provider(slug: &str, remote: &str) -> &'static str {
+    let remote = remote.to_ascii_lowercase();
+    if slug.starts_with("root/") || remote.contains("gitlab") {
+        "gitlab"
+    } else {
+        "github"
+    }
+}
+
 fn parse_utc(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
     chrono::DateTime::parse_from_rfc3339(value)
         .ok()
         .map(|dt| dt.with_timezone(&chrono::Utc))
+}
+
+/// Set `JERYU_WORKSPACE_ROOT` to a durable local default if it is not already
+/// set. Called once at process startup (from `dispatch::run`) so that the
+/// daemon/TUI inherit the local workspace path and child processes see the
+/// same value.
+pub fn ensure_workspace_root_default() {
+    // Already set — nothing to do.
+    if std::env::var("JERYU_WORKSPACE_ROOT").is_ok() {
+        return;
+    }
+
+    let default_root = Path::new(LOCAL_WORKSPACE_ROOT_DEFAULT);
+    if default_root.join(DEFAULT_REGISTRY_PATH).exists() {
+        // SAFETY: single-threaded startup; no other thread reads this var yet.
+        unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", default_root) };
+        return;
+    }
+
+    // Upward cwd walk (sync, no subprocess).
+    if let Ok(mut dir) = std::env::current_dir() {
+        loop {
+            if dir.join(DEFAULT_REGISTRY_PATH).exists() {
+                // SAFETY: single-threaded startup; no other thread reads this var yet.
+                unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", &dir) };
+                return;
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+
+    // Daemon /proc scan (Linux only).
+    #[cfg(target_os = "linux")]
+    if let Some(root) = serve_daemon_workspace_root() {
+        // SAFETY: single-threaded startup; no other thread reads this var yet.
+        unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", &root) };
+    }
+}
+
+/// Find the workspace root that owns a `.jeryu/repos.toml` fleet registry.
+///
+/// Three strategies are tried in order, and the first match wins:
+///
+/// 1. `JERYU_WORKSPACE_ROOT` env var — explicit override for daemon / remote contexts.
+/// 2. Walk upward from `current_dir()` — works regardless of which subdirectory the
+///    TUI was launched from (mirrors how `git` finds `.git/`).
+/// 3. `git rev-parse --show-toplevel` — handles detached worktrees, symlinks, and
+///    other edge cases where the upward walk might miss.
+///
+/// Returns `None` when no parent directory with `.jeryu/repos.toml` is found, which
+/// is a valid configuration (first-run or non-monorepo workspace).
+pub(crate) async fn resolve_workspace_root() -> Option<PathBuf> {
+    // Strategy 1: explicit env override
+    if let Ok(p) = std::env::var("JERYU_WORKSPACE_ROOT") {
+        let p = PathBuf::from(p);
+        if p.join(DEFAULT_REGISTRY_PATH).exists() {
+            return Some(p);
+        }
+    }
+
+    // Strategy 2: walk upward from cwd
+    if let Ok(mut dir) = std::env::current_dir() {
+        loop {
+            if dir.join(DEFAULT_REGISTRY_PATH).exists() {
+                return Some(dir);
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+
+    // Strategy 3: git rev-parse --show-toplevel
+    if let Ok(out) = tokio::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .await
+        && out.status.success()
+    {
+        let root = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+        if root.join(DEFAULT_REGISTRY_PATH).exists() {
+            return Some(root);
+        }
+    }
+
+    // Strategy 4 (Linux): find a running `jeryu serve` daemon and borrow its cwd.
+    // This handles the common case where the user runs `jeryu tui` from an
+    // unrelated directory (e.g. $HOME) but has a daemon running from the project root.
+    #[cfg(target_os = "linux")]
+    if let Some(root) = serve_daemon_workspace_root() {
+        return Some(root);
+    }
+
+    None
+}
+
+/// Scan /proc for a running `jeryu serve` process and return its cwd if it
+/// contains the registry file.  Linux-only, best-effort (silently returns None
+/// on any I/O error or permission failure).
+#[cfg(target_os = "linux")]
+fn serve_daemon_workspace_root() -> Option<PathBuf> {
+    serve_daemon_workspace_root_from_proc(Path::new("/proc"))
+}
+
+#[cfg(target_os = "linux")]
+fn serve_daemon_workspace_root_from_proc(proc_root: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(proc_root).ok()?;
+    for entry in entries.flatten() {
+        let pid_dir = entry.path();
+        if !pid_dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(|n| n.chars().all(|c| c.is_ascii_digit()))
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        if !process_is_jeryu_serve(&pid_dir.join("cmdline")) {
+            continue;
+        }
+        if let Some(cwd) = serve_pid_cwd(&pid_dir)
+            && cwd.join(DEFAULT_REGISTRY_PATH).exists()
+        {
+            return Some(cwd);
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn process_is_jeryu_serve(cmdline_path: &Path) -> bool {
+    let Ok(cmdline) = std::fs::read(cmdline_path) else {
+        return false;
+    };
+    let args: Vec<&[u8]> = cmdline.split(|&b| b == 0).collect();
+    let is_jeryu = args
+        .first()
+        .and_then(|a| std::str::from_utf8(a).ok())
+        .map(|a| a.ends_with("jeryu") || a.ends_with("/jeryu"))
+        .unwrap_or(false);
+    let has_serve = args.iter().skip(1).any(|a| *a == b"serve");
+    is_jeryu && has_serve
+}
+
+#[cfg(target_os = "linux")]
+fn serve_pid_cwd(pid_dir: &Path) -> Option<PathBuf> {
+    std::fs::read_link(pid_dir.join("cwd")).ok()
 }
 
 #[cfg(test)]
@@ -453,6 +697,57 @@ health_profile = "rust-workspace"
     }
 
     #[test]
+    fn parses_legacy_veox_split_registry_defaults() {
+        let raw = r#"
+schema_version = "1"
+workspace = "veox-fusion"
+
+[[repo]]
+name = "veox-shared"
+alias = "shared"
+slug = "neverhuman/veox-shared"
+path = "/tmp/veox-shared"
+remote = "https://github.com/neverhuman/veox-shared.git"
+default_branch = "main"
+profile = "rust-workspace"
+project_id = "veox-shared"
+"#;
+        let registry: RepoRegistry = toml::from_str(raw).unwrap();
+        assert_eq!(registry.repo.len(), 1);
+        assert_eq!(registry.repo[0].alias, "shared");
+        assert_eq!(registry.repo[0].provider, "github");
+        assert_eq!(registry.repo[0].visibility, "private");
+        assert_eq!(registry.repo[0].health_profile, "rust-workspace");
+        assert_eq!(
+            registry.repo[0].local_root,
+            PathBuf::from("/tmp/veox-shared")
+        );
+    }
+
+    #[test]
+    fn tracked_repositories_render_as_fleet_registry() {
+        let registry = registry_from_tracked_repositories(&[crate::state::TrackedRepository {
+            slug: "neverhuman/veox-shared".into(),
+            alias: "shared".into(),
+            provider: "github".into(),
+            remote: "https://github.com/neverhuman/veox-shared.git".into(),
+            local_root: "/tmp/veox-shared".into(),
+            default_branch: "main".into(),
+            visibility: "private".into(),
+            health_profile: "split-required".into(),
+            created_at: "2026-05-24T00:00:00Z".into(),
+            updated_at: "2026-05-24T00:00:00Z".into(),
+        }]);
+
+        assert_eq!(registry.schema_version.as_deref(), Some("state-store"));
+        assert_eq!(registry.repo[0].alias, "shared");
+        assert_eq!(
+            registry.repo[0].local_root,
+            PathBuf::from("/tmp/veox-shared")
+        );
+    }
+
+    #[test]
     fn classifies_local_dirty_before_remote_state() {
         let local = RepoLocalStatus {
             exists: true,
@@ -460,5 +755,192 @@ health_profile = "rust-workspace"
             ..RepoLocalStatus::default()
         };
         assert_eq!(classify_repo_status(&local, None, 0, 0), "dirty");
+    }
+
+    #[tokio::test]
+    async fn resolve_workspace_root_finds_toml_by_walking_up() {
+        use tempfile::TempDir;
+
+        // Build: <tmp>/child/grandchild  with  <tmp>/.jeryu/repos.toml
+        let tmp = TempDir::new().unwrap();
+        let registry_dir = tmp.path().join(".jeryu");
+        std::fs::create_dir_all(&registry_dir).unwrap();
+        std::fs::write(registry_dir.join("repos.toml"), b"schema_version = \"1\"\n").unwrap();
+
+        let child = tmp.path().join("child").join("grandchild");
+        std::fs::create_dir_all(&child).unwrap();
+
+        // Setup under lock, then drop before the await (clippy::await_holding_lock).
+        let prev_cwd = {
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            let prev_ws = std::env::var("JERYU_WORKSPACE_ROOT").ok();
+            // Clear env override so we exercise the upward-walk strategy.
+            // SAFETY: serialised by PATH_ENV_LOCK.
+            if prev_ws.is_some() {
+                unsafe { std::env::remove_var("JERYU_WORKSPACE_ROOT") };
+            }
+            let prev_cwd = std::env::current_dir().unwrap();
+            std::env::set_current_dir(&child).unwrap();
+            prev_cwd
+            // _guard dropped; env restored in the cleanup block below.
+        };
+
+        let result = resolve_workspace_root().await;
+
+        // Restore cwd and env; acquire lock to serialise the removal.
+        {
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            std::env::set_current_dir(&prev_cwd).unwrap();
+        }
+
+        let found = result.expect("resolve_workspace_root should find the toml via upward walk");
+        // Canonicalize both sides so tmp symlinks don't cause spurious mismatches.
+        assert_eq!(
+            found.canonicalize().unwrap(),
+            tmp.path().canonicalize().unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_workspace_root_respects_env_override() {
+        use tempfile::TempDir;
+
+        let tmp = TempDir::new().unwrap();
+        let registry_dir = tmp.path().join(".jeryu");
+        std::fs::create_dir_all(&registry_dir).unwrap();
+        std::fs::write(registry_dir.join("repos.toml"), b"schema_version = \"1\"\n").unwrap();
+
+        // Setup under lock, then drop before the await (clippy::await_holding_lock).
+        let prev_ws = {
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
+            // SAFETY: serialised by PATH_ENV_LOCK.
+            unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", tmp.path()) };
+            prev
+            // _guard dropped here.
+        };
+
+        let result = resolve_workspace_root().await;
+
+        // Restore env under lock.
+        {
+            let _guard = crate::test_sync::PATH_ENV_LOCK
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            // SAFETY: serialised by PATH_ENV_LOCK.
+            unsafe {
+                match prev_ws {
+                    Some(v) => std::env::set_var("JERYU_WORKSPACE_ROOT", v),
+                    None => std::env::remove_var("JERYU_WORKSPACE_ROOT"),
+                }
+            }
+        }
+
+        let found = result.expect("resolve_workspace_root should honour JERYU_WORKSPACE_ROOT");
+        assert_eq!(
+            found.canonicalize().unwrap(),
+            tmp.path().canonicalize().unwrap()
+        );
+    }
+
+    /// Strategy 4: the serve-daemon /proc scan returns the daemon's cwd when it
+    /// contains .jeryu/repos.toml.  We can't spawn a real daemon in a unit test,
+    /// but we can verify the helper function `serve_daemon_workspace_root` by
+    /// pointing it at *ourselves* — the test process has a known cwd that we
+    /// control.  We write the registry into a temp dir, set cwd there, and
+    /// confirm the scanner finds it.
+    ///
+    /// NOTE: we look for *our own* process in /proc by searching for a
+    /// `jeryu serve` cmdline — which our test binary obviously doesn't have.
+    /// So instead we unit-test the underlying helper directly: we verify that
+    /// a synthetic /proc layout (with a mocked cmdline + cwd) is parsed
+    /// correctly.  The integration-level property (TUI launched from $HOME
+    /// finds repos via the daemon) is validated by the existing tuiwright test.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn serve_daemon_workspace_root_reads_daemon_cwd() {
+        use tempfile::TempDir;
+
+        // Build a fake /proc/<pid>/ directory with a `jeryu serve` cmdline and a
+        // cwd symlink pointing to a temp dir that has .jeryu/repos.toml.
+        let fake_proc = TempDir::new().unwrap();
+        let pid_dir = fake_proc.path().join("12345");
+        std::fs::create_dir_all(&pid_dir).unwrap();
+
+        // Write a NUL-delimited cmdline: b"jeryu\0serve\0\0"
+        std::fs::write(pid_dir.join("cmdline"), b"jeryu\x00serve\x00\x00").unwrap();
+
+        // Create the workspace in another temp dir
+        let workspace = TempDir::new().unwrap();
+        std::fs::create_dir_all(workspace.path().join(".jeryu")).unwrap();
+        std::fs::write(
+            workspace.path().join(".jeryu/repos.toml"),
+            b"schema_version = \"1\"\n",
+        )
+        .unwrap();
+
+        // Create a cwd symlink in the fake /proc pid dir pointing to the workspace
+        std::os::unix::fs::symlink(workspace.path(), pid_dir.join("cwd")).unwrap();
+
+        let result = serve_daemon_workspace_root_from_proc(fake_proc.path());
+
+        let found = result.expect("should discover workspace from fake daemon cwd");
+        assert_eq!(
+            found.canonicalize().unwrap(),
+            workspace.path().canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn ensure_workspace_root_default_sets_known_local_workspace() {
+        // Acquire lock with poison recovery so a previous test's panic does not
+        // prevent this test from running.
+        let _guard = crate::test_sync::PATH_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
+        // SAFETY: serialized by PATH_ENV_LOCK.
+        unsafe {
+            std::env::remove_var("JERYU_WORKSPACE_ROOT");
+        }
+
+        ensure_workspace_root_default();
+
+        let resolved = std::env::var("JERYU_WORKSPACE_ROOT").unwrap_or_default();
+
+        // Restore the previous environment value before the assertion so the lock
+        // is not held across a potential panic.
+        unsafe {
+            match prev {
+                Some(ref value) => std::env::set_var("JERYU_WORKSPACE_ROOT", value),
+                None => std::env::remove_var("JERYU_WORKSPACE_ROOT"),
+            }
+        }
+
+        // When LOCAL_WORKSPACE_ROOT_DEFAULT exists on this machine, it is the
+        // first match and must be returned exactly.  In CI environments where
+        // that directory does not exist, the function falls through to the
+        // upward-cwd walk and returns the runner's repo root instead — assert
+        // only that a valid workspace was found.
+        if Path::new(LOCAL_WORKSPACE_ROOT_DEFAULT)
+            .join(DEFAULT_REGISTRY_PATH)
+            .exists()
+        {
+            assert_eq!(
+                resolved, LOCAL_WORKSPACE_ROOT_DEFAULT,
+                "hardcoded default should be preferred when it exists"
+            );
+        } else {
+            assert!(
+                !resolved.is_empty() && Path::new(&resolved).join(DEFAULT_REGISTRY_PATH).exists(),
+                "ensure_workspace_root_default must find a workspace with {DEFAULT_REGISTRY_PATH}; got {resolved:?}"
+            );
+        }
     }
 }

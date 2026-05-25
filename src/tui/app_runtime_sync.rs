@@ -111,6 +111,17 @@ impl App {
                     .take(50usize.saturating_sub(jobs.len())),
             );
         }
+        if jobs.len() < 50
+            && let Ok(recent_runs) = store.recent_ci_job_runs(50).await
+        {
+            jobs.extend(
+                recent_runs
+                    .into_iter()
+                    .map(ci_job_run_to_recent_job)
+                    .filter(|job| seen.insert(job.job_id))
+                    .take(50usize.saturating_sub(jobs.len())),
+            );
+        }
 
         jobs.sort_by(|left, right| {
             crate::tui::live::live_job_status_rank(&right.status)
@@ -120,8 +131,20 @@ impl App {
         });
         snap.recent_jobs = jobs;
         snap.gitlab_ready = gitlab.is_ready().await;
-        if let Ok(repo_root) = std::env::current_dir()
-            && let Ok(fleet) = crate::repo_fleet::collect_fleet_snapshot(&repo_root, None).await
+        if let Some(repo_root) = crate::repo_fleet::resolve_workspace_root().await {
+            match crate::repo_fleet::collect_fleet_snapshot(&repo_root, None).await {
+                Ok(fleet) => snap.fleet = fleet,
+                Err(e) => {
+                    tracing::warn!("fleet hydration failed for {}: {e:#}", repo_root.display())
+                }
+            }
+        }
+        if snap.fleet.repos.is_empty()
+            && let Ok(repos) = store.list_tracked_repositories().await
+            && !repos.is_empty()
+            && let Ok(fleet) =
+                crate::repo_fleet::collect_fleet_snapshot_from_tracked_repositories(&repos, None)
+                    .await
         {
             snap.fleet = fleet;
         }
@@ -409,6 +432,23 @@ fn compact_pool_sync_error(error: anyhow::Error) -> String {
         format!("pool sync failed: {short}...")
     } else {
         format!("pool sync failed: {short}")
+    }
+}
+
+fn ci_job_run_to_recent_job(run: crate::state::CiJobRun) -> JobEvent {
+    JobEvent {
+        job_id: run.job_id,
+        project_id: run.project_id,
+        pipeline_id: Some(run.pipeline_id),
+        status: run.status,
+        job_name: Some(run.job_name),
+        pool_name: run.runner_pool.or(run.runner),
+        system_id: None,
+        queued_duration: run.queued_duration_secs,
+        received_at: run
+            .finished_at
+            .or(run.started_at)
+            .unwrap_or(run.observed_at),
     }
 }
 

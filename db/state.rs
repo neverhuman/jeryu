@@ -2078,6 +2078,19 @@ impl Db {
         }
     }
 
+    pub async fn recent_ci_job_runs(&self, limit: i64) -> Result<Vec<CiJobRun>> {
+        let sql = self.sql(
+            r#"SELECT * FROM ci_job_runs
+               ORDER BY COALESCE(finished_at, started_at, observed_at) DESC, job_id DESC
+               LIMIT ?"#,
+        );
+        sqlx::query_as::<_, CiJobRun>(&sql)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(Into::into)
+    }
+
     pub async fn ci_job_bottlenecks(
         &self,
         project_id: i64,
@@ -4794,6 +4807,10 @@ mod tests {
         assert_eq!(runs[0].root_pipeline_id, 433);
         assert_eq!(runs[1].job_name, "test-rust-nextest-1");
         assert_eq!(runs[1].root_pipeline_id, 433);
+
+        let recent = db.recent_ci_job_runs(1).await?;
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].job_id, 43);
 
         let bottlenecks = db.ci_job_bottlenecks(2, Some("main"), 10).await?;
         assert_eq!(bottlenecks.len(), 2);

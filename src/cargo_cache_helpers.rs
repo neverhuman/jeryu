@@ -67,7 +67,7 @@ pub(crate) fn short_hash(bytes: &[u8]) -> String {
     hex::encode(hasher.finalize())[..12].to_string()
 }
 
-fn shell_quote(value: &str) -> String {
+pub(crate) fn shell_quote(value: &str) -> String {
     if value.is_empty() {
         return "''".to_string();
     }

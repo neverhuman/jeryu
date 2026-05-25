@@ -238,6 +238,12 @@ impl App {
             self.help_overlay_open = false;
             return true;
         }
+        if self.repo_detail_open {
+            self.close_repo_detail();
+            self.repo_select_all();
+            let _ = self.focus.pop();
+            return true;
+        }
         if self.maximize_logs || self.focus.fullscreen.is_some() || !self.focus.stack.is_empty() {
             self.maximize_logs = false;
             self.focus.fullscreen = None;

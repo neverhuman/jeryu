@@ -41,7 +41,16 @@ fn make_test_bin_dir(include_cargo: bool, include_rustc: bool, include_sccache: 
     if include_rustc {
         std::os::unix::fs::symlink(&rustc_path, dir.path().join("rustc")).unwrap();
     }
-    for tool in ["awk", "cut", "mkdir", "sha256sum"] {
+    for tool in [
+        "awk",
+        "cat",
+        "cut",
+        "date",
+        "mkdir",
+        "rm",
+        "rmdir",
+        "sha256sum",
+    ] {
         let tool_path = resolve(tool);
         if !tool_path.is_empty() {
             std::os::unix::fs::symlink(tool_path, dir.path().join(tool)).unwrap();
@@ -56,6 +65,46 @@ fn make_test_bin_dir(include_cargo: bool, include_rustc: bool, include_sccache: 
         std::fs::set_permissions(dir.path().join("sccache"), perms).unwrap();
     }
     dir
+}
+
+fn make_rust_only_bin_dir() -> TempDir {
+    let dir = TempDir::new().unwrap();
+    let resolve = |name: &str| -> String {
+        let output = std::process::Command::new("which")
+            .arg(name)
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    };
+    std::os::unix::fs::symlink(resolve("cargo"), dir.path().join("cargo")).unwrap();
+    std::os::unix::fs::symlink(resolve("rustc"), dir.path().join("rustc")).unwrap();
+    dir
+}
+
+fn count_lease_files(root: &std::path::Path) -> usize {
+    let mut count = 0;
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path
+                .parent()
+                .and_then(|parent| parent.file_name())
+                .and_then(|name| name.to_str())
+                == Some(LEASES_DIR_NAME)
+            {
+                count += 1;
+            }
+        }
+    }
+    count
 }
 
 #[test]
@@ -277,6 +326,179 @@ fn runner_pre_build_script_sets_target_dir_without_sccache() {
         Some(value) => set_env_var("PATH", value),
         None => remove_env_var("PATH"),
     }
+}
+
+#[test]
+fn runner_pre_build_script_marks_active_lease_and_uses_pool_sccache() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let path_dir = make_test_bin_dir(true, true, false);
+    let original_path = std::env::var_os("PATH");
+    set_env_var("PATH", path_dir.path());
+    let pool_cache = TempDir::new().unwrap();
+    let tools_dir = pool_cache.path().join("tools");
+    std::fs::create_dir_all(&tools_dir).unwrap();
+    let sccache_bin = tools_dir.join("sccache");
+    std::fs::write(&sccache_bin, "#!/bin/sh\nexec \"$@\"\n").unwrap();
+    let mut perms = std::fs::metadata(&sccache_bin).unwrap().permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&sccache_bin, perms).unwrap();
+
+    let script = format!(
+        "{}\nset -- \"$CARGO_TARGET_DIR\"/{LEASES_DIR_NAME}/*.json\nif [ -s \"$1\" ]; then lease_state=present; else lease_state=missing; fi\nprintf '%s\\n' \"$CARGO_TARGET_DIR|$RUSTC_WRAPPER|$SCCACHE_DIR|$lease_state|$1\"\n",
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
+    );
+    let output = std::process::Command::new("/bin/sh")
+        .arg("-lc")
+        .arg(script)
+        .env("JERYU_CARGO_CACHE", "1")
+        .env("JERYU_SCCACHE_ENABLED", "1")
+        .env("CI_PROJECT_PATH_SLUG", "demo-project")
+        .env("CI_JOB_ID", "4242")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let line = stdout.trim();
+    assert!(line.contains("/cargo-targets/demo-project/"));
+    assert!(line.contains("|sccache|"));
+    assert!(line.contains("/sccache|present|"));
+    assert!(line.contains("/.jeryu-leases/4242-"));
+    assert_eq!(count_lease_files(pool_cache.path()), 0);
+
+    match original_path {
+        Some(value) => set_env_var("PATH", value),
+        None => remove_env_var("PATH"),
+    }
+}
+
+#[test]
+fn runner_pre_build_script_can_isolate_target_by_runner_slot() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let path_dir = make_test_bin_dir(true, true, false);
+    let original_path = std::env::var_os("PATH");
+    set_env_var("PATH", path_dir.path());
+    let pool_cache = TempDir::new().unwrap();
+    let script = format!(
+        "{}\nprintf '%s\\n' \"$CARGO_TARGET_DIR\"\n",
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
+    );
+    let output = std::process::Command::new("/bin/sh")
+        .arg("-lc")
+        .arg(script)
+        .env("JERYU_CARGO_CACHE", "1")
+        .env("JERYU_SCCACHE_ENABLED", "0")
+        .env("JERYU_CARGO_TARGET_ISOLATE", "slot")
+        .env("CI_PROJECT_PATH_SLUG", "demo-project")
+        .env("CI_CONCURRENT_ID", "7")
+        .env("CI_RUNNER_ID", "runner-1")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let target_dir = stdout.trim();
+    assert!(target_dir.contains("/cargo-targets/demo-project/"));
+    assert!(target_dir.contains("/slots/runner-1-7/target"));
+
+    match original_path {
+        Some(value) => set_env_var("PATH", value),
+        None => remove_env_var("PATH"),
+    }
+}
+
+#[test]
+fn runner_pre_build_script_uses_manager_key_for_slot_isolation() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let path_dir = make_test_bin_dir(true, true, false);
+    let original_path = std::env::var_os("PATH");
+    set_env_var("PATH", path_dir.path());
+    let pool_cache = TempDir::new().unwrap();
+    let script = format!(
+        "{}\nprintf '%s\\n' \"$CARGO_TARGET_DIR\"\n",
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
+    );
+    let output = std::process::Command::new("/bin/sh")
+        .arg("-lc")
+        .arg(script)
+        .env("JERYU_CARGO_CACHE", "1")
+        .env("JERYU_SCCACHE_ENABLED", "0")
+        .env("JERYU_CARGO_TARGET_ISOLATE", "slot")
+        .env("CI_PROJECT_PATH_SLUG", "demo-project")
+        .env("CI_BUILDS_DIR", "/builds/build-abc123")
+        .env("CI_CONCURRENT_ID", "0")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let target_dir = stdout.trim();
+    assert!(target_dir.contains("/cargo-targets/demo-project/"));
+    assert!(target_dir.contains("/slots/build-abc123-0/target"));
+
+    match original_path {
+        Some(value) => set_env_var("PATH", value),
+        None => remove_env_var("PATH"),
+    }
+}
+
+#[test]
+fn runner_pre_build_script_caps_cargo_build_jobs_by_host_and_runner_slots() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let path_dir = make_test_bin_dir(true, true, false);
+    let original_path = std::env::var_os("PATH");
+    set_env_var("PATH", path_dir.path());
+    let pool_cache = TempDir::new().unwrap();
+    let script = format!(
+        "{}\nprintf '%s\\n' \"$CARGO_BUILD_JOBS|$JERYU_CARGO_RESERVED_CORES|$JERYU_CARGO_TOTAL_SLOTS|$JERYU_CARGO_AUTO_BUILD_JOBS\"\n",
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
+    );
+    let output = std::process::Command::new("/bin/sh")
+        .arg("-lc")
+        .arg(script)
+        .env("JERYU_CARGO_CACHE", "1")
+        .env("JERYU_SCCACHE_ENABLED", "0")
+        .env("JERYU_CARGO_HOST_CORES", "128")
+        .env("JERYU_CARGO_TOTAL_RUNNER_SLOTS", "20")
+        .env("CARGO_BUILD_JOBS", "8")
+        .env("CI_PROJECT_PATH_SLUG", "demo-project")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(stdout.trim(), "4|32|20|4");
+
+    match original_path {
+        Some(value) => set_env_var("PATH", value),
+        None => remove_env_var("PATH"),
+    }
+}
+
+#[test]
+fn runner_pre_build_script_missing_helper_tools_does_not_short_circuit_job() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let path_dir = make_rust_only_bin_dir();
+    let original_path = std::env::var_os("PATH");
+    set_env_var("PATH", path_dir.path());
+    let pool_cache = TempDir::new().unwrap();
+    let script = format!(
+        "{}\nprintf '%s\\n' user-script-ran\nexit 19\n",
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
+    );
+    let output = std::process::Command::new("/bin/sh")
+        .arg("-c")
+        .arg(script)
+        .env("JERYU_CARGO_CACHE", "1")
+        .output()
+        .unwrap();
+
+    match original_path {
+        Some(value) => set_env_var("PATH", value),
+        None => remove_env_var("PATH"),
+    }
+
+    assert_eq!(output.status.code(), Some(19));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "user-script-ran"
+    );
 }
 
 #[test]

@@ -62,7 +62,7 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-pub fn draw_repo_detail_overlay(f: &mut Frame, app: &App) {
+pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
     if !app.repo_detail_open {
         return;
     }
@@ -153,11 +153,20 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &App) {
         ]
     };
 
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(format!(" {title} "))
+        .title_top(Line::from(" [esc] ").right_aligned());
     f.render_widget(
-        Paragraph::new(lines)
-            .block(Block::default().borders(Borders::ALL).title(title))
-            .wrap(Wrap { trim: true }),
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         overlay,
+    );
+
+    // Register the full title row as a clickable esc hotspot so users can
+    // close the overlay with the mouse as well as the keyboard.
+    app.focus_map.register_esc(
+        crate::tui::focus::PaneId::FleetBar,
+        Rect::new(overlay.x, overlay.y, overlay.width, 1),
     );
 }
 
@@ -224,7 +233,7 @@ mod tests {
         app.selected_repo_index = 2;
         app.repo_detail_open = true;
         let mut terminal = Terminal::new(TestBackend::new(100, 24))?;
-        terminal.draw(|f| draw_repo_detail_overlay(f, &app))?;
+        terminal.draw(|f| draw_repo_detail_overlay(f, &mut app))?;
         let text = rendered_text(&terminal);
         assert!(text.contains("Repo: shared"));
         assert!(text.contains("neverhuman/veox-shared"));

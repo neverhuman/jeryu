@@ -14,7 +14,8 @@ pub(crate) fn draw_command_palette(f: &mut Frame, app: &App) {
     f.render_widget(Clear, modal_area);
 
     let block = Block::default()
-        .title(" Command Palette — type to filter, ↑↓ navigate, Enter execute, Esc close ")
+        .title(" Command Palette — ↑↓ navigate  Enter execute ")
+        .title_top(Line::from(" [esc] ").right_aligned())
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     let inner = block.inner(modal_area);
