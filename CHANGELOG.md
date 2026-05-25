@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.20] - 2026-05-25
+
+### Added
+
+- **Cargo/Rustup home warming** — runner pre-build script now sets `CARGO_HOME` and
+  `RUSTUP_HOME` to per-pool cache directories (`<pool_cache>/cargo-home` and
+  `<pool_cache>/rustup-home`), persisting registry indices and toolchain components
+  across jobs instead of re-downloading them each run.
+- **Seed & promotion markers** — when a slot target directory is empty and the shared
+  target's stamp matches (same `rustc_key`, `host_triple`, and `JERYU_CARGO_TARGET_PROFILE`),
+  the pre-build script seeds the slot from the shared tree and writes a seed marker
+  (`.jeryu-cache-seeds/<job_id>.json`); after the build, the shared target receives a
+  promotion marker (`.jeryu-cache-promotions/<job_id>.json`) for observability.
+- `target_seed_count` and `target_promote_count` fields in `CacheStatusReport`, collected
+  across manager, local, and pool cache scopes.
+- `count_named_marker_files()` utility in `cache_reports_scan` — counts named marker
+  directories in direct children of a target root (no recursion).
+- Config defaults: `JERYU_CARGO_TARGET_PROFILE=debug`, `CARGO_HOME`, `RUSTUP_HOME`.
+- Local mode now creates `CARGO_HOME` and `RUSTUP_HOME` directories from `layout.env`.
+- Cache report display rows: "Cargo homes" and "Rustup homes" bytes per scope, plus
+  "Target warm markers" seed / promotion counts.
+
+### Fixed
+
+- `cargo_cache_helpers`: env-var unset guard now checks `SCCACHE_DIR` (was incorrectly
+  checking `RUSTC_WRAPPER`, leaving stale sccache variables in some edge cases).
+- Bumped release metadata to `3.3.20` across Cargo, `VERSION`, `version.json`, and the
+  changelog.
+
+## [3.3.19] - 2026-05-25
+
+### Added
+
+- **TUI popup `[esc]` badge invariant** — all popup overlays (repo detail, help, command
+  palette) now display a right-aligned `[esc]` badge in their top border.  Clicking
+  anywhere in the title row registers as an esc hotspot that closes the overlay.
+- 4 new TUIwright tests: `repo_detail_overlay_has_esc_badge`,
+  `repo_detail_overlay_esc_click_closes_it`, `help_overlay_has_esc_badge`,
+  `command_palette_has_esc_badge`.
+- **Cargo cache slot isolation** — `JERYU_CARGO_TARGET_ISOLATE` now accepts `slot`
+  (default), `job`, and `shared` modes; slot mode keys the target dir on
+  `CI_CONCURRENT_ID` so concurrent jobs on the same runner share one target tree per
+  slot, halving cold-build frequency on busy runners.
+- JSON lease files written to `CARGO_TARGET_DIR/.jeryu-leases/<job_id>-<pid>.json` and
+  cleaned up on script `EXIT` trap.
+- `sccache` bootstrap: if sccache is absent the pre-build script attempts to download
+  the musl binary into `<pool_cache>/tools/sccache` (cached across jobs).
+- Prereq guard (`awk`, `cat`, `cut`, `date`, `mkdir`, `rm`, `rmdir`, `sha256sum`) before
+  activating the cache script so partial shells fail safe.
+- Autosize `CARGO_BUILD_JOBS` from host core count, reserved cores, and total runner
+  slots; respects `JERYU_CARGO_MIN_BUILD_JOBS` / `JERYU_CARGO_MAX_BUILD_JOBS` overrides.
+- `resolve_workspace_root` Strategy 4 — borrow workspace root from a running
+  `jeryu serve` daemon; deployed to both PATH locations.
+- TUIwright coverage for `resolve_workspace_root` fleet discovery.
+
+### Fixed
+
+- `close_focus_overlay` now handles `repo_detail_open`, preventing the overlay from
+  remaining on screen after an esc-hotspot click.
+- `ensure_workspace_root_default` test made CI-portable with poison-safe locks.
+- Non-demo TUIwright test now receives `GITLAB_URL`+`TOKEN` so CI auth succeeds.
+- Bumped release metadata to `3.3.19` across Cargo and `version.json`.
+
 ## [3.3.18] - 2026-05-24
 
 ### Added

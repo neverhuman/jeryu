@@ -76,6 +76,8 @@ pub fn build_cargo_cache_layout(
 
     let target_dir = target_root.join("target");
     let sccache_dir = cache_root.join("sccache");
+    let cargo_home_dir = cache_root.join(crate::cargo_cache::CACHE_HOME_DIR_NAME);
+    let rustup_home_dir = cache_root.join(crate::cargo_cache::RUSTUP_HOME_DIR_NAME);
     let incremental_override = incremental_override
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -107,12 +109,30 @@ pub fn build_cargo_cache_layout(
         "JERYU_CARGO_HOST_TRIPLE".to_string(),
         toolchain.host_triple.clone(),
     );
+    env.insert(
+        "JERYU_CARGO_TARGET_PROFILE".to_string(),
+        std::env::var("JERYU_CARGO_TARGET_PROFILE").unwrap_or_else(|_| "debug".to_string()),
+    );
     env.insert("CARGO_INCREMENTAL".to_string(), cargo_incremental.clone());
 
     if cache_enabled {
         env.insert(
             "CARGO_TARGET_DIR".to_string(),
             target_dir.display().to_string(),
+        );
+        env.insert(
+            "CARGO_HOME".to_string(),
+            cargo_home_dir.display().to_string(),
+        );
+        env.insert(
+            "RUSTUP_HOME".to_string(),
+            rustup_home_dir.display().to_string(),
+        );
+        env.insert("SCCACHE_DIR".to_string(), sccache_dir.display().to_string());
+        env.insert("SCCACHE_NO_DAEMON".to_string(), "1".to_string());
+        env.insert(
+            "SCCACHE_CACHE_SIZE".to_string(),
+            crate::settings::get().sccache.cache_size.clone(),
         );
     }
 
@@ -121,11 +141,10 @@ pub fn build_cargo_cache_layout(
             "RUSTC_WRAPPER".to_string(),
             sccache_binary.display().to_string(),
         );
-        env.insert("SCCACHE_DIR".to_string(), sccache_dir.display().to_string());
-        env.insert("SCCACHE_NO_DAEMON".to_string(), "1".to_string());
+    } else if let Some(existing_wrapper) = std::env::var_os("RUSTC_WRAPPER") {
         env.insert(
-            "SCCACHE_CACHE_SIZE".to_string(),
-            crate::settings::get().sccache.cache_size.clone(),
+            "RUSTC_WRAPPER".to_string(),
+            existing_wrapper.to_string_lossy().to_string(),
         );
     }
 
@@ -189,20 +208,37 @@ for tool in awk cat cut date mkdir rm rmdir sha256sum; do
   command -v "$tool" >/dev/null 2>&1 || JERYU_CARGO_PREREQS_OK=0
 done
 if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && [ "$JERYU_CARGO_PREREQS_OK" = "1" ] && command -v cargo >/dev/null 2>&1 && command -v rustc >/dev/null 2>&1; then
+  JERYU_CARGO_CACHE_ROOT={pool_cache_mount}
+  JERYU_CARGO_CARGO_HOME="$JERYU_CARGO_CACHE_ROOT/{cargo_home_dir}"
+  JERYU_CARGO_RUSTUP_HOME="$JERYU_CARGO_CACHE_ROOT/{rustup_home_dir}"
+  mkdir -p "$JERYU_CARGO_CARGO_HOME" "$JERYU_CARGO_RUSTUP_HOME"
+  export CARGO_HOME="$JERYU_CARGO_CARGO_HOME"
+  export RUSTUP_HOME="$JERYU_CARGO_RUSTUP_HOME"
+  if [ "${{JERYU_SCCACHE_ENABLED:-1}}" != "0" ]; then
+    export SCCACHE_DIR="$JERYU_CARGO_CACHE_ROOT/sccache"
+    export SCCACHE_NO_DAEMON=1
+    if [ -n "${{JERYU_SCCACHE_CACHE_SIZE:-}}" ]; then
+      export SCCACHE_CACHE_SIZE="$JERYU_SCCACHE_CACHE_SIZE"
+    fi
+    mkdir -p "$SCCACHE_DIR"
+  fi
   RUSTC_INFO="$(rustc -vV)"
   HOST_TRIPLE="$(printf '%s\n' "$RUSTC_INFO" | awk '/^host: / {{ print $2; exit }}')"
   RUSTC_VERSION="$(printf '%s\n' "$RUSTC_INFO" | awk '/^release: / {{ print $2; exit }}')"
   if [ -n "$HOST_TRIPLE" ] && [ -n "$RUSTC_VERSION" ]; then
     RUSTC_KEY="$(printf '%s\n' "$RUSTC_INFO" | sha256sum | cut -c1-12)"
     JERYU_CARGO_SCOPE_KEY="${{CI_PROJECT_PATH_SLUG:-unknown-project}}"
-    JERYU_CARGO_CACHE_ROOT={pool_cache_mount}
     JERYU_SCCACHE_VERSION={sccache_version}
+    JERYU_CARGO_TARGET_PROFILE="${{JERYU_CARGO_TARGET_PROFILE:-debug}}"
     JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_CACHE_ROOT/cargo-targets/$JERYU_CARGO_SCOPE_KEY/$RUSTC_KEY/$HOST_TRIPLE"
+    JERYU_CARGO_SHARED_TARGET_ROOT="$JERYU_CARGO_CACHE_ROOT/cargo-targets/$JERYU_CARGO_SCOPE_KEY/$RUSTC_KEY/$HOST_TRIPLE"
     case "${{JERYU_CARGO_TARGET_ISOLATE:-slot}}" in
       shared|none)
+        JERYU_CARGO_TARGET_ROLE="shared"
         ;;
       id)
         JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_TARGET_ROOT/job-ids/${{CI_JOB_ID:-unknown}}"
+        JERYU_CARGO_TARGET_ROLE="job"
         ;;
       slot|concurrent)
         JERYU_CARGO_MANAGER_KEY="${{CI_BUILDS_DIR:-}}"
@@ -212,14 +248,38 @@ if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && [ "$JERYU_CARGO_PREREQS_OK" = "1" ]
         fi
         JERYU_CARGO_SLOT_KEY="$JERYU_CARGO_MANAGER_KEY-${{CI_CONCURRENT_ID:-${{CI_CONCURRENT_PROJECT_ID:-0}}}}"
         JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_TARGET_ROOT/slots/$JERYU_CARGO_SLOT_KEY"
+        JERYU_CARGO_TARGET_ROLE="slot"
         ;;
       job|name|*)
         JERYU_CARGO_TARGET_ROOT="$JERYU_CARGO_TARGET_ROOT/jobs/${{CI_JOB_NAME_SLUG:-unknown}}"
+        JERYU_CARGO_TARGET_ROLE="job"
         ;;
     esac
     export JERYU_CARGO_CACHE_ROOT JERYU_CARGO_SCOPE_KEY JERYU_CARGO_RUSTC_KEY="$RUSTC_KEY" JERYU_CARGO_RUSTC_VERSION="$RUSTC_VERSION" JERYU_CARGO_HOST_TRIPLE="$HOST_TRIPLE"
     export CARGO_TARGET_DIR="$JERYU_CARGO_TARGET_ROOT/target"
     mkdir -p "$CARGO_TARGET_DIR"
+    JERYU_CARGO_TARGET_STAMP="$CARGO_TARGET_DIR/{cache_stamp_file}"
+    JERYU_CARGO_SHARED_TARGET_STAMP="$JERYU_CARGO_SHARED_TARGET_ROOT/target/{cache_stamp_file}"
+    JERYU_CARGO_TARGET_SEEDS="$CARGO_TARGET_DIR/{cache_seed_markers_dir}"
+    JERYU_CARGO_TARGET_PROMOTIONS="$CARGO_TARGET_DIR/{cache_promotion_markers_dir}"
+    mkdir -p "$CARGO_TARGET_DIR" "$JERYU_CARGO_TARGET_SEEDS" "$JERYU_CARGO_TARGET_PROMOTIONS"
+    cat > "$JERYU_CARGO_TARGET_STAMP" <<EOF
+{{"schema_version":"1","scope_key":"$JERYU_CARGO_SCOPE_KEY","rustc_key":"$JERYU_CARGO_RUSTC_KEY","host_triple":"$JERYU_CARGO_HOST_TRIPLE","target_profile":"$JERYU_CARGO_TARGET_PROFILE","target_role":"$JERYU_CARGO_TARGET_ROLE"}}
+EOF
+    if [ -f "$JERYU_CARGO_SHARED_TARGET_STAMP" ] && [ "${{JERYU_CARGO_TARGET_ROLE:-}}" = "slot" ]; then
+      if cmp -s "$JERYU_CARGO_TARGET_STAMP" "$JERYU_CARGO_SHARED_TARGET_STAMP"; then
+        if [ -z "$(find "$CARGO_TARGET_DIR" -mindepth 1 -maxdepth 1 ! -name '{cache_stamp_file}' ! -name '{cache_seed_markers_dir}' ! -name '{cache_promotion_markers_dir}' -print -quit)" ]; then
+          cp -a "$JERYU_CARGO_SHARED_TARGET_ROOT/target/." "$CARGO_TARGET_DIR/"
+          cat > "$JERYU_CARGO_TARGET_SEEDS/${{CI_JOB_ID:-job}}-$$.json" <<EOF
+{{"seeded_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","scope_key":"$JERYU_CARGO_SCOPE_KEY","rustc_key":"$JERYU_CARGO_RUSTC_KEY","host_triple":"$JERYU_CARGO_HOST_TRIPLE","target_profile":"$JERYU_CARGO_TARGET_PROFILE"}}
+EOF
+          mkdir -p "$JERYU_CARGO_SHARED_TARGET_ROOT/target/{cache_promotion_markers_dir}"
+          cat > "$JERYU_CARGO_SHARED_TARGET_ROOT/target/{cache_promotion_markers_dir}/${{CI_JOB_ID:-job}}-$$.json" <<EOF
+{{"promoted_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","scope_key":"$JERYU_CARGO_SCOPE_KEY","rustc_key":"$JERYU_CARGO_RUSTC_KEY","host_triple":"$JERYU_CARGO_HOST_TRIPLE","target_profile":"$JERYU_CARGO_TARGET_PROFILE"}}
+EOF
+        fi
+      fi
+    fi
     JERYU_CARGO_LEASE_DIR="$CARGO_TARGET_DIR/{leases_dir}"
     mkdir -p "$JERYU_CARGO_LEASE_DIR"
     JERYU_CARGO_LEASE_FILE="$JERYU_CARGO_LEASE_DIR/${{CI_JOB_ID:-job}}-$$.json"
@@ -318,20 +378,17 @@ EOF
       fi
     fi
     if [ "${{JERYU_SCCACHE_ENABLED:-1}}" != "0" ] && command -v sccache >/dev/null 2>&1; then
-      export SCCACHE_DIR="$JERYU_CARGO_CACHE_ROOT/sccache"
       export RUSTC_WRAPPER=sccache
-      export SCCACHE_NO_DAEMON=1
-      if [ -n "${{JERYU_SCCACHE_CACHE_SIZE:-}}" ]; then
-        export SCCACHE_CACHE_SIZE="$JERYU_SCCACHE_CACHE_SIZE"
-      fi
-      mkdir -p "$SCCACHE_DIR"
-    else
-      unset RUSTC_WRAPPER SCCACHE_DIR SCCACHE_NO_DAEMON SCCACHE_CACHE_SIZE
     fi
   fi
 fi
 "#,
         leases_dir = LEASES_DIR_NAME,
+        cache_stamp_file = crate::cargo_cache::CACHE_STAMP_FILE,
+        cache_seed_markers_dir = crate::cargo_cache::CACHE_SEED_MARKERS_DIR,
+        cache_promotion_markers_dir = crate::cargo_cache::CACHE_PROMOTION_MARKERS_DIR,
+        cargo_home_dir = crate::cargo_cache::CACHE_HOME_DIR_NAME,
+        rustup_home_dir = crate::cargo_cache::RUSTUP_HOME_DIR_NAME,
         pool_cache_mount = pool_cache_mount,
         sccache_version = sccache_version,
     )

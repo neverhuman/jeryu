@@ -127,6 +127,9 @@ shutdown_timeout = 3600
     "JERYU_CARGO_INCREMENTAL=0",
     "JERYU_CARGO_CACHE=1",
     "JERYU_CARGO_CACHE_ROOT={pool_cache_mount}",
+    "JERYU_CARGO_TARGET_PROFILE=debug",
+    "CARGO_HOME={pool_cache_mount}/cargo-home",
+    "RUSTUP_HOME={pool_cache_mount}/rustup-home",
     "JERYU_CARGO_HOST_CORES={cargo_host_cores}",
     "JERYU_CARGO_TOTAL_RUNNER_SLOTS={cargo_total_runner_slots}",
     "JERYU_CARGO_TARGET_ISOLATE=slot",
@@ -152,3 +155,7 @@ shutdown_timeout = 3600
         cargo_total_runner_slots = cargo_total_runner_slots,
     )
 }
+
+#[cfg(test)]
+#[path = "config_support_tests.rs"]
+mod tests;

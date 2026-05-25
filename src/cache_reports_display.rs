@@ -30,6 +30,22 @@ pub fn print_cache_status_report(report: &CacheStatusReport) {
         human_bytes(report.manager_cargo_sccache_bytes),
         human_bytes(report.pool_cargo_sccache_bytes)
     );
+    println!(
+        "Cargo homes:   local={} manager={} pool={}",
+        human_bytes(report.local_cargo_home_bytes),
+        human_bytes(report.manager_cargo_home_bytes),
+        human_bytes(report.pool_cargo_home_bytes)
+    );
+    println!(
+        "Rustup homes:  local={} manager={} pool={}",
+        human_bytes(report.local_rustup_home_bytes),
+        human_bytes(report.manager_rustup_home_bytes),
+        human_bytes(report.pool_rustup_home_bytes)
+    );
+    println!(
+        "Target warm markers: seeds={} promotes={}",
+        report.target_seed_count, report.target_promote_count
+    );
     let orphan_count = report
         .manager_caches
         .iter()

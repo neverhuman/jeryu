@@ -3,6 +3,11 @@
 //! Invariants: Cache keys are deterministic; target dirs stay scoped by repo/project, toolchain, and host triple; active leases are never collected.
 
 pub const LEASES_DIR_NAME: &str = ".jeryu-leases";
+pub const CACHE_STAMP_FILE: &str = ".jeryu-cache-stamp.json";
+pub const CACHE_SEED_MARKERS_DIR: &str = ".jeryu-cache-seeds";
+pub const CACHE_PROMOTION_MARKERS_DIR: &str = ".jeryu-cache-promotions";
+pub const CACHE_HOME_DIR_NAME: &str = "cargo-home";
+pub const RUSTUP_HOME_DIR_NAME: &str = "rustup-home";
 
 #[path = "cargo_cache_helpers.rs"]
 mod helpers;

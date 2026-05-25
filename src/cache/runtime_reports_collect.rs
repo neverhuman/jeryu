@@ -72,6 +72,10 @@ impl SmartCache {
         let mut manager_cargo_targets = Vec::new();
         let mut manager_cargo_target_bytes = 0_u64;
         let mut manager_cargo_sccache_bytes = 0_u64;
+        let mut manager_cargo_home_bytes = 0_u64;
+        let mut manager_rustup_home_bytes = 0_u64;
+        let mut target_seed_count = 0_u64;
+        let mut target_promote_count = 0_u64;
 
         if manager_root.is_dir() {
             for entry in std::fs::read_dir(&manager_root)
@@ -86,6 +90,10 @@ impl SmartCache {
                 let active = active_managers.contains(&manager_id);
                 let bytes = du_bytes(&path).await.unwrap_or(0);
                 let sccache_bytes = du_bytes(&path.join("sccache")).await.unwrap_or(0);
+                manager_cargo_home_bytes = manager_cargo_home_bytes
+                    .saturating_add(du_bytes(&path.join("cargo-home")).await.unwrap_or(0));
+                manager_rustup_home_bytes = manager_rustup_home_bytes
+                    .saturating_add(du_bytes(&path.join("rustup-home")).await.unwrap_or(0));
                 manager_cargo_sccache_bytes =
                     manager_cargo_sccache_bytes.saturating_add(sccache_bytes);
                 let mut statuses = scan_cargo_target_dirs(
@@ -93,6 +101,15 @@ impl SmartCache {
                     &format!("manager:{manager_id}"),
                 )
                 .await?;
+                target_seed_count = target_seed_count.saturating_add(count_named_marker_files(
+                    &path.join("cargo-targets"),
+                    crate::cargo_cache::CACHE_SEED_MARKERS_DIR,
+                )?);
+                target_promote_count =
+                    target_promote_count.saturating_add(count_named_marker_files(
+                        &path.join("cargo-targets"),
+                        crate::cargo_cache::CACHE_PROMOTION_MARKERS_DIR,
+                    )?);
                 if active {
                     for status in &mut statuses {
                         if status.active {
@@ -144,12 +161,30 @@ impl SmartCache {
         let local_cargo_sccache_bytes = du_bytes(&crate::config::local_cargo_sccache_dir())
             .await
             .unwrap_or(0);
+        let local_cargo_home_bytes =
+            du_bytes(&crate::config::local_cargo_cache_root().join("cargo-home"))
+                .await
+                .unwrap_or(0);
+        let local_rustup_home_bytes =
+            du_bytes(&crate::config::local_cargo_cache_root().join("rustup-home"))
+                .await
+                .unwrap_or(0);
+        target_seed_count = target_seed_count.saturating_add(count_named_marker_files(
+            &crate::config::local_cargo_targets_root(),
+            crate::cargo_cache::CACHE_SEED_MARKERS_DIR,
+        )?);
+        target_promote_count = target_promote_count.saturating_add(count_named_marker_files(
+            &crate::config::local_cargo_targets_root(),
+            crate::cargo_cache::CACHE_PROMOTION_MARKERS_DIR,
+        )?);
 
         let mut cargo_target_caches = local_cargo_targets;
         cargo_target_caches.extend(manager_cargo_targets);
         let pool_root = crate::config::cache_root_dir().join("pools");
         let mut pool_cargo_target_bytes = 0_u64;
         let mut pool_cargo_sccache_bytes = 0_u64;
+        let mut pool_cargo_home_bytes = 0_u64;
+        let mut pool_rustup_home_bytes = 0_u64;
         if pool_root.is_dir() {
             for entry in std::fs::read_dir(&pool_root)
                 .with_context(|| format!("reading {}", pool_root.display()))?
@@ -165,6 +200,25 @@ impl SmartCache {
                     &format!("pool:{pool_name}"),
                 )
                 .await?;
+                pool_cargo_home_bytes = pool_cargo_home_bytes.saturating_add(
+                    du_bytes(&pool_cache_dir.join("cargo-home"))
+                        .await
+                        .unwrap_or(0),
+                );
+                pool_rustup_home_bytes = pool_rustup_home_bytes.saturating_add(
+                    du_bytes(&pool_cache_dir.join("rustup-home"))
+                        .await
+                        .unwrap_or(0),
+                );
+                target_seed_count = target_seed_count.saturating_add(count_named_marker_files(
+                    &pool_cache_dir.join("cargo-targets"),
+                    crate::cargo_cache::CACHE_SEED_MARKERS_DIR,
+                )?);
+                target_promote_count =
+                    target_promote_count.saturating_add(count_named_marker_files(
+                        &pool_cache_dir.join("cargo-targets"),
+                        crate::cargo_cache::CACHE_PROMOTION_MARKERS_DIR,
+                    )?);
                 if active_pool_names.contains(&pool_name) {
                     for status in &mut statuses {
                         if status.active {
@@ -207,10 +261,18 @@ impl SmartCache {
             manager_caches,
             manager_cargo_target_bytes,
             manager_cargo_sccache_bytes,
+            manager_cargo_home_bytes,
+            manager_rustup_home_bytes,
             local_cargo_target_bytes,
             local_cargo_sccache_bytes,
+            local_cargo_home_bytes,
+            local_rustup_home_bytes,
             pool_cargo_target_bytes,
             pool_cargo_sccache_bytes,
+            pool_cargo_home_bytes,
+            pool_rustup_home_bytes,
+            target_seed_count,
+            target_promote_count,
             cargo_target_caches,
             docker: match docker_storage_summary().await {
                 Ok(d) => d,
