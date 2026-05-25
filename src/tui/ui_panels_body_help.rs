@@ -102,6 +102,7 @@ pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
 
     let block = Block::default()
         .title(" [ Help ] ")
+        .title_top(Line::from(" [esc] ").right_aligned())
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
 
