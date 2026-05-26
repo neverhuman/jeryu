@@ -157,6 +157,10 @@ impl App {
         });
         snap.recent_jobs = jobs;
         snap.gitlab_ready = gitlab.is_ready().await;
+
+        // Populate remote node summaries from local config + DB.
+        snap.remote_nodes = build_node_summaries(store).await;
+
         if let Some(repo_root) = crate::repo_fleet::resolve_workspace_root().await {
             match crate::repo_fleet::collect_fleet_snapshot(&repo_root, None).await {
                 Ok(fleet) => {
@@ -461,6 +465,60 @@ pub(crate) fn merge_pool_sync_result(
             PoolSyncMerge::CachedFallback
         }
     }
+}
+
+/// Build `NodeSummary` entries from local node configs + DB manager counts.
+/// This is a cheap, filesystem+DB-only operation (no SSH probing on every tick).
+async fn build_node_summaries(store: &TuiSession) -> Vec<crate::tui::app::NodeSummary> {
+    let configs = match crate::node_support::list_node_configs() {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    if configs.is_empty() {
+        return vec![];
+    }
+
+    let mut summaries = Vec::with_capacity(configs.len());
+
+    for cfg in &configs {
+        // Count active managers on this node from the DB.
+        let active_managers = match store.list_managers_for_node(&cfg.alias).await {
+            Ok(managers) => managers
+                .iter()
+                .filter(|m| {
+                    matches!(
+                        m.state.as_str(),
+                        "starting" | "online" | "node_starting" | "node_unreachable" | "draining"
+                    )
+                })
+                .count(),
+            Err(_) => 0,
+        };
+
+        // Most-recent last_contact_at across all managers on this node.
+        let last_contact_at = match store.list_managers_for_node(&cfg.alias).await {
+            Ok(managers) => managers
+                .iter()
+                .filter_map(|m| m.last_contact_at.clone())
+                .max(),
+            Err(_) => None,
+        };
+
+        summaries.push(crate::tui::app::NodeSummary {
+            alias: cfg.alias.clone(),
+            target: cfg.target.clone(),
+            enabled: cfg.enabled,
+            reachable: None, // populated by doctor/probe, not every tick
+            active_managers,
+            max_managers: cfg.max_managers,
+            storage_used_gb: None, // populated asynchronously by a separate probe
+            storage_limit_gb: cfg.storage_limit_gb,
+            last_contact_at,
+        });
+    }
+
+    summaries
 }
 
 fn compact_pool_sync_error(error: anyhow::Error) -> String {

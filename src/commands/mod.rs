@@ -1,5 +1,6 @@
 pub mod agent_submit;
 pub mod bug;
+pub mod node;
 pub mod exec;
 pub mod git;
 pub mod host;

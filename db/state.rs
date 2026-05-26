@@ -38,6 +38,11 @@ pub struct Pool {
     pub request_concurrency: i64,
     pub paused: bool,
     pub trust_tier: String,
+    /// Alias of the remote node or K8s cluster that hosts runners for this
+    /// pool.  `None` means the local Docker daemon (existing behaviour).
+    pub cluster_alias: Option<String>,
+    /// Backend type: "docker" (local), "docker-remote" (SSH node), "k8s".
+    pub backend_type: String,
 }
 
 impl<'r> FromRow<'r, AnyRow> for Pool {
@@ -54,6 +59,10 @@ impl<'r> FromRow<'r, AnyRow> for Pool {
             request_concurrency: row.try_get("request_concurrency")?,
             paused: any_bool(row, "paused")?,
             trust_tier: row.try_get("trust_tier")?,
+            cluster_alias: row.try_get("cluster_alias").unwrap_or(None),
+            backend_type: row
+                .try_get("backend_type")
+                .unwrap_or_else(|_| "docker".to_string()),
         })
     }
 }
@@ -62,12 +71,18 @@ impl<'r> FromRow<'r, AnyRow> for Pool {
 pub struct Manager {
     pub id: String,
     pub pool_name: String,
+    /// Container ID (local/remote Docker) or pod name (K8s).
+    /// The column name is kept for backward compatibility.
     pub docker_container_id: String,
     pub system_id: Option<String>,
-    pub state: String, // starting, online, draining, stopped, failed
+    /// State machine: starting → online → draining → stopped | failed
+    /// Remote states: node_starting → online | node_unreachable → online | stopped
+    pub state: String,
     pub config_dir: String,
     pub started_at: Option<String>,
     pub last_contact_at: Option<String>,
+    /// Alias of the remote node or K8s cluster.  `None` = local Docker.
+    pub node_alias: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -290,7 +305,9 @@ const POOL_SELECT: &str = r#"SELECT
     concurrent,
     request_concurrency,
     CAST(CASE WHEN paused THEN 1 ELSE 0 END AS BIGINT) AS paused,
-    trust_tier
+    trust_tier,
+    cluster_alias,
+    backend_type
 FROM pools"#;
 
 #[derive(Debug, Clone, FromRow)]
@@ -1665,6 +1682,26 @@ impl Db {
         .execute(&self.pool)
         .await;
 
+        // Remote node / cluster support (v3.4.0):
+        // node_alias on managers tracks which remote node / cluster hosts this
+        // manager.  NULL = local Docker (preserves existing behaviour).
+        // cluster_alias + backend_type on pools route scaling to the correct backend.
+        let _ = sqlx::query(
+            "ALTER TABLE managers ADD COLUMN node_alias TEXT;",
+        )
+        .execute(&self.pool)
+        .await;
+        let _ = sqlx::query(
+            "ALTER TABLE pools ADD COLUMN cluster_alias TEXT;",
+        )
+        .execute(&self.pool)
+        .await;
+        let _ = sqlx::query(
+            "ALTER TABLE pools ADD COLUMN backend_type TEXT NOT NULL DEFAULT 'docker';",
+        )
+        .execute(&self.pool)
+        .await;
+
         Ok(())
     }
 
@@ -1820,8 +1857,8 @@ impl Db {
         let sql = self.sql(
             r#"INSERT INTO managers
                (id, pool_name, docker_container_id, system_id, state,
-                config_dir, started_at, last_contact_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"#,
+                config_dir, started_at, last_contact_at, node_alias)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
         );
         sqlx::query(&sql)
             .bind(&m.id)
@@ -1832,6 +1869,36 @@ impl Db {
             .bind(&m.config_dir)
             .bind(&m.started_at)
             .bind(&m.last_contact_at)
+            .bind(&m.node_alias)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// List all managers for a specific remote node alias.
+    pub async fn list_managers_for_node(&self, node_alias: &str) -> Result<Vec<Manager>> {
+        let sql = self.sql(
+            "SELECT * FROM managers WHERE node_alias = ? ORDER BY started_at",
+        );
+        let managers = sqlx::query_as::<_, Manager>(&sql)
+            .bind(node_alias)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(managers)
+    }
+
+    /// Mark all active managers on a node as `node_unreachable`.
+    /// Called when the SSH connection to a node fails during reconciliation.
+    /// Does NOT affect managers already in `draining`, `stopped`, or `failed` states.
+    pub async fn mark_node_managers_unreachable(&self, node_alias: &str) -> Result<()> {
+        let sql = self.sql(
+            r#"UPDATE managers
+               SET state = 'node_unreachable'
+               WHERE node_alias = ?
+                 AND state IN ('starting', 'online', 'node_starting')"#,
+        );
+        sqlx::query(&sql)
+            .bind(node_alias)
             .execute(&self.pool)
             .await?;
         Ok(())
@@ -1881,6 +1948,16 @@ impl Db {
         let sql = self.sql("UPDATE managers SET system_id = ? WHERE id = ?");
         sqlx::query(&sql)
             .bind(system_id)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_manager_last_contact(&self, id: &str, timestamp: &str) -> Result<()> {
+        let sql = self.sql("UPDATE managers SET last_contact_at = ? WHERE id = ?");
+        sqlx::query(&sql)
+            .bind(timestamp)
             .bind(id)
             .execute(&self.pool)
             .await?;
@@ -3898,6 +3975,8 @@ mod tests {
             request_concurrency: 2,
             paused: false,
             trust_tier: "trusted".into(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
         };
         db.insert_pool(&pool).await?;
         assert!(!db.get_pool(&pool_name).await?.expect("pool").paused);
@@ -3919,6 +3998,7 @@ mod tests {
             config_dir: format!("/tmp/{suffix}"),
             started_at: Some(now.clone()),
             last_contact_at: None,
+            node_alias: None,
         })
         .await?;
         assert_eq!(db.count_active_managers(&pool_name).await?, 1);
@@ -4426,6 +4506,8 @@ mod tests {
             request_concurrency: 2,
             paused: false,
             trust_tier: "trusted".into(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
         };
 
         let db = Db::open_url(&database_url).await?;
@@ -4520,6 +4602,8 @@ mod tests {
             request_concurrency: 2,
             paused: false,
             trust_tier: "trusted".into(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
         };
 
         db.insert_pool(&p1).await?;
@@ -4609,6 +4693,8 @@ mod tests {
             request_concurrency: 2,
             paused: false,
             trust_tier: "trusted".into(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
         };
         db.insert_pool(&p1).await?;
 
@@ -4621,6 +4707,7 @@ mod tests {
             config_dir: "/tmp/uuid-1".into(),
             started_at: Some("2024-01-01T00:00:00Z".into()),
             last_contact_at: None,
+            node_alias: None,
         };
         db.insert_manager(&m1).await?;
 

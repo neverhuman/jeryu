@@ -126,6 +126,7 @@ async fn start_manager(store: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &
         config_dir,
         started_at: Some(chrono::Utc::now().to_rfc3339()),
         last_contact_at: None,
+        node_alias: None, // local Docker
     };
     store.insert_manager(&manager).await?; // allowlist: pool orchestration owns runner state
 
@@ -168,26 +169,17 @@ pub async fn scale_pool_to(
         for m in &to_drain {
             info!(manager_id = %m.id, pool = pool_name, "draining excess manager");
             store.update_manager_state(&m.id, "draining").await?; // allowlist: pool orchestration owns runner state
-            docker
-                .cleanup_runner_cache(&m.docker_container_id)
-                .await
-                .ok();
-            docker
-                .drain_runner_manager(
-                    &m.docker_container_id,
-                    config::runner_shutdown_timeout_secs() as i64,
-                )
-                .await
-                .ok(); // best-effort drain
-            docker
-                .cleanup_runner_cache(&m.docker_container_id)
-                .await
-                .ok();
-            docker
-                .remove_runner_manager(&m.docker_container_id)
-                .await
-                .ok();
-            remove_manager_cache_dir(docker, &m.id).await;
+            stop_manager_for_node(
+                docker,
+                m,
+                config::runner_shutdown_timeout_secs() as i64,
+            )
+            .await
+            .ok(); // best-effort drain
+            // Only clean up local cache dirs (remote managers manage their own storage).
+            if m.node_alias.is_none() {
+                remove_manager_cache_dir(docker, &m.id).await;
+            }
             store.update_manager_state(&m.id, "stopped").await?; // allowlist: pool orchestration owns runner state
         }
 

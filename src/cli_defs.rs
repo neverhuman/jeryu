@@ -101,6 +101,8 @@ pub(crate) enum Commands {
     #[command(subcommand, hide = true)]
     Capability(CapabilityCommands),
     #[command(subcommand)]
+    Node(NodeCommands),
+    #[command(subcommand)]
     Mcp(McpCommands),
     Next {
         #[arg(long)]
@@ -122,6 +124,10 @@ pub(crate) use cli_defs_commands::{
     BugAttemptCommands, BugCommands, BugProjectCommands, RepoCommands, RepoFleetCommands,
     RepoHookCommands, RepoStandardCommand, RepoStandardCommands,
 };
+
+#[path = "cli_defs_node.rs"]
+mod cli_defs_node;
+pub(crate) use cli_defs_node::NodeCommands;
 
 // ---------------------------------------------------------------------------
 // Auxiliary command enums (extracted to companion)

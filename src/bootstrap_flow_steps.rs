@@ -69,6 +69,8 @@ pub(crate) async fn create_runner_pools(client: &GitlabClient, db: &Db) -> Resul
             request_concurrency: pool_def.request_concurrency,
             paused: false,
             trust_tier: pool_def.trust_tier.to_string(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
         };
         db.insert_pool(&pool).await?;
 

@@ -24,6 +24,7 @@ pub(crate) use support::*;
 
 #[path = "remote_shell.rs"]
 mod remote_shell;
+pub(crate) use remote_shell::{run_remote_shell, run_remote_shell_capture, run_remote_shell_status};
 
 pub async fn execute_remote(action: RemoteAction, opts: RemoteCommonOptions) -> Result<i32> {
     match action {

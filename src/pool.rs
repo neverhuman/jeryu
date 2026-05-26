@@ -90,6 +90,8 @@ pub async fn ensure_default_pool_rows(store: &Db, client: &GitlabClient) -> Resu
             request_concurrency: pool_def.request_concurrency,
             paused: runner.paused.unwrap_or(false),
             trust_tier: pool_def.trust_tier.to_string(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
         };
         store.insert_pool(&pool).await?;
         inserted += 1;

@@ -50,6 +50,8 @@ pub async fn create_ephemeral_pool(
         request_concurrency: 1,
         paused: false,
         trust_tier: "trusted".into(),
+        cluster_alias: None,
+        backend_type: "docker".into(),
     })
     .await?;
 
