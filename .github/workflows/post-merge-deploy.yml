@@ -1,23 +1,15 @@
 name: Post-merge Deploy
 
-# Runs after a successful merge to main. Builds the release binary, installs
-# it globally on a self-hosted runner, and runs post-install verification
-# (version match + TUI smoke + help check).
+# Thin CI lane. The source of truth lives at ops/ci/post-merge-deploy-lane.sh
+# so local rehearsals and CI execute identical commands (jankurai HLT-042).
 #
 # Behavior:
-#   - Triggered by completion of the "Rust" workflow on main (only the green path).
-#   - Falls back to manual workflow_dispatch for emergency redeploys.
-#   - Uses the `scripts/deploy-local.sh` script — same code path as a local rehearsal.
-#   - Uploads the release binary as a build artifact for offline reuse.
-#
-# Self-hosted runner requirement:
-#   - At least one runner must be labeled `self-hosted` AND `jeryu-deploy-target`.
-#   - That runner must have write access to its $HOME/.local/bin (or set
-#     JERYU_INSTALL_PREFIX to point elsewhere).
-#
-# If no self-hosted runner is available, the `build-artifact` job still runs on
-# GitHub-hosted infrastructure and uploads the binary as an artifact; the
-# `deploy` job will skip with a clear log message.
+#   - Triggered by completion of the "Rust" workflow on main.
+#   - Gate stage requires conclusion=success and branch=main (or manual force).
+#   - Build stage rebuilds the release binary at the triggering SHA and runs
+#     scripts/deploy-local.sh --check (build + verify).
+#   - Deploy stage installs the artifact on a self-hosted runner labeled
+#     'jeryu-deploy-target' and runs scripts/deploy-local.sh --verify.
 
 on:
   workflow_run:
@@ -52,35 +44,27 @@ jobs:
       proceed: ${{ steps.check.outputs.proceed }}
       sha: ${{ steps.check.outputs.sha }}
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - id: check
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            const force = '${{ inputs.force }}' === 'true';
-            if (force) {
-              core.info('manual force=true — bypassing gate');
-              core.setOutput('proceed', 'true');
-              core.setOutput('sha', context.sha);
-              return;
-            }
-            if (context.eventName !== 'workflow_run') {
-              core.setOutput('proceed', 'false');
-              return;
-            }
-            const run = context.payload.workflow_run;
-            if (run.conclusion !== 'success') {
-              core.warning(`Triggering Rust run ended in '${run.conclusion}' — skipping deploy`);
-              core.setOutput('proceed', 'false');
-              return;
-            }
-            if (run.head_branch !== 'main') {
-              core.info(`Triggering Rust run was on branch '${run.head_branch}' — skipping deploy`);
-              core.setOutput('proceed', 'false');
-              return;
-            }
-            core.info(`Rust run ${run.id} on main succeeded — proceeding to deploy ${run.head_sha}`);
-            core.setOutput('proceed', 'true');
-            core.setOutput('sha', run.head_sha);
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE: ${{ inputs.force }}
+          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WF_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$FORCE" = "true" ] && [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            EVENT_NAME=workflow_dispatch
+          fi
+          out="$(bash ops/ci/post-merge-deploy-lane.sh gate "$EVENT_NAME" "${WF_CONCLUSION:-success}" "${WF_BRANCH:-main}")"
+          echo "$out"
+          decision="$(echo "$out" | awk -F'\t' '{print $1}')"
+          if [ "$decision" = "proceed" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            echo "sha=${WF_SHA:-${{ github.sha }}}" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build-artifact:
     name: Build release artifact
@@ -108,10 +92,8 @@ jobs:
           v="$(grep -m1 '^version = ' Cargo.toml | sed 's/^version = "\(.*\)"/\1/')"
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Building jeryu $v from ${{ needs.gate.outputs.sha }}"
-      - name: Build release binary
-        run: cargo build --release -p jeryu --bin jeryu
-      - name: Verify built binary
-        run: bash scripts/deploy-local.sh --check
+      - name: Build + verify release binary
+        run: bash ops/ci/post-merge-deploy-lane.sh build "${{ needs.gate.outputs.sha }}"
       - name: Upload release artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -126,9 +108,9 @@ jobs:
     timeout-minutes: 15
     needs: [gate, build-artifact]
     if: needs.gate.outputs.proceed == 'true'
-    continue-on-error: true # If no self-hosted runner is available, this job
-                            # will queue/fail; build-artifact above still
-                            # produces a downloadable binary.
+    continue-on-error: true # If no self-hosted runner is available the job
+                            # queues; build-artifact above still produces a
+                            # downloadable binary.
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -138,12 +120,5 @@ jobs:
         with:
           name: jeryu-${{ needs.build-artifact.outputs.version }}-${{ needs.gate.outputs.sha }}
           path: target/release
-      - name: Make binary executable
-        run: chmod 0755 target/release/jeryu
-      - name: Install + verify
-        run: |
-          # Skip the rebuild — we already have the artifact from build-artifact.
-          # The script's --verify mode would refuse without an install; use
-          # the install path with build skipped.
-          install -m 0755 target/release/jeryu "${JERYU_INSTALL_PREFIX:-$HOME/.local}/bin/jeryu"
-          bash scripts/deploy-local.sh --verify
+      - name: Install + verify from artifact
+        run: bash ops/ci/post-merge-deploy-lane.sh install-from-artifact target/release/jeryu

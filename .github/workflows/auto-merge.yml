@@ -1,21 +1,14 @@
 name: Auto-merge
 
-# Automatically merges PRs once required status checks pass.
+# Thin CI lane. The source of truth lives at ops/ci/auto-merge-lane.sh so
+# local rehearsals and CI execute identical commands (jankurai HLT-042).
 #
 # Behavior:
 #   - Triggered on PR open / sync / reopen / ready_for_review.
 #   - Also re-evaluates on every workflow_run completion of the Rust + Jankurai pipelines.
-#   - Enables GitHub's native auto-merge (squash) once all required checks pass.
-#   - Skips draft PRs.
-#   - Skips PRs that opt out via the `no-auto-merge` label.
-#
-# Required for this to work:
-#   1. GitHub repo setting: "Allow auto-merge" must be ON.
-#   2. The PR's branch must be up to date with main (the workflow attempts
-#      a fast-forward update before enabling auto-merge).
-#
-# This complements the user's removal of main-branch protection — auto-merge
-# still waits for the Rust and Jankurai workflows to complete before squashing.
+#   - Calls ops/ci/auto-merge-lane.sh classify to decide skip vs enable.
+#   - On 'enable', issues the GraphQL enablePullRequestAutoMerge(SQUASH) mutation.
+#   - Skips draft PRs and PRs with the 'no-auto-merge' label.
 
 on:
   pull_request:
@@ -23,6 +16,10 @@ on:
   workflow_run:
     workflows: ["Rust", "Jankurai"]
     types: [completed]
+
+concurrency:
+  group: auto-merge-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -35,16 +32,18 @@ jobs:
     timeout-minutes: 5
     if: github.event_name == 'pull_request' || github.event.workflow_run.event == 'pull_request'
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
       - name: Find the target PR
         id: pr
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
+            const fs = require('fs');
             let pr;
             if (context.eventName === 'pull_request') {
               pr = context.payload.pull_request;
             } else {
-              // workflow_run path: discover the PR via head_sha
               const sha = context.payload.workflow_run.head_sha;
               const { data: prs } = await github.rest.pulls.list({
                 owner: context.repo.owner,
@@ -54,23 +53,25 @@ jobs:
               });
               pr = prs.find(p => p.head.sha === sha);
             }
-            if (!pr) { core.setOutput('skip', 'true'); return; }
-            if (pr.draft) {
-              core.info(`PR #${pr.number} is draft — skipping auto-merge`);
-              core.setOutput('skip', 'true');
-              return;
-            }
-            if (pr.labels.some(l => l.name === 'no-auto-merge')) {
-              core.info(`PR #${pr.number} has 'no-auto-merge' label — skipping`);
-              core.setOutput('skip', 'true');
-              return;
-            }
-            core.setOutput('skip', 'false');
+            if (!pr) { core.setOutput('found', 'false'); return; }
+            fs.writeFileSync('/tmp/pr.json', JSON.stringify(pr));
+            core.setOutput('found', 'true');
             core.setOutput('number', String(pr.number));
             core.setOutput('node_id', pr.node_id);
 
+      - name: Classify PR
+        id: classify
+        if: steps.pr.outputs.found == 'true'
+        run: |
+          out="$(bash ops/ci/auto-merge-lane.sh classify /tmp/pr.json)"
+          echo "$out"
+          decision="$(echo "$out" | awk -F'\t' '{print $1}')"
+          reason="$(echo "$out" | awk -F'\t' '{print $2}')"
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+
       - name: Enable auto-merge (squash)
-        if: steps.pr.outputs.skip == 'false'
+        if: steps.classify.outputs.decision == 'enable'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |

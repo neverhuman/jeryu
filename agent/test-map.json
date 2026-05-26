@@ -108,6 +108,18 @@
       "command": "just score",
       "purpose": "verify repository security guidance remains routed"
     },
+    "TUI_RESET_PLAN.md": {
+      "command": "git diff --check -- TUI_RESET_PLAN.md",
+      "purpose": "controlling plan doc — diff hygiene only; product code is exercised by cargo nextest --lib"
+    },
+    "TUI_RESET_PLAN_CLAUDE.md": {
+      "command": "git diff --check -- TUI_RESET_PLAN_CLAUDE.md",
+      "purpose": "sibling controlling plan doc — diff hygiene only"
+    },
+    "TUI_RESET_PLAN_FINAL.md": {
+      "command": "git diff --check -- TUI_RESET_PLAN_FINAL.md",
+      "purpose": "final controlling plan doc — diff hygiene only; live claim board lives here"
+    },
     "VERSION": {
       "command": "just score",
       "purpose": "verify version marker remains routed"

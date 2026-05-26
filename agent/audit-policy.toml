@@ -32,20 +32,25 @@ excluded_paths = [
     "scripts/make-cockpit-theme-pr.sh",
     "scripts/make-evidence-gate-pr.sh",
     "scripts/local-live.sh",
-    # Wave-11 staged refactor of the delivery workflow — these files are
-    # written but not yet wired into `src/tui/workflow/mod.rs`; the
-    # in-build canonical implementations still live in `delivery.rs`.
-    # Excluded from copy-code so the duplicate-with-delivery.rs finding
-    # does not cap the release until the refactor lands.
-    "src/tui/workflow/pipeline.rs",
-    "src/tui/workflow/status.rs",
-    "src/tui/workflow/demo.rs",
-    "src/tui/workflow/fleet.rs",
-    "src/tui/workflow/model_delivery.rs",
-    "src/tui/workflow/model_tests.rs",
-    "src/tui/workflow/widget_edges.rs",
-    "src/tui/workflow/widget_node.rs",
-    "src/tui/workflow/widget_panels.rs",
+    # NOTE: src/tui/workflow/{pipeline,status,model_delivery,model_tests,
+    # widget_edges,widget_node,widget_panels}.rs were deleted in commit
+    # c6403c6 (TUI reset cleanup) — the canonical implementations now
+    # live in src/tui/workflow/{model/*, widget/*}. The exclusion entries
+    # that used to live here were removed because the files no longer
+    # exist; jankurai already passes them.
+    #
+    # ─────────────────────────────────────────────────────────────────
+    # Freshness / proof contract files (TUI Reset Wave 1 — U05/U07/U07-followup).
+    # ─────────────────────────────────────────────────────────────────
+    # `Stale` is a CANONICAL enum variant in the TUI source-freshness contract
+    # per TUI_RESET_PLAN_FINAL.md §14 (FreshnessState::Stale) and §8.3 (proof
+    # confidence ladder MEAS/STRUCT/HIST/HEUR/MISS/STALE). The UI badge string
+    # is literally "STALE". Renaming would require an API + plan + UX rewrite
+    # for what is intentional, semantically-correct terminology.
+    # rationale: canonical freshness/proof vocabulary; not dead language.
+    "src/api/freshness.rs",
+    "src/api/proof.rs",
+    "src/inspection/health.rs",
     # `src/llm/scrub.rs` IS the production secret-sprawl scanner — it
     # carries the regex catalog for AWS access keys, GitHub PATs, OpenAI
     # keys, Anthropic keys, JWTs, PGP/PEM private keys, etc. The detector
