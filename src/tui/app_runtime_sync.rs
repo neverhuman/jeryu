@@ -556,7 +556,7 @@ fn ci_job_run_to_recent_job(run: crate::state::CiJobRun) -> JobEvent {
     }
 }
 
-#[path = "app_runtime_sync_actions.rs"]
+#[path = "app_runtime_sync_actions/mod.rs"]
 mod actions;
 
 #[cfg(test)]
