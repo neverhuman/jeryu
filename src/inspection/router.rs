@@ -15,12 +15,15 @@ use super::events::{get_events, get_events_stream};
 use super::health::{get_health_deep, get_runtime_profile};
 use super::proof::get_proof;
 use super::read_model::get_read_model;
+use super::repos::{get_families, get_repos};
 use super::state::InspectionState;
 
 /// Build the `/api/v1/*` router (read plane + U08 action endpoints).
 pub fn build_router(state: InspectionState) -> Router {
     Router::new()
         .route("/api/v1/read-model", get(get_read_model))
+        .route("/api/v1/repos", get(get_repos))
+        .route("/api/v1/families", get(get_families))
         .route("/api/v1/events", get(get_events))
         .route("/api/v1/events/stream", get(get_events_stream))
         .route("/api/v1/entity/{kind}/{id}", get(get_entity))

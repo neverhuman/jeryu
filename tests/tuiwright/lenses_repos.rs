@@ -6,6 +6,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 use jeryu::api::read_model::TuiReadModel;
 use jeryu::tui::lenses::repos::{LENS_ID, ReposIntent, ReposLensInput, draw, handle_key};
+use jeryu::tui::testing::fixtures;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 
@@ -20,6 +21,10 @@ fn k(code: KeyCode) -> KeyEvent {
 
 fn input() -> ReposLensInput {
     ReposLensInput::from_read_model(&TuiReadModel::default())
+}
+
+fn fixture_input() -> ReposLensInput {
+    ReposLensInput::from_read_model(&fixtures::repos::degraded())
 }
 
 fn render(w: u16, h: u16, inp: &ReposLensInput) -> String {
@@ -50,6 +55,13 @@ fn renders_title_at_80x24() {
 fn renders_title_at_120x36() {
     let ink = render(120, 36, &input());
     assert!(ink.contains("Repos"));
+}
+
+#[test]
+fn renders_fixture_input_at_80x24() {
+    let ink = render(80, 24, &fixture_input());
+    assert!(ink.contains("Repository Fleet"));
+    assert!(ink.contains("failed"));
 }
 
 #[test]

@@ -63,6 +63,8 @@ fn kind_label(kind: EntityKind) -> &'static str {
         EntityKind::CacheObject => "cache_object",
         EntityKind::Bug => "bug",
         EntityKind::BugAttempt => "bug_attempt",
+        EntityKind::Repo => "repo",
+        EntityKind::RepoFamily => "repo_family",
         EntityKind::Project => "project",
         EntityKind::SecretAccess => "secret_access",
         EntityKind::Grant => "grant",

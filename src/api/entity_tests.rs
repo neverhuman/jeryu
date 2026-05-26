@@ -25,6 +25,8 @@ fn entity_kinds_have_unique_labels() {
         EntityKind::CacheObject,
         EntityKind::Bug,
         EntityKind::BugAttempt,
+        EntityKind::Repo,
+        EntityKind::RepoFamily,
         EntityKind::Project,
         EntityKind::SecretAccess,
         EntityKind::Grant,

@@ -16,8 +16,8 @@ fn tab_always_cycles_main_tabs_from_workflow() -> anyhow::Result<()> {
     page.press(Key::Tab)?;
     page.wait_for_text("Mission Control", Duration::from_secs(5))?;
 
-    // Cycle through all remaining 14 tabs (Mission→Release→…→Git→Jankurai→Workflow)
-    for _ in 0..14 {
+    // Cycle through all remaining 15 tabs (Mission→Release→…→Git→Jankurai→Workflow)
+    for _ in 0..15 {
         page.press(Key::Tab)?;
     }
 

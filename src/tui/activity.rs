@@ -56,6 +56,7 @@ fn activity_text(app: &App, _height: u16) -> Text<'static> {
         ActiveTab::Pools => lines.extend(pools_activity(app)),
         ActiveTab::Cache => lines.extend(cache_activity(app)),
         ActiveTab::Evidence => lines.extend(evidence_activity(app)),
+        ActiveTab::Repos => lines.extend(repos_activity(app)),
         ActiveTab::Bugs => lines.extend(bugs_activity(app)),
         ActiveTab::Secrets => lines.extend(secrets_activity(app)),
         ActiveTab::LLMs => lines.extend(llms_activity(app)),
@@ -69,6 +70,28 @@ fn activity_text(app: &App, _height: u16) -> Text<'static> {
         )));
     }
     Text::from(lines)
+}
+
+fn repos_activity(app: &App) -> Vec<Line<'static>> {
+    let (running, failed, aged) = app.state.fleet.counts();
+    vec![
+        row(
+            "Repos",
+            &format!("{} total", app.state.fleet.repos.len()),
+            Color::Cyan,
+        ),
+        row(
+            "Health",
+            &format!("{running} running / {failed} failed / {aged} aged"),
+            if failed > 0 {
+                Color::Red
+            } else if aged > 0 {
+                Color::Yellow
+            } else {
+                Color::Green
+            },
+        ),
+    ]
 }
 
 fn bugs_activity(app: &App) -> Vec<Line<'static>> {

@@ -13,7 +13,8 @@ impl App {
             ActiveTab::Tests => ActiveTab::Pools,
             ActiveTab::Pools => ActiveTab::Cache,
             ActiveTab::Cache => ActiveTab::Evidence,
-            ActiveTab::Evidence => ActiveTab::Bugs,
+            ActiveTab::Evidence => ActiveTab::Repos,
+            ActiveTab::Repos => ActiveTab::Bugs,
             ActiveTab::Bugs => ActiveTab::Secrets,
             ActiveTab::Secrets => ActiveTab::LLMs,
             ActiveTab::LLMs => ActiveTab::Git,
@@ -36,10 +37,11 @@ impl App {
             ActiveTab::Pools => ActiveTab::Tests,
             ActiveTab::Cache => ActiveTab::Pools,
             ActiveTab::Evidence => ActiveTab::Cache,
+            ActiveTab::Repos => ActiveTab::Evidence,
             ActiveTab::LLMs => ActiveTab::Secrets,
             ActiveTab::Git => ActiveTab::LLMs,
             ActiveTab::Secrets => ActiveTab::Bugs,
-            ActiveTab::Bugs => ActiveTab::Evidence,
+            ActiveTab::Bugs => ActiveTab::Repos,
             ActiveTab::Jankurai => ActiveTab::Git,
         };
         self.focus.set_tab(self.active_tab);

@@ -17,6 +17,7 @@ pub mod jankurai;
 pub mod mission;
 pub mod queue;
 pub mod release;
+pub mod repos;
 pub mod security;
 pub mod vti;
 pub mod workflow;

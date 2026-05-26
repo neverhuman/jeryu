@@ -10,6 +10,7 @@ pub mod events;
 pub mod health;
 pub mod proof;
 pub mod read_model;
+pub mod repos;
 pub mod router;
 pub mod serve;
 pub mod state;

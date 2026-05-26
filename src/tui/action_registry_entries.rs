@@ -269,6 +269,15 @@ pub static REGISTRY: &[ActionEntry] = &[
         description: "Switch to Evidence & Audit event ledger tab",
     },
     ActionEntry {
+        id: "tab_repos",
+        label: "Go to Repos tab",
+        key_hint: None,
+        risk_tier: RiskTier::R0,
+        surfaces: TUI,
+        dry_run: false,
+        description: "Switch to repository families and health tab",
+    },
+    ActionEntry {
         id: "tab_bugs",
         label: "Go to Bugs tab",
         key_hint: Some("b"),
@@ -381,10 +390,10 @@ mod tests {
         }
     }
 
-    /// U06: All 34 registry entries resolve and the count is locked.
+    /// U06+: All registry entries resolve and the count is locked.
     #[test]
-    fn all_34_action_ids_resolve() {
-        assert_eq!(REGISTRY.len(), 34, "U06 expects exactly 34 actions");
+    fn all_35_action_ids_resolve() {
+        assert_eq!(REGISTRY.len(), 35, "registry count drifted");
         // Spot-check every entry has the new R-tier shape (no legacy variant
         // can sneak back in past a future merge).
         for entry in REGISTRY {

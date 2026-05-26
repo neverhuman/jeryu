@@ -18,6 +18,7 @@ fn capture_path_renders_all_primary_tabs() -> anyhow::Result<()> {
         "pools",
         "cache",
         "evidence",
+        "repos",
         "bugs",
         "secrets",
         "llms",
