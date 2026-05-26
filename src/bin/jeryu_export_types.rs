@@ -1,0 +1,102 @@
+//! `jeryu_export_types` — regenerate `contracts/generated/*.ts`.
+//!
+//! Calls `ts_rs::TS::export()` on every web BFF DTO so humans can refresh
+//! TypeScript bindings without running the full `cargo test --features web`
+//! suite. The same derives that drive this bin also auto-export on test
+//! runs (W-F-03) — this bin is the explicit-trigger alternative documented
+//! in `WEB_WORK_CLAUDE.md` §35.3.2.
+//!
+//! Usage:
+//!     cargo run --bin jeryu_export_types --features web
+//!
+//! Per jankurai standards the output lands in `contracts/generated/`
+//! (configured via the `export_to` attribute on each DTO and the
+//! `TS_RS_EXPORT_DIR` env in `.cargo/config.toml`).
+//!
+//! The bin is gated behind the `web` feature: ts-rs derives only exist
+//! under `--features web`, so the file body compiles to a no-op `main`
+//! when the feature is off. The `required-features = ["web"]` in
+//! `Cargo.toml` also blocks accidental invocation without the flag.
+
+#![cfg(feature = "web")]
+
+use ts_rs::TS;
+
+use jeryu::api::{
+    issues as is_, merge_request as mr, repo_browser as rb, repository as r, review as rv,
+    settings as s, web_read_model as wrm, websocket as ws,
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // repository.rs (8 types)
+    r::RepositoryHostKind::export()?;
+    r::RepositoryId::export()?;
+    r::RepositoryVisibility::export()?;
+    r::RepositorySummary::export()?;
+    r::RepositoryListResponse::export()?;
+    r::RepositoryFacets::export()?;
+    r::CreateRepositoryRequest::export()?;
+    r::CreateRepositoryPreview::export()?;
+
+    // repo_browser.rs (9 types)
+    rb::RefSelectorItem::export()?;
+    rb::RefKind::export()?;
+    rb::TreeEntry::export()?;
+    rb::TreeEntryKind::export()?;
+    rb::BlobResponse::export()?;
+    rb::BlobEncoding::export()?;
+    rb::RenderedMarkdown::export()?;
+    rb::MarkdownHeading::export()?;
+    rb::MarkdownLink::export()?;
+
+    // merge_request.rs (10 types)
+    mr::MergeRequestSummary::export()?;
+    mr::MergeRequestState::export()?;
+    mr::Mergeability::export()?;
+    mr::ReviewPosture::export()?;
+    mr::CheckPosture::export()?;
+    mr::AgentPosture::export()?;
+    mr::MergeRequestDetail::export()?;
+    mr::MergePassport::export()?;
+    mr::MergePassportStatus::export()?;
+    mr::MergePassportBlocker::export()?;
+
+    // review.rs (6 types)
+    rv::ReviewThread::export()?;
+    rv::ReviewComment::export()?;
+    rv::ReviewSuggestion::export()?;
+    rv::CreateReviewCommentRequest::export()?;
+    rv::SubmitReviewRequest::export()?;
+    rv::ReviewVerdict::export()?;
+
+    // settings.rs (11 types)
+    s::RepositorySettings::export()?;
+    s::GeneralSettings::export()?;
+    s::FeatureSettings::export()?;
+    s::MergeSettings::export()?;
+    s::BranchProtectionRule::export()?;
+    s::CiSettings::export()?;
+    s::AgentSettings::export()?;
+    s::AccessSettings::export()?;
+    s::SecuritySettings::export()?;
+    s::NotificationSettings::export()?;
+    s::RetentionSettings::export()?;
+
+    // web_read_model.rs (3 types)
+    wrm::WebBootstrap::export()?;
+    wrm::Viewer::export()?;
+    wrm::WebFeatureFlags::export()?;
+
+    // issues.rs (2 types — v1.5 stubs)
+    is_::IssueSummary::export()?;
+    is_::IssueState::export()?;
+
+    // websocket.rs (4 types)
+    ws::ClientWsMessage::export()?;
+    ws::SubscriptionSpec::export()?;
+    ws::ServerWsMessage::export()?;
+    ws::WebEvent::export()?;
+
+    eprintln!("ts-rs export OK -> contracts/generated/");
+    Ok(())
+}

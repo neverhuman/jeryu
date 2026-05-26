@@ -168,6 +168,16 @@ jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0
 # `url` is shared by jansu-backend and the Web Forge BFF — keep it non-optional.
 url = "2"
 
+# Bin definitions. `src/bin/*.rs` is auto-discovered, but `jeryu_export_types`
+# requires the `web` feature (ts-rs derives only exist under `--features web`),
+# so we declare an explicit `[[bin]]` block to gate compilation. The other
+# auto-discovered bins (`autonomy.rs`, `jeryu` from `src/main.rs`) keep working
+# unchanged.
+[[bin]]
+name = "jeryu_export_types"
+path = "src/bin/jeryu_export_types.rs"
+required-features = ["web"]
+
 [features]
 default = ["profile-sqlite-kafka", "demo-fixtures"]
 # Opt-in feature gating the JeRyu Web Forge BFF and frontend integration glue.
