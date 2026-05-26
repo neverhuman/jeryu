@@ -44,7 +44,7 @@ pub struct NodeConfig {
     pub storage_limit_gb: f64,
 
     // --- Routing ---
-    /// Pool names this node accepts.  Empty = accept all pools.
+    /// Pool names this node serves (empty = unrestricted, serves any pool).
     #[serde(default)]
     pub pool_affinity: Vec<String>,
     /// Override the GitLab URL passed to runners on this node.
@@ -127,8 +127,8 @@ impl NodeConfig {
         }
     }
 
-    /// Returns true if this node accepts jobs for the given pool name.
-    /// An empty `pool_affinity` list means "accept all pools".
+    /// Returns true if this node is eligible for the given pool name.
+    /// An empty `pool_affinity` list means the node is unrestricted.
     pub fn accepts_pool(&self, pool_name: &str) -> bool {
         self.pool_affinity.is_empty()
             || self.pool_affinity.iter().any(|p| p == pool_name)

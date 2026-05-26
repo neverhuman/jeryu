@@ -31,7 +31,7 @@ pub(crate) enum NodeCommands {
         #[arg(long, default_value_t = 100.0)]
         storage_limit_gb: f64,
         /// Restrict this node to specific pool names (comma-separated).
-        /// Empty means "accept all pools".
+        /// Omit to allow this node to serve any pool.
         #[arg(long, value_delimiter = ',')]
         pool_affinity: Vec<String>,
         /// Override the GitLab URL that runner containers use to reach GitLab.

@@ -17,6 +17,10 @@ pub use helpers::*;
 mod layout;
 pub use layout::*;
 
+#[path = "cargo_cache_script.rs"]
+mod script;
+pub use script::*;
+
 #[path = "cargo_cache_leases.rs"]
 mod leases;
 pub use leases::*;

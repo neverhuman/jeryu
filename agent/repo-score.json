@@ -1,7 +1,7 @@
 {
-  "report_fingerprint": "sha256:55cc84adea034412551beb45da4326a18cc6e2dcc6b987413589a8a2f234a738",
-  "input_fingerprint": "sha256:e0eb489d52463c5cbbefabe34d9b6cda1e30c41f81f5ba0cc84a48498644ac62",
-  "policy_fingerprint": "sha256:5071699c5e2eccd6b03d7b758ce9578310404ff97ce81dee1d972e9d9b68ba0c",
+  "report_fingerprint": "sha256:5a9f57551f7bc9998ff09a792e00e81ba192650ade214779e8e27549ff33ac15",
+  "input_fingerprint": "sha256:513e66d10ec4104a4a0e220d5be2a5fed3925720040f58a4c01965eb9686c594",
+  "policy_fingerprint": "sha256:150079e55a70212b39011e1e482353df15975a1149cf40df9d246868cc026c2b",
   "manifest_fingerprints": {
     "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
     "test_map": "sha256:5cba99c038d7a8ccc731185f2b387916497aaff7f2be8bd6a7b8a88107b30f0e",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779763416",
+  "generated_at": "1779765990",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779763416",
-  "started_at": "1779763416",
-  "elapsed_ms": 7464,
+  "run_id": "1779765990",
+  "started_at": "1779765990",
+  "elapsed_ms": 6859,
   "scope": {
     "mode": "full",
     "paths": []
@@ -35,11 +35,11 @@
   "score": 89,
   "raw_score": 89,
   "decision": {
-    "status": "advisory",
+    "status": "pass",
     "minimum_score": 85,
     "passed": true,
     "hard_findings": 0,
-    "soft_findings": 2,
+    "soft_findings": 1,
     "ratchet": {
       "baseline_score": 89,
       "allowed_drop": 0,
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "b4c8278",
+    "head": "b5a0052",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -71,7 +71,7 @@
       "medium",
       "low"
     ],
-    "mode": "advisory",
+    "mode": "standard",
     "standard_version": "0.9.0",
     "auditor_version": "1.5.1",
     "schema_version": "1.9.0",
@@ -357,7 +357,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 790",
+        "rust bad-behavior advisory signals: 786",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -371,11 +371,11 @@
       "score": 70,
       "weighted_points": 8.4,
       "evidence": [
-        "largest authored code file: src/cargo_cache_layout.rs (395 LOC)",
+        "largest authored code file: src/llm/doctor.rs (303 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 25 (advisory only, no score impact)",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 790",
+        "rust bad-behavior advisory signals: 786",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -483,8 +483,6 @@
     "missing_categories": [],
     "evidence": {
       "accessibility": [
-        "agent/repo-score.json",
-        "agent/repo-score.md",
         "apps/web/ux-qa.ts",
         "ops/releases/v1.0.0/jankurai-score.json"
       ],
@@ -517,7 +515,6 @@
         "tests/tui_recording.rs"
       ],
       "storybook": [
-        "agent/repo-score.json",
         "apps/web/ux-qa-check.mjs",
         "apps/web/ux-qa.ts",
         "ops/releases/v1.0.0/jankurai-score.json"
@@ -1132,7 +1129,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-26T02:43:28.967873139+00:00",
+    "generated_at": "2026-05-26T03:26:23.977876805+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1170,9 +1167,9 @@
       ]
     },
     "summary": {
-      "files_scanned": 788,
-      "files_considered": 431,
-      "active_files": 431,
+      "files_scanned": 787,
+      "files_considered": 432,
+      "active_files": 432,
       "exact_file_classes": 0,
       "hard_classes": 0,
       "warning_classes": 25,
@@ -2659,7 +2656,7 @@
       "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/cargo_cache_layout.rs (395 LOC)",
+        "largest authored code file: src/llm/doctor.rs (303 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 25 (advisory only, no score impact)",
         "IO markers found in domain/core files"
@@ -2669,49 +2666,15 @@
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:bb0235beb748c185d52b48e7f8a2a29e3cdf7d97951cd5bdc16ebe87f1414dd8",
+      "fingerprint": "sha256:7a95945f901a53e13c4056d059f1f121842ee3efdceea6aa183a7f72c7b6237a",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "tools"
-    },
-    {
-      "severity": "medium",
-      "category": "proof",
-      "path": "agent/repo-score.json",
-      "problem": "human review or proof claim lacks reproducible evidence",
-      "agent_fix": "attach raw CI logs, review receipts, and replayable commands instead of accepting claims or summaries",
-      "evidence": [
-        "\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"/// Empty means \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"accept all pools\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\".\\\\\\\\\\\\\\\"\\\\\\\"\\\"\""
-      ],
-      "check_id": "HLT-027-HUMAN-REVIEW-EVIDENCE-GAP:proof",
-      "hardness": "soft",
-      "confidence": 0.88,
-      "evidence_kind": "receipt",
-      "rerun_command": "just score",
-      "fingerprint": "sha256:1176f9d3ff0ef58ed8d2e5cef84d27ad7b61d5856f17abc9e9c53cdbab08fc83",
-      "rule_id": "HLT-027-HUMAN-REVIEW-EVIDENCE-GAP",
-      "tlr": "Repair",
-      "lane": "audit",
-      "docs_url": "docs/testing.md",
-      "owner": "agent",
-      "line": 2691,
-      "matched_term": "review evidence",
-      "reason": "proof and review claims need receipts"
     }
   ],
   "agent_fix_queue": [
-    {
-      "path": "agent/repo-score.json",
-      "priority": "medium",
-      "rule_id": "HLT-027-HUMAN-REVIEW-EVIDENCE-GAP",
-      "tlr": "Repair",
-      "lane": "audit",
-      "owner": "agent",
-      "task": "attach raw CI logs, review receipts, and replayable commands instead of accepting claims or summaries",
-      "why": "human review or proof claim lacks reproducible evidence"
-    },
     {
       "path": ".",
       "priority": "medium",

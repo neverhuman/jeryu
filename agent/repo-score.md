@@ -7,13 +7,13 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779763416`
-- Started at: `1779763416`
-- Elapsed: `7464` ms
+- Run ID: `1779765990`
+- Started at: `1779765990`
+- Elapsed: `6859` ms
 - Scope: `full`
 - Raw score: `89`
 - Final score: `89`
-- Decision: `advisory`
+- Decision: `pass`
 - Minimum score: `85`
 - Caps applied: `none`
 
@@ -70,7 +70,7 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`25` files=`431`
+- Status: `review` hard=`0` warning=`25` files=`432`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
 - Duplicate volume: lines=`39` tokens=`89` bytes=`923`
 
@@ -115,7 +115,7 @@
 | Contract and boundary integrity | 13 | 98 | 12.74 | contract surface found; generated contract artifacts found |
 | Proof lanes and test routing | 12 | 100 | 12.00 | one-command setup/validation lane found; deterministic fast lane found |
 | Security and supply-chain posture | 12 | 86 | 10.32 | lockfile present; secret or dependency scan tooling found |
-| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/cargo_cache_layout.rs (395 LOC); most code files stay under 300 LOC |
+| Code shape and semantic surface | 12 | 70 | 8.40 | largest authored code file: src/llm/doctor.rs (303 LOC); most code files stay under 300 LOC |
 | Data truth and workflow safety | 8 | 95 | 7.60 | database surface present; structured db boundary manifest present |
 | Observability and repair evidence | 8 | 98 | 7.84 | observability libraries or patterns found; diagnostic shaping hints found |
 | Context economy and agent instructions | 7 | 100 | 7.00 | root `AGENTS.md` present; root `AGENTS.md` stays short |
@@ -220,19 +220,8 @@ No audited runtime boundary reclassifications declared.
    Reason: `Code shape and semantic surface` scored 70 below the standard floor of 85
    Fix: split large or ambiguous authored code into smaller semantic modules with focused tests
    Rerun: `just fast`
-   Fingerprint: `sha256:bb0235beb748c185d52b48e7f8a2a29e3cdf7d97951cd5bdc16ebe87f1414dd8`
-   Evidence: largest authored code file: src/cargo_cache_layout.rs (395 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 25 (advisory only, no score impact), IO markers found in domain/core files
-2. `medium` `proof` `agent/repo-score.json:2691`
-   Rule: `HLT-027-HUMAN-REVIEW-EVIDENCE-GAP`
-   Check: `HLT-027-HUMAN-REVIEW-EVIDENCE-GAP:proof` `soft` confidence `0.88`
-   Route: TLR `Repair`, lane `audit`, owner `agent`
-   Docs: `docs/testing.md`
-   Matched term: `review evidence`
-   Reason: proof and review claims need receipts
-   Fix: attach raw CI logs, review receipts, and replayable commands instead of accepting claims or summaries
-   Rerun: `just score`
-   Fingerprint: `sha256:1176f9d3ff0ef58ed8d2e5cef84d27ad7b61d5856f17abc9e9c53cdbab08fc83`
-   Evidence: "\"\\\"\\\\\\\"/// Empty means \\\\\\\\\\\\\\\"accept all pools\\\\\\\\\\\\\\\".\\\\\\\"\\\"\""
+   Fingerprint: `sha256:7a95945f901a53e13c4056d059f1f121842ee3efdceea6aa183a7f72c7b6237a`
+   Evidence: largest authored code file: src/llm/doctor.rs (303 LOC), most code files stay under 300 LOC, copy-code advisory classes found: 25 (advisory only, no score impact), IO markers found in domain/core files
 
 ## Policy
 
@@ -242,7 +231,5 @@ No audited runtime boundary reclassifications declared.
 
 ## Agent Fix Queue
 
-1. `medium` `HLT-027-HUMAN-REVIEW-EVIDENCE-GAP` `agent/repo-score.json` - attach raw CI logs, review receipts, and replayable commands instead of accepting claims or summaries
-   Route: `Repair`/`audit`
-2. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
+1. `medium` `HLT-001-DEAD-MARKER` `.` - split large or ambiguous authored code into smaller semantic modules with focused tests
    Route: `Entropy`/`fast`
