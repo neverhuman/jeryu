@@ -397,7 +397,7 @@ fn compact_pool_sync_error(error: anyhow::Error) -> String {
     }
 }
 
-#[path = "app_runtime_sync_actions.rs"]
+#[path = "app_runtime_sync_actions/mod.rs"]
 mod actions;
 
 #[cfg(test)]
