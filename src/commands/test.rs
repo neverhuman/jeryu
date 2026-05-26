@@ -33,10 +33,12 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             tags,
             timeout,
             force,
+            priority,
+            reason,
         } => {
             let project_id = crate::commands::resolve_project_id(project_id);
             handle_run_command(
-                &client, &db, command, project_id, image, tags, timeout, force,
+                &client, &db, command, project_id, image, tags, timeout, force, priority, reason,
             )
             .await?;
         }
@@ -46,9 +48,11 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             image,
             tags,
             timeout,
+            priority,
+            reason,
         } => {
             let project_id = crate::commands::resolve_project_id(project_id);
-            handle_plan_command(command, project_id, image, tags, timeout)?;
+            handle_plan_command(command, project_id, image, tags, timeout, priority, reason)?;
         }
         TestCommands::Batch {
             commands,
@@ -58,6 +62,8 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             timeout,
             max_parallel,
             force,
+            priority,
+            reason,
         } => {
             let project_id = crate::commands::resolve_project_id(project_id);
             handle_batch_command(
@@ -70,6 +76,8 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 timeout,
                 max_parallel,
                 force,
+                priority,
+                reason,
             )
             .await?;
         }

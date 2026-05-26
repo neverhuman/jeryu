@@ -15,6 +15,8 @@ pub(crate) async fn handle_run_command(
     tags: Option<String>,
     timeout: u64,
     force: bool,
+    priority: Option<test_runner::TestRunPriority>,
+    reason: test_runner::TestRunReason,
 ) -> Result<()> {
     let opts = test_runner::TestRunOpts {
         project_id,
@@ -25,6 +27,8 @@ pub(crate) async fn handle_run_command(
         timeout_secs: timeout,
         force,
         commit_sha: current_commit_sha(),
+        priority,
+        reason,
     };
     println!("━━━ jeryu test run ━━━\n");
     println!("  Project ID: {}", opts.project_id);
@@ -33,6 +37,11 @@ pub(crate) async fn handle_run_command(
     println!("  Inferred Routing:");
     println!("    Risk Class: {}", plan.risk_class);
     println!("    Tags:       {:?}", plan.tags);
+    println!(
+        "    Scheduler:  {} ({})",
+        plan.priority.label(),
+        plan.reason.label()
+    );
     for reason in &plan.rationale {
         println!("      - {}", reason);
     }
@@ -62,6 +71,8 @@ pub(crate) fn handle_plan_command(
     image: String,
     tags: Option<String>,
     timeout: u64,
+    priority: Option<test_runner::TestRunPriority>,
+    reason: test_runner::TestRunReason,
 ) -> Result<()> {
     let opts = test_runner::TestRunOpts {
         project_id,
@@ -72,11 +83,18 @@ pub(crate) fn handle_plan_command(
         timeout_secs: timeout,
         force: false,
         commit_sha: String::new(),
+        priority,
+        reason,
     };
     println!("━━━ jeryu test plan ━━━\n");
     let plan = test_runner::plan_test_run(&opts);
     println!("  Command:      {}", plan.command);
     println!("  Risk Class:   {}", plan.risk_class);
+    println!(
+        "  Scheduler:    {} ({})",
+        plan.priority.label(),
+        plan.reason.label()
+    );
     println!("  Tags:         {:?}", plan.tags);
     println!("  Timeout:      {}s", plan.timeout_secs);
     println!("  Rationale:");
@@ -97,6 +115,8 @@ pub(crate) async fn handle_batch_command(
     timeout: u64,
     max_parallel: usize,
     force: bool,
+    priority: Option<test_runner::TestRunPriority>,
+    reason: test_runner::TestRunReason,
 ) -> Result<()> {
     let opts = test_runner::TestBatchOpts {
         project_id,
@@ -108,6 +128,8 @@ pub(crate) async fn handle_batch_command(
         max_parallel,
         force,
         commit_sha: current_commit_sha(),
+        priority,
+        reason,
     };
     println!("🧪 Starting batched test run...");
     println!("   Commands:  {}", opts.test_commands.len());
@@ -117,6 +139,15 @@ pub(crate) async fn handle_batch_command(
         None => "smart-inferred".to_string(),
     };
     println!("   Tags:      {}", tags_label);
+    println!(
+        "   Scheduler: {} ({})",
+        match opts.priority {
+            Some(priority) => priority,
+            None => opts.reason.default_priority(),
+        }
+        .label(),
+        opts.reason.label()
+    );
     println!("   Parallel:  {}", opts.max_parallel);
     println!();
     let results = test_runner::run_test_batch(db, client, &opts).await?;

@@ -8,8 +8,9 @@ use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
 use crate::gitlab_client::GitlabClient;
+use crate::runner_scheduler::{SchedulerPolicy, SchedulerRequest, schedule_requests};
 use crate::test_runner::{
-    TestBatchOpts, TestRunOpts, TestRunResult, run_test, wait_for_test_result,
+    TestBatchOpts, TestRunOpts, TestRunResult, TestSubmission, run_test, wait_for_test_result,
 };
 
 /// Run several test commands in parallel through CI pipelines.
@@ -18,35 +19,92 @@ pub async fn run_test_batch(
     client: &GitlabClient,
     opts: &TestBatchOpts,
 ) -> Result<Vec<TestRunResult>> {
-    let max_parallel = opts.max_parallel.max(1);
+    let submissions = opts
+        .test_commands
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(index, command)| {
+            let job_name = opts
+                .job_name_prefix
+                .as_ref()
+                .map(|prefix| format!("{prefix}-{:02}", index + 1))
+                .filter(|value| !value.is_empty());
+            TestSubmission {
+                project_id: opts.project_id,
+                test_command: command,
+                job_name,
+                image: opts.image.clone(),
+                tags: opts.tags.clone(),
+                timeout_secs: opts.timeout_secs,
+                force: opts.force,
+                commit_sha: opts.commit_sha.clone(),
+                priority: opts.priority,
+                reason: opts.reason,
+            }
+        })
+        .collect();
+    run_test_submissions(db, client, submissions, opts.max_parallel).await
+}
+
+/// Run queued test submissions through a fair cross-project scheduler.
+pub async fn run_test_submissions(
+    db: &crate::state::Db,
+    client: &GitlabClient,
+    submissions: Vec<TestSubmission>,
+    max_parallel: usize,
+) -> Result<Vec<TestRunResult>> {
+    let max_parallel = max_parallel.max(1);
     let semaphore = Arc::new(Semaphore::new(max_parallel));
     let mut join_set = JoinSet::new();
+    let now = submissions.len() as u64;
+    let requests: Vec<SchedulerRequest> = submissions
+        .iter()
+        .enumerate()
+        .map(|(index, submission)| {
+            let reason = submission.reason;
+            SchedulerRequest {
+                id: index.to_string(),
+                project_id: submission.project_id,
+                priority: match submission.priority {
+                    Some(priority) => priority,
+                    None => reason.default_priority(),
+                },
+                reason,
+                submitted_at: index as u64,
+            }
+        })
+        .collect();
+    let schedule = schedule_requests(
+        &requests,
+        submissions.len(),
+        now,
+        SchedulerPolicy::default(),
+    );
 
-    for (index, command) in opts.test_commands.iter().cloned().enumerate() {
+    for decision in schedule {
+        let index = match decision.id.parse::<usize>() {
+            Ok(index) => index,
+            Err(_) => continue,
+        };
+        let submission = submissions[index].clone();
         let permit = semaphore.clone().acquire_owned().await?;
         let db = db.clone();
         let client = client.clone();
-        let image = opts.image.clone();
-        let tags = opts.tags.clone();
-        let project_id = opts.project_id;
-        let timeout_secs = opts.timeout_secs;
-        let job_name_prefix = opts.job_name_prefix.clone();
-        let force = opts.force;
-        let commit_sha = opts.commit_sha.clone();
         join_set.spawn(async move {
             let _permit = permit;
-            let job_name = job_name_prefix
-                .map(|prefix| format!("{prefix}-{:02}", index + 1))
-                .filter(|value| !value.is_empty());
+            let command = submission.test_command.clone();
             let run_opts = TestRunOpts {
-                project_id,
+                project_id: submission.project_id,
                 test_command: command.clone(),
-                job_name,
-                image,
-                tags,
-                timeout_secs,
-                force,
-                commit_sha,
+                job_name: submission.job_name,
+                image: submission.image,
+                tags: submission.tags,
+                timeout_secs: submission.timeout_secs,
+                force: submission.force,
+                commit_sha: submission.commit_sha,
+                priority: submission.priority,
+                reason: submission.reason,
             };
             let outcome = run_test(&db, &client, &run_opts).await;
             (index, command, outcome)
@@ -54,7 +112,7 @@ pub async fn run_test_batch(
     }
 
     let mut results: Vec<Option<TestRunResult>> = std::iter::repeat_with(|| None)
-        .take(opts.test_commands.len())
+        .take(submissions.len())
         .collect();
     while let Some(joined) = join_set.join_next().await {
         let (index, command, outcome) = joined?;

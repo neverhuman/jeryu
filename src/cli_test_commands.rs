@@ -5,6 +5,7 @@
 //! Pure data: clap enum definitions for the `jeryu test` subtree.
 
 use clap::Subcommand;
+use jeryu::test_runner::{TestRunPriority, TestRunReason};
 use std::path::PathBuf;
 
 #[derive(Subcommand)]
@@ -24,6 +25,12 @@ pub(crate) enum TestCommands {
         timeout: u64,
         #[arg(long)]
         force: bool,
+        /// Scheduler priority for this submission.
+        #[arg(long, value_enum)]
+        priority: Option<TestRunPriority>,
+        /// Why this work is being submitted; urgent reasons default to high priority.
+        #[arg(long, value_enum, default_value = "general")]
+        reason: TestRunReason,
     },
     /// Preview the inferred runner class and timeout for a command.
     Plan {
@@ -37,6 +44,12 @@ pub(crate) enum TestCommands {
         tags: Option<String>,
         #[arg(long, default_value = "600")]
         timeout: u64,
+        /// Scheduler priority for this submission.
+        #[arg(long, value_enum)]
+        priority: Option<TestRunPriority>,
+        /// Why this work is being submitted; urgent reasons default to high priority.
+        #[arg(long, value_enum, default_value = "general")]
+        reason: TestRunReason,
     },
     /// Run multiple test commands in parallel through separate pipelines.
     Batch {
@@ -54,6 +67,12 @@ pub(crate) enum TestCommands {
         max_parallel: usize,
         #[arg(long)]
         force: bool,
+        /// Scheduler priority for every command in the batch.
+        #[arg(long, value_enum)]
+        priority: Option<TestRunPriority>,
+        /// Why this batch is being submitted; urgent reasons default to high priority.
+        #[arg(long, value_enum, default_value = "general")]
+        reason: TestRunReason,
     },
 
     /// Show results of all jobs in a pipeline.

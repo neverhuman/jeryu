@@ -11,6 +11,10 @@ use crate::release;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+pub use crate::runner_scheduler::{
+    SchedulerPriority as TestRunPriority, SchedulerReason as TestRunReason,
+};
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
@@ -36,6 +40,8 @@ pub struct TestRunPlan {
     pub tags: Vec<String>,
     pub timeout_secs: u64,
     pub risk_class: String,
+    pub priority: TestRunPriority,
+    pub reason: TestRunReason,
     pub rationale: Vec<String>,
 }
 
@@ -50,6 +56,8 @@ pub struct TestRunOpts {
     pub timeout_secs: u64,
     pub force: bool,
     pub commit_sha: String,
+    pub priority: Option<TestRunPriority>,
+    pub reason: TestRunReason,
 }
 
 impl Default for TestRunOpts {
@@ -63,6 +71,8 @@ impl Default for TestRunOpts {
             timeout_secs: 600,
             force: false,
             commit_sha: "latest".to_string(),
+            priority: None,
+            reason: TestRunReason::General,
         }
     }
 }
@@ -79,6 +89,8 @@ pub struct TestBatchOpts {
     pub max_parallel: usize,
     pub force: bool,
     pub commit_sha: String,
+    pub priority: Option<TestRunPriority>,
+    pub reason: TestRunReason,
 }
 
 impl Default for TestBatchOpts {
@@ -93,8 +105,26 @@ impl Default for TestBatchOpts {
             max_parallel: 3,
             force: false,
             commit_sha: "latest".to_string(),
+            priority: None,
+            reason: TestRunReason::General,
         }
     }
+}
+
+/// A queued CI test submission. Unlike [`TestBatchOpts`], this can carry
+/// different projects and priorities in one scheduling pass.
+#[derive(Debug, Clone)]
+pub struct TestSubmission {
+    pub project_id: i64,
+    pub test_command: String,
+    pub job_name: Option<String>,
+    pub image: String,
+    pub tags: Option<Vec<String>>,
+    pub timeout_secs: u64,
+    pub force: bool,
+    pub commit_sha: String,
+    pub priority: Option<TestRunPriority>,
+    pub reason: TestRunReason,
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +141,11 @@ pub fn plan_test_run(opts: &TestRunOpts) -> TestRunPlan {
         None => routing::infer_test_tags(&opts.test_command),
     };
     let routing = routing::infer_test_routing(&opts.test_command);
+    let reason = opts.reason;
+    let priority = match opts.priority {
+        Some(priority) => priority,
+        None => reason.default_priority(),
+    };
     let timeout_secs = if opts.timeout_secs == TestRunOpts::default().timeout_secs {
         routing.timeout_secs
     } else {
@@ -124,6 +159,8 @@ pub fn plan_test_run(opts: &TestRunOpts) -> TestRunPlan {
         tags: inferred,
         timeout_secs,
         risk_class: routing.risk_class,
+        priority,
+        reason,
         rationale: routing.rationale,
     }
 }
@@ -146,12 +183,16 @@ pub(crate) fn render_ephemeral_ci_yaml(plan: &TestRunPlan) -> String {
   variables:
     GIT_STRATEGY: clone
     GIT_CLONE_PATH: "$CI_BUILDS_DIR/$CI_PROJECT_PATH_SLUG-jeryu-$CI_PIPELINE_ID-$CI_JOB_ID"
+    JERYU_SCHEDULER_PRIORITY: {priority}
+    JERYU_SCHEDULER_REASON: {reason}
   script:
     - {command}
 "#,
         job_name = plan.job_name,
         image = plan.image,
         tags = tags_yaml,
+        priority = plan.priority.label(),
+        reason = plan.reason.label(),
         command = plan.command,
     )
 }
@@ -187,6 +228,15 @@ pub async fn run_test_batch(
     opts: &TestBatchOpts,
 ) -> Result<Vec<TestRunResult>> {
     job_ops::run_test_batch(db, client, opts).await
+}
+
+pub async fn run_test_submissions(
+    db: &crate::state::Db,
+    client: &crate::gitlab_client::GitlabClient,
+    submissions: Vec<TestSubmission>,
+    max_parallel: usize,
+) -> Result<Vec<TestRunResult>> {
+    job_ops::run_test_submissions(db, client, submissions, max_parallel).await
 }
 
 pub async fn requeue_job_by_name(
