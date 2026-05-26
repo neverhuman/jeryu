@@ -91,6 +91,7 @@ pub use db::jekko_llm_pool_repo as jekko_llm_pool_usage;
 pub mod cluster_support;
 pub mod cluster_types;
 pub mod impact;
+pub mod inspection;
 pub mod install;
 pub mod install_demo;
 pub mod llm;

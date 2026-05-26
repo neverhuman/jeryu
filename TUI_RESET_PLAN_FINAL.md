@@ -52,7 +52,7 @@ Claim protocol:
 | TUI-RESET-20260526-003 | Codex MCP worker Mill | U02 | `scripts/loc_audit.sh`, optional doc note in this section only | done | `sh -n` passed; reset thresholds fail on known oversized baseline; high-threshold smoke passed |
 | TUI-RESET-20260526-004 | Codex MCP worker Pauli | U03 planning/harness scout | `tests/tuiwright/` only unless promoted after review | done | `git diff --check -- tests/tuiwright/README.md` passed; current assertions inventoried |
 | TUI-RESET-20260526-005 | Codex parent | U06 seed | `src/tui/action_registry.rs` only | claimed | `cargo test -p jeryu --lib tui::action_registry` |
-| TUI-RESET-20260526-006 | Claude orchestrator | U07 inspection read plane | new `src/inspection/{mod,router,read_model,events,entity,proof,health,projections/*}.rs` only; reuses existing autonomy HTTP host; does NOT touch `src/inspection/actions.rs` (U08) or `src/tui/action_registry*.rs` (U06) | claimed | `cargo nextest run -p jeryu --lib inspection::` + route shape tests with in-memory state |
+| TUI-RESET-20260526-006 | Claude orchestrator | U07 inspection read plane (action-registry route deferred to U07-followup; needs U06 done) | new `src/inspection/{mod,router,read_model,events,entity,proof,health,serve,state}.rs`; new `src/api/proof.rs`; mirror of codex's `src/api/{freshness,runtime_profile,mod}.rs` into this branch | done | `cargo nextest run -p jeryu --lib inspection:: api::proof` → 19/19 passed; `cargo check -p jeryu` green |
 
 ## 1. Mission
 

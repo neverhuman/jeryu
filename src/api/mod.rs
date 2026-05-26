@@ -7,5 +7,8 @@ pub mod actions;
 pub mod agent_session;
 pub mod entity;
 pub mod events;
+pub mod freshness;
+pub mod proof;
 pub mod read_model;
+pub mod runtime_profile;
 pub mod snapshot;
