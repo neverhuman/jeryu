@@ -4,6 +4,7 @@
 //!             ad-hoc state mutation. Mutating routes live in `actions.rs`
 //!             (U08); this module is read-only.
 
+pub mod actions;
 pub mod entity;
 pub mod events;
 pub mod health;
