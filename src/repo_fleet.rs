@@ -11,6 +11,56 @@ use std::process::Command;
 pub const DEFAULT_REGISTRY_PATH: &str = ".jeryu/repos.toml";
 pub const DEFAULT_REPO_SLUG: &str = "neverhuman/jeryu";
 const LOCAL_WORKSPACE_ROOT_DEFAULT: &str = "/home/ubuntu/veox-repos";
+/// Namespace schema version used to derive per-repo cache and data namespaces.
+pub const FLEET_NAMESPACE_SCHEMA_VERSION: &str = "v1";
+
+// ---------------------------------------------------------------------------
+// Scope model — Phase 0 (fleet drill-down)
+// ---------------------------------------------------------------------------
+
+/// Discriminant for a [`FleetScopeItem`] in the scope navigator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FleetScopeKind {
+    /// The global "ALL" entry that shows the entire fleet.
+    All,
+    /// A family group (e.g. `veox-*`) that aggregates repos sharing a common
+    /// dash-prefix alias.
+    Family,
+    /// A single repository.
+    Repo,
+}
+
+/// Aggregate health metrics for a group of repos in the scope navigator.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FleetScopeRollup {
+    pub repo_count: usize,
+    pub running_count: u32,
+    pub failed_count: u32,
+    pub aged_count: u32,
+    /// RFC 3339 timestamp of the most-recent activity in this scope.
+    pub latest_activity_at: Option<String>,
+    /// 0–100 utilisation pressure derived from running jobs per repo.
+    pub utilization_pressure: u16,
+}
+
+/// One chip in the fleet-bar scope navigator.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FleetScopeItem {
+    pub kind: FleetScopeKind,
+    /// Display label: `"ALL"`, `"veox-*"`, or a repo alias.
+    pub label: String,
+    /// Populated for `Family` and `Repo` items; `None` for `All`.
+    pub family: Option<String>,
+    /// Index into `FleetSnapshot::repos` for `Repo` items; `None` otherwise.
+    pub repo_index: Option<usize>,
+    pub rollup: FleetScopeRollup,
+    /// Derived health status: `"running"` | `"failed"` | `"aged"` | `"green"`.
+    pub status: String,
+    /// Cache namespace for this repo (populated for `Repo` items only).
+    pub cache_namespace: Option<String>,
+    /// Data namespace for this repo (populated for `Repo` items only).
+    pub data_namespace: Option<String>,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RepoRegistry {
@@ -30,6 +80,8 @@ pub struct RepoConfig {
     pub default_branch: String,
     pub visibility: String,
     pub health_profile: String,
+    /// Explicit family override; auto-derived from alias dash-prefix when `None`.
+    pub family: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for RepoConfig {
@@ -55,6 +107,8 @@ impl<'de> Deserialize<'de> for RepoConfig {
             health_profile: Option<String>,
             #[serde(default)]
             profile: Option<String>,
+            #[serde(default)]
+            family: Option<String>,
         }
 
         let raw = RawRepoConfig::deserialize(deserializer)?;
@@ -76,6 +130,7 @@ impl<'de> Deserialize<'de> for RepoConfig {
                 .health_profile
                 .or(raw.profile)
                 .unwrap_or_else(|| "default".to_string()),
+            family: raw.family,
         })
     }
 }
@@ -125,6 +180,17 @@ pub struct FleetRepoSnapshot {
     pub local: RepoLocalStatus,
     pub latest_run: Option<RepoRunSummary>,
     pub next_command: String,
+    // Scope-navigator fields (Phase 0)
+    /// Family group this repo belongs to (auto-derived or explicit).
+    pub family: Option<String>,
+    /// RFC 3339 timestamp of the most-recent activity for this repo.
+    pub last_activity_at: Option<String>,
+    /// Derived: `jeryu-cache-v1-<slug_safe>` where `/` → `__`.
+    pub cache_namespace: String,
+    /// Derived: `jeryu-data-v1-<slug_safe>` where `/` → `__`.
+    pub data_namespace: String,
+    /// 0–100 utilisation pressure (running jobs × 5, clamped).
+    pub utilization_pressure: u16,
 }
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
@@ -149,15 +215,202 @@ impl FleetSnapshot {
         let aged = self.repos.iter().filter(|repo| repo.stale).count() as u32;
         (running, failed, aged)
     }
+
+    // -----------------------------------------------------------------------
+    // Scope navigator (Phase 0)
+    // -----------------------------------------------------------------------
+
+    /// Build the chip list for the fleet-bar scope navigator.
+    ///
+    /// - `family_drill = None`  → root level: ALL + family groups + standalone repos
+    /// - `family_drill = Some("veox")` → drilled: family aggregate + child repos
+    pub fn scope_items(&self, family_drill: Option<&str>) -> Vec<FleetScopeItem> {
+        match family_drill {
+            None => self.top_level_scopes(),
+            Some(family) => self.drilldown_scopes(family),
+        }
+    }
+
+    /// Root-level chips: ALL + one chip per family group + one chip per
+    /// standalone repo (alias with no family).
+    pub fn top_level_scopes(&self) -> Vec<FleetScopeItem> {
+        let all_indices: Vec<usize> = (0..self.repos.len()).collect();
+        let all_rollup = self.rollup_for_indices(&all_indices);
+        let all_status = Self::scope_status(&all_rollup);
+        let mut items = vec![FleetScopeItem {
+            kind: FleetScopeKind::All,
+            label: "ALL".into(),
+            family: None,
+            repo_index: None,
+            rollup: all_rollup,
+            status: all_status,
+            cache_namespace: None,
+            data_namespace: None,
+        }];
+
+        // Group repos by family (BTreeMap for deterministic alpha order)
+        let mut families: std::collections::BTreeMap<String, Vec<usize>> = Default::default();
+        let mut standalone: Vec<usize> = Vec::new();
+        for (i, repo) in self.repos.iter().enumerate() {
+            match &repo.family {
+                Some(f) => families.entry(f.clone()).or_default().push(i),
+                None => standalone.push(i),
+            }
+        }
+
+        for (family, indices) in &families {
+            let rollup = self.rollup_for_indices(indices);
+            let status = Self::scope_status(&rollup);
+            items.push(FleetScopeItem {
+                kind: FleetScopeKind::Family,
+                label: format!("{family}-*"),
+                family: Some(family.clone()),
+                repo_index: None,
+                rollup,
+                status,
+                cache_namespace: None,
+                data_namespace: None,
+            });
+        }
+
+        for i in standalone {
+            let repo = &self.repos[i];
+            let rollup = self.rollup_for_indices(&[i]);
+            let status = Self::scope_status(&rollup);
+            items.push(FleetScopeItem {
+                kind: FleetScopeKind::Repo,
+                label: repo.alias.clone(),
+                family: repo.family.clone(),
+                repo_index: Some(i),
+                rollup,
+                status,
+                cache_namespace: Some(repo.cache_namespace.clone()),
+                data_namespace: Some(repo.data_namespace.clone()),
+            });
+        }
+
+        items
+    }
+
+    /// Drilled chips for a specific family: family-aggregate first, then child repos.
+    pub fn drilldown_scopes(&self, family: &str) -> Vec<FleetScopeItem> {
+        let child_indices: Vec<usize> = self
+            .repos
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| r.family.as_deref() == Some(family))
+            .map(|(i, _)| i)
+            .collect();
+
+        if child_indices.is_empty() {
+            return Vec::new();
+        }
+
+        let rollup = self.rollup_for_indices(&child_indices);
+        let status = Self::scope_status(&rollup);
+        let mut items = vec![FleetScopeItem {
+            kind: FleetScopeKind::Family,
+            label: format!("{family}-*"),
+            family: Some(family.to_string()),
+            repo_index: None,
+            rollup,
+            status,
+            cache_namespace: None,
+            data_namespace: None,
+        }];
+
+        for i in child_indices {
+            let repo = &self.repos[i];
+            let rollup = self.rollup_for_indices(&[i]);
+            let status = Self::scope_status(&rollup);
+            items.push(FleetScopeItem {
+                kind: FleetScopeKind::Repo,
+                label: repo.alias.clone(),
+                family: repo.family.clone(),
+                repo_index: Some(i),
+                rollup,
+                status,
+                cache_namespace: Some(repo.cache_namespace.clone()),
+                data_namespace: Some(repo.data_namespace.clone()),
+            });
+        }
+
+        items
+    }
+
+    /// Aggregate health metrics across a slice of repo indices.
+    pub fn rollup_for_indices(&self, indices: &[usize]) -> FleetScopeRollup {
+        let mut running_count: u32 = 0;
+        let mut failed_count: u32 = 0;
+        let mut aged_count: u32 = 0;
+        let mut latest_activity_at: Option<String> = None;
+        let mut total_pressure: u32 = 0;
+
+        for &i in indices {
+            if let Some(repo) = self.repos.get(i) {
+                running_count += repo.running_count;
+                failed_count += repo.failed_count;
+                if repo.stale {
+                    aged_count += 1;
+                }
+                total_pressure += repo.utilization_pressure as u32;
+                if let Some(ref at) = repo.last_activity_at {
+                    match &latest_activity_at {
+                        None => latest_activity_at = Some(at.clone()),
+                        Some(existing) if at > existing => {
+                            latest_activity_at = Some(at.clone());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        let utilization_pressure = if indices.is_empty() {
+            0
+        } else {
+            ((total_pressure / indices.len() as u32) as u16).min(100)
+        };
+
+        FleetScopeRollup {
+            repo_count: indices.len(),
+            running_count,
+            failed_count,
+            aged_count,
+            latest_activity_at,
+            utilization_pressure,
+        }
+    }
+
+    fn scope_status(rollup: &FleetScopeRollup) -> String {
+        if rollup.failed_count > 0 {
+            return "failed".into();
+        }
+        if rollup.running_count > 0 {
+            return "running".into();
+        }
+        if rollup.aged_count > 0 {
+            return "aged".into();
+        }
+        "green".into()
+    }
 }
 
 /// The active repo scope of the TUI. Derived from `App::selected_repo_index`
 /// via `App::repo_filter()`. Default of `All` is the multi-repo overview;
+/// `Family { family }` filters to all repos in a dash-prefix group;
 /// `Only { alias, slug }` filters every pane to a single repository.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RepoFilter<'a> {
     All,
-    Only { alias: &'a str, slug: &'a str },
+    /// All repos whose alias starts with `{family}-`.
+    Family {
+        family: &'a str,
+    },
+    Only {
+        alias: &'a str,
+        slug: &'a str,
+    },
 }
 
 impl<'a> RepoFilter<'a> {
@@ -165,11 +418,11 @@ impl<'a> RepoFilter<'a> {
         matches!(self, RepoFilter::All)
     }
 
-    /// Returns the alias of the selected repo, or `"All"` for the multi-repo
-    /// view. Useful for top-chrome indicators.
+    /// Returns a display label for the active scope.
     pub fn label(&self) -> &'a str {
         match self {
             RepoFilter::All => "All",
+            RepoFilter::Family { family } => family,
             RepoFilter::Only { alias, .. } => alias,
         }
     }
@@ -181,6 +434,10 @@ impl<'a> RepoFilter<'a> {
     pub fn matches(&self, item_alias: Option<&str>, item_slug: Option<&str>) -> bool {
         match self {
             RepoFilter::All => true,
+            RepoFilter::Family { family } => match item_alias {
+                None => false,
+                Some(a) => a.starts_with(&format!("{family}-")) || a == *family,
+            },
             RepoFilter::Only { alias, slug } => {
                 item_alias == Some(alias) || item_slug == Some(slug)
             }
@@ -193,6 +450,9 @@ impl<'a> RepoFilter<'a> {
     pub fn to_owned(self) -> OwnedRepoFilter {
         match self {
             RepoFilter::All => OwnedRepoFilter::All,
+            RepoFilter::Family { family } => OwnedRepoFilter::Family {
+                family: family.to_string(),
+            },
             RepoFilter::Only { alias, slug } => OwnedRepoFilter::Only {
                 alias: alias.to_string(),
                 slug: slug.to_string(),
@@ -207,13 +467,23 @@ impl<'a> RepoFilter<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OwnedRepoFilter {
     All,
-    Only { alias: String, slug: String },
+    /// Owned counterpart of [`RepoFilter::Family`].
+    Family {
+        family: String,
+    },
+    Only {
+        alias: String,
+        slug: String,
+    },
 }
 
 impl OwnedRepoFilter {
     pub fn as_ref(&self) -> RepoFilter<'_> {
         match self {
             OwnedRepoFilter::All => RepoFilter::All,
+            OwnedRepoFilter::Family { family } => RepoFilter::Family {
+                family: family.as_str(),
+            },
             OwnedRepoFilter::Only { alias, slug } => RepoFilter::Only {
                 alias: alias.as_str(),
                 slug: slug.as_str(),
@@ -265,6 +535,7 @@ pub fn registry_from_tracked_repositories(
                 default_branch: repo.default_branch.clone(),
                 visibility: repo.visibility.clone(),
                 health_profile: repo.health_profile.clone(),
+                family: None,
             })
             .collect(),
     }
@@ -319,6 +590,10 @@ pub async fn collect_fleet_snapshot_from_registry(
     let generated_at = chrono::Utc::now().to_rfc3339();
     let mut repos = Vec::new();
     let mut events = Vec::new();
+
+    // Pre-compute which alias dash-prefixes appear 2+ times so we can
+    // auto-derive family groups without needing explicit `family =` in TOML.
+    let family_set = compute_family_set(&registry.repo);
 
     for repo in &registry.repo {
         let local = local_git_status(repo);
@@ -381,6 +656,8 @@ pub async fn collect_fleet_snapshot_from_registry(
         }
 
         let status = classify_repo_status(&local, latest_run.as_ref(), running_count, failed_count);
+        let last_activity_at = latest_run.as_ref().and_then(|r| r.updated_at.clone());
+        let slug_safe = repo.slug.replace('/', "__");
         repos.push(FleetRepoSnapshot {
             alias: repo.alias.clone(),
             slug: repo.slug.clone(),
@@ -396,6 +673,14 @@ pub async fn collect_fleet_snapshot_from_registry(
             local,
             latest_run,
             next_command: format!("cd {} && just fast", repo.local_root.display()),
+            family: repo
+                .family
+                .clone()
+                .or_else(|| derive_alias_family(&repo.alias, &family_set)),
+            last_activity_at,
+            cache_namespace: format!("jeryu-cache-{FLEET_NAMESPACE_SCHEMA_VERSION}-{slug_safe}"),
+            data_namespace: format!("jeryu-data-{FLEET_NAMESPACE_SCHEMA_VERSION}-{slug_safe}"),
+            utilization_pressure: (running_count * 5).min(100) as u16,
         });
     }
 
@@ -513,6 +798,41 @@ fn infer_provider(slug: &str, remote: &str) -> &'static str {
         "gitlab"
     } else {
         "github"
+    }
+}
+
+/// Compute the set of alias dash-prefixes that appear on 2+ repos.
+/// Only prefixes where the alias actually contains a dash are counted.
+fn compute_family_set(repos: &[RepoConfig]) -> std::collections::HashSet<String> {
+    let mut counts: std::collections::HashMap<String, usize> = Default::default();
+    for repo in repos {
+        if let Some(prefix) = repo.alias.split('-').next()
+            && prefix != repo.alias
+        {
+            *counts.entry(prefix.to_string()).or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .filter(|(_, c)| *c >= 2)
+        .map(|(prefix, _)| prefix)
+        .collect()
+}
+
+/// Derive the family string for a repo alias given the pre-computed family set.
+/// Returns `None` when the alias has no dash or the prefix doesn't form a group.
+fn derive_alias_family(
+    alias: &str,
+    family_set: &std::collections::HashSet<String>,
+) -> Option<String> {
+    let prefix = alias.split('-').next()?;
+    if prefix == alias {
+        return None; // no dash
+    }
+    if family_set.contains(prefix) {
+        Some(prefix.to_string())
+    } else {
+        None
     }
 }
 
@@ -895,6 +1215,169 @@ project_id = "veox-shared"
             found.canonicalize().unwrap(),
             workspace.path().canonicalize().unwrap()
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // Scope-model unit tests (Phase 0)
+    // -----------------------------------------------------------------------
+
+    fn make_snap(repos: Vec<FleetRepoSnapshot>) -> FleetSnapshot {
+        FleetSnapshot {
+            generated_at: "2026-01-01T00:00:00Z".into(),
+            registry_path: ".jeryu/repos.toml".into(),
+            repos,
+            events: Vec::new(),
+        }
+    }
+
+    fn bare_repo(
+        alias: &str,
+        family: Option<&str>,
+        running: u32,
+        failed: u32,
+    ) -> FleetRepoSnapshot {
+        FleetRepoSnapshot {
+            alias: alias.into(),
+            slug: format!("test/{alias}"),
+            provider: "github".into(),
+            default_branch: "main".into(),
+            visibility: "private".into(),
+            health_profile: "default".into(),
+            status: if failed > 0 {
+                "failed"
+            } else if running > 0 {
+                "running"
+            } else {
+                "green"
+            }
+            .into(),
+            running_count: running,
+            failed_count: failed,
+            stale: false,
+            score_badge: None,
+            local: RepoLocalStatus::default(),
+            latest_run: None,
+            next_command: String::new(),
+            family: family.map(String::from),
+            last_activity_at: None,
+            cache_namespace: format!("jeryu-cache-v1-test__{alias}"),
+            data_namespace: format!("jeryu-data-v1-test__{alias}"),
+            utilization_pressure: (running * 5).min(100) as u16,
+        }
+    }
+
+    #[test]
+    fn scope_items_no_families_returns_all_plus_standalone_repos() {
+        let snap = make_snap(vec![
+            bare_repo("nht", None, 1, 0),
+            bare_repo("shared", None, 0, 0),
+            bare_repo("warp", None, 0, 1),
+        ]);
+        let items = snap.scope_items(None);
+        assert_eq!(items.len(), 4, "ALL + 3 standalone repos");
+        assert_eq!(items[0].kind, FleetScopeKind::All);
+        assert_eq!(items[1].kind, FleetScopeKind::Repo);
+        assert_eq!(items[1].label, "nht");
+        assert_eq!(items[0].rollup.running_count, 1);
+        assert_eq!(items[0].rollup.failed_count, 1);
+    }
+
+    #[test]
+    fn scope_items_with_family_groups_repos() {
+        let snap = make_snap(vec![
+            bare_repo("veox-nht", Some("veox"), 1, 0),
+            bare_repo("veox-shared", Some("veox"), 0, 0),
+            bare_repo("jeryu", None, 0, 0),
+        ]);
+        let items = snap.scope_items(None);
+        // ALL + veox-* family + jeryu standalone
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0].kind, FleetScopeKind::All);
+        assert_eq!(items[1].kind, FleetScopeKind::Family);
+        assert_eq!(items[1].label, "veox-*");
+        assert_eq!(items[2].kind, FleetScopeKind::Repo);
+        assert_eq!(items[2].label, "jeryu");
+    }
+
+    #[test]
+    fn drilldown_scopes_returns_family_aggregate_then_children() {
+        let snap = make_snap(vec![
+            bare_repo("veox-nht", Some("veox"), 1, 0),
+            bare_repo("veox-shared", Some("veox"), 0, 0),
+        ]);
+        let items = snap.drilldown_scopes("veox");
+        assert_eq!(items.len(), 3, "family aggregate + 2 children");
+        assert_eq!(items[0].kind, FleetScopeKind::Family);
+        assert_eq!(items[0].rollup.repo_count, 2);
+        assert_eq!(items[1].kind, FleetScopeKind::Repo);
+        assert_eq!(items[1].label, "veox-nht");
+        assert_eq!(items[2].label, "veox-shared");
+    }
+
+    #[test]
+    fn drilldown_scopes_unknown_family_returns_empty() {
+        let snap = make_snap(vec![bare_repo("nht", None, 0, 0)]);
+        assert!(snap.drilldown_scopes("veox").is_empty());
+    }
+
+    #[test]
+    fn rollup_aggregates_running_and_failed() {
+        let snap = make_snap(vec![bare_repo("a", None, 2, 0), bare_repo("b", None, 0, 1)]);
+        let rollup = snap.rollup_for_indices(&[0, 1]);
+        assert_eq!(rollup.running_count, 2);
+        assert_eq!(rollup.failed_count, 1);
+        assert_eq!(rollup.repo_count, 2);
+    }
+
+    #[test]
+    fn compute_family_set_requires_two_repos() {
+        let repos = vec![
+            RepoConfig {
+                alias: "veox-nht".into(),
+                slug: "test/veox-nht".into(),
+                provider: "github".into(),
+                remote: "https://github.com/test/veox-nht.git".into(),
+                local_root: PathBuf::from("/tmp"),
+                default_branch: "main".into(),
+                visibility: "private".into(),
+                health_profile: "default".into(),
+                family: None,
+            },
+            RepoConfig {
+                alias: "veox-shared".into(),
+                slug: "test/veox-shared".into(),
+                provider: "github".into(),
+                remote: "https://github.com/test/veox-shared.git".into(),
+                local_root: PathBuf::from("/tmp"),
+                default_branch: "main".into(),
+                visibility: "private".into(),
+                health_profile: "default".into(),
+                family: None,
+            },
+            RepoConfig {
+                alias: "solo-only".into(),
+                slug: "test/solo-only".into(),
+                provider: "github".into(),
+                remote: "https://github.com/test/solo-only.git".into(),
+                local_root: PathBuf::from("/tmp"),
+                default_branch: "main".into(),
+                visibility: "private".into(),
+                health_profile: "default".into(),
+                family: None,
+            },
+        ];
+        let set = compute_family_set(&repos);
+        assert!(set.contains("veox"), "veox appears twice");
+        assert!(!set.contains("solo"), "solo appears only once");
+    }
+
+    #[test]
+    fn derive_alias_family_splits_on_first_dash() {
+        use std::collections::HashSet;
+        let set: HashSet<String> = ["veox".into()].into();
+        assert_eq!(derive_alias_family("veox-nht", &set), Some("veox".into()));
+        assert_eq!(derive_alias_family("nht", &set), None); // no dash
+        assert_eq!(derive_alias_family("other-repo", &set), None); // prefix not in set
     }
 
     #[test]

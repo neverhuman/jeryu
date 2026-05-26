@@ -46,6 +46,7 @@ impl App {
             selected_secret_index: 0,
             selected_git_index: 0,
             selected_repo_index: 0,
+            selected_repo_family: None,
             repo_detail_open: false,
             maximize_logs: false,
             log_scroll_offset: 0,
@@ -164,11 +165,15 @@ impl App {
     }
 
     pub fn repo_select_next(&mut self) {
-        let max_index = self.state.fleet.repos.len();
-        if max_index == 0 {
+        let items = self
+            .state
+            .fleet
+            .scope_items(self.selected_repo_family.as_deref());
+        let max = items.len().saturating_sub(1);
+        if max == 0 {
             self.selected_repo_index = 0;
         } else {
-            self.selected_repo_index = (self.selected_repo_index + 1).min(max_index);
+            self.selected_repo_index = (self.selected_repo_index + 1).min(max);
         }
     }
 
@@ -176,8 +181,10 @@ impl App {
         self.selected_repo_index = self.selected_repo_index.saturating_sub(1);
     }
 
+    /// Reset to the global ALL scope from anywhere.
     pub fn repo_select_all(&mut self) {
         self.selected_repo_index = 0;
+        self.selected_repo_family = None;
     }
 
     pub fn open_repo_detail(&mut self) {
@@ -188,8 +195,16 @@ impl App {
         self.repo_detail_open = false;
     }
 
+    /// The currently-selected single repo, or `None` when ALL or a family
+    /// aggregate is active.
     pub fn selected_repo(&self) -> Option<&crate::repo_fleet::FleetRepoSnapshot> {
-        self.state.fleet.selected(self.selected_repo_index)
+        let items = self
+            .state
+            .fleet
+            .scope_items(self.selected_repo_family.as_deref());
+        let item = items.get(self.selected_repo_index)?;
+        let repo_idx = item.repo_index?;
+        self.state.fleet.repos.get(repo_idx)
     }
 
     /// Returns true when the jankurai binary or report data is present in
@@ -206,17 +221,121 @@ impl App {
             .get(self.selected_jankurai_index)
     }
 
-    /// Active repo filter — `RepoFilter::All` when index is 0 or no repo is
-    /// selected, otherwise `RepoFilter::Only { alias, slug }`. Renderers in
-    /// every pane should call this and apply `.matches()` to per-item repo
-    /// metadata before drawing.
+    /// Active repo filter — derived from the current scope_items selection.
+    ///
+    /// - Index 0 on root scope → `RepoFilter::All`
+    /// - A family chip → `RepoFilter::Family { family }`
+    /// - A repo chip → `RepoFilter::Only { alias, slug }`
+    ///
+    /// Renderers in every pane should call this and apply `.matches()` to
+    /// per-item repo metadata before drawing.
     pub fn repo_filter(&self) -> crate::repo_fleet::RepoFilter<'_> {
-        match self.selected_repo() {
-            None => crate::repo_fleet::RepoFilter::All,
-            Some(repo) => crate::repo_fleet::RepoFilter::Only {
-                alias: repo.alias.as_str(),
-                slug: repo.slug.as_str(),
-            },
+        use crate::repo_fleet::{FleetScopeKind, RepoFilter};
+
+        let items = self
+            .state
+            .fleet
+            .scope_items(self.selected_repo_family.as_deref());
+        let Some(item) = items.get(self.selected_repo_index) else {
+            return RepoFilter::All;
+        };
+        match item.kind {
+            FleetScopeKind::All => RepoFilter::All,
+            FleetScopeKind::Family => {
+                // Borrow the family string from the fleet repos so the returned
+                // reference has lifetime `'_` (tied to `self`), not to the
+                // temporary `items` Vec.
+                let family_key = item.family.as_deref().unwrap_or("");
+                if let Some(repo) = self
+                    .state
+                    .fleet
+                    .repos
+                    .iter()
+                    .find(|r| r.family.as_deref() == Some(family_key))
+                {
+                    RepoFilter::Family {
+                        family: repo.family.as_deref().unwrap(),
+                    }
+                } else {
+                    RepoFilter::All
+                }
+            }
+            FleetScopeKind::Repo => {
+                if let Some(ri) = item.repo_index
+                    && let Some(repo) = self.state.fleet.repos.get(ri)
+                {
+                    return RepoFilter::Only {
+                        alias: &repo.alias,
+                        slug: &repo.slug,
+                    };
+                }
+                RepoFilter::All
+            }
+        }
+    }
+
+    /// Enter on the fleet bar: drill into a family chip, or toggle the
+    /// detail overlay for ALL / repo chips.
+    pub fn repo_scope_enter(&mut self) {
+        use crate::repo_fleet::FleetScopeKind;
+
+        let items = self
+            .state
+            .fleet
+            .scope_items(self.selected_repo_family.as_deref());
+        if let Some(item) = items.get(self.selected_repo_index)
+            && item.kind == FleetScopeKind::Family
+            && let Some(family) = item.family.clone()
+        {
+            self.selected_repo_family = Some(family);
+            self.selected_repo_index = 0;
+            return; // don't open detail overlay for family chips
+        }
+        // For ALL and Repo chips: toggle the detail overlay (existing behaviour).
+        if self.repo_detail_open {
+            self.close_repo_detail();
+        } else {
+            self.open_repo_detail();
+            self.focus.push();
+        }
+    }
+
+    /// Esc on the fleet bar: pop one scope level.
+    ///
+    /// - In a family drill → return to root scope
+    /// - At root → reset to ALL
+    pub fn repo_scope_up(&mut self) {
+        if self.selected_repo_family.is_some() {
+            self.selected_repo_family = None;
+            self.selected_repo_index = 0;
+            self.close_repo_detail();
+        } else {
+            self.close_repo_detail();
+            self.selected_repo_index = 0;
+        }
+    }
+
+    /// A short label for the header chrome describing the active scope depth.
+    ///
+    /// Returns `"ALL(N)"`, `"veox-*(N)"`, or the alias of a single repo.
+    pub fn repo_scope_depth_label(&self) -> String {
+        use crate::repo_fleet::FleetScopeKind;
+
+        let items = self
+            .state
+            .fleet
+            .scope_items(self.selected_repo_family.as_deref());
+        let Some(item) = items.get(self.selected_repo_index) else {
+            return format!("ALL({})", self.state.fleet.repos.len());
+        };
+        match item.kind {
+            FleetScopeKind::All => format!("ALL({})", self.state.fleet.repos.len()),
+            FleetScopeKind::Family => format!(
+                "{}-*({})",
+                item.family.as_deref().unwrap_or("?"),
+                item.rollup.repo_count
+            ),
+            FleetScopeKind::Repo => item.label.clone(),
         }
     }
 

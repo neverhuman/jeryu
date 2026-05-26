@@ -178,7 +178,7 @@ async fn renders_maximized_logs_empty_state() -> Result<()> {
     assert!(
         lines
             .get(3)
-            .map(|line| line.contains("All: none"))
+            .map(|line| line.contains("ALL: none"))
             .unwrap_or(false),
         "fullscreen activity view should render the fleet bar under the header"
     );

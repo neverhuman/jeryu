@@ -15,8 +15,13 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
         }
         KeyCode::Char('q') => Ok(Some(true)),
         KeyCode::Esc => {
-            // FleetBar-specific: close detail and reset to All
+            // FleetBar-specific: pop one scope level or reset to All
             if app.focus.active == PaneId::FleetBar {
+                if app.selected_repo_family.is_some() {
+                    // Drilled into a family → pop back to root scope
+                    app.repo_scope_up();
+                    return Ok(Some(false));
+                }
                 if app.repo_detail_open || app.selected_repo_index != 0 {
                     app.close_repo_detail();
                     app.repo_select_all();
@@ -91,16 +96,17 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
             }
             Ok(Some(false))
         }
+        // A — reset to ALL scope from anywhere in the fleet bar
+        KeyCode::Char('a') if app.focus.active == PaneId::FleetBar => {
+            app.repo_select_all();
+            app.close_repo_detail();
+            Ok(Some(false))
+        }
         KeyCode::Enter => {
-            // FleetBar-specific: Enter opens the detail overlay and drills
-            // focus so Left/Right cycle repos.
+            // FleetBar-specific: drill into family chips, toggle detail
+            // overlay for ALL / repo chips.
             if app.focus.active == PaneId::FleetBar {
-                if app.repo_detail_open {
-                    app.close_repo_detail();
-                } else {
-                    app.open_repo_detail();
-                    app.focus.push(); // drill so L/R cycle repos
-                }
+                app.repo_scope_enter();
                 return Ok(Some(false));
             }
             handle_enter(app).await;

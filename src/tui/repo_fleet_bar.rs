@@ -17,37 +17,78 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
     }
 
     let focused = app.focus.active == crate::tui::focus::PaneId::FleetBar;
+    let items = app
+        .state
+        .fleet
+        .scope_items(app.selected_repo_family.as_deref());
 
     let mut spans = Vec::new();
-    let (running, failed, aged) = app.state.fleet.counts();
-    let all_label = if app.state.fleet.repos.is_empty() {
-        " All: none ".to_string()
-    } else {
-        format!(" All run:{} fail:{} aged:{} ", running, failed, aged)
-    };
-    spans.push(segment(all_label, app.selected_repo_index == 0, "local"));
 
-    for (idx, repo) in app.state.fleet.repos.iter().enumerate() {
-        let index = idx + 1;
-        let mut label = format!(
-            " {} {} r{} f{}",
-            repo.alias, repo.status, repo.running_count, repo.failed_count
-        );
-        if repo.stale {
-            label.push_str(" aged");
-        }
-        if let Some(score) = repo.score_badge.as_deref() {
-            label.push_str(" score:");
-            label.push_str(score);
-        }
-        label.push(' ');
-        spans.push(Span::raw(" "));
-        spans.push(segment(
-            label,
-            app.selected_repo_index == index,
-            &repo.status,
+    // Breadcrumb prefix when drilled into a family
+    if let Some(family) = &app.selected_repo_family {
+        spans.push(Span::styled(
+            format!(" {family} › "),
+            Style::default().fg(Color::DarkGray),
         ));
     }
+
+    for (idx, item) in items.iter().enumerate() {
+        use crate::repo_fleet::FleetScopeKind;
+
+        let selected = app.selected_repo_index == idx;
+        let label = match item.kind {
+            FleetScopeKind::All => {
+                let r = &item.rollup;
+                if r.repo_count == 0 {
+                    " ALL: none ".to_string()
+                } else {
+                    format!(
+                        " ALL run:{} fail:{} aged:{} ",
+                        r.running_count, r.failed_count, r.aged_count
+                    )
+                }
+            }
+            FleetScopeKind::Family => {
+                let r = &item.rollup;
+                format!(
+                    " {}({}) r{} f{} ",
+                    item.label, r.repo_count, r.running_count, r.failed_count
+                )
+            }
+            FleetScopeKind::Repo => {
+                let r = &item.rollup;
+                let mut l = format!(
+                    " {} {} r{} f{}",
+                    item.label, item.status, r.running_count, r.failed_count
+                );
+                if r.aged_count > 0 {
+                    l.push_str(" aged");
+                }
+                if let Some(ri) = item.repo_index
+                    && let Some(repo) = app.state.fleet.repos.get(ri)
+                    && let Some(score) = repo.score_badge.as_deref()
+                {
+                    l.push_str(" score:");
+                    l.push_str(score);
+                }
+                l.push(' ');
+                l
+            }
+        };
+
+        if idx > 0 {
+            spans.push(Span::raw(" "));
+        }
+        spans.push(segment(label, selected, &item.status));
+    }
+
+    // Hint line at right edge
+    let hint = if app.selected_repo_family.is_some() {
+        "  Enter:scope ←→:choose Esc:back A:all "
+    } else {
+        "  Enter:drill ←→:choose Esc:all "
+    };
+    spans.push(Span::styled(hint, Style::default().fg(Color::DarkGray)));
 
     let line = Line::from(spans);
     if focused {
@@ -72,9 +113,9 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
     }
 
     let overlay_w = (area.width * 2 / 3)
-        .max(44)
+        .max(54)
         .min(area.width.saturating_sub(4));
-    let overlay_h = 12.min(area.height.saturating_sub(2)).max(8);
+    let overlay_h = 14.min(area.height.saturating_sub(2)).max(10);
     let overlay = Rect::new(
         area.x + (area.width.saturating_sub(overlay_w)) / 2,
         area.y + (area.height.saturating_sub(overlay_h)) / 2,
@@ -132,6 +173,14 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
             Line::from(vec![
                 Span::styled("Score   ", muted()),
                 Span::raw(repo.score_badge.as_deref().unwrap_or("-").to_string()),
+            ]),
+            Line::from(vec![
+                Span::styled("Cache   ", muted()),
+                Span::raw(repo.cache_namespace.clone()),
+            ]),
+            Line::from(vec![
+                Span::styled("Data    ", muted()),
+                Span::raw(repo.data_namespace.clone()),
             ]),
             Line::from(vec![
                 Span::styled("Next    ", muted()),
@@ -218,11 +267,79 @@ mod tests {
         let mut app = crate::tui::app::test_app().await?;
         app.apply_demo_fixture();
         app.selected_repo_index = 1;
-        let mut terminal = Terminal::new(TestBackend::new(100, 6))?;
+        let mut terminal = Terminal::new(TestBackend::new(120, 6))?;
         terminal.draw(|f| draw_fleet_bar(f, &app, f.area()))?;
         let text = rendered_text(&terminal);
-        assert!(text.contains("All run:1 fail:1 aged:0"));
+        // Scope navigator uses "ALL" (uppercase)
+        assert!(text.contains("ALL run:1 fail:1 aged:0"));
         assert!(text.contains("nht running r1 f0"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn fleet_bar_renders_family_chips_when_families_exist() -> anyhow::Result<()> {
+        use crate::repo_fleet::{FleetRepoSnapshot, FleetSnapshot, RepoLocalStatus};
+
+        let mut app = crate::tui::app::test_app().await?;
+        // Inject a fleet with two repos sharing the "veox-" prefix
+        app.state.fleet = FleetSnapshot {
+            generated_at: "2026-01-01T00:00:00Z".into(),
+            registry_path: ".jeryu/repos.toml".into(),
+            repos: vec![
+                FleetRepoSnapshot {
+                    alias: "veox-nht".into(),
+                    slug: "test/veox-nht".into(),
+                    provider: "github".into(),
+                    default_branch: "main".into(),
+                    visibility: "private".into(),
+                    health_profile: "default".into(),
+                    status: "running".into(),
+                    running_count: 1,
+                    failed_count: 0,
+                    stale: false,
+                    score_badge: None,
+                    local: RepoLocalStatus::default(),
+                    latest_run: None,
+                    next_command: String::new(),
+                    family: Some("veox".into()),
+                    last_activity_at: None,
+                    cache_namespace: "jeryu-cache-v1-test__veox-nht".into(),
+                    data_namespace: "jeryu-data-v1-test__veox-nht".into(),
+                    utilization_pressure: 5,
+                },
+                FleetRepoSnapshot {
+                    alias: "veox-shared".into(),
+                    slug: "test/veox-shared".into(),
+                    provider: "github".into(),
+                    default_branch: "main".into(),
+                    visibility: "private".into(),
+                    health_profile: "default".into(),
+                    status: "green".into(),
+                    running_count: 0,
+                    failed_count: 0,
+                    stale: false,
+                    score_badge: None,
+                    local: RepoLocalStatus::default(),
+                    latest_run: None,
+                    next_command: String::new(),
+                    family: Some("veox".into()),
+                    last_activity_at: None,
+                    cache_namespace: "jeryu-cache-v1-test__veox-shared".into(),
+                    data_namespace: "jeryu-data-v1-test__veox-shared".into(),
+                    utilization_pressure: 0,
+                },
+            ],
+            events: Vec::new(),
+        };
+        app.selected_repo_index = 0;
+        let mut terminal = Terminal::new(TestBackend::new(120, 3))?;
+        terminal.draw(|f| draw_fleet_bar(f, &app, f.area()))?;
+        let text = rendered_text(&terminal);
+        // Should render the family chip "veox-*(2)" at root level
+        assert!(
+            text.contains("veox-*(2)"),
+            "expected family chip 'veox-*(2)' in: {text:?}"
+        );
         Ok(())
     }
 
@@ -232,12 +349,18 @@ mod tests {
         app.apply_demo_fixture();
         app.selected_repo_index = 2;
         app.repo_detail_open = true;
-        let mut terminal = Terminal::new(TestBackend::new(100, 24))?;
+        // Taller terminal to accommodate the two new cache/data namespace rows
+        let mut terminal = Terminal::new(TestBackend::new(100, 28))?;
         terminal.draw(|f| draw_repo_detail_overlay(f, &mut app))?;
         let text = rendered_text(&terminal);
         assert!(text.contains("Repo: shared"));
         assert!(text.contains("neverhuman/veox-shared"));
         assert!(text.contains("just fast"));
+        // The overlay now shows cache and data namespace rows
+        assert!(
+            text.contains("jeryu-cache-v1-neverhuman__veox-shared"),
+            "expected cache_namespace in overlay: {text:?}"
+        );
         Ok(())
     }
 }

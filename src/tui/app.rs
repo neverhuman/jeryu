@@ -376,6 +376,9 @@ pub struct App {
     pub selected_secret_index: usize,
     pub selected_git_index: usize,
     pub selected_repo_index: usize,
+    /// When `Some("veox")`, the fleet bar is drilled into the `veox-*` family.
+    /// Drives `scope_items()` and `repo_filter()`.
+    pub selected_repo_family: Option<String>,
     pub repo_detail_open: bool,
 
     pub maximize_logs: bool,

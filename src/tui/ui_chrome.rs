@@ -220,16 +220,31 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
         crate::repo_fleet::RepoFilter::All => {
             let n = app.state.fleet.repos.len();
             if n == 0 {
-                Span::styled(" repo:All ", Style::default().fg(Color::DarkGray))
+                Span::styled(" scope:ALL ", Style::default().fg(Color::DarkGray))
             } else {
                 Span::styled(
-                    format!(" repo:All({}) ", n),
+                    format!(" scope:ALL({n}) "),
                     Style::default().fg(Color::Cyan),
                 )
             }
         }
+        crate::repo_fleet::RepoFilter::Family { family } => {
+            let n = app
+                .state
+                .fleet
+                .repos
+                .iter()
+                .filter(|r| r.family.as_deref() == Some(family))
+                .count();
+            Span::styled(
+                format!(" scope:{family}-*({n}) "),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )
+        }
         crate::repo_fleet::RepoFilter::Only { alias, .. } => Span::styled(
-            format!(" repo:{} ", alias),
+            format!(" scope:{alias} "),
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Cyan)

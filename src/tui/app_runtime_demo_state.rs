@@ -334,6 +334,12 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
                 updated_at: Some(now_str.into()),
             }),
             next_command: format!("cd /home/ubuntu/veox-split/{alias} && just fast"),
+            // Scope-navigator fields (no families in demo — aliases have no dashes)
+            family: None,
+            last_activity_at: Some(now_str.into()),
+            cache_namespace: format!("jeryu-cache-v1-{}", slug.replace('/', "__")),
+            data_namespace: format!("jeryu-data-v1-{}", slug.replace('/', "__")),
+            utilization_pressure: (running * 5).min(100) as u16,
         };
 
     FleetSnapshot {
