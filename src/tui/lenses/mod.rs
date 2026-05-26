@@ -5,13 +5,18 @@
 //!             mod.rs / view.rs / data.rs / nav.rs / tests.rs.
 
 pub mod agents;
+pub mod autonomy;
 pub mod bugs;
+pub mod cache;
 pub mod evidence;
+pub mod llms;
 pub mod mission;
 pub mod queue;
+pub mod release;
 pub mod repos;
 pub mod runners;
 pub mod source_doctor;
+pub mod vti;
 pub mod workflow;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -25,6 +30,11 @@ pub enum LensId {
     Runners,
     Agents,
     Bugs,
+    Cache,
+    Vti,
+    Release,
+    Autonomy,
+    Llms,
 }
 
 impl LensId {
@@ -39,6 +49,11 @@ impl LensId {
             Self::Runners => "runners",
             Self::Agents => "agents",
             Self::Bugs => "bugs",
+            Self::Cache => "cache",
+            Self::Vti => "vti",
+            Self::Release => "release",
+            Self::Autonomy => "autonomy",
+            Self::Llms => "llms",
         }
     }
 
@@ -53,6 +68,11 @@ impl LensId {
             Self::Runners => "Runners",
             Self::Agents => "Agents",
             Self::Bugs => "Bugs",
+            Self::Cache => "Cache",
+            Self::Vti => "VTI",
+            Self::Release => "Release",
+            Self::Autonomy => "Autonomy",
+            Self::Llms => "LLMs",
         }
     }
 
@@ -66,6 +86,11 @@ impl LensId {
         Self::Runners,
         Self::Agents,
         Self::Bugs,
+        Self::Cache,
+        Self::Vti,
+        Self::Release,
+        Self::Autonomy,
+        Self::Llms,
     ];
 }
 
