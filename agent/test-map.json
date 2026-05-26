@@ -81,8 +81,8 @@
       "purpose": "verify workspace manifest remains routed"
     },
     "package.json": {
-      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
-      "purpose": "verify the root npm workspace routes rendered UX QA evidence"
+      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test && npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run build",
+      "purpose": "verify both ux-qa marker workspace and @jeryu/web product workspace stay routed"
     },
     "GEMINI.md": {
       "command": "just score",
@@ -110,15 +110,15 @@
     },
     "TUI_RESET_PLAN.md": {
       "command": "git diff --check -- TUI_RESET_PLAN.md",
-      "purpose": "controlling plan doc — diff hygiene only; product code is exercised by cargo nextest --lib"
+      "purpose": "controlling plan doc \u2014 diff hygiene only; product code is exercised by cargo nextest --lib"
     },
     "TUI_RESET_PLAN_CLAUDE.md": {
       "command": "git diff --check -- TUI_RESET_PLAN_CLAUDE.md",
-      "purpose": "sibling controlling plan doc — diff hygiene only"
+      "purpose": "sibling controlling plan doc \u2014 diff hygiene only"
     },
     "TUI_RESET_PLAN_FINAL.md": {
       "command": "git diff --check -- TUI_RESET_PLAN_FINAL.md",
-      "purpose": "final controlling plan doc — diff hygiene only; live claim board lives here"
+      "purpose": "final controlling plan doc \u2014 diff hygiene only; live claim board lives here"
     },
     "VERSION": {
       "command": "just score",
@@ -161,8 +161,8 @@
       "purpose": "verify API contract tests route through the integration test lane"
     },
     "apps/web/": {
-      "command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
-      "purpose": "verify rendered web UX evidence remains routed"
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run build",
+      "purpose": "verify @jeryu/web product workspace (Vite/React/TS); rendered UX/Playwright evidence added by W-T-* packages"
     },
     "assets/": {
       "command": "just score",
@@ -410,7 +410,7 @@
     },
     "tests/autonomy_e2e.rs": {
       "command": "cargo test -p jeryu --test autonomy_e2e",
-      "purpose": "verify mock-only Evidence Gate end-to-end (intent → evidence → review → judge → verdict → passport)"
+      "purpose": "verify mock-only Evidence Gate end-to-end (intent \u2192 evidence \u2192 review \u2192 judge \u2192 verdict \u2192 passport)"
     },
     "tests/cli_smoke.rs": {
       "command": "cargo test -p jeryu --test cli_smoke",
@@ -435,6 +435,14 @@
     "version.json": {
       "command": "just score",
       "purpose": "verify version mapping remains routed"
+    },
+    "apps/ux-qa/": {
+      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
+      "purpose": "verify @jankurai/ux-qa marker proof workspace"
+    },
+    "package-lock.json": {
+      "command": "npm install --no-audit --no-fund --workspaces",
+      "purpose": "verify root lockfile install of both workspaces"
     }
   },
   "workspace": "jankurai"

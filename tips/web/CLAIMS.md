@@ -23,3 +23,9 @@ This file tracks who is working on which work package from `WEB_WORK_CLAUDE.md`.
 | ID | Agent | Started (UTC) | Status | Branch | Notes |
 |---|---|---|---|---|---|
 | W-F-00 | Claude Opus 4.7 | 2026-05-26 | done | web-forge/main | seed planning artifacts + claim tracker |
+| W-F-01 | Claude Opus 4.7 (subagent a0e1ac3c) | 2026-05-26 | done | web-forge/W-F-01-cargo-deps (`e21cd4c`) | Cargo deps + `web` feature; schemars feature renamed chrono→chrono04; url promoted non-optional |
+| W-F-02 | Claude Opus 4.7 (subagent a978f38b) | 2026-05-26 | done (no-op) | web-forge/W-F-02-api-hygiene | mod.rs already clean from post-v1.0 commits — no diff |
+| W-F-05 | Claude Opus 4.7 (subagent a6d8f75e) | 2026-05-26 | done | web-forge/W-F-05-db-migration (`39e5fce`) | DB migration as spec artifact; runtime wiring deferred to W-B-* (state.rs path) |
+| W-F-07 | Claude Opus 4.7 (subagent a8192393) | 2026-05-26 | done | web-forge/W-F-12-workspace-split (`d89dfc2`) | folded into W-F-12 |
+| W-F-09 | Claude Opus 4.7 (subagent a8192393) | 2026-05-26 | done | web-forge/W-F-12-workspace-split (`d89dfc2`) | folded into W-F-12 |
+| W-F-12 | Claude Opus 4.7 (subagent a8192393) | 2026-05-26 | done | web-forge/W-F-12-workspace-split (`d89dfc2`) | apps/web↔apps/ux-qa split + @jeryu/web Vite/TS/React skeleton |
