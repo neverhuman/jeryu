@@ -37,7 +37,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn read_model_route_responds_with_json() {
+    async fn read_model_route_responds_with_envelope() {
         let (base, handle) = spawn_inspection().await;
         let body = reqwest::get(format!("{base}/api/v1/read-model"))
             .await
@@ -45,12 +45,22 @@ mod tests {
             .json::<serde_json::Value>()
             .await
             .unwrap();
-        assert!(body.get("schema_version").is_some());
+        // Envelope shape: api_version + data + sources.
+        assert_eq!(
+            body.get("api_version").and_then(|v| v.as_str()),
+            Some("api.v1")
+        );
+        assert!(
+            body.get("data")
+                .and_then(|d| d.get("schema_version"))
+                .is_some(),
+            "data.schema_version missing in response: {body}"
+        );
         handle.abort();
     }
 
     #[tokio::test]
-    async fn runtime_profile_route_responds_with_json() {
+    async fn runtime_profile_route_responds_with_envelope() {
         let (base, handle) = spawn_inspection().await;
         let body = reqwest::get(format!("{base}/api/v1/runtime/profile"))
             .await
@@ -59,9 +69,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            body.get("inspection_api_version").and_then(|v| v.as_str()),
+            body.get("api_version").and_then(|v| v.as_str()),
             Some("api.v1")
         );
+        let inspection_api_version = body
+            .get("data")
+            .and_then(|d| d.get("inspection_api_version"))
+            .and_then(|v| v.as_str());
+        assert_eq!(inspection_api_version, Some("api.v1"));
         handle.abort();
     }
 
@@ -76,7 +91,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn events_route_returns_empty_page() {
+    async fn events_route_returns_envelope_with_empty_page() {
         let (base, handle) = spawn_inspection().await;
         let body = reqwest::get(format!("{base}/api/v1/events"))
             .await
@@ -85,11 +100,15 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            body.get("items")
-                .and_then(|v| v.as_array())
-                .map(|a| a.len()),
-            Some(0)
+            body.get("api_version").and_then(|v| v.as_str()),
+            Some("api.v1")
         );
+        let items_len = body
+            .get("data")
+            .and_then(|d| d.get("items"))
+            .and_then(|v| v.as_array())
+            .map(|a| a.len());
+        assert_eq!(items_len, Some(0));
         handle.abort();
     }
 }

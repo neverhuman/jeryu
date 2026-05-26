@@ -13,10 +13,12 @@ use serde::de::DeserializeOwned;
 
 use super::client::{DataClient, EventPage};
 use crate::api::actions::{ActionPreview, ActionResult};
+use crate::api::inspection::{ActionRegistryDocument, InspectionEnvelope};
 use crate::api::proof::{ProofQuery, ProofTimeline};
 use crate::api::read_model::TuiReadModel;
 use crate::api::runtime_profile::RuntimeProfile;
 use crate::inspection::actions::ExecuteResponse;
+use crate::inspection::entity::EntityDetail;
 
 /// Primary `/api/v1/*` transport. Holds a shared `reqwest::Client` so
 /// connection pooling is reused; cloning is cheap (Arc inside reqwest).
@@ -73,6 +75,20 @@ impl HttpDataClient {
             .with_context(|| format!("http: decode {url}"))
     }
 
+    /// GET `path` and unwrap the `InspectionEnvelope<T>` so the caller
+    /// receives the payload `T` directly. Every inspection read route
+    /// returns an envelope (api_version + generated_at + sources +
+    /// data); the `HttpDataClient` is the boundary that strips it so
+    /// the TUI never sees the wire shape.
+    async fn get_envelope<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        params: &[(&str, String)],
+    ) -> Result<T> {
+        let envelope: InspectionEnvelope<T> = self.get_json(path, params).await?;
+        Ok(envelope.into_data())
+    }
+
     /// POST `path` with a JSON body; decode JSON response as `T`.
     async fn post_json<B: Serialize + ?Sized, T: DeserializeOwned>(
         &self,
@@ -121,31 +137,39 @@ fn proof_params(q: &ProofQuery) -> Result<Vec<(&'static str, String)>> {
 #[async_trait]
 impl DataClient for HttpDataClient {
     async fn fetch_read_model(&self) -> Result<TuiReadModel> {
-        self.get_json("/api/v1/read-model", &[]).await
+        self.get_envelope("/api/v1/read-model", &[]).await
     }
 
     async fn fetch_events(&self, cursor: u64, limit: u32) -> Result<EventPage> {
         let limit = limit.min(500);
         let params = [("cursor", cursor.to_string()), ("limit", limit.to_string())];
-        self.get_json("/api/v1/events", &params).await
+        self.get_envelope("/api/v1/events", &params).await
     }
 
     async fn fetch_proof(&self, query: ProofQuery) -> Result<ProofTimeline> {
         let params = proof_params(&query)?;
-        self.get_json("/api/v1/proof", &params).await
+        self.get_envelope("/api/v1/proof", &params).await
     }
 
     async fn fetch_entity(&self, kind: &str, id: &str) -> Result<serde_json::Value> {
-        self.get_json(&format!("/api/v1/entity/{kind}/{id}"), &[])
-            .await
+        // Entity route is the one read endpoint that does not have a
+        // fixed Rust type on the client (each kind has its own
+        // projection shape). Unwrap the envelope into an `EntityDetail`
+        // and re-serialize as `serde_json::Value` so the public
+        // `DataClient` surface stays unchanged.
+        let detail: EntityDetail = self
+            .get_envelope(&format!("/api/v1/entity/{kind}/{id}"), &[])
+            .await?;
+        serde_json::to_value(detail).with_context(|| "http: serialize entity detail")
     }
 
     async fn fetch_runtime_profile(&self) -> Result<RuntimeProfile> {
-        self.get_json("/api/v1/runtime/profile", &[]).await
+        self.get_envelope("/api/v1/runtime/profile", &[]).await
     }
 
     async fn fetch_action_registry(&self) -> Result<Vec<serde_json::Value>> {
-        self.get_json("/api/v1/action-registry", &[]).await
+        let doc: ActionRegistryDocument = self.get_envelope("/api/v1/action-registry", &[]).await?;
+        Ok(doc.actions)
     }
 
     async fn preview_action(
@@ -238,6 +262,33 @@ mod tests {
             .await
             .expect("execute");
         assert!(result.summary.contains("open_logs"));
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn http_client_fetch_action_registry_unwraps_envelope_to_action_list() {
+        let (base, handle) = spawn().await;
+        let client = HttpDataClient::new(base);
+        let actions = client.fetch_action_registry().await.expect("registry");
+        // The DataClient surface still returns `Vec<serde_json::Value>`
+        // even though the wire is `InspectionEnvelope<ActionRegistryDocument>`.
+        assert!(actions.len() >= 30, "registry too small: {}", actions.len());
+        assert!(actions[0].get("id").and_then(|v| v.as_str()).is_some());
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn http_client_fetch_entity_unwraps_envelope_to_detail_json() {
+        let (base, handle) = spawn().await;
+        let client = HttpDataClient::new(base);
+        let detail = client.fetch_entity("job", "j-1").await.expect("entity");
+        // `fetch_entity` returns `serde_json::Value` re-serialised from
+        // the `EntityDetail` unwrapped from the envelope.
+        assert!(detail.get("entity").is_some());
+        assert_eq!(
+            detail.get("label").and_then(|v| v.as_str()),
+            Some("job:j-1")
+        );
         handle.abort();
     }
 

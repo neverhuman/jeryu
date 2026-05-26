@@ -2,12 +2,19 @@
 //! Proof: `cargo test -p jeryu --lib inspection::health`
 //! Invariants: deep-health never returns "healthy" while critical sources are
 //!             SourceDown; runtime profile values are redacted at construction.
+//!             Both routes wrap their payloads in `InspectionEnvelope<T>`.
+//!             `DeepHealth` itself carries a `sources` field; the envelope
+//!             `sources` reflects what the daemon currently knows about
+//!             upstream freshness (empty until the projection loop wires
+//!             in).
 
 use axum::Json;
 use axum::extract::State;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::api::freshness::{FreshnessState, SourceFreshness};
+use crate::api::inspection::InspectionEnvelope;
 use crate::api::runtime_profile::RuntimeProfile;
 
 use super::state::InspectionState;
@@ -19,16 +26,27 @@ pub struct DeepHealth {
     pub degraded_reasons: Vec<String>,
 }
 
-pub async fn get_runtime_profile(State(state): State<InspectionState>) -> Json<RuntimeProfile> {
-    Json(state.runtime_profile())
+pub async fn get_runtime_profile(
+    State(state): State<InspectionState>,
+) -> Json<InspectionEnvelope<RuntimeProfile>> {
+    let sources = state.snapshot_sources();
+    Json(InspectionEnvelope::new(
+        state.runtime_profile(),
+        sources,
+        Utc::now(),
+    ))
 }
 
-pub async fn get_health_deep(State(_state): State<InspectionState>) -> Json<DeepHealth> {
-    Json(DeepHealth {
+pub async fn get_health_deep(
+    State(state): State<InspectionState>,
+) -> Json<InspectionEnvelope<DeepHealth>> {
+    let payload = DeepHealth {
         healthy: true,
         sources: Vec::new(),
         degraded_reasons: Vec::new(),
-    })
+    };
+    let sources = state.snapshot_sources();
+    Json(InspectionEnvelope::new(payload, sources, Utc::now()))
 }
 
 /// Compose a DeepHealth verdict from a slice of source freshness records.
@@ -54,12 +72,23 @@ pub fn deep_health_from_sources(sources: &[SourceFreshness]) -> DeepHealth {
 mod tests {
     use super::*;
     use crate::api::freshness::SourceKind;
+    use crate::api::inspection::INSPECTION_API_VERSION;
 
     #[tokio::test]
-    async fn runtime_profile_handler_returns_state_value() {
+    async fn runtime_profile_handler_returns_state_value_in_envelope() {
         let state = InspectionState::default();
-        let Json(profile) = get_runtime_profile(State(state)).await;
-        assert_eq!(profile.inspection_api_version, "api.v1");
+        let Json(envelope) = get_runtime_profile(State(state)).await;
+        assert_eq!(envelope.api_version, INSPECTION_API_VERSION);
+        assert_eq!(envelope.data.inspection_api_version, "api.v1");
+    }
+
+    #[tokio::test]
+    async fn deep_health_handler_wraps_payload() {
+        let state = InspectionState::default();
+        let Json(envelope) = get_health_deep(State(state)).await;
+        assert_eq!(envelope.api_version, INSPECTION_API_VERSION);
+        assert!(envelope.data.healthy);
+        assert!(envelope.data.degraded_reasons.is_empty());
     }
 
     #[test]
