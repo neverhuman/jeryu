@@ -48,7 +48,7 @@ impl Default for AgentSession {
             budget: AgentBudget::default(),
             grants: Vec::new(),
             confidence: None,
-            risk: RiskTier::Low,
+            risk: RiskTier::R1,
             blockers: Vec::new(),
             next_action: None,
             timeline: Vec::new(),

@@ -11,31 +11,53 @@ use serde::{Deserialize, Serialize};
 mod entries;
 pub use entries::{REGISTRY, entries_for_surface, filtered};
 
+/// Six-tier risk classification (U06).
+///
+/// Migrated from the original 4-tier (`ReadOnly`, `Low`, `High`, `Production`)
+/// scheme. Legacy `snake_case` names continue to deserialize through
+/// `#[serde(alias = ...)]` so existing JSON fixtures keep working.
+///
+/// - R0: read-only (no side effects)
+/// - R1: local mutation (jeryu-local state only)
+/// - R2: CI mutation (triggers pipelines / requeues)
+/// - R3: repo write (Git branches / merge requests)
+/// - R4: release / merge to production-adjacent ref
+/// - R5: destructive, secret, or production-rooted (reserved; not yet used)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "lowercase")]
 pub enum RiskTier {
-    ReadOnly,
-    Low,
-    High,
-    Production,
+    #[serde(alias = "read_only")]
+    R0,
+    #[serde(alias = "low")]
+    R1,
+    R2,
+    #[serde(alias = "high")]
+    R3,
+    #[serde(alias = "production")]
+    R4,
+    R5,
 }
 
 impl RiskTier {
     pub fn label(self) -> &'static str {
         match self {
-            Self::ReadOnly => "read-only",
-            Self::Low => "low",
-            Self::High => "high",
-            Self::Production => "production",
+            Self::R0 => "R0 (read)",
+            Self::R1 => "R1 (local)",
+            Self::R2 => "R2 (ci)",
+            Self::R3 => "R3 (repo)",
+            Self::R4 => "R4 (release)",
+            Self::R5 => "R5 (destructive)",
         }
     }
 
     pub fn color(self) -> Color {
         match self {
-            Self::ReadOnly => Color::Green,
-            Self::Low => Color::Yellow,
-            Self::High => Color::LightRed,
-            Self::Production => Color::Red,
+            Self::R0 => Color::Green,
+            Self::R1 => Color::LightGreen,
+            Self::R2 => Color::Yellow,
+            Self::R3 => Color::LightRed,
+            Self::R4 => Color::Red,
+            Self::R5 => Color::Magenta,
         }
     }
 }
@@ -136,11 +158,24 @@ impl ActionEntry {
     }
 
     pub fn side_effect_class(&self) -> SideEffectClass {
+        // The id-keyed match is the source of truth for *what kind* of side
+        // effect each action has. Keep this list consistent with the R-tier
+        // assigned in the registry: any action tagged R1..=R5 must appear
+        // here (tested by `mutating_actions_require_grants`).
         match self.id {
-            "remove_record" | "pause_pool" => SideEffectClass::LocalState,
+            // R1 — local jeryu-state mutation.
+            "remove_record"
+            | "pause_pool"
+            | "bug_submit"
+            | "bug_update"
+            | "bug_record_attempt" => SideEffectClass::LocalState,
+            // R2 — CI execution (triggers pipelines).
+            "requeue_job" | "run_tests" => SideEffectClass::CiExecution,
+            // R3 — Git/repo write.
             "propose_patch" | "race_patches" => SideEffectClass::GitWrite,
-            "run_tests" => SideEffectClass::CiExecution,
+            // R4 — merge / release-adjacent.
             "request_merge" => SideEffectClass::Merge,
+            // Everything else (R0) is a pure read.
             _ => SideEffectClass::ReadOnly,
         }
     }

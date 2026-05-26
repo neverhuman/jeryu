@@ -19,7 +19,7 @@ pub fn cache_pressure() -> TuiReadModel {
     m.event_cursor = 1_100;
     m.freshness = fresh(1_000, 800, 1_200, 900, 1_400, false);
     let lookup = EntityRef::new(EntityKind::CacheObject, "lookup-master");
-    let fetch = action("fetch_capsule", "Fetch cache capsule", RiskTier::ReadOnly);
+    let fetch = action("fetch_capsule", "Fetch cache capsule", RiskTier::R0);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Warning,
         safe_to_code: true,
@@ -95,7 +95,7 @@ pub fn taint_storm() -> TuiReadModel {
     m.event_cursor = 1_215;
     m.freshness = fresh(1_100, 900, 1_300, 1_000, 1_500, false);
     let taint = EntityRef::new(EntityKind::CacheTaint, "taint-2026-05-26");
-    let fetch = action("fetch_capsule", "Fetch taint capsule", RiskTier::ReadOnly);
+    let fetch = action("fetch_capsule", "Fetch taint capsule", RiskTier::R0);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Degraded,
         safe_to_code: true,
@@ -142,7 +142,7 @@ pub fn taint_storm() -> TuiReadModel {
         entity: Some(taint),
         confidence: 0.88,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     m.system = cache_degraded_system("taint storm", 10, 2);
     m

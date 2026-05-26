@@ -18,7 +18,7 @@ pub fn saturated() -> TuiReadModel {
     m.event_cursor = 320;
     m.freshness = fresh(900, 700, 1_100, 800, 1_300, false);
     let pool = EntityRef::new(EntityKind::Pool, "pool-default");
-    let pause = action("pause_pool", "Pause non-critical pool", RiskTier::Low);
+    let pause = action("pause_pool", "Pause non-critical pool", RiskTier::R1);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Warning,
         safe_to_code: true,
@@ -62,7 +62,7 @@ pub fn saturated() -> TuiReadModel {
         entity: Some(pool),
         confidence: 0.74,
         safety: ActionSafety::Reversible,
-        risk: RiskTier::Low,
+        risk: RiskTier::R1,
     });
     m.system = healthy_system(12, 0);
     m

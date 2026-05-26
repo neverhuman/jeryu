@@ -154,7 +154,7 @@ mod tests {
             "requeue_job",
             "Retry Failed Job",
             Some(EntityRef::new(EntityKind::Job, "123")),
-            RiskTier::Low,
+            RiskTier::R1,
             SideEffectClass::LocalState,
             "Requeue job #123",
             GrantRequirement::None,

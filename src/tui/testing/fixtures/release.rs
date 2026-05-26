@@ -18,7 +18,7 @@ pub fn release_blocked() -> TuiReadModel {
     m.event_cursor = 800;
     m.freshness = fresh(900, 700, 1_000, 800, 1_200, false);
     let gate = EntityRef::new(EntityKind::ReleaseGate, "gate-security-scan");
-    let explain = action("explain_blockers", "Explain blockers", RiskTier::ReadOnly);
+    let explain = action("explain_blockers", "Explain blockers", RiskTier::R0);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Degraded,
         safe_to_code: true,
@@ -64,7 +64,7 @@ pub fn canary_running() -> TuiReadModel {
     m.event_cursor = 905;
     m.freshness = fresh(700, 600, 800, 600, 1_000, false);
     let rel = EntityRef::new(EntityKind::ReleaseAttempt, "rel-12.0.0-canary");
-    let fetch = action("fetch_capsule", "Fetch canary capsule", RiskTier::ReadOnly);
+    let fetch = action("fetch_capsule", "Fetch canary capsule", RiskTier::R0);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Warning,
         safe_to_code: false,
@@ -99,7 +99,7 @@ pub fn canary_running() -> TuiReadModel {
         entity: Some(rel),
         confidence: 0.79,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     m.system = healthy_system(4, 8);
     m
@@ -112,7 +112,7 @@ pub fn rollback_ready() -> TuiReadModel {
     m.event_cursor = 1_050;
     m.freshness = fresh(800, 600, 900, 700, 1_100, false);
     let rel = EntityRef::new(EntityKind::ReleaseAttempt, "rel-12.0.0-rollback");
-    let explain = action("explain_blockers", "Explain blockers", RiskTier::ReadOnly);
+    let explain = action("explain_blockers", "Explain blockers", RiskTier::R0);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Critical,
         safe_to_code: false,
@@ -146,7 +146,7 @@ pub fn rollback_ready() -> TuiReadModel {
         entity: Some(rel),
         confidence: 0.93,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     m.system = healthy_system(4, 8);
     m

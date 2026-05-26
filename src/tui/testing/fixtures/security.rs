@@ -29,7 +29,7 @@ pub fn security_blocked() -> TuiReadModel {
             recommended_action: Some(ActionRef {
                 action_id: "explain_blockers".into(),
                 label: "Explain blockers".into(),
-                risk: Some(RiskTier::ReadOnly),
+                risk: Some(RiskTier::R0),
             }),
         }),
         active_agents: 0,
@@ -58,7 +58,7 @@ pub fn security_blocked() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "explain_blockers".into(),
             label: "Explain blockers".into(),
-            risk: Some(RiskTier::ReadOnly),
+            risk: Some(RiskTier::R0),
         }],
         created_at: ts(19, 50, 0),
         last_seen_at: ts(20, 0, 0),

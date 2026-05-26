@@ -37,14 +37,14 @@ pub fn single_pipeline() -> TuiReadModel {
         action_ref: action(
             "get_pipeline_jobs",
             "View pipeline jobs",
-            RiskTier::ReadOnly,
+            RiskTier::R0,
         ),
         label: "Track pipeline 51001 progress".into(),
         why: "Pipeline running; no blockers yet.".into(),
         entity: Some(EntityRef::new(EntityKind::Pipeline, "51001")),
         confidence: 0.86,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     m.system = healthy_system(8, 4);
     m
@@ -98,7 +98,7 @@ pub fn failed() -> TuiReadModel {
     m.event_cursor = 720;
     m.freshness = fresh(1_000, 800, 1_200, 900, 1_400, false);
     let pipe = EntityRef::new(EntityKind::Pipeline, "52020");
-    let open_logs = action("open_logs", "Open logs", RiskTier::ReadOnly);
+    let open_logs = action("open_logs", "Open logs", RiskTier::R0);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Degraded,
         safe_to_code: true,
@@ -142,7 +142,7 @@ pub fn failed() -> TuiReadModel {
         entity: Some(pipe),
         confidence: 0.91,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     m.system = healthy_system(8, 4);
     m
