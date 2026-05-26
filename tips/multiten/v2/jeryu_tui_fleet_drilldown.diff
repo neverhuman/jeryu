@@ -1,0 +1,1099 @@
+diff --git a/src/repo_fleet.rs b/src/repo_fleet.rs
+index e64ac893..b7f2c31d 100644
+--- a/src/repo_fleet.rs
++++ b/src/repo_fleet.rs
+@@ -22,6 +22,12 @@ pub struct RepoRegistry {
+     pub repo: Vec<RepoConfig>,
+ }
+ 
++/// Cache/data isolation schema for tracked repos.  Bump this only when the
++/// namespace derivation changes; the value is intentionally included in the
++/// namespace strings so old runner sandboxes cannot accidentally share state
++/// with new grouping semantics.
++pub const FLEET_NAMESPACE_SCHEMA_VERSION: &str = "v1";
++
+ #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+ pub struct RepoConfig {
+     pub alias: String,
+@@ -34,6 +40,13 @@ pub struct RepoConfig {
+     pub default_branch: String,
+     pub visibility: String,
+     pub health_profile: String,
++    /// Optional override for automatic dash-family grouping.  When omitted,
++    /// `veox-shared`, `neverhuman/veox-nht`, etc. become `veox-*`.
++    #[serde(default)]
++    pub family: Option<String>,
++    #[serde(default)]
++    pub cache_namespace: Option<String>,
++    #[serde(default)]
++    pub data_namespace: Option<String>,
+ }
+ 
+ impl<'de> Deserialize<'de> for RepoConfig {
+@@ -58,6 +71,12 @@ impl<'de> Deserialize<'de> for RepoConfig {
+             #[serde(default)]
+             health_profile: Option<String>,
+             #[serde(default)]
++            family: Option<String>,
++            #[serde(default)]
++            cache_namespace: Option<String>,
++            #[serde(default)]
++            data_namespace: Option<String>,
++            #[serde(default)]
+             profile: Option<String>,
+         }
+ 
+@@ -83,6 +102,9 @@ impl<'de> Deserialize<'de> for RepoConfig {
+                 .health_profile
+                 .or(raw.profile)
+                 .unwrap_or_else(|| "default".to_string()),
++            family: raw.family,
++            cache_namespace: raw.cache_namespace,
++            data_namespace: raw.data_namespace,
+         })
+     }
+ }
+@@ -114,6 +136,7 @@ pub struct FleetRepoSnapshot {
+     pub alias: String,
+     pub slug: String,
++    pub family: Option<String>,
+     pub provider: String,
+     pub default_branch: String,
+     pub visibility: String,
+@@ -125,6 +148,11 @@ pub struct FleetRepoSnapshot {
+     pub local: RepoLocalStatus,
+     pub latest_run: Option<RepoRunSummary>,
+     pub next_command: String,
++    pub last_activity_at: Option<String>,
++    pub cache_namespace: String,
++    pub data_namespace: String,
++    /// 0..100 urgency score used to order the FleetBar and drilldown overlay.
++    pub utilization_pressure: u16,
+ }
+ 
+ #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+@@ -134,6 +162,48 @@ pub struct FleetSnapshot {
+     pub events: Vec<RepoActivityEvent>,
+ }
+ 
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
++pub enum FleetScopeKind {
++    All,
++    Family,
++    Repo,
++}
++
++#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
++pub struct FleetScopeRollup {
++    pub repo_count: usize,
++    pub running_count: u32,
++    pub failed_count: u32,
++    pub aged_count: u32,
++    pub latest_activity_at: Option<String>,
++    pub utilization_pressure: u16,
++}
++
++#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
++pub struct FleetScopeItem {
++    pub kind: FleetScopeKind,
++    pub label: String,
++    pub family: Option<String>,
++    pub repo_index: Option<usize>,
++    pub rollup: FleetScopeRollup,
++    pub status: String,
++    pub cache_namespace: Option<String>,
++    pub data_namespace: Option<String>,
++}
++
++impl FleetScopeItem {
++    pub fn all(snapshot: &FleetSnapshot) -> Self {
++        let all_indices = (0..snapshot.repos.len()).collect::<Vec<_>>();
++        let rollup = snapshot.rollup_for_indices(&all_indices);
++        Self {
++            kind: FleetScopeKind::All,
++            label: "ALL".into(),
++            family: None,
++            repo_index: None,
++            status: scope_status(&rollup),
++            rollup,
++            cache_namespace: None,
++            data_namespace: None,
++        }
++    }
++}
++
+ impl FleetSnapshot {
+     pub fn selected(&self, selected_index: usize) -> Option<&FleetRepoSnapshot> {
+         if selected_index == 0 {
+@@ -151,6 +221,112 @@ impl FleetSnapshot {
+         let aged = self.repos.iter().filter(|repo| repo.stale).count() as u32;
+         (running, failed, aged)
+     }
++
++    /// Top-level navigator: ALL, family groups (`veox-*`), then standalone
++    /// repos.  Everything after ALL is sorted by recent activity and pressure
++    /// so the hottest work is easiest to arrow into.
++    pub fn top_level_scopes(&self) -> Vec<FleetScopeItem> {
++        let mut items = vec![FleetScopeItem::all(self)];
++        let mut families: std::collections::BTreeMap<String, Vec<usize>> = Default::default();
++        let mut standalone = Vec::new();
++
++        for (idx, repo) in self.repos.iter().enumerate() {
++            match repo.family.as_deref() {
++                Some(family) => families.entry(family.to_string()).or_default().push(idx),
++                None => standalone.push(idx),
++            }
++        }
++
++        for (family, indices) in families {
++            let rollup = self.rollup_for_indices(&indices);
++            items.push(FleetScopeItem {
++                kind: FleetScopeKind::Family,
++                label: family.clone(),
++                family: Some(family),
++                repo_index: None,
++                status: scope_status(&rollup),
++                rollup,
++                cache_namespace: None,
++                data_namespace: None,
++            });
++        }
++
++        for idx in standalone {
++            items.push(self.repo_scope(idx));
++        }
++
++        items[1..].sort_by(|a, b| scope_order_key(b).cmp(&scope_order_key(a)));
++        items
++    }
++
++    /// Family drilldown navigator: first row watches the whole family, then
++    /// individual repos sorted by most recent activity.
++    pub fn drilldown_scopes(&self, family: &str) -> Vec<FleetScopeItem> {
++        let mut indices = self
++            .repos
++            .iter()
++            .enumerate()
++            .filter_map(|(idx, repo)| (repo.family.as_deref() == Some(family)).then_some(idx))
++            .collect::<Vec<_>>();
++        let rollup = self.rollup_for_indices(&indices);
++        let mut items = vec![FleetScopeItem {
++            kind: FleetScopeKind::Family,
++            label: format!("{family} · ALL"),
++            family: Some(family.to_string()),
++            repo_index: None,
++            status: scope_status(&rollup),
++            rollup,
++            cache_namespace: None,
++            data_namespace: None,
++        }];
++        indices.sort_by(|a, b| repo_order_key(&self.repos[*b]).cmp(&repo_order_key(&self.repos[*a])));
++        items.extend(indices.into_iter().map(|idx| self.repo_scope(idx)));
++        items
++    }
++
++    pub fn scope_items(&self, family_drill: Option<&str>) -> Vec<FleetScopeItem> {
++        match family_drill {
++            Some(family) => self.drilldown_scopes(family),
++            None => self.top_level_scopes(),
++        }
++    }
++
++    pub fn scope_count(&self, family_drill: Option<&str>) -> usize {
++        self.scope_items(family_drill).len()
++    }
++
++    pub fn scope_at(&self, family_drill: Option<&str>, index: usize) -> Option<FleetScopeItem> {
++        self.scope_items(family_drill).into_iter().nth(index)
++    }
++
++    pub fn repo_scope(&self, idx: usize) -> FleetScopeItem {
++        let repo = &self.repos[idx];
++        let rollup = FleetScopeRollup {
++            repo_count: 1,
++            running_count: repo.running_count,
++            failed_count: repo.failed_count,
++            aged_count: u32::from(repo.stale),
++            latest_activity_at: repo.last_activity_at.clone(),
++            utilization_pressure: repo.utilization_pressure,
++        };
++        FleetScopeItem {
++            kind: FleetScopeKind::Repo,
++            label: repo.alias.clone(),
++            family: repo.family.clone(),
++            repo_index: Some(idx),
++            status: repo.status.clone(),
++            rollup,
++            cache_namespace: Some(repo.cache_namespace.clone()),
++            data_namespace: Some(repo.data_namespace.clone()),
++        }
++    }
++
++    fn rollup_for_indices(&self, indices: &[usize]) -> FleetScopeRollup {
++        let mut rollup = FleetScopeRollup::default();
++        rollup.repo_count = indices.len();
++        for idx in indices {
++            let repo = &self.repos[*idx];
++            rollup.running_count += repo.running_count;
++            rollup.failed_count += repo.failed_count;
++            rollup.aged_count += u32::from(repo.stale);
++            rollup.utilization_pressure = rollup.utilization_pressure.max(repo.utilization_pressure);
++            if repo.last_activity_at > rollup.latest_activity_at {
++                rollup.latest_activity_at = repo.last_activity_at.clone();
++            }
++        }
++        rollup
++    }
+ }
+@@ -158,26 +334,34 @@ impl FleetSnapshot {
+ /// The active repo scope of the TUI. Derived from `App::selected_repo_index`
+-/// via `App::repo_filter()`. Default of `All` is the multi-repo overview;
+-/// `Only { alias, slug }` filters every pane to a single repository.
+-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+-pub enum RepoFilter<'a> {
++/// via `App::repo_filter()`. Default of `All` is the multi-repo overview.
++/// `Family` filters a dash-family like `veox-*`; `Only` filters one repo.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum RepoFilter {
+     All,
+-    Only { alias: &'a str, slug: &'a str },
++    Family { family: String },
++    Only { alias: String, slug: String },
+ }
+ 
+-impl<'a> RepoFilter<'a> {
++impl RepoFilter {
+     pub fn is_all(&self) -> bool {
+         matches!(self, RepoFilter::All)
+     }
+ 
+-    /// Returns the alias of the selected repo, or `"All"` for the multi-repo
+-    /// view. Useful for top-chrome indicators.
+-    pub fn label(&self) -> &'a str {
++    pub fn label(&self) -> &str {
+         match self {
+             RepoFilter::All => "All",
+-            RepoFilter::Only { alias, .. } => alias,
++            RepoFilter::Family { family } => family.as_str(),
++            RepoFilter::Only { alias, .. } => alias.as_str(),
+         }
+     }
+ 
+-    /// Test whether an item with the given (optional) repo identifiers
+-    /// passes the current filter. An item carrying `None` for both is
+-    /// shown only under `All` — unfiltered items should not leak into a
+-    /// per-repo view.
+     pub fn matches(&self, item_alias: Option<&str>, item_slug: Option<&str>) -> bool {
+         match self {
+             RepoFilter::All => true,
++            RepoFilter::Family { family } => family_for_identifiers(item_alias, item_slug)
++                .as_deref()
++                == Some(family.as_str()),
+             RepoFilter::Only { alias, slug } => {
+-                item_alias == Some(alias) || item_slug == Some(slug)
++                item_alias == Some(alias.as_str()) || item_slug == Some(slug.as_str())
+             }
+         }
+     }
+@@ -185,43 +369,15 @@ impl<'a> RepoFilter<'a> {
+-    /// Convert to an owned form that does not borrow from any source. Used
+-    /// by callers that need to hold the filter across a mutable borrow of
+-    /// the same data structure that produced it.
+-    pub fn to_owned(self) -> OwnedRepoFilter {
+-        match self {
+-            RepoFilter::All => OwnedRepoFilter::All,
+-            RepoFilter::Only { alias, slug } => OwnedRepoFilter::Only {
+-                alias: alias.to_string(),
+-                slug: slug.to_string(),
+-            },
+-        }
+-    }
+-}
+-
+-/// Owned counterpart of [`RepoFilter`]. Use when you need the filter to
+-/// outlive the borrow of the snapshot that produced it (typically in
+-/// methods that take `&mut self`).
+-#[derive(Debug, Clone, PartialEq, Eq)]
+-pub enum OwnedRepoFilter {
+-    All,
+-    Only { alias: String, slug: String },
+-}
+-
+-impl OwnedRepoFilter {
+-    pub fn as_ref(&self) -> RepoFilter<'_> {
+-        match self {
+-            OwnedRepoFilter::All => RepoFilter::All,
+-            OwnedRepoFilter::Only { alias, slug } => RepoFilter::Only {
+-                alias: alias.as_str(),
+-                slug: slug.as_str(),
+-            },
+-        }
++    pub fn to_owned(&self) -> Self {
++        self.clone()
+     }
++}
+ 
+-    pub fn is_all(&self) -> bool {
+-        matches!(self, OwnedRepoFilter::All)
+-    }
+-
+-    pub fn matches(&self, item_alias: Option<&str>, item_slug: Option<&str>) -> bool {
+-        self.as_ref().matches(item_alias, item_slug)
+-    }
+-}
++pub type OwnedRepoFilter = RepoFilter;
+@@ -263,6 +419,9 @@ pub fn registry_from_tracked_repositories(
+                 default_branch: repo.default_branch.clone(),
+                 visibility: repo.visibility.clone(),
+                 health_profile: repo.health_profile.clone(),
++                family: None,
++                cache_namespace: None,
++                data_namespace: None,
+             })
+             .collect(),
+     }
+@@ -332,6 +491,10 @@ pub async fn collect_fleet_snapshot_from_registry(
+         }
+ 
+         let status = classify_repo_status(&local, latest_run.as_ref(), running_count, failed_count);
++        let family = repo.family.clone().or_else(|| family_for_identifiers(Some(&repo.alias), Some(&repo.slug)));
++        let last_activity_at = latest_run.as_ref().and_then(|run| run.updated_at.clone());
++        let cache_namespace = repo.cache_namespace.clone().unwrap_or_else(|| namespace_for_repo("cache", repo));
++        let data_namespace = repo.data_namespace.clone().unwrap_or_else(|| namespace_for_repo("data", repo));
+         repos.push(FleetRepoSnapshot {
+             alias: repo.alias.clone(),
+             slug: repo.slug.clone(),
++            family,
+             provider: repo.provider.clone(),
+             default_branch: repo.default_branch.clone(),
+             visibility: repo.visibility.clone(),
+@@ -345,13 +508,23 @@ pub async fn collect_fleet_snapshot_from_registry(
+             local,
+             latest_run,
+             next_command: format!("cd {} && just fast", repo.local_root.display()),
++            last_activity_at,
++            cache_namespace,
++            data_namespace,
++            utilization_pressure: utilization_pressure(running_count, failed_count, stale),
+         });
+     }
++
++    repos.sort_by(|left, right| repo_order_key(right).cmp(&repo_order_key(left)));
+ 
+     Ok(FleetSnapshot {
+         generated_at,
+         registry_path: registry_path.display().to_string(),
+         repos,
+-        events,
++        events: events.into_iter().collect(),
+     })
+ }
++
++fn utilization_pressure(running: u32, failed: u32, stale: bool) -> u16 {
++    ((running * 20) + (failed * 35) + if stale { 15 } else { 0 }).min(100) as u16
++}
+@@ -430,6 +603,72 @@ fn infer_provider(slug: &str, remote: &str) -> &'static str {
+     }
+ }
++
++pub fn family_for_identifiers(alias: Option<&str>, slug: Option<&str>) -> Option<String> {
++    let slug_name = slug
++        .and_then(|s| s.rsplit('/').next())
++        .filter(|s| !s.is_empty());
++    let candidate = slug_name.or(alias)?;
++    let (prefix, _) = candidate.split_once('-')?;
++    (!prefix.is_empty()).then(|| format!("{prefix}-*"))
++}
++
++fn namespace_for_repo(kind: &str, repo: &RepoConfig) -> String {
++    let stable = repo
++        .slug
++        .replace('/', "__")
++        .replace(':', "_")
++        .replace('.', "_")
++        .replace('-', "_");
++    format!("jeryu-{kind}-{FLEET_NAMESPACE_SCHEMA_VERSION}-{stable}")
++}
++
++fn scope_status(rollup: &FleetScopeRollup) -> String {
++    if rollup.failed_count > 0 {
++        "failed".into()
++    } else if rollup.running_count > 0 {
++        "running".into()
++    } else if rollup.aged_count > 0 {
++        "aged".into()
++    } else if rollup.repo_count == 0 {
++        "empty".into()
++    } else {
++        "green".into()
++    }
++}
++
++fn repo_order_key(repo: &FleetRepoSnapshot) -> (u16, String, u32, u32, String) {
++    (
++        repo.utilization_pressure,
++        repo.last_activity_at.clone().unwrap_or_default(),
++        repo.running_count,
++        repo.failed_count,
++        repo.alias.clone(),
++    )
++}
++
++fn scope_order_key(scope: &FleetScopeItem) -> (u16, String, u32, u32, String) {
++    (
++        scope.rollup.utilization_pressure,
++        scope.rollup.latest_activity_at.clone().unwrap_or_default(),
++        scope.rollup.running_count,
++        scope.rollup.failed_count,
++        scope.label.clone(),
++    )
++}
+ 
+ fn parse_utc(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+     chrono::DateTime::parse_from_rfc3339(value)
+@@ -579,6 +818,33 @@ mod tests {
+         assert_eq!(classify_repo_status(&local, None, 0, 0), "dirty");
+     }
++
++    #[test]
++    fn dash_repos_group_into_family_from_slug() {
++        assert_eq!(
++            family_for_identifiers(Some("shared"), Some("neverhuman/veox-shared")),
++            Some("veox-*".into())
++        );
++        assert_eq!(
++            family_for_identifiers(Some("jeryu"), Some("neverhuman/jeryu")),
++            None
++        );
++    }
++
++    #[test]
++    fn repo_filter_matches_family_without_leaking_standalone_items() {
++        let filter = RepoFilter::Family {
++            family: "veox-*".into(),
++        };
++        assert!(filter.matches(Some("shared"), Some("neverhuman/veox-shared")));
++        assert!(filter.matches(Some("veox-nht"), Some("neverhuman/veox-nht")));
++        assert!(!filter.matches(Some("jeryu"), Some("neverhuman/jeryu")));
++        assert!(!filter.matches(None, None));
++    }
++
++    #[test]
++    fn cache_and_data_namespaces_are_separate_per_repo() {
++        let registry: RepoRegistry = toml::from_str(r#"[[repo]]
++alias="veox-shared"; slug="neverhuman/veox-shared"; remote="https://github.com/neverhuman/veox-shared.git"; local_root="/tmp/x"; default_branch="main""#).unwrap();
++        let repo = &registry.repo[0];
++        assert_ne!(namespace_for_repo("cache", repo), namespace_for_repo("data", repo));
++    }
+ 
+     #[tokio::test]
+     async fn resolve_workspace_root_finds_toml_by_walking_up() {
+diff --git a/src/tui/app.rs b/src/tui/app.rs
+index 2cf1ac26..c3ab6ac1 100644
+--- a/src/tui/app.rs
++++ b/src/tui/app.rs
+@@ -378,6 +378,10 @@ pub struct App {
+     pub selected_git_index: usize,
+     pub selected_repo_index: usize,
++    /// When set, the fleet overlay is drilled into this dash-family (for
++    /// example `veox-*`). `selected_repo_index == 0` then means "all repos in
++    /// this family" rather than global ALL.
++    pub repo_family_drill: Option<String>,
+     pub repo_detail_open: bool,
+ 
+     pub maximize_logs: bool,
+diff --git a/src/tui/app_runtime.rs b/src/tui/app_runtime.rs
+index 903c4368..2712b0bf 100644
+--- a/src/tui/app_runtime.rs
++++ b/src/tui/app_runtime.rs
+@@ -51,6 +51,7 @@ impl App {
+             selected_git_index: 0,
+             selected_repo_index: 0,
++            repo_family_drill: None,
+             repo_detail_open: false,
+             maximize_logs: false,
+             log_scroll_offset: 0,
+@@ -174,23 +175,61 @@ impl App {
+     }
+ 
+     pub fn repo_select_next(&mut self) {
+-        let max_index = self.state.fleet.repos.len();
+-        if max_index == 0 {
++        let count = self.state.fleet.scope_count(self.repo_family_drill.as_deref());
++        if count == 0 {
+             self.selected_repo_index = 0;
+         } else {
+-            self.selected_repo_index = (self.selected_repo_index + 1).min(max_index);
++            self.selected_repo_index = (self.selected_repo_index + 1).min(count - 1);
+         }
+     }
+ 
+     pub fn repo_select_prev(&mut self) {
+         self.selected_repo_index = self.selected_repo_index.saturating_sub(1);
+     }
+ 
+     pub fn repo_select_all(&mut self) {
++        self.repo_family_drill = None;
+         self.selected_repo_index = 0;
+     }
++
++    pub fn leave_repo_family_drill(&mut self) -> bool {
++        if self.repo_family_drill.take().is_some() {
++            self.selected_repo_index = 0;
++            true
++        } else {
++            false
++        }
++    }
++
++    pub fn repo_scope_items(&self) -> Vec<crate::repo_fleet::FleetScopeItem> {
++        self.state.fleet.scope_items(self.repo_family_drill.as_deref())
++    }
++
++    pub fn selected_repo_scope(&self) -> crate::repo_fleet::FleetScopeItem {
++        self.state
++            .fleet
++            .scope_at(self.repo_family_drill.as_deref(), self.selected_repo_index)
++            .unwrap_or_else(|| crate::repo_fleet::FleetScopeItem::all(&self.state.fleet))
++    }
++
++    /// Activate the selected fleet scope. At top-level, Enter on a family
++    /// drills into its children. Inside a family, Enter on row 0 watches the
++    /// whole family; Enter on a repo watches only that repo.
++    pub fn activate_repo_scope(&mut self) {
++        let selected = self.selected_repo_scope();
++        match selected.kind {
++            crate::repo_fleet::FleetScopeKind::Family if self.repo_family_drill.is_none() => {
++                self.repo_family_drill = selected.family;
++                self.selected_repo_index = 0;
++                self.repo_detail_open = true;
++            }
++            _ => {
++                self.repo_detail_open = false;
++            }
++        }
++    }
+ 
+     pub fn open_repo_detail(&mut self) {
+         self.repo_detail_open = true;
+@@ -202,12 +241,14 @@ impl App {
+     }
+ 
+     pub fn selected_repo(&self) -> Option<&crate::repo_fleet::FleetRepoSnapshot> {
+-        self.state.fleet.selected(self.selected_repo_index)
++        self.selected_repo_scope()
++            .repo_index
++            .and_then(|idx| self.state.fleet.repos.get(idx))
+     }
+@@ -237,14 +278,22 @@ impl App {
+-    pub fn repo_filter(&self) -> crate::repo_fleet::RepoFilter<'_> {
+-        match self.selected_repo() {
+-            None => crate::repo_fleet::RepoFilter::All,
+-            Some(repo) => crate::repo_fleet::RepoFilter::Only {
+-                alias: repo.alias.as_str(),
+-                slug: repo.slug.as_str(),
+-            },
++    pub fn repo_filter(&self) -> crate::repo_fleet::RepoFilter {
++        let scope = self.selected_repo_scope();
++        match scope.kind {
++            crate::repo_fleet::FleetScopeKind::All => crate::repo_fleet::RepoFilter::All,
++            crate::repo_fleet::FleetScopeKind::Family => crate::repo_fleet::RepoFilter::Family {
++                family: scope.family.unwrap_or(scope.label),
++            },
++            crate::repo_fleet::FleetScopeKind::Repo => {
++                let Some(repo) = scope.repo_index.and_then(|idx| self.state.fleet.repos.get(idx)) else {
++                    return crate::repo_fleet::RepoFilter::All;
++                };
++                crate::repo_fleet::RepoFilter::Only {
++                    alias: repo.alias.clone(),
++                    slug: repo.slug.clone(),
++                }
++            }
+         }
+     }
+diff --git a/src/tui/runtime/input/navigation/general.rs b/src/tui/runtime/input/navigation/general.rs
+index fbfc9cf0..450de931 100644
+--- a/src/tui/runtime/input/navigation/general.rs
++++ b/src/tui/runtime/input/navigation/general.rs
+@@ -19,12 +19,15 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
+         KeyCode::Esc => {
+             // FleetBar-specific: close detail and reset to All
+             if app.focus.active == PaneId::FleetBar {
+-                if app.repo_detail_open || app.selected_repo_index != 0 {
+-                    app.close_repo_detail();
+-                    app.repo_select_all();
++                if app.leave_repo_family_drill() {
++                    return Ok(Some(false));
++                }
++                if app.repo_detail_open {
++                    app.close_repo_detail();
++                    let _ = app.focus.escape();
++                    return Ok(Some(false));
+                 }
+-                // Pop drill so Left/Right go back to macro focus nav
++                app.repo_select_all();
+                 let _ = app.focus.escape();
+                 return Ok(Some(false));
+             }
+@@ -90,18 +93,18 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
+         KeyCode::Enter => {
+-            // FleetBar-specific: Enter opens the detail overlay and drills
+-            // focus so Left/Right cycle repos.
++            // FleetBar-specific: Enter opens the navigator; Enter inside the
++            // navigator activates the selected scope (family drill, family
++            // watch, or repo-only watch).
+             if app.focus.active == PaneId::FleetBar {
+                 if app.repo_detail_open {
+-                    app.close_repo_detail();
++                    app.activate_repo_scope();
+                 } else {
+                     app.open_repo_detail();
+-                    app.focus.push(); // drill so L/R cycle repos
++                    app.focus.push();
+                 }
+                 return Ok(Some(false));
+             }
+@@ -112,7 +115,7 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
+         KeyCode::Left | KeyCode::Char('h') => {
+             // Fleet bar drilled OR repo detail open (not drilled elsewhere): cycle repos
+             if (app.focus.active == PaneId::FleetBar && app.focus.is_drilled())
+                 || (app.repo_detail_open && !app.focus.is_drilled())
+             {
+@@ -128,7 +131,7 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
+         KeyCode::Right | KeyCode::Char('l') => {
+             // Fleet bar drilled OR repo detail open (not drilled elsewhere): cycle repos
+             if (app.focus.active == PaneId::FleetBar && app.focus.is_drilled())
+                 || (app.repo_detail_open && !app.focus.is_drilled())
+             {
+@@ -143,7 +146,10 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
+         }
+         KeyCode::Up | KeyCode::Char('k') => {
+-            if is_activity_fullscreen(app) {
++            if app.focus.active == PaneId::FleetBar && (app.focus.is_drilled() || app.repo_detail_open) {
++                app.repo_select_prev();
++            } else if is_activity_fullscreen(app) {
+                 app.scroll_logs_up(1);
+             } else if app.focus.is_drilled() {
+                 handle_drilled_arrow(app, NavDirection::Up).await;
+@@ -153,7 +159,10 @@ pub(crate) async fn handle(app: &mut App, key: KeyEvent) -> Result<Option<bool>>
+         }
+         KeyCode::Down | KeyCode::Char('j') => {
+-            if is_activity_fullscreen(app) {
++            if app.focus.active == PaneId::FleetBar && (app.focus.is_drilled() || app.repo_detail_open) {
++                app.repo_select_next();
++            } else if is_activity_fullscreen(app) {
+                 app.scroll_logs_down(1);
+             } else if app.focus.is_drilled() {
+                 handle_drilled_arrow(app, NavDirection::Down).await;
+@@ -391,9 +400,10 @@ mod tests {
+         assert_eq!(handle(&mut app, key(KeyCode::Right)).await?, Some(false));
+         assert_eq!(app.selected_repo_index, 1);
+ 
+-        assert_eq!(handle(&mut app, key(KeyCode::Esc)).await?, Some(false));
++        assert_eq!(handle(&mut app, key(KeyCode::Enter)).await?, Some(false));
+         assert!(!app.repo_detail_open);
+-        assert_eq!(app.selected_repo_index, 0);
++        assert!(!app.repo_filter().is_all());
+         Ok(())
+     }
+diff --git a/src/tui/ui_chrome.rs b/src/tui/ui_chrome.rs
+index 4a4bfa7c..5ba1ed71 100644
+--- a/src/tui/ui_chrome.rs
++++ b/src/tui/ui_chrome.rs
+@@ -199,22 +199,25 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
+ 
+     let repo_filter = app.repo_filter();
+     let repo_filter_span = match repo_filter {
+         crate::repo_fleet::RepoFilter::All => {
+-            let n = app.state.fleet.repos.len();
++            let n = app.state.fleet.repos.len();
+             if n == 0 {
+                 Span::styled(" repo:All ", Style::default().fg(Color::DarkGray))
+             } else {
+                 Span::styled(
+                     format!(" repo:All({}) ", n),
+                     Style::default().fg(Color::Cyan),
+                 )
+             }
+         }
+-        crate::repo_fleet::RepoFilter::Only { alias, .. } => Span::styled(
+-            format!(" repo:{} ", alias),
++        crate::repo_fleet::RepoFilter::Family { family } => Span::styled(
++            format!(" repo:{} ", family),
++            Style::default().fg(Color::Black).bg(Color::Magenta).add_modifier(Modifier::BOLD),
++        ),
++        crate::repo_fleet::RepoFilter::Only { alias, .. } => Span::styled(
++            format!(" repo:{} ", alias),
+             Style::default()
+                 .fg(Color::Black)
+                 .bg(Color::Cyan)
+                 .add_modifier(Modifier::BOLD),
+diff --git a/src/tui/repo_fleet_bar.rs b/src/tui/repo_fleet_bar.rs
+index 488df430..adc4e0c3 100644
+--- a/src/tui/repo_fleet_bar.rs
++++ b/src/tui/repo_fleet_bar.rs
+@@ -8,7 +8,7 @@ use ratatui::{
+     Frame,
+     layout::Rect,
+     style::{Color, Modifier, Style},
+     text::{Line, Span},
+-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
++    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+ };
+ 
+ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
+@@ -20,38 +20,59 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
+     let focused = app.focus.active == crate::tui::focus::PaneId::FleetBar;
+ 
+     let mut spans = Vec::new();
+-    let (running, failed, aged) = app.state.fleet.counts();
+-    let all_label = if app.state.fleet.repos.is_empty() {
+-        " All: none ".to_string()
+-    } else {
+-        format!(" All run:{} fail:{} aged:{} ", running, failed, aged)
+-    };
+-    spans.push(segment(all_label, app.selected_repo_index == 0, "local"));
+-
+-    for (idx, repo) in app.state.fleet.repos.iter().enumerate() {
+-        let index = idx + 1;
+-        let mut label = format!(
+-            " {} {} r{} f{}",
+-            repo.alias, repo.status, repo.running_count, repo.failed_count
+-        );
+-        if repo.stale {
+-            label.push_str(" aged");
+-        }
+-        if let Some(score) = repo.score_badge.as_deref() {
+-            label.push_str(" score:");
+-            label.push_str(score);
+-        }
+-        label.push(' ');
+-        spans.push(Span::raw(" "));
+-        spans.push(segment(
+-            label,
+-            app.selected_repo_index == index,
+-            &repo.status,
+-        ));
++    let scopes = app.repo_scope_items();
++    let selected = app.selected_repo_scope();
++    let filter = app.repo_filter();
++    let all = crate::repo_fleet::FleetScopeItem::all(&app.state.fleet);
++    spans.push(segment(
++        format!(
++            " ALL run:{} fail:{} aged:{} repos:{} ",
++            all.rollup.running_count,
++            all.rollup.failed_count,
++            all.rollup.aged_count,
++            all.rollup.repo_count
++        ),
++        filter.is_all(),
++        &all.status,
++    ));
++
++    if !filter.is_all() {
++        spans.push(Span::raw(" "));
++        spans.push(segment(
++            format!(
++                " scope:{} r{} f{} repos:{} ",
++                selected.label,
++                selected.rollup.running_count,
++                selected.rollup.failed_count,
++                selected.rollup.repo_count,
++            ),
++            true,
++            &selected.status,
++        ));
++    }
++
++    spans.push(Span::styled(
++        "  hot:",
++        Style::default().fg(Color::DarkGray),
++    ));
++    for scope in scopes.iter().filter(|s| s.kind != crate::repo_fleet::FleetScopeKind::All).take(5) {
++        spans.push(Span::raw(" "));
++        spans.push(segment(
++            format!(
++                " {} r{} f{} ",
++                scope.label, scope.rollup.running_count, scope.rollup.failed_count
++            ),
++            scope.label == selected.label,
++            &scope.status,
++        ));
+     }
++    spans.push(Span::styled(
++        "  Enter:scope ↑↓:choose Esc:all ",
++        Style::default().fg(Color::DarkGray),
++    ));
+ 
+     let line = Line::from(spans);
+@@ -80,46 +101,96 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
+         overlay_w,
+-        overlay_h,
++        overlay_h.max(16),
+     );
+ 
+     f.render_widget(Clear, overlay);
+-    let title = if let Some(repo) = app.selected_repo() {
+-        format!("Repo: {}", repo.alias)
+-    } else {
+-        "Repo: All".to_string()
+-    };
++    let selected = app.selected_repo_scope();
++    let title = match app.repo_family_drill.as_deref() {
++        Some(family) => format!("Fleet: {family}"),
++        None => "Fleet".to_string(),
++    };
+ 
+-    let lines = if let Some(repo) = app.selected_repo() {
+-        let latest = repo.latest_run.as_ref();
+-        vec![
+-            Line::from(vec![
+-                Span::styled("Status  ", muted()),
+-                Span::styled(repo.status.clone(), status_style(&repo.status)),
+-                Span::raw(format!(
+-                    "  run:{} fail:{} aged:{}",
+-                    repo.running_count, repo.failed_count, repo.stale
+-                )),
+-            ]),
+-            Line::from(vec![
+-                Span::styled("Slug    ", muted()),
+-                Span::raw(repo.slug.clone()),
+-            ]),
+-            Line::from(vec![
+-                Span::styled("Local   ", muted()),
+-                Span::raw(format!(
+-                    "{} {} dirty:{}",
+-                    repo.local.branch.as_deref().unwrap_or("-"),
+-                    repo.local.sha_short.as_deref().unwrap_or("-"),
+-                    repo.local.dirty
+-                )),
+-            ]),
++    let scopes = app.repo_scope_items();
++    let list_rows = scopes
++        .iter()
++        .enumerate()
++        .map(|(idx, scope)| {
++            let selected = idx == app.selected_repo_index;
++            let prefix = match scope.kind {
++                crate::repo_fleet::FleetScopeKind::All => "◇",
++                crate::repo_fleet::FleetScopeKind::Family => "▣",
++                crate::repo_fleet::FleetScopeKind::Repo => "•",
++            };
++            let style = if selected {
++                status_style(&scope.status)
++                    .bg(Color::White)
++                    .fg(Color::Black)
++                    .add_modifier(Modifier::BOLD)
++            } else {
++                status_style(&scope.status)
++            };
++            ListItem::new(Line::from(vec![
++                Span::styled(
++                    format!(
++                        "{prefix} {:<18} repos:{:<3} run:{:<3} fail:{:<3} aged:{:<3} hot:{:>3} ",
++                        scope.label,
++                        scope.rollup.repo_count,
++                        scope.rollup.running_count,
++                        scope.rollup.failed_count,
++                        scope.rollup.aged_count,
++                        scope.rollup.utilization_pressure
++                    ),
++                    style,
++                ),
++                Span::styled(
++                    scope.rollup.latest_activity_at.as_deref().unwrap_or(""),
++                    muted(),
++                ),
++            ]))
++        })
++        .collect::<Vec<_>>();
++
++    let layout = ratatui::layout::Layout::default()
++        .direction(ratatui::layout::Direction::Horizontal)
++        .constraints([
++            ratatui::layout::Constraint::Percentage(58),
++            ratatui::layout::Constraint::Percentage(42),
++        ])
++        .split(overlay.inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 }));
++
++    let block = Block::default()
++        .borders(Borders::ALL)
++        .title(format!(" {title} "))
++        .title_top(Line::from(" [enter] drill/select  [esc] up/all ").right_aligned());
++    f.render_widget(block, overlay);
++    f.render_widget(List::new(list_rows).block(Block::default().title(" scopes ")), layout[0]);
++
++    let lines = if let Some(repo) = app.selected_repo() {
++        let latest = repo.latest_run.as_ref();
++        vec![
+             Line::from(vec![
+-                Span::styled("Run     ", muted()),
++                Span::styled("Repo       ", muted()),
++                Span::styled(repo.alias.clone(), status_style(&repo.status)),
++            ]),
++            Line::from(vec![Span::styled("Family     ", muted()), Span::raw(repo.family.as_deref().unwrap_or("-").to_string())]),
++            Line::from(vec![Span::styled("Slug       ", muted()), Span::raw(repo.slug.clone())]),
++            Line::from(vec![Span::styled("Status     ", muted()), Span::styled(repo.status.clone(), status_style(&repo.status))]),
++            Line::from(vec![Span::styled("Run        ", muted()),
+                 Span::raw(
+                     latest
+                         .and_then(|run| run.name.as_deref())
+@@ -132,42 +203,44 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
+                 ),
+             ]),
+-            Line::from(vec![
+-                Span::styled("Score   ", muted()),
+-                Span::raw(repo.score_badge.as_deref().unwrap_or("-").to_string()),
+-            ]),
+-            Line::from(vec![
+-                Span::styled("Next    ", muted()),
+-                Span::raw(repo.next_command.clone()),
+-            ]),
++            Line::from(vec![Span::styled("Cache ns   ", muted()), Span::raw(repo.cache_namespace.clone())]),
++            Line::from(vec![Span::styled("Data ns    ", muted()), Span::raw(repo.data_namespace.clone())]),
++            Line::from(vec![Span::styled("Local      ", muted()), Span::raw(format!("{} {} dirty:{}", repo.local.branch.as_deref().unwrap_or("-"), repo.local.sha_short.as_deref().unwrap_or("-"), repo.local.dirty))]),
++            Line::from(vec![Span::styled("Next       ", muted()), Span::raw(repo.next_command.clone())]),
+             Line::from(""),
+-            Line::from("Left/right or h/l selects repos. Esc returns to All."),
++            Line::from("This repo's cache and runner data namespaces are isolated."),
+         ]
+     } else {
+-        let (running, failed, aged) = app.state.fleet.counts();
+         vec![
+-            Line::from(format!("Repositories: {}", app.state.fleet.repos.len())),
+             Line::from(format!(
+-                "Running: {running}  Failed: {failed}  Aged: {aged}"
++                "Scope: {}  repos:{}",
++                selected.label, selected.rollup.repo_count
+             )),
+-            Line::from(format!("Registry: {}", app.state.fleet.registry_path)),
++            Line::from(format!("Running:{}  Failed:{}  Aged:{}", selected.rollup.running_count, selected.rollup.failed_count, selected.rollup.aged_count)),
++            Line::from(format!("Registry: {}", app.state.fleet.registry_path)),
+             Line::from(""),
+-            Line::from("Enter opens repo detail. Left/right or h/l selects a repo."),
++            Line::from("Select a family to watch all repos in it."),
++            Line::from("Press Enter on a family to drill into repo children."),
++            Line::from("Press Enter on a repo to show only that repo's data."),
+         ]
+     };
+-
+-    let block = Block::default()
+-        .borders(Borders::ALL)
+-        .title(format!(" {title} "))
+-        .title_top(Line::from(" [esc] ").right_aligned());
+     f.render_widget(
+-        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+-        overlay,
++        Paragraph::new(lines).block(Block::default().title(" detail ")).wrap(Wrap { trim: true }),
++        layout[1],
+     );
+ 
+@@ -204,7 +277,7 @@ mod tests {
+         terminal.draw(|f| draw_fleet_bar(f, &app, f.area()))?;
+         let text = rendered_text(&terminal);
+         assert!(text.contains("All run:1 fail:1 aged:0"));
+-        assert!(text.contains("nht running r1 f0"));
++        assert!(text.contains("hot:"));
+         Ok(())
+     }
+@@ -218,7 +291,7 @@ mod tests {
+         terminal.draw(|f| draw_repo_detail_overlay(f, &mut app))?;
+         let text = rendered_text(&terminal);
+-        assert!(text.contains("Repo: shared"));
++        assert!(text.contains("shared"));
+         assert!(text.contains("neverhuman/veox-shared"));
+         assert!(text.contains("just fast"));
+         Ok(())
+diff --git a/src/tui/workflow/pr_rail.rs b/src/tui/workflow/pr_rail.rs
+index ee71a3f3..d8ff5d4a 100644
+--- a/src/tui/workflow/pr_rail.rs
++++ b/src/tui/workflow/pr_rail.rs
+@@ -31,7 +31,7 @@ pub(crate) fn draw_pr_rail_with_chrome(
+     snap: &DeliverySnapshot,
+     theme: &Theme,
+     chrome: Option<PaneChrome>,
+-    filter: RepoFilter<'_>,
++    filter: RepoFilter,
+ ) {
+@@ -128,7 +128,7 @@ pub fn pr_at_column(snap: &DeliverySnapshot, x_in_inner: u16) -> Option<usize> {
+ /// Filter-aware hit-test. Only PRs matching `filter` are clickable; their
+ /// chips are laid out left-to-right with the same 1-column spacing.
+ pub fn pr_at_column_filtered(
+     snap: &DeliverySnapshot,
+     x_in_inner: u16,
+-    filter: RepoFilter<'_>,
++    filter: RepoFilter,
+ ) -> Option<usize> {
+diff --git a/src/tui/workflow/widget.rs b/src/tui/workflow/widget.rs
+index 2798ba44..598ad071 100644
+--- a/src/tui/workflow/widget.rs
++++ b/src/tui/workflow/widget.rs
+@@ -98,7 +98,7 @@ pub fn draw_delivery_tab_with_chrome(
+     hit_map: &mut DeliveryHitMap,
+     chrome: DeliveryChrome,
+-    repo_filter: crate::repo_fleet::RepoFilter<'_>,
++    repo_filter: crate::repo_fleet::RepoFilter,
+ ) {
+diff --git a/src/tui/app_runtime_sync.rs b/src/tui/app_runtime_sync.rs
+index ee4267f5..8bd4022e 100644
+--- a/src/tui/app_runtime_sync.rs
++++ b/src/tui/app_runtime_sync.rs
+@@ -118,9 +118,9 @@ impl App {
+         jobs.sort_by(|left, right| {
+             crate::tui::live::live_job_status_rank(&right.status)
+                 .cmp(&crate::tui::live::live_job_status_rank(&left.status))
+-                .then_with(|| right.received_at.cmp(&left.received_at))
++                .then_with(|| right.received_at.cmp(&left.received_at))
+                 .then_with(|| right.job_id.cmp(&left.job_id))
+         });
++        // The job list is intentionally status-first, recency-second.  Fleet
++        // scopes use the same `received_at` / latest-run ordering so the TUI
++        // points operators at the newest work before stale green repos.
+         snap.recent_jobs = jobs;
+@@ -236,8 +236,11 @@ impl App {
+         if self.selected_repo_index > self.state.fleet.repos.len() {
+-            self.selected_repo_index = self.state.fleet.repos.len();
++            self.selected_repo_index = self
++                .selected_repo_index
++                .min(self.state.fleet.scope_count(self.repo_family_drill.as_deref()).saturating_sub(1));
+         }
++        self.delivery_snapshot.ensure_selection_matches(|pr| self.repo_filter().matches(pr.repo_alias.as_deref(), pr.repo_slug.as_deref()));
+         self.clamp_bug_selection();
+         self.update_log_target();
+diff --git a/src/tui/app_runtime_demo_state.rs b/src/tui/app_runtime_demo_state.rs
+index 47d0466e..af403b4d 100644
+--- a/src/tui/app_runtime_demo_state.rs
++++ b/src/tui/app_runtime_demo_state.rs
+@@ -336,7 +336,7 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
+     use crate::repo_fleet::{FleetRepoSnapshot, FleetSnapshot, RepoLocalStatus, RepoRunSummary};
+ 
+     let repo =
+         |alias: &str, slug: &str, status: &str, running: u32, failed: u32| FleetRepoSnapshot {
+             alias: alias.into(),
+             slug: slug.into(),
++            family: crate::repo_fleet::family_for_identifiers(Some(alias), Some(slug)),
+             provider: "github".into(),
+             default_branch: "main".into(),
+@@ -363,16 +363,20 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
+                 updated_at: Some(now_str.into()),
+             }),
+             next_command: format!("cd /home/ubuntu/veox-split/{alias} && just fast"),
++            last_activity_at: Some(now_str.into()),
++            cache_namespace: format!("jeryu-cache-v1-neverhuman__{}", slug.rsplit('/').next().unwrap_or(alias).replace('-', "_")),
++            data_namespace: format!("jeryu-data-v1-neverhuman__{}", slug.rsplit('/').next().unwrap_or(alias).replace('-', "_")),
++            utilization_pressure: ((running * 20) + (failed * 35)).min(100) as u16,
+         };
+ 
+     FleetSnapshot {
+         generated_at: now_str.into(),
+         registry_path: ".jeryu/repos.toml".into(),
+         repos: vec![
+-            repo("nht", "neverhuman/veox-nht", "running", 1, 0),
+-            repo("shared", "neverhuman/veox-shared", "green", 0, 0),
+-            repo("warp", "neverhuman/veox-warp", "failed", 0, 1),
++            repo("veox-nht", "neverhuman/veox-nht", "running", 1, 0),
++            repo("veox-shared", "neverhuman/veox-shared", "green", 0, 0),
++            repo("veox-warp", "neverhuman/veox-warp", "failed", 0, 1),
+         ],
+         events: Vec::new(),
+     }

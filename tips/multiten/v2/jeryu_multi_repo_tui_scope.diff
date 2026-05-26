@@ -1,0 +1,890 @@
+diff --git a/src/repo_fleet.rs b/src/repo_fleet.rs
+index 3f1c0a1..8b7f61c 100644
+--- a/src/repo_fleet.rs
++++ b/src/repo_fleet.rs
+@@ -5,6 +5,7 @@
+ use crate::git_host::{GitHubClient, RepoRef};
+ use anyhow::{Context, Result};
+ use serde::{Deserialize, Deserializer, Serialize};
++use std::collections::BTreeMap;
+ use std::path::{Path, PathBuf};
+ use std::process::Command;
+@@ -27,6 +28,8 @@ pub struct RepoConfig {
+     pub default_branch: String,
+     pub visibility: String,
+     pub health_profile: String,
++    /// Optional GitLab project id. Used to route job/pipeline rows to repo scopes.
++    pub project_id: Option<i64>,
+ }
+@@ -49,6 +52,8 @@ impl<'de> Deserialize<'de> for RepoConfig {
+             health_profile: Option<String>,
+             #[serde(default)]
+             profile: Option<String>,
++            #[serde(default, deserialize_with = "deserialize_optional_i64")]
++            project_id: Option<i64>,
+         }
+@@ -76,10 +81,30 @@ impl<'de> Deserialize<'de> for RepoConfig {
+                 .health_profile
+                 .or(raw.profile)
+                 .unwrap_or_else(|| "default".to_string()),
++            project_id: raw.project_id,
+         })
+     }
+ }
+ 
++fn deserialize_optional_i64<'de, D>(deserializer: D) -> std::result::Result<Option<i64>, D::Error>
++where
++    D: Deserializer<'de>,
++{
++    let value = Option::<toml::Value>::deserialize(deserializer)?;
++    Ok(match value {
++        Some(toml::Value::Integer(v)) => Some(v),
++        Some(toml::Value::String(s)) => s.parse::<i64>().ok(),
++        _ => None,
++    })
++}
++
+ #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+ pub struct RepoLocalStatus {
+@@ -127,6 +152,7 @@ pub struct FleetRepoSnapshot {
+     pub failed_count: u32,
+     pub stale: bool,
+     pub score_badge: Option<String>,
++    pub project_id: Option<i64>,
+     pub local: RepoLocalStatus,
+     pub latest_run: Option<RepoRunSummary>,
+     pub next_command: String,
+@@ -144,15 +170,118 @@ impl FleetSnapshot {
+         self.repos.get(selected_index.saturating_sub(1))
+     }
++
++    /// Logical selector items shown in the one-line fleet bar.
++    ///
++    /// Index 0 is always `All`. Repositories that share the same dashed
++    /// basename prefix (`veox-shared`, `veox-nht` -> `veox-*`) collapse into
++    /// one family item so the bar stays usable with dozens of repos. Repos
++    /// without a family stay as individual items.
++    pub fn scope_items(&self) -> Vec<FleetScopeItem> {
++        let mut families: BTreeMap<String, Vec<usize>> = BTreeMap::new();
++        let mut ungrouped = Vec::new();
++
++        for (idx, repo) in self.repos.iter().enumerate() {
++            if let Some(prefix) = repo_family_prefix(repo) {
++                families.entry(prefix).or_default().push(idx);
++            } else {
++                ungrouped.push(idx);
++            }
++        }
++
++        let mut items = vec![FleetScopeItem::All];
++
++        let mut family_items: Vec<_> = families
++            .into_iter()
++            .filter(|(_, indexes)| indexes.len() >= 2)
++            .map(|(prefix, repo_indexes)| FleetScopeItem::Family {
++                label: format!("{prefix}-*"),
++                prefix,
++                repo_indexes,
++            })
++            .collect();
++        family_items.sort_by(|a, b| scope_sort_key(self, b).cmp(&scope_sort_key(self, a)));
++        items.extend(family_items);
++
++        let grouped: std::collections::BTreeSet<usize> = items
++            .iter()
++            .flat_map(|item| item.repo_indexes().into_iter())
++            .collect();
++        let mut solo_items: Vec<_> = ungrouped
++            .into_iter()
++            .chain(
++                self.repos
++                    .iter()
++                    .enumerate()
++                    .filter_map(|(idx, _)| (!grouped.contains(&idx)).then_some(idx)),
++            )
++            .collect();
++        solo_items.sort_unstable();
++        solo_items.dedup();
++
++        let mut solo_items: Vec<_> = solo_items
++            .into_iter()
++            .map(|repo_index| FleetScopeItem::Repo { repo_index })
++            .collect();
++        solo_items.sort_by(|a, b| scope_sort_key(self, b).cmp(&scope_sort_key(self, a)));
++        items.extend(solo_items);
++        items
++    }
++
++    pub fn selected_scope(&self, selected_index: usize) -> FleetScopeItem {
++        self.scope_items()
++            .get(selected_index)
++            .cloned()
++            .unwrap_or(FleetScopeItem::All)
++    }
++
++    pub fn scope_counts(&self, scope: &FleetScopeItem) -> (u32, u32, u32) {
++        let indexes = scope.repo_indexes();
++        if indexes.is_empty() {
++            return self.counts();
++        }
++        let running = indexes.iter().map(|idx| self.repos[*idx].running_count).sum();
++        let failed = indexes.iter().map(|idx| self.repos[*idx].failed_count).sum();
++        let aged = indexes.iter().filter(|idx| self.repos[**idx].stale).count() as u32;
++        (running, failed, aged)
++    }
+@@ -161,6 +290,83 @@ impl FleetSnapshot {
+     }
+ }
++
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum FleetScopeItem {
++    All,
++    Family {
++        label: String,
++        prefix: String,
++        repo_indexes: Vec<usize>,
++    },
++    Repo {
++        repo_index: usize,
++    },
++}
++
++impl FleetScopeItem {
++    pub fn label<'a>(&'a self, snapshot: &'a FleetSnapshot) -> String {
++        match self {
++            Self::All => "All".into(),
++            Self::Family { label, .. } => label.clone(),
++            Self::Repo { repo_index } => snapshot
++                .repos
++                .get(*repo_index)
++                .map(|repo| repo.alias.clone())
++                .unwrap_or_else(|| "?".into()),
++        }
++    }
++
++    pub fn repo_indexes(&self) -> Vec<usize> {
++        match self {
++            Self::All => Vec::new(),
++            Self::Family { repo_indexes, .. } => repo_indexes.clone(),
++            Self::Repo { repo_index } => vec![*repo_index],
++        }
++    }
++}
++
++fn scope_sort_key(snapshot: &FleetSnapshot, item: &FleetScopeItem) -> (u32, u32, String) {
++    let indexes = item.repo_indexes();
++    let running: u32 = indexes.iter().map(|idx| snapshot.repos[*idx].running_count).sum();
++    let failed: u32 = indexes.iter().map(|idx| snapshot.repos[*idx].failed_count).sum();
++    let most_recent = indexes
++        .iter()
++        .filter_map(|idx| snapshot.repos[*idx].latest_run.as_ref())
++        .filter_map(|run| run.updated_at.clone())
++        .max()
++        .unwrap_or_default();
++    (running, failed, most_recent)
++}
++
++pub fn repo_family_prefix(repo: &FleetRepoSnapshot) -> Option<String> {
++    repo_family_prefix_from(&repo.alias, &repo.slug)
++}
++
++pub fn repo_family_prefix_from(alias: &str, slug: &str) -> Option<String> {
++    let basename = slug.rsplit('/').next().unwrap_or(slug);
++    let candidate = if basename.contains('-') { basename } else { alias };
++    candidate
++        .split_once('-')
++        .and_then(|(prefix, rest)| (!prefix.is_empty() && !rest.is_empty()).then(|| prefix.to_string()))
++}
+@@ -168,12 +374,17 @@ impl FleetSnapshot {
+ /// The active repo scope of the TUI. Derived from `App::selected_repo_index`
+-/// via `App::repo_filter()`. Default of `All` is the multi-repo overview;
+-/// `Only { alias, slug }` filters every pane to a single repository.
+-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+-pub enum RepoFilter<'a> {
++/// via `App::repo_filter()`. Default of `All` is the multi-repo overview.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum RepoFilter {
+     All,
+-    Only { alias: &'a str, slug: &'a str },
++    Family { label: String, prefix: String },
++    Only { alias: String, slug: String },
+ }
+ 
+-impl<'a> RepoFilter<'a> {
++impl RepoFilter {
+     pub fn is_all(&self) -> bool {
+         matches!(self, RepoFilter::All)
+     }
+@@ -181,16 +392,17 @@ impl<'a> RepoFilter<'a> {
+     /// Returns the alias of the selected repo, or `"All"` for the multi-repo
+     /// view. Useful for top-chrome indicators.
+-    pub fn label(&self) -> &'a str {
++    pub fn label(&self) -> &str {
+         match self {
+             RepoFilter::All => "All",
++            RepoFilter::Family { label, .. } => label.as_str(),
+             RepoFilter::Only { alias, .. } => alias,
+         }
+     }
+@@ -203,28 +415,19 @@ impl<'a> RepoFilter<'a> {
+         match self {
+             RepoFilter::All => true,
++            RepoFilter::Family { prefix, .. } => repo_family_prefix_from(
++                item_alias.unwrap_or_default(),
++                item_slug.unwrap_or_default(),
++            )
++            .as_deref()
++                == Some(prefix.as_str()),
+             RepoFilter::Only { alias, slug } => {
+-                item_alias == Some(alias) || item_slug == Some(slug)
++                item_alias == Some(alias.as_str()) || item_slug == Some(slug.as_str())
+             }
+         }
+     }
+-
+-    /// Convert to an owned form that does not borrow from any source. Used
+-    /// by callers that need to hold the filter across a mutable borrow of
+-    /// the same data structure that produced it.
+-    pub fn to_owned(self) -> OwnedRepoFilter {
+-        match self {
+-            RepoFilter::All => OwnedRepoFilter::All,
+-            RepoFilter::Only { alias, slug } => OwnedRepoFilter::Only {
+-                alias: alias.to_string(),
+-                slug: slug.to_string(),
+-            },
+-        }
+-    }
+ }
+-
+-/// Owned counterpart of [`RepoFilter`]. Use when you need the filter to
+-/// outlive the borrow of the snapshot that produced it (typically in
+-/// methods that take `&mut self`).
+-#[derive(Debug, Clone, PartialEq, Eq)]
+-pub enum OwnedRepoFilter {
+-    All,
+-    Only { alias: String, slug: String },
+-}
++pub type OwnedRepoFilter = RepoFilter;
+@@ -258,6 +461,7 @@ pub fn registry_from_tracked_repositories(
+                 visibility: repo.visibility.clone(),
+                 health_profile: repo.health_profile.clone(),
++                project_id: None,
+                 created_at: "2026-05-24T00:00:00Z".into(),
+                 updated_at: "2026-05-24T00:00:00Z".into(),
+             })
+@@ -359,6 +563,7 @@ pub async fn collect_fleet_snapshot_from_registry(
+             failed_count,
+             stale,
+             score_badge,
++            project_id: repo.project_id,
+             local,
+             latest_run,
+             next_command: format!("cd {} && just fast", repo.local_root.display()),
+@@ -479,6 +684,7 @@ mod tests {
+             visibility: "private".into(),
+             health_profile: "split-required".into(),
++            project_id: None,
+             created_at: "2026-05-24T00:00:00Z".into(),
+             updated_at: "2026-05-24T00:00:00Z".into(),
+         }]);
+@@ -491,6 +697,32 @@ mod tests {
+         );
+     }
++
++    #[test]
++    fn dashed_repo_names_auto_group_into_family_scope() {
++        let mut snap = FleetSnapshot::default();
++        snap.repos = vec![
++            test_repo("shared", "neverhuman/veox-shared"),
++            test_repo("nht", "neverhuman/veox-nht"),
++            test_repo("redlinedb", "neverhuman/redlinedb"),
++        ];
++        let labels: Vec<_> = snap.scope_items().iter().map(|s| s.label(&snap)).collect();
++        assert!(labels.contains(&"All".into()));
++        assert!(labels.contains(&"veox-*".into()));
++        assert!(labels.contains(&"redlinedb".into()));
++    }
++
++    fn test_repo(alias: &str, slug: &str) -> FleetRepoSnapshot {
++        FleetRepoSnapshot {
++            alias: alias.into(), slug: slug.into(), provider: "github".into(),
++            default_branch: "main".into(), visibility: "private".into(), health_profile: "default".into(),
++            status: "green".into(), running_count: 0, failed_count: 0, stale: false,
++            score_badge: None, project_id: None, local: RepoLocalStatus::default(), latest_run: None,
++            next_command: "just fast".into(),
++        }
++    }
+ 
+     #[test]
+     fn classifies_local_dirty_before_remote_state() {
+diff --git a/src/tui/app.rs b/src/tui/app.rs
+index 2cf1ac2..3653b8c 100644
+--- a/src/tui/app.rs
++++ b/src/tui/app.rs
+@@ -146,6 +146,9 @@ pub struct RunnerFeed {
+     pub runner_name: String,
++    pub project_id: Option<i64>,
++    pub repo_alias: Option<String>,
++    pub repo_slug: Option<String>,
+     pub job_id: i64,
+     pub job_name: String,
+     pub pipeline_id: i64,
+@@ -308,6 +311,7 @@ pub struct App {
+     pub selected_git_index: usize,
+     pub selected_repo_index: usize,
++    pub selected_repo_child_index: usize,
+     pub repo_detail_open: bool,
+ 
+diff --git a/src/tui/app_runtime.rs b/src/tui/app_runtime.rs
+index 903c436..f12b2e0 100644
+--- a/src/tui/app_runtime.rs
++++ b/src/tui/app_runtime.rs
+@@ -57,6 +57,7 @@ impl App {
+             selected_git_index: 0,
+             selected_repo_index: 0,
++            selected_repo_child_index: 0,
+             repo_detail_open: false,
+@@ -156,34 +157,99 @@ impl App {
+     }
+ 
+     pub fn repo_select_next(&mut self) {
+-        let max_index = self.state.fleet.repos.len();
+-        if max_index == 0 {
++        let len = self.state.fleet.scope_items().len();
++        if len == 0 {
+             self.selected_repo_index = 0;
+         } else {
+-            self.selected_repo_index = (self.selected_repo_index + 1).min(max_index);
++            self.selected_repo_index = (self.selected_repo_index + 1).min(len.saturating_sub(1));
+         }
++        self.selected_repo_child_index = 0;
+     }
+ 
+     pub fn repo_select_prev(&mut self) {
+         self.selected_repo_index = self.selected_repo_index.saturating_sub(1);
++        self.selected_repo_child_index = 0;
+     }
+@@ -192,23 +258,85 @@ impl App {
+     pub fn repo_select_all(&mut self) {
+         self.selected_repo_index = 0;
++        self.selected_repo_child_index = 0;
+     }
+@@ -204,23 +332,96 @@ impl App {
+     pub fn selected_repo(&self) -> Option<&crate::repo_fleet::FleetRepoSnapshot> {
+-        self.state.fleet.selected(self.selected_repo_index)
++        match self.state.fleet.selected_scope(self.selected_repo_index) {
++            crate::repo_fleet::FleetScopeItem::Repo { repo_index } => self.state.fleet.repos.get(repo_index),
++            _ => None,
++        }
+     }
++
++    pub fn selected_fleet_scope(&self) -> crate::repo_fleet::FleetScopeItem {
++        self.state.fleet.selected_scope(self.selected_repo_index)
++    }
+ 
+     /// Active repo filter — `RepoFilter::All` when index is 0 or no repo is
+-    /// selected, otherwise `RepoFilter::Only { alias, slug }`. Renderers in
++    /// selected. Families map to `RepoFilter::Family`. Renderers in
+     /// every pane should call this and apply `.matches()` to per-item repo
+     /// metadata before drawing.
+-    pub fn repo_filter(&self) -> crate::repo_fleet::RepoFilter<'_> {
+-        match self.selected_repo() {
+-            None => crate::repo_fleet::RepoFilter::All,
+-            Some(repo) => crate::repo_fleet::RepoFilter::Only {
+-                alias: repo.alias.as_str(),
+-                slug: repo.slug.as_str(),
+-            },
++    pub fn repo_filter(&self) -> crate::repo_fleet::RepoFilter {
++        match self.selected_fleet_scope() {
++            crate::repo_fleet::FleetScopeItem::All => crate::repo_fleet::RepoFilter::All,
++            crate::repo_fleet::FleetScopeItem::Family { label, prefix, .. } => {
++                crate::repo_fleet::RepoFilter::Family { label, prefix }
++            }
++            crate::repo_fleet::FleetScopeItem::Repo { repo_index } => self
++                .state
++                .fleet
++                .repos
++                .get(repo_index)
++                .map(|repo| crate::repo_fleet::RepoFilter::Only {
++                    alias: repo.alias.clone(),
++                    slug: repo.slug.clone(),
++                })
++                .unwrap_or(crate::repo_fleet::RepoFilter::All),
+         }
+     }
++
++    pub fn scope_project_ids(&self) -> Vec<i64> {
++        match self.selected_fleet_scope() {
++            crate::repo_fleet::FleetScopeItem::All => Vec::new(),
++            scope => scope
++                .repo_indexes()
++                .into_iter()
++                .filter_map(|idx| self.state.fleet.repos.get(idx))
++                .filter_map(|repo| repo.project_id)
++                .collect(),
++        }
++    }
++
++    pub fn job_matches_repo_scope(&self, job: &crate::state::JobEvent) -> bool {
++        let ids = self.scope_project_ids();
++        ids.is_empty() || ids.contains(&job.project_id)
++    }
++
++    pub fn pipeline_matches_repo_scope(&self, pipeline: &crate::state::TrackedPipeline) -> bool {
++        let ids = self.scope_project_ids();
++        ids.is_empty() || ids.contains(&pipeline.project_id)
++    }
++
++    pub fn runner_feed_matches_repo_scope(&self, feed: &crate::tui::app::RunnerFeed) -> bool {
++        let filter = self.repo_filter();
++        if filter.is_all() {
++            return true;
++        }
++        if filter.matches(feed.repo_alias.as_deref(), feed.repo_slug.as_deref()) {
++            return true;
++        }
++        match feed.project_id {
++            Some(project_id) => self.scope_project_ids().contains(&project_id),
++            None => false,
++        }
++    }
++
++    pub fn scoped_recent_jobs(&self) -> Vec<&crate::state::JobEvent> {
++        let mut jobs: Vec<_> = self
++            .state
++            .recent_jobs
++            .iter()
++            .filter(|job| self.job_matches_repo_scope(job))
++            .collect();
++        jobs.sort_by(|a, b| b.received_at.cmp(&a.received_at));
++        jobs
++    }
+ 
+diff --git a/src/tui/ui_chrome.rs b/src/tui/ui_chrome.rs
+index 4a4bfa7..d9d190d 100644
+--- a/src/tui/ui_chrome.rs
++++ b/src/tui/ui_chrome.rs
+@@ -214,6 +214,13 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
+                 )
+             }
+         }
++        crate::repo_fleet::RepoFilter::Family { label, .. } => Span::styled(
++            format!(" repo:{} ", label),
++            Style::default()
++                .fg(Color::Black)
++                .bg(Color::Yellow)
++                .add_modifier(Modifier::BOLD),
++        ),
+         crate::repo_fleet::RepoFilter::Only { alias, .. } => Span::styled(
+             format!(" repo:{} ", alias),
+             Style::default()
+diff --git a/src/tui/repo_fleet_bar.rs b/src/tui/repo_fleet_bar.rs
+index 488df43..f96e5e5 100644
+--- a/src/tui/repo_fleet_bar.rs
++++ b/src/tui/repo_fleet_bar.rs
+@@ -18,28 +18,28 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
+ 
+     let focused = app.focus.active == crate::tui::focus::PaneId::FleetBar;
+ 
++    let scopes = app.state.fleet.scope_items();
+     let mut spans = Vec::new();
+-    let (running, failed, aged) = app.state.fleet.counts();
+-    let all_label = if app.state.fleet.repos.is_empty() {
+-        " All: none ".to_string()
+-    } else {
+-        format!(" All run:{} fail:{} aged:{} ", running, failed, aged)
+-    };
+-    spans.push(segment(all_label, app.selected_repo_index == 0, "local"));
+-
+-    for (idx, repo) in app.state.fleet.repos.iter().enumerate() {
+-        let index = idx + 1;
+-        let mut label = format!(
+-            " {} {} r{} f{}",
+-            repo.alias, repo.status, repo.running_count, repo.failed_count
+-        );
+-        if repo.stale {
+-            label.push_str(" aged");
+-        }
+-        if let Some(score) = repo.score_badge.as_deref() {
+-            label.push_str(" score:");
+-            label.push_str(score);
+-        }
+-        label.push(' ');
++    for (idx, scope) in scopes.iter().enumerate() {
++        let (running, failed, aged) = app.state.fleet.scope_counts(scope);
++        let label = match scope {
++            crate::repo_fleet::FleetScopeItem::All if app.state.fleet.repos.is_empty() => {
++                " All: none ".to_string()
++            }
++            crate::repo_fleet::FleetScopeItem::All => {
++                format!(" All run:{running} fail:{failed} aged:{aged} ")
++            }
++            crate::repo_fleet::FleetScopeItem::Family { label, repo_indexes, .. } => format!(
++                " {label} repos:{} run:{running} fail:{failed} aged:{aged} ",
++                repo_indexes.len()
++            ),
++            crate::repo_fleet::FleetScopeItem::Repo { repo_index } => app
++                .state
++                .fleet
++                .repos
++                .get(*repo_index)
++                .map(repo_chip_label)
++                .unwrap_or_else(|| " ? missing ".into()),
++        };
+         spans.push(Span::raw(" "));
+-        spans.push(segment(
+-            label,
+-            app.selected_repo_index == index,
+-            &repo.status,
+-        ));
++        spans.push(segment(label, app.selected_repo_index == idx, scope_status(&app.state.fleet, scope)));
+     }
+ 
+@@ -73,7 +73,7 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
+     f.render_widget(Clear, overlay);
+-    let title = if let Some(repo) = app.selected_repo() {
++    let title = if let Some(repo) = app.selected_repo() {
+         format!("Repo: {}", repo.alias)
++    } else if let crate::repo_fleet::FleetScopeItem::Family { label, .. } = app.selected_fleet_scope() {
++        format!("Repo family: {label}")
+     } else {
+         "Repo: All".to_string()
+     };
+@@ -128,6 +128,33 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
+             Line::from("Enter opens repo detail. Left/right or h/l selects a repo."),
+         ]
++    } else if let crate::repo_fleet::FleetScopeItem::Family { repo_indexes, label, .. } = app.selected_fleet_scope() {
++        let mut lines = vec![
++            Line::from(format!("Family: {label}  repos:{}", repo_indexes.len())),
++            Line::from(""),
++        ];
++        for idx in repo_indexes.iter().take(overlay_h.saturating_sub(5) as usize) {
++            if let Some(repo) = app.state.fleet.repos.get(*idx) {
++                lines.push(Line::from(vec![
++                    Span::styled(format!("{:<18}", repo.alias), status_style(&repo.status)),
++                    Span::raw(format!(
++                        " {:<8} r{} f{} {}",
++                        repo.status,
++                        repo.running_count,
++                        repo.failed_count,
++                        repo.latest_run
++                            .as_ref()
++                            .and_then(|run| run.updated_at.as_deref())
++                            .unwrap_or("no-run")
++                    )),
++                ]));
++            }
++        }
++        lines.push(Line::from(""));
++        lines.push(Line::from("Family scope is active. Esc returns to All."));
++        lines
+     };
+@@ -155,6 +182,31 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
+     );
+ }
++
++fn repo_chip_label(repo: &crate::repo_fleet::FleetRepoSnapshot) -> String {
++    let mut label = format!(
++        " {} {} r{} f{}",
++        repo.alias, repo.status, repo.running_count, repo.failed_count
++    );
++    if repo.stale {
++        label.push_str(" aged");
++    }
++    if let Some(score) = repo.score_badge.as_deref() {
++        label.push_str(" score:");
++        label.push_str(score);
++    }
++    label.push(' ');
++    label
++}
++
++fn scope_status(snapshot: &crate::repo_fleet::FleetSnapshot, scope: &crate::repo_fleet::FleetScopeItem) -> &'static str {
++    let (running, failed, aged) = snapshot.scope_counts(scope);
++    if failed > 0 { "failed" }
++    else if running > 0 { "running" }
++    else if aged > 0 { "aged" }
++    else { "green" }
++}
+ 
+ fn segment(label: String, selected: bool, status: &str) -> Span<'static> {
+@@ -206,8 +258,8 @@ mod tests {
+         terminal.draw(|f| draw_fleet_bar(f, &app, f.area()))?;
+         let text = rendered_text(&terminal);
+         assert!(text.contains("All run:1 fail:1 aged:0"));
+-        assert!(text.contains("nht running r1 f0"));
++        assert!(text.contains("veox-*"));
+         Ok(())
+     }
+diff --git a/src/tui/ui_panels_body_live_feed.rs b/src/tui/ui_panels_body_live_feed.rs
+index ac37fad..54cb038 100644
+--- a/src/tui/ui_panels_body_live_feed.rs
++++ b/src/tui/ui_panels_body_live_feed.rs
+@@ -28,12 +28,16 @@ pub(crate) fn format_elapsed(secs: f64) -> String {
+ }
+ 
+ pub(crate) fn draw_live_runner_feed(f: &mut Frame, app: &App, area: Rect) {
+-    let feeds = &app.state.runner_feeds;
+-    let active_idx = app.state.active_feed_index;
++    let feeds: Vec<_> = app
++        .state
++        .runner_feeds
++        .iter()
++        .filter(|feed| app.runner_feed_matches_repo_scope(feed))
++        .collect();
++    let active_idx = app.state.active_feed_index.min(feeds.len().saturating_sub(1));
+     let is_cycling = app.feed_pinned.is_none();
+@@ -50,7 +54,7 @@ pub(crate) fn draw_live_runner_feed(f: &mut Frame, app: &App, area: Rect) {
+     if feeds.is_empty() {
+         f.render_widget(
+@@ -67,7 +71,7 @@ pub(crate) fn draw_live_runner_feed(f: &mut Frame, app: &App, area: Rect) {
+         return;
+     }
+ 
+-    let feed = &feeds[active_idx.min(feeds.len().saturating_sub(1))];
++    let feed = feeds[active_idx];
+@@ -147,7 +151,7 @@ pub(crate) fn draw_live_runner_feed(f: &mut Frame, app: &App, area: Rect) {
+     // Runner indicator strip
+     let mut indicator_spans: Vec<Span> = vec![Span::raw(" ")];
+-    for (i, f_entry) in feeds.iter().enumerate() {
++    for (i, f_entry) in feeds.iter().copied().enumerate() {
+diff --git a/src/tui/ui_panels_body_pipeline_progress.rs b/src/tui/ui_panels_body_pipeline_progress.rs
+index 072cb45..8c00c76 100644
+--- a/src/tui/ui_panels_body_pipeline_progress.rs
++++ b/src/tui/ui_panels_body_pipeline_progress.rs
+@@ -100,7 +100,7 @@ pub(crate) fn draw_job_matrix(f: &mut Frame, app: &App, area: Rect) {
+ 
+     // Group jobs by stage/pool
+     let mut groups: Vec<(&str, Vec<&crate::state::JobEvent>)> = Vec::new();
+     let mut current_stage: Option<&str> = None;
+ 
+-    for job in &app.state.recent_jobs {
++    for job in app.scoped_recent_jobs() {
+         let stage = job.pool_name.as_deref().unwrap_or("default");
+         if current_stage != Some(stage) {
+diff --git a/src/tui/ui_panels_body.rs b/src/tui/ui_panels_body.rs
+index 9f6f750..a8e2c10 100644
+--- a/src/tui/ui_panels_body.rs
++++ b/src/tui/ui_panels_body.rs
+@@ -151,7 +151,7 @@ fn draw_ci_run_history_columns(f: &mut Frame, app: &App, area: Rect) {
+     let mut stable_jobs = Vec::new();
+ 
+-    for job in jobs {
++    for job in app.scoped_recent_jobs() {
+         let name = job
+             .job_name
+@@ -340,6 +340,7 @@ pub(crate) fn draw_jobs_tab(f: &mut Frame, app: &mut App, area: Rect) {
+     // TUI v2 — Split layout: Live Feed (60%) | Progress+Matrix (40%)
++    // Every child renderer reads App::repo_filter()/scoped_recent_jobs(); default is All.
+     let cols = Layout::default()
+diff --git a/src/tui/workflow/pr_rail.rs b/src/tui/workflow/pr_rail.rs
+index ee71a3f..161be5f 100644
+--- a/src/tui/workflow/pr_rail.rs
++++ b/src/tui/workflow/pr_rail.rs
+@@ -21,7 +21,7 @@ const TITLE_MAX: usize = 22;
+ 
+ pub fn draw_pr_rail(f: &mut Frame, area: Rect, snap: &DeliverySnapshot, theme: &Theme) {
+     draw_pr_rail_with_chrome(f, area, snap, theme, None, RepoFilter::All);
+ }
+@@ -33,7 +33,7 @@ pub(crate) fn draw_pr_rail_with_chrome(
+     snap: &DeliverySnapshot,
+     theme: &Theme,
+     chrome: Option<PaneChrome>,
+-    filter: RepoFilter<'_>,
++    filter: RepoFilter,
+ ) {
+@@ -135,7 +135,7 @@ pub fn pr_at_column(snap: &DeliverySnapshot, x_in_inner: u16) -> Option<usize> {
+ pub fn pr_at_column_filtered(
+     snap: &DeliverySnapshot,
+     x_in_inner: u16,
+-    filter: RepoFilter<'_>,
++    filter: RepoFilter,
+ ) -> Option<usize> {
+diff --git a/src/tui/workflow/widget.rs b/src/tui/workflow/widget.rs
+index 2798ba4..03a61b7 100644
+--- a/src/tui/workflow/widget.rs
++++ b/src/tui/workflow/widget.rs
+@@ -111,7 +111,7 @@ pub fn draw_delivery_tab_with_chrome(
+     hit_map: &mut DeliveryHitMap,
+     chrome: DeliveryChrome,
+-    repo_filter: crate::repo_fleet::RepoFilter<'_>,
++    repo_filter: crate::repo_fleet::RepoFilter,
+ ) {
+@@ -133,7 +133,7 @@ pub fn draw_delivery_tab_with_chrome(
+             theme,
+             chrome.pr_rail,
+-            repo_filter,
++            repo_filter.clone(),
+         );
+diff --git a/src/tui/app_runtime_demo_fixtures.rs b/src/tui/app_runtime_demo_fixtures.rs
+index a30225f..574dbdf 100644
+--- a/src/tui/app_runtime_demo_fixtures.rs
++++ b/src/tui/app_runtime_demo_fixtures.rs
+@@ -7,6 +7,9 @@ pub(super) fn demo_runner_feeds(now_str: &str) -> Vec<RunnerFeed> {
+         RunnerFeed {
+             runner_name: "trusted-01".into(),
++            project_id: Some(48),
++            repo_alias: Some("nht".into()),
++            repo_slug: Some("neverhuman/veox-nht".into()),
+             job_id: 9_002,
+@@ -19,6 +22,9 @@ pub(super) fn demo_runner_feeds(now_str: &str) -> Vec<RunnerFeed> {
+         RunnerFeed {
+             runner_name: "trusted-02".into(),
++            project_id: Some(49),
++            repo_alias: Some("shared".into()),
++            repo_slug: Some("neverhuman/veox-shared".into()),
+             job_id: 9_005,
+@@ -31,6 +37,9 @@ pub(super) fn demo_runner_feeds(now_str: &str) -> Vec<RunnerFeed> {
+         RunnerFeed {
+             runner_name: "security-01".into(),
++            project_id: Some(50),
++            repo_alias: Some("warp".into()),
++            repo_slug: Some("neverhuman/veox-warp".into()),
+             job_id: 9_004,
+diff --git a/src/tui/app_runtime_demo_state.rs b/src/tui/app_runtime_demo_state.rs
+index 47d0466..73f8b97 100644
+--- a/src/tui/app_runtime_demo_state.rs
++++ b/src/tui/app_runtime_demo_state.rs
+@@ -264,7 +264,7 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
+     use crate::repo_fleet::{FleetRepoSnapshot, FleetSnapshot, RepoLocalStatus, RepoRunSummary};
+ 
+     let repo =
+-        |alias: &str, slug: &str, status: &str, running: u32, failed: u32| FleetRepoSnapshot {
++        |alias: &str, slug: &str, project_id: i64, status: &str, running: u32, failed: u32| FleetRepoSnapshot {
+@@ -281,6 +281,7 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
+             stale: false,
+             score_badge: Some("92".into()),
++            project_id: Some(project_id),
+             local: RepoLocalStatus {
+@@ -307,9 +308,9 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
+         registry_path: ".jeryu/repos.toml".into(),
+         repos: vec![
+-            repo("nht", "neverhuman/veox-nht", "running", 1, 0),
+-            repo("shared", "neverhuman/veox-shared", "green", 0, 0),
+-            repo("warp", "neverhuman/veox-warp", "failed", 0, 1),
++            repo("nht", "neverhuman/veox-nht", 48, "running", 1, 0),
++            repo("shared", "neverhuman/veox-shared", 49, "green", 0, 0),
++            repo("warp", "neverhuman/veox-warp", 50, "failed", 0, 1),
+         ],
+         events: Vec::new(),
+diff --git a/docs/tui-multi-repo-scope.md b/docs/tui-multi-repo-scope.md
+new file mode 100644
+index 0000000..6b135c6
+--- /dev/null
++++ b/docs/tui-multi-repo-scope.md
+@@ -0,0 +1,116 @@
++# Jeryu TUI multi-repo scope design
++
++## Problem
++
++The current fleet bar renders every tracked repository left-to-right. That works
++for three repos, but it collapses once a workspace contains dozens of repos and
++families such as `veox-shared`, `veox-deploy`, `veox-nht`, and `veox-proofs`.
++Operators need one default cockpit that shows all work, then a fast way to narrow
++every pane to a repo family or one repo without losing runner-utilization context.
++
++## Scope model
++
++The TUI has one global scope:
++
++1. `All` — default. Every workflow, mission, release, approval, job, agent,
++   test, pool, cache, evidence, bug, secret, LLM, Git, and audit pane renders all
++   data.
++2. Family — any repo basename with a dash is grouped by the prefix before the
++   first dash. Examples: `veox-shared`, `veox-deploy`, and `veox-nht` become
++   `veox-*`. Family selection filters every pane to those repos.
++3. Repo — a single repository filter.
++
++The family key comes from the slug basename first, then alias as fallback, so
++short aliases like `shared` can still belong to `veox-*` when the slug is
++`neverhuman/veox-shared`.
++
++## Navigation
++
++- `Esc`: return to `All` from any selected family or repo.
++- Focus FleetBar, then left/right or `h/l`: move across `All`, families, and any
++  ungrouped repos. The bar is short because grouped repos no longer consume one
++  segment each.
++- `Enter` on a family: open the family detail overlay. The overlay lists child
++  repos by active/failed/recent order and confirms that family scope is active.
++- `Enter` on a repo: open the existing repo detail overlay.
++- Future follow-up: `/` search for repo/scope names and `Enter` inside a family
++  overlay to descend into child repos without returning to the bar.
++
++## Sorting
++
++All lists that represent work should be recent-first within the active scope:
++
++- Jobs: `received_at DESC`.
++- Runner feeds: `updated_at DESC` when multiple live feeds match the scope.
++- Repo families and repos in the fleet bar: active work first, then failures,
++  then latest run update.
++- Workflow PR rail: existing PR order, filtered by `repo_alias`/`repo_slug`.
++
++## Filtering contract
++
++Renderers must call `App::repo_filter()` or one of the scope helpers before
++drawing data. Data with no repo identifier is visible only in `All`, not inside a
++specific repo or family.
++
++Required identifiers by source:
++
++| Data | Identifier |
++| --- | --- |
++| Workflow PRs | `repo_alias` or `repo_slug` |
++| GitLab jobs | `project_id`, resolved through repo registry `project_id` |
++| Runner feeds | `project_id` plus optional `repo_alias`/`repo_slug` |
++| Pipelines | `project_id` |
++| Git/audit/evidence/cache | add repo slug/project id as migrations expose it |
++
++## Cache and data isolation
++
++No cache, runner workspace, or evidence namespace should be shared across project
++boundaries by default. The isolation key is:
++
++```text
++repo_scope_key = provider + ":" + slug-or-project-id
++```
++
++Use that key in:
++
++- runner working directories;
++- hot cache roots;
++- CAS object namespace metadata;
++- taint records;
++- evidence capsule paths;
++- log capture paths.
++
++Sharing across a family (`veox-*`) must be opt-in via registry policy, not an
++implicit consequence of family view filtering. A family scope is a UI aggregation,
++not a storage namespace.
++
++## Acceptance criteria
++
++- Starting the TUI selects `All` and shows all work.
++- Three repos named `veox-shared`, `veox-nht`, and `veox-warp` render as one
++  `veox-*` scope in the bar.
++- Selecting `veox-*` filters Workflow PRs, Jobs, runner feeds, and pipeline
++  matrices to those repos only.
++- Selecting an unrelated repo hides all `veox-*` jobs and PRs.
++- `Esc` always returns the UI to `All`.
++- Jobs are displayed most-recent first inside `All`, family, and repo scopes.
++- Cache/evidence/runner paths include repo scope keys so two projects do not
++  share mutable data accidentally.
++
++## Validation
++
++Run:
++
++```bash
++cargo test -p jeryu --lib repo_fleet
++cargo nextest run -p jeryu -- tui::repo_fleet_bar tui::runtime::input::navigation
++cargo run -p jeryu -- tui --demo --tab jobs --once
++```
++
++Add screenshot tests for:
++
++1. default `All` scope;
++2. family `veox-*` overlay;
++3. repo-only scope;
++4. empty scoped jobs.
