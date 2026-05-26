@@ -77,9 +77,28 @@ tokio = { version = "1", features = ["full"] }
 # CLI
 clap = { version = "4", features = ["derive"] }
 
-# Web framework (webhook receiver + admin API)
-axum = { version = "0.8", features = ["json"] }
-tower-http = { version = "0.6", features = ["cors", "trace"] }
+# Web framework (webhook receiver + admin API + Web Forge BFF)
+axum = { version = "0.8", features = ["json", "ws", "macros", "multipart"] }
+axum-extra = { version = "0.10", features = ["typed-header", "cookie"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "fs", "compression-gzip", "compression-br", "set-header", "request-id", "timeout"] }
+
+# Web Forge BFF support crates (see WEB_WORK_CLAUDE.md §3.1 / FINAL spec §6.1)
+tokio-stream = { version = "0.1", features = ["sync"] }
+headers = "0.4"
+bytes = "1"
+mime_guess = "2"
+async-stream = "0.3"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+ammonia = "4"
+comrak = { version = "0.37", default-features = false, optional = true }
+utoipa = { version = "5", features = ["chrono", "uuid", "axum_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
+ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
+schemars = { version = "1", features = ["chrono04", "uuid1"] }
+indexmap = { version = "2", features = ["serde"] }
+serde_with = "3"
+parking_lot = "0.12"
 
 # HTTP client (for GitLab API calls the gitlab crate doesn't cover)
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
@@ -146,14 +165,19 @@ async-trait = "0.1"
 # only as diagnostics; webhook handling rejects events without this feature.
 jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
 jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
-url = { version = "2", optional = true }
+# `url` is shared by jansu-backend and the Web Forge BFF — keep it non-optional.
+url = "2"
 
 [features]
 default = ["profile-sqlite-kafka", "demo-fixtures"]
+# Opt-in feature gating the JeRyu Web Forge BFF and frontend integration glue.
+# Off by default so non-web builds skip the additional surface; enable with
+# `cargo check --features web` (or `cargo build --features web`).
+web = []
 sqlite-backend = ["sqlx/sqlite"]
 redlinedb-backend = ["dep:redlinedb-sqlx"]
 kafka-backend = []
-jansu-backend = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
+jansu-backend = ["dep:jansu-embedded", "dep:jansu-sans-io"]
 profile-sqlite-kafka = ["sqlite-backend", "kafka-backend"]
 profile-redlinedb-jansu = ["redlinedb-backend", "jansu-broker"]
 # In-memory demo fixtures (5-PR walkthrough used by `jeryu tui --demo`).
