@@ -58,7 +58,10 @@ mod tests {
             .json::<serde_json::Value>()
             .await
             .unwrap();
-        assert_eq!(body.get("inspection_api_version").and_then(|v| v.as_str()), Some("api.v1"));
+        assert_eq!(
+            body.get("inspection_api_version").and_then(|v| v.as_str()),
+            Some("api.v1")
+        );
         handle.abort();
     }
 
@@ -81,7 +84,12 @@ mod tests {
             .json::<serde_json::Value>()
             .await
             .unwrap();
-        assert_eq!(body.get("items").and_then(|v| v.as_array()).map(|a| a.len()), Some(0));
+        assert_eq!(
+            body.get("items")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len()),
+            Some(0)
+        );
         handle.abort();
     }
 }

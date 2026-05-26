@@ -30,19 +30,35 @@ impl InspectionState {
     }
 
     pub fn read_model(&self) -> TuiReadModel {
-        self.inner.read_model.read().expect("inspection rwlock poisoned").clone()
+        self.inner
+            .read_model
+            .read()
+            .expect("inspection rwlock poisoned")
+            .clone()
     }
 
     pub fn replace_read_model(&self, next: TuiReadModel) {
-        *self.inner.read_model.write().expect("inspection rwlock poisoned") = next;
+        *self
+            .inner
+            .read_model
+            .write()
+            .expect("inspection rwlock poisoned") = next;
     }
 
     pub fn runtime_profile(&self) -> RuntimeProfile {
-        self.inner.runtime_profile.read().expect("inspection rwlock poisoned").clone()
+        self.inner
+            .runtime_profile
+            .read()
+            .expect("inspection rwlock poisoned")
+            .clone()
     }
 
     pub fn replace_runtime_profile(&self, next: RuntimeProfile) {
-        *self.inner.runtime_profile.write().expect("inspection rwlock poisoned") = next;
+        *self
+            .inner
+            .runtime_profile
+            .write()
+            .expect("inspection rwlock poisoned") = next;
     }
 }
 
