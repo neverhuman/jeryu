@@ -1,11 +1,11 @@
-use crate::tui::app::{ActiveTab, App};
-use ratatui::{
-    layout::Rect,
-    style::{Color, Modifier, Style},
-};
+//! Owner: Interactive TUI subsystem — focus pane identifiers.
+//! Proof: `cargo nextest run -p jeryu --lib tui::focus::`
+//! Invariants: every TUI pane is identified by a single `PaneId` variant;
+//! tab membership (`PaneId::tab`), labels (`PaneId::label`), and default
+//! pane per tab (`PaneId::default_for_tab`) are exhaustive over the variant
+//! set. `PaneId::FleetBar` is the only pane shared across tabs.
 
-#[path = "focus_map.rs"]
-mod focus_map;
+use crate::tui::app::ActiveTab;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PaneId {
@@ -71,94 +71,6 @@ pub enum NavDirection {
     Down,
     Left,
     Right,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct PaneChrome {
-    pub border_style: Style,
-    pub show_esc: bool,
-}
-
-impl PaneChrome {
-    pub fn title(self, label: &str) -> String {
-        title_with_esc(label, self.show_esc)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct FocusPane {
-    pub id: PaneId,
-    pub rect: Rect,
-}
-
-#[derive(Debug, Clone)]
-pub struct FocusMap {
-    pub tab: ActiveTab,
-    pub panes: Vec<FocusPane>,
-    pub esc_targets: Vec<(PaneId, Rect)>,
-}
-
-impl Default for FocusMap {
-    fn default() -> Self {
-        Self {
-            tab: ActiveTab::Workflow,
-            panes: Vec::new(),
-            esc_targets: Vec::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct FocusState {
-    pub active: PaneId,
-    pub stack: Vec<PaneId>,
-    pub fullscreen: Option<PaneId>,
-}
-
-impl Default for FocusState {
-    fn default() -> Self {
-        Self::for_tab(ActiveTab::Workflow)
-    }
-}
-
-impl FocusState {
-    pub fn for_tab(tab: ActiveTab) -> Self {
-        Self {
-            active: PaneId::default_for_tab(tab),
-            stack: Vec::new(),
-            fullscreen: None,
-        }
-    }
-
-    pub fn set_tab(&mut self, tab: ActiveTab) {
-        self.active = PaneId::default_for_tab(tab);
-        self.stack.clear();
-        self.fullscreen = None;
-    }
-
-    pub fn is_drilled(&self) -> bool {
-        self.fullscreen.is_some() || !self.stack.is_empty()
-    }
-
-    pub fn push(&mut self) {
-        self.stack.push(self.active);
-    }
-
-    pub fn pop(&mut self) -> bool {
-        if let Some(prev) = self.stack.pop() {
-            self.active = prev;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn escape(&mut self) -> bool {
-        if self.fullscreen.take().is_some() {
-            return self.pop();
-        }
-        self.pop()
-    }
 }
 
 impl PaneId {
@@ -395,78 +307,4 @@ impl PaneId {
             ],
         }
     }
-}
-
-pub fn border_color(app: &App, pane: PaneId) -> Color {
-    let is_maximized_active_log =
-        app.maximize_logs && matches!(pane, PaneId::ActivityLog(tab) if tab == app.active_tab);
-
-    if app.focus.fullscreen == Some(pane) || is_maximized_active_log {
-        Color::Cyan
-    } else if app.focus.active == pane {
-        Color::Yellow
-    } else if app.focus.stack.last().copied() == Some(pane) {
-        Color::Magenta
-    } else {
-        Color::DarkGray
-    }
-}
-
-pub fn border_style(app: &App, pane: PaneId) -> Style {
-    let mut style = Style::default().fg(border_color(app, pane));
-    if app.focus.active == pane || app.focus.fullscreen == Some(pane) {
-        style = style.add_modifier(Modifier::BOLD);
-    }
-    style
-}
-
-pub fn is_active(app: &App, pane: PaneId) -> bool {
-    app.focus.active == pane
-        || app.focus.fullscreen == Some(pane)
-        || (app.maximize_logs && matches!(pane, PaneId::ActivityLog(tab) if tab == app.active_tab))
-}
-
-pub fn should_show_esc(app: &App, pane: PaneId) -> bool {
-    is_active(app, pane) || app.focus.stack.last().copied() == Some(pane)
-}
-
-pub fn should_show_drill_esc(app: &App, pane: PaneId) -> bool {
-    app.focus.is_drilled() && should_show_esc(app, pane)
-}
-
-pub fn pane_chrome(app: &App, pane: PaneId) -> PaneChrome {
-    PaneChrome {
-        border_style: border_style(app, pane),
-        show_esc: should_show_drill_esc(app, pane),
-    }
-}
-
-pub fn register_pane(app: &mut App, pane: PaneId, rect: Rect) {
-    app.focus_map.register(pane, rect);
-}
-
-pub fn register_esc_hotspot(app: &mut App, pane: PaneId, rect: Rect) {
-    if should_show_esc(app, pane) {
-        // Make the full title row clickable so the close affordance is not
-        // sensitive to title placement or terminal width differences.
-        if rect.width > 0 {
-            let esc = Rect::new(rect.x, rect.y, rect.width, 1);
-            app.focus_map.register_esc(pane, esc);
-        }
-    }
-}
-
-pub fn register_drill_esc_hotspot(app: &mut App, pane: PaneId, rect: Rect) {
-    if should_show_drill_esc(app, pane) && rect.width > 0 {
-        let esc = Rect::new(rect.x, rect.y, rect.width, 1);
-        app.focus_map.register_esc(pane, esc);
-    }
-}
-
-pub fn esc_label(active: bool) -> &'static str {
-    if active { " [esc] " } else { "" }
-}
-
-pub fn title_with_esc(label: &str, show_esc: bool) -> String {
-    format!(" {label}{} ", esc_label(show_esc))
 }

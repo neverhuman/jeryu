@@ -1,4 +1,36 @@
-use super::*;
+//! Owner: Interactive TUI subsystem — focus pane rect map and hit-test.
+//! Proof: `cargo nextest run -p jeryu --lib tui::focus::`
+//! Invariants: `FocusMap.panes` records rects in registration (paint) order
+//! so `pane_at` returns the topmost overlapping pane via reverse-scan. Zero-
+//! area rects are ignored. `neighbor` finds the nearest pane in a direction
+//! using axis-overlap as a gate and weighted Manhattan distance as score.
+
+use super::pane::{NavDirection, PaneId};
+use crate::tui::app::ActiveTab;
+use ratatui::layout::Rect;
+
+#[derive(Debug, Clone)]
+pub struct FocusPane {
+    pub id: PaneId,
+    pub rect: Rect,
+}
+
+#[derive(Debug, Clone)]
+pub struct FocusMap {
+    pub tab: ActiveTab,
+    pub panes: Vec<FocusPane>,
+    pub esc_targets: Vec<(PaneId, Rect)>,
+}
+
+impl Default for FocusMap {
+    fn default() -> Self {
+        Self {
+            tab: ActiveTab::Workflow,
+            panes: Vec::new(),
+            esc_targets: Vec::new(),
+        }
+    }
+}
 
 impl FocusMap {
     pub fn clear_for_tab(&mut self, tab: ActiveTab) {
