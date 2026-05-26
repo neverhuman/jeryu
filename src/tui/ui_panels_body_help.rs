@@ -25,6 +25,7 @@ pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
         ActiveTab::Pools => "Pools",
         ActiveTab::Cache => "Cache",
         ActiveTab::Evidence => "Evidence",
+        ActiveTab::Repos => "Repos",
         ActiveTab::Bugs => "Bugs",
         ActiveTab::LLMs => "LLMs",
         ActiveTab::Git => "Git",

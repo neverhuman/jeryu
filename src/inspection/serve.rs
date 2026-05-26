@@ -111,4 +111,38 @@ mod tests {
         assert_eq!(items_len, Some(0));
         handle.abort();
     }
+
+    #[tokio::test]
+    async fn repos_route_returns_envelope() {
+        let (base, handle) = spawn_inspection().await;
+        let body = reqwest::get(format!("{base}/api/v1/repos"))
+            .await
+            .unwrap()
+            .json::<serde_json::Value>()
+            .await
+            .unwrap();
+        assert_eq!(
+            body.get("api_version").and_then(|v| v.as_str()),
+            Some("api.v1")
+        );
+        assert!(body.get("data").and_then(|d| d.get("repos")).is_some());
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn families_route_returns_envelope() {
+        let (base, handle) = spawn_inspection().await;
+        let body = reqwest::get(format!("{base}/api/v1/families"))
+            .await
+            .unwrap()
+            .json::<serde_json::Value>()
+            .await
+            .unwrap();
+        assert_eq!(
+            body.get("api_version").and_then(|v| v.as_str()),
+            Some("api.v1")
+        );
+        assert!(body.get("data").and_then(|d| d.as_array()).is_some());
+        handle.abort();
+    }
 }

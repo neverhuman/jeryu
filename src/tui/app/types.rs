@@ -16,6 +16,7 @@ pub enum ActiveTab {
     Pools,
     Cache,
     Evidence,
+    Repos,
     Bugs,
     LLMs,
     Git,

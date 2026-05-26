@@ -9,7 +9,10 @@ use super::entity::{ActionRef, BlockerSummary, DataFreshness, EntityRef, HealthL
 
 #[path = "read_model_health.rs"]
 mod health;
+#[path = "read_model_repos.rs"]
+mod repos;
 pub use health::{ComponentHealth, RunnerHealth};
+pub use repos::{RepoFamilySummary, RepoSummary, ReposSnapshot};
 
 /// Schema version for forward-compatibility checks.
 pub const SCHEMA_VERSION: &str = "tui.v1.0";
@@ -26,6 +29,8 @@ pub struct TuiReadModel {
     pub event_cursor: u64,
     pub freshness: DataFreshness,
     pub mission: MissionSnapshot,
+    #[serde(default)]
+    pub repos: ReposSnapshot,
     pub attention: Vec<AttentionItem>,
     pub next_action: Option<NextActionRecommendation>,
     pub system: SystemHealth,
@@ -39,6 +44,7 @@ impl Default for TuiReadModel {
             event_cursor: 0,
             freshness: DataFreshness::default(),
             mission: MissionSnapshot::default(),
+            repos: ReposSnapshot::default(),
             attention: Vec::new(),
             next_action: None,
             system: SystemHealth::default(),
@@ -208,5 +214,11 @@ mod tests {
         assert!(mission.safe_to_code);
         assert!(!mission.safe_to_merge);
         assert!(!mission.safe_to_release);
+    }
+
+    #[test]
+    fn default_read_model_has_empty_repos_snapshot() {
+        let model = TuiReadModel::default();
+        assert_eq!(model.repos, ReposSnapshot::default());
     }
 }

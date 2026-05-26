@@ -73,7 +73,10 @@ fn key_enter_drills_top_waiting_job() {
 
 #[test]
 fn key_esc_pops_route() {
-    assert_eq!(handle_key(&k(KeyCode::Esc), &input()), QueueIntent::PopRoute);
+    assert_eq!(
+        handle_key(&k(KeyCode::Esc), &input()),
+        QueueIntent::PopRoute
+    );
 }
 
 #[test]

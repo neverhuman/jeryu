@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779813322`
-- Started at: `1779813322`
-- Elapsed: `7178` ms
+- Run ID: `1779817654`
+- Started at: `1779817654`
+- Elapsed: `7002` ms
 - Scope: `full`
 - Raw score: `89`
 - Final score: `89`
@@ -70,7 +70,7 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`24` files=`464`
+- Status: `review` hard=`0` warning=`24` files=`466`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
 - Duplicate volume: lines=`38` tokens=`89` bytes=`923`
 
@@ -81,14 +81,14 @@
 
 | Kind | Severity | Language | Lines | Tokens | Instances | Reason |
 | --- | --- | --- | ---: | ---: | --- | --- |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose_workspace.rs:166-167, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:118-119, src/api/entity.rs:127-128, src/api/entity.rs:150-151, src/api/entity.rs:160-161, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:74-75, src/runtime_support/mod.rs:103-104, src/runtime_support/mod.rs:131-132, src/runtime_support/mod.rs:138-139, src/runtime_support/mod.rs:172-173` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `crates/cargo-witness/src/diagnose_workspace.rs:166-167, src/api/agent_session.rs:123-124, src/api/agent_session.rs:198-199, src/api/entity.rs:122-123, src/api/entity.rs:131-132, src/api/entity.rs:154-155, src/api/entity.rs:164-165, src/api/snapshot.rs:87-88, src/api/snapshot.rs:140-141, src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:74-75, src/runtime_support/mod.rs:103-104, src/runtime_support/mod.rs:131-132, src/runtime_support/mod.rs:138-139, src/runtime_support/mod.rs:172-173` | `same body appears under different names across files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 4 | `db/state.rs:1789-1790, db/state.rs:1852-1853, db/state.rs:1887-1888, db/state.rs:1981-1982, db/state.rs:1994-1995, db/state.rs:2053-2054, db/state.rs:2152-2153, db/state.rs:2710-2711, db/state.rs:3061-3062, db/state.rs:3088-3089, db/state.rs:3115-3116, db/state.rs:3134-3135` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 6 | 22 | `crates/cargo-aer/src/helpers.rs:93-99, crates/cargo-vrc/src/planner_support_paths.rs:168-174` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 2 | 3 | `src/capability_execute.rs:86-88, src/capability_inspect.rs:20-22, src/capability_inspect_read.rs:132-134` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:2324-2325, db/state.rs:3161-3162, db/state.rs:3199-3200, db/state.rs:3301-3302` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/bugtracker/types_enums.rs:71-72, src/bugtracker/types_enums.rs:158-159, src/runtime_support/mod.rs:57-58, src/runtime_support/mod.rs:103-104` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:118-119, src/api/entity.rs:150-151, src/api/snapshot.rs:140-141` | `same-name semantic unit copied across multiple files` |
-| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:127-128, src/api/entity.rs:160-161, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:123-124, src/api/entity.rs:122-123, src/api/entity.rs:154-155, src/api/snapshot.rs:140-141` | `same-name semantic unit copied across multiple files` |
+| `ExactUnitSameName` | `Warning` | `rust` | 1 | 2 | `src/api/agent_session.rs:198-199, src/api/entity.rs:131-132, src/api/entity.rs:164-165, src/api/snapshot.rs:87-88` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `src/git_host/gitlab.rs:113-114, src/git_host/gitlab.rs:125-126, src/git_host/gitlab.rs:146-147` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:37-38, src/runtime_support/mod.rs:83-84, src/runtime_support/mod.rs:147-148` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 3 | `src/runtime_support/mod.rs:45-46, src/runtime_support/mod.rs:91-92, src/runtime_support/mod.rs:155-156` | `same-name semantic unit copied across multiple files` |
@@ -104,7 +104,7 @@
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 5 | `db/state.rs:2226-2227, db/state.rs:2904-2905` | `same body appears under different names across files` |
 | `ExactUnitSameName` | `Warning` | `rust` | 1 | 4 | `src/runtime_support/mod.rs:64-65, src/runtime_support/mod.rs:110-111` | `same-name semantic unit copied across multiple files` |
 | `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 2 | `db/state.rs:672-673, db/state.rs:679-680` | `same body appears under different names across files` |
-| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/api/entity.rs:191-192, src/gateway/singleflight.rs:64-65` | `same body appears under different names across files` |
+| `ExactUnitDifferentName` | `Warning` | `rust` | 1 | 1 | `src/api/entity.rs:195-196, src/gateway/singleflight.rs:64-65` | `same body appears under different names across files` |
 
 ## Dimensions
 

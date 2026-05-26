@@ -81,6 +81,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         ActiveTab::Pools => draw_pools_tab(f, app, chunks[2]),
         ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[2]),
         ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[2]),
+        ActiveTab::Repos => draw_repos_tab(f, app, chunks[2]),
         ActiveTab::Bugs => draw_bugs_tab(f, app, chunks[2]),
         ActiveTab::LLMs => draw_llms_tab(f, app, chunks[2]),
         ActiveTab::Git => draw_git_tab(f, app, chunks[2]),
@@ -100,6 +101,13 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     if app.repo_detail_open {
         crate::tui::repo_fleet_bar::draw_repo_detail_overlay(f, app);
     }
+}
+
+fn draw_repos_tab(f: &mut Frame, app: &mut App, area: Rect) {
+    focus::register_pane(app, PaneId::ReposLens, area);
+    focus::register_drill_esc_hotspot(app, PaneId::ReposLens, area);
+    let input = crate::tui::lenses::repos::ReposLensInput::from_fleet_snapshot(&app.state.fleet);
+    crate::tui::lenses::repos::draw(f, &input, area);
 }
 
 fn draw_workflow_tab(f: &mut Frame, app: &mut App, area: Rect) {
