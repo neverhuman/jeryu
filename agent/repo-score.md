@@ -7,9 +7,9 @@
 - Target stack ID: `rust-ts-vite-react-redline-bounded-python`
 - Target stack: `Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service`
 - Repo: `.`
-- Run ID: `1779820980`
-- Started at: `1779820980`
-- Elapsed: `7109` ms
+- Run ID: `1779822469`
+- Started at: `1779822469`
+- Elapsed: `7151` ms
 - Scope: `full`
 - Raw score: `89`
 - Final score: `89`
@@ -70,7 +70,7 @@
 
 ## Copy-Code Redundancy
 
-- Status: `review` hard=`0` warning=`24` files=`466`
+- Status: `review` hard=`0` warning=`24` files=`467`
 - Policy: min-lines=`10` min-tokens=`100` max-findings=`50` include-tests=`false` strict=`false`
 - Duplicate volume: lines=`38` tokens=`89` bytes=`923`
 

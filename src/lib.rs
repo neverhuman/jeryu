@@ -116,6 +116,7 @@ pub mod runner_backend_local;
 pub mod runner_backend_registry;
 pub mod runner_backend_remote;
 pub mod runner_backend_remote_support;
+pub mod runner_scheduler;
 pub mod runtime_support;
 pub mod sandbox;
 pub mod sccache_mgr;

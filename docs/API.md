@@ -254,17 +254,17 @@ Runs the risk gate before accepting a merge request.
 
 ### 4.9 Test Runner and VTI Controls
 
-#### `jeryu test run --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600] [--force]`
+#### `jeryu test run --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix] [--force]`
 
-Runs one test command through an ephemeral GitLab CI branch and dynamic `.gitlab-ci.yml`. Infers tags/risk/timeout unless tags are supplied. Checks local test cache unless `--force`. Creates scratch branch, commits CI config, waits, prints result, records execution, cleans up.
+Runs one test command through an ephemeral GitLab CI branch and dynamic `.gitlab-ci.yml`. Infers tags/risk/timeout unless tags are supplied. Checks local test cache unless `--force`. Scheduler reason defaults urgent cherry-pick, test-fix, and release-fix submissions to high priority; explicit `--priority override` preempts normal work.
 
-#### `jeryu test plan --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600]`
+#### `jeryu test plan --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix]`
 
-Prints inferred risk class, tags, timeout, and rationale without running.
+Prints inferred risk class, scheduler priority, tags, timeout, and rationale without running.
 
-#### `jeryu test batch --command <cmd> ... [--max-parallel 3] [--force]`
+#### `jeryu test batch --command <cmd> ... [--max-parallel 3] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix] [--force]`
 
-Runs multiple test commands in parallel through separate CI pipelines.
+Runs multiple test commands through separate CI pipelines. The shared scheduler orders submissions by override/high/normal/low priority, then round-robins equal-priority work across projects so one noisy project cannot monopolize the queue.
 
 #### `jeryu test results <pipeline_id> [--project-id 48]`
 
