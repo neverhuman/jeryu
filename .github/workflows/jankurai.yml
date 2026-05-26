@@ -72,6 +72,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      security-events: write # SARIF upload to GitHub Security tab
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -112,6 +113,12 @@ jobs:
             target/jankurai/repo-score.md
             target/jankurai/jankurai.sarif
             target/jankurai/repair-queue.jsonl
+      - name: Upload SARIF to GitHub Security
+        if: always() && hashFiles('target/jankurai/jankurai.sarif') != ''
+        uses: github/codeql-action/upload-sarif@d6bbdef45e766d081b84a2def353b0055f728d3e # v3
+        with:
+          sarif_file: target/jankurai/jankurai.sarif
+          category: jankurai
 
   proof:
     name: Proof lanes
