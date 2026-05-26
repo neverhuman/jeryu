@@ -29,7 +29,7 @@ pub fn jankurai_regression() -> TuiReadModel {
             recommended_action: Some(ActionRef {
                 action_id: "plan_validation".into(),
                 label: "Plan validation pass".into(),
-                risk: Some(RiskTier::Low),
+                risk: Some(RiskTier::R1),
             }),
         }),
         active_agents: 3,
@@ -58,7 +58,7 @@ pub fn jankurai_regression() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "plan_validation".into(),
             label: "Plan validation pass".into(),
-            risk: Some(RiskTier::Low),
+            risk: Some(RiskTier::R1),
         }],
         created_at: ts(20, 50, 0),
         last_seen_at: ts(21, 0, 0),

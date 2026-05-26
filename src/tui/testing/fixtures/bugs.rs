@@ -48,7 +48,7 @@ pub fn bug_ready() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "bug_ready".into(),
             label: "Mark ready".into(),
-            risk: Some(RiskTier::Low),
+            risk: Some(RiskTier::R1),
         }],
         created_at: ts(18, 55, 0),
         last_seen_at: ts(19, 0, 0),
@@ -102,7 +102,7 @@ pub fn bug_blocked() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "bug_update".into(),
             label: "Update blocker note".into(),
-            risk: Some(RiskTier::Low),
+            risk: Some(RiskTier::R1),
         }],
         created_at: ts(18, 30, 0),
         last_seen_at: ts(19, 5, 0),

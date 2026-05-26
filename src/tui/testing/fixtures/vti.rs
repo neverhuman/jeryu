@@ -29,7 +29,7 @@ pub fn vti_miss() -> TuiReadModel {
             recommended_action: Some(ActionRef {
                 action_id: "run_tests".into(),
                 label: "Run impacted test plan".into(),
-                risk: Some(RiskTier::Low),
+                risk: Some(RiskTier::R1),
             }),
         }),
         active_agents: 2,
@@ -58,7 +58,7 @@ pub fn vti_miss() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "run_tests".into(),
             label: "Run impacted test plan".into(),
-            risk: Some(RiskTier::Low),
+            risk: Some(RiskTier::R1),
         }],
         created_at: ts(16, 55, 0),
         last_seen_at: ts(17, 0, 0),

@@ -74,7 +74,7 @@ impl Default for ActionPreview {
         Self {
             enabled: false,
             disabled_reason: Some("no handler registered".into()),
-            risk: RiskTier::ReadOnly,
+            risk: RiskTier::R0,
             side_effect_class: SideEffectClass::ReadOnly,
             side_effects: Vec::new(),
             will_not: Vec::new(),

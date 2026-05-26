@@ -55,7 +55,7 @@ pub fn agent_race() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "race_patches".into(),
             label: "Race patches".into(),
-            risk: Some(RiskTier::High),
+            risk: Some(RiskTier::R3),
         }],
         created_at: ts(17, 55, 0),
         last_seen_at: ts(18, 0, 0),

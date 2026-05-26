@@ -58,7 +58,7 @@ pub async fn post_action_preview(
     Json(ActionPreview {
         enabled: false,
         disabled_reason: Some("preview not yet wired".into()),
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
         side_effect_class: SideEffectClass::ReadOnly,
         side_effects: Vec::new(),
         will_not: Vec::new(),

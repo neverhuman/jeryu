@@ -26,7 +26,7 @@ pub fn incident_pinned() -> TuiReadModel {
         recommended_action: Some(ActionRef {
             action_id: "fetch_capsule".into(),
             label: "Fetch incident capsule".into(),
-            risk: Some(RiskTier::ReadOnly),
+            risk: Some(RiskTier::R0),
         }),
     };
     m.mission = MissionSnapshot {
@@ -61,7 +61,7 @@ pub fn incident_pinned() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "fetch_capsule".into(),
             label: "Fetch incident capsule".into(),
-            risk: Some(RiskTier::ReadOnly),
+            risk: Some(RiskTier::R0),
         }],
         created_at: ts(21, 50, 0),
         last_seen_at: ts(22, 0, 0),
@@ -70,14 +70,14 @@ pub fn incident_pinned() -> TuiReadModel {
         action_ref: ActionRef {
             action_id: "fetch_capsule".into(),
             label: "Fetch incident capsule".into(),
-            risk: Some(RiskTier::ReadOnly),
+            risk: Some(RiskTier::R0),
         },
         label: "Pull incident evidence".into(),
         why: "Incident open; evidence required before declaring resolved.".into(),
         entity: Some(inc_entity),
         confidence: 0.96,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     let mut sys = healthy_system(4, 5);
     sys.gitlab = degraded_component("gitlab", "5xx burst", 120);
@@ -126,7 +126,7 @@ pub fn incident_recovered() -> TuiReadModel {
         recommended_actions: vec![ActionRef {
             action_id: "fetch_capsule".into(),
             label: "Read postmortem".into(),
-            risk: Some(RiskTier::ReadOnly),
+            risk: Some(RiskTier::R0),
         }],
         created_at: ts(22, 25, 0),
         last_seen_at: ts(22, 30, 0),

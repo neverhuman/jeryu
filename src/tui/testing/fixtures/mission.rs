@@ -35,13 +35,13 @@ pub fn healthy() -> TuiReadModel {
         ..MissionSnapshot::default()
     };
     m.next_action = Some(NextActionRecommendation {
-        action_ref: action("next_action", "Continue", RiskTier::ReadOnly),
+        action_ref: action("next_action", "Continue", RiskTier::R0),
         label: "Continue normal operations".into(),
         why: "Fleet healthy; no blockers.".into(),
         entity: None,
         confidence: 0.98,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     m.system = healthy_system(8, 4);
     m
@@ -61,7 +61,7 @@ pub fn degraded() -> TuiReadModel {
             severity: Severity::Error,
             summary: "main pipeline 42137 failed on cache_warm stage".into(),
             entity: Some(pipe.clone()),
-            recommended_action: Some(action("open_logs", "Open logs", RiskTier::ReadOnly)),
+            recommended_action: Some(action("open_logs", "Open logs", RiskTier::R0)),
         }),
         active_agents: 3,
         blocked_agents: 1,
@@ -86,18 +86,18 @@ pub fn degraded() -> TuiReadModel {
         why_it_matters: "Merge gate red; downstream releases blocked.".into(),
         entity: pipe.clone(),
         evidence: vec!["capsule:cap-42137-cache".into()],
-        recommended_actions: vec![action("open_logs", "Open logs", RiskTier::ReadOnly)],
+        recommended_actions: vec![action("open_logs", "Open logs", RiskTier::R0)],
         created_at: ts(11, 55, 0),
         last_seen_at: ts(12, 4, 30),
     });
     m.next_action = Some(NextActionRecommendation {
-        action_ref: action("open_logs", "Open logs", RiskTier::ReadOnly),
+        action_ref: action("open_logs", "Open logs", RiskTier::R0),
         label: "Inspect failing pipeline".into(),
         why: "Pipeline 42137 cache_warm stage failed; root cause unknown.".into(),
         entity: Some(pipe),
         confidence: 0.82,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     let mut sys = healthy_system(6, 3);
     sys.cache = degraded_component("cache", "hit ratio 62%", 45);
@@ -114,7 +114,7 @@ pub fn incident() -> TuiReadModel {
     m.event_cursor = 800;
     m.freshness = fresh(800, 600, 1_000, 700, 900, false);
     let rel = EntityRef::new(EntityKind::ReleaseAttempt, "rel-12.0.0");
-    let explain = action("explain_blockers", "Explain blockers", RiskTier::ReadOnly);
+    let explain = action("explain_blockers", "Explain blockers", RiskTier::R0);
     m.mission = MissionSnapshot {
         overall: HealthLevel::Critical,
         safe_to_code: false,
@@ -157,7 +157,7 @@ pub fn incident() -> TuiReadModel {
         entity: Some(rel),
         confidence: 0.95,
         safety: ActionSafety::Safe,
-        risk: RiskTier::ReadOnly,
+        risk: RiskTier::R0,
     });
     let mut sys = healthy_system(1, 3);
     sys.cache = degraded_component("cache", "miss rate 69%", 45);
