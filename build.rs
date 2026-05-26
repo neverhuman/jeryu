@@ -13,8 +13,8 @@
 // Consumers use env!("JERYU_FULL_VERSION") instead of env!("CARGO_PKG_VERSION").
 
 fn main() {
-    let base = std::env::var("CARGO_PKG_VERSION")
-        .expect("CARGO_PKG_VERSION is always set by Cargo");
+    let base =
+        std::env::var("CARGO_PKG_VERSION").expect("CARGO_PKG_VERSION is always set by Cargo");
 
     let meta = std::env::var("JERYU_BUILD_META")
         .ok()
