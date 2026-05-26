@@ -99,10 +99,7 @@ pub fn render(f: &mut Frame, props: &LogViewerProps, area: Rect, palette: &Palet
             Style::default()
         };
         let spans = vec![
-            Span::styled(
-                format!(" {} ", ln.timestamp),
-                base.fg(palette.stale),
-            ),
+            Span::styled(format!(" {} ", ln.timestamp), base.fg(palette.stale)),
             Span::styled(
                 format!("{} ", ln.level.label()),
                 base.fg(ln.level.color(palette))
@@ -113,10 +110,7 @@ pub fn render(f: &mut Frame, props: &LogViewerProps, area: Rect, palette: &Palet
                 base.fg(palette.cache),
             ),
             Span::styled(
-                truncate(
-                    ln.message,
-                    inner.width.saturating_sub(32) as usize,
-                ),
+                truncate(ln.message, inner.width.saturating_sub(32) as usize),
                 base.fg(palette.running),
             ),
         ];

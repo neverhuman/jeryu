@@ -164,11 +164,9 @@ impl ActionEntry {
         // here (tested by `mutating_actions_require_grants`).
         match self.id {
             // R1 — local jeryu-state mutation.
-            "remove_record"
-            | "pause_pool"
-            | "bug_submit"
-            | "bug_update"
-            | "bug_record_attempt" => SideEffectClass::LocalState,
+            "remove_record" | "pause_pool" | "bug_submit" | "bug_update" | "bug_record_attempt" => {
+                SideEffectClass::LocalState
+            }
             // R2 — CI execution (triggers pipelines).
             "requeue_job" | "run_tests" => SideEffectClass::CiExecution,
             // R3 — Git/repo write.

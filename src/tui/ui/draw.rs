@@ -17,10 +17,10 @@ use super::overlay::draw_workflow_inspect_overlay;
 // re-exported wholesale via `super::*` so name resolution lands here
 // without forcing visibility changes in those legacy files.
 use super::{
-    draw_agents_tab, draw_approvals_tab, draw_bugs_tab, draw_cache_dashboard,
-    draw_command_palette, draw_evidence_tab, draw_footer, draw_git_tab, draw_header_tabs,
-    draw_help_overlay, draw_jank_tab, draw_jobs_tab, draw_llms_tab, draw_mission_tab,
-    draw_pools_tab, draw_release_tab, draw_secrets_tab, draw_tests_tab,
+    draw_agents_tab, draw_approvals_tab, draw_bugs_tab, draw_cache_dashboard, draw_command_palette,
+    draw_evidence_tab, draw_footer, draw_git_tab, draw_header_tabs, draw_help_overlay,
+    draw_jank_tab, draw_jobs_tab, draw_llms_tab, draw_mission_tab, draw_pools_tab,
+    draw_release_tab, draw_secrets_tab, draw_tests_tab,
 };
 
 pub fn draw(f: &mut Frame, app: &mut App) {

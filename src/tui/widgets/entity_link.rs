@@ -34,10 +34,7 @@ pub fn render(f: &mut Frame, props: &EntityLinkProps, area: Rect, palette: &Pale
     if area.width == 0 || area.height == 0 {
         return;
     }
-    f.render_widget(
-        Paragraph::new(Line::from(link_span(props, palette))),
-        area,
-    );
+    f.render_widget(Paragraph::new(Line::from(link_span(props, palette))), area);
 }
 
 #[cfg(test)]

@@ -43,7 +43,10 @@ pub(super) fn draw_workflow_inspect_overlay(f: &mut Frame, app: &App) {
         };
 
         lines.push(Line::from(vec![
-            Span::styled(format!("  {} ", node.status.glyph()), theme.bold(status_color)),
+            Span::styled(
+                format!("  {} ", node.status.glyph()),
+                theme.bold(status_color),
+            ),
             Span::styled(
                 node.label.clone(),
                 Style::default()

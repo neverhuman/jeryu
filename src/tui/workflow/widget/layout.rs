@@ -205,12 +205,7 @@ fn edge_color_for(node: &WorkflowNode, theme: &Theme) -> Color {
 }
 
 /// Draw a small viewport position indicator in the bottom-right corner.
-pub(super) fn draw_viewport_indicator(
-    f: &mut Frame,
-    area: Rect,
-    nav: &WorkflowNav,
-    theme: &Theme,
-) {
+pub(super) fn draw_viewport_indicator(f: &mut Frame, area: Rect, nav: &WorkflowNav, theme: &Theme) {
     if nav.canvas_height <= 0 || area.height == 0 {
         return;
     }

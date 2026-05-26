@@ -68,13 +68,10 @@ pub fn render(f: &mut Frame, props: &ProgressBarProps, area: Rect, palette: &Pal
                     s.push(' ');
                 }
             }
-            let band_area = Rect::new(
-                area.x + label_width,
-                area.y + 1,
-                bar_width,
-                1,
-            );
-            let band_style = Style::default().fg(palette.warn).add_modifier(Modifier::DIM);
+            let band_area = Rect::new(area.x + label_width, area.y + 1, bar_width, 1);
+            let band_style = Style::default()
+                .fg(palette.warn)
+                .add_modifier(Modifier::DIM);
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled(s, band_style))),
                 band_area,

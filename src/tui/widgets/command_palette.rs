@@ -80,7 +80,10 @@ pub fn render(f: &mut Frame, props: &CommandPaletteProps, area: Rect, palette: &
     } else {
         Line::from(vec![
             Span::styled(": ", Style::default().fg(palette.warn)),
-            Span::styled(props.query.to_string(), Style::default().fg(palette.running)),
+            Span::styled(
+                props.query.to_string(),
+                Style::default().fg(palette.running),
+            ),
         ])
     };
     f.render_widget(Paragraph::new(cursor_indicator), sections[0]);
@@ -102,14 +105,8 @@ pub fn render(f: &mut Frame, props: &CommandPaletteProps, area: Rect, palette: &
                 format!(" {:<4} ", e.risk),
                 Style::default().fg(palette.warn),
             ),
-            Span::styled(
-                format!("{:<28} ", truncate(e.label, 28)),
-                row_style,
-            ),
-            Span::styled(
-                format!("{}", e.id),
-                Style::default().fg(palette.stale),
-            ),
+            Span::styled(format!("{:<28} ", truncate(e.label, 28)), row_style),
+            Span::styled(format!("{}", e.id), Style::default().fg(palette.stale)),
         ]));
     }
     f.render_widget(Paragraph::new(lines), sections[1]);
@@ -118,7 +115,9 @@ pub fn render(f: &mut Frame, props: &CommandPaletteProps, area: Rect, palette: &
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             format!(" {} ", props.footer),
-            Style::default().fg(palette.stale).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(palette.stale)
+                .add_modifier(Modifier::DIM),
         ))),
         sections[2],
     );

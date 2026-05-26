@@ -31,13 +31,13 @@ pub fn draw(f: &mut Frame, input: &SourceDoctorLensInput, area: Rect) {
 fn draw_header(f: &mut Frame, input: &SourceDoctorLensInput, area: Rect) {
     let text = format!(
         "Source Doctor — {}/{} healthy  |  {} degraded  |  Cursor: {}",
-        input.sources_healthy,
-        input.sources_total,
-        input.sources_degraded,
-        input.event_cursor,
+        input.sources_healthy, input.sources_total, input.sources_degraded, input.event_cursor,
     );
-    let p = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title(" Source Doctor "));
+    let p = Paragraph::new(text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Source Doctor "),
+    );
     f.render_widget(p, area);
 }
 

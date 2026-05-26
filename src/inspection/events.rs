@@ -76,8 +76,7 @@ mod tests {
     #[tokio::test]
     async fn get_events_returns_empty_page_with_current_cursor() {
         let state = InspectionState::default();
-        let Json(envelope) =
-            get_events(Query(EventQuery::default()), State(state.clone())).await;
+        let Json(envelope) = get_events(Query(EventQuery::default()), State(state.clone())).await;
         assert_eq!(envelope.api_version, INSPECTION_API_VERSION);
         assert_eq!(envelope.data.cursor, state.read_model().event_cursor);
         assert!(envelope.data.items.is_empty());

@@ -11,7 +11,11 @@ use super::data::BugsLensInput;
 pub fn draw(f: &mut Frame, input: &BugsLensInput, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(3),
+        ])
         .split(area);
 
     let header = format!("Bugs — {} open capsules", input.open_capsules);

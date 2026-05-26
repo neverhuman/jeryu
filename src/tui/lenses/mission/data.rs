@@ -3,7 +3,9 @@
 //! Invariants: Pure projection from `TuiReadModel` to `MissionLensInput`.
 //!             No I/O. Render layer reads only the resulting struct.
 
-use crate::api::read_model::{AttentionItem, MissionSnapshot, NextActionRecommendation, TuiReadModel};
+use crate::api::read_model::{
+    AttentionItem, MissionSnapshot, NextActionRecommendation, TuiReadModel,
+};
 
 #[derive(Debug, Clone)]
 pub struct MissionLensInput {

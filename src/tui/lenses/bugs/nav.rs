@@ -37,7 +37,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> BugsLensInput {
         BugsLensInput::from_read_model(&TuiReadModel::default())
@@ -45,7 +50,10 @@ mod tests {
 
     #[test]
     fn enter_drills() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), BugsIntent::DrillSelectedBug);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            BugsIntent::DrillSelectedBug
+        );
     }
     #[test]
     fn esc_pops() {
@@ -53,14 +61,23 @@ mod tests {
     }
     #[test]
     fn s_submits() {
-        assert_eq!(handle_key(&k(KeyCode::Char('s')), &input()), BugsIntent::SubmitBug);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('s')), &input()),
+            BugsIntent::SubmitBug
+        );
     }
     #[test]
     fn m_marks_ready() {
-        assert_eq!(handle_key(&k(KeyCode::Char('m')), &input()), BugsIntent::MarkReady);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('m')), &input()),
+            BugsIntent::MarkReady
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), BugsIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            BugsIntent::None
+        );
     }
 }

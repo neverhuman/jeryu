@@ -38,7 +38,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> RunnersLensInput {
         RunnersLensInput::from_read_model(&TuiReadModel::default())
@@ -46,22 +51,37 @@ mod tests {
 
     #[test]
     fn enter_drills() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), RunnersIntent::DrillSelectedRunner);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            RunnersIntent::DrillSelectedRunner
+        );
     }
     #[test]
     fn esc_pops() {
-        assert_eq!(handle_key(&k(KeyCode::Esc), &input()), RunnersIntent::PopRoute);
+        assert_eq!(
+            handle_key(&k(KeyCode::Esc), &input()),
+            RunnersIntent::PopRoute
+        );
     }
     #[test]
     fn p_pauses() {
-        assert_eq!(handle_key(&k(KeyCode::Char('p')), &input()), RunnersIntent::PausePool);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('p')), &input()),
+            RunnersIntent::PausePool
+        );
     }
     #[test]
     fn d_drains() {
-        assert_eq!(handle_key(&k(KeyCode::Char('d')), &input()), RunnersIntent::DrainPool);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('d')), &input()),
+            RunnersIntent::DrainPool
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), RunnersIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            RunnersIntent::None
+        );
     }
 }

@@ -83,7 +83,11 @@ pub fn render(f: &mut Frame, props: &HeatmapProps, area: Rect, palette: &Palette
                 format!("{ch} "),
                 Style::default()
                     .fg(intensity_color(clamped, palette))
-                    .add_modifier(if clamped > 0.8 { Modifier::BOLD } else { Modifier::empty() }),
+                    .add_modifier(if clamped > 0.8 {
+                        Modifier::BOLD
+                    } else {
+                        Modifier::empty()
+                    }),
             ));
         }
         let row_area = Rect::new(inner.x, body_y + r as u16, inner.width, 1);

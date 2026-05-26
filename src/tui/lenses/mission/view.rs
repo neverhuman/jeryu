@@ -30,9 +30,21 @@ fn draw_posture(f: &mut Frame, input: &MissionLensInput, area: Rect) {
     let text = format!(
         "Overall: {:?}  |  Safe to code: {}  Safe to merge: {}  Safe to release: {}  |  Cursor: {}",
         input.mission.overall,
-        if input.mission.safe_to_code { "yes" } else { "NO" },
-        if input.mission.safe_to_merge { "yes" } else { "NO" },
-        if input.mission.safe_to_release { "yes" } else { "NO" },
+        if input.mission.safe_to_code {
+            "yes"
+        } else {
+            "NO"
+        },
+        if input.mission.safe_to_merge {
+            "yes"
+        } else {
+            "NO"
+        },
+        if input.mission.safe_to_release {
+            "yes"
+        } else {
+            "NO"
+        },
         input.event_cursor,
     );
     let p = Paragraph::new(text).block(Block::default().borders(Borders::ALL).title(" Posture "));

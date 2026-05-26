@@ -18,8 +18,8 @@ pub use render::draw_dag_canvas;
 #[cfg(test)]
 mod tests {
     use super::super::builder::build_demo_snapshot;
-    use super::render::node_color;
     use super::super::model::WorkflowStatus;
+    use super::render::node_color;
     use crate::tui::theme::Theme;
 
     #[test]

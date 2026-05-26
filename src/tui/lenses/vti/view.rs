@@ -11,7 +11,11 @@ use super::data::VtiLensInput;
 pub fn draw(f: &mut Frame, input: &VtiLensInput, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(3),
+        ])
         .split(area);
 
     let header = format!("VTI — {} selector misses 24h", input.selector_misses_24h);

@@ -36,7 +36,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> VtiLensInput {
         VtiLensInput::from_read_model(&TuiReadModel::default())
@@ -44,7 +49,10 @@ mod tests {
 
     #[test]
     fn enter_drills() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), VtiIntent::DrillSelectedPlan);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            VtiIntent::DrillSelectedPlan
+        );
     }
     #[test]
     fn esc_pops() {
@@ -52,14 +60,23 @@ mod tests {
     }
     #[test]
     fn f_forces_full_run() {
-        assert_eq!(handle_key(&k(KeyCode::Char('f')), &input()), VtiIntent::ForceFullRun);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('f')), &input()),
+            VtiIntent::ForceFullRun
+        );
     }
     #[test]
     fn q_quarantines() {
-        assert_eq!(handle_key(&k(KeyCode::Char('q')), &input()), VtiIntent::Quarantine);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('q')), &input()),
+            VtiIntent::Quarantine
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), VtiIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            VtiIntent::None
+        );
     }
 }

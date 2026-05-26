@@ -15,9 +15,7 @@ use ratatui::{
 
 use super::super::hit_map::DeliveryHitMap;
 use super::super::model::*;
-use super::super::nav::{
-    EDGE_GUTTER_H, NODE_CARD_H, NODE_CARD_W, PHASE_HEADER_H, WorkflowNav,
-};
+use super::super::nav::{EDGE_GUTTER_H, NODE_CARD_H, NODE_CARD_W, PHASE_HEADER_H, WorkflowNav};
 use super::layout::{draw_edge_gutter, draw_viewport_indicator};
 use super::render::draw_node_card;
 use crate::tui::theme::Theme;

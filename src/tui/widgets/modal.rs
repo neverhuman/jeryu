@@ -79,7 +79,9 @@ pub fn render(f: &mut Frame, props: &ModalProps, area: Rect, palette: &Palette) 
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             format!(" {} ", props.footer),
-            Style::default().fg(palette.stale).add_modifier(Modifier::DIM),
+            Style::default()
+                .fg(palette.stale)
+                .add_modifier(Modifier::DIM),
         ))),
         sections[1],
     );

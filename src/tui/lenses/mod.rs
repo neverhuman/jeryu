@@ -110,7 +110,11 @@ mod tests {
     fn routes_are_unique() {
         let mut seen = std::collections::HashSet::new();
         for lens in LensId::CORE {
-            assert!(seen.insert(lens.route()), "duplicate route: {}", lens.route());
+            assert!(
+                seen.insert(lens.route()),
+                "duplicate route: {}",
+                lens.route()
+            );
         }
     }
 }

@@ -35,7 +35,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> LlmsLensInput {
         LlmsLensInput::from_read_model(&TuiReadModel::default())
@@ -43,7 +48,10 @@ mod tests {
 
     #[test]
     fn enter_drills() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), LlmsIntent::DrillSelectedCall);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            LlmsIntent::DrillSelectedCall
+        );
     }
     #[test]
     fn esc_pops() {
@@ -51,14 +59,23 @@ mod tests {
     }
     #[test]
     fn b_adjusts_budget() {
-        assert_eq!(handle_key(&k(KeyCode::Char('b')), &input()), LlmsIntent::AdjustBudget);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('b')), &input()),
+            LlmsIntent::AdjustBudget
+        );
     }
     #[test]
     fn e_opens_evidence() {
-        assert_eq!(handle_key(&k(KeyCode::Char('e')), &input()), LlmsIntent::OpenEvidence);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('e')), &input()),
+            LlmsIntent::OpenEvidence
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), LlmsIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            LlmsIntent::None
+        );
     }
 }

@@ -61,7 +61,10 @@ mod tests {
 
     #[test]
     fn esc_pops_route() {
-        assert_eq!(handle_key(&key(KeyCode::Esc), &input()), QueueIntent::PopRoute);
+        assert_eq!(
+            handle_key(&key(KeyCode::Esc), &input()),
+            QueueIntent::PopRoute
+        );
     }
 
     #[test]
@@ -90,6 +93,9 @@ mod tests {
 
     #[test]
     fn unbound_key_returns_none() {
-        assert_eq!(handle_key(&key(KeyCode::Char('z')), &input()), QueueIntent::None);
+        assert_eq!(
+            handle_key(&key(KeyCode::Char('z')), &input()),
+            QueueIntent::None
+        );
     }
 }

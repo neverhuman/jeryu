@@ -33,16 +33,12 @@ fn draw_header(f: &mut Frame, input: &WorkflowLensInput, area: Rect) {
         "Workflow atlas — {} pipelines  |  {} blocked  |  Cursor: {}",
         input.total_pipelines, input.blocked_count, input.event_cursor,
     );
-    let p = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title(" Workflow "));
+    let p = Paragraph::new(text).block(Block::default().borders(Borders::ALL).title(" Workflow "));
     f.render_widget(p, area);
 }
 
 fn draw_canvas_placeholder(f: &mut Frame, _input: &WorkflowLensInput, area: Rect) {
-    let p = Paragraph::new(
-        "(DAG canvas + critical path + PR/phase rail land in U20)",
-    )
-    .block(
+    let p = Paragraph::new("(DAG canvas + critical path + PR/phase rail land in U20)").block(
         Block::default()
             .borders(Borders::ALL)
             .title(" Atlas ")

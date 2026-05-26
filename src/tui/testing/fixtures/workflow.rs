@@ -34,11 +34,7 @@ pub fn single_pipeline() -> TuiReadModel {
         ..MissionSnapshot::default()
     };
     m.next_action = Some(NextActionRecommendation {
-        action_ref: action(
-            "get_pipeline_jobs",
-            "View pipeline jobs",
-            RiskTier::R0,
-        ),
+        action_ref: action("get_pipeline_jobs", "View pipeline jobs", RiskTier::R0),
         label: "Track pipeline 51001 progress".into(),
         why: "Pipeline running; no blockers yet.".into(),
         entity: Some(EntityRef::new(EntityKind::Pipeline, "51001")),

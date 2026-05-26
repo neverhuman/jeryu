@@ -220,9 +220,7 @@ mod tests {
         );
         assert!(body.get("generated_at").is_some());
         assert!(body.get("sources").is_some());
-        let data = body
-            .get("data")
-            .expect("envelope must have a `data` field");
+        let data = body.get("data").expect("envelope must have a `data` field");
         let arr = data
             .get("actions")
             .and_then(|v| v.as_array())

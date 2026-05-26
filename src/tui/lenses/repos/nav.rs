@@ -58,7 +58,10 @@ mod tests {
 
     #[test]
     fn esc_pops_route() {
-        assert_eq!(handle_key(&key(KeyCode::Esc), &input()), ReposIntent::PopRoute);
+        assert_eq!(
+            handle_key(&key(KeyCode::Esc), &input()),
+            ReposIntent::PopRoute
+        );
     }
 
     #[test]

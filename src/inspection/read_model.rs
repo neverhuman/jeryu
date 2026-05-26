@@ -17,7 +17,11 @@ pub async fn get_read_model(
     State(state): State<InspectionState>,
 ) -> Json<InspectionEnvelope<TuiReadModel>> {
     let sources = state.snapshot_sources();
-    Json(InspectionEnvelope::new(state.read_model(), sources, Utc::now()))
+    Json(InspectionEnvelope::new(
+        state.read_model(),
+        sources,
+        Utc::now(),
+    ))
 }
 
 #[cfg(test)]

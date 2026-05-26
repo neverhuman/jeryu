@@ -38,7 +38,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> ReleaseLensInput {
         ReleaseLensInput::from_read_model(&TuiReadModel::default())
@@ -46,22 +51,37 @@ mod tests {
 
     #[test]
     fn enter_promotes() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), ReleaseIntent::PromoteCandidate);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            ReleaseIntent::PromoteCandidate
+        );
     }
     #[test]
     fn esc_pops() {
-        assert_eq!(handle_key(&k(KeyCode::Esc), &input()), ReleaseIntent::PopRoute);
+        assert_eq!(
+            handle_key(&k(KeyCode::Esc), &input()),
+            ReleaseIntent::PopRoute
+        );
     }
     #[test]
     fn r_rolls_back() {
-        assert_eq!(handle_key(&k(KeyCode::Char('r')), &input()), ReleaseIntent::Rollback);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('r')), &input()),
+            ReleaseIntent::Rollback
+        );
     }
     #[test]
     fn a_approves_gate() {
-        assert_eq!(handle_key(&k(KeyCode::Char('a')), &input()), ReleaseIntent::ApproveGate);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('a')), &input()),
+            ReleaseIntent::ApproveGate
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), ReleaseIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            ReleaseIntent::None
+        );
     }
 }

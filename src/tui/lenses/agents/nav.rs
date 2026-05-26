@@ -35,7 +35,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> AgentsLensInput {
         AgentsLensInput::from_read_model(&TuiReadModel::default())
@@ -43,22 +48,37 @@ mod tests {
 
     #[test]
     fn enter_drills() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), AgentsIntent::DrillSelectedSession);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            AgentsIntent::DrillSelectedSession
+        );
     }
     #[test]
     fn esc_pops() {
-        assert_eq!(handle_key(&k(KeyCode::Esc), &input()), AgentsIntent::PopRoute);
+        assert_eq!(
+            handle_key(&k(KeyCode::Esc), &input()),
+            AgentsIntent::PopRoute
+        );
     }
     #[test]
     fn k_rings_kill_bell() {
-        assert_eq!(handle_key(&k(KeyCode::Char('k')), &input()), AgentsIntent::KillBell);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('k')), &input()),
+            AgentsIntent::KillBell
+        );
     }
     #[test]
     fn f_freezes_window() {
-        assert_eq!(handle_key(&k(KeyCode::Char('f')), &input()), AgentsIntent::FreezeWindow);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('f')), &input()),
+            AgentsIntent::FreezeWindow
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), AgentsIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            AgentsIntent::None
+        );
     }
 }

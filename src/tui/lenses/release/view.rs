@@ -11,7 +11,11 @@ use super::data::ReleaseLensInput;
 pub fn draw(f: &mut Frame, input: &ReleaseLensInput, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(3),
+        ])
         .split(area);
 
     let header = format!("Release — safe_to_release: {}", input.safe_to_release);

@@ -134,7 +134,11 @@ fn draw_edge(
     bounds: Rect,
 ) {
     let ch = if inferred { '┄' } else { '─' };
-    let style = Style::default().fg(if inferred { palette.stale } else { palette.running });
+    let style = Style::default().fg(if inferred {
+        palette.stale
+    } else {
+        palette.running
+    });
     // Horizontal segment.
     let (x0, x1) = if fx <= tx { (fx, tx) } else { (tx, fx) };
     for x in (x0 + 1)..x1 {

@@ -58,7 +58,9 @@ pub fn render(f: &mut Frame, props: &InspectorCardProps, area: Rect, palette: &P
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             format!(" {} ", props.subtitle),
-            Style::default().fg(palette.stale).add_modifier(Modifier::ITALIC),
+            Style::default()
+                .fg(palette.stale)
+                .add_modifier(Modifier::ITALIC),
         ))),
         sections[0],
     );
@@ -73,10 +75,7 @@ pub fn render(f: &mut Frame, props: &InspectorCardProps, area: Rect, palette: &P
                     format!("  {:<14}", f.key),
                     Style::default().fg(palette.cache),
                 ),
-                Span::styled(
-                    f.value.to_string(),
-                    Style::default().fg(palette.running),
-                ),
+                Span::styled(f.value.to_string(), Style::default().fg(palette.running)),
             ])
         })
         .collect();

@@ -36,7 +36,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> CacheLensInput {
         CacheLensInput::from_read_model(&TuiReadModel::default())
@@ -44,22 +49,37 @@ mod tests {
 
     #[test]
     fn enter_drills() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), CacheIntent::DrillSelectedObject);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            CacheIntent::DrillSelectedObject
+        );
     }
     #[test]
     fn esc_pops() {
-        assert_eq!(handle_key(&k(KeyCode::Esc), &input()), CacheIntent::PopRoute);
+        assert_eq!(
+            handle_key(&k(KeyCode::Esc), &input()),
+            CacheIntent::PopRoute
+        );
     }
     #[test]
     fn f_flushes() {
-        assert_eq!(handle_key(&k(KeyCode::Char('f')), &input()), CacheIntent::FlushSelected);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('f')), &input()),
+            CacheIntent::FlushSelected
+        );
     }
     #[test]
     fn t_marks_taint() {
-        assert_eq!(handle_key(&k(KeyCode::Char('t')), &input()), CacheIntent::MarkTaint);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('t')), &input()),
+            CacheIntent::MarkTaint
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), CacheIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            CacheIntent::None
+        );
     }
 }

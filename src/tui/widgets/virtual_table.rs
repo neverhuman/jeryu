@@ -75,7 +75,11 @@ pub fn render(f: &mut Frame, props: &VirtualTableProps, area: Rect, palette: &Pa
         .iter()
         .map(|c| {
             Span::styled(
-                format!("{:<width$}", truncate(c.title, c.width as usize), width = c.width as usize),
+                format!(
+                    "{:<width$}",
+                    truncate(c.title, c.width as usize),
+                    width = c.width as usize
+                ),
                 Style::default()
                     .fg(palette.cache)
                     .add_modifier(Modifier::BOLD),

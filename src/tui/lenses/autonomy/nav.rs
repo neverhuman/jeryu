@@ -38,7 +38,12 @@ mod tests {
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
 
     fn k(code: KeyCode) -> KeyEvent {
-        KeyEvent { code, modifiers: KeyModifiers::empty(), kind: KeyEventKind::Press, state: KeyEventState::empty() }
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
     }
     fn input() -> AutonomyLensInput {
         AutonomyLensInput::from_read_model(&TuiReadModel::default())
@@ -46,22 +51,37 @@ mod tests {
 
     #[test]
     fn enter_approves_grant() {
-        assert_eq!(handle_key(&k(KeyCode::Enter), &input()), AutonomyIntent::GrantApprove);
+        assert_eq!(
+            handle_key(&k(KeyCode::Enter), &input()),
+            AutonomyIntent::GrantApprove
+        );
     }
     #[test]
     fn esc_pops() {
-        assert_eq!(handle_key(&k(KeyCode::Esc), &input()), AutonomyIntent::PopRoute);
+        assert_eq!(
+            handle_key(&k(KeyCode::Esc), &input()),
+            AutonomyIntent::PopRoute
+        );
     }
     #[test]
     fn k_kill_bells() {
-        assert_eq!(handle_key(&k(KeyCode::Char('k')), &input()), AutonomyIntent::KillBell);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('k')), &input()),
+            AutonomyIntent::KillBell
+        );
     }
     #[test]
     fn f_freezes() {
-        assert_eq!(handle_key(&k(KeyCode::Char('f')), &input()), AutonomyIntent::Freeze);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('f')), &input()),
+            AutonomyIntent::Freeze
+        );
     }
     #[test]
     fn unbound_returns_none() {
-        assert_eq!(handle_key(&k(KeyCode::Char('z')), &input()), AutonomyIntent::None);
+        assert_eq!(
+            handle_key(&k(KeyCode::Char('z')), &input()),
+            AutonomyIntent::None
+        );
     }
 }
