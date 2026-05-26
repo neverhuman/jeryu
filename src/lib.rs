@@ -131,6 +131,7 @@ pub mod test_intel;
 pub mod test_runner;
 pub(crate) mod test_sync;
 pub mod tui;
+pub mod web_events;
 pub mod witness;
 
 pub fn install_state_storage_drivers() {
