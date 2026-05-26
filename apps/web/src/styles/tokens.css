@@ -1,0 +1,7 @@
+/* JeRyu design tokens — placeholder. W-F-08 will populate:
+ *   - color-bg-{0..3}, color-fg-{primary,secondary,muted}
+ *   - color-accent-{primary,success,warning,danger,info}
+ *   - font-{sans,mono}, space-{1..8}, radius-{sm,md,lg}
+ *   - shadow-{1..3}, ease-{standard,emphasized}, duration-{fast,std,slow}
+ *   - light/dark/high-contrast themes via prefers-color-scheme + [data-theme]
+ */
