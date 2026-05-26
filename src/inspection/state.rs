@@ -60,6 +60,16 @@ impl InspectionState {
             .write()
             .expect("inspection rwlock poisoned") = next;
     }
+
+    /// Snapshot the current set of `SourceFreshness` records the daemon
+    /// is tracking. First-cut returns an empty `Vec`; real sources wire
+    /// in via the daemon's projection loop (U07 follow-up, not in
+    /// scope for the envelope adoption unit). Handlers attach this to
+    /// every `InspectionEnvelope` so the wire shape is stable even
+    /// before the freshness layer is online.
+    pub fn snapshot_sources(&self) -> Vec<crate::api::freshness::SourceFreshness> {
+        Vec::new()
+    }
 }
 
 impl Default for InspectionState {
@@ -68,5 +78,16 @@ impl Default for InspectionState {
             TuiReadModel::default(),
             RuntimeProfile::new("default", "sqlite", "kafka"),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_sources_returns_empty_until_projection_loop_lands() {
+        let state = InspectionState::default();
+        assert!(state.snapshot_sources().is_empty());
     }
 }

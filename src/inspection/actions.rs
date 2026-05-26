@@ -8,9 +8,11 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::api::actions::{ActionPreview, ActionResult, ActionStatus};
+use crate::api::inspection::{ActionRegistryDocument, InspectionEnvelope};
 use crate::tui::action_registry::{GrantRequirement, REGISTRY, RiskTier, SideEffectClass};
 
 use super::state::InspectionState;
@@ -107,15 +109,17 @@ pub async fn get_action_stream(
         .into_response()
 }
 
-/// GET /api/v1/action-registry - returns the static action registry as a
-/// JSON array of contract entries. Safe to expose even while U06 RiskTier
-/// migration is in flight because each entry serializes via the existing
-/// `ActionEntry::contract_json()` helper.
+/// GET /api/v1/action-registry - returns the static action registry as an
+/// `ActionRegistryDocument` wrapped in `InspectionEnvelope`. Each entry
+/// serializes via the existing `ActionEntry::contract_json()` helper, so
+/// the route stays forward-compatible with U06 RiskTier evolution.
 pub async fn get_action_registry(
-    State(_state): State<InspectionState>,
-) -> Json<Vec<serde_json::Value>> {
+    State(state): State<InspectionState>,
+) -> Json<InspectionEnvelope<ActionRegistryDocument>> {
     let entries: Vec<serde_json::Value> = REGISTRY.iter().map(|e| e.contract_json()).collect();
-    Json(entries)
+    let document = ActionRegistryDocument::new(entries);
+    let sources = state.snapshot_sources();
+    Json(InspectionEnvelope::new(document, sources, Utc::now()))
 }
 
 #[cfg(test)]
@@ -202,19 +206,37 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn action_registry_returns_non_empty_array() {
+    async fn action_registry_returns_envelope_with_non_empty_array() {
         let (base, handle) = spawn().await;
         let resp = reqwest::get(format!("{base}/api/v1/action-registry"))
             .await
             .unwrap();
         assert_eq!(resp.status(), ReqwStatus::OK);
         let body: serde_json::Value = resp.json().await.unwrap();
-        let arr = body.as_array().expect("registry must be a JSON array");
+        // Envelope shape: api_version + generated_at + sources + data.
+        assert_eq!(
+            body.get("api_version").and_then(|v| v.as_str()),
+            Some("api.v1")
+        );
+        assert!(body.get("generated_at").is_some());
+        assert!(body.get("sources").is_some());
+        let data = body
+            .get("data")
+            .expect("envelope must have a `data` field");
+        let arr = data
+            .get("actions")
+            .and_then(|v| v.as_array())
+            .expect("action document must contain `actions` array");
         assert!(
             arr.len() >= 30,
             "expected ≥30 registry entries, got {}",
             arr.len()
         );
+        let count = data
+            .get("action_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        assert_eq!(count as usize, arr.len(), "action_count must match list");
         // Spot check shape of first entry: must have id + risk_tier.
         let first = &arr[0];
         assert!(first.get("id").and_then(|v| v.as_str()).is_some());

@@ -9,6 +9,7 @@ pub mod capacity;
 pub mod entity;
 pub mod events;
 pub mod freshness;
+pub mod inspection;
 pub mod proof;
 pub mod read_model;
 pub mod runtime_profile;

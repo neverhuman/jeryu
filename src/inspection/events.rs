@@ -3,13 +3,18 @@
 //! Invariants: Cursor pagination is monotonic; stream endpoint returns an
 //!             SSE-formatted response. Live event sourcing wiring lands in
 //!             U10 (TUI DataClient); this handler returns the empty page
-//!             until the daemon wires its event projection.
+//!             until the daemon wires its event projection. The page is
+//!             wrapped in `InspectionEnvelope<EventPage>` on the wire so
+//!             api version + sources sidecar travel with every response.
 
 use axum::Json;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
+
+use crate::api::inspection::InspectionEnvelope;
 
 use super::state::InspectionState;
 
@@ -38,14 +43,16 @@ pub struct EventPage {
 pub async fn get_events(
     Query(q): Query<EventQuery>,
     State(state): State<InspectionState>,
-) -> Json<EventPage> {
+) -> Json<InspectionEnvelope<EventPage>> {
     let cursor = q.cursor.unwrap_or_else(|| state.read_model().event_cursor);
     let _limit = q.effective_limit();
-    Json(EventPage {
+    let page = EventPage {
         cursor,
         next_cursor: None,
         items: Vec::new(),
-    })
+    };
+    let sources = state.snapshot_sources();
+    Json(InspectionEnvelope::new(page, sources, Utc::now()))
 }
 
 pub async fn get_events_stream(Query(_q): Query<EventQuery>) -> Response {
@@ -64,13 +71,16 @@ pub async fn get_events_stream(Query(_q): Query<EventQuery>) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::inspection::INSPECTION_API_VERSION;
 
     #[tokio::test]
     async fn get_events_returns_empty_page_with_current_cursor() {
         let state = InspectionState::default();
-        let Json(page) = get_events(Query(EventQuery::default()), State(state.clone())).await;
-        assert_eq!(page.cursor, state.read_model().event_cursor);
-        assert!(page.items.is_empty());
+        let Json(envelope) =
+            get_events(Query(EventQuery::default()), State(state.clone())).await;
+        assert_eq!(envelope.api_version, INSPECTION_API_VERSION);
+        assert_eq!(envelope.data.cursor, state.read_model().event_cursor);
+        assert!(envelope.data.items.is_empty());
     }
 
     #[test]
