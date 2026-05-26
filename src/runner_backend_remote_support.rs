@@ -46,21 +46,22 @@ pub async fn probe_node(node: &NodeConfig) -> NodeProbeResult {
     let arch = parts.next().map(str::to_string).filter(|s| !s.is_empty());
 
     // Docker: returns false if SSH or docker info fails.
-    let docker_ready = match run_remote_shell_status(&cfg, "docker info >/dev/null 2>&1").await {
-        Ok(ready) => ready,
-        Err(_) => false,
-    };
+    let docker_ready = run_remote_shell_status(&cfg, "docker info >/dev/null 2>&1")
+        .await
+        .unwrap_or(false);
 
     // Free disk (in GiB): best-effort, None on SSH or parse failure.
-    let disk_free_gb = match run_remote_shell_capture(
-        &cfg,
-        "df -Pk $HOME 2>/dev/null | awk 'NR==2 {print $4}'",
-    )
-    .await
-    {
-        Ok(Some(out)) => out.trim().parse::<u64>().ok().map(|kb| kb as f64 / (1024.0 * 1024.0)),
-        _ => None,
-    };
+    let disk_free_gb =
+        match run_remote_shell_capture(&cfg, "df -Pk $HOME 2>/dev/null | awk 'NR==2 {print $4}'")
+            .await
+        {
+            Ok(Some(out)) => out
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .map(|kb| kb as f64 / (1024.0 * 1024.0)),
+            _ => None,
+        };
 
     NodeProbeResult {
         reachable: os.is_some() || docker_ready,
@@ -92,8 +93,12 @@ pub async fn gc_orphaned_runner_dirs(
             let dir = format!("{}/{}", node.runner_data_dir, entry);
             let rm = format!("rm -rf {} 2>/dev/null || true", shell_quote(&dir));
             match run_remote_shell(&cfg, &rm, true).await {
-                Ok(()) => info!(node = %node.alias, dir, "removed orphaned runner config directory"),
-                Err(e) => tracing::debug!(node = %node.alias, dir, error = %e, "orphaned dir removal skipped"),
+                Ok(()) => {
+                    info!(node = %node.alias, dir, "removed orphaned runner config directory")
+                }
+                Err(e) => {
+                    tracing::debug!(node = %node.alias, dir, error = %e, "orphaned dir removal skipped")
+                }
             }
         }
     }
@@ -118,8 +123,16 @@ pub fn base64_encode(data: &[u8]) -> String {
     let mut i = 0;
     while i < data.len() {
         let b0 = data[i] as u32;
-        let b1 = if i + 1 < data.len() { data[i + 1] as u32 } else { 0 };
-        let b2 = if i + 2 < data.len() { data[i + 2] as u32 } else { 0 };
+        let b1 = if i + 1 < data.len() {
+            data[i + 1] as u32
+        } else {
+            0
+        };
+        let b2 = if i + 2 < data.len() {
+            data[i + 2] as u32
+        } else {
+            0
+        };
         let triple = (b0 << 16) | (b1 << 8) | b2;
         encoded.push(alphabet[((triple >> 18) & 0x3F) as usize] as char);
         encoded.push(alphabet[((triple >> 12) & 0x3F) as usize] as char);

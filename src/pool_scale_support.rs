@@ -33,8 +33,10 @@ pub(crate) async fn start_pool_manager(
 ) -> Result<()> {
     if pool.backend_type == "docker-remote" {
         // Try to start on a remote node.
-        if let Some(result) = try_start_remote_manager(store, pool, pool_name).await? {
-            let _ = result; // already inserted into DB inside the function
+        if try_start_remote_manager(store, pool, pool_name)
+            .await?
+            .is_some()
+        {
             return Ok(());
         }
         // Fall through to local Docker as a safety net.
@@ -54,11 +56,7 @@ pub(crate) async fn start_pool_manager(
 
 /// Try to start a manager on the best available remote node.
 /// Returns `Ok(Some(()))` if a manager was started, `Ok(None)` if no node is available.
-async fn try_start_remote_manager(
-    store: &Db,
-    pool: &Pool,
-    pool_name: &str,
-) -> Result<Option<()>> {
+async fn try_start_remote_manager(store: &Db, pool: &Pool, pool_name: &str) -> Result<Option<()>> {
     use crate::node_support;
     use crate::runner_backend_remote::RemoteDockerBackend;
 
@@ -67,10 +65,10 @@ async fn try_start_remote_manager(
     let mut active_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for m in &all_managers {
-        if let Some(alias) = &m.node_alias {
-            if manager_state_counts_as_active(&m.state) {
-                *active_counts.entry(alias.clone()).or_insert(0) += 1;
-            }
+        if let Some(alias) = &m.node_alias
+            && manager_state_counts_as_active(&m.state)
+        {
+            *active_counts.entry(alias.clone()).or_insert(0) += 1;
         }
     }
 

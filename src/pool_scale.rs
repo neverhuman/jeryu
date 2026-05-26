@@ -169,13 +169,9 @@ pub async fn scale_pool_to(
         for m in &to_drain {
             info!(manager_id = %m.id, pool = pool_name, "draining excess manager");
             store.update_manager_state(&m.id, "draining").await?; // allowlist: pool orchestration owns runner state
-            stop_manager_for_node(
-                docker,
-                m,
-                config::runner_shutdown_timeout_secs() as i64,
-            )
-            .await
-            .ok(); // best-effort drain
+            stop_manager_for_node(docker, m, config::runner_shutdown_timeout_secs() as i64)
+                .await
+                .ok(); // best-effort drain
             // Only clean up local cache dirs (remote managers manage their own storage).
             if m.node_alias.is_none() {
                 remove_manager_cache_dir(docker, &m.id).await;

@@ -41,8 +41,7 @@ pub fn save_cluster_config(cfg: &ClusterConfig) -> Result<()> {
             .with_context(|| format!("creating directory {}", parent.display()))?;
     }
     let text = toml::to_string_pretty(cfg).context("serializing cluster config")?;
-    fs::write(&path, text)
-        .with_context(|| format!("writing cluster config {}", path.display()))?;
+    fs::write(&path, text).with_context(|| format!("writing cluster config {}", path.display()))?;
     Ok(())
 }
 
@@ -67,8 +66,8 @@ pub fn list_cluster_configs() -> Result<Vec<ClusterConfig>> {
         if path.extension().and_then(|e| e.to_str()) != Some("toml") {
             continue;
         }
-        let text = fs::read_to_string(&path)
-            .with_context(|| format!("reading {}", path.display()))?;
+        let text =
+            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
         match toml::from_str::<ClusterConfig>(&text) {
             Ok(cfg) => configs.push(cfg),
             Err(e) => {

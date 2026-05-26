@@ -36,7 +36,10 @@ async fn test_runner_crud_offline() {
     {
         let s = mock.state.lock().unwrap();
         let r = s.runners.get(&runner.id).expect("runner in mock state");
-        assert!(r.paused, "runner should be paused after set_runner_paused(true)");
+        assert!(
+            r.paused,
+            "runner should be paused after set_runner_paused(true)"
+        );
     }
 
     // Resume
@@ -47,7 +50,10 @@ async fn test_runner_crud_offline() {
     {
         let s = mock.state.lock().unwrap();
         let r = s.runners.get(&runner.id).expect("runner in mock state");
-        assert!(!r.paused, "runner should not be paused after set_runner_paused(false)");
+        assert!(
+            !r.paused,
+            "runner should not be paused after set_runner_paused(false)"
+        );
     }
 
     // List managers — mock returns empty list
@@ -55,7 +61,10 @@ async fn test_runner_crud_offline() {
         .list_runner_managers(runner.id)
         .await
         .expect("list managers");
-    assert!(managers.is_empty(), "mock always returns empty managers list");
+    assert!(
+        managers.is_empty(),
+        "mock always returns empty managers list"
+    );
 
     // Delete
     client
@@ -102,7 +111,10 @@ async fn test_token_rotation_offline() {
     let stored = mock
         .runner_token(runner.id)
         .expect("runner present after rotation");
-    assert_eq!(stored, new_token, "mock stored token must match returned token");
+    assert_eq!(
+        stored, new_token,
+        "mock stored token must match returned token"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +152,11 @@ async fn test_pipeline_polling_offline() {
         .list_pipelines(project.id, Some("main"))
         .await
         .expect("list pipelines");
-    assert_eq!(pipelines.len(), 1, "expected exactly one auto-created pipeline");
+    assert_eq!(
+        pipelines.len(),
+        1,
+        "expected exactly one auto-created pipeline"
+    );
     let pipeline = &pipelines[0];
     assert_eq!(pipeline.status, "pending");
 
@@ -222,8 +238,7 @@ async fn test_job_retry_offline() {
         .await
         .expect("create project");
 
-    let (_pipeline_id, job_id) =
-        mock.add_pipeline(project.id, "main", "flaky-test", "pending", "");
+    let (_pipeline_id, job_id) = mock.add_pipeline(project.id, "main", "flaky-test", "pending", "");
 
     // Mark the job as failed.
     mock.set_job_status(job_id, "failed");
@@ -321,7 +336,10 @@ async fn test_job_cycle_offline() {
         .expect("rotate token");
     assert_ne!(new_token, runner.token);
 
-    client.delete_runner(runner.id).await.expect("delete runner");
+    client
+        .delete_runner(runner.id)
+        .await
+        .expect("delete runner");
 
     // Verify runner gone from mock state.
     assert!(

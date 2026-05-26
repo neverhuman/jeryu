@@ -30,8 +30,8 @@ pub fn load_node_config(alias: &str) -> Result<NodeConfig> {
     let path = node_config_path(alias);
     let text = fs::read_to_string(&path)
         .with_context(|| format!("loading node config {}", path.display()))?;
-    let cfg = toml::from_str(&text)
-        .with_context(|| format!("parsing node config {}", path.display()))?;
+    let cfg =
+        toml::from_str(&text).with_context(|| format!("parsing node config {}", path.display()))?;
     Ok(cfg)
 }
 
@@ -42,15 +42,13 @@ pub fn save_node_config(cfg: &NodeConfig) -> Result<()> {
             .with_context(|| format!("creating directory {}", parent.display()))?;
     }
     let text = toml::to_string_pretty(cfg).context("serializing node config")?;
-    fs::write(&path, text)
-        .with_context(|| format!("writing node config {}", path.display()))?;
+    fs::write(&path, text).with_context(|| format!("writing node config {}", path.display()))?;
     Ok(())
 }
 
 pub fn delete_node_config(alias: &str) -> Result<()> {
     let path = node_config_path(alias);
-    fs::remove_file(&path)
-        .with_context(|| format!("deleting node config {}", path.display()))?;
+    fs::remove_file(&path).with_context(|| format!("deleting node config {}", path.display()))?;
     Ok(())
 }
 
@@ -68,8 +66,8 @@ pub fn list_node_configs() -> Result<Vec<NodeConfig>> {
         if path.extension().and_then(|e| e.to_str()) != Some("toml") {
             continue;
         }
-        let text = fs::read_to_string(&path)
-            .with_context(|| format!("reading {}", path.display()))?;
+        let text =
+            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
         match toml::from_str::<NodeConfig>(&text) {
             Ok(cfg) => configs.push(cfg),
             Err(e) => {
@@ -162,7 +160,6 @@ pub fn select_node_for_pool(
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use tempfile::TempDir;
 
     fn make_node(alias: &str, max: usize, affinity: Vec<String>) -> NodeConfig {
         let mut cfg = NodeConfig::new(alias.to_string(), format!("u@{alias}"));
@@ -208,14 +205,19 @@ mod tests {
 
     #[test]
     fn select_excludes_full_nodes() {
-        let active_counts: HashMap<String, usize> = [("xbabe0".to_string(), 4usize)].into_iter().collect();
+        let active_counts: HashMap<String, usize> =
+            [("xbabe0".to_string(), 4usize)].into_iter().collect();
         let configs = vec![make_node("xbabe0", 4, vec![])];
         let candidates: Vec<_> = configs
             .into_iter()
             .filter(|c| c.enabled)
             .filter_map(|c| {
                 let active = *active_counts.get(&c.alias).unwrap_or(&0);
-                if active < c.max_managers { Some(c) } else { None }
+                if active < c.max_managers {
+                    Some(c)
+                } else {
+                    None
+                }
             })
             .collect();
         assert!(candidates.is_empty());
@@ -223,12 +225,8 @@ mod tests {
 
     #[test]
     fn select_respects_pool_affinity() {
-        let active_counts: HashMap<String, usize> = HashMap::new();
-        let configs = vec![
-            {
-                let mut c = make_node("xbabe0", 4, vec!["build".to_string()]);
-                c
-            },
+        let configs = [
+            make_node("xbabe0", 4, vec!["build".to_string()]),
             make_node("xbabe1", 4, vec![]),
         ];
         let build_candidates: Vec<_> = configs

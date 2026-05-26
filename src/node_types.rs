@@ -130,8 +130,7 @@ impl NodeConfig {
     /// Returns true if this node is eligible for the given pool name.
     /// An empty `pool_affinity` list means the node is unrestricted.
     pub fn accepts_pool(&self, pool_name: &str) -> bool {
-        self.pool_affinity.is_empty()
-            || self.pool_affinity.iter().any(|p| p == pool_name)
+        self.pool_affinity.is_empty() || self.pool_affinity.iter().any(|p| p == pool_name)
     }
 }
 

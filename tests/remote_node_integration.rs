@@ -20,7 +20,6 @@
 //! cargo test --test remote_node_integration -- --ignored --test-threads=1
 //! ```
 
-use std::collections::BTreeSet;
 use std::net::TcpListener;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -48,10 +47,14 @@ impl TestNode {
         let pub_path = temp_dir.path().join("id_ed25519.pub");
         let keygen = Command::new("ssh-keygen")
             .args([
-                "-t", "ed25519",
-                "-f", key_path.to_str().unwrap(),
-                "-N", "",   // no passphrase
-                "-C", "jeryu-test",
+                "-t",
+                "ed25519",
+                "-f",
+                key_path.to_str().unwrap(),
+                "-N",
+                "", // no passphrase
+                "-C",
+                "jeryu-test",
             ])
             .output()?;
         if !keygen.status.success() {
@@ -68,8 +71,11 @@ impl TestNode {
         let context = format!("{manifest_dir}/tests/ssh_node");
         let build = Command::new("docker")
             .args([
-                "build", "-t", "jeryu-ssh-node:test",
-                "-f", &format!("{context}/Dockerfile"),
+                "build",
+                "-t",
+                "jeryu-ssh-node:test",
+                "-f",
+                &format!("{context}/Dockerfile"),
                 &context,
             ])
             .stdout(Stdio::null())
@@ -85,11 +91,15 @@ impl TestNode {
         // Start the container.
         let run = Command::new("docker")
             .args([
-                "run", "-d",
+                "run",
+                "-d",
                 "--privileged",
-                "-p", &format!("{host_port}:22"),
-                "-e", &format!("JERYU_TEST_SSH_PUBKEY={pubkey}"),
-                "--name", &format!("jeryu-ssh-test-{host_port}"),
+                "-p",
+                &format!("{host_port}:22"),
+                "-e",
+                &format!("JERYU_TEST_SSH_PUBKEY={pubkey}"),
+                "--name",
+                &format!("jeryu-ssh-test-{host_port}"),
                 "jeryu-ssh-node:test",
             ])
             .output()?;
@@ -116,15 +126,12 @@ impl TestNode {
 
     /// SSH target for this node.
     fn target(&self) -> String {
-        format!("runner@127.0.0.1")
+        "runner@127.0.0.1".to_string()
     }
 
     /// Build a `NodeConfig` pointing at this ephemeral container.
     fn node_config(&self) -> jeryu::node_types::NodeConfig {
-        let mut cfg = jeryu::node_types::NodeConfig::new(
-            "test-node".to_string(),
-            self.target(),
-        );
+        let mut cfg = jeryu::node_types::NodeConfig::new("test-node".to_string(), self.target());
         cfg.ssh_port = self.host_port;
         cfg.identity = Some(self.key_path.to_string_lossy().to_string());
         cfg.max_managers = 4;
@@ -137,11 +144,16 @@ impl TestNode {
     fn ssh_capture(&self, cmd: &str) -> anyhow::Result<String> {
         let out = Command::new("ssh")
             .args([
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "BatchMode=yes",
-                "-o", "ConnectTimeout=10",
-                "-i", self.key_path.to_str().unwrap(),
-                "-p", &self.host_port.to_string(),
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=10",
+                "-i",
+                self.key_path.to_str().unwrap(),
+                "-p",
+                &self.host_port.to_string(),
                 &self.target(),
                 cmd,
             ])
@@ -154,11 +166,16 @@ impl TestNode {
         loop {
             let ok = Command::new("ssh")
                 .args([
-                    "-o", "StrictHostKeyChecking=no",
-                    "-o", "BatchMode=yes",
-                    "-o", "ConnectTimeout=3",
-                    "-i", self.key_path.to_str().unwrap(),
-                    "-p", &self.host_port.to_string(),
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=3",
+                    "-i",
+                    self.key_path.to_str().unwrap(),
+                    "-p",
+                    &self.host_port.to_string(),
                     &self.target(),
                     "true",
                 ])
@@ -224,7 +241,10 @@ async fn probe_healthy_dind_node() {
     assert!(result.reachable, "node should be reachable");
     assert!(result.docker_ready, "Docker should be available");
     assert!(result.os.is_some(), "OS should be detected");
-    assert!(result.disk_free_gb.is_some(), "disk info should be available");
+    assert!(
+        result.disk_free_gb.is_some(),
+        "disk info should be available"
+    );
     eprintln!("probe result: {:?}", result);
 }
 
@@ -241,7 +261,10 @@ async fn probe_unreachable_node() {
     cfg.identity = Some("/dev/null".to_string());
 
     let result = jeryu::runner_backend_remote::probe_node(&cfg).await;
-    assert!(!result.reachable, "unreachable node should not be reachable");
+    assert!(
+        !result.reachable,
+        "unreachable node should not be reachable"
+    );
     assert!(!result.docker_ready);
 }
 
@@ -261,9 +284,14 @@ async fn list_running_ids_empty_on_fresh_node() {
     let cfg = node.node_config();
     let backend = RemoteDockerBackend::new(cfg);
 
-    let ids = backend.list_running_backend_ids().await
+    let ids = backend
+        .list_running_backend_ids()
+        .await
         .expect("list_running_backend_ids should succeed");
-    assert!(ids.is_empty(), "no managed containers should be running: {ids:?}");
+    assert!(
+        ids.is_empty(),
+        "no managed containers should be running: {ids:?}"
+    );
 }
 
 /// node_support::save/load/delete round-trips a NodeConfig via the filesystem.
@@ -309,11 +337,7 @@ fn node_selection_least_loaded() {
         cfg
     }
 
-    let nodes = vec![
-        make("xbabe0", 4),
-        make("xbabe1", 4),
-        make("xbabe3", 4),
-    ];
+    let nodes = vec![make("xbabe0", 4), make("xbabe1", 4), make("xbabe3", 4)];
 
     let active: HashMap<String, usize> = [
         ("xbabe0".to_string(), 3usize),
@@ -341,7 +365,10 @@ fn node_selection_least_loaded() {
         .collect();
     candidates.sort_by_key(|c| c.active_managers);
 
-    assert_eq!(candidates[0].config.alias, "xbabe1", "least loaded should be xbabe1");
+    assert_eq!(
+        candidates[0].config.alias, "xbabe1",
+        "least loaded should be xbabe1"
+    );
     assert_eq!(candidates[1].config.alias, "xbabe3");
     assert_eq!(candidates[2].config.alias, "xbabe0");
 }
@@ -363,7 +390,9 @@ async fn gc_storage_no_op_below_threshold() {
     let backend = RemoteDockerBackend::new(cfg);
 
     // GC with a large limit — should be a no-op and not return an error.
-    backend.gc_storage(1000.0).await
+    backend
+        .gc_storage(1000.0)
+        .await
         .expect("gc_storage should not fail on healthy node");
 }
 

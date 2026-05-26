@@ -281,9 +281,7 @@ fn draw_ci_run_history_columns(f: &mut Frame, app: &App, area: Rect) {
             if failed > 0 {
                 summary_spans.push(Span::styled(
                     format!("✗{} ", failed),
-                    Style::default()
-                        .fg(Color::Red)
-                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
                 ));
             }
             if running > 0 {
@@ -307,18 +305,12 @@ fn draw_ci_run_history_columns(f: &mut Frame, app: &App, area: Rect) {
                 "pending" | "created" => Span::styled(" ◌ ", Style::default().fg(Color::Gray)),
                 _ => Span::styled(" ? ", Style::default().fg(Color::DarkGray)),
             };
-            let job_label = job
-                .job_name
-                .as_deref()
-                .unwrap_or("job");
+            let job_label = job.job_name.as_deref().unwrap_or("job");
             // Truncate long names to fit the column
             let label_display: String = job_label.chars().take(18).collect();
             items.push(ListItem::new(Line::from(vec![
                 status_icon,
-                Span::styled(
-                    format!("{} ", label_display),
-                    Style::default().fg(*color),
-                ),
+                Span::styled(format!("{} ", label_display), Style::default().fg(*color)),
             ])));
         }
 

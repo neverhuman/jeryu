@@ -123,10 +123,7 @@ impl RunnerBackend for MockBackend {
             anyhow::bail!("MockBackend: start_manager failure injected");
         }
         let backend_id = format!("mock-container-{}", manager_id);
-        self.running
-            .lock()
-            .unwrap()
-            .insert(backend_id.clone());
+        self.running.lock().unwrap().insert(backend_id.clone());
         *self.started_count.lock().unwrap() += 1;
         Ok(ManagerHandle {
             backend_id,

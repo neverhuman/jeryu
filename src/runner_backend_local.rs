@@ -50,10 +50,7 @@ impl RunnerBackend for LocalDockerBackend {
     ) -> Result<ManagerHandle> {
         use std::fs;
 
-        let config_dir = config::runners_dir()
-            .join(manager_id)
-            .display()
-            .to_string();
+        let config_dir = config::runners_dir().join(manager_id).display().to_string();
         let manager_cache_dir = config::manager_cache_dir(manager_id);
         let pool_cache_dir = config::pool_cache_root(pool_name);
         let pool_targets_dir = config::pool_cargo_targets_root(pool_name);

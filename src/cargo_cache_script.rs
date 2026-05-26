@@ -5,11 +5,11 @@
 //!   - Lease files are always removed via EXIT trap, even on job cancellation.
 //!   - sccache installation is attempted only when the binary is absent.
 
+use crate::cargo_cache::helpers::shell_quote;
 use crate::cargo_cache::{
     CACHE_HOME_DIR_NAME, CACHE_PROMOTION_MARKERS_DIR, CACHE_SEED_MARKERS_DIR, CACHE_STAMP_FILE,
     LEASES_DIR_NAME, RUSTUP_HOME_DIR_NAME,
 };
-use crate::cargo_cache::helpers::shell_quote;
 
 /// Render the CI pre-build shell script that configures the Cargo/sccache
 /// environment inside a runner container before each job.

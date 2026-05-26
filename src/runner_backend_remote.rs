@@ -234,8 +234,7 @@ impl RunnerBackend for RemoteDockerBackend {
     /// List all running container IDs for jeryu-managed containers on this node.
     async fn list_running_backend_ids(&self) -> Result<BTreeSet<String>> {
         let cfg = self.remote_config();
-        let script =
-            "docker ps --filter label=jeryu.managed=true --format '{{.ID}}' 2>/dev/null";
+        let script = "docker ps --filter label=jeryu.managed=true --format '{{.ID}}' 2>/dev/null";
         match run_remote_shell_capture(&cfg, script).await {
             Ok(Some(output)) => {
                 let ids: BTreeSet<String> = output

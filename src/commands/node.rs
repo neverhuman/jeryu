@@ -112,14 +112,8 @@ async fn cmd_add(
         return Ok(1);
     }
 
-    let os_str = probe
-        .os
-        .as_deref()
-        .unwrap_or("unknown OS");
-    let arch_str = probe
-        .arch
-        .as_deref()
-        .unwrap_or("unknown arch");
+    let os_str = probe.os.as_deref().unwrap_or("unknown OS");
+    let arch_str = probe.arch.as_deref().unwrap_or("unknown arch");
     println!("  ✓ SSH reachable  ({os_str} / {arch_str})");
 
     // Docker is required.
@@ -209,8 +203,8 @@ fn cmd_list(json: bool) -> Result<i32> {
     }
 
     println!(
-        "{:<14} {:<24} {:<6} {:<8} {:<10} {:<8} {}",
-        "ALIAS", "TARGET", "PORT", "MAX/MGR", "STORAGE", "ENABLED", "POOL AFFINITY"
+        "{:<14} {:<24} {:<6} {:<8} {:<10} {:<8} POOL AFFINITY",
+        "ALIAS", "TARGET", "PORT", "MAX/MGR", "STORAGE", "ENABLED"
     );
     for n in &nodes {
         let affinity = if n.pool_affinity.is_empty() {
@@ -248,12 +242,8 @@ async fn cmd_remove(alias: &str, force: bool) -> Result<i32> {
         // We load the DB to count active managers; if DB unavailable we warn.
         match check_active_managers_on_node(alias).await {
             Ok(count) if count > 0 => {
-                eprintln!(
-                    "❌ Node '{alias}' has {count} active manager(s) in the DB."
-                );
-                eprintln!(
-                    "   Drain the pool first, or use --force to remove anyway."
-                );
+                eprintln!("❌ Node '{alias}' has {count} active manager(s) in the DB.");
+                eprintln!("   Drain the pool first, or use --force to remove anyway.");
                 return Ok(1);
             }
             Ok(_) => {}
@@ -298,7 +288,10 @@ async fn cmd_doctor(alias: &str) -> Result<i32> {
         }
     };
 
-    println!("🩺 Running diagnostics for node '{alias}' ({}) ...", cfg.target);
+    println!(
+        "🩺 Running diagnostics for node '{alias}' ({}) ...",
+        cfg.target
+    );
     println!();
 
     let probe = runner_backend_remote::probe_node(&cfg).await;
@@ -312,7 +305,10 @@ async fn cmd_doctor(alias: &str) -> Result<i32> {
         println!("  ✗ SSH UNREACHABLE");
         println!();
         println!("  Troubleshooting:");
-        println!("    1. Can you SSH manually?  ssh -p {} {}", cfg.ssh_port, cfg.target);
+        println!(
+            "    1. Can you SSH manually?  ssh -p {} {}",
+            cfg.ssh_port, cfg.target
+        );
         if let Some(id) = &cfg.identity {
             println!("    2. Identity file: {id}");
         }

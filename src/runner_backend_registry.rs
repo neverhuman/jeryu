@@ -10,12 +10,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::runner_backend::RunnerBackend;
-use crate::runner_backend_local::LocalDockerBackend;
-use crate::state::Pool;
 use crate::docker::DockerCtl;
 use crate::node_support::list_node_configs;
+use crate::runner_backend::RunnerBackend;
+use crate::runner_backend_local::LocalDockerBackend;
 use crate::runner_backend_remote::RemoteDockerBackend;
+use crate::state::Pool;
 
 // ---------------------------------------------------------------------------
 // BackendRegistry
@@ -47,10 +47,9 @@ impl BackendRegistry {
                 for node in nodes {
                     if node.enabled {
                         let alias = node.alias.clone();
-                        registry.backends.insert(
-                            alias.clone(),
-                            Arc::new(RemoteDockerBackend::new(node)),
-                        );
+                        registry
+                            .backends
+                            .insert(alias.clone(), Arc::new(RemoteDockerBackend::new(node)));
                         tracing::info!(alias, "registered remote Docker backend");
                     }
                 }
@@ -126,7 +125,10 @@ mod tests {
 
     fn make_registry() -> BackendRegistry {
         let mut backends: HashMap<String, Arc<dyn RunnerBackend>> = HashMap::new();
-        backends.insert(LOCAL_BACKEND_KEY.to_string(), Arc::new(MockBackend::default()));
+        backends.insert(
+            LOCAL_BACKEND_KEY.to_string(),
+            Arc::new(MockBackend::default()),
+        );
         backends.insert("xbabe0".to_string(), Arc::new(MockBackend::default()));
         BackendRegistry { backends }
     }

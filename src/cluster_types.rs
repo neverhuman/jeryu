@@ -73,11 +73,21 @@ impl Default for K8sResources {
     }
 }
 
-fn default_cpu_request() -> String { "500m".to_string() }
-fn default_cpu_limit() -> String { "2".to_string() }
-fn default_mem_request() -> String { "512Mi".to_string() }
-fn default_mem_limit() -> String { "2Gi".to_string() }
-fn default_cache_gib() -> u32 { 100 }
+fn default_cpu_request() -> String {
+    "500m".to_string()
+}
+fn default_cpu_limit() -> String {
+    "2".to_string()
+}
+fn default_mem_request() -> String {
+    "512Mi".to_string()
+}
+fn default_mem_limit() -> String {
+    "2Gi".to_string()
+}
+fn default_cache_gib() -> u32 {
+    100
+}
 
 /// How the runner pod executes CI jobs.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]

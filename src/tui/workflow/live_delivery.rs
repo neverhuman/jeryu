@@ -325,15 +325,13 @@ fn build_live_item(
 /// This ensures the Workflow tab shows a card for every fleet repo, even when
 /// there are no in-flight PRs. The entry represents the repo's default branch
 /// pipeline status and lets operators monitor branch health at a glance.
-fn build_branch_pipeline_item(
-    repo: &RepoConfig,
-    now: chrono::DateTime<Utc>,
-) -> LiveDeliveryItem {
+fn build_branch_pipeline_item(repo: &RepoConfig, now: chrono::DateTime<Utc>) -> LiveDeliveryItem {
     let created_at = now - ChronoDuration::seconds(1);
     // Use a deterministic "number" derived from the repo slug so the entry
     // has a stable identity across syncs.
     let number = {
-        let digest = Sha256::digest(format!("branch:{}:{}", repo.slug, repo.default_branch).as_bytes());
+        let digest =
+            Sha256::digest(format!("branch:{}:{}", repo.slug, repo.default_branch).as_bytes());
         let mut bytes = [0u8; 8];
         bytes.copy_from_slice(&digest[..8]);
         u64::from_be_bytes(bytes)
@@ -355,7 +353,10 @@ fn build_branch_pipeline_item(
             progress_pct: None,
             eta_secs: None,
             duration_secs: None,
-            reason: Some(format!("no open PRs — showing {} branch", repo.default_branch)),
+            reason: Some(format!(
+                "no open PRs — showing {} branch",
+                repo.default_branch
+            )),
             critical_path: false,
         }],
         merged_into_main: false,

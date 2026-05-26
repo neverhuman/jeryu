@@ -108,7 +108,10 @@ pub(super) async fn reconcile_remote_managers_for_pool(state: &EngineState, pool
         };
 
         // Sync each manager on this node.
-        for m in managers.iter().filter(|m| m.node_alias.as_deref() == Some(alias.as_str())) {
+        for m in managers
+            .iter()
+            .filter(|m| m.node_alias.as_deref() == Some(alias.as_str()))
+        {
             let is_running = running_ids.contains(&m.docker_container_id);
 
             match m.state.as_str() {

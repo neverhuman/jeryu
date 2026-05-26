@@ -193,7 +193,11 @@ async fn update_runner(
 ) -> StatusCode {
     let mut s = state.lock().unwrap();
     if let Some(runner) = s.runners.get_mut(&id) {
-        if let Some(paused) = body.as_ref().and_then(|b| b.get("paused")).and_then(|v| v.as_bool()) {
+        if let Some(paused) = body
+            .as_ref()
+            .and_then(|b| b.get("paused"))
+            .and_then(|v| v.as_bool())
+        {
             runner.paused = paused;
         }
         StatusCode::OK
@@ -203,10 +207,7 @@ async fn update_runner(
 }
 
 // DELETE /api/v4/runners/:id
-async fn delete_runner(
-    State(state): State<GitlabState>,
-    Path(id): Path<i64>,
-) -> StatusCode {
+async fn delete_runner(State(state): State<GitlabState>, Path(id): Path<i64>) -> StatusCode {
     let mut s = state.lock().unwrap();
     if s.runners.remove(&id).is_some() {
         StatusCode::NO_CONTENT
@@ -256,7 +257,13 @@ async fn create_project(
         .and_then(|v| v.as_str())
         .unwrap_or("mock-project")
         .to_string();
-    s.projects.insert(id, MockProject { id, name: name.clone() });
+    s.projects.insert(
+        id,
+        MockProject {
+            id,
+            name: name.clone(),
+        },
+    );
     let namespace = format!("mock-group/{name}");
     let web_url = format!("http://mock.gitlab.local/{namespace}");
     (
@@ -298,7 +305,13 @@ async fn commit_file(
 
     let sha = format!("sha-{}", s.next_id());
     if is_ci_file {
-        s.add_pipeline(project_id, "main", "test_job", "pending", "God Mode Active\n");
+        s.add_pipeline(
+            project_id,
+            "main",
+            "test_job",
+            "pending",
+            "God Mode Active\n",
+        );
     }
     (
         StatusCode::CREATED,
@@ -326,7 +339,7 @@ async fn list_pipelines(
         .pipelines
         .values()
         .filter(|p| p.project_id == project_id)
-        .filter(|p| q.ref_name.as_deref().map_or(true, |r| p.ref_name == r))
+        .filter(|p| q.ref_name.as_ref().is_none_or(|r| p.ref_name == *r))
         .map(|p| {
             json!({
                 "id": p.id,
@@ -553,9 +566,12 @@ impl MockGitlabServer {
         initial_status: &str,
         trace: &str,
     ) -> (i64, i64) {
-        self.state
-            .lock()
-            .unwrap()
-            .add_pipeline(project_id, ref_name, job_name, initial_status, trace)
+        self.state.lock().unwrap().add_pipeline(
+            project_id,
+            ref_name,
+            job_name,
+            initial_status,
+            trace,
+        )
     }
 }

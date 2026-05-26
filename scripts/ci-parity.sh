@@ -59,6 +59,7 @@ run "Build" bash ops/ci/rust-lane.sh build
 run "Install Smoke" bash ops/ci/rust-lane.sh install-smoke
 run "Test Selection" bash ops/ci/rust-lane.sh test-select
 run "Library Tests (nextest)" bash ops/ci/rust-lane.sh test-lib
+run "Offline Mock Tests" bash ops/ci/rust-lane.sh test-mock
 if [[ "$FAST" == "0" ]]; then
     run "Integration Tests" bash ops/ci/rust-lane.sh test-integration
 fi

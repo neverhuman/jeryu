@@ -1686,16 +1686,12 @@ impl Db {
         // node_alias on managers tracks which remote node / cluster hosts this
         // manager.  NULL = local Docker (preserves existing behaviour).
         // cluster_alias + backend_type on pools route scaling to the correct backend.
-        let _ = sqlx::query(
-            "ALTER TABLE managers ADD COLUMN node_alias TEXT;",
-        )
-        .execute(&self.pool)
-        .await;
-        let _ = sqlx::query(
-            "ALTER TABLE pools ADD COLUMN cluster_alias TEXT;",
-        )
-        .execute(&self.pool)
-        .await;
+        let _ = sqlx::query("ALTER TABLE managers ADD COLUMN node_alias TEXT;")
+            .execute(&self.pool)
+            .await;
+        let _ = sqlx::query("ALTER TABLE pools ADD COLUMN cluster_alias TEXT;")
+            .execute(&self.pool)
+            .await;
         let _ = sqlx::query(
             "ALTER TABLE pools ADD COLUMN backend_type TEXT NOT NULL DEFAULT 'docker';",
         )
@@ -1877,9 +1873,7 @@ impl Db {
 
     /// List all managers for a specific remote node alias.
     pub async fn list_managers_for_node(&self, node_alias: &str) -> Result<Vec<Manager>> {
-        let sql = self.sql(
-            "SELECT * FROM managers WHERE node_alias = ? ORDER BY started_at",
-        );
+        let sql = self.sql("SELECT * FROM managers WHERE node_alias = ? ORDER BY started_at");
         let managers = sqlx::query_as::<_, Manager>(&sql)
             .bind(node_alias)
             .fetch_all(&self.pool)
