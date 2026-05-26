@@ -45,8 +45,10 @@ mod tests {
 
     #[test]
     fn select_preserves_event_cursor() {
-        let mut model = TuiReadModel::default();
-        model.event_cursor = 7890;
+        let model = TuiReadModel {
+            event_cursor: 7890,
+            ..Default::default()
+        };
         let input = WorkflowLensInput::from_read_model(&model);
         assert_eq!(input.event_cursor, 7890);
     }

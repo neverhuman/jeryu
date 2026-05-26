@@ -123,6 +123,7 @@ pub fn render(f: &mut Frame, props: &DagProps, area: Rect, palette: &Palette) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_edge(
     buf: &mut ratatui::buffer::Buffer,
     fx: u16,

@@ -49,10 +49,10 @@ impl RuntimeProfile {
 }
 
 fn redact_url(url: &str) -> String {
-    if let Some((scheme, rest)) = url.split_once("://") {
-        if let Some((_, host)) = rest.rsplit_once('@') {
-            return format!("{scheme}://***@{host}");
-        }
+    if let Some((scheme, rest)) = url.split_once("://")
+        && let Some((_, host)) = rest.rsplit_once('@')
+    {
+        return format!("{scheme}://***@{host}");
     }
     url.to_string()
 }

@@ -35,8 +35,10 @@ mod tests {
 
     #[test]
     fn select_preserves_event_cursor() {
-        let mut model = TuiReadModel::default();
-        model.event_cursor = 42;
+        let model = TuiReadModel {
+            event_cursor: 42,
+            ..Default::default()
+        };
         let input = CacheLensInput::from_read_model(&model);
         assert_eq!(input.event_cursor, 42);
     }

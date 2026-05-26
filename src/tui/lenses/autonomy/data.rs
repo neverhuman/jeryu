@@ -32,8 +32,10 @@ mod tests {
 
     #[test]
     fn select_preserves_event_cursor() {
-        let mut model = TuiReadModel::default();
-        model.event_cursor = 123;
+        let model = TuiReadModel {
+            event_cursor: 123,
+            ..Default::default()
+        };
         let input = AutonomyLensInput::from_read_model(&model);
         assert_eq!(input.event_cursor, 123);
     }

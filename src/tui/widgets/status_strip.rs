@@ -56,7 +56,7 @@ pub fn render(f: &mut Frame, props: &StatusStripProps, area: Rect, palette: &Pal
             spans.push(Span::styled("  ", Style::default()));
         }
         spans.push(Span::styled(
-            format!("{}", hint.key),
+            hint.key.to_string(),
             Style::default()
                 .fg(palette.running)
                 .add_modifier(Modifier::BOLD),

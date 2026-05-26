@@ -38,8 +38,10 @@ mod tests {
 
     #[test]
     fn select_preserves_event_cursor() {
-        let mut model = TuiReadModel::default();
-        model.event_cursor = 77;
+        let model = TuiReadModel {
+            event_cursor: 77,
+            ..Default::default()
+        };
         let input = AgentsLensInput::from_read_model(&model);
         assert_eq!(input.event_cursor, 77);
     }

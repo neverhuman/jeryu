@@ -106,7 +106,7 @@ pub fn render(f: &mut Frame, props: &CommandPaletteProps, area: Rect, palette: &
                 Style::default().fg(palette.warn),
             ),
             Span::styled(format!("{:<28} ", truncate(e.label, 28)), row_style),
-            Span::styled(format!("{}", e.id), Style::default().fg(palette.stale)),
+            Span::styled(e.id.to_string(), Style::default().fg(palette.stale)),
         ]));
     }
     f.render_widget(Paragraph::new(lines), sections[1]);

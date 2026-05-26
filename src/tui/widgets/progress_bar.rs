@@ -54,29 +54,29 @@ pub fn render(f: &mut Frame, props: &ProgressBarProps, area: Rect, palette: &Pal
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 
     // Confidence-band overlay (drawn on the next row if available, dimmed).
-    if let Some((lo, hi)) = props.band {
-        if area.height >= 2 {
-            let lo = lo.clamp(0.0, 1.0);
-            let hi = hi.clamp(lo, 1.0);
-            let lo_cell = (lo * bar_width as f64).round() as u16;
-            let hi_cell = (hi * bar_width as f64).round() as u16;
-            let mut s = String::with_capacity(bar_width as usize);
-            for i in 0..bar_width {
-                if i >= lo_cell && i < hi_cell {
-                    s.push('▔');
-                } else {
-                    s.push(' ');
-                }
+    if let Some((lo, hi)) = props.band
+        && area.height >= 2
+    {
+        let lo = lo.clamp(0.0, 1.0);
+        let hi = hi.clamp(lo, 1.0);
+        let lo_cell = (lo * bar_width as f64).round() as u16;
+        let hi_cell = (hi * bar_width as f64).round() as u16;
+        let mut s = String::with_capacity(bar_width as usize);
+        for i in 0..bar_width {
+            if i >= lo_cell && i < hi_cell {
+                s.push('▔');
+            } else {
+                s.push(' ');
             }
-            let band_area = Rect::new(area.x + label_width, area.y + 1, bar_width, 1);
-            let band_style = Style::default()
-                .fg(palette.warn)
-                .add_modifier(Modifier::DIM);
-            f.render_widget(
-                Paragraph::new(Line::from(Span::styled(s, band_style))),
-                band_area,
-            );
         }
+        let band_area = Rect::new(area.x + label_width, area.y + 1, bar_width, 1);
+        let band_style = Style::default()
+            .fg(palette.warn)
+            .add_modifier(Modifier::DIM);
+        f.render_widget(
+            Paragraph::new(Line::from(Span::styled(s, band_style))),
+            band_area,
+        );
     }
 }
 

@@ -79,20 +79,20 @@ pub fn render(f: &mut Frame, props: &EventTapeProps, area: Rect, palette: &Palet
     f.render_widget(Paragraph::new(Line::from(spans)), strip_area);
 
     // Newest cell's label is rendered below.
-    if inner.height >= 2 {
-        if let Some(last) = props.cells.last() {
-            let label_area = Rect::new(inner.x, inner.y + 1, inner.width, 1);
-            let style = Style::default()
-                .fg(last.severity.color(palette))
-                .add_modifier(Modifier::DIM);
-            f.render_widget(
-                Paragraph::new(Line::from(Span::styled(
-                    format!("  ↑ {}", last.label),
-                    style,
-                ))),
-                label_area,
-            );
-        }
+    if inner.height >= 2
+        && let Some(last) = props.cells.last()
+    {
+        let label_area = Rect::new(inner.x, inner.y + 1, inner.width, 1);
+        let style = Style::default()
+            .fg(last.severity.color(palette))
+            .add_modifier(Modifier::DIM);
+        f.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                format!("  ↑ {}", last.label),
+                style,
+            ))),
+            label_area,
+        );
     }
 }
 
