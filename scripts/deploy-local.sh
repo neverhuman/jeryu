@@ -4,7 +4,7 @@
 #
 # Usage:
 #   bash scripts/deploy-local.sh           # build + install + verify
-#   bash scripts/deploy-local.sh --check   # build + verify; skip install step
+#   bash scripts/deploy-local.sh --check   # build + verify artifact; skip install step
 #   bash scripts/deploy-local.sh --verify  # verify only (binary already installed)
 #
 # Exit codes:
@@ -84,6 +84,7 @@ resolve_install_dir() {
 
 INSTALL_DIR="$(resolve_install_dir)"
 INSTALL_PATH="$INSTALL_DIR/jeryu"
+READY_PATH="$INSTALL_PATH"
 
 # ── 1. Build the release binary (skip if --verify only) ────────────────────
 do_build() {
@@ -137,16 +138,19 @@ do_install() {
 
 # ── 3. Post-install verification ────────────────────────────────────────────
 do_verify() {
-    step "Post-install verification"
+    local binary_path="${1:-$INSTALL_PATH}"
+    local label="${2:-Post-install verification}"
 
-    if [ ! -x "$INSTALL_PATH" ]; then
-        fail "$INSTALL_PATH is missing or not executable"
+    step "$label"
+
+    if [ ! -x "$binary_path" ]; then
+        fail "$binary_path is missing or not executable"
         exit 3
     fi
 
     # Version check — must match what cargo built
     local installed_version expected_version
-    installed_version="$("$INSTALL_PATH" --version 2>&1 | head -1 || echo 'failed')"
+    installed_version="$("$binary_path" --version 2>&1 | head -1 || echo 'failed')"
     expected_version="$(grep -m1 '^version = ' "$REPO_ROOT/Cargo.toml" | sed 's/^version = "\(.*\)"/\1/')"
 
     if [ -z "$installed_version" ] || ! echo "$installed_version" | grep -q "$expected_version"; then
@@ -157,7 +161,7 @@ do_verify() {
 
     # TUI smoke render — should print 'jeryu TUI smoke render ok'
     local smoke
-    if ! smoke="$("$INSTALL_PATH" tui --once --demo 2>&1)"; then
+    if ! smoke="$("$binary_path" tui --once --demo 2>&1)"; then
         fail "TUI smoke command failed (exit non-zero)"
         printf '%s\n' "$smoke" | head -10 >&2
         exit 3
@@ -170,7 +174,7 @@ do_verify() {
     ok "tui --once --demo: $smoke"
 
     # Help works
-    if ! "$INSTALL_PATH" --help >/dev/null 2>&1; then
+    if ! "$binary_path" --help >/dev/null 2>&1; then
         fail "--help failed"
         exit 3
     fi
@@ -179,7 +183,7 @@ do_verify() {
     # Reusable check that build.rs embedded git SHA matches HEAD
     local git_head build_sha
     git_head="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo 'no-git')"
-    build_sha="$("$INSTALL_PATH" --version 2>&1 | grep -oE '[a-f0-9]{7,40}' | head -1 || echo 'no-sha')"
+    build_sha="$("$binary_path" --version 2>&1 | grep -oE '[a-f0-9]{7,40}' | head -1 || echo 'no-sha')"
     if [ "$git_head" != "no-git" ] && [ "$build_sha" != "no-sha" ]; then
         if echo "$build_sha" | grep -q "^$git_head"; then
             ok "embedded git SHA matches HEAD ($git_head)"
@@ -197,7 +201,8 @@ case "$MODE" in
         ;;
     --check|check)
         do_build
-        do_verify
+        READY_PATH="$REPO_ROOT/target/release/jeryu"
+        do_verify "$READY_PATH" "Build artifact verification"
         ;;
     --build-only|build-only)
         do_build
@@ -215,4 +220,4 @@ case "$MODE" in
 esac
 
 step "Deploy complete"
-ok "$INSTALL_PATH ready"
+ok "$READY_PATH ready"

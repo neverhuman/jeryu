@@ -7,7 +7,7 @@ name: Post-merge Deploy
 #   - Triggered by completion of the "Rust" workflow on main.
 #   - Gate stage requires conclusion=success and branch=main (or manual force).
 #   - Build stage rebuilds the release binary at the triggering SHA and runs
-#     scripts/deploy-local.sh --check (build + verify).
+#     scripts/deploy-local.sh --check (build + verify artifact).
 #   - Deploy stage installs the artifact on a self-hosted runner labeled
 #     'jeryu-deploy-target' and runs scripts/deploy-local.sh --verify.
 
