@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod mock_gitlab;
+
 use anyhow::Result;
 use jeryu::config;
 use jeryu::gitlab_client::{GitlabClient, Project};

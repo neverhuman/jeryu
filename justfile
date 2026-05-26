@@ -54,9 +54,14 @@ runtime-redlinedb-jansu:
 medium:
     CARGO_INCREMENTAL=0 cargo check --workspace --message-format=json
     CARGO_INCREMENTAL=0 cargo nextest run -p jeryu --lib
+    CARGO_INCREMENTAL=0 cargo nextest run --test mock_lifecycle_tests
     CARGO_INCREMENTAL=0 cargo test -p jeryu --tests -- --test-threads=1
     cargo run -p cargo-witness -- build
     cargo run -p cargo-vrc -- map --output-dir .
+
+# Run the offline mock GitLab tests in isolation (no network or Docker needed).
+mock-gitlab:
+    cargo nextest run --test mock_lifecycle_tests
 
 state-proof:
     cargo run -p jeryu -- repo redline-state-proof
