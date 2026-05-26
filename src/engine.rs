@@ -54,6 +54,26 @@ pub struct EngineState {
 pub type SharedState = Arc<EngineState>;
 
 // ---------------------------------------------------------------------------
+// Router construction
+// ---------------------------------------------------------------------------
+
+/// Build the engine's HTTP router with the legacy routes wired to the supplied
+/// shared state.
+///
+/// The three routes registered here — `/health`, `/hooks`, `/cache/summary` —
+/// form the legacy engine surface that **must** be preserved when the Web Forge
+/// BFF lands (see `WEB_WORK_CLAUDE.md` §35.1.5 and W-B-02). Tests assert these
+/// routes remain bound; W-F-13 owns the regression coverage in
+/// `tests/engine_routes_preserved_test.rs`.
+pub fn build_router(state: SharedState) -> Router {
+    Router::new()
+        .route("/health", get(health))
+        .route("/hooks", post(handle_webhook))
+        .route("/cache/summary", get(cache_summary))
+        .with_state(state)
+}
+
+// ---------------------------------------------------------------------------
 // Engine entry point
 // ---------------------------------------------------------------------------
 
@@ -75,12 +95,8 @@ pub async fn run_engine(
         node_gc_timestamps: Mutex::new(HashMap::new()),
     });
 
-    // Build router
-    let app = Router::new()
-        .route("/health", get(health))
-        .route("/hooks", post(handle_webhook))
-        .route("/cache/summary", get(cache_summary))
-        .with_state(state.clone());
+    // Build router (see `build_router` above for the §35.1.5 invariant).
+    let app = build_router(state.clone());
 
     // Start reconciliation loop
     let reconcile_state = state.clone();

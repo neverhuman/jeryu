@@ -200,6 +200,10 @@ tuiwright = { git = "https://github.com/neverhuman/jankurai.git", tag = "v1.5.1"
 # binaries and do not automatically inherit the crate's [dependencies]).
 axum = { version = "0.8", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
+# `tower` (specifically `ServiceExt::oneshot`) is needed by the W-F-13
+# `tests/engine_routes_preserved_test.rs` regression guard that exercises the
+# engine router without binding a real TCP socket.
+tower = { version = "0.5", features = ["util"] }
 
 [package.metadata.agent]
 purpose = "Single-binary CI/CD control plane for GitLab-based pipelines"
