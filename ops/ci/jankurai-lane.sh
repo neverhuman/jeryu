@@ -25,7 +25,13 @@ run_security() {
     --out target/jankurai/security/evidence.json
 }
 
+run_maps() {
+  log "workspace map (VRC)"
+  cargo run -p cargo-vrc -- map --output-dir .
+}
+
 run_audit() {
+  run_maps
   log "jankurai advisory audit"
   local baseline="${JANKURAI_BASELINE:-agent/repo-score.json}"
   local mode="${JANKURAI_AUDIT_MODE:-advisory}"
@@ -237,8 +243,7 @@ PY
 }
 
 run_tools() {
-  log "workspace map (VRC)"
-  cargo run -p cargo-vrc -- map --output-dir .
+  run_maps
   log "AER structural scan"
   cargo run -p cargo-aer -- scan --output target/jankurai/aer-findings.json
   log "migration analyze"

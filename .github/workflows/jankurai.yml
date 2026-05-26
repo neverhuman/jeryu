@@ -72,6 +72,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      security-events: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -92,6 +93,11 @@ jobs:
           JANKURAI_SARIF_OUT: target/jankurai/jankurai.sarif
           JANKURAI_SUMMARY_OUT: target/jankurai/summary.md
           JANKURAI_REPAIR_QUEUE: target/jankurai/repair-queue.jsonl
+      - name: Upload jankurai SARIF
+        if: always() && hashFiles('target/jankurai/jankurai.sarif') != ''
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4
+        with:
+          sarif_file: target/jankurai/jankurai.sarif
       - name: Jankurai ratchet audit (advisory)
         # Ratchet mode is advisory until the post-release baseline is captured.
         continue-on-error: true
