@@ -4,10 +4,13 @@
 //!             backend I/O. Each lens follows the canonical 5-file shape:
 //!             mod.rs / view.rs / data.rs / nav.rs / tests.rs.
 
+pub mod agents;
+pub mod bugs;
 pub mod evidence;
 pub mod mission;
 pub mod queue;
 pub mod repos;
+pub mod runners;
 pub mod source_doctor;
 pub mod workflow;
 
@@ -19,6 +22,9 @@ pub enum LensId {
     Workflow,
     Evidence,
     SourceDoctor,
+    Runners,
+    Agents,
+    Bugs,
 }
 
 impl LensId {
@@ -30,6 +36,9 @@ impl LensId {
             Self::Workflow => "workflow",
             Self::Evidence => "evidence",
             Self::SourceDoctor => "source-doctor",
+            Self::Runners => "runners",
+            Self::Agents => "agents",
+            Self::Bugs => "bugs",
         }
     }
 
@@ -41,6 +50,9 @@ impl LensId {
             Self::Workflow => "Workflow",
             Self::Evidence => "Evidence",
             Self::SourceDoctor => "Source Doctor",
+            Self::Runners => "Runners",
+            Self::Agents => "Agents",
+            Self::Bugs => "Bugs",
         }
     }
 
@@ -51,6 +63,9 @@ impl LensId {
         Self::Workflow,
         Self::Evidence,
         Self::SourceDoctor,
+        Self::Runners,
+        Self::Agents,
+        Self::Bugs,
     ];
 }
 
