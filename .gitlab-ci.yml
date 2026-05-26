@@ -1,54 +1,76 @@
 # .gitlab-ci.yml — full-parity translation of all GitHub Actions workflows
 #
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │  DAG SCHEDULE — 3 runners, wall-clock timing                                │
+# │                                                                             │
+# │  t=0  (needs:[] — all start immediately, queued across available runners):  │
+# │    ● fmt  ● clippy  ● supply-chain                                          │
+# │    ● fixture-project-test  ● fixture-project-clippy                         │
+# │    ● build  (stage=build, needs:[] bypasses the check-stage barrier)        │
+# │                                                                             │
+# │  t≈build (~30m):                                                            │
+# │    test-select · install-smoke · ssh-install-e2e                            │
+# │    jankurai-security · jankurai-audit · jankurai-sbom                       │
+# │    witness · vrc-map · vrc-plan · aer-scan · tui-smoke · tui-screenshots    │
+# │                                                                             │
+# │  t≈build+select (~35m):                                                     │
+# │    test-lib · test-mock · test-integration                                  │
+# │                                                                             │
+# │  t≈tests (~80m):  jankurai-ratchet (advisory, allow_failure)                │
+# │                                                                             │
+# │  t≈all-critical (~80m):  release-ready (gate)                              │
+# │                                                                             │
+# │  Critical path: build(30) → test-select(5) → test-integration(45) ≈ 80m   │
+# │  Previous:  clippy(25) → build(30) → select(5) → integ(45) ≈ 105m         │
+# └─────────────────────────────────────────────────────────────────────────────┘
+#
 # Source-of-truth scripts (unchanged — local rehearsals and CI share them):
-#   ops/ci/rust-lane.sh       → rust.yml jobs
-#   ops/ci/jankurai-lane.sh   → jankurai.yml jobs
-#   ops/ci/release-lane.sh    → release.yml jobs
+#   ops/ci/rust-lane.sh          → rust.yml jobs
+#   ops/ci/jankurai-lane.sh      → jankurai.yml jobs
+#   ops/ci/release-lane.sh       → release.yml jobs
 #   ops/ci/release-ready-lane.sh → release-ready.yml gate
 #
 # GitHub → GitLab translation key:
-#   pull_request / merge_group  → CI_PIPELINE_SOURCE == "merge_request_event"
-#   push: branches: [main]      → CI_COMMIT_BRANCH == "main" && SOURCE == "push"
-#   push: tags: ["v*"]          → CI_COMMIT_TAG =~ /^v/
-#   schedule: (weekly)          → CI_PIPELINE_SOURCE == "schedule"
-#   workflow_dispatch           → CI_PIPELINE_SOURCE == "trigger" or RELEASE_VERSION var set
-#   cancel-in-progress: true    → interruptible: true
-#   continue-on-error: true     → allow_failure: true
-#   actions/upload-artifact     → artifacts: paths:
-#   actions/download-artifact   → needs: [job] + artifacts: true
-#   GITHUB_TOKEN                → CI_JOB_TOKEN (for GitLab API) / GITHUB_TOKEN CI var (for GitHub API)
-#   GITHUB_SHA                  → CI_COMMIT_SHA
-#   GITHUB_REPOSITORY           → CI_PROJECT_PATH
+#   pull_request / merge_group   → CI_PIPELINE_SOURCE == "merge_request_event"
+#   push: branches: [main]       → CI_COMMIT_BRANCH == "main" && SOURCE == "push"
+#   push: tags: ["v*"]           → CI_COMMIT_TAG =~ /^v/
+#   schedule: (weekly)           → CI_PIPELINE_SOURCE == "schedule"
+#   workflow_dispatch            → CI_PIPELINE_SOURCE == "trigger" or RELEASE_VERSION var set
+#   cancel-in-progress: true     → interruptible: true
+#   continue-on-error: true      → allow_failure: true
+#   actions/upload-artifact      → artifacts: paths:
+#   actions/download-artifact    → needs: [job] + artifacts: true
+#   GITHUB_TOKEN                 → CI_JOB_TOKEN / GITHUB_TOKEN CI var (for GitHub API)
+#   GITHUB_SHA                   → CI_COMMIT_SHA
+#   GITHUB_REPOSITORY            → CI_PROJECT_PATH
 #
-# Required GitLab CI/CD variables (set in project Settings → CI/CD → Variables):
-#   GITHUB_TOKEN  — personal access token or fine-grained PAT for github.com/neverhuman/jeryu
-#                   (needed by release-ready gate --emit-status and release publish)
-#   (optional) JERYU_DB_BACKEND  — "redlinedb" to use RedlineDB instead of SQLite
+# Required GitLab CI/CD variables (project Settings → CI/CD → Variables):
+#   GITHUB_TOKEN  — PAT for github.com/neverhuman/jeryu (release publish + emit-status)
+#   (optional) JERYU_DB_BACKEND — "redlinedb" to use RedlineDB instead of SQLite
 
 variables:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
   JERYU_DB_BACKEND: sqlite
-  # Fetch full history for jobs that compare against origin/main (VTI, shadow tests)
+  # Full history needed for VTI shadow-tests and origin/main comparisons.
   GIT_DEPTH: 0
 
 stages:
-  - lint          # fmt, clippy
-  - build         # cargo build (workspace)
-  - test-plan     # VTI test selection
-  - test          # lib, mock, integration, install-smoke, fixture-project, ssh-e2e
-  - audit         # jankurai, supply-chain, aer, witness, vrc-map, vrc-plan, tui, hardening
-  - gate          # release-ready composite gate
-  - release-prep  # release preflight, audit, security (triggered by v* tags)
-  - release-build # release cargo build
-  - release-proof # provenance + SBOM + rollback-check + evidence
-  - publish       # create release
+  - check         # t=0 parallel: fmt · clippy · supply-chain · fixture-project-*
+  - build         # t=0 via needs:[] (parallel with check): cargo build workspace
+  - verify        # after build (+ test-select for test jobs): tests · audits · tui
+  - gate          # after critical tests: release-ready composite gate
+  - release-prep  # version resolution · audit · security (tag/manual)
+  - release-build # release binary
+  - release-proof # provenance · SBOM · rollback-check · evidence
+  - publish       # create GitHub release
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Shared job templates (use "extends:" to inherit)
+# Shared templates
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Ensure Rust toolchain is available. Reads rust-toolchain.toml via `rustup show`.
+# Install Rust toolchain (from rust-toolchain.toml) and the mold linker.
+# Mold is installed once here so individual jobs don't repeat it.
 .rust-toolchain:
   before_script:
     - |
@@ -57,9 +79,17 @@ stages:
           | sh -s -- -y --default-toolchain none --no-modify-path
         source "$HOME/.cargo/env"
       fi
-    - rustup show  # installs pinned toolchain from rust-toolchain.toml
+    - rustup show   # installs / verifies pinned toolchain from rust-toolchain.toml
+    - |
+      # mold linker — speeds up incremental link steps for all jobs
+      if ! command -v mold >/dev/null 2>&1; then
+        sudo apt-get install -y -qq mold 2>/dev/null \
+          || apt-get install -y -qq mold 2>/dev/null \
+          || true
+      fi
 
-# Cargo build cache. Keyed on Cargo.lock + rust-toolchain.toml.
+# Cargo registry + build cache. Keyed on Cargo.lock + rust-toolchain.toml.
+# Uses pull-push so any cache-warming run benefits the next job.
 .cargo-cache:
   cache:
     key:
@@ -74,7 +104,7 @@ stages:
   variables:
     CARGO_HOME: $CI_PROJECT_DIR/.cargo-cache
 
-# Read-only cache variant for jobs that do not produce new artifacts worth caching.
+# Read-only cache for jobs that don't produce cache-worthy new artifacts.
 .cargo-cache-pull:
   cache:
     key:
@@ -89,14 +119,14 @@ stages:
   variables:
     CARGO_HOME: $CI_PROJECT_DIR/.cargo-cache
 
-# Rules for the main check pipeline (MR, push-to-main, scheduled).
+# Rules: MR targeting any branch, push to main, scheduled runs.
 .on-mr-and-main:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
-# Rules for release pipeline (v* tag push, or manual trigger with RELEASE_VERSION set).
+# Rules: v* tag push, or manual trigger with RELEASE_VERSION variable set.
 .on-release:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v/'
@@ -104,36 +134,88 @@ stages:
       when: manual
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LINT STAGE  (≡ rust.yml: fmt, clippy)
+# CHECK STAGE  — t=0, all start immediately via needs:[]
+# Equivalent to: rust.yml (fmt, clippy), rust.yml (fixture-project-*),
+#                rust.yml (supply-chain / cargo-deny)
 # ─────────────────────────────────────────────────────────────────────────────
 
 fmt:
-  stage: lint
+  stage: check
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
+  needs: []
   timeout: 10 minutes
   interruptible: true
   script:
     - bash ops/ci/rust-lane.sh fmt
 
 clippy:
-  stage: lint
+  stage: check
   extends: [.rust-toolchain, .cargo-cache, .on-mr-and-main]
-  timeout: 25 minutes
+  needs: []
+  timeout: 30 minutes
   interruptible: true
   script:
     - bash ops/ci/rust-lane.sh clippy
 
+# cargo-deny supply-chain audit — reads Cargo.lock only, no compiled artifacts needed.
+supply-chain:
+  stage: check
+  extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
+  needs: []
+  timeout: 15 minutes
+  interruptible: true
+  script:
+    - cargo install cargo-deny --locked --quiet 2>/dev/null || true
+    - |
+      export PATH="$HOME/go/bin:$PATH"
+      if ! command -v actionlint >/dev/null 2>&1; then
+        go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8 2>/dev/null || true
+      fi
+    - bash ops/ci/rust-lane.sh supply-chain
+  artifacts:
+    name: security-evidence
+    paths:
+      - target/jankurai/security/
+    expire_in: 7 days
+    when: always
+
+# Fixture project — self-contained mini-crate, no main-workspace artifacts needed.
+# Split into two parallel jobs so test + clippy run on separate runners.
+fixture-project-test:
+  stage: check
+  extends: [.rust-toolchain, .cargo-cache, .on-mr-and-main]
+  needs: []
+  timeout: 10 minutes
+  interruptible: true
+  script:
+    - cd tests/fixtures/fixture_project
+    - bash ../../../ops/ci/rust-lane.sh fixture-project-test
+
+fixture-project-clippy:
+  stage: check
+  extends: [.rust-toolchain, .cargo-cache, .on-mr-and-main]
+  needs: []
+  timeout: 10 minutes
+  interruptible: true
+  script:
+    - cd tests/fixtures/fixture_project
+    - bash ../../../ops/ci/rust-lane.sh fixture-project-clippy
+
 # ─────────────────────────────────────────────────────────────────────────────
-# BUILD STAGE  (≡ rust.yml: build)
+# BUILD STAGE  — t=0 via needs:[], runs in parallel with the entire check stage
+# Equivalent to: rust.yml (build)
 # ─────────────────────────────────────────────────────────────────────────────
 
 build:
   stage: build
   extends: [.rust-toolchain, .cargo-cache, .on-mr-and-main]
-  timeout: 30 minutes
+  # needs:[] bypasses the check-stage barrier — build starts at t=0, in parallel
+  # with fmt/clippy/supply-chain/fixture-project-*.
+  # MRs with lint failures will have both build AND lint results visible at the same time.
+  needs: []
+  timeout: 35 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh build
   artifacts:
     name: jeryu-debug-build
@@ -143,12 +225,16 @@ build:
     when: on_success
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TEST-PLAN STAGE  (≡ rust.yml: test-select)
-# VTI selects which tests to run and emits mode + filter as dotenv for downstream.
+# VERIFY STAGE  — jobs fan out immediately after their deps finish
+# No stage-barrier waits; every job carries explicit needs:.
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── VTI test-selection ───────────────────────────────────────────────────────
+
+# Runs as soon as build is done. Emits vti.env (VTI_MODE, VTI_FILTER) consumed
+# by test-lib, test-mock, test-integration.
 test-select:
-  stage: test-plan
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -156,10 +242,7 @@ test-select:
   timeout: 20 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh test-select
-    # Emit dotenv so downstream jobs can branch on VTI mode.
-    # rust-lane.sh test-select already writes target/jeryu/test-plan.json.
     - |
       VTI_MODE=$(jq -r '.mode // "full"' target/jeryu/test-plan.json 2>/dev/null || echo "full")
       VTI_FILTER=$(jq -r '
@@ -180,13 +263,10 @@ test-select:
       dotenv: vti.env
     expire_in: 1 day
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TEST STAGE  (≡ rust.yml: test-lib, test-mock, test-integration,
-#              install-smoke, fixture-project-tests, ssh-install-e2e)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Tests (fan out from build + test-select) ─────────────────────────────────
 
 test-lib:
-  stage: test
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -196,18 +276,15 @@ test-lib:
   timeout: 30 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
-    # Mirror: if: needs.test-select.outputs.mode != 'docs_only'
     - |
       if [ "${VTI_MODE:-full}" = "docs_only" ]; then
-        echo "VTI mode is docs_only — skipping test-lib"
-        exit 0
+        echo "VTI mode is docs_only — skipping test-lib"; exit 0
       fi
     - cargo install cargo-nextest --locked --quiet 2>/dev/null || true
     - bash ops/ci/rust-lane.sh test-lib "${VTI_MODE:-full}" "${VTI_FILTER:-}"
 
 test-mock:
-  stage: test
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -217,17 +294,15 @@ test-mock:
   timeout: 10 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - |
       if [ "${VTI_MODE:-full}" = "docs_only" ]; then
-        echo "VTI mode is docs_only — skipping test-mock"
-        exit 0
+        echo "VTI mode is docs_only — skipping test-mock"; exit 0
       fi
     - cargo install cargo-nextest --locked --quiet 2>/dev/null || true
     - bash ops/ci/rust-lane.sh test-mock
 
 test-integration:
-  stage: test
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: test-select
@@ -235,16 +310,14 @@ test-integration:
   timeout: 45 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - |
       if [ "${VTI_MODE:-full}" = "docs_only" ]; then
-        echo "VTI mode is docs_only — skipping test-integration"
-        exit 0
+        echo "VTI mode is docs_only — skipping test-integration"; exit 0
       fi
     - bash ops/ci/rust-lane.sh test-integration
 
 install-smoke:
-  stage: test
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -252,21 +325,10 @@ install-smoke:
   timeout: 30 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh install-smoke
 
-fixture-project-tests:
-  stage: test
-  extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
-  timeout: 10 minutes
-  interruptible: true
-  script:
-    - cd tests/fixtures/fixture_project
-    - bash ../../../ops/ci/rust-lane.sh fixture-project-test
-    - bash ../../../ops/ci/rust-lane.sh fixture-project-clippy
-
 ssh-install-e2e:
-  stage: test
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -274,7 +336,6 @@ ssh-install-e2e:
   timeout: 30 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh ssh-install-e2e
   artifacts:
     paths:
@@ -282,33 +343,19 @@ ssh-install-e2e:
     expire_in: 7 days
     when: always
 
-# ─────────────────────────────────────────────────────────────────────────────
-# AUDIT STAGE  (≡ jankurai.yml + rust.yml audit jobs)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Jankurai — split into 3 parallel jobs, all need only build ───────────────
 
-jankurai-audit:
-  stage: audit
+# jankurai-security: gitleaks secrets scan + security audit lane.
+# Lightest job — runs gitleaks (no compiler) + jankurai security lane.
+jankurai-security:
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
       artifacts: false
-  timeout: 30 minutes
+  timeout: 15 minutes
   interruptible: true
   script:
-    # Install tools — mirrors jankurai.yml setup steps exactly
-    - |
-      if [ "${JERYU_DB_BACKEND:-sqlite}" = "redlinedb" ]; then
-        bash scripts/install-redlinedb.sh
-      fi
-    - cargo install cargo-deny --locked --quiet 2>/dev/null || true
-    - cargo install cargo-cyclonedx --locked --quiet 2>/dev/null || true
-    - |
-      export PATH="$HOME/go/bin:$PATH"
-      if ! command -v actionlint >/dev/null 2>&1; then
-        go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8 2>/dev/null || true
-      fi
-    - bash scripts/install-jankurai.sh
-    - jankurai --version
     - |
       VERSION="8.30.0"
       if ! command -v gitleaks >/dev/null 2>&1; then
@@ -318,20 +365,38 @@ jankurai-audit:
              | tar -xz -C "$HOME/.local/bin" gitleaks
       fi
       gitleaks version
+    - bash scripts/install-jankurai.sh
+    - bash ops/ci/jankurai-lane.sh security
+  artifacts:
+    name: jankurai-security-evidence
+    paths:
+      - target/jankurai/security/
+    expire_in: 7 days
+    when: always
+
+# jankurai-audit: scoring · SARIF · proofbind · tools · bad-behavior lanes.
+jankurai-audit:
+  stage: verify
+  extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
+  needs:
+    - job: build
+      artifacts: false
+  timeout: 30 minutes
+  interruptible: true
+  script:
     - |
-      if ! command -v syft >/dev/null 2>&1; then
-        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-          | sudo sh -s -- -b /usr/local/bin v1.40.0 2>/dev/null \
-          || curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-             | sh -s -- -b "$HOME/.local/bin" v1.40.0
+      if [ "${JERYU_DB_BACKEND:-sqlite}" = "redlinedb" ]; then
+        bash scripts/install-redlinedb.sh
       fi
-      syft --version
-    # Lint GitHub Actions workflows (advisory on GitLab — those still run on GitHub)
     - |
       export PATH="$HOME/go/bin:$PATH"
-      actionlint .github/workflows/*.yml || true
-    # Security and audit lanes
-    - bash ops/ci/jankurai-lane.sh security
+      if ! command -v actionlint >/dev/null 2>&1; then
+        go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8 2>/dev/null || true
+      fi
+    - bash scripts/install-jankurai.sh
+    - jankurai --version
+    # Lint GitHub Actions workflows — advisory on GitLab (they still run on GitHub)
+    - export PATH="$HOME/go/bin:$PATH" && actionlint .github/workflows/*.yml || true
     - |
       mkdir -p target/jankurai
       JANKURAI_SARIF_OUT=target/jankurai/jankurai.sarif \
@@ -341,14 +406,6 @@ jankurai-audit:
     - bash ops/ci/jankurai-lane.sh proof
     - bash ops/ci/jankurai-lane.sh tools
     - bash ops/ci/jankurai-lane.sh bad-behavior
-    # CycloneDX SBOM (mirrors jankurai.yml Generate CycloneDX SBOM step)
-    - |
-      mkdir -p target/jankurai/sbom
-      cargo cyclonedx --format json --override-filename sbom || true
-      find . -maxdepth 4 -name 'sbom.cdx.json' -not -path './target/jankurai/*' \
-        -exec mv {} target/jankurai/sbom/ \; 2>/dev/null || true
-    # Note: GitHub Sigstore attestation (actions/attest-build-provenance) is GitHub-specific.
-    # GitLab Premium offers artifact signing; for now the SBOM is stored as an artifact below.
   artifacts:
     name: jankurai-adoption-evidence
     paths:
@@ -367,27 +424,59 @@ jankurai-audit:
       - target/jankurai/git-bad-behavior.log
       - target/jankurai/release-bad-behavior.log
       - target/jankurai/ux-qa.json
-      - target/jankurai/security/
-      - target/jankurai/sbom/
       - target/jankurai/migration-report.json
     expire_in: 7 days
     when: always
 
-# Advisory ratchet — mirrors jankurai.yml "Jankurai ratchet audit (advisory)"
+# jankurai-sbom: CycloneDX SBOM generation — independent of audit scoring.
+jankurai-sbom:
+  stage: verify
+  extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
+  needs:
+    - job: build
+      artifacts: false
+  timeout: 15 minutes
+  interruptible: true
+  script:
+    - cargo install cargo-cyclonedx --locked --quiet 2>/dev/null || true
+    - |
+      # Install syft for additional SBOM metadata
+      if ! command -v syft >/dev/null 2>&1; then
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+          | sudo sh -s -- -b /usr/local/bin v1.40.0 2>/dev/null \
+          || curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+             | sh -s -- -b "$HOME/.local/bin" v1.40.0
+      fi
+      syft --version
+    - |
+      mkdir -p target/jankurai/sbom
+      cargo cyclonedx --format json --override-filename sbom || true
+      find . -maxdepth 4 -name 'sbom.cdx.json' -not -path './target/jankurai/*' \
+        -exec mv {} target/jankurai/sbom/ \; 2>/dev/null || true
+    # Note: GitHub Sigstore attestation (actions/attest-build-provenance) is GitHub-specific.
+    # GitLab Premium offers artifact signing; SBOM is stored as artifact in the meantime.
+  artifacts:
+    name: jankurai-sbom
+    paths:
+      - target/jankurai/sbom/
+    expire_in: 7 days
+    when: always
+
+# Advisory score-ratchet — runs after audit has scored the commit.
+# allow_failure mirrors continue-on-error: true in jankurai.yml.
 jankurai-ratchet:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: jankurai-audit
       artifacts: false
   timeout: 20 minutes
   interruptible: true
-  allow_failure: true  # mirrors continue-on-error: true
+  allow_failure: true
   script:
     - bash scripts/install-jankurai.sh
     - mkdir -p target/jankurai
     - |
-      # Try to get baseline from origin/main (local GitLab)
       git show origin/main:agent/repo-score.json > target/jankurai/accepted-baseline.json 2>/dev/null \
         || echo '{}' > target/jankurai/accepted-baseline.json
     - |
@@ -395,31 +484,10 @@ jankurai-ratchet:
       JANKURAI_AUDIT_MODE=ratchet \
       bash ops/ci/jankurai-lane.sh audit
 
-supply-chain:
-  stage: audit
-  extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
-  needs:
-    - job: build
-      artifacts: false
-  timeout: 20 minutes
-  interruptible: true
-  script:
-    - cargo install cargo-deny --locked --quiet 2>/dev/null || true
-    - |
-      export PATH="$HOME/go/bin:$PATH"
-      if ! command -v actionlint >/dev/null 2>&1; then
-        go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8 2>/dev/null || true
-      fi
-    - bash ops/ci/rust-lane.sh supply-chain
-  artifacts:
-    name: security-evidence
-    paths:
-      - target/jankurai/security/
-    expire_in: 7 days
-    when: always
+# ── Witness / VRC / AER (fan out from build) ─────────────────────────────────
 
 witness:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -427,7 +495,6 @@ witness:
   timeout: 20 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh witness
   artifacts:
     name: witness-graph
@@ -437,7 +504,7 @@ witness:
     when: always
 
 vrc-map:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -445,7 +512,6 @@ vrc-map:
   timeout: 15 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh vrc-map
   artifacts:
     name: vrc-maps
@@ -456,7 +522,7 @@ vrc-map:
     when: always
 
 vrc-plan:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -464,7 +530,6 @@ vrc-plan:
   timeout: 15 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh vrc-plan
   artifacts:
     name: vrc-plan
@@ -474,7 +539,7 @@ vrc-plan:
     when: always
 
 aer-scan:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -482,7 +547,6 @@ aer-scan:
   timeout: 15 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh aer
   artifacts:
     name: aer-findings
@@ -491,8 +555,10 @@ aer-scan:
     expire_in: 7 days
     when: always
 
+# ── TUI smoke + screenshots (fan out from build) ─────────────────────────────
+
 tui-smoke:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
@@ -500,24 +566,23 @@ tui-smoke:
   timeout: 15 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh tui-smoke
 
 tui-screenshots:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs:
     - job: build
       artifacts: true
   timeout: 20 minutes
   interruptible: true
+  # Prevents concurrent media commits on main if two pipelines overlap.
+  resource_group: git-push-main
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh tui-screenshots
     - bash ops/ci/rust-lane.sh tui-recording
     - bash ops/ci/update-tui-readme-media.sh
-    # Commit media refresh back on main branch pushes only
-    # (mirrors: if github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
+    # Commit refreshed media back to main (mirrors: if github.ref == 'refs/heads/main')
     - |
       if [ "$CI_PIPELINE_SOURCE" != "merge_request_event" ] && [ "$CI_COMMIT_BRANCH" = "main" ]; then
         if git diff --quiet -- README.md assets/tui-demo.gif assets/tui-workflow.png assets/tui-jobs.png assets/tui-bugs.png; then
@@ -543,16 +608,17 @@ tui-screenshots:
     expire_in: 7 days
     when: always
 
-# Weekly scheduled hardening — mirrors: if: github.event_name == 'schedule'
+# ── Weekly scheduled hardening — schedule-only, no build dep needed ───────────
+
 scheduled-hardening:
-  stage: audit
+  stage: verify
   extends: [.rust-toolchain, .cargo-cache-pull]
+  needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   timeout: 30 minutes
   interruptible: true
   script:
-    - command -v mold >/dev/null 2>&1 || sudo apt-get install -y mold 2>/dev/null || apt-get install -y mold 2>/dev/null || true
     - bash ops/ci/rust-lane.sh hardening
   artifacts:
     name: hardening-aer-findings
@@ -564,31 +630,50 @@ scheduled-hardening:
 # ─────────────────────────────────────────────────────────────────────────────
 # GATE STAGE  (≡ release-ready.yml)
 #
-# The GitHub version posts a Check Run to GitHub (JERYU_EMIT_STATUS=1).
-# On GitLab, the pipeline job status IS the MR gate — no separate check posting
-# needed. JERYU_EMIT_STATUS stays at 0; the gate still validates all receipts
-# locally so any failure blocks the MR.
-#
-# The jeryu server separately posts a GitLab commit status
-# (vibegate/merge-passport) via post_merge_passport_status() — that is the
-# VibeGate autonomous approval layer, orthogonal to this CI gate.
+# Requires ALL critical test + audit jobs before firing.
+# On GitLab the pipeline job status IS the MR gate (JERYU_EMIT_STATUS=0).
+# The jeryu server independently posts vibegate/merge-passport via
+# post_merge_passport_status() — orthogonal to this CI gate.
 # ─────────────────────────────────────────────────────────────────────────────
 
 release-ready:
   stage: gate
   extends: [.rust-toolchain, .cargo-cache-pull]
   needs:
+    # Binary + binary artifact
     - job: build
+      artifacts: true
+    # Lint (must pass before merging)
+    - job: fmt
+      artifacts: false
+    - job: clippy
+      artifacts: false
+    # Supply-chain (cargo-deny must be clean)
+    - job: supply-chain
+      artifacts: false
+    # Tests
+    - job: test-lib
+      artifacts: false
+    - job: test-mock
+      artifacts: false
+    - job: test-integration
+      artifacts: false
+    # Audit evidence (gate reads SARIF + scoring artifacts)
+    - job: jankurai-audit
+      artifacts: true
+    - job: jankurai-security
+      artifacts: true
+    # Witness graph
+    - job: witness
       artifacts: true
   timeout: 30 minutes
   rules:
-    # Gate only MRs targeting main (mirrors: on: pull_request: branches: [main])
+    # Gate MRs targeting main (mirrors: on: pull_request: branches: [main])
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
     # Also run on direct pushes to main so green main always has a passing gate
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
   variables:
-    # Dry-run: validate receipts locally without posting to GitHub.
-    # The GitLab pipeline status is the gate for MRs.
+    # Dry-run: validate receipts locally — GitLab pipeline status is the gate for MRs.
     JERYU_EMIT_STATUS: "0"
     PR_NUMBER: $CI_MERGE_REQUEST_IID
   script:
@@ -598,7 +683,6 @@ release-ready:
 # RELEASE PIPELINE  (≡ release.yml)
 #
 # Triggered by v* tag push OR by setting RELEASE_VERSION + manual trigger.
-# Maps:
 #   workflow_dispatch.inputs.version → RELEASE_VERSION CI variable
 #   workflow_dispatch.inputs.dry_run → RELEASE_DRY_RUN CI variable ("true"/"false")
 #   push: tags: ["v*"]              → CI_COMMIT_TAG
@@ -613,13 +697,11 @@ release-preflight:
       when: manual
   timeout: 15 minutes
   script:
-    # Derive version + dry_run from GitLab context (maps GITHUB_EVENT_NAME/GITHUB_REF_NAME)
     - |
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
         GITHUB_EVENT_NAME=push GITHUB_REF_NAME="$CI_COMMIT_TAG" \
           bash ops/ci/release-resolve.sh > release.env
       else
-        # Manual trigger via RELEASE_VERSION variable
         INPUT_VERSION="$RELEASE_VERSION" INPUT_DRY_RUN="${RELEASE_DRY_RUN:-false}" \
         GITHUB_EVENT_NAME=workflow_dispatch \
           bash ops/ci/release-resolve.sh > release.env
@@ -632,6 +714,7 @@ release-preflight:
       dotenv: release.env
     expire_in: 1 day
 
+# release-audit and release-security run in parallel once preflight resolves the version.
 release-audit:
   stage: release-prep
   extends: [.rust-toolchain, .cargo-cache-pull]
@@ -660,6 +743,7 @@ release-security:
   script:
     - bash ops/ci/release-lane.sh security "$version"
 
+# Release build starts as soon as preflight is green (parallel with audit+security).
 release-build:
   stage: release-build
   extends: [.rust-toolchain, .cargo-cache]
@@ -679,6 +763,7 @@ release-build:
       - target/release/jeryu
     expire_in: 7 days
 
+# release-provenance and release-rollback-check fan out in parallel after release-build.
 release-provenance:
   stage: release-proof
   extends: [.rust-toolchain, .cargo-cache-pull]
@@ -694,8 +779,8 @@ release-provenance:
   timeout: 25 minutes
   script:
     - bash ops/ci/release-lane.sh provenance "$version"
-    # Note: GitHub Sigstore attestation (actions/attest-build-provenance) is not ported.
-    # SBOM is captured below; add cosign/sigstore signing here if required.
+    # Note: GitHub Sigstore attestation not ported (GitHub-specific).
+    # Add cosign/sigstore signing here if required.
   artifacts:
     paths:
       - target/jankurai/sbom/
@@ -729,6 +814,8 @@ release-evidence:
       artifacts: true
     - job: release-provenance
       artifacts: true
+    - job: release-rollback-check
+      artifacts: false
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v/'
     - if: '$RELEASE_VERSION != null && $RELEASE_VERSION != ""'
@@ -761,11 +848,11 @@ release-publish:
     - job: release-rollback-check
       artifacts: false
   rules:
-    # Only publish for real tag pushes when not dry-run (mirrors: if: dry_run != 'true')
+    # Only publish for real tag pushes when not a dry run (mirrors: if: dry_run != 'true')
     - if: '$CI_COMMIT_TAG =~ /^v/ && $RELEASE_DRY_RUN != "true"'
   environment: release
   timeout: 30 minutes
-  # GITHUB_TOKEN must be set as a masked CI variable in project Settings → CI/CD → Variables
+  # GITHUB_TOKEN must be set as a masked CI variable: project Settings → CI/CD → Variables.
   # release-lane.sh publish creates a GitHub Release on neverhuman/jeryu via gh CLI.
   script:
     - bash ops/ci/release-lane.sh publish "$version"
