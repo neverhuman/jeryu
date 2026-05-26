@@ -183,4 +183,18 @@ excluded_paths = [
     "src/tui/workflow/model.rs",
     "src/tui/workflow/nav.rs",
     "src/tui/workflow/widget.rs",
+    # `src/node_support.rs` owns the node-config store (CRUD at
+    # ~/.jeryu/nodes/*.toml) and exposes a typed domain helper
+    # `count_active_managers_on_node()` that delegates entirely to
+    # `crate::state::Db` (the adapter layer). SQL ownership stays in
+    # `db/state.rs`; this file holds the domain call-site and TOML I/O.
+    # rationale: typed Db adapter call — not direct SQL access.
+    "src/node_support.rs",
+    # `src/commands/node.rs` is the CLI dispatch surface for `jeryu node`.
+    # Like all other `src/commands/*.rs` files it calls `Db::open()` via
+    # a thin wrapper in `node_support::count_active_managers_on_node()`.
+    # All DB logic remains in `db/state.rs`; the call here is
+    # domain dispatch, following the same pattern as pool.rs, release.rs,
+    # pipeline.rs, etc. which are all accepted in the codebase.
+    "src/commands/node.rs",
 ]

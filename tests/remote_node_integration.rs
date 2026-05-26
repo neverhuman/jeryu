@@ -370,7 +370,7 @@ async fn gc_storage_no_op_below_threshold() {
 /// shell_quote() is safe for common special characters.
 #[test]
 fn shell_quote_safety() {
-    use jeryu::runner_backend_remote::shell_quote;
+    use jeryu::runner_backend_remote_support::shell_quote;
 
     assert_eq!(shell_quote("hello"), "'hello'");
     assert_eq!(shell_quote("hello world"), "'hello world'");

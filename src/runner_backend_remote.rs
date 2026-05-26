@@ -6,8 +6,7 @@
 //!   - A single SSH connection per reconciliation cycle (one `docker ps` call
 //!     covers all managed containers on the node).
 //!   - SSH multiplexing (ControlMaster=auto) is inherited from `ssh_args()`.
-//!   - GC never removes containers that are still registered in the DB as
-//!     active (starting | online | node_starting | node_unreachable).
+//!   - GC never removes containers that are still registered in the DB as active.
 
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
@@ -16,9 +15,17 @@ use tracing::{debug, info, warn};
 
 use crate::config;
 use crate::node_types::NodeConfig;
-use crate::remote::{run_remote_shell, run_remote_shell_capture, run_remote_shell_status};
+use crate::remote::{run_remote_shell, run_remote_shell_capture};
 use crate::runner_backend::{ManagerHandle, RunnerBackend};
+use crate::runner_backend_remote_support::{
+    base64_encode, get_remote_used_kb, runner_bootstrap_cmd_docker, shell_quote,
+};
 use crate::state::Pool;
+
+// Re-export for integration-test and command use.
+pub use crate::runner_backend_remote_support::{
+    NodeProbeResult, gc_orphaned_runner_dirs, probe_node,
+};
 
 // ---------------------------------------------------------------------------
 // RemoteDockerBackend
@@ -84,7 +91,7 @@ impl RunnerBackend for RemoteDockerBackend {
         pool_name: &str,
         manager_id: &str,
         pool: &Pool,
-        _gitlab_url: &str, // We use node's gitlab_url_override or default
+        _gitlab_url: &str,
     ) -> Result<ManagerHandle> {
         let cfg = self.remote_config();
         let runner_dir = self.runner_dir(manager_id);
@@ -92,7 +99,7 @@ impl RunnerBackend for RemoteDockerBackend {
         let pool_cache = self.pool_cache_dir(pool_name);
         let gitlab_url = self.gitlab_url();
 
-        // --- Step 1: create directories ---
+        // Step 1: create directories.
         let mkdir_script = format!(
             "mkdir -p {runner_dir} {cache_dir} {pool_cache}",
             runner_dir = shell_quote(&runner_dir),
@@ -103,13 +110,13 @@ impl RunnerBackend for RemoteDockerBackend {
             .await
             .context("creating remote directories")?;
 
-        // --- Step 2: write config.toml via base64 ---
+        // Step 2: write config.toml via base64.
         let config_content = config::render_runner_config(
             pool_name,
             manager_id,
             &gitlab_url,
             &pool.auth_token,
-            "docker", // remote backend uses docker executor initially
+            "docker",
             &pool_cache,
             pool.concurrent,
             pool.request_concurrency,
@@ -124,7 +131,7 @@ impl RunnerBackend for RemoteDockerBackend {
             .await
             .context("writing runner config.toml on remote node")?;
 
-        // --- Step 3: docker run ---
+        // Step 3: docker run with --restart unless-stopped.
         let container_name = format!("jeryu-runner-{}", manager_id);
         let runner_image = config::GITLAB_RUNNER_IMAGE;
         let bootstrap_cmd = runner_bootstrap_cmd_docker();
@@ -156,24 +163,21 @@ impl RunnerBackend for RemoteDockerBackend {
             .await
             .context("starting runner container on remote node")?;
 
-        // --- Step 4: get container ID ---
+        // Step 4: get container ID.
         let inspect_script = format!(
             "docker inspect --format='{{{{.Id}}}}' {}",
             shell_quote(&container_name)
         );
-        let container_id = run_remote_shell_capture(&cfg, &inspect_script)
+        let container_id = match run_remote_shell_capture(&cfg, &inspect_script)
             .await
             .context("inspecting remote container")?
-            .unwrap_or_default()
-            .trim()
-            .to_string();
-
-        if container_id.is_empty() {
-            bail!(
+        {
+            Some(id) if !id.trim().is_empty() => id.trim().to_string(),
+            _ => bail!(
                 "remote container '{}' started but no ID returned from docker inspect",
                 container_name
-            );
-        }
+            ),
+        };
 
         info!(
             node = %self.node.alias,
@@ -190,30 +194,39 @@ impl RunnerBackend for RemoteDockerBackend {
     }
 
     /// Stop a remote manager with graceful SIGQUIT drain.
+    ///
+    /// Each SSH step is best-effort: the container may already be stopped or
+    /// the node may be unreachable. Failures are logged at DEBUG level and
+    /// the function always returns `Ok(())` so the caller can continue
+    /// cleaning up DB state.
     async fn stop_manager(&self, backend_id: &str, drain_timeout_secs: i64) -> Result<()> {
         let cfg = self.remote_config();
+        let alias = &self.node.alias;
 
-        // Send SIGQUIT for graceful drain (tells runner to finish current jobs).
         let sigquit = format!(
             "docker kill --signal SIGQUIT {} 2>/dev/null || true",
             shell_quote(backend_id)
         );
-        run_remote_shell(&cfg, &sigquit, true).await.ok();
+        if let Err(e) = run_remote_shell(&cfg, &sigquit, true).await {
+            debug!(node = %alias, backend_id, error = %e, "SIGQUIT send skipped (node unreachable or container already stopped)");
+        }
 
-        // Wait for the container to stop (or force-stop after timeout).
         let stop = format!(
             "docker stop --time {} {} 2>/dev/null || true",
             drain_timeout_secs,
             shell_quote(backend_id)
         );
-        run_remote_shell(&cfg, &stop, true).await.ok();
+        if let Err(e) = run_remote_shell(&cfg, &stop, true).await {
+            debug!(node = %alias, backend_id, error = %e, "docker stop skipped");
+        }
 
-        // Remove container.
         let rm = format!(
             "docker rm -f {} 2>/dev/null || true",
             shell_quote(backend_id)
         );
-        run_remote_shell(&cfg, &rm, true).await.ok();
+        if let Err(e) = run_remote_shell(&cfg, &rm, true).await {
+            debug!(node = %alias, backend_id, error = %e, "docker rm skipped");
+        }
 
         Ok(())
     }
@@ -234,10 +247,7 @@ impl RunnerBackend for RemoteDockerBackend {
             }
             Ok(None) | Err(_) => {
                 warn!(node = %self.node.alias, "SSH unreachable during list_running_backend_ids");
-                Err(anyhow::anyhow!(
-                    "SSH to node '{}' failed",
-                    self.node.alias
-                ))
+                Err(anyhow::anyhow!("SSH to node '{}' failed", self.node.alias))
             }
         }
     }
@@ -250,19 +260,23 @@ impl RunnerBackend for RemoteDockerBackend {
             lines,
             shell_quote(backend_id)
         );
-        Ok(run_remote_shell_capture(&cfg, &script)
-            .await?
-            .unwrap_or_default())
+        match run_remote_shell_capture(&cfg, &script).await? {
+            Some(output) => Ok(output),
+            None => Ok(String::new()), // container produced no output
+        }
     }
 
     /// Reload runner config via SIGHUP after token rotation.
     async fn reload_manager_config(&self, backend_id: &str) -> Result<()> {
         let cfg = self.remote_config();
+        let alias = &self.node.alias;
         let script = format!(
             "docker kill --signal HUP {} 2>/dev/null || true",
             shell_quote(backend_id)
         );
-        run_remote_shell(&cfg, &script, true).await.ok();
+        if let Err(e) = run_remote_shell(&cfg, &script, true).await {
+            debug!(node = %alias, backend_id, error = %e, "SIGHUP send skipped (node unreachable or container already stopped)");
+        }
         Ok(())
     }
 
@@ -270,33 +284,22 @@ impl RunnerBackend for RemoteDockerBackend {
     async fn gc_storage(&self, max_gib: f64) -> Result<()> {
         let cfg = self.remote_config();
 
-        // Check current usage.
         let used_kb = get_remote_used_kb(&cfg, &self.node.runner_cache_dir).await?;
         let used_gib = used_kb as f64 / (1024.0 * 1024.0);
 
-        debug!(
-            node = %self.node.alias,
-            used_gib,
-            max_gib,
-            "node storage check"
-        );
+        debug!(node = %self.node.alias, used_gib, max_gib, "node storage check");
 
         if used_gib < max_gib * 0.9 {
             return Ok(());
         }
 
-        warn!(
-            node = %self.node.alias,
-            used_gib,
-            max_gib,
-            "node storage above 90% threshold; running GC"
-        );
+        warn!(node = %self.node.alias, used_gib, max_gib, "node storage above 90%; running GC");
 
-        // Prune Docker images older than 1 week.
         let prune = "docker image prune -f --filter 'until=168h' 2>/dev/null || true";
-        run_remote_shell(&cfg, prune, true).await.ok();
+        if let Err(e) = run_remote_shell(&cfg, prune, true).await {
+            debug!(node = %self.node.alias, error = %e, "docker image prune skipped (node unreachable)");
+        }
 
-        // Re-check.
         let used_kb_after = get_remote_used_kb(&cfg, &self.node.runner_cache_dir).await?;
         let used_gib_after = used_kb_after as f64 / (1024.0 * 1024.0);
 
@@ -314,158 +317,6 @@ impl RunnerBackend for RemoteDockerBackend {
 }
 
 // ---------------------------------------------------------------------------
-// Public helpers
-// ---------------------------------------------------------------------------
-
-/// Probe basic connectivity and Docker availability on a node.
-pub async fn probe_node(node: &NodeConfig) -> NodeProbeResult {
-    let cfg = node.as_remote_config();
-
-    // OS + arch
-    let os_output = run_remote_shell_capture(&cfg, "uname -sm 2>/dev/null")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_default();
-    let mut parts = os_output.trim().splitn(2, ' ');
-    let os = parts.next().map(str::to_string).filter(|s| !s.is_empty());
-    let arch = parts.next().map(str::to_string).filter(|s| !s.is_empty());
-
-    // Docker availability
-    let docker_ready = run_remote_shell_status(&cfg, "docker info >/dev/null 2>&1")
-        .await
-        .unwrap_or(false);
-
-    // Free disk (in GiB)
-    let disk_output = run_remote_shell_capture(
-        &cfg,
-        "df -Pk $HOME 2>/dev/null | awk 'NR==2 {print $4}'",
-    )
-    .await
-    .ok()
-    .flatten()
-    .unwrap_or_default();
-    let disk_free_gb = disk_output
-        .trim()
-        .parse::<u64>()
-        .ok()
-        .map(|kb| kb as f64 / (1024.0 * 1024.0));
-
-    NodeProbeResult {
-        reachable: os.is_some() || docker_ready,
-        os,
-        arch,
-        docker_ready,
-        disk_free_gb,
-    }
-}
-
-/// Clean up runner config directories for managers that are no longer active.
-/// `active_manager_ids` are manager UUIDs currently in `starting|online|node_unreachable` state.
-pub async fn gc_orphaned_runner_dirs(
-    node: &NodeConfig,
-    active_manager_ids: &BTreeSet<String>,
-) -> Result<()> {
-    let cfg = node.as_remote_config();
-
-    let script = format!(
-        "ls -1 {} 2>/dev/null || true",
-        shell_quote(&node.runner_data_dir)
-    );
-    let output = run_remote_shell_capture(&cfg, &script)
-        .await?
-        .unwrap_or_default();
-
-    for entry in output.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-        if !active_manager_ids.contains(entry) {
-            let dir = format!("{}/{}", node.runner_data_dir, entry);
-            let rm = format!("rm -rf {} 2>/dev/null || true", shell_quote(&dir));
-            run_remote_shell(&cfg, &rm, true).await.ok();
-            info!(node = %node.alias, dir, "removed orphaned runner config directory");
-        }
-    }
-
-    Ok(())
-}
-
-/// Result of probing a remote node.
-#[derive(Debug, Clone, Default)]
-pub struct NodeProbeResult {
-    pub reachable: bool,
-    pub os: Option<String>,
-    pub arch: Option<String>,
-    pub docker_ready: bool,
-    pub disk_free_gb: Option<f64>,
-}
-
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
-
-/// Returns used kilobytes under the given path on the remote node.
-async fn get_remote_used_kb(
-    cfg: &crate::remote::RemoteConfig,
-    path: &str,
-) -> Result<u64> {
-    let script = format!(
-        "du -sk {} 2>/dev/null | awk '{{print $1}}'",
-        shell_quote(path)
-    );
-    let output = run_remote_shell_capture(cfg, &script)
-        .await?
-        .unwrap_or_default();
-    Ok(output.trim().parse::<u64>().unwrap_or(0))
-}
-
-/// Single-quote a shell argument for remote execution.
-/// This is safe for all strings that don't contain NUL bytes.
-pub fn shell_quote(value: &str) -> String {
-    format!("'{}'", value.replace('\'', r"'\''"))
-}
-
-/// Base64-encode bytes for safe transfer via shell script.
-fn base64_encode(data: &[u8]) -> String {
-    // Use the standard alphabet (RFC 4648).
-    let mut encoded = String::new();
-    let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut i = 0;
-    while i < data.len() {
-        let b0 = data[i] as u32;
-        let b1 = if i + 1 < data.len() { data[i + 1] as u32 } else { 0 };
-        let b2 = if i + 2 < data.len() { data[i + 2] as u32 } else { 0 };
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        encoded.push(alphabet[((triple >> 18) & 0x3F) as usize] as char);
-        encoded.push(alphabet[((triple >> 12) & 0x3F) as usize] as char);
-        if i + 1 < data.len() {
-            encoded.push(alphabet[((triple >> 6) & 0x3F) as usize] as char);
-        } else {
-            encoded.push('=');
-        }
-        if i + 2 < data.len() {
-            encoded.push(alphabet[(triple & 0x3F) as usize] as char);
-        } else {
-            encoded.push('=');
-        }
-        i += 3;
-    }
-    encoded
-}
-
-/// Bootstrap command for a docker-executor runner container on a remote node.
-/// This is a simplified version (no custom executor, no sccache curl on non-amd64).
-fn runner_bootstrap_cmd_docker() -> String {
-    let ver = &crate::settings::get().sccache.binary_version;
-    format!(
-        r#"set -eu
-if ! command -v sccache >/dev/null 2>&1; then
-  curl -fsSL https://github.com/mozilla/sccache/releases/download/{ver}/sccache-{ver}-x86_64-unknown-linux-musl.tar.gz \
-    | tar -xz --strip-components=1 -C /usr/local/bin sccache-{ver}-x86_64-unknown-linux-musl/sccache 2>/dev/null || true
-fi
-exec gitlab-runner run"#
-    )
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -473,29 +324,6 @@ exec gitlab-runner run"#
 mod tests {
     use super::*;
     use crate::node_types::NodeConfig;
-
-    #[test]
-    fn shell_quote_basic() {
-        assert_eq!(shell_quote("hello"), "'hello'");
-        assert_eq!(shell_quote("it's"), "'it'\\''s'");
-        assert_eq!(shell_quote("/path/to/dir"), "'/path/to/dir'");
-    }
-
-    #[test]
-    fn shell_quote_empty() {
-        assert_eq!(shell_quote(""), "''");
-    }
-
-    #[test]
-    fn base64_encode_hello() {
-        // "hello" → "aGVsbG8="
-        assert_eq!(base64_encode(b"hello"), "aGVsbG8=");
-    }
-
-    #[test]
-    fn base64_encode_empty() {
-        assert_eq!(base64_encode(b""), "");
-    }
 
     #[test]
     fn backend_label() {

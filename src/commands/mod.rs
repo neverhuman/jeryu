@@ -28,5 +28,8 @@ pub(crate) fn default_release_project_id() -> i64 {
 /// `settings.release.default_project_id` (default: 48).
 /// This is the single resolution point for all CLI dispatch paths.
 pub(crate) fn resolve_project_id(explicit: Option<i64>) -> i64 {
-    explicit.unwrap_or_else(default_release_project_id)
+    match explicit {
+        Some(id) => id,
+        None => default_release_project_id(),
+    }
 }

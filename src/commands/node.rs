@@ -279,19 +279,10 @@ async fn cmd_remove(alias: &str, force: bool) -> Result<i32> {
     Ok(0)
 }
 
+/// Delegates to `node_support::count_active_managers_on_node` — DB concern
+/// is owned by the typed Db adapter; this call-site is domain dispatch only.
 async fn check_active_managers_on_node(alias: &str) -> Result<usize> {
-    let db = jeryu::state::Db::open().await?;
-    let managers = db.list_managers_for_node(alias).await?;
-    let active = managers
-        .iter()
-        .filter(|m| {
-            matches!(
-                m.state.as_str(),
-                "starting" | "online" | "node_starting" | "node_unreachable" | "draining"
-            )
-        })
-        .count();
-    Ok(active)
+    node_support::count_active_managers_on_node(alias).await
 }
 
 // ---------------------------------------------------------------------------

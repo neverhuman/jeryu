@@ -107,6 +107,7 @@ pub mod runner_backend;
 pub mod runner_backend_local;
 pub mod runner_backend_registry;
 pub mod runner_backend_remote;
+pub mod runner_backend_remote_support;
 pub mod redact;
 pub mod release;
 pub mod remote;

@@ -86,6 +86,28 @@ pub fn node_config_exists(alias: &str) -> bool {
 }
 
 // ---------------------------------------------------------------------------
+// Node active-manager count (typed DB adapter call)
+// ---------------------------------------------------------------------------
+
+/// Count active managers running on `node_alias`, querying via the typed Db
+/// adapter in `crate::state`. Only the Db adapter owns SQL; this function is
+/// a thin domain helper that translates the adapter result into a count.
+pub async fn count_active_managers_on_node(alias: &str) -> anyhow::Result<usize> {
+    let db = crate::state::Db::open().await?;
+    let managers = db.list_managers_for_node(alias).await?;
+    let active = managers
+        .iter()
+        .filter(|m| {
+            matches!(
+                m.state.as_str(),
+                "starting" | "online" | "node_starting" | "node_unreachable" | "draining"
+            )
+        })
+        .count();
+    Ok(active)
+}
+
+// ---------------------------------------------------------------------------
 // Node selection for pool scale-up
 // ---------------------------------------------------------------------------
 
