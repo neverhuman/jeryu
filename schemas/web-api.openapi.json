@@ -1,0 +1,2053 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "JeRyu Web Forge API",
+    "description": "BFF for the JeRyu Web Forge. Versioned under /api/v1/. See WEB_WORK_CLAUDE.md §35.7 for the canonical route map.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    },
+    "version": "0.1.0-alpha"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AccessSettings": {
+        "type": "object",
+        "required": [
+          "collaborators_count",
+          "teams_count",
+          "deploy_keys_count",
+          "app_installations_count"
+        ],
+        "properties": {
+          "app_installations_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "collaborators_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deploy_keys_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "teams_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ActionRefSurrogate": {
+        "type": "object",
+        "required": [
+          "action_id",
+          "label"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "risk": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AgentPosture": {
+        "type": "object",
+        "required": [
+          "active_sessions",
+          "proposed_patches",
+          "evidence_packets",
+          "blockers"
+        ],
+        "properties": {
+          "active_sessions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "blockers": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "evidence_packets": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "proposed_patches": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "AgentSettings": {
+        "type": "object",
+        "required": [
+          "autonomous_coding_enabled",
+          "max_concurrent_sessions",
+          "require_human_approval_for_writes",
+          "allowed_agents",
+          "allowed_tools",
+          "evidence_required"
+        ],
+        "properties": {
+          "allowed_agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "autonomous_coding_enabled": {
+            "type": "boolean"
+          },
+          "budget_daily_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "evidence_required": {
+            "type": "boolean"
+          },
+          "max_concurrent_sessions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "require_human_approval_for_writes": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BlobEncoding": {
+        "type": "string",
+        "enum": [
+          "utf8",
+          "base64"
+        ]
+      },
+      "BlobResponse": {
+        "type": "object",
+        "required": [
+          "repo",
+          "path",
+          "ref_name",
+          "sha",
+          "size_bytes",
+          "mime",
+          "encoding",
+          "is_binary"
+        ],
+        "properties": {
+          "base64": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "encoding": {
+            "$ref": "#/components/schemas/BlobEncoding"
+          },
+          "is_binary": {
+            "type": "boolean"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "ref_name": {
+            "type": "string"
+          },
+          "rendered_markdown": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RenderedMarkdown"
+              }
+            ]
+          },
+          "repo": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "BranchProtectionRule": {
+        "type": "object",
+        "required": [
+          "pattern",
+          "required_checks",
+          "required_approvals",
+          "require_signed_commits",
+          "require_conversation_resolution",
+          "allow_force_pushes",
+          "allow_deletions",
+          "bypass_actors"
+        ],
+        "properties": {
+          "allow_deletions": {
+            "type": "boolean"
+          },
+          "allow_force_pushes": {
+            "type": "boolean"
+          },
+          "bypass_actors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "require_conversation_resolution": {
+            "type": "boolean"
+          },
+          "require_signed_commits": {
+            "type": "boolean"
+          },
+          "required_approvals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "required_checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CheckPosture": {
+        "type": "object",
+        "required": [
+          "total",
+          "passing",
+          "failing",
+          "pending",
+          "skipped"
+        ],
+        "properties": {
+          "failing": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "passing": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "pending": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "CiSettings": {
+        "type": "object",
+        "required": [
+          "artifact_retention_days",
+          "log_retention_days",
+          "cache_retention_days",
+          "vti_enabled"
+        ],
+        "properties": {
+          "artifact_retention_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "cache_retention_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "concurrency_limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "default_runner_pool": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "log_retention_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "vti_enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ClientWsMessage": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "subscriptions",
+              "type"
+            ],
+            "properties": {
+              "resume_from": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64",
+                "minimum": 0
+              },
+              "subscriptions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SubscriptionSpec"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "hello"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "subscriptions",
+              "type"
+            ],
+            "properties": {
+              "subscriptions": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SubscriptionSpec"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "subscribe"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "scopes",
+              "type"
+            ],
+            "properties": {
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "unsubscribe"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "seq",
+              "type"
+            ],
+            "properties": {
+              "seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ack"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "nonce",
+              "type"
+            ],
+            "properties": {
+              "nonce": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ping"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "CreateRepositoryPreview": {
+        "type": "object",
+        "required": [
+          "normalized_name",
+          "target_owner",
+          "visibility",
+          "initial_files",
+          "settings_to_apply",
+          "side_effects",
+          "warnings"
+        ],
+        "properties": {
+          "initial_files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "normalized_name": {
+            "type": "string"
+          },
+          "settings_to_apply": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "side_effects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "target_owner": {
+            "type": "string"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/RepositoryVisibility"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateRepositoryRequest": {
+        "type": "object",
+        "required": [
+          "host",
+          "owner",
+          "name",
+          "visibility",
+          "initialize_readme",
+          "topics",
+          "dry_run"
+        ],
+        "properties": {
+          "default_branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dry_run": {
+            "type": "boolean"
+          },
+          "family": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gitignore_template": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "host": {
+            "type": "string"
+          },
+          "initialize_readme": {
+            "type": "boolean"
+          },
+          "license_template": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "template": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RepositoryId"
+              }
+            ]
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/RepositoryVisibility"
+          }
+        }
+      },
+      "CreateReviewCommentRequest": {
+        "type": "object",
+        "description": "Body for `POST /api/v1/repos/{id}/merge-requests/{iid}/comments`.",
+        "required": [
+          "body_markdown"
+        ],
+        "properties": {
+          "anchor_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body_markdown": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "thread_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "EntityRefSurrogate": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      },
+      "FeatureSettings": {
+        "type": "object",
+        "required": [
+          "issues",
+          "merge_requests",
+          "wiki",
+          "discussions",
+          "projects",
+          "packages",
+          "releases",
+          "ci",
+          "security_advisories",
+          "pages"
+        ],
+        "properties": {
+          "ci": {
+            "type": "boolean"
+          },
+          "discussions": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "boolean"
+          },
+          "merge_requests": {
+            "type": "boolean"
+          },
+          "packages": {
+            "type": "boolean"
+          },
+          "pages": {
+            "type": "boolean"
+          },
+          "projects": {
+            "type": "boolean"
+          },
+          "releases": {
+            "type": "boolean"
+          },
+          "security_advisories": {
+            "type": "boolean"
+          },
+          "wiki": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GeneralSettings": {
+        "type": "object",
+        "required": [
+          "name",
+          "visibility",
+          "default_branch",
+          "topics",
+          "archived"
+        ],
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "default_branch": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "homepage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/RepositoryVisibility"
+          }
+        }
+      },
+      "IssueState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed"
+        ]
+      },
+      "IssueSummary": {
+        "type": "object",
+        "required": [
+          "repo",
+          "iid",
+          "title",
+          "state",
+          "labels",
+          "author",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "iid": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "repo": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "state": {
+            "$ref": "#/components/schemas/IssueState"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MarkdownHeading": {
+        "type": "object",
+        "required": [
+          "depth",
+          "id",
+          "text"
+        ],
+        "properties": {
+          "depth": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "MarkdownLink": {
+        "type": "object",
+        "required": [
+          "href",
+          "external"
+        ],
+        "properties": {
+          "external": {
+            "type": "boolean"
+          },
+          "href": {
+            "type": "string"
+          },
+          "resolved_route": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MergePassport": {
+        "type": "object",
+        "description": "Canonical Merge Passport verdict (FINAL spec §6.7 + §35.2.4 12-gate list).",
+        "required": [
+          "status",
+          "head_sha",
+          "blockers",
+          "evaluated_at"
+        ],
+        "properties": {
+          "blockers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergePassportBlocker"
+            }
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MergePassportStatus"
+          }
+        }
+      },
+      "MergePassportBlocker": {
+        "type": "object",
+        "description": "One blocker entry in the Merge Passport. `code` aligns with the §35.2.4\ncanonical gate list (e.g. `passport_blocked_approvals`,\n`passport_blocked_policy_sha`) so the UI can target explanations.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "details": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "MergePassportStatus": {
+        "type": "string",
+        "enum": [
+          "pass",
+          "blocked"
+        ]
+      },
+      "MergeRequestDetail": {
+        "type": "object",
+        "description": "Full MR view returned by `GET /api/v1/repos/{repo_id}/merge-requests/{iid}`.\n\nCarries the same posture summary fields plus the Merge Passport verdict\n(per §35.2.4) so the UI's `MergeGatePanel` can render gate-by-gate detail.",
+        "required": [
+          "summary",
+          "merge_passport"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "merge_passport": {
+            "$ref": "#/components/schemas/MergePassport"
+          },
+          "passport_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`passport_hash` mirrors `summary.passport_hash` for ergonomics so the\nUI doesn't need to dive into `summary` to display the verdict identity."
+          },
+          "summary": {
+            "$ref": "#/components/schemas/MergeRequestSummary"
+          }
+        }
+      },
+      "MergeRequestState": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed",
+          "merged"
+        ]
+      },
+      "MergeRequestSummary": {
+        "type": "object",
+        "required": [
+          "repo",
+          "iid",
+          "entity",
+          "title",
+          "author",
+          "source_branch",
+          "target_branch",
+          "head_sha",
+          "base_sha",
+          "state",
+          "draft",
+          "mergeable",
+          "review",
+          "checks",
+          "agents",
+          "labels",
+          "updated_at",
+          "available_actions"
+        ],
+        "properties": {
+          "agents": {
+            "$ref": "#/components/schemas/AgentPosture"
+          },
+          "author": {
+            "type": "string"
+          },
+          "available_actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionRefSurrogate"
+            }
+          },
+          "base_sha": {
+            "type": "string"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/CheckPosture"
+          },
+          "draft": {
+            "type": "boolean"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/EntityRefSurrogate"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "iid": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mergeable": {
+            "$ref": "#/components/schemas/Mergeability"
+          },
+          "passport_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Stable hash of the most recent Merge Passport evaluation. Per §35.1.14\nthe backend persists `passport_hash` on `web_merge_requests` after each\nPassport recompute so we can detect re-evaluation drift across replays.\n`None` when the Passport has not been computed yet (e.g. brand-new MR)."
+          },
+          "repo": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ReviewPosture"
+          },
+          "source_branch": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/MergeRequestState"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MergeSettings": {
+        "type": "object",
+        "required": [
+          "allow_merge_commit",
+          "allow_squash_merge",
+          "allow_rebase_merge",
+          "allow_auto_merge",
+          "delete_branch_on_merge",
+          "require_linear_history",
+          "required_approvals",
+          "dismiss_stale_approvals",
+          "require_codeowners",
+          "require_exact_sha_approval",
+          "require_jeryu_merge_passport"
+        ],
+        "properties": {
+          "allow_auto_merge": {
+            "type": "boolean"
+          },
+          "allow_merge_commit": {
+            "type": "boolean"
+          },
+          "allow_rebase_merge": {
+            "type": "boolean"
+          },
+          "allow_squash_merge": {
+            "type": "boolean"
+          },
+          "delete_branch_on_merge": {
+            "type": "boolean"
+          },
+          "dismiss_stale_approvals": {
+            "type": "boolean"
+          },
+          "require_codeowners": {
+            "type": "boolean"
+          },
+          "require_exact_sha_approval": {
+            "type": "boolean"
+          },
+          "require_jeryu_merge_passport": {
+            "type": "boolean"
+          },
+          "require_linear_history": {
+            "type": "boolean"
+          },
+          "required_approvals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "Mergeability": {
+        "type": "object",
+        "required": [
+          "level",
+          "can_merge",
+          "exact_head_sha"
+        ],
+        "properties": {
+          "can_merge": {
+            "type": "boolean"
+          },
+          "exact_head_sha": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required_gate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NotificationSettings": {
+        "type": "object",
+        "required": [
+          "watch_default",
+          "notify_on_ci_failure",
+          "notify_on_agent_completion",
+          "notify_on_release"
+        ],
+        "properties": {
+          "notify_on_agent_completion": {
+            "type": "boolean"
+          },
+          "notify_on_ci_failure": {
+            "type": "boolean"
+          },
+          "notify_on_release": {
+            "type": "boolean"
+          },
+          "watch_default": {
+            "type": "string"
+          }
+        }
+      },
+      "RefKind": {
+        "type": "string",
+        "enum": [
+          "branch",
+          "tag",
+          "commit"
+        ]
+      },
+      "RefSelectorItem": {
+        "type": "object",
+        "required": [
+          "name",
+          "sha",
+          "kind",
+          "protected"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/RefKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "protected": {
+            "type": "boolean"
+          },
+          "sha": {
+            "type": "string"
+          }
+        }
+      },
+      "RenderedMarkdown": {
+        "type": "object",
+        "required": [
+          "html",
+          "toc",
+          "links",
+          "renderer_version",
+          "rendered_at"
+        ],
+        "properties": {
+          "html": {
+            "type": "string"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MarkdownLink"
+            }
+          },
+          "rendered_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "renderer_version": {
+            "type": "string",
+            "description": "`jeryu-md-renderer.v<n>` — pulldown-cmark / comrak options identity."
+          },
+          "sanitizer_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`jeryu-md-sanitizer.v<n>` — ammonia allowlist identity (per §35.1.4).\nOptional for backward compatibility with v1 caches; W-B-08 will fill\nit in mandatorily once the sanitizer pipeline ships."
+          },
+          "toc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MarkdownHeading"
+            }
+          }
+        }
+      },
+      "RepositoryFacets": {
+        "type": "object",
+        "required": [
+          "hosts",
+          "owners",
+          "families",
+          "languages"
+        ],
+        "properties": {
+          "families": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RepositoryHostKind": {
+        "type": "string",
+        "enum": [
+          "git_hub",
+          "git_lab",
+          "local"
+        ]
+      },
+      "RepositoryId": {
+        "type": "object",
+        "description": "Opaque, stable repository identifier used on the API surface.\n\nPer §35.1.2 the canonical key in `/api/v1/repos/{repo_id}` is the opaque\n`id` (a UUID-shaped string persisted in `web_repositories.id`). The\nhuman-readable triple (`host`, `owner`, `name`) is preserved for display\nin the SPA so we can keep pretty URLs while the backend uses the stable id.",
+        "required": [
+          "id",
+          "host",
+          "owner",
+          "name"
+        ],
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "description": "Opaque stable identifier (UUID-shaped). Canonical in API paths."
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        }
+      },
+      "RepositoryListResponse": {
+        "type": "object",
+        "required": [
+          "generated_at",
+          "total",
+          "repositories",
+          "facets"
+        ],
+        "properties": {
+          "facets": {
+            "$ref": "#/components/schemas/RepositoryFacets"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositorySummary"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "RepositorySettings": {
+        "type": "object",
+        "required": [
+          "repo",
+          "general",
+          "features",
+          "merge",
+          "branch_protection",
+          "ci",
+          "agents",
+          "access",
+          "security",
+          "notifications",
+          "retention"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/AccessSettings"
+          },
+          "agents": {
+            "$ref": "#/components/schemas/AgentSettings"
+          },
+          "branch_protection": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BranchProtectionRule"
+            }
+          },
+          "ci": {
+            "$ref": "#/components/schemas/CiSettings"
+          },
+          "features": {
+            "$ref": "#/components/schemas/FeatureSettings"
+          },
+          "general": {
+            "$ref": "#/components/schemas/GeneralSettings"
+          },
+          "merge": {
+            "$ref": "#/components/schemas/MergeSettings"
+          },
+          "notifications": {
+            "$ref": "#/components/schemas/NotificationSettings"
+          },
+          "repo": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/RetentionSettings"
+          },
+          "security": {
+            "$ref": "#/components/schemas/SecuritySettings"
+          }
+        }
+      },
+      "RepositorySummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "entity",
+          "visibility",
+          "default_branch",
+          "topics",
+          "health",
+          "open_merge_requests",
+          "failing_checks",
+          "running_jobs",
+          "active_agents",
+          "blocked_agents",
+          "updated_at",
+          "available_actions"
+        ],
+        "properties": {
+          "active_agents": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "available_actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionRefSurrogate"
+            }
+          },
+          "blocked_agents": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "clone_http_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clone_ssh_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "default_branch": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entity": {
+            "$ref": "#/components/schemas/EntityRefSurrogate"
+          },
+          "failing_checks": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "family": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "health": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "open_merge_requests": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "running_jobs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/RepositoryVisibility"
+          }
+        }
+      },
+      "RepositoryVisibility": {
+        "type": "string",
+        "enum": [
+          "public",
+          "internal",
+          "private"
+        ]
+      },
+      "RetentionSettings": {
+        "type": "object",
+        "required": [
+          "audit_days",
+          "evidence_days",
+          "workflow_run_days",
+          "log_days"
+        ],
+        "properties": {
+          "audit_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "evidence_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "log_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "workflow_run_days": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ReviewComment": {
+        "type": "object",
+        "required": [
+          "id",
+          "author",
+          "body_markdown",
+          "created_at"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "body_html": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Sanitized HTML rendered server-side via the markdown service. Optional\nbecause raw fetches may skip rendering; the UI re-sanitizes anyway."
+          },
+          "body_markdown": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "edited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "suggestion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReviewSuggestion",
+                "description": "Present when this comment is an inline ``` ```suggestion``` ``` block."
+              }
+            ]
+          }
+        }
+      },
+      "ReviewPosture": {
+        "type": "object",
+        "required": [
+          "required_approvals",
+          "approvals",
+          "changes_requested",
+          "unresolved_threads"
+        ],
+        "properties": {
+          "approvals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "changes_requested": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "required_approvals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "unresolved_threads": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "user_review_state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ReviewSuggestion": {
+        "type": "object",
+        "required": [
+          "file_path",
+          "start_line",
+          "end_line",
+          "original_text",
+          "suggested_text"
+        ],
+        "properties": {
+          "end_line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "original_text": {
+            "type": "string"
+          },
+          "start_line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "suggested_text": {
+            "type": "string"
+          }
+        }
+      },
+      "ReviewThread": {
+        "type": "object",
+        "required": [
+          "id",
+          "repo",
+          "mr_iid",
+          "resolved",
+          "comments",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "anchor_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewComment"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "file_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "mr_iid": {
+            "type": "string"
+          },
+          "repo": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "resolved": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReviewVerdict": {
+        "type": "string",
+        "enum": [
+          "comment",
+          "approve",
+          "request_changes"
+        ]
+      },
+      "SecuritySettings": {
+        "type": "object",
+        "required": [
+          "secret_scanning",
+          "dependency_scanning",
+          "license_policy_enabled",
+          "agent_sandbox_required"
+        ],
+        "properties": {
+          "agent_sandbox_required": {
+            "type": "boolean"
+          },
+          "dependency_scanning": {
+            "type": "boolean"
+          },
+          "license_policy_enabled": {
+            "type": "boolean"
+          },
+          "secret_scanning": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ServerWsMessage": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "server_time",
+              "current_seq",
+              "protocol",
+              "type"
+            ],
+            "properties": {
+              "current_seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "protocol": {
+                "type": "string"
+              },
+              "server_time": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "hello"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "reason",
+              "current_seq",
+              "type"
+            ],
+            "properties": {
+              "current_seq": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "snapshot_required"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "event",
+              "type"
+            ],
+            "properties": {
+              "event": {
+                "$ref": "#/components/schemas/WebEvent"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "event"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "nonce",
+              "server_time",
+              "type"
+            ],
+            "properties": {
+              "nonce": {
+                "type": "string"
+              },
+              "server_time": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "pong"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "type"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "error"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "SubmitReviewRequest": {
+        "type": "object",
+        "description": "Body for `POST /api/v1/repos/{id}/merge-requests/{iid}/reviews`.",
+        "required": [
+          "verdict",
+          "expected_head_sha"
+        ],
+        "properties": {
+          "body_markdown": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected_head_sha": {
+            "type": "string"
+          },
+          "thread_comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateReviewCommentRequest"
+            }
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/ReviewVerdict"
+          }
+        }
+      },
+      "SubscriptionSpec": {
+        "type": "object",
+        "required": [
+          "scope",
+          "filters"
+        ],
+        "properties": {
+          "filters": {
+            "description": "Free-form filter object (e.g. `{ kind: [\"mr.approved\"] }`)."
+          },
+          "scope": {
+            "type": "string",
+            "description": "Granular topic per §35.1.15, e.g. `global.activity`, `repo.{id}`,\n`mr.{id}`, `agent.{id}`, `cache.{id}`. Backend re-checks each scope\nagainst the viewer's perms on every `Subscribe` frame (§35.1.6)."
+          }
+        }
+      },
+      "TreeEntry": {
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "kind",
+          "sha"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/TreeEntryKind"
+          },
+          "last_commit_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "last_commit_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_commit_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "TreeEntryKind": {
+        "type": "string",
+        "enum": [
+          "file",
+          "directory",
+          "symlink",
+          "submodule"
+        ]
+      },
+      "Viewer": {
+        "type": "object",
+        "required": [
+          "id",
+          "login",
+          "global_permissions"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "global_permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Normalized permission keys (24-key set per §35.1.18)."
+          },
+          "id": {
+            "type": "string"
+          },
+          "login": {
+            "type": "string"
+          }
+        }
+      },
+      "WebBootstrap": {
+        "type": "object",
+        "required": [
+          "generated_at",
+          "schema_version",
+          "viewer",
+          "tui",
+          "recent_repositories",
+          "websocket_url",
+          "feature_flags"
+        ],
+        "properties": {
+          "feature_flags": {
+            "$ref": "#/components/schemas/WebFeatureFlags"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recent_repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositorySummary"
+            }
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "tui": {
+            "description": "Existing TUI read-model snapshot (`crate::api::read_model::TuiReadModel`).\nSerializes inline as a JSON object; the typed schema is opaque from the\nweb boundary's perspective until W-F-04 lifts derive coverage onto the\nTUI read-model."
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/Viewer"
+          },
+          "websocket_url": {
+            "type": "string"
+          }
+        }
+      },
+      "WebEvent": {
+        "type": "object",
+        "required": [
+          "seq",
+          "timestamp",
+          "scope",
+          "kind",
+          "entity",
+          "summary",
+          "payload"
+        ],
+        "properties": {
+          "entity": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "payload": {
+            "description": "Free-form payload carrying severity, parent, evidence refs, etc."
+          },
+          "scope": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "summary": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WebFeatureFlags": {
+        "type": "object",
+        "required": [
+          "repo_create",
+          "settings_write",
+          "merge_write",
+          "markdown_html",
+          "agents",
+          "mcp"
+        ],
+        "properties": {
+          "agents": {
+            "type": "boolean"
+          },
+          "markdown_html": {
+            "type": "boolean"
+          },
+          "mcp": {
+            "type": "boolean"
+          },
+          "merge_write": {
+            "type": "boolean"
+          },
+          "repo_create": {
+            "type": "boolean"
+          },
+          "settings_write": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

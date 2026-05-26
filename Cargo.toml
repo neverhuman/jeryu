@@ -237,3 +237,12 @@ ci_profiles = [
 ]
 
 # --- dev-dependency additions for offline mock tests ---
+
+# Schema export bin (W-F-11) — gated on the same `web` feature that gates
+# the DTO derives (`utoipa::ToSchema`, `schemars::JsonSchema`) in `src/api/*.rs`.
+# `required-features` cleanly skips the bin from default `cargo check`/`build`
+# so non-web workflows don't see a "missing main" error from the cfg'd file.
+[[bin]]
+name = "jeryu_export_schemas"
+path = "src/bin/jeryu_export_schemas.rs"
+required-features = ["web"]
