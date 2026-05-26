@@ -2,9 +2,19 @@
   "name": "jeryu-workspace",
   "private": true,
   "workspaces": [
-    "apps/web"
+    "apps/web",
+    "apps/ux-qa"
   ],
   "scripts": {
+    "dev": "npm --workspace @jeryu/web run dev",
+    "build": "npm --workspace @jeryu/web run build",
+    "preview": "npm --workspace @jeryu/web run preview",
+    "typecheck": "npm --workspace @jeryu/web run typecheck",
+    "lint": "npm --workspace @jeryu/web run lint",
+    "test": "npm --workspace @jeryu/web run test",
+    "test:e2e": "npm --workspace @jeryu/web run test:e2e",
+    "storybook": "npm --workspace @jeryu/web run storybook",
+    "build-storybook": "npm --workspace @jeryu/web run build-storybook",
     "ux-qa": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
     "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",
     "ux-qa:test": "npm --workspace @jankurai/ux-qa run test"

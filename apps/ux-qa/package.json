@@ -1,0 +1,9 @@
+{
+  "name": "@jankurai/ux-qa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./ux-qa-check.mjs build",
+    "test": "node ./ux-qa-check.mjs test"
+  }
+}
