@@ -4,7 +4,7 @@
 #
 # Stages:
 #   gate <event-name> <conclusion> <branch>   — emit "proceed" or "skip" + reason
-#   build <ref>                                — rebuild release binary at the given SHA
+#   build <ref>                                — rebuild and verify release artifact at the given SHA
 #   verify                                     — post-install verification via scripts/deploy-local.sh
 #
 # Local rehearsal:
@@ -53,7 +53,6 @@ stage_build() {
     [ -n "$ref" ] || { echo "build: ref required" >&2; exit 2; }
     echo "==> Building release binary at ref=$ref"
     git -C "$REPO_ROOT" checkout "$ref"
-    cargo build --release -p jeryu --bin jeryu
     bash "$REPO_ROOT/scripts/deploy-local.sh" --check
 }
 
