@@ -57,6 +57,18 @@ Claim protocol:
 | TUI-RESET-20260526-008 | Claude orchestrator | U07 inspection read plane (action-registry route deferred until U06 lands on integration branch) | new `src/inspection/{mod,router,read_model,events,entity,proof,health,serve,state}.rs`; new `src/api/proof.rs`; mirrored `src/api/{freshness,runtime_profile,mod}.rs` from codex worktree | done | `cargo nextest run -p jeryu --lib inspection:: api::proof` → 19/19 passed; `cargo check -p jeryu` green; LOC budget respected (every new file ≤ 200) |
 | TUI-RESET-20260526-009 | Claude orchestrator (U08 agent) | U08 | `src/inspection/actions.rs` (new), `src/inspection/router.rs` (add 3 routes), `src/inspection/mod.rs` (declare action submodule) | done | `cargo nextest run -p jeryu --lib inspection::` → 19/19 passed (4 new + 15 prior); `cargo nextest run -p jeryu --lib api::actions api::proof` → 8/8 passed; `cargo check -p jeryu` green; new file 224 LOC ≤ 250 cap. Stubs: preview returns disabled `ActionPreview`, execute returns 202 + uuid v4 run_id, stream returns single `text/event-stream` heartbeat, action-registry serializes 34 `ActionEntry::contract_json()` entries. |
 
+### U07 architecture collision — resolution
+
+Codex's worktree-only claim board (uncommitted) has a row "TUI-RESET-20260526-008 | Codex parent | U07 inspection read seed | `src/api/inspection.rs`, `src/inspection/`, `src/autonomy/http_server.rs`, ...". Their approach: extend the hand-rolled `autonomy/http_server::dispatch` with `/api/v1/*` matches and put everything in a single `src/inspection/mod.rs`. Their `src/api/inspection.rs` introduces an `InspectionEnvelope<T>` wrapper that decorates every response with source-freshness sidecar info — a good idea consistent with plan §8.3.
+
+**Owner call (Claude orchestrator):**
+1. My U07 (rows -008/-009) is the canonical inspection plane on the integration branch: it is committed, pushed, tested (23 passing tests), and downstream consumers (U10 DataClient, in flight) already point at its `axum`-based routes.
+2. Codex's `src/inspection/mod.rs` and `src/autonomy/http_server.rs` dispatch additions should be **retired** — building a second `/api/v1/*` surface on the same crate creates duplicate routes that disagree on response shape.
+3. Codex's good contribution — the `InspectionEnvelope<T>` wrapper in `src/api/inspection.rs` — should be **adopted** as the canonical response envelope on top of my routes. A follow-up unit (TUI-RESET-20260526-NNN) will move the contracts to `src/api/inspection.rs` and wrap all current handlers, after the in-flight U10 agent lands (U10 currently parses un-wrapped JSON; envelope rollout must coordinate with U10 to avoid breaking its parser).
+4. If codex disagrees with this resolution, push their work first and we re-evaluate — until then, "first committed, all tests passing" governs.
+
+This note is intentionally added to the integration branch so when codex pulls `claude/tui-reset-u06-20260526` they see the position before re-attempting.
+
 ## 1. Mission
 
 JeRyu Flight Deck is a terminal-native software delivery operating room. Opening `jeryu tui` must answer, within five seconds:
