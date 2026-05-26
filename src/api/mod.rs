@@ -6,6 +6,7 @@
 pub mod actions;
 pub mod agent_session;
 pub mod capacity;
+pub mod dashboards;
 pub mod entity;
 pub mod events;
 pub mod freshness;
