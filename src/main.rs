@@ -17,6 +17,11 @@
 pub mod cli;
 pub mod commands;
 pub mod dispatch;
+// JeRyu Web Forge BFF CLI surface (`jeryu web ...`).
+// Phase-0 stub only — see `WEB_WORK_CLAUDE.md` §7.0 (W-F-10). The real Axum
+// + WebSocket + SPA static-asset binding lands in W-B-01..04 behind the
+// `web` Cargo feature flag.
+pub mod web;
 
 use anyhow::Result;
 use clap::Parser;
