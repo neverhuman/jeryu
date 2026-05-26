@@ -72,6 +72,8 @@ fn pool(name: &str, paused: bool) -> crate::state::Pool {
         request_concurrency: 1,
         paused,
         trust_tier: "trusted".into(),
+        cluster_alias: None,
+        backend_type: "docker".into(),
     }
 }
 

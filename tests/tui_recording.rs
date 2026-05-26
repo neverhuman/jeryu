@@ -98,6 +98,12 @@ fn tui_demo_recording() -> anyhow::Result<()> {
     std::thread::sleep(Duration::from_millis(600));
     capture_frame(&page, &frame_dir, &mut frames, "bugs")?;
 
+    // --- Pools tab (shows remote-node sub-panel) ---
+    // '7' is the digit shortcut for the Pools tab.
+    page.press(Key::Char('7'))?;
+    std::thread::sleep(Duration::from_millis(800));
+    capture_frame(&page, &frame_dir, &mut frames, "pools-overview")?;
+
     page.kill()?;
     write_gif(&frames, std::path::Path::new(&output))?;
 

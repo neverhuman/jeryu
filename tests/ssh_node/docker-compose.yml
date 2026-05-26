@@ -1,0 +1,29 @@
+# Docker Compose file for the SSH+DinD test environment.
+#
+# Run during CI or manually:
+#   cd tests/ssh_node
+#   docker-compose up -d
+#   # ... run integration tests ...
+#   docker-compose down -v
+
+version: "3.8"
+
+services:
+  ssh-node:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jeryu-ssh-node:test
+    privileged: true           # DinD requires --privileged
+    ports:
+      - "22222:22"             # Host port 22222 → container port 22
+    environment:
+      - JERYU_TEST_SSH_PUBKEY  # Injected by the test or CI
+    tmpfs:
+      - /run
+      - /var/run
+    healthcheck:
+      test: ["CMD", "ssh-keyscan", "-p", "22", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

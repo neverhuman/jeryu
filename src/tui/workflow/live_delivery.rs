@@ -196,13 +196,26 @@ impl LiveDeliveryCollector {
 
             match host.list_open_prs(&repo_ref).await {
                 Ok(prs) => {
-                    for summary in prs {
-                        let key = DeliveryItemKey::new(&repo.slug, &summary);
-                        let item = build_live_item(repo, &summary, source_rank, now);
-                        match items.get(&key) {
-                            Some(existing) if existing.source_rank > source_rank => {}
-                            _ => {
-                                items.insert(key, item);
+                    if prs.is_empty() {
+                        // No open PRs: synthesize a "branch pipeline" entry so the
+                        // Workflow tab shows the default-branch status for this repo
+                        // rather than a blank screen when the user selects it.
+                        let branch_item = build_branch_pipeline_item(repo, now);
+                        let key = DeliveryItemKey {
+                            repo_slug: repo.slug.clone(),
+                            mr_iid: format!("branch:{}", repo.default_branch),
+                            head_sha: branch_item.pr_input.head_sha.clone(),
+                        };
+                        items.entry(key).or_insert(branch_item);
+                    } else {
+                        for summary in prs {
+                            let key = DeliveryItemKey::new(&repo.slug, &summary);
+                            let item = build_live_item(repo, &summary, source_rank, now);
+                            match items.get(&key) {
+                                Some(existing) if existing.source_rank > source_rank => {}
+                                _ => {
+                                    items.insert(key, item);
+                                }
                             }
                         }
                     }
@@ -303,6 +316,58 @@ fn build_live_item(
 
     LiveDeliveryItem {
         source_rank,
+        pr_input,
+    }
+}
+
+/// Build a synthetic "branch pipeline" entry for a repo with no open PRs.
+///
+/// This ensures the Workflow tab shows a card for every fleet repo, even when
+/// there are no in-flight PRs. The entry represents the repo's default branch
+/// pipeline status and lets operators monitor branch health at a glance.
+fn build_branch_pipeline_item(repo: &RepoConfig, now: chrono::DateTime<Utc>) -> LiveDeliveryItem {
+    let created_at = now - ChronoDuration::seconds(1);
+    // Use a deterministic "number" derived from the repo slug so the entry
+    // has a stable identity across syncs.
+    let number = {
+        let digest =
+            Sha256::digest(format!("branch:{}:{}", repo.slug, repo.default_branch).as_bytes());
+        let mut bytes = [0u8; 8];
+        bytes.copy_from_slice(&digest[..8]);
+        u64::from_be_bytes(bytes)
+    };
+
+    let pr_input = PrInput {
+        number,
+        title: format!("{} · {} branch", repo.alias, repo.default_branch),
+        author: String::new(),
+        head_sha: format!("branch-{}", &repo.default_branch),
+        created_at,
+        draft: false,
+        labels: vec!["branch-pipeline".into()],
+        pre_merge_tests: vec![TestSpec {
+            id: "branch".into(),
+            label: format!("{} · {} (default branch)", repo.alias, repo.default_branch),
+            command: format!("cd {} && git log --oneline -1", repo.local_root.display()),
+            status: WorkflowStatus::Waiting,
+            progress_pct: None,
+            eta_secs: None,
+            duration_secs: None,
+            reason: Some(format!(
+                "no open PRs — showing {} branch",
+                repo.default_branch
+            )),
+            critical_path: false,
+        }],
+        merged_into_main: false,
+        post_merge_tests: Vec::new(),
+        deployment: DeploymentProgress::default(),
+        repo_alias: Some(repo.alias.clone()),
+        repo_slug: Some(repo.slug.clone()),
+    };
+
+    LiveDeliveryItem {
+        source_rank: 0,
         pr_input,
     }
 }
@@ -451,5 +516,65 @@ mod tests {
         assert_eq!(second.snapshot.pull_requests.len(), 1);
         assert!(second.snapshot.outdated);
         assert!(second.source_status.last_sync_error.is_some());
+    }
+
+    #[tokio::test]
+    async fn repos_with_no_open_prs_produce_branch_pipeline() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        registry(tmp.path(), &[("shared", "octo/widget", "github")]);
+        // GitHub host returns no open PRs for this repo.
+        let github = Arc::new(FakeGitHost::new().with_open_prs("octo/widget", vec![]));
+        let hosts = DeliveryHosts {
+            github: Some(github),
+            gitlab: None,
+        };
+        let mut collector = LiveDeliveryCollector::new();
+        let update = collector.sync(Some(tmp.path()), &hosts, None).await;
+        assert!(update.source_status.configured);
+        // Even with no open PRs, we should still see a synthetic branch
+        // pipeline entry for the repo.
+        assert_eq!(
+            update.snapshot.pull_requests.len(),
+            1,
+            "expected a synthetic branch pipeline entry"
+        );
+        let pr = &update.snapshot.pull_requests[0];
+        assert!(
+            pr.title.contains("shared"),
+            "branch pipeline title should contain the repo alias"
+        );
+        assert!(
+            pr.title.contains("main"),
+            "branch pipeline title should mention the default branch"
+        );
+    }
+
+    #[tokio::test]
+    async fn mix_of_prs_and_no_pr_repos() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        registry(
+            tmp.path(),
+            &[
+                ("shared", "octo/widget", "github"),
+                ("deploy", "octo/deploy", "github"),
+            ],
+        );
+        // First repo has a PR, second has none.
+        let github = Arc::new(
+            FakeGitHost::new()
+                .with_open_prs("octo/widget", vec![summary("17", "sha17", "Real PR")])
+                .with_open_prs("octo/deploy", vec![]),
+        );
+        let hosts = DeliveryHosts {
+            github: Some(github),
+            gitlab: None,
+        };
+        let mut collector = LiveDeliveryCollector::new();
+        let update = collector.sync(Some(tmp.path()), &hosts, None).await;
+        assert_eq!(
+            update.snapshot.pull_requests.len(),
+            2,
+            "expected 1 real PR + 1 branch pipeline entry"
+        );
     }
 }

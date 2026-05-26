@@ -112,6 +112,10 @@ case "$STAGE" in
       cargo nextest run -p jeryu --lib --profile ci
     fi
     ;;
+  test-mock)
+    # Offline mock-GitLab tests — no Docker, no network, no external infra.
+    cargo nextest run --test mock_lifecycle_tests --profile ci
+    ;;
   test-integration)
     install_redlinedb_if_requested
     cargo test --tests --verbose -- --test-threads=1

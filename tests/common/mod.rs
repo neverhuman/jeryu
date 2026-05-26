@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod mock_gitlab;
+
 use anyhow::Result;
 use jeryu::config;
 use jeryu::gitlab_client::{GitlabClient, Project};
@@ -50,6 +52,8 @@ pub async fn create_ephemeral_pool(
         request_concurrency: 1,
         paused: false,
         trust_tier: "trusted".into(),
+        cluster_alias: None,
+        backend_type: "docker".into(),
     })
     .await?;
 

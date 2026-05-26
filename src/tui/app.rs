@@ -273,6 +273,31 @@ pub struct TuiStateSnapshot {
     /// does not yet expose a sessions list — the tab falls back to the
     /// pipeline-based view derived from `agent_pipelines`.
     pub agent_sessions: Vec<crate::api::agent_session::AgentSession>,
+    /// Remote SSH node health summaries — populated by the background sync.
+    pub remote_nodes: Vec<NodeSummary>,
+}
+
+/// Summary of a remote SSH runner node, shown in the Pools tab node sub-panel.
+#[derive(Debug, Clone, Default)]
+pub struct NodeSummary {
+    pub alias: String,
+    pub target: String,
+    pub enabled: bool,
+    /// `None` = not yet probed this cycle; `Some(true/false)` = last probe result.
+    pub reachable: Option<bool>,
+    pub active_managers: usize,
+    pub max_managers: usize,
+    /// Storage used under the node's runner_cache_dir in GiB (None if probe failed).
+    pub storage_used_gb: Option<f64>,
+    pub storage_limit_gb: f64,
+    pub last_contact_at: Option<String>,
+}
+
+impl NodeSummary {
+    pub fn storage_pct(&self) -> Option<f64> {
+        self.storage_used_gb
+            .map(|used| (used / self.storage_limit_gb) * 100.0)
+    }
 }
 
 /// Configuration + last-sync diagnostics for the PR source. Defaults to

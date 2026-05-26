@@ -25,6 +25,8 @@ pub(crate) fn demo_pool(
         request_concurrency,
         paused: false,
         trust_tier: trust_tier.into(),
+        cluster_alias: None,
+        backend_type: "docker".into(),
     }
 }
 

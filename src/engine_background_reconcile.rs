@@ -6,6 +6,10 @@ use crate::pool;
 use crate::release;
 use crate::state::Pool as RunnerPool;
 
+#[path = "engine_background_reconcile_remote.rs"]
+mod remote;
+use remote::{gc_remote_nodes, reconcile_remote_managers_for_pool};
+
 pub(crate) async fn check_scale_up(state: &EngineState) -> Result<()> {
     let pools = state.db.list_pools().await?;
     let queued = state.db.count_queued_jobs().await?;
@@ -66,8 +70,13 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
             continue;
         }
 
+        // Reconcile local managers (existing behavior, unchanged).
         let _stale_managers =
             pool::reconcile_manager_runtime_state(&state.db, &state.docker, Some(&p.name)).await?;
+
+        // Reconcile remote managers: group by node_alias, one SSH call per node.
+        reconcile_remote_managers_for_pool(state, &p.name).await;
+
         let active = state.db.count_active_managers(&p.name).await?;
 
         let target = desired_manager_target(p, queued, running);
@@ -94,13 +103,17 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
         let managers = state.db.list_managers(Some(&p.name)).await?;
         for m in &managers {
             if m.system_id.is_none() && (m.state == "starting" || m.state == "online") {
-                let system_id_path = format!("{}/.runner_system_id", m.config_dir);
-                if let Ok(sid) = std::fs::read_to_string(&system_id_path) {
-                    let sid = sid.trim().to_string();
-                    if !sid.is_empty() {
-                        info!(manager_id = %m.id, system_id = %sid, "discovered system_id");
-                        state.db.update_manager_system_id(&m.id, &sid).await?;
-                        state.db.update_manager_state(&m.id, "online").await?;
+                // Only probe local managers for system_id (remote managers don't
+                // have a directly accessible config_dir on the control-plane host).
+                if m.node_alias.is_none() {
+                    let system_id_path = format!("{}/.runner_system_id", m.config_dir);
+                    if let Ok(sid) = std::fs::read_to_string(&system_id_path) {
+                        let sid = sid.trim().to_string();
+                        if !sid.is_empty() {
+                            info!(manager_id = %m.id, system_id = %sid, "discovered system_id");
+                            state.db.update_manager_system_id(&m.id, &sid).await?;
+                            state.db.update_manager_state(&m.id, "online").await?;
+                        }
                     }
                 }
             }
@@ -135,6 +148,9 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
         }
     }
 
+    // Per-node storage GC — run at most once per hour per node.
+    gc_remote_nodes(state).await;
+
     Ok(())
 }
 
@@ -161,6 +177,8 @@ mod tests {
             request_concurrency: 4,
             paused: false,
             trust_tier: "trusted".into(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
         }
     }
 

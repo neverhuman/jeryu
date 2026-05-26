@@ -14,7 +14,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "3.3.22"
+version = "3.3.23"
 edition = "2024"
 license = "MIT"
 authors = []
@@ -171,6 +171,11 @@ jansu-broker = ["jansu-backend"]
 # Bump the `tag` to upgrade; Cargo.lock pins the exact commit.
 jsonschema = "0.45.1"
 tuiwright = { git = "https://github.com/neverhuman/jankurai.git", tag = "v1.5.1" }
+# axum + tokio are re-listed as dev-deps so integration test binaries under
+# tests/ can import them directly (integration tests compile as separate
+# binaries and do not automatically inherit the crate's [dependencies]).
+axum = { version = "0.8", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
 
 [package.metadata.agent]
 purpose = "Single-binary CI/CD control plane for GitLab-based pipelines"
@@ -200,9 +205,11 @@ exceptions = [
     "mega-function.jeryu",
 ]
 ci_profiles = [
-    { name = "inner-loop",       commands = ["cargo check -p jeryu --message-format=json", "cargo nextest run -p jeryu --lib"] },
-    { name = "pull-request",     commands = ["cargo check -p jeryu --message-format=json", "cargo nextest run -p jeryu --lib", "cargo test -p jeryu --test '*' -- --test-threads=1"] },
+    { name = "inner-loop",       commands = ["cargo check -p jeryu --message-format=json", "cargo nextest run -p jeryu --lib", "cargo nextest run --test mock_lifecycle_tests"] },
+    { name = "pull-request",     commands = ["cargo check -p jeryu --message-format=json", "cargo nextest run -p jeryu --lib", "cargo nextest run --test mock_lifecycle_tests", "cargo test -p jeryu --test '*' -- --test-threads=1"] },
     { name = "runtime-sqlite-kafka", commands = ["just runtime-sqlite-kafka"] },
     { name = "runtime-redlinedb-jansu", commands = ["just runtime-redlinedb-jansu"] },
     { name = "release-blocking", commands = ["cargo nextest run -p jeryu", "cargo deny check"] },
 ]
+
+# --- dev-dependency additions for offline mock tests ---

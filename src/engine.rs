@@ -11,11 +11,14 @@ use axum::{
     Router,
     routing::{get, post},
 };
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use tracing::info;
 
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
+use crate::runner_backend_registry::BackendRegistry;
 use crate::state::Db;
 
 #[path = "engine_aux.rs"]
@@ -37,9 +40,15 @@ pub(crate) use webhook::{handle_webhook, health};
 
 pub struct EngineState {
     pub db: Db,
+    /// Local Docker control (used for GitLab/Vault/compose management).
     pub docker: DockerCtl,
     pub client: GitlabClient,
     pub webhook_secret: String,
+    /// Registry of all runner backends (local, remote SSH nodes, K8s clusters).
+    pub backend_registry: BackendRegistry,
+    /// Tracks when each remote node last had its storage GC'd.
+    /// Key = node alias, value = Instant of last GC.
+    pub node_gc_timestamps: Mutex<HashMap<String, Instant>>,
 }
 
 pub type SharedState = Arc<EngineState>;
@@ -56,11 +65,14 @@ pub async fn run_engine(
     client: GitlabClient,
     webhook_secret: String,
 ) -> Result<()> {
+    let backend_registry = BackendRegistry::build(docker.clone());
     let state = Arc::new(EngineState {
         db,
         docker,
         client,
         webhook_secret,
+        backend_registry,
+        node_gc_timestamps: Mutex::new(HashMap::new()),
     });
 
     // Build router

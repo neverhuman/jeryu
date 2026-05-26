@@ -81,6 +81,11 @@ pub(crate) async fn run(command: Commands) -> Result<i32> {
             return crate::commands::host::execute_host_commands(subcmd).await;
         }
 
+        // ---- Node (SSH remote Docker nodes) ------------------------------
+        Commands::Node(subcmd) => {
+            return crate::commands::node::execute_node_command(subcmd).await;
+        }
+
         // ---- Exec -------------------------------------------------------
         Commands::Exec(_) => unreachable!("exec command is handled in main"), // allowlist: typed clap subcommand; invocations stay typed
 

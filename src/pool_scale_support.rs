@@ -1,7 +1,15 @@
 use super::*;
+use crate::runner_backend::RunnerBackend;
 
 pub(crate) fn manager_state_counts_as_active(state: &str) -> bool {
-    matches!(state, "starting" | "online")
+    // node_starting: remote SSH docker run issued; waiting for docker ps confirmation.
+    // node_unreachable: SSH ping failed; container may still be running on remote node.
+    // Both count as active to prevent the scale algorithm from spawning replacement
+    // managers during a transient network outage (which would exceed max_managers).
+    matches!(
+        state,
+        "starting" | "online" | "node_starting" | "node_unreachable"
+    )
 }
 
 pub(crate) fn manager_has_running_container(
@@ -11,7 +19,120 @@ pub(crate) fn manager_has_running_container(
     running_container_ids.contains(&manager.docker_container_id)
 }
 
-async fn start_manager(store: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &str) -> Result<()> {
+/// Start a single new manager for `pool_name`, routing to local Docker or a
+/// remote SSH node depending on the pool's `backend_type` and available nodes.
+///
+/// - `backend_type == "docker"` → local Docker (existing behaviour).
+/// - `backend_type == "docker-remote"` → SSH node selected by least-loaded
+///   algorithm; falls back to local Docker if no nodes are available.
+pub(crate) async fn start_pool_manager(
+    store: &Db,
+    docker: &DockerCtl,
+    pool: &Pool,
+    pool_name: &str,
+) -> Result<()> {
+    if pool.backend_type == "docker-remote" {
+        // Try to start on a remote node.
+        if try_start_remote_manager(store, pool, pool_name)
+            .await?
+            .is_some()
+        {
+            return Ok(());
+        }
+        // Fall through to local Docker as a safety net.
+        tracing::warn!(
+            pool = pool_name,
+            "no remote nodes available for docker-remote pool; falling back to local Docker"
+        );
+    }
+
+    // Local Docker path (default / fallback).
+    start_local_manager(store, docker, pool, pool_name).await
+}
+
+// ---------------------------------------------------------------------------
+// Remote path
+// ---------------------------------------------------------------------------
+
+/// Try to start a manager on the best available remote node.
+/// Returns `Ok(Some(()))` if a manager was started, `Ok(None)` if no node is available.
+async fn try_start_remote_manager(store: &Db, pool: &Pool, pool_name: &str) -> Result<Option<()>> {
+    use crate::node_support;
+    use crate::runner_backend_remote::RemoteDockerBackend;
+
+    // Build active-count map for node selection (counts managers currently on each node).
+    let all_managers = store.list_managers(Some(pool_name)).await?;
+    let mut active_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    for m in &all_managers {
+        if let Some(alias) = &m.node_alias
+            && manager_state_counts_as_active(&m.state)
+        {
+            *active_counts.entry(alias.clone()).or_insert(0) += 1;
+        }
+    }
+
+    let node_cfg = match node_support::select_node_for_pool(pool_name, &active_counts) {
+        Some(n) => n,
+        None => return Ok(None),
+    };
+
+    let backend = RemoteDockerBackend::new(node_cfg.clone());
+    let manager_id = uuid::Uuid::new_v4().to_string();
+
+    let gitlab_url = node_cfg.gitlab_url_override.clone().unwrap_or_else(|| {
+        format!(
+            "http://{}:{}",
+            crate::config::GITLAB_HOSTNAME,
+            crate::config::GITLAB_HTTP_PORT
+        )
+    });
+
+    let handle = backend
+        .start_manager(pool_name, &manager_id, pool, &gitlab_url)
+        .await
+        .with_context(|| {
+            format!(
+                "starting remote manager for pool '{pool_name}' on node '{}'",
+                node_cfg.alias
+            )
+        })?;
+
+    let manager = Manager {
+        id: manager_id.clone(),
+        pool_name: pool_name.to_string(),
+        docker_container_id: handle.backend_id,
+        system_id: None,
+        state: "node_starting".to_string(), // wait for reconciler to confirm it's up
+        config_dir: handle.config_ref,
+        started_at: Some(chrono::Utc::now().to_rfc3339()),
+        last_contact_at: None,
+        node_alias: Some(node_cfg.alias.clone()),
+    };
+    store.insert_manager(&manager).await?;
+
+    tracing::info!(
+        manager_id,
+        pool = pool_name,
+        node = %node_cfg.alias,
+        "started remote runner manager"
+    );
+
+    Ok(Some(()))
+}
+
+// ---------------------------------------------------------------------------
+// Local path (original behaviour, unchanged)
+// ---------------------------------------------------------------------------
+
+async fn start_local_manager(
+    store: &Db,
+    docker: &DockerCtl,
+    pool: &Pool,
+    pool_name: &str,
+) -> Result<()> {
+    use std::fs;
+
     let manager_id = uuid::Uuid::new_v4().to_string();
     let config_dir = config::runners_dir()
         .join(&manager_id)
@@ -69,18 +190,60 @@ async fn start_manager(store: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &
         config_dir,
         started_at: Some(chrono::Utc::now().to_rfc3339()),
         last_contact_at: None,
+        node_alias: None, // local Docker
     };
     store.insert_manager(&manager).await?;
 
-    info!(manager_id, pool = pool_name, "started new manager");
+    tracing::info!(manager_id, pool = pool_name, "started local manager");
     Ok(())
 }
 
-pub(crate) async fn start_pool_manager(
-    store: &Db,
+/// Stop a manager — routing to the appropriate backend based on its `node_alias`.
+///
+/// - `node_alias.is_none()` → local Docker stop/drain/rm
+/// - `node_alias.is_some()` → SSH stop on the remote node
+pub(crate) async fn stop_manager_for_node(
     docker: &DockerCtl,
-    pool: &Pool,
-    pool_name: &str,
+    manager: &Manager,
+    drain_timeout_secs: i64,
 ) -> Result<()> {
-    start_manager(store, docker, pool, pool_name).await
+    if let Some(alias) = &manager.node_alias {
+        // Remote manager: load NodeConfig, create backend, stop.
+        match crate::node_support::load_node_config(alias) {
+            Ok(node_cfg) => {
+                let backend = crate::runner_backend_remote::RemoteDockerBackend::new(node_cfg);
+                backend
+                    .stop_manager(&manager.docker_container_id, drain_timeout_secs)
+                    .await
+                    .ok(); // best-effort
+            }
+            Err(e) => {
+                tracing::warn!(
+                    manager_id = %manager.id,
+                    node = %alias,
+                    error = %e,
+                    "could not load node config for manager stop; skipping remote stop"
+                );
+            }
+        }
+    } else {
+        // Local Docker stop.
+        docker
+            .cleanup_runner_cache(&manager.docker_container_id)
+            .await
+            .ok();
+        docker
+            .drain_runner_manager(&manager.docker_container_id, drain_timeout_secs)
+            .await
+            .ok();
+        docker
+            .cleanup_runner_cache(&manager.docker_container_id)
+            .await
+            .ok();
+        docker
+            .remove_runner_manager(&manager.docker_container_id)
+            .await
+            .ok();
+    }
+    Ok(())
 }

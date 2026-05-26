@@ -96,6 +96,23 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
     );
 
     let snap = &app.state.release_stages;
+
+    // When release stages are populated from ops/releases/, show them.
+    // Otherwise fall back to CI run history from recent_jobs.
+    if snap.total() > 0 {
+        draw_release_stages_columns(f, app, snap, rows[1]);
+    } else {
+        draw_ci_run_history_columns(f, app, rows[1]);
+    }
+}
+
+/// Original release stages column view — shows cards from `ops/releases/*/release-attempt.json`.
+fn draw_release_stages_columns(
+    f: &mut Frame,
+    app: &App,
+    snap: &crate::tui::app::ReleaseStageSnapshot,
+    area: Rect,
+) {
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -105,7 +122,7 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Percentage(20),
             Constraint::Percentage(20),
         ])
-        .split(rows[1]);
+        .split(area);
 
     let stages: [(&str, &Vec<crate::tui::app::ReleaseStageCard>, Color); 5] = [
         ("Plan", &snap.plan, Color::Blue),
@@ -136,6 +153,174 @@ fn draw_release_pipeline_pane(f: &mut Frame, app: &App, area: Rect) {
                 ]))
             })
             .collect();
+        let list = List::new(items).block(
+            Block::default()
+                .title(title)
+                .borders(Borders::ALL)
+                .border_style(chrome.border_style),
+        );
+        f.render_widget(list, cols[i]);
+    }
+}
+
+/// CI run history columns — shows recent job runs bucketed into pipeline stages.
+/// Each column shows pass/fail/running indicators so operators can see where
+/// active work and bottlenecks reside.
+fn draw_ci_run_history_columns(f: &mut Frame, app: &App, area: Rect) {
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+        ])
+        .split(area);
+
+    // Bucket recent jobs into stages by matching job name / pool name patterns.
+    let jobs = &app.state.recent_jobs;
+    let mut plan_jobs = Vec::new();
+    let mut build_jobs = Vec::new();
+    let mut proof_jobs = Vec::new();
+    let mut canary_jobs = Vec::new();
+    let mut stable_jobs = Vec::new();
+
+    for job in jobs {
+        let name = job
+            .job_name
+            .as_deref()
+            .or(job.pool_name.as_deref())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if name.contains("lint")
+            || name.contains("plan")
+            || name.contains("format")
+            || name.contains("check")
+            || name.contains("clippy")
+        {
+            plan_jobs.push(job);
+        } else if name.contains("build")
+            || name.contains("compile")
+            || name.contains("cargo")
+            || name.contains("package")
+        {
+            build_jobs.push(job);
+        } else if name.contains("test")
+            || name.contains("proof")
+            || name.contains("verify")
+            || name.contains("audit")
+            || name.contains("nextest")
+        {
+            proof_jobs.push(job);
+        } else if name.contains("canary")
+            || name.contains("staging")
+            || name.contains("preview")
+            || name.contains("deploy-dev")
+        {
+            canary_jobs.push(job);
+        } else if name.contains("deploy")
+            || name.contains("release")
+            || name.contains("stable")
+            || name.contains("prod")
+        {
+            stable_jobs.push(job);
+        } else {
+            // Default unmatched jobs to the build column.
+            build_jobs.push(job);
+        }
+    }
+
+    let stage_cols: [(&str, &[&crate::state::JobEvent], Color); 5] = [
+        ("Plan", &plan_jobs, Color::Blue),
+        ("Build", &build_jobs, Color::Cyan),
+        ("Proof", &proof_jobs, Color::Yellow),
+        ("Canary", &canary_jobs, Color::Magenta),
+        ("Stable", &stable_jobs, Color::Green),
+    ];
+
+    let chrome = focus::pane_chrome(app, PaneId::ReleasePipeline);
+    for (i, (name, stage_jobs, color)) in stage_cols.iter().enumerate() {
+        let passed = stage_jobs.iter().filter(|j| j.status == "success").count();
+        let failed = stage_jobs
+            .iter()
+            .filter(|j| j.status == "failed" || j.status == "cancelled")
+            .count();
+        let running = stage_jobs
+            .iter()
+            .filter(|j| {
+                matches!(
+                    j.status.as_str(),
+                    "running" | "pending" | "created" | "waiting_for_resource"
+                )
+            })
+            .count();
+        let total = stage_jobs.len();
+
+        let title_label = format!("{} [{}]", name, total);
+        let title = if i == 0 {
+            chrome.title(&title_label)
+        } else {
+            crate::tui::focus::title_with_esc(&title_label, false)
+        };
+
+        // Build item list: summary line + individual runs
+        let mut items: Vec<ListItem> = Vec::new();
+
+        // Summary bar
+        if total > 0 {
+            let mut summary_spans = vec![Span::raw(" ")];
+            if passed > 0 {
+                summary_spans.push(Span::styled(
+                    format!("✓{} ", passed),
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ));
+            }
+            if failed > 0 {
+                summary_spans.push(Span::styled(
+                    format!("✗{} ", failed),
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ));
+            }
+            if running > 0 {
+                summary_spans.push(Span::styled(
+                    format!("●{} ", running),
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ));
+            }
+            items.push(ListItem::new(Line::from(summary_spans)));
+        }
+
+        // Individual job runs (most recent first, already sorted)
+        for job in stage_jobs.iter().take(12) {
+            let status_icon = match job.status.as_str() {
+                "success" => Span::styled(" ✓ ", Style::default().fg(Color::Green)),
+                "failed" => Span::styled(" ✗ ", Style::default().fg(Color::Red)),
+                "cancelled" => Span::styled(" ○ ", Style::default().fg(Color::DarkGray)),
+                "running" => Span::styled(" ● ", Style::default().fg(Color::Yellow)),
+                "pending" | "created" => Span::styled(" ◌ ", Style::default().fg(Color::Gray)),
+                _ => Span::styled(" ? ", Style::default().fg(Color::DarkGray)),
+            };
+            let job_label = job.job_name.as_deref().unwrap_or("job");
+            // Truncate long names to fit the column
+            let label_display: String = job_label.chars().take(18).collect();
+            items.push(ListItem::new(Line::from(vec![
+                status_icon,
+                Span::styled(format!("{} ", label_display), Style::default().fg(*color)),
+            ])));
+        }
+
+        if items.is_empty() {
+            items.push(ListItem::new(Line::from(vec![Span::styled(
+                " (no runs)",
+                Style::default().fg(Color::DarkGray),
+            )])));
+        }
+
         let list = List::new(items).block(
             Block::default()
                 .title(title)

@@ -129,7 +129,13 @@ shutdown_timeout = 3600
     "JERYU_CARGO_CACHE_ROOT={pool_cache_mount}",
     "JERYU_CARGO_TARGET_PROFILE=debug",
     "CARGO_HOME={pool_cache_mount}/cargo-home",
-    "RUSTUP_HOME={pool_cache_mount}/rustup-home",
+    # RUSTUP_HOME is intentionally absent here.  Setting it in the environment
+    # array would redirect it to the empty cache directory before the
+    # pre_build_script runs.  The rustup dispatch binary reads RUSTUP_HOME at
+    # startup; if RUSTUP_HOME points to an empty directory, it cannot locate the
+    # configured toolchain and aborts with "no default toolchain configured".
+    # The pre_build_script probes rustc first and then exports RUSTUP_HOME only
+    # when the probe succeeds, so it is safe for that script to own this variable.
     "JERYU_CARGO_HOST_CORES={cargo_host_cores}",
     "JERYU_CARGO_TOTAL_RUNNER_SLOTS={cargo_total_runner_slots}",
     "JERYU_CARGO_TARGET_ISOLATE=slot",
