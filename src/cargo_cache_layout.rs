@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::cargo_cache::{
-    LEASES_DIR_NAME, current_rustc_toolchain, sanitize_segment, shell_quote, usable_sccache_binary,
+    LEASES_DIR_NAME, current_rustc_toolchain, sanitize_segment, usable_sccache_binary,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
