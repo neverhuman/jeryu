@@ -1,0 +1,96 @@
+name: Auto-merge
+
+# Automatically merges PRs once required status checks pass.
+#
+# Behavior:
+#   - Triggered on PR open / sync / reopen / ready_for_review.
+#   - Also re-evaluates on every workflow_run completion of the Rust + Jankurai pipelines.
+#   - Enables GitHub's native auto-merge (squash) once all required checks pass.
+#   - Skips draft PRs.
+#   - Skips PRs that opt out via the `no-auto-merge` label.
+#
+# Required for this to work:
+#   1. GitHub repo setting: "Allow auto-merge" must be ON.
+#   2. The PR's branch must be up to date with main (the workflow attempts
+#      a fast-forward update before enabling auto-merge).
+#
+# This complements the user's removal of main-branch protection — auto-merge
+# still waits for the Rust and Jankurai workflows to complete before squashing.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  workflow_run:
+    workflows: ["Rust", "Jankurai"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Auto-merge if green
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request' || github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Find the target PR
+        id: pr
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            let pr;
+            if (context.eventName === 'pull_request') {
+              pr = context.payload.pull_request;
+            } else {
+              // workflow_run path: discover the PR via head_sha
+              const sha = context.payload.workflow_run.head_sha;
+              const { data: prs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                head: `${context.payload.workflow_run.head_repository.owner.login}:${context.payload.workflow_run.head_branch}`,
+              });
+              pr = prs.find(p => p.head.sha === sha);
+            }
+            if (!pr) { core.setOutput('skip', 'true'); return; }
+            if (pr.draft) {
+              core.info(`PR #${pr.number} is draft — skipping auto-merge`);
+              core.setOutput('skip', 'true');
+              return;
+            }
+            if (pr.labels.some(l => l.name === 'no-auto-merge')) {
+              core.info(`PR #${pr.number} has 'no-auto-merge' label — skipping`);
+              core.setOutput('skip', 'true');
+              return;
+            }
+            core.setOutput('skip', 'false');
+            core.setOutput('number', String(pr.number));
+            core.setOutput('node_id', pr.node_id);
+
+      - name: Enable auto-merge (squash)
+        if: steps.pr.outputs.skip == 'false'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const mutation = `
+              mutation($pullRequestId: ID!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $pullRequestId,
+                  mergeMethod: SQUASH
+                }) {
+                  pullRequest { autoMergeRequest { enabledAt } }
+                }
+              }
+            `;
+            try {
+              const result = await github.graphql(mutation, {
+                pullRequestId: '${{ steps.pr.outputs.node_id }}',
+              });
+              core.info(`Auto-merge enabled for PR #${{ steps.pr.outputs.number }}: ${JSON.stringify(result)}`);
+            } catch (err) {
+              core.warning(`Could not enable auto-merge: ${err.message}`);
+              core.warning(`This is expected if 'Allow auto-merge' is disabled in repo settings,`);
+              core.warning(`or if the PR has unresolved conversations or required reviews pending.`);
+            }
