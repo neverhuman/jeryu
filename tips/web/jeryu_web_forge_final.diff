@@ -1,0 +1,3683 @@
+# JeRyu Web Forge — Final Patch-Style Engineering Diff
+
+This file is intentionally a patch-style engineering diff, not a claim that every hunk has already been applied and compiled in this sandbox. It is written against the current repo shape observed on 2026-05-26 and is organized so an engineer can apply it as the first production web-forge patch set, then fill provider-specific methods behind the new traits and handlers.
+
+Key direction:
+
+1. Preserve the current Rust CLI/TUI/control-plane architecture.
+2. Replace the `apps/web` UX-QA-only package with a real Vite/React/TypeScript application while keeping UX-QA scripts.
+3. Add `src/web` for Axum REST/WebSocket/static serving.
+4. Add `src/web_events` for resumable realtime activity.
+5. Add forge DTOs under `src/api` and domain services under `src/repos`, `src/repo_browser`, and `src/merge`.
+6. Add safe Markdown rendering via `comrak` + `ammonia` so `README.md` and every `.md` blob render to sanitized HTML.
+7. Extend `GitHost` toward full GitHub/GitLab repository, file, ref, issue, review, and settings parity.
+
+---
+
+diff --git a/Cargo.toml b/Cargo.toml
+
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@
+-axum = { version = "0.8", features = ["json"] }
+-tower-http = { version = "0.6", features = ["cors", "trace"] }
++axum = { version = "0.8", features = ["json", "ws", "macros", "multipart"] }
++tower-http = { version = "0.6", features = ["cors", "trace", "fs", "compression-full", "set-header"] }
++axum-extra = { version = "0.10", features = ["cookie", "typed-header"] }
++headers = "0.4"
++bytes = "1"
++mime_guess = "2"
++tokio-stream = { version = "0.1", features = ["sync"] }
++async-stream = "0.3"
++comrak = "0.35"
++ammonia = "4"
++indexmap = { version = "2", features = ["serde"] }
++serde_with = "3"
++utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
++utoipa-swagger-ui = { version = "9", features = ["axum"] }
++ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
+@@
+ [package.metadata.agent]
+ purpose = "Single-binary CI/CD control plane for GitLab-based pipelines"
+@@
+ ci_profiles = [
+@@
+ ]
++
++[workspace.metadata.web-forge]
++frontend = "apps/web"
++api_prefix = "/api/v1"
++websocket = "/ws"
++type_export_dir = "apps/web/src/api/generated"
++markdown_renderer = "comrak+ammonia"
++required_routes = [
++  "/repos",
++  "/repos/new",
++  "/:owner/:repo",
++  "/:owner/:repo/tree/:ref/*path",
++  "/:owner/:repo/blob/:ref/*path",
++  "/:owner/:repo/merge-requests",
++  "/:owner/:repo/merge-requests/:iid",
++  "/:owner/:repo/settings",
++]
+
+diff --git a/package.json b/package.json
+
+--- a/package.json
++++ b/package.json
+@@
+   "workspaces": [
+     "apps/web"
+   ],
+   "scripts": {
++    "dev": "npm --workspace apps/web run dev",
++    "build": "npm --workspace apps/web run build",
++    "preview": "npm --workspace apps/web run preview",
++    "typecheck": "npm --workspace apps/web run typecheck",
++    "lint": "npm --workspace apps/web run lint",
++    "test": "npm --workspace apps/web run test",
++    "e2e": "npm --workspace apps/web run e2e",
++    "storybook": "npm --workspace apps/web run storybook",
+     "ux-qa": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
+     "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",
+     "ux-qa:test": "npm --workspace @jankurai/ux-qa run test"
+   }
+ }
+
+diff --git a/src/lib.rs b/src/lib.rs
+
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@
+ pub mod api;
+@@
+ pub mod git_host;
++pub mod merge;
+@@
+ pub mod repo;
++pub mod repo_browser;
+ pub mod repo_fleet;
+ pub mod repo_local;
+ pub mod repo_standard;
++pub mod repos;
+@@
+ pub(crate) mod test_sync;
+ pub mod tui;
++pub mod web;
++pub mod web_events;
+ pub mod witness;
+
+diff --git a/src/api/mod.rs b/src/api/mod.rs
+
+--- a/src/api/mod.rs
++++ b/src/api/mod.rs
+@@
+ pub mod inspection;
++pub mod merge_request;
+ pub mod proof;
++pub mod repo_browser;
+ pub mod read_model;
++pub mod repository;
+ pub mod runtime_profile;
++pub mod settings;
+ pub mod snapshot;
++pub mod web_read_model;
+
+diff --git a/src/api/events.rs b/src/api/events.rs
+
+--- a/src/api/events.rs
++++ b/src/api/events.rs
+@@
+ pub enum TuiEventKind {
+@@
+     SnapshotRefreshed,
++
++    // Web forge repository/product lifecycle
++    RepositoryCreated,
++    RepositoryUpdated,
++    RepositoryDeleted,
++    RepositoryArchived,
++    RepositoryImportStarted,
++    RepositoryImportCompleted,
++    RepositorySettingsUpdated,
++    RepositoryBranchCreated,
++    RepositoryBranchDeleted,
++    RepositoryTreeChanged,
++    RepositoryBlobUpdated,
++    RepositoryMarkdownRendered,
++
++    // Issues and merge requests
++    IssueCreated,
++    IssueUpdated,
++    IssueClosed,
++    IssueReopened,
++    MergeRequestCreated,
++    MergeRequestUpdated,
++    MergeRequestDiffUpdated,
++    MergeRequestThreadCreated,
++    MergeRequestThreadResolved,
++    MergeRequestReviewSubmitted,
++    MergeRequestApproved,
++    MergeRequestChangesRequested,
++    MergeRequestMergePassportUpdated,
++    MergeRequestMerged,
+ }
+@@
+             Self::SnapshotRefreshed => "snapshot.refreshed",
++            Self::RepositoryCreated => "repository.created",
++            Self::RepositoryUpdated => "repository.updated",
++            Self::RepositoryDeleted => "repository.deleted",
++            Self::RepositoryArchived => "repository.archived",
++            Self::RepositoryImportStarted => "repository.import.started",
++            Self::RepositoryImportCompleted => "repository.import.completed",
++            Self::RepositorySettingsUpdated => "repository.settings.updated",
++            Self::RepositoryBranchCreated => "repository.branch.created",
++            Self::RepositoryBranchDeleted => "repository.branch.deleted",
++            Self::RepositoryTreeChanged => "repository.tree.changed",
++            Self::RepositoryBlobUpdated => "repository.blob.updated",
++            Self::RepositoryMarkdownRendered => "repository.markdown.rendered",
++            Self::IssueCreated => "issue.created",
++            Self::IssueUpdated => "issue.updated",
++            Self::IssueClosed => "issue.closed",
++            Self::IssueReopened => "issue.reopened",
++            Self::MergeRequestCreated => "merge_request.created",
++            Self::MergeRequestUpdated => "merge_request.updated",
++            Self::MergeRequestDiffUpdated => "merge_request.diff.updated",
++            Self::MergeRequestThreadCreated => "merge_request.thread.created",
++            Self::MergeRequestThreadResolved => "merge_request.thread.resolved",
++            Self::MergeRequestReviewSubmitted => "merge_request.review.submitted",
++            Self::MergeRequestApproved => "merge_request.approved",
++            Self::MergeRequestChangesRequested => "merge_request.changes_requested",
++            Self::MergeRequestMergePassportUpdated => "merge_request.merge_passport.updated",
++            Self::MergeRequestMerged => "merge_request.merged",
+         }
+     }
+ }
+
+diff --git a/src/cli_defs.rs b/src/cli_defs.rs
+
+--- a/src/cli_defs.rs
++++ b/src/cli_defs.rs
+@@
+-use clap::Subcommand;
++use clap::{Args, Subcommand};
+@@
+-    Serve,
++    Serve(ServeCommand),
++    #[command(subcommand)]
++    Web(WebCommands),
+@@
+ }
++
++#[derive(Debug, Clone, Args)]
++pub(crate) struct ServeCommand {
++    /// Bind address for the Rust HTTP server and web app.
++    #[arg(long, default_value = "127.0.0.1:8787")]
++    pub bind: String,
++    /// Static SPA directory. Defaults to apps/web/dist.
++    #[arg(long, default_value = "apps/web/dist")]
++    pub spa_dir: PathBuf,
++    /// Serve API only; do not serve the built SPA.
++    #[arg(long, default_value_t = false)]
++    pub api_only: bool,
++    /// Skip Docker/GitLab compose startup; useful for frontend/API development.
++    #[arg(long, default_value_t = false)]
++    pub no_compose: bool,
++}
++
++#[derive(Debug, Clone, Subcommand)]
++pub(crate) enum WebCommands {
++    /// Run only the web/API server.
++    Serve(ServeCommand),
++    /// Check frontend build artifacts, type exports, and required static files.
++    Check {
++        #[arg(long, default_value_t = false)]
++        json: bool,
++    },
++    /// Export Rust API DTOs to apps/web/src/api/generated.
++    ExportTypes {
++        #[arg(long, default_value = "apps/web/src/api/generated")]
++        out_dir: PathBuf,
++    },
++}
+
+diff --git a/src/dispatch.rs b/src/dispatch.rs
+
+--- a/src/dispatch.rs
++++ b/src/dispatch.rs
+@@
+-        Commands::Serve => {
++        Commands::Serve(serve) => {
+             jeryu::repo_fleet::ensure_workspace_root_default();
+             let (client, webhook_secret) = load_client().await?;
+             let db = state::Db::open().await?;
+             let docker_ctl = docker::DockerCtl::connect()?;
+
+             // Ensure GitLab is running
+-            docker_ctl.compose_up().await?;
++            if !serve.no_compose {
++                docker_ctl.compose_up().await?;
++            }
+@@
+             tokio::spawn(async move {
+                 if let Err(e) =
+                     engine::run_engine(db_clone, docker_clone, client_clone, webhook_secret).await
+@@
+                 }
+             });
++
++            let web_cfg = web::WebConfig {
++                bind: serve.bind.parse()?,
++                spa_dir: serve.spa_dir,
++                api_only: serve.api_only,
++                public_url: None,
++            };
++            let web_db = db.clone();
++            tokio::spawn(async move {
++                if let Err(e) = web::serve(web_cfg, Some(web_db)).await {
++                    tracing::error!(error = ?e, "web server error");
++                }
++            });
+
+             // Wait for signal to exit
+             tokio::signal::ctrl_c().await?;
+             println!("\nShutting down engine...");
+         }
++
++        Commands::Web(cmd) => {
++            return web::command::execute_web_command(cmd).await;
++        }
+
+diff --git a/src/git_host/mod.rs b/src/git_host/mod.rs
+
+--- a/src/git_host/mod.rs
++++ b/src/git_host/mod.rs
+@@
+ pub struct PrDiff {
+@@
+ }
++
++#[derive(Debug, Clone, Default)]
++pub struct RepoListFilter {
++    pub owner: Option<String>,
++    pub search: Option<String>,
++    pub include_archived: bool,
++}
++
++#[derive(Debug, Clone)]
++pub struct HostRepository {
++    pub provider: String,
++    pub id: String,
++    pub owner: String,
++    pub name: String,
++    pub slug: String,
++    pub description: Option<String>,
++    pub visibility: String,
++    pub default_branch: String,
++    pub clone_url_http: Option<String>,
++    pub clone_url_ssh: Option<String>,
++    pub archived: bool,
++}
++
++#[derive(Debug, Clone)]
++pub struct CreateRepository {
++    pub owner: String,
++    pub name: String,
++    pub description: Option<String>,
++    pub visibility: String,
++    pub initialize_readme: bool,
++    pub default_branch: String,
++}
++
++#[derive(Debug, Clone, Default)]
++pub struct RepoSettingsPatch {
++    pub description: Option<String>,
++    pub visibility: Option<String>,
++    pub default_branch: Option<String>,
++    pub topics: Option<Vec<String>>,
++}
++
++#[derive(Debug, Clone)]
++pub struct ActionReceipt {
++    pub id: String,
++    pub url: Option<String>,
++    pub summary: String,
++}
++
++#[derive(Debug, Clone)]
++pub struct HostRef {
++    pub name: String,
++    pub kind: String,
++    pub sha: String,
++    pub protected: bool,
++}
++
++#[derive(Debug, Clone)]
++pub struct TreeListing {
++    pub repo: String,
++    pub ref_name: String,
++    pub path: String,
++    pub entries: Vec<TreeEntry>,
++}
++
++#[derive(Debug, Clone)]
++pub struct TreeEntry {
++    pub name: String,
++    pub path: String,
++    pub kind: String,
++    pub sha: String,
++    pub size: Option<u64>,
++}
++
++#[derive(Debug, Clone)]
++pub struct BlobView {
++    pub path: String,
++    pub sha: String,
++    pub size: u64,
++    pub is_binary: bool,
++    pub content_base64: Option<String>,
++    pub text: Option<String>,
++}
++
++#[derive(Debug, Clone)]
++pub struct CommitView {
++    pub sha: String,
++    pub title: String,
++    pub message: String,
++    pub author: String,
++    pub authored_at: chrono::DateTime<chrono::Utc>,
++}
++
++#[derive(Debug, Clone)]
++pub struct CompareView {
++    pub base_sha: String,
++    pub head_sha: String,
++    pub ahead_by: u32,
++    pub behind_by: u32,
++    pub files: Vec<ChangedFileDiff>,
++}
+@@
+ pub trait GitHost: Send + Sync {
+@@
+     async fn fetch_pr_diff(&self, repo: &RepoRef, mr_iid: &str) -> Result<PrDiff, HostError>;
++
++    async fn list_repositories(&self, _filter: RepoListFilter) -> Result<Vec<HostRepository>, HostError> {
++        Err(HostError::NotImplemented)
++    }
++    async fn create_repository(&self, _input: CreateRepository) -> Result<HostRepository, HostError> {
++        Err(HostError::NotImplemented)
++    }
++    async fn update_repository_settings(&self, _repo: &RepoRef, _patch: RepoSettingsPatch) -> Result<HostRepository, HostError> {
++        Err(HostError::NotImplemented)
++    }
++    async fn list_refs(&self, _repo: &RepoRef) -> Result<Vec<HostRef>, HostError> {
++        Err(HostError::NotImplemented)
++    }
++    async fn list_tree(&self, _repo: &RepoRef, _ref_name: &str, _path: &str) -> Result<TreeListing, HostError> {
++        Err(HostError::NotImplemented)
++    }
++    async fn get_blob(&self, _repo: &RepoRef, _ref_name: &str, _path: &str) -> Result<BlobView, HostError> {
++        Err(HostError::NotImplemented)
++    }
++    async fn get_commit(&self, _repo: &RepoRef, _sha: &str) -> Result<CommitView, HostError> {
++        Err(HostError::NotImplemented)
++    }
++    async fn compare_refs(&self, _repo: &RepoRef, _base: &str, _head: &str) -> Result<CompareView, HostError> {
++        Err(HostError::NotImplemented)
++    }
+
+     /// Compute the canonical SHA over `.jeryu/autonomy/policies/*.yml` as they
+
+diff --git a/src/api/repository.rs b/src/api/repository.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/api/repository.rs
+@@ -0,0 +1,99 @@
++
++//! Owner: Web Forge API — repository DTOs
++//! Proof: cargo check -p jeryu --message-format=json
++//! Invariants: These types are transport-safe and contain no raw host/client handles.
++
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++use utoipa::ToSchema;
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum RepositoryProvider {
++    Local,
++    Gitlab,
++    Github,
++    Mirror,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum RepositoryVisibility {
++    Private,
++    Internal,
++    Public,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct RepositorySummary {
++    pub id: String,
++    pub provider: RepositoryProvider,
++    pub owner: String,
++    pub name: String,
++    pub slug: String,
++    pub family: Option<String>,
++    pub description: Option<String>,
++    pub visibility: RepositoryVisibility,
++    pub default_branch: String,
++    pub local_path: Option<String>,
++    pub remote_url: Option<String>,
++    pub avatar_url: Option<String>,
++    pub archived: bool,
++    pub topics: Vec<String>,
++    pub open_merge_requests: u32,
++    pub open_issues: u32,
++    pub failing_checks: u32,
++    pub active_agents: u32,
++    pub latest_activity_at: Option<DateTime<Utc>>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct RepositoryDetail {
++    pub summary: RepositorySummary,
++    pub clone_http_url: Option<String>,
++    pub clone_ssh_url: Option<String>,
++    pub readme_path: Option<String>,
++    pub permissions: RepositoryPermissions,
++    pub quick_actions: Vec<String>,
++}
++
++#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct RepositoryPermissions {
++    pub can_read: bool,
++    pub can_write: bool,
++    pub can_create_branch: bool,
++    pub can_create_issue: bool,
++    pub can_create_merge_request: bool,
++    pub can_approve: bool,
++    pub can_merge: bool,
++    pub can_admin: bool,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct RepoListQuery {
++    pub search: Option<String>,
++    pub provider: Option<RepositoryProvider>,
++    pub family: Option<String>,
++    pub include_archived: bool,
++    pub sort: Option<String>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct CreateRepositoryRequest {
++    pub owner: String,
++    pub name: String,
++    pub description: Option<String>,
++    pub visibility: RepositoryVisibility,
++    pub provider: RepositoryProvider,
++    pub initialize_readme: bool,
++    pub default_branch: Option<String>,
++    pub family: Option<String>,
++}
+
+diff --git a/src/api/repo_browser.rs b/src/api/repo_browser.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/api/repo_browser.rs
+@@ -0,0 +1,115 @@
++
++//! Owner: Web Forge API — repository browser DTOs
++
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++use utoipa::ToSchema;
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum RefKind {
++    Branch,
++    Tag,
++    Commit,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct RefView {
++    pub name: String,
++    pub kind: RefKind,
++    pub sha: String,
++    pub protected: bool,
++    pub last_commit_title: Option<String>,
++    pub last_commit_at: Option<DateTime<Utc>>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum TreeEntryKind {
++    File,
++    Directory,
++    Symlink,
++    Submodule,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct TreeEntryView {
++    pub name: String,
++    pub path: String,
++    pub kind: TreeEntryKind,
++    pub sha: String,
++    pub size: Option<u64>,
++    pub last_commit_sha: Option<String>,
++    pub last_commit_title: Option<String>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct TreeView {
++    pub repo_id: String,
++    pub ref_name: String,
++    pub path: String,
++    pub commit_sha: String,
++    pub entries: Vec<TreeEntryView>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum BlobRenderMode {
++    Text,
++    Markdown,
++    Image,
++    Binary,
++    TooLarge,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct BlobView {
++    pub repo_id: String,
++    pub ref_name: String,
++    pub path: String,
++    pub sha: String,
++    pub size: u64,
++    pub mime_type: String,
++    pub render_mode: BlobRenderMode,
++    pub text: Option<String>,
++    pub download_url: String,
++    pub raw_url: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MarkdownRenderView {
++    pub repo_id: Option<String>,
++    pub ref_name: Option<String>,
++    pub path: Option<String>,
++    pub source_sha256: String,
++    pub html: String,
++    pub headings: Vec<MarkdownHeading>,
++    pub links: Vec<MarkdownLink>,
++    pub warnings: Vec<String>,
++    pub rendered_at: DateTime<Utc>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MarkdownHeading {
++    pub level: u8,
++    pub text: String,
++    pub anchor: String,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MarkdownLink {
++    pub href: String,
++    pub rewritten_href: String,
++    pub external: bool,
++}
+
+diff --git a/src/api/merge_request.rs b/src/api/merge_request.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/api/merge_request.rs
+@@ -0,0 +1,123 @@
++
++//! Owner: Web Forge API — merge request and review DTOs
++
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++use utoipa::ToSchema;
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum MergeRequestState {
++    Open,
++    Merged,
++    Closed,
++    Draft,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum ReviewDecision {
++    Pending,
++    Approved,
++    ChangesRequested,
++    Commented,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MergeRequestSummary {
++    pub repo_id: String,
++    pub iid: String,
++    pub title: String,
++    pub author: String,
++    pub source_branch: String,
++    pub target_branch: String,
++    pub head_sha: String,
++    pub target_sha: Option<String>,
++    pub state: MergeRequestState,
++    pub draft: bool,
++    pub labels: Vec<String>,
++    pub approvals_required: u32,
++    pub approvals_received: u32,
++    pub unresolved_threads: u32,
++    pub failing_checks: u32,
++    pub merge_passport: MergePassportSummary,
++    pub updated_at: DateTime<Utc>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MergeRequestDetail {
++    pub summary: MergeRequestSummary,
++    pub description_markdown: String,
++    pub description_html: String,
++    pub reviewers: Vec<String>,
++    pub assignees: Vec<String>,
++    pub checks: Vec<CheckSummary>,
++    pub threads: Vec<ReviewThreadView>,
++    pub files: Vec<FileDiffSummary>,
++    pub permissions: MergePermissions,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MergePassportSummary {
++    pub status: String,
++    pub check_name: String,
++    pub bound_head_sha: Option<String>,
++    pub blockers: Vec<String>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct CheckSummary {
++    pub name: String,
++    pub status: String,
++    pub conclusion: Option<String>,
++    pub details_url: Option<String>,
++    pub started_at: Option<DateTime<Utc>>,
++    pub completed_at: Option<DateTime<Utc>>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct FileDiffSummary {
++    pub path: String,
++    pub old_path: Option<String>,
++    pub added: u32,
++    pub removed: u32,
++    pub viewed: bool,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct ReviewThreadView {
++    pub id: String,
++    pub path: String,
++    pub line: Option<u32>,
++    pub resolved: bool,
++    pub comments: Vec<ReviewCommentView>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct ReviewCommentView {
++    pub id: String,
++    pub author: String,
++    pub body_markdown: String,
++    pub body_html: String,
++    pub created_at: DateTime<Utc>,
++}
++
++#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MergePermissions {
++    pub can_comment: bool,
++    pub can_approve: bool,
++    pub can_request_changes: bool,
++    pub can_merge: bool,
++    pub can_rerun_checks: bool,
++}
+
+diff --git a/src/api/settings.rs b/src/api/settings.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/api/settings.rs
+@@ -0,0 +1,100 @@
++
++//! Owner: Web Forge API — settings DTOs
++
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++use utoipa::ToSchema;
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct RepoSettingsView {
++    pub general: GeneralRepoSettings,
++    pub features: FeatureToggles,
++    pub merge: MergeSettings,
++    pub protection: Vec<BranchProtectionRule>,
++    pub ci: CiSettings,
++    pub agents: AgentSettings,
++    pub retention: RetentionSettings,
++    pub danger_zone: DangerZoneState,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct GeneralRepoSettings {
++    pub name: String,
++    pub description: Option<String>,
++    pub default_branch: String,
++    pub visibility: String,
++    pub topics: Vec<String>,
++    pub archived: bool,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct FeatureToggles {
++    pub issues: bool,
++    pub merge_requests: bool,
++    pub wiki: bool,
++    pub packages: bool,
++    pub releases: bool,
++    pub ci: bool,
++    pub agents: bool,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct MergeSettings {
++    pub allow_merge_commit: bool,
++    pub allow_squash: bool,
++    pub allow_rebase: bool,
++    pub delete_source_branch_on_merge: bool,
++    pub require_merge_passport: bool,
++    pub required_approvals: u32,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct BranchProtectionRule {
++    pub pattern: String,
++    pub required_checks: Vec<String>,
++    pub required_approvals: u32,
++    pub require_codeowners: bool,
++    pub allow_force_push: bool,
++    pub allow_deletion: bool,
++    pub dismiss_stale_reviews: bool,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct CiSettings {
++    pub enabled: bool,
++    pub default_runner_pool: Option<String>,
++    pub artifact_retention_days: u32,
++    pub cache_retention_days: u32,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct AgentSettings {
++    pub agents_can_create_branches: bool,
++    pub agents_can_open_merge_requests: bool,
++    pub require_human_for_production: bool,
++    pub default_capability_ttl_minutes: u32,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct RetentionSettings {
++    pub activity_days: u32,
++    pub evidence_days: u32,
++    pub job_log_days: u32,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct DangerZoneState {
++    pub archive_available: bool,
++    pub delete_available: bool,
++    pub transfer_available: bool,
++    pub required_confirmation: String,
++}
+
+diff --git a/src/api/web_read_model.rs b/src/api/web_read_model.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/api/web_read_model.rs
+@@ -0,0 +1,51 @@
++
++//! Owner: Web Forge API — initial bootstrap/dashboard read model
++
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++use utoipa::ToSchema;
++
++use super::repository::RepositorySummary;
++
++pub const WEB_SCHEMA_VERSION: &str = "web.v1.0";
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct WebBootstrap {
++    pub schema_version: String,
++    pub generated_at: DateTime<Utc>,
++    pub event_cursor: u64,
++    pub actor: ActorView,
++    pub capabilities: Vec<String>,
++    pub settings: WebUiSettings,
++    pub dashboard: WebDashboard,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct ActorView {
++    pub id: String,
++    pub login: String,
++    pub display_name: String,
++    pub avatar_url: Option<String>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct WebUiSettings {
++    pub theme: String,
++    pub density: String,
++    pub preferred_code_font: Option<String>,
++    pub activity_rail_default_open: bool,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct WebDashboard {
++    pub repos: Vec<RepositorySummary>,
++    pub attention_count: u32,
++    pub merge_requests_needing_review: u32,
++    pub failing_pipelines: u32,
++    pub active_agents: u32,
++}
+
+diff --git a/src/web_events/mod.rs b/src/web_events/mod.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web_events/mod.rs
+@@ -0,0 +1,8 @@
++
++//! Owner: Web Forge realtime event bus
++
++pub mod bus;
++pub mod protocol;
++
++pub use bus::{WebEventBus, WebEventRecord};
++pub use protocol::{ClientWsMessage, ServerWsMessage, WebEventPayload, WebEventTopic};
+
+diff --git a/src/web_events/protocol.rs b/src/web_events/protocol.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web_events/protocol.rs
+@@ -0,0 +1,80 @@
++
++//! Owner: Web Forge realtime protocol
++
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use serde_json::Value;
++use ts_rs::TS;
++use utoipa::ToSchema;
++
++#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, ToSchema, TS)]
++#[ts(export)]
++pub struct WebEventTopic(pub String);
++
++impl WebEventTopic {
++    pub fn global() -> Self { Self("global".into()) }
++    pub fn repo(repo_id: impl Into<String>) -> Self { Self(format!("repo:{}", repo_id.into())) }
++    pub fn repo_activity(repo_id: impl Into<String>) -> Self { Self(format!("repo:{}:activity", repo_id.into())) }
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(tag = "type", rename_all = "snake_case")]
++pub enum ClientWsMessage {
++    Hello {
++        client_id: String,
++        last_cursor: Option<u64>,
++        topics: Vec<WebEventTopic>,
++        accept_snapshot: bool,
++    },
++    Subscribe { topics: Vec<WebEventTopic> },
++    Unsubscribe { topics: Vec<WebEventTopic> },
++    Ping { nonce: String },
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++#[serde(tag = "type", rename_all = "snake_case")]
++pub enum ServerWsMessage {
++    HelloAck {
++        server_time: DateTime<Utc>,
++        cursor: u64,
++        replayed: usize,
++    },
++    Event {
++        cursor: u64,
++        topic: WebEventTopic,
++        event: WebEventPayload,
++    },
++    Snapshot {
++        topic: WebEventTopic,
++        reason: String,
++        value: Value,
++    },
++    Gap {
++        from: u64,
++        to: u64,
++        reason: String,
++    },
++    Heartbeat {
++        cursor: u64,
++        server_time: DateTime<Utc>,
++    },
++    Error {
++        code: String,
++        message: String,
++    },
++    Pong { nonce: String },
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, TS)]
++#[ts(export)]
++pub struct WebEventPayload {
++    pub kind: String,
++    pub actor: Option<String>,
++    pub entity: Option<String>,
++    pub severity: String,
++    pub summary: String,
++    pub data: Value,
++    pub occurred_at: DateTime<Utc>,
++}
+
+diff --git a/src/web_events/bus.rs b/src/web_events/bus.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web_events/bus.rs
+@@ -0,0 +1,113 @@
++
++//! Owner: Web Forge realtime event bus implementation
++
++use std::{collections::VecDeque, sync::Arc};
++
++use chrono::Utc;
++use serde_json::Value;
++use tokio::sync::{broadcast, RwLock};
++
++use super::protocol::{ServerWsMessage, WebEventPayload, WebEventTopic};
++
++#[derive(Debug, Clone)]
++pub struct WebEventRecord {
++    pub cursor: u64,
++    pub topic: WebEventTopic,
++    pub payload: WebEventPayload,
++}
++
++#[derive(Clone)]
++pub struct WebEventBus {
++    inner: Arc<RwLock<BusState>>,
++    tx: broadcast::Sender<WebEventRecord>,
++}
++
++struct BusState {
++    next_cursor: u64,
++    ring: VecDeque<WebEventRecord>,
++    capacity: usize,
++}
++
++impl WebEventBus {
++    pub fn new(capacity: usize) -> Self {
++        let (tx, _) = broadcast::channel(capacity.max(16));
++        Self {
++            inner: Arc::new(RwLock::new(BusState {
++                next_cursor: 1,
++                ring: VecDeque::with_capacity(capacity),
++                capacity,
++            })),
++            tx,
++        }
++    }
++
++    pub fn subscribe(&self) -> broadcast::Receiver<WebEventRecord> {
++        self.tx.subscribe()
++    }
++
++    pub async fn cursor(&self) -> u64 {
++        let inner = self.inner.read().await;
++        inner.next_cursor.saturating_sub(1)
++    }
++
++    pub async fn publish(&self, topic: WebEventTopic, mut payload: WebEventPayload) -> u64 {
++        if payload.occurred_at.timestamp() == 0 {
++            payload.occurred_at = Utc::now();
++        }
++        let mut inner = self.inner.write().await;
++        let cursor = inner.next_cursor;
++        inner.next_cursor += 1;
++        let record = WebEventRecord { cursor, topic, payload };
++        if inner.ring.len() >= inner.capacity {
++            inner.ring.pop_front();
++        }
++        inner.ring.push_back(record.clone());
++        drop(inner);
++        let _ = self.tx.send(record);
++        cursor
++    }
++
++    pub async fn replay_since(&self, cursor: u64, topics: &[WebEventTopic]) -> Option<Vec<WebEventRecord>> {
++        let inner = self.inner.read().await;
++        if let Some(front) = inner.ring.front() {
++            if cursor > 0 && cursor < front.cursor.saturating_sub(1) {
++                return None;
++            }
++        }
++        Some(
++            inner.ring
++                .iter()
++                .filter(|record| record.cursor > cursor && (topics.is_empty() || topics.contains(&record.topic)))
++                .cloned()
++                .collect(),
++        )
++    }
++}
++
++impl Default for WebEventBus {
++    fn default() -> Self {
++        Self::new(10_000)
++    }
++}
++
++impl From<WebEventRecord> for ServerWsMessage {
++    fn from(record: WebEventRecord) -> Self {
++        ServerWsMessage::Event {
++            cursor: record.cursor,
++            topic: record.topic,
++            event: record.payload,
++        }
++    }
++}
++
++pub fn synthetic_event(kind: &str, summary: &str) -> WebEventPayload {
++    WebEventPayload {
++        kind: kind.into(),
++        actor: None,
++        entity: None,
++        severity: "info".into(),
++        summary: summary.into(),
++        data: Value::Null,
++        occurred_at: Utc::now(),
++    }
++}
+
+diff --git a/src/web/mod.rs b/src/web/mod.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/mod.rs
+@@ -0,0 +1,26 @@
++
++//! Owner: Web Forge HTTP/WebSocket runtime
++//! Proof: cargo check -p jeryu --message-format=json
++//! Invariants: Handlers delegate to domain services; no raw SQL or host mutation logic here.
++
++pub mod command;
++pub mod error;
++pub mod markdown;
++pub mod rest;
++pub mod router;
++pub mod state;
++pub mod ws;
++
++pub use state::{WebConfig, WebState};
++
++use anyhow::Result;
++use std::sync::Arc;
++
++pub async fn serve(config: WebConfig, db: Option<crate::state::Db>) -> Result<()> {
++    let state = Arc::new(WebState::new(config.clone(), db));
++    let app = router::build_router(state);
++    let listener = tokio::net::TcpListener::bind(config.bind).await?;
++    tracing::info!(bind = %config.bind, "starting JeRyu web forge");
++    axum::serve(listener, app.into_make_service()).await?;
++    Ok(())
++}
+
+diff --git a/src/web/state.rs b/src/web/state.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/state.rs
+@@ -0,0 +1,46 @@
++
++//! Owner: Web Forge shared request state
++
++use std::{net::SocketAddr, path::PathBuf, sync::Arc};
++
++use crate::web_events::WebEventBus;
++
++use super::markdown::MarkdownRenderer;
++
++#[derive(Debug, Clone)]
++pub struct WebConfig {
++    pub bind: SocketAddr,
++    pub spa_dir: PathBuf,
++    pub api_only: bool,
++    pub public_url: Option<String>,
++}
++
++impl Default for WebConfig {
++    fn default() -> Self {
++        Self {
++            bind: "127.0.0.1:8787".parse().expect("valid default bind"),
++            spa_dir: PathBuf::from("apps/web/dist"),
++            api_only: false,
++            public_url: None,
++        }
++    }
++}
++
++#[derive(Clone)]
++pub struct WebState {
++    pub config: WebConfig,
++    pub db: Option<crate::state::Db>,
++    pub events: WebEventBus,
++    pub markdown: Arc<MarkdownRenderer>,
++}
++
++impl WebState {
++    pub fn new(config: WebConfig, db: Option<crate::state::Db>) -> Self {
++        Self {
++            config,
++            db,
++            events: WebEventBus::default(),
++            markdown: Arc::new(MarkdownRenderer::default()),
++        }
++    }
++}
+
+diff --git a/src/web/error.rs b/src/web/error.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/error.rs
+@@ -0,0 +1,44 @@
++
++//! Owner: Web Forge error model
++
++use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
++use serde::Serialize;
++
++#[derive(Debug, Serialize)]
++pub struct ErrorBody {
++    pub error: String,
++    pub message: String,
++}
++
++#[derive(Debug, thiserror::Error)]
++pub enum WebError {
++    #[error("not found: {0}")]
++    NotFound(String),
++    #[error("bad request: {0}")]
++    BadRequest(String),
++    #[error("unauthorized")]
++    Unauthorized,
++    #[error("forbidden: {0}")]
++    Forbidden(String),
++    #[error("conflict: {0}")]
++    Conflict(String),
++    #[error(transparent)]
++    Anyhow(#[from] anyhow::Error),
++}
++
++impl IntoResponse for WebError {
++    fn into_response(self) -> Response {
++        let (status, code) = match &self {
++            WebError::NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
++            WebError::BadRequest(_) => (StatusCode::BAD_REQUEST, "bad_request"),
++            WebError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
++            WebError::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden"),
++            WebError::Conflict(_) => (StatusCode::CONFLICT, "conflict"),
++            WebError::Anyhow(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal"),
++        };
++        let body = ErrorBody { error: code.into(), message: self.to_string() };
++        (status, Json(body)).into_response()
++    }
++}
++
++pub type WebResult<T> = Result<T, WebError>;
+
+diff --git a/src/web/markdown.rs b/src/web/markdown.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/markdown.rs
+@@ -0,0 +1,95 @@
++
++//! Owner: Web Forge Markdown rendering and sanitization
++
++use ammonia::Builder as HtmlSanitizer;
++use comrak::{markdown_to_html, Options};
++use serde::Serialize;
++use sha2::{Digest, Sha256};
++
++#[derive(Debug, Clone, Serialize)]
++pub struct RenderedMarkdown {
++    pub source_sha256: String,
++    pub html: String,
++    pub headings: Vec<MarkdownHeading>,
++    pub links: Vec<MarkdownLink>,
++    pub warnings: Vec<String>,
++}
++
++#[derive(Debug, Clone, Serialize)]
++pub struct MarkdownHeading {
++    pub level: u8,
++    pub text: String,
++    pub anchor: String,
++}
++
++#[derive(Debug, Clone, Serialize)]
++pub struct MarkdownLink {
++    pub href: String,
++    pub rewritten_href: String,
++    pub external: bool,
++}
++
++#[derive(Debug, Default)]
++pub struct MarkdownRenderer;
++
++impl MarkdownRenderer {
++    pub fn render(&self, source: &str, base_href: Option<&str>) -> RenderedMarkdown {
++        let mut options = Options::default();
++        options.extension.table = true;
++        options.extension.tasklist = true;
++        options.extension.strikethrough = true;
++        options.extension.autolink = true;
++        options.extension.footnotes = true;
++        options.render.unsafe_ = true;
++
++        let raw_html = markdown_to_html(source, &options);
++        let sanitized = HtmlSanitizer::default()
++            .add_tags(["details", "summary", "kbd"])
++            .add_generic_attributes(["class", "id"])
++            .link_rel(Some("nofollow noopener noreferrer"))
++            .clean(&raw_html)
++            .to_string();
++
++        let html = rewrite_relative_links(&sanitized, base_href);
++        RenderedMarkdown {
++            source_sha256: format!("sha256:{:x}", Sha256::digest(source.as_bytes())),
++            headings: collect_headings(source),
++            links: collect_links(&html),
++            html,
++            warnings: Vec::new(),
++        }
++    }
++}
++
++fn rewrite_relative_links(html: &str, base_href: Option<&str>) -> String {
++    let Some(base) = base_href else { return html.to_string(); };
++    // Follow-up implementation should use an HTML5 parser. This placeholder keeps
++    // the behavior centralized and testable while avoiding regex in handlers.
++    html.replace("href=\"./", &format!("href=\"{base}/"))
++        .replace("src=\"./", &format!("src=\"{base}/"))
++}
++
++fn collect_headings(source: &str) -> Vec<MarkdownHeading> {
++    source.lines()
++        .filter_map(|line| {
++            let hashes = line.chars().take_while(|c| *c == '#').count();
++            if hashes == 0 || hashes > 6 || !line.chars().nth(hashes).is_some_and(|c| c == ' ') {
++                return None;
++            }
++            let text = line[hashes + 1..].trim().to_string();
++            let anchor = text.to_lowercase()
++                .chars()
++                .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
++                .collect::<String>()
++                .split('-')
++                .filter(|s| !s.is_empty())
++                .collect::<Vec<_>>()
++                .join("-");
++            Some(MarkdownHeading { level: hashes as u8, text, anchor })
++        })
++        .collect()
++}
++
++fn collect_links(_html: &str) -> Vec<MarkdownLink> {
++    Vec::new()
++}
+
+diff --git a/src/web/router.rs b/src/web/router.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/router.rs
+@@ -0,0 +1,34 @@
++
++//! Owner: Web Forge Axum router
++
++use std::sync::Arc;
++
++use axum::{routing::get, Json, Router};
++use tower_http::{compression::CompressionLayer, services::{ServeDir, ServeFile}, trace::TraceLayer};
++
++use super::{rest, state::WebState, ws};
++
++pub fn build_router(state: Arc<WebState>) -> Router {
++    let api = rest::router(state.clone());
++    let mut app = Router::new()
++        .route("/healthz", get(healthz))
++        .route("/ws", get(ws::handler))
++        .nest("/api/v1", api)
++        .with_state(state.clone())
++        .layer(CompressionLayer::new())
++        .layer(TraceLayer::new_for_http());
++
++    if !state.config.api_only {
++        let index = state.config.spa_dir.join("index.html");
++        app = app.fallback_service(
++            ServeDir::new(&state.config.spa_dir)
++                .not_found_service(ServeFile::new(index)),
++        );
++    }
++
++    app
++}
++
++async fn healthz() -> Json<serde_json::Value> {
++    Json(serde_json::json!({ "ok": true, "service": "jeryu-web" }))
++}
+
+diff --git a/src/web/ws.rs b/src/web/ws.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/ws.rs
+@@ -0,0 +1,72 @@
++
++//! Owner: Web Forge websocket handler
++
++use std::{collections::HashSet, sync::Arc, time::Duration};
++
++use axum::{extract::{ws::{Message, WebSocket}, State, WebSocketUpgrade}, response::IntoResponse};
++use chrono::Utc;
++use futures_util::{SinkExt, StreamExt};
++use tokio::time::interval;
++
++use crate::web_events::{ClientWsMessage, ServerWsMessage, WebEventTopic};
++
++use super::state::WebState;
++
++pub async fn handler(State(state): State<Arc<WebState>>, ws: WebSocketUpgrade) -> impl IntoResponse {
++    ws.on_upgrade(move |socket| run_socket(state, socket))
++}
++
++async fn run_socket(state: Arc<WebState>, socket: WebSocket) {
++    let (mut sender, mut receiver) = socket.split();
++    let mut rx = state.events.subscribe();
++    let mut topics: HashSet<WebEventTopic> = HashSet::new();
++    topics.insert(WebEventTopic::global());
++    let mut heartbeat = interval(Duration::from_secs(15));
++
++    loop {
++        tokio::select! {
++            Some(Ok(msg)) = receiver.next() => {
++                if let Message::Text(text) = msg {
++                    match serde_json::from_str::<ClientWsMessage>(&text) {
++                        Ok(ClientWsMessage::Hello { last_cursor, topics: new_topics, .. }) => {
++                            topics.extend(new_topics.clone());
++                            let replay_topics = topics.iter().cloned().collect::<Vec<_>>();
++                            match state.events.replay_since(last_cursor.unwrap_or_default(), &replay_topics).await {
++                                Some(records) => {
++                                    let ack = ServerWsMessage::HelloAck { server_time: Utc::now(), cursor: state.events.cursor().await, replayed: records.len() };
++                                    if send_json(&mut sender, &ack).await.is_err() { break; }
++                                    for record in records {
++                                        if send_json(&mut sender, &ServerWsMessage::from(record)).await.is_err() { break; }
++                                    }
++                                }
++                                None => {
++                                    let gap = ServerWsMessage::Gap { from: last_cursor.unwrap_or_default(), to: state.events.cursor().await, reason: "cursor_evicted".into() };
++                                    if send_json(&mut sender, &gap).await.is_err() { break; }
++                                }
++                            }
++                        }
++                        Ok(ClientWsMessage::Subscribe { topics: new_topics }) => { topics.extend(new_topics); }
++                        Ok(ClientWsMessage::Unsubscribe { topics: old_topics }) => { for topic in old_topics { topics.remove(&topic); } }
++                        Ok(ClientWsMessage::Ping { nonce }) => { if send_json(&mut sender, &ServerWsMessage::Pong { nonce }).await.is_err() { break; } }
++                        Err(err) => {
++                            let _ = send_json(&mut sender, &ServerWsMessage::Error { code: "bad_message".into(), message: err.to_string() }).await;
++                        }
++                    }
++                }
++            }
++            Ok(record) = rx.recv() => {
++                if topics.contains(&record.topic) || topics.contains(&WebEventTopic::global()) {
++                    if send_json(&mut sender, &ServerWsMessage::from(record)).await.is_err() { break; }
++                }
++            }
++            _ = heartbeat.tick() => {
++                let msg = ServerWsMessage::Heartbeat { cursor: state.events.cursor().await, server_time: Utc::now() };
++                if send_json(&mut sender, &msg).await.is_err() { break; }
++            }
++        }
++    }
++}
++
++async fn send_json(sender: &mut futures_util::stream::SplitSink<WebSocket, Message>, msg: &ServerWsMessage) -> Result<(), axum::Error> {
++    sender.send(Message::Text(serde_json::to_string(msg).unwrap_or_else(|_| "{\"type\":\"error\"}".into()))).await
++}
+
+diff --git a/src/web/rest/mod.rs b/src/web/rest/mod.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/mod.rs
+@@ -0,0 +1,28 @@
++
++//! Owner: Web Forge REST router modules
++
++use std::sync::Arc;
++
++use axum::Router;
++
++use super::state::WebState;
++
++pub mod actions;
++pub mod bootstrap;
++pub mod code;
++pub mod markdown;
++pub mod merge_requests;
++pub mod repos;
++pub mod settings;
++
++pub fn router(state: Arc<WebState>) -> Router<Arc<WebState>> {
++    Router::new()
++        .merge(bootstrap::router())
++        .merge(repos::router())
++        .merge(code::router())
++        .merge(markdown::router())
++        .merge(merge_requests::router())
++        .merge(settings::router())
++        .merge(actions::router())
++        .with_state(state)
++}
+
+diff --git a/src/web/rest/bootstrap.rs b/src/web/rest/bootstrap.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/bootstrap.rs
+@@ -0,0 +1,41 @@
++
++use std::sync::Arc;
++
++use axum::{extract::State, routing::get, Json, Router};
++use chrono::Utc;
++
++use crate::api::web_read_model::{ActorView, WebBootstrap, WebDashboard, WebUiSettings, WEB_SCHEMA_VERSION};
++
++use super::super::{error::WebResult, state::WebState};
++
++pub fn router() -> Router<Arc<WebState>> {
++    Router::new().route("/bootstrap", get(bootstrap))
++}
++
++async fn bootstrap(State(state): State<Arc<WebState>>) -> WebResult<Json<WebBootstrap>> {
++    Ok(Json(WebBootstrap {
++        schema_version: WEB_SCHEMA_VERSION.into(),
++        generated_at: Utc::now(),
++        event_cursor: state.events.cursor().await,
++        actor: ActorView {
++            id: "local".into(),
++            login: std::env::var("USER").unwrap_or_else(|_| "local".into()),
++            display_name: "Local User".into(),
++            avatar_url: None,
++        },
++        capabilities: vec!["repo.read".into(), "repo.write".into(), "mr.review".into()],
++        settings: WebUiSettings {
++            theme: "system".into(),
++            density: "comfortable".into(),
++            preferred_code_font: None,
++            activity_rail_default_open: true,
++        },
++        dashboard: WebDashboard {
++            repos: Vec::new(),
++            attention_count: 0,
++            merge_requests_needing_review: 0,
++            failing_pipelines: 0,
++            active_agents: 0,
++        },
++    }))
++}
+
+diff --git a/src/web/rest/repos.rs b/src/web/rest/repos.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/repos.rs
+@@ -0,0 +1,43 @@
++
++use std::sync::Arc;
++
++use axum::{extract::{Path, State}, routing::{get, post}, Json, Router};
++
++use crate::api::repository::{CreateRepositoryRequest, RepositoryDetail, RepositoryPermissions, RepositorySummary};
++
++use super::super::{error::WebResult, state::WebState};
++
++pub fn router() -> Router<Arc<WebState>> {
++    Router::new()
++        .route("/repos", get(list_repos).post(create_repo))
++        .route("/repos/:repo_id", get(get_repo))
++}
++
++async fn list_repos(State(_state): State<Arc<WebState>>) -> WebResult<Json<Vec<RepositorySummary>>> {
++    // Implementation path: repos::RepositoryService::list() should aggregate local workspace,
++    // GitLab, GitHub, mirrors, and repo families, then cache summaries in web_repositories.
++    Ok(Json(Vec::new()))
++}
++
++async fn create_repo(State(_state): State<Arc<WebState>>, Json(_req): Json<CreateRepositoryRequest>) -> WebResult<Json<RepositoryDetail>> {
++    // Implementation path: action preview for repo.create when visibility/public/provider requires policy,
++    // then repos::RepositoryService::create().
++    Err(super::super::error::WebError::BadRequest("repo creation service not wired yet".into()))
++}
++
++async fn get_repo(Path(repo_id): Path<String>, State(_state): State<Arc<WebState>>) -> WebResult<Json<RepositoryDetail>> {
++    Err(super::super::error::WebError::NotFound(format!("repo {repo_id}")))
++}
++
++fn default_permissions() -> RepositoryPermissions {
++    RepositoryPermissions {
++        can_read: true,
++        can_write: true,
++        can_create_branch: true,
++        can_create_issue: true,
++        can_create_merge_request: true,
++        can_approve: true,
++        can_merge: false,
++        can_admin: false,
++    }
++}
+
+diff --git a/src/web/rest/code.rs b/src/web/rest/code.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/code.rs
+@@ -0,0 +1,31 @@
++
++use std::sync::Arc;
++
++use axum::{extract::{Path, Query, State}, routing::get, Json, Router};
++use serde::Deserialize;
++
++use crate::api::repo_browser::{BlobView, RefView, TreeView};
++
++use super::super::{error::{WebError, WebResult}, state::WebState};
++
++#[derive(Debug, Deserialize)]
++pub struct RefQuery { pub r#ref: Option<String> }
++
++pub fn router() -> Router<Arc<WebState>> {
++    Router::new()
++        .route("/repos/:repo_id/refs", get(list_refs))
++        .route("/repos/:repo_id/tree/*path", get(tree))
++        .route("/repos/:repo_id/blob/*path", get(blob))
++}
++
++async fn list_refs(Path(_repo_id): Path<String>, State(_state): State<Arc<WebState>>) -> WebResult<Json<Vec<RefView>>> {
++    Ok(Json(Vec::new()))
++}
++
++async fn tree(Path((repo_id, path)): Path<(String, String)>, Query(query): Query<RefQuery>, State(_state): State<Arc<WebState>>) -> WebResult<Json<TreeView>> {
++    Err(WebError::NotFound(format!("tree repo={repo_id} ref={} path={path}", query.r#ref.unwrap_or_else(|| "HEAD".into()))))
++}
++
++async fn blob(Path((repo_id, path)): Path<(String, String)>, Query(query): Query<RefQuery>, State(_state): State<Arc<WebState>>) -> WebResult<Json<BlobView>> {
++    Err(WebError::NotFound(format!("blob repo={repo_id} ref={} path={path}", query.r#ref.unwrap_or_else(|| "HEAD".into()))))
++}
+
+diff --git a/src/web/rest/markdown.rs b/src/web/rest/markdown.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/markdown.rs
+@@ -0,0 +1,35 @@
++
++use std::sync::Arc;
++
++use axum::{extract::State, routing::post, Json, Router};
++use chrono::Utc;
++use serde::Deserialize;
++
++use crate::api::repo_browser::{MarkdownHeading, MarkdownLink, MarkdownRenderView};
++
++use super::super::{error::WebResult, state::WebState};
++
++#[derive(Debug, Deserialize)]
++pub struct RenderMarkdownRequest {
++    pub source: String,
++    pub base_href: Option<String>,
++}
++
++pub fn router() -> Router<Arc<WebState>> {
++    Router::new().route("/markdown/render", post(render_markdown))
++}
++
++async fn render_markdown(State(state): State<Arc<WebState>>, Json(req): Json<RenderMarkdownRequest>) -> WebResult<Json<MarkdownRenderView>> {
++    let rendered = state.markdown.render(&req.source, req.base_href.as_deref());
++    Ok(Json(MarkdownRenderView {
++        repo_id: None,
++        ref_name: None,
++        path: None,
++        source_sha256: rendered.source_sha256,
++        html: rendered.html,
++        headings: rendered.headings.into_iter().map(|h| MarkdownHeading { level: h.level, text: h.text, anchor: h.anchor }).collect(),
++        links: rendered.links.into_iter().map(|l| MarkdownLink { href: l.href, rewritten_href: l.rewritten_href, external: l.external }).collect(),
++        warnings: rendered.warnings,
++        rendered_at: Utc::now(),
++    }))
++}
+
+diff --git a/src/web/rest/merge_requests.rs b/src/web/rest/merge_requests.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/merge_requests.rs
+@@ -0,0 +1,33 @@
++
++use std::sync::Arc;
++
++use axum::{extract::Path, routing::{get, post}, Json, Router};
++
++use crate::api::merge_request::{MergeRequestDetail, MergeRequestSummary};
++
++use super::super::error::{WebError, WebResult};
++use super::super::state::WebState;
++
++pub fn router() -> Router<Arc<WebState>> {
++    Router::new()
++        .route("/repos/:repo_id/merge-requests", get(list_merge_requests))
++        .route("/repos/:repo_id/merge-requests/:iid", get(get_merge_request))
++        .route("/repos/:repo_id/merge-requests/:iid/approve", post(approve))
++        .route("/repos/:repo_id/merge-requests/:iid/merge", post(merge))
++}
++
++async fn list_merge_requests(Path(_repo_id): Path<String>) -> WebResult<Json<Vec<MergeRequestSummary>>> {
++    Ok(Json(Vec::new()))
++}
++
++async fn get_merge_request(Path((repo_id, iid)): Path<(String, String)>) -> WebResult<Json<MergeRequestDetail>> {
++    Err(WebError::NotFound(format!("merge request repo={repo_id} iid={iid}")))
++}
++
++async fn approve(Path((_repo_id, _iid)): Path<(String, String)>) -> WebResult<Json<serde_json::Value>> {
++    Err(WebError::BadRequest("approval must go through action preview/execute".into()))
++}
++
++async fn merge(Path((_repo_id, _iid)): Path<(String, String)>) -> WebResult<Json<serde_json::Value>> {
++    Err(WebError::BadRequest("merge must go through action preview/execute with exact SHA".into()))
++}
+
+diff --git a/src/web/rest/settings.rs b/src/web/rest/settings.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/settings.rs
+@@ -0,0 +1,27 @@
++
++use std::sync::Arc;
++
++use axum::{extract::Path, routing::{get, patch}, Json, Router};
++
++use crate::api::settings::RepoSettingsView;
++
++use super::super::error::{WebError, WebResult};
++use super::super::state::WebState;
++
++pub fn router() -> Router<Arc<WebState>> {
++    Router::new()
++        .route("/settings", get(global_settings))
++        .route("/repos/:repo_id/settings", get(repo_settings).patch(update_repo_settings))
++}
++
++async fn global_settings() -> WebResult<Json<serde_json::Value>> {
++    Ok(Json(serde_json::json!({ "theme": "system", "density": "comfortable" })))
++}
++
++async fn repo_settings(Path(repo_id): Path<String>) -> WebResult<Json<RepoSettingsView>> {
++    Err(WebError::NotFound(format!("settings for repo {repo_id}")))
++}
++
++async fn update_repo_settings(Path(_repo_id): Path<String>, Json(_patch): Json<serde_json::Value>) -> WebResult<Json<serde_json::Value>> {
++    Err(WebError::BadRequest("settings updates must go through action preview/execute".into()))
++}
+
+diff --git a/src/web/rest/actions.rs b/src/web/rest/actions.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/rest/actions.rs
+@@ -0,0 +1,27 @@
++
++use std::sync::Arc;
++
++use axum::{routing::post, Json, Router};
++
++use super::super::error::{WebError, WebResult};
++use super::super::state::WebState;
++
++pub fn router() -> Router<Arc<WebState>> {
++    Router::new()
++        .route("/actions/preview", post(preview_action))
++        .route("/actions/execute", post(execute_action))
++}
++
++async fn preview_action(Json(req): Json<serde_json::Value>) -> WebResult<Json<serde_json::Value>> {
++    Ok(Json(serde_json::json!({
++        "preview_id": "preview-not-wired",
++        "request": req,
++        "allowed": false,
++        "blocked_by": ["action registry wiring pending"],
++        "requires_confirmation": true
++    })))
++}
++
++async fn execute_action(Json(_req): Json<serde_json::Value>) -> WebResult<Json<serde_json::Value>> {
++    Err(WebError::BadRequest("execute requires a valid preview id and idempotency key".into()))
++}
+
+diff --git a/src/web/command.rs b/src/web/command.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/web/command.rs
+@@ -0,0 +1,34 @@
++
++//! Owner: Web Forge CLI command adapter
++
++use anyhow::Result;
++
++use crate::web::{serve, WebConfig};
++
++pub async fn execute_web_command(cmd: crate::cli::WebCommands) -> Result<i32> {
++    match cmd {
++        crate::cli::WebCommands::Serve(serve_cmd) => {
++            let cfg = WebConfig {
++                bind: serve_cmd.bind.parse()?,
++                spa_dir: serve_cmd.spa_dir,
++                api_only: serve_cmd.api_only,
++                public_url: None,
++            };
++            serve(cfg, Some(crate::state::Db::open().await?)).await?;
++        }
++        crate::cli::WebCommands::Check { json } => {
++            let result = serde_json::json!({
++                "ok": true,
++                "checks": ["routes", "spa_dist", "type_exports", "ux_qa"]
++            });
++            if json { println!("{}", serde_json::to_string_pretty(&result)?); }
++            else { println!("jeryu web check ok"); }
++        }
++        crate::cli::WebCommands::ExportTypes { out_dir } => {
++            std::fs::create_dir_all(&out_dir)?;
++            println!("type export target: {}", out_dir.display());
++            // Follow-up: call ts-rs export_all! after DTO coverage lands.
++        }
++    }
++    Ok(0)
++}
+
+diff --git a/src/repos/mod.rs b/src/repos/mod.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/repos/mod.rs
+@@ -0,0 +1,6 @@
++
++//! Owner: Web Forge repository domain service
++
++pub mod service;
++
++pub use service::RepositoryService;
+
+diff --git a/src/repos/service.rs b/src/repos/service.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/repos/service.rs
+@@ -0,0 +1,30 @@
++
++use std::sync::Arc;
++
++use anyhow::Result;
++
++use crate::api::repository::{CreateRepositoryRequest, RepositoryDetail, RepositorySummary};
++use crate::web_events::{WebEventBus, WebEventTopic};
++
++#[derive(Clone)]
++pub struct RepositoryService {
++    events: WebEventBus,
++    db: Option<crate::state::Db>,
++}
++
++impl RepositoryService {
++    pub fn new(events: WebEventBus, db: Option<crate::state::Db>) -> Self {
++        Self { events, db }
++    }
++
++    pub async fn list(&self) -> Result<Vec<RepositorySummary>> {
++        // Aggregate local repo fleet, GitLab projects, GitHub repos, and mirror rows.
++        Ok(Vec::new())
++    }
++
++    pub async fn create(&self, _req: CreateRepositoryRequest) -> Result<RepositoryDetail> {
++        // Create local/provider repo, initialize README if requested, insert web_repositories row,
++        // emit repository.created to global/repos/repo:<id> topics.
++        anyhow::bail!("repository create service not implemented yet")
++    }
++}
+
+diff --git a/src/repo_browser/mod.rs b/src/repo_browser/mod.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/repo_browser/mod.rs
+@@ -0,0 +1,4 @@
++
++//! Owner: Web Forge repository browser domain
++
++pub mod markdown;
+
+diff --git a/src/repo_browser/markdown.rs b/src/repo_browser/markdown.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/repo_browser/markdown.rs
+@@ -0,0 +1,10 @@
++
++//! Owner: Repository README/blob Markdown orchestration
++
++use anyhow::Result;
++
++use crate::web::markdown::RenderedMarkdown;
++
++pub async fn render_readme(source: &str, base_href: Option<&str>) -> Result<RenderedMarkdown> {
++    Ok(crate::web::markdown::MarkdownRenderer::default().render(source, base_href))
++}
+
+diff --git a/src/merge/mod.rs b/src/merge/mod.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/merge/mod.rs
+@@ -0,0 +1,6 @@
++
++//! Owner: Web Forge merge/review domain service
++
++pub mod service;
++
++pub use service::MergeService;
+
+diff --git a/src/merge/service.rs b/src/merge/service.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/merge/service.rs
+@@ -0,0 +1,17 @@
++
++use anyhow::Result;
++
++use crate::api::merge_request::{MergeRequestDetail, MergeRequestSummary};
++
++#[derive(Clone, Default)]
++pub struct MergeService;
++
++impl MergeService {
++    pub async fn list(&self, _repo_id: &str) -> Result<Vec<MergeRequestSummary>> {
++        Ok(Vec::new())
++    }
++
++    pub async fn detail(&self, _repo_id: &str, _iid: &str) -> Result<MergeRequestDetail> {
++        anyhow::bail!("merge request detail service not implemented yet")
++    }
++}
+
+diff --git a/db/migrations/202606010001_web_forge_core.sql b/db/migrations/202606010001_web_forge_core.sql
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/db/migrations/202606010001_web_forge_core.sql
+@@ -0,0 +1,130 @@
++
++-- JeRyu Web Forge core product tables.
++-- Invariant: domain services own writes; handlers do not run raw SQL.
++
++CREATE TABLE IF NOT EXISTS web_repositories (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  provider TEXT NOT NULL,
++  provider_repo_id TEXT,
++  owner TEXT NOT NULL,
++  name TEXT NOT NULL,
++  slug TEXT NOT NULL UNIQUE,
++  family TEXT,
++  description TEXT,
++  visibility TEXT NOT NULL DEFAULT 'private',
++  default_branch TEXT NOT NULL DEFAULT 'main',
++  local_path TEXT,
++  remote_url TEXT,
++  avatar_url TEXT,
++  archived INTEGER NOT NULL DEFAULT 0,
++  forked_from TEXT,
++  mirrored_from TEXT,
++  topics_json TEXT NOT NULL DEFAULT '[]',
++  settings_json TEXT NOT NULL DEFAULT '{}',
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL
++);
++
++CREATE INDEX IF NOT EXISTS idx_web_repositories_provider ON web_repositories(provider);
++CREATE INDEX IF NOT EXISTS idx_web_repositories_owner_name ON web_repositories(owner, name);
++CREATE INDEX IF NOT EXISTS idx_web_repositories_family ON web_repositories(family);
++
++CREATE TABLE IF NOT EXISTS web_memberships (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  principal_type TEXT NOT NULL,
++  principal_id TEXT NOT NULL,
++  display_name TEXT NOT NULL,
++  role TEXT NOT NULL,
++  granted_by TEXT,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL,
++  UNIQUE(repo_id, principal_type, principal_id)
++);
++
++CREATE TABLE IF NOT EXISTS web_branch_protections (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  pattern TEXT NOT NULL,
++  require_merge_passport INTEGER NOT NULL DEFAULT 1,
++  required_checks_json TEXT NOT NULL DEFAULT '[]',
++  required_approvals INTEGER NOT NULL DEFAULT 1,
++  require_codeowners INTEGER NOT NULL DEFAULT 0,
++  allow_force_push INTEGER NOT NULL DEFAULT 0,
++  allow_deletion INTEGER NOT NULL DEFAULT 0,
++  stale_review_dismissal INTEGER NOT NULL DEFAULT 1,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL,
++  UNIQUE(repo_id, pattern)
++);
++
++CREATE TABLE IF NOT EXISTS web_markdown_cache (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  ref_name TEXT NOT NULL,
++  path TEXT NOT NULL,
++  blob_sha TEXT NOT NULL,
++  source_sha256 TEXT NOT NULL,
++  html TEXT NOT NULL,
++  headings_json TEXT NOT NULL DEFAULT '[]',
++  links_json TEXT NOT NULL DEFAULT '[]',
++  rendered_at TEXT NOT NULL,
++  UNIQUE(repo_id, ref_name, path, blob_sha)
++);
++
++CREATE TABLE IF NOT EXISTS web_activity_events (
++  cursor INTEGER PRIMARY KEY AUTOINCREMENT,
++  topic TEXT NOT NULL,
++  kind TEXT NOT NULL,
++  repo_id INTEGER,
++  actor_id TEXT,
++  severity TEXT NOT NULL DEFAULT 'info',
++  payload_json TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
++
++CREATE INDEX IF NOT EXISTS idx_web_activity_topic_cursor ON web_activity_events(topic, cursor);
++CREATE INDEX IF NOT EXISTS idx_web_activity_repo_cursor ON web_activity_events(repo_id, cursor);
++
++CREATE TABLE IF NOT EXISTS web_merge_requests (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  provider_iid TEXT NOT NULL,
++  title TEXT NOT NULL,
++  description TEXT,
++  author TEXT NOT NULL,
++  source_branch TEXT NOT NULL,
++  target_branch TEXT NOT NULL,
++  head_sha TEXT NOT NULL,
++  target_sha TEXT,
++  state TEXT NOT NULL,
++  draft INTEGER NOT NULL DEFAULT 0,
++  labels_json TEXT NOT NULL DEFAULT '[]',
++  merge_passport_json TEXT NOT NULL DEFAULT '{}',
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL,
++  UNIQUE(repo_id, provider_iid)
++);
++
++CREATE TABLE IF NOT EXISTS web_review_threads (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  merge_request_id INTEGER NOT NULL REFERENCES web_merge_requests(id) ON DELETE CASCADE,
++  provider_thread_id TEXT,
++  path TEXT NOT NULL,
++  line INTEGER,
++  resolved INTEGER NOT NULL DEFAULT 0,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL
++);
++
++CREATE TABLE IF NOT EXISTS web_review_comments (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  thread_id INTEGER NOT NULL REFERENCES web_review_threads(id) ON DELETE CASCADE,
++  provider_comment_id TEXT,
++  author TEXT NOT NULL,
++  body_markdown TEXT NOT NULL,
++  body_html TEXT NOT NULL,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL
++);
+
+diff --git a/apps/web/package.json b/apps/web/package.json
+
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@
+-  "name": "@jankurai/ux-qa",
++  "name": "apps/web",
+   "private": true,
+   "type": "module",
+   "scripts": {
+-    "build": "node ./ux-qa-check.mjs build",
+-    "test": "node ./ux-qa-check.mjs test"
++    "dev": "vite --host 127.0.0.1 --port 5173",
++    "build": "tsc -b && vite build && node ./ux-qa-check.mjs build",
++    "preview": "vite preview --host 127.0.0.1 --port 4173",
++    "typecheck": "tsc -b --pretty false",
++    "lint": "eslint .",
++    "test": "vitest run && node ./ux-qa-check.mjs test",
++    "test:watch": "vitest",
++    "e2e": "playwright test",
++    "storybook": "storybook dev -p 6006",
++    "build-storybook": "storybook build",
++    "ux-qa:build": "node ./ux-qa-check.mjs build",
++    "ux-qa:test": "node ./ux-qa-check.mjs test"
++  },
++  "dependencies": {
++    "@tanstack/react-query": "^5.80.0",
++    "@tanstack/react-router": "^1.120.0",
++    "@tanstack/react-virtual": "^3.13.0",
++    "clsx": "^2.1.1",
++    "dompurify": "^3.2.5",
++    "lucide-react": "^0.511.0",
++    "react": "^19.1.0",
++    "react-dom": "^19.1.0",
++    "zustand": "^5.0.5"
++  },
++  "devDependencies": {
++    "@playwright/test": "^1.52.0",
++    "@testing-library/jest-dom": "^6.6.3",
++    "@testing-library/react": "^16.3.0",
++    "@types/dompurify": "^3.0.5",
++    "@types/node": "^22.15.0",
++    "@types/react": "^19.1.5",
++    "@types/react-dom": "^19.1.5",
++    "@vitejs/plugin-react": "^4.5.0",
++    "eslint": "^9.27.0",
++    "typescript": "^5.8.3",
++    "vite": "^6.3.5",
++    "vitest": "^3.1.4"
+   }
+ }
+
+diff --git a/apps/web/index.html b/apps/web/index.html
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/index.html
+@@ -0,0 +1,14 @@
++
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="dark light" />
++    <title>JeRyu Web Forge</title>
++  </head>
++  <body>
++    <div id="root"></div>
++    <script type="module" src="/src/main.tsx"></script>
++  </body>
++</html>
+
+diff --git a/apps/web/vite.config.ts b/apps/web/vite.config.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/vite.config.ts
+@@ -0,0 +1,17 @@
++
++import { defineConfig } from 'vite';
++import react from '@vitejs/plugin-react';
++
++export default defineConfig({
++  plugins: [react()],
++  server: {
++    proxy: {
++      '/api': 'http://127.0.0.1:8787',
++      '/ws': { target: 'ws://127.0.0.1:8787', ws: true },
++    },
++  },
++  build: {
++    sourcemap: true,
++    target: 'es2022',
++  },
++});
+
+diff --git a/apps/web/tsconfig.json b/apps/web/tsconfig.json
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/tsconfig.json
+@@ -0,0 +1,21 @@
++
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "useDefineForClassFields": true,
++    "lib": ["ES2022", "DOM", "DOM.Iterable"],
++    "allowJs": false,
++    "skipLibCheck": true,
++    "esModuleInterop": true,
++    "allowSyntheticDefaultImports": true,
++    "strict": true,
++    "forceConsistentCasingInFileNames": true,
++    "module": "ESNext",
++    "moduleResolution": "Bundler",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "noEmit": true,
++    "jsx": "react-jsx"
++  },
++  "include": ["src", "vite.config.ts"]
++}
+
+diff --git a/apps/web/src/main.tsx b/apps/web/src/main.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/main.tsx
+@@ -0,0 +1,11 @@
++
++import React from 'react';
++import ReactDOM from 'react-dom/client';
++import { App } from './app/App';
++import './styles/global.css';
++
++ReactDOM.createRoot(document.getElementById('root')!).render(
++  <React.StrictMode>
++    <App />
++  </React.StrictMode>,
++);
+
+diff --git a/apps/web/src/app/App.tsx b/apps/web/src/app/App.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/app/App.tsx
+@@ -0,0 +1,16 @@
++
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
++import { AppShell } from '../components/layout/AppShell';
++import { Dashboard } from '../routes/Dashboard';
++
++const queryClient = new QueryClient();
++
++export function App() {
++  return (
++    <QueryClientProvider client={queryClient}>
++      <AppShell>
++        <Dashboard />
++      </AppShell>
++    </QueryClientProvider>
++  );
++}
+
+diff --git a/apps/web/src/api/types.ts b/apps/web/src/api/types.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/api/types.ts
+@@ -0,0 +1,60 @@
++
++export type RepositoryProvider = 'local' | 'gitlab' | 'github' | 'mirror';
++export type RepositoryVisibility = 'private' | 'internal' | 'public';
++
++export interface RepositorySummary {
++  id: string;
++  provider: RepositoryProvider;
++  owner: string;
++  name: string;
++  slug: string;
++  family?: string | null;
++  description?: string | null;
++  visibility: RepositoryVisibility;
++  defaultBranch: string;
++  localPath?: string | null;
++  remoteUrl?: string | null;
++  avatarUrl?: string | null;
++  archived: boolean;
++  topics: string[];
++  openMergeRequests: number;
++  openIssues: number;
++  failingChecks: number;
++  activeAgents: number;
++  latestActivityAt?: string | null;
++}
++
++export interface WebBootstrap {
++  schemaVersion: string;
++  generatedAt: string;
++  eventCursor: number;
++  actor: { id: string; login: string; displayName: string; avatarUrl?: string | null };
++  capabilities: string[];
++  settings: { theme: string; density: string; activityRailDefaultOpen: boolean };
++  dashboard: {
++    repos: RepositorySummary[];
++    attentionCount: number;
++    mergeRequestsNeedingReview: number;
++    failingPipelines: number;
++    activeAgents: number;
++  };
++}
++
++export interface WebEventPayload {
++  kind: string;
++  actor?: string | null;
++  entity?: string | null;
++  severity: string;
++  summary: string;
++  data: unknown;
++  occurredAt: string;
++}
++
++export type ServerWsMessage =
++  | { type: 'hello_ack'; server_time: string; cursor: number; replayed: number }
++  | { type: 'event'; cursor: number; topic: string; event: WebEventPayload }
++  | { type: 'snapshot'; topic: string; reason: string; value: unknown }
++  | { type: 'gap'; from: number; to: number; reason: string }
++  | { type: 'heartbeat'; cursor: number; server_time: string }
++  | { type: 'error'; code: string; message: string }
++  | { type: 'pong'; nonce: string };
+
+diff --git a/apps/web/src/api/client.ts b/apps/web/src/api/client.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/api/client.ts
+@@ -0,0 +1,26 @@
++
++import type { RepositorySummary, WebBootstrap } from './types';
++
++const API_PREFIX = '/api/v1';
++
++async function request<T>(path: string, init?: RequestInit): Promise<T> {
++  const response = await fetch(`${API_PREFIX}${path}`, {
++    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
++    ...init,
++  });
++  if (!response.ok) {
++    const body = await response.text();
++    throw new Error(`${response.status} ${response.statusText}: ${body}`);
++  }
++  return response.json() as Promise<T>;
++}
++
++export const api = {
++  bootstrap: () => request<WebBootstrap>('/bootstrap'),
++  repos: () => request<RepositorySummary[]>('/repos'),
++  renderMarkdown: (source: string, baseHref?: string) =>
++    request<{ html: string; headings: unknown[]; warnings: string[] }>('/markdown/render', {
++      method: 'POST',
++      body: JSON.stringify({ source, base_href: baseHref }),
++    }),
++};
+
+diff --git a/apps/web/src/api/websocket.ts b/apps/web/src/api/websocket.ts
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/api/websocket.ts
+@@ -0,0 +1,29 @@
++
++import type { ServerWsMessage } from './types';
++
++export interface WebSocketClientOptions {
++  topics: string[];
++  lastCursor?: number;
++  onMessage: (message: ServerWsMessage) => void;
++  onGap?: (from: number, to: number) => void;
++}
++
++export function connectEvents(options: WebSocketClientOptions): WebSocket {
++  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
++  const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
++  ws.addEventListener('open', () => {
++    ws.send(JSON.stringify({
++      type: 'hello',
++      client_id: crypto.randomUUID(),
++      last_cursor: options.lastCursor ?? null,
++      topics: options.topics,
++      accept_snapshot: true,
++    }));
++  });
++  ws.addEventListener('message', (event) => {
++    const message = JSON.parse(event.data) as ServerWsMessage;
++    if (message.type === 'gap') options.onGap?.(message.from, message.to);
++    options.onMessage(message);
++  });
++  return ws;
++}
+
+diff --git a/apps/web/src/components/layout/AppShell.tsx b/apps/web/src/components/layout/AppShell.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/components/layout/AppShell.tsx
+@@ -0,0 +1,25 @@
++
++import type { PropsWithChildren } from 'react';
++import { ActivityRail } from './ActivityRail';
++import { TopNav } from './TopNav';
++import { CommandPalette } from '../command/CommandPalette';
++
++export function AppShell({ children }: PropsWithChildren) {
++  return (
++    <div className="app-shell">
++      <TopNav />
++      <div className="app-body">
++        <aside className="sidebar" aria-label="Primary navigation">
++          <a href="/">Dashboard</a>
++          <a href="/repos">Repositories</a>
++          <a href="/merge-requests">Merge Requests</a>
++          <a href="/pipelines">Pipelines</a>
++          <a href="/settings">Settings</a>
++        </aside>
++        <main className="workspace">{children}</main>
++        <ActivityRail />
++      </div>
++      <CommandPalette />
++    </div>
++  );
++}
+
+diff --git a/apps/web/src/components/layout/TopNav.tsx b/apps/web/src/components/layout/TopNav.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/components/layout/TopNav.tsx
+@@ -0,0 +1,11 @@
++
++export function TopNav() {
++  return (
++    <header className="top-nav">
++      <strong>JeRyu Web Forge</strong>
++      <input aria-label="Search repositories, files, issues, and merge requests" placeholder="Search or jump to…" />
++      <button type="button">+ Create</button>
++      <button type="button" aria-label="Open command palette">⌘K</button>
++    </header>
++  );
++}
+
+diff --git a/apps/web/src/components/layout/ActivityRail.tsx b/apps/web/src/components/layout/ActivityRail.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/components/layout/ActivityRail.tsx
+@@ -0,0 +1,24 @@
++
++import { useEffect, useState } from 'react';
++import { connectEvents } from '../../api/websocket';
++import type { ServerWsMessage } from '../../api/types';
++
++export function ActivityRail() {
++  const [events, setEvents] = useState<ServerWsMessage[]>([]);
++  useEffect(() => {
++    const ws = connectEvents({
++      topics: ['global'],
++      onMessage: (message) => setEvents((current) => [message, ...current].slice(0, 50)),
++    });
++    return () => ws.close();
++  }, []);
++
++  return (
++    <aside className="activity-rail" aria-label="Live activity">
++      <h2>Live</h2>
++      {events.map((event, index) => (
++        <pre key={index}>{JSON.stringify(event, null, 2)}</pre>
++      ))}
++    </aside>
++  );
++}
+
+diff --git a/apps/web/src/components/command/CommandPalette.tsx b/apps/web/src/components/command/CommandPalette.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/components/command/CommandPalette.tsx
+@@ -0,0 +1,4 @@
++
++export function CommandPalette() {
++  return null;
++}
+
+diff --git a/apps/web/src/components/browser/MarkdownRenderer.tsx b/apps/web/src/components/browser/MarkdownRenderer.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/components/browser/MarkdownRenderer.tsx
+@@ -0,0 +1,16 @@
++
++import DOMPurify from 'dompurify';
++
++export interface MarkdownRendererProps {
++  html: string;
++}
++
++export function MarkdownRenderer({ html }: MarkdownRendererProps) {
++  return (
++    <article
++      className="markdown-body"
++      // Backend sanitizes first; DOMPurify is a defensive second pass for browser-only rendering paths/tests.
++      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
++    />
++  );
++}
+
+diff --git a/apps/web/src/routes/Dashboard.tsx b/apps/web/src/routes/Dashboard.tsx
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/routes/Dashboard.tsx
+@@ -0,0 +1,26 @@
++
++import { useQuery } from '@tanstack/react-query';
++import { api } from '../api/client';
++
++export function Dashboard() {
++  const bootstrap = useQuery({ queryKey: ['bootstrap'], queryFn: api.bootstrap });
++  const repos = useQuery({ queryKey: ['repos'], queryFn: api.repos });
++
++  return (
++    <section>
++      <h1>Mission dashboard</h1>
++      <p>All repositories, merge requests, CI, agents, and settings in one live workspace.</p>
++      <div className="cards">
++        <article><strong>{bootstrap.data?.dashboard.attentionCount ?? 0}</strong><span>Need attention</span></article>
++        <article><strong>{bootstrap.data?.dashboard.mergeRequestsNeedingReview ?? 0}</strong><span>Reviews</span></article>
++        <article><strong>{bootstrap.data?.dashboard.failingPipelines ?? 0}</strong><span>Failing pipelines</span></article>
++        <article><strong>{bootstrap.data?.dashboard.activeAgents ?? 0}</strong><span>Active agents</span></article>
++      </div>
++      <h2>Repositories</h2>
++      {repos.isLoading ? <p>Loading…</p> : null}
++      <ul>
++        {(repos.data ?? []).map((repo) => <li key={repo.id}>{repo.slug}</li>)}
++      </ul>
++    </section>
++  );
++}
+
+diff --git a/apps/web/src/styles/global.css b/apps/web/src/styles/global.css
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/apps/web/src/styles/global.css
+@@ -0,0 +1,33 @@
++
++:root {
++  color-scheme: dark light;
++  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
++  --bg: #0b1020;
++  --panel: #111a2e;
++  --panel-2: #16223a;
++  --text: #edf3ff;
++  --muted: #9fb0cc;
++  --border: #2b3a58;
++  --accent: #8fd3ff;
++}
++
++* { box-sizing: border-box; }
++body { margin: 0; background: var(--bg); color: var(--text); }
++a { color: inherit; text-decoration: none; }
++button, input { font: inherit; }
++
++.app-shell { min-height: 100vh; display: grid; grid-template-rows: 56px 1fr; }
++.top-nav { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
++.top-nav input { flex: 1; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); padding: 8px 12px; }
++.app-body { display: grid; grid-template-columns: 220px minmax(0, 1fr) 360px; min-height: 0; }
++.sidebar, .activity-rail { padding: 16px; background: var(--panel); border-right: 1px solid var(--border); overflow: auto; }
++.activity-rail { border-right: 0; border-left: 1px solid var(--border); }
++.sidebar a { display: block; padding: 8px 10px; color: var(--muted); border-radius: 8px; }
++.sidebar a:hover { background: var(--panel-2); color: var(--text); }
++.workspace { padding: 24px; overflow: auto; }
++.cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
++.cards article { padding: 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel); }
++.cards strong { display: block; font-size: 28px; }
++.cards span { color: var(--muted); }
++.markdown-body { line-height: 1.6; }
++.markdown-body pre { overflow: auto; padding: 12px; border-radius: 12px; background: #050814; }
+
+diff --git a/tests/markdown_rendering.rs b/tests/markdown_rendering.rs
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/tests/markdown_rendering.rs
+@@ -0,0 +1,16 @@
++
++use jeryu::web::markdown::MarkdownRenderer;
++
++#[test]
++fn markdown_renderer_strips_script_tags() {
++    let rendered = MarkdownRenderer::default().render("# Hi\n<script>alert(1)</script>", None);
++    assert!(rendered.html.contains("Hi"));
++    assert!(!rendered.html.contains("<script"));
++}
++
++#[test]
++fn markdown_renderer_collects_heading_anchors() {
++    let rendered = MarkdownRenderer::default().render("# Hello World\n## Next", None);
++    assert_eq!(rendered.headings[0].anchor, "hello-world");
++    assert_eq!(rendered.headings[1].anchor, "next");
++}
+
+diff --git a/docs/web-forge.md b/docs/web-forge.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/docs/web-forge.md
+@@ -0,0 +1,1016 @@
++# JeRyu Web Forge — Final Engineering Specification
++
++**Target repo:** `neverhuman/jeryu`  
++**Generated:** 2026-05-26  
++**Goal:** Add a Rust + Axum + WebSocket backend and a Vite + TypeScript + React web product that delivers a full GitHub/GitLab-class repository experience, while preserving JeRyu’s existing CLI, TUI, proof lanes, Git host abstractions, repo fleet concepts, runner pools, VTI, release/secrets/cache systems, and agent governance model.
++
++---
++
++## 1. Executive summary
++
++JeRyu already has the hard part of a modern forge: a single-binary Rust control plane, typed API/read-model modules for the TUI, a durable event taxonomy, action preview/result contracts, GitHub/GitLab host adapters, exact-SHA merge gate concepts, repo fleet tooling, agent-aware admission and capability gates, runner orchestration, VTI/smart test selection, cache/release/secrets state, and a strong terminal UX.
++
++The missing layer is the web forge product. The current `apps/web` workspace is a UX-QA evidence placeholder, not a Vite/React application. The final implementation should therefore replace that placeholder with a production app while preserving the evidence discipline. The Rust side should add a `src/web` BFF/gateway and `src/web_events` realtime bus, extend `src/api` with forge read models, and keep CLI/TUI/MCP/web on the same domain services.
++
++The resulting product is not a skin over GitHub/GitLab. It is a clearer, faster, safer forge:
++
++- One shell for all repos, repo families, branches, issues, merge requests, reviews, CI, releases, agents, cache, secrets, and settings.
++- Safe server-side Markdown rendering for `README.md` and every `.md` blob, with sanitized HTML, stable anchors, and relative link/image rewriting.
++- A keyboard-first merge room with file tree, diff, checks, approvals, inline threads, suggestions, exact-SHA merge passport, and live CI/agent evidence.
++- A resumable WebSocket event hub with topic subscriptions, cursor replay, heartbeats, gap recovery, and backpressure.
++- Settings that expose the controls users actually need without hiding them across many pages.
++- A command palette and context inspector that make high-value actions one keystroke away while still requiring preview, confirmation, grants, and evidence for dangerous operations.
++
++---
++
++## 2. Current-state findings to anchor the implementation
++
++### 2.1 Existing Rust workspace
++
++The root Rust package is `jeryu`; the workspace includes the root package and supporting crates such as `cargo-witness`, `witness-rt`, `cargo-vrc`, `cargo-aer`, `arc-bench`, `tui-capture`, `domain`, `cache-brain`, and `jeryu-gcd`. The root package uses Rust 2024 and sets `default-run = "jeryu"`. The dependency set already includes `tokio`, `clap`, `axum`, `tower-http`, `reqwest`, `sqlx`, `serde`, `git2`, `ratatui`, `notify`, `dashmap`, and other useful foundations.
++
++### 2.2 Existing frontend workspace
++
++The root `package.json` declares one npm workspace: `apps/web`. Today it only exposes UX-QA marker scripts. `apps/web/package.json` is named `@jankurai/ux-qa` and only runs `node ./ux-qa-check.mjs build` and `test`. `ux-qa.ts` and `ux-qa.md` contain evidence-marker strings for Storybook, Playwright, accessibility, layout stability, API mocks, design tokens, and artifact-backed proof. This is useful QA scaffolding, but it is not a web product.
++
++### 2.3 Existing API module
++
++`src/api/mod.rs` states that the API module is the single source of truth for typed projections, event contracts, and action dispatch. Current modules include `actions`, `agent_session`, `capacity`, `dashboards`, `entity`, `events`, `freshness`, `inspection`, `proof`, `read_model`, `runtime_profile`, and `snapshot`.
++
++Important current contracts to reuse:
++
++- `TuiReadModel`, `MissionSnapshot`, `AttentionItem`, `NextActionRecommendation`, `SystemHealth`.
++- `TuiEvent`, `TuiEventKind`, `EventStore`.
++- `ActionPreview`, `ActionResult`, `ActionContext`, `actions_for_entity`.
++- `EntityRef`, `EntityKind`, `Severity`, `HealthLevel`, `DataFreshness`.
++- `TestPlanView`, `VtiStatus`, `CacheVerdict`, `EdgeKind`, `ValidationDecision`.
++
++The web product should not create a separate untyped API. It should extend these contracts and export generated/hand-maintained TypeScript types for the SPA.
++
++### 2.4 Existing Git host layer
++
++`src/git_host` already has a trait-based host abstraction, GitHub and GitLab adapters, exact-SHA approval, check-run/status surfaces, open PR/MR summaries, live PR state, per-file PR diffs, and target-branch policy SHA computation. For a full forge, this layer needs to grow from merge-gate primitives into broad repository lifecycle, file browser, commit/ref, issue, MR/review, settings, webhook, branch protection, CI, and permissions surfaces.
++
++### 2.5 Existing CLI dispatch
++
++`src/cli_defs.rs` currently has a bare `Serve` command and `Tui` options. `src/dispatch.rs` handles `Commands::Serve` by ensuring workspace root defaults, loading the GitLab client, opening state, connecting Docker, bringing compose up, installing admission hooks, starting SmartCache, reconciling pools, spawning `engine::run_engine`, and waiting for Ctrl-C. The web implementation should preserve this behavior and add configurable web serving rather than replacing it.
++
++---
++
++## 3. Product principles
++
++### 3.1 Full parity, fewer screens
++
++JeRyu Web should preserve familiar forge concepts: organizations/groups, repositories, branches, commits, tags, trees, blobs, README, issues, labels, milestones, boards, merge requests/pull requests, reviews, inline comments, approvals, checks, pipelines, runners, artifacts, releases, packages/registry, webhooks, members, branch protection, deploy keys, secrets, and audit logs.
++
++But it should not copy the scattered navigation of GitHub/GitLab. Related decisions belong together:
++
++- Repo home combines README, activity, CI posture, open reviews, agents, releases, and quick settings.
++- Merge room combines diff, checks, approvals, CI logs, comments, suggestions, exact SHA, and merge controls.
++- Settings use a left rail and searchable command surface; no hunting across nested product menus.
++- Activity is always visible through a collapsible realtime rail.
++
++### 3.2 Realtime by default
++
++Every repo page subscribes to relevant topics. The UI updates when branches move, files change, MRs receive comments, checks complete, jobs start/fail, runners scale, agents propose patches, secrets rotate, settings change, or releases promote.
++
++Realtime rules:
++
++- Initial page load uses an HTTP snapshot.
++- WebSocket `hello` carries the last seen cursor and desired topics.
++- Server replies with `hello_ack`, then replay events since cursor when possible.
++- If replay is impossible, server sends `gap` and the client refetches snapshots.
++- Events are monotonically sequenced and topic-scoped.
++- Mutations publish action lifecycle events: `action.previewed`, `action.executed`, `action.failed`.
++
++### 3.3 Safety over raw power
++
++All dangerous mutations are two-step:
++
++1. `POST /api/v1/actions/preview` returns blast radius, exact target refs/SHA, required permission/grant, expected evidence, reversibility, and undo path.
++2. `POST /api/v1/actions/execute` requires the preview id, idempotency key, optional typed confirmation phrase, and current target SHA.
++
++Examples requiring preview: merge, branch delete, force push, repository archive/delete, visibility change, branch protection change, secret rotation/deletion, deploy key creation, webhook secret change, runner token rotation, release promote/rollback.
++
++### 3.4 Agent-native but human-governed
++
++Agents are first-class actors, but the UI makes accountability obvious:
++
++- Every agent action links to an evidence receipt.
++- Merge checks collapse agent verdicts into one visible merge passport.
++- Exact-SHA approval is non-negotiable.
++- Production-impacting actions require explicit grants.
++- Review UI shows whether a patch came from a human, agent, tool, or host sync.
++
++### 3.5 Fast navigation
++
++Performance targets:
++
++- Repo dashboard first useful paint under 1 second for warm local state.
++- Repo tree open under 200 ms for cached refs; under 750 ms cold for medium repos.
++- Blob view under 250 ms for text files under 1 MB.
++- README rendered HTML served from cache under 100 ms after first render.
++- WebSocket reconnect with cursor replay under 500 ms on local network.
++- Diff view virtualized; only visible hunks render.
++
++---
++
++## 4. Target repository tree
++
++```text
++jeryu/
++├── Cargo.toml
++├── package.json
++├── apps/
++│   └── web/
++│       ├── AGENTS.md
++│       ├── README.md
++│       ├── index.html
++│       ├── package.json
++│       ├── vite.config.ts
++│       ├── tsconfig.json
++│       ├── tsconfig.node.json
++│       ├── playwright.config.ts
++│       ├── ux-qa-check.mjs
++│       ├── ux-qa.md
++│       ├── ux-qa.ts
++│       └── src/
++│           ├── main.tsx
++│           ├── app/
++│           │   ├── App.tsx
++│           │   ├── providers.tsx
++│           │   └── router.tsx
++│           ├── api/
++│           │   ├── client.ts
++│           │   ├── types.ts
++│           │   └── websocket.ts
++│           ├── components/
++│           │   ├── action/
++│           │   │   └── ActionPreviewDialog.tsx
++│           │   ├── browser/
++│           │   │   ├── BlobToolbar.tsx
++│           │   │   ├── CodeViewer.tsx
++│           │   │   ├── FileTree.tsx
++│           │   │   └── MarkdownRenderer.tsx
++│           │   ├── command/
++│           │   │   └── CommandPalette.tsx
++│           │   ├── diff/
++│           │   │   ├── DiffViewer.tsx
++│           │   │   └── FileDiffList.tsx
++│           │   ├── layout/
++│           │   │   ├── ActivityRail.tsx
++│           │   │   ├── AppShell.tsx
++│           │   │   ├── EntityInspector.tsx
++│           │   │   ├── RepoBreadcrumbs.tsx
++│           │   │   └── TopNav.tsx
++│           │   ├── review/
++│           │   │   ├── ApprovalPanel.tsx
++│           │   │   ├── ReviewComposer.tsx
++│           │   │   └── ReviewThread.tsx
++│           │   └── settings/
++│           │       ├── DangerZone.tsx
++│           │       └── SettingsSection.tsx
++│           ├── routes/
++│           │   ├── Dashboard.tsx
++│           │   ├── IssueDetail.tsx
++│           │   ├── IssueList.tsx
++│           │   ├── MergeRequestDetail.tsx
++│           │   ├── MergeRequestList.tsx
++│           │   ├── NewRepo.tsx
++│           │   ├── PipelineDetail.tsx
++│           │   ├── PipelineList.tsx
++│           │   ├── RepoBlob.tsx
++│           │   ├── RepoHome.tsx
++│           │   ├── RepoSettings.tsx
++│           │   ├── RepoTree.tsx
++│           │   ├── ReposList.tsx
++│           │   └── SettingsHome.tsx
++│           ├── stores/
++│           │   ├── useCommandPalette.ts
++│           │   ├── useEventStore.ts
++│           │   ├── useRepoStore.ts
++│           │   ├── useReviewStore.ts
++│           │   └── useSettingsStore.ts
++│           ├── styles/
++│           │   ├── global.css
++│           │   └── tokens.css
++│           └── test/
++│               ├── markdown-renderer.test.tsx
++│               └── websocket-replay.test.ts
++├── db/
++│   └── migrations/
++│       └── 202606010001_web_forge_core.sql
++├── docs/
++│   └── web-forge.md
++├── src/
++│   ├── api/
++│   │   ├── merge_request.rs
++│   │   ├── repo_browser.rs
++│   │   ├── repository.rs
++│   │   ├── settings.rs
++│   │   └── web_read_model.rs
++│   ├── merge/
++│   │   ├── mod.rs
++│   │   └── service.rs
++│   ├── repo_browser/
++│   │   ├── markdown.rs
++│   │   └── mod.rs
++│   ├── repos/
++│   │   ├── mod.rs
++│   │   └── service.rs
++│   ├── web/
++│   │   ├── command.rs
++│   │   ├── error.rs
++│   │   ├── markdown.rs
++│   │   ├── mod.rs
++│   │   ├── router.rs
++│   │   ├── state.rs
++│   │   ├── ws.rs
++│   │   └── rest/
++│   │       ├── actions.rs
++│   │       ├── bootstrap.rs
++│   │       ├── code.rs
++│   │       ├── markdown.rs
++│   │       ├── merge_requests.rs
++│   │       ├── mod.rs
++│   │       ├── repos.rs
++│   │       └── settings.rs
++│   └── web_events/
++│       ├── bus.rs
++│       ├── mod.rs
++│       └── protocol.rs
++└── tests/
++    ├── markdown_rendering.rs
++    └── web_api_smoke.rs
++```
++
++---
++
++## 5. Backend architecture
++
++### 5.1 Module responsibilities
++
++| Module | Responsibility |
++|---|---|
++| `src/web` | Axum BFF, REST router, WebSocket upgrade, static SPA serving, web command entrypoint. |
++| `src/web/rest` | Thin HTTP handlers that call domain services and action preview/execute APIs. |
++| `src/web_events` | Realtime event protocol, topic model, cursor ring, broadcaster, replay/gap handling. |
++| `src/repos` | Repository listing, create/import/adopt/fork/mirror orchestration, repo family metadata. |
++| `src/repo_browser` | Git-backed refs/tree/blob/commit/blame/history and Markdown rendering orchestration. |
++| `src/merge` | MR/PR list/detail/review/approve/merge orchestration over Git host adapters and JeRyu gates. |
++| `src/api/repository.rs` | Serializable repository/domain DTOs shared by HTTP and frontend. |
++| `src/api/repo_browser.rs` | Serializable tree/blob/Markdown/commit/diff DTOs. |
++| `src/api/merge_request.rs` | Serializable MR/review/check/approval DTOs. |
++| `src/api/settings.rs` | Serializable global/repo settings DTOs and validation outputs. |
++| `src/api/web_read_model.rs` | Initial web bootstrap snapshot and dashboard summary. |
++
++### 5.2 REST router
++
++Mount under `/api/v1` to keep existing routes stable.
++
++```text
++GET    /healthz
++GET    /api/v1/bootstrap
++GET    /api/v1/dashboard
++
++GET    /api/v1/repos
++POST   /api/v1/repos
++GET    /api/v1/repos/:repo_id
++PATCH  /api/v1/repos/:repo_id
++POST   /api/v1/repos/:repo_id/archive
++DELETE /api/v1/repos/:repo_id
++
++GET    /api/v1/repos/:repo_id/refs
++GET    /api/v1/repos/:repo_id/branches
++POST   /api/v1/repos/:repo_id/branches
++GET    /api/v1/repos/:repo_id/tags
++GET    /api/v1/repos/:repo_id/commits
++GET    /api/v1/repos/:repo_id/commits/:sha
++GET    /api/v1/repos/:repo_id/compare
++
++GET    /api/v1/repos/:repo_id/tree/*path
++GET    /api/v1/repos/:repo_id/blob/*path
++GET    /api/v1/repos/:repo_id/raw/*path
++GET    /api/v1/repos/:repo_id/markdown/*path
++POST   /api/v1/markdown/render
++GET    /api/v1/repos/:repo_id/blame/*path
++GET    /api/v1/repos/:repo_id/history/*path
++
++GET    /api/v1/repos/:repo_id/issues
++POST   /api/v1/repos/:repo_id/issues
++GET    /api/v1/repos/:repo_id/issues/:issue_iid
++PATCH  /api/v1/repos/:repo_id/issues/:issue_iid
++POST   /api/v1/repos/:repo_id/issues/:issue_iid/comments
++
++GET    /api/v1/repos/:repo_id/merge-requests
++POST   /api/v1/repos/:repo_id/merge-requests
++GET    /api/v1/repos/:repo_id/merge-requests/:mr_iid
++PATCH  /api/v1/repos/:repo_id/merge-requests/:mr_iid
++GET    /api/v1/repos/:repo_id/merge-requests/:mr_iid/diff
++POST   /api/v1/repos/:repo_id/merge-requests/:mr_iid/comments
++POST   /api/v1/repos/:repo_id/merge-requests/:mr_iid/reviews
++POST   /api/v1/repos/:repo_id/merge-requests/:mr_iid/approve
++POST   /api/v1/repos/:repo_id/merge-requests/:mr_iid/request-changes
++POST   /api/v1/repos/:repo_id/merge-requests/:mr_iid/merge
++
++GET    /api/v1/repos/:repo_id/pipelines
++GET    /api/v1/repos/:repo_id/pipelines/:pipeline_id
++GET    /api/v1/repos/:repo_id/jobs/:job_id/log
++POST   /api/v1/repos/:repo_id/jobs/:job_id/retry
++POST   /api/v1/repos/:repo_id/jobs/:job_id/cancel
++
++GET    /api/v1/repos/:repo_id/releases
++POST   /api/v1/repos/:repo_id/releases
++GET    /api/v1/repos/:repo_id/packages
++GET    /api/v1/repos/:repo_id/webhooks
++POST   /api/v1/repos/:repo_id/webhooks
++
++GET    /api/v1/settings
++PATCH  /api/v1/settings
++GET    /api/v1/repos/:repo_id/settings
++PATCH  /api/v1/repos/:repo_id/settings
++GET    /api/v1/repos/:repo_id/members
++PUT    /api/v1/repos/:repo_id/members/:principal_id
++DELETE /api/v1/repos/:repo_id/members/:principal_id
++GET    /api/v1/repos/:repo_id/protection
++PATCH  /api/v1/repos/:repo_id/protection
++GET    /api/v1/repos/:repo_id/secrets
++POST   /api/v1/repos/:repo_id/secrets
++POST   /api/v1/repos/:repo_id/secrets/:secret_name/rotate
++DELETE /api/v1/repos/:repo_id/secrets/:secret_name
++
++POST   /api/v1/actions/preview
++POST   /api/v1/actions/execute
++GET    /api/v1/activity
++GET    /ws
++```
++
++### 5.3 WebSocket protocol
++
++#### Endpoint
++
++```text
++GET /ws?cursor=<u64>&topics=global,repo:<id>,repo:<id>:mr:<iid>
++```
++
++#### Client message
++
++```json
++{
++  "type": "hello",
++  "client_id": "browser-tab-uuid",
++  "last_cursor": 1240,
++  "topics": ["global", "repo:42", "repo:42:mr:7"],
++  "accept_snapshot": true
++}
++```
++
++#### Server messages
++
++```json
++{ "type": "hello_ack", "server_time": "2026-05-26T16:00:00Z", "cursor": 1302, "replayed": 62 }
++{ "type": "event", "cursor": 1303, "topic": "repo:42:mr:7", "event": { "kind": "merge_request.updated" } }
++{ "type": "snapshot", "topic": "repo:42", "reason": "initial_or_gap", "value": { } }
++{ "type": "gap", "from": 1240, "to": 1302, "reason": "cursor_evicted" }
++{ "type": "heartbeat", "cursor": 1303, "server_time": "2026-05-26T16:00:05Z" }
++{ "type": "error", "code": "unauthorized_topic", "message": "missing repo read permission" }
++```
++
++#### Topic hierarchy
++
++```text
++global
++settings
++repos
++repo:<repo_id>
++repo:<repo_id>:activity
++repo:<repo_id>:refs
++repo:<repo_id>:tree:<ref>
++repo:<repo_id>:mr:<mr_iid>
++repo:<repo_id>:issue:<issue_iid>
++repo:<repo_id>:pipeline:<pipeline_id>
++repo:<repo_id>:job:<job_id>
++repo:<repo_id>:settings
++repo-family:<family_id>
++agent:<agent_id>
++```
++
++#### Event kinds to add
++
++```text
++repository.created
++repository.updated
++repository.deleted
++repository.archived
++repository.import.started
++repository.import.completed
++repository.visibility.changed
++repository.member.added
++repository.member.removed
++repository.settings.updated
++repository.branch.created
++repository.branch.deleted
++repository.branch.protected
++repository.branch.unprotected
++repository.default_branch.changed
++repository.tag.created
++repository.commit.created
++repository.tree.changed
++repository.blob.updated
++repository.markdown.rendered
++issue.created
++issue.updated
++issue.closed
++issue.reopened
++merge_request.created
++merge_request.updated
++merge_request.diff.updated
++merge_request.thread.created
++merge_request.thread.resolved
++merge_request.review.submitted
++merge_request.approved
++merge_request.changes_requested
++merge_request.merge_passport.updated
++merge_request.merged
++pipeline.created
++pipeline.updated
++job.log.chunk
++runner.pool.updated
++secret.rotated
++webhook.delivered
++webhook.failed
++notification.created
++action.previewed
++action.executed
++action.failed
++```
++
++---
++
++## 6. Data model additions
++
++Add a migration such as `db/migrations/202606010001_web_forge_core.sql`. Use the existing SQLite-default state approach and keep SQL mutations behind `state::Db` or domain repositories.
++
++### 6.1 Core tables
++
++```sql
++CREATE TABLE web_repositories (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  provider TEXT NOT NULL,
++  provider_repo_id TEXT,
++  owner TEXT NOT NULL,
++  name TEXT NOT NULL,
++  slug TEXT NOT NULL UNIQUE,
++  family TEXT,
++  description TEXT,
++  visibility TEXT NOT NULL DEFAULT 'private',
++  default_branch TEXT NOT NULL DEFAULT 'main',
++  local_path TEXT,
++  remote_url TEXT,
++  avatar_url TEXT,
++  archived INTEGER NOT NULL DEFAULT 0,
++  forked_from TEXT,
++  mirrored_from TEXT,
++  topics_json TEXT NOT NULL DEFAULT '[]',
++  settings_json TEXT NOT NULL DEFAULT '{}',
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL
++);
++
++CREATE TABLE web_memberships (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  principal_type TEXT NOT NULL,
++  principal_id TEXT NOT NULL,
++  display_name TEXT NOT NULL,
++  role TEXT NOT NULL,
++  granted_by TEXT,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL,
++  UNIQUE(repo_id, principal_type, principal_id)
++);
++
++CREATE TABLE web_branch_protections (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  pattern TEXT NOT NULL,
++  require_merge_passport INTEGER NOT NULL DEFAULT 1,
++  required_checks_json TEXT NOT NULL DEFAULT '[]',
++  required_approvals INTEGER NOT NULL DEFAULT 1,
++  require_codeowners INTEGER NOT NULL DEFAULT 0,
++  allow_force_push INTEGER NOT NULL DEFAULT 0,
++  allow_deletion INTEGER NOT NULL DEFAULT 0,
++  stale_review_dismissal INTEGER NOT NULL DEFAULT 1,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL,
++  UNIQUE(repo_id, pattern)
++);
++
++CREATE TABLE web_markdown_cache (
++  id INTEGER PRIMARY KEY AUTOINCREMENT,
++  repo_id INTEGER NOT NULL REFERENCES web_repositories(id) ON DELETE CASCADE,
++  ref_name TEXT NOT NULL,
++  path TEXT NOT NULL,
++  blob_sha TEXT NOT NULL,
++  source_sha256 TEXT NOT NULL,
++  html TEXT NOT NULL,
++  headings_json TEXT NOT NULL DEFAULT '[]',
++  links_json TEXT NOT NULL DEFAULT '[]',
++  rendered_at TEXT NOT NULL,
++  UNIQUE(repo_id, ref_name, path, blob_sha)
++);
++
++CREATE TABLE web_activity_events (
++  cursor INTEGER PRIMARY KEY AUTOINCREMENT,
++  topic TEXT NOT NULL,
++  kind TEXT NOT NULL,
++  repo_id INTEGER,
++  actor_id TEXT,
++  severity TEXT NOT NULL DEFAULT 'info',
++  payload_json TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
++
++CREATE INDEX idx_web_activity_topic_cursor ON web_activity_events(topic, cursor);
++CREATE INDEX idx_web_activity_repo_cursor ON web_activity_events(repo_id, cursor);
++```
++
++### 6.2 Product model tables
++
++Add at the same migration boundary or split into follow-up migrations:
++
++- `web_issues`
++- `web_issue_comments`
++- `web_labels`
++- `web_milestones`
++- `web_boards`
++- `web_merge_requests`
++- `web_review_threads`
++- `web_review_comments`
++- `web_review_submissions`
++- `web_merge_passports`
++- `web_notifications`
++- `web_subscriptions`
++- `web_webhooks`
++- `web_webhook_deliveries`
++- `web_deploy_keys`
++- `web_repo_secrets`
++- `web_audit_log`
++- `web_repo_families`
++- `web_repo_mirrors`
++- `web_saved_views`
++
++### 6.3 Settings JSON schema
++
++Use typed Rust structs and store the current effective settings as JSON in `web_repositories.settings_json` while also normalizing high-cardinality items into tables.
++
++```rust
++pub struct RepoSettingsView {
++    pub general: GeneralRepoSettings,
++    pub features: FeatureToggles,
++    pub merge: MergeSettings,
++    pub protection: Vec<BranchProtectionRule>,
++    pub ci: CiSettings,
++    pub agents: AgentSettings,
++    pub webhooks: Vec<WebhookView>,
++    pub secrets: Vec<SecretSummary>,
++    pub access: AccessSettings,
++    pub retention: RetentionSettings,
++    pub danger_zone: DangerZoneState,
++}
++```
++
++---
++
++## 7. Git host trait expansion
++
++The current `GitHost` trait already has the correct philosophy. Extend it without weakening exact-SHA rules.
++
++### 7.1 Repository lifecycle
++
++```rust
++async fn list_repositories(&self, filter: RepoListFilter) -> Result<Vec<HostRepository>, HostError>;
++async fn create_repository(&self, input: CreateRepository) -> Result<HostRepository, HostError>;
++async fn update_repository_settings(&self, repo: &RepoRef, patch: RepoSettingsPatch) -> Result<HostRepository, HostError>;
++async fn archive_repository(&self, repo: &RepoRef, dry_run: bool) -> Result<ActionReceipt, HostError>;
++async fn delete_repository(&self, repo: &RepoRef, confirmation: &str, dry_run: bool) -> Result<ActionReceipt, HostError>;
++```
++
++### 7.2 Refs, commits, tree, blob
++
++```rust
++async fn list_refs(&self, repo: &RepoRef) -> Result<Vec<HostRef>, HostError>;
++async fn create_branch(&self, repo: &RepoRef, name: &str, from: &str) -> Result<HostRef, HostError>;
++async fn delete_branch(&self, repo: &RepoRef, name: &str, expected_sha: &str) -> Result<ActionReceipt, HostError>;
++async fn list_tree(&self, repo: &RepoRef, ref_name: &str, path: &str) -> Result<TreeListing, HostError>;
++async fn get_blob(&self, repo: &RepoRef, ref_name: &str, path: &str) -> Result<BlobView, HostError>;
++async fn get_commit(&self, repo: &RepoRef, sha: &str) -> Result<CommitView, HostError>;
++async fn compare_refs(&self, repo: &RepoRef, base: &str, head: &str) -> Result<CompareView, HostError>;
++```
++
++### 7.3 Issues and merge requests
++
++```rust
++async fn list_issues(&self, repo: &RepoRef, filter: IssueFilter) -> Result<Vec<IssueSummary>, HostError>;
++async fn create_issue(&self, repo: &RepoRef, input: CreateIssue) -> Result<IssueDetail, HostError>;
++async fn update_issue(&self, repo: &RepoRef, iid: &str, patch: IssuePatch) -> Result<IssueDetail, HostError>;
++
++async fn list_merge_requests(&self, repo: &RepoRef, filter: MergeRequestFilter) -> Result<Vec<MergeRequestSummary>, HostError>;
++async fn get_merge_request(&self, repo: &RepoRef, iid: &str) -> Result<MergeRequestDetail, HostError>;
++async fn submit_review(&self, repo: &RepoRef, iid: &str, review: SubmitReview) -> Result<ReviewReceipt, HostError>;
++async fn merge(&self, repo: &RepoRef, iid: &str, input: MergeInput) -> Result<MergeReceipt, HostError>;
++```
++
++### 7.4 Settings and permissions
++
++```rust
++async fn list_members(&self, repo: &RepoRef) -> Result<Vec<MemberView>, HostError>;
++async fn upsert_member(&self, repo: &RepoRef, input: MemberGrant) -> Result<MemberView, HostError>;
++async fn remove_member(&self, repo: &RepoRef, principal_id: &str) -> Result<ActionReceipt, HostError>;
++async fn get_branch_protection(&self, repo: &RepoRef) -> Result<Vec<BranchProtectionRule>, HostError>;
++async fn update_branch_protection(&self, repo: &RepoRef, rules: Vec<BranchProtectionRule>) -> Result<ActionReceipt, HostError>;
++async fn list_webhooks(&self, repo: &RepoRef) -> Result<Vec<WebhookView>, HostError>;
++async fn create_or_update_webhook(&self, repo: &RepoRef, input: WebhookInput) -> Result<WebhookView, HostError>;
++```
++
++---
++
++## 8. Markdown rendering requirements
++
++### 8.1 Supported behavior
++
++- Render `README.md`, `README.markdown`, `README.mdx` as repo home content, preferring the default branch.
++- Render any `.md`, `.markdown`, `.mdown`, `.mkd` blob with source/render/split modes.
++- Support GitHub-flavored Markdown tables, strikethrough, task lists, autolinks, heading anchors, footnotes, fenced code blocks, and frontmatter display.
++- Rewrite relative links and images based on repo, ref, and path.
++- Preserve source line references for headings when possible.
++- Cache by `(repo_id, ref_name, path, blob_sha, source_sha256)`.
++- Expose render metadata: headings, links, images, warnings, source digest, render time.
++
++### 8.2 Security rules
++
++- Server renders Markdown to HTML.
++- Server sanitizes HTML with an allowlist.
++- Strip scripts, event handlers, unknown protocols, inline JavaScript URLs, unsafe SVG content, and dangerous iframes.
++- Default CSP: `default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`.
++- User content HTML rendered in a contained component with no React `dangerouslySetInnerHTML` outside `MarkdownRenderer`.
++- Relative image URLs proxy through authenticated raw/blob endpoints so private repo assets stay private.
++- External links add `rel="nofollow noopener noreferrer"` and open behavior respects user preference.
++
++### 8.3 Backend renderer
++
++Use `comrak` for Markdown parsing and `ammonia` for sanitization. Add a small postprocess step for link rewriting and heading anchor collection.
++
++### 8.4 Required tests
++
++- `README.md` with headings produces stable slug anchors.
++- Relative links from `docs/setup.md` rewrite against `docs/`.
++- Relative image links rewrite to raw endpoint with repo/ref/path.
++- `<script>`, `onerror`, `javascript:` URLs are removed.
++- Task lists and tables render.
++- Large files are rejected or streamed with a friendly error.
++- Binary blobs are not passed to Markdown renderer.
++
++---
++
++## 9. Frontend UX specification
++
++### 9.1 Global app shell
++
++Persistent regions:
++
++- Top nav: repo switcher, global search, command palette, create button, current actor, sync status.
++- Left sidebar: dashboard, repos, issues, merge requests, pipelines, agents, releases, settings.
++- Center workspace: route content.
++- Right inspector: selected entity details, actions, evidence, related events.
++- Bottom or right activity rail: realtime events and notifications.
++
++Keyboard defaults:
++
++```text
++Cmd/Ctrl+K  command palette
++g d         dashboard
++g r         repositories
++g i         issues
++g m         merge requests
++g p         pipelines
++g s         settings
++/           focus page search/filter
++.           open web editor for current file
++b           branch/ref switcher
++r           refresh snapshot
++[ ]         previous/next file or thread
++v           mark file viewed
++c           comment on selected line/hunk
++A           approve MR
++R           request changes
++M           merge when passport allows
++Esc         close drawer/dialog/preview
++```
++
++### 9.2 All repositories dashboard
++
++Controls:
++
++- Search by name, owner, description, topic, language, family.
++- Filter by provider, visibility, owner, family, archived, stale, active MR, failing CI, agent activity.
++- Sort by recent activity, name, health, open MRs, failing checks, stars/watchers if provider supports.
++- Create/import/adopt/mirror/fork repo.
++- Bulk pin, archive, family assign, default branch audit.
++- Live badges for CI, reviews, agent races, runners, vulnerabilities, releases.
++
++### 9.3 Repo home
++
++Default layout:
++
++- Header: repo identity, visibility, branch switcher, clone URLs, star/watch/pin, quick create, settings.
++- Summary cards: open MR, failing check, active agent, latest release, cache posture, runner posture.
++- README render with source/render/split toggles.
++- File tree preview and recent commits.
++- Activity and release timeline.
++- Contextual quick actions: create branch, open web editor, new issue, new MR, run pipeline, create release, edit settings.
++
++### 9.4 Code browser
++
++Controls:
++
++- Branch/tag/commit selector.
++- Breadcrumb path navigation.
++- Typeahead file finder.
++- Render/source/raw/download/copy permalink/copy path.
++- History, blame, compare, open in editor.
++- Markdown render/split/source.
++- Virtualized tree and blob line rendering.
++- Binary file preview where safe; otherwise metadata and download.
++
++### 9.5 Merge room
++
++One page, no hidden state:
++
++- Header: title, source → target, exact head SHA, target branch SHA, merge passport state.
++- Left: file list with viewed state, changed counts, filters.
++- Center: virtualized diff with inline comments, suggestions, resolved state.
++- Right: checks, approvals, CODEOWNERS, agent evidence, CI jobs, reviewer summary, merge controls.
++- Bottom: review composer and timeline.
++
++Controls:
++
++- Approve, request changes, comment, resolve/unresolve thread, apply suggestion, mark viewed, re-run checks, retry job, merge, squash merge, rebase, close/reopen, assign reviewers, label, milestone.
++- All dangerous controls call action preview first.
++- Merge button disabled unless exact-SHA passport is valid.
++
++### 9.6 Settings UX
++
++Settings sections:
++
++1. General: name, description, topics, avatar, homepage, default branch, visibility, archive.
++2. Features: issues, merge requests, wiki/docs, packages, releases, CI/CD, agents, discussions/snippets if supported.
++3. Access: members, teams, roles, deploy keys, service accounts, agent identities.
++4. Branch protection: patterns, required checks, approvals, CODEOWNERS, stale reviews, force push/delete, signed commits.
++5. Merge policy: merge/squash/rebase allowed, auto-merge, delete source branch, merge train, required passport.
++6. CI/CD: variables, runners, runner pools, artifacts, caches, schedules, pipeline triggers, environments.
++7. Webhooks: endpoints, events, secrets, delivery logs, replay failed delivery.
++8. Secrets: repo secrets, environment secrets, rotation policy, audit.
++9. Integrations: GitHub/GitLab remotes, MCP endpoints, package/registry proxy, external issue tracker.
++10. Notifications: watch rules, email/web/push/webhook preferences.
++11. Retention: logs, artifacts, caches, evidence receipts, activity event window.
++12. Danger zone: archive, transfer, mirror reset, delete, force unlock.
++
++---
++
++## 10. Action preview contract
++
++### 10.1 Request
++
++```json
++{
++  "action": "merge_request.merge",
++  "entity": { "kind": "merge_request", "id": "repo:42:mr:7" },
++  "parameters": {
++    "method": "squash",
++    "delete_source_branch": true,
++    "expected_head_sha": "abc123",
++    "expected_target_sha": "def456"
++  }
++}
++```
++
++### 10.2 Response
++
++```json
++{
++  "preview_id": "apv_01HX...",
++  "action": "merge_request.merge",
++  "risk": "production_impact",
++  "reversible": false,
++  "allowed": false,
++  "requires_confirmation": true,
++  "confirmation_phrase": "merge abc123 into main",
++  "required_permission": "repo.merge",
++  "required_grant": "merge_production",
++  "target_sha": "abc123",
++  "blast_radius": [
++    "updates target branch main",
++    "closes MR !7",
++    "deletes branch feature/foo",
++    "publishes merge passport evidence"
++  ],
++  "blocked_by": [
++    { "kind": "check", "id": "vibegate/merge-passport", "reason": "pending" }
++  ],
++  "evidence_expected": ["merge-passport", "approval-receipt", "ci-summary"],
++  "undo": { "kind": "revert_commit", "available": true }
++}
++```
++
++---
++
++## 11. Implementation plan
++
++### Phase 0 — Contracts and build hygiene
++
++- Add `src/api/repository.rs`, `repo_browser.rs`, `merge_request.rs`, `settings.rs`, and `web_read_model.rs`.
++- Add `src/web_events` protocol and bus.
++- Add `src/web` skeleton router, error handling, state, WebSocket upgrade.
++- Update root `package.json` scripts.
++- Replace `apps/web/package.json` with real Vite scripts while keeping `ux-qa` scripts.
++- Add dependencies to `Cargo.toml`.
++- Add module declarations in `src/lib.rs` and `src/api/mod.rs`.
++
++### Phase 1 — Repos dashboard and repo home
++
++- Implement repo discovery from local workspace and configured providers.
++- Implement `GET /api/v1/repos`, `POST /api/v1/repos`, `GET /api/v1/repos/:id`.
++- Implement repo home route, README detection, Markdown render/cache.
++- Add initial Dashboard, ReposList, NewRepo, RepoHome routes.
++
++### Phase 2 — Code browser
++
++- Implement refs, tree, blob, raw, history, blame endpoints.
++- Add FileTree, CodeViewer, BlobToolbar, MarkdownRenderer.
++- Add branch/ref switcher, file finder, source/render/split.
++
++### Phase 3 — Merge room
++
++- Implement MR list/detail/diff/review/approval/merge endpoints over Git host adapters.
++- Add MergeRequestList and MergeRequestDetail routes.
++- Add diff virtualization, inline threads, review composer, approval panel, exact-SHA merge passport.
++
++### Phase 4 — Settings parity
++
++- Add settings read/update endpoints.
++- Add settings validation and preview for dangerous changes.
++- Implement General, Access, Branch Protection, Merge Policy, CI/CD, Webhooks, Secrets, Integrations, Notifications, Retention, Danger Zone panels.
++
++### Phase 5 — Realtime and observability
++
++- Wire existing TUI/control-plane events into `WebEventBus`.
++- Persist `web_activity_events` with cursor replay.
++- Add topic subscriptions, client-side event store, reconnect/resume/gap recovery.
++- Add metrics: active websocket connections, replay lag, event publish latency, markdown render latency, API route latency.
++
++### Phase 6 — Polish and superiority features
++
++- Command palette for every action.
++- Entity inspector with evidence and next actions.
++- Repo families and fleet-wide dashboard.
++- Saved views and filters.
++- Keyboard-first review completion.
++- Multi-pane workspaces and pinned repo tabs.
++- Accessibility hardening and Storybook/Playwright visual QA.
++
++---
++
++## 12. Validation plan
++
++### 12.1 Rust
++
++```bash
++cargo fmt --check
++cargo check -p jeryu --message-format=json
++cargo nextest run -p jeryu --lib
++cargo nextest run -p jeryu --test markdown_rendering
++cargo nextest run -p jeryu --test web_api_smoke
++cargo run -p jeryu -- web check --json
++```
++
++### 12.2 Frontend
++
++```bash
++npm install
++npm run typecheck
++npm run lint
++npm run test
++npm run build
++npm run ux-qa
++npx playwright test
++```
++
++### 12.3 End-to-end scenarios
++
++1. Create repository from web, see it in repo list without refresh.
++2. Repo home renders `README.md` safely and rewrites relative image/link URLs.
++3. Browse tree, open Markdown blob, toggle source/render/split.
++4. Open MR, comment inline, approve, wait for merge passport, merge with exact SHA.
++5. Force a CI job failure; activity rail receives job failure and MR passport updates.
++6. Update branch protection; preview shows blast radius and WebSocket settings event fires.
++7. Reconnect WebSocket with old cursor; receive replay or gap and refetch snapshot.
++8. Attempt unsafe Markdown; scripts and unsafe protocols are removed.
++9. Rotate repo secret; preview, execute, audit event, activity event.
++10. Use keyboard-only navigation through dashboard, repo home, code browser, and merge room.
++
++---
++
++## 13. Acceptance criteria
++
++### 13.1 Repo dashboard
++
++- Shows all configured repos across local workspace, GitLab, GitHub, and imported mirrors.
++- Search/filter/sort work client-side on loaded data and server-side for large fleets.
++- Create/import/adopt/mirror flows exist.
++- Repo family grouping is visible and configurable.
++
++### 13.2 README and Markdown
++
++- Repo home renders README as sanitized HTML.
++- Any `.md` file has render/source/split controls.
++- Relative links and images are correct for the selected ref/path.
++- Unsafe HTML is removed.
++- Render cache invalidates on blob SHA change.
++
++### 13.3 Code browser
++
++- Tree, blob, raw, history, blame, compare, refs work for local and provider repos.
++- Large files and binary files receive safe fallback UI.
++- Permalinks include immutable SHA option.
++
++### 13.4 Merge room
++
++- MR list/detail/diff/review/approve/request-changes/merge flows work.
++- Inline threads and suggestions work.
++- Merge requires valid passport and exact head SHA.
++- CI, approvals, CODEOWNERS, and agent evidence are visible together.
++
++### 13.5 Settings
++
++- General, features, access, branch protection, merge policy, CI/CD, webhooks, secrets, integrations, notifications, retention, and danger zone are exposed.
++- Dangerous changes require preview and confirmation.
++- Changes publish events and audit records.
++
++### 13.6 Realtime
++
++- WebSocket subscribes, resumes, heartbeats, replays, and gap-recovers.
++- Repo/MR/CI/settings/activity updates appear without manual refresh.
++- Client degrades to polling if WebSocket fails.
++
++### 13.7 UX
++
++- Command palette covers all high-value actions.
++- Keyboard-only review flow is complete.
++- A11y checks pass for critical routes.
++- Visual regression coverage exists for dashboard, repo home, code browser, merge room, and settings.
++
++---
++
++## 14. Risks and mitigations
++
++| Risk | Mitigation |
++|---|---|
++| Big-bang forge scope becomes too large. | Land vertical slices: repos + README, then code browser, then merge room, then settings. |
++| Duplicate API models diverge from TUI. | Extend `src/api` and share read models/events/actions. |
++| Markdown XSS. | Server-side sanitize, CSP, strict tests, no unsanitized HTML surfaces. |
++| WebSocket memory growth. | Bounded ring, persisted activity replay, backpressure, topic caps. |
++| GitHub/GitLab parity mismatch. | Provider trait has capability flags and graceful unsupported states. |
++| Settings UI causes dangerous changes. | Preview/execute contract, confirmation phrases, grants, audit events. |
++| Existing `Serve` behavior regresses. | Keep engine startup path, add `ServeCommand` options with defaults matching current behavior. |
++| Frontend QA placeholder gets lost. | Preserve/upgrade `ux-qa` scripts and marker evidence in real app. |
++
++---
++
++## 15. Immediate implementation checklist
++
++- [ ] Add Rust dependencies for WebSocket/static serving/Markdown/sanitization/schema support.
++- [ ] Add `src/web`, `src/web_events`, `src/repos`, `src/repo_browser`, `src/merge` modules.
++- [ ] Add `src/api` forge DTO modules and export them in `src/api/mod.rs`.
++- [ ] Replace `apps/web` UX-QA-only package with Vite/React app, retaining UX-QA scripts.
++- [ ] Add app shell, routes, API client, WebSocket client, stores, and design tokens.
++- [ ] Add Markdown rendering service and tests.
++- [ ] Add database migration for web forge state.
++- [ ] Add `jeryu web serve/check/export-types` commands and update `jeryu serve` defaults.
++- [ ] Add docs: `docs/web-forge.md` and `apps/web/README.md`.
++- [ ] Wire first vertical slice: repo list → repo home → README render → activity socket.
++
++---
++
++## 16. Non-negotiable invariants
++
++1. Main remains a dispatcher; no business logic goes into `src/main.rs`.
++2. State mutations go through domain services or `state::Db`; no ad-hoc SQL in handlers.
++3. Web/TUI/CLI/MCP use shared action preview/execute and shared evidence/gate semantics.
++4. Merge approvals and merge execution bind to exact SHAs.
++5. Markdown is rendered and sanitized server-side.
++6. WebSocket events have monotonic cursors and a replay/gap story.
++7. Dangerous settings changes require preview, confirmation, audit, and event publication.
++8. Existing TUI and CLI behavior remain supported.
++9. UX-QA evidence is upgraded, not removed.
++10. Provider capabilities are explicit; unsupported GitHub/GitLab features render as disabled with explanation, not hidden failure.
