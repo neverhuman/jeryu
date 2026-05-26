@@ -40,6 +40,10 @@ pub struct ShadowMainConfig {
     pub remote_url: String,
     #[serde(default)]
     pub refs: Vec<String>,
+    #[serde(default)]
+    pub trigger: String,
+    #[serde(default)]
+    pub fallback_review: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -94,8 +98,34 @@ pub async fn shadow_main_for_push(db: &Db, repo: Option<&str>, ref_name: &str, a
     };
 
     for config in configs {
-        if shadow_ref_matches(&config, ref_name) {
+        if shadow_ref_matches(&config, ref_name)
+            && shadow_trigger(&config) != "main_pipeline_success"
+        {
             let _ = run_shadow_main(db, &config, "webhook").await;
+        }
+    }
+}
+
+pub async fn shadow_main_for_pipeline_success(
+    db: &Db,
+    repo: Option<&str>,
+    ref_name: &str,
+    sha: &str,
+) {
+    if is_zero_sha(sha) {
+        return;
+    }
+
+    let Ok(configs) = matching_configs(repo) else {
+        tracing::warn!("repo-local shadow config load failed");
+        return;
+    };
+
+    for config in configs {
+        if shadow_ref_matches(&config, ref_name)
+            && shadow_trigger(&config) == "main_pipeline_success"
+        {
+            let _ = run_shadow_main_for_sha(db, &config, "pipeline", Some(sha)).await;
         }
     }
 }

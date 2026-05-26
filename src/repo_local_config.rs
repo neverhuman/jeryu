@@ -83,6 +83,11 @@ pub(super) fn shadow_refs(config: &LocalRepoConfig) -> Vec<String> {
     }
 }
 
+pub(super) fn shadow_trigger(config: &LocalRepoConfig) -> &str {
+    let trigger = config.shadow_main.trigger.trim();
+    if trigger.is_empty() { "push" } else { trigger }
+}
+
 pub(super) fn mirror_path(config: &LocalRepoConfig) -> PathBuf {
     crate::config::data_dir()
         .join("repo-mirrors")

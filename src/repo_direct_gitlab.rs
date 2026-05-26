@@ -84,8 +84,8 @@ fn remote_branch_exists(repo_root: &Path, remote_url: &str, branch: &str) -> Res
 
 pub(crate) fn seed_source_ref(repo_root: &Path, branch: &str) -> Result<Option<String>> {
     for candidate in [
-        format!("refs/remotes/origin/{branch}"),
         format!("refs/heads/{branch}"),
+        format!("refs/remotes/origin/{branch}"),
         "HEAD".to_string(),
     ] {
         if git_ref_exists(repo_root, &candidate)? {

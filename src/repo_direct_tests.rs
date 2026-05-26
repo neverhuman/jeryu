@@ -190,7 +190,7 @@ fn new_repo_uses_origin_as_local_jeryu_remote() {
 }
 
 #[test]
-fn seed_source_prefers_origin_main() {
+fn seed_source_prefers_local_main() {
     let repo = tempdir().expect("temp repo");
     git(repo.path(), &["init", "-b", "main"]);
     git(
@@ -205,6 +205,31 @@ fn seed_source_prefers_origin_main() {
         repo.path(),
         &["update-ref", "refs/remotes/origin/main", "HEAD"],
     );
+
+    assert_eq!(
+        seed_source_ref(repo.path(), "main").unwrap().as_deref(),
+        Some("refs/heads/main")
+    );
+}
+
+#[test]
+fn seed_source_falls_back_to_origin_main_when_local_branch_missing() {
+    let repo = tempdir().expect("temp repo");
+    git(repo.path(), &["init", "-b", "main"]);
+    git(
+        repo.path(),
+        &["config", "user.email", "jeryu@example.invalid"],
+    );
+    git(repo.path(), &["config", "user.name", "JeRyu Test"]);
+    fs::write(repo.path().join("README.md"), "demo").unwrap();
+    git(repo.path(), &["add", "README.md"]);
+    git(repo.path(), &["commit", "-m", "init"]);
+    git(
+        repo.path(),
+        &["update-ref", "refs/remotes/origin/main", "HEAD"],
+    );
+    git(repo.path(), &["checkout", "--detach"]);
+    git(repo.path(), &["branch", "-D", "main"]);
 
     assert_eq!(
         seed_source_ref(repo.path(), "main").unwrap().as_deref(),

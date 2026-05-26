@@ -22,7 +22,11 @@ pub(crate) async fn handle_pipeline_event(state: SharedState, payload: PipelineH
             (attrs.id, attrs.status, attrs.ref_name, attrs.sha)
         {
             let ref_name = normalize_ref(&ref_name);
-            let project_id = payload.project.and_then(|project| project.id).unwrap_or(0);
+            let project = payload.project;
+            let project_id = project.as_ref().and_then(|project| project.id).unwrap_or(0);
+            let project_path = project
+                .as_ref()
+                .and_then(|project| project.path_with_namespace.as_deref());
             let _ = state
                 .db
                 .upsert_tracked_pipeline(&TrackedPipeline {
@@ -36,6 +40,14 @@ pub(crate) async fn handle_pipeline_event(state: SharedState, payload: PipelineH
                 .await;
 
             if ref_name == "main" && status == "success" {
+                crate::repo_local::shadow_main_for_pipeline_success(
+                    &state.db,
+                    project_path,
+                    &ref_name,
+                    &sha,
+                )
+                .await;
+
                 if let Ok(Some(attempt)) = state
                     .db
                     .release_attempt_by_production_pipeline_id(pipeline_id)
