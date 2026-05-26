@@ -83,6 +83,7 @@ run "Jankurai Audit" bash ops/ci/jankurai-lane.sh audit
 run "Proof lanes" bash ops/ci/jankurai-lane.sh proof
 run "Audit tools" bash ops/ci/jankurai-lane.sh tools
 run "Bad-behavior checks" bash ops/ci/jankurai-lane.sh bad-behavior
+run "CycloneDX SBOM" bash ops/ci/jankurai-lane.sh sbom
 
 # ─── 4. Additional parity and hardening checks ──────────────────────────────
 run "Cargo Deny" cargo deny check

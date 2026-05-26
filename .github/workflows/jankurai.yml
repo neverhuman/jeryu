@@ -15,18 +15,13 @@ env:
   CARGO_INCREMENTAL: "0"
 
 jobs:
-  audit:
+  security:
+    name: Security strict preflight
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: read
-      security-events: write
-      # Required by actions/attest-build-provenance to mint Sigstore ID tokens.
-      # Without this, the Attest step fails with: "Unable to get
-      # ACTIONS_ID_TOKEN_REQUEST_URL env variable".
-      id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -40,24 +35,20 @@ jobs:
         run: bash scripts/install-redlinedb.sh
       - name: Install cargo-deny
         uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny
-      - name: Install cargo-cyclonedx
-        uses: taiki-e/install-action@8b2082c2d404d46ed01b1ea6ba5d10e26788c99e # cargo-cyclonedx
       - name: Install actionlint
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
       - name: Install jankurai
-        # Jankurai MUST be installed from the checked-in pinned binary
-        # manifest so local proof lanes and CI run the same release artifact.
         run: bash scripts/install-jankurai.sh
       - run: jankurai --version
-      - name: Install gitleaks (needed by tools/security-lane.sh preflight)
+      - name: Install gitleaks
         run: |
           VERSION="8.30.0"
           curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
             | sudo tar -xz -C /usr/local/bin gitleaks
           gitleaks version
-      - name: Install syft (needed by tools/security-lane.sh preflight)
+      - name: Install syft
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
             | sudo sh -s -- -b /usr/local/bin v1.40.0
@@ -66,6 +57,35 @@ jobs:
         run: actionlint .github/workflows/*.yml
       - name: Security strict preflight
         run: bash ops/ci/jankurai-lane.sh security
+      - name: Upload security evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jankurai-part-security
+          if-no-files-found: ignore
+          path: target/jankurai/security/
+
+  jankurai_audit:
+    name: Jankurai Audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+      - name: Install RedlineDB binary
+        if: env.JERYU_DB_BACKEND == 'redlinedb'
+        run: bash scripts/install-redlinedb.sh
+      - name: Install jankurai
+        run: bash scripts/install-jankurai.sh
+      - run: jankurai --version
       - name: jankurai audit
         run: bash ops/ci/jankurai-lane.sh audit
         env:
@@ -73,17 +93,7 @@ jobs:
           JANKURAI_SUMMARY_OUT: target/jankurai/summary.md
           JANKURAI_REPAIR_QUEUE: target/jankurai/repair-queue.jsonl
       - name: Jankurai ratchet audit (advisory)
-        # Ratchet mode demands score >= 85 + no regression vs origin/main's
-        # baseline. For a major release branch (release/v3.3.0 ships ~90k LoC
-        # over main) this gate would always fail by design — baseline has no
-        # knowledge of the Waves 1-10 additions. We run the audit and capture
-        # its findings as data but DO NOT block the PR on score regression.
-        # Re-enable strict ratcheting AFTER the release lands on main and a
-        # new baseline is captured.
-        #
-        # `continue-on-error: true` is the ONLY mechanism we use to make this
-        # advisory — we deliberately avoid trailing shell terminators that
-        # would mask real script bugs (see tests/language_bad_behavior.rs).
+        # Ratchet mode is advisory until the post-release baseline is captured.
         continue-on-error: true
         run: |
           mkdir -p target/jankurai
@@ -91,72 +101,206 @@ jobs:
           JANKURAI_BASELINE=target/jankurai/accepted-baseline.json \
           JANKURAI_AUDIT_MODE=ratchet \
           bash ops/ci/jankurai-lane.sh audit
-      # SARIF upload SKIPPED for v3.3.0 release.
-      #
-      # Uploading jankurai's SARIF via github/codeql-action/upload-sarif
-      # registers each finding as a Code Scanning alert. GitHub Advanced
-      # Security then posts a synthesized "jankurai" Check Run on the PR
-      # ("14 new alerts including 14 errors") that we cannot make advisory
-      # from the workflow side — it bypasses continue-on-error.
-      #
-      # The findings are already captured in target/jankurai/repo-score.json
-      # (uploaded as an artifact at the end of this job) and reviewable in
-      # the Actions tab logs. Once the HLT-001 backlog is resolved and our
-      # score is consistently >= 85, this upload can be restored so alerts
-      # surface in the Security tab.
-      #
-      # - name: Upload jankurai SARIF
-      #   if: always()
-      #   uses: github/codeql-action/upload-sarif@53e96ec3b35fce51c141c0d6f0e31028a448722d # v3
-      #   with:
-      #     sarif_file: target/jankurai/jankurai.sarif
-      #     category: jankurai
-      - name: Proof lanes
-        # The lane filters generated binary README media before proofbind,
-        # then runs proofmark/rust-witness against the resulting obligations.
-        run: bash ops/ci/jankurai-lane.sh proof
-      - name: Audit tools
-        # Depends on proofbind output and blocks with the rest of the
-        # security/proof lane.
-        run: bash ops/ci/jankurai-lane.sh tools
-      - name: Bad-behavior checks
-        run: bash ops/ci/jankurai-lane.sh bad-behavior
-      - name: Generate CycloneDX SBOM
+      - name: Upload audit evidence
         if: always()
-        run: |
-          mkdir -p target/jankurai/sbom
-          cargo cyclonedx --format json --override-filename sbom
-          # Move any generated SBOMs into the jankurai output directory.
-          while IFS= read -r f; do
-            mv "$f" target/jankurai/sbom/
-          done < <(find . -maxdepth 4 -name 'sbom.cdx.json' -not -path './target/jankurai/*')
-
-      - name: Attest build provenance
-        if: always() && hashFiles('target/jankurai/sbom/*.json') != ''
-        uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          subject-path: target/jankurai/sbom/*.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: jankurai-adoption-evidence
+          name: jankurai-part-audit
           if-no-files-found: ignore
           path: |
             target/jankurai/repo-score.json
             target/jankurai/repo-score.md
             target/jankurai/jankurai.sarif
             target/jankurai/repair-queue.jsonl
-            target/jankurai/proofbind/obligations.json
-            target/jankurai/proofbind/surface-witness.json
-            target/jankurai/proofmark/proofmark-receipt.json
-            target/jankurai/proofmark/proof-receipt.json
-            target/jankurai/rust/witness-graph.json
+
+  proof:
+    name: Proof lanes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+      - name: Install RedlineDB binary
+        if: env.JERYU_DB_BACKEND == 'redlinedb'
+        run: bash scripts/install-redlinedb.sh
+      - name: Install jankurai
+        run: bash scripts/install-jankurai.sh
+      - run: jankurai --version
+      - name: Proof lanes
+        run: bash ops/ci/jankurai-lane.sh proof
+      - name: Upload proof evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jankurai-part-proof
+          if-no-files-found: ignore
+          path: |
+            target/jankurai/proofbind/
+            target/jankurai/proofmark/
+            target/jankurai/rust/
+
+  tools:
+    name: Audit tools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+      - name: Install RedlineDB binary
+        if: env.JERYU_DB_BACKEND == 'redlinedb'
+        run: bash scripts/install-redlinedb.sh
+      - name: Install jankurai
+        run: bash scripts/install-jankurai.sh
+      - run: jankurai --version
+      - name: Audit tools
+        run: bash ops/ci/jankurai-lane.sh tools
+      - name: Upload tool evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jankurai-part-tools
+          if-no-files-found: ignore
+          path: |
+            agent-map.json
+            test-map.json
             target/jankurai/aer-findings.json
+            target/jankurai/ux-qa.json
+            target/jankurai/migration-report.json
+
+  bad_behavior:
+    name: Bad-behavior checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+      - name: Install RedlineDB binary
+        if: env.JERYU_DB_BACKEND == 'redlinedb'
+        run: bash scripts/install-redlinedb.sh
+      - name: Install jankurai
+        run: bash scripts/install-jankurai.sh
+      - run: jankurai --version
+      - name: Bad-behavior checks
+        run: bash ops/ci/jankurai-lane.sh bad-behavior
+      - name: Upload bad-behavior evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jankurai-part-bad-behavior
+          if-no-files-found: ignore
+          path: |
             target/jankurai/language-bad-behavior.log
             target/jankurai/ci-bad-behavior.log
             target/jankurai/git-bad-behavior.log
             target/jankurai/release-bad-behavior.log
-            target/jankurai/ux-qa.json
-            target/jankurai/security/*
-            target/jankurai/sbom/*
-            target/jankurai/migration-report.json
+            target/jankurai/db-boundary.log
+            target/jankurai/ci-parity-drift.log
+
+  sbom:
+    name: CycloneDX SBOM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+      - name: Install RedlineDB binary
+        if: env.JERYU_DB_BACKEND == 'redlinedb'
+        run: bash scripts/install-redlinedb.sh
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@8b2082c2d404d46ed01b1ea6ba5d10e26788c99e # cargo-cyclonedx
+      - name: Install jankurai
+        run: bash scripts/install-jankurai.sh
+      - run: jankurai --version
+      - name: Generate CycloneDX SBOM
+        run: bash ops/ci/jankurai-lane.sh sbom
+      - name: Attest build provenance
+        if: always() && hashFiles('target/jankurai/sbom/*.json') != ''
+        uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
+        with:
+          subject-path: target/jankurai/sbom/*.json
+      - name: Upload SBOM evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jankurai-part-sbom
+          if-no-files-found: ignore
+          path: target/jankurai/sbom/
+
+  audit:
+    name: audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs:
+      - security
+      - jankurai_audit
+      - proof
+      - tools
+      - bad_behavior
+      - sbom
+    if: always()
+    steps:
+      - name: Download split evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          pattern: jankurai-part-*
+          path: target/jankurai
+          merge-multiple: true
+      - name: Upload combined evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jankurai-adoption-evidence
+          if-no-files-found: ignore
+          path: target/jankurai/
+      - name: Check split lanes
+        run: |
+          failed=0
+          for result in \
+            "security=${{ needs.security.result }}" \
+            "jankurai-audit=${{ needs.jankurai_audit.result }}" \
+            "proof=${{ needs.proof.result }}" \
+            "tools=${{ needs.tools.result }}" \
+            "bad-behavior=${{ needs.bad_behavior.result }}" \
+            "sbom=${{ needs.sbom.result }}"
+          do
+            echo "$result"
+            case "$result" in
+              *=success) ;;
+              *) failed=1 ;;
+            esac
+          done
+          exit "$failed"

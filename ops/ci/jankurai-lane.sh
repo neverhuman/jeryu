@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ops/ci/jankurai-lane.sh — run jankurai audit, proof, and tool lanes
-# Usage: bash ops/ci/jankurai-lane.sh <security|audit|ratchet|proof|tools|bad-behavior|sbom|all>
+# Usage: bash ops/ci/jankurai-lane.sh <security|audit|proof|tools|bad-behavior|sbom|all>
 #
 # Env vars (CI-only, all optional):
 #   JANKURAI_SARIF_OUT     — SARIF output path for the audit step
@@ -283,6 +283,22 @@ run_bad_behavior() {
     release_bad_behavior_lane_is_blocking -- --exact --test-threads=1
 }
 
+run_sbom() {
+  log "Generate CycloneDX SBOM"
+  mkdir -p target/jankurai/sbom
+  cargo cyclonedx --format json --override-filename sbom
+  local f rel safe
+  while IFS= read -r f; do
+    rel="${f#./}"
+    safe="${rel//\//__}"
+    mv "$f" "target/jankurai/sbom/$safe"
+  done < <(
+    find . -maxdepth 4 -type f \
+      \( -name 'sbom.cdx.json' -o -name 'sbom.json' \) \
+      -not -path './target/jankurai/*'
+  )
+}
+
 # ── Dispatch ───────────────────────────────────────────────────────────────
 
 cmd="${1:-all}"
@@ -292,15 +308,17 @@ case "$cmd" in
   proof)        run_proof ;;
   tools)        run_tools ;;
   bad-behavior) run_bad_behavior ;;
+  sbom)         run_sbom ;;
   all)
     run_security
     run_audit
     run_proof
     run_tools
     run_bad_behavior
+    run_sbom
     ;;
   *)
-    die "Unknown command: $cmd. Valid: security, audit, proof, tools, bad-behavior, all"
+    die "Unknown command: $cmd. Valid: security, audit, proof, tools, bad-behavior, sbom, all"
     ;;
 esac
 
