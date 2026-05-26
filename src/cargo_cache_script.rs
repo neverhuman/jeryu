@@ -34,6 +34,14 @@ for tool in awk cat cut date mkdir rm rmdir sha256sum; do
   command -v "$tool" >/dev/null 2>&1 || JERYU_CARGO_PREREQS_OK=0
 done
 if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && [ "$JERYU_CARGO_PREREQS_OK" = "1" ] && command -v cargo >/dev/null 2>&1 && command -v rustc >/dev/null 2>&1; then
+  # Probe rustc BEFORE overriding RUSTUP_HOME.  Rust official containers use the
+  # rustup dispatch binary as rustc; it reads RUSTUP_HOME to locate the toolchain.
+  # If RUSTUP_HOME is redirected to an empty directory first, the dispatch binary
+  # cannot find the toolchain and aborts with "no default toolchain configured".
+  RUSTC_INFO="$(rustc -vV 2>/dev/null || true)"
+  HOST_TRIPLE="$(printf '%s\n' "$RUSTC_INFO" | awk '/^host: / {{ print $2; exit }}')"
+  RUSTC_VERSION="$(printf '%s\n' "$RUSTC_INFO" | awk '/^release: / {{ print $2; exit }}')"
+  if [ -n "$HOST_TRIPLE" ] && [ -n "$RUSTC_VERSION" ]; then
   JERYU_CARGO_CACHE_ROOT={pool_cache_mount}
   JERYU_CARGO_CARGO_HOME="$JERYU_CARGO_CACHE_ROOT/{cargo_home_dir}"
   JERYU_CARGO_RUSTUP_HOME="$JERYU_CARGO_CACHE_ROOT/{rustup_home_dir}"
@@ -48,10 +56,6 @@ if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && [ "$JERYU_CARGO_PREREQS_OK" = "1" ]
     fi
     mkdir -p "$SCCACHE_DIR"
   fi
-  RUSTC_INFO="$(rustc -vV)"
-  HOST_TRIPLE="$(printf '%s\n' "$RUSTC_INFO" | awk '/^host: / {{ print $2; exit }}')"
-  RUSTC_VERSION="$(printf '%s\n' "$RUSTC_INFO" | awk '/^release: / {{ print $2; exit }}')"
-  if [ -n "$HOST_TRIPLE" ] && [ -n "$RUSTC_VERSION" ]; then
     RUSTC_KEY="$(printf '%s\n' "$RUSTC_INFO" | sha256sum | cut -c1-12)"
     JERYU_CARGO_SCOPE_KEY="${{CI_PROJECT_PATH_SLUG:-unknown-project}}"
     JERYU_SCCACHE_VERSION={sccache_version}

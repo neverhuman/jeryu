@@ -551,3 +551,30 @@ fn runner_pre_build_script_missing_rust_tools_does_not_short_circuit_job() {
         "user-script-ran"
     );
 }
+
+/// Regression guard: `rustc -vV` must appear in the generated script BEFORE
+/// `export RUSTUP_HOME`.  Rust official containers use the rustup dispatch binary
+/// as `rustc`; it reads `RUSTUP_HOME` to locate the toolchain.  If we override
+/// `RUSTUP_HOME` first (to an empty cache directory), the dispatch binary cannot
+/// find the toolchain and aborts with "no default toolchain configured".
+#[test]
+fn runner_pre_build_script_probes_rustc_before_overriding_rustup_home() {
+    let pool_cache = TempDir::new().unwrap();
+    let script =
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker");
+
+    let rustc_probe_pos = script
+        .find("rustc -vV")
+        .expect("script must contain rustc -vV probe");
+    let rustup_export_pos = script
+        .find("export RUSTUP_HOME=")
+        .expect("script must contain export RUSTUP_HOME=");
+
+    assert!(
+        rustc_probe_pos < rustup_export_pos,
+        "rustc -vV probe (pos {rustc_probe_pos}) must appear before \
+         export RUSTUP_HOME (pos {rustup_export_pos}); \
+         the rustup dispatch binary reads RUSTUP_HOME to find the toolchain so the probe \
+         must run before RUSTUP_HOME is redirected to the empty cache directory"
+    );
+}
