@@ -56,6 +56,7 @@ fn activity_text(app: &App, _height: u16) -> Text<'static> {
         ActiveTab::Pools => lines.extend(pools_activity(app)),
         ActiveTab::Cache => lines.extend(cache_activity(app)),
         ActiveTab::Evidence => lines.extend(evidence_activity(app)),
+        ActiveTab::Repos => lines.extend(repos_activity(app)),
         ActiveTab::Bugs => lines.extend(bugs_activity(app)),
         ActiveTab::Secrets => lines.extend(secrets_activity(app)),
         ActiveTab::LLMs => lines.extend(llms_activity(app)),
@@ -277,6 +278,29 @@ fn evidence_activity(app: &App) -> Vec<Line<'static>> {
     } else {
         vec![row("Evidence", "no capsules", Color::DarkGray)]
     }
+}
+
+fn repos_activity(app: &App) -> Vec<Line<'static>> {
+    let (running, failed, aged) = app.state.fleet.counts();
+    let mut lines = vec![
+        row(
+            "Repos",
+            &format!("{} total", app.state.fleet.repos.len()),
+            Color::Cyan,
+        ),
+        row(
+            "Health",
+            &format!("{running} running / {failed} failed / {aged} aged"),
+            if failed > 0 { Color::Red } else { Color::Green },
+        ),
+    ];
+    if let Some(repo) = app.selected_repo() {
+        lines.push(row("Selected", &repo.alias, Color::White));
+        lines.push(row("Slug", &repo.slug, Color::DarkGray));
+    } else {
+        lines.push(row("Selected", "all families", Color::DarkGray));
+    }
+    lines
 }
 
 fn secrets_activity(app: &App) -> Vec<Line<'static>> {

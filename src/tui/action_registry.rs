@@ -40,6 +40,58 @@ impl RiskTier {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum ActionRiskTier {
+    R0,
+    R1,
+    R2,
+    R3,
+    R4,
+    R5,
+}
+
+impl ActionRiskTier {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::R0 => "R0",
+            Self::R1 => "R1",
+            Self::R2 => "R2",
+            Self::R3 => "R3",
+            Self::R4 => "R4",
+            Self::R5 => "R5",
+        }
+    }
+
+    pub fn requires_proof_modal(self) -> bool {
+        matches!(self, Self::R4 | Self::R5)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfirmationPolicy {
+    None,
+    Inline,
+    Preview,
+    NamedConfirmation,
+    ProofModal,
+    ProofModalWithSecondaryApproval,
+}
+
+impl ConfirmationPolicy {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Inline => "inline",
+            Self::Preview => "preview",
+            Self::NamedConfirmation => "named_confirmation",
+            Self::ProofModal => "proof_modal",
+            Self::ProofModalWithSecondaryApproval => "proof_modal_secondary_approval",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Surface {
     Cli,
@@ -137,9 +189,11 @@ impl ActionEntry {
 
     pub fn side_effect_class(&self) -> SideEffectClass {
         match self.id {
-            "remove_record" | "pause_pool" => SideEffectClass::LocalState,
+            "remove_record" | "pause_pool" | "bug_submit" | "bug_update" | "bug_record_attempt" => {
+                SideEffectClass::LocalState
+            }
             "propose_patch" | "race_patches" => SideEffectClass::GitWrite,
-            "run_tests" => SideEffectClass::CiExecution,
+            "requeue_job" | "run_tests" => SideEffectClass::CiExecution,
             "request_merge" => SideEffectClass::Merge,
             _ => SideEffectClass::ReadOnly,
         }
@@ -156,17 +210,46 @@ impl ActionEntry {
         }
     }
 
+    pub fn action_risk_tier(&self) -> ActionRiskTier {
+        match self.side_effect_class() {
+            SideEffectClass::ReadOnly => ActionRiskTier::R0,
+            SideEffectClass::LocalState => ActionRiskTier::R1,
+            SideEffectClass::CiExecution => ActionRiskTier::R2,
+            SideEffectClass::GitWrite => ActionRiskTier::R3,
+            SideEffectClass::Merge => ActionRiskTier::R4,
+            SideEffectClass::Production => ActionRiskTier::R5,
+        }
+    }
+
+    pub fn confirmation_policy(&self) -> ConfirmationPolicy {
+        match self.action_risk_tier() {
+            ActionRiskTier::R0 => ConfirmationPolicy::None,
+            ActionRiskTier::R1 => ConfirmationPolicy::Inline,
+            ActionRiskTier::R2 => ConfirmationPolicy::Preview,
+            ActionRiskTier::R3 => ConfirmationPolicy::NamedConfirmation,
+            ActionRiskTier::R4 => ConfirmationPolicy::ProofModal,
+            ActionRiskTier::R5 => ConfirmationPolicy::ProofModalWithSecondaryApproval,
+        }
+    }
+
     pub fn contract_json(&self) -> serde_json::Value {
         serde_json::json!({
             "id": self.id,
             "label": self.label,
             "key_hint": self.key_hint,
             "risk_tier": self.risk_tier.label(),
+            "action_risk_tier": self.action_risk_tier().label(),
             "side_effect_class": self.side_effect_class().label(),
             "required_grant": self.required_grant().label(),
             "dry_run": self.dry_run,
+            "dry_run_supported": self.dry_run,
+            "confirmation_policy": self.confirmation_policy().label(),
             "description": self.description,
             "surfaces": self.surfaces.iter().map(|s| s.label()).collect::<Vec<_>>(),
         })
     }
 }
+
+#[cfg(test)]
+#[path = "action_registry_tests.rs"]
+mod tests;

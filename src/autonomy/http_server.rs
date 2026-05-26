@@ -404,6 +404,12 @@ async fn dispatch(request: &HttpRequest, body: &[u8], state: &AppState) -> Strin
     match (request.method.as_str(), request.path.as_str()) {
         ("GET", "/metrics") => handle_metrics(state).await,
         ("GET", "/health") => handle_health(state).await,
+        ("GET", path) if path.starts_with(crate::inspection::API_PREFIX) => {
+            handle_inspection_get(path)
+        }
+        ("POST", path) if path.starts_with(crate::inspection::API_PREFIX) => {
+            handle_inspection_post(path, body)
+        }
         ("POST", "/events") => handle_webhook(request, body, state).await,
         // POST to anything else: method not allowed at that path. We pin
         // `Allow: GET` because no other POST surface exists today.
@@ -421,6 +427,20 @@ async fn dispatch(request: &HttpRequest, body: &[u8], state: &AppState) -> Strin
             "{\"error\":\"method not allowed\"}",
             &[("Allow", "GET")],
         ),
+    }
+}
+
+fn handle_inspection_get(path: &str) -> String {
+    match crate::inspection::handle_get(path) {
+        Some(response) => render_response(response.status, response.content_type, &response.body),
+        None => render_response(404, "application/json", "{\"error\":\"not found\"}"),
+    }
+}
+
+fn handle_inspection_post(path: &str, body: &[u8]) -> String {
+    match crate::inspection::handle_post(path, body) {
+        Some(response) => render_response(response.status, response.content_type, &response.body),
+        None => render_response(404, "application/json", "{\"error\":\"not found\"}"),
     }
 }
 
@@ -1191,6 +1211,142 @@ mod tests {
         assert!(body.contains("\"kill_bell\":\"armed\""), "body: {body}");
         assert!(body.contains("\"ledger_reachable\":true"), "body: {body}");
         assert!(body.contains("\"checked_at\":"), "body: {body}");
+        handle.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn serve_returns_inspection_action_registry() {
+        let (listener, port) = bind_ephemeral().await;
+        let state = fresh_state().await;
+        let cfg = HttpServerConfig {
+            bind_addr: format!("127.0.0.1:{port}"),
+            shutdown_after_requests: Some(1),
+        };
+        let handle = tokio::spawn(serve_with_listener(listener, cfg, state));
+
+        let response = round_trip(
+            port,
+            "GET /api/v1/action-registry HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+        )
+        .await;
+
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(response.contains("Content-Type: application/json\r\n"));
+        let body = response.split("\r\n\r\n").nth(1).expect("body present");
+        assert!(body.contains("\"api_version\":\"api.v1\""), "body: {body}");
+        assert!(body.contains("\"action_count\":35"), "body: {body}");
+        assert!(body.contains("\"action_risk_tier\""), "body: {body}");
+        handle.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn serve_returns_inspection_repos() {
+        let (listener, port) = bind_ephemeral().await;
+        let state = fresh_state().await;
+        let cfg = HttpServerConfig {
+            bind_addr: format!("127.0.0.1:{port}"),
+            shutdown_after_requests: Some(1),
+        };
+        let handle = tokio::spawn(serve_with_listener(listener, cfg, state));
+
+        let response = round_trip(
+            port,
+            "GET /api/v1/repos HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+        )
+        .await;
+
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(response.contains("Content-Type: application/json\r\n"));
+        let body = response.split("\r\n\r\n").nth(1).expect("body present");
+        assert!(body.contains("\"api_version\":\"api.v1\""), "body: {body}");
+        assert!(body.contains("\"repos\""), "body: {body}");
+        assert!(body.contains("\"families\""), "body: {body}");
+        handle.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn serve_returns_inspection_entity_detail() {
+        let (listener, port) = bind_ephemeral().await;
+        let state = fresh_state().await;
+        let cfg = HttpServerConfig {
+            bind_addr: format!("127.0.0.1:{port}"),
+            shutdown_after_requests: Some(1),
+        };
+        let handle = tokio::spawn(serve_with_listener(listener, cfg, state));
+
+        let response = round_trip(
+            port,
+            "GET /api/v1/entities/job/7 HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+        )
+        .await;
+
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+        let body = response.split("\r\n\r\n").nth(1).expect("body present");
+        assert!(body.contains("\"api_version\":\"api.v1\""), "body: {body}");
+        assert!(body.contains("\"kind\":\"job\""), "body: {body}");
+        assert!(body.contains("\"id\":\"7\""), "body: {body}");
+        handle.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn serve_returns_action_preview() {
+        let (listener, port) = bind_ephemeral().await;
+        let state = fresh_state().await;
+        let cfg = HttpServerConfig {
+            bind_addr: format!("127.0.0.1:{port}"),
+            shutdown_after_requests: Some(1),
+        };
+        let handle = tokio::spawn(serve_with_listener(listener, cfg, state));
+
+        let response = round_trip(
+            port,
+            "POST /api/v1/actions/requeue_job/preview HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 2\r\nContent-Type: application/json\r\n\r\n{}",
+        )
+        .await;
+
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+        let body = response.split("\r\n\r\n").nth(1).expect("body present");
+        assert!(body.contains("\"api_version\":\"api.v1\""), "body: {body}");
+        assert!(
+            body.contains("\"required_grant\":\"agent_task\""),
+            "body: {body}"
+        );
+        assert!(body.contains("\"enabled\":false"), "body: {body}");
+        handle.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn serve_returns_action_execute_receipt() {
+        let (listener, port) = bind_ephemeral().await;
+        let state = fresh_state().await;
+        let cfg = HttpServerConfig {
+            bind_addr: format!("127.0.0.1:{port}"),
+            shutdown_after_requests: Some(1),
+        };
+        let handle = tokio::spawn(serve_with_listener(listener, cfg, state));
+
+        let body = r#"{"dry_run":true,"grant_id":"grant-1","idempotency_key":"same-key"}"#;
+        let request = format!(
+            "POST /api/v1/actions/run_tests/execute HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: {}\r\nContent-Type: application/json\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let response = round_trip(port, &request).await;
+
+        assert!(response.starts_with("HTTP/1.1 202 Accepted\r\n"));
+        let response_body = response.split("\r\n\r\n").nth(1).expect("body present");
+        assert!(
+            response_body.contains("\"status\":\"completed\""),
+            "body: {response_body}"
+        );
+        assert!(
+            response_body.contains("\"receipt_id\":\"act_run_tests_"),
+            "body: {response_body}"
+        );
+        assert!(
+            response_body.contains("\"phase\":\"execute\""),
+            "body: {response_body}"
+        );
         handle.await.unwrap().unwrap();
     }
 

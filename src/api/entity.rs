@@ -7,8 +7,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::tui::action_registry::RiskTier;
 
+#[path = "entity_kind.rs"]
+mod kind;
 #[path = "entity_support.rs"]
 mod support;
+pub use kind::EntityKind;
 #[allow(unused_imports)]
 pub use support::{
     ActionRef, BlockerSummary, Bug, BugAttempt, DataFreshness, EvidenceRef, Project, TimelineEvent,
@@ -40,61 +43,6 @@ impl EntityRef {
 impl std::fmt::Display for EntityRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.kind.label(), self.id)
-    }
-}
-
-// ── Entity Kinds ────────────────────────────────────────────────────────
-
-/// Exhaustive taxonomy of control-plane entities.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum EntityKind {
-    Job,
-    Pipeline,
-    Agent,
-    AgentTask,
-    MergeRequest,
-    TestPlan,
-    TestCase,
-    EvidenceCapsule,
-    ReleaseAttempt,
-    ReleaseGate,
-    CacheTaint,
-    CacheObject,
-    Bug,
-    BugAttempt,
-    Project,
-    SecretAccess,
-    Grant,
-    Pool,
-    Runner,
-    System,
-}
-
-impl EntityKind {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Job => "job",
-            Self::Pipeline => "pipeline",
-            Self::Agent => "agent",
-            Self::AgentTask => "agent_task",
-            Self::MergeRequest => "mr",
-            Self::TestPlan => "test_plan",
-            Self::TestCase => "test_case",
-            Self::EvidenceCapsule => "capsule",
-            Self::ReleaseAttempt => "release",
-            Self::ReleaseGate => "gate",
-            Self::CacheTaint => "taint",
-            Self::CacheObject => "cache_object",
-            Self::Bug => "bug",
-            Self::BugAttempt => "bug_attempt",
-            Self::Project => "project",
-            Self::SecretAccess => "secret",
-            Self::Grant => "grant",
-            Self::Pool => "pool",
-            Self::Runner => "runner",
-            Self::System => "system",
-        }
     }
 }
 
@@ -184,7 +132,7 @@ pub struct EntityDetail {
     pub available_actions: Vec<ActionRef>,
     pub risk: Option<RiskTier>,
     pub last_updated: Option<DateTime<Utc>>,
-    pub stale_after_ms: Option<u64>,
+    pub expires_after_ms: Option<u64>,
 }
 
 impl Default for EntityDetail {
@@ -200,7 +148,7 @@ impl Default for EntityDetail {
             available_actions: Vec::new(),
             risk: None,
             last_updated: None,
-            stale_after_ms: None,
+            expires_after_ms: None,
         }
     }
 }

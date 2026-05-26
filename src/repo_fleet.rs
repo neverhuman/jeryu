@@ -127,6 +127,37 @@ pub struct FleetRepoSnapshot {
     pub next_command: String,
 }
 
+impl FleetRepoSnapshot {
+    pub fn aged(&self) -> bool {
+        self.stale
+    }
+
+    #[cfg(test)]
+    pub(crate) fn projection_fixture(alias: &str, slug: &str, aged: bool) -> Self {
+        Self {
+            alias: alias.into(),
+            slug: slug.into(),
+            provider: "github".into(),
+            default_branch: "main".into(),
+            visibility: "private".into(),
+            health_profile: "rust-workspace".into(),
+            status: "failed".into(),
+            running_count: 1,
+            failed_count: 2,
+            stale: aged,
+            score_badge: Some("89".into()),
+            local: RepoLocalStatus {
+                exists: true,
+                branch: Some("main".into()),
+                sha_short: Some("abc1234".into()),
+                dirty: true,
+            },
+            latest_run: None,
+            next_command: "just fast".into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
 pub struct FleetSnapshot {
     pub generated_at: String,

@@ -28,6 +28,81 @@ fn release_watch_accepts_ref_name_spelling() {
 }
 
 #[test]
+fn tui_defaults_preserve_compatibility_surface() {
+    let cli = Cli::parse_from(["jeryu", "tui"]);
+    match cli.command {
+        Commands::Tui {
+            once,
+            demo,
+            capture,
+            screenshot,
+            tab,
+            output,
+            width,
+            height,
+            screenshot_hold_ms,
+        } => {
+            assert!(!once);
+            assert!(!demo);
+            assert!(!capture);
+            assert!(!screenshot);
+            assert_eq!(tab, "jobs");
+            assert_eq!(output, PathBuf::from("paper/assets/jeryu-tui.png"));
+            assert_eq!(width, 140);
+            assert_eq!(height, 44);
+            assert_eq!(screenshot_hold_ms, 1100);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
+fn tui_command_accepts_reset_compatibility_flags() {
+    let cli = Cli::parse_from([
+        "jeryu",
+        "tui",
+        "--once",
+        "--demo",
+        "--capture",
+        "--screenshot",
+        "--tab",
+        "mission",
+        "--output",
+        "target/tui/mission.png",
+        "--width",
+        "96",
+        "--height",
+        "34",
+        "--screenshot-hold-ms",
+        "25",
+    ]);
+    match cli.command {
+        Commands::Tui {
+            once,
+            demo,
+            capture,
+            screenshot,
+            tab,
+            output,
+            width,
+            height,
+            screenshot_hold_ms,
+        } => {
+            assert!(once);
+            assert!(demo);
+            assert!(capture);
+            assert!(screenshot);
+            assert_eq!(tab, "mission");
+            assert_eq!(output, PathBuf::from("target/tui/mission.png"));
+            assert_eq!(width, 96);
+            assert_eq!(height, 34);
+            assert_eq!(screenshot_hold_ms, 25);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
 fn install_render_demo_is_nested_under_install() {
     let cli = Cli::parse_from([
         "jeryu",

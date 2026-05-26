@@ -26,6 +26,7 @@
     "README-jankurai-scaffold.md": "workspace",
     "README.md": "workspace",
     "SECURITY.md": "workspace",
+    "TUI_RESET_PLAN_FINAL.md": "agent",
     "VERSION": "workspace",
     "aer-records/": "tools",
     "agent-index.json": "workspace",

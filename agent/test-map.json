@@ -108,6 +108,10 @@
       "command": "just score",
       "purpose": "verify repository security guidance remains routed"
     },
+    "TUI_RESET_PLAN_FINAL.md": {
+      "command": "git diff --check -- TUI_RESET_PLAN_FINAL.md",
+      "purpose": "verify the active TUI reset coordination plan stays whitespace-clean"
+    },
     "VERSION": {
       "command": "just score",
       "purpose": "verify version marker remains routed"

@@ -7,65 +7,11 @@ use ratatui::{
     text::Span,
 };
 
-use crate::tui::theme::Theme;
-
-/// A rendered badge with glyph, label, and color.
-#[derive(Debug, Clone)]
-pub struct Badge {
-    pub glyph: &'static str,
-    pub label: &'static str,
-    pub color: ratatui::style::Color,
-}
+use crate::tui::theme::{Badge, TerminalCaps, Theme};
 
 /// Compute the badge for a raw status string.
 pub fn badge_for_status(status: &str, theme: &Theme) -> Badge {
-    match status {
-        "success" | "passed" | "green" | "released" => Badge {
-            glyph: "✓",
-            label: "PASS",
-            color: theme.ok,
-        },
-        "running" | "in-flight" | "canary-authorized" => Badge {
-            glyph: "●",
-            label: "RUN",
-            color: theme.running,
-        },
-        "pending"
-        | "created"
-        | "waiting"
-        | "waiting_for_resource"
-        | "preparing"
-        | "ready-for-canary" => Badge {
-            glyph: "○",
-            label: "WAIT",
-            color: theme.waiting,
-        },
-        "failed" => Badge {
-            glyph: "✗",
-            label: "FAIL",
-            color: theme.fail,
-        },
-        "blocked" | "blocked-by-upstream" => Badge {
-            glyph: "⊘",
-            label: "BLOCK",
-            color: theme.blocked,
-        },
-        "canceled" | "vti-skipped" | "skipped" | "omitted" => Badge {
-            glyph: "⊘",
-            label: "SKIP",
-            color: theme.skipped,
-        },
-        "manual" => Badge {
-            glyph: "◇",
-            label: "MANUAL",
-            color: theme.waiting,
-        },
-        _ => Badge {
-            glyph: "·",
-            label: "INFO",
-            color: theme.text_muted,
-        },
-    }
+    crate::tui::theme::status_badge(status, theme, TerminalCaps::unicode())
 }
 
 /// Render a badge as a styled Span: "[PASS]" or "✓"
@@ -86,7 +32,7 @@ pub fn glyph_span(status: &str, theme: &Theme) -> Span<'static> {
 // VTI-specific badges
 pub fn vti_accelerated_badge(theme: &Theme) -> Span<'static> {
     Span::styled(
-        "[🔥 VTI]",
+        "[VTI]",
         Style::default()
             .fg(theme.vti_fire)
             .add_modifier(Modifier::BOLD),
@@ -110,28 +56,15 @@ pub fn vti_selected_badge(theme: &Theme) -> Span<'static> {
 }
 
 pub fn cache_hit_badge(theme: &Theme) -> Span<'static> {
-    Span::styled(
-        "[HIT]",
-        Style::default().fg(theme.ok).add_modifier(Modifier::BOLD),
-    )
+    crate::tui::theme::cache_hit_badge(theme, TerminalCaps::unicode()).span()
 }
 
 pub fn cache_taint_badge(theme: &Theme) -> Span<'static> {
-    Span::styled(
-        "[TAINT]",
-        Style::default()
-            .fg(theme.blocked)
-            .add_modifier(Modifier::BOLD),
-    )
+    crate::tui::theme::cache_taint_badge(theme, TerminalCaps::unicode()).span()
 }
 
 pub fn flake_badge(theme: &Theme) -> Span<'static> {
-    Span::styled(
-        "[FLK?]",
-        Style::default()
-            .fg(theme.warning)
-            .add_modifier(Modifier::BOLD),
-    )
+    crate::tui::theme::flake_badge(theme, TerminalCaps::unicode()).span()
 }
 
 pub fn agent_badge(theme: &Theme) -> Span<'static> {

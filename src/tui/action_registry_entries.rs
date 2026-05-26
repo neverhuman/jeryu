@@ -269,6 +269,15 @@ pub static REGISTRY: &[ActionEntry] = &[
         description: "Switch to Evidence & Audit event ledger tab",
     },
     ActionEntry {
+        id: "tab_repos",
+        label: "Go to Repos tab",
+        key_hint: None,
+        risk_tier: RiskTier::ReadOnly,
+        surfaces: TUI,
+        dry_run: false,
+        description: "Switch to repository families and health tab",
+    },
+    ActionEntry {
         id: "tab_bugs",
         label: "Go to Bugs tab",
         key_hint: Some("b"),

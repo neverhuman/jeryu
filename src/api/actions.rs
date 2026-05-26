@@ -8,6 +8,13 @@ use serde::{Deserialize, Serialize};
 use super::entity::{EntityKind, EntityRef};
 use crate::tui::action_registry::{GrantRequirement, RiskTier, SideEffectClass};
 
+#[path = "action_flow.rs"]
+mod flow;
+pub use flow::{
+    ActionExecutionResponse, ActionOperationRequest, ActionReceipt, ActionStreamEvent,
+    ActionStreamPage, ActionStreamPhase, cursor_for_key, receipt_id,
+};
+
 // ── Action Context ──────────────────────────────────────────────────────
 
 /// The context in which an action is being requested.
@@ -115,6 +122,8 @@ pub enum ActionStatus {
     Rejected,
     /// Action failed during execution.
     Failed,
+    /// Action was canceled before completion.
+    Cancelled,
 }
 
 // ── Contextual Action ───────────────────────────────────────────────────

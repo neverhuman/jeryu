@@ -8,6 +8,7 @@ pub mod attention;
 pub mod inspector;
 pub mod mission;
 pub mod mission_shared;
+pub mod shared;
 pub mod sparkline;
 pub mod status_badge;
 pub mod timeline;
@@ -47,3 +48,6 @@ mod tests {
         assert_eq!(truncate_label("test", 0), "");
     }
 }
+
+#[cfg(test)]
+mod shared_tests;

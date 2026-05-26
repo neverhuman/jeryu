@@ -1,17 +1,17 @@
 {
-  "report_fingerprint": "sha256:a9c83c8831df587cb3a8475332af69d134197d8dfcad9ac74535f690441dc4f0",
-  "input_fingerprint": "sha256:bdc736e21068e877a32a93eb7e9502ca5c432d1011cccdcdd55606a38d17e2db",
-  "policy_fingerprint": "sha256:150079e55a70212b39011e1e482353df15975a1149cf40df9d246868cc026c2b",
+  "report_fingerprint": "sha256:dea1d6281634ca6798bc9a0e9719598ed39ac40dfd62dcfc64a3b17a88fb4445",
+  "input_fingerprint": "sha256:8399115c48d06147c1f3aee7950ddc98aad2ce5ede9e5c56d97025ab727934d4",
+  "policy_fingerprint": "sha256:74ebcc873ee082b6c835f173f9569cf27e1b6f71252ab7d0ec8c31b64e0b567f",
   "manifest_fingerprints": {
-    "owner_map": "sha256:92b3974217c8f4f67e507da57e398db69cabf08f3b620919e947e257bd576d2b",
-    "test_map": "sha256:5cba99c038d7a8ccc731185f2b387916497aaff7f2be8bd6a7b8a88107b30f0e",
+    "owner_map": "sha256:fe9333a50e389dde91c6f32d919b1322758f477c0a3b46bf04b7487a5aca14ba",
+    "test_map": "sha256:76b442f6eab08b964dfc9dd3fe2f54fdb3d9e405580ec1954c6e812b42bf88e3",
     "generated_zones": "sha256:5dfe809251017a95ec5a27320d48c17b4abacd36c2b66eee287f4f70fcfb7772",
     "boundaries": "sha256:4b3b4ff624a9f9779a21572e8ef75f33d157f141606516169418613995ad2199",
     "proof_lanes": "sha256:b69c7bb26f226f3885278c7ab58b8ade787ad5402582cb420b8137db166ad2c7",
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
-  "dirty_worktree": false,
-  "generated_at": "1779766888",
+  "dirty_worktree": true,
+  "generated_at": "1779816446",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779766888",
-  "started_at": "1779766888",
-  "elapsed_ms": 6806,
+  "run_id": "1779816446",
+  "started_at": "1779816446",
+  "elapsed_ms": 6987,
   "scope": {
     "mode": "full",
     "paths": []
@@ -35,7 +35,7 @@
   "score": 89,
   "raw_score": 89,
   "decision": {
-    "status": "pass",
+    "status": "advisory",
     "minimum_score": 85,
     "passed": true,
     "hard_findings": 0,
@@ -54,11 +54,11 @@
     }
   },
   "git": {
-    "head": "624e84b",
+    "head": "05e9f28",
     "base": null,
     "changed_files": 0,
     "mode": "full",
-    "dirty_worktree": false
+    "dirty_worktree": true
   },
   "policy": {
     "path": "./agent/audit-policy.toml",
@@ -71,7 +71,7 @@
       "medium",
       "low"
     ],
-    "mode": "standard",
+    "mode": "advisory",
     "standard_version": "0.9.0",
     "auditor_version": "1.5.1",
     "schema_version": "1.9.0",
@@ -336,13 +336,9 @@
         "web e2e lane present or no web surface",
         "rendered UX QA lane present or no web surface",
         "DOM geometry UX QA runtime found",
-        "Rust property/integration tests present or no Rust surface",
-        "proofbind artifact found: surfaces=85 missing=85 high_or_critical_missing=19 verdict=review"
+        "Rust property/integration tests present or no Rust surface"
       ],
-      "notes": [
-        "proofbind reports 85 unresolved obligation(s)",
-        "proofbind reports 19 missing high/critical semantic proof obligation(s)"
-      ]
+      "notes": []
     },
     {
       "name": "Security and supply-chain posture",
@@ -357,7 +353,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 787",
+        "rust bad-behavior advisory signals: 841",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -371,11 +367,11 @@
       "score": 70,
       "weighted_points": 8.4,
       "evidence": [
-        "largest authored code file: src/llm/doctor.rs (303 LOC)",
+        "largest authored code file: src/inspection/mod.rs (377 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 25 (advisory only, no score impact)",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 787",
+        "rust bad-behavior advisory signals: 841",
         "ci bad-behavior advisory signals: 3",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
@@ -522,32 +518,6 @@
       "visual_review": [
         "apps/web/ux-qa.ts"
       ]
-    },
-    "artifact": {
-      "path": "target/jankurai/ux-qa.json",
-      "report_count": 10,
-      "worst_decision": "pass",
-      "total_violations": 0,
-      "summary_errors": 0,
-      "summary_warnings": 0,
-      "reports_missing_required_states": 0,
-      "missing_state_names": [],
-      "artifact_counts_by_kind": {
-        "accessibility": 10,
-        "aria-snapshot": 10,
-        "screenshot": 10
-      },
-      "reports_missing_required_artifacts": 0,
-      "missing_artifact_kinds": [],
-      "reports_missing_required_accessibility_artifact": 0,
-      "accessibility_violation_total": 0,
-      "accessibility_incomplete_total": 0,
-      "accessibility_pass_total": 170,
-      "artifact_fingerprint_count": 30,
-      "visual_baseline_missing": 10,
-      "visual_baseline_changed": 0,
-      "visual_baseline_review": 0,
-      "visual_baseline_block": 0
     }
   },
   "tool_adoption": {
@@ -1095,23 +1065,7 @@
       "cost-budget"
     ]
   },
-  "security_evidence": {
-    "artifact": {
-      "path": "target/jankurai/security/evidence.json",
-      "envelope_exit_code": 0,
-      "elapsed_ms": 3785,
-      "wrapper_strict": true,
-      "profile": "ci",
-      "commands_ran": 1,
-      "commands_skipped": 0,
-      "commands_failed": 0,
-      "required_commands_skipped": 0,
-      "required_commands_failed": 0,
-      "blocking_commands": [],
-      "generated_at": "1779671912",
-      "git_head": "0fe29e08935061817d002221052ef45494379613"
-    }
-  },
+  "security_evidence": {},
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
@@ -1129,7 +1083,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-26T03:41:22.372982470+00:00",
+    "generated_at": "2026-05-26T17:27:19.985529480+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1167,20 +1121,20 @@
       ]
     },
     "summary": {
-      "files_scanned": 787,
-      "files_considered": 432,
-      "active_files": 432,
+      "files_scanned": 804,
+      "files_considered": 440,
+      "active_files": 440,
       "exact_file_classes": 0,
       "hard_classes": 0,
       "warning_classes": 25,
       "hard_instances": 0,
-      "warning_instances": 89,
-      "duplicate_lines": 39,
-      "duplicate_tokens": 89,
-      "duplicate_bytes": 923,
-      "total_redundant_lines": 79,
-      "total_redundant_tokens": 196,
-      "total_redundant_bytes": 1843
+      "warning_instances": 86,
+      "duplicate_lines": 41,
+      "duplicate_tokens": 92,
+      "duplicate_bytes": 959,
+      "total_redundant_lines": 78,
+      "total_redundant_tokens": 191,
+      "total_redundant_bytes": 1812
     },
     "classes": [
       {
@@ -1192,13 +1146,13 @@
         "duplicate_lines": 1,
         "duplicate_tokens": 2,
         "duplicate_bytes": 20,
-        "instance_count": 17,
-        "total_redundant_lines": 16,
-        "total_redundant_tokens": 32,
-        "total_redundant_bytes": 320,
+        "instance_count": 16,
+        "total_redundant_lines": 15,
+        "total_redundant_tokens": 30,
+        "total_redundant_bytes": 300,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "14a7a0723f3976ac",
+        "fingerprint": "dbc939dbd7c83c59",
         "reason": "same body appears under different names across files",
         "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
         "instances": [
@@ -1226,29 +1180,22 @@
           {
             "path": "src/api/entity.rs",
             "language": "rust",
-            "start_line": 118,
-            "end_line": 119,
-            "unit_name": "label"
-          },
-          {
-            "path": "src/api/entity.rs",
-            "language": "rust",
-            "start_line": 127,
-            "end_line": 128,
+            "start_line": 75,
+            "end_line": 76,
             "unit_name": "glyph"
           },
           {
             "path": "src/api/entity.rs",
             "language": "rust",
-            "start_line": 150,
-            "end_line": 151,
+            "start_line": 98,
+            "end_line": 99,
             "unit_name": "label"
           },
           {
             "path": "src/api/entity.rs",
             "language": "rust",
-            "start_line": 160,
-            "end_line": 161,
+            "start_line": 108,
+            "end_line": 109,
             "unit_name": "glyph"
           },
           {
@@ -1332,105 +1279,98 @@
         "duplicate_lines": 1,
         "duplicate_tokens": 4,
         "duplicate_bytes": 27,
-        "instance_count": 13,
-        "total_redundant_lines": 12,
-        "total_redundant_tokens": 48,
-        "total_redundant_bytes": 324,
+        "instance_count": 12,
+        "total_redundant_lines": 11,
+        "total_redundant_tokens": 44,
+        "total_redundant_bytes": 297,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "fca42792a799c5fd",
+        "fingerprint": "35042e572b4e87d1",
         "reason": "same body appears under different names across files",
         "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
         "instances": [
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1793,
-            "end_line": 1794,
+            "start_line": 1789,
+            "end_line": 1790,
             "unit_name": "insert_pool"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1856,
-            "end_line": 1857,
+            "start_line": 1852,
+            "end_line": 1853,
             "unit_name": "insert_manager"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1879,
-            "end_line": 1880,
-            "unit_name": "list_managers_for_node"
-          },
-          {
-            "path": "db/state.rs",
-            "language": "rust",
-            "start_line": 1893,
-            "end_line": 1894,
+            "start_line": 1887,
+            "end_line": 1888,
             "unit_name": "mark_node_managers_unreachable"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1987,
-            "end_line": 1988,
+            "start_line": 1981,
+            "end_line": 1982,
             "unit_name": "count_active_managers"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2000,
-            "end_line": 2001,
+            "start_line": 1994,
+            "end_line": 1995,
             "unit_name": "upsert_job_event"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2059,
-            "end_line": 2060,
+            "start_line": 2053,
+            "end_line": 2054,
             "unit_name": "upsert_ci_job_run"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2158,
-            "end_line": 2159,
+            "start_line": 2152,
+            "end_line": 2153,
             "unit_name": "recent_ci_job_runs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2716,
-            "end_line": 2717,
+            "start_line": 2710,
+            "end_line": 2711,
             "unit_name": "upsert_tracked_repository"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3067,
-            "end_line": 3068,
+            "start_line": 3061,
+            "end_line": 3062,
             "unit_name": "record_git_ref_update"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3094,
-            "end_line": 3095,
+            "start_line": 3088,
+            "end_line": 3089,
             "unit_name": "record_git_mirror_job"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3121,
-            "end_line": 3122,
+            "start_line": 3115,
+            "end_line": 3116,
             "unit_name": "record_git_risk_approval"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3140,
-            "end_line": 3141,
+            "start_line": 3134,
+            "end_line": 3135,
             "unit_name": "record_git_command_artifact"
           }
         ]
@@ -1536,29 +1476,29 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2330,
-            "end_line": 2331,
+            "start_line": 2324,
+            "end_line": 2325,
             "unit_name": "upsert_tracked_pipeline"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3167,
-            "end_line": 3168,
+            "start_line": 3161,
+            "end_line": 3162,
             "unit_name": "upsert_secret_authority"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3205,
-            "end_line": 3206,
+            "start_line": 3199,
+            "end_line": 3200,
             "unit_name": "upsert_release_secret_set"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3307,
-            "end_line": 3308,
+            "start_line": 3301,
+            "end_line": 3302,
             "unit_name": "insert_secret_audit_event"
           }
         ]
@@ -1614,56 +1554,6 @@
         ]
       },
       {
-        "id": "copy-code-unit-rust-5c97e73af8e01f30",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "label",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 20,
-        "instance_count": 4,
-        "total_redundant_lines": 3,
-        "total_redundant_tokens": 6,
-        "total_redundant_bytes": 60,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "98fa6135c45d3c68",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "src/api/agent_session.rs",
-            "language": "rust",
-            "start_line": 123,
-            "end_line": 124,
-            "unit_name": "label"
-          },
-          {
-            "path": "src/api/entity.rs",
-            "language": "rust",
-            "start_line": 118,
-            "end_line": 119,
-            "unit_name": "label"
-          },
-          {
-            "path": "src/api/entity.rs",
-            "language": "rust",
-            "start_line": 150,
-            "end_line": 151,
-            "unit_name": "label"
-          },
-          {
-            "path": "src/api/snapshot.rs",
-            "language": "rust",
-            "start_line": 140,
-            "end_line": 141,
-            "unit_name": "label"
-          }
-        ]
-      },
-      {
         "id": "copy-code-unit-rust-e80c1f5cbf7cefbc",
         "kind": "exact_unit_same_name",
         "severity": "warning",
@@ -1693,15 +1583,15 @@
           {
             "path": "src/api/entity.rs",
             "language": "rust",
-            "start_line": 127,
-            "end_line": 128,
+            "start_line": 75,
+            "end_line": 76,
             "unit_name": "glyph"
           },
           {
             "path": "src/api/entity.rs",
             "language": "rust",
-            "start_line": 160,
-            "end_line": 161,
+            "start_line": 108,
+            "end_line": 109,
             "unit_name": "glyph"
           },
           {
@@ -1710,6 +1600,42 @@
             "start_line": 87,
             "end_line": 88,
             "unit_name": "glyph"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-952dbaa1861d3bae",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 36,
+        "instance_count": 2,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 36,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "162331ab28442dad",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/api/read_model_queue.rs",
+            "language": "rust",
+            "start_line": 81,
+            "end_line": 84,
+            "unit_name": "default"
+          },
+          {
+            "path": "src/api/read_model_repos.rs",
+            "language": "rust",
+            "start_line": 90,
+            "end_line": 93,
+            "unit_name": "default"
           }
         ]
       },
@@ -1870,8 +1796,8 @@
           {
             "path": "src/runner_backend_remote_support.rs",
             "language": "rust",
-            "start_line": 110,
-            "end_line": 112,
+            "start_line": 115,
+            "end_line": 117,
             "unit_name": "shell_quote"
           }
         ]
@@ -2021,6 +1947,49 @@
             "start_line": 169,
             "end_line": 170,
             "unit_name": "parse"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-5c97e73af8e01f30",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "label",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "7d24a54c0e32f918",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/api/agent_session.rs",
+            "language": "rust",
+            "start_line": 123,
+            "end_line": 124,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/entity.rs",
+            "language": "rust",
+            "start_line": 98,
+            "end_line": 99,
+            "unit_name": "label"
+          },
+          {
+            "path": "src/api/snapshot.rs",
+            "language": "rust",
+            "start_line": 140,
+            "end_line": 141,
+            "unit_name": "label"
           }
         ]
       },
@@ -2188,15 +2157,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2232,
-            "end_line": 2233,
+            "start_line": 2226,
+            "end_line": 2227,
             "unit_name": "count_pending_jobs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2910,
-            "end_line": 2911,
+            "start_line": 2904,
+            "end_line": 2905,
             "unit_name": "count_recovery_decisions"
           }
         ]
@@ -2294,8 +2263,8 @@
           {
             "path": "src/api/entity.rs",
             "language": "rust",
-            "start_line": 191,
-            "end_line": 192,
+            "start_line": 139,
+            "end_line": 140,
             "unit_name": "default"
           },
           {
@@ -2304,41 +2273,6 @@
             "start_line": 64,
             "end_line": 65,
             "unit_name": "new"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-e3b0c44298fc1c14",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 0,
-        "duplicate_bytes": 0,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 0,
-        "total_redundant_bytes": 0,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "f4ddaab73578c564",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "src/autonomy/signing_secrets.rs",
-            "language": "rust",
-            "start_line": 232,
-            "end_line": 233,
-            "unit_name": "set_secret_file_mode"
-          },
-          {
-            "path": "src/cluster_types.rs",
-            "language": "rust",
-            "start_line": 80,
-            "end_line": 81,
-            "unit_name": "default_cache_gib"
           }
         ]
       }
@@ -2656,7 +2590,7 @@
       "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/llm/doctor.rs (303 LOC)",
+        "largest authored code file: src/inspection/mod.rs (377 LOC)",
         "most code files stay under 300 LOC",
         "copy-code advisory classes found: 25 (advisory only, no score impact)",
         "IO markers found in domain/core files"
@@ -2666,7 +2600,7 @@
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:7a95945f901a53e13c4056d059f1f121842ee3efdceea6aa183a7f72c7b6237a",
+      "fingerprint": "sha256:3b53254ad0cae07d2f70d3d4443e0d178adbcb7815a85381282aefec73c006ca",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",

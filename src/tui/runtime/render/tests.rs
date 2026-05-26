@@ -91,6 +91,7 @@ async fn renders_all_primary_tabs_with_empty_state() -> Result<()> {
         crate::tui::app::ActiveTab::Pools,
         crate::tui::app::ActiveTab::Cache,
         crate::tui::app::ActiveTab::Evidence,
+        crate::tui::app::ActiveTab::Repos,
         crate::tui::app::ActiveTab::Bugs,
         crate::tui::app::ActiveTab::Secrets,
         crate::tui::app::ActiveTab::LLMs,
@@ -498,6 +499,8 @@ async fn navigation_cycles_tabs_and_panes() -> Result<()> {
     app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Evidence);
     app.cycle_tab_next();
+    assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Repos);
+    app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Bugs);
     app.cycle_tab_next();
     assert_eq!(app.active_tab, crate::tui::app::ActiveTab::Secrets);
@@ -513,6 +516,23 @@ async fn navigation_cycles_tabs_and_panes() -> Result<()> {
     assert_eq!(app.active_pane, crate::tui::app::ActivePane::Jobs);
     app.cycle_pane_next();
     assert_eq!(app.active_pane, crate::tui::app::ActivePane::Jobs);
+    Ok(())
+}
+
+#[tokio::test]
+async fn renders_repos_tab_from_demo_fleet() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.apply_demo_fixture();
+    app.active_tab = crate::tui::app::ActiveTab::Repos;
+
+    let buffer = capture_buffer_size(&mut app, 140, 44)?;
+    let text = rendered_text(&buffer);
+
+    assert!(text.contains("Repository Fleet"));
+    assert!(text.contains("Families"));
+    assert!(text.contains("Repositories"));
+    assert!(text.contains("neverhuman"));
+    assert!(text.contains("shared"));
     Ok(())
 }
 
