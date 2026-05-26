@@ -16,10 +16,7 @@
 // ui_panels.rs files reach via `use super::*;`. Keeping the imports here
 // preserves the legacy split surface without modifying those sibling files.
 pub(super) use crate::tui::app::{ActiveTab, App};
-pub(super) use crate::tui::{
-    activity,
-    focus::{self, PaneId},
-};
+pub(super) use crate::tui::focus::{self, PaneId};
 pub(super) use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
