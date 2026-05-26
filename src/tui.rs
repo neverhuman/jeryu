@@ -10,6 +10,7 @@ pub mod bugs;
 pub mod flow;
 pub mod focus;
 pub mod jankurai;
+pub mod lenses;
 pub mod live;
 pub mod proof_lanes;
 pub mod repo_fleet_bar;
