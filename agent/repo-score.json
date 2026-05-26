@@ -1,5 +1,5 @@
 {
-  "report_fingerprint": "sha256:c5782173e052e6851f39584ea40d97df13efc19edb7410dcb01fb07657914b06",
+  "report_fingerprint": "sha256:a9c83c8831df587cb3a8475332af69d134197d8dfcad9ac74535f690441dc4f0",
   "input_fingerprint": "sha256:bdc736e21068e877a32a93eb7e9502ca5c432d1011cccdcdd55606a38d17e2db",
   "policy_fingerprint": "sha256:150079e55a70212b39011e1e482353df15975a1149cf40df9d246868cc026c2b",
   "manifest_fingerprints": {
@@ -10,8 +10,8 @@
     "proof_lanes": "sha256:b69c7bb26f226f3885278c7ab58b8ade787ad5402582cb420b8137db166ad2c7",
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
-  "dirty_worktree": true,
-  "generated_at": "1779766809",
+  "dirty_worktree": false,
+  "generated_at": "1779766888",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779766809",
-  "started_at": "1779766809",
-  "elapsed_ms": 6787,
+  "run_id": "1779766888",
+  "started_at": "1779766888",
+  "elapsed_ms": 6806,
   "scope": {
     "mode": "full",
     "paths": []
@@ -54,11 +54,11 @@
     }
   },
   "git": {
-    "head": "747ffc5",
+    "head": "624e84b",
     "base": null,
     "changed_files": 0,
     "mode": "full",
-    "dirty_worktree": true
+    "dirty_worktree": false
   },
   "policy": {
     "path": "./agent/audit-policy.toml",
@@ -1129,7 +1129,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-26T03:40:03.210722361+00:00",
+    "generated_at": "2026-05-26T03:41:22.372982470+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
