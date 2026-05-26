@@ -209,6 +209,12 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
 
         Commands::Bug(subcmd) => return crate::commands::bug::execute_bug_commands(subcmd).await,
 
+        // ---- Web Forge BFF (Phase-0 stub; W-F-10) ------------------------
+        // Real Axum binding lands in W-B-01..04 per WEB_WORK_CLAUDE.md §7.0.
+        // Legacy routes /health, /hooks, /cache/summary are preserved by
+        // W-B-02 per WEB_WORK_CLAUDE.md §35.1.5.
+        Commands::Web(cmd) => crate::web::command::run(cmd).await?,
+
         other => return dispatch_back::run(other).await,
     }
 
