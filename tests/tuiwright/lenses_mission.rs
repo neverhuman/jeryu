@@ -5,9 +5,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 use jeryu::api::read_model::TuiReadModel;
-use jeryu::tui::lenses::mission::{
-    LENS_ID, MissionIntent, MissionLensInput, draw, handle_key,
-};
+use jeryu::tui::lenses::mission::{LENS_ID, MissionIntent, MissionLensInput, draw, handle_key};
 use jeryu::tui::testing::fixtures;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -75,7 +73,10 @@ fn key_enter_drills_top_attention() {
 
 #[test]
 fn key_esc_pops_route() {
-    assert_eq!(handle_key(&k(KeyCode::Esc), &input()), MissionIntent::PopRoute);
+    assert_eq!(
+        handle_key(&k(KeyCode::Esc), &input()),
+        MissionIntent::PopRoute
+    );
 }
 
 #[test]

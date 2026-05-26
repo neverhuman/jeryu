@@ -74,7 +74,10 @@ fn key_enter_drills_selected_object() {
 
 #[test]
 fn key_esc_pops_route() {
-    assert_eq!(handle_key(&k(KeyCode::Esc), &input()), CacheIntent::PopRoute);
+    assert_eq!(
+        handle_key(&k(KeyCode::Esc), &input()),
+        CacheIntent::PopRoute
+    );
 }
 
 #[test]

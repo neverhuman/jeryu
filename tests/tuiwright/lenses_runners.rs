@@ -6,9 +6,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 use jeryu::api::read_model::TuiReadModel;
-use jeryu::tui::lenses::runners::{
-    LENS_ID, RunnersIntent, RunnersLensInput, draw, handle_key,
-};
+use jeryu::tui::lenses::runners::{LENS_ID, RunnersIntent, RunnersLensInput, draw, handle_key};
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 

@@ -74,7 +74,10 @@ fn key_enter_drills_selected_session() {
 
 #[test]
 fn key_esc_pops_route() {
-    assert_eq!(handle_key(&k(KeyCode::Esc), &input()), AgentsIntent::PopRoute);
+    assert_eq!(
+        handle_key(&k(KeyCode::Esc), &input()),
+        AgentsIntent::PopRoute
+    );
 }
 
 #[test]
