@@ -38,9 +38,38 @@ fail() { printf '%s✗%s %s\n' "$RED" "$RESET" "$1" >&2; }
 warn() { printf '%s!%s %s\n' "$YELLOW" "$RESET" "$1" >&2; }
 
 # ── resolve install destination ────────────────────────────────────────────
+# Priority:
+#   1. $JERYU_INSTALL_PREFIX/bin (explicit override)
+#   2. The directory containing whatever `which jeryu` resolves to (so a
+#      pre-existing system install at e.g. ~/.jeryu/bin or /usr/local/bin
+#      gets replaced in place — that's the path the user's PATH already
+#      points at)
+#   3. ~/.jeryu/bin if it exists (the project's conventional install root)
+#   4. ~/.local/bin (XDG-friendly user-local default)
+#   5. /usr/local/bin (system-wide; will need sudo)
 resolve_install_dir() {
     if [ -n "${JERYU_INSTALL_PREFIX:-}" ]; then
         echo "${JERYU_INSTALL_PREFIX}/bin"; return
+    fi
+    # Prefer the directory the existing system 'jeryu' resolves to, so the
+    # deploy replaces what's on PATH today rather than shadowing it.
+    if command -v jeryu >/dev/null 2>&1; then
+        local existing
+        existing="$(command -v jeryu)"
+        # Don't accidentally install over the repo's own target/release/jeryu
+        case "$existing" in
+            "$REPO_ROOT"/target/*) ;;
+            *)
+                local existing_dir
+                existing_dir="$(dirname "$existing")"
+                if [ -w "$existing_dir" ] || command -v sudo >/dev/null 2>&1; then
+                    echo "$existing_dir"; return
+                fi
+                ;;
+        esac
+    fi
+    if [ -d "$HOME/.jeryu/bin" ]; then
+        echo "$HOME/.jeryu/bin"; return
     fi
     if [ -d "$HOME/.local/bin" ] && [ -w "$HOME/.local/bin" ]; then
         echo "$HOME/.local/bin"; return
