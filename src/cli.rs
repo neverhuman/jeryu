@@ -29,7 +29,7 @@ pub(crate) use cli_defs::*;
 #[derive(Parser)]
 #[command(
     name = "jeryu",
-    version,
+    version = env!("JERYU_FULL_VERSION"),
     about = "Git-compatible version control layer for the AI era"
 )]
 pub(crate) struct Cli {

@@ -7,6 +7,7 @@
 # │    ● fmt  ● clippy  ● supply-chain                                          │
 # │    ● fixture-project-test  ● fixture-project-clippy                         │
 # │    ● build  (stage=build, needs:[] bypasses the check-stage barrier)        │
+# │    ● build-release  (stage=deploy, needs:[] — main push only)               │
 # │                                                                             │
 # │  t≈build (~30m):                                                            │
 # │    test-select · install-smoke · ssh-install-e2e                            │
@@ -17,8 +18,10 @@
 # │    test-lib · test-mock · test-integration                                  │
 # │                                                                             │
 # │  t≈tests (~80m):  jankurai-ratchet (advisory, allow_failure)                │
+# │                   release-ready (gate, MR→main only)                        │
+# │                   deploy-local (main push only, needs all critical tests)   │
 # │                                                                             │
-# │  t≈all-critical (~80m):  release-ready (gate)                              │
+# │  t≈81m:  verify-deploy (shell runner — checks jeryu --version on host)     │
 # │                                                                             │
 # │  Critical path: build(30) → test-select(5) → test-integration(45) ≈ 80m   │
 # │  Previous:  clippy(25) → build(30) → select(5) → integ(45) ≈ 105m         │
@@ -60,6 +63,8 @@ stages:
   - build         # t=0 via needs:[] (parallel with check): cargo build workspace
   - verify        # after build (+ test-select for test jobs): tests · audits · tui
   - gate          # after critical tests: release-ready composite gate
+  - deploy        # main push only: build-release (signed artifact) + deploy-local
+  - verify-deploy # main push only: confirm jeryu --version on host matches new SHA
   - release-prep  # version resolution · audit · security (tag/manual)
   - release-build # release binary
   - release-proof # provenance · SBOM · rollback-check · evidence
@@ -678,6 +683,127 @@ release-ready:
     PR_NUMBER: $CI_MERGE_REQUEST_IID
   script:
     - bash ops/ci/release-ready-lane.sh "${CI_MERGE_REQUEST_IID:-0}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEPLOY STAGE  — main push only (never runs on MRs)
+#
+# build-release  : compiles optimised release binary with git SHA embedded in
+#                  the version string (JERYU_BUILD_META=g{short_sha}).
+#                  Also generates a sha256 checksum file for integrity checks.
+#
+# deploy-local   : atomically installs the binary on THIS machine at
+#                  ~/.jeryu/bin/jeryu (and ~/.cargo/bin/jeryu if writable).
+#                  REQUIRES shell executor runner (tag: jeryu-default).
+#                  The script self-detects Docker and exits with a clear message
+#                  if it's running in a container instead of on the host shell.
+#
+# verify-deploy  : runs `jeryu --version` via the same shell runner and asserts
+#                  the output contains the expected commit short SHA, confirming
+#                  the host binary was actually updated.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Rules shared by all deploy jobs — main push only.
+.on-main-push:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+
+# Build the optimised release binary with embedded git SHA.
+# Starts at t=0 in parallel with the debug build and lint jobs.
+build-release:
+  stage: deploy
+  extends: [.rust-toolchain, .cargo-cache, .on-main-push]
+  # needs:[] → starts immediately at pipeline t=0 (same as build + lint)
+  needs: []
+  timeout: 45 minutes
+  interruptible: true
+  variables:
+    # Embed the commit short SHA into the binary version string.
+    # build.rs reads this and emits JERYU_FULL_VERSION="{pkg_ver}+g{sha}".
+    JERYU_BUILD_META: "g${CI_COMMIT_SHORT_SHA}"
+  script:
+    - bash ops/ci/rust-lane.sh build-release 2>/dev/null || cargo build --release -p jeryu
+    - sha256sum target/release/jeryu | tee target/release/jeryu.sha256
+    - echo "Release binary version:"
+    - target/release/jeryu --version
+  artifacts:
+    name: "jeryu-release-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - target/release/jeryu
+      - target/release/jeryu.sha256
+    expire_in: 30 days
+    when: on_success
+
+# Atomically install the release binary on the local host.
+# Tags: [jeryu-default] — must be a shell executor runner.
+deploy-local:
+  stage: deploy
+  extends: [.on-main-push]
+  # Wait until the release binary is built AND all critical tests have passed.
+  # We do NOT deploy a binary that failed tests.
+  needs:
+    - job: build-release
+      artifacts: true
+    - job: fmt
+      artifacts: false
+    - job: clippy
+      artifacts: false
+    - job: test-lib
+      artifacts: false
+    - job: test-mock
+      artifacts: false
+    - job: test-integration
+      artifacts: false
+    - job: jankurai-audit
+      artifacts: false
+    - job: jankurai-security
+      artifacts: false
+  tags:
+    - jeryu-default
+  timeout: 5 minutes
+  script:
+    - bash ops/ci/deploy-local-lane.sh target/release/jeryu
+  artifacts:
+    name: deploy-receipt-${CI_COMMIT_SHORT_SHA}
+    paths:
+      - "$HOME/.jeryu/last-deploy.json"
+    expire_in: 7 days
+    when: always
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VERIFY-DEPLOY STAGE  — confirms the host binary was updated
+# ─────────────────────────────────────────────────────────────────────────────
+
+verify-deploy:
+  stage: verify-deploy
+  extends: [.on-main-push]
+  needs:
+    - job: deploy-local
+      artifacts: false
+  tags:
+    - jeryu-default
+  timeout: 2 minutes
+  script:
+    - |
+      EXPECTED="${CI_COMMIT_SHORT_SHA}"
+      INSTALLED=$(jeryu --version 2>&1)
+      echo "Installed: $INSTALLED"
+      echo "Expected SHA fragment: $EXPECTED"
+      if echo "$INSTALLED" | grep -q "$EXPECTED"; then
+        echo "✓ Deploy verified — host binary contains commit $EXPECTED"
+      else
+        echo "✗ Deploy verification FAILED"
+        echo "  jeryu --version reported: $INSTALLED"
+        echo "  Expected it to contain:   $EXPECTED"
+        echo ""
+        echo "  Possible causes:"
+        echo "  1. deploy-local ran on a different runner than this verify job"
+        echo "  2. ~/.jeryu/bin is not on PATH for this runner"
+        echo "  3. build-release did not embed JERYU_BUILD_META correctly"
+        exit 1
+      fi
+    - |
+      echo "--- Deploy receipt ---"
+      cat "$HOME/.jeryu/last-deploy.json" 2>/dev/null || echo "(receipt not found)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RELEASE PIPELINE  (≡ release.yml)
