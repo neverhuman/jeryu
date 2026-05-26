@@ -9,3 +9,21 @@ command = "jankurai audit . --mode advisory --json agent/repo-score.json --md ag
 path = "agent/repo-score.md"
 read_only = false
 source = "installed jankurai binary"
+
+[[zone]]
+command = "cargo run --bin jeryu_export_schemas --features web"
+path = "schemas/web-api.openapi.json"
+read_only = false
+source = "src/bin/jeryu_export_schemas.rs (W-F-11)"
+
+[[zone]]
+command = "cargo run --bin jeryu_export_schemas --features web"
+path = "schemas/websocket-events.schema.json"
+read_only = false
+source = "src/bin/jeryu_export_schemas.rs (W-F-11)"
+
+[[zone]]
+command = "cargo run --bin jeryu_export_types --features web  # or cargo test --features web"
+path = "contracts/generated/*.ts"
+read_only = false
+source = "src/api/*.rs ts-rs derives (W-F-03 / W-F-04)"

@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WsRoot",
+  "description": "Helper struct that schemars walks to emit a single schema covering both\nclient and server WS message envelopes plus the `WebEvent` payload.",
+  "type": "object",
+  "properties": {
+    "client": {
+      "$ref": "#/$defs/ClientWsMessage"
+    },
+    "event": {
+      "$ref": "#/$defs/WebEvent"
+    },
+    "server": {
+      "$ref": "#/$defs/ServerWsMessage"
+    }
+  },
+  "required": [
+    "client",
+    "server",
+    "event"
+  ],
+  "$defs": {
+    "ClientWsMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "resume_from": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0
+            },
+            "subscriptions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SubscriptionSpec"
+              }
+            },
+            "type": {
+              "type": "string",
+              "const": "hello"
+            }
+          },
+          "required": [
+            "type",
+            "subscriptions"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "subscriptions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SubscriptionSpec"
+              }
+            },
+            "type": {
+              "type": "string",
+              "const": "subscribe"
+            }
+          },
+          "required": [
+            "type",
+            "subscriptions"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "scopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "type": {
+              "type": "string",
+              "const": "unsubscribe"
+            }
+          },
+          "required": [
+            "type",
+            "scopes"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "const": "ack"
+            }
+          },
+          "required": [
+            "type",
+            "seq"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nonce": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "ping"
+            }
+          },
+          "required": [
+            "type",
+            "nonce"
+          ]
+        }
+      ]
+    },
+    "ServerWsMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "current_seq": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "protocol": {
+              "type": "string"
+            },
+            "server_time": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "type": {
+              "type": "string",
+              "const": "hello"
+            }
+          },
+          "required": [
+            "type",
+            "server_time",
+            "current_seq",
+            "protocol"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "current_seq": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0
+            },
+            "reason": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "snapshot_required"
+            }
+          },
+          "required": [
+            "type",
+            "reason",
+            "current_seq"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "event": {
+              "$ref": "#/$defs/WebEvent"
+            },
+            "type": {
+              "type": "string",
+              "const": "event"
+            }
+          },
+          "required": [
+            "type",
+            "event"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "nonce": {
+              "type": "string"
+            },
+            "server_time": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "type": {
+              "type": "string",
+              "const": "pong"
+            }
+          },
+          "required": [
+            "type",
+            "nonce",
+            "server_time"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "error"
+            }
+          },
+          "required": [
+            "type",
+            "code",
+            "message"
+          ]
+        }
+      ]
+    },
+    "SubscriptionSpec": {
+      "type": "object",
+      "properties": {
+        "filters": {
+          "description": "Free-form filter object (e.g. `{ kind: [\"mr.approved\"] }`)."
+        },
+        "scope": {
+          "description": "Granular topic per §35.1.15, e.g. `global.activity`, `repo.{id}`,\n`mr.{id}`, `agent.{id}`, `cache.{id}`. Backend re-checks each scope\nagainst the viewer's perms on every `Subscribe` frame (§35.1.6).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope",
+        "filters"
+      ]
+    },
+    "WebEvent": {
+      "type": "object",
+      "properties": {
+        "entity": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "payload": {
+          "description": "Free-form payload carrying severity, parent, evidence refs, etc."
+        },
+        "scope": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "summary": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "seq",
+        "timestamp",
+        "scope",
+        "kind",
+        "entity",
+        "summary",
+        "payload"
+      ]
+    }
+  }
+}
