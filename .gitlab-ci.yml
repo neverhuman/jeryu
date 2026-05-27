@@ -218,7 +218,7 @@ jankurai_security:
   tags: [default]
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends go nodejs npm
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh security
 
@@ -227,7 +227,7 @@ jankurai_audit:
   tags: [default]
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends go nodejs npm
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh audit
 
@@ -236,7 +236,7 @@ jankurai_proof:
   tags: [default]
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends go nodejs npm
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh proof
 
@@ -245,7 +245,7 @@ jankurai_tools:
   tags: [default]
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends go nodejs npm
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh tools
 
@@ -254,7 +254,7 @@ jankurai_bad_behavior:
   tags: [default]
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends go nodejs npm
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh bad-behavior
 
@@ -263,7 +263,7 @@ jankurai_sbom:
   tags: [default]
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends go nodejs npm
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash ops/ci/jankurai-lane.sh sbom
 
 # ---------------------------------------------------------------------------
