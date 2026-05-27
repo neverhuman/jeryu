@@ -6,11 +6,13 @@
 #   gate <event-name> <conclusion> <branch>   — emit "proceed" or "skip" + reason
 #   build <ref>                                — rebuild and verify release artifact at the given SHA
 #   verify                                     — post-install verification via scripts/deploy-local.sh
+#   verify-tui                                 — full tuiwright suite + TUI screenshots + recording against target/release/jeryu
 #
 # Local rehearsal:
 #   bash ops/ci/post-merge-deploy-lane.sh gate workflow_run success main
 #   bash ops/ci/post-merge-deploy-lane.sh build "$(git rev-parse HEAD)"
 #   bash ops/ci/post-merge-deploy-lane.sh verify
+#   bash ops/ci/post-merge-deploy-lane.sh verify-tui
 #
 # This script is the canonical CI parity surface for the post-merge deploy
 # pipeline (jankurai HLT-042 — workflows must delegate to ops/ci/*.sh
@@ -23,7 +25,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
 usage() {
-    printf 'usage: %s {gate <event> <conclusion> <branch> | build <ref> | verify | install-from-artifact <path>}\n' "$0" >&2
+    printf 'usage: %s {gate <event> <conclusion> <branch> | build <ref> | verify | verify-tui | install-from-artifact <path>}\n' "$0" >&2
     exit 2
 }
 
@@ -80,10 +82,40 @@ stage_install_from_artifact() {
     fi
 }
 
+stage_verify_tui() {
+    local bin="$REPO_ROOT/target/release/jeryu"
+    if [ ! -x "$bin" ]; then
+        echo "verify-tui: release binary not found at $bin — run 'build' stage first" >&2
+        exit 2
+    fi
+    echo "==> verify-tui: full tuiwright suite + TUI screenshots + recording"
+
+    # Smoke: test the artifact directly (not cargo run → debug build)
+    echo "--- tui smoke ---"
+    "$bin" tui --once
+
+    # Full tuiwright integration suite (23 behaviour + 13 lens modules).
+    # cargo sets CARGO_BIN_EXE_jeryu=target/release/jeryu automatically; only
+    # the test harness binary is compiled (the artifact itself is not rebuilt).
+    echo "--- cargo test --release --test tuiwright ---"
+    cargo test --release --test tuiwright
+
+    # Screenshots + animated demo GIF — delegates to rust-lane.sh for parity
+    # with rust.yml. The cargo build --release inside those stages is a no-op.
+    echo "--- rust-lane tui-screenshots ---"
+    bash "$REPO_ROOT/ops/ci/rust-lane.sh" tui-screenshots
+
+    echo "--- rust-lane tui-recording ---"
+    bash "$REPO_ROOT/ops/ci/rust-lane.sh" tui-recording
+
+    echo "==> verify-tui: all checks passed"
+}
+
 case "${1:-}" in
     gate) shift; stage_gate "$@" ;;
     build) shift; stage_build "$@" ;;
     verify) stage_verify ;;
+    verify-tui) stage_verify_tui ;;
     install-from-artifact) shift; stage_install_from_artifact "$@" ;;
     *) usage ;;
 esac

@@ -69,7 +69,7 @@ jobs:
   build-artifact:
     name: Build release artifact
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     needs: gate
     if: needs.gate.outputs.proceed == 'true'
     outputs:
@@ -94,6 +94,8 @@ jobs:
           echo "Building jeryu $v from ${{ needs.gate.outputs.sha }}"
       - name: Build + verify release binary
         run: bash ops/ci/post-merge-deploy-lane.sh build "${{ needs.gate.outputs.sha }}"
+      - name: Verify artifact: TUI + tuiwright
+        run: bash ops/ci/post-merge-deploy-lane.sh verify-tui
       - name: Upload release artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -108,9 +110,10 @@ jobs:
     timeout-minutes: 15
     needs: [gate, build-artifact]
     if: needs.gate.outputs.proceed == 'true'
-    continue-on-error: true # If no self-hosted runner is available the job
-                            # queues; build-artifact above still produces a
-                            # downloadable binary.
+    continue-on-error: true # If no self-hosted runner is available the job queues;
+                            # build-artifact already ran full tuiwright suite + screenshots
+                            # + recording. install-from-artifact does version/smoke/help
+                            # verification + jeryu-web.service restart only.
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
