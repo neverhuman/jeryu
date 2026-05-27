@@ -170,7 +170,6 @@ pub struct CreateRepositoryPreview {
 //
 // W-F-04 (ts-rs export wiring) and the wider hygiene pass own the question of
 // whether to lift these derives onto the upstream types.
-#[cfg(feature = "web")]
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, utoipa::ToSchema)]
 #[allow(dead_code)]
 pub(crate) struct EntityRefSurrogate {
@@ -178,7 +177,6 @@ pub(crate) struct EntityRefSurrogate {
     pub id: String,
 }
 
-#[cfg(feature = "web")]
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema, utoipa::ToSchema)]
 #[allow(dead_code)]
 pub(crate) struct ActionRefSurrogate {
