@@ -50,8 +50,15 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
           shared-key: web-feature
-      - name: Install mold
-        run: sudo apt-get install -y mold
+      - name: Install mold (best-effort)
+        run: |
+          if command -v mold >/dev/null 2>&1; then
+            echo "mold already installed"
+          elif sudo -n true 2>/dev/null; then
+            sudo apt-get install -y mold || echo "mold install failed; continuing"
+          else
+            echo "mold not available and passwordless sudo missing; continuing without mold"
+          fi
       - name: Install nextest
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
       - name: cargo fmt
@@ -139,8 +146,15 @@ jobs:
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
           shared-key: web-feature
-      - name: Install mold
-        run: sudo apt-get install -y mold
+      - name: Install mold (best-effort)
+        run: |
+          if command -v mold >/dev/null 2>&1; then
+            echo "mold already installed"
+          elif sudo -n true 2>/dev/null; then
+            sudo apt-get install -y mold || echo "mold install failed; continuing"
+          else
+            echo "mold not available and passwordless sudo missing; continuing without mold"
+          fi
       - name: npm ci
         run: npm ci --no-audit --no-fund
       - name: Build SPA

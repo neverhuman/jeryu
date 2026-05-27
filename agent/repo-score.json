@@ -1,17 +1,17 @@
 {
-  "report_fingerprint": "sha256:b83243f59d5d1245bb3d7e8cb40ea30d4b0d9c7300a01f48cc808290178aab3f",
-  "input_fingerprint": "sha256:877345494103a39ca2dc0b127eb335eb3c264ba909f82ed359fc3a30f90081aa",
+  "report_fingerprint": "sha256:c5056968554de81aaf02ca8ff0d1d54e8653f7099f40ab292ae7d658bc7d0350",
+  "input_fingerprint": "sha256:8e49a46184804e45a677a464009e6687b8d5e77bd23bb34cb409f47d4eaf3b8e",
   "policy_fingerprint": "sha256:cc6b04066bdc08c39344d36432c5fd95113c215a3f70fb5629b073377d22bde7",
   "manifest_fingerprints": {
-    "owner_map": "sha256:2a1f6e7f006dfeb6de9c16d03c9be611afb8ca3684a939e849fb24059bff73e5",
-    "test_map": "sha256:6885a9fc134b26a66d65d5f332b59b719e52f3586c2875ea6d90bb875c32f2f8",
+    "owner_map": "sha256:597efe434486afa0a75a04f0a62f4b75d939cfdcee7d0fca615bc9caa6b78789",
+    "test_map": "sha256:f0c4ed96e0b44928ef455f0af143e79b514acbda3c98f231bf9c1ee71b6a427e",
     "generated_zones": "sha256:e52d8ab39deafa8fdefc28e6faeb2198c8dfebc142b59e968b047d4d3bc7ee8e",
     "boundaries": "sha256:4b3b4ff624a9f9779a21572e8ef75f33d157f141606516169418613995ad2199",
     "proof_lanes": "sha256:b69c7bb26f226f3885278c7ab58b8ade787ad5402582cb420b8137db166ad2c7",
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779912505",
+  "generated_at": "1779914231",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -26,24 +26,14 @@
   "conformance_blockers": [
     "HLT-042-CI-LOCAL-PARITY on .github/workflows/web.yml",
     "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/web.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/web.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/web.yml",
     "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
     "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
     "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
     "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
     "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
     "HLT-002-GENERATED-MUTATION on agent/generated-zones.toml",
-    "HLT-003-OWNERLESS-PATH on agent/owner-map.json",
-    "HLT-003-OWNERLESS-PATH on agent/owner-map.json",
-    "HLT-003-OWNERLESS-PATH on agent/owner-map.json",
-    "HLT-003-OWNERLESS-PATH on agent/owner-map.json",
-    "HLT-003-OWNERLESS-PATH on agent/owner-map.json",
-    "HLT-003-OWNERLESS-PATH on agent/owner-map.json",
-    "HLT-003-OWNERLESS-PATH on agent/owner-map.json",
-    "HLT-004-UNMAPPED-PROOF on agent/test-map.json",
-    "HLT-004-UNMAPPED-PROOF on agent/test-map.json",
-    "HLT-004-UNMAPPED-PROOF on agent/test-map.json",
-    "HLT-004-UNMAPPED-PROOF on agent/test-map.json",
-    "HLT-004-UNMAPPED-PROOF on agent/test-map.json",
     "HLT-008-FALSE-GREEN-RISK on apps/web/e2e/03-readme.spec.ts",
     "HLT-001-DEAD-MARKER on apps/web/e2e/fixtures/auth.ts",
     "HLT-001-DEAD-MARKER on apps/web/e2e/fixtures/mocks.ts",
@@ -108,9 +98,9 @@
     "HLT-001-DEAD-MARKER on src/web/static_assets.rs"
   ],
   "repo": ".",
-  "run_id": "1779912505",
-  "started_at": "1779912505",
-  "elapsed_ms": 13311,
+  "run_id": "1779914231",
+  "started_at": "1779914231",
+  "elapsed_ms": 13500,
   "scope": {
     "mode": "full",
     "paths": []
@@ -121,7 +111,7 @@
     "status": "advisory",
     "minimum_score": 85,
     "passed": true,
-    "hard_findings": 82,
+    "hard_findings": 72,
     "soft_findings": 4,
     "ratchet": {
       "baseline_score": 64,
@@ -137,7 +127,7 @@
     }
   },
   "git": {
-    "head": "c0893d3",
+    "head": "555fc48",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -394,6 +384,8 @@
         "reference-profile cell `ops` is canonical",
         "reference-profile cell `ops` has local AGENTS.md guidance",
         "root `README.md` routes to workspace layout",
+        "owner map covers audited paths",
+        "test map covers audited paths",
         "authored code file exceeds 500 LOC"
       ],
       "notes": []
@@ -455,7 +447,7 @@
         "agent-readiness audit gate found in CI",
         "rust bad-behavior advisory signals: 1240",
         "typescript bad-behavior hard findings: 9",
-        "ci bad-behavior hard findings: 6",
+        "ci bad-behavior hard findings: 8",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "web security bad-behavior hard findings: 3",
@@ -479,7 +471,7 @@
         "IO markers found in domain/core files",
         "rust bad-behavior advisory signals: 1240",
         "typescript bad-behavior hard findings: 9",
-        "ci bad-behavior hard findings: 6",
+        "ci bad-behavior hard findings: 8",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1"
       ],
@@ -631,8 +623,8 @@
         ".github/workflows/web.yml",
         ".gitignore",
         ".gitlab-ci.yml",
-        "apps/ux-qa/ux-qa-check.mjs",
-        "apps/ux-qa/ux-qa.ts"
+        ".gitleaks.toml",
+        "agent/test-map.json"
       ],
       "playwright_visual": [
         "apps/ux-qa/ux-qa.ts",
@@ -644,8 +636,8 @@
         ".github/workflows/web.yml",
         ".gitignore",
         ".gitlab-ci.yml",
-        "apps/ux-qa/ux-qa-check.mjs",
-        "apps/ux-qa/ux-qa.ts"
+        ".gitleaks.toml",
+        "agent/owner-map.json"
       ],
       "visual_review": [
         "apps/ux-qa/ux-qa.ts"
@@ -1223,23 +1215,7 @@
       "cost-budget"
     ]
   },
-  "security_evidence": {
-    "artifact": {
-      "path": "target/jankurai/security/evidence.json",
-      "envelope_exit_code": 0,
-      "elapsed_ms": 3785,
-      "wrapper_strict": true,
-      "profile": "ci",
-      "commands_ran": 1,
-      "commands_skipped": 0,
-      "commands_failed": 0,
-      "required_commands_skipped": 0,
-      "required_commands_failed": 0,
-      "blocking_commands": [],
-      "generated_at": "1779671912",
-      "git_head": "0fe29e08935061817d002221052ef45494379613"
-    }
-  },
+  "security_evidence": {},
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
@@ -1257,7 +1233,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-27T20:08:12.024211425+00:00",
+    "generated_at": "2026-05-27T20:36:58.574675103+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1735,15 +1711,15 @@
           {
             "path": "src/repos/service.rs",
             "language": "rust",
-            "start_line": 250,
-            "end_line": 255,
+            "start_line": 253,
+            "end_line": 258,
             "unit_name": "visibility_str"
           },
           {
             "path": "src/repos/settings.rs",
             "language": "rust",
-            "start_line": 225,
-            "end_line": 230,
+            "start_line": 227,
+            "end_line": 232,
             "unit_name": "visibility_to_string"
           }
         ]
@@ -3090,12 +3066,68 @@
       "severity": "high",
       "category": "security",
       "path": ".github/workflows/web.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/web.yml",
+        "line=60",
+        "proof_window=None",
+        "snippet=echo \"mold not available and passwordless sudo missing; continuing without mold\""
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:006241af0b3b4a87c8dce74a4071760e9ba93f9a837d3668145cae56af8ec481",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 60,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/web.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/web.yml",
+        "line=156",
+        "proof_window=None",
+        "snippet=echo \"mold not available and passwordless sudo missing; continuing without mold\""
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:775421954c171a9ef89d22fbcf13dcfa9e0bfefc9c390676d86b891499fb0a1f",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 156,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/web.yml",
       "problem": "security-related job is configured to continue on error",
       "agent_fix": "remove the non-blocking override so scan failures stop the pipeline",
       "evidence": [
         "detector=ci.security-scan.nonblocking",
         "path=.github/workflows/web.yml",
-        "line=178",
+        "line=192",
         "proof_window=None",
         "snippet=kill \"$bff_pid\" || true"
       ],
@@ -3104,13 +3136,13 @@
       "confidence": 0.95,
       "evidence_kind": "workflow-command",
       "rerun_command": "just security",
-      "fingerprint": "sha256:d6c0a2941587c72d91b0a7cc49f484413e276881d613ad1421e1e39e8942eb0c",
+      "fingerprint": "sha256:60d01b82ac825c6ecba944d7202a54df4d1c09276bf3044b197255d272499d92",
       "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
       "tlr": "Security, secrets, agency",
       "lane": "security",
       "docs_url": "docs/testing.md",
       "owner": "ops",
-      "line": 178,
+      "line": 192,
       "matched_term": "ci.security-scan.nonblocking",
       "reason": "security or proof job is explicitly non-blocking"
     },
@@ -3207,7 +3239,7 @@
       "evidence": [
         "detector=ci.artifact.cache.secret-path",
         "path=.gitlab-ci.yml",
-        "line=297",
+        "line=298",
         "proof_window=None",
         "snippet=GITHUB_OUTPUT: \"$CI_PROJECT_DIR/.release-resolve.env\""
       ],
@@ -3216,13 +3248,13 @@
       "confidence": 0.95,
       "evidence_kind": "workflow-command",
       "rerun_command": "just security",
-      "fingerprint": "sha256:d869a268fe8fc73424b623cdc02c1b84e5a08c7dbb85ee540d7ccdee251de228",
+      "fingerprint": "sha256:51c54859051a04d733904c4494181c552e1f0ea053dc84e6f6311f4b504e3e93",
       "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
       "tlr": "Security, secrets, agency",
       "lane": "security",
       "docs_url": "docs/testing.md",
       "owner": "ops",
-      "line": 297,
+      "line": 298,
       "matched_term": "ci.artifact.cache.secret-path",
       "reason": "workflow stores a secret-bearing path in cache or artifact upload"
     },
@@ -3235,7 +3267,7 @@
       "evidence": [
         "detector=ci.artifact.cache.secret-path",
         "path=.gitlab-ci.yml",
-        "line=311",
+        "line=312",
         "proof_window=None",
         "snippet=dotenv: .release-resolve.env"
       ],
@@ -3244,13 +3276,13 @@
       "confidence": 0.95,
       "evidence_kind": "workflow-command",
       "rerun_command": "just security",
-      "fingerprint": "sha256:82e8299c42e754ef2aee229edfd467c5e8c4dc72466b3186a16576b1385936a4",
+      "fingerprint": "sha256:36cb8932e092d3ffdb02f2c15de464dd6618db78ef6f2e1821926395557594a6",
       "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
       "tlr": "Security, secrets, agency",
       "lane": "security",
       "docs_url": "docs/testing.md",
       "owner": "ops",
-      "line": 311,
+      "line": 312,
       "matched_term": "ci.artifact.cache.secret-path",
       "reason": "workflow stores a secret-bearing path in cache or artifact upload"
     },
@@ -3299,258 +3331,6 @@
       "docs_url": "agent/JANKURAI_STANDARD.md#generated-zones",
       "owner": "agent",
       "line": 1
-    },
-    {
-      "severity": "high",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "path `.gitlab-ci.yml` has no owner-map route",
-      "agent_fix": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "evidence": [
-        ".gitlab-ci.yml"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:2ef7c6845ba4737d48f4730ddf1f45e3c77ef868a38c77a0d636bf3569facb9d",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "path `ROADMAP.md` has no owner-map route",
-      "agent_fix": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "evidence": [
-        "ROADMAP.md"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:f64b721f056ed9e1f1136309119c50a7f370bcd523a9206a745d7ead80a76232",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "path `WEB_WORK_CLAUDE.md` has no owner-map route",
-      "agent_fix": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "evidence": [
-        "WEB_WORK_CLAUDE.md"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:b15b68b2cf7b91d906924ca0b18beff5282e7b51cee94fb307b691d004bdc5d5",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "path `WEB_WORK_CODEX.md` has no owner-map route",
-      "agent_fix": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "evidence": [
-        "WEB_WORK_CODEX.md"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:145a1547586187fe2151f7a221d19e7490e5349a48bb49105a36a0080ef3a661",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "path `package-lock.json` has no owner-map route",
-      "agent_fix": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "evidence": [
-        "package-lock.json"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:05c6b9a3bde0a36a87dd5d4dc3176b70d699bcec7b55b22e550d1711e790496a",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "path `schemas/web-api.openapi.json` has no owner-map route",
-      "agent_fix": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "evidence": [
-        "schemas/web-api.openapi.json"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:17963256a249fca3711b7160dae1a3042c2bd244900cb72d025bcfaab2638349",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "context",
-      "path": "agent/owner-map.json",
-      "problem": "path `schemas/websocket-events.schema.json` has no owner-map route",
-      "agent_fix": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "evidence": [
-        "schemas/websocket-events.schema.json"
-      ],
-      "check_id": "HLT-003-OWNERLESS-PATH:context",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:82dc010e5a3bb3185bb68f47f4596af45176902ee56699b0f7ca76e1a397ddfd",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#ownership-boundaries",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "proof",
-      "path": "agent/test-map.json",
-      "problem": "path `ROADMAP.md` has no test-map proof route",
-      "agent_fix": "add the narrowest stable prefix and runnable proof command to `agent/test-map.json`",
-      "evidence": [
-        "ROADMAP.md"
-      ],
-      "check_id": "HLT-004-UNMAPPED-PROOF:proof",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:662c25d4231ccda9b3d08fc27c6cd3eb2fc43fff15a7b9062fd091cb0baad3ad",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#proof-lanes",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "proof",
-      "path": "agent/test-map.json",
-      "problem": "path `WEB_WORK_CLAUDE.md` has no test-map proof route",
-      "agent_fix": "add the narrowest stable prefix and runnable proof command to `agent/test-map.json`",
-      "evidence": [
-        "WEB_WORK_CLAUDE.md"
-      ],
-      "check_id": "HLT-004-UNMAPPED-PROOF:proof",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:1a34bbc419fb910a90c68136444fc23ecdd47b4126f57690dceeb9c88672a91a",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#proof-lanes",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "proof",
-      "path": "agent/test-map.json",
-      "problem": "path `WEB_WORK_CODEX.md` has no test-map proof route",
-      "agent_fix": "add the narrowest stable prefix and runnable proof command to `agent/test-map.json`",
-      "evidence": [
-        "WEB_WORK_CODEX.md"
-      ],
-      "check_id": "HLT-004-UNMAPPED-PROOF:proof",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:2c03336e49b344f02e284e116c5ee4bb18f2a0c379c1cc299257ab6a71105845",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#proof-lanes",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "proof",
-      "path": "agent/test-map.json",
-      "problem": "path `schemas/web-api.openapi.json` has no test-map proof route",
-      "agent_fix": "add the narrowest stable prefix and runnable proof command to `agent/test-map.json`",
-      "evidence": [
-        "schemas/web-api.openapi.json"
-      ],
-      "check_id": "HLT-004-UNMAPPED-PROOF:proof",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:bc9537fd89d01259c682be4eb1f0258fa0a31a645289bc7483aad49d3e1bfe21",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#proof-lanes",
-      "owner": "agent"
-    },
-    {
-      "severity": "high",
-      "category": "proof",
-      "path": "agent/test-map.json",
-      "problem": "path `schemas/websocket-events.schema.json` has no test-map proof route",
-      "agent_fix": "add the narrowest stable prefix and runnable proof command to `agent/test-map.json`",
-      "evidence": [
-        "schemas/websocket-events.schema.json"
-      ],
-      "check_id": "HLT-004-UNMAPPED-PROOF:proof",
-      "hardness": "hard",
-      "confidence": 0.88,
-      "evidence_kind": "policy-manifest",
-      "rerun_command": "just fast",
-      "fingerprint": "sha256:3ecf5ea8cb77a090879f9abfd7684e093f465a7102c33e2595d1ba593c596423",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "docs_url": "agent/JANKURAI_STANDARD.md#proof-lanes",
-      "owner": "agent"
     },
     {
       "severity": "high",
@@ -4787,7 +4567,7 @@
       "tlr": "Contracts/data",
       "lane": "contract",
       "docs_url": "agent/JANKURAI_STANDARD.md#generated-zones",
-      "owner": "tools",
+      "owner": "contracts",
       "line": 1
     },
     {
@@ -4809,7 +4589,7 @@
       "tlr": "Contracts/data",
       "lane": "contract",
       "docs_url": "agent/JANKURAI_STANDARD.md#generated-zones",
-      "owner": "tools",
+      "owner": "contracts",
       "line": 1
     },
     {
@@ -5194,7 +4974,7 @@
       "rule_id": "HLT-002-GENERATED-MUTATION",
       "tlr": "Contracts/data",
       "lane": "contract",
-      "owner": "tools",
+      "owner": "contracts",
       "task": "add a `Generated by: <tool>` / `DO NOT EDIT BY HAND` header block with source and regeneration command",
       "why": "generated zone file `schemas/web-api.openapi.json` missing generated header"
     },
@@ -5204,7 +4984,7 @@
       "rule_id": "HLT-002-GENERATED-MUTATION",
       "tlr": "Contracts/data",
       "lane": "contract",
-      "owner": "tools",
+      "owner": "contracts",
       "task": "add a `Generated by: <tool>` / `DO NOT EDIT BY HAND` header block with source and regeneration command",
       "why": "generated zone file `schemas/websocket-events.schema.json` missing generated header"
     },
@@ -5239,16 +5019,6 @@
       "why": "workflow inlines CI commands instead of delegating to ops/ci/*.sh"
     },
     {
-      "path": "agent/test-map.json",
-      "priority": "high",
-      "rule_id": "HLT-004-UNMAPPED-PROOF",
-      "tlr": "Verification",
-      "lane": "fast",
-      "owner": "agent",
-      "task": "add the narrowest stable prefix and runnable proof command to `agent/test-map.json`",
-      "why": "path `ROADMAP.md` has no test-map proof route"
-    },
-    {
       "path": "apps/web/e2e/03-readme.spec.ts",
       "priority": "high",
       "rule_id": "HLT-008-FALSE-GREEN-RISK",
@@ -5269,16 +5039,6 @@
       "why": "human review or proof claim lacks reproducible evidence"
     },
     {
-      "path": "agent/owner-map.json",
-      "priority": "high",
-      "rule_id": "HLT-003-OWNERLESS-PATH",
-      "tlr": "Context/setup",
-      "lane": "fast",
-      "owner": "agent",
-      "task": "add the narrowest stable prefix for this path to `agent/owner-map.json`",
-      "why": "path `.gitlab-ci.yml` has no owner-map route"
-    },
-    {
       "path": "apps/web/eslint.config.js",
       "priority": "high",
       "tlr": "Context/setup",
@@ -5286,6 +5046,16 @@
       "owner": "apps",
       "task": "move product runtime behavior to Rust core, TypeScript web, SQL migrations, or generated contracts; Python needs a dated advanced-ML/data exception",
       "why": "runtime code uses a language outside the chosen optimal stack"
+    },
+    {
+      "path": ".github/workflows/web.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "why": "workflow potentially leaks secrets via echo or debug output"
     },
     {
       "path": ".github/workflows/web.yml",

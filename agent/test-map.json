@@ -447,6 +447,62 @@
     "package-lock.json": {
       "command": "npm install --no-audit --no-fund --workspaces",
       "purpose": "verify root lockfile install of both workspaces"
+    },
+    "ROADMAP.md": {
+      "command": "just score",
+      "purpose": "verify roadmap remains routed"
+    },
+    "WEB_WORK_CLAUDE.md": {
+      "command": "just score",
+      "purpose": "verify web forge plan remains routed"
+    },
+    "WEB_WORK_CODEX.md": {
+      "command": "just score",
+      "purpose": "verify sibling web forge plan remains routed"
+    },
+    "schemas/web-api.openapi.json": {
+      "command": "cargo run --bin jeryu_export_schemas --features web",
+      "purpose": "regenerate OpenAPI from utoipa derives + drift check"
+    },
+    "schemas/websocket-events.schema.json": {
+      "command": "cargo run --bin jeryu_export_schemas --features web",
+      "purpose": "regenerate WS JSON-schema from schemars derives + drift check"
+    },
+    "contracts/generated/": {
+      "command": "cargo run --bin jeryu_export_types --features web",
+      "purpose": "regenerate ts-rs TS bindings + drift check"
+    },
+    "apps/web/e2e/": {
+      "command": "npm --workspace @jeryu/web run test:e2e",
+      "purpose": "Playwright E2E suite (W-T-08..18)"
+    },
+    "apps/web/perf/": {
+      "command": "npm --workspace @jeryu/web run perf",
+      "purpose": "Lighthouse perf budget (W-T-20)"
+    },
+    "apps/web/.storybook/": {
+      "command": "npm --workspace @jeryu/web run build-storybook",
+      "purpose": "Storybook build (W-T-07)"
+    },
+    "src/web/": {
+      "command": "cargo nextest run -p jeryu --features web",
+      "purpose": "BFF tests"
+    },
+    "src/web_events/": {
+      "command": "cargo nextest run -p jeryu --features web --lib web_events",
+      "purpose": "WS event bus tests"
+    },
+    "src/repos/": {
+      "command": "cargo nextest run -p jeryu --features web --lib repos",
+      "purpose": "repo service tests"
+    },
+    "src/repo_browser/": {
+      "command": "cargo nextest run -p jeryu --features web --lib repo_browser",
+      "purpose": "repo browser + markdown tests"
+    },
+    "src/merge/": {
+      "command": "cargo nextest run -p jeryu --features web --lib merge",
+      "purpose": "merge cockpit tests"
     }
   },
   "workspace": "jankurai"
