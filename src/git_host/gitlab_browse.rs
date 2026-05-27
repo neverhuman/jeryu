@@ -14,15 +14,17 @@ use base64::Engine;
 use reqwest::Method;
 
 use crate::git_host::{
-    CreateHostRepository, HostBlob, HostChangedFile, HostCommit, HostCompare, HostError, HostRef,
-    HostRepository, HostRepositorySettingsPatch, HostTreeEntry, Page, PageResult, RepoRef,
+    CreateHostRepository, HostBlob, HostChangedFile, HostCommit, HostCompare, HostError, HostJob,
+    HostJobLog, HostPipeline, HostRef, HostRepository, HostRepositorySettingsPatch, HostTreeEntry,
+    Page, PageResult, RepoRef,
 };
 
 use super::GitLabClient;
 use super::gitlab_helpers::{map_error, map_reqwest};
 use super::gitlab_types::{
-    CreateProjectReq, GitLabBranch, GitLabCommit, GitLabCompare, GitLabCompareDiff, GitLabProject,
-    GitLabRepoFile, GitLabRepoTreeEntry, GitLabTag, UpdateProjectReq,
+    CreateProjectReq, GitLabBranch, GitLabCommit, GitLabCompare, GitLabCompareDiff, GitLabJobCi,
+    GitLabPipelineCi, GitLabProject, GitLabRepoFile, GitLabRepoTreeEntry, GitLabTag,
+    UpdateProjectReq,
 };
 
 /// URL-encode the slash-joined `owner/name` path into a single GitLab
@@ -441,6 +443,104 @@ impl GitlabBrowse for GitLabClient {
             total: None,
         })
     }
+
+    // ── W-H-06: CI pipelines + jobs ──────────────────────────────────
+
+    async fn list_pipelines(
+        &self,
+        repo: &RepoRef,
+        ref_name: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostPipeline>, HostError> {
+        let enc = encode_project_path(repo);
+        let mut path = format!("/projects/{enc}/pipelines");
+        if let Some(r) = ref_name {
+            if !r.is_empty() {
+                path.push_str(&format!("?ref={}", urlencoding::encode(r)));
+            }
+        }
+        let per_page = clamp_per_page(page.per_page);
+        let (pipelines, next_cursor) = self
+            .get_page_with_cursor::<GitLabPipelineCi>(&path, per_page, page.cursor.as_deref())
+            .await?;
+        let items = pipelines
+            .into_iter()
+            .map(|p| {
+                let created_at = p.created_at.unwrap_or_else(chrono::Utc::now);
+                let updated_at = p.updated_at.unwrap_or(created_at);
+                HostPipeline {
+                    id: p.id.to_string(),
+                    ref_name: p.ref_name,
+                    sha: p.sha,
+                    status: p.status,
+                    created_at,
+                    updated_at,
+                    web_url: p.web_url,
+                }
+            })
+            .collect();
+        Ok(PageResult {
+            items,
+            next_cursor,
+            total: None,
+        })
+    }
+
+    async fn list_jobs(
+        &self,
+        repo: &RepoRef,
+        pipeline_id: &str,
+    ) -> Result<Vec<HostJob>, HostError> {
+        let enc = encode_project_path(repo);
+        let jobs = self
+            .list_pages_capped::<GitLabJobCi>(
+                &format!("/projects/{enc}/pipelines/{pipeline_id}/jobs"),
+                100,
+                10,
+            )
+            .await?;
+        Ok(jobs
+            .into_iter()
+            .map(|j| {
+                let duration_secs = j.duration.map(|d| d.max(0.0) as u64);
+                HostJob {
+                    id: j.id.to_string(),
+                    name: j.name,
+                    stage: j.stage,
+                    status: j.status,
+                    started_at: j.started_at,
+                    finished_at: j.finished_at,
+                    duration_secs,
+                }
+            })
+            .collect())
+    }
+
+    async fn get_job_log(
+        &self,
+        repo: &RepoRef,
+        job_id: &str,
+    ) -> Result<HostJobLog, HostError> {
+        let enc = encode_project_path(repo);
+        let url = self
+            .inner
+            .api_url(&format!("/projects/{enc}/jobs/{job_id}/trace"));
+        let resp = self
+            .inner
+            .authed_request_url(reqwest::Method::GET, url)
+            .map_err(map_error)?
+            .send()
+            .await
+            .map_err(map_reqwest)?
+            .error_for_status()
+            .map_err(map_reqwest)?;
+        let body = resp.text().await.map_err(map_reqwest)?;
+        let bytes = body.into_bytes();
+        Ok(HostJobLog {
+            bytes,
+            truncated: false,
+        })
+    }
 }
 
 /// Sealed trait that mirrors the GitHost methods we want to dispatch through
@@ -508,6 +608,26 @@ pub(super) trait GitlabBrowse: Send + Sync {
         path: Option<&str>,
         page: Page,
     ) -> Result<PageResult<HostCommit>, HostError>;
+
+    // ── W-H-06: CI pipelines + jobs ──────────────────────────────────
+    async fn list_pipelines(
+        &self,
+        repo: &RepoRef,
+        ref_name: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostPipeline>, HostError>;
+
+    async fn list_jobs(
+        &self,
+        repo: &RepoRef,
+        pipeline_id: &str,
+    ) -> Result<Vec<HostJob>, HostError>;
+
+    async fn get_job_log(
+        &self,
+        repo: &RepoRef,
+        job_id: &str,
+    ) -> Result<HostJobLog, HostError>;
 }
 
 // ── Pure conversion helpers ──────────────────────────────────────────

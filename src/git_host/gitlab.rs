@@ -10,10 +10,11 @@ use reqwest::Method;
 
 use crate::git_host::{
     ChangedFileDiff, CheckRun, CheckRunResult, CreateHostRepository, GitHost, HostBlob, HostCommit,
-    HostCompare, HostError, HostIdentity, HostMergeInput, HostMergeResult, HostPipeline, HostRef,
-    HostRepository, HostRepositorySettingsPatch, HostReview, HostReviewComment,
-    HostReviewCommentInput, HostReviewThread, HostSubmitReviewInput, HostTreeEntry, MrApproval,
-    Page, PageResult, PrDiff, PrLiveState, PrSummary, RepoRef, VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
+    HostCompare, HostError, HostIdentity, HostJob, HostJobLog, HostMergeInput, HostMergeResult,
+    HostPipeline, HostRef, HostRepository, HostRepositorySettingsPatch, HostReview,
+    HostReviewComment, HostReviewCommentInput, HostReviewThread, HostSubmitReviewInput,
+    HostTreeEntry, MrApproval, Page, PageResult, PrDiff, PrLiveState, PrSummary, RepoRef,
+    VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
 };
 use crate::gitlab_client::GitlabClient;
 
@@ -357,7 +358,7 @@ impl GitHost for GitLabClient {
         <Self as GitlabMerge>::merge_mr(self, input).await
     }
 
-    // ── W-H-06 (partial): CI surface used by Merge Passport ───────────
+    // ── W-H-06: CI pipelines + jobs (W-P4 dispatch via GitlabBrowse) ──
 
     async fn list_pipelines(
         &self,
@@ -365,7 +366,23 @@ impl GitHost for GitLabClient {
         ref_name: Option<&str>,
         page: Page,
     ) -> Result<PageResult<HostPipeline>, HostError> {
-        <Self as GitlabMerge>::list_pipelines(self, repo, ref_name, page).await
+        <Self as GitlabBrowse>::list_pipelines(self, repo, ref_name, page).await
+    }
+
+    async fn list_jobs(
+        &self,
+        repo: &RepoRef,
+        pipeline_id: &str,
+    ) -> Result<Vec<HostJob>, HostError> {
+        <Self as GitlabBrowse>::list_jobs(self, repo, pipeline_id).await
+    }
+
+    async fn get_job_log(
+        &self,
+        repo: &RepoRef,
+        job_id: &str,
+    ) -> Result<HostJobLog, HostError> {
+        <Self as GitlabBrowse>::get_job_log(self, repo, job_id).await
     }
 }
 

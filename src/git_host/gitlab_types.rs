@@ -400,3 +400,52 @@ pub(super) struct GitLabMergeRequestDetail {
     #[serde(default)]
     pub(super) approvals_before_merge: Option<u32>,
 }
+
+// ── W-H-06: CI pipelines + jobs ────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabPipelineCi {
+    pub(super) id: i64,
+    #[serde(default)]
+    pub(super) sha: String,
+    #[serde(default, rename = "ref")]
+    pub(super) ref_name: String,
+    #[serde(default)]
+    pub(super) status: String,
+    #[serde(default)]
+    pub(super) source: Option<String>,
+    #[serde(default)]
+    pub(super) web_url: Option<String>,
+    #[serde(default)]
+    pub(super) created_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    pub(super) updated_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabPipelineRef {
+    #[serde(default)]
+    pub(super) id: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabJobCi {
+    pub(super) id: i64,
+    #[serde(default)]
+    pub(super) name: String,
+    #[serde(default)]
+    pub(super) stage: String,
+    #[serde(default)]
+    pub(super) status: String,
+    #[serde(default)]
+    pub(super) started_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    pub(super) finished_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    pub(super) duration: Option<f64>,
+    #[serde(default)]
+    pub(super) pipeline: Option<GitLabPipelineRef>,
+}
