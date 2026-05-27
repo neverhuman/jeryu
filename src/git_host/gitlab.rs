@@ -9,8 +9,10 @@ use chrono::Utc;
 use reqwest::Method;
 
 use crate::git_host::{
-    ChangedFileDiff, CheckRun, CheckRunResult, GitHost, HostError, HostIdentity, MrApproval,
-    PrDiff, PrLiveState, PrSummary, RepoRef, VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
+    ChangedFileDiff, CheckRun, CheckRunResult, CreateHostRepository, GitHost, HostBlob, HostCommit,
+    HostCompare, HostError, HostIdentity, HostRef, HostRepository, HostRepositorySettingsPatch,
+    HostTreeEntry, MrApproval, Page, PageResult, PrDiff, PrLiveState, PrSummary, RepoRef,
+    VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
 };
 use crate::gitlab_client::GitlabClient;
 
@@ -28,6 +30,13 @@ use gitlab_helpers::*;
 // helpers live next to it without inflating this file.
 #[path = "gitlab_client.rs"]
 mod gitlab_client_impl;
+
+// W-H-02 / W-H-03 helpers. The `GitlabBrowse` sealed trait inside provides
+// the impl bodies, which we re-dispatch through the canonical `GitHost`
+// trait below.
+#[path = "gitlab_browse.rs"]
+mod gitlab_browse;
+use gitlab_browse::GitlabBrowse;
 
 #[derive(Clone)]
 pub struct GitLabClient {
@@ -229,6 +238,86 @@ impl GitHost for GitLabClient {
         Ok(Some(crate::autonomy::signing::sha256_digest(
             joined.as_bytes(),
         )))
+    }
+
+    // ── W-H-02: repo discovery + browse ───────────────────────────────
+
+    async fn list_repositories(
+        &self,
+        owner: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostRepository>, HostError> {
+        <Self as GitlabBrowse>::list_repositories(self, owner, page).await
+    }
+
+    async fn get_repository(&self, repo: &RepoRef) -> Result<HostRepository, HostError> {
+        <Self as GitlabBrowse>::get_repository(self, repo).await
+    }
+
+    async fn list_refs(&self, repo: &RepoRef) -> Result<Vec<HostRef>, HostError> {
+        <Self as GitlabBrowse>::list_refs(self, repo).await
+    }
+
+    async fn list_tree(
+        &self,
+        repo: &RepoRef,
+        ref_name: &str,
+        path: &str,
+    ) -> Result<Vec<HostTreeEntry>, HostError> {
+        <Self as GitlabBrowse>::list_tree(self, repo, ref_name, path).await
+    }
+
+    async fn get_blob(
+        &self,
+        repo: &RepoRef,
+        ref_name: &str,
+        path: &str,
+    ) -> Result<HostBlob, HostError> {
+        <Self as GitlabBrowse>::get_blob(self, repo, ref_name, path).await
+    }
+
+    async fn get_readme(
+        &self,
+        repo: &RepoRef,
+        ref_name: Option<&str>,
+    ) -> Result<HostBlob, HostError> {
+        <Self as GitlabBrowse>::get_readme(self, repo, ref_name).await
+    }
+
+    async fn compare_refs(
+        &self,
+        repo: &RepoRef,
+        base: &str,
+        head: &str,
+    ) -> Result<HostCompare, HostError> {
+        <Self as GitlabBrowse>::compare_refs(self, repo, base, head).await
+    }
+
+    async fn list_commits(
+        &self,
+        repo: &RepoRef,
+        ref_name: &str,
+        path: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostCommit>, HostError> {
+        <Self as GitlabBrowse>::list_commits(self, repo, ref_name, path, page).await
+    }
+
+    // ── W-H-03: repo create / update ──────────────────────────────────
+
+    async fn create_repository(
+        &self,
+        input: CreateHostRepository<'_>,
+    ) -> Result<HostRepository, HostError> {
+        <Self as GitlabBrowse>::create_repository(self, input).await
+    }
+
+    async fn update_repository_settings(
+        &self,
+        repo: &RepoRef,
+        patch: HostRepositorySettingsPatch<'_>,
+    ) -> Result<HostRepository, HostError> {
+        <Self as GitlabBrowse>::update_repository_settings(self, repo, patch).await
     }
 }
 

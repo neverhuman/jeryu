@@ -5,6 +5,169 @@ pub(super) struct GitLabUser {
     pub(super) username: String,
 }
 
+// ── W-H-02 / W-H-03: project, branch, tag, tree, file, commit, compare DTOs ──
+//
+// Some fields are deserialized for forward-compat but not yet projected onto
+// the JeRyu BFF surface. `dead_code` is silenced struct-wide rather than
+// per-field so the GitLab schema stays self-documenting.
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabNamespace {
+    pub(super) full_path: String,
+    pub(super) kind: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabProject {
+    pub(super) id: i64,
+    pub(super) name: String,
+    #[serde(default)]
+    pub(super) path: String,
+    pub(super) path_with_namespace: String,
+    #[serde(default)]
+    pub(super) description: Option<String>,
+    #[serde(default)]
+    pub(super) visibility: Option<String>,
+    #[serde(default)]
+    pub(super) default_branch: Option<String>,
+    #[serde(default)]
+    pub(super) archived: bool,
+    #[serde(default)]
+    pub(super) topics: Vec<String>,
+    #[serde(default)]
+    pub(super) tag_list: Vec<String>,
+    #[serde(default)]
+    pub(super) http_url_to_repo: Option<String>,
+    #[serde(default)]
+    pub(super) ssh_url_to_repo: Option<String>,
+    #[serde(default)]
+    pub(super) web_url: Option<String>,
+    #[serde(default)]
+    pub(super) forked_from_project: Option<serde_json::Value>,
+    #[serde(default)]
+    pub(super) updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    pub(super) last_activity_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    pub(super) namespace: Option<GitLabNamespace>,
+}
+
+#[derive(Debug, Serialize, Default)]
+pub(super) struct CreateProjectReq<'a> {
+    pub(super) name: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) path: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) description: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) visibility: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) default_branch: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) initialize_with_readme: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) namespace_id: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Default)]
+pub(super) struct UpdateProjectReq<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) description: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) homepage: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) visibility: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) default_branch: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) archived: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabBranchCommit {
+    pub(super) id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabBranch {
+    pub(super) name: String,
+    pub(super) commit: GitLabBranchCommit,
+    #[serde(default)]
+    pub(super) protected: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabTag {
+    pub(super) name: String,
+    pub(super) commit: GitLabBranchCommit,
+    #[serde(default)]
+    pub(super) protected: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabRepoTreeEntry {
+    pub(super) id: String,
+    pub(super) name: String,
+    pub(super) path: String,
+    #[serde(rename = "type")]
+    pub(super) kind: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabRepoFile {
+    pub(super) file_name: String,
+    pub(super) file_path: String,
+    pub(super) size: u64,
+    pub(super) content: String,
+    pub(super) encoding: String,
+    pub(super) blob_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabCommit {
+    pub(super) id: String,
+    pub(super) message: String,
+    #[serde(default)]
+    pub(super) author_name: String,
+    pub(super) committed_date: chrono::DateTime<chrono::Utc>,
+    #[serde(default)]
+    pub(super) parent_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabCompareDiff {
+    #[serde(default)]
+    pub(super) old_path: Option<String>,
+    #[serde(default)]
+    pub(super) new_path: Option<String>,
+    #[serde(default)]
+    pub(super) new_file: bool,
+    #[serde(default)]
+    pub(super) renamed_file: bool,
+    #[serde(default)]
+    pub(super) deleted_file: bool,
+    #[serde(default)]
+    pub(super) diff: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabCompareCommit {
+    pub(super) id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct GitLabCompare {
+    #[serde(default)]
+    pub(super) commit: Option<GitLabCompareCommit>,
+    #[serde(default)]
+    pub(super) commits: Vec<GitLabCompareCommit>,
+    #[serde(default)]
+    pub(super) diffs: Vec<GitLabCompareDiff>,
+}
+
 #[derive(Debug, Deserialize)]
 pub(super) struct GitLabAuthor {
     pub(super) username: String,
