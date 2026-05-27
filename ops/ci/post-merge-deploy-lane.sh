@@ -63,10 +63,21 @@ stage_verify() {
 stage_install_from_artifact() {
     local artifact_path="${1:-target/release/jeryu}"
     [ -x "$artifact_path" ] || { echo "install-from-artifact: $artifact_path is not executable" >&2; exit 2; }
+
+    # Stop web service before binary swap (no-op when systemd is unavailable, e.g. inside a container)
+    systemctl --user stop jeryu-web.service 2>/dev/null || true
+
     local install_dir="${JERYU_INSTALL_PREFIX:-$HOME/.local}/bin"
     mkdir -p "$install_dir"
     install -m 0755 "$artifact_path" "$install_dir/jeryu"
     bash "$REPO_ROOT/scripts/deploy-local.sh" --verify
+
+    # Restart web service with new binary (no-op when systemd is unavailable)
+    if systemctl --user is-enabled --quiet jeryu-web.service 2>/dev/null; then
+        systemctl --user restart jeryu-web.service \
+            && echo "jeryu-web.service restarted on :8787" \
+            || echo "jeryu-web.service restart failed (check: systemctl --user status jeryu-web.service)"
+    fi
 }
 
 case "${1:-}" in
