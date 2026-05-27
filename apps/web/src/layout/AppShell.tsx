@@ -45,9 +45,9 @@ export function AppShell(): JSX.Element {
   useKeyboardShortcut(
     '/',
     () => {
-      // Phase 1: navigate to the search stub. W-FE-08 wires the real
-      // search input.
-      navigate('/?focus=search');
+      // W-FE-20: `/` jumps to the global search page. The page autofocuses
+      // its input on mount so the user can keep typing immediately.
+      navigate('/search');
     },
     { label: 'Focus search', group: 'Navigation' }
   );
@@ -66,6 +66,14 @@ export function AppShell(): JSX.Element {
   });
   useKeyboardShortcut('g s', () => navigate('/settings'), {
     label: 'Go to Settings',
+    group: 'Navigation',
+  });
+  // W-FE-20: Ctrl+/ jumps to global search. Plan §7.4 suggests "Ctrl+/
+  // or `g s s`" — we pick the modifier combo because the chord `g s s`
+  // collides with the existing `g s` shortcut (chord matching greedily
+  // resolves on the first atom set that matches).
+  useKeyboardShortcut('Mod+/', () => navigate('/search'), {
+    label: 'Go to Search',
     group: 'Navigation',
   });
 

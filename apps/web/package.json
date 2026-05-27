@@ -14,7 +14,8 @@
     "test:e2e:headed": "playwright test --headed",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "ux-qa": "node ./ux-qa-check.mjs build && node ./ux-qa-check.mjs test"
+    "ux-qa": "node ../ux-qa/ux-qa-check.mjs build && node ../ux-qa/ux-qa-check.mjs test",
+    "perf": "lhci autorun --config=./perf/lighthouse.config.js"
   },
   "dependencies": {
     "@monaco-editor/react": "4.7.0",
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "1.60.0",
     "@storybook/addon-a11y": "10.4.1",
     "@storybook/addon-vitest": "10.4.1",

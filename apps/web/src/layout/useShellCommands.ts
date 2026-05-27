@@ -44,6 +44,14 @@ export function useShellCommands(): void {
         target: { kind: 'route', path: '/notifications' },
       },
       {
+        id: 'nav.search',
+        title: 'Search…',
+        keywords: ['search', 'find', 'lookup', 'global'],
+        icon: 'search',
+        target: { kind: 'route', path: '/search' },
+        shortcut: '/',
+      },
+      {
         id: 'nav.audit',
         title: 'Go to Audit',
         keywords: ['audit', 'compliance', 'logs'],

@@ -20,6 +20,12 @@ export interface PreferencesState {
   keyboardMode: KeyboardMode;
   reposView: ReposViewMode;
   diffMode: DiffMode;
+  /**
+   * ISO timestamp of the most recent `mark-all-as-read` action on the
+   * notifications inbox (W-FE-18). Events older than this are considered
+   * "read" when computing the bell badge unread count.
+   */
+  notificationsLastSeen: string | null;
   setTheme: (theme: ThemePreference) => void;
   setDensity: (density: DensityPreference) => void;
   setCodeFontSize: (size: number) => void;
@@ -27,6 +33,8 @@ export interface PreferencesState {
   setKeyboardMode: (mode: KeyboardMode) => void;
   setReposView: (view: ReposViewMode) => void;
   setDiffMode: (mode: DiffMode) => void;
+  /** Stamp `notificationsLastSeen` to `now` (or a caller-supplied ISO). */
+  markNotificationsSeen: (at?: string) => void;
   reset: () => void;
 }
 
@@ -41,6 +49,7 @@ const DEFAULTS: Pick<
   | 'keyboardMode'
   | 'reposView'
   | 'diffMode'
+  | 'notificationsLastSeen'
 > = {
   theme: 'system',
   density: 'comfortable',
@@ -49,6 +58,7 @@ const DEFAULTS: Pick<
   keyboardMode: 'default',
   reposView: 'card',
   diffMode: 'unified',
+  notificationsLastSeen: null,
 };
 
 function loadInitial(): typeof DEFAULTS {
@@ -71,6 +81,9 @@ function loadInitial(): typeof DEFAULTS {
         validateKeyboardMode(parsed.keyboardMode) ?? DEFAULTS.keyboardMode,
       reposView: validateReposView(parsed.reposView) ?? DEFAULTS.reposView,
       diffMode: validateDiffMode(parsed.diffMode) ?? DEFAULTS.diffMode,
+      notificationsLastSeen:
+        validateIsoTimestamp(parsed.notificationsLastSeen) ??
+        DEFAULTS.notificationsLastSeen,
     };
   } catch {
     return DEFAULTS;
@@ -121,6 +134,12 @@ function validateDiffMode(input: unknown): DiffMode | null {
   return input === 'unified' || input === 'split' ? input : null;
 }
 
+function validateIsoTimestamp(input: unknown): string | null {
+  if (typeof input !== 'string') return null;
+  const ms = Date.parse(input);
+  return Number.isFinite(ms) ? input : null;
+}
+
 export const usePreferencesStore = create<PreferencesState>((set, get) => {
   const initial = loadInitial();
   return {
@@ -153,6 +172,11 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => {
       set({ diffMode });
       persistFromState(get);
     },
+    markNotificationsSeen: (at) => {
+      const stamp = at ?? new Date().toISOString();
+      set({ notificationsLastSeen: stamp });
+      persistFromState(get);
+    },
     reset: () => {
       set(DEFAULTS);
       persist(DEFAULTS);
@@ -170,5 +194,6 @@ function persistFromState(get: () => PreferencesState): void {
     keyboardMode: s.keyboardMode,
     reposView: s.reposView,
     diffMode: s.diffMode,
+    notificationsLastSeen: s.notificationsLastSeen,
   });
 }
