@@ -52,6 +52,11 @@ pub enum HostError {
     Transient(String),
     #[error("permanent: {0}")]
     Permanent(String),
+    /// 409-style conflict from the host (e.g. GitLab MR merge SHA mismatch).
+    /// Distinct from `Permanent` so service callers can surface
+    /// `merge_sha_stale` per §35.9 item 7 without string-matching on `409`.
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("not implemented for this host (use GitLab adapter)")]
     NotImplemented,
 }

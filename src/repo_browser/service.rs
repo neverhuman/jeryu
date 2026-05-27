@@ -292,6 +292,7 @@ impl BrowserError {
                     Self::Upstream(msg)
                 }
             }
+            HostError::Conflict(msg) => Self::Upstream(msg),
             HostError::NotImplemented => Self::Upstream("not implemented".into()),
         }
     }
