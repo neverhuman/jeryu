@@ -2,8 +2,10 @@
 //!
 //! Returns the bundled `WebBootstrap` snapshot the SPA needs on first
 //! paint: viewer identity, TUI read-model snapshot, recent repos, the
-//! WebSocket URL, and Phase-1 feature flags. The TUI snapshot is a
-//! default placeholder until W-B-* hands real read-model assembly.
+//! WebSocket URL, and Phase-1 feature flags. Phase 2 wires
+//! `RepoService::recent(viewer, 12)` for `recent_repositories`; when the
+//! host adapter is unconfigured (CI without `JERYU_GITLAB_TOKEN`), the
+//! service degrades to an empty list rather than failing the bootstrap.
 
 use axum::{Extension, Json, extract::State};
 use chrono::Utc;
@@ -28,6 +30,8 @@ pub async fn get_bootstrap(
     let mut perms_vec: Vec<String> = viewer.perms.iter().cloned().collect();
     perms_vec.sort(); // stable wire order for tests / diffs.
 
+    let recent_repositories = state.repo_service.recent(&viewer, 12).await.unwrap_or_default();
+
     Ok(Json(WebBootstrap {
         generated_at: Utc::now(),
         schema_version: SCHEMA_VERSION.into(),
@@ -39,7 +43,7 @@ pub async fn get_bootstrap(
             global_permissions: perms_vec,
         },
         tui: TuiReadModel::default(),
-        recent_repositories: Vec::new(),
+        recent_repositories,
         websocket_url: "/api/v1/ws".into(),
         feature_flags: WebFeatureFlags {
             repo_create: ff.repo_create,
