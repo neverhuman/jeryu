@@ -25,6 +25,9 @@ use jeryu::api::actions::{ActionPreview, ActionResult, ActionStatus};
 use jeryu::api::websocket::WebEvent;
 use jeryu::tui::action_registry::{ActionEntry, REGISTRY};
 
+use crate::web::action_receipts::{
+    ReceiptStatus, WebActionReceipt, compute_state_hash,
+};
 use crate::web::audit::{RiskTier, write_audit};
 use crate::web::auth::Viewer;
 use crate::web::error::ApiError;
@@ -46,6 +49,12 @@ pub struct ExecuteRequest {
     #[serde(default)]
     #[schema(value_type = Object)]
     pub params: HashMap<String, Value>,
+    /// Optional concurrency token from the §35.1.14 step-12 contract.
+    /// Callers that fetched the action target observed a state hash; if
+    /// supplied, the server compares it against the currently-computed
+    /// hash and refuses with `settings_hash_stale` on mismatch.
+    #[serde(default)]
+    pub expected_state_hash: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
@@ -62,6 +71,19 @@ pub struct ExecuteResponse {
     #[schema(value_type = Object)]
     pub result: ActionResult,
     pub event_seq: u64,
+    /// `web_action_receipts.id` minted at step 12 of §35.1.14. Callers
+    /// can read this back via the receipts log (debug surface) or surface
+    /// it to operators for audit trail navigation.
+    pub receipt_id: String,
+    /// Hash of the action target's state *before* the executor ran. Set
+    /// to whatever value the server computed in step 4 (snapshot phase).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_state_hash: Option<String>,
+    /// Hash of the action target's state *after* the executor ran. Phase 4
+    /// has no real executor so this typically equals
+    /// `expected_state_hash`; once real mutators land it diverges.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resulting_state_hash: Option<String>,
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────
@@ -134,17 +156,46 @@ pub async fn execute_action(
     headers: HeaderMap,
     Json(req): Json<ExecuteRequest>,
 ) -> Result<Json<ExecuteResponse>, ApiError> {
+    // §35.1.14 step 1-2: resolve action, require Idempotency-Key.
     let idem = require_idempotency_key(&headers)?;
     let entry = lookup_action(&req.action_id)?;
+    let risk = web_risk_for(entry.risk_tier);
 
+    // §35.1.14 step 3: idempotency replay — return cached result for the
+    // same key, skipping the executor.
     let cache_key = format!("action:{}:{}", entry.id, idem);
-    if let Some(stored) = state.idempotency.find(&cache_key) {
-        if let Ok(resp) = serde_json::from_value::<ExecuteResponse>(stored) {
-            return Ok(Json(resp));
-        }
+    if let Some(stored) = state.idempotency.find(&cache_key)
+        && let Ok(resp) = serde_json::from_value::<ExecuteResponse>(stored)
+    {
+        return Ok(Json(resp));
     }
 
-    // Phase 4: no runtime executor; mark as Accepted, publish an event, audit.
+    // §35.1.14 step 4: compute current state hash for the action target.
+    // Phase 4 has no executor; the "state" we hash is the registry entry
+    // (id, label, risk) plus the caller-supplied params. Once real
+    // executors land, replace this with a service lookup
+    // (`state.repo_service.get(...)`, etc.).
+    let params_value = serde_json::to_value(&req.params).unwrap_or(Value::Null);
+    let snapshot_value = serde_json::json!({
+        "action_id": entry.id,
+        "risk_tier": risk.label(),
+        "params": params_value,
+    });
+    let expected_state_hash =
+        compute_state_hash(entry.id, &snapshot_value);
+
+    // §35.1.14 step 5: concurrency check. Only High-risk actions are
+    // *required* to send the token, but if any caller supplies one we
+    // honor it.
+    if let Some(caller_hash) = req.expected_state_hash.as_deref()
+        && caller_hash != expected_state_hash
+    {
+        return Err(ApiError::SettingsHashStale);
+    }
+
+    // §35.1.14 step 6-10: execute. Phase 4 has no runtime executor for
+    // every action, so we mark `Accepted` and record provider calls as
+    // empty. Real executors plug in here.
     let preview = preview_from_entry(entry);
     let result = ActionResult {
         status: ActionStatus::Accepted,
@@ -153,12 +204,38 @@ pub async fn execute_action(
         affected_entity: None,
         evidence_created: Vec::new(),
     };
+
+    // §35.1.14 step 11: compute resulting state hash. Phase 4 executor is
+    // a no-op so the resulting hash equals the expected hash; real
+    // mutating executors will diverge once they land.
+    let resulting_state_hash = expected_state_hash.clone();
+
+    // §35.1.14 step 12: write the receipt + audit row. Phase 4 ships an
+    // in-memory ring + JSONL stamp; durable SQLite lands once the engine
+    // pool is plumbed through `WebState`.
+    let receipt = WebActionReceipt::new(
+        viewer.login.clone(),
+        entry.id,
+        "action",
+        entry.id,
+        Some(idem.clone()),
+        Some(expected_state_hash.clone()),
+        Some(resulting_state_hash.clone()),
+        risk,
+        ReceiptStatus::Accepted,
+    );
+    let receipt = state.action_receipts.record(receipt);
+
+    // §35.1.14 step 13: publish on the event bus + audit hook.
     let scope = "global.activity".to_string();
     let payload = serde_json::json!({
         "action_id": entry.id,
         "actor": viewer.login,
         "params": req.params,
         "preview": preview,
+        "receipt_id": receipt.id,
+        "expected_state_hash": expected_state_hash,
+        "resulting_state_hash": resulting_state_hash,
     });
     let event_seq = state.event_bus.publish(WebEvent {
         seq: 0,
@@ -173,14 +250,19 @@ pub async fn execute_action(
         &viewer.login,
         &format!("action.execute:{}", entry.id),
         &format!("action:{}", entry.id),
-        web_risk_for(entry.risk_tier),
+        risk,
         payload,
     )
     .await;
+
+    // §35.1.14 step 14: return result + receipt ID for callers.
     let resp = ExecuteResponse {
         action_id: entry.id.to_string(),
         result,
         event_seq,
+        receipt_id: receipt.id,
+        expected_state_hash: Some(expected_state_hash),
+        resulting_state_hash: Some(resulting_state_hash),
     };
     state
         .idempotency
@@ -254,5 +336,54 @@ mod tests {
         let preview = preview_from_entry(entry);
         assert!(preview.enabled);
         assert_eq!(preview.summary, "Open job logs");
+    }
+
+    #[test]
+    fn execute_request_deserializes_with_expected_state_hash() {
+        let body = serde_json::json!({
+            "action_id": "open_logs",
+            "params": {"job_id": "42"},
+            "expected_state_hash": "sha256:abc",
+        });
+        let req: ExecuteRequest =
+            serde_json::from_value(body).expect("deserializes");
+        assert_eq!(req.action_id, "open_logs");
+        assert_eq!(req.expected_state_hash.as_deref(), Some("sha256:abc"));
+    }
+
+    #[test]
+    fn execute_request_tolerates_missing_expected_state_hash() {
+        let body = serde_json::json!({
+            "action_id": "open_logs",
+            "params": {},
+        });
+        let req: ExecuteRequest =
+            serde_json::from_value(body).expect("deserializes");
+        assert!(req.expected_state_hash.is_none());
+    }
+
+    #[test]
+    fn execute_response_roundtrips_receipt_id() {
+        let resp = ExecuteResponse {
+            action_id: "open_logs".into(),
+            result: ActionResult {
+                status: ActionStatus::Accepted,
+                summary: "queued Open job logs".into(),
+                event_cursor: None,
+                affected_entity: None,
+                evidence_created: Vec::new(),
+            },
+            event_seq: 7,
+            receipt_id: "rcpt_abc".into(),
+            expected_state_hash: Some("sha256:before".into()),
+            resulting_state_hash: Some("sha256:after".into()),
+        };
+        let v = serde_json::to_value(&resp).expect("serializes");
+        assert_eq!(v["receipt_id"], "rcpt_abc");
+        assert_eq!(v["expected_state_hash"], "sha256:before");
+        assert_eq!(v["resulting_state_hash"], "sha256:after");
+        let back: ExecuteResponse =
+            serde_json::from_value(v).expect("deserializes");
+        assert_eq!(back.receipt_id, "rcpt_abc");
     }
 }

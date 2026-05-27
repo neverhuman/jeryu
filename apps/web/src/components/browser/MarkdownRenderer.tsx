@@ -96,7 +96,6 @@ export function MarkdownRenderer({
       className={`markdown-body ${className ?? ''}`.trim()}
       // Server output is already sanitized by ammonia (§35.1.4); the
       // DOMPurify pass above adds defense-in-depth.
-      // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );

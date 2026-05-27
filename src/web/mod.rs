@@ -27,6 +27,7 @@
 //!   stack.
 //! * [`command`] — `jeryu web serve` CLI entry point (W-B-01).
 
+pub mod action_receipts;
 pub mod audit;
 pub mod auth;
 pub mod command;
