@@ -38,24 +38,27 @@ pub(crate) async fn run(cmd: WebCommand) -> Result<()> {
             Ok(())
         }
         WebCommand::ExportSchemas { out_dir } => {
-            let (openapi_bytes, ws_bytes) =
-                {
-                    #[cfg(feature = "web")]
-                    { crate::web::openapi::export_schemas(&out_dir).map_err(|e| anyhow::anyhow!(e.to_string()))?; }
-                    #[cfg(not(feature = "web"))]
-                    return Err(anyhow::anyhow!("export-schemas requires --features web"));
-                }
-            eprintln!(
-                "wrote {} ({} bytes)",
-                out_dir.join("web-api.openapi.json").display(),
-                openapi_bytes,
-            );
-            eprintln!(
-                "wrote {} ({} bytes)",
-                out_dir.join("websocket-events.schema.json").display(),
-                ws_bytes,
-            );
-            Ok(())
+            #[cfg(feature = "web")]
+            {
+                let (openapi_bytes, ws_bytes) = crate::web::openapi::export_schemas(&out_dir)
+                    .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                eprintln!(
+                    "wrote {} ({} bytes)",
+                    out_dir.join("web-api.openapi.json").display(),
+                    openapi_bytes,
+                );
+                eprintln!(
+                    "wrote {} ({} bytes)",
+                    out_dir.join("websocket-events.schema.json").display(),
+                    ws_bytes,
+                );
+                Ok(())
+            }
+            #[cfg(not(feature = "web"))]
+            {
+                let _ = out_dir;
+                Err(anyhow::anyhow!("export-schemas requires --features web"))
+            }
         }
     }
 }
