@@ -248,15 +248,25 @@ function checkMarkdownXss() {
 }
 
 function checkWsReplay() {
-  // We look for the `08-ws-reconnect` spec in the Playwright HTML report.
-  // The simpler proxy is `playwright-report/data/<hash>.json` which lists
-  // every spec run; if it doesn't exist, scan index.html for the spec name.
+  // We look for the `08-ws-reconnect` spec in the Playwright artifacts.
+  // Preferred source: `playwright-report/junit.xml` (plain text — emitted by
+  // the `junit` reporter in playwright.config.ts). Fallback: the single-file
+  // `index.html` (modern Playwright bundles spec metadata into a base64-zip
+  // template, so substring scans there only succeed when the report uses
+  // `doNotInlineAssets`). Either source counts as proof.
   const reportDir = join(webDir, 'playwright-report');
   if (!existsSync(reportDir)) {
     return {
       pass: false,
       details: { reason: 'missing apps/web/playwright-report/' },
     };
+  }
+  const junitXml = join(reportDir, 'junit.xml');
+  if (existsSync(junitXml)) {
+    const xml = readFileSync(junitXml, 'utf8');
+    if (xml.includes('08-ws-reconnect')) {
+      return { pass: true, details: { proof: junitXml, source: 'junit' } };
+    }
   }
   const indexHtml = join(reportDir, 'index.html');
   if (!existsSync(indexHtml)) {
@@ -275,7 +285,7 @@ function checkWsReplay() {
       },
     };
   }
-  return { pass: true, details: { report: indexHtml } };
+  return { pass: true, details: { report: indexHtml, source: 'index.html' } };
 }
 
 async function checkBundleSize() {
