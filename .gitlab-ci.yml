@@ -403,17 +403,26 @@ post_merge_build_artifact:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
   script:
+    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/post-merge-deploy-lane.sh build "$CI_COMMIT_SHA"
+    - bash ops/ci/post-merge-deploy-lane.sh verify-tui
   artifacts:
     paths:
       - target/release/jeryu
     expire_in: 1 day
 
+# Deploys the verified artifact to the host machine.
+# Requires a GitLab runner registered with the 'deploy-host' tag and
+# a shell executor (not Docker) so systemctl --user commands reach the
+# host systemd session. Register with:
+#   gitlab-runner register --url http://gitlab.local:8929 \
+#     --token $RUNNER_TOKEN_DEPLOY_HOST --executor shell \
+#     --tag-list deploy-host --name host-deploy-shell
 post_merge_deploy:
   stage: deploy
-  tags: [default]
+  tags: [deploy-host]
   needs: [post_merge_build_artifact]
-  when: manual
+  when: on_success
   allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'

@@ -9,9 +9,7 @@
 //!     `Upstream` as well (the BFF never re-prompts the viewer for host
 //!     creds in Phase 2).
 
-
 #![allow(clippy::unnecessary_sort_by)]
-
 #![allow(clippy::stable_sort_primitive)]
 
 use std::sync::Arc;

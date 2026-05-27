@@ -38,7 +38,7 @@ env:
 jobs:
   gate:
     name: Gate (Rust workflow green?)
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 2
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
@@ -68,7 +68,7 @@ jobs:
 
   build-artifact:
     name: Build release artifact
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 60
     needs: gate
     if: needs.gate.outputs.proceed == 'true'

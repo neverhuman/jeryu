@@ -20,7 +20,7 @@ env:
 jobs:
   fmt:
     name: Format
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -34,7 +34,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -50,7 +50,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -71,7 +71,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        os: [ubuntu-24.04]
+        os: ['self-hosted']
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
@@ -85,7 +85,7 @@ jobs:
 
   test-select:
     name: VTI Test Selection
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     outputs:
       mode: ${{ steps.plan.outputs.mode }}
@@ -113,7 +113,7 @@ jobs:
 
   test-lib:
     name: Library Tests
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     needs: [test-select]
     timeout-minutes: 30
     # Skip unit tests entirely when VTI says docs_only (no logic changed)
@@ -150,7 +150,7 @@ jobs:
 
   test-mock:
     name: Offline Mock Tests
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     needs: [test-select]
     timeout-minutes: 10
     # Run whenever test-lib runs — no infra needed, fast offline tests.
@@ -172,7 +172,7 @@ jobs:
 
   test-integration:
     name: Integration Tests
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     needs: [test-select]
     timeout-minutes: 45
     # Only run integration tests when VTI says Full or Selected (not DocsOnly)
@@ -195,7 +195,7 @@ jobs:
 
   tui-smoke:
     name: TUI Smoke
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -212,7 +212,7 @@ jobs:
 
   supply-chain:
     name: Supply Chain Audit
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -243,7 +243,7 @@ jobs:
 
   witness:
     name: Witness Graph
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -266,7 +266,7 @@ jobs:
 
   vrc-map:
     name: VRC Map
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -291,7 +291,7 @@ jobs:
 
   vrc-plan:
     name: VRC Plan
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -316,7 +316,7 @@ jobs:
 
   aer-scan:
     name: AER Structural Audit
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -339,7 +339,7 @@ jobs:
 
   scheduled-hardening:
     name: Scheduled Hardening
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     # Only run on the weekly schedule trigger, not on push/PR
     if: github.event_name == 'schedule'
@@ -367,7 +367,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   ssh-install-e2e:
     name: SSH Install E2E
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -394,7 +394,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   tui-screenshots:
     name: TUI Screenshots
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     permissions:
       contents: write
@@ -445,7 +445,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────
   fixture-project-tests:
     name: Fixture Project Validation
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
