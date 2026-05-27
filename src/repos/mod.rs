@@ -17,8 +17,10 @@ pub mod create;
 pub mod host_sync;
 pub mod models;
 pub mod permissions;
+pub mod search;
 pub mod service;
 pub mod settings;
 
+pub use search::{SearchKind, SearchResults, SearchService};
 pub use service::RepoService;
 pub use settings::SettingsService;

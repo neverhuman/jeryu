@@ -25,7 +25,10 @@ use axum::{
 
 use super::auth::auth_layer;
 use super::csrf::csrf_layer;
-use super::rest::{bootstrap::get_bootstrap, markdown, repo_browser, repos, settings};
+use super::rest::{
+    activity, actions, agents, bootstrap::get_bootstrap, ci, issues, markdown, repo_browser, repos,
+    search, settings,
+};
 use super::state::WebState;
 use super::static_assets::spa_service;
 use super::telemetry::instrument;
@@ -99,6 +102,66 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
         .route(
             "/api/v1/markdown/render",
             post(markdown::render_markdown_handler),
+        )
+        // ── W-B-14: CI / pipelines / jobs / checks ──
+        .route(
+            "/api/v1/repos/{repo_id}/pipelines",
+            get(ci::list_pipelines),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/pipelines/{pipeline_id}",
+            get(ci::get_pipeline),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/pipelines/{pipeline_id}/jobs",
+            get(ci::list_pipeline_jobs),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/jobs/{job_id}/log",
+            get(ci::get_job_log),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/jobs/{job_id}/retry",
+            post(ci::retry_job),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/jobs/{job_id}/cancel",
+            post(ci::cancel_job),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/checks",
+            get(ci::list_checks),
+        )
+        // ── W-B-15: generic action preview/execute ──
+        .route(
+            "/api/v1/actions/preview",
+            post(actions::preview_action),
+        )
+        .route(
+            "/api/v1/actions/execute",
+            post(actions::execute_action),
+        )
+        // ── W-B-16: global search ──
+        .route("/api/v1/search", get(search::search))
+        // ── W-B-17: activity feed ──
+        .route("/api/v1/activity", get(activity::list_activity))
+        // ── W-B-30: issues stubs (501) ──
+        .route(
+            "/api/v1/repos/{repo_id}/issues",
+            get(issues::list_issues).post(issues::create_issue),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/issues/{iid}",
+            get(issues::get_issue).patch(issues::patch_issue),
+        )
+        // ── W-B-31: agents read-only ──
+        .route(
+            "/api/v1/repos/{repo_id}/agents/sessions",
+            get(agents::list_sessions),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/agents/evidence",
+            get(agents::list_evidence),
         )
         .layer(middleware::from_fn(csrf_layer))
         .layer(middleware::from_fn(auth_layer))

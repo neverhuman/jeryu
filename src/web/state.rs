@@ -3,17 +3,72 @@
 //! Phase 2 extends the Phase-1 shell with the W-B-06/W-B-07/W-B-09/W-B-10
 //! services (RepoService / SettingsService / RepoBrowserService) plus a
 //! shared `Arc<GitLabClient>` used by every service that talks to the host.
+//! Phase 4 adds a rolling [`ActivityBuffer`] for W-B-17 — every event
+//! published on the [`WebEventBus`] is mirrored into this buffer via a
+//! background tap so `/api/v1/activity` can return recent history without
+//! requiring a live WebSocket subscription.
 //! See `WEB_WORK_CLAUDE.md` §35.7 + FINAL §6.3 for the eventual full bag
 //! shape.
 
+use std::collections::VecDeque;
 use std::sync::Arc;
 
+use jeryu::api::websocket::WebEvent;
 use jeryu::git_host::GitLabClient;
 use jeryu::repo_browser::RepoBrowserService;
 use jeryu::web_events::WebEventBus;
+use parking_lot::Mutex;
 
 use crate::repos::{RepoService, SettingsService};
 use crate::web::idempotency::IdempotencyStore;
+
+/// Max events retained in the in-memory activity tap. Sized per
+/// `WEB_WORK_CLAUDE.md` §7.2 W-B-17 ("last 500"). Older events are dropped
+/// FIFO when the buffer fills.
+pub const ACTIVITY_BUFFER_CAPACITY: usize = 500;
+
+/// Rolling buffer of recent `WebEvent`s mirrored from the [`WebEventBus`].
+/// Used by `GET /api/v1/activity` so the SPA's `LiveActivityDock` can render
+/// recent history on first paint without waiting on a WebSocket replay.
+#[derive(Debug, Default)]
+pub struct ActivityBuffer {
+    inner: Mutex<VecDeque<WebEvent>>,
+}
+
+impl ActivityBuffer {
+    pub fn new() -> Self {
+        Self {
+            inner: Mutex::new(VecDeque::with_capacity(ACTIVITY_BUFFER_CAPACITY)),
+        }
+    }
+
+    /// Push an event; oldest entries are evicted to keep the buffer at
+    /// [`ACTIVITY_BUFFER_CAPACITY`].
+    pub fn push(&self, event: WebEvent) {
+        let mut guard = self.inner.lock();
+        if guard.len() == ACTIVITY_BUFFER_CAPACITY {
+            guard.pop_front();
+        }
+        guard.push_back(event);
+    }
+
+    /// Snapshot the buffer ordered newest-first. Callers may further
+    /// filter / paginate.
+    pub fn recent(&self) -> Vec<WebEvent> {
+        let guard = self.inner.lock();
+        let mut out: Vec<WebEvent> = guard.iter().cloned().collect();
+        out.reverse();
+        out
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.lock().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.lock().is_empty()
+    }
+}
 
 #[derive(Clone)]
 pub struct WebState {
@@ -25,6 +80,9 @@ pub struct WebState {
     pub browser_service: Arc<RepoBrowserService>,
     pub settings_service: Arc<SettingsService>,
     pub gitlab_client: Arc<GitLabClient>,
+    /// Rolling 500-event window populated by a tap on `event_bus`. Read by
+    /// `GET /api/v1/activity` (W-B-17).
+    pub activity_buffer: Arc<ActivityBuffer>,
 }
 
 #[derive(Clone, Default)]
@@ -57,6 +115,14 @@ impl WebState {
         let repo_service = Arc::new(RepoService::new("gitlab", gitlab.clone()));
         let settings_service = Arc::new(SettingsService::new("gitlab", gitlab.clone()));
         let browser_service = Arc::new(RepoBrowserService::new(gitlab.clone()));
+        let activity_buffer = Arc::new(ActivityBuffer::new());
+
+        // ── W-B-17: bus tap → activity buffer ──
+        // Subscribe to both priority channels and mirror everything into the
+        // rolling buffer so `/api/v1/activity` can return recent history
+        // without a live WS subscription. The tap absorbs `Lagged` (under
+        // load some events are dropped; the buffer is best-effort).
+        spawn_activity_tap(event_bus.clone(), activity_buffer.clone());
 
         Self {
             app_name: "jeryu".into(),
@@ -70,6 +136,31 @@ impl WebState {
             browser_service,
             settings_service,
             gitlab_client: gitlab,
+            activity_buffer,
         }
     }
+}
+
+/// Spawn the W-B-17 tap that mirrors every published `WebEvent` into the
+/// activity buffer. Returns immediately; the tap lives for the lifetime of
+/// the broadcast channels (i.e. as long as the `WebEventBus` does).
+fn spawn_activity_tap(bus: Arc<WebEventBus>, buffer: Arc<ActivityBuffer>) {
+    let mut high = bus.subscribe_high();
+    let mut low = bus.subscribe_low();
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                evt = high.recv() => match evt {
+                    Ok(event) => buffer.push(event),
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                },
+                evt = low.recv() => match evt {
+                    Ok(event) => buffer.push(event),
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                },
+            }
+        }
+    });
 }

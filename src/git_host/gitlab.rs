@@ -10,9 +10,9 @@ use reqwest::Method;
 
 use crate::git_host::{
     ChangedFileDiff, CheckRun, CheckRunResult, CreateHostRepository, GitHost, HostBlob, HostCommit,
-    HostCompare, HostError, HostIdentity, HostRef, HostRepository, HostRepositorySettingsPatch,
-    HostTreeEntry, MrApproval, Page, PageResult, PrDiff, PrLiveState, PrSummary, RepoRef,
-    VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
+    HostCompare, HostError, HostIdentity, HostJob, HostJobLog, HostPipeline, HostRef,
+    HostRepository, HostRepositorySettingsPatch, HostTreeEntry, MrApproval, Page, PageResult,
+    PrDiff, PrLiveState, PrSummary, RepoRef, VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
 };
 use crate::gitlab_client::GitlabClient;
 
@@ -318,6 +318,33 @@ impl GitHost for GitLabClient {
         patch: HostRepositorySettingsPatch<'_>,
     ) -> Result<HostRepository, HostError> {
         <Self as GitlabBrowse>::update_repository_settings(self, repo, patch).await
+    }
+
+    // ── W-H-06: CI pipelines + jobs ──────────────────────────────────
+
+    async fn list_pipelines(
+        &self,
+        repo: &RepoRef,
+        ref_name: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostPipeline>, HostError> {
+        <Self as GitlabBrowse>::list_pipelines(self, repo, ref_name, page).await
+    }
+
+    async fn list_jobs(
+        &self,
+        repo: &RepoRef,
+        pipeline_id: &str,
+    ) -> Result<Vec<HostJob>, HostError> {
+        <Self as GitlabBrowse>::list_jobs(self, repo, pipeline_id).await
+    }
+
+    async fn get_job_log(
+        &self,
+        repo: &RepoRef,
+        job_id: &str,
+    ) -> Result<HostJobLog, HostError> {
+        <Self as GitlabBrowse>::get_job_log(self, repo, job_id).await
     }
 }
 
