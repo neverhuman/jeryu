@@ -5,22 +5,24 @@
 // multiple components asking for the same scope share a single
 // subscribe/unsubscribe round trip.
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from "react";
 
 import { useRealtimeStore } from '../stores/realtimeStore';
 
 export function useRealtime(scopes: string[]): void {
-  // Stabilize the array reference so we only resubscribe when the scope set
-  // actually changes (not on every render).
-  const stable = useMemo(() => {
-    const sorted = [...new Set(scopes)].sort();
-    return sorted;
-  }, [scopes]);
+  // Stabilize via a PRIMITIVE STRING key so callers can pass fresh array
+  // literals (`useRealtime(['repo.foo'])`) without an infinite resubscribe
+  // loop. React's referential equality on the primitive string drives
+  // useEffect deps cleanly; the array path triggers a loop because each
+  // render creates a new array reference even when contents are identical.
+  // Audit finding from Phase 1 retro.
+  const stableKey = scopes.length === 0 ? '' : [...new Set(scopes)].sort().join('|');
 
   useEffect(() => {
-    if (stable.length === 0) return undefined;
+    if (!stableKey) return undefined;
+    const stable = stableKey.split('|');
     const { subscribe, unsubscribe } = useRealtimeStore.getState();
     subscribe(stable);
     return () => unsubscribe(stable);
-  }, [stable]);
+  }, [stableKey]);
 }

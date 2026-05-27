@@ -125,12 +125,12 @@ export function AppProviders({
 
   const inner = useMemo(
     () => (
-      <KeyboardProvider>
-        <ThemeProvider>
+      <ThemeProvider>
+        <KeyboardProvider>
           <RealtimeBoot />
           {children}
-        </ThemeProvider>
-      </KeyboardProvider>
+        </KeyboardProvider>
+      </ThemeProvider>
     ),
     [children]
   );
