@@ -108,6 +108,7 @@ pub mod redact;
 pub mod release;
 pub mod remote;
 pub mod repo;
+pub mod repo_browser;
 pub mod repo_fleet;
 pub mod repo_local;
 pub mod repo_standard;
