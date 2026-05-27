@@ -23,18 +23,64 @@ fn not_implemented_body() -> Json<ApiErrorBody> {
     })
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/issues",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    responses(
+        (status = 501, description = "Not implemented in v1 (see v1.5)"),
+    ),
+    tag = "issues",
+    security(("session" = [])),
+)]
 pub async fn list_issues(Path(_repo_id): Path<String>) -> impl IntoResponse {
     (StatusCode::NOT_IMPLEMENTED, not_implemented_body())
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/issues",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    responses(
+        (status = 501, description = "Not implemented in v1 (see v1.5)"),
+    ),
+    tag = "issues",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn create_issue(Path(_repo_id): Path<String>) -> impl IntoResponse {
     (StatusCode::NOT_IMPLEMENTED, not_implemented_body())
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/issues/{iid}",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "Issue internal ID"),
+    ),
+    responses(
+        (status = 501, description = "Not implemented in v1 (see v1.5)"),
+    ),
+    tag = "issues",
+    security(("session" = [])),
+)]
 pub async fn get_issue(Path((_repo_id, _iid)): Path<(String, String)>) -> impl IntoResponse {
     (StatusCode::NOT_IMPLEMENTED, not_implemented_body())
 }
 
+#[utoipa::path(
+    patch,
+    path = "/api/v1/repos/{repo_id}/issues/{iid}",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "Issue internal ID"),
+    ),
+    responses(
+        (status = 501, description = "Not implemented in v1 (see v1.5)"),
+    ),
+    tag = "issues",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn patch_issue(Path((_repo_id, _iid)): Path<(String, String)>) -> impl IntoResponse {
     (StatusCode::NOT_IMPLEMENTED, not_implemented_body())
 }

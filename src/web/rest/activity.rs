@@ -31,7 +31,7 @@ use crate::web::error::ApiError;
 use crate::web::permissions;
 use crate::web::state::WebState;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ActivityQuery {
     /// Only events with `seq > since` are returned.
     pub since: Option<u64>,
@@ -41,7 +41,7 @@ pub struct ActivityQuery {
     pub limit: Option<u32>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ActivityResponse {
     pub events: Vec<WebEvent>,
     /// Buffer capacity at fetch time. Lets the FE detect that the rolling
@@ -51,6 +51,18 @@ pub struct ActivityResponse {
     pub buffer_len: usize,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/activity",
+    params(ActivityQuery),
+    responses(
+        (status = 200, description = "Recent activity events", body = ActivityResponse),
+        (status = 403, description = "Forbidden scope"),
+        (status = 401, description = "Unauthenticated"),
+    ),
+    tag = "activity",
+    security(("session" = [])),
+)]
 pub async fn list_activity(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

@@ -27,7 +27,7 @@ use crate::web::error::ApiError;
 use crate::web::permissions::{perms, require};
 use crate::web::state::WebState;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, utoipa::IntoParams)]
 pub struct ListReposParams {
     pub search: Option<String>,
     pub host: Option<String>,
@@ -39,6 +39,18 @@ pub struct ListReposParams {
     pub cursor: Option<String>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos",
+    params(ListReposParams),
+    responses(
+        (status = 200, description = "Repository list", body = RepositoryListResponse),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repos",
+    security(("session" = [])),
+)]
 pub async fn list_repos(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -58,12 +70,25 @@ pub async fn list_repos(
     Ok(Json(resp))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct RepoDetailResponse {
     #[serde(flatten)]
     pub summary: RepositorySummary,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    responses(
+        (status = 200, description = "Repository detail", body = RepoDetailResponse),
+        (status = 404, description = "Repository not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repos",
+    security(("session" = [])),
+)]
 pub async fn get_repo(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -74,6 +99,19 @@ pub async fn get_repo(
     Ok(Json(RepoDetailResponse { summary }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/preview",
+    request_body = CreateRepositoryRequest,
+    responses(
+        (status = 200, description = "Create preview", body = CreateRepositoryPreview),
+        (status = 400, description = "Validation failed"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repos",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn create_repo_preview(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -84,6 +122,19 @@ pub async fn create_repo_preview(
     Ok(Json(preview))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos",
+    request_body = CreateRepositoryRequest,
+    responses(
+        (status = 200, description = "Created repository", body = RepositorySummary),
+        (status = 400, description = "Validation failed"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repos",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn create_repo(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -94,6 +145,21 @@ pub async fn create_repo(
     Ok(Json(summary))
 }
 
+#[utoipa::path(
+    patch,
+    path = "/api/v1/repos/{repo_id}",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    request_body = crate::repos::settings::SettingsPatch,
+    responses(
+        (status = 200, description = "Patched repository settings", body = jeryu::api::settings::RepositorySettings),
+        (status = 400, description = "Validation failed"),
+        (status = 404, description = "Repository not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repos",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn patch_repo(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

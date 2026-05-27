@@ -38,17 +38,17 @@ use crate::web::error::ApiError;
 use crate::web::permissions::{perms, require};
 use crate::web::state::WebState;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, utoipa::IntoParams)]
 pub struct ListMrParams {
     pub state: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ListMrResponse {
     pub merge_requests: Vec<MergeRequestSummary>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, utoipa::ToSchema)]
 pub struct CreateMrRequest {
     pub source_branch: Option<String>,
     pub target_branch: Option<String>,
@@ -56,25 +56,25 @@ pub struct CreateMrRequest {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, utoipa::ToSchema)]
 pub struct PatchMrRequest {
     pub title: Option<String>,
     pub description: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ApproveMrRequest {
     pub expected_head_sha: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RequestChangesRequest {
     pub expected_head_sha: String,
     #[serde(default)]
     pub body_markdown: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MergeMrRequest {
     pub expected_head_sha: String,
     /// `"merge"`, `"squash"`, or `"rebase"`. Defaults to `"merge"`.
@@ -86,26 +86,26 @@ pub struct MergeMrRequest {
     pub commit_message: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ApproveMrResponse {
     pub mr_iid: String,
     pub head_sha: String,
     pub receipt: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct MergeMrResponse {
     pub mr_iid: String,
     pub head_sha: String,
     pub receipt: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct EmptyOk {
     pub ok: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct DiffResponse {
     pub repo: String,
     pub mr_iid: String,
@@ -114,7 +114,7 @@ pub struct DiffResponse {
     pub files: Vec<DiffFile>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct DiffFile {
     pub path: String,
     pub lines_added: u32,
@@ -122,14 +122,15 @@ pub struct DiffFile {
     pub hunks: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+#[schema(as = MrChecksResponse)]
 pub struct ChecksResponse {
     pub mr_iid: String,
     pub head_sha: String,
     pub pipelines: Vec<PipelineSummary>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PipelineSummary {
     pub id: String,
     pub status: String,
@@ -138,6 +139,22 @@ pub struct PipelineSummary {
 
 // ── Handlers ───────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/merge-requests",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ListMrParams,
+    ),
+    responses(
+        (status = 200, description = "Merge requests list", body = ListMrResponse),
+        (status = 404, description = "Repository not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = [])),
+)]
 pub async fn list_merge_requests(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -157,6 +174,22 @@ pub async fn list_merge_requests(
     Ok(Json(ListMrResponse { merge_requests }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "Merge request detail", body = MergeRequestDetail),
+        (status = 404, description = "MR not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = [])),
+)]
 pub async fn get_merge_request(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -167,6 +200,20 @@ pub async fn get_merge_request(
     Ok(Json(detail))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    request_body = CreateMrRequest,
+    responses(
+        (status = 200, description = "Stub OK (Phase 3 placeholder)", body = EmptyOk),
+        (status = 502, description = "Upstream adapter not implemented"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn create_merge_request(
     State(_state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -184,6 +231,23 @@ pub async fn create_merge_request(
     ))
 }
 
+#[utoipa::path(
+    patch,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    request_body = PatchMrRequest,
+    responses(
+        (status = 200, description = "Stub OK (Phase 3 placeholder)", body = EmptyOk),
+        (status = 502, description = "Upstream adapter not implemented"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn patch_merge_request(
     State(_state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -196,6 +260,23 @@ pub async fn patch_merge_request(
     ))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/approve",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    request_body = ApproveMrRequest,
+    responses(
+        (status = 200, description = "Approval receipt", body = ApproveMrResponse),
+        (status = 400, description = "Validation failed / SHA drift"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn approve_merge_request(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -217,6 +298,23 @@ pub async fn approve_merge_request(
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/request-changes",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    request_body = RequestChangesRequest,
+    responses(
+        (status = 200, description = "Review submitted", body = EmptyOk),
+        (status = 400, description = "Validation failed / SHA drift"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn request_changes(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -242,6 +340,24 @@ pub async fn request_changes(
     Ok(Json(EmptyOk { ok: true }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/merge",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    request_body = MergeMrRequest,
+    responses(
+        (status = 200, description = "Merge receipt", body = MergeMrResponse),
+        (status = 400, description = "Validation failed / SHA drift"),
+        (status = 409, description = "Merge blockers present"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn merge_merge_request(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -273,6 +389,21 @@ pub async fn merge_merge_request(
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/close",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "Closed", body = EmptyOk),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn close_merge_request(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -283,6 +414,21 @@ pub async fn close_merge_request(
     Ok(Json(EmptyOk { ok: true }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/reopen",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "Reopened", body = EmptyOk),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn reopen_merge_request(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -293,6 +439,21 @@ pub async fn reopen_merge_request(
     Ok(Json(EmptyOk { ok: true }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/rebase",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "Rebase queued", body = EmptyOk),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn rebase_merge_request(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -303,6 +464,22 @@ pub async fn rebase_merge_request(
     Ok(Json(EmptyOk { ok: true }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/diff",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "MR diff", body = DiffResponse),
+        (status = 404, description = "MR not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = [])),
+)]
 pub async fn get_diff(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -328,6 +505,22 @@ pub async fn get_diff(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/checks",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "MR checks summary", body = ChecksResponse),
+        (status = 404, description = "MR not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = [])),
+)]
 pub async fn get_checks(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -366,6 +559,22 @@ pub async fn get_checks(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/blockers",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "Merge passport (blockers)", body = MergePassport),
+        (status = 404, description = "MR not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "merge_requests",
+    security(("session" = [])),
+)]
 pub async fn get_blockers(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

@@ -22,25 +22,38 @@ use crate::web::error::ApiError;
 use crate::web::permissions::{perms, require};
 use crate::web::state::WebState;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AgentSessionsResponse {
     pub repo_id: String,
+    #[schema(value_type = Vec<Object>)]
     pub sessions: Vec<AgentSession>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AgentEvidenceResponse {
     pub repo_id: String,
     pub evidence: Vec<AgentEvidenceItem>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AgentEvidenceItem {
     pub id: String,
     pub kind: String,
     pub summary: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/agents/sessions",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    responses(
+        (status = 200, description = "Agent sessions list", body = AgentSessionsResponse),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "agents",
+    security(("session" = [])),
+)]
 pub async fn list_sessions(
     State(_state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -57,6 +70,18 @@ pub async fn list_sessions(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/agents/evidence",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    responses(
+        (status = 200, description = "Agent evidence list", body = AgentEvidenceResponse),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "agents",
+    security(("session" = [])),
+)]
 pub async fn list_evidence(
     State(_state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

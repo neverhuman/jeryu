@@ -32,36 +32,52 @@ use crate::web::state::WebState;
 
 // ── Wire DTOs ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PreviewRequest {
     pub action_id: String,
     #[serde(default)]
+    #[schema(value_type = Object)]
     pub params: HashMap<String, Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct ExecuteRequest {
     pub action_id: String,
     #[serde(default)]
+    #[schema(value_type = Object)]
     pub params: HashMap<String, Value>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct PreviewResponse {
     pub action_id: String,
+    #[schema(value_type = Object)]
     pub preview: ActionPreview,
     pub event_seq: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ExecuteResponse {
     pub action_id: String,
+    #[schema(value_type = Object)]
     pub result: ActionResult,
     pub event_seq: u64,
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/actions/preview",
+    request_body = PreviewRequest,
+    responses(
+        (status = 200, description = "Action preview", body = PreviewResponse),
+        (status = 404, description = "Unknown action"),
+        (status = 401, description = "Unauthenticated"),
+    ),
+    tag = "actions",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn preview_action(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -99,6 +115,19 @@ pub async fn preview_action(
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/actions/execute",
+    request_body = ExecuteRequest,
+    responses(
+        (status = 200, description = "Execution result", body = ExecuteResponse),
+        (status = 400, description = "Missing Idempotency-Key"),
+        (status = 404, description = "Unknown action"),
+        (status = 401, description = "Unauthenticated"),
+    ),
+    tag = "actions",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn execute_action(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

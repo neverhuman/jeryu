@@ -9,7 +9,3023 @@
     },
     "version": "0.1.0-alpha"
   },
-  "paths": {},
+  "paths": {
+    "/api/v1/actions/execute": {
+      "post": {
+        "tags": [
+          "actions"
+        ],
+        "operationId": "execute_action",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecuteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Unknown action"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/actions/preview": {
+      "post": {
+        "tags": [
+          "actions"
+        ],
+        "operationId": "preview_action",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Action preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Unknown action"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/activity": {
+      "get": {
+        "tags": [
+          "activity"
+        ],
+        "operationId": "list_activity",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "description": "Only events with `seq > since` are returned.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "description": "Exact scope or prefix to filter by (e.g. `repo.gitlab/x/y`).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Max events to return; clamped to the buffer capacity.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent activity events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden scope"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bootstrap": {
+      "get": {
+        "tags": [
+          "bootstrap"
+        ],
+        "operationId": "get_bootstrap",
+        "responses": {
+          "200": {
+            "description": "Web Forge bootstrap snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebBootstrap"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/markdown/render": {
+      "post": {
+        "tags": [
+          "markdown"
+        ],
+        "operationId": "render_markdown_handler",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkdownRenderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Rendered markdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkdownRenderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos": {
+      "get": {
+        "tags": [
+          "repos"
+        ],
+        "operationId": "list_repos",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "host",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "repos"
+        ],
+        "operationId": "create_repo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRepositoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created repository",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositorySummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/preview": {
+      "post": {
+        "tags": [
+          "repos"
+        ],
+        "operationId": "create_repo_preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRepositoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Create preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateRepositoryPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}": {
+      "get": {
+        "tags": [
+          "repos"
+        ],
+        "operationId": "get_repo",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoDetailResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "repos"
+        ],
+        "operationId": "patch_repo",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Patched repository settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositorySettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/agents/evidence": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "list_evidence",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent evidence list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentEvidenceResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/agents/sessions": {
+      "get": {
+        "tags": [
+          "agents"
+        ],
+        "operationId": "list_sessions",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent sessions list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSessionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/blame": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "get_blame",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "description": "Branch/tag/SHA",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "File path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-line blame",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlameResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Path or ref not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/blob": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "get_blob",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "description": "Branch/tag/SHA",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "File path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "render",
+            "in": "query",
+            "description": "Optional renderer (e.g. `markdown`)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Blob content + metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlobResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Path or ref not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/checks": {
+      "get": {
+        "tags": [
+          "ci"
+        ],
+        "operationId": "list_checks",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sha",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checks at SHA",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChecksResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/commits": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "list_commits",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "description": "Branch/tag/SHA",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Optional file path filter",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Page size (default 50)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Pagination cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Commits page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Ref not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/compare": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "compare_refs",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "base",
+            "in": "query",
+            "description": "Base ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "head",
+            "in": "query",
+            "description": "Head ref",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Diff comparison",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Ref not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/issues": {
+      "get": {
+        "tags": [
+          "issues"
+        ],
+        "operationId": "list_issues",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Not implemented in v1 (see v1.5)"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "issues"
+        ],
+        "operationId": "create_issue",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Not implemented in v1 (see v1.5)"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/issues/{iid}": {
+      "get": {
+        "tags": [
+          "issues"
+        ],
+        "operationId": "get_issue",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "Issue internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Not implemented in v1 (see v1.5)"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "issues"
+        ],
+        "operationId": "patch_issue",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "Issue internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Not implemented in v1 (see v1.5)"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/jobs/{job_id}/cancel": {
+      "post": {
+        "tags": [
+          "ci"
+        ],
+        "operationId": "cancel_job",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "description": "Job ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancel accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/jobs/{job_id}/log": {
+      "get": {
+        "tags": [
+          "ci"
+        ],
+        "operationId": "get_job_log",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "description": "Job ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Byte offset for incremental fetch; clients pass the previous\nresponse's `next_cursor`. Phase 4: log is fetched in full and the\ncursor slices it client-side (best-effort).",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job log slice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobLogResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Job not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/jobs/{job_id}/retry": {
+      "post": {
+        "tags": [
+          "ci"
+        ],
+        "operationId": "retry_job",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "description": "Job ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Retry accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests": {
+      "get": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "list_merge_requests",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merge requests list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMrResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "create_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Stub OK (Phase 3 placeholder)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyOk"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Upstream adapter not implemented"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}": {
+      "get": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "get_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merge request detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeRequestDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "MR not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "patch_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Stub OK (Phase 3 placeholder)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyOk"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Upstream adapter not implemented"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/approve": {
+      "post": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "approve_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveMrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Approval receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproveMrResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed / SHA drift"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/blockers": {
+      "get": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "get_blockers",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merge passport (blockers)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergePassport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "MR not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/checks": {
+      "get": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "get_checks",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MR checks summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MrChecksResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "MR not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/close": {
+      "post": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "close_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyOk"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/comments": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "create_comment",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewCommentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created comment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewComment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/diff": {
+      "get": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "get_diff",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MR diff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiffResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "MR not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/merge": {
+      "post": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "merge_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeMrRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Merge receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeMrResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed / SHA drift"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Merge blockers present"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/rebase": {
+      "post": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "rebase_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rebase queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyOk"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/reopen": {
+      "post": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "reopen_merge_request",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reopened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyOk"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/request-changes": {
+      "post": {
+        "tags": [
+          "merge_requests"
+        ],
+        "operationId": "request_changes",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestChangesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Review submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyOk"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed / SHA drift"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/reviews": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "submit_review",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Submitted review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed / SHA drift"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/threads": {
+      "get": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "list_threads",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review threads",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListThreadsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "MR not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "create_thread",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewCommentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Created thread",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewThread"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/merge-requests/{iid}/threads/{thread_id}": {
+      "patch": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "patch_thread",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "iid",
+            "in": "path",
+            "description": "MR internal ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "thread_id",
+            "in": "path",
+            "description": "Review thread ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchThreadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated thread",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewThread"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Thread not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/pipelines": {
+      "get": {
+        "tags": [
+          "ci"
+        ],
+        "operationId": "list_pipelines",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pipelines page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelinesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/pipelines/{pipeline_id}": {
+      "get": {
+        "tags": [
+          "ci"
+        ],
+        "operationId": "get_pipeline",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "description": "Pipeline ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pipeline detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Pipeline not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/pipelines/{pipeline_id}/jobs": {
+      "get": {
+        "tags": [
+          "ci"
+        ],
+        "operationId": "list_pipeline_jobs",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "description": "Pipeline ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pipeline jobs list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Pipeline not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/raw": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "get_raw",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "description": "Branch/tag/SHA",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "File path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raw file bytes; Content-Type reflects detected MIME"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Path or ref not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/readme": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "get_readme",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "description": "Branch/tag/SHA (default: HEAD)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rendered README",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlobResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "README not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/refs": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "list_refs",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Branch/tag refs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "get_settings",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositorySettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "patch_settings",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositorySettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          },
+          "409": {
+            "description": "Concurrent update (If-Match hash mismatch)"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/settings/preview": {
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "preview_settings_patch",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Settings patch diff preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsDiffPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "csrf": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repos/{repo_id}/tree": {
+      "get": {
+        "tags": [
+          "repo_browser"
+        ],
+        "operationId": "get_tree",
+        "parameters": [
+          {
+            "name": "repo_id",
+            "in": "path",
+            "description": "Stable opaque repo ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "description": "Branch/tag/SHA",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Path within the tree (default: repo root)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tree entries at path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TreeResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Path or ref not found"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "operationId": "search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "kinds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Global search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown kind"
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    }
+  },
   "components": {
     "schemas": {
       "AccessSettings": {
@@ -64,6 +3080,69 @@
           }
         }
       },
+      "ActivityResponse": {
+        "type": "object",
+        "required": [
+          "events",
+          "buffer_capacity",
+          "buffer_len"
+        ],
+        "properties": {
+          "buffer_capacity": {
+            "type": "integer",
+            "description": "Buffer capacity at fetch time. Lets the FE detect that the rolling\nwindow has wrapped (a sudden drop in `total` vs. recent reads).",
+            "minimum": 0
+          },
+          "buffer_len": {
+            "type": "integer",
+            "description": "Number of events currently held in the buffer.",
+            "minimum": 0
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebEvent"
+            }
+          }
+        }
+      },
+      "AgentEvidenceItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "summary"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      },
+      "AgentEvidenceResponse": {
+        "type": "object",
+        "required": [
+          "repo_id",
+          "evidence"
+        ],
+        "properties": {
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentEvidenceItem"
+            }
+          },
+          "repo_id": {
+            "type": "string"
+          }
+        }
+      },
       "AgentPosture": {
         "type": "object",
         "required": [
@@ -92,6 +3171,24 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "AgentSessionsResponse": {
+        "type": "object",
+        "required": [
+          "repo_id",
+          "sessions"
+        ],
+        "properties": {
+          "repo_id": {
+            "type": "string"
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         }
       },
@@ -138,6 +3235,81 @@
           },
           "require_human_approval_for_writes": {
             "type": "boolean"
+          }
+        }
+      },
+      "ApproveMrRequest": {
+        "type": "object",
+        "required": [
+          "expected_head_sha"
+        ],
+        "properties": {
+          "expected_head_sha": {
+            "type": "string"
+          }
+        }
+      },
+      "ApproveMrResponse": {
+        "type": "object",
+        "required": [
+          "mr_iid",
+          "head_sha",
+          "receipt"
+        ],
+        "properties": {
+          "head_sha": {
+            "type": "string"
+          },
+          "mr_iid": {
+            "type": "string"
+          },
+          "receipt": {
+            "type": "string"
+          }
+        }
+      },
+      "BlameLine": {
+        "type": "object",
+        "required": [
+          "sha",
+          "author",
+          "line",
+          "original_line",
+          "content"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "original_line": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "sha": {
+            "type": "string"
+          }
+        }
+      },
+      "BlameResponse": {
+        "type": "object",
+        "required": [
+          "lines"
+        ],
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BlameLine"
+            }
           }
         }
       },
@@ -258,6 +3430,35 @@
           }
         }
       },
+      "CheckItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "sha"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "web_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "CheckPosture": {
         "type": "object",
         "required": [
@@ -292,6 +3493,24 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "ChecksResponse": {
+        "type": "object",
+        "required": [
+          "sha",
+          "checks"
+        ],
+        "properties": {
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckItem"
+            }
+          },
+          "sha": {
+            "type": "string"
           }
         }
       },
@@ -450,6 +3669,176 @@
             }
           }
         ]
+      },
+      "CommitItem": {
+        "type": "object",
+        "required": [
+          "sha",
+          "author",
+          "message",
+          "parent_shas",
+          "committed_at"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "message": {
+            "type": "string"
+          },
+          "parent_shas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sha": {
+            "type": "string"
+          }
+        }
+      },
+      "CommitSearchHit": {
+        "type": "object",
+        "required": [
+          "repo_id",
+          "sha",
+          "summary",
+          "author"
+        ],
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "repo_id": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      },
+      "CommitsResponse": {
+        "type": "object",
+        "required": [
+          "commits"
+        ],
+        "properties": {
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitItem"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CompareFile": {
+        "type": "object",
+        "required": [
+          "path",
+          "status",
+          "additions",
+          "deletions"
+        ],
+        "properties": {
+          "additions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deletions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "patch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "CompareResponse": {
+        "type": "object",
+        "required": [
+          "base_sha",
+          "head_sha",
+          "ahead_by",
+          "behind_by",
+          "files"
+        ],
+        "properties": {
+          "ahead_by": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "base_sha": {
+            "type": "string"
+          },
+          "behind_by": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompareFile"
+            }
+          },
+          "head_sha": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateMrRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "CreateRepositoryPreview": {
         "type": "object",
@@ -614,6 +4003,77 @@
           }
         }
       },
+      "DiffFile": {
+        "type": "object",
+        "required": [
+          "path",
+          "lines_added",
+          "lines_removed",
+          "hunks"
+        ],
+        "properties": {
+          "hunks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lines_added": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "lines_removed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "DiffResponse": {
+        "type": "object",
+        "required": [
+          "repo",
+          "mr_iid",
+          "head_sha",
+          "base_sha",
+          "files"
+        ],
+        "properties": {
+          "base_sha": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiffFile"
+            }
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "mr_iid": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          }
+        }
+      },
+      "EmptyOk": {
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
       "EntityRefSurrogate": {
         "type": "object",
         "required": [
@@ -626,6 +4086,41 @@
           },
           "kind": {
             "type": "string"
+          }
+        }
+      },
+      "ExecuteRequest": {
+        "type": "object",
+        "required": [
+          "action_id"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object"
+          }
+        }
+      },
+      "ExecuteResponse": {
+        "type": "object",
+        "required": [
+          "action_id",
+          "result",
+          "event_seq"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string"
+          },
+          "event_seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "result": {
+            "type": "object"
           }
         }
       },
@@ -676,6 +4171,30 @@
           }
         }
       },
+      "FileSearchHit": {
+        "type": "object",
+        "required": [
+          "repo_id",
+          "path",
+          "ref_name",
+          "score"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "ref_name": {
+            "type": "string"
+          },
+          "repo_id": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "format": "float"
+          }
+        }
+      },
       "GeneralSettings": {
         "type": "object",
         "required": [
@@ -715,6 +4234,29 @@
           },
           "visibility": {
             "$ref": "#/components/schemas/RepositoryVisibility"
+          }
+        }
+      },
+      "IssueSearchHit": {
+        "type": "object",
+        "required": [
+          "repo_id",
+          "iid",
+          "title",
+          "state"
+        ],
+        "properties": {
+          "iid": {
+            "type": "string"
+          },
+          "repo_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -769,6 +4311,143 @@
           }
         }
       },
+      "JobActionReceipt": {
+        "type": "object",
+        "required": [
+          "job_id",
+          "action",
+          "accepted",
+          "event_seq"
+        ],
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "action": {
+            "type": "string"
+          },
+          "event_seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "job_id": {
+            "type": "string"
+          }
+        }
+      },
+      "JobItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "stage",
+          "status"
+        ],
+        "properties": {
+          "duration_secs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "JobLogResponse": {
+        "type": "object",
+        "required": [
+          "bytes",
+          "truncated"
+        ],
+        "properties": {
+          "bytes": {
+            "type": "string",
+            "description": "Log bytes as UTF-8 (lossy if invalid)."
+          },
+          "next_cursor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Byte offset where the next fetch should resume; absent when the log\nis fully drained.",
+            "minimum": 0
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "JobsResponse": {
+        "type": "object",
+        "required": [
+          "jobs"
+        ],
+        "properties": {
+          "jobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobItem"
+            }
+          }
+        }
+      },
+      "ListMrResponse": {
+        "type": "object",
+        "required": [
+          "merge_requests"
+        ],
+        "properties": {
+          "merge_requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeRequestSummary"
+            }
+          }
+        }
+      },
+      "ListThreadsResponse": {
+        "type": "object",
+        "required": [
+          "threads"
+        ],
+        "properties": {
+          "threads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewThread"
+            }
+          }
+        }
+      },
       "MarkdownHeading": {
         "type": "object",
         "required": [
@@ -808,6 +4487,106 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "MarkdownRenderContext": {
+        "type": "object",
+        "properties": {
+          "current_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repo_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MarkdownRenderRequest": {
+        "type": "object",
+        "required": [
+          "markdown"
+        ],
+        "properties": {
+          "context": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MarkdownRenderContext"
+              }
+            ]
+          },
+          "markdown": {
+            "type": "string"
+          }
+        }
+      },
+      "MarkdownRenderResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RenderedMarkdown"
+          }
+        ]
+      },
+      "MergeMrRequest": {
+        "type": "object",
+        "required": [
+          "expected_head_sha"
+        ],
+        "properties": {
+          "commit_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "commit_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected_head_sha": {
+            "type": "string"
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`\"merge\"`, `\"squash\"`, or `\"rebase\"`. Defaults to `\"merge\"`."
+          }
+        }
+      },
+      "MergeMrResponse": {
+        "type": "object",
+        "required": [
+          "mr_iid",
+          "head_sha",
+          "receipt"
+        ],
+        "properties": {
+          "head_sha": {
+            "type": "string"
+          },
+          "mr_iid": {
+            "type": "string"
+          },
+          "receipt": {
+            "type": "string"
           }
         }
       },
@@ -1082,6 +4861,51 @@
           }
         }
       },
+      "MrChecksResponse": {
+        "type": "object",
+        "required": [
+          "mr_iid",
+          "head_sha",
+          "pipelines"
+        ],
+        "properties": {
+          "head_sha": {
+            "type": "string"
+          },
+          "mr_iid": {
+            "type": "string"
+          },
+          "pipelines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineSummary"
+            }
+          }
+        }
+      },
+      "MrSearchHit": {
+        "type": "object",
+        "required": [
+          "repo_id",
+          "iid",
+          "title",
+          "state"
+        ],
+        "properties": {
+          "iid": {
+            "type": "string"
+          },
+          "repo_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "NotificationSettings": {
         "type": "object",
         "required": [
@@ -1102,6 +4926,149 @@
           },
           "watch_default": {
             "type": "string"
+          }
+        }
+      },
+      "PatchMrRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PatchThreadRequest": {
+        "type": "object",
+        "required": [
+          "resolved"
+        ],
+        "properties": {
+          "resolved": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PipelineItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "ref_name",
+          "sha",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ref_name": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "web_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PipelineSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "web_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PipelinesResponse": {
+        "type": "object",
+        "required": [
+          "pipelines"
+        ],
+        "properties": {
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pipelines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineItem"
+            }
+          }
+        }
+      },
+      "PreviewRequest": {
+        "type": "object",
+        "required": [
+          "action_id"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object"
+          }
+        }
+      },
+      "PreviewResponse": {
+        "type": "object",
+        "required": [
+          "action_id",
+          "preview",
+          "event_seq"
+        ],
+        "properties": {
+          "action_id": {
+            "type": "string"
+          },
+          "event_seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "preview": {
+            "type": "object"
           }
         }
       },
@@ -1133,6 +5100,20 @@
           },
           "sha": {
             "type": "string"
+          }
+        }
+      },
+      "RefsResponse": {
+        "type": "object",
+        "required": [
+          "refs"
+        ],
+        "properties": {
+          "refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefSelectorItem"
+            }
           }
         }
       },
@@ -1175,6 +5156,39 @@
             "items": {
               "$ref": "#/components/schemas/MarkdownHeading"
             }
+          }
+        }
+      },
+      "RepoDetailResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RepositorySummary"
+          }
+        ]
+      },
+      "RepoSearchHit": {
+        "type": "object",
+        "required": [
+          "id",
+          "full_name",
+          "updated_at"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -1443,6 +5457,23 @@
           "private"
         ]
       },
+      "RequestChangesRequest": {
+        "type": "object",
+        "required": [
+          "expected_head_sha"
+        ],
+        "properties": {
+          "body_markdown": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected_head_sha": {
+            "type": "string"
+          }
+        }
+      },
       "RetentionSettings": {
         "type": "object",
         "required": [
@@ -1659,6 +5690,66 @@
           "request_changes"
         ]
       },
+      "SearchResults": {
+        "type": "object",
+        "description": "Wire shape returned by `/api/v1/search`. Each field is a separate\nvector so the FE can render per-section panels without scanning a\ngeneric union list.",
+        "required": [
+          "query",
+          "repos",
+          "files",
+          "commits",
+          "mrs",
+          "issues",
+          "users",
+          "total"
+        ],
+        "properties": {
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitSearchHit"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileSearchHit"
+            }
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueSearchHit"
+            }
+          },
+          "mrs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MrSearchHit"
+            }
+          },
+          "query": {
+            "type": "string"
+          },
+          "repos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepoSearchHit"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserSearchHit"
+            }
+          }
+        }
+      },
       "SecuritySettings": {
         "type": "object",
         "required": [
@@ -1802,6 +5893,110 @@
           }
         ]
       },
+      "SettingsDiffPreview": {
+        "type": "object",
+        "description": "Preview output: what would change if the patch were applied, plus an\ninitial cut at blast-radius messaging. Phase 2 returns a stub blast\nradius; the full implementation lands with W-B-* (counts branches/MRs\naffected by visibility changes, default-branch swap, etc.).",
+        "required": [
+          "repo",
+          "current_hash",
+          "diffs",
+          "side_effects",
+          "warnings",
+          "reversible"
+        ],
+        "properties": {
+          "current_hash": {
+            "type": "string"
+          },
+          "diffs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingsFieldChange"
+            }
+          },
+          "repo": {
+            "$ref": "#/components/schemas/RepositoryId"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "side_effects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SettingsFieldChange": {
+        "type": "object",
+        "required": [
+          "field"
+        ],
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "before": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "field": {
+            "type": "string"
+          }
+        }
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "description": "Settings patch wire-format. RFC 7396 merge semantics — only fields that\nappear in the JSON body are updated; absent fields are left unchanged.\nMirrors the host adapter's `HostRepositorySettingsPatch` for the subset\nof fields the BFF currently supports.",
+        "properties": {
+          "archived": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "default_branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "homepage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RepositoryVisibility"
+              }
+            ]
+          }
+        }
+      },
       "SubmitReviewRequest": {
         "type": "object",
         "description": "Body for `POST /api/v1/repos/{id}/merge-requests/{iid}/reviews`.",
@@ -1827,6 +6022,25 @@
           },
           "verdict": {
             "$ref": "#/components/schemas/ReviewVerdict"
+          }
+        }
+      },
+      "SubmitReviewResponse": {
+        "type": "object",
+        "required": [
+          "review_id",
+          "state",
+          "head_sha"
+        ],
+        "properties": {
+          "head_sha": {
+            "type": "string"
+          },
+          "review_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
           }
         }
       },
@@ -1904,6 +6118,37 @@
           "symlink",
           "submodule"
         ]
+      },
+      "TreeResponse": {
+        "type": "object",
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TreeEntry"
+            }
+          }
+        }
+      },
+      "UserSearchHit": {
+        "type": "object",
+        "required": [
+          "login"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "login": {
+            "type": "string"
+          }
+        }
       },
       "Viewer": {
         "type": "object",
@@ -2048,6 +6293,72 @@
           }
         }
       }
+    },
+    "securitySchemes": {
+      "csrf": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token"
+      },
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "jeryu_session"
+      }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "bootstrap",
+      "description": "Web Forge bootstrap snapshot."
+    },
+    {
+      "name": "repos",
+      "description": "Repository list / detail / create / patch."
+    },
+    {
+      "name": "settings",
+      "description": "Repository settings read / preview / patch."
+    },
+    {
+      "name": "repo_browser",
+      "description": "Refs, tree, blob, raw, readme, compare, commits, blame."
+    },
+    {
+      "name": "markdown",
+      "description": "Standalone markdown render."
+    },
+    {
+      "name": "merge_requests",
+      "description": "Merge requests list / detail / actions / merge passport."
+    },
+    {
+      "name": "reviews",
+      "description": "Review threads / comments / verdict."
+    },
+    {
+      "name": "ci",
+      "description": "Pipelines / jobs / checks."
+    },
+    {
+      "name": "actions",
+      "description": "Generic action preview / execute."
+    },
+    {
+      "name": "search",
+      "description": "Global search."
+    },
+    {
+      "name": "activity",
+      "description": "Activity feed."
+    },
+    {
+      "name": "issues",
+      "description": "Issues (v1.5)."
+    },
+    {
+      "name": "agents",
+      "description": "Agent sessions / evidence (read-only)."
+    }
+  ]
 }

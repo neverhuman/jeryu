@@ -33,6 +33,7 @@ pub mod command;
 pub mod csrf;
 pub mod error;
 pub mod idempotency;
+pub mod openapi;
 pub mod permissions;
 pub mod rest;
 pub mod router;

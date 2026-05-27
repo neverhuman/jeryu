@@ -22,6 +22,16 @@ use crate::web::state::WebState;
 /// shape changes in a non-backward-compatible way.
 const SCHEMA_VERSION: &str = "0.1.0-alpha";
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/bootstrap",
+    responses(
+        (status = 200, description = "Web Forge bootstrap snapshot", body = WebBootstrap),
+        (status = 401, description = "Unauthenticated"),
+    ),
+    tag = "bootstrap",
+    security(("session" = [])),
+)]
 pub async fn get_bootstrap(
     State(state): State<WebState>,
     Extension(viewer): Extension<AuthViewer>,

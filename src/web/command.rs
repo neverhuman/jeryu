@@ -37,6 +37,21 @@ pub(crate) async fn run(cmd: WebCommand) -> Result<()> {
             );
             Ok(())
         }
+        WebCommand::ExportSchemas { out_dir } => {
+            let (openapi_bytes, ws_bytes) =
+                crate::web::openapi::export_schemas(&out_dir).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            eprintln!(
+                "wrote {} ({} bytes)",
+                out_dir.join("web-api.openapi.json").display(),
+                openapi_bytes,
+            );
+            eprintln!(
+                "wrote {} ({} bytes)",
+                out_dir.join("websocket-events.schema.json").display(),
+                ws_bytes,
+            );
+            Ok(())
+        }
     }
 }
 

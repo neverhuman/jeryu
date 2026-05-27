@@ -70,17 +70,17 @@ pub struct BlameQuery {
     pub path: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct RefsResponse {
     pub refs: Vec<RefSelectorItem>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct TreeResponse {
     pub entries: Vec<TreeEntry>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CompareResponse {
     pub base_sha: String,
     pub head_sha: String,
@@ -89,7 +89,7 @@ pub struct CompareResponse {
     pub files: Vec<CompareFile>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CompareFile {
     pub path: String,
     pub status: String,
@@ -99,13 +99,13 @@ pub struct CompareFile {
     pub patch: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CommitsResponse {
     pub commits: Vec<CommitItem>,
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CommitItem {
     pub sha: String,
     pub author: String,
@@ -114,12 +114,12 @@ pub struct CommitItem {
     pub committed_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct BlameResponse {
     pub lines: Vec<BlameLine>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct BlameLine {
     pub sha: String,
     pub author: String,
@@ -130,6 +130,19 @@ pub struct BlameLine {
 
 // ── Handlers ──────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/refs",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    responses(
+        (status = 200, description = "Branch/tag refs", body = RefsResponse),
+        (status = 404, description = "Repository not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn list_refs(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -147,6 +160,23 @@ pub async fn list_refs(
     Ok(Json(RefsResponse { refs }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/tree",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("ref" = String, Query, description = "Branch/tag/SHA"),
+        ("path" = Option<String>, Query, description = "Path within the tree (default: repo root)"),
+    ),
+    responses(
+        (status = 200, description = "Tree entries at path", body = TreeResponse),
+        (status = 404, description = "Path or ref not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn get_tree(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -166,6 +196,24 @@ pub async fn get_tree(
     Ok(Json(TreeResponse { entries }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/blob",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("ref" = String, Query, description = "Branch/tag/SHA"),
+        ("path" = String, Query, description = "File path"),
+        ("render" = Option<String>, Query, description = "Optional renderer (e.g. `markdown`)"),
+    ),
+    responses(
+        (status = 200, description = "Blob content + metadata", body = BlobResponse),
+        (status = 404, description = "Path or ref not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn get_blob(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -185,6 +233,23 @@ pub async fn get_blob(
     Ok(Json(response))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/raw",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("ref" = String, Query, description = "Branch/tag/SHA"),
+        ("path" = String, Query, description = "File path"),
+    ),
+    responses(
+        (status = 200, description = "Raw file bytes; Content-Type reflects detected MIME"),
+        (status = 404, description = "Path or ref not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn get_raw(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -226,6 +291,22 @@ pub async fn get_raw(
     Ok(resp)
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/readme",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("ref" = Option<String>, Query, description = "Branch/tag/SHA (default: HEAD)"),
+    ),
+    responses(
+        (status = 200, description = "Rendered README", body = BlobResponse),
+        (status = 404, description = "README not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn get_readme(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -245,6 +326,23 @@ pub async fn get_readme(
     Ok(Json(response))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/compare",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("base" = String, Query, description = "Base ref"),
+        ("head" = String, Query, description = "Head ref"),
+    ),
+    responses(
+        (status = 200, description = "Diff comparison", body = CompareResponse),
+        (status = 404, description = "Ref not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn compare_refs(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -279,6 +377,25 @@ pub async fn compare_refs(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/commits",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("ref" = String, Query, description = "Branch/tag/SHA"),
+        ("path" = Option<String>, Query, description = "Optional file path filter"),
+        ("per_page" = Option<u32>, Query, description = "Page size (default 50)"),
+        ("cursor" = Option<String>, Query, description = "Pagination cursor"),
+    ),
+    responses(
+        (status = 200, description = "Commits page", body = CommitsResponse),
+        (status = 404, description = "Ref not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn list_commits(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -314,6 +431,23 @@ pub async fn list_commits(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/blame",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("ref" = String, Query, description = "Branch/tag/SHA"),
+        ("path" = String, Query, description = "File path"),
+    ),
+    responses(
+        (status = 200, description = "Per-line blame", body = BlameResponse),
+        (status = 404, description = "Path or ref not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "repo_browser",
+    security(("session" = [])),
+)]
 pub async fn get_blame(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

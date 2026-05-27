@@ -84,6 +84,7 @@ impl SearchKind {
 /// vector so the FE can render per-section panels without scanning a
 /// generic union list.
 #[derive(Debug, Clone, Default, Serialize)]
+#[cfg_attr(feature = "web", derive(utoipa::ToSchema))]
 pub struct SearchResults {
     pub query: String,
     pub repos: Vec<RepoSearchHit>,
@@ -96,6 +97,7 @@ pub struct SearchResults {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "web", derive(utoipa::ToSchema))]
 pub struct RepoSearchHit {
     pub id: RepositoryId,
     pub full_name: String,
@@ -105,6 +107,7 @@ pub struct RepoSearchHit {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "web", derive(utoipa::ToSchema))]
 pub struct FileSearchHit {
     pub repo_id: String,
     pub path: String,
@@ -113,6 +116,7 @@ pub struct FileSearchHit {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "web", derive(utoipa::ToSchema))]
 pub struct CommitSearchHit {
     pub repo_id: String,
     pub sha: String,
@@ -121,6 +125,7 @@ pub struct CommitSearchHit {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "web", derive(utoipa::ToSchema))]
 pub struct MrSearchHit {
     pub repo_id: String,
     pub iid: String,
@@ -129,6 +134,7 @@ pub struct MrSearchHit {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "web", derive(utoipa::ToSchema))]
 pub struct IssueSearchHit {
     pub repo_id: String,
     pub iid: String,
@@ -137,6 +143,7 @@ pub struct IssueSearchHit {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "web", derive(utoipa::ToSchema))]
 pub struct UserSearchHit {
     pub login: String,
     #[serde(skip_serializing_if = "Option::is_none")]
