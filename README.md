@@ -55,6 +55,25 @@ jeryu tui --once
 
 ---
 
+## Web Forge
+
+Run the modern JeRyu web experience:
+
+```bash
+# Production
+npm install
+npm run build
+cargo run -p jeryu --features web -- web serve --open
+
+# Development (Vite + backend dev proxy)
+cargo run -p jeryu --features web -- web serve --dev-assets http://127.0.0.1:5173 &
+npm run dev
+```
+
+See [`docs/web-forge.md`](docs/web-forge.md) for architecture and [`docs/WEB_API.md`](docs/WEB_API.md) for the REST reference.
+
+---
+
 ## 🛑 The Problem: Flaky, Unaccountable Automation
 
 Modern CI pipelines and selective testing are brittle. When autonomous agents start writing code, traditional CI struggles:
@@ -605,6 +624,12 @@ jeryu next
 | [testing.md](docs/testing.md) | Testing strategy and proof lanes |
 | [release.md](docs/release.md) | Release lifecycle and canary promotion |
 | [boundaries.md](docs/boundaries.md) | Architectural boundaries and cell catalog |
+| [web-forge.md](docs/web-forge.md) | Web Forge architecture and deployment |
+| [WEB_API.md](docs/WEB_API.md) | Web Forge REST API reference |
+| [WEBSOCKET_PROTOCOL.md](docs/WEBSOCKET_PROTOCOL.md) | Web Forge WebSocket protocol |
+| [README_RENDERING.md](docs/README_RENDERING.md) | Markdown rendering and security posture |
+| [REVIEW_COCKPIT.md](docs/REVIEW_COCKPIT.md) | Merge cockpit deep dive |
+| [ROADMAP.md](ROADMAP.md) | Web Forge release milestones |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor guidelines |
 | [SECURITY.md](SECURITY.md) | Security policy and vulnerability reporting |
 
