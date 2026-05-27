@@ -60,3 +60,17 @@ This file tracks who is working on which work package from `WEB_WORK_CLAUDE.md`.
 **Phase 1+2+3+4+5+docs+SPA-fix complete (2026-05-27).** 47 commits ahead of main; `just fast` green (1578 tests); cargo check --features web 0 errors; vitest 4/4 pass; npm build green; both workspaces install cleanly.
 
 Next: Final hardening wave (W-FE-18 notifications, W-FE-20 search results, W-T-07 Storybook, W-T-19 UX-QA harness, W-T-20 Lighthouse) + comprehensive end-to-end audit.
+| W-FE-18+20+W-T-07/19/20 | Claude Opus 4.7 (subagent a691d31b) | 2026-05-27 | done | web-forge/W-final-hardening (`dbd5912`) | NotificationInbox + SearchResults + 31 Storybook stories + UX-QA real proof collector + Lighthouse config |
+| W-auth | Claude Opus 4.7 (subagent adf3df6f) | 2026-05-27 | done | web-forge/W-auth (`9a099f3`) | production /api/v1/auth/login + /logout + SessionStore (sqlx-backed) + 17 new tests; smoke confirmed login→cookie→bootstrap→logout |
+| W-playwright-run | Claude Opus 4.7 (subagent a6e60d62) | 2026-05-27 | done | web-forge/W-playwright-run (`3db786c`) | full Playwright + 4 axe scans; UX-QA harness axe_scans+ws_replay flipped to pass |
+| W-utoipa-paths | Claude Opus 4.7 (subagent aa635a3c) | 2026-05-27 | done | web-forge/W-utoipa-paths (`fb90512`) | 45 #[utoipa::path] annotations; OpenAPI doc now 109 schemas + 45 paths |
+| W-polish | Claude Opus 4.7 (subagent a44105ba) | 2026-05-27 | done | web-forge/W-polish (`fe7aacf`) | action receipts (14-step) + ESLint 9 flat config + Vite manualChunks (main 117 KB gz) + .gitignore |
+| W-db-audit | Claude Opus 4.7 (subagent aa67acc5) | 2026-05-27 | done | web-forge/W-db-audit (`b05202d`) | DB-backed audit_events + web_action_receipts via sqlx; 5 new tests; idempotency UNIQUE-collision verified |
+| W-ci | Claude Opus 4.7 (subagent a0e1a257) | 2026-05-27 | done | web-forge/W-ci (`2dd47d3`) | .github/workflows/web.yml + .gitlab-ci.yml web lane: cargo --features web, npm, Playwright+axe, Storybook, Lighthouse, ux-qa harness |
+| W-fixme-playwright | Claude Opus 4.7 (subagent af02b636) | 2026-05-27 | done | web-forge/W-fixme-playwright (`b0b216c`) | un-fixme 01-bootstrap + 02-repos + 03-readme; full Playwright suite 22/22 pass |
+| W-lhci | Claude Opus 4.7 (subagent aa00cb01) | 2026-05-27 | done | web-forge/W-lhci (`85c9c8b`) | Lighthouse perf executed: performance=1.00, a11y=0.95, FCP=491ms (budget 1500); UX-QA harness adds lighthouse check |
+
+**v1.0 SHIP COMPLETE (2026-05-27).** 100+ commits ahead of main; just fast green (1631 tests); cargo nextest --features web green (2027+ tests); vitest 24/24; Playwright 22/22; Storybook 31 stories; Lighthouse perf=1.00 a11y=0.95; bundle 117 KB gz main + 210 KB total (60% under budget); npm typecheck+lint+build green; UX-QA harness all checks pass (vite_build, storybook_build, playwright_report, axe_scans, markdown_xss, ws_replay, bundle_size, lighthouse).
+
+Tag the head as `web-forge-v1.0` to mark feature-complete state.
+
