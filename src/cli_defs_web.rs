@@ -7,6 +7,7 @@
 //! the real server materializes.
 
 use clap::Subcommand;
+use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub(crate) enum WebCommand {
@@ -36,4 +37,17 @@ pub(crate) enum WebCommand {
     /// Build the SPA assets — delegates to `npm run build` in `apps/web/`
     /// (Phase-0 stub).
     BuildAssets,
+    /// Regenerate `schemas/web-api.openapi.json` and
+    /// `schemas/websocket-events.schema.json` from the live `#[utoipa::path]`
+    /// + `#[derive(ToSchema)]` annotations on the BFF handlers / DTOs.
+    ///
+    /// The `jeryu_export_schemas` bin invokes this subcommand so the OpenAPI
+    /// `paths` block can reference handler functions that live binary-side
+    /// (the bin is a thin shim that cannot itself see `crate::web::rest::*`).
+    #[command(name = "export-schemas")]
+    ExportSchemas {
+        /// Output directory for the generated artifacts.
+        #[arg(long, default_value = "schemas")]
+        out_dir: PathBuf,
+    },
 }

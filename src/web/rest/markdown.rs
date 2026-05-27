@@ -13,14 +13,14 @@ use jeryu::repo_browser::markdown::{render_markdown, MarkdownContext, MarkdownEr
 use crate::web::auth::Viewer;
 use crate::web::error::ApiError;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MarkdownRenderRequest {
     pub markdown: String,
     #[serde(default)]
     pub context: Option<MarkdownRenderContext>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct MarkdownRenderContext {
     #[serde(default, alias = "repoId")]
     pub repo_id: Option<String>,
@@ -30,12 +30,24 @@ pub struct MarkdownRenderContext {
     pub current_path: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct MarkdownRenderResponse {
     #[serde(flatten)]
     pub rendered: RenderedMarkdown,
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/markdown/render",
+    request_body = MarkdownRenderRequest,
+    responses(
+        (status = 200, description = "Rendered markdown", body = MarkdownRenderResponse),
+        (status = 400, description = "Validation failed"),
+        (status = 401, description = "Unauthenticated"),
+    ),
+    tag = "markdown",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn render_markdown_handler(
     Extension(_viewer): Extension<Viewer>,
     Json(req): Json<MarkdownRenderRequest>,

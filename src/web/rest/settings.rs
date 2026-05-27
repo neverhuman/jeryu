@@ -19,6 +19,19 @@ use crate::web::error::ApiError;
 use crate::web::permissions::{perms, require};
 use crate::web::state::WebState;
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/settings",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    responses(
+        (status = 200, description = "Repository settings", body = RepositorySettings),
+        (status = 404, description = "Repository not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "settings",
+    security(("session" = [])),
+)]
 pub async fn get_settings(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -29,6 +42,21 @@ pub async fn get_settings(
     Ok(Json(settings))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/settings/preview",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    request_body = SettingsPatch,
+    responses(
+        (status = 200, description = "Settings patch diff preview", body = SettingsDiffPreview),
+        (status = 400, description = "Validation failed"),
+        (status = 404, description = "Repository not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "settings",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn preview_settings_patch(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -40,6 +68,22 @@ pub async fn preview_settings_patch(
     Ok(Json(preview))
 }
 
+#[utoipa::path(
+    patch,
+    path = "/api/v1/repos/{repo_id}/settings",
+    params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
+    request_body = SettingsPatch,
+    responses(
+        (status = 200, description = "Updated settings", body = RepositorySettings),
+        (status = 400, description = "Validation failed"),
+        (status = 409, description = "Concurrent update (If-Match hash mismatch)"),
+        (status = 404, description = "Repository not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "settings",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn patch_settings(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

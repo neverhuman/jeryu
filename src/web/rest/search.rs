@@ -19,7 +19,7 @@ use crate::web::error::ApiError;
 use crate::web::permissions::{perms, require};
 use crate::web::state::WebState;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct SearchQuery {
     #[serde(default)]
     pub q: Option<String>,
@@ -27,6 +27,19 @@ pub struct SearchQuery {
     pub limit: Option<u32>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/search",
+    params(SearchQuery),
+    responses(
+        (status = 200, description = "Global search results", body = SearchResults),
+        (status = 400, description = "Unknown kind"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "search",
+    security(("session" = [])),
+)]
 pub async fn search(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

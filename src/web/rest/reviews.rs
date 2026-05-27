@@ -23,23 +23,39 @@ use crate::web::error::ApiError;
 use crate::web::permissions::{perms, require};
 use crate::web::state::WebState;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ListThreadsResponse {
     pub threads: Vec<ReviewThread>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct PatchThreadRequest {
     pub resolved: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct SubmitReviewResponse {
     pub review_id: String,
     pub state: String,
     pub head_sha: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/threads",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    responses(
+        (status = 200, description = "Review threads", body = ListThreadsResponse),
+        (status = 404, description = "MR not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "reviews",
+    security(("session" = [])),
+)]
 pub async fn list_threads(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -50,6 +66,23 @@ pub async fn list_threads(
     Ok(Json(ListThreadsResponse { threads }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/threads",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    request_body = CreateReviewCommentRequest,
+    responses(
+        (status = 200, description = "Created thread", body = ReviewThread),
+        (status = 400, description = "Validation failed"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "reviews",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn create_thread(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -66,6 +99,24 @@ pub async fn create_thread(
     Ok(Json(thread))
 }
 
+#[utoipa::path(
+    patch,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/threads/{thread_id}",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+        ("thread_id" = String, Path, description = "Review thread ID"),
+    ),
+    request_body = PatchThreadRequest,
+    responses(
+        (status = 200, description = "Updated thread", body = ReviewThread),
+        (status = 404, description = "Thread not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "reviews",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn patch_thread(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -80,6 +131,23 @@ pub async fn patch_thread(
     Ok(Json(thread))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/comments",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    request_body = CreateReviewCommentRequest,
+    responses(
+        (status = 200, description = "Created comment", body = ReviewComment),
+        (status = 400, description = "Validation failed"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "reviews",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn create_comment(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -96,6 +164,23 @@ pub async fn create_comment(
     Ok(Json(comment))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/merge-requests/{iid}/reviews",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("iid" = String, Path, description = "MR internal ID"),
+    ),
+    request_body = SubmitReviewRequest,
+    responses(
+        (status = 200, description = "Submitted review", body = SubmitReviewResponse),
+        (status = 400, description = "Validation failed / SHA drift"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "reviews",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn submit_review(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,

@@ -34,7 +34,7 @@ use crate::web::state::WebState;
 
 // ── Wire DTOs ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ListPipelinesQuery {
     #[serde(rename = "ref")]
     pub ref_name: Option<String>,
@@ -43,7 +43,7 @@ pub struct ListPipelinesQuery {
     pub cursor: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PipelineItem {
     pub id: String,
     pub ref_name: String,
@@ -69,14 +69,14 @@ impl From<HostPipeline> for PipelineItem {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PipelinesResponse {
     pub pipelines: Vec<PipelineItem>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct JobItem {
     pub id: String,
     pub name: String,
@@ -104,12 +104,12 @@ impl From<HostJob> for JobItem {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct JobsResponse {
     pub jobs: Vec<JobItem>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct JobLogQuery {
     /// Byte offset for incremental fetch; clients pass the previous
     /// response's `next_cursor`. Phase 4: log is fetched in full and the
@@ -117,7 +117,7 @@ pub struct JobLogQuery {
     pub cursor: Option<u64>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct JobLogResponse {
     /// Log bytes as UTF-8 (lossy if invalid).
     pub bytes: String,
@@ -128,12 +128,12 @@ pub struct JobLogResponse {
     pub next_cursor: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct ChecksQuery {
     pub sha: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CheckItem {
     pub id: String,
     pub name: String,
@@ -143,13 +143,13 @@ pub struct CheckItem {
     pub web_url: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ChecksResponse {
     pub sha: String,
     pub checks: Vec<CheckItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct JobActionReceipt {
     pub job_id: String,
     pub action: String,
@@ -159,6 +159,21 @@ pub struct JobActionReceipt {
 
 // ── Handlers ──────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/pipelines",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ListPipelinesQuery,
+    ),
+    responses(
+        (status = 200, description = "Pipelines page", body = PipelinesResponse),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "ci",
+    security(("session" = [])),
+)]
 pub async fn list_pipelines(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -189,6 +204,22 @@ pub async fn list_pipelines(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/pipelines/{pipeline_id}",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("pipeline_id" = String, Path, description = "Pipeline ID"),
+    ),
+    responses(
+        (status = 200, description = "Pipeline detail", body = PipelineItem),
+        (status = 404, description = "Pipeline not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "ci",
+    security(("session" = [])),
+)]
 pub async fn get_pipeline(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -219,6 +250,22 @@ pub async fn get_pipeline(
     Ok(Json(item.into()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/pipelines/{pipeline_id}/jobs",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("pipeline_id" = String, Path, description = "Pipeline ID"),
+    ),
+    responses(
+        (status = 200, description = "Pipeline jobs list", body = JobsResponse),
+        (status = 404, description = "Pipeline not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "ci",
+    security(("session" = [])),
+)]
 pub async fn list_pipeline_jobs(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -236,6 +283,23 @@ pub async fn list_pipeline_jobs(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/jobs/{job_id}/log",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("job_id" = String, Path, description = "Job ID"),
+        JobLogQuery,
+    ),
+    responses(
+        (status = 200, description = "Job log slice", body = JobLogResponse),
+        (status = 404, description = "Job not found"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "ci",
+    security(("session" = [])),
+)]
 pub async fn get_job_log(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -267,6 +331,22 @@ pub async fn get_job_log(
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/jobs/{job_id}/retry",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("job_id" = String, Path, description = "Job ID"),
+    ),
+    responses(
+        (status = 200, description = "Retry accepted", body = JobActionReceipt),
+        (status = 400, description = "Missing Idempotency-Key"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "ci",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn retry_job(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -280,6 +360,22 @@ pub async fn retry_job(
     job_action_receipt(&state, &viewer, &parsed, &job_id, "retry", &idem).await
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/repos/{repo_id}/jobs/{job_id}/cancel",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ("job_id" = String, Path, description = "Job ID"),
+    ),
+    responses(
+        (status = 200, description = "Cancel accepted", body = JobActionReceipt),
+        (status = 400, description = "Missing Idempotency-Key"),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "ci",
+    security(("session" = []), ("csrf" = [])),
+)]
 pub async fn cancel_job(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
@@ -293,6 +389,21 @@ pub async fn cancel_job(
     job_action_receipt(&state, &viewer, &parsed, &job_id, "cancel", &idem).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/repos/{repo_id}/checks",
+    params(
+        ("repo_id" = String, Path, description = "Stable opaque repo ID"),
+        ChecksQuery,
+    ),
+    responses(
+        (status = 200, description = "Checks at SHA", body = ChecksResponse),
+        (status = 401, description = "Unauthenticated"),
+        (status = 403, description = "Forbidden"),
+    ),
+    tag = "ci",
+    security(("session" = [])),
+)]
 pub async fn list_checks(
     State(state): State<WebState>,
     Extension(viewer): Extension<Viewer>,
