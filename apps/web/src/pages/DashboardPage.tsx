@@ -254,7 +254,6 @@ function DemoStateSwitcher({
         <ActionButton
           key={opt.id}
           variant={value === opt.id ? 'primary' : 'default'}
-          aria-pressed={value === opt.id}
           role="radio"
           aria-checked={value === opt.id}
           onClick={() => onChange(opt.id)}
