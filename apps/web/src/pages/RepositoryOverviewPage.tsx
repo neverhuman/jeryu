@@ -1,0 +1,320 @@
+// RepositoryOverviewPage.tsx — Phase 2 implementation (W-FE-09).
+//
+// Resolves `:provider/*fullName` to an opaque `repo_id` via the list cache
+// (`useResolveRepo`) and renders:
+//   * Top strip: title, visibility, default branch, clone URL popover, health
+//   * Main: rendered README via <ReadmePanel>
+//   * Sidebar: latest commit placeholder, open MRs placeholder, recent
+//     activity placeholder
+//
+// The realtime store is told to subscribe to `repo.${id}` once the resolution
+// completes; the original Phase 1 stub subscribed to a synthetic
+// `repo.${provider}.${fullName}` scope which is now obsolete.
+
+import { Check, Copy, ExternalLink, GitBranch, Link as LinkIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+
+import { ApiError } from '../api/client';
+import { ActionButton } from '../components/action/ActionButton';
+import {
+  Breadcrumbs,
+  BranchSelector,
+  ReadmePanel,
+} from '../components/browser';
+import {
+  ErrorState,
+  LoadingState,
+  PermissionDeniedState,
+} from '../components/state';
+import { RepoHealthPill } from '../components/repo/RepoHealthPill';
+import { useRealtime } from '../hooks/useRealtime';
+import { useResolveRepo } from '../hooks/useResolveRepo';
+import { useSelectionStore } from '../stores/selectionStore';
+
+import '../components/browser/browser.css';
+import './page.css';
+
+function fullNameFromParams(params: Record<string, string | undefined>): string {
+  const main = params.fullName ?? '';
+  const tail = params['*'] ?? '';
+  if (tail) {
+    return `${main}/${tail}`.replace(/\/+$/, '');
+  }
+  return main;
+}
+
+export function RepositoryOverviewPage(): JSX.Element {
+  const params = useParams();
+  const provider = params.provider ?? 'unknown';
+  const fullName = fullNameFromParams(params);
+  const resolved = useResolveRepo(provider, fullName);
+  const setRepo = useSelectionStore((s) => s.setCurrentRepo);
+
+  const repoId = resolved.data?.id ?? null;
+  const summary = resolved.data?.summary ?? null;
+  const defaultBranch = summary?.default_branch ?? '';
+  const [activeRef, setActiveRef] = useState<string>('');
+
+  useEffect(() => {
+    setRepo(repoId);
+    return () => setRepo(null);
+  }, [repoId, setRepo]);
+
+  useEffect(() => {
+    if (defaultBranch && !activeRef) setActiveRef(defaultBranch);
+  }, [defaultBranch, activeRef]);
+
+  useRealtime(repoId ? [`repo.${repoId}`] : []);
+
+  if (resolved.isPending) {
+    return (
+      <div className="page">
+        <LoadingState
+          title="Loading repository…"
+          variant="message"
+          description="Resolving the repository from the list cache."
+        />
+      </div>
+    );
+  }
+  if (resolved.error) {
+    const err = resolved.error;
+    if (err instanceof ApiError && err.status === 403) {
+      return (
+        <div className="page">
+          <PermissionDeniedState
+            description="You do not have permission to view this repository."
+            missingPermission="repo.read"
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="page">
+        <ErrorState
+          title="Could not load repository"
+          error={resolved.error}
+        />
+      </div>
+    );
+  }
+  if (!summary) {
+    return (
+      <div className="page">
+        <ErrorState
+          title="Repository not found"
+          description={`No repository named ${fullName} on ${provider}.`}
+          action={
+            <Link to="/repos">
+              <ActionButton variant="primary">Back to repositories</ActionButton>
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="page">
+      <Breadcrumbs
+        segments={[
+          { label: 'Repos', to: '/repos' },
+          { label: provider, to: `/repos?host=${provider}` },
+          { label: summary.id.owner },
+          { label: summary.id.name },
+        ]}
+      />
+
+      <header className="page__header">
+        <div className="repo-overview__head">
+          <h1 className="repo-overview__title">
+            <span className="text-muted">{summary.id.owner}/</span>
+            {summary.id.name}
+          </h1>
+          <RepoHealthPill health={summary.health} />
+          <span className="page__pill">{summary.visibility}</span>
+          {summary.language ? (
+            <span className="page__pill">{summary.language}</span>
+          ) : null}
+        </div>
+        {summary.description ? (
+          <p className="page__subtitle">{summary.description}</p>
+        ) : null}
+        <div className="repo-overview__strip">
+          <BranchSelector
+            repoId={repoId}
+            value={activeRef}
+            onSelect={setActiveRef}
+          />
+          <span>
+            <GitBranch size={12} aria-hidden="true" /> {summary.default_branch}
+          </span>
+          <ClonePopover
+            httpUrl={summary.clone_http_url}
+            sshUrl={summary.clone_ssh_url}
+          />
+          <Link
+            to={`/repos/${encodeURIComponent(provider)}/${fullName}/code`}
+            aria-label="Browse code"
+          >
+            <ActionButton variant="default">Browse code</ActionButton>
+          </Link>
+        </div>
+      </header>
+
+      <section className="repo-overview" aria-label="Repository overview">
+        <div>
+          <ReadmePanel repoId={repoId} ref={activeRef || defaultBranch} />
+        </div>
+        <aside className="repo-overview__sidebar" aria-label="Sidebar">
+          <article className="repo-overview__sidebar-card">
+            <h2 className="repo-overview__sidebar-title">Latest commit</h2>
+            <p className="text-muted">Coming soon — wired in W-FE-09b.</p>
+          </article>
+          <article className="repo-overview__sidebar-card">
+            <h2 className="repo-overview__sidebar-title">Open merge requests</h2>
+            <p className="text-muted">
+              {summary.open_merge_requests} open · {summary.failing_checks} failing
+              checks
+            </p>
+            <Link
+              to={`/repos/${encodeURIComponent(provider)}/${fullName}/merge-requests`}
+            >
+              View merge requests
+            </Link>
+          </article>
+          <article className="repo-overview__sidebar-card">
+            <h2 className="repo-overview__sidebar-title">Recent activity</h2>
+            <p className="text-muted">
+              {summary.active_agents} active agent
+              {summary.active_agents === 1 ? '' : 's'} · updated{' '}
+              {summary.updated_at}
+            </p>
+          </article>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function ClonePopover({
+  httpUrl,
+  sshUrl,
+}: {
+  httpUrl: string | null;
+  sshUrl: string | null;
+}): JSX.Element | null {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onClick = (e: MouseEvent): void => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  if (!httpUrl && !sshUrl) return null;
+
+  const copy = async (label: string, url: string): Promise<void> => {
+    try {
+      await navigator.clipboard?.writeText(url);
+      setCopied(label);
+      setTimeout(() => setCopied(null), 1500);
+    } catch {
+      // Clipboard rejected; surface nothing — the URL is visible in the input.
+    }
+  };
+
+  return (
+    <div className="repo-overview__clone-button" ref={containerRef}>
+      <ActionButton
+        variant="default"
+        icon={<LinkIcon size={12} aria-hidden="true" />}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        Clone
+      </ActionButton>
+      {open ? (
+        <div
+          className="repo-overview__clone-popover"
+          role="dialog"
+          aria-label="Clone URLs"
+        >
+          {httpUrl ? (
+            <div className="repo-overview__clone-row">
+              <input
+                type="text"
+                readOnly
+                className="repo-overview__clone-input"
+                value={httpUrl}
+                aria-label="HTTPS clone URL"
+              />
+              <ActionButton
+                variant="ghost"
+                onClick={() => void copy('https', httpUrl)}
+                aria-label="Copy HTTPS clone URL"
+                icon={
+                  copied === 'https' ? (
+                    <Check size={12} aria-hidden="true" />
+                  ) : (
+                    <Copy size={12} aria-hidden="true" />
+                  )
+                }
+              />
+              <a
+                href={httpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open HTTPS clone URL"
+              >
+                <ExternalLink size={12} aria-hidden="true" />
+              </a>
+            </div>
+          ) : null}
+          {sshUrl ? (
+            <div className="repo-overview__clone-row">
+              <input
+                type="text"
+                readOnly
+                className="repo-overview__clone-input"
+                value={sshUrl}
+                aria-label="SSH clone URL"
+              />
+              <ActionButton
+                variant="ghost"
+                onClick={() => void copy('ssh', sshUrl)}
+                aria-label="Copy SSH clone URL"
+                icon={
+                  copied === 'ssh' ? (
+                    <Check size={12} aria-hidden="true" />
+                  ) : (
+                    <Copy size={12} aria-hidden="true" />
+                  )
+                }
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}

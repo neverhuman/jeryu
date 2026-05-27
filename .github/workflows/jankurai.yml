@@ -17,7 +17,7 @@ env:
 jobs:
   security:
     name: Security strict preflight
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -67,7 +67,7 @@ jobs:
 
   jankurai_audit:
     name: Jankurai Audit
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -122,7 +122,7 @@ jobs:
 
   proof:
     name: Proof lanes
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -156,7 +156,7 @@ jobs:
 
   tools:
     name: Audit tools
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -192,7 +192,7 @@ jobs:
 
   bad_behavior:
     name: Bad-behavior checks
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -229,7 +229,7 @@ jobs:
 
   sbom:
     name: CycloneDX SBOM
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -268,7 +268,7 @@ jobs:
 
   audit:
     name: audit
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
     needs:
       - security

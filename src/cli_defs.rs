@@ -13,6 +13,11 @@ pub(crate) use cli_defs_install::{InstallActionCommands, InstallCommand};
 #[path = "cli_defs_remote.rs"]
 mod cli_defs_remote;
 pub(crate) use cli_defs_remote::{RemoteActionCommands, RemoteCommand};
+
+#[path = "cli_defs_web.rs"]
+mod cli_defs_web;
+pub(crate) use cli_defs_web::WebCommand;
+
 #[derive(Subcommand)]
 pub(crate) enum Commands {
     Init,
@@ -116,6 +121,9 @@ pub(crate) enum Commands {
     },
     #[command(name = "action", subcommand)]
     Action(ActionCommands),
+    /// JeRyu Web Forge BFF (Phase-0 stub; see WEB_WORK_CLAUDE.md §7.0 W-F-10).
+    #[command(subcommand)]
+    Web(WebCommand),
 }
 
 #[path = "cli_defs_commands.rs"]

@@ -1,17 +1,17 @@
 {
-  "report_fingerprint": "sha256:279b7252f75bd9bf9587c7ec9aa7b63e6e23eefd7feee121c855930e4f11df15",
-  "input_fingerprint": "sha256:e609ecb6941760eaaea488c5ad59b4c4e6da7929b8946219cf64dddb1df46932",
-  "policy_fingerprint": "sha256:cc6b04066bdc08c39344d36432c5fd95113c215a3f70fb5629b073377d22bde7",
+  "report_fingerprint": "sha256:4a2026557af1c5b9a11cb20cec28ccc3047a832bec6e18916c02172ad2e9bb2c",
+  "input_fingerprint": "sha256:d94d5a8f2c39f7041ce3d286a9297629dd79500ffc9d3e2881c71c6ab7943371",
+  "policy_fingerprint": "sha256:7850016ab7478b89fc5dfcad1457c0c13f45b8d25043279b8d61c8341c6f4d84",
   "manifest_fingerprints": {
-    "owner_map": "sha256:2a1f6e7f006dfeb6de9c16d03c9be611afb8ca3684a939e849fb24059bff73e5",
-    "test_map": "sha256:4b71f22ef2d9682c7c04f2afbc05774bea8d6970838b0deddf539a46edbc4a39",
-    "generated_zones": "sha256:5dfe809251017a95ec5a27320d48c17b4abacd36c2b66eee287f4f70fcfb7772",
+    "owner_map": "sha256:597efe434486afa0a75a04f0a62f4b75d939cfdcee7d0fca615bc9caa6b78789",
+    "test_map": "sha256:f0c4ed96e0b44928ef455f0af143e79b514acbda3c98f231bf9c1ee71b6a427e",
+    "generated_zones": "sha256:e52d8ab39deafa8fdefc28e6faeb2198c8dfebc142b59e968b047d4d3bc7ee8e",
     "boundaries": "sha256:4b3b4ff624a9f9779a21572e8ef75f33d157f141606516169418613995ad2199",
     "proof_lanes": "sha256:b69c7bb26f226f3885278c7ab58b8ade787ad5402582cb420b8137db166ad2c7",
     "standard_version": "sha256:b1bffa49d44fc9d20e5f8143113bd13d907ff39597fd239ba8b8c4d3aed9f03f"
   },
   "dirty_worktree": true,
-  "generated_at": "1779822469",
+  "generated_at": "1779914493",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -21,29 +21,68 @@
   "target_stack_id": "rust-ts-vite-react-redline-bounded-python",
   "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
   "claimed_conformance_level": "HL3",
-  "observed_conformance_level": "HL3",
-  "conformance_decision": "pass",
-  "conformance_blockers": [],
+  "observed_conformance_level": "HL2",
+  "conformance_decision": "block",
+  "conformance_blockers": [
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/post-merge-deploy.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/rust.yml",
+    "HLT-042-CI-LOCAL-PARITY on .github/workflows/web.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/web.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/web.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .github/workflows/web.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
+    "HLT-034-CI-BAD-BEHAVIOR on .gitlab-ci.yml",
+    "HLT-002-GENERATED-MUTATION on agent/generated-zones.toml",
+    "HLT-002-GENERATED-MUTATION on contracts/generated/SettingsDiffPreview.ts",
+    "HLT-002-GENERATED-MUTATION on schemas/web-api.openapi.json",
+    "HLT-002-GENERATED-MUTATION on schemas/websocket-events.schema.json",
+    "HLT-001-DEAD-MARKER on src/bin/jeryu_export_schemas.rs",
+    "HLT-006-DIRECT-DB-WRONG-LAYER on src/git_host/gitlab.rs",
+    "HLT-001-DEAD-MARKER on src/merge/service.rs",
+    "HLT-001-DEAD-MARKER on src/web/command.rs",
+    "HLT-001-DEAD-MARKER on src/web/command.rs",
+    "HLT-001-DEAD-MARKER on src/web/command.rs",
+    "HLT-001-DEAD-MARKER on src/web/rest/merge_requests.rs",
+    "HLT-001-DEAD-MARKER on src/web/rest/merge_requests.rs",
+    "HLT-001-DEAD-MARKER on src/web/router.rs",
+    "HLT-001-DEAD-MARKER on src/web/router.rs",
+    "HLT-001-DEAD-MARKER on src/web/static_assets.rs"
+  ],
   "repo": ".",
-  "run_id": "1779822469",
-  "started_at": "1779822469",
-  "elapsed_ms": 7151,
+  "run_id": "1779914493",
+  "started_at": "1779914493",
+  "elapsed_ms": 11549,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 89,
-  "raw_score": 89,
+  "score": 64,
+  "raw_score": 77,
   "decision": {
     "status": "advisory",
     "minimum_score": 85,
     "passed": true,
-    "hard_findings": 0,
-    "soft_findings": 1,
+    "hard_findings": 38,
+    "soft_findings": 4,
     "ratchet": {
-      "baseline_score": 89,
+      "baseline_score": 64,
       "allowed_drop": 0,
-      "passed": true,
+      "passed": false,
       "score_delta": 0,
       "baseline_report_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "baseline_input_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
@@ -54,7 +93,7 @@
     }
   },
   "git": {
-    "head": "22acd25",
+    "head": "4e3a38d",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -78,7 +117,15 @@
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
   },
-  "caps_applied": [],
+  "caps_applied": [
+    "vibe-placeholders-in-product-code",
+    "fallback-soup-in-product-code",
+    "future-hostile-dead-language-in-product-code",
+    "generated-zone-mutation-risk",
+    "direct-db-access-from-wrong-layer",
+    "ci-bad-behavior",
+    "ci-local-parity"
+  ],
   "hard_rules": [
     {
       "id": "no-root-agent-instructions",
@@ -299,15 +346,16 @@
         "reference-profile cell `ops` has local AGENTS.md guidance",
         "root `README.md` routes to workspace layout",
         "owner map covers audited paths",
-        "test map covers audited paths"
+        "test map covers audited paths",
+        "authored code file exceeds 500 LOC"
       ],
       "notes": []
     },
     {
       "name": "Contract and boundary integrity",
       "weight": 13,
-      "score": 98,
-      "weighted_points": 12.74,
+      "score": 83,
+      "weighted_points": 10.79,
       "evidence": [
         "contract surface found",
         "generated contract artifacts found",
@@ -317,7 +365,7 @@
         "Rust typed boundary helpers found",
         "handwritten web DTO/API marker found",
         "all contract sources have generated zone entries",
-        "schema/tooling contract posture is clean"
+        "DB access found in likely wrong layer"
       ],
       "notes": []
     },
@@ -336,9 +384,13 @@
         "web e2e lane present or no web surface",
         "rendered UX QA lane present or no web surface",
         "DOM geometry UX QA runtime found",
-        "Rust property/integration tests present or no Rust surface"
+        "Rust property/integration tests present or no Rust surface",
+        "proofbind artifact found: surfaces=85 missing=85 high_or_critical_missing=19 verdict=review"
       ],
-      "notes": []
+      "notes": [
+        "proofbind reports 85 unresolved obligation(s)",
+        "proofbind reports 19 missing high/critical semantic proof obligation(s)"
+      ]
     },
     {
       "name": "Security and supply-chain posture",
@@ -353,8 +405,9 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 901",
-        "ci bad-behavior advisory signals: 3",
+        "rust bad-behavior advisory signals: 1220",
+        "typescript bad-behavior advisory signals: 3",
+        "ci bad-behavior hard findings: 22",
         "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "secret scanning command is operational"
@@ -364,34 +417,43 @@
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 70,
-      "weighted_points": 8.4,
+      "score": 0,
+      "weighted_points": 0.0,
       "evidence": [
-        "largest authored code file: src/llm/doctor.rs (303 LOC)",
+        "largest authored code file: src/git_host/gitlab_browse.rs (805 LOC)",
+        "code file exceeds 500 LOC",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 24 (advisory only, no score impact)",
+        "copy-code advisory classes found: 30 (advisory only, no score impact)",
+        "TODO/stub marker found",
+        "fallback soup marker found",
+        "future-hostile/dead-language marker found",
         "IO markers found in domain/core files",
-        "rust bad-behavior advisory signals: 901",
-        "ci bad-behavior advisory signals: 3",
+        "rust bad-behavior advisory signals: 1220",
+        "typescript bad-behavior advisory signals: 3",
+        "ci bad-behavior hard findings: 22",
         "git bad-behavior advisory signals: 2",
-        "gittools bad-behavior advisory signals: 1",
-        "no hard bad-behavior findings across detector-backed language families"
+        "gittools bad-behavior advisory signals: 1"
       ],
-      "notes": []
+      "notes": [
+        "product/runtime code contains future-hostile or dead-language terms"
+      ]
     },
     {
       "name": "Data truth and workflow safety",
       "weight": 8,
-      "score": 95,
-      "weighted_points": 7.6,
+      "score": 75,
+      "weighted_points": 6.0,
       "evidence": [
         "database surface present",
         "structured db boundary manifest present",
         "db boundary routes roots, migrations, and constraints",
         "migration directory present",
-        "data access appears compartmentalized"
+        "data access appears compartmentalized",
+        "strict DB boundary violation: src/git_host/gitlab.rs"
       ],
-      "notes": []
+      "notes": [
+        "direct DB access leaks out of the data boundary"
+      ]
     },
     {
       "name": "Observability and repair evidence",
@@ -479,11 +541,18 @@
     "missing_categories": [],
     "evidence": {
       "accessibility": [
-        "apps/web/ux-qa.ts",
-        "ops/releases/v1.0.0/jankurai-score.json"
+        "apps/ux-qa/ux-qa.ts",
+        "apps/web/.storybook/main.ts",
+        "apps/web/.storybook/preview.tsx",
+        "apps/web/package.json",
+        "apps/web/src/styles/tokens.css"
       ],
       "api_mocks": [
-        "apps/web/ux-qa.ts"
+        "apps/ux-qa/ux-qa.ts",
+        "apps/web/package.json",
+        "apps/web/src/test/mocks.ts",
+        "apps/web/src/test/server.ts",
+        "package-lock.json"
       ],
       "artifact_backed_proof": [
         ".github/ISSUE_TEMPLATE/bug_report.yml",
@@ -493,32 +562,65 @@
         "agent-index.json"
       ],
       "design_tokens": [
-        "apps/web/ux-qa.ts"
+        "apps/ux-qa/ux-qa.ts",
+        "apps/web/.storybook/preview.tsx",
+        "apps/web/src/styles/app.css",
+        "apps/web/src/styles/tokens.css"
       ],
       "geometry_runtime": [
+        ".github/workflows/web.yml",
+        ".gitignore",
+        ".gitlab-ci.yml",
         "agent/test-map.json",
-        "agent/ux-qa.toml",
-        "apps/web/package.json",
-        "apps/web/ux-qa-check.mjs",
-        "apps/web/ux-qa.md"
+        "agent/ux-qa.toml"
       ],
       "layout_stability": [
-        "apps/web/ux-qa.ts",
-        "src/autonomy/risk_tests.rs"
+        ".github/workflows/web.yml",
+        ".gitignore",
+        ".gitlab-ci.yml",
+        ".gitleaks.toml",
+        "agent/test-map.json"
       ],
       "playwright_visual": [
-        "apps/web/ux-qa.ts",
+        "apps/ux-qa/ux-qa.ts",
         "tests/tui_recording.rs"
       ],
       "storybook": [
-        "apps/web/ux-qa-check.mjs",
-        "apps/web/ux-qa.ts",
-        "ops/releases/v1.0.0/jankurai-score.json",
-        "src/api/capacity.rs"
+        ".github/workflows/web.yml",
+        ".gitignore",
+        ".gitlab-ci.yml",
+        ".gitleaks.toml",
+        "agent/audit-policy.toml"
       ],
       "visual_review": [
-        "apps/web/ux-qa.ts"
+        "apps/ux-qa/ux-qa.ts"
       ]
+    },
+    "artifact": {
+      "path": "target/jankurai/ux-qa.json",
+      "report_count": 10,
+      "worst_decision": "pass",
+      "total_violations": 0,
+      "summary_errors": 0,
+      "summary_warnings": 0,
+      "reports_missing_required_states": 0,
+      "missing_state_names": [],
+      "artifact_counts_by_kind": {
+        "accessibility": 10,
+        "aria-snapshot": 10,
+        "screenshot": 10
+      },
+      "reports_missing_required_artifacts": 0,
+      "missing_artifact_kinds": [],
+      "reports_missing_required_accessibility_artifact": 0,
+      "accessibility_violation_total": 0,
+      "accessibility_incomplete_total": 0,
+      "accessibility_pass_total": 170,
+      "artifact_fingerprint_count": 30,
+      "visual_baseline_missing": 10,
+      "visual_baseline_changed": 0,
+      "visual_baseline_review": 0,
+      "visual_baseline_block": 0
     }
   },
   "tool_adoption": {
@@ -1084,7 +1186,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-26T19:07:42.802066113+00:00",
+    "generated_at": "2026-05-27T20:41:22.513516722+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1122,20 +1224,20 @@
       ]
     },
     "summary": {
-      "files_scanned": 859,
-      "files_considered": 467,
-      "active_files": 467,
+      "files_scanned": 1021,
+      "files_considered": 544,
+      "active_files": 544,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 24,
+      "warning_classes": 30,
       "hard_instances": 0,
-      "warning_instances": 86,
-      "duplicate_lines": 38,
-      "duplicate_tokens": 89,
-      "duplicate_bytes": 923,
-      "total_redundant_lines": 77,
-      "total_redundant_tokens": 192,
-      "total_redundant_bytes": 1816
+      "warning_instances": 99,
+      "duplicate_lines": 58,
+      "duplicate_tokens": 153,
+      "duplicate_bytes": 1605,
+      "total_redundant_lines": 100,
+      "total_redundant_tokens": 260,
+      "total_redundant_bytes": 2596
     },
     "classes": [
       {
@@ -1300,85 +1402,85 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1789,
-            "end_line": 1790,
+            "start_line": 1852,
+            "end_line": 1853,
             "unit_name": "insert_pool"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1852,
-            "end_line": 1853,
+            "start_line": 1915,
+            "end_line": 1916,
             "unit_name": "insert_manager"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1887,
-            "end_line": 1888,
+            "start_line": 1950,
+            "end_line": 1951,
             "unit_name": "mark_node_managers_unreachable"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1981,
-            "end_line": 1982,
+            "start_line": 2044,
+            "end_line": 2045,
             "unit_name": "count_active_managers"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 1994,
-            "end_line": 1995,
+            "start_line": 2057,
+            "end_line": 2058,
             "unit_name": "upsert_job_event"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2053,
-            "end_line": 2054,
+            "start_line": 2116,
+            "end_line": 2117,
             "unit_name": "upsert_ci_job_run"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2152,
-            "end_line": 2153,
+            "start_line": 2215,
+            "end_line": 2216,
             "unit_name": "recent_ci_job_runs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2710,
-            "end_line": 2711,
+            "start_line": 2773,
+            "end_line": 2774,
             "unit_name": "upsert_tracked_repository"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3061,
-            "end_line": 3062,
+            "start_line": 3124,
+            "end_line": 3125,
             "unit_name": "record_git_ref_update"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3088,
-            "end_line": 3089,
+            "start_line": 3151,
+            "end_line": 3152,
             "unit_name": "record_git_mirror_job"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3115,
-            "end_line": 3116,
+            "start_line": 3178,
+            "end_line": 3179,
             "unit_name": "record_git_risk_approval"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 3134,
-            "end_line": 3135,
+            "start_line": 3197,
+            "end_line": 3198,
             "unit_name": "record_git_command_artifact"
           }
         ]
@@ -1416,6 +1518,162 @@
             "start_line": 168,
             "end_line": 174,
             "unit_name": "display_relative"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-92319fefda976550",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "idempotency_key",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 18,
+        "duplicate_bytes": 168,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 18,
+        "total_redundant_bytes": 168,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "8ce1bc71f76e7b8e",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/web/rest/merge_requests.rs",
+            "language": "rust",
+            "start_line": 605,
+            "end_line": 611,
+            "unit_name": "idempotency_key"
+          },
+          {
+            "path": "src/web/rest/reviews.rs",
+            "language": "rust",
+            "start_line": 208,
+            "end_line": 214,
+            "unit_name": "idempotency_key"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e1388c128b02b0f1",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 59,
+        "instance_count": 4,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 9,
+        "total_redundant_bytes": 177,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6b4559918ed9e61b",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/web/rest/issues.rs",
+            "language": "rust",
+            "start_line": 36,
+            "end_line": 38,
+            "unit_name": "list_issues"
+          },
+          {
+            "path": "src/web/rest/issues.rs",
+            "language": "rust",
+            "start_line": 50,
+            "end_line": 52,
+            "unit_name": "create_issue"
+          },
+          {
+            "path": "src/web/rest/issues.rs",
+            "language": "rust",
+            "start_line": 67,
+            "end_line": 69,
+            "unit_name": "get_issue"
+          },
+          {
+            "path": "src/web/rest/issues.rs",
+            "language": "rust",
+            "start_line": 84,
+            "end_line": 86,
+            "unit_name": "patch_issue"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-020d058988fffeff",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 11,
+        "duplicate_bytes": 175,
+        "instance_count": 2,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 11,
+        "total_redundant_bytes": 175,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c63f4780655633cd",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "src/repos/service.rs",
+            "language": "rust",
+            "start_line": 253,
+            "end_line": 258,
+            "unit_name": "visibility_str"
+          },
+          {
+            "path": "src/repos/settings.rs",
+            "language": "rust",
+            "start_line": 227,
+            "end_line": 232,
+            "unit_name": "visibility_to_string"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-46731e0dacb5b8fa",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "extract_cookie_value",
+        "duplicate_lines": 4,
+        "duplicate_tokens": 19,
+        "duplicate_bytes": 147,
+        "instance_count": 2,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 19,
+        "total_redundant_bytes": 147,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "bea7e5d6da98ecca",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/web/csrf.rs",
+            "language": "rust",
+            "start_line": 31,
+            "end_line": 35,
+            "unit_name": "extract_cookie_value"
+          },
+          {
+            "path": "src/web/rest/auth.rs",
+            "language": "rust",
+            "start_line": 242,
+            "end_line": 246,
+            "unit_name": "extract_cookie_value"
           }
         ]
       },
@@ -1459,55 +1717,6 @@
             "start_line": 132,
             "end_line": 134,
             "unit_name": "err"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-e29226e00efd9857",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 20,
-        "instance_count": 4,
-        "total_redundant_lines": 3,
-        "total_redundant_tokens": 6,
-        "total_redundant_bytes": 60,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "4ef6a73438ffbad1",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "db/state.rs",
-            "language": "rust",
-            "start_line": 2324,
-            "end_line": 2325,
-            "unit_name": "upsert_tracked_pipeline"
-          },
-          {
-            "path": "db/state.rs",
-            "language": "rust",
-            "start_line": 3161,
-            "end_line": 3162,
-            "unit_name": "upsert_secret_authority"
-          },
-          {
-            "path": "db/state.rs",
-            "language": "rust",
-            "start_line": 3199,
-            "end_line": 3200,
-            "unit_name": "upsert_release_secret_set"
-          },
-          {
-            "path": "db/state.rs",
-            "language": "rust",
-            "start_line": 3301,
-            "end_line": 3302,
-            "unit_name": "insert_secret_audit_event"
           }
         ]
       },
@@ -1662,6 +1871,42 @@
         ]
       },
       {
+        "id": "copy-code-unit-rust-6b638b7e1d6a531d",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "parse_repo_id",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 10,
+        "duplicate_bytes": 95,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 10,
+        "total_redundant_bytes": 95,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e586d599d8bed6a9",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "src/merge/review.rs",
+            "language": "rust",
+            "start_line": 385,
+            "end_line": 387,
+            "unit_name": "parse_repo_id"
+          },
+          {
+            "path": "src/merge/service.rs",
+            "language": "rust",
+            "start_line": 400,
+            "end_line": 402,
+            "unit_name": "parse_repo_id"
+          }
+        ]
+      },
+      {
         "id": "copy-code-body-rust-4a613b53e5433cfa",
         "kind": "exact_unit_different_name",
         "severity": "warning",
@@ -1683,22 +1928,22 @@
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 113,
-            "end_line": 114,
+            "start_line": 130,
+            "end_line": 131,
             "unit_name": "list_open_prs"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 125,
-            "end_line": 126,
+            "start_line": 142,
+            "end_line": 143,
             "unit_name": "get_pr_state"
           },
           {
             "path": "src/git_host/gitlab.rs",
             "language": "rust",
-            "start_line": 146,
-            "end_line": 147,
+            "start_line": 163,
+            "end_line": 164,
             "unit_name": "fetch_pr_diff"
           }
         ]
@@ -1973,6 +2218,48 @@
         ]
       },
       {
+        "id": "copy-code-body-rust-e29226e00efd9857",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "15776fd41de25dc0",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 2387,
+            "end_line": 2388,
+            "unit_name": "upsert_tracked_pipeline"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3224,
+            "end_line": 3225,
+            "unit_name": "upsert_secret_authority"
+          },
+          {
+            "path": "db/state.rs",
+            "language": "rust",
+            "start_line": 3262,
+            "end_line": 3263,
+            "unit_name": "upsert_release_secret_set"
+          }
+        ]
+      },
+      {
         "id": "copy-code-unit-rust-fb6d6c73a1c24f2a",
         "kind": "exact_unit_same_name",
         "severity": "warning",
@@ -2136,15 +2423,15 @@
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2226,
-            "end_line": 2227,
+            "start_line": 2289,
+            "end_line": 2290,
             "unit_name": "count_pending_jobs"
           },
           {
             "path": "db/state.rs",
             "language": "rust",
-            "start_line": 2904,
-            "end_line": 2905,
+            "start_line": 2967,
+            "end_line": 2968,
             "unit_name": "count_recovery_decisions"
           }
         ]
@@ -2182,6 +2469,41 @@
             "start_line": 110,
             "end_line": 111,
             "unit_name": "parse"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-typescript-b8cd53c2b6b8afe5",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "typescript",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 38,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 38,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "f37b9e43d29ef019",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "apps/web/src/test/mocks.ts",
+            "language": "typescript",
+            "start_line": 11,
+            "end_line": 12,
+            "unit_name": "makeBootstrapFixture"
+          },
+          {
+            "path": "apps/web/src/test/server.ts",
+            "language": "typescript",
+            "start_line": 27,
+            "end_line": 28,
+            "unit_name": "bootstrapResponse"
           }
         ]
       },
@@ -2566,28 +2888,1312 @@
       "severity": "medium",
       "category": "shape",
       "path": ".",
-      "problem": "`Code shape and semantic surface` scored 70 below the standard floor of 85",
+      "problem": "`Code shape and semantic surface` scored 0 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: src/llm/doctor.rs (303 LOC)",
+        "largest authored code file: src/git_host/gitlab_browse.rs (805 LOC)",
+        "code file exceeds 500 LOC",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 24 (advisory only, no score impact)",
-        "IO markers found in domain/core files"
+        "copy-code advisory classes found: 30 (advisory only, no score impact)"
       ],
       "check_id": "HLT-001-DEAD-MARKER:shape",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:011aac31b579956a98ba29acb546bde0001cea541d99cc43aa854ff8695430b2",
+      "fingerprint": "sha256:29370dcd7432d79e9481f079508dbd6aa9e629dbdcb618b5da0ecc9a946e71d3",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "tools"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/post-merge-deploy.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/post-merge-deploy.yml",
+        "line=91",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:b3eec8736aaf282ea4cbfce7232c114dbd353262f3cfa5be38c24bdb38e4d75b",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 91,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=67",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:40e23562fe3963b06fa51735e0472efcbb82857596b2fc62385c20dd6c0b12a4",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 67,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=110",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:29d6abd7e2a51b6349feb9e6fd7526dff9813d9f7bfbcd4dc20948974e43665f",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 110,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=147",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:63fd58658a9423421c29b4b9b3108f987494d6ec723d8ee97f8f8146d19c69e7",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 147,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=181",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:d919f1edd0f50570817eb7e2a591f96abb2988afbc06ac95c57a6bffcbd6534e",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 181,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=207",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:8484d416d216016c52228a54d86d866d709cdec715a7cfd54a8847e60056269c",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 207,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=227",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:70b655f322230c4c519124f184c8f191b97265ca0624578bca07b175404021c6",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 227,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=278",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:d66e640ac1f47a3b70ed5d286dbc9ac1b2f479c3b3c10e0e3339e85edfea99c6",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 278,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=304",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:9a32916fd9ddb8c825663fc0ea39a0d0754ba25dfb9f7fc646e5ef6d6dde49bc",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 304,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=334",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:ca38079cb28d1ff52f28116c91bcb70798c0fc9dd1578e3aaf389a6b9501af1f",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 334,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=360",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:05441484503c11f6c1cb5b9c479b33297771403c7517b35e4df27b1a553e4003",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 360,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=388",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:48d143617eccf8688d6890ce27e01de967700a08ebd9f577638387b17895ad02",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 388,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=417",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:b6792fd2f6b27595453cd32a80b029b5f97a179b1b5e2e51be2eb3435f0d3cff",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 417,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/rust.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/rust.yml",
+        "line=449",
+        "proof_window=None",
+        "snippet=else echo \"no passwordless sudo; skipping mold\"; fi"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:e10f54c1b192b6e1ae1c7a25580bf24cd8b756d5396109d9eeb1d717aa9a7995",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 449,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "ci",
+      "path": ".github/workflows/web.yml",
+      "problem": "workflow inlines CI commands instead of delegating to ops/ci/*.sh",
+      "agent_fix": "extract the workflow steps into ops/ci/<lane>.sh and call them with `bash ops/ci/<lane>.sh`",
+      "evidence": [
+        "detector=ci.local-parity.workflow-not-thin",
+        "path=.github/workflows/web.yml",
+        "line=37",
+        "proof_window=None",
+        "snippet=jobs:"
+      ],
+      "check_id": "HLT-042-CI-LOCAL-PARITY:ci",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:8044b47c92fad46dca0bf4c20c16d01862913cfe3c2213ebddeee04d84a04d45",
+      "rule_id": "HLT-042-CI-LOCAL-PARITY",
+      "tlr": "Verification",
+      "lane": "fast",
+      "docs_url": "docs/ci-local.md",
+      "owner": "ops",
+      "line": 37,
+      "matched_term": "ci.local-parity.workflow-not-thin",
+      "reason": "without a single source of truth, local runs drift from CI and breakage is only visible after push"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/web.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/web.yml",
+        "line=60",
+        "proof_window=None",
+        "snippet=echo \"mold not available and passwordless sudo missing; continuing without mold\""
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:006241af0b3b4a87c8dce74a4071760e9ba93f9a837d3668145cae56af8ec481",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 60,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/web.yml",
+      "problem": "workflow potentially leaks secrets via echo or debug output",
+      "agent_fix": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "evidence": [
+        "detector=ci.secret.echo-or-debug",
+        "path=.github/workflows/web.yml",
+        "line=156",
+        "proof_window=None",
+        "snippet=echo \"mold not available and passwordless sudo missing; continuing without mold\""
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:775421954c171a9ef89d22fbcf13dcfa9e0bfefc9c390676d86b891499fb0a1f",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 156,
+      "matched_term": "ci.secret.echo-or-debug",
+      "reason": "secret-bearing workflow step writes sensitive values to logs"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".github/workflows/web.yml",
+      "problem": "security-related job is configured to continue on error",
+      "agent_fix": "remove the non-blocking override so scan failures stop the pipeline",
+      "evidence": [
+        "detector=ci.security-scan.nonblocking",
+        "path=.github/workflows/web.yml",
+        "line=192",
+        "proof_window=None",
+        "snippet=kill \"$bff_pid\" || true"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:60d01b82ac825c6ecba944d7202a54df4d1c09276bf3044b197255d272499d92",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 192,
+      "matched_term": "ci.security-scan.nonblocking",
+      "reason": "security or proof job is explicitly non-blocking"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".gitlab-ci.yml",
+      "problem": "workflow is missing concurrency control",
+      "agent_fix": "add workflow-level concurrency with cancel-in-progress",
+      "evidence": [
+        "detector=ci.concurrency.missing",
+        "path=.gitlab-ci.yml",
+        "line=1",
+        "proof_window=None",
+        "snippet=stages:"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:744b2196e311cfcfc419410267391cc263acf1dc549629f0e26f42efd779ea6e",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 1,
+      "matched_term": "ci.concurrency.missing",
+      "reason": "workflow can run duplicate stale audits for the same ref"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".gitlab-ci.yml",
+      "problem": "workflow is missing explicit top-level permissions",
+      "agent_fix": "add top-level `permissions: contents: read` and job-specific write scopes only where needed",
+      "evidence": [
+        "detector=ci.permissions.missing",
+        "path=.gitlab-ci.yml",
+        "line=1",
+        "proof_window=None",
+        "snippet=stages:"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:baada997e52f80a56bb65833dcc2b930203b5179aca7069b534ee05aa89ea1d9",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 1,
+      "matched_term": "ci.permissions.missing",
+      "reason": "workflow permissions default is not pinned in source"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".gitlab-ci.yml",
+      "problem": "workflow job is missing timeout-minutes",
+      "agent_fix": "set an explicit timeout-minutes on each job",
+      "evidence": [
+        "detector=ci.timeout.missing",
+        "path=.gitlab-ci.yml",
+        "line=1",
+        "proof_window=None",
+        "snippet=stages:"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:e535dded9509b14b95dbbdb28d7ed4938771f67d27784d8f41e97def80f2bde8",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 1,
+      "matched_term": "ci.timeout.missing",
+      "reason": "workflow can run without a checked time bound"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".gitlab-ci.yml",
+      "problem": "artifact or cache path includes secret material",
+      "agent_fix": "limit the path to build outputs and keep credential files out of caches and artifacts",
+      "evidence": [
+        "detector=ci.artifact.cache.secret-path",
+        "path=.gitlab-ci.yml",
+        "line=298",
+        "proof_window=None",
+        "snippet=GITHUB_OUTPUT: \"$CI_PROJECT_DIR/.release-resolve.env\""
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:51c54859051a04d733904c4494181c552e1f0ea053dc84e6f6311f4b504e3e93",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 298,
+      "matched_term": "ci.artifact.cache.secret-path",
+      "reason": "workflow stores a secret-bearing path in cache or artifact upload"
+    },
+    {
+      "severity": "high",
+      "category": "security",
+      "path": ".gitlab-ci.yml",
+      "problem": "artifact or cache path includes secret material",
+      "agent_fix": "limit the path to build outputs and keep credential files out of caches and artifacts",
+      "evidence": [
+        "detector=ci.artifact.cache.secret-path",
+        "path=.gitlab-ci.yml",
+        "line=312",
+        "proof_window=None",
+        "snippet=dotenv: .release-resolve.env"
+      ],
+      "check_id": "HLT-034-CI-BAD-BEHAVIOR:security",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:36cb8932e092d3ffdb02f2c15de464dd6618db78ef6f2e1821926395557594a6",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/testing.md",
+      "owner": "ops",
+      "line": 312,
+      "matched_term": "ci.artifact.cache.secret-path",
+      "reason": "workflow stores a secret-bearing path in cache or artifact upload"
+    },
+    {
+      "severity": "medium",
+      "category": "boundary",
+      "path": "agent/boundaries.toml",
+      "problem": "`Contract and boundary integrity` scored 83 below the standard floor of 85",
+      "agent_fix": "add generated contracts and boundary checks for public APIs, data access, and cross-runtime seams",
+      "evidence": [
+        "contract surface found",
+        "generated contract artifacts found",
+        "polyglot boundary layout present",
+        "boundary manifest present"
+      ],
+      "check_id": "HLT-007-HANDWRITTEN-CONTRACT:boundary",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "contract-manifest",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:ee08873e431007d2b4d353e99836fccc5865b0fe11b85dfef7f0ef45df654f81",
+      "rule_id": "HLT-007-HANDWRITTEN-CONTRACT",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "docs_url": "docs/audit-rubric.md#known-vibe-coding-insults",
+      "owner": "agent"
+    },
+    {
+      "severity": "high",
+      "category": "generated",
+      "path": "agent/generated-zones.toml",
+      "problem": "generated zone file `contracts/generated/*.ts` is missing",
+      "agent_fix": "regenerate `contracts/generated/*.ts` using the declared command, or remove the zone entry if the file was deleted intentionally",
+      "evidence": [
+        "generated zone integrity violation"
+      ],
+      "check_id": "HLT-002-GENERATED-MUTATION:generated",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "contract-manifest",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:8e76087395e4444ba8f23ebc426af795e80f7f4583a4f24e6810a36dde53809f",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "docs_url": "agent/JANKURAI_STANDARD.md#generated-zones",
+      "owner": "agent",
+      "line": 1
+    },
+    {
+      "severity": "high",
+      "category": "generated",
+      "path": "contracts/generated/SettingsDiffPreview.ts",
+      "problem": "generated zone is not protected strongly enough against hand edits",
+      "agent_fix": "add `agent/generated-zones.toml`, require generated/do-not-edit markers, and route repairs to the source contract",
+      "evidence": [
+        "generated file contains TODO/stub markers"
+      ],
+      "check_id": "HLT-002-GENERATED-MUTATION:generated",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "contract-manifest",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:ae83c2c666a4a8b7e3af664f02e66f9d546ad7ced4563b4b8636120bac46c7eb",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "docs_url": "agent/JANKURAI_STANDARD.md#generated-zones",
+      "owner": "contracts",
+      "line": 1
+    },
+    {
+      "severity": "medium",
+      "category": "data",
+      "path": "db/",
+      "problem": "`Data truth and workflow safety` scored 75 below the standard floor of 85",
+      "agent_fix": "move durable truth into migrations, constraints, adapters, and application-owned transactions",
+      "evidence": [
+        "database surface present",
+        "structured db boundary manifest present",
+        "db boundary routes roots, migrations, and constraints",
+        "migration directory present"
+      ],
+      "check_id": "HLT-006-DIRECT-DB-WRONG-LAYER:data",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "sql",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:9363f8264162b95439ce1a8ccfb0913a811deffe70879f2092632cf0f0007bc5",
+      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
+      "tlr": "Contracts/data",
+      "lane": "db",
+      "docs_url": "docs/audit-rubric.md#required-shape",
+      "owner": "data"
+    },
+    {
+      "severity": "high",
+      "category": "generated",
+      "path": "schemas/web-api.openapi.json",
+      "problem": "generated zone file `schemas/web-api.openapi.json` missing generated header",
+      "agent_fix": "add a `Generated by: <tool>` / `DO NOT EDIT BY HAND` header block with source and regeneration command",
+      "evidence": [
+        "generated zone integrity violation"
+      ],
+      "check_id": "HLT-002-GENERATED-MUTATION:generated",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "contract-manifest",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:9df0d66fbaa197a39863c0969d092e27fc5feb758655502906dab41041cbbf54",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "docs_url": "agent/JANKURAI_STANDARD.md#generated-zones",
+      "owner": "contracts",
+      "line": 1
+    },
+    {
+      "severity": "high",
+      "category": "generated",
+      "path": "schemas/websocket-events.schema.json",
+      "problem": "generated zone file `schemas/websocket-events.schema.json` missing generated header",
+      "agent_fix": "add a `Generated by: <tool>` / `DO NOT EDIT BY HAND` header block with source and regeneration command",
+      "evidence": [
+        "generated zone integrity violation"
+      ],
+      "check_id": "HLT-002-GENERATED-MUTATION:generated",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "contract-manifest",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:4afb01cc719ff6306ba5a1780c89bb34680f360faed096b547400882b2d9c79d",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "docs_url": "agent/JANKURAI_STANDARD.md#generated-zones",
+      "owner": "contracts",
+      "line": 1
+    },
+    {
+      "severity": "medium",
+      "category": "proof",
+      "path": "src/api/review.rs",
+      "problem": "human review or proof claim lacks reproducible evidence",
+      "agent_fix": "attach raw CI logs, review receipts, and replayable commands instead of accepting claims or summaries",
+      "evidence": [
+        "body_markdown: \"LGTM\".into(),"
+      ],
+      "check_id": "HLT-027-HUMAN-REVIEW-EVIDENCE-GAP:proof",
+      "hardness": "soft",
+      "confidence": 0.88,
+      "evidence_kind": "receipt",
+      "rerun_command": "just score",
+      "fingerprint": "sha256:792ee9a1f3f4c7c060ac73e7a27f566a85158c774815c97ba5aac7a16c98780b",
+      "rule_id": "HLT-027-HUMAN-REVIEW-EVIDENCE-GAP",
+      "tlr": "Repair",
+      "lane": "audit",
+      "docs_url": "docs/testing.md",
+      "owner": "workspace",
+      "line": 144,
+      "matched_term": "review evidence",
+      "reason": "proof and review claims need receipts"
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/bin/jeryu_export_schemas.rs",
+      "problem": "fallback soup detected in product code",
+      "agent_fix": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
+      "evidence": [
+        "src/bin/jeryu_export_schemas.rs:34 let out_dir = std::env::var(\"JERYU_SCHEMA_OUT_DIR\").unwrap_or_else(|_| \"schemas\".into());"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:392c3ae390d2a10557b6fb60b8ec70d4aa89c64428adc8c2a6e469f7d2fdde38",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 34
+    },
+    {
+      "severity": "high",
+      "category": "data",
+      "path": "src/git_host/gitlab.rs",
+      "problem": "direct database access appears in a wrong layer",
+      "agent_fix": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
+      "evidence": [
+        "DB marker in non-adapter layer"
+      ],
+      "check_id": "HLT-006-DIRECT-DB-WRONG-LAYER:data",
+      "hardness": "hard",
+      "confidence": 0.95,
+      "evidence_kind": "sql",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:1621abfcc8630fc03ca49b10c5d92ccd21d7e9cc888b1039f8da16902d4276de",
+      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
+      "tlr": "Contracts/data",
+      "lane": "db",
+      "docs_url": "docs/audit-rubric.md#required-shape",
+      "owner": "evidence-gate",
+      "line": 1
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/merge/service.rs",
+      "problem": "product code contains TODO/stub/unimplemented/unreachable placeholder markers",
+      "agent_fix": "replace placeholders with implemented behavior, typed unsupported-state errors, or a tracked exception record with docs",
+      "evidence": [
+        "src/merge/service.rs:320 \"mr.close not implemented in Phase 3 (host adapter pending)\".into(),"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:e38bfe094384da98db51b289fc5e2ff1418a41bb6e0f54132dc013f783f2008a",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 320
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/command.rs",
+      "problem": "future-hostile/dead-language term `stub` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/command.rs:31",
+        "future-hostile/dead-language term `stub` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:12c4299245c41fdbe3ccc54b0b8ae35116f49d693a474b293dd0b3e5609c0875",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 31
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/command.rs",
+      "problem": "future-hostile/dead-language term `stub` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/command.rs:36",
+        "future-hostile/dead-language term `stub` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:1da1a79742f3f8ee915159428e6f6fee1836b79a3fec056e357419896e2ad117",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 36
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/command.rs",
+      "problem": "future-hostile/dead-language term `legacy` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/command.rs:126",
+        "future-hostile/dead-language term `legacy` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:affb5bcbb64a2336a9b515b1c25ab0d011c312b07f27822a9682e935fb6c1440",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 126
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/rest/merge_requests.rs",
+      "problem": "future-hostile/dead-language term `placeholder` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/rest/merge_requests.rs:209",
+        "future-hostile/dead-language term `placeholder` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:834a5f159ac1a584d7526359c9656edb734f63af595c1d7f7e460f410c02b329",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 209
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/rest/merge_requests.rs",
+      "problem": "future-hostile/dead-language term `placeholder` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/rest/merge_requests.rs:243",
+        "future-hostile/dead-language term `placeholder` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:520dd92a1e8a139e3ba11b6a49bcd2c2a15902687f3ff96b11a823d44485c64f",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 243
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/router.rs",
+      "problem": "future-hostile/dead-language term `legacy` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/router.rs:40",
+        "future-hostile/dead-language term `legacy` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:4aef3e67f3def962e282285ed53b1b9b2f4714bcaca54c198585b5d8ad7761e2",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 40
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/router.rs",
+      "problem": "future-hostile/dead-language term `legacy` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/router.rs:226",
+        "future-hostile/dead-language term `legacy` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:a76687b4480463020564568cae1b117dc3ff8affa7d2282edee86c2c2125c082",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 226
+    },
+    {
+      "severity": "high",
+      "category": "vibe",
+      "path": "src/web/static_assets.rs",
+      "problem": "future-hostile/dead-language term `fallback` appears in product/runtime code",
+      "agent_fix": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "evidence": [
+        "src/web/static_assets.rs:53",
+        "future-hostile/dead-language term `fallback` appears"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:vibe",
+      "hardness": "hard",
+      "confidence": 0.88,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:aff55d186741ddb852572254a91426316d2f7b02bd3bc476e817386aed48e593",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "workspace",
+      "line": 53
     }
   ],
   "agent_fix_queue": [
+    {
+      "path": "agent/generated-zones.toml",
+      "priority": "high",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "owner": "agent",
+      "task": "regenerate `contracts/generated/*.ts` using the declared command, or remove the zone entry if the file was deleted intentionally",
+      "why": "generated zone file `contracts/generated/*.ts` is missing"
+    },
+    {
+      "path": "contracts/generated/SettingsDiffPreview.ts",
+      "priority": "high",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "owner": "contracts",
+      "task": "add `agent/generated-zones.toml`, require generated/do-not-edit markers, and route repairs to the source contract",
+      "why": "generated zone is not protected strongly enough against hand edits"
+    },
+    {
+      "path": "schemas/web-api.openapi.json",
+      "priority": "high",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "owner": "contracts",
+      "task": "add a `Generated by: <tool>` / `DO NOT EDIT BY HAND` header block with source and regeneration command",
+      "why": "generated zone file `schemas/web-api.openapi.json` missing generated header"
+    },
+    {
+      "path": "schemas/websocket-events.schema.json",
+      "priority": "high",
+      "rule_id": "HLT-002-GENERATED-MUTATION",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "owner": "contracts",
+      "task": "add a `Generated by: <tool>` / `DO NOT EDIT BY HAND` header block with source and regeneration command",
+      "why": "generated zone file `schemas/websocket-events.schema.json` missing generated header"
+    },
+    {
+      "path": "src/git_host/gitlab.rs",
+      "priority": "high",
+      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
+      "tlr": "Contracts/data",
+      "lane": "db",
+      "owner": "evidence-gate",
+      "task": "move SQL and DB clients to `crates/adapters` or `db/`; expose typed application/domain APIs upward",
+      "why": "direct database access appears in a wrong layer"
+    },
+    {
+      "path": "agent/boundaries.toml",
+      "priority": "medium",
+      "rule_id": "HLT-007-HANDWRITTEN-CONTRACT",
+      "tlr": "Contracts/data",
+      "lane": "contract",
+      "owner": "agent",
+      "task": "add generated contracts and boundary checks for public APIs, data access, and cross-runtime seams",
+      "why": "`Contract and boundary integrity` scored 83 below the standard floor of 85"
+    },
+    {
+      "path": "db/",
+      "priority": "medium",
+      "rule_id": "HLT-006-DIRECT-DB-WRONG-LAYER",
+      "tlr": "Contracts/data",
+      "lane": "db",
+      "owner": "data",
+      "task": "move durable truth into migrations, constraints, adapters, and application-owned transactions",
+      "why": "`Data truth and workflow safety` scored 75 below the standard floor of 85"
+    },
+    {
+      "path": ".github/workflows/web.yml",
+      "priority": "high",
+      "rule_id": "HLT-042-CI-LOCAL-PARITY",
+      "tlr": "Verification",
+      "lane": "fast",
+      "owner": "ops",
+      "task": "extract the workflow steps into ops/ci/<lane>.sh and call them with `bash ops/ci/<lane>.sh`",
+      "why": "workflow inlines CI commands instead of delegating to ops/ci/*.sh"
+    },
+    {
+      "path": "src/api/review.rs",
+      "priority": "medium",
+      "rule_id": "HLT-027-HUMAN-REVIEW-EVIDENCE-GAP",
+      "tlr": "Repair",
+      "lane": "audit",
+      "owner": "workspace",
+      "task": "attach raw CI logs, review receipts, and replayable commands instead of accepting claims or summaries",
+      "why": "human review or proof claim lacks reproducible evidence"
+    },
+    {
+      "path": ".github/workflows/post-merge-deploy.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "why": "workflow potentially leaks secrets via echo or debug output"
+    },
+    {
+      "path": ".github/workflows/rust.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "why": "workflow potentially leaks secrets via echo or debug output"
+    },
+    {
+      "path": ".github/workflows/web.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "never echo secrets; pass them directly to trusted binaries and keep shell tracing off",
+      "why": "workflow potentially leaks secrets via echo or debug output"
+    },
+    {
+      "path": ".github/workflows/web.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "remove the non-blocking override so scan failures stop the pipeline",
+      "why": "security-related job is configured to continue on error"
+    },
+    {
+      "path": ".gitlab-ci.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "add workflow-level concurrency with cancel-in-progress",
+      "why": "workflow is missing concurrency control"
+    },
+    {
+      "path": ".gitlab-ci.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "add top-level `permissions: contents: read` and job-specific write scopes only where needed",
+      "why": "workflow is missing explicit top-level permissions"
+    },
+    {
+      "path": ".gitlab-ci.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "set an explicit timeout-minutes on each job",
+      "why": "workflow job is missing timeout-minutes"
+    },
+    {
+      "path": ".gitlab-ci.yml",
+      "priority": "high",
+      "rule_id": "HLT-034-CI-BAD-BEHAVIOR",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "ops",
+      "task": "limit the path to build outputs and keep credential files out of caches and artifacts",
+      "why": "artifact or cache path includes secret material"
+    },
+    {
+      "path": "src/bin/jeryu_export_schemas.rs",
+      "priority": "high",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "collapse fallback chains into explicit typed states with bounded retry policy, telemetry, and documented repair guidance",
+      "why": "fallback soup detected in product code"
+    },
+    {
+      "path": "src/merge/service.rs",
+      "priority": "high",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "replace placeholders with implemented behavior, typed unsupported-state errors, or a tracked exception record with docs",
+      "why": "product code contains TODO/stub/unimplemented/unreachable placeholder markers"
+    },
+    {
+      "path": "src/web/command.rs",
+      "priority": "high",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "why": "future-hostile/dead-language term `stub` appears in product/runtime code"
+    },
+    {
+      "path": "src/web/rest/merge_requests.rs",
+      "priority": "high",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "why": "future-hostile/dead-language term `placeholder` appears in product/runtime code"
+    },
+    {
+      "path": "src/web/router.rs",
+      "priority": "high",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "why": "future-hostile/dead-language term `legacy` appears in product/runtime code"
+    },
+    {
+      "path": "src/web/static_assets.rs",
+      "priority": "high",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "workspace",
+      "task": "remove or rename the marker, implement the intended behavior, model a typed unsupported state, or move docs/generated/vendor/product-copy text into an allowlisted context",
+      "why": "future-hostile/dead-language term `fallback` appears in product/runtime code"
+    },
     {
       "path": ".",
       "priority": "medium",
@@ -2596,7 +4202,7 @@
       "lane": "fast",
       "owner": "tools",
       "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
-      "why": "`Code shape and semantic surface` scored 70 below the standard floor of 85"
+      "why": "`Code shape and semantic surface` scored 0 below the standard floor of 85"
     }
   ]
 }

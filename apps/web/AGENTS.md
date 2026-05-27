@@ -1,10 +1,17 @@
 # apps/web/AGENTS.md
 
-<!-- jankurai generated adapter -->
-<!-- jankurai agent request v1 sha256:REPLACE_WITH_HASH -->
-Read `AGENTS.md` first. Use `agent/JANKURAI_STANDARD.md` as the canonical jankurai standard.
-When a user provides a paper, release, implementation, or handoff plan in the conversation, treat that plan as the controlling plan. Do not route such plans through the separate local phase workflow unless the user explicitly names MASTER_PLAN phase work.
-Owns `apps/web/`.
-Forbidden: product truth, backend authority, and direct DB writes.
-Proof lane: `rendered UX / Playwright`.
-If jankurai is installed, run `jankurai update --client-start --quiet` before work; do not apply updates unless the user asks.
+apps/web/ is the `@jeryu/web` Vite + React + TypeScript SPA per
+`/home/ubuntu/jeryu/WEB_WORK_CLAUDE.md`. See §7.4 frontend tier (W-FE-*)
+for work packages.
+
+Forbidden imports per `agent/boundaries.toml`: `sqlx`, `mysql`,
+`@aws-sdk/client-s3` (and any other backend-only crate/SDK; this
+workspace must stay UI-tier).
+
+Proof lane: rendered UX / Playwright. Marker-evidence companion lives at
+`apps/ux-qa/` (`@jankurai/ux-qa`).
+
+Owner work-packages: `W-FE-*` (and `W-F-07`, `W-F-09`, `W-F-12` for
+foundation skeleton).
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>

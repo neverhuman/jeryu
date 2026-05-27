@@ -101,6 +101,8 @@ pub(super) fn map_error(err: anyhow::Error) -> HostError {
         HostError::RateLimited {
             retry_after_ms: 30_000,
         }
+    } else if msg.contains("409") {
+        HostError::Conflict(msg)
     } else if msg.contains("502") || msg.contains("503") || msg.contains("504") {
         HostError::Transient(msg)
     } else {
@@ -117,6 +119,8 @@ pub(super) fn map_reqwest(err: reqwest::Error) -> HostError {
         HostError::RateLimited {
             retry_after_ms: 30_000,
         }
+    } else if err.status() == Some(reqwest::StatusCode::CONFLICT) {
+        HostError::Conflict(err.to_string())
     } else if err.is_timeout() || err.is_connect() {
         HostError::Transient(err.to_string())
     } else {

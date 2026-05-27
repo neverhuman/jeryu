@@ -5,7 +5,7 @@
 <div align="left">
   <p>
     <a href="agent/repo-score.md">
-      <img alt="jankurai score 89" src="https://img.shields.io/badge/jankurai-89-green" />
+      <img alt="jankurai score 64" src="https://img.shields.io/badge/jankurai-64-red" />
     </a>
     <a href="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml">
       <img alt="CI" src="https://github.com/neverhuman/jeryu/actions/workflows/rust.yml/badge.svg" />
@@ -14,7 +14,7 @@
     <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
   </p>
   <!-- jankurai-score:start -->
-  <p><strong>Jankurai score:</strong> <a href="agent/repo-score.md"><code>89/100</code></a> (advisory, minimum 85, HL3, auditor 1.5.1)</p>
+  <p><strong>Jankurai score:</strong> <a href="agent/repo-score.md"><code>64/100</code></a> (advisory, minimum 85, HL2, auditor 1.5.1)</p>
   <!-- jankurai-score:end -->
   <h3>The Git-Compatible Version Control Layer for the AI Era</h3>
 </div>
@@ -52,6 +52,25 @@ jeryu tui
 # Render a single diagnostic frame (for CI smoke tests)
 jeryu tui --once
 ```
+
+---
+
+## Web Forge
+
+Run the modern JeRyu web experience:
+
+```bash
+# Production
+npm install
+npm run build
+cargo run -p jeryu --features web -- web serve --open
+
+# Development (Vite + backend dev proxy)
+cargo run -p jeryu --features web -- web serve --dev-assets http://127.0.0.1:5173 &
+npm run dev
+```
+
+See [`docs/web-forge.md`](docs/web-forge.md) for architecture and [`docs/WEB_API.md`](docs/WEB_API.md) for the REST reference.
 
 ---
 
@@ -605,6 +624,12 @@ jeryu next
 | [testing.md](docs/testing.md) | Testing strategy and proof lanes |
 | [release.md](docs/release.md) | Release lifecycle and canary promotion |
 | [boundaries.md](docs/boundaries.md) | Architectural boundaries and cell catalog |
+| [web-forge.md](docs/web-forge.md) | Web Forge architecture and deployment |
+| [WEB_API.md](docs/WEB_API.md) | Web Forge REST API reference |
+| [WEBSOCKET_PROTOCOL.md](docs/WEBSOCKET_PROTOCOL.md) | Web Forge WebSocket protocol |
+| [README_RENDERING.md](docs/README_RENDERING.md) | Markdown rendering and security posture |
+| [REVIEW_COCKPIT.md](docs/REVIEW_COCKPIT.md) | Merge cockpit deep dive |
+| [ROADMAP.md](ROADMAP.md) | Web Forge release milestones |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor guidelines |
 | [SECURITY.md](SECURITY.md) | Security policy and vulnerability reporting |
 

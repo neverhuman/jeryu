@@ -108,6 +108,7 @@ pub mod redact;
 pub mod release;
 pub mod remote;
 pub mod repo;
+pub mod repo_browser;
 pub mod repo_fleet;
 pub mod repo_local;
 pub mod repo_standard;
@@ -131,6 +132,7 @@ pub mod test_intel;
 pub mod test_runner;
 pub(crate) mod test_sync;
 pub mod tui;
+pub mod web_events;
 pub mod witness;
 
 pub fn install_state_storage_drivers() {

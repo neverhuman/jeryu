@@ -11,3 +11,18 @@ rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [target.x86_64-unknown-linux-musl]
 # mold not used for musl enclave builds — keep default linker
+
+# ts-rs export base directory.
+#
+# ts-rs anchors `#[ts(export_to = "...")]` paths to `TS_RS_EXPORT_DIR`
+# (default `./bindings`). Web Forge BFF DTOs (W-F-03) live under
+# `src/api/{repository,repo_browser,...}.rs` and declare
+# `export_to = "../../contracts/generated/"`, so we set the anchor to
+# `src/api` and the literal `../../` step resolves the export root to
+# the workspace `contracts/generated/` directory. This matches
+# `agent/boundaries.toml` (`generated_paths = ["contracts/generated"]`).
+#
+# Override per-shell with `TS_RS_EXPORT_DIR=...` if you need to redirect
+# generated artifacts elsewhere (e.g. a CI-only mirror).
+[env]
+TS_RS_EXPORT_DIR = { value = "src/api", relative = true }

@@ -1,0 +1,1888 @@
+# JeRyu Full Web Forge — Final Engineering Diff
+# Target: neverhuman/jeryu main, observed 2026-05-26
+# Type: implementation-grade unified diff blueprint. Some hunks are intentionally additive skeletons because the live repository was inspected remotely, not checked out locally.
+
+--- a/package.json
++++ b/package.json
+@@
+ {
+   "name": "jeryu-workspace",
+   "private": true,
+   "workspaces": [
+     "apps/web"
+   ],
+   "scripts": {
+-    "ux-qa": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
+-    "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",
+-    "ux-qa:test": "npm --workspace @jankurai/ux-qa run test"
++    "web:dev": "npm --workspace @jeryu/web run dev",
++    "web:build": "npm --workspace @jeryu/web run build",
++    "web:preview": "npm --workspace @jeryu/web run preview",
++    "web:test": "npm --workspace @jeryu/web run test",
++    "web:e2e": "npm --workspace @jeryu/web run e2e",
++    "web:lint": "npm --workspace @jeryu/web run lint",
++    "web:typecheck": "npm --workspace @jeryu/web run typecheck",
++    "ux-qa": "npm --workspace @jeryu/web run ux-qa",
++    "ux-qa:build": "npm --workspace @jeryu/web run build",
++    "ux-qa:test": "npm --workspace @jeryu/web run test"
+   }
+ }
+
+diff --git a/apps/web/package.json b/apps/web/package.json
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@
+ {
+-  "name": "@jankurai/ux-qa",
++  "name": "@jeryu/web",
+   "private": true,
+   "type": "module",
+   "scripts": {
+-    "build": "node ./ux-qa-check.mjs build",
+-    "test": "node ./ux-qa-check.mjs test"
++    "dev": "vite --host 127.0.0.1 --port 5173",
++    "build": "tsc -b && vite build",
++    "preview": "vite preview --host 127.0.0.1 --port 4173",
++    "typecheck": "tsc -b --pretty false",
++    "test": "vitest run",
++    "test:watch": "vitest",
++    "e2e": "playwright test",
++    "lint": "eslint src --ext .ts,.tsx",
++    "ux-qa": "node ./ux-qa-check.mjs build && node ./ux-qa-check.mjs test"
++  },
++  "dependencies": {
++    "@tanstack/react-query": "^5.80.0",
++    "@tanstack/react-router": "^1.120.0",
++    "@tanstack/react-virtual": "^3.13.0",
++    "clsx": "^2.1.1",
++    "lucide-react": "^0.468.0",
++    "react": "^19.0.0",
++    "react-dom": "^19.0.0",
++    "zustand": "^5.0.0"
++  },
++  "devDependencies": {
++    "@playwright/test": "^1.54.0",
++    "@testing-library/jest-dom": "^6.6.0",
++    "@testing-library/react": "^16.1.0",
++    "@types/node": "^22.10.0",
++    "@types/react": "^19.0.0",
++    "@types/react-dom": "^19.0.0",
++    "@vitejs/plugin-react": "^4.3.0",
++    "eslint": "^9.17.0",
++    "jsdom": "^25.0.0",
++    "typescript": "^5.8.0",
++    "vite": "^6.0.0",
++    "vitest": "^2.1.0"
+   }
+ }
+
+diff --git a/apps/web/index.html b/apps/web/index.html
+new file mode 100644
+--- /dev/null
++++ b/apps/web/index.html
+@@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="color-scheme" content="dark light" />
++    <title>JeRyu Web</title>
++  </head>
++  <body>
++    <div id="root"></div>
++    <script type="module" src="/src/main.tsx"></script>
++  </body>
++</html>
+
+diff --git a/apps/web/vite.config.ts b/apps/web/vite.config.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/vite.config.ts
+@@
++import { defineConfig } from 'vite';
++import react from '@vitejs/plugin-react';
++
++export default defineConfig({
++  plugins: [react()],
++  server: {
++    host: '127.0.0.1',
++    port: 5173,
++    strictPort: true,
++    proxy: {
++      '/api': {
++        target: 'http://127.0.0.1:8787',
++        ws: true,
++        changeOrigin: true,
++      },
++    },
++  },
++  build: {
++    outDir: 'dist',
++    sourcemap: true,
++    target: 'es2022',
++  },
++});
+
+diff --git a/apps/web/tsconfig.json b/apps/web/tsconfig.json
+new file mode 100644
+--- /dev/null
++++ b/apps/web/tsconfig.json
+@@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "useDefineForClassFields": true,
++    "lib": ["ES2022", "DOM", "DOM.Iterable"],
++    "allowJs": false,
++    "skipLibCheck": true,
++    "esModuleInterop": true,
++    "allowSyntheticDefaultImports": true,
++    "strict": true,
++    "forceConsistentCasingInFileNames": true,
++    "module": "ESNext",
++    "moduleResolution": "Bundler",
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "noEmit": true,
++    "jsx": "react-jsx"
++  },
++  "include": ["src"],
++  "references": [{ "path": "./tsconfig.node.json" }]
++}
+
+diff --git a/apps/web/tsconfig.node.json b/apps/web/tsconfig.node.json
+new file mode 100644
+--- /dev/null
++++ b/apps/web/tsconfig.node.json
+@@
++{
++  "compilerOptions": {
++    "composite": true,
++    "module": "ESNext",
++    "moduleResolution": "Bundler",
++    "allowSyntheticDefaultImports": true,
++    "strict": true
++  },
++  "include": ["vite.config.ts"]
++}
+
+diff --git a/apps/web/src/main.tsx b/apps/web/src/main.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/main.tsx
+@@
++import React from 'react';
++import ReactDOM from 'react-dom/client';
++import { QueryClientProvider } from '@tanstack/react-query';
++import { App } from './app/App';
++import { queryClient } from './api/queryClient';
++import { ActivitySocketProvider } from './realtime/ActivitySocketProvider';
++import './styles/tokens.css';
++import './styles/app.css';
++
++ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
++  <React.StrictMode>
++    <QueryClientProvider client={queryClient}>
++      <ActivitySocketProvider>
++        <App />
++      </ActivitySocketProvider>
++    </QueryClientProvider>
++  </React.StrictMode>,
++);
+
+diff --git a/apps/web/src/api/queryClient.ts b/apps/web/src/api/queryClient.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/api/queryClient.ts
+@@
++import { QueryClient } from '@tanstack/react-query';
++
++export const queryClient = new QueryClient({
++  defaultOptions: {
++    queries: {
++      staleTime: 20_000,
++      refetchOnWindowFocus: false,
++      retry: (failureCount, error) => {
++        const status = typeof error === 'object' && error && 'status' in error ? Number(error.status) : 0;
++        return status >= 500 && failureCount < 2;
++      },
++    },
++  },
++});
+
+diff --git a/apps/web/src/api/client.ts b/apps/web/src/api/client.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/api/client.ts
+@@
++export class ApiError extends Error {
++  constructor(
++    message: string,
++    public readonly status: number,
++    public readonly code?: string,
++    public readonly details?: unknown,
++  ) {
++    super(message);
++  }
++}
++
++type ApiOptions = RequestInit & { signal?: AbortSignal };
++
++async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
++  const response = await fetch(path, {
++    credentials: 'same-origin',
++    headers: {
++      'content-type': 'application/json',
++      ...(options.headers ?? {}),
++    },
++    ...options,
++  });
++
++  if (!response.ok) {
++    const body = await response.json().catch(() => ({}));
++    throw new ApiError(body.message ?? response.statusText, response.status, body.code, body.details);
++  }
++
++  if (response.status === 204) return undefined as T;
++  return (await response.json()) as T;
++}
++
++export const api = {
++  bootstrap: () => request<BootstrapView>('/api/bootstrap'),
++  repos: (query = '') => request<RepositoryListView>(`/api/repos${query}`),
++  repo: (owner: string, repo: string) => request<RepositoryOverview>(`/api/repos/${owner}/${repo}`),
++  readme: (owner: string, repo: string, ref = 'HEAD') => request<MarkdownView>(`/api/repos/${owner}/${repo}/readme/${encodeURIComponent(ref)}`),
++  tree: (owner: string, repo: string, ref: string, path = '') => request<TreeView>(`/api/repos/${owner}/${repo}/tree/${encodeURIComponent(ref)}/${path}`),
++  blob: (owner: string, repo: string, ref: string, path: string) => request<BlobView>(`/api/repos/${owner}/${repo}/blob/${encodeURIComponent(ref)}/${path}`),
++  previewAction: (input: ActionRequest) => request<ActionPreview>('/api/actions/preview', { method: 'POST', body: JSON.stringify(input) }),
++  executeAction: (input: ActionExecuteRequest) => request<ActionReceipt>('/api/actions/execute', { method: 'POST', body: JSON.stringify(input) }),
++};
++
++// Replaced by generated Rust-owned TS in Phase 0. Kept here so the first Vite shell compiles.
++export type EntityRef = { kind: string; id: string; label?: string; href?: string };
++export type BootstrapView = { user: { id: string; username: string }; capabilities: string[]; event_cursor: number; pinned_repos: RepositorySummary[] };
++export type RepositorySummary = { id: string; owner: string; name: string; slug: string; visibility: string; provider: string; default_branch: string; health: 'ok' | 'warning' | 'failing'; last_activity_at?: string };
++export type RepositoryListView = { repos: RepositorySummary[]; total: number; next_cursor?: string };
++export type RepositoryOverview = RepositorySummary & { description?: string; readme?: MarkdownView; stats: Record<string, number> };
++export type TreeView = { repo: EntityRef; ref_name: string; path: string; entries: TreeEntry[] };
++export type TreeEntry = { name: string; path: string; kind: 'tree' | 'blob' | 'submodule'; size?: number; sha: string };
++export type BlobView = { path: string; sha: string; mime: string; size: number; is_binary: boolean; content_base64?: string; text?: string };
++export type MarkdownView = { path: string; blob_sha: string; html: string; toc: { id: string; text: string; level: number }[]; warnings: string[] };
++export type ActionRequest = { kind: string; entity?: EntityRef; input: unknown };
++export type ActionPreview = { preview_id: string; kind: string; risk: 'low' | 'medium' | 'high' | 'destructive'; allowed: boolean; confirmation?: string; side_effects: string[] };
++export type ActionExecuteRequest = { preview_id: string; idempotency_key: string; confirmation?: string };
++export type ActionReceipt = { action_id: string; status: 'queued' | 'running' | 'succeeded' | 'failed'; evidence_ref?: string };
+
+diff --git a/apps/web/src/app/App.tsx b/apps/web/src/app/App.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/App.tsx
+@@
++import { useQuery } from '@tanstack/react-query';
++import { api } from '../api/client';
++import { Shell } from './Shell';
++import { Router } from './router';
++
++export function App() {
++  const bootstrap = useQuery({ queryKey: ['bootstrap'], queryFn: api.bootstrap });
++  return (
++    <Shell bootstrap={bootstrap.data} loading={bootstrap.isLoading} error={bootstrap.error}>
++      <Router />
++    </Shell>
++  );
++}
+
+diff --git a/apps/web/src/app/Shell.tsx b/apps/web/src/app/Shell.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/Shell.tsx
+@@
++import type { BootstrapView } from '../api/client';
++
++export function Shell(props: { bootstrap?: BootstrapView; loading: boolean; error: unknown; children: React.ReactNode }) {
++  return (
++    <div className="app-shell">
++      <header className="topbar">
++        <a className="brand" href="/">JeRyu</a>
++        <button className="command-button" aria-label="Open command palette">⌘K Search repos, files, actions…</button>
++        <div className="topbar-status">{props.loading ? 'Connecting…' : props.bootstrap?.user.username ?? 'Local user'}</div>
++      </header>
++      <aside className="sidebar" aria-label="Primary">
++        <a href="/">Dashboard</a>
++        <a href="/repos">Repositories</a>
++        <a href="/reviews">Review Queue</a>
++        <a href="/issues">Issues</a>
++        <a href="/ci">CI</a>
++        <a href="/agents">Agents</a>
++      </aside>
++      <main className="content">{props.children}</main>
++      <aside className="activity-rail" aria-label="Realtime activity">Live activity</aside>
++    </div>
++  );
++}
+
+diff --git a/apps/web/src/app/router.tsx b/apps/web/src/app/router.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/app/router.tsx
+@@
++import { DashboardPage } from '../pages/DashboardPage';
++import { RepositoriesPage } from '../pages/RepositoriesPage';
++import { RepoOverviewPage } from '../pages/RepoOverviewPage';
++import { RepoCodePage } from '../pages/RepoCodePage';
++import { MergeRequestPage } from '../pages/MergeRequestPage';
++import { SettingsPage } from '../pages/SettingsPage';
++
++export function Router() {
++  const path = window.location.pathname;
++  const parts = path.split('/').filter(Boolean);
++  if (path === '/' || path === '/dashboard') return <DashboardPage />;
++  if (path === '/repos') return <RepositoriesPage />;
++  if (parts[0] === 'r' && parts[3] === 'code') return <RepoCodePage owner={parts[1]} repo={parts[2]} />;
++  if (parts[0] === 'r' && parts[3] === 'merge-requests') return <MergeRequestPage owner={parts[1]} repo={parts[2]} number={Number(parts[4])} />;
++  if (parts[0] === 'r' && parts[3] === 'settings') return <SettingsPage owner={parts[1]} repo={parts[2]} />;
++  if (parts[0] === 'r') return <RepoOverviewPage owner={parts[1]} repo={parts[2]} />;
++  return <DashboardPage />;
++}
+
+diff --git a/apps/web/src/realtime/ActivitySocketProvider.tsx b/apps/web/src/realtime/ActivitySocketProvider.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/realtime/ActivitySocketProvider.tsx
+@@
++import React from 'react';
++
++type ActivitySocketContextValue = {
++  connected: boolean;
++  subscribe: (topics: string[]) => void;
++  unsubscribe: (topics: string[]) => void;
++};
++
++const ActivitySocketContext = React.createContext<ActivitySocketContextValue | null>(null);
++
++export function ActivitySocketProvider({ children }: { children: React.ReactNode }) {
++  const wsRef = React.useRef<WebSocket | null>(null);
++  const [connected, setConnected] = React.useState(false);
++
++  React.useEffect(() => {
++    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
++    const socket = new WebSocket(`${scheme}://${window.location.host}/api/ws`);
++    wsRef.current = socket;
++    socket.onopen = () => {
++      setConnected(true);
++      socket.send(JSON.stringify({ type: 'hello', client_id: crypto.randomUUID(), last_cursor: 0 }));
++    };
++    socket.onclose = () => setConnected(false);
++    socket.onmessage = (event) => {
++      // Phase 0 stores events in React Query invalidations; Phase 1 adds reducer by entity/topic.
++      console.debug('jeryu event', event.data);
++    };
++    return () => socket.close();
++  }, []);
++
++  const value = React.useMemo<ActivitySocketContextValue>(() => ({
++    connected,
++    subscribe: (topics) => wsRef.current?.send(JSON.stringify({ type: 'subscribe', topics })),
++    unsubscribe: (topics) => wsRef.current?.send(JSON.stringify({ type: 'unsubscribe', topics })),
++  }), [connected]);
++
++  return <ActivitySocketContext.Provider value={value}>{children}</ActivitySocketContext.Provider>;
++}
++
++export function useActivitySocket() {
++  const value = React.useContext(ActivitySocketContext);
++  if (!value) throw new Error('useActivitySocket must be used inside ActivitySocketProvider');
++  return value;
++}
+
+diff --git a/apps/web/src/components/MarkdownHtml.tsx b/apps/web/src/components/MarkdownHtml.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/components/MarkdownHtml.tsx
+@@
++import type { MarkdownView } from '../api/client';
++
++export function MarkdownHtml({ markdown }: { markdown?: MarkdownView }) {
++  if (!markdown) return <section className="empty-card">No README found.</section>;
++  return (
++    <article className="markdown-body" data-blob-sha={markdown.blob_sha}>
++      {markdown.warnings.length > 0 && <div className="warning">{markdown.warnings.join(' · ')}</div>}
++      <div dangerouslySetInnerHTML={{ __html: markdown.html }} />
++    </article>
++  );
++}
+
+diff --git a/apps/web/src/pages/DashboardPage.tsx b/apps/web/src/pages/DashboardPage.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/pages/DashboardPage.tsx
+@@
++export function DashboardPage() {
++  return (
++    <section className="page">
++      <h1>Mission dashboard</h1>
++      <p>Realtime repo health, assigned reviews, failing pipelines, agent actions, and evidence will land here.</p>
++    </section>
++  );
++}
+
+diff --git a/apps/web/src/pages/RepositoriesPage.tsx b/apps/web/src/pages/RepositoriesPage.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/pages/RepositoriesPage.tsx
+@@
++import { useQuery } from '@tanstack/react-query';
++import { api } from '../api/client';
++
++export function RepositoriesPage() {
++  const repos = useQuery({ queryKey: ['repos'], queryFn: () => api.repos() });
++  return (
++    <section className="page">
++      <div className="page-header">
++        <h1>All repositories</h1>
++        <div className="actions"><button>Create repository</button><button>Import</button></div>
++      </div>
++      <div className="filterbar">Filter by provider, owner, family, visibility, health, language, activity…</div>
++      <div className="repo-grid">
++        {repos.data?.repos.map((repo) => (
++          <a className="repo-card" href={`/r/${repo.owner}/${repo.name}`} key={repo.id}>
++            <strong>{repo.owner}/{repo.name}</strong>
++            <span>{repo.provider} · {repo.visibility} · {repo.health}</span>
++          </a>
++        ))}
++      </div>
++    </section>
++  );
++}
+
+diff --git a/apps/web/src/pages/RepoOverviewPage.tsx b/apps/web/src/pages/RepoOverviewPage.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/pages/RepoOverviewPage.tsx
+@@
++import { useQuery } from '@tanstack/react-query';
++import { api } from '../api/client';
++import { MarkdownHtml } from '../components/MarkdownHtml';
++
++export function RepoOverviewPage({ owner, repo }: { owner: string; repo: string }) {
++  const overview = useQuery({ queryKey: ['repo', owner, repo], queryFn: () => api.repo(owner, repo) });
++  return (
++    <section className="page">
++      <div className="repo-header">
++        <h1>{owner}/{repo}</h1>
++        <nav><a href={`/r/${owner}/${repo}/code`}>Code</a><a href={`/r/${owner}/${repo}/merge-requests`}>Merge requests</a><a href={`/r/${owner}/${repo}/settings`}>Settings</a></nav>
++      </div>
++      <MarkdownHtml markdown={overview.data?.readme} />
++    </section>
++  );
++}
+
+diff --git a/apps/web/src/pages/RepoCodePage.tsx b/apps/web/src/pages/RepoCodePage.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/pages/RepoCodePage.tsx
+@@
++import { useQuery } from '@tanstack/react-query';
++import { api } from '../api/client';
++
++export function RepoCodePage({ owner, repo }: { owner: string; repo: string }) {
++  const tree = useQuery({ queryKey: ['tree', owner, repo, 'HEAD', ''], queryFn: () => api.tree(owner, repo, 'HEAD') });
++  return (
++    <section className="page code-layout">
++      <h1>{owner}/{repo} code</h1>
++      <aside className="file-tree">{tree.data?.entries.map((entry) => <button key={entry.path}>{entry.name}</button>)}</aside>
++      <section className="file-viewer">Select a file.</section>
++    </section>
++  );
++}
+
+diff --git a/apps/web/src/pages/MergeRequestPage.tsx b/apps/web/src/pages/MergeRequestPage.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/pages/MergeRequestPage.tsx
+@@
++export function MergeRequestPage({ owner, repo, number }: { owner: string; repo: string; number: number }) {
++  return (
++    <section className="page merge-room">
++      <h1>{owner}/{repo} MR #{number}</h1>
++      <aside className="merge-left">Changed files, reviewers, threads</aside>
++      <main className="merge-main">Conversation and diffs</main>
++      <aside className="merge-right">Checks, approvals, evidence, mergeability</aside>
++    </section>
++  );
++}
+
+diff --git a/apps/web/src/pages/SettingsPage.tsx b/apps/web/src/pages/SettingsPage.tsx
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/pages/SettingsPage.tsx
+@@
++export function SettingsPage({ owner, repo }: { owner: string; repo: string }) {
++  return (
++    <section className="page settings-page">
++      <h1>{owner}/{repo} settings</h1>
++      <p>General, access, branch protection, merge, CI/CD, agents, security, integrations, audit, and danger zone.</p>
++    </section>
++  );
++}
+
+diff --git a/apps/web/src/styles/tokens.css b/apps/web/src/styles/tokens.css
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/styles/tokens.css
+@@
++:root {
++  color-scheme: dark;
++  --bg: #080b12;
++  --surface: #101622;
++  --surface-2: #151d2b;
++  --text: #e7edf7;
++  --muted: #9aa8bd;
++  --border: #263348;
++  --accent: #66e3ff;
++  --danger: #ff6b7a;
++  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
++}
+
+diff --git a/apps/web/src/styles/app.css b/apps/web/src/styles/app.css
+new file mode 100644
+--- /dev/null
++++ b/apps/web/src/styles/app.css
+@@
++body { margin: 0; background: var(--bg); color: var(--text); }
++a { color: inherit; text-decoration: none; }
++button { font: inherit; }
++.app-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr) 280px; grid-template-rows: 56px minmax(0, 1fr); min-height: 100vh; }
++.topbar { grid-column: 1 / 4; display: flex; gap: 16px; align-items: center; border-bottom: 1px solid var(--border); padding: 0 16px; background: rgba(16,22,34,.92); position: sticky; top: 0; z-index: 10; }
++.brand { font-weight: 800; letter-spacing: .02em; }
++.command-button { flex: 1; max-width: 720px; text-align: left; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); border-radius: 10px; padding: 9px 12px; }
++.sidebar { border-right: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
++.sidebar a { padding: 8px 10px; border-radius: 8px; color: var(--muted); }
++.sidebar a:hover { background: var(--surface-2); color: var(--text); }
++.content { min-width: 0; padding: 24px; }
++.activity-rail { border-left: 1px solid var(--border); padding: 16px; color: var(--muted); }
++.page-header, .repo-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
++.repo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
++.repo-card, .empty-card, .markdown-body { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 16px; }
++.repo-card { display: flex; flex-direction: column; gap: 8px; }
++.repo-card span { color: var(--muted); font-size: 14px; }
++.code-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; }
++.file-tree { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: 14px; padding: 8px; }
++.file-viewer { border: 1px solid var(--border); border-radius: 14px; min-height: 60vh; padding: 16px; }
++.merge-room { display: grid; grid-template-columns: 260px minmax(0, 1fr) 320px; gap: 16px; }
++.merge-room h1 { grid-column: 1 / 4; }
++
++@media (max-width: 1100px) {
++  .app-shell { grid-template-columns: 72px minmax(0, 1fr); }
++  .activity-rail { display: none; }
++  .topbar { grid-column: 1 / 3; }
++}
+
+diff --git a/Cargo.toml b/Cargo.toml
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@
+ [workspace.dependencies]
+ anyhow = "1"
+ cargo_metadata = "0"
+ chrono = { version = "0.4", features = ["serde", "clock"] }
+ clap = { version = "4", features = ["derive"] }
++ammonia = "4"
+ globset = "0"
+ libc = "0"
++mime_guess = "2"
++pulldown-cmark = "0.13"
+ quote = "1"
+ regex = "1"
+ serde = { version = "1", features = ["derive"] }
+ serde_json = "1"
+ serde_yaml = "0"
+ sha2 = "0.11.0"
++syntect = { version = "5", default-features = false, features = ["default-fancy"] }
+ syn = { version = "2", features = ["full", "parsing", "visit"] }
+ tokio = { version = "1", features = ["full"] }
++tokio-stream = "0.1"
+ toml = "0"
++ts-rs = { version = "11", features = ["chrono-impl", "uuid-impl"] }
+ walkdir = "2"
+@@
+ # Web framework (webhook receiver + admin API)
+-axum = { version = "0.8", features = ["json"] }
+-tower-http = { version = "0.6", features = ["cors", "trace"] }
++axum = { version = "0.8", features = ["json", "macros", "ws"] }
++tower-http = { version = "0.6", features = ["cors", "trace", "fs", "compression-full", "set-header"] }
+@@
+ regex = "1"
++ammonia = "4"
++mime_guess = "2"
++pulldown-cmark = "0.13"
++syntect = { version = "5", default-features = false, features = ["default-fancy"] }
++tokio-stream = "0.1"
++ts-rs = { version = "11", features = ["chrono-impl", "uuid-impl"] }
+
+diff --git a/src/lib.rs b/src/lib.rs
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@
+ pub mod api;
++pub mod merge;
++pub mod repo_browser;
++pub mod repos;
++pub mod web;
++pub mod web_events;
+
+diff --git a/src/api/mod.rs b/src/api/mod.rs
+--- a/src/api/mod.rs
++++ b/src/api/mod.rs
+@@
+ pub mod actions;
+ pub mod entity;
+ pub mod events;
+ pub mod read_model;
++pub mod issue;
++pub mod merge_request;
++pub mod repo_browser;
++pub mod repository;
++pub mod settings;
++pub mod type_export;
++pub mod web_read_model;
+
+diff --git a/src/api/repository.rs b/src/api/repository.rs
+new file mode 100644
+--- /dev/null
++++ b/src/api/repository.rs
+@@
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct RepositorySummary {
++    pub id: String,
++    pub source_id: Option<String>,
++    pub provider: RepositoryProvider,
++    pub owner: String,
++    pub name: String,
++    pub slug: String,
++    pub description: Option<String>,
++    pub default_branch: String,
++    pub visibility: RepositoryVisibility,
++    pub health: RepositoryHealth,
++    pub family: Option<RepoFamilySummary>,
++    pub pinned: bool,
++    pub archived: bool,
++    pub mirror: bool,
++    pub last_activity_at: Option<DateTime<Utc>>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum RepositoryProvider { GitLab, GitHub, LocalGit, JeryuNative }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum RepositoryVisibility { Private, Internal, Public }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum RepositoryHealth { Ok, Warning, Failing, Unknown }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct RepoFamilySummary { pub id: String, pub name: String, pub slug: String, pub color: Option<String> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct RepositoryListView { pub repos: Vec<RepositorySummary>, pub total: u64, pub next_cursor: Option<String> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct RepositoryOverview {
++    #[serde(flatten)]
++    pub repo: RepositorySummary,
++    pub clone_http_url: Option<String>,
++    pub clone_ssh_url: Option<String>,
++    pub stats: RepositoryStats,
++    pub readme: Option<crate::api::repo_browser::MarkdownView>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct RepositoryStats {
++    pub open_merge_requests: u64,
++    pub assigned_reviews: u64,
++    pub open_issues: u64,
++    pub failing_pipelines: u64,
++    pub active_agents: u64,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct CreateRepositoryInput {
++    pub owner: String,
++    pub name: String,
++    pub description: Option<String>,
++    pub visibility: RepositoryVisibility,
++    pub initialize_readme: bool,
++    pub default_branch: Option<String>,
++    pub provider: RepositoryProvider,
++    pub family_id: Option<String>,
++}
+
+diff --git a/src/api/repo_browser.rs b/src/api/repo_browser.rs
+new file mode 100644
+--- /dev/null
++++ b/src/api/repo_browser.rs
+@@
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct TreeView { pub repo_id: String, pub ref_name: String, pub path: String, pub entries: Vec<TreeEntry> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct TreeEntry { pub name: String, pub path: String, pub kind: TreeEntryKind, pub sha: String, pub size: Option<u64>, pub mode: Option<String> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum TreeEntryKind { Tree, Blob, Submodule }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct BlobView { pub path: String, pub sha: String, pub mime: String, pub size: u64, pub is_binary: bool, pub text: Option<String>, pub content_base64: Option<String> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct MarkdownView { pub path: String, pub blob_sha: String, pub html: String, pub toc: Vec<TocEntry>, pub warnings: Vec<String>, pub asset_refs: Vec<String> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct TocEntry { pub id: String, pub text: String, pub level: u8 }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct CompareView { pub base: String, pub head: String, pub ahead_by: u64, pub behind_by: u64, pub files: Vec<DiffFileView> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct DiffFileView { pub path: String, pub old_path: Option<String>, pub status: String, pub additions: u64, pub deletions: u64, pub hunks: Vec<DiffHunkView> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct DiffHunkView { pub header: String, pub old_start: u64, pub new_start: u64, pub lines: Vec<DiffLineView> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct DiffLineView { pub kind: String, pub old_line: Option<u64>, pub new_line: Option<u64>, pub text: String }
+
+diff --git a/src/api/merge_request.rs b/src/api/merge_request.rs
+new file mode 100644
+--- /dev/null
++++ b/src/api/merge_request.rs
+@@
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct MergeRequestSummary {
++    pub id: String,
++    pub repo_id: String,
++    pub number: u64,
++    pub title: String,
++    pub author: String,
++    pub source_branch: String,
++    pub target_branch: String,
++    pub head_sha: String,
++    pub state: MergeRequestState,
++    pub draft: bool,
++    pub merge_status: MergeStatus,
++    pub approvals_required: u32,
++    pub approvals_received: u32,
++    pub unresolved_threads: u32,
++    pub failing_checks: u32,
++    pub updated_at: DateTime<Utc>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum MergeRequestState { Open, Closed, Merged }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++#[serde(rename_all = "snake_case")]
++pub enum MergeStatus { Checking, Blocked, Conflicts, Ready, Stale, Unknown }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct MergeRequestDetail {
++    #[serde(flatten)]
++    pub summary: MergeRequestSummary,
++    pub description_html: String,
++    pub checks: Vec<MergeRequestCheck>,
++    pub threads: Vec<ReviewThread>,
++    pub decisions: Vec<ReviewDecision>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct MergeRequestCheck { pub name: String, pub status: String, pub conclusion: Option<String>, pub target_url: Option<String>, pub evidence_ref: Option<String> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct ReviewThread { pub id: String, pub file_path: Option<String>, pub old_line: Option<u64>, pub new_line: Option<u64>, pub resolved: bool, pub comments: Vec<ReviewComment> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct ReviewComment { pub id: String, pub author: String, pub body_html: String, pub created_at: DateTime<Utc> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct ReviewDecision { pub reviewer: String, pub decision: String, pub commit_sha: String, pub created_at: DateTime<Utc> }
+
+diff --git a/src/api/settings.rs b/src/api/settings.rs
+new file mode 100644
+--- /dev/null
++++ b/src/api/settings.rs
+@@
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct RepositorySettingsView {
++    pub general: GeneralRepoSettings,
++    pub access: AccessSettings,
++    pub branch_protection: Vec<BranchProtectionRule>,
++    pub merge: MergeSettings,
++    pub ci: CiSettings,
++    pub agents: AgentSettings,
++    pub security: SecuritySettings,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct GeneralRepoSettings { pub name: String, pub description: Option<String>, pub default_branch: String, pub visibility: String, pub archived: bool }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct AccessSettings { pub collaborators: Vec<PrincipalGrant>, pub teams: Vec<PrincipalGrant> }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct PrincipalGrant { pub principal_id: String, pub label: String, pub role: String }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct BranchProtectionRule { pub pattern: String, pub required_checks: Vec<String>, pub approvals_required: u32, pub codeowners_required: bool, pub dismiss_stale_approvals: bool }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct MergeSettings { pub allow_squash: bool, pub allow_rebase: bool, pub allow_merge_commit: bool, pub delete_branch_on_merge: bool, pub exact_sha_required: bool }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct CiSettings { pub protected_variables: u32, pub runners_enabled: bool, pub cache_enabled: bool, pub artifact_retention_days: u32 }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct AgentSettings { pub autonomy_level: String, pub allowed_agents: Vec<String>, pub high_risk_requires_human: bool }
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct SecuritySettings { pub secret_scanning: bool, pub signed_commits_required: bool, pub audit_retention_days: u32 }
+
+diff --git a/src/api/issue.rs b/src/api/issue.rs
+new file mode 100644
+--- /dev/null
++++ b/src/api/issue.rs
+@@
++use chrono::{DateTime, Utc};
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct IssueSummary { pub id: String, pub repo_id: String, pub number: u64, pub title: String, pub state: String, pub labels: Vec<String>, pub assignees: Vec<String>, pub updated_at: DateTime<Utc> }
+
+diff --git a/src/api/web_read_model.rs b/src/api/web_read_model.rs
+new file mode 100644
+--- /dev/null
++++ b/src/api/web_read_model.rs
+@@
++use serde::{Deserialize, Serialize};
++use ts_rs::TS;
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct BootstrapView {
++    pub user: WebUserView,
++    pub capabilities: Vec<String>,
++    pub feature_flags: Vec<String>,
++    pub event_cursor: u64,
++    pub pinned_repos: Vec<crate::api::repository::RepositorySummary>,
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize, TS)]
++#[ts(export)]
++pub struct WebUserView { pub id: String, pub username: String, pub display_name: Option<String>, pub avatar_url: Option<String> }
+
+diff --git a/src/api/type_export.rs b/src/api/type_export.rs
+new file mode 100644
+--- /dev/null
++++ b/src/api/type_export.rs
+@@
++use anyhow::Result;
++use std::path::Path;
++
++pub fn export_types(out: &Path) -> Result<()> {
++    std::fs::create_dir_all(out.parent().unwrap_or_else(|| Path::new(".")))?;
++    // Phase 0: call TS::export_all once all DTOs derive TS.
++    // Keep this function as the single CLI/CI entrypoint for frontend type generation.
++    std::fs::write(out, "// Generated by jeryu web export-types.\n")?;
++    Ok(())
++}
+
+diff --git a/src/cli_defs_web.rs b/src/cli_defs_web.rs
+new file mode 100644
+--- /dev/null
++++ b/src/cli_defs_web.rs
+@@
++use clap::Subcommand;
++use std::path::PathBuf;
++
++#[derive(Subcommand)]
++pub(crate) enum WebCommands {
++    /// Export Rust-owned API types to TypeScript.
++    ExportTypes {
++        #[arg(long, default_value = "apps/web/src/api/types.generated.ts")]
++        out: PathBuf,
++    },
++}
++
++#[derive(Debug, Clone, clap::Args)]
++pub(crate) struct ServeOptions {
++    #[arg(long, default_value = "127.0.0.1:8787")]
++    pub bind: String,
++    #[arg(long, default_value = "apps/web/dist")]
++    pub frontend_dir: PathBuf,
++    #[arg(long, default_value_t = false)]
++    pub dev_cors: bool,
++    #[arg(long, default_value_t = false)]
++    pub no_static: bool,
++}
+
+diff --git a/src/cli_defs.rs b/src/cli_defs.rs
+--- a/src/cli_defs.rs
++++ b/src/cli_defs.rs
+@@
+ #[path = "cli_defs_remote.rs"]
+ mod cli_defs_remote;
+ pub(crate) use cli_defs_remote::{RemoteActionCommands, RemoteCommand};
++#[path = "cli_defs_web.rs"]
++mod cli_defs_web;
++pub(crate) use cli_defs_web::{ServeOptions, WebCommands};
+@@
+- Serve,
++ Serve(ServeOptions),
+@@
+  #[command(subcommand)]
+  Host(HostCommands),
++ #[command(subcommand)]
++ Web(WebCommands),
+
+diff --git a/src/dispatch.rs b/src/dispatch.rs
+--- a/src/dispatch.rs
++++ b/src/dispatch.rs
+@@
+ pub async fn dispatch(cli: Cli) -> Result<()> {
+   match cli.command {
+@@
+-    Commands::Serve => serve().await,
++    Commands::Serve(options) => web::command::serve(options).await,
++    Commands::Web(web_command) => match web_command {
++        WebCommands::ExportTypes { out } => api::type_export::export_types(&out),
++    },
+@@
+   }
+ }
+
+diff --git a/src/web/mod.rs b/src/web/mod.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/mod.rs
+@@
++pub mod api;
++pub mod command;
++pub mod error;
++pub mod router;
++pub mod security;
++pub mod state;
++pub mod static_assets;
++pub mod ws;
+
+diff --git a/src/web/command.rs b/src/web/command.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/command.rs
+@@
++use anyhow::{Context, Result};
++use tokio::net::TcpListener;
++
++use crate::cli::ServeOptions;
++use crate::web::{router, state::WebAppState};
++
++pub async fn serve(options: ServeOptions) -> Result<()> {
++    let state = WebAppState::from_options(&options).await?;
++    let app = router::build_router(state, &options);
++    let listener = TcpListener::bind(&options.bind).await.with_context(|| format!("bind {}", options.bind))?;
++    tracing::info!(bind = %options.bind, "starting JeRyu web forge");
++    axum::serve(listener, app).await.context("serve web router")
++}
+
+diff --git a/src/web/state.rs b/src/web/state.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/state.rs
+@@
++use std::path::PathBuf;
++use std::sync::Arc;
++
++use anyhow::Result;
++
++use crate::cli::ServeOptions;
++use crate::web_events::bus::WebEventBus;
++
++#[derive(Clone)]
++pub struct WebAppState {
++    pub frontend_dir: PathBuf,
++    pub events: Arc<WebEventBus>,
++}
++
++impl WebAppState {
++    pub async fn from_options(options: &ServeOptions) -> Result<Self> {
++        Ok(Self {
++            frontend_dir: options.frontend_dir.clone(),
++            events: Arc::new(WebEventBus::default()),
++        })
++    }
++}
+
+diff --git a/src/web/error.rs b/src/web/error.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/error.rs
+@@
++use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
++use serde::Serialize;
++
++#[derive(Debug, Serialize)]
++pub struct ErrorBody { pub code: String, pub message: String, pub details: Option<serde_json::Value> }
++
++#[derive(Debug)]
++pub struct ApiError { pub status: StatusCode, pub code: &'static str, pub message: String, pub details: Option<serde_json::Value> }
++
++impl ApiError {
++    pub fn not_found(message: impl Into<String>) -> Self { Self { status: StatusCode::NOT_FOUND, code: "not_found", message: message.into(), details: None } }
++    pub fn forbidden(message: impl Into<String>) -> Self { Self { status: StatusCode::FORBIDDEN, code: "forbidden", message: message.into(), details: None } }
++    pub fn internal(error: anyhow::Error) -> Self { Self { status: StatusCode::INTERNAL_SERVER_ERROR, code: "internal", message: error.to_string(), details: None } }
++}
++
++impl IntoResponse for ApiError {
++    fn into_response(self) -> Response {
++        (self.status, Json(ErrorBody { code: self.code.to_string(), message: self.message, details: self.details })).into_response()
++    }
++}
++
++impl From<anyhow::Error> for ApiError { fn from(value: anyhow::Error) -> Self { Self::internal(value) } }
+
+diff --git a/src/web/router.rs b/src/web/router.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/router.rs
+@@
++use axum::{routing::{get, post}, Router};
++use tower_http::{compression::CompressionLayer, cors::CorsLayer, services::ServeDir, trace::TraceLayer};
++
++use crate::cli::ServeOptions;
++use crate::web::{api, state::WebAppState, ws};
++
++pub fn build_router(state: WebAppState, options: &ServeOptions) -> Router {
++    let api_router = Router::new()
++        .route("/health", get(api::bootstrap::health))
++        .route("/bootstrap", get(api::bootstrap::bootstrap))
++        .route("/repos", get(api::repos::list_repos).post(api::repos::create_repo))
++        .route("/repos/{owner}/{repo}", get(api::repos::repo_overview))
++        .route("/repos/{owner}/{repo}/readme/{ref_name}", get(api::repo_files::readme))
++        .route("/repos/{owner}/{repo}/tree/{ref_name}/{*path}", get(api::repo_files::tree))
++        .route("/repos/{owner}/{repo}/blob/{ref_name}/{*path}", get(api::repo_files::blob))
++        .route("/actions/preview", post(api::actions::preview))
++        .route("/actions/execute", post(api::actions::execute))
++        .route("/ws", get(ws::ws_handler));
++
++    let mut app = Router::new()
++        .nest("/api", api_router)
++        .layer(TraceLayer::new_for_http())
++        .layer(CompressionLayer::new())
++        .with_state(state.clone());
++
++    if options.dev_cors {
++        app = app.layer(CorsLayer::permissive());
++    }
++
++    if !options.no_static {
++        app = app.fallback_service(ServeDir::new(&state.frontend_dir).append_index_html_on_directories(true));
++    }
++
++    app
++}
+
+diff --git a/src/web/api/mod.rs b/src/web/api/mod.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/mod.rs
+@@
++pub mod actions;
++pub mod agents;
++pub mod bootstrap;
++pub mod ci;
++pub mod issues;
++pub mod merge_requests;
++pub mod notifications;
++pub mod repo_files;
++pub mod repos;
++pub mod reviews;
++pub mod settings;
+
+diff --git a/src/web/api/bootstrap.rs b/src/web/api/bootstrap.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/bootstrap.rs
+@@
++use axum::{extract::State, Json};
++
++use crate::api::web_read_model::{BootstrapView, WebUserView};
++use crate::web::state::WebAppState;
++
++pub async fn health() -> Json<serde_json::Value> { Json(serde_json::json!({ "ok": true, "service": "jeryu-web" })) }
++
++pub async fn bootstrap(State(state): State<WebAppState>) -> Json<BootstrapView> {
++    Json(BootstrapView {
++        user: WebUserView { id: "local".into(), username: "local".into(), display_name: Some("Local JeRyu".into()), avatar_url: None },
++        capabilities: vec!["repo:read".into(), "action:preview".into()],
++        feature_flags: vec!["web_forge_phase0".into()],
++        event_cursor: state.events.cursor(),
++        pinned_repos: vec![],
++    })
++}
+
+diff --git a/src/web/api/repos.rs b/src/web/api/repos.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/repos.rs
+@@
++use axum::{extract::{Path, State}, Json};
++
++use crate::api::repository::*;
++use crate::web::{error::ApiError, state::WebAppState};
++
++pub async fn list_repos(State(_state): State<WebAppState>) -> Json<RepositoryListView> {
++    Json(RepositoryListView { repos: vec![], total: 0, next_cursor: None })
++}
++
++pub async fn create_repo(State(_state): State<WebAppState>, Json(_input): Json<CreateRepositoryInput>) -> Result<Json<RepositorySummary>, ApiError> {
++    Err(ApiError::forbidden("repository creation must use action preview in Phase 1"))
++}
++
++pub async fn repo_overview(State(_state): State<WebAppState>, Path((owner, repo)): Path<(String, String)>) -> Result<Json<RepositoryOverview>, ApiError> {
++    let summary = RepositorySummary {
++        id: format!("local:{owner}/{repo}"), source_id: None, provider: RepositoryProvider::LocalGit, owner, name: repo.clone(), slug: repo,
++        description: None, default_branch: "main".into(), visibility: RepositoryVisibility::Private, health: RepositoryHealth::Unknown,
++        family: None, pinned: false, archived: false, mirror: false, last_activity_at: None,
++    };
++    Ok(Json(RepositoryOverview { repo: summary, clone_http_url: None, clone_ssh_url: None, stats: RepositoryStats { open_merge_requests: 0, assigned_reviews: 0, open_issues: 0, failing_pipelines: 0, active_agents: 0 }, readme: None }))
++}
+
+diff --git a/src/web/api/repo_files.rs b/src/web/api/repo_files.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/repo_files.rs
+@@
++use axum::{extract::{Path, State}, Json};
++
++use crate::api::repo_browser::{BlobView, MarkdownView, TreeView};
++use crate::repo_browser::markdown::MarkdownRenderer;
++use crate::web::{error::ApiError, state::WebAppState};
++
++pub async fn readme(State(_state): State<WebAppState>, Path((_owner, _repo, _ref_name)): Path<(String, String, String)>) -> Result<Json<MarkdownView>, ApiError> {
++    let renderer = MarkdownRenderer::default();
++    let rendered = renderer.render("README.md", "# README\n\nNo README implementation wired yet.", "phase0")?;
++    Ok(Json(rendered))
++}
++
++pub async fn tree(State(_state): State<WebAppState>, Path((_owner, _repo, ref_name, path)): Path<(String, String, String, String)>) -> Result<Json<TreeView>, ApiError> {
++    Ok(Json(TreeView { repo_id: "phase0".into(), ref_name, path, entries: vec![] }))
++}
++
++pub async fn blob(State(_state): State<WebAppState>, Path((_owner, _repo, _ref_name, path)): Path<(String, String, String, String)>) -> Result<Json<BlobView>, ApiError> {
++    Err(ApiError::not_found(format!("blob not wired yet: {path}")))
++}
+
+diff --git a/src/web/api/actions.rs b/src/web/api/actions.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/actions.rs
+@@
++use axum::Json;
++use serde::{Deserialize, Serialize};
++
++#[derive(Debug, Deserialize)]
++pub struct ActionRequest { pub kind: String, pub input: serde_json::Value }
++
++#[derive(Debug, Serialize)]
++pub struct ActionPreview { pub preview_id: String, pub kind: String, pub risk: String, pub allowed: bool, pub side_effects: Vec<String>, pub confirmation: Option<String> }
++
++#[derive(Debug, Deserialize)]
++pub struct ActionExecuteRequest { pub preview_id: String, pub idempotency_key: String, pub confirmation: Option<String> }
++
++#[derive(Debug, Serialize)]
++pub struct ActionReceipt { pub action_id: String, pub status: String, pub evidence_ref: Option<String> }
++
++pub async fn preview(Json(input): Json<ActionRequest>) -> Json<ActionPreview> {
++    Json(ActionPreview { preview_id: uuid::Uuid::new_v4().to_string(), kind: input.kind, risk: "low".into(), allowed: false, side_effects: vec!["Phase 0 preview only".into()], confirmation: None })
++}
++
++pub async fn execute(Json(input): Json<ActionExecuteRequest>) -> Json<ActionReceipt> {
++    Json(ActionReceipt { action_id: input.idempotency_key, status: "failed".into(), evidence_ref: Some(format!("preview:{}:not-implemented", input.preview_id)) })
++}
+
+diff --git a/src/web/api/merge_requests.rs b/src/web/api/merge_requests.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/merge_requests.rs
+@@
++// MR list/detail/files/checks handlers. Phase 3 wires to merge::service and GitHostProvider.
+
+diff --git a/src/web/api/reviews.rs b/src/web/api/reviews.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/reviews.rs
+@@
++// Review thread/comment/decision handlers. All mutations must go through action preview.
+
+diff --git a/src/web/api/settings.rs b/src/web/api/settings.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/settings.rs
+@@
++// Repository settings handlers. PATCH endpoints validate field-level permissions and emit audit events.
+
+diff --git a/src/web/api/issues.rs b/src/web/api/issues.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/issues.rs
+@@
++// Issue list/detail/create/update handlers. Phase 5.
+
+diff --git a/src/web/api/ci.rs b/src/web/api/ci.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/ci.rs
+@@
++// Pipeline, job, log, artifact, retry, cancel handlers. Reuse existing GitLab/client/CI modules.
+
+diff --git a/src/web/api/agents.rs b/src/web/api/agents.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/agents.rs
+@@
++// Agent activity/evidence handlers. Reuse existing agent/session/action read models.
+
+diff --git a/src/web/api/notifications.rs b/src/web/api/notifications.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/api/notifications.rs
+@@
++// Notification inbox/read-state handlers.
+
+diff --git a/src/web/security.rs b/src/web/security.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/security.rs
+@@
++// Session, CSRF, CSP, permission middleware, and actor extraction helpers.
++// Phase 0 supports trusted local mode; Phase 1 adds cookie/bearer auth.
+
+diff --git a/src/web/static_assets.rs b/src/web/static_assets.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/static_assets.rs
+@@
++// Static asset helpers for apps/web/dist and optional future include_dir embedding.
+
+diff --git a/src/web/ws.rs b/src/web/ws.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web/ws.rs
+@@
++use axum::{extract::{State, WebSocketUpgrade}, response::IntoResponse};
++use axum::extract::ws::{Message, WebSocket};
++use futures_util::{SinkExt, StreamExt};
++
++use crate::web::state::WebAppState;
++use crate::web_events::protocol::{ClientMessage, ServerFrame};
++
++pub async fn ws_handler(State(state): State<WebAppState>, ws: WebSocketUpgrade) -> impl IntoResponse {
++    ws.on_upgrade(move |socket| handle_socket(state, socket))
++}
++
++async fn handle_socket(state: WebAppState, socket: WebSocket) {
++    let (mut sender, mut receiver) = socket.split();
++    let hello = ServerFrame::HelloAck { server_version: env!("CARGO_PKG_VERSION").into(), cursor: state.events.cursor(), heartbeat_ms: 20_000 };
++    let _ = sender.send(Message::Text(serde_json::to_string(&hello).unwrap().into())).await;
++    while let Some(Ok(message)) = receiver.next().await {
++        if let Message::Text(text) = message {
++            match serde_json::from_str::<ClientMessage>(&text) {
++                Ok(ClientMessage::Ping { nonce }) => {
++                    let frame = ServerFrame::Pong { nonce };
++                    let _ = sender.send(Message::Text(serde_json::to_string(&frame).unwrap().into())).await;
++                }
++                Ok(_) => {}
++                Err(err) => {
++                    let frame = ServerFrame::Error { code: "bad_message".into(), message: err.to_string() };
++                    let _ = sender.send(Message::Text(serde_json::to_string(&frame).unwrap().into())).await;
++                }
++            }
++        }
++    }
++}
+
+diff --git a/src/web_events/mod.rs b/src/web_events/mod.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web_events/mod.rs
+@@
++pub mod bus;
++pub mod protocol;
++pub mod store;
+
+diff --git a/src/web_events/protocol.rs b/src/web_events/protocol.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web_events/protocol.rs
+@@
++use serde::{Deserialize, Serialize};
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++#[serde(tag = "type", rename_all = "snake_case")]
++pub enum ClientMessage {
++    Hello { client_id: String, last_cursor: Option<u64> },
++    Subscribe { topics: Vec<String> },
++    Unsubscribe { topics: Vec<String> },
++    Ping { nonce: String },
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++#[serde(tag = "type", rename_all = "snake_case")]
++pub enum ServerFrame {
++    HelloAck { server_version: String, cursor: u64, heartbeat_ms: u64 },
++    Event(EventEnvelope),
++    SnapshotRequired { reason: String, resources: Vec<String> },
++    Pong { nonce: String },
++    Error { code: String, message: String },
++}
++
++#[derive(Debug, Clone, Serialize, Deserialize)]
++pub struct EventEnvelope {
++    pub cursor: u64,
++    pub topic: String,
++    pub kind: String,
++    pub entity_kind: String,
++    pub entity_id: String,
++    pub occurred_at: String,
++    pub payload: serde_json::Value,
++}
+
+diff --git a/src/web_events/bus.rs b/src/web_events/bus.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web_events/bus.rs
+@@
++use std::sync::atomic::{AtomicU64, Ordering};
++use tokio::sync::broadcast;
++
++use crate::web_events::protocol::EventEnvelope;
++
++pub struct WebEventBus { cursor: AtomicU64, tx: broadcast::Sender<EventEnvelope> }
++
++impl Default for WebEventBus {
++    fn default() -> Self {
++        let (tx, _rx) = broadcast::channel(4096);
++        Self { cursor: AtomicU64::new(0), tx }
++    }
++}
++
++impl WebEventBus {
++    pub fn cursor(&self) -> u64 { self.cursor.load(Ordering::Relaxed) }
++    pub fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> { self.tx.subscribe() }
++    pub fn publish(&self, mut event: EventEnvelope) {
++        event.cursor = self.cursor.fetch_add(1, Ordering::SeqCst) + 1;
++        let _ = self.tx.send(event);
++    }
++}
+
+diff --git a/src/web_events/store.rs b/src/web_events/store.rs
+new file mode 100644
+--- /dev/null
++++ b/src/web_events/store.rs
+@@
++// Durable cursor replay bridge. Phase 0 uses broadcast only; Phase 2 can persist to web_events.
+
+diff --git a/src/repo_browser/mod.rs b/src/repo_browser/mod.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repo_browser/mod.rs
+@@
++pub mod diff;
++pub mod markdown;
++pub mod service;
+
+diff --git a/src/repo_browser/markdown.rs b/src/repo_browser/markdown.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repo_browser/markdown.rs
+@@
++use ammonia::Builder;
++use pulldown_cmark::{html, Options, Parser};
++
++use crate::api::repo_browser::{MarkdownView, TocEntry};
++
++#[derive(Default)]
++pub struct MarkdownRenderer;
++
++impl MarkdownRenderer {
++    pub fn render(&self, path: &str, markdown: &str, blob_sha: &str) -> anyhow::Result<MarkdownView> {
++        let mut options = Options::empty();
++        options.insert(Options::ENABLE_TABLES);
++        options.insert(Options::ENABLE_TASKLISTS);
++        options.insert(Options::ENABLE_STRIKETHROUGH);
++        options.insert(Options::ENABLE_FOOTNOTES);
++
++        let parser = Parser::new_ext(markdown, options);
++        let mut unsafe_html = String::new();
++        html::push_html(&mut unsafe_html, parser);
++
++        let safe_html = Builder::default()
++            .add_tags(["input", "section", "article", "nav", "span"])
++            .add_generic_attributes(["class", "id", "data-line", "aria-label"])
++            .clean(&unsafe_html)
++            .to_string();
++
++        Ok(MarkdownView { path: path.to_string(), blob_sha: blob_sha.to_string(), html: safe_html, toc: extract_toc(markdown), warnings: vec![], asset_refs: vec![] })
++    }
++}
++
++fn extract_toc(markdown: &str) -> Vec<TocEntry> {
++    markdown.lines().filter_map(|line| {
++        let level = line.chars().take_while(|c| *c == '#').count();
++        if level == 0 || level > 6 || !line.chars().nth(level).is_some_and(|c| c == ' ') { return None; }
++        let text = line[level + 1..].trim().to_string();
++        let id = text.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect::<String>();
++        Some(TocEntry { id, text, level: level as u8 })
++    }).collect()
++}
+
+diff --git a/src/repo_browser/service.rs b/src/repo_browser/service.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repo_browser/service.rs
+@@
++// Tree/blob/branch/tag/commit/compare service. Wraps GitHostProvider and local git2 providers.
+
+diff --git a/src/repo_browser/diff.rs b/src/repo_browser/diff.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repo_browser/diff.rs
+@@
++// Diff parsing and virtualization-ready DTO construction.
+
+diff --git a/src/repos/mod.rs b/src/repos/mod.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repos/mod.rs
+@@
++pub mod permissions;
++pub mod service;
++pub mod settings;
+
+diff --git a/src/repos/service.rs b/src/repos/service.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repos/service.rs
+@@
++// Repository catalog, create/import/mirror/family operations.
++// Mutations must be registered as previewable actions.
+
+diff --git a/src/repos/permissions.rs b/src/repos/permissions.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repos/permissions.rs
+@@
++#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
++pub enum RepoRole { Guest, Reporter, Developer, Maintainer, Owner }
++
++pub fn can_merge(role: RepoRole) -> bool { role >= RepoRole::Maintainer }
++pub fn can_push(role: RepoRole) -> bool { role >= RepoRole::Developer }
++pub fn can_admin(role: RepoRole) -> bool { role >= RepoRole::Owner }
+
+diff --git a/src/repos/settings.rs b/src/repos/settings.rs
+new file mode 100644
+--- /dev/null
++++ b/src/repos/settings.rs
+@@
++// Settings validation, field-level permission checks, audit payload generation.
+
+diff --git a/src/merge/mod.rs b/src/merge/mod.rs
+new file mode 100644
+--- /dev/null
++++ b/src/merge/mod.rs
+@@
++pub mod merge_queue;
++pub mod review;
++pub mod service;
+
+diff --git a/src/merge/service.rs b/src/merge/service.rs
+new file mode 100644
+--- /dev/null
++++ b/src/merge/service.rs
+@@
++// Merge request lifecycle, mergeability, exact-SHA action previews, provider mapping.
+
+diff --git a/src/merge/review.rs b/src/merge/review.rs
+new file mode 100644
+--- /dev/null
++++ b/src/merge/review.rs
+@@
++// Review threads, inline comments, approvals, requested changes, dismissal rules.
+
+diff --git a/src/merge/merge_queue.rs b/src/merge/merge_queue.rs
+new file mode 100644
+--- /dev/null
++++ b/src/merge/merge_queue.rs
+@@
++// Optional merge queue / train support after Phase 3.
+
+diff --git a/src/git_host/mod.rs b/src/git_host/mod.rs
+--- a/src/git_host/mod.rs
++++ b/src/git_host/mod.rs
+@@
++// Add provider-neutral Git forge trait. Existing GitLab/GitHub modules implement this incrementally.
++#[async_trait::async_trait]
++pub trait GitHostProvider: Send + Sync {
++    async fn list_repositories(&self, filter: crate::api::repository::RepositoryListView) -> anyhow::Result<Vec<crate::api::repository::RepositorySummary>>;
++    async fn get_repository(&self, owner: &str, name: &str) -> anyhow::Result<crate::api::repository::RepositoryOverview>;
++    async fn list_tree(&self, owner: &str, name: &str, ref_name: &str, path: &str) -> anyhow::Result<crate::api::repo_browser::TreeView>;
++    async fn get_blob(&self, owner: &str, name: &str, ref_name: &str, path: &str) -> anyhow::Result<crate::api::repo_browser::BlobView>;
++    async fn compare(&self, owner: &str, name: &str, base: &str, head: &str) -> anyhow::Result<crate::api::repo_browser::CompareView>;
++}
+
+diff --git a/db/migrations/202606010001_web_forge_core.sql b/db/migrations/202606010001_web_forge_core.sql
+new file mode 100644
+--- /dev/null
++++ b/db/migrations/202606010001_web_forge_core.sql
+@@
++-- JeRyu Web Forge core schema. Additive migration.
++
++CREATE TABLE IF NOT EXISTS web_users (
++  id TEXT PRIMARY KEY,
++  provider TEXT NOT NULL DEFAULT 'local',
++  provider_user_id TEXT,
++  username TEXT NOT NULL,
++  display_name TEXT,
++  avatar_url TEXT,
++  email TEXT,
++  role TEXT NOT NULL DEFAULT 'developer',
++  created_at TEXT NOT NULL,
++  last_seen_at TEXT
++);
++
++CREATE TABLE IF NOT EXISTS web_sessions (
++  id TEXT PRIMARY KEY,
++  user_id TEXT NOT NULL REFERENCES web_users(id),
++  csrf_token_hash TEXT,
++  created_at TEXT NOT NULL,
++  expires_at TEXT NOT NULL,
++  last_seen_at TEXT,
++  user_agent_hash TEXT
++);
++
++CREATE TABLE IF NOT EXISTS repo_sources (
++  id TEXT PRIMARY KEY,
++  kind TEXT NOT NULL,
++  name TEXT NOT NULL,
++  base_url TEXT,
++  auth_ref TEXT,
++  sync_enabled INTEGER NOT NULL DEFAULT 1,
++  last_sync_at TEXT,
++  created_at TEXT NOT NULL
++);
++
++CREATE TABLE IF NOT EXISTS repositories_web (
++  id TEXT PRIMARY KEY,
++  source_id TEXT REFERENCES repo_sources(id),
++  provider_repo_id TEXT,
++  owner TEXT NOT NULL,
++  name TEXT NOT NULL,
++  slug TEXT NOT NULL,
++  description TEXT,
++  default_branch TEXT NOT NULL DEFAULT 'main',
++  visibility TEXT NOT NULL DEFAULT 'private',
++  is_archived INTEGER NOT NULL DEFAULT 0,
++  is_mirror INTEGER NOT NULL DEFAULT 0,
++  local_path TEXT,
++  last_activity_at TEXT,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL,
++  UNIQUE(source_id, provider_repo_id),
++  UNIQUE(owner, name)
++);
++
++CREATE INDEX IF NOT EXISTS idx_repositories_web_owner_name ON repositories_web(owner, name);
++CREATE INDEX IF NOT EXISTS idx_repositories_web_activity ON repositories_web(last_activity_at DESC);
++
++CREATE TABLE IF NOT EXISTS repo_families (
++  id TEXT PRIMARY KEY,
++  name TEXT NOT NULL,
++  slug TEXT NOT NULL UNIQUE,
++  description TEXT,
++  color TEXT,
++  created_at TEXT NOT NULL
++);
++
++CREATE TABLE IF NOT EXISTS repo_family_members (
++  family_id TEXT NOT NULL REFERENCES repo_families(id),
++  repo_id TEXT NOT NULL REFERENCES repositories_web(id),
++  role TEXT NOT NULL DEFAULT 'member',
++  sort_rank INTEGER NOT NULL DEFAULT 0,
++  PRIMARY KEY (family_id, repo_id)
++);
++
++CREATE TABLE IF NOT EXISTS repo_members (
++  repo_id TEXT NOT NULL REFERENCES repositories_web(id),
++  principal_kind TEXT NOT NULL,
++  principal_id TEXT NOT NULL,
++  role TEXT NOT NULL,
++  source TEXT NOT NULL DEFAULT 'jeryu',
++  created_at TEXT NOT NULL,
++  PRIMARY KEY (repo_id, principal_kind, principal_id)
++);
++
++CREATE TABLE IF NOT EXISTS branch_protection_rules (
++  id TEXT PRIMARY KEY,
++  repo_id TEXT NOT NULL REFERENCES repositories_web(id),
++  pattern TEXT NOT NULL,
++  required_checks_json TEXT NOT NULL DEFAULT '[]',
++  approvals_required INTEGER NOT NULL DEFAULT 0,
++  codeowners_required INTEGER NOT NULL DEFAULT 0,
++  dismiss_stale_approvals INTEGER NOT NULL DEFAULT 1,
++  signed_commits_required INTEGER NOT NULL DEFAULT 0,
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL
++);
++
++CREATE TABLE IF NOT EXISTS merge_requests (
++  id TEXT PRIMARY KEY,
++  repo_id TEXT NOT NULL REFERENCES repositories_web(id),
++  provider_mr_id TEXT,
++  number INTEGER NOT NULL,
++  title TEXT NOT NULL,
++  description_md TEXT,
++  author_id TEXT,
++  source_branch TEXT NOT NULL,
++  target_branch TEXT NOT NULL,
++  head_sha TEXT NOT NULL,
++  base_sha TEXT,
++  state TEXT NOT NULL,
++  draft INTEGER NOT NULL DEFAULT 0,
++  merge_status TEXT NOT NULL DEFAULT 'unknown',
++  risk TEXT NOT NULL DEFAULT 'unknown',
++  created_at TEXT NOT NULL,
++  updated_at TEXT NOT NULL,
++  closed_at TEXT,
++  merged_at TEXT,
++  UNIQUE(repo_id, number)
++);
++
++CREATE TABLE IF NOT EXISTS merge_request_checks (
++  id TEXT PRIMARY KEY,
++  mr_id TEXT NOT NULL REFERENCES merge_requests(id),
++  name TEXT NOT NULL,
++  kind TEXT NOT NULL,
++  status TEXT NOT NULL,
++  conclusion TEXT,
++  target_url TEXT,
++  evidence_ref TEXT,
++  started_at TEXT,
++  completed_at TEXT
++);
++
++CREATE TABLE IF NOT EXISTS review_threads (
++  id TEXT PRIMARY KEY,
++  mr_id TEXT NOT NULL REFERENCES merge_requests(id),
++  file_path TEXT,
++  old_line INTEGER,
++  new_line INTEGER,
++  side TEXT,
++  is_resolved INTEGER NOT NULL DEFAULT 0,
++  created_by TEXT,
++  created_at TEXT NOT NULL,
++  resolved_by TEXT,
++  resolved_at TEXT
++);
++
++CREATE TABLE IF NOT EXISTS review_comments (
++  id TEXT PRIMARY KEY,
++  thread_id TEXT NOT NULL REFERENCES review_threads(id),
++  author_id TEXT,
++  body_md TEXT NOT NULL,
++  body_html TEXT NOT NULL,
++  created_at TEXT NOT NULL,
++  updated_at TEXT,
++  is_deleted INTEGER NOT NULL DEFAULT 0
++);
++
++CREATE TABLE IF NOT EXISTS review_decisions (
++  id TEXT PRIMARY KEY,
++  mr_id TEXT NOT NULL REFERENCES merge_requests(id),
++  reviewer_id TEXT NOT NULL,
++  decision TEXT NOT NULL,
++  body_md TEXT,
++  commit_sha TEXT NOT NULL,
++  created_at TEXT NOT NULL,
++  dismissed_at TEXT
++);
++
++CREATE TABLE IF NOT EXISTS rendered_markdown_cache (
++  repo_id TEXT NOT NULL REFERENCES repositories_web(id),
++  blob_sha TEXT NOT NULL,
++  path TEXT NOT NULL,
++  render_mode TEXT NOT NULL DEFAULT 'gfm',
++  html TEXT NOT NULL,
++  toc_json TEXT NOT NULL DEFAULT '[]',
++  asset_refs_json TEXT NOT NULL DEFAULT '[]',
++  warnings_json TEXT NOT NULL DEFAULT '[]',
++  created_at TEXT NOT NULL,
++  PRIMARY KEY (repo_id, blob_sha, path, render_mode)
++);
++
++CREATE TABLE IF NOT EXISTS web_notifications (
++  id TEXT PRIMARY KEY,
++  user_id TEXT NOT NULL REFERENCES web_users(id),
++  kind TEXT NOT NULL,
++  entity_ref TEXT NOT NULL,
++  title TEXT NOT NULL,
++  body TEXT,
++  read_at TEXT,
++  created_at TEXT NOT NULL
++);
++
++CREATE TABLE IF NOT EXISTS audit_log (
++  id TEXT PRIMARY KEY,
++  actor_kind TEXT NOT NULL,
++  actor_id TEXT NOT NULL,
++  action TEXT NOT NULL,
++  entity_ref TEXT NOT NULL,
++  risk TEXT NOT NULL,
++  payload_json TEXT NOT NULL DEFAULT '{}',
++  evidence_ref TEXT,
++  created_at TEXT NOT NULL
++);
++
++CREATE TABLE IF NOT EXISTS web_events (
++  cursor INTEGER PRIMARY KEY AUTOINCREMENT,
++  topic TEXT NOT NULL,
++  kind TEXT NOT NULL,
++  entity_ref TEXT NOT NULL,
++  payload_json TEXT NOT NULL,
++  created_at TEXT NOT NULL
++);
++
++CREATE INDEX IF NOT EXISTS idx_web_events_topic_cursor ON web_events(topic, cursor);
++
++CREATE TABLE IF NOT EXISTS repo_settings (
++  repo_id TEXT PRIMARY KEY REFERENCES repositories_web(id),
++  general_json TEXT NOT NULL DEFAULT '{}',
++  access_json TEXT NOT NULL DEFAULT '{}',
++  merge_json TEXT NOT NULL DEFAULT '{}',
++  ci_json TEXT NOT NULL DEFAULT '{}',
++  agents_json TEXT NOT NULL DEFAULT '{}',
++  security_json TEXT NOT NULL DEFAULT '{}',
++  updated_at TEXT NOT NULL
++);
+
+diff --git a/tests/web_markdown_rendering.rs b/tests/web_markdown_rendering.rs
+new file mode 100644
+--- /dev/null
++++ b/tests/web_markdown_rendering.rs
+@@
++use jeryu::repo_browser::markdown::MarkdownRenderer;
++
++#[test]
++fn markdown_renderer_strips_scripts() {
++    let rendered = MarkdownRenderer::default().render("README.md", "# Hi\n<script>alert(1)</script>", "sha").unwrap();
++    assert!(!rendered.html.contains("script"));
++    assert!(rendered.html.contains("Hi"));
++}
++
++#[test]
++fn markdown_renderer_extracts_toc() {
++    let rendered = MarkdownRenderer::default().render("README.md", "# Title\n## Next", "sha").unwrap();
++    assert_eq!(rendered.toc.len(), 2);
++}
+
+diff --git a/tests/web_router_smoke.rs b/tests/web_router_smoke.rs
+new file mode 100644
+--- /dev/null
++++ b/tests/web_router_smoke.rs
+@@
++// Smoke tests for /api/health, /api/bootstrap, and static SPA fallback.
+
+diff --git a/tests/web_ws_replay.rs b/tests/web_ws_replay.rs
+new file mode 100644
+--- /dev/null
++++ b/tests/web_ws_replay.rs
+@@
++// WebSocket hello, subscribe authorization, cursor gap, and replay tests.
+
+diff --git a/docs/WEB_FORGE.md b/docs/WEB_FORGE.md
+new file mode 100644
+--- /dev/null
++++ b/docs/WEB_FORGE.md
+@@
++# JeRyu Web Forge
++
++Run the Rust API and static web app:
++
++```bash
++npm run web:build
++cargo run -p jeryu -- serve --bind 127.0.0.1:8787 --frontend-dir apps/web/dist
++```
++
++Run frontend dev mode:
++
++```bash
++cargo run -p jeryu -- serve --bind 127.0.0.1:8787 --no-static --dev-cors
++npm run web:dev
++```
++
++JeRyu Web is the browser forge for repositories, code browsing, README rendering, merge requests, review, settings, CI, agents, audit, and realtime activity. All mutations must use the action preview and execution API.

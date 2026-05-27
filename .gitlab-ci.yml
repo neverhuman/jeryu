@@ -1,0 +1,543 @@
+stages:
+  - quality
+  - build
+  - test
+  - evidence
+  - release
+  - deploy
+
+variables:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  GIT_DEPTH: "1"
+
+default:
+  image: rust:1.95.0
+  before_script:
+    - apt-get update -y
+    - apt-get install -y --no-install-recommends ca-certificates curl git jq
+
+.workflow_rules_main: &rules_main
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+.workflow_rules_rust: &rules_rust
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+  - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - when: always
+
+# ---------------------------------------------------------------------------
+# Rust pipeline mirror
+# ---------------------------------------------------------------------------
+
+rust_fmt:
+  stage: quality
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - rustup component add rustfmt
+    - bash ops/ci/rust-lane.sh fmt
+
+rust_clippy:
+  stage: quality
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - rustup component add clippy
+    - cargo install -q --locked taiki-e --force
+    - bash ops/ci/rust-lane.sh clippy
+
+rust_build:
+  stage: build
+  tags: [build]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - cargo install -q --locked taiki-e --force
+    - bash ops/ci/rust-lane.sh build
+
+rust_install_smoke:
+  stage: build
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh install-smoke
+
+rust_test_select:
+  stage: test
+  tags: [default]
+  rules: *rules_rust
+  variables:
+    GIT_DEPTH: "0"
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh test-select
+  artifacts:
+    paths:
+      - target/jeryu/test-plan.json
+    expire_in: 1 day
+
+rust_test_lib:
+  stage: test
+  needs: [rust_test_select]
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - cargo install -q --locked taiki-e --force
+    - |
+      mode="full"
+      filter=""
+      if [ -f target/jeryu/test-plan.json ]; then
+        mode="$(jq -r '.mode // "full"' target/jeryu/test-plan.json)"
+        if [ "$mode" = "selected" ] || [ "$mode" = "full" ]; then
+          filter=""
+        else
+          filter="$(jq -r '.selected_tests[]? | .command' target/jeryu/test-plan.json 2>/dev/null | sed -e "s/^cargo nextest run -E '//" -e "s/'$//")"
+          filter="${filter%%$'\n'*}"
+        fi
+      fi
+      bash ops/ci/rust-lane.sh test-lib "$mode" "$filter"
+
+rust_test_mock:
+  stage: test
+  needs: [rust_test_select]
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh test-mock
+
+rust_test_integration:
+  stage: test
+  needs: [rust_test_select]
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh test-integration
+
+rust_tui_smoke:
+  stage: evidence
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh tui-smoke
+
+rust_supply_chain:
+  stage: evidence
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - cargo install -q --locked cargo-deny --force
+    - bash ops/ci/rust-lane.sh supply-chain
+
+rust_witness:
+  stage: evidence
+  tags: [build]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh witness
+
+rust_vrc_map:
+  stage: evidence
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh vrc-map
+
+rust_vrc_plan:
+  stage: evidence
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh vrc-plan
+
+rust_aer_scan:
+  stage: evidence
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh aer
+
+rust_scheduled_hardening:
+  stage: evidence
+  tags: [default]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh hardening
+
+rust_ssh_install_e2e:
+  stage: evidence
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh ssh-install-e2e
+
+rust_tui_screenshots:
+  stage: evidence
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh tui-screenshots
+    - bash ops/ci/rust-lane.sh tui-recording
+    - bash ops/ci/update-tui-readme-media.sh
+
+rust_fixture_project_tests:
+  stage: test
+  tags: [default]
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/rust-lane.sh fixture-project-test
+    - bash ops/ci/rust-lane.sh fixture-project-clippy
+
+# ---------------------------------------------------------------------------
+# Jankurai pipeline mirror
+# ---------------------------------------------------------------------------
+
+jankurai_security:
+  stage: quality
+  tags: [default]
+  rules: *rules_main
+  script:
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
+    - bash scripts/install-jankurai.sh
+    - bash ops/ci/jankurai-lane.sh security
+
+jankurai_audit:
+  stage: quality
+  tags: [default]
+  rules: *rules_main
+  script:
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
+    - bash scripts/install-jankurai.sh
+    - bash ops/ci/jankurai-lane.sh audit
+
+jankurai_proof:
+  stage: quality
+  tags: [default]
+  rules: *rules_main
+  script:
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
+    - bash scripts/install-jankurai.sh
+    - bash ops/ci/jankurai-lane.sh proof
+
+jankurai_tools:
+  stage: quality
+  tags: [default]
+  rules: *rules_main
+  script:
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
+    - bash scripts/install-jankurai.sh
+    - bash ops/ci/jankurai-lane.sh tools
+
+jankurai_bad_behavior:
+  stage: quality
+  tags: [default]
+  rules: *rules_main
+  script:
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
+    - bash scripts/install-jankurai.sh
+    - bash ops/ci/jankurai-lane.sh bad-behavior
+
+jankurai_sbom:
+  stage: quality
+  tags: [default]
+  rules: *rules_main
+  script:
+    - apt-get install -y --no-install-recommends golang-go nodejs npm
+    - bash ops/ci/jankurai-lane.sh sbom
+
+# ---------------------------------------------------------------------------
+# Release-ready mirror
+# ---------------------------------------------------------------------------
+
+release_ready:
+  stage: quality
+  tags: [default]
+  rules: *rules_main
+  variables:
+    GITHUB_TOKEN: "$GITHUB_TOKEN"
+    GITHUB_REPOSITORY: "$CI_PROJECT_PATH"
+    GITHUB_SHA: "$CI_MERGE_REQUEST_SOURCE_BRANCH_SHA"
+    PR_NUMBER: "$CI_MERGE_REQUEST_IID"
+    JERYU_EMIT_STATUS: "1"
+  script:
+    - bash ops/ci/release-ready-lane.sh
+
+# ---------------------------------------------------------------------------
+# Release workflow mirror
+# ---------------------------------------------------------------------------
+
+release_preflight:
+  stage: build
+  tags: [build]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != ""'
+  variables:
+    INPUT_DRY_RUN: "$RELEASE_DRY_RUN"
+    GITHUB_OUTPUT: "$CI_PROJECT_DIR/.release-resolve.env"
+  script:
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "push" ] && [ -n "$CI_COMMIT_TAG" ]; then
+        export GITHUB_EVENT_NAME=push
+        export GITHUB_REF_NAME="$CI_COMMIT_TAG"
+      else
+        export GITHUB_EVENT_NAME=workflow_dispatch
+        export INPUT_VERSION="$RELEASE_VERSION"
+        export INPUT_DRY_RUN="${RELEASE_DRY_RUN:-false}"
+      fi
+      bash ops/ci/release-resolve.sh
+  artifacts:
+    reports:
+      dotenv: .release-resolve.env
+
+release_audit:
+  stage: release
+  tags: [build]
+  needs: [release_preflight]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != ""'
+  script:
+    - bash ops/ci/release-lane.sh audit "$version"
+
+release_security:
+  stage: release
+  tags: [build]
+  needs: [release_preflight]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != ""'
+  script:
+    - bash ops/ci/release-lane.sh security "$version"
+
+release_build:
+  stage: release
+  tags: [build]
+  needs: [release_preflight]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != ""'
+  script:
+    - bash ops/ci/release-lane.sh build "$version"
+
+release_provenance:
+  stage: release
+  tags: [build]
+  needs: [release_preflight, release_build]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != ""'
+  script:
+    - bash ops/ci/release-lane.sh provenance "$version"
+
+release_evidence:
+  stage: release
+  tags: [build]
+  needs:
+    - release_preflight
+    - release_build
+    - release_audit
+    - release_security
+    - release_provenance
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != ""'
+  script:
+    - bash ops/ci/release-lane.sh evidence "$version"
+
+release_rollback_check:
+  stage: release
+  tags: [build]
+  needs: [release_preflight]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != ""'
+  script:
+    - bash ops/ci/release-lane.sh rollback-check "$version"
+
+release_publish:
+  stage: release
+  tags: [build]
+  needs:
+    - release_preflight
+    - release_audit
+    - release_security
+    - release_build
+    - release_provenance
+    - release_evidence
+    - release_rollback_check
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG != "" && $dry_run != "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION != "" && $dry_run != "true"'
+    - when: never
+  script:
+    - bash ops/ci/release-lane.sh publish "$version"
+
+# ---------------------------------------------------------------------------
+# Post-merge deploy mirror
+# ---------------------------------------------------------------------------
+
+post_merge_build_artifact:
+  stage: build
+  tags: [build]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - bash ops/ci/post-merge-deploy-lane.sh build "$CI_COMMIT_SHA"
+    - bash ops/ci/post-merge-deploy-lane.sh verify-tui
+  artifacts:
+    paths:
+      - target/release/jeryu
+    expire_in: 1 day
+
+# Deploys the verified artifact to the host machine.
+# Requires a GitLab runner registered with the 'deploy-host' tag and
+# a shell executor (not Docker) so systemctl --user commands reach the
+# host systemd session. Register with:
+#   gitlab-runner register --url http://gitlab.local:8929 \
+#     --token $RUNNER_TOKEN_DEPLOY_HOST --executor shell \
+#     --tag-list deploy-host --name host-deploy-shell
+post_merge_deploy:
+  stage: deploy
+  tags: [deploy-host]
+  needs: [post_merge_build_artifact]
+  when: on_success
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+  script:
+    - bash ops/ci/post-merge-deploy-lane.sh install-from-artifact target/release/jeryu
+
+# ---------------------------------------------------------------------------
+# Web Forge mirror — mirrors .github/workflows/web.yml so MR pipelines run the
+# same proof lanes as GitHub Actions (HLT-042 CI/local/parity).
+# ---------------------------------------------------------------------------
+
+.workflow_rules_web: &rules_web
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+  - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^web-forge\//'
+
+web_rust_feature:
+  stage: test
+  tags: [build]
+  rules: *rules_web
+  script:
+    - rustup component add rustfmt clippy
+    - apt-get install -y --no-install-recommends mold
+    - cargo install -q --locked cargo-nextest --force
+    - cargo fmt --all -- --check
+    - cargo check --workspace --features web
+    - cargo clippy --workspace --features web --all-targets -- -D warnings
+    - cargo nextest run -p jeryu --features web --no-fail-fast
+    - cargo run --bin jeryu_export_types --features web
+    - git diff --exit-code contracts/generated/
+    - cargo run --bin jeryu_export_schemas --features web
+    - git diff --exit-code schemas/
+
+web_frontend:
+  stage: test
+  tags: [default]
+  rules: *rules_web
+  script:
+    - apt-get install -y --no-install-recommends nodejs npm
+    - npm ci --no-audit --no-fund
+    - npm --workspace @jeryu/web run typecheck
+    - npm --workspace @jeryu/web run lint
+    - npm --workspace @jeryu/web run test
+    - npm --workspace @jeryu/web run build
+    - npm --workspace @jeryu/web run build-storybook
+    - npm --workspace @jankurai/ux-qa run build
+    - npm --workspace @jankurai/ux-qa run test
+    - |
+      MAIN="$(ls apps/web/dist/assets/index-*.js | head -1)"
+      if [ -z "$MAIN" ]; then
+        echo "main bundle not found under apps/web/dist/assets/" >&2
+        exit 1
+      fi
+      SIZE="$(gzip -c "$MAIN" | wc -c)"
+      BUDGET=358400
+      echo "main bundle: ${SIZE} bytes gz (budget ${BUDGET})"
+      test "$SIZE" -le "$BUDGET"
+  artifacts:
+    paths:
+      - apps/web/dist/
+      - apps/web/storybook-static/
+    expire_in: 1 day
+    when: always
+
+web_e2e:
+  stage: evidence
+  tags: [build]
+  needs: [web_rust_feature, web_frontend]
+  rules: *rules_web
+  variables:
+    JERYU_WEB_TRUST_LOCAL: "1"
+    JERYU_LOCAL_USERS: "alice:repo.read,repo.write|bob:repo.read"
+    JERYU_PLAYWRIGHT_E2E_MODE: bff-only
+  script:
+    - apt-get install -y --no-install-recommends mold nodejs npm
+    - npm ci --no-audit --no-fund
+    - npm --workspace @jeryu/web run build
+    - cargo build --release --features web -p jeryu
+    - (cd apps/web && npx playwright install chromium --with-deps)
+    - ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist > /tmp/bff.log 2>&1 &
+    - BFF_PID=$!
+    - |
+      for i in $(seq 1 30); do
+        if curl -fs http://127.0.0.1:8787/health >/dev/null 2>&1; then
+          echo "BFF up after ${i}s"
+          break
+        fi
+        sleep 1
+      done
+    - curl -fs http://127.0.0.1:8787/health
+    - (cd apps/web && npx playwright test --reporter=html,line)
+    - kill "$BFF_PID" || true
+    - node apps/ux-qa/ux-qa-check.mjs build
+  artifacts:
+    when: always
+    paths:
+      - apps/web/playwright-report/
+      - target/jankurai/ux-qa/
+      - /tmp/bff.log
+    expire_in: 1 week
+
+web_lighthouse:
+  stage: evidence
+  tags: [default]
+  needs: [web_frontend]
+  rules: *rules_web
+  allow_failure: true
+  script:
+    - apt-get install -y --no-install-recommends nodejs npm
+    - npm ci --no-audit --no-fund
+    - npm --workspace @jeryu/web run build
+    - npm --workspace @jeryu/web run perf
+  artifacts:
+    when: always
+    paths:
+      - apps/web/.lighthouseci/
+    expire_in: 1 week

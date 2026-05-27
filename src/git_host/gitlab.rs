@@ -9,8 +9,12 @@ use chrono::Utc;
 use reqwest::Method;
 
 use crate::git_host::{
-    ChangedFileDiff, CheckRun, CheckRunResult, GitHost, HostError, HostIdentity, MrApproval,
-    PrDiff, PrLiveState, PrSummary, RepoRef, VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
+    ChangedFileDiff, CheckRun, CheckRunResult, CreateHostRepository, GitHost, HostBlob, HostCommit,
+    HostCompare, HostError, HostIdentity, HostJob, HostJobLog, HostMergeInput, HostMergeResult,
+    HostPipeline, HostRef, HostRepository, HostRepositorySettingsPatch, HostReview,
+    HostReviewComment, HostReviewCommentInput, HostReviewThread, HostSubmitReviewInput,
+    HostTreeEntry, MrApproval, Page, PageResult, PrDiff, PrLiveState, PrSummary, RepoRef,
+    VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
 };
 use crate::gitlab_client::GitlabClient;
 
@@ -28,6 +32,19 @@ use gitlab_helpers::*;
 // helpers live next to it without inflating this file.
 #[path = "gitlab_client.rs"]
 mod gitlab_client_impl;
+
+// W-H-02 / W-H-03 helpers. The `GitlabBrowse` sealed trait inside provides
+// the impl bodies, which we re-dispatch through the canonical `GitHost`
+// trait below.
+#[path = "gitlab_browse.rs"]
+mod gitlab_browse;
+use gitlab_browse::GitlabBrowse;
+
+// W-H-04 / W-H-05 helpers. `GitlabMerge` is the sealed counterpart trait for
+// MR + review + merge methods.
+#[path = "gitlab_merge.rs"]
+mod gitlab_merge;
+use gitlab_merge::GitlabMerge;
 
 #[derive(Clone)]
 pub struct GitLabClient {
@@ -229,6 +246,139 @@ impl GitHost for GitLabClient {
         Ok(Some(crate::autonomy::signing::sha256_digest(
             joined.as_bytes(),
         )))
+    }
+
+    // ── W-H-02: repo discovery + browse ───────────────────────────────
+
+    async fn list_repositories(
+        &self,
+        owner: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostRepository>, HostError> {
+        <Self as GitlabBrowse>::list_repositories(self, owner, page).await
+    }
+
+    async fn get_repository(&self, repo: &RepoRef) -> Result<HostRepository, HostError> {
+        <Self as GitlabBrowse>::get_repository(self, repo).await
+    }
+
+    async fn list_refs(&self, repo: &RepoRef) -> Result<Vec<HostRef>, HostError> {
+        <Self as GitlabBrowse>::list_refs(self, repo).await
+    }
+
+    async fn list_tree(
+        &self,
+        repo: &RepoRef,
+        ref_name: &str,
+        path: &str,
+    ) -> Result<Vec<HostTreeEntry>, HostError> {
+        <Self as GitlabBrowse>::list_tree(self, repo, ref_name, path).await
+    }
+
+    async fn get_blob(
+        &self,
+        repo: &RepoRef,
+        ref_name: &str,
+        path: &str,
+    ) -> Result<HostBlob, HostError> {
+        <Self as GitlabBrowse>::get_blob(self, repo, ref_name, path).await
+    }
+
+    async fn get_readme(
+        &self,
+        repo: &RepoRef,
+        ref_name: Option<&str>,
+    ) -> Result<HostBlob, HostError> {
+        <Self as GitlabBrowse>::get_readme(self, repo, ref_name).await
+    }
+
+    async fn compare_refs(
+        &self,
+        repo: &RepoRef,
+        base: &str,
+        head: &str,
+    ) -> Result<HostCompare, HostError> {
+        <Self as GitlabBrowse>::compare_refs(self, repo, base, head).await
+    }
+
+    async fn list_commits(
+        &self,
+        repo: &RepoRef,
+        ref_name: &str,
+        path: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostCommit>, HostError> {
+        <Self as GitlabBrowse>::list_commits(self, repo, ref_name, path, page).await
+    }
+
+    // ── W-H-03: repo create / update ──────────────────────────────────
+
+    async fn create_repository(
+        &self,
+        input: CreateHostRepository<'_>,
+    ) -> Result<HostRepository, HostError> {
+        <Self as GitlabBrowse>::create_repository(self, input).await
+    }
+
+    async fn update_repository_settings(
+        &self,
+        repo: &RepoRef,
+        patch: HostRepositorySettingsPatch<'_>,
+    ) -> Result<HostRepository, HostError> {
+        <Self as GitlabBrowse>::update_repository_settings(self, repo, patch).await
+    }
+
+    // ── W-H-04: MR review surface ─────────────────────────────────────
+
+    async fn list_review_threads(
+        &self,
+        repo: &RepoRef,
+        mr_iid: &str,
+    ) -> Result<Vec<HostReviewThread>, HostError> {
+        <Self as GitlabMerge>::list_review_threads(self, repo, mr_iid).await
+    }
+
+    async fn create_review_comment(
+        &self,
+        input: HostReviewCommentInput<'_>,
+    ) -> Result<HostReviewComment, HostError> {
+        <Self as GitlabMerge>::create_review_comment(self, input).await
+    }
+
+    async fn submit_review(
+        &self,
+        input: HostSubmitReviewInput<'_>,
+    ) -> Result<HostReview, HostError> {
+        <Self as GitlabMerge>::submit_review(self, input).await
+    }
+
+    // ── W-H-05: MR merge with exact-SHA fence ─────────────────────────
+
+    async fn merge_mr(&self, input: HostMergeInput<'_>) -> Result<HostMergeResult, HostError> {
+        <Self as GitlabMerge>::merge_mr(self, input).await
+    }
+
+    // ── W-H-06: CI pipelines + jobs (W-P4 dispatch via GitlabBrowse) ──
+
+    async fn list_pipelines(
+        &self,
+        repo: &RepoRef,
+        ref_name: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostPipeline>, HostError> {
+        <Self as GitlabBrowse>::list_pipelines(self, repo, ref_name, page).await
+    }
+
+    async fn list_jobs(
+        &self,
+        repo: &RepoRef,
+        pipeline_id: &str,
+    ) -> Result<Vec<HostJob>, HostError> {
+        <Self as GitlabBrowse>::list_jobs(self, repo, pipeline_id).await
+    }
+
+    async fn get_job_log(&self, repo: &RepoRef, job_id: &str) -> Result<HostJobLog, HostError> {
+        <Self as GitlabBrowse>::get_job_log(self, repo, job_id).await
     }
 }
 

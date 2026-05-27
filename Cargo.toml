@@ -77,9 +77,28 @@ tokio = { version = "1", features = ["full"] }
 # CLI
 clap = { version = "4", features = ["derive"] }
 
-# Web framework (webhook receiver + admin API)
-axum = { version = "0.8", features = ["json"] }
-tower-http = { version = "0.6", features = ["cors", "trace"] }
+# Web framework (webhook receiver + admin API + Web Forge BFF)
+axum = { version = "0.8", features = ["json", "ws", "macros", "multipart"] }
+axum-extra = { version = "0.10", features = ["typed-header", "cookie"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "fs", "compression-gzip", "compression-br", "set-header", "request-id", "timeout"] }
+
+# Web Forge BFF support crates (see WEB_WORK_CLAUDE.md §3.1 / FINAL spec §6.1)
+tokio-stream = { version = "0.1", features = ["sync"] }
+headers = "0.4"
+bytes = "1"
+mime_guess = "2"
+async-stream = "0.3"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+ammonia = "4"
+comrak = { version = "0.37", default-features = false, optional = true }
+utoipa = { version = "5", features = ["chrono", "uuid", "axum_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["axum"] }
+ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl"] }
+schemars = { version = "1", features = ["chrono04", "uuid1"] }
+indexmap = { version = "2", features = ["serde"] }
+serde_with = "3"
+parking_lot = "0.12"
 
 # HTTP client (for GitLab API calls the gitlab crate doesn't cover)
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
@@ -146,14 +165,29 @@ async-trait = "0.1"
 # only as diagnostics; webhook handling rejects events without this feature.
 jansu-embedded = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
 jansu-sans-io = { git = "https://github.com/neverhuman/jansu.git", rev = "9f61c0d", default-features = false, optional = true }
-url = { version = "2", optional = true }
+# `url` is shared by jansu-backend and the Web Forge BFF — keep it non-optional.
+url = "2"
+
+# Bin definitions. `src/bin/*.rs` is auto-discovered, but `jeryu_export_types`
+# requires the `web` feature (ts-rs derives only exist under `--features web`),
+# so we declare an explicit `[[bin]]` block to gate compilation. The other
+# auto-discovered bins (`autonomy.rs`, `jeryu` from `src/main.rs`) keep working
+# unchanged.
+[[bin]]
+name = "jeryu_export_types"
+path = "src/bin/jeryu_export_types.rs"
+required-features = ["web"]
 
 [features]
 default = ["profile-sqlite-kafka", "demo-fixtures"]
+# Opt-in feature gating the JeRyu Web Forge BFF and frontend integration glue.
+# Off by default so non-web builds skip the additional surface; enable with
+# `cargo check --features web` (or `cargo build --features web`).
+web = []
 sqlite-backend = ["sqlx/sqlite"]
 redlinedb-backend = ["dep:redlinedb-sqlx"]
 kafka-backend = []
-jansu-backend = ["dep:jansu-embedded", "dep:jansu-sans-io", "dep:url"]
+jansu-backend = ["dep:jansu-embedded", "dep:jansu-sans-io"]
 profile-sqlite-kafka = ["sqlite-backend", "kafka-backend"]
 profile-redlinedb-jansu = ["redlinedb-backend", "jansu-broker"]
 # In-memory demo fixtures (5-PR walkthrough used by `jeryu tui --demo`).
@@ -176,6 +210,10 @@ tuiwright = { git = "https://github.com/neverhuman/jankurai.git", tag = "v1.5.1"
 # binaries and do not automatically inherit the crate's [dependencies]).
 axum = { version = "0.8", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
+# `tower` (specifically `ServiceExt::oneshot`) is needed by the W-F-13
+# `tests/engine_routes_preserved_test.rs` regression guard that exercises the
+# engine router without binding a real TCP socket.
+tower = { version = "0.5", features = ["util"] }
 
 [package.metadata.agent]
 purpose = "Single-binary CI/CD control plane for GitLab-based pipelines"
@@ -213,3 +251,12 @@ ci_profiles = [
 ]
 
 # --- dev-dependency additions for offline mock tests ---
+
+# Schema export bin (W-F-11) — gated on the same `web` feature that gates
+# the DTO derives (`utoipa::ToSchema`, `schemars::JsonSchema`) in `src/api/*.rs`.
+# `required-features` cleanly skips the bin from default `cargo check`/`build`
+# so non-web workflows don't see a "missing main" error from the cfg'd file.
+[[bin]]
+name = "jeryu_export_schemas"
+path = "src/bin/jeryu_export_schemas.rs"
+required-features = ["web"]

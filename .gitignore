@@ -1,5 +1,16 @@
 /target
 
+# npm workspaces (apps/web @jeryu/web, apps/ux-qa @jankurai/ux-qa)
+node_modules/
+apps/web/dist/
+apps/web/storybook-static/
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/coverage/
+apps/web/.lighthouseci/
+apps/web/tsconfig.tsbuildinfo
+apps/web/*.tsbuildinfo
+
 # Proof-scoped control plane generated outputs
 /.witness/
 /agent-map.json
@@ -15,6 +26,9 @@
 /paper/*.log
 # jankurai scaffold .gitignore
 # Keep Jankurai receipts local without hiding the rest of target/.
+# Recursive — covers UX-QA proof artifacts (target/jankurai/ux-qa/), the
+# Web Forge action-receipt JSONL (target/jankurai/web/), and any future
+# proof-scoped subtree the jankurai client drops here.
 target/jankurai/
 .jankurai/
 
@@ -46,3 +60,4 @@ target/ci-screenshots/
 *.env.local
 llm.env
 ~/.jeryu/secrets/
+.claude/worktrees/

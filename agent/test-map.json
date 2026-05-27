@@ -40,6 +40,10 @@
       "command": "just score",
       "purpose": "verify root file exclusion rules remain routed"
     },
+    ".gitlab-ci.yml": {
+      "command": "just score",
+      "purpose": "verify GitLab CI mirror remains routed"
+    },
     ".gitleaks.toml": {
       "command": "just score",
       "purpose": "verify root security config remains routed"
@@ -81,8 +85,8 @@
       "purpose": "verify workspace manifest remains routed"
     },
     "package.json": {
-      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
-      "purpose": "verify the root npm workspace routes rendered UX QA evidence"
+      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test && npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run build",
+      "purpose": "verify both ux-qa marker workspace and @jeryu/web product workspace stay routed"
     },
     "GEMINI.md": {
       "command": "just score",
@@ -110,15 +114,15 @@
     },
     "TUI_RESET_PLAN.md": {
       "command": "git diff --check -- TUI_RESET_PLAN.md",
-      "purpose": "controlling plan doc — diff hygiene only; product code is exercised by cargo nextest --lib"
+      "purpose": "controlling plan doc \u2014 diff hygiene only; product code is exercised by cargo nextest --lib"
     },
     "TUI_RESET_PLAN_CLAUDE.md": {
       "command": "git diff --check -- TUI_RESET_PLAN_CLAUDE.md",
-      "purpose": "sibling controlling plan doc — diff hygiene only"
+      "purpose": "sibling controlling plan doc \u2014 diff hygiene only"
     },
     "TUI_RESET_PLAN_FINAL.md": {
       "command": "git diff --check -- TUI_RESET_PLAN_FINAL.md",
-      "purpose": "final controlling plan doc — diff hygiene only; live claim board lives here"
+      "purpose": "final controlling plan doc \u2014 diff hygiene only; live claim board lives here"
     },
     "VERSION": {
       "command": "just score",
@@ -161,8 +165,8 @@
       "purpose": "verify API contract tests route through the integration test lane"
     },
     "apps/web/": {
-      "command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
-      "purpose": "verify rendered web UX evidence remains routed"
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run build",
+      "purpose": "verify @jeryu/web product workspace (Vite/React/TS); rendered UX/Playwright evidence added by W-T-* packages"
     },
     "assets/": {
       "command": "just score",
@@ -410,7 +414,7 @@
     },
     "tests/autonomy_e2e.rs": {
       "command": "cargo test -p jeryu --test autonomy_e2e",
-      "purpose": "verify mock-only Evidence Gate end-to-end (intent → evidence → review → judge → verdict → passport)"
+      "purpose": "verify mock-only Evidence Gate end-to-end (intent \u2192 evidence \u2192 review \u2192 judge \u2192 verdict \u2192 passport)"
     },
     "tests/cli_smoke.rs": {
       "command": "cargo test -p jeryu --test cli_smoke",
@@ -435,6 +439,70 @@
     "version.json": {
       "command": "just score",
       "purpose": "verify version mapping remains routed"
+    },
+    "apps/ux-qa/": {
+      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
+      "purpose": "verify @jankurai/ux-qa marker proof workspace"
+    },
+    "package-lock.json": {
+      "command": "npm install --no-audit --no-fund --workspaces",
+      "purpose": "verify root lockfile install of both workspaces"
+    },
+    "ROADMAP.md": {
+      "command": "just score",
+      "purpose": "verify roadmap remains routed"
+    },
+    "WEB_WORK_CLAUDE.md": {
+      "command": "just score",
+      "purpose": "verify web forge plan remains routed"
+    },
+    "WEB_WORK_CODEX.md": {
+      "command": "just score",
+      "purpose": "verify sibling web forge plan remains routed"
+    },
+    "schemas/web-api.openapi.json": {
+      "command": "cargo run --bin jeryu_export_schemas --features web",
+      "purpose": "regenerate OpenAPI from utoipa derives + drift check"
+    },
+    "schemas/websocket-events.schema.json": {
+      "command": "cargo run --bin jeryu_export_schemas --features web",
+      "purpose": "regenerate WS JSON-schema from schemars derives + drift check"
+    },
+    "contracts/generated/": {
+      "command": "cargo run --bin jeryu_export_types --features web",
+      "purpose": "regenerate ts-rs TS bindings + drift check"
+    },
+    "apps/web/e2e/": {
+      "command": "npm --workspace @jeryu/web run test:e2e",
+      "purpose": "Playwright E2E suite (W-T-08..18)"
+    },
+    "apps/web/perf/": {
+      "command": "npm --workspace @jeryu/web run perf",
+      "purpose": "Lighthouse perf budget (W-T-20)"
+    },
+    "apps/web/.storybook/": {
+      "command": "npm --workspace @jeryu/web run build-storybook",
+      "purpose": "Storybook build (W-T-07)"
+    },
+    "src/web/": {
+      "command": "cargo nextest run -p jeryu --features web",
+      "purpose": "BFF tests"
+    },
+    "src/web_events/": {
+      "command": "cargo nextest run -p jeryu --features web --lib web_events",
+      "purpose": "WS event bus tests"
+    },
+    "src/repos/": {
+      "command": "cargo nextest run -p jeryu --features web --lib repos",
+      "purpose": "repo service tests"
+    },
+    "src/repo_browser/": {
+      "command": "cargo nextest run -p jeryu --features web --lib repo_browser",
+      "purpose": "repo browser + markdown tests"
+    },
+    "src/merge/": {
+      "command": "cargo nextest run -p jeryu --features web --lib merge",
+      "purpose": "merge cockpit tests"
     }
   },
   "workspace": "jankurai"

@@ -102,6 +102,21 @@ do_build() {
     ok "release binary built ($sz)"
 }
 
+# ── helper: stop/start jeryu-web.service if systemd user session is present ──
+_web_service_stop() {
+    if systemctl --user is-active --quiet jeryu-web.service 2>/dev/null; then
+        step "Stop jeryu-web.service for binary swap"
+        systemctl --user stop jeryu-web.service || true
+    fi
+}
+
+_web_service_start() {
+    if systemctl --user is-enabled --quiet jeryu-web.service 2>/dev/null; then
+        step "Restart jeryu-web.service with new binary"
+        systemctl --user start jeryu-web.service && ok "jeryu-web.service started on :8787" || warn "jeryu-web.service start failed (check: systemctl --user status jeryu-web.service)"
+    fi
+}
+
 # ── 2. Install to the resolved path ─────────────────────────────────────────
 do_install() {
     step "Install to $INSTALL_PATH"
@@ -123,11 +138,15 @@ do_install() {
         warn "replacing $old_version"
     fi
 
+    _web_service_stop
+
     if ! $sudo_cmd install -m 0755 "$REPO_ROOT/target/release/jeryu" "$INSTALL_PATH"; then
         fail "install copy failed"
         exit 2
     fi
     ok "installed to $INSTALL_PATH"
+
+    _web_service_start
 
     # PATH sanity check
     if ! command -v jeryu >/dev/null 2>&1; then

@@ -17,6 +17,19 @@
 pub mod cli;
 pub mod commands;
 pub mod dispatch;
+// Web Forge BFF domain services. Live binary-side because they hold
+// `Arc<crate::git_host::GitLabClient>` plus per-process event bus state that
+// would awkwardly straddle the lib boundary. See `WEB_WORK_CLAUDE.md`
+// §7.2 W-B-06/W-B-07.
+pub mod repos;
+// Phase 3 — merge/review/passport domain (W-B-11..13). Lives binary-side for
+// the same reasons as `repos` (Arc<GitLabClient>, shared event bus).
+pub mod merge;
+// JeRyu Web Forge BFF CLI surface (`jeryu web ...`).
+// Phase-0 stub only — see `WEB_WORK_CLAUDE.md` §7.0 (W-F-10). The real Axum
+// + WebSocket + SPA static-asset binding lands in W-B-01..04 behind the
+// `web` Cargo feature flag.
+pub mod web;
 
 use anyhow::Result;
 use clap::Parser;
