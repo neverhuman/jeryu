@@ -38,3 +38,25 @@ This file tracks who is working on which work package from `WEB_WORK_CLAUDE.md`.
 | W-F-13 | Claude Opus 4.7 (subagent a35aa7bf) | 2026-05-26 | done | web-forge/W-F-13-engine-routes-preserved (`ddcd22a`) | tests/engine_routes_preserved_test.rs; refactored engine::build_router; sanity-checked failure path |
 
 **Phase 0 complete (2026-05-26).** 22 commits ahead of main; `just fast` green (1543 tests); npm typecheck+build green for @jeryu/web and @jankurai/ux-qa; both export bins (`jeryu_export_types`, `jeryu_export_schemas`) produce byte-identical artifacts. Ready for Phase 1 backend (W-B-01..05) + frontend shell (W-FE-01..06).
+
+---
+
+| W-B-01..05 + W-CC-05..09 | Claude Opus 4.7 (subagent a0049cc7) | 2026-05-26 | done | web-forge/W-P1-backend (`f78677a`) | full BFF shell: state/error/auth/csrf/router/static_assets/ws/permissions/telemetry/audit/idempotency + /api/v1/bootstrap; ws.rs heartbeat 15s; structured ApiError envelope per §35.1.11 |
+| W-FE-01..06 + W-CC-01..04 | Claude Opus 4.7 (subagent a6b8f473) | 2026-05-26 | done | web-forge/W-P1-frontend (`a7367ef`) | SPA shell: 4442 lines; main shell 133KB gz; providers (QueryClient→Theme→Keyboard→RealtimeBoot); stores/hooks/layout/pages; vitest scaffold |
+| W-H-01 | Claude Opus 4.7 (subagent aa56be6b) | 2026-05-26 | done | web-forge/W-H-01-trait-expansion (`bcebe24`) | GitHost trait + 22 new methods with NotImplemented defaults + 22 host model structs |
+| W-B-08 + W-T-01 | Claude Opus 4.7 (subagent a3d271ca) | 2026-05-26 | done | web-forge/W-B-08-markdown (`09d61d7`) | markdown renderer with jeryu-md-{renderer,sanitizer}.v1; 1MiB cap; render_cache; 21 XSS/GFM tests |
+| (gitlab serde fix) | Claude Opus 4.7 (orchestrator) | 2026-05-26 | done | `c1dadbb` | rename RepositoryHostKind variants to wire-format gitlab/github/local + .gitignore |
+| W-P1 audit | Claude Opus 4.7 (subagent a9a66f9e) | 2026-05-26 | done | (read-only) | verdict PASS-WITH-FOLLOWUPS; found SPA fallback 404 bug + 2 cosmetic items |
+| W-H-02 + W-H-03 + W-B-06/07/09/10 | Claude Opus 4.7 (subagent af528cdb) | 2026-05-27 | done | web-forge/W-P2-backend (`a3c9931`) | Phase 2 backend: GitLab read/write, RepoService/SettingsService/RepoBrowserService, 17 REST routes added |
+| W-FE-08/09/10 | Claude Opus 4.7 (subagent a3040c2f) | 2026-05-27 | done | web-forge/W-P2-frontend (`0dcbfed`) | Phase 2 frontend: Repositories page+table+create dialog, Repository overview+ReadmePanel+MarkdownRenderer, Code browser+FileTree+lazy Monaco |
+| W-T-02/08/10/11 | Claude Opus 4.7 (subagent ab1b531e) | 2026-05-27 | done | web-forge/W-P2-tests (`92bc32e`) | 6 Rust service tests + 10 ignored skeletons; Playwright config + page objects + 3 BFF specs |
+| (audit fixes) | Claude Opus 4.7 (orchestrator) | 2026-05-27 | done | `e03fa65` | vitest excludes e2e/, useRealtime infinite-loop fix (primitive string key memo), provider order swap, SPA fallback initial fix |
+| W-H-04/05 + W-B-11/12/13 | Claude Opus 4.7 (subagent ad74c1c5) | 2026-05-27 | done | web-forge/W-P3-backend (`3d2f739`) | Phase 3 backend: GitLab MR/reviews/merge, MergeService/ReviewService/MergePassportService (12 gates), 15 MR routes, 17 new tests |
+| W-FE-11/12 | Claude Opus 4.7 (subagent a572ab5a) | 2026-05-27 | done | web-forge/W-P3-frontend (`8005b64`) | Phase 3 frontend: Merge cockpit + Settings studio (7 components each); 11 vitest tests; idempotency + If-Match + stale-SHA recovery |
+| W-H-06 + W-B-14/15/16/17 + W-B-30/31 | Claude Opus 4.7 (subagent af77d6d8) | 2026-05-27 | done | web-forge/W-P4-backend (`7d26729`) | Phase 4/5: GitLab CI, /pipelines+/jobs+/log routes, action preview/execute, search, activity feed, Issues 501 stubs, Agents read-only |
+| W-spa-fix + W-T-12..18 | Claude Opus 4.7 (subagent a1c2bbcc) | 2026-05-27 | done | web-forge/W-spa-fix-and-tests (`999edfa`) | SPA 404 fully fixed (custom axum handler + spa_router with /assets sibling); 7 Playwright specs added (04..10); 19/22 passing |
+| W-D-01..08 | Claude Opus 4.7 (subagent a17a3393) | 2026-05-27 | done | web-forge/W-docs (`270aff8`) | 2864 lines of docs: web-forge.md, WEB_API.md, WEBSOCKET_PROTOCOL.md, README_RENDERING.md, REVIEW_COCKPIT.md, apps/web/README.md, root README section, ROADMAP.md |
+
+**Phase 1+2+3+4+5+docs+SPA-fix complete (2026-05-27).** 47 commits ahead of main; `just fast` green (1578 tests); cargo check --features web 0 errors; vitest 4/4 pass; npm build green; both workspaces install cleanly.
+
+Next: Final hardening wave (W-FE-18 notifications, W-FE-20 search results, W-T-07 Storybook, W-T-19 UX-QA harness, W-T-20 Lighthouse) + comprehensive end-to-end audit.

@@ -1216,8 +1216,8 @@
       "RepositoryHostKind": {
         "type": "string",
         "enum": [
-          "git_hub",
-          "git_lab",
+          "github",
+          "gitlab",
           "local"
         ]
       },
