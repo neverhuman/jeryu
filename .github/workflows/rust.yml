@@ -61,7 +61,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Build workspace
         run: bash ops/ci/rust-lane.sh build
 
@@ -101,7 +104,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Compute test plan
         id: plan
         run: bash ops/ci/rust-lane.sh test-select
@@ -135,7 +141,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Download VTI plan
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -166,7 +175,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Run offline mock GitLab tests
         run: bash ops/ci/rust-lane.sh test-mock
 
@@ -189,7 +201,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Run integration tests
         run: bash ops/ci/rust-lane.sh test-integration
 
@@ -206,7 +221,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Render one TUI frame
         run: bash ops/ci/rust-lane.sh tui-smoke
 
@@ -254,7 +272,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Build witness graph
         run: bash ops/ci/rust-lane.sh witness
       - name: Upload witness graph
@@ -277,7 +298,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Generate agent + test maps
         run: bash ops/ci/rust-lane.sh vrc-map
       - name: Upload maps
@@ -304,7 +328,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Run VRC plan
         run: bash ops/ci/rust-lane.sh vrc-plan
       - name: Upload VRC plan
@@ -327,7 +354,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Scan for structural exceptions
         run: bash ops/ci/rust-lane.sh aer
       - name: Upload AER findings
@@ -352,7 +382,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Hardening lane
         run: bash ops/ci/rust-lane.sh hardening
       - name: Upload hardening findings
@@ -378,7 +411,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Run SSH install integration test
         run: bash ops/ci/rust-lane.sh ssh-install-e2e
       - name: Upload SSH install evidence
@@ -407,7 +443,10 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: sudo apt-get install -y mold
+        run: |
+          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          else echo "no passwordless sudo; skipping mold"; fi
       - name: Render deterministic TUI PNG captures
         run: bash ops/ci/rust-lane.sh tui-screenshots
       - name: Record 10-second animated TUI GIF
