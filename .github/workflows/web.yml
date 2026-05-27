@@ -52,12 +52,10 @@ jobs:
           shared-key: web-feature
       - name: Install mold (best-effort)
         run: |
-          if command -v mold >/dev/null 2>&1; then
-            echo "mold already installed"
-          elif sudo -n true 2>/dev/null; then
-            sudo apt-get install -y mold || echo "mold install failed; continuing"
-          else
-            echo "mold not available and passwordless sudo missing; continuing without mold"
+          if ! command -v mold >/dev/null 2>&1; then
+            if sudo -n true 2>/dev/null; then
+              sudo apt-get install -y mold || true
+            fi
           fi
       - name: Install nextest
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
@@ -148,12 +146,10 @@ jobs:
           shared-key: web-feature
       - name: Install mold (best-effort)
         run: |
-          if command -v mold >/dev/null 2>&1; then
-            echo "mold already installed"
-          elif sudo -n true 2>/dev/null; then
-            sudo apt-get install -y mold || echo "mold install failed; continuing"
-          else
-            echo "mold not available and passwordless sudo missing; continuing without mold"
+          if ! command -v mold >/dev/null 2>&1; then
+            if sudo -n true 2>/dev/null; then
+              sudo apt-get install -y mold || true
+            fi
           fi
       - name: npm ci
         run: npm ci --no-audit --no-fund

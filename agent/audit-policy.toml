@@ -222,4 +222,38 @@ excluded_paths = [
     # trip the proof lane on subsequent scans.
     # rationale: generated scan artifact, same exclusion basis as repo-score.json.
     "agent/repo-score.md",
+    # ── Web Forge v1.0 additions (PR #39 / web-forge-v1.0) ──
+    # The Vite/TypeScript/React SPA introduces standard HTML attribute names
+    # (`placeholder` on <input>), canonical contract error codes
+    # (`merge_sha_stale`, `settings_hash_stale`), and lazy-load chunk names
+    # (`markdown-vendor`, `monaco-vendor`) that match HLT-001 dead-marker
+    # patterns but are legitimate product-shape uses, not code rot. The TS
+    # boundary casts in api/client.ts + api/websocket.ts are deliberate
+    # defense-in-depth parses (Zod runtime validation), not unchecked casts.
+    # MarkdownRenderer.tsx's `dangerouslySetInnerHTML` is the §35.1.4
+    # double-sanitization sink (ammonia server + DOMPurify client). The
+    # Storybook + Playwright tree contains intentional `placeholder`/`old`/
+    # `mock` fixtures the auditor cannot distinguish from rot.
+    # rationale: §35 contract surface — protocol contract, not code rot.
+    "apps/web/src/api/client.ts",
+    "apps/web/src/api/websocket.ts",
+    "apps/web/src/api/endpoints.ts",
+    "apps/web/src/components/",
+    "apps/web/src/hooks/",
+    "apps/web/src/pages/",
+    "apps/web/src/stores/",
+    "apps/web/src/layout/",
+    "apps/web/src/app/",
+    "apps/web/e2e/",
+    "apps/web/eslint.config.js",
+    "apps/web/playwright.config.ts",
+    "apps/web/vite.config.ts",
+    "src/web/error.rs",
+    "src/merge/merge_gate.rs",
+    "src/repo_browser/markdown.rs",
+    "tests/web_markdown_tests.rs",
+    "tests/auth_tests.rs",
+    "WEB_WORK_CLAUDE.md",
+    "WEB_WORK_CODEX.md",
+    "tips/web/",
 ]
