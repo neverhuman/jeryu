@@ -25,6 +25,9 @@ apps/web/*.tsbuildinfo
 /paper/*.log
 # jankurai scaffold .gitignore
 # Keep Jankurai receipts local without hiding the rest of target/.
+# Recursive — covers UX-QA proof artifacts (target/jankurai/ux-qa/), the
+# Web Forge action-receipt JSONL (target/jankurai/web/), and any future
+# proof-scoped subtree the jankurai client drops here.
 target/jankurai/
 .jankurai/
 

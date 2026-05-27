@@ -20,6 +20,7 @@ use parking_lot::Mutex;
 
 use crate::merge::{MergePassportService, MergeService, ReviewService};
 use crate::repos::{RepoService, SettingsService};
+use crate::web::action_receipts::WebActionReceiptStore;
 use crate::web::idempotency::IdempotencyStore;
 
 /// Max events retained in the in-memory activity tap. Sized per
@@ -76,6 +77,11 @@ pub struct WebState {
     pub event_bus: Arc<WebEventBus>,
     pub feature_flags: WebFeatureFlagsConfig,
     pub idempotency: Arc<IdempotencyStore>,
+    /// Rolling receipt log for the §35.1.14 action-execute pipeline.
+    /// Memory window + JSONL stamp until the engine's `sqlx` pool is
+    /// plumbed through here (then this swaps for a `web_action_receipts`
+    /// row writer). See `web::action_receipts` for the trade-off note.
+    pub action_receipts: Arc<WebActionReceiptStore>,
     pub repo_service: Arc<RepoService>,
     pub browser_service: Arc<RepoBrowserService>,
     pub settings_service: Arc<SettingsService>,
@@ -143,6 +149,7 @@ impl WebState {
                 ..Default::default()
             },
             idempotency: Arc::new(IdempotencyStore::new()),
+            action_receipts: Arc::new(WebActionReceiptStore::new()),
             repo_service,
             browser_service,
             settings_service,
