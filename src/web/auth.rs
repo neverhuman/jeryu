@@ -1,17 +1,23 @@
 //! Cookie-based session auth for the JeRyu Web Forge BFF.
 //!
-//! Phase 1 supports a "local trusted mode" for dev: if no session cookie
-//! is present, the middleware accepts a placeholder `Viewer` carrying every
-//! canonical permission, gated behind the env var
-//! `JERYU_WEB_TRUST_LOCAL=1`. Production deployments leave that env unset
-//! and the only way through this middleware is the `__Host-jeryu-session`
-//! cookie — the production session table lookup ships with W-B-* alongside
-//! the auth/session service.
+//! Resolution order on every `/api/v1/*` request:
+//!
+//! 1. Read the `__Host-jeryu-session` cookie. If it names a live row in
+//!    the `sessions` table, hydrate the `Viewer` from that row.
+//! 2. If no cookie AND `JERYU_WEB_TRUST_LOCAL=1`, fall back to the
+//!    `Viewer::local_dev()` placeholder. This keeps the developer loop
+//!    one curl away from a working `/api/v1/bootstrap` without
+//!    standing up a session.
+//! 3. Otherwise → `ApiError::Unauthenticated` (HTTP 401).
+//!
+//! The session lookup also rate-limits `last_seen_at` writes to one
+//! update per minute per session (see
+//! [`SessionStore::touch`](crate::web::sessions::SessionStore::touch)).
 
 use std::collections::HashSet;
 
 use axum::{
-    extract::Request,
+    extract::{Request, State},
     http::HeaderMap,
     middleware::Next,
     response::Response,
@@ -19,6 +25,13 @@ use axum::{
 
 use super::error::ApiError;
 use super::permissions::perms;
+use super::state::WebState;
+
+/// Name of the opaque session cookie. `__Host-` prefix enforces
+/// `Secure`, `Path=/`, no `Domain` — the browser refuses to send the
+/// cookie cross-site even if a misconfigured server tries to broaden
+/// the scope.
+pub(crate) const SESSION_COOKIE_NAME: &str = "__Host-jeryu-session";
 
 /// Authenticated principal attached to every request via `req.extensions`.
 /// Handlers extract this with `axum::Extension<Viewer>`.
@@ -33,7 +46,7 @@ pub struct Viewer {
 impl Viewer {
     /// Construct the dev-mode placeholder. Carries every canonical perm so
     /// route handlers don't need a separate "skip-auth" code path during
-    /// Phase 1 wiring. Production session lookup replaces this in W-B-*.
+    /// the developer loop (`JERYU_WEB_TRUST_LOCAL=1`).
     pub fn local_dev() -> Self {
         let mut perms_set = HashSet::with_capacity(perms::ALL.len());
         for p in perms::ALL {
@@ -48,34 +61,59 @@ impl Viewer {
     }
 }
 
-/// Axum `from_fn` middleware that resolves the request's `Viewer` and
-/// stashes it in the request extensions. Routes that need the viewer
-/// extract it with `Extension<Viewer>`.
-///
-/// Resolution order:
-/// 1. If a `__Host-jeryu-session=...` cookie is present, treat as the
-///    placeholder dev viewer (Phase 1 — real session lookup lands later).
-/// 2. Else if `JERYU_WEB_TRUST_LOCAL=1`, attach the dev viewer.
-/// 3. Else respond with `ApiError::Unauthenticated`.
+/// Extract a single cookie value from a raw `Cookie:` header. Returns
+/// `None` if the header is missing the named cookie or the value is
+/// empty.
+fn extract_cookie_value<'a>(cookies: &'a str, name: &str) -> Option<&'a str> {
+    cookies.split(';').map(str::trim).find_map(|c| {
+        let (k, v) = c.split_once('=')?;
+        if k == name && !v.is_empty() {
+            Some(v)
+        } else {
+            None
+        }
+    })
+}
+
+/// Axum `from_fn_with_state` middleware that resolves the request's
+/// `Viewer` and stashes it in the request extensions. Routes that need
+/// the viewer extract it with `Extension<Viewer>`.
 pub async fn auth_layer(
+    State(state): State<WebState>,
     headers: HeaderMap,
     mut req: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    let trust_local = std::env::var("JERYU_WEB_TRUST_LOCAL")
-        .map(|v| v == "1")
-        .unwrap_or(false);
-
     let cookies = headers
         .get(axum::http::header::COOKIE)
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
-    let has_session = cookies
-        .split(';')
-        .map(|c| c.trim())
-        .any(|c| c.starts_with("__Host-jeryu-session="));
+    let session_cookie = extract_cookie_value(cookies, SESSION_COOKIE_NAME);
 
-    let viewer = if has_session || trust_local {
+    let viewer = if let Some(id) = session_cookie {
+        match state
+            .session_store
+            .find(id)
+            .await
+            .map_err(ApiError::Internal)?
+        {
+            Some(record) => {
+                // Bump last_seen_at, deduped to once-per-minute. Touch
+                // failures are non-fatal — the request still succeeds;
+                // we just log them so the operator notices a DB issue.
+                if let Err(err) = state.session_store.touch(id).await {
+                    tracing::warn!(error = %err, "session touch failed");
+                }
+                Viewer {
+                    id: record.actor_id,
+                    login: record.actor_login,
+                    display_name: None,
+                    perms: record.perms,
+                }
+            }
+            None => return Err(ApiError::Unauthenticated),
+        }
+    } else if trust_local_enabled() {
         Viewer::local_dev()
     } else {
         return Err(ApiError::Unauthenticated);
@@ -83,6 +121,12 @@ pub async fn auth_layer(
 
     req.extensions_mut().insert(viewer);
     Ok(next.run(req).await)
+}
+
+fn trust_local_enabled() -> bool {
+    std::env::var("JERYU_WEB_TRUST_LOCAL")
+        .map(|v| v == "1")
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -98,5 +142,25 @@ mod tests {
         assert!(v.perms.contains("mr.approve"));
         assert!(v.perms.contains("settings.write"));
         assert!(v.perms.contains("audit.read"));
+    }
+
+    #[test]
+    fn extract_cookie_value_handles_multi_cookie() {
+        let cookies = "session=abc; __Host-jeryu-session=tok-1; other=foo";
+        assert_eq!(
+            extract_cookie_value(cookies, "__Host-jeryu-session"),
+            Some("tok-1")
+        );
+        assert_eq!(extract_cookie_value(cookies, "missing"), None);
+    }
+
+    #[test]
+    fn extract_cookie_value_returns_none_for_empty() {
+        // Logout sets `__Host-jeryu-session=; Max-Age=0`, which the
+        // middleware must NOT treat as "session token = empty string".
+        assert_eq!(
+            extract_cookie_value("__Host-jeryu-session=", "__Host-jeryu-session"),
+            None
+        );
     }
 }

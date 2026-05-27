@@ -73,6 +73,7 @@ async fn serve(
     let db = Db::open_memory()
         .await
         .context("opening in-memory SQLite for the engine state")?;
+    let session_pool = db.pool();
     let docker = DockerCtl::disconnected();
     let client = GitlabClient::new("http://127.0.0.1:0", None);
     let backend_registry = BackendRegistry::local_only(docker.clone());
@@ -88,7 +89,7 @@ async fn serve(
 
     // ── Build the Web Forge BFF state ─────────────────────────────────
     let event_bus = Arc::new(WebEventBus::with_defaults());
-    let web_state = WebState::new_for_serve(event_bus);
+    let web_state = WebState::new_for_serve(event_bus, session_pool);
 
     // ── Compose and bind ──────────────────────────────────────────────
     let router = build_web_router(web_state, legacy_router, spa_dir);

@@ -36,6 +36,7 @@ pub mod idempotency;
 pub mod permissions;
 pub mod rest;
 pub mod router;
+pub mod sessions;
 pub mod state;
 pub mod static_assets;
 pub mod telemetry;

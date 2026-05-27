@@ -21,7 +21,7 @@ use axum::{
 
 use super::error::ApiError;
 
-const CSRF_COOKIE_NAME: &str = "__Host-jeryu-csrf";
+pub(crate) const CSRF_COOKIE_NAME: &str = "__Host-jeryu-csrf";
 const CSRF_HEADER_NAME: &str = "x-csrf-token";
 
 /// Routes that bypass CSRF even though they accept POST. The login flow
