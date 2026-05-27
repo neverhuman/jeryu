@@ -1,8 +1,15 @@
+// main.tsx — JeRyu Web Forge entry point (W-FE-02).
+//
+// Mounts <App /> into #root with React StrictMode. Stylesheets are imported
+// here so Vite ships them in the initial bundle.
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import './styles/tokens.css';
 import './styles/app.css';
+
+import { App } from './app/App';
 
 const rootEl = document.getElementById('root');
 if (!rootEl) {
@@ -11,6 +18,6 @@ if (!rootEl) {
 
 createRoot(rootEl).render(
   <StrictMode>
-    <div id="root">Hello JeRyu Web Forge</div>
+    <App />
   </StrictMode>
 );
