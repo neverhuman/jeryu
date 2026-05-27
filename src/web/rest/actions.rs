@@ -122,14 +122,23 @@ pub async fn preview_action(
         summary: format!("preview {}", entry.label),
         payload: payload.clone(),
     });
-    write_audit(
+    if let Err(err) = write_audit(
+        &state.db_pool,
         &viewer.login,
         &format!("action.preview:{}", entry.id),
         &format!("action:{}", entry.id),
         web_risk_for(entry.risk_tier),
         payload,
     )
-    .await;
+    .await
+    {
+        tracing::warn!(
+            target: "jeryu.web.audit",
+            error = %err,
+            action_id = %entry.id,
+            "audit event write failed (preview)"
+        );
+    }
     Ok(Json(PreviewResponse {
         action_id: entry.id.to_string(),
         preview,
@@ -210,9 +219,10 @@ pub async fn execute_action(
     // mutating executors will diverge once they land.
     let resulting_state_hash = expected_state_hash.clone();
 
-    // §35.1.14 step 12: write the receipt + audit row. Phase 4 ships an
-    // in-memory ring + JSONL stamp; durable SQLite lands once the engine
-    // pool is plumbed through `WebState`.
+    // §35.1.14 step 12: write the receipt + audit row. The SQL-backed
+    // receipt store honors `UNIQUE(action_kind, target_id, idempotency_key)`
+    // at the DB layer; failures are surfaced as 500s so callers learn the
+    // mutation wasn't durably logged.
     let receipt = WebActionReceipt::new(
         viewer.login.clone(),
         entry.id,
@@ -224,7 +234,11 @@ pub async fn execute_action(
         risk,
         ReceiptStatus::Accepted,
     );
-    let receipt = state.action_receipts.record(receipt);
+    let receipt = state
+        .action_receipts
+        .record(receipt)
+        .await
+        .map_err(|err| ApiError::Internal(anyhow::anyhow!("record action receipt: {err}")))?;
 
     // §35.1.14 step 13: publish on the event bus + audit hook.
     let scope = "global.activity".to_string();
@@ -246,14 +260,23 @@ pub async fn execute_action(
         summary: format!("executed {}", entry.label),
         payload: payload.clone(),
     });
-    write_audit(
+    if let Err(err) = write_audit(
+        &state.db_pool,
         &viewer.login,
         &format!("action.execute:{}", entry.id),
         &format!("action:{}", entry.id),
         risk,
         payload,
     )
-    .await;
+    .await
+    {
+        tracing::warn!(
+            target: "jeryu.web.audit",
+            error = %err,
+            action_id = %entry.id,
+            "audit event write failed (execute)"
+        );
+    }
 
     // §35.1.14 step 14: return result + receipt ID for callers.
     let resp = ExecuteResponse {

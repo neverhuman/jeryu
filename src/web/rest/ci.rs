@@ -497,14 +497,24 @@ async fn job_action_receipt(
         summary: format!("{action} job {job_id}"),
         payload: payload.clone(),
     });
-    write_audit(
+    if let Err(err) = write_audit(
+        &state.db_pool,
         &viewer.login,
         &format!("ci.{action}"),
         &format!("job:{}", job_id),
         RiskTier::Medium,
         payload,
     )
-    .await;
+    .await
+    {
+        tracing::warn!(
+            target: "jeryu.web.audit",
+            error = %err,
+            action,
+            job_id,
+            "audit event write failed (ci action)"
+        );
+    }
 
     let receipt = JobActionReceipt {
         job_id: job_id.to_string(),

@@ -21,6 +21,7 @@ use jeryu::git_host::{
 };
 use jeryu::web_events::WebEventBus;
 use serde_json::json;
+use sqlx::AnyPool;
 
 use crate::repos::models::RepoId;
 use crate::repos::service::host_to_api_error;
@@ -32,11 +33,16 @@ use super::guards;
 pub struct ReviewService {
     gitlab: Arc<GitLabClient>,
     event_bus: Arc<WebEventBus>,
+    db_pool: AnyPool,
 }
 
 impl ReviewService {
-    pub fn new(gitlab: Arc<GitLabClient>, event_bus: Arc<WebEventBus>) -> Self {
-        Self { gitlab, event_bus }
+    pub fn new(gitlab: Arc<GitLabClient>, event_bus: Arc<WebEventBus>, db_pool: AnyPool) -> Self {
+        Self {
+            gitlab,
+            event_bus,
+            db_pool,
+        }
     }
 
     /// `GET /api/v1/repos/{repo_id}/merge-requests/{iid}/threads`
@@ -89,7 +95,8 @@ impl ReviewService {
         )
         .await
         .map_err(host_to_api_error)?;
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.thread.create",
             &format!("mr:{repo_id}/{iid}"),
@@ -101,7 +108,14 @@ impl ReviewService {
                 "idempotency_key": idempotency_key,
             }),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.thread.create)"
+            );
+        }
         let repo_dto = RepositoryId::from(&parsed);
         let thread = ReviewThread {
             id: host_comment.id.clone(),
@@ -151,14 +165,22 @@ impl ReviewService {
             .resolve_discussion(&repo, iid, thread_id, resolved)
             .await
             .map_err(host_to_api_error)?;
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.thread.resolve",
             &format!("mr:{repo_id}/{iid}/thread:{thread_id}"),
             RiskTier::Low,
             json!({"iid": iid, "thread_id": thread_id, "resolved": resolved}),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.thread.resolve)"
+            );
+        }
         let all = self.list_threads(repo_id, iid).await?;
         let found = all
             .into_iter()
@@ -205,7 +227,8 @@ impl ReviewService {
                 req.line.and_then(|l| parse_suggestion(&req.body_markdown, p, l))
             }),
         };
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.comment.create",
             &format!("mr:{repo_id}/{iid}"),
@@ -217,7 +240,14 @@ impl ReviewService {
                 "idempotency_key": idempotency_key,
             }),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.comment.create)"
+            );
+        }
         self.publish(
             &parsed,
             iid,
@@ -288,7 +318,8 @@ impl ReviewService {
             ReviewVerdict::RequestChanges => "mr.review.changes_requested",
             ReviewVerdict::Comment => "mr.review.commented",
         };
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.review.submit",
             &format!("mr:{repo_id}/{iid}"),
@@ -304,7 +335,14 @@ impl ReviewService {
                 "idempotency_key": idempotency_key,
             }),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.review.submit)"
+            );
+        }
         self.publish(
             &parsed,
             iid,

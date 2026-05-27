@@ -78,10 +78,10 @@ pub struct WebState {
     pub event_bus: Arc<WebEventBus>,
     pub feature_flags: WebFeatureFlagsConfig,
     pub idempotency: Arc<IdempotencyStore>,
-    /// Rolling receipt log for the §35.1.14 action-execute pipeline.
-    /// Memory window + JSONL stamp until the engine's `sqlx` pool is
-    /// plumbed through here (then this swaps for a `web_action_receipts`
-    /// row writer). See `web::action_receipts` for the trade-off note.
+    /// SQL-backed receipt log for the §35.1.14 action-execute pipeline.
+    /// Writes to `web_action_receipts` honoring the
+    /// `UNIQUE(action_kind, target_id, idempotency_key)` constraint, plus
+    /// a best-effort JSONL stamp for ops tooling.
     pub action_receipts: Arc<WebActionReceiptStore>,
     pub repo_service: Arc<RepoService>,
     pub browser_service: Arc<RepoBrowserService>,
@@ -97,6 +97,11 @@ pub struct WebState {
     /// auth middleware looks up each request's cookie here; login /
     /// logout handlers create / revoke rows.
     pub session_store: Arc<SessionStore>,
+    /// Shared engine pool. Mutating handlers thread it through
+    /// `write_audit` so every mutation appends a row to `audit_events` in
+    /// the same database that backs `sessions` /
+    /// `web_action_receipts`.
+    pub db_pool: sqlx::AnyPool,
 }
 
 #[derive(Clone, Default)]
@@ -138,10 +143,16 @@ impl WebState {
             gitlab.clone(),
             event_bus.clone(),
             passport_service.clone(),
+            db_pool.clone(),
         ));
-        let review_service = Arc::new(ReviewService::new(gitlab.clone(), event_bus.clone()));
+        let review_service = Arc::new(ReviewService::new(
+            gitlab.clone(),
+            event_bus.clone(),
+            db_pool.clone(),
+        ));
         let activity_buffer = Arc::new(ActivityBuffer::new());
-        let session_store = Arc::new(SessionStore::new(db_pool));
+        let session_store = Arc::new(SessionStore::new(db_pool.clone()));
+        let action_receipts = Arc::new(WebActionReceiptStore::new(db_pool.clone()));
 
         // ── W-B-17: bus tap → activity buffer ──
         // Subscribe to both priority channels and mirror everything into the
@@ -158,7 +169,7 @@ impl WebState {
                 ..Default::default()
             },
             idempotency: Arc::new(IdempotencyStore::new()),
-            action_receipts: Arc::new(WebActionReceiptStore::new()),
+            action_receipts,
             repo_service,
             browser_service,
             settings_service,
@@ -168,6 +179,7 @@ impl WebState {
             gitlab_client: gitlab,
             activity_buffer,
             session_store,
+            db_pool,
         }
     }
 }

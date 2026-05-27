@@ -24,6 +24,7 @@ use jeryu::git_host::{
 };
 use jeryu::web_events::WebEventBus;
 use serde_json::json;
+use sqlx::AnyPool;
 
 use crate::repos::models::RepoId;
 use crate::repos::service::host_to_api_error;
@@ -53,6 +54,7 @@ pub struct MergeService {
     gitlab: Arc<GitLabClient>,
     event_bus: Arc<WebEventBus>,
     passport: Arc<MergePassportService>,
+    db_pool: AnyPool,
 }
 
 impl MergeService {
@@ -61,12 +63,14 @@ impl MergeService {
         gitlab: Arc<GitLabClient>,
         event_bus: Arc<WebEventBus>,
         passport: Arc<MergePassportService>,
+        db_pool: AnyPool,
     ) -> Self {
         Self {
             host_name: host_name.into(),
             gitlab,
             event_bus,
             passport,
+            db_pool,
         }
     }
 
@@ -171,7 +175,8 @@ impl MergeService {
         )
         .await
         .map_err(host_to_api_error)?;
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.approve",
             &format!("mr:{repo_id}/{iid}"),
@@ -183,7 +188,14 @@ impl MergeService {
                 "idempotency_key": idempotency_key,
             }),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.approve)"
+            );
+        }
         self.publish_event(
             &parsed,
             iid,
@@ -245,7 +257,8 @@ impl MergeService {
         .await
         .map_err(host_to_api_error)?;
         let receipt = result.sha.clone().unwrap_or_default();
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.merge",
             &format!("mr:{repo_id}/{iid}"),
@@ -259,7 +272,14 @@ impl MergeService {
                 "idempotency_key": idempotency_key,
             }),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.merge)"
+            );
+        }
         self.publish_event(
             &parsed,
             iid,
@@ -291,14 +311,22 @@ impl MergeService {
         actor: &str,
     ) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.close",
             &format!("mr:{repo_id}/{iid}"),
             RiskTier::Medium,
             json!({"iid": iid}),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.close)"
+            );
+        }
         Err(ApiError::Upstream(
             "mr.close not implemented in Phase 3 (host adapter pending)".into(),
         ))
@@ -313,14 +341,22 @@ impl MergeService {
         actor: &str,
     ) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.reopen",
             &format!("mr:{repo_id}/{iid}"),
             RiskTier::Medium,
             json!({"iid": iid}),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.reopen)"
+            );
+        }
         Err(ApiError::Upstream(
             "mr.reopen not implemented in Phase 3 (host adapter pending)".into(),
         ))
@@ -335,14 +371,22 @@ impl MergeService {
         actor: &str,
     ) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
-        write_audit(
+        if let Err(err) = write_audit(
+            &self.db_pool,
             actor,
             "mr.rebase",
             &format!("mr:{repo_id}/{iid}"),
             RiskTier::Medium,
             json!({"iid": iid}),
         )
-        .await;
+        .await
+        {
+            tracing::warn!(
+                target: "jeryu.web.audit",
+                error = %err,
+                "audit event write failed (mr.rebase)"
+            );
+        }
         Err(ApiError::Upstream(
             "mr.rebase not implemented in Phase 3 (host adapter pending)".into(),
         ))
