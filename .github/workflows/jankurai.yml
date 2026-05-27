@@ -35,10 +35,17 @@ jobs:
         run: bash scripts/install-redlinedb.sh
       - name: Install cargo-deny
         uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny
-      - name: Install actionlint
+      - name: Install actionlint (prebuilt binary)
         run: |
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.8
-          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+          if ! command -v actionlint >/dev/null 2>&1; then
+            ACTIONLINT_VER=1.7.8
+            TMP=$(mktemp -d)
+            curl -sSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VER}/actionlint_${ACTIONLINT_VER}_linux_amd64.tar.gz" \
+              | tar -xz -C "$TMP" actionlint
+            mkdir -p "$HOME/.local/bin"
+            mv "$TMP/actionlint" "$HOME/.local/bin/actionlint"
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
       - name: Install jankurai
         run: bash scripts/install-jankurai.sh
       - run: jankurai --version
