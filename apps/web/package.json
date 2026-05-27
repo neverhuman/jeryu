@@ -15,7 +15,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "ux-qa": "node ../ux-qa/ux-qa-check.mjs build && node ../ux-qa/ux-qa-check.mjs test",
-    "perf": "lhci autorun --config=./perf/lighthouse.config.js"
+    "perf": "lhci autorun --config=./perf/lighthouse.config.cjs"
   },
   "dependencies": {
     "@monaco-editor/react": "4.7.0",

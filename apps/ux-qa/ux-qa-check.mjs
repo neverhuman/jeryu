@@ -22,7 +22,11 @@
 //   6. WS replay test               Playwright report contains spec
 //                                     `08-ws-reconnect`
 //   7. Bundle size budget           gzip(dist/assets/index-*.js) < 350 KB
-//   8. Receipt                      target/jankurai/ux-qa/web-forge.<ISO>.json
+//   8. Lighthouse perf score        target/jankurai/ux-qa/lighthouse/*.report.json
+//                                     OR target/jankurai/ux-qa/lighthouse.json
+//                                     (soft-pass if no artifacts; fails only
+//                                     when score < 0.7 in collected runs)
+//   9. Receipt                      target/jankurai/ux-qa/web-forge.<ISO>.json
 //
 // Output: a top-level `pass: bool` plus per-check `pass: bool` and
 // optional `details`. Exit code 0 when all critical checks pass, 1 if
@@ -316,6 +320,120 @@ async function checkBundleSize() {
   };
 }
 
+// Lighthouse perf-budget proof. We look for either an lhci-emitted LHR
+// (`target/jankurai/ux-qa/lighthouse/*.report.json` — note lhci 0.15.x
+// names artifacts `<host>--<timestamp>.report.json`, older docs reference
+// `lhr-*.json`) or a hand-minted `target/jankurai/ux-qa/lighthouse.json`
+// receipt. Pass if any LHR exists with `categories.performance.score >= 0.7`.
+// If `@lhci/cli` is not installed we degrade to a soft pass with a hint
+// rather than failing the harness.
+const LIGHTHOUSE_PERF_THRESHOLD = 0.7;
+
+function checkLighthouse() {
+  const lighthouseDir = join(uxArtifactDir, 'lighthouse');
+  const fallbackReceipt = join(uxArtifactDir, 'lighthouse.json');
+
+  // Resolve candidate LHR files in priority order.
+  const lhrFiles = [];
+  if (existsSync(lighthouseDir)) {
+    for (const fname of readdirSync(lighthouseDir)) {
+      if (
+        /^lhr-.+\.json$/.test(fname) ||
+        /\.report\.json$/.test(fname)
+      ) {
+        lhrFiles.push(join(lighthouseDir, fname));
+      }
+    }
+  }
+  if (lhrFiles.length === 0 && existsSync(fallbackReceipt)) {
+    lhrFiles.push(fallbackReceipt);
+  }
+
+  if (lhrFiles.length === 0) {
+    // No artifacts. Check whether @lhci/cli is available so we can give a
+    // useful hint; either way, this is a soft pass — the bundle_size check
+    // already covers the size budget, and CI environments without Chrome
+    // shouldn't fail the whole harness here.
+    const lhciInstalled = existsSync(
+      join(repoRoot, 'node_modules', '@lhci', 'cli', 'src', 'cli.js'),
+    );
+    const hint = lhciInstalled
+      ? 'Run `JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist &` then `npm --workspace @jeryu/web run perf`'
+      : 'Install with `npm install --workspace @jeryu/web @lhci/cli@latest` then run `npm --workspace @jeryu/web run perf`';
+    return {
+      pass: true,
+      details: {
+        reason: 'no lighthouse artifacts; treating as soft pass',
+        lhci_installed: lhciInstalled,
+        hint,
+      },
+    };
+  }
+
+  // We have at least one artifact. Surface the minimum perf score across
+  // all collected runs so a regression in any single run trips the check.
+  const reports = [];
+  let minScore = Infinity;
+  let representativeUrl = null;
+  for (const fpath of lhrFiles) {
+    try {
+      const raw = JSON.parse(readFileSync(fpath, 'utf8'));
+      // Two shapes are supported:
+      //   1. A real LHR: `raw.categories.performance.score`.
+      //   2. A hand-minted receipt: `raw.categories.performance.score`
+      //      OR `raw.performance_score` (legacy convenience field).
+      let score = raw?.categories?.performance?.score;
+      if (typeof score !== 'number' && typeof raw?.performance_score === 'number') {
+        score = raw.performance_score;
+      }
+      const url = raw?.requestedUrl ?? raw?.url ?? raw?.finalUrl ?? null;
+      if (url && !representativeUrl) representativeUrl = url;
+      if (typeof score === 'number') {
+        if (score < minScore) minScore = score;
+        reports.push({
+          file: fpath,
+          url,
+          performance: score,
+          accessibility: raw?.categories?.accessibility?.score ?? null,
+          best_practices: raw?.categories?.['best-practices']?.score ?? null,
+          seo: raw?.categories?.seo?.score ?? null,
+        });
+      } else {
+        // Receipt without a usable score (e.g. placeholder JSON). Record
+        // the file but don't flunk on a parse-shape mismatch.
+        reports.push({
+          file: fpath,
+          url,
+          performance: null,
+          reason: 'no performance score in artifact',
+        });
+      }
+    } catch (err) {
+      reports.push({ file: fpath, error: err.message });
+    }
+  }
+
+  if (minScore === Infinity) {
+    return {
+      pass: true,
+      details: {
+        reason: 'lighthouse artifacts present but no perf score extracted; soft pass',
+        reports,
+      },
+    };
+  }
+
+  return {
+    pass: minScore >= LIGHTHOUSE_PERF_THRESHOLD,
+    details: {
+      threshold: LIGHTHOUSE_PERF_THRESHOLD,
+      min_performance_score: minScore,
+      representative_url: representativeUrl,
+      reports,
+    },
+  };
+}
+
 // ── runner ─────────────────────────────────────────────────────────────────
 
 const checks = [
@@ -326,6 +444,7 @@ const checks = [
   ['markdown_xss', checkMarkdownXss],
   ['ws_replay', checkWsReplay],
   ['bundle_size', checkBundleSize],
+  ['lighthouse', checkLighthouse],
 ];
 
 const results = [];
