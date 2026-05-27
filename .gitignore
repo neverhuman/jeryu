@@ -7,6 +7,7 @@ apps/web/storybook-static/
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/coverage/
+apps/web/.lighthouseci/
 apps/web/tsconfig.tsbuildinfo
 apps/web/*.tsbuildinfo
 
