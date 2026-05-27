@@ -1,0 +1,231 @@
+name: web-forge
+
+# JeRyu Web Forge proof lanes.
+#
+# Runs the four lanes the v1.0 audit calls out as gating for `--features web`:
+#   1. rust-web        — cargo {fmt,check,clippy,nextest} with the `web` feature
+#                        on, plus ts-rs / openapi drift checks.
+#   2. frontend        — typecheck, lint, vitest, vite build, Storybook build,
+#                        ux-qa harness (marker workspace), and the
+#                        ≤350 KB gz main-bundle budget.
+#   3. e2e             — Playwright against the built SPA served by a release
+#                        BFF (`jeryu web serve`), plus the ux-qa proof harness.
+#   4. lighthouse      — Lighthouse CI perf budget on the static build.
+#
+# Pins, runner image, and concurrency follow the rust.yml / jankurai.yml
+# conventions so the web lane composes cleanly with the existing required
+# checks (HLT-042 CI/local parity).
+
+on:
+  push:
+    branches: ["main", "web-forge/**"]
+  pull_request:
+    branches: ["main"]
+  merge_group:
+
+concurrency:
+  group: web-forge-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  rust-web:
+    name: Rust (web feature)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+          components: clippy, rustfmt
+      - name: Rust cache
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: web-feature
+      - name: Install mold
+        run: sudo apt-get install -y mold
+      - name: Install nextest
+        uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+      - name: cargo check --features web
+        run: cargo check --workspace --features web
+      - name: cargo clippy --features web
+        run: cargo clippy --workspace --features web --all-targets -- -D warnings
+      - name: cargo nextest --features web
+        run: cargo nextest run -p jeryu --features web --no-fail-fast
+      - name: ts-rs export drift check
+        run: |
+          cargo run --bin jeryu_export_types --features web
+          git diff --exit-code contracts/generated/
+      - name: openapi / json-schema drift check
+        run: |
+          cargo run --bin jeryu_export_schemas --features web
+          git diff --exit-code schemas/
+
+  frontend:
+    name: Frontend (Vite / Vitest / Storybook)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+      - name: typecheck
+        run: npm --workspace @jeryu/web run typecheck
+      - name: lint
+        run: npm --workspace @jeryu/web run lint
+      - name: vitest
+        run: npm --workspace @jeryu/web run test
+      - name: vite build
+        run: npm --workspace @jeryu/web run build
+      - name: build-storybook
+        run: npm --workspace @jeryu/web run build-storybook
+      - name: ux-qa (legacy marker workspace)
+        run: |
+          npm --workspace @jankurai/ux-qa run build
+          npm --workspace @jankurai/ux-qa run test
+      - name: main bundle size budget (<=350 KB gz)
+        run: |
+          MAIN="$(ls apps/web/dist/assets/index-*.js | head -1)"
+          if [ -z "$MAIN" ]; then
+            echo "main bundle not found under apps/web/dist/assets/" >&2
+            exit 1
+          fi
+          SIZE="$(gzip -c "$MAIN" | wc -c)"
+          BUDGET=358400
+          echo "main bundle: ${SIZE} bytes gz (budget ${BUDGET})"
+          test "$SIZE" -le "$BUDGET"
+      - name: Upload web build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: web-dist
+          path: |
+            apps/web/dist/
+            apps/web/storybook-static/
+          if-no-files-found: warn
+
+  e2e:
+    name: Playwright E2E + axe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: [rust-web, frontend]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Set up Rust (pinned via rust-toolchain.toml)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+      - name: Rust cache
+        uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: web-feature
+      - name: Install mold
+        run: sudo apt-get install -y mold
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+      - name: Build SPA
+        run: npm --workspace @jeryu/web run build
+      - name: Build BFF (release)
+        run: cargo build --release --features web -p jeryu
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install chromium --with-deps
+      - name: Run Playwright (BFF-only mode)
+        env:
+          JERYU_WEB_TRUST_LOCAL: "1"
+          JERYU_LOCAL_USERS: "alice:repo.read,repo.write|bob:repo.read"
+          JERYU_PLAYWRIGHT_E2E_MODE: bff-only
+        run: |
+          ./target/release/jeryu web serve \
+            --bind 127.0.0.1:8787 \
+            --spa-dir apps/web/dist > /tmp/bff.log 2>&1 &
+          BFF_PID=$!
+          echo "bff_pid=$BFF_PID" >> "$GITHUB_ENV"
+          # Wait up to 30 s for /health to come up.
+          for i in $(seq 1 30); do
+            if curl -fs http://127.0.0.1:8787/health >/dev/null 2>&1; then
+              echo "BFF up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -fs http://127.0.0.1:8787/health
+          cd apps/web && npx playwright test --reporter=html,line
+      - name: Stop BFF
+        if: always()
+        run: |
+          if [ -n "${bff_pid:-}" ] && kill -0 "$bff_pid" 2>/dev/null; then
+            kill "$bff_pid" || true
+          fi
+      - name: ux-qa proof harness
+        run: node apps/ux-qa/ux-qa-check.mjs build
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: warn
+      - name: Upload BFF log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: bff-log
+          path: /tmp/bff.log
+          if-no-files-found: warn
+      - name: Upload ux-qa evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ux-qa
+          path: target/jankurai/ux-qa/
+          if-no-files-found: warn
+
+  lighthouse:
+    name: Lighthouse perf budget
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [frontend]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: npm ci
+        run: npm ci --no-audit --no-fund
+      - name: Build SPA
+        run: npm --workspace @jeryu/web run build
+      - name: Lighthouse autorun (advisory)
+        # Treat the Lighthouse budget as advisory in CI: the lane uploads
+        # the report unconditionally and downstream gates inspect the JSON.
+        continue-on-error: true
+        run: npm --workspace @jeryu/web run perf
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lighthouse
+          path: apps/web/.lighthouseci/
+          if-no-files-found: warn

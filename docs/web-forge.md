@@ -561,7 +561,81 @@ For incidents outside the runbook, capture `/metrics` (Prometheus scrape;
 
 ---
 
-## 13. Reference index
+## 13. CI
+
+The Web Forge proof lanes ship as a dedicated workflow alongside the existing
+`Rust` and `Jankurai` pipelines:
+
+- **GitHub Actions** — [`.github/workflows/web.yml`](../.github/workflows/web.yml)
+  (workflow name: `web-forge`).
+- **GitLab mirror** — same jobs under the `# Web Forge mirror` block in
+  [`.gitlab-ci.yml`](../.gitlab-ci.yml). The two stay in sync so MR pipelines
+  and PR check runs verify the same things (HLT-042 CI/local parity).
+
+### 13.1 What each lane proves
+
+| Lane | Job(s) | What it verifies |
+|---|---|---|
+| Rust (web feature) | `rust-web` / `web_rust_feature` | `cargo {fmt,check,clippy,nextest}` all green with `--features web`; `cargo run --bin jeryu_export_types --features web` produces byte-identical `contracts/generated/`; `cargo run --bin jeryu_export_schemas --features web` produces byte-identical `schemas/`. |
+| Frontend | `frontend` / `web_frontend` | `npm` typecheck, ESLint, Vitest, `vite build`, Storybook build, and the `@jankurai/ux-qa` marker workspace. Enforces the ≤350 KB gz main-bundle budget on the Vite output. |
+| E2E + axe | `e2e` / `web_e2e` | Builds the SPA and the release BFF, boots `jeryu web serve` on `127.0.0.1:8787` with `JERYU_WEB_TRUST_LOCAL=1`, then runs Playwright (chromium, BFF-only mode) including the `10-a11y.spec.ts` axe pass. Also runs the `apps/ux-qa/ux-qa-check.mjs build` proof harness. |
+| Lighthouse | `lighthouse` / `web_lighthouse` | Static-dist Lighthouse pass against `apps/web/dist` per `apps/web/perf/lighthouse.config.js` and `lighthouse-budget.json`. Advisory in CI; the report uploads unconditionally. |
+
+### 13.2 Artifacts and how to read them
+
+Each lane uploads its evidence so a failed gate is debuggable from the
+GitHub Actions / GitLab job UI without re-running locally:
+
+- **`web-dist`** — `apps/web/dist/` + `apps/web/storybook-static/`. Inspect
+  the bundle map if the size budget tripped, or browse the Storybook build
+  to confirm a component renders.
+- **`playwright-report`** — HTML report under `apps/web/playwright-report/`.
+  Open `index.html` in a browser; each failed test exposes the trace,
+  screenshot, and video (videos only kept on failure).
+- **`bff-log`** — `/tmp/bff.log` from the Axum BFF the e2e lane boots.
+  First place to look when Playwright reports a 5xx; carries the
+  `request_id`s that the SPA error envelope echoes back.
+- **`ux-qa`** — `target/jankurai/ux-qa/`. JSON proof artifacts from the
+  ux-qa harness (`apps/ux-qa/ux-qa-check.mjs`). Used by the jankurai
+  audit lane to bind ux-qa proofs to the repo score.
+- **`lighthouse`** — `apps/web/.lighthouseci/`. The `manifest.json` lists
+  each run; per-URL Lighthouse JSON + HTML reports live alongside.
+
+### 13.3 Re-running locally
+
+Every lane is a thin wrapper over commands that work from a developer
+checkout:
+
+```bash
+# Rust web feature lane
+cargo fmt --all -- --check
+cargo check --workspace --features web
+cargo clippy --workspace --features web --all-targets -- -D warnings
+cargo nextest run -p jeryu --features web
+
+# Frontend lane (root npm workspace)
+npm ci --no-audit --no-fund
+npm --workspace @jeryu/web run typecheck
+npm --workspace @jeryu/web run lint
+npm --workspace @jeryu/web run test
+npm --workspace @jeryu/web run build
+npm --workspace @jeryu/web run build-storybook
+
+# E2E lane (Playwright + ux-qa)
+cargo build --release --features web -p jeryu
+npx --workspace @jeryu/web playwright install chromium --with-deps
+JERYU_WEB_TRUST_LOCAL=1 JERYU_PLAYWRIGHT_E2E_MODE=bff-only \
+  npm --workspace @jeryu/web run test:e2e
+node apps/ux-qa/ux-qa-check.mjs build
+```
+
+If a lane is green locally but red in CI, diff the runner image (ubuntu-24.04
+in Actions; a Debian-based `rust:1.95.0` image in GitLab) before changing
+the workflow.
+
+---
+
+## 14. Reference index
 
 | Topic | Section in this doc | Source plan |
 |---|---|---|
@@ -571,4 +645,5 @@ For incidents outside the runbook, capture `/metrics` (Prometheus scrape;
 | Merge passport | §5 | WEB_WORK_CLAUDE.md §35.2.4, `docs/REVIEW_COCKPIT.md` |
 | Frontend layout | §4 | `apps/web/README.md` (W-D-06) |
 | Performance budgets | — | WEB_WORK_CLAUDE.md §18 |
+| CI lanes | §13 | `.github/workflows/web.yml`, `.gitlab-ci.yml` (Web Forge mirror) |
 | Release roadmap | — | [`ROADMAP.md`](../ROADMAP.md) |

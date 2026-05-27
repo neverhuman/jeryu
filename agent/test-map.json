@@ -40,6 +40,10 @@
       "command": "just score",
       "purpose": "verify root file exclusion rules remain routed"
     },
+    ".gitlab-ci.yml": {
+      "command": "just score",
+      "purpose": "verify GitLab CI mirror remains routed"
+    },
     ".gitleaks.toml": {
       "command": "just score",
       "purpose": "verify root security config remains routed"
