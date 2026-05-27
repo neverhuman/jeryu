@@ -88,23 +88,46 @@ export interface MockRepoSummary {
 
 /**
  * Stub `GET /api/v1/repos` with a list of repositories. The shape mirrors
- * the contract in `RepositoryListResponse` so the SPA picks them up
- * without an envelope translation layer.
+ * the contract in `RepositoryListResponse` (`generated_at` / `total` /
+ * `repositories` / `facets`) so the SPA picks them up without an envelope
+ * translation layer. Only the base `/api/v1/repos` (with or without a
+ * query string) is intercepted — sub-paths (`/repos/{id}/...`) must fall
+ * through to per-resource mocks or the live BFF.
  */
 export async function mockRepoList(
   page: Page,
   repos: MockRepoSummary[]
 ): Promise<void> {
-  const items = repos.map((r) => normalizeRepo(r));
+  const repositories = repos.map((r) => normalizeRepo(r));
+  const hosts = Array.from(new Set(repos.map((r) => r.id.host)));
+  const families: string[] = [];
   await page.route('**/api/v1/repos**', async (route: Route, request) => {
     if (request.method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+    const url = new URL(request.url());
+    // Only the base /api/v1/repos collection — bail out for sub-resources
+    // like /api/v1/repos/{id}, /api/v1/repos/{id}/tree, etc.
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length !== 3) {
       await route.continue();
       return;
     }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ items, total: items.length }),
+      body: JSON.stringify({
+        generated_at: '2026-05-26T00:00:00Z',
+        total: repositories.length,
+        repositories,
+        facets: {
+          hosts,
+          owners: Array.from(new Set(repos.map((r) => r.id.owner))),
+          families,
+          languages: [],
+        },
+      }),
     });
   });
 }
@@ -344,6 +367,46 @@ export async function mockTree(
   );
 }
 
+export interface MockRenderedReadme {
+  html: string;
+  toc?: Array<{ depth: number; id: string; text: string }>;
+  links?: Array<Record<string, unknown>>;
+}
+
+/**
+ * Stub `GET /api/v1/repos/{id}/readme` with a `RenderedMarkdown`-shaped
+ * payload. Used by the README rendering smoke (W-T-11) to feed a fixed HTML
+ * blob into the ReadmePanel so the test can assert sanitization invariants
+ * without depending on a live GitLab repo.
+ */
+export async function mockReadme(
+  page: Page,
+  rendered: MockRenderedReadme
+): Promise<void> {
+  const body = {
+    html: rendered.html,
+    toc: rendered.toc ?? [],
+    links: rendered.links ?? [],
+    renderer_version: 'jeryu-md-renderer.v1',
+    sanitizer_version: 'jeryu-md-sanitizer.v1',
+    rendered_at: '2026-05-26T00:00:00Z',
+  };
+  await page.route(
+    /\/api\/v1\/repos\/[^/]+\/readme(\?.*)?$/,
+    async (route: Route, request) => {
+      if (request.method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body),
+      });
+    }
+  );
+}
+
 /**
  * Stub `GET /api/v1/repos/{id}/settings` with a minimal RepositorySettings
  * envelope so the settings page can render values.
@@ -409,15 +472,23 @@ export async function mockSettingsPreview(
 }
 
 function normalizeRepo(repo: MockRepoSummary): Record<string, unknown> {
+  // Per §35.1.2 the canonical `RepositoryId.id` is the opaque UUID-shaped
+  // key used in `/api/v1/repos/{id}/...` sub-paths. The SPA's
+  // `useResolveRepo` reads `summary.id.id` and feeds it into `endpoints.*`,
+  // so the fixture must supply a stable string here. We use a
+  // deterministic host:owner/name composite so the same input produces the
+  // same URL across test runs (handy for cross-mock regex matching).
+  const stableId = `${repo.id.host}:${repo.id.owner}/${repo.id.name}`;
   return {
     id: {
+      id: stableId,
       host: repo.id.host,
       owner: repo.id.owner,
       name: repo.id.name,
     },
     entity: {
       kind: 'repository',
-      id: `${repo.id.host}:${repo.id.owner}/${repo.id.name}`,
+      id: stableId,
     },
     description: repo.description ?? null,
     visibility: repo.visibility ?? 'private',
