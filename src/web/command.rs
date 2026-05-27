@@ -39,7 +39,12 @@ pub(crate) async fn run(cmd: WebCommand) -> Result<()> {
         }
         WebCommand::ExportSchemas { out_dir } => {
             let (openapi_bytes, ws_bytes) =
-                crate::web::openapi::export_schemas(&out_dir).map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                {
+                    #[cfg(feature = "web")]
+                    { crate::web::openapi::export_schemas(&out_dir).map_err(|e| anyhow::anyhow!(e.to_string()))?; }
+                    #[cfg(not(feature = "web"))]
+                    return Err(anyhow::anyhow!("export-schemas requires --features web"));
+                }
             eprintln!(
                 "wrote {} ({} bytes)",
                 out_dir.join("web-api.openapi.json").display(),

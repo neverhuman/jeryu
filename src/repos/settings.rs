@@ -29,11 +29,8 @@ use super::service::host_to_api_error;
 /// Mirrors the host adapter's `HostRepositorySettingsPatch` for the subset
 /// of fields the BFF currently supports.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct SettingsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -52,11 +49,8 @@ pub struct SettingsPatch {
 /// radius; the full implementation lands with W-B-* (counts branches/MRs
 /// affected by visibility changes, default-branch swap, etc.).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct SettingsDiffPreview {
     pub repo: RepositoryId,
     pub current_hash: String,
@@ -67,11 +61,8 @@ pub struct SettingsDiffPreview {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct SettingsFieldChange {
     pub field: String,
     pub before: Option<String>,
