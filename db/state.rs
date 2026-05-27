@@ -1528,6 +1528,50 @@ impl Db {
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_actor
                 ON sessions(actor_id);
+
+            -- W-db-audit · audit_events / web_action_receipts.
+            -- Canonical migration: db/migrations/202606010001_web_forge_core.sql.
+            -- Mirrored here so the runtime's `migrate()` boot path provides the
+            -- schema for src/web/audit.rs (write_audit) and
+            -- src/web/action_receipts.rs (WebActionReceiptStore) without
+            -- depending on out-of-band migration runners.
+
+            CREATE TABLE IF NOT EXISTS audit_events (
+                id              TEXT PRIMARY KEY,
+                actor_kind      TEXT NOT NULL,
+                actor_id        TEXT NOT NULL,
+                action_id       TEXT NOT NULL,
+                target_entity   TEXT NOT NULL,
+                risk_tier       TEXT NOT NULL,
+                preview_json    TEXT,
+                result_json     TEXT,
+                created_at      TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_audit_events_created
+                ON audit_events(created_at);
+
+            -- §35.1.16: the UNIQUE constraint enforces idempotency at the DB
+            -- layer for the 14-step action algorithm. A retry with the same
+            -- Idempotency-Key on the same (action_kind, target_id) collides
+            -- and the handler returns the stored receipt instead of
+            -- re-executing the provider call.
+            CREATE TABLE IF NOT EXISTS web_action_receipts (
+                id                      TEXT PRIMARY KEY,
+                actor_login             TEXT NOT NULL,
+                action_kind             TEXT NOT NULL,
+                target_kind             TEXT NOT NULL,
+                target_id               TEXT NOT NULL,
+                idempotency_key         TEXT,
+                expected_state_hash     TEXT,
+                resulting_state_hash    TEXT,
+                expected_sha            TEXT,
+                provider_calls_json     TEXT NOT NULL,
+                risk_tier               TEXT NOT NULL,
+                status                  TEXT NOT NULL,
+                error                   TEXT,
+                created_at              TEXT NOT NULL,
+                UNIQUE(action_kind, target_id, idempotency_key)
+            );
             "#;
         for statement in redline_schema.split(';') {
             let statement = statement.trim();
