@@ -63,7 +63,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Build workspace
         run: bash ops/ci/rust-lane.sh build
@@ -106,7 +106,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Compute test plan
         id: plan
@@ -143,7 +143,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Download VTI plan
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -177,7 +177,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Run offline mock GitLab tests
         run: bash ops/ci/rust-lane.sh test-mock
@@ -203,7 +203,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Run integration tests
         run: bash ops/ci/rust-lane.sh test-integration
@@ -223,7 +223,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Render one TUI frame
         run: bash ops/ci/rust-lane.sh tui-smoke
@@ -281,7 +281,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Build witness graph
         run: bash ops/ci/rust-lane.sh witness
@@ -307,7 +307,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Generate agent + test maps
         run: bash ops/ci/rust-lane.sh vrc-map
@@ -337,7 +337,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Run VRC plan
         run: bash ops/ci/rust-lane.sh vrc-plan
@@ -363,7 +363,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Scan for structural exceptions
         run: bash ops/ci/rust-lane.sh aer
@@ -391,7 +391,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Hardening lane
         run: bash ops/ci/rust-lane.sh hardening
@@ -420,7 +420,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Run SSH install integration test
         run: bash ops/ci/rust-lane.sh ssh-install-e2e
@@ -452,7 +452,7 @@ jobs:
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
+          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold;
           else echo "no passwordless sudo; skipping mold"; fi
       - name: Render deterministic TUI PNG captures
         run: bash ops/ci/rust-lane.sh tui-screenshots
