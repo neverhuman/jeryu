@@ -66,8 +66,19 @@ export const endpoints = {
 
   ws: (): string => '/api/v1/ws',
   markdownRender: (): string => '/api/v1/markdown/render',
-  search: (q: string): string =>
-    `/api/v1/search?q=${encodeURIComponent(q)}`,
+  search: (
+    q: string,
+    options?: { kinds?: ReadonlyArray<string>; limit?: number }
+  ): string => {
+    const qs = new URLSearchParams({ q });
+    if (options?.kinds && options.kinds.length > 0) {
+      qs.set('kinds', options.kinds.join(','));
+    }
+    if (options?.limit !== undefined) {
+      qs.set('limit', String(options.limit));
+    }
+    return `/api/v1/search?${qs.toString()}`;
+  },
   activity: (): string => '/api/v1/activity',
 } as const;
 

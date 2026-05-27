@@ -28,6 +28,7 @@ import { RepositoryFilePage } from '../pages/RepositoryFilePage';
 import { RepositoryMergeRequestsPage } from '../pages/RepositoryMergeRequestsPage';
 import { RepositoryOverviewPage } from '../pages/RepositoryOverviewPage';
 import { RepositorySettingsPage } from '../pages/RepositorySettingsPage';
+import { SearchResultsPage } from '../pages/SearchResultsPage';
 
 export const router = createBrowserRouter([
   {
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
       { path: 'merge-room', element: <MergeRoomPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
       { path: 'audit', element: <AuditPage /> },
+      { path: 'search', element: <SearchResultsPage /> },
       { path: 'settings', element: <AdminSettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
