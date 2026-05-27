@@ -11,11 +11,8 @@ use serde::{Deserialize, Serialize};
 use super::repository::RepositoryId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct IssueSummary {
     pub repo: RepositoryId,
     pub iid: String,
@@ -29,11 +26,8 @@ pub struct IssueSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum IssueState {
     Open,
     Closed,

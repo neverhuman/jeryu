@@ -10,11 +10,8 @@ use serde::{Deserialize, Serialize};
 use super::repository::RepositoryId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RefSelectorItem {
     pub name: String,
     pub sha: String,
@@ -24,11 +21,8 @@ pub struct RefSelectorItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum RefKind {
     Branch,
     Tag,
@@ -36,11 +30,8 @@ pub enum RefKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct TreeEntry {
     pub path: String,
     pub name: String,
@@ -58,11 +49,8 @@ pub struct TreeEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum TreeEntryKind {
     File,
     Directory,
@@ -71,11 +59,8 @@ pub enum TreeEntryKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct BlobResponse {
     pub repo: RepositoryId,
     pub path: String,
@@ -95,22 +80,16 @@ pub struct BlobResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum BlobEncoding {
     Utf8,
     Base64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RenderedMarkdown {
     pub html: String,
     pub toc: Vec<MarkdownHeading>,
@@ -126,11 +105,8 @@ pub struct RenderedMarkdown {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct MarkdownHeading {
     pub depth: u8,
     pub id: String,
@@ -138,11 +114,8 @@ pub struct MarkdownHeading {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct MarkdownLink {
     pub href: String,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -10,11 +10,8 @@ use serde::{Deserialize, Serialize};
 use super::repository::RepositorySummary;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct WebBootstrap {
     pub generated_at: DateTime<Utc>,
     pub schema_version: String,
@@ -23,9 +20,9 @@ pub struct WebBootstrap {
     /// Serializes inline as a JSON object; the typed schema is opaque from the
     /// web boundary's perspective until W-F-04 lifts derive coverage onto the
     /// TUI read-model.
-    #[cfg_attr(feature = "web", ts(type = "Record<string, unknown>"))]
-    #[cfg_attr(feature = "web", schemars(with = "serde_json::Value"))]
-    #[cfg_attr(feature = "web", schema(value_type = serde_json::Value))]
+    #[ts(type = "Record<string, unknown>")]
+    #[schemars(with = "serde_json::Value")]
+    #[schema(value_type = serde_json::Value)]
     pub tui: super::read_model::TuiReadModel,
     pub recent_repositories: Vec<RepositorySummary>,
     pub websocket_url: String,
@@ -33,11 +30,8 @@ pub struct WebBootstrap {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct Viewer {
     pub id: String,
     pub login: String,
@@ -50,11 +44,8 @@ pub struct Viewer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct WebFeatureFlags {
     pub repo_create: bool,
     pub settings_write: bool,

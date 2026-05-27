@@ -34,6 +34,7 @@ pub mod command;
 pub mod csrf;
 pub mod error;
 pub mod idempotency;
+#[cfg(feature = "web")]
 pub mod openapi;
 pub mod permissions;
 pub mod rest;

@@ -11,11 +11,8 @@ use serde::{Deserialize, Serialize};
 use super::repository::{RepositoryId, RepositoryVisibility};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositorySettings {
     pub repo: RepositoryId,
     pub general: GeneralSettings,
@@ -31,11 +28,8 @@ pub struct RepositorySettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct GeneralSettings {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -49,11 +43,8 @@ pub struct GeneralSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct FeatureSettings {
     pub issues: bool,
     pub merge_requests: bool,
@@ -68,11 +59,8 @@ pub struct FeatureSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergeSettings {
     pub allow_merge_commit: bool,
     pub allow_squash_merge: bool,
@@ -88,11 +76,8 @@ pub struct MergeSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct BranchProtectionRule {
     pub pattern: String,
     pub required_checks: Vec<String>,
@@ -105,11 +90,8 @@ pub struct BranchProtectionRule {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct CiSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_runner_pool: Option<String>,
@@ -122,11 +104,8 @@ pub struct CiSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct AgentSettings {
     pub autonomous_coding_enabled: bool,
     pub max_concurrent_sessions: u32,
@@ -139,11 +118,8 @@ pub struct AgentSettings {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct AccessSettings {
     pub collaborators_count: u32,
     pub teams_count: u32,
@@ -152,11 +128,8 @@ pub struct AccessSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct SecuritySettings {
     pub secret_scanning: bool,
     pub dependency_scanning: bool,
@@ -165,11 +138,8 @@ pub struct SecuritySettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct NotificationSettings {
     pub watch_default: String,
     pub notify_on_ci_failure: bool,
@@ -178,11 +148,8 @@ pub struct NotificationSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RetentionSettings {
     pub audit_days: u32,
     pub evidence_days: u32,

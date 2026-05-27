@@ -4098,6 +4098,13 @@
           "action_id": {
             "type": "string"
           },
+          "expected_state_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional concurrency token from the §35.1.14 step-12 contract.\nCallers that fetched the action target observed a state hash; if\nsupplied, the server compares it against the currently-computed\nhash and refuses with `settings_hash_stale` on mismatch."
+          },
           "params": {
             "type": "object"
           }
@@ -4108,7 +4115,8 @@
         "required": [
           "action_id",
           "result",
-          "event_seq"
+          "event_seq",
+          "receipt_id"
         ],
         "properties": {
           "action_id": {
@@ -4119,8 +4127,26 @@
             "format": "int64",
             "minimum": 0
           },
+          "expected_state_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Hash of the action target's state *before* the executor ran. Set\nto whatever value the server computed in step 4 (snapshot phase)."
+          },
+          "receipt_id": {
+            "type": "string",
+            "description": "`web_action_receipts.id` minted at step 12 of §35.1.14. Callers\ncan read this back via the receipts log (debug surface) or surface\nit to operators for audit trail navigation."
+          },
           "result": {
             "type": "object"
+          },
+          "resulting_state_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Hash of the action target's state *after* the executor ran. Phase 4\nhas no real executor so this typically equals\n`expected_state_hash`; once real mutators land it diverges."
           }
         }
       },

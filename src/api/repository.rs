@@ -13,11 +13,8 @@ use super::entity::{ActionRef, EntityRef, HealthLevel};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum RepositoryHostKind {
     #[serde(rename = "github")]
     GitHub,
@@ -34,11 +31,8 @@ pub enum RepositoryHostKind {
 /// human-readable triple (`host`, `owner`, `name`) is preserved for display
 /// in the SPA so we can keep pretty URLs while the backend uses the stable id.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositoryId {
     /// Opaque stable identifier (UUID-shaped). Canonical in API paths.
     pub id: String,
@@ -62,11 +56,8 @@ impl RepositoryId {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum RepositoryVisibility {
     Public,
     Internal,
@@ -74,16 +65,13 @@ pub enum RepositoryVisibility {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositorySummary {
     pub id: RepositoryId,
-    #[cfg_attr(feature = "web", ts(type = "{ kind: string; id: string }"))]
-    #[cfg_attr(feature = "web", schemars(with = "EntityRefSurrogate"))]
-    #[cfg_attr(feature = "web", schema(value_type = EntityRefSurrogate))]
+    #[ts(type = "{ kind: string; id: string }")]
+    #[schemars(with = "EntityRefSurrogate")]
+    #[schema(value_type = EntityRefSurrogate)]
     pub entity: EntityRef,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -94,9 +82,9 @@ pub struct RepositorySummary {
     pub topics: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
-    #[cfg_attr(feature = "web", ts(type = "string"))]
-    #[cfg_attr(feature = "web", schemars(with = "String"))]
-    #[cfg_attr(feature = "web", schema(value_type = String))]
+    #[ts(type = "string")]
+    #[schemars(with = "String")]
+    #[schema(value_type = String)]
     pub health: HealthLevel,
     pub open_merge_requests: u32,
     pub failing_checks: u32,
@@ -108,18 +96,15 @@ pub struct RepositorySummary {
     pub clone_http_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clone_ssh_url: Option<String>,
-    #[cfg_attr(feature = "web", ts(type = "Array<{ action_id: string; label: string; risk: string | null }>"))]
-    #[cfg_attr(feature = "web", schemars(with = "Vec<ActionRefSurrogate>"))]
-    #[cfg_attr(feature = "web", schema(value_type = Vec<ActionRefSurrogate>))]
+    #[ts(type = "Array<{ action_id: string; label: string; risk: string | null }>")]
+    #[schemars(with = "Vec<ActionRefSurrogate>")]
+    #[schema(value_type = Vec<ActionRefSurrogate>)]
     pub available_actions: Vec<ActionRef>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositoryListResponse {
     pub generated_at: DateTime<Utc>,
     pub total: u64,
@@ -128,11 +113,8 @@ pub struct RepositoryListResponse {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositoryFacets {
     pub hosts: Vec<String>,
     pub owners: Vec<String>,
@@ -141,11 +123,8 @@ pub struct RepositoryFacets {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct CreateRepositoryRequest {
     pub host: String,
     pub owner: String,
@@ -169,11 +148,8 @@ pub struct CreateRepositoryRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct CreateRepositoryPreview {
     pub normalized_name: String,
     pub target_owner: String,

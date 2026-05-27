@@ -11,20 +11,14 @@ use serde::{Deserialize, Serialize};
 use super::repository::RepositoryId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergeRequestSummary {
     pub repo: RepositoryId,
     pub iid: String,
-    #[cfg_attr(feature = "web", ts(type = "{ kind: string; id: string }"))]
-    #[cfg_attr(
-        feature = "web",
-        schemars(with = "super::repository::EntityRefSurrogate")
-    )]
-    #[cfg_attr(feature = "web", schema(value_type = super::repository::EntityRefSurrogate))]
+    #[ts(type = "{ kind: string; id: string }")]
+    #[schemars(with = "super::repository::EntityRefSurrogate")]
+    #[schema(value_type = super::repository::EntityRefSurrogate)]
     pub entity: super::entity::EntityRef,
     pub title: String,
     pub author: String,
@@ -46,25 +40,16 @@ pub struct MergeRequestSummary {
     /// `None` when the Passport has not been computed yet (e.g. brand-new MR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub passport_hash: Option<String>,
-    #[cfg_attr(
-        feature = "web",
-        ts(type = "Array<{ action_id: string; label: string; risk: string | null }>")
-    )]
-    #[cfg_attr(
-        feature = "web",
-        schemars(with = "Vec<super::repository::ActionRefSurrogate>")
-    )]
-    #[cfg_attr(feature = "web", schema(value_type = Vec<super::repository::ActionRefSurrogate>))]
+    #[ts(type = "Array<{ action_id: string; label: string; risk: string | null }>")]
+    #[schemars(with = "Vec<super::repository::ActionRefSurrogate>")]
+    #[schema(value_type = Vec<super::repository::ActionRefSurrogate>)]
     pub available_actions: Vec<super::entity::ActionRef>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum MergeRequestState {
     Open,
     Closed,
@@ -72,15 +57,12 @@ pub enum MergeRequestState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct Mergeability {
-    #[cfg_attr(feature = "web", ts(type = "string"))]
-    #[cfg_attr(feature = "web", schemars(with = "String"))]
-    #[cfg_attr(feature = "web", schema(value_type = String))]
+    #[ts(type = "string")]
+    #[schemars(with = "String")]
+    #[schema(value_type = String)]
     pub level: super::entity::HealthLevel,
     pub can_merge: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -91,11 +73,8 @@ pub struct Mergeability {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct ReviewPosture {
     pub required_approvals: u32,
     pub approvals: u32,
@@ -106,11 +85,8 @@ pub struct ReviewPosture {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct CheckPosture {
     pub total: u32,
     pub passing: u32,
@@ -120,11 +96,8 @@ pub struct CheckPosture {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct AgentPosture {
     pub active_sessions: u32,
     pub proposed_patches: u32,
@@ -137,11 +110,8 @@ pub struct AgentPosture {
 /// Carries the same posture summary fields plus the Merge Passport verdict
 /// (per §35.2.4) so the UI's `MergeGatePanel` can render gate-by-gate detail.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergeRequestDetail {
     pub summary: MergeRequestSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -155,11 +125,8 @@ pub struct MergeRequestDetail {
 
 /// Canonical Merge Passport verdict (FINAL spec §6.7 + §35.2.4 12-gate list).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergePassport {
     pub status: MergePassportStatus,
     pub head_sha: String,
@@ -169,11 +136,8 @@ pub struct MergePassport {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum MergePassportStatus {
     Pass,
     Blocked,
@@ -183,11 +147,8 @@ pub enum MergePassportStatus {
 /// canonical gate list (e.g. `passport_blocked_approvals`,
 /// `passport_blocked_policy_sha`) so the UI can target explanations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergePassportBlocker {
     pub code: String,
     pub message: String,

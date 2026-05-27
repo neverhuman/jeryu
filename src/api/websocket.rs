@@ -20,11 +20,8 @@ use super::events::TuiEvent;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum ClientWsMessage {
     Hello {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -46,30 +43,24 @@ pub enum ClientWsMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct SubscriptionSpec {
     /// Granular topic per §35.1.15, e.g. `global.activity`, `repo.{id}`,
     /// `mr.{id}`, `agent.{id}`, `cache.{id}`. Backend re-checks each scope
     /// against the viewer's perms on every `Subscribe` frame (§35.1.6).
     pub scope: String,
     /// Free-form filter object (e.g. `{ kind: ["mr.approved"] }`).
-    #[cfg_attr(feature = "web", ts(type = "Record<string, unknown>"))]
-    #[cfg_attr(feature = "web", schemars(with = "serde_json::Value"))]
-    #[cfg_attr(feature = "web", schema(value_type = serde_json::Value))]
+    #[ts(type = "Record<string, unknown>")]
+    #[schemars(with = "serde_json::Value")]
+    #[schema(value_type = serde_json::Value)]
     pub filters: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub enum ServerWsMessage {
     Hello {
         server_time: DateTime<Utc>,
@@ -116,11 +107,8 @@ impl ServerWsMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(
-    feature = "web",
-    derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)
-)]
-#[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
+#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[ts(export, export_to = "../../contracts/generated/")]
 pub struct WebEvent {
     pub seq: u64,
     pub timestamp: DateTime<Utc>,
@@ -129,9 +117,9 @@ pub struct WebEvent {
     pub entity: String,
     pub summary: String,
     /// Free-form payload carrying severity, parent, evidence refs, etc.
-    #[cfg_attr(feature = "web", ts(type = "Record<string, unknown>"))]
-    #[cfg_attr(feature = "web", schemars(with = "serde_json::Value"))]
-    #[cfg_attr(feature = "web", schema(value_type = serde_json::Value))]
+    #[ts(type = "Record<string, unknown>")]
+    #[schemars(with = "serde_json::Value")]
+    #[schema(value_type = serde_json::Value)]
     pub payload: Value,
 }
 
