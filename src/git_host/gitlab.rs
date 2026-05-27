@@ -10,9 +10,10 @@ use reqwest::Method;
 
 use crate::git_host::{
     ChangedFileDiff, CheckRun, CheckRunResult, CreateHostRepository, GitHost, HostBlob, HostCommit,
-    HostCompare, HostError, HostIdentity, HostRef, HostRepository, HostRepositorySettingsPatch,
-    HostTreeEntry, MrApproval, Page, PageResult, PrDiff, PrLiveState, PrSummary, RepoRef,
-    VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
+    HostCompare, HostError, HostIdentity, HostMergeInput, HostMergeResult, HostPipeline, HostRef,
+    HostRepository, HostRepositorySettingsPatch, HostReview, HostReviewComment,
+    HostReviewCommentInput, HostReviewThread, HostSubmitReviewInput, HostTreeEntry, MrApproval,
+    Page, PageResult, PrDiff, PrLiveState, PrSummary, RepoRef, VIBEGATE_MERGE_PASSPORT_CHECK_NAME,
 };
 use crate::gitlab_client::GitlabClient;
 
@@ -37,6 +38,12 @@ mod gitlab_client_impl;
 #[path = "gitlab_browse.rs"]
 mod gitlab_browse;
 use gitlab_browse::GitlabBrowse;
+
+// W-H-04 / W-H-05 helpers. `GitlabMerge` is the sealed counterpart trait for
+// MR + review + merge methods.
+#[path = "gitlab_merge.rs"]
+mod gitlab_merge;
+use gitlab_merge::GitlabMerge;
 
 #[derive(Clone)]
 pub struct GitLabClient {
@@ -318,6 +325,47 @@ impl GitHost for GitLabClient {
         patch: HostRepositorySettingsPatch<'_>,
     ) -> Result<HostRepository, HostError> {
         <Self as GitlabBrowse>::update_repository_settings(self, repo, patch).await
+    }
+
+    // ── W-H-04: MR review surface ─────────────────────────────────────
+
+    async fn list_review_threads(
+        &self,
+        repo: &RepoRef,
+        mr_iid: &str,
+    ) -> Result<Vec<HostReviewThread>, HostError> {
+        <Self as GitlabMerge>::list_review_threads(self, repo, mr_iid).await
+    }
+
+    async fn create_review_comment(
+        &self,
+        input: HostReviewCommentInput<'_>,
+    ) -> Result<HostReviewComment, HostError> {
+        <Self as GitlabMerge>::create_review_comment(self, input).await
+    }
+
+    async fn submit_review(
+        &self,
+        input: HostSubmitReviewInput<'_>,
+    ) -> Result<HostReview, HostError> {
+        <Self as GitlabMerge>::submit_review(self, input).await
+    }
+
+    // ── W-H-05: MR merge with exact-SHA fence ─────────────────────────
+
+    async fn merge_mr(&self, input: HostMergeInput<'_>) -> Result<HostMergeResult, HostError> {
+        <Self as GitlabMerge>::merge_mr(self, input).await
+    }
+
+    // ── W-H-06 (partial): CI surface used by Merge Passport ───────────
+
+    async fn list_pipelines(
+        &self,
+        repo: &RepoRef,
+        ref_name: Option<&str>,
+        page: Page,
+    ) -> Result<PageResult<HostPipeline>, HostError> {
+        <Self as GitlabMerge>::list_pipelines(self, repo, ref_name, page).await
     }
 }
 

@@ -257,3 +257,146 @@ pub(super) struct GitLabRepositoryFile {
 pub struct GitLabProtectedBranch {
     pub name: String,
 }
+
+// ── W-H-04: MR discussions + reviews ──────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabDiscussionNoteAuthor {
+    #[serde(default)]
+    pub(super) username: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabDiscussionNotePosition {
+    #[serde(default)]
+    pub(super) new_path: Option<String>,
+    #[serde(default)]
+    pub(super) old_path: Option<String>,
+    #[serde(default)]
+    pub(super) new_line: Option<u32>,
+    #[serde(default)]
+    pub(super) old_line: Option<u32>,
+    #[serde(default)]
+    pub(super) base_sha: Option<String>,
+    #[serde(default)]
+    pub(super) head_sha: Option<String>,
+    #[serde(default)]
+    pub(super) start_sha: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabDiscussionNote {
+    pub(super) id: i64,
+    pub(super) body: String,
+    #[serde(default)]
+    pub(super) author: Option<GitLabDiscussionNoteAuthor>,
+    pub(super) created_at: chrono::DateTime<chrono::Utc>,
+    #[serde(default)]
+    pub(super) resolvable: bool,
+    #[serde(default)]
+    pub(super) resolved: bool,
+    #[serde(default)]
+    pub(super) position: Option<GitLabDiscussionNotePosition>,
+    #[serde(default)]
+    pub(super) system: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabDiscussion {
+    pub(super) id: String,
+    #[serde(default)]
+    pub(super) notes: Vec<GitLabDiscussionNote>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct GitLabDiscussionCreatePosition<'a> {
+    pub(super) position_type: &'static str,
+    pub(super) base_sha: &'a str,
+    pub(super) start_sha: &'a str,
+    pub(super) head_sha: &'a str,
+    pub(super) new_path: &'a str,
+    pub(super) old_path: &'a str,
+    pub(super) new_line: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct GitLabCreateDiscussionReq<'a> {
+    pub(super) body: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) position: Option<GitLabDiscussionCreatePosition<'a>>,
+}
+
+#[derive(Debug, Serialize)]
+pub(super) struct GitLabResolveDiscussionReq {
+    pub(super) resolved: bool,
+}
+
+// ── W-H-05: MR merge with SHA ─────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub(super) struct GitLabMergeMrReq<'a> {
+    pub(super) sha: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) merge_commit_message: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) squash_commit_message: Option<&'a str>,
+    pub(super) squash: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabMergeMrResp {
+    #[serde(default)]
+    pub(super) merge_commit_sha: Option<String>,
+    #[serde(default)]
+    pub(super) squash_commit_sha: Option<String>,
+    #[serde(default)]
+    pub(super) sha: Option<String>,
+    #[serde(default)]
+    pub(super) state: Option<String>,
+    #[serde(default)]
+    pub(super) web_url: Option<String>,
+}
+
+// ── MR detail field surface for Merge Passport ─────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub(super) struct GitLabMergeRequestDetail {
+    pub(super) iid: i64,
+    pub(super) title: String,
+    pub(super) target_branch: String,
+    pub(super) source_branch: String,
+    #[serde(default)]
+    pub(super) description: Option<String>,
+    #[serde(default)]
+    pub(super) labels: Vec<String>,
+    #[serde(default)]
+    pub(super) draft: bool,
+    #[serde(default)]
+    pub(super) work_in_progress: bool,
+    #[serde(default)]
+    pub(super) state: Option<String>,
+    #[serde(default)]
+    pub(super) sha: Option<String>,
+    #[serde(default)]
+    pub(super) diff_refs: Option<GitLabDiffRefs>,
+    #[serde(default)]
+    pub(super) author: Option<GitLabAuthor>,
+    #[serde(default)]
+    pub(super) merge_status: Option<String>,
+    #[serde(default)]
+    pub(super) detailed_merge_status: Option<String>,
+    #[serde(default)]
+    pub(super) has_conflicts: bool,
+    #[serde(default)]
+    pub(super) updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(default)]
+    pub(super) web_url: Option<String>,
+    #[serde(default)]
+    pub(super) approvals_before_merge: Option<u32>,
+}

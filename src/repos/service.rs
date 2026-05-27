@@ -289,6 +289,7 @@ pub fn host_to_api_error(err: HostError) -> ApiError {
         HostError::Auth => ApiError::UpstreamForbidden("host auth failed".into()),
         HostError::RateLimited { .. } => ApiError::RateLimited,
         HostError::Transient(msg) | HostError::Permanent(msg) => ApiError::Upstream(msg),
+        HostError::Conflict(msg) => ApiError::Conflict(msg),
         HostError::NotImplemented => ApiError::Upstream("not implemented".into()),
     }
 }

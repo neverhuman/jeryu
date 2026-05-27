@@ -25,7 +25,9 @@ use axum::{
 
 use super::auth::auth_layer;
 use super::csrf::csrf_layer;
-use super::rest::{bootstrap::get_bootstrap, markdown, repo_browser, repos, settings};
+use super::rest::{
+    bootstrap::get_bootstrap, markdown, merge_requests, repo_browser, repos, reviews, settings,
+};
 use super::state::WebState;
 use super::static_assets::spa_service;
 use super::telemetry::instrument;
@@ -99,6 +101,68 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
         .route(
             "/api/v1/markdown/render",
             post(markdown::render_markdown_handler),
+        )
+        // ── W-B-11/13: merge requests + Merge Passport ──
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests",
+            get(merge_requests::list_merge_requests).post(merge_requests::create_merge_request),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}",
+            get(merge_requests::get_merge_request).patch(merge_requests::patch_merge_request),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/diff",
+            get(merge_requests::get_diff),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/checks",
+            get(merge_requests::get_checks),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/blockers",
+            get(merge_requests::get_blockers),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/approve",
+            post(merge_requests::approve_merge_request),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/request-changes",
+            post(merge_requests::request_changes),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/merge",
+            post(merge_requests::merge_merge_request),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/close",
+            post(merge_requests::close_merge_request),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/reopen",
+            post(merge_requests::reopen_merge_request),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/rebase",
+            post(merge_requests::rebase_merge_request),
+        )
+        // ── W-B-12: review threads + comments + verdict ──
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/threads",
+            get(reviews::list_threads).post(reviews::create_thread),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/threads/{thread_id}",
+            axum::routing::patch(reviews::patch_thread),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/comments",
+            post(reviews::create_comment),
+        )
+        .route(
+            "/api/v1/repos/{repo_id}/merge-requests/{iid}/reviews",
+            post(reviews::submit_review),
         )
         .layer(middleware::from_fn(csrf_layer))
         .layer(middleware::from_fn(auth_layer))

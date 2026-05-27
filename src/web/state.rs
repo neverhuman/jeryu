@@ -1,10 +1,10 @@
 //! `WebState` — Arc bundle of services for the JeRyu Web Forge BFF.
 //!
-//! Phase 2 extends the Phase-1 shell with the W-B-06/W-B-07/W-B-09/W-B-10
-//! services (RepoService / SettingsService / RepoBrowserService) plus a
-//! shared `Arc<GitLabClient>` used by every service that talks to the host.
-//! See `WEB_WORK_CLAUDE.md` §35.7 + FINAL §6.3 for the eventual full bag
-//! shape.
+//! Phase 3 extends the Phase-2 shell with the W-B-11/12/13 services
+//! (MergeService / ReviewService / MergePassportService) on top of the
+//! existing RepoService / SettingsService / RepoBrowserService. All
+//! services share a single `Arc<GitLabClient>` and `Arc<WebEventBus>`.
+//! See `WEB_WORK_CLAUDE.md` §35.7 + FINAL §6.3 for the full bag shape.
 
 use std::sync::Arc;
 
@@ -12,6 +12,7 @@ use jeryu::git_host::GitLabClient;
 use jeryu::repo_browser::RepoBrowserService;
 use jeryu::web_events::WebEventBus;
 
+use crate::merge::{MergePassportService, MergeService, ReviewService};
 use crate::repos::{RepoService, SettingsService};
 use crate::web::idempotency::IdempotencyStore;
 
@@ -24,6 +25,9 @@ pub struct WebState {
     pub repo_service: Arc<RepoService>,
     pub browser_service: Arc<RepoBrowserService>,
     pub settings_service: Arc<SettingsService>,
+    pub merge_service: Arc<MergeService>,
+    pub review_service: Arc<ReviewService>,
+    pub passport_service: Arc<MergePassportService>,
     pub gitlab_client: Arc<GitLabClient>,
 }
 
@@ -57,6 +61,14 @@ impl WebState {
         let repo_service = Arc::new(RepoService::new("gitlab", gitlab.clone()));
         let settings_service = Arc::new(SettingsService::new("gitlab", gitlab.clone()));
         let browser_service = Arc::new(RepoBrowserService::new(gitlab.clone()));
+        let passport_service = Arc::new(MergePassportService::new(gitlab.clone()));
+        let merge_service = Arc::new(MergeService::new(
+            "gitlab",
+            gitlab.clone(),
+            event_bus.clone(),
+            passport_service.clone(),
+        ));
+        let review_service = Arc::new(ReviewService::new(gitlab.clone(), event_bus.clone()));
 
         Self {
             app_name: "jeryu".into(),
@@ -69,6 +81,9 @@ impl WebState {
             repo_service,
             browser_service,
             settings_service,
+            merge_service,
+            review_service,
+            passport_service,
             gitlab_client: gitlab,
         }
     }

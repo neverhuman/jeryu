@@ -11,6 +11,8 @@
 
 pub mod bootstrap;
 pub mod markdown;
+pub mod merge_requests;
 pub mod repo_browser;
 pub mod repos;
+pub mod reviews;
 pub mod settings;
