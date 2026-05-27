@@ -56,7 +56,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
-          shared-key: web-feature
+          shared-key: "web-feature-${{ runner.name }}"
       - name: Install mold (best-effort)
         run: |
           if ! command -v mold >/dev/null 2>&1; then
@@ -84,7 +84,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
-          shared-key: web-feature
+          shared-key: "web-feature-${{ runner.name }}"
       - name: Install mold (best-effort)
         run: |
           if ! command -v mold >/dev/null 2>&1; then
@@ -110,7 +110,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
-          shared-key: web-feature
+          shared-key: "web-feature-${{ runner.name }}"
       - name: Install mold (best-effort)
         run: |
           if ! command -v mold >/dev/null 2>&1; then
@@ -136,7 +136,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
-          shared-key: web-feature
+          shared-key: "web-feature-${{ runner.name }}"
       - name: ts-rs export drift check
         run: |
           cargo run --bin jeryu_export_types --features web
@@ -155,7 +155,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
-          shared-key: web-feature
+          shared-key: "web-feature-${{ runner.name }}"
       - name: openapi / json-schema drift check
         run: |
           cargo run --bin jeryu_export_schemas --features web
@@ -228,7 +228,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
-          shared-key: web-feature
+          shared-key: "web-feature-${{ runner.name }}"
       - name: Install mold (best-effort)
         run: |
           if ! command -v mold >/dev/null 2>&1; then
