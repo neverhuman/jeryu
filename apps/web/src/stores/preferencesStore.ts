@@ -9,6 +9,7 @@ export type ThemePreference = 'system' | 'light' | 'dark' | 'high-contrast';
 export type DensityPreference = 'comfortable' | 'compact' | 'ultra-compact';
 export type KeyboardMode = 'default' | 'vim';
 export type DateFormat = 'relative' | 'iso' | 'long';
+export type ReposViewMode = 'card' | 'table';
 
 export interface PreferencesState {
   theme: ThemePreference;
@@ -16,11 +17,13 @@ export interface PreferencesState {
   codeFontSize: number;
   dateFormat: DateFormat;
   keyboardMode: KeyboardMode;
+  reposView: ReposViewMode;
   setTheme: (theme: ThemePreference) => void;
   setDensity: (density: DensityPreference) => void;
   setCodeFontSize: (size: number) => void;
   setDateFormat: (format: DateFormat) => void;
   setKeyboardMode: (mode: KeyboardMode) => void;
+  setReposView: (view: ReposViewMode) => void;
   reset: () => void;
 }
 
@@ -28,13 +31,19 @@ const STORAGE_KEY = 'jeryu.preferences.v1';
 
 const DEFAULTS: Pick<
   PreferencesState,
-  'theme' | 'density' | 'codeFontSize' | 'dateFormat' | 'keyboardMode'
+  | 'theme'
+  | 'density'
+  | 'codeFontSize'
+  | 'dateFormat'
+  | 'keyboardMode'
+  | 'reposView'
 > = {
   theme: 'system',
   density: 'comfortable',
   codeFontSize: 13,
   dateFormat: 'relative',
   keyboardMode: 'default',
+  reposView: 'card',
 };
 
 function loadInitial(): typeof DEFAULTS {
@@ -55,6 +64,7 @@ function loadInitial(): typeof DEFAULTS {
       dateFormat: validateDateFormat(parsed.dateFormat) ?? DEFAULTS.dateFormat,
       keyboardMode:
         validateKeyboardMode(parsed.keyboardMode) ?? DEFAULTS.keyboardMode,
+      reposView: validateReposView(parsed.reposView) ?? DEFAULTS.reposView,
     };
   } catch {
     return DEFAULTS;
@@ -97,6 +107,10 @@ function validateKeyboardMode(input: unknown): KeyboardMode | null {
   return input === 'default' || input === 'vim' ? input : null;
 }
 
+function validateReposView(input: unknown): ReposViewMode | null {
+  return input === 'card' || input === 'table' ? input : null;
+}
+
 export const usePreferencesStore = create<PreferencesState>((set, get) => {
   const initial = loadInitial();
   return {
@@ -121,6 +135,10 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => {
       set({ keyboardMode });
       persistFromState(get);
     },
+    setReposView: (reposView) => {
+      set({ reposView });
+      persistFromState(get);
+    },
     reset: () => {
       set(DEFAULTS);
       persist(DEFAULTS);
@@ -136,5 +154,6 @@ function persistFromState(get: () => PreferencesState): void {
     codeFontSize: s.codeFontSize,
     dateFormat: s.dateFormat,
     keyboardMode: s.keyboardMode,
+    reposView: s.reposView,
   });
 }
