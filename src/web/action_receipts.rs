@@ -12,6 +12,8 @@
 //! Schema mirror: `db/migrations/202606010001_web_forge_core.sql` and the
 //! inline DDL in `db/state.rs::migrate`.
 
+#![allow(clippy::too_many_arguments)]
+
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -154,7 +156,8 @@ impl WebActionReceiptStore {
     /// Returns the receipt with its mint-time `id`; the JSONL stamp is
     /// best-effort and never blocks the SQL write.
     pub async fn record(&self, receipt: WebActionReceipt) -> Result<WebActionReceipt, sqlx::Error> {
-        let provider_calls_str = serde_json::Value::Array(receipt.provider_calls.clone()).to_string();
+        let provider_calls_str =
+            serde_json::Value::Array(receipt.provider_calls.clone()).to_string();
         let created_at = receipt.created_at.to_rfc3339();
 
         sqlx::query(
@@ -435,8 +438,7 @@ mod tests {
         let db = Db::open_memory().await.expect("open mem db");
         let tmpdir = tempfile::tempdir().expect("tmpdir");
         let path = tmpdir.path().join("nested/receipts.jsonl");
-        let store = WebActionReceiptStore::without_jsonl(db.pool())
-            .with_jsonl_path(path.clone());
+        let store = WebActionReceiptStore::without_jsonl(db.pool()).with_jsonl_path(path.clone());
         let receipt = sample_receipt("key-jsonl");
         let id = receipt.id.clone();
         store.record(receipt).await.expect("record");

@@ -777,11 +777,7 @@ pub trait GitHost: Send + Sync {
 
     /// Fetch raw log bytes for a CI job. Hosts cap log size; the adapter
     /// sets `HostJobLog::truncated` when bytes were trimmed.
-    async fn get_job_log(
-        &self,
-        _repo: &RepoRef,
-        _job_id: &str,
-    ) -> Result<HostJobLog, HostError> {
+    async fn get_job_log(&self, _repo: &RepoRef, _job_id: &str) -> Result<HostJobLog, HostError> {
         Err(HostError::NotImplemented)
     }
 
@@ -1164,9 +1160,9 @@ mod tests {
     fn host_repository_settings_patch_distinguishes_unset_and_clear() {
         // outer None = absent; Some(None) = clear; Some(Some(_)) = set.
         let patch = HostRepositorySettingsPatch {
-            description: Some(None),                // explicit clear
-            homepage: None,                         // absent
-            visibility: Some("internal"),           // set
+            description: Some(None),      // explicit clear
+            homepage: None,               // absent
+            visibility: Some("internal"), // set
             default_branch: None,
             allow_merge_commit: Some(false),
             allow_squash_merge: Some(true),
@@ -1291,7 +1287,7 @@ mod tests {
             truncated: true,
         };
         assert!(l.truncated);
-        assert!(l.bytes.len() > 0);
+        assert!(!l.bytes.is_empty());
     }
 
     #[test]
@@ -1307,7 +1303,10 @@ mod tests {
             bypass_actors: vec!["admin-group".into()],
         };
         assert_eq!(bp.required_approvals, 2);
-        assert!(bp.required_checks.contains(&"vibegate/merge-passport".into()));
+        assert!(
+            bp.required_checks
+                .contains(&"vibegate/merge-passport".into())
+        );
         assert!(!bp.allow_force_pushes);
     }
 

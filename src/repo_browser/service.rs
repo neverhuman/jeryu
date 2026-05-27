@@ -21,8 +21,7 @@ use crate::api::repo_browser::{
 };
 use crate::api::repository::RepositoryId;
 use crate::git_host::{
-    GitHost, GitLabClient, HostBlame, HostCommit, HostCompare, HostError, Page, PageResult,
-    RepoRef,
+    GitHost, GitLabClient, HostBlame, HostCommit, HostCompare, HostError, Page, PageResult, RepoRef,
 };
 use crate::repo_browser::markdown::{MarkdownContext, render_markdown};
 
@@ -135,7 +134,9 @@ impl RepoBrowserService {
             ref_name: ref_name.to_string(),
             sha: blob.sha,
             size_bytes: blob.size_bytes,
-            mime: blob.mime.unwrap_or_else(|| "application/octet-stream".into()),
+            mime: blob
+                .mime
+                .unwrap_or_else(|| "application/octet-stream".into()),
             encoding,
             text,
             base64,
@@ -194,9 +195,15 @@ impl RepoBrowserService {
             Some(p) => Some(normalize_path(p)?),
             None => None,
         };
-        GitHost::list_commits(self.gitlab.as_ref(), repo, ref_name, safe_path.as_deref(), page)
-            .await
-            .map_err(BrowserError::from_host)
+        GitHost::list_commits(
+            self.gitlab.as_ref(),
+            repo,
+            ref_name,
+            safe_path.as_deref(),
+            page,
+        )
+        .await
+        .map_err(BrowserError::from_host)
     }
 
     pub async fn blame(
@@ -222,7 +229,9 @@ impl RepoBrowserService {
         let blob = GitHost::get_blob(self.gitlab.as_ref(), repo, ref_name, &safe_path)
             .await
             .map_err(BrowserError::from_host)?;
-        let mime = blob.mime.unwrap_or_else(|| "application/octet-stream".into());
+        let mime = blob
+            .mime
+            .unwrap_or_else(|| "application/octet-stream".into());
         Ok((blob.bytes, mime, blob.is_binary))
     }
 }
@@ -243,9 +252,7 @@ fn render_markdown_safe(
 
 fn is_markdown_path(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
-    lower.ends_with(".md")
-        || lower.ends_with(".markdown")
-        || lower.ends_with(".mdown")
+    lower.ends_with(".md") || lower.ends_with(".markdown") || lower.ends_with(".mdown")
 }
 
 /// Reject path-traversal, leading `/`, NUL, backslash per §35.1.10. Returns

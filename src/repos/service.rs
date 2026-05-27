@@ -9,6 +9,11 @@
 //!     `Upstream` as well (the BFF never re-prompts the viewer for host
 //!     creds in Phase 2).
 
+
+#![allow(clippy::unnecessary_sort_by)]
+
+#![allow(clippy::stable_sort_primitive)]
+
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -16,14 +21,12 @@ use jeryu::api::repository::{
     CreateRepositoryPreview, CreateRepositoryRequest, RepositoryFacets, RepositoryHostKind,
     RepositoryListResponse, RepositorySummary, RepositoryVisibility,
 };
-use jeryu::git_host::{
-    CreateHostRepository, GitHost, GitLabClient, HostError, Page, RepoRef,
-};
+use jeryu::git_host::{CreateHostRepository, GitHost, GitLabClient, HostError, Page, RepoRef};
 
 use crate::web::auth::Viewer;
 use crate::web::error::ApiError;
 
-use super::models::{summary_from_host, RepoId};
+use super::models::{RepoId, summary_from_host};
 
 /// Filter / pagination input for `RepoService::list`.
 #[derive(Debug, Clone, Default)]
@@ -57,11 +60,12 @@ impl RepoService {
     /// re-fetches live from GitLab; sorting/filters are best-effort
     /// client-side (the host adapter's `list_repositories` accepts an owner
     /// scope but no full-text search).
-    pub async fn list(
-        &self,
-        query: RepoListQuery,
-    ) -> Result<RepositoryListResponse, ApiError> {
-        let per_page = if query.limit == 0 { 50 } else { query.limit.min(100) };
+    pub async fn list(&self, query: RepoListQuery) -> Result<RepositoryListResponse, ApiError> {
+        let per_page = if query.limit == 0 {
+            50
+        } else {
+            query.limit.min(100)
+        };
         let page = Page {
             per_page,
             cursor: query.cursor.clone(),

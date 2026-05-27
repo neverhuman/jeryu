@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use super::repository::{RepositoryId, RepositoryVisibility};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositorySettings {
     pub repo: RepositoryId,
@@ -27,8 +28,9 @@ pub struct RepositorySettings {
     pub retention: RetentionSettings,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct GeneralSettings {
     pub name: String,
@@ -42,8 +44,9 @@ pub struct GeneralSettings {
     pub archived: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct FeatureSettings {
     pub issues: bool,
@@ -58,8 +61,9 @@ pub struct FeatureSettings {
     pub pages: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergeSettings {
     pub allow_merge_commit: bool,
@@ -75,8 +79,9 @@ pub struct MergeSettings {
     pub require_jeryu_merge_passport: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct BranchProtectionRule {
     pub pattern: String,
@@ -89,8 +94,9 @@ pub struct BranchProtectionRule {
     pub bypass_actors: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct CiSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,8 +109,9 @@ pub struct CiSettings {
     pub vti_enabled: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct AgentSettings {
     pub autonomous_coding_enabled: bool,
@@ -117,8 +124,9 @@ pub struct AgentSettings {
     pub budget_daily_usd: Option<f64>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct AccessSettings {
     pub collaborators_count: u32,
@@ -127,8 +135,9 @@ pub struct AccessSettings {
     pub app_installations_count: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct SecuritySettings {
     pub secret_scanning: bool,
@@ -137,8 +146,9 @@ pub struct SecuritySettings {
     pub agent_sandbox_required: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct NotificationSettings {
     pub watch_default: String,
@@ -147,8 +157,9 @@ pub struct NotificationSettings {
     pub notify_on_release: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RetentionSettings {
     pub audit_days: u32,

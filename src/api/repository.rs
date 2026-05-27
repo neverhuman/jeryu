@@ -30,8 +30,9 @@ pub enum RepositoryHostKind {
 /// `id` (a UUID-shaped string persisted in `web_repositories.id`). The
 /// human-readable triple (`host`, `owner`, `name`) is preserved for display
 /// in the SPA so we can keep pretty URLs while the backend uses the stable id.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositoryId {
     /// Opaque stable identifier (UUID-shaped). Canonical in API paths.
@@ -64,8 +65,9 @@ pub enum RepositoryVisibility {
     Private,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositorySummary {
     pub id: RepositoryId,
@@ -102,8 +104,9 @@ pub struct RepositorySummary {
     pub available_actions: Vec<ActionRef>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositoryListResponse {
     pub generated_at: DateTime<Utc>,
@@ -112,8 +115,9 @@ pub struct RepositoryListResponse {
     pub facets: RepositoryFacets,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RepositoryFacets {
     pub hosts: Vec<String>,
@@ -122,8 +126,9 @@ pub struct RepositoryFacets {
     pub languages: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct CreateRepositoryRequest {
     pub host: String,
@@ -147,8 +152,9 @@ pub struct CreateRepositoryRequest {
     pub dry_run: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct CreateRepositoryPreview {
     pub normalized_name: String,

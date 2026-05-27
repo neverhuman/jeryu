@@ -40,7 +40,11 @@ pub async fn get_bootstrap(
     let mut perms_vec: Vec<String> = viewer.perms.iter().cloned().collect();
     perms_vec.sort(); // stable wire order for tests / diffs.
 
-    let recent_repositories = state.repo_service.recent(&viewer, 12).await.unwrap_or_default();
+    let recent_repositories = state
+        .repo_service
+        .recent(&viewer, 12)
+        .await
+        .unwrap_or_default();
 
     Ok(Json(WebBootstrap {
         generated_at: Utc::now(),

@@ -94,13 +94,13 @@ jobs:
         run: npm --workspace @jeryu/web run build
       - name: build-storybook
         run: npm --workspace @jeryu/web run build-storybook
-      - name: ux-qa (legacy marker workspace)
-        run: |
-          npm --workspace @jankurai/ux-qa run build
-          npm --workspace @jankurai/ux-qa run test
+      # NOTE: the @jankurai/ux-qa harness runs in the `e2e` job AFTER Playwright
+      # populates apps/web/playwright-report + target/jankurai/ux-qa/*.axe.json.
+      # Running it here would fail the playwright_report/axe_scans/ws_replay
+      # checks because those artifacts don't exist yet at the frontend stage.
       - name: main bundle size budget (<=350 KB gz)
         run: |
-          MAIN="$(ls apps/web/dist/assets/index-*.js | head -1)"
+          MAIN="$(find apps/web/dist/assets -name 'index-*.js' -print -quit)"
           if [ -z "$MAIN" ]; then
             echo "main bundle not found under apps/web/dist/assets/" >&2
             exit 1

@@ -28,7 +28,15 @@ fn jeryu_bin() -> PathBuf {
         // The test binary may be invoked before `cargo build --features web`
         // has run jeryu's main bin. Build once per test process.
         let status = Command::new("cargo")
-            .args(["build", "-p", "jeryu", "--bin", "jeryu", "--features", "web"])
+            .args([
+                "build",
+                "-p",
+                "jeryu",
+                "--bin",
+                "jeryu",
+                "--features",
+                "web",
+            ])
             .status()
             .expect("cargo build --bin jeryu --features web");
         assert!(status.success(), "failed to build jeryu binary");
@@ -97,9 +105,7 @@ impl ServeHandle {
                 return h;
             }
             if Instant::now() > deadline {
-                panic!(
-                    "jeryu web serve did not bind within {STARTUP_TIMEOUT:?} on port {port}"
-                );
+                panic!("jeryu web serve did not bind within {STARTUP_TIMEOUT:?} on port {port}");
             }
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
@@ -256,8 +262,8 @@ async fn logout_revokes_session() {
     assert_eq!(resp.status(), StatusCode::OK);
     let session = extract_cookie_value(resp.headers(), "__Host-jeryu-session")
         .expect("session cookie present");
-    let csrf = extract_cookie_value(resp.headers(), "__Host-jeryu-csrf")
-        .expect("csrf cookie present");
+    let csrf =
+        extract_cookie_value(resp.headers(), "__Host-jeryu-csrf").expect("csrf cookie present");
 
     // Logout: needs the session cookie AND a matching X-CSRF-Token header.
     let resp = client

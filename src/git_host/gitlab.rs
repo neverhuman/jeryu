@@ -377,11 +377,7 @@ impl GitHost for GitLabClient {
         <Self as GitlabBrowse>::list_jobs(self, repo, pipeline_id).await
     }
 
-    async fn get_job_log(
-        &self,
-        repo: &RepoRef,
-        job_id: &str,
-    ) -> Result<HostJobLog, HostError> {
+    async fn get_job_log(&self, repo: &RepoRef, job_id: &str) -> Result<HostJobLog, HostError> {
         <Self as GitlabBrowse>::get_job_log(self, repo, job_id).await
     }
 }

@@ -8,7 +8,7 @@ use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 
 use jeryu::api::repo_browser::RenderedMarkdown;
-use jeryu::repo_browser::markdown::{render_markdown, MarkdownContext, MarkdownError};
+use jeryu::repo_browser::markdown::{MarkdownContext, MarkdownError, render_markdown};
 
 use crate::web::auth::Viewer;
 use crate::web::error::ApiError;

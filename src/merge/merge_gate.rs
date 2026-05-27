@@ -8,6 +8,8 @@
 //!   - Phase 3 stubs (gates 5, 8, 9, 10, 12) explicitly say "ok" so the
 //!     Passport doesn't trip on subsystems we haven't wired yet.
 
+#![allow(clippy::collapsible_if)]
+
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -143,9 +145,7 @@ impl MergePassportService {
                 .items
                 .iter()
                 .find(|p| p.sha == live.head_sha)
-                .map(|p| {
-                    matches!(p.status.as_str(), "success" | "skipped" | "manual")
-                })
+                .map(|p| matches!(p.status.as_str(), "success" | "skipped" | "manual"))
                 .unwrap_or(true); // no pipeline yet → don't trip in Phase 3
             if !latest_ok {
                 blockers.push(MergePassportBlocker {

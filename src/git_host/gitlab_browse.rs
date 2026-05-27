@@ -70,9 +70,8 @@ impl GitLabClient {
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
         let body = resp.text().await.map_err(map_reqwest)?;
-        let items: Vec<T> = serde_json::from_str(&body).map_err(|e| {
-            HostError::Permanent(format!("deserialize {path}: {e}; body: {body}"))
-        })?;
+        let items: Vec<T> = serde_json::from_str(&body)
+            .map_err(|e| HostError::Permanent(format!("deserialize {path}: {e}; body: {body}")))?;
         Ok((items, next_cursor))
     }
 
@@ -148,7 +147,10 @@ impl GitlabBrowse for GitLabClient {
         let (projects, next_cursor) = self
             .get_page_with_cursor::<GitLabProject>(&path, per_page, page.cursor.as_deref())
             .await?;
-        let items = projects.into_iter().map(project_to_host_repository).collect();
+        let items = projects
+            .into_iter()
+            .map(project_to_host_repository)
+            .collect();
         Ok(PageResult {
             items,
             next_cursor,
@@ -389,13 +391,14 @@ impl GitlabBrowse for GitLabClient {
                 "/projects/{enc}/repository/compare?from={base_enc}&to={head_enc}"
             ))
             .await?;
-        let head_sha = cmp.commit.as_ref().map(|c| c.id.clone()).unwrap_or_default();
+        let head_sha = cmp
+            .commit
+            .as_ref()
+            .map(|c| c.id.clone())
+            .unwrap_or_default();
         let ahead_by = cmp.commits.len() as u32;
-        let files: Vec<HostChangedFile> = cmp
-            .diffs
-            .into_iter()
-            .map(changed_file_from_diff)
-            .collect();
+        let files: Vec<HostChangedFile> =
+            cmp.diffs.into_iter().map(changed_file_from_diff).collect();
         Ok(HostCompare {
             base_sha: base.to_string(),
             head_sha,
@@ -414,10 +417,10 @@ impl GitlabBrowse for GitLabClient {
     ) -> Result<PageResult<HostCommit>, HostError> {
         let enc = encode_project_path(repo);
         let mut query = format!("ref_name={}", urlencoding::encode(ref_name));
-        if let Some(p) = path {
-            if !p.is_empty() {
-                query.push_str(&format!("&path={}", urlencoding::encode(p)));
-            }
+        if let Some(p) = path
+            && !p.is_empty()
+        {
+            query.push_str(&format!("&path={}", urlencoding::encode(p)));
         }
         let per_page = clamp_per_page(page.per_page);
         let (commits, next_cursor) = self
@@ -454,10 +457,10 @@ impl GitlabBrowse for GitLabClient {
     ) -> Result<PageResult<HostPipeline>, HostError> {
         let enc = encode_project_path(repo);
         let mut path = format!("/projects/{enc}/pipelines");
-        if let Some(r) = ref_name {
-            if !r.is_empty() {
-                path.push_str(&format!("?ref={}", urlencoding::encode(r)));
-            }
+        if let Some(r) = ref_name
+            && !r.is_empty()
+        {
+            path.push_str(&format!("?ref={}", urlencoding::encode(r)));
         }
         let per_page = clamp_per_page(page.per_page);
         let (pipelines, next_cursor) = self
@@ -516,11 +519,7 @@ impl GitlabBrowse for GitLabClient {
             .collect())
     }
 
-    async fn get_job_log(
-        &self,
-        repo: &RepoRef,
-        job_id: &str,
-    ) -> Result<HostJobLog, HostError> {
+    async fn get_job_log(&self, repo: &RepoRef, job_id: &str) -> Result<HostJobLog, HostError> {
         let enc = encode_project_path(repo);
         let url = self
             .inner
@@ -617,17 +616,10 @@ pub(super) trait GitlabBrowse: Send + Sync {
         page: Page,
     ) -> Result<PageResult<HostPipeline>, HostError>;
 
-    async fn list_jobs(
-        &self,
-        repo: &RepoRef,
-        pipeline_id: &str,
-    ) -> Result<Vec<HostJob>, HostError>;
+    async fn list_jobs(&self, repo: &RepoRef, pipeline_id: &str)
+    -> Result<Vec<HostJob>, HostError>;
 
-    async fn get_job_log(
-        &self,
-        repo: &RepoRef,
-        job_id: &str,
-    ) -> Result<HostJobLog, HostError>;
+    async fn get_job_log(&self, repo: &RepoRef, job_id: &str) -> Result<HostJobLog, HostError>;
 }
 
 // ── Pure conversion helpers ──────────────────────────────────────────
@@ -682,7 +674,11 @@ fn changed_file_from_diff(d: GitLabCompareDiff) -> HostChangedFile {
         status: status.to_string(),
         additions,
         deletions,
-        patch: if d.diff.is_empty() { None } else { Some(d.diff) },
+        patch: if d.diff.is_empty() {
+            None
+        } else {
+            Some(d.diff)
+        },
     }
 }
 

@@ -58,9 +58,7 @@ pub async fn csrf_layer(
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
     let cookie_token = extract_cookie_value(cookies, CSRF_COOKIE_NAME);
-    let header_token = headers
-        .get(CSRF_HEADER_NAME)
-        .and_then(|h| h.to_str().ok());
+    let header_token = headers.get(CSRF_HEADER_NAME).and_then(|h| h.to_str().ok());
 
     match (cookie_token, header_token) {
         (Some(c), Some(h)) if !c.is_empty() && c == h => Ok(next.run(req).await),

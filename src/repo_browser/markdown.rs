@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use ammonia::{Builder, UrlRelative};
 use chrono::Utc;
-use pulldown_cmark::{html, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html};
 
 use crate::api::repo_browser::{MarkdownHeading, MarkdownLink, RenderedMarkdown};
 
@@ -88,14 +88,28 @@ pub fn render_markdown(
 
     for event in parser {
         match event {
-            Event::Start(Tag::Heading { level, id, classes, attrs }) => {
+            Event::Start(Tag::Heading {
+                level,
+                id,
+                classes,
+                attrs,
+            }) => {
                 current_heading = Some((heading_depth(level), String::new()));
-                rewritten_events.push(Event::Start(Tag::Heading { level, id, classes, attrs }));
+                rewritten_events.push(Event::Start(Tag::Heading {
+                    level,
+                    id,
+                    classes,
+                    attrs,
+                }));
             }
             Event::End(TagEnd::Heading(level)) => {
                 if let Some((depth, text)) = current_heading.take() {
                     let slug = unique_slug(&text, &mut id_counts);
-                    headings.push(MarkdownHeading { depth, id: slug, text });
+                    headings.push(MarkdownHeading {
+                        depth,
+                        id: slug,
+                        text,
+                    });
                 }
                 rewritten_events.push(Event::End(TagEnd::Heading(level)));
             }
@@ -111,7 +125,12 @@ pub fn render_markdown(
                 }
                 rewritten_events.push(event.clone());
             }
-            Event::Start(Tag::Link { link_type, dest_url, title, id }) => {
+            Event::Start(Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => {
                 let raw = dest_url.to_string();
                 let external = is_external(&raw);
                 // Dangerous schemes never get treated as relative — pass them
@@ -135,7 +154,12 @@ pub fn render_markdown(
                     id,
                 }));
             }
-            Event::Start(Tag::Image { link_type, dest_url, title, id }) => {
+            Event::Start(Tag::Image {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => {
                 let raw = dest_url.to_string();
                 let external = is_external(&raw);
                 let dangerous = is_dangerous_url(&raw);
@@ -286,17 +310,17 @@ fn inject_heading_anchors(html: &str, headings: &[MarkdownHeading]) -> String {
             && bytes[i + 3] == b'>'
         {
             let level = bytes[i + 2] - b'0';
-            if let Some(h) = head_iter.next() {
-                if h.depth == level {
-                    out.push('<');
-                    out.push(bytes[i + 1] as char);
-                    out.push(bytes[i + 2] as char);
-                    out.push_str(" id=\"");
-                    push_attr_escaped(&mut out, &h.id);
-                    out.push_str("\">");
-                    i += 4;
-                    continue;
-                }
+            if let Some(h) = head_iter.next()
+                && h.depth == level
+            {
+                out.push('<');
+                out.push(bytes[i + 1] as char);
+                out.push(bytes[i + 2] as char);
+                out.push_str(" id=\"");
+                push_attr_escaped(&mut out, &h.id);
+                out.push_str("\">");
+                i += 4;
+                continue;
             }
         }
         out.push(bytes[i] as char);
@@ -462,7 +486,10 @@ mod tests {
     fn renderer_emits_version_constants() {
         let out = render_markdown("# hi", &ctx()).unwrap();
         assert_eq!(out.renderer_version, "jeryu-md-renderer.v1");
-        assert_eq!(out.sanitizer_version.as_deref(), Some("jeryu-md-sanitizer.v1"));
+        assert_eq!(
+            out.sanitizer_version.as_deref(),
+            Some("jeryu-md-sanitizer.v1")
+        );
     }
 
     #[test]

@@ -7,9 +7,7 @@
 //! types. Per WEB_WORK_CLAUDE.md §35.1.15 this module is the canonical entry
 //! point for code under `web_events`.
 
-pub use crate::api::websocket::{
-    ClientWsMessage, ServerWsMessage, SubscriptionSpec, WebEvent,
-};
+pub use crate::api::websocket::{ClientWsMessage, ServerWsMessage, SubscriptionSpec, WebEvent};
 
 /// Per-event priority class. Used by `WebEventBus` to decide what to drop
 /// when the broadcast channel is saturated. `High` events MUST never be

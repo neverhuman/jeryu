@@ -19,6 +19,8 @@ pub mod markdown;
 pub mod render_cache;
 pub mod service;
 
-pub use markdown::{render_markdown, MarkdownContext, MarkdownError, RENDERER_VERSION, SANITIZER_VERSION};
+pub use markdown::{
+    MarkdownContext, MarkdownError, RENDERER_VERSION, SANITIZER_VERSION, render_markdown,
+};
 pub use render_cache::{CacheKey, MarkdownCache};
-pub use service::{normalize_path, BrowserError, RepoBrowserService};
+pub use service::{BrowserError, RepoBrowserService, normalize_path};

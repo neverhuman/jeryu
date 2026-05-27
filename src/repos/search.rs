@@ -13,6 +13,8 @@
 //! for kinds where no data is cached"). When the cache lands in W-F-05+
 //! this module is the single seam to swap in cache reads.
 
+#![allow(clippy::manual_clamp)]
+
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -63,9 +65,7 @@ impl SearchKind {
         if s.trim().is_empty() {
             return Ok(Self::all());
         }
-        s.split(',')
-            .map(|t| t.parse::<SearchKind>())
-            .collect()
+        s.split(',').map(|t| t.parse::<SearchKind>()).collect()
     }
 
     pub fn all() -> Vec<Self> {
@@ -83,8 +83,7 @@ impl SearchKind {
 /// Wire shape returned by `/api/v1/search`. Each field is a separate
 /// vector so the FE can render per-section panels without scanning a
 /// generic union list.
-#[derive(Debug, Clone, Default, Serialize)]
-#[derive(utoipa::ToSchema)]
+#[derive(Debug, Clone, Default, Serialize, utoipa::ToSchema)]
 pub struct SearchResults {
     pub query: String,
     pub repos: Vec<RepoSearchHit>,
@@ -96,8 +95,7 @@ pub struct SearchResults {
     pub total: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[derive(utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct RepoSearchHit {
     pub id: RepositoryId,
     pub full_name: String,
@@ -106,8 +104,7 @@ pub struct RepoSearchHit {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[derive(utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct FileSearchHit {
     pub repo_id: String,
     pub path: String,
@@ -115,8 +112,7 @@ pub struct FileSearchHit {
     pub score: f32,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[derive(utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct CommitSearchHit {
     pub repo_id: String,
     pub sha: String,
@@ -124,8 +120,7 @@ pub struct CommitSearchHit {
     pub author: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[derive(utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct MrSearchHit {
     pub repo_id: String,
     pub iid: String,
@@ -133,8 +128,7 @@ pub struct MrSearchHit {
     pub state: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[derive(utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct IssueSearchHit {
     pub repo_id: String,
     pub iid: String,
@@ -142,8 +136,7 @@ pub struct IssueSearchHit {
     pub state: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[derive(utoipa::ToSchema)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct UserSearchHit {
     pub login: String,
     #[serde(skip_serializing_if = "Option::is_none")]

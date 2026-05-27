@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use super::repository::RepositorySummary;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct WebBootstrap {
     pub generated_at: DateTime<Utc>,
@@ -29,8 +30,9 @@ pub struct WebBootstrap {
     pub feature_flags: WebFeatureFlags,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct Viewer {
     pub id: String,
@@ -43,8 +45,9 @@ pub struct Viewer {
     pub global_permissions: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct WebFeatureFlags {
     pub repo_create: bool,

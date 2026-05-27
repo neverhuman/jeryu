@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use super::repository::RepositoryId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct IssueSummary {
     pub repo: RepositoryId,
@@ -41,7 +42,10 @@ mod tests {
 
     #[test]
     fn issue_state_serializes_snake_case() {
-        assert_eq!(serde_json::to_string(&IssueState::Open).unwrap(), "\"open\"");
+        assert_eq!(
+            serde_json::to_string(&IssueState::Open).unwrap(),
+            "\"open\""
+        );
         assert_eq!(
             serde_json::to_string(&IssueState::Closed).unwrap(),
             "\"closed\""

@@ -75,7 +75,10 @@ fn role_to_perm_expectations_use_canonical_keys() {
     // Asserting every value referenced by the mapper appears in the
     // canonical key list catches typos at compile-time-of-the-test.
     let expectations: &[(&str, &[&str])] = &[
-        ("guest", &["repo.read", "code.read", "mr.read", "issue.read"]),
+        (
+            "guest",
+            &["repo.read", "code.read", "mr.read", "issue.read"],
+        ),
         (
             "reporter",
             &[

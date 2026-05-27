@@ -136,9 +136,15 @@ impl SessionStore {
         let actor_login: String = row
             .try_get("actor_login")
             .context("read session.actor_login")?;
-        let perms_json: String = row.try_get("perms_json").context("read session.perms_json")?;
-        let created_at_s: String = row.try_get("created_at").context("read session.created_at")?;
-        let expires_at_s: String = row.try_get("expires_at").context("read session.expires_at")?;
+        let perms_json: String = row
+            .try_get("perms_json")
+            .context("read session.perms_json")?;
+        let created_at_s: String = row
+            .try_get("created_at")
+            .context("read session.created_at")?;
+        let expires_at_s: String = row
+            .try_get("expires_at")
+            .context("read session.expires_at")?;
         let last_seen_at_s: String = row
             .try_get("last_seen_at")
             .context("read session.last_seen_at")?;

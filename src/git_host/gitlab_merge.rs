@@ -138,9 +138,7 @@ impl GitLabClient {
         let status = resp.status();
         if status == StatusCode::CONFLICT {
             let body = resp.text().await.unwrap_or_default();
-            return Err(HostError::Conflict(format!(
-                "gitlab merge 409: {body}"
-            )));
+            return Err(HostError::Conflict(format!("gitlab merge 409: {body}")));
         }
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
@@ -189,6 +187,9 @@ impl GitLabClient {
     }
 
     /// `GET /projects/:id/pipelines` — used by the Merge Passport gate #7
+    /// (kept on the GitlabMerge surface for future Passport gate refinement;
+    /// the canonical GitHost::list_pipelines dispatches via GitlabBrowse).
+    #[allow(dead_code)]
     /// (Required CI green) and the CI cockpit.
     pub(super) async fn gl_list_pipelines(
         &self,
@@ -271,15 +272,15 @@ impl GitLabClient {
 
 /// Convert a `GitLabDiscussion` into the canonical `HostReviewThread` shape.
 pub(super) fn discussion_to_thread(d: GitLabDiscussion) -> HostReviewThread {
-    let resolved = d
-        .notes
-        .iter()
-        .filter(|n| n.resolvable)
-        .all(|n| n.resolved);
+    let resolved = d.notes.iter().filter(|n| n.resolvable).all(|n| n.resolved);
     let (path, line) = d
         .notes
         .iter()
-        .find_map(|n| n.position.as_ref().map(|p| (p.new_path.clone(), p.new_line)))
+        .find_map(|n| {
+            n.position
+                .as_ref()
+                .map(|p| (p.new_path.clone(), p.new_line))
+        })
         .unwrap_or((None, None));
     let comments: Vec<HostReviewComment> = d
         .notes
@@ -326,6 +327,10 @@ pub(super) trait GitlabMerge: Send + Sync {
 
     async fn merge_mr(&self, input: HostMergeInput<'_>) -> Result<HostMergeResult, HostError>;
 
+    /// Sealed-trait pipeline lookup retained for future Passport gate
+    /// refinement; the canonical GitHost::list_pipelines dispatches via
+    /// GitlabBrowse, so this trait method is currently unused.
+    #[allow(dead_code)]
     async fn list_pipelines(
         &self,
         repo: &RepoRef,
@@ -415,10 +420,10 @@ impl GitlabMerge for GitLabClient {
                         dry_run: false,
                     })
                     .await?;
-                if let Some(body) = input.body {
-                    if !body.trim().is_empty() {
-                        self.post_mr_comment(input.repo, input.mr_iid, body).await?;
-                    }
+                if let Some(body) = input.body
+                    && !body.trim().is_empty()
+                {
+                    self.post_mr_comment(input.repo, input.mr_iid, body).await?;
                 }
                 Ok(HostReview {
                     id,
@@ -431,9 +436,7 @@ impl GitlabMerge for GitLabClient {
                     .body
                     .filter(|b| !b.trim().is_empty())
                     .unwrap_or("Changes requested.");
-                let id = self
-                    .post_mr_comment(input.repo, input.mr_iid, body)
-                    .await?;
+                let id = self.post_mr_comment(input.repo, input.mr_iid, body).await?;
                 // Try to unapprove (no-op if the viewer hadn't approved
                 // earlier — surface as transient and ignore).
                 let _ = self.gl_unapprove_mr(input.repo, input.mr_iid).await;
@@ -446,9 +449,7 @@ impl GitlabMerge for GitLabClient {
             _ => {
                 // "comment" and any unexpected event string both post a plain note.
                 let body = input.body.unwrap_or("");
-                let id = self
-                    .post_mr_comment(input.repo, input.mr_iid, body)
-                    .await?;
+                let id = self.post_mr_comment(input.repo, input.mr_iid, body).await?;
                 Ok(HostReview {
                     id,
                     state: "COMMENTED".into(),
@@ -474,12 +475,12 @@ impl GitlabMerge for GitLabClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::git_host::HostReviewComment;
     use super::super::gitlab_types::{
         GitLabDiscussion, GitLabDiscussionNote, GitLabDiscussionNoteAuthor,
         GitLabDiscussionNotePosition,
     };
+    use super::*;
+    use crate::git_host::HostReviewComment;
 
     fn note(
         id: i64,

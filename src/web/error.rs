@@ -178,10 +178,7 @@ mod tests {
         );
         assert_eq!(ApiError::SettingsHashStale.code(), "settings_hash_stale");
         assert_eq!(ApiError::IdempotencyReplay.code(), "idempotency_replay");
-        assert_eq!(
-            ApiError::IdempotencyConflict.code(),
-            "idempotency_conflict"
-        );
+        assert_eq!(ApiError::IdempotencyConflict.code(), "idempotency_conflict");
         assert_eq!(ApiError::RateLimited.code(), "rate_limited");
         assert_eq!(
             ApiError::Upstream("x".into()).code(),

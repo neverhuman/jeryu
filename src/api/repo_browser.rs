@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use super::repository::RepositoryId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RefSelectorItem {
     pub name: String,
@@ -29,8 +30,9 @@ pub enum RefKind {
     Commit,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct TreeEntry {
     pub path: String,
@@ -58,8 +60,9 @@ pub enum TreeEntryKind {
     Submodule,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct BlobResponse {
     pub repo: RepositoryId,
@@ -87,8 +90,9 @@ pub enum BlobEncoding {
     Base64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct RenderedMarkdown {
     pub html: String,
@@ -104,8 +108,9 @@ pub struct RenderedMarkdown {
     pub rendered_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct MarkdownHeading {
     pub depth: u8,
@@ -113,8 +118,9 @@ pub struct MarkdownHeading {
     pub text: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct MarkdownLink {
     pub href: String,

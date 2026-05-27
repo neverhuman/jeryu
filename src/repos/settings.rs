@@ -6,6 +6,8 @@
 //!   - `read` is a pass-through over `GitHost::get_repository`; full settings
 //!     row materialization lands with W-B-* when local cache exists.
 
+#![allow(clippy::collapsible_if)]
+
 use std::sync::Arc;
 
 use jeryu::api::repository::{RepositoryId, RepositoryVisibility};
@@ -13,9 +15,7 @@ use jeryu::api::settings::{
     AccessSettings, AgentSettings, CiSettings, FeatureSettings, GeneralSettings, MergeSettings,
     NotificationSettings, RepositorySettings, RetentionSettings, SecuritySettings,
 };
-use jeryu::git_host::{
-    GitHost, GitLabClient, HostRepositorySettingsPatch, RepoRef,
-};
+use jeryu::git_host::{GitHost, GitLabClient, HostRepositorySettingsPatch, RepoRef};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -28,8 +28,9 @@ use super::service::host_to_api_error;
 /// appear in the JSON body are updated; absent fields are left unchanged.
 /// Mirrors the host adapter's `HostRepositorySettingsPatch` for the subset
 /// of fields the BFF currently supports.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct SettingsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -48,8 +49,9 @@ pub struct SettingsPatch {
 /// initial cut at blast-radius messaging. Phase 2 returns a stub blast
 /// radius; the full implementation lands with W-B-* (counts branches/MRs
 /// affected by visibility changes, default-branch swap, etc.).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct SettingsDiffPreview {
     pub repo: RepositoryId,
@@ -60,8 +62,9 @@ pub struct SettingsDiffPreview {
     pub reversible: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct SettingsFieldChange {
     pub field: String,
@@ -364,7 +367,10 @@ mod tests {
 
     #[test]
     fn visibility_to_string_round_trips() {
-        assert_eq!(visibility_to_string(&RepositoryVisibility::Public), "public");
+        assert_eq!(
+            visibility_to_string(&RepositoryVisibility::Public),
+            "public"
+        );
         assert_eq!(
             visibility_to_string(&RepositoryVisibility::Internal),
             "internal"
@@ -374,5 +380,4 @@ mod tests {
             "private"
         );
     }
-
 }

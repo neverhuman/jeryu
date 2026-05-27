@@ -18,6 +18,8 @@
 //! per `crate::web::permissions::perm_for_scope`. Authenticated viewers can
 //! always read their own feed; per-scope filtering happens server-side here.
 
+#![allow(clippy::collapsible_if)]
+
 use axum::{
     Extension, Json,
     extract::{Query, State},
@@ -91,8 +93,7 @@ pub async fn list_activity(
             events.retain(|e| {
                 e.scope == scope_filter
                     || (scope_filter.ends_with('.') && e.scope.starts_with(scope_filter))
-                    || e.scope
-                        .starts_with(&format!("{scope_filter}."))
+                    || e.scope.starts_with(&format!("{scope_filter}."))
             });
         }
     }

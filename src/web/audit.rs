@@ -10,6 +10,8 @@
 //! Schema: see `db/state.rs::migrate` (inline DDL) and
 //! `db/migrations/202606010001_web_forge_core.sql` (canonical mirror).
 
+#![allow(clippy::too_many_arguments)]
+
 use chrono::Utc;
 use serde_json::Value;
 use sqlx::AnyPool;

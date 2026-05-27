@@ -26,7 +26,7 @@ use axum::{
 use super::auth::auth_layer;
 use super::csrf::csrf_layer;
 use super::rest::{
-    activity, actions, agents, auth as auth_rest, bootstrap::get_bootstrap, ci, issues, markdown,
+    actions, activity, agents, auth as auth_rest, bootstrap::get_bootstrap, ci, issues, markdown,
     merge_requests, repo_browser, repos, reviews, search, settings,
 };
 use super::state::WebState;
@@ -62,22 +62,10 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
             post(settings::preview_settings_patch),
         )
         // ── W-B-09 + W-B-10: repo browser ──
-        .route(
-            "/api/v1/repos/{repo_id}/refs",
-            get(repo_browser::list_refs),
-        )
-        .route(
-            "/api/v1/repos/{repo_id}/tree",
-            get(repo_browser::get_tree),
-        )
-        .route(
-            "/api/v1/repos/{repo_id}/blob",
-            get(repo_browser::get_blob),
-        )
-        .route(
-            "/api/v1/repos/{repo_id}/raw",
-            get(repo_browser::get_raw),
-        )
+        .route("/api/v1/repos/{repo_id}/refs", get(repo_browser::list_refs))
+        .route("/api/v1/repos/{repo_id}/tree", get(repo_browser::get_tree))
+        .route("/api/v1/repos/{repo_id}/blob", get(repo_browser::get_blob))
+        .route("/api/v1/repos/{repo_id}/raw", get(repo_browser::get_raw))
         .route(
             "/api/v1/repos/{repo_id}/readme",
             get(repo_browser::get_readme),
@@ -166,10 +154,7 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
             post(reviews::submit_review),
         )
         // ── W-B-14: CI / pipelines / jobs / checks ──
-        .route(
-            "/api/v1/repos/{repo_id}/pipelines",
-            get(ci::list_pipelines),
-        )
+        .route("/api/v1/repos/{repo_id}/pipelines", get(ci::list_pipelines))
         .route(
             "/api/v1/repos/{repo_id}/pipelines/{pipeline_id}",
             get(ci::get_pipeline),
@@ -190,19 +175,10 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
             "/api/v1/repos/{repo_id}/jobs/{job_id}/cancel",
             post(ci::cancel_job),
         )
-        .route(
-            "/api/v1/repos/{repo_id}/checks",
-            get(ci::list_checks),
-        )
+        .route("/api/v1/repos/{repo_id}/checks", get(ci::list_checks))
         // ── W-B-15: generic action preview/execute ──
-        .route(
-            "/api/v1/actions/preview",
-            post(actions::preview_action),
-        )
-        .route(
-            "/api/v1/actions/execute",
-            post(actions::execute_action),
-        )
+        .route("/api/v1/actions/preview", post(actions::preview_action))
+        .route("/api/v1/actions/execute", post(actions::execute_action))
         // ── W-B-16: global search ──
         .route("/api/v1/search", get(search::search))
         // ── W-B-17: activity feed ──
@@ -247,7 +223,10 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
     // real `404` instead of being swallowed by the SPA fallback into a
     // 200-with-HTML response (which would otherwise mis-train browsers
     // to treat broken JS chunks as HTML).
-    let merged = legacy.merge(api).merge(auth_open).merge(spa_router(spa_dir));
+    let merged = legacy
+        .merge(api)
+        .merge(auth_open)
+        .merge(spa_router(spa_dir));
 
     instrument(merged)
 }

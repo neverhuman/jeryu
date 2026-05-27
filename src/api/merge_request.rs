@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use super::repository::RepositoryId;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergeRequestSummary {
     pub repo: RepositoryId,
@@ -56,8 +57,9 @@ pub enum MergeRequestState {
     Merged,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct Mergeability {
     #[ts(type = "string")]
@@ -72,8 +74,9 @@ pub struct Mergeability {
     pub required_gate: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct ReviewPosture {
     pub required_approvals: u32,
@@ -84,8 +87,9 @@ pub struct ReviewPosture {
     pub user_review_state: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct CheckPosture {
     pub total: u32,
@@ -95,8 +99,9 @@ pub struct CheckPosture {
     pub skipped: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct AgentPosture {
     pub active_sessions: u32,
@@ -109,8 +114,9 @@ pub struct AgentPosture {
 ///
 /// Carries the same posture summary fields plus the Merge Passport verdict
 /// (per §35.2.4) so the UI's `MergeGatePanel` can render gate-by-gate detail.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergeRequestDetail {
     pub summary: MergeRequestSummary,
@@ -124,8 +130,9 @@ pub struct MergeRequestDetail {
 }
 
 /// Canonical Merge Passport verdict (FINAL spec §6.7 + §35.2.4 12-gate list).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergePassport {
     pub status: MergePassportStatus,
@@ -146,8 +153,9 @@ pub enum MergePassportStatus {
 /// One blocker entry in the Merge Passport. `code` aligns with the §35.2.4
 /// canonical gate list (e.g. `passport_blocked_approvals`,
 /// `passport_blocked_policy_sha`) so the UI can target explanations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
 #[ts(export, export_to = "../../contracts/generated/")]
 pub struct MergePassportBlocker {
     pub code: String,

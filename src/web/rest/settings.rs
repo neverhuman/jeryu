@@ -64,7 +64,10 @@ pub async fn preview_settings_patch(
     Json(patch): Json<SettingsPatch>,
 ) -> Result<Json<SettingsDiffPreview>, ApiError> {
     require(&viewer, perms::SETTINGS_WRITE)?;
-    let preview = state.settings_service.preview_patch(&repo_id, &patch).await?;
+    let preview = state
+        .settings_service
+        .preview_patch(&repo_id, &patch)
+        .await?;
     Ok(Json(preview))
 }
 

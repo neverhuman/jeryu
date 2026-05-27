@@ -289,7 +289,13 @@ pub async fn approve_merge_request(
         .ok_or_else(|| ApiError::BadRequest("Idempotency-Key header is required".into()))?;
     let result = state
         .merge_service
-        .approve_exact_sha(&repo_id, &iid, &req.expected_head_sha, &viewer.login, Some(&key))
+        .approve_exact_sha(
+            &repo_id,
+            &iid,
+            &req.expected_head_sha,
+            &viewer.login,
+            Some(&key),
+        )
         .await?;
     Ok(Json(ApproveMrResponse {
         mr_iid: result.mr_iid,
@@ -410,7 +416,10 @@ pub async fn close_merge_request(
     Path((repo_id, iid)): Path<(String, String)>,
 ) -> Result<Json<EmptyOk>, ApiError> {
     require(&viewer, perms::MR_WRITE)?;
-    state.merge_service.close_mr(&repo_id, &iid, &viewer.login).await?;
+    state
+        .merge_service
+        .close_mr(&repo_id, &iid, &viewer.login)
+        .await?;
     Ok(Json(EmptyOk { ok: true }))
 }
 
@@ -435,7 +444,10 @@ pub async fn reopen_merge_request(
     Path((repo_id, iid)): Path<(String, String)>,
 ) -> Result<Json<EmptyOk>, ApiError> {
     require(&viewer, perms::MR_WRITE)?;
-    state.merge_service.reopen_mr(&repo_id, &iid, &viewer.login).await?;
+    state
+        .merge_service
+        .reopen_mr(&repo_id, &iid, &viewer.login)
+        .await?;
     Ok(Json(EmptyOk { ok: true }))
 }
 
@@ -460,7 +472,10 @@ pub async fn rebase_merge_request(
     Path((repo_id, iid)): Path<(String, String)>,
 ) -> Result<Json<EmptyOk>, ApiError> {
     require(&viewer, perms::MR_WRITE)?;
-    state.merge_service.rebase_mr(&repo_id, &iid, &viewer.login).await?;
+    state
+        .merge_service
+        .rebase_mr(&repo_id, &iid, &viewer.login)
+        .await?;
     Ok(Json(EmptyOk { ok: true }))
 }
 

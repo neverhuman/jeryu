@@ -63,12 +63,7 @@ pub(crate) async fn run(cmd: WebCommand) -> Result<()> {
     }
 }
 
-async fn serve(
-    bind: &str,
-    open: bool,
-    dev_assets: Option<&str>,
-    spa_dir: &str,
-) -> Result<()> {
+async fn serve(bind: &str, open: bool, dev_assets: Option<&str>, spa_dir: &str) -> Result<()> {
     use jeryu::docker::DockerCtl;
     use jeryu::engine::{self, EngineState};
     use jeryu::gitlab_client::GitlabClient;

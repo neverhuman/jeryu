@@ -227,7 +227,13 @@ pub async fn get_blob(
     let repo_id_dto = jeryu::api::repository::RepositoryId::from(&parsed);
     let response = state
         .browser_service
-        .blob(&repo_id_dto, &repo, &q.ref_name, &q.path, q.render.as_deref())
+        .blob(
+            &repo_id_dto,
+            &repo,
+            &q.ref_name,
+            &q.path,
+            q.render.as_deref(),
+        )
         .await
         .map_err(map_browser_error)?;
     Ok(Json(response))
@@ -275,12 +281,7 @@ pub async fn get_raw(
         }),
     );
     if is_binary {
-        let filename = q
-            .path
-            .rsplit('/')
-            .next()
-            .unwrap_or("download")
-            .to_string();
+        let filename = q.path.rsplit('/').next().unwrap_or("download").to_string();
         if let Ok(disp) = format!("attachment; filename=\"{filename}\"").parse() {
             headers.insert(header::CONTENT_DISPOSITION, disp);
         }

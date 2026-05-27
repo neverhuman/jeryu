@@ -19,9 +19,7 @@ use jeryu::api::merge_request::{
 };
 use jeryu::api::repository::RepositoryId;
 use jeryu::api::websocket::WebEvent;
-use jeryu::git_host::{
-    GitHost, GitLabClient, HostMergeInput, MrApproval, PrLiveState, PrSummary,
-};
+use jeryu::git_host::{GitHost, GitLabClient, HostMergeInput, MrApproval, PrLiveState, PrSummary};
 use jeryu::web_events::WebEventBus;
 use serde_json::json;
 use sqlx::AnyPool;
@@ -232,11 +230,7 @@ impl MergeService {
         // 2. Passport must pass
         let passport = self.passport.compute(&parsed, iid).await?;
         if matches!(passport.status, MergePassportStatus::Blocked) {
-            let blockers: Vec<String> = passport
-                .blockers
-                .iter()
-                .map(|b| b.code.clone())
-                .collect();
+            let blockers: Vec<String> = passport.blockers.iter().map(|b| b.code.clone()).collect();
             return Err(ApiError::Conflict(format!(
                 "merge_passport_blocked: {}",
                 blockers.join(", ")
@@ -304,12 +298,7 @@ impl MergeService {
     /// stub. GitLab adapter doesn't expose a "close" call yet; surface as
     /// 501-equivalent so the UI can degrade gracefully without breaking the
     /// API contract.
-    pub async fn close_mr(
-        &self,
-        repo_id: &str,
-        iid: &str,
-        actor: &str,
-    ) -> Result<(), ApiError> {
+    pub async fn close_mr(&self, repo_id: &str, iid: &str, actor: &str) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
         if let Err(err) = write_audit(
             &self.db_pool,
@@ -334,12 +323,7 @@ impl MergeService {
 
     /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/reopen` — Phase 3
     /// stub. See `close_mr`.
-    pub async fn reopen_mr(
-        &self,
-        repo_id: &str,
-        iid: &str,
-        actor: &str,
-    ) -> Result<(), ApiError> {
+    pub async fn reopen_mr(&self, repo_id: &str, iid: &str, actor: &str) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
         if let Err(err) = write_audit(
             &self.db_pool,
@@ -364,12 +348,7 @@ impl MergeService {
 
     /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/rebase` — Phase 3
     /// stub. See `close_mr`.
-    pub async fn rebase_mr(
-        &self,
-        repo_id: &str,
-        iid: &str,
-        actor: &str,
-    ) -> Result<(), ApiError> {
+    pub async fn rebase_mr(&self, repo_id: &str, iid: &str, actor: &str) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
         if let Err(err) = write_audit(
             &self.db_pool,
@@ -518,11 +497,7 @@ fn summary_from_pr(repo: &RepositoryId, pr: &PrSummary) -> MergeRequestSummary {
 }
 
 /// Build a `MergeRequestSummary` from a live `PrLiveState` (single MR fetch).
-fn summary_from_live(
-    repo: &RepositoryId,
-    iid: &str,
-    live: &PrLiveState,
-) -> MergeRequestSummary {
+fn summary_from_live(repo: &RepositoryId, iid: &str, live: &PrLiveState) -> MergeRequestSummary {
     MergeRequestSummary {
         repo: repo.clone(),
         iid: iid.to_string(),

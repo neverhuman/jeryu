@@ -67,10 +67,7 @@ async fn assert_route_bound(method: Method, path: &'static str) {
         .body(Body::empty())
         .expect("test request builds");
 
-    let res = app
-        .oneshot(req)
-        .await
-        .expect("oneshot delivers a response");
+    let res = app.oneshot(req).await.expect("oneshot delivers a response");
 
     assert_ne!(
         res.status(),

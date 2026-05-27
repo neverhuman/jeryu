@@ -12,11 +12,7 @@
 
 use std::collections::HashMap;
 
-use axum::{
-    Extension, Json,
-    extract::State,
-    http::HeaderMap,
-};
+use axum::{Extension, Json, extract::State, http::HeaderMap};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -25,9 +21,7 @@ use jeryu::api::actions::{ActionPreview, ActionResult, ActionStatus};
 use jeryu::api::websocket::WebEvent;
 use jeryu::tui::action_registry::{ActionEntry, REGISTRY};
 
-use crate::web::action_receipts::{
-    ReceiptStatus, WebActionReceipt, compute_state_hash,
-};
+use crate::web::action_receipts::{ReceiptStatus, WebActionReceipt, compute_state_hash};
 use crate::web::audit::{RiskTier, write_audit};
 use crate::web::auth::Viewer;
 use crate::web::error::ApiError;
@@ -190,8 +184,7 @@ pub async fn execute_action(
         "risk_tier": risk.label(),
         "params": params_value,
     });
-    let expected_state_hash =
-        compute_state_hash(entry.id, &snapshot_value);
+    let expected_state_hash = compute_state_hash(entry.id, &snapshot_value);
 
     // §35.1.14 step 5: concurrency check. Only High-risk actions are
     // *required* to send the token, but if any caller supplies one we
@@ -368,8 +361,7 @@ mod tests {
             "params": {"job_id": "42"},
             "expected_state_hash": "sha256:abc",
         });
-        let req: ExecuteRequest =
-            serde_json::from_value(body).expect("deserializes");
+        let req: ExecuteRequest = serde_json::from_value(body).expect("deserializes");
         assert_eq!(req.action_id, "open_logs");
         assert_eq!(req.expected_state_hash.as_deref(), Some("sha256:abc"));
     }
@@ -380,8 +372,7 @@ mod tests {
             "action_id": "open_logs",
             "params": {},
         });
-        let req: ExecuteRequest =
-            serde_json::from_value(body).expect("deserializes");
+        let req: ExecuteRequest = serde_json::from_value(body).expect("deserializes");
         assert!(req.expected_state_hash.is_none());
     }
 
@@ -405,8 +396,7 @@ mod tests {
         assert_eq!(v["receipt_id"], "rcpt_abc");
         assert_eq!(v["expected_state_hash"], "sha256:before");
         assert_eq!(v["resulting_state_hash"], "sha256:after");
-        let back: ExecuteResponse =
-            serde_json::from_value(v).expect("deserializes");
+        let back: ExecuteResponse = serde_json::from_value(v).expect("deserializes");
         assert_eq!(back.receipt_id, "rcpt_abc");
     }
 }

@@ -10,7 +10,7 @@
 use std::sync::Arc;
 use tracing::{info, warn};
 
-use jeryu::git_host::{GitLabClient, GitHost, Page};
+use jeryu::git_host::{GitHost, GitLabClient, Page};
 
 /// Kick a background refresh task that fans out a `list_repositories` call
 /// against the configured GitLab host. Phase 2 logs progress only; the

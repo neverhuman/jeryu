@@ -13,6 +13,8 @@
 //! `Idempotency-Key` header. Mutations write an audit event and publish
 //! WS events on the bus per §35.7 / W-B-14 acceptance.
 
+#![allow(clippy::collapsible_if)]
+
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
@@ -438,10 +440,7 @@ pub async fn list_checks(
             web_url: p.web_url,
         })
         .collect();
-    Ok(Json(ChecksResponse {
-        sha: q.sha,
-        checks,
-    }))
+    Ok(Json(ChecksResponse { sha: q.sha, checks }))
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -522,9 +521,10 @@ async fn job_action_receipt(
         accepted: true,
         event_seq,
     };
-    state
-        .idempotency
-        .store(cache_key, serde_json::to_value(&receipt).unwrap_or_default());
+    state.idempotency.store(
+        cache_key,
+        serde_json::to_value(&receipt).unwrap_or_default(),
+    );
     Ok(Json(receipt))
 }
 

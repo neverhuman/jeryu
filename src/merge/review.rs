@@ -16,9 +16,7 @@ use jeryu::api::review::{
     SubmitReviewRequest,
 };
 use jeryu::api::websocket::WebEvent;
-use jeryu::git_host::{
-    GitHost, GitLabClient, HostReviewCommentInput, HostSubmitReviewInput,
-};
+use jeryu::git_host::{GitHost, GitLabClient, HostReviewCommentInput, HostSubmitReviewInput};
 use jeryu::web_events::WebEventBus;
 use serde_json::json;
 use sqlx::AnyPool;
@@ -224,7 +222,8 @@ impl ReviewService {
             created_at: Utc::now(),
             edited_at: None,
             suggestion: req.file_path.as_deref().and_then(|p| {
-                req.line.and_then(|l| parse_suggestion(&req.body_markdown, p, l))
+                req.line
+                    .and_then(|l| parse_suggestion(&req.body_markdown, p, l))
             }),
         };
         if let Err(err) = write_audit(
@@ -270,13 +269,9 @@ impl ReviewService {
     ) -> Result<ReviewSubmissionResult, ApiError> {
         let parsed = parse_repo_id(repo_id)?;
         let repo = parsed.repo_ref();
-        let bound = guards::verify_head_sha(
-            self.gitlab.as_ref(),
-            &repo,
-            iid,
-            &req.expected_head_sha,
-        )
-        .await?;
+        let bound =
+            guards::verify_head_sha(self.gitlab.as_ref(), &repo, iid, &req.expected_head_sha)
+                .await?;
         let event = match req.verdict {
             ReviewVerdict::Approve => "approve",
             ReviewVerdict::RequestChanges => "request_changes",

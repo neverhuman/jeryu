@@ -7,7 +7,7 @@
 //! we deliberately avoid parsing the HTML so the test surface remains
 //! exactly what bytes the SPA receives.
 
-use jeryu::repo_browser::{render_markdown, MarkdownContext, MarkdownError};
+use jeryu::repo_browser::{MarkdownContext, MarkdownError, render_markdown};
 
 fn ctx() -> MarkdownContext<'static> {
     MarkdownContext {
@@ -45,11 +45,11 @@ fn task_list_renders_input_checkbox_with_checked_disabled() {
 - [ ] todo
 ";
     let html = render(md);
+    assert!(html.contains("<input"), "task list lost input: {html}");
     assert!(
-        html.contains("<input"),
-        "task list lost input: {html}"
+        html.contains("type=\"checkbox\""),
+        "no checkbox type: {html}"
     );
-    assert!(html.contains("type=\"checkbox\""), "no checkbox type: {html}");
     assert!(html.contains("disabled"), "no disabled attr: {html}");
     assert!(html.contains("checked"), "no checked attr: {html}");
 }
@@ -76,7 +76,10 @@ A statement[^1].
         html.contains("href=\"#1\"") || html.contains("href=\"#fn1\"") || html.contains("href=\"#"),
         "no footnote anchor: {html}"
     );
-    assert!(html.contains("The footnote body"), "footnote body missing: {html}");
+    assert!(
+        html.contains("The footnote body"),
+        "footnote body missing: {html}"
+    );
 }
 
 #[test]
@@ -92,9 +95,21 @@ fn headings_collect_toc_with_unique_ids() {
     assert_eq!(out.toc[1].id, "setup-2");
     assert_eq!(out.toc[2].id, "setup-3");
     // ids must be injected into the rendered HTML
-    assert!(out.html.contains("id=\"setup\""), "html missing setup id: {}", out.html);
-    assert!(out.html.contains("id=\"setup-2\""), "html missing setup-2: {}", out.html);
-    assert!(out.html.contains("id=\"setup-3\""), "html missing setup-3: {}", out.html);
+    assert!(
+        out.html.contains("id=\"setup\""),
+        "html missing setup id: {}",
+        out.html
+    );
+    assert!(
+        out.html.contains("id=\"setup-2\""),
+        "html missing setup-2: {}",
+        out.html
+    );
+    assert!(
+        out.html.contains("id=\"setup-3\""),
+        "html missing setup-3: {}",
+        out.html
+    );
 }
 
 #[test]
@@ -108,7 +123,11 @@ fn relative_link_rewrites_to_jeryu_route() {
         out.html
     );
     // Link metadata captures both the raw and resolved.
-    let link = out.links.iter().find(|l| l.href == "./docs/setup.md").expect("link");
+    let link = out
+        .links
+        .iter()
+        .find(|l| l.href == "./docs/setup.md")
+        .expect("link");
     assert_eq!(link.resolved_route.as_deref(), Some(target));
     assert!(!link.external);
 }
@@ -139,7 +158,11 @@ fn external_link_gets_rel_noopener_noreferrer() {
         "external link missing target=_blank: {}",
         out.html
     );
-    let link = out.links.iter().find(|l| l.href == "https://rust-lang.org").expect("link");
+    let link = out
+        .links
+        .iter()
+        .find(|l| l.href == "https://rust-lang.org")
+        .expect("link");
     assert!(link.external);
     assert!(link.resolved_route.is_none());
 }
@@ -151,7 +174,10 @@ fn script_tag_is_stripped() {
     let md = "Before <script>alert('xss')</script> After";
     let html = render(md);
     assert!(!html.contains("<script"), "script tag survived: {html}");
-    assert!(!html.contains("alert('xss')"), "script body survived: {html}");
+    assert!(
+        !html.contains("alert('xss')"),
+        "script body survived: {html}"
+    );
 }
 
 #[test]
@@ -177,7 +203,10 @@ fn iframe_is_stripped() {
     let md = "Hi <iframe src=\"https://evil.example\"></iframe> there";
     let html = render(md);
     assert!(!html.contains("<iframe"), "iframe survived: {html}");
-    assert!(!html.contains("evil.example"), "iframe src survived: {html}");
+    assert!(
+        !html.contains("evil.example"),
+        "iframe src survived: {html}"
+    );
 }
 
 #[test]
@@ -199,7 +228,10 @@ fn form_is_stripped() {
     let md = "Hi <form action=\"steal\"><input name=\"x\"></form> there";
     let html = render(md);
     assert!(!html.contains("<form"), "form survived: {html}");
-    assert!(!html.contains("action=\"steal\""), "form action survived: {html}");
+    assert!(
+        !html.contains("action=\"steal\""),
+        "form action survived: {html}"
+    );
 }
 
 #[test]
@@ -218,7 +250,10 @@ fn svg_with_script_is_stripped() {
     let html = render(md);
     assert!(!html.contains("<svg"), "svg survived: {html}");
     assert!(!html.contains("<script"), "svg-script survived: {html}");
-    assert!(!html.contains("alert(1)"), "svg script body survived: {html}");
+    assert!(
+        !html.contains("alert(1)"),
+        "svg script body survived: {html}"
+    );
 }
 
 #[test]

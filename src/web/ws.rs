@@ -167,9 +167,7 @@ async fn handle_client_frame(
             let mut forbidden = Vec::new();
             for spec in subscriptions {
                 let perm = permissions::perm_for_scope(&spec.scope);
-                let allowed = perm
-                    .map(|p| viewer.perms.contains(p))
-                    .unwrap_or(true);
+                let allowed = perm.map(|p| viewer.perms.contains(p)).unwrap_or(true);
                 if allowed {
                     subs.insert(spec.scope);
                 } else {

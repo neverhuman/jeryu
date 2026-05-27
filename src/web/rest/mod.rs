@@ -17,8 +17,8 @@
 //! Each submodule houses its route handlers; the router lives in
 //! [`super::router`](super::router::build_web_router).
 
-pub mod activity;
 pub mod actions;
+pub mod activity;
 pub mod agents;
 pub mod auth;
 pub mod bootstrap;
