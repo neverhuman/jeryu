@@ -8,6 +8,15 @@
   max-width: 1280px;
 }
 
+/* Full-bleed variant used by wide cockpit pages (merge, settings studio).
+ * Drops the max-width + reduces gap so the 3-pane layout has room. */
+.page--full {
+  max-width: none;
+  width: 100%;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
 .page__header {
   display: flex;
   flex-direction: column;

@@ -43,10 +43,26 @@ export const endpoints = {
   },
   mergeRequest: (id: string, iid: string): string =>
     `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}`,
+  mergeRequestDiff: (id: string, iid: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}/diff`,
+  mergeRequestChecks: (id: string, iid: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}/checks`,
+  mergeRequestThreads: (id: string, iid: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}/threads`,
+  mergeRequestReviews: (id: string, iid: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}/reviews`,
+  mergeRequestComments: (id: string, iid: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}/comments`,
+  mergeRequestApprove: (id: string, iid: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}/approve`,
+  mergeRequestMerge: (id: string, iid: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/merge-requests/${encodeURIComponent(iid)}/merge`,
   issues: (id: string): string =>
     `/api/v1/repos/${encodeURIComponent(id)}/issues`,
   settings: (id: string): string =>
     `/api/v1/repos/${encodeURIComponent(id)}/settings`,
+  settingsPreview: (id: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/settings/preview`,
 
   ws: (): string => '/api/v1/ws',
   markdownRender: (): string => '/api/v1/markdown/render',

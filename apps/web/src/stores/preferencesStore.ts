@@ -10,6 +10,7 @@ export type DensityPreference = 'comfortable' | 'compact' | 'ultra-compact';
 export type KeyboardMode = 'default' | 'vim';
 export type DateFormat = 'relative' | 'iso' | 'long';
 export type ReposViewMode = 'card' | 'table';
+export type DiffMode = 'unified' | 'split';
 
 export interface PreferencesState {
   theme: ThemePreference;
@@ -18,12 +19,14 @@ export interface PreferencesState {
   dateFormat: DateFormat;
   keyboardMode: KeyboardMode;
   reposView: ReposViewMode;
+  diffMode: DiffMode;
   setTheme: (theme: ThemePreference) => void;
   setDensity: (density: DensityPreference) => void;
   setCodeFontSize: (size: number) => void;
   setDateFormat: (format: DateFormat) => void;
   setKeyboardMode: (mode: KeyboardMode) => void;
   setReposView: (view: ReposViewMode) => void;
+  setDiffMode: (mode: DiffMode) => void;
   reset: () => void;
 }
 
@@ -37,6 +40,7 @@ const DEFAULTS: Pick<
   | 'dateFormat'
   | 'keyboardMode'
   | 'reposView'
+  | 'diffMode'
 > = {
   theme: 'system',
   density: 'comfortable',
@@ -44,6 +48,7 @@ const DEFAULTS: Pick<
   dateFormat: 'relative',
   keyboardMode: 'default',
   reposView: 'card',
+  diffMode: 'unified',
 };
 
 function loadInitial(): typeof DEFAULTS {
@@ -65,6 +70,7 @@ function loadInitial(): typeof DEFAULTS {
       keyboardMode:
         validateKeyboardMode(parsed.keyboardMode) ?? DEFAULTS.keyboardMode,
       reposView: validateReposView(parsed.reposView) ?? DEFAULTS.reposView,
+      diffMode: validateDiffMode(parsed.diffMode) ?? DEFAULTS.diffMode,
     };
   } catch {
     return DEFAULTS;
@@ -111,6 +117,10 @@ function validateReposView(input: unknown): ReposViewMode | null {
   return input === 'card' || input === 'table' ? input : null;
 }
 
+function validateDiffMode(input: unknown): DiffMode | null {
+  return input === 'unified' || input === 'split' ? input : null;
+}
+
 export const usePreferencesStore = create<PreferencesState>((set, get) => {
   const initial = loadInitial();
   return {
@@ -139,6 +149,10 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => {
       set({ reposView });
       persistFromState(get);
     },
+    setDiffMode: (diffMode) => {
+      set({ diffMode });
+      persistFromState(get);
+    },
     reset: () => {
       set(DEFAULTS);
       persist(DEFAULTS);
@@ -155,5 +169,6 @@ function persistFromState(get: () => PreferencesState): void {
     dateFormat: s.dateFormat,
     keyboardMode: s.keyboardMode,
     reposView: s.reposView,
+    diffMode: s.diffMode,
   });
 }
