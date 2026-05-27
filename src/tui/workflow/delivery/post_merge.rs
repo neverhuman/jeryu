@@ -1,11 +1,12 @@
-//! Owner: Interactive TUI subsystem — demo/test data factory
+//! Owner: Interactive TUI subsystem — Delivery demo factory + post-merge fixtures
 //! Proof: `cargo nextest run -p jeryu -- tui::workflow::delivery`
-//! Invariants: Test utilities only; not used in production paths.
+//! Invariants: Test/demo utilities only; not used in production paths.
 
 use chrono::{Duration as ChronoDuration, Utc};
 
-use super::delivery::{DeploymentProgress, PrInput, TestSpec, collect_delivery_snapshot};
-use super::model::*;
+use super::ci::test;
+use super::{DeploymentProgress, PrInput, collect_delivery_snapshot};
+use crate::tui::workflow::model::{DeliverySnapshot, WorkflowStatus};
 
 /// Build a 5-PR delivery demo showing every interesting state.
 pub fn build_demo_delivery() -> DeliverySnapshot {
@@ -34,6 +35,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
             merged_into_main: false,
             post_merge_tests: vec![],
             deployment: DeploymentProgress::default(),
+            repo_alias: Some("nht".into()),
+            repo_slug: Some("neverhuman/veox-nht".into()),
         },
         // PR 1841: pre-merge in flight, agent review running.
         PrInput {
@@ -52,6 +55,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
             merged_into_main: false,
             post_merge_tests: vec![],
             deployment: DeploymentProgress::default(),
+            repo_alias: Some("shared".into()),
+            repo_slug: Some("neverhuman/veox-shared".into()),
         },
         // PR 1839: just opened, draft.
         PrInput {
@@ -69,6 +74,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
             merged_into_main: false,
             post_merge_tests: vec![],
             deployment: DeploymentProgress::default(),
+            repo_alias: Some("warp".into()),
+            repo_slug: Some("neverhuman/veox-warp".into()),
         },
         // PR 1837: merged, post-merge CI clean, building artifact.
         PrInput {
@@ -98,6 +105,8 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
                 monitor_status: WorkflowStatus::Waiting,
                 canary_url: None,
             },
+            repo_alias: Some("nht".into()),
+            repo_slug: Some("neverhuman/veox-nht".into()),
         },
         // PR 1835: live in canary (dev environment).
         PrInput {
@@ -125,40 +134,100 @@ pub fn build_demo_delivery() -> DeliverySnapshot {
                 monitor_status: WorkflowStatus::Waiting,
                 canary_url: Some("https://canary.jeryu.dev/1835".into()),
             },
+            repo_alias: Some("shared".into()),
+            repo_slug: Some("neverhuman/veox-shared".into()),
         },
     ];
 
     collect_delivery_snapshot(&prs, None)
 }
 
-// ─── TestSpec builders ───────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tui::workflow::model::{CanonicalPhase, PrStatus};
 
-pub(super) fn test(id: &str, command: &str, status: WorkflowStatus) -> TestSpec {
-    TestSpec {
-        id: id.into(),
-        label: id.into(),
-        command: command.into(),
-        status,
-        progress_pct: None,
-        eta_secs: None,
-        duration_secs: None,
-        reason: None,
-        critical_path: false,
+    #[test]
+    fn demo_delivery_renders_all_5_prs() {
+        let snap = build_demo_delivery();
+        assert_eq!(snap.pull_requests.len(), 5);
+        // Numbers preserved & unique.
+        let mut nums: Vec<u64> = snap.pull_requests.iter().map(|p| p.number).collect();
+        nums.sort();
+        nums.dedup();
+        assert_eq!(nums.len(), 5);
     }
-}
 
-impl TestSpec {
-    pub(super) fn done(mut self, secs: f64) -> Self {
-        self.duration_secs = Some(secs);
-        self
+    #[test]
+    fn pr_with_failed_test_is_blocked() {
+        let snap = build_demo_delivery();
+        let pr = snap
+            .pull_requests
+            .iter()
+            .find(|p| p.number == 1842)
+            .unwrap();
+        assert_eq!(pr.status, PrStatus::Blocked);
     }
-    pub(super) fn at(mut self, pct: u16, eta: u64) -> Self {
-        self.progress_pct = Some(pct);
-        self.eta_secs = Some(eta);
-        self
+
+    #[test]
+    fn draft_pr_status_is_draft() {
+        let snap = build_demo_delivery();
+        let pr = snap
+            .pull_requests
+            .iter()
+            .find(|p| p.number == 1839)
+            .unwrap();
+        assert_eq!(pr.status, PrStatus::Draft);
     }
-    pub(super) fn with_reason(mut self, reason: &str) -> Self {
-        self.reason = Some(reason.into());
-        self
+
+    #[test]
+    fn merged_pr_in_canary_is_at_promote_dev() {
+        let snap = build_demo_delivery();
+        let pr = snap
+            .pull_requests
+            .iter()
+            .find(|p| p.number == 1835)
+            .unwrap();
+        assert_eq!(pr.status, PrStatus::Merged);
+        assert_eq!(pr.phase, CanonicalPhase::PromoteDev);
+    }
+
+    #[test]
+    fn fleet_summary_counts_open_and_blocked() {
+        let snap = build_demo_delivery();
+        let f = &snap.fleet_summary;
+        assert_eq!(f.open_prs, 5);
+        assert!(f.blocked >= 1);
+        assert!(f.canary_in_flight, "PR 1835 is in canary");
+    }
+
+    #[test]
+    fn canonical_pipeline_has_all_phases_for_merged_pr() {
+        let snap = build_demo_delivery();
+        let pr = snap
+            .pull_requests
+            .iter()
+            .find(|p| p.number == 1835)
+            .unwrap();
+        let slugs: std::collections::HashSet<_> =
+            pr.snapshot.phases.iter().map(|p| p.id.as_str()).collect();
+        for canonical in [
+            CanonicalPhase::PreMergeCI,
+            CanonicalPhase::AgentReviewPreMerge,
+            CanonicalPhase::AutoMerge,
+            CanonicalPhase::PostMergeCI,
+            CanonicalPhase::AgentReviewPostMerge,
+            CanonicalPhase::BuildArtifact,
+            CanonicalPhase::PromoteLocal,
+            CanonicalPhase::PromoteDev,
+            CanonicalPhase::PromoteProd,
+            CanonicalPhase::MonitorRollback,
+        ] {
+            assert!(
+                slugs.contains(canonical.slug()),
+                "missing canonical phase {}",
+                canonical.slug()
+            );
+        }
     }
 }
