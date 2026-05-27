@@ -27,7 +27,7 @@ use super::auth::auth_layer;
 use super::csrf::csrf_layer;
 use super::rest::{bootstrap::get_bootstrap, markdown, repo_browser, repos, settings};
 use super::state::WebState;
-use super::static_assets::spa_service;
+use super::static_assets::spa_router;
 use super::telemetry::instrument;
 use super::ws::ws_handler;
 
@@ -104,9 +104,13 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
         .layer(middleware::from_fn(auth_layer))
         .with_state(state);
 
-    let merged = legacy
-        .merge(api)
-        .fallback_service(spa_service(spa_dir));
+    // SPA router owns the catch-all fallback. Merging (rather than
+    // `.fallback_service(spa_service(...))`) keeps the SPA's `/assets/*`
+    // ServeDir as a sibling route — that way a missing asset returns a
+    // real `404` instead of being swallowed by the SPA fallback into a
+    // 200-with-HTML response (which would otherwise mis-train browsers
+    // to treat broken JS chunks as HTML).
+    let merged = legacy.merge(api).merge(spa_router(spa_dir));
 
     instrument(merged)
 }
