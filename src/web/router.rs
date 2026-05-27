@@ -26,8 +26,8 @@ use axum::{
 use super::auth::auth_layer;
 use super::csrf::csrf_layer;
 use super::rest::{
-    activity, actions, agents, bootstrap::get_bootstrap, ci, issues, markdown, merge_requests,
-    repo_browser, repos, reviews, search, settings,
+    activity, actions, agents, auth as auth_rest, bootstrap::get_bootstrap, ci, issues, markdown,
+    merge_requests, repo_browser, repos, reviews, search, settings,
 };
 use super::state::WebState;
 use super::static_assets::spa_router;
@@ -225,8 +225,20 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
             "/api/v1/repos/{repo_id}/agents/evidence",
             get(agents::list_evidence),
         )
+        // ── W-B-auth: logout is INSIDE auth+csrf so it requires a
+        // live session and a matching X-CSRF-Token. Login lives in the
+        // sibling `auth_open` router below, OUTSIDE both middlewares,
+        // because the SPA has no cookies yet on that request.
+        .route("/api/v1/auth/logout", post(auth_rest::logout))
         .layer(middleware::from_fn(csrf_layer))
-        .layer(middleware::from_fn(auth_layer))
+        .layer(middleware::from_fn_with_state(state.clone(), auth_layer))
+        .with_state(state.clone());
+
+    // /api/v1/auth/login — public, no middleware. The CSRF bypass list
+    // also includes this path (see csrf.rs::CSRF_BYPASS_PATHS) so the
+    // SPA's pre-cookie POST can land.
+    let auth_open = Router::new()
+        .route("/api/v1/auth/login", post(auth_rest::login))
         .with_state(state);
 
     // SPA router owns the catch-all fallback. Merging (rather than
@@ -235,7 +247,7 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
     // real `404` instead of being swallowed by the SPA fallback into a
     // 200-with-HTML response (which would otherwise mis-train browsers
     // to treat broken JS chunks as HTML).
-    let merged = legacy.merge(api).merge(spa_router(spa_dir));
+    let merged = legacy.merge(api).merge(auth_open).merge(spa_router(spa_dir));
 
     instrument(merged)
 }

@@ -1509,6 +1509,25 @@ impl Db {
             );
             CREATE INDEX IF NOT EXISTS idx_llm_budget_ledger_scope_time
                 ON llm_budget_ledger(repo_scope, recorded_at DESC);
+
+            -- W-B-auth opaque session store. See src/web/sessions.rs for
+            -- the matching Rust API. id is a 32-byte random hex token,
+            -- perms_json is the JSON-encoded permission set carried by
+            -- the session, and last_seen_at is bumped at most once per
+            -- minute per session (see SessionStore::touch).
+            CREATE TABLE IF NOT EXISTS sessions (
+                id              TEXT PRIMARY KEY,
+                actor_id        TEXT NOT NULL,
+                actor_login     TEXT NOT NULL,
+                perms_json      TEXT NOT NULL DEFAULT '[]',
+                created_at      TEXT NOT NULL,
+                expires_at      TEXT NOT NULL,
+                last_seen_at    TEXT NOT NULL,
+                user_agent      TEXT,
+                ip              TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_sessions_actor
+                ON sessions(actor_id);
             "#;
         for statement in redline_schema.split(';') {
             let statement = statement.trim();

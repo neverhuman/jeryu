@@ -20,6 +20,7 @@
 pub mod activity;
 pub mod actions;
 pub mod agents;
+pub mod auth;
 pub mod bootstrap;
 pub mod ci;
 pub mod issues;

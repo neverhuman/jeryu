@@ -21,6 +21,7 @@ use parking_lot::Mutex;
 use crate::merge::{MergePassportService, MergeService, ReviewService};
 use crate::repos::{RepoService, SettingsService};
 use crate::web::idempotency::IdempotencyStore;
+use crate::web::sessions::SessionStore;
 
 /// Max events retained in the in-memory activity tap. Sized per
 /// `WEB_WORK_CLAUDE.md` §7.2 W-B-17 ("last 500"). Older events are dropped
@@ -86,6 +87,10 @@ pub struct WebState {
     /// Rolling 500-event window populated by a tap on `event_bus`. Read by
     /// `GET /api/v1/activity` (W-B-17).
     pub activity_buffer: Arc<ActivityBuffer>,
+    /// Opaque-token session store backing `__Host-jeryu-session`. The
+    /// auth middleware looks up each request's cookie here; login /
+    /// logout handlers create / revoke rows.
+    pub session_store: Arc<SessionStore>,
 }
 
 #[derive(Clone, Default)]
@@ -107,7 +112,10 @@ impl WebState {
     /// to `upstream_forbidden`) or `HostError::Permanent` (mapped to
     /// `upstream_unavailable`), so the routes register and return the
     /// canonical structured error per §35.1.11.
-    pub fn new_for_serve(event_bus: Arc<WebEventBus>) -> Self {
+    ///
+    /// `db_pool` is the engine's shared `sqlx::AnyPool`; the session
+    /// store reads/writes the `sessions` table through it.
+    pub fn new_for_serve(event_bus: Arc<WebEventBus>, db_pool: sqlx::AnyPool) -> Self {
         use jeryu::gitlab_client::GitlabClient;
 
         let base_url = std::env::var("JERYU_GITLAB_BASE_URL")
@@ -127,6 +135,7 @@ impl WebState {
         ));
         let review_service = Arc::new(ReviewService::new(gitlab.clone(), event_bus.clone()));
         let activity_buffer = Arc::new(ActivityBuffer::new());
+        let session_store = Arc::new(SessionStore::new(db_pool));
 
         // ── W-B-17: bus tap → activity buffer ──
         // Subscribe to both priority channels and mirror everything into the
@@ -151,6 +160,7 @@ impl WebState {
             passport_service,
             gitlab_client: gitlab,
             activity_buffer,
+            session_store,
         }
     }
 }
