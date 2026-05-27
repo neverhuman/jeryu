@@ -56,3 +56,4 @@ target/ci-screenshots/
 *.env.local
 llm.env
 ~/.jeryu/secrets/
+.claude/worktrees/

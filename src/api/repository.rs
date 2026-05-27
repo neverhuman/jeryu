@@ -19,8 +19,11 @@ use super::entity::{ActionRef, EntityRef, HealthLevel};
 )]
 #[cfg_attr(feature = "web", ts(export, export_to = "../../contracts/generated/"))]
 pub enum RepositoryHostKind {
+    #[serde(rename = "github")]
     GitHub,
+    #[serde(rename = "gitlab")]
     GitLab,
+    #[serde(rename = "local")]
     Local,
 }
 
@@ -278,7 +281,7 @@ mod tests {
     fn host_kind_serializes_snake_case() {
         let v = RepositoryHostKind::GitLab;
         let json = serde_json::to_string(&v).unwrap();
-        assert_eq!(json, "\"git_lab\"");
+        assert_eq!(json, "\"gitlab\"");
     }
 
     #[test]
