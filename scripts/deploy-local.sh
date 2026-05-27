@@ -89,7 +89,7 @@ READY_PATH="$INSTALL_PATH"
 # ── 1. Build the release binary (skip if --verify only) ────────────────────
 do_build() {
     step "Build release binary"
-    if ! cargo build --release --features web -p jeryu --bin jeryu 2>&1 | tail -3; then
+    if ! cargo build --release -p jeryu --bin jeryu 2>&1 | tail -3; then
         fail "release build failed"
         exit 1
     fi
