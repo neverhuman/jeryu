@@ -16,14 +16,13 @@ pub(crate) async fn check_scale_up(state: &EngineState) -> Result<()> {
     let running = state.db.count_running_jobs().await?;
 
     if let Ok(normalized_runners) =
-        crate::runner_policy::enforce_untagged_runners(&state.client).await
+        crate::runner_policy::enforce_pool_runner_policy(&state.client, &pools).await
+        && normalized_runners > 0
     {
-        if normalized_runners > 0 {
-            info!(
-                normalized_runners,
-                "normalized GitLab runners to untagged policy during reconciliation"
-            );
-        }
+        info!(
+            normalized_runners,
+            "normalized GitLab runners to pool policy during reconciliation"
+        );
     }
 
     for p in &pools {

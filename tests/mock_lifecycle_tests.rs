@@ -9,6 +9,7 @@
 mod common;
 
 use common::mock_gitlab::MockGitlabServer;
+use jeryu::state::Pool;
 
 // ---------------------------------------------------------------------------
 // Runner CRUD
@@ -100,6 +101,49 @@ async fn test_runner_policy_clears_tags_offline() {
     let stored = s.runners.get(&runner.id).expect("runner in mock state");
     assert!(stored.tags.is_empty(), "runner tags should be cleared");
     assert!(stored.run_untagged, "runner should accept untagged jobs");
+}
+
+/// Pool-aware runner policy preserves explicit build-pool tags for tagged release jobs.
+#[tokio::test]
+async fn test_pool_runner_policy_preserves_build_tags_offline() {
+    let mock = MockGitlabServer::start().await;
+    let client = mock.gitlab_client();
+
+    let runner = client
+        .create_runner("jeryu-build", &["x86-64"], true, "instance_type")
+        .await
+        .expect("create runner");
+    let pools = vec![Pool {
+        name: "build".into(),
+        gitlab_runner_id: runner.id,
+        auth_token: runner.token,
+        tags: "build,docker-build,x86-64,docker,dind".into(),
+        executor: "docker".into(),
+        min_warm: 24,
+        max_managers: 24,
+        concurrent: 1,
+        request_concurrency: 1,
+        paused: false,
+        trust_tier: "privileged".into(),
+        cluster_alias: None,
+        backend_type: "docker-remote".into(),
+    }];
+
+    let updated = jeryu::runner_policy::enforce_pool_runner_policy(&client, &pools)
+        .await
+        .expect("enforce pool runner policy");
+    assert_eq!(updated, 1, "build runner should be normalized");
+
+    let s = mock.state.lock().unwrap();
+    let stored = s.runners.get(&pools[0].gitlab_runner_id).expect("runner");
+    assert_eq!(
+        stored.tags,
+        vec!["build", "docker-build", "x86-64", "docker", "dind"]
+    );
+    assert!(
+        !stored.run_untagged,
+        "tagged build runner should require tagged jobs"
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -21,15 +21,16 @@ pub(crate) async fn run_serve() -> Result<()> {
         );
     }
 
-    let normalized_runners = jeryu::runner_policy::enforce_untagged_runners(&client).await?;
+    let pools = db.list_pools().await?;
+    let normalized_runners =
+        jeryu::runner_policy::enforce_pool_runner_policy(&client, &pools).await?;
     if normalized_runners > 0 {
         tracing::warn!(
             normalized_runners,
-            "normalized GitLab runners to untagged policy before reconciliation"
+            "normalized GitLab runners to pool policy before reconciliation"
         );
     }
 
-    let pools = db.list_pools().await?;
     for p in &pools {
         if !p.paused {
             pool::scale_pool_to(&db, &docker_ctl, &client, &p.name, p.min_warm as usize).await?;

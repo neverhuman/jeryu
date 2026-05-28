@@ -86,19 +86,19 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
                 );
             }
 
+            let pools = db.list_pools().await?;
             let normalized_runners =
-                jeryu::runner_policy::enforce_untagged_runners(&client).await?;
+                jeryu::runner_policy::enforce_pool_runner_policy(&client, &pools).await?;
             if normalized_runners > 0 {
                 tracing::warn!(
                     normalized_runners,
-                    "normalized GitLab runners to untagged policy before reconciliation"
+                    "normalized GitLab runners to pool policy before reconciliation"
                 );
             }
 
             // Reconcile every pool to min_warm, including zero-warm pools.
             // This drains outdated ad hoc managers instead of leaving them alive
             // indefinitely between serve restarts.
-            let pools = db.list_pools().await?;
             for p in &pools {
                 if !p.paused {
                     pool::scale_pool_to(&db, &docker_ctl, &client, &p.name, p.min_warm as usize)
