@@ -1,13 +1,13 @@
 {
   "name": "JeRyu",
-  "version": "3.3.22",
-  "cargo_workspace_version": "3.3.22",
+  "version": "3.3.23",
+  "cargo_workspace_version": "3.3.23",
   "release_line": "V3.3",
   "status": "stable",
-  "date": "2026-05-25",
+  "date": "2026-05-28",
   "tag_policy": {
-    "rc": "v3.3.22-rc.N",
-    "stable": "v3.3.22"
+    "rc": "v3.3.23-rc.N",
+    "stable": "v3.3.23"
   },
-  "headline": "Ship JeRyu v3.3.22 — CLI project-id settings-backed, secrets API update, resolve_project_id."
+  "headline": "Ship JeRyu v3.3.23 - dynamic GitLab test CI reliability and source-fetch auth diagnostics."
 }

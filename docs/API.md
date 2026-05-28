@@ -64,13 +64,13 @@ Configuration paths are rooted under `crate::config::data_dir()`:
 
 ## 3. Default Runner Pools
 
-| Pool | Tags | Executor | min_warm | max_managers | Trust tier |
+| Pool | Runner policy | Executor | min_warm | max_managers | Trust tier |
 | --- | --- | --- | ---: | ---: | --- |
-| `default` | `default,rust,test` | `docker` | 2 | 4 | `trusted` |
-| `build` | `build,docker-build,x86-64,docker,dind` | `docker` | 2 | 4 | `privileged` |
-| `untrusted` | `untrusted,sandbox,mr` | `custom` | 1 | 2 | `untrusted` |
+| `default` | none | `docker` | 2 | 4 | `trusted` |
+| `build` | none | `docker` | 2 | 4 | `privileged` |
+| `untrusted` | none | `custom` | 1 | 2 | `untrusted` |
 
-Agents should prefer tags inferred by `jeryu test plan` or VTI planners instead of hardcoding runner tags.
+Standard local GitLab CI is untagged. Runners are normalized to `run_untagged=true` with an empty `tag_list`, and test planning uses scheduler priority/reason metadata instead of runner tags.
 
 ---
 
@@ -254,13 +254,13 @@ Runs the risk gate before accepting a merge request.
 
 ### 4.9 Test Runner and VTI Controls
 
-#### `jeryu test run --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix] [--force]`
+#### `jeryu test run --command <cmd> [--project-id 48] [--image rust:1.92.0] [--timeout 600] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix] [--force]`
 
-Runs one test command through an ephemeral GitLab CI branch and dynamic `.gitlab-ci.yml`. Infers tags/risk/timeout unless tags are supplied. Checks local test cache unless `--force`. Scheduler reason defaults urgent cherry-pick, test-fix, and release-fix submissions to high priority; explicit `--priority override` preempts normal work.
+Runs one test command through an ephemeral GitLab CI branch and dynamic `.gitlab-ci.yml`. Infers risk and timeout while keeping standard GitLab jobs untagged. Checks local test cache unless `--force`. Scheduler reason defaults urgent cherry-pick, test-fix, and release-fix submissions to high priority; explicit `--priority override` preempts normal work.
 
-#### `jeryu test plan --command <cmd> [--project-id 48] [--image rust:1.92.0] [--tags a,b] [--timeout 600] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix]`
+#### `jeryu test plan --command <cmd> [--project-id 48] [--image rust:1.92.0] [--timeout 600] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix]`
 
-Prints inferred risk class, scheduler priority, tags, timeout, and rationale without running.
+Prints inferred risk class, scheduler priority, runner policy, timeout, and rationale without running.
 
 #### `jeryu test batch --command <cmd> ... [--max-parallel 3] [--priority low|normal|high|override] [--reason general|cherry-pick|test-fix|release-fix] [--force]`
 

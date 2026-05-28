@@ -319,7 +319,7 @@ fn runner_pre_build_script_sets_target_dir_without_sccache() {
         render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
     );
     let output = std::process::Command::new("/bin/sh")
-        .arg("-lc")
+        .arg("-c")
         .arg(script)
         .env("JERYU_CARGO_CACHE", "1")
         .env("JERYU_SCCACHE_ENABLED", "1")
@@ -369,7 +369,7 @@ fn runner_pre_build_script_marks_active_lease_and_uses_pool_sccache() {
         render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
     );
     let output = std::process::Command::new("/bin/sh")
-        .arg("-lc")
+        .arg("-c")
         .arg(script)
         .env("JERYU_CARGO_CACHE", "1")
         .env("JERYU_SCCACHE_ENABLED", "1")
@@ -404,7 +404,7 @@ fn runner_pre_build_script_can_isolate_target_by_runner_slot() {
         render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
     );
     let output = std::process::Command::new("/bin/sh")
-        .arg("-lc")
+        .arg("-c")
         .arg(script)
         .env("JERYU_CARGO_CACHE", "1")
         .env("JERYU_SCCACHE_ENABLED", "0")
@@ -438,7 +438,7 @@ fn runner_pre_build_script_uses_manager_key_for_slot_isolation() {
         render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
     );
     let output = std::process::Command::new("/bin/sh")
-        .arg("-lc")
+        .arg("-c")
         .arg(script)
         .env("JERYU_CARGO_CACHE", "1")
         .env("JERYU_SCCACHE_ENABLED", "0")
@@ -472,7 +472,7 @@ fn runner_pre_build_script_caps_cargo_build_jobs_by_host_and_runner_slots() {
         render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker",)
     );
     let output = std::process::Command::new("/bin/sh")
-        .arg("-lc")
+        .arg("-c")
         .arg(script)
         .env("JERYU_CARGO_CACHE", "1")
         .env("JERYU_SCCACHE_ENABLED", "0")

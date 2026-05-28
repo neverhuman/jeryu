@@ -125,6 +125,10 @@ A full E2E test requires a bootstrapped GitLab environment. The test infrastruct
 - Bootstrap isolated generic repositories uniquely hashed per test (e.g. `e2e-test-<uuid>`).
 - Safely allocate and then tear down Ephemeral Runner Pools directly through the Docker Controller.
 
+### Canonical GitLab Auth
+
+For local GitLab access, the canonical credential source is `~/.jeryu/jeryu.env` with `GITLAB_PAT`. The repair/bootstrap path is `jeryu init` / `jeryu bootstrap`, and code should load that token through `gitlab_auth::resolve_or_repair_default()` or `GitLabClient::from_jeryu_env_or_repair()`. Do not require agents to hunt for a separate GitLab auth store when the jeryu env file is already present. When the operation can be handled by jeryu's own APIs, prefer those surfaces first and only fall back to GitLab REST for GitLab-native repository and CI actions.
+
 ### Garbage Collection & Diagnostics
 
 Due to the ephemeral and dynamic nature of test runner generation, stray Docker volumes or detached containers can accumulate, significantly impacting space. `jeryu` ships with an autonomous system-level garbage collector deployed to servers running the CI logic:

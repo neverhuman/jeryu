@@ -97,7 +97,7 @@ jobs:
           echo "Building jeryu $v from ${{ needs.gate.outputs.sha }}"
       - name: Build + verify release binary
         run: bash ops/ci/post-merge-deploy-lane.sh build "${{ needs.gate.outputs.sha }}"
-      - name: Verify artifact: TUI + tuiwright
+      - name: "Verify artifact: TUI + tuiwright"
         run: bash ops/ci/post-merge-deploy-lane.sh verify-tui
       - name: Upload release artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

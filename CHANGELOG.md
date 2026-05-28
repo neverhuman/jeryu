@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.23] - 2026-05-28
+
+### Fixed
+
+- Dynamic GitLab test pipelines now render CI YAML through typed `serde_yaml`
+  data, lint generated YAML before creating scratch branches, bind result
+  selection to the exact CI commit SHA, and report terminal no-job failures with
+  pipeline status, URL, YAML errors, and explicit no-trace wording.
+- Source-fetch checkout authentication failures are classified as infrastructure,
+  retried once in dynamic test runs, and surfaced through pipeline doctor and
+  failure-capsule decision paths before blaming repository code.
+
+### Changed
+
+- Standard local GitLab CI remains untagged; docs and bad-behavior checks now
+  describe runner policy through untagged scheduling metadata instead of runner
+  tags.
+- Release metadata normalized to `3.3.23` with stable tag `v3.3.23`.
+
 ## [3.3.22] - 2026-05-25
 
 ### Changed

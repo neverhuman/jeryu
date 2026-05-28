@@ -75,7 +75,7 @@ The architecture operates in two fundamentally different modes:
 | `unit_filter` | Nextest filter expression for unit tests |
 | `integration_tests` | Integration test binary names from `tests/` |
 | `force_full_paths` | Paths that force full test run if changed |
-| `runner_tags` | Required GitLab runner tags |
+| `runner_policy` | Always untagged for standard local GitLab CI |
 | `cross_cutting` | Whether changes affect many subsystems |
 
 ### 2.2 Registered Subsystems
@@ -233,7 +233,7 @@ The external planner can emit three artifacts:
       "subsystem": "pool",
       "command": "cargo nextest run -p jeryu -E 'test(/pool|docker|runner/)'",
       "integration_tests": ["pool_tests", "job_tests"],
-      "tags": ["build", "docker-build"]
+      "runner_policy": "untagged"
     }
   ],
   "skipped_subsystems": ["tui", "cache", "release"],
@@ -267,7 +267,7 @@ The external planner can emit three artifacts:
 
 ### 6.1 Child Pipeline YAML Generation
 
-`ci_gen.rs` generates GitLab child pipeline YAML from a VTI plan. Each selected test becomes a CI job with appropriate tags, image, stage, and test command.
+`ci_gen.rs` generates GitLab child pipeline YAML from a VTI plan. Each selected test becomes an untagged CI job with the planned image, stage, and test command.
 
 ### 6.2 Runtime Job Interception (veox-testctl)
 
