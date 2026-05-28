@@ -194,6 +194,7 @@ impl MockGitlabInner {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_pipeline_with_sha(
         &mut self,
         project_id: i64,
@@ -722,7 +723,7 @@ fn validate_ci_yaml(content: &str) -> Result<String, Vec<String>> {
         let Some(job) = value.as_mapping() else {
             continue;
         };
-        let Some(script) = job.get(&serde_yaml::Value::String("script".to_string())) else {
+        let Some(script) = job.get(serde_yaml::Value::String("script".to_string())) else {
             continue;
         };
 

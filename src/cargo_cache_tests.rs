@@ -359,7 +359,11 @@ fn runner_pre_build_script_marks_active_lease_and_uses_pool_sccache() {
     let tools_dir = pool_cache.path().join("tools");
     std::fs::create_dir_all(&tools_dir).unwrap();
     let sccache_bin = tools_dir.join("sccache");
-    std::fs::write(&sccache_bin, "#!/bin/sh\nexec \"$@\"\n").unwrap();
+    std::fs::write(
+        &sccache_bin,
+        "#!/bin/sh\ncase \"$1\" in --start-server|--stop-server|--show-stats) exit 0;; esac\nexec \"$@\"\n",
+    )
+    .unwrap();
     let mut perms = std::fs::metadata(&sccache_bin).unwrap().permissions();
     perms.set_mode(0o755);
     std::fs::set_permissions(&sccache_bin, perms).unwrap();
@@ -390,6 +394,15 @@ fn runner_pre_build_script_marks_active_lease_and_uses_pool_sccache() {
         Some(value) => set_env_var("PATH", value),
         None => remove_env_var("PATH"),
     }
+}
+
+#[test]
+fn runner_pre_build_script_prestarts_sccache_without_no_daemon() {
+    let pool_cache = TempDir::new().unwrap();
+    let script =
+        render_runner_cargo_pre_build_script(&pool_cache.path().display().to_string(), "docker");
+    assert!(script.contains("sccache --start-server >/dev/null 2>&1 || true"));
+    assert!(!script.contains("export SCCACHE_NO_DAEMON"));
 }
 
 #[test]

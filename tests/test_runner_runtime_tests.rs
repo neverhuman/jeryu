@@ -2,12 +2,13 @@ mod common;
 
 use common::mock_gitlab::{MockGitlabServer, MockLintResponse};
 use jeryu::{
+    db::config::sqlite_memory_url,
     state::Db,
     test_runner::{TestRunOpts, run_test},
 };
 
 async fn open_test_db() -> Db {
-    Db::open_url("sqlite::memory:")
+    Db::open_url(sqlite_memory_url())
         .await
         .expect("open in-memory test db")
 }

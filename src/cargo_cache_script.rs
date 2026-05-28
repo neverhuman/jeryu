@@ -50,7 +50,6 @@ if [ "${{JERYU_CARGO_CACHE:-1}}" != "0" ] && [ "$JERYU_CARGO_PREREQS_OK" = "1" ]
   export RUSTUP_HOME="$JERYU_CARGO_RUSTUP_HOME"
   if [ "${{JERYU_SCCACHE_ENABLED:-1}}" != "0" ]; then
     export SCCACHE_DIR="$JERYU_CARGO_CACHE_ROOT/sccache"
-    export SCCACHE_NO_DAEMON=1
     if [ -n "${{JERYU_SCCACHE_CACHE_SIZE:-}}" ]; then
       export SCCACHE_CACHE_SIZE="$JERYU_SCCACHE_CACHE_SIZE"
     fi
@@ -208,6 +207,10 @@ EOF
       fi
     fi
     if [ "${{JERYU_SCCACHE_ENABLED:-1}}" != "0" ] && command -v sccache >/dev/null 2>&1; then
+      # Start the daemon with detached stdio before Cargo invokes it as
+      # RUSTC_WRAPPER.  SCCACHE_NO_DAEMON=1 can leave Cargo polling a pipe held
+      # by the server process under GitLab Runner's generated shell script.
+      sccache --start-server >/dev/null 2>&1 || true
       export RUSTC_WRAPPER=sccache
     fi
   fi
