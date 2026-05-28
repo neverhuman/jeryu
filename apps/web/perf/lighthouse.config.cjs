@@ -1,8 +1,9 @@
 // Lighthouse CI config for the JeRyu Web Forge SPA (W-T-20 / W-lhci).
 //
 // This config drives `lhci autorun` against the production bundle served by
-// the JeRyu BFF (`jeryu web serve`). The BFF must already be running on
-// 127.0.0.1:8787 with `--spa-dir apps/web/dist` when this config is used —
+// the JeRyu BFF (`jeryu web serve`). The BFF must already be running at
+// `JERYU_LIGHTHOUSE_URL` (default: http://127.0.0.1:8787/) with
+// `--spa-dir apps/web/dist` when this config is used —
 // `lhci collect` will not boot the server itself (we point at a live URL
 // rather than a `staticDistDir` because Lighthouse otherwise spins up its
 // own server which bypasses our BFF middleware/headers).
@@ -11,7 +12,7 @@
 //   1. `npm --workspace @jeryu/web run build`
 //   2. `cargo build --release --features web -p jeryu`
 //   3. `JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist &`
-//   4. `npm --workspace @jeryu/web run perf`
+//   4. `JERYU_LIGHTHOUSE_URL=http://127.0.0.1:8787/ npm --workspace @jeryu/web run perf`
 //
 // Assertions:
 //   * Per-resource size budgets from `./lighthouse-budget.json`.
@@ -22,10 +23,12 @@
 // `<repo>/target/jankurai/ux-qa/lighthouse/`. The UX-QA harness in
 // `apps/ux-qa/ux-qa-check.mjs` looks for `lhr-*.json` there.
 
+const targetUrl = process.env.JERYU_LIGHTHOUSE_URL || 'http://127.0.0.1:8787/';
+
 module.exports = {
   ci: {
     collect: {
-      url: ['http://127.0.0.1:8787/'],
+      url: [targetUrl],
       numberOfRuns: 3,
       settings: {
         preset: 'desktop',

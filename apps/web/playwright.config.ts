@@ -20,15 +20,19 @@ import { defineConfig, devices } from '@playwright/test';
 //     (~50k+) — set this only when developing.
 const E2E_MODE = process.env.JERYU_PLAYWRIGHT_E2E_MODE ?? 'bff-only';
 const useViteDev = E2E_MODE === 'with-vite';
-const baseURL = useViteDev ? 'http://127.0.0.1:5173' : 'http://127.0.0.1:8787';
+const bffBaseURL = process.env.JERYU_PLAYWRIGHT_BFF_URL ?? 'http://127.0.0.1:8787';
+const bffHealthURL = `${bffBaseURL.replace(/\/$/, '')}/health`;
+const bffBind = new URL(bffBaseURL).host;
+const externalBff = process.env.JERYU_PLAYWRIGHT_EXTERNAL_BFF === '1';
+const baseURL = useViteDev ? 'http://127.0.0.1:5173' : bffBaseURL;
 
 const bffWebServer = {
   // Axum BFF. `JERYU_WEB_TRUST_LOCAL=1` short-circuits the cookie
   // session check (see src/web/auth.rs) so the SPA can fetch
   // `/api/v1/bootstrap` without provisioning a session.
   command:
-    'JERYU_WEB_TRUST_LOCAL=1 cargo run --features web -p jeryu -- web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist',
-  url: 'http://127.0.0.1:8787/health',
+    `JERYU_WEB_TRUST_LOCAL=1 cargo run --features web -p jeryu -- web serve --bind ${bffBind} --spa-dir apps/web/dist`,
+  url: bffHealthURL,
   timeout: 180_000,
   reuseExistingServer: !process.env.CI,
   cwd: '../..',
@@ -44,6 +48,12 @@ const viteWebServer = {
   reuseExistingServer: !process.env.CI,
   cwd: '../..',
 };
+
+const webServer = useViteDev
+  ? [bffWebServer, viteWebServer]
+  : externalBff
+    ? undefined
+    : [bffWebServer];
 
 export default defineConfig({
   testDir: './e2e',
@@ -66,5 +76,5 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     // firefox + webkit added once the chromium baseline is stable.
   ],
-  webServer: useViteDev ? [bffWebServer, viteWebServer] : [bffWebServer],
+  ...(webServer ? { webServer } : {}),
 });

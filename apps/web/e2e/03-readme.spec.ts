@@ -105,17 +105,22 @@ test.describe('README rendering (W-T-11)', () => {
     // the sanitization behaviour, only asserted when the endpoint
     // succeeds.
     const CSRF = 'e2e-csrf-token';
-    const res = await request.post('http://127.0.0.1:8787/api/v1/markdown/render', {
-      data: {
-        markdown:
-          '# Title\n\n<script>alert(1)</script>\n\n<img src=x onerror=alert(2)>',
-      },
-      headers: {
-        'X-CSRF-Token': CSRF,
-        Cookie: `__Host-jeryu-csrf=${CSRF}`,
-      },
-      failOnStatusCode: false,
-    });
+    const bffBaseURL =
+      process.env.JERYU_PLAYWRIGHT_BFF_URL ?? 'http://127.0.0.1:8787';
+    const res = await request.post(
+      `${bffBaseURL.replace(/\/$/, '')}/api/v1/markdown/render`,
+      {
+        data: {
+          markdown:
+            '# Title\n\n<script>alert(1)</script>\n\n<img src=x onerror=alert(2)>',
+        },
+        headers: {
+          'X-CSRF-Token': CSRF,
+          Cookie: `__Host-jeryu-csrf=${CSRF}`,
+        },
+        failOnStatusCode: false,
+      }
+    );
 
     test.skip(
       res.status() === 404 || res.status() === 405 || res.status() === 501,

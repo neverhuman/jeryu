@@ -185,6 +185,11 @@ rust_ssh_install_e2e:
   script:
     - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh ssh-install-e2e
+  artifacts:
+    when: always
+    paths:
+      - target/ci-evidence/ssh-install/
+    expire_in: 1 week
 
 rust_tui_screenshots:
   stage: evidence
@@ -479,26 +484,50 @@ web_e2e:
     - npm --workspace @jeryu/web run build
     - cargo build --release --features web -p jeryu
     - (cd apps/web && npx playwright install chromium --with-deps)
-    - ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist > /tmp/bff.log 2>&1 &
-    - BFF_PID=$!
     - |
+      pick_local_port() {
+        start="$1"
+        for candidate in "$start" 18789 18790 18791 18792; do
+          if ! { : >"/dev/tcp/127.0.0.1/$candidate"; } >/dev/null 2>&1; then
+            printf '%s\n' "$candidate"
+            return
+          fi
+        done
+        printf '%s\n' "$start"
+      }
+      BFF_LOG="target/jankurai/ux-qa/bff-e2e.log"
+      BFF_PORT="${JERYU_PLAYWRIGHT_BFF_PORT:-$(pick_local_port 18788)}"
+      BFF_BASE_URL="http://127.0.0.1:${BFF_PORT}"
+      mkdir -p "$(dirname "$BFF_LOG")"
+      JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind "127.0.0.1:${BFF_PORT}" --spa-dir apps/web/dist > "$BFF_LOG" 2>&1 &
+      BFF_PID=$!
+      cleanup_bff() {
+        status=$?
+        kill "$BFF_PID" 2>/dev/null || true
+        if [ "$status" -ne 0 ]; then
+          echo "BFF log ($BFF_LOG):" >&2
+          cat "$BFF_LOG" >&2 || true
+        fi
+        exit "$status"
+      }
+      trap cleanup_bff EXIT
       for i in $(seq 1 30); do
-        if curl -fs http://127.0.0.1:8787/health >/dev/null 2>&1; then
+        if curl -fs "$BFF_BASE_URL/health" >/dev/null 2>&1; then
           echo "BFF up after ${i}s"
           break
         fi
         sleep 1
       done
-    - curl -fs http://127.0.0.1:8787/health
+      curl -fs "$BFF_BASE_URL/health"
+      export JERYU_PLAYWRIGHT_EXTERNAL_BFF=1
+      export JERYU_PLAYWRIGHT_BFF_URL="$BFF_BASE_URL"
     - (cd apps/web && npx playwright test --reporter=html,line)
-    - kill "$BFF_PID" || true
     - node apps/ux-qa/ux-qa-check.mjs test
   artifacts:
     when: always
     paths:
       - apps/web/playwright-report/
       - target/jankurai/ux-qa/
-      - /tmp/bff.log
     expire_in: 1 week
 
 web_lighthouse:
@@ -513,17 +542,41 @@ web_lighthouse:
     - cargo build --release --features web -p jeryu
     - (cd apps/web && npx playwright install chromium --with-deps)
     - |
-      JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist > /tmp/bff-lighthouse.log 2>&1 &
+      pick_local_port() {
+        start="$1"
+        for candidate in "$start" 18789 18790 18791 18792; do
+          if ! { : >"/dev/tcp/127.0.0.1/$candidate"; } >/dev/null 2>&1; then
+            printf '%s\n' "$candidate"
+            return
+          fi
+        done
+        printf '%s\n' "$start"
+      }
+      BFF_LOG="target/jankurai/ux-qa/bff-lighthouse.log"
+      BFF_PORT="${JERYU_LIGHTHOUSE_PORT:-$(pick_local_port 18787)}"
+      BFF_BASE_URL="http://127.0.0.1:${BFF_PORT}"
+      mkdir -p "$(dirname "$BFF_LOG")"
+      JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind "127.0.0.1:${BFF_PORT}" --spa-dir apps/web/dist > "$BFF_LOG" 2>&1 &
       BFF_PID=$!
-      trap 'kill "$BFF_PID" 2>/dev/null || true' EXIT
+      cleanup_bff() {
+        status=$?
+        kill "$BFF_PID" 2>/dev/null || true
+        if [ "$status" -ne 0 ]; then
+          echo "BFF log ($BFF_LOG):" >&2
+          cat "$BFF_LOG" >&2 || true
+        fi
+        exit "$status"
+      }
+      trap cleanup_bff EXIT
       for i in $(seq 1 30); do
-        if curl -fs http://127.0.0.1:8787/health >/dev/null 2>&1; then
+        if curl -fs "$BFF_BASE_URL/health" >/dev/null 2>&1; then
           echo "BFF up after ${i}s"
           break
         fi
         sleep 1
       done
-      curl -fs http://127.0.0.1:8787/health
+      curl -fs "$BFF_BASE_URL/health"
+      export JERYU_LIGHTHOUSE_URL="$BFF_BASE_URL/"
       export CHROME_PATH="$(cd apps/web && node -e 'console.log(require("playwright").chromium.executablePath())')"
       test -x "$CHROME_PATH"
       npm --workspace @jeryu/web run perf
@@ -532,5 +585,5 @@ web_lighthouse:
     paths:
       - apps/web/.lighthouseci/
       - target/jankurai/ux-qa/lighthouse/
-      - /tmp/bff-lighthouse.log
+      - target/jankurai/ux-qa/bff-lighthouse.log
     expire_in: 1 week

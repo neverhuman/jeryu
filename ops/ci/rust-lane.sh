@@ -24,6 +24,56 @@ write_github_output() {
   fi
 }
 
+git_commit_exists() {
+  git rev-parse --verify --quiet "$1^{commit}" >/dev/null 2>&1
+}
+
+resolve_changed_files_base() {
+  local remote="${JERYU_DIFF_REMOTE:-origin}"
+  local branch="${JERYU_DIFF_BASE_BRANCH:-${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-${CI_DEFAULT_BRANCH:-main}}}"
+  local ref="${JERYU_DIFF_BASE_REF:-$remote/$branch}"
+  local depth="${JERYU_DIFF_BASE_FETCH_DEPTH:-50}"
+
+  if git_commit_exists "$ref"; then
+    printf '%s\n' "$ref"
+    return
+  fi
+
+  if [ -n "${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-}" ]; then
+    if git_commit_exists "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA"; then
+      printf '%s\n' "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA"
+      return
+    fi
+    git fetch --no-tags --depth=1 "$remote" "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA" >/dev/null 2>&1 || true
+    if git_commit_exists "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA"; then
+      printf '%s\n' "$CI_MERGE_REQUEST_TARGET_BRANCH_SHA"
+      return
+    fi
+  fi
+
+  log "fetch diff base ref: $branch"
+  git fetch --no-tags --depth="$depth" "$remote" \
+    "+refs/heads/$branch:refs/remotes/$remote/$branch"
+  ref="$remote/$branch"
+  if git_commit_exists "$ref"; then
+    printf '%s\n' "$ref"
+    return
+  fi
+
+  die "unable to resolve changed-files base ref: $ref"
+}
+
+write_changed_files() {
+  local base_ref="$1"
+  local output="$2"
+  if git merge-base "$base_ref" HEAD >/dev/null 2>&1; then
+    git diff --name-only "$base_ref"...HEAD > "$output"
+  else
+    log "no merge-base for $base_ref in shallow checkout; using two-dot diff"
+    git diff --name-only "$base_ref" HEAD > "$output"
+  fi
+}
+
 install_redlinedb_if_requested() {
   local backend="${JERYU_DB_BACKEND:-sqlite}"
   local url="${JERYU_DATABASE_URL:-}"
@@ -141,7 +191,8 @@ case "$STAGE" in
     ;;
   vrc-plan)
     mkdir -p target/jeryu
-    git diff --name-only origin/main...HEAD > target/jeryu/changed-files.txt
+    BASE_REF="$(resolve_changed_files_base)"
+    write_changed_files "$BASE_REF" target/jeryu/changed-files.txt
     cat target/jeryu/changed-files.txt
     mapfile -t CHANGED < target/jeryu/changed-files.txt
     if [ "${#CHANGED[@]}" -gt 0 ]; then

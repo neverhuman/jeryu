@@ -25,6 +25,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Allow the caller to pass a pre-built binary path.
 JERYU_BIN="${JERYU_BIN:-}"
+JERYU_TEMP_BIN_DIR=""
 
 # ── Colour helpers ─────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -44,6 +45,9 @@ banner() { printf "\n${BOLD}═════════════════�
 cleanup() {
     step "Cleaning up container $CONTAINER_NAME"
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    if [ -n "$JERYU_TEMP_BIN_DIR" ]; then
+        rm -rf "$JERYU_TEMP_BIN_DIR" 2>/dev/null || true
+    fi
     # Remove the ephemeral SSH key + remote config created during the test.
     rm -f "$HOME/.ssh/jeryu_${ALIAS}_ed25519" "$HOME/.ssh/jeryu_${ALIAS}_ed25519.pub" 2>/dev/null || true
     rm -f "$HOME/.jeryu/remotes/${ALIAS}.toml" 2>/dev/null || true
@@ -59,6 +63,19 @@ mkdir -p "$EVIDENCE_DIR"
 
 banner "JeRyu SSH Install Integration Test"
 
+repair_jeryu_binary_location() {
+    if [ ! -f "$JERYU_BIN" ]; then
+        return 1
+    fi
+    JERYU_TEMP_BIN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/jeryu-bin.XXXXXX")"
+    install -m 0755 "$JERYU_BIN" "$JERYU_TEMP_BIN_DIR/jeryu"
+    JERYU_BIN="$JERYU_TEMP_BIN_DIR/jeryu"
+}
+
+verify_jeryu_binary() {
+    [ -f "$JERYU_BIN" ] && [ -x "$JERYU_BIN" ] && "$JERYU_BIN" --version >/dev/null 2>&1
+}
+
 # ── Step 1: Build jeryu if no binary supplied ──────────────────────────────
 if [ -z "$JERYU_BIN" ]; then
     step "Building jeryu binary (release)"
@@ -70,10 +87,17 @@ else
     ok "Using pre-built binary: $JERYU_BIN"
 fi
 
-if [ ! -x "$JERYU_BIN" ]; then
+if ! verify_jeryu_binary; then
+    warn "Local jeryu binary failed execute check; copying it to a fresh temp path"
+    repair_jeryu_binary_location || true
+fi
+
+if ! verify_jeryu_binary; then
+    ls -la "$(dirname "$JERYU_BIN")" 2>/dev/null || true
     fail "jeryu binary not found or not executable at $JERYU_BIN"
     exit 1
 fi
+ok "Local binary verified: $("$JERYU_BIN" --version)"
 
 # ── Step 1b: Cross-compile Linux binary when running on macOS ─────────────
 # upload_current_binary honours JERYU_REMOTE_BINARY_PATH if set; without it
