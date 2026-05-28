@@ -111,13 +111,43 @@ pub struct PoolDef {
     pub trust_tier: &'static str,
 }
 
+pub const STANDARD_POOL_NAME: &str = "default";
+pub const LOCAL_NODE_ALIAS: &str = "__local__";
+pub const STANDARD_POOL_DESIRED_TOTAL: i64 = 40;
+pub const STANDARD_POOL_REMOTE_NODE_ALIASES: &[&str] = &["xbabe0", "xbabe1", "xbabe3"];
+pub const STANDARD_POOL_RESERVED_NODE_ALIASES: &[&str] = &["xbabe2"];
+
+pub struct StandardPoolCapacity {
+    pub node_alias: Option<&'static str>,
+    pub managers: usize,
+}
+
+pub const STANDARD_POOL_TOPOLOGY: &[StandardPoolCapacity] = &[
+    StandardPoolCapacity {
+        node_alias: None,
+        managers: 10,
+    },
+    StandardPoolCapacity {
+        node_alias: Some("xbabe0"),
+        managers: 10,
+    },
+    StandardPoolCapacity {
+        node_alias: Some("xbabe1"),
+        managers: 10,
+    },
+    StandardPoolCapacity {
+        node_alias: Some("xbabe3"),
+        managers: 10,
+    },
+];
+
 pub const DEFAULT_POOLS: &[PoolDef] = &[
     PoolDef {
-        name: "default",
+        name: STANDARD_POOL_NAME,
         tags: "",
         executor: "docker",
-        min_warm: 2,
-        max_managers: 4,
+        min_warm: STANDARD_POOL_DESIRED_TOTAL,
+        max_managers: STANDARD_POOL_DESIRED_TOTAL,
         concurrent: 1,
         request_concurrency: 1,
         trust_tier: "trusted",
@@ -126,8 +156,8 @@ pub const DEFAULT_POOLS: &[PoolDef] = &[
         name: "build",
         tags: "",
         executor: "docker",
-        min_warm: 2,
-        max_managers: 4,
+        min_warm: 0,
+        max_managers: 0,
         concurrent: 1,
         request_concurrency: 1,
         trust_tier: "privileged",
@@ -136,8 +166,8 @@ pub const DEFAULT_POOLS: &[PoolDef] = &[
         name: "untrusted",
         tags: "",
         executor: "custom",
-        min_warm: 1,
-        max_managers: 2,
+        min_warm: 0,
+        max_managers: 0,
         concurrent: 1,
         request_concurrency: 1,
         trust_tier: "untrusted",

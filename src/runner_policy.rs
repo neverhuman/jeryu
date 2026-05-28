@@ -5,8 +5,14 @@ use tracing::info;
 use crate::gitlab_client::GitlabClient;
 use crate::state::Pool;
 
+pub fn is_standard_pool_name(name: &str) -> bool {
+    crate::config::DEFAULT_POOLS
+        .iter()
+        .any(|pool| pool.name == name)
+}
+
 pub async fn enforce_untagged_runners(client: &GitlabClient) -> Result<usize> {
-    let runners = client.list_all_runners().await?;
+    let runners = client.list_all_runner_details().await?;
     let mut updated = 0;
 
     for runner in runners {
@@ -23,7 +29,7 @@ pub async fn enforce_untagged_runners(client: &GitlabClient) -> Result<usize> {
 }
 
 pub async fn enforce_pool_runner_policy(client: &GitlabClient, pools: &[Pool]) -> Result<usize> {
-    let runners = client.list_all_runners().await?;
+    let runners = client.list_all_runner_details().await?;
     let mut updated = 0;
 
     for pool in pools {
@@ -34,7 +40,7 @@ pub async fn enforce_pool_runner_policy(client: &GitlabClient, pools: &[Pool]) -
             continue;
         };
 
-        let desired_tags = parse_pool_tags(&pool.tags);
+        let desired_tags = desired_pool_tags(pool);
         let desired_run_untagged = desired_tags.is_empty();
         if tags_match(&runner.tag_list, &desired_tags)
             && runner.run_untagged == desired_run_untagged
@@ -59,7 +65,15 @@ pub async fn enforce_pool_runner_policy(client: &GitlabClient, pools: &[Pool]) -
     Ok(updated)
 }
 
-fn parse_pool_tags(tags: &str) -> Vec<String> {
+pub fn desired_pool_tags(pool: &Pool) -> Vec<String> {
+    if is_standard_pool_name(&pool.name) {
+        Vec::new()
+    } else {
+        parse_pool_tags(&pool.tags)
+    }
+}
+
+pub fn parse_pool_tags(tags: &str) -> Vec<String> {
     tags.split(',')
         .map(str::trim)
         .filter(|tag| !tag.is_empty())

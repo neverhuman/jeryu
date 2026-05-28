@@ -591,6 +591,9 @@ JeRyu is deeply inspectable. You can always run local doctor checks to verify sy
 # Local install health
 jeryu install doctor --json
 
+# Aggregate local health
+jeryu health --json
+
 # Remote node health
 jeryu remote doctor my-server --json
 
@@ -599,6 +602,9 @@ jeryu system
 
 # Host-level diagnostics
 jeryu host doctor --json
+
+# Runner pool topology
+jeryu pool doctor --json
 
 # Cache health
 jeryu cache doctor

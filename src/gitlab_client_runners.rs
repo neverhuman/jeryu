@@ -1,9 +1,34 @@
 use super::*;
-use tracing::info;
+use tracing::{info, warn};
 
 impl GitlabClient {
     pub async fn list_all_runners(&self) -> Result<Vec<RunnerInfo>> {
         self.get_paginated_json("/runners/all").await
+    }
+
+    pub async fn get_runner(&self, runner_id: i64) -> Result<RunnerInfo> {
+        self.api_get_json(self.api_url(&format!("/runners/{}", runner_id)))
+            .await
+            .context("get runner")
+    }
+
+    pub async fn list_all_runner_details(&self) -> Result<Vec<RunnerInfo>> {
+        let runners = self.list_all_runners().await?;
+        let mut details = Vec::with_capacity(runners.len());
+        for runner in runners {
+            match self.get_runner(runner.id).await {
+                Ok(detail) => details.push(detail),
+                Err(err) => {
+                    warn!(
+                        runner_id = runner.id,
+                        error = %err,
+                        "failed to fetch runner detail; falling back to list payload"
+                    );
+                    details.push(runner);
+                }
+            }
+        }
+        Ok(details)
     }
 
     pub async fn create_runner(

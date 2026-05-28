@@ -5,6 +5,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::dashboards::{runners::RunnersDashboard, source_doctor::SourceDoctorDashboard};
 use super::entity::{ActionRef, BlockerSummary, DataFreshness, EntityRef, HealthLevel, Severity};
 
 #[path = "read_model_health.rs"]
@@ -31,6 +32,10 @@ pub struct TuiReadModel {
     pub mission: MissionSnapshot,
     #[serde(default)]
     pub repos: ReposSnapshot,
+    #[serde(default)]
+    pub source_doctor: SourceDoctorDashboard,
+    #[serde(default)]
+    pub runners: RunnersDashboard,
     pub attention: Vec<AttentionItem>,
     pub next_action: Option<NextActionRecommendation>,
     pub system: SystemHealth,
@@ -45,6 +50,8 @@ impl Default for TuiReadModel {
             freshness: DataFreshness::default(),
             mission: MissionSnapshot::default(),
             repos: ReposSnapshot::default(),
+            source_doctor: SourceDoctorDashboard::default(),
+            runners: RunnersDashboard::default(),
             attention: Vec::new(),
             next_action: None,
             system: SystemHealth::default(),

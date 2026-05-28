@@ -79,6 +79,17 @@ pub async fn run_tui_once(
     client: crate::gitlab_client::GitlabClient,
     tab: &str,
 ) -> Result<()> {
+    let live_jobs = smoke_render_once(store, docker_ctl, client, tab).await?;
+    println!("jeryu TUI smoke render ok (live jobs: {live_jobs})");
+    Ok(())
+}
+
+pub async fn smoke_render_once(
+    store: Option<TuiSession>,
+    docker_ctl: crate::docker::DockerCtl,
+    client: crate::gitlab_client::GitlabClient,
+    tab: &str,
+) -> Result<usize> {
     use ratatui::backend::TestBackend;
 
     let mut app = match store {
@@ -96,11 +107,7 @@ pub async fn run_tui_once(
     let backend = TestBackend::new(120, 40);
     let mut terminal = Terminal::new(backend)?;
     terminal.draw(|f| super::ui::draw(f, &mut app))?;
-    println!(
-        "jeryu TUI smoke render ok (live jobs: {})",
-        app.state.recent_jobs.len()
-    );
-    Ok(())
+    Ok(app.state.recent_jobs.len())
 }
 
 pub async fn run_tui_screenshot(

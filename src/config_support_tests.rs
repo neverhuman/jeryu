@@ -85,7 +85,14 @@ fn test_render_runner_config() {
         "RUSTUP_HOME must not be set in the runner environment array"
     );
     assert!(docker_cfg.contains("JERYU_CARGO_HOST_CORES="));
-    assert!(docker_cfg.contains("JERYU_CARGO_TOTAL_RUNNER_SLOTS=20"));
+    let expected_runner_slots = DEFAULT_POOLS
+        .iter()
+        .map(|pool| pool.max_managers.saturating_mul(pool.concurrent))
+        .sum::<i64>()
+        .max(20);
+    assert!(docker_cfg.contains(&format!(
+        "JERYU_CARGO_TOTAL_RUNNER_SLOTS={expected_runner_slots}"
+    )));
     assert!(docker_cfg.contains("pre_build_script"));
     assert!(docker_cfg.contains("JERYU_SCCACHE_ENABLED=1"));
     assert!(docker_cfg.contains("JERYU_SCCACHE_BINARY_VERSION=v0.9.1"));

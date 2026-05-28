@@ -6,7 +6,7 @@ mod doctor_render;
 mod explain;
 mod promotion;
 
-pub use doctor::build_pipeline_doctor_report;
+pub use doctor::{build_pipeline_doctor_report, pipeline_doctor_schema_context};
 pub use doctor_render::render_pipeline_doctor_text;
 pub use explain::{build_pipeline_explain_report, render_pipeline_explain_text};
 pub use promotion::{maybe_trigger_production_promotion, trigger_production_promotion};

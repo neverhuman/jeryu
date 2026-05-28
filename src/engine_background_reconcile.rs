@@ -33,7 +33,24 @@ pub(crate) async fn check_scale_up(state: &EngineState) -> Result<()> {
         let active = state.db.count_active_managers(&p.name).await?;
         let target = desired_manager_target(p, queued, running);
 
-        if active < target {
+        if pool::is_standard_topology_pool(&p.name) {
+            let desired = pool::standard_pool_desired_total() as i64;
+            if active < desired {
+                info!(
+                    pool = %p.name,
+                    active,
+                    target = desired,
+                    "scaling standard pool up to configured topology"
+                );
+                pool::scale_standard_pool_topology(
+                    &state.db,
+                    &state.docker,
+                    &state.client,
+                    &p.name,
+                )
+                .await?;
+            }
+        } else if active < target {
             info!(
                 pool = %p.name,
                 active,
@@ -89,7 +106,11 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
 
         let active = state.db.count_active_managers(&p.name).await?;
 
-        let target = desired_manager_target(p, queued, running);
+        let target = if pool::is_standard_topology_pool(&p.name) {
+            pool::standard_pool_desired_total() as i64
+        } else {
+            desired_manager_target(p, queued, running)
+        };
 
         if active != target {
             info!(
@@ -100,14 +121,24 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
                 running,
                 "reconciler: scaling pool"
             );
-            pool::scale_pool_to(
-                &state.db,
-                &state.docker,
-                &state.client,
-                &p.name,
-                target as usize,
-            )
-            .await?;
+            if pool::is_standard_topology_pool(&p.name) {
+                pool::scale_standard_pool_topology(
+                    &state.db,
+                    &state.docker,
+                    &state.client,
+                    &p.name,
+                )
+                .await?;
+            } else {
+                pool::scale_pool_to(
+                    &state.db,
+                    &state.docker,
+                    &state.client,
+                    &p.name,
+                    target as usize,
+                )
+                .await?;
+            }
         }
 
         let managers = state.db.list_managers(Some(&p.name)).await?;

@@ -10,6 +10,13 @@ use std::path::PathBuf;
 use crate::install::expand_tilde;
 use crate::node_types::NodeConfig;
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct NodeConfigRepair {
+    pub alias: String,
+    pub changed: bool,
+    pub changes: Vec<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Path helpers
 // ---------------------------------------------------------------------------
@@ -81,6 +88,75 @@ pub fn list_node_configs() -> Result<Vec<NodeConfig>> {
 
 pub fn node_config_exists(alias: &str) -> bool {
     node_config_path(alias).exists()
+}
+
+pub fn repair_standard_node_configs() -> Result<Vec<NodeConfigRepair>> {
+    let gitlab_url_override = standard_gitlab_url_override();
+    let mut repairs = Vec::new();
+
+    for alias in crate::config::STANDARD_POOL_REMOTE_NODE_ALIASES {
+        let mut cfg = match load_node_config(alias) {
+            Ok(cfg) => cfg,
+            Err(_) => NodeConfig::new(alias.to_string(), format!("runner@{alias}")),
+        };
+        let mut changes = Vec::new();
+
+        if !cfg.enabled {
+            cfg.enabled = true;
+            changes.push("enabled=true".to_string());
+        }
+        if cfg.max_managers != 10 {
+            cfg.max_managers = 10;
+            changes.push("max_managers=10".to_string());
+        }
+
+        let desired_runner_data_dir = absolute_remote_jeryu_dir(&cfg.target, "runners");
+        if cfg.runner_data_dir != desired_runner_data_dir {
+            cfg.runner_data_dir = desired_runner_data_dir;
+            changes.push("runner_data_dir=absolute".to_string());
+        }
+
+        let desired_runner_cache_dir = absolute_remote_jeryu_dir(&cfg.target, "cache");
+        if cfg.runner_cache_dir != desired_runner_cache_dir {
+            cfg.runner_cache_dir = desired_runner_cache_dir;
+            changes.push("runner_cache_dir=absolute".to_string());
+        }
+
+        if let Some(url) = &gitlab_url_override
+            && cfg.gitlab_url_override.as_deref() != Some(url.as_str())
+        {
+            cfg.gitlab_url_override = Some(url.clone());
+            changes.push("gitlab_url_override=standard".to_string());
+        }
+
+        if !changes.is_empty() {
+            save_node_config(&cfg)?;
+        }
+        repairs.push(NodeConfigRepair {
+            alias: (*alias).to_string(),
+            changed: !changes.is_empty(),
+            changes,
+        });
+    }
+
+    Ok(repairs)
+}
+
+pub fn standard_gitlab_url_override() -> Option<String> {
+    ["xbabe1", "xbabe3", "xbabe0"]
+        .into_iter()
+        .filter_map(|alias| load_node_config(alias).ok())
+        .find_map(|cfg| cfg.gitlab_url_override)
+}
+
+fn absolute_remote_jeryu_dir(target: &str, leaf: &str) -> String {
+    let user = target.split('@').next().filter(|part| *part != target);
+    let home = match user {
+        Some("root") => "/root".to_string(),
+        Some(name) if !name.is_empty() => format!("/home/{name}"),
+        _ => "/home/ubuntu".to_string(),
+    };
+    format!("{home}/.jeryu/{leaf}")
 }
 
 // ---------------------------------------------------------------------------

@@ -99,20 +99,6 @@ Proof lane: `bash ops/ci/quality-gates.sh` plus the matching `ops/ci/*-lane.sh` 
     .to_string()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn github_agents_md_includes_access_contract() {
-        let rendered = render_github_agents_md();
-        assert!(rendered.contains("~/.jeryu/access.toml"));
-        assert!(rendered.contains("jeryu access repair --repo . --yes"));
-        assert!(rendered.contains("glab"));
-        assert!(rendered.contains("HTTP local GitLab origins"));
-    }
-}
-
 pub(crate) fn render_codeowners(spec: &StandardSpec) -> String {
     format!(
         "* @{}\n.github/** @{}\n.jeryu/** @{}\nops/ci/** @{}\n",
@@ -164,5 +150,19 @@ pub(crate) fn ensure_trailing_newline(input: &str) -> String {
         input.to_string()
     } else {
         format!("{input}\n")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn github_agents_md_includes_access_contract() {
+        let rendered = render_github_agents_md();
+        assert!(rendered.contains("~/.jeryu/access.toml"));
+        assert!(rendered.contains("jeryu access repair --repo . --yes"));
+        assert!(rendered.contains("glab"));
+        assert!(rendered.contains("HTTP local GitLab origins"));
     }
 }

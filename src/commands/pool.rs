@@ -31,6 +31,39 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
                 );
             }
         }
+        PoolCommands::Doctor { json } => {
+            let report = pool::build_pool_doctor_report(&db, &docker_ctl, &client).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                print_pool_doctor_report(&report);
+            }
+        }
+        PoolCommands::Repair {
+            yes,
+            prune_stale,
+            json,
+        } => {
+            if !yes {
+                anyhow::bail!("refusing to repair pools without --yes");
+            }
+            let report = pool::repair_pool_state(
+                &db,
+                &docker_ctl,
+                &client,
+                pool::PoolRepairOptions { prune_stale },
+            )
+            .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!("pool repair: {} action(s)", report.actions.len());
+                for action in &report.actions {
+                    println!("  - {action}");
+                }
+                print_pool_doctor_report(&report.doctor);
+            }
+        }
         PoolCommands::Scale { name, count } => {
             let started = pool::scale_pool_to(&db, &docker_ctl, &client, &name, count).await?;
             println!(
@@ -65,4 +98,47 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn print_pool_doctor_report(report: &pool::PoolDoctorReport) {
+    println!("━━━ jeryu pool doctor ━━━");
+    println!("  Status: {}", if report.ok { "ok" } else { "blocked" });
+    println!("  Issues: {}", report.issues.len());
+    if let Some(topology) = &report.topology {
+        println!(
+            "  Standard topology: active={} desired={}",
+            topology.active_total, topology.desired_total
+        );
+        for entry in &topology.entries {
+            println!(
+                "    {:<10} active={:<3} desired={:<3} delta={}",
+                entry.node_alias, entry.active, entry.desired, entry.delta
+            );
+        }
+    }
+    if !report.reserved_nodes.is_empty() {
+        println!("  Reserved nodes:");
+        for node in &report.reserved_nodes {
+            println!(
+                "    {:<10} active={:<3} desired={:<3} {}",
+                node.node_alias, node.active, node.desired, node.reason
+            );
+        }
+    }
+    if !report.issues.is_empty() {
+        println!();
+        println!("  Findings:");
+        for issue in &report.issues {
+            let scope = issue
+                .pool
+                .as_deref()
+                .or(issue.node_alias.as_deref())
+                .or(issue.manager_id.as_deref())
+                .unwrap_or("-");
+            println!(
+                "    [{}] {} {}: {}",
+                issue.severity, issue.code, scope, issue.message
+            );
+        }
+    }
 }

@@ -75,14 +75,15 @@ impl RunnerBackend for LocalDockerBackend {
 
         let container_id = self
             .docker
-            .start_runner_manager(
+            .start_runner_manager(crate::docker::RunnerManagerStartSpec {
                 manager_id,
-                &config_dir,
-                &manager_cache_dir.display().to_string(),
-                &pool_cache_dir.display().to_string(),
-                &pool.executor,
-                None,
-            )
+                pool_name,
+                config_dir: &config_dir,
+                manager_cache_dir: &manager_cache_dir.display().to_string(),
+                pool_cache_dir: &pool_cache_dir.display().to_string(),
+                executor: &pool.executor,
+                docker_socket: None,
+            })
             .await?;
 
         Ok(ManagerHandle {

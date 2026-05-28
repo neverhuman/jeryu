@@ -6,11 +6,13 @@ pub async fn build_pipeline_doctor_report(
     pipeline_id: i64,
 ) -> Result<PipelineDoctorReport> {
     let root = crate::settings::release_repo_root();
-    let schema = load_ci_schema(&root).await?;
+    let schema_result = load_ci_schema(&root).await;
+    let schema_context = pipeline_doctor_schema_context_from_result(&schema_result);
     let pipeline = client.get_pipeline(project_id, pipeline_id).await?;
     let jobs = client
         .list_pipeline_jobs_with_downstream(project_id, pipeline_id)
         .await?;
+    let runners = client.list_all_runner_details().await.unwrap_or_default();
     let historical_bottlenecks = match Db::open().await {
         Ok(db) => match db
             .ci_job_bottlenecks(project_id, Some(&pipeline.ref_name), 500)
@@ -21,11 +23,16 @@ pub async fn build_pipeline_doctor_report(
         },
         Err(_) => Vec::new(),
     };
-    let schema_pools = schema
-        .jobs
-        .iter()
-        .map(|job| (job.id.clone(), job.runner_pool.clone()))
-        .collect::<HashMap<_, _>>();
+    let schema_pools = schema_result
+        .as_ref()
+        .map(|schema| {
+            schema
+                .jobs
+                .iter()
+                .map(|job| (job.id.clone(), job.runner_pool.clone()))
+                .collect::<HashMap<_, _>>()
+        })
+        .unwrap_or_default();
 
     let mut doctor_jobs = Vec::new();
     for job in jobs {
@@ -86,7 +93,9 @@ pub async fn build_pipeline_doctor_report(
             && trace_empty
             && (slow_factor.map(|factor| factor >= 1.5).unwrap_or(false)
                 || duration.unwrap_or(0.0) > 900.0);
-        let stuck_suspected = source_fetch_auth_suspected
+        let runner_eligibility_issue = runner_eligibility_issue(&job, &runners);
+        let stuck_suspected = runner_eligibility_issue.is_some()
+            || source_fetch_auth_suspected
             || match job.status.as_str() {
                 "running" => {
                     trace_age_suspected
@@ -99,7 +108,9 @@ pub async fn build_pipeline_doctor_report(
                     .unwrap_or(job.queued_duration.unwrap_or(0.0) > 600.0),
                 _ => false,
             };
-        let recommendation = if source_fetch_auth_suspected {
+        let recommendation = if let Some(issue) = &runner_eligibility_issue {
+            issue.clone()
+        } else if source_fetch_auth_suspected {
             crate::ci_failure::source_fetch_auth_incident_summary().to_string()
         } else if trace_age_suspected {
             let avg = historical_avg_duration_secs
@@ -127,6 +138,7 @@ pub async fn build_pipeline_doctor_report(
             canonical_name,
             status: job.status,
             stage: job.stage,
+            job_tags: job.tag_list,
             runner_pool,
             runner: job.runner.and_then(|runner| runner.description),
             started_at: job.started_at,
@@ -142,6 +154,7 @@ pub async fn build_pipeline_doctor_report(
             stuck_suspected,
             trace_age_suspected,
             source_fetch_auth_suspected,
+            runner_eligibility_issue,
             recommendation,
         });
     }
@@ -157,7 +170,145 @@ pub async fn build_pipeline_doctor_report(
         pipeline_sha: pipeline.sha,
         pipeline_ref: pipeline.ref_name,
         pipeline_status: pipeline.status,
+        schema_context,
         jobs: doctor_jobs,
         stuck_suspected,
     })
+}
+
+pub async fn pipeline_doctor_schema_context() -> PipelineDoctorSchemaContext {
+    let root = crate::settings::release_repo_root();
+    let schema_result = load_ci_schema(&root).await;
+    pipeline_doctor_schema_context_from_result(&schema_result)
+}
+
+fn pipeline_doctor_schema_context_from_result(
+    schema_result: &Result<CiSchema>,
+) -> PipelineDoctorSchemaContext {
+    match schema_result {
+        Ok(schema) => PipelineDoctorSchemaContext {
+            available: true,
+            source: "veox-testctl ci-schema".to_string(),
+            job_count: schema.jobs.len(),
+            degraded_reason: None,
+        },
+        Err(err) => PipelineDoctorSchemaContext {
+            available: false,
+            source: "veox-testctl ci-schema".to_string(),
+            job_count: 0,
+            degraded_reason: Some(err.to_string()),
+        },
+    }
+}
+
+fn runner_eligibility_issue(
+    job: &crate::gitlab_client::Job,
+    runners: &[crate::gitlab_client::RunnerInfo],
+) -> Option<String> {
+    if !matches!(
+        job.status.as_str(),
+        "pending" | "created" | "waiting_for_resource" | "preparing"
+    ) || !job.tag_list.is_empty()
+    {
+        return None;
+    }
+
+    if runners
+        .iter()
+        .any(|runner| !runner.paused.unwrap_or(false) && runner.run_untagged)
+    {
+        return None;
+    }
+
+    let paused = runners
+        .iter()
+        .filter(|runner| runner.paused.unwrap_or(false))
+        .count();
+    let unpaused = runners.len().saturating_sub(paused);
+    let unpaused_tagged = runners
+        .iter()
+        .filter(|runner| !runner.paused.unwrap_or(false))
+        .filter(|runner| !runner.tag_list.is_empty())
+        .count();
+    let unpaused_run_untagged_false = runners
+        .iter()
+        .filter(|runner| !runner.paused.unwrap_or(false))
+        .filter(|runner| !runner.run_untagged)
+        .count();
+
+    Some(format!(
+        "pending untagged job has no eligible untagged runner: {unpaused} unpaused runner(s), {unpaused_run_untagged_false} with run_untagged=false, {unpaused_tagged} carrying tags, {paused} paused"
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn job(status: &str, tags: Vec<&str>) -> crate::gitlab_client::Job {
+        crate::gitlab_client::Job {
+            id: 1,
+            name: "unit".into(),
+            status: status.into(),
+            stage: "test".into(),
+            allow_failure: false,
+            pipeline_id: Some(1),
+            pipeline: None,
+            ref_name: Some("main".into()),
+            web_url: None,
+            queued_duration: None,
+            duration: None,
+            started_at: None,
+            finished_at: None,
+            tag_list: tags.into_iter().map(str::to_string).collect(),
+            runner: None,
+        }
+    }
+
+    fn runner(
+        paused: bool,
+        run_untagged: bool,
+        tags: Vec<&str>,
+    ) -> crate::gitlab_client::RunnerInfo {
+        crate::gitlab_client::RunnerInfo {
+            id: 1,
+            description: Some("jeryu-default".into()),
+            paused: Some(paused),
+            tag_list: tags.into_iter().map(str::to_string).collect(),
+            run_untagged,
+        }
+    }
+
+    #[test]
+    fn explains_pending_untagged_job_without_untagged_runner() {
+        let issue = runner_eligibility_issue(
+            &job("pending", vec![]),
+            &[runner(false, false, vec!["ci"]), runner(true, true, vec![])],
+        )
+        .expect("eligibility issue");
+
+        assert!(issue.contains("pending untagged job has no eligible untagged runner"));
+        assert!(issue.contains("run_untagged=false"));
+    }
+
+    #[test]
+    fn tagged_jobs_do_not_report_untagged_runner_issue() {
+        let issue = runner_eligibility_issue(
+            &job("pending", vec!["ci"]),
+            &[runner(false, false, vec!["ci"])],
+        );
+
+        assert!(issue.is_none());
+    }
+
+    #[test]
+    fn missing_ci_schema_is_degraded_context_not_error() {
+        let err = anyhow::anyhow!("failed to run veox-testctl ci-schema");
+        let context = pipeline_doctor_schema_context_from_result(&Err(err));
+
+        assert!(!context.available);
+        assert_eq!(context.source, "veox-testctl ci-schema");
+        assert_eq!(context.job_count, 0);
+        assert!(context.degraded_reason.is_some());
+    }
 }

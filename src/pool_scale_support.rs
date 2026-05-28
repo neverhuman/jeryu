@@ -56,6 +56,21 @@ pub(crate) async fn start_pool_manager(
     start_local_manager(store, docker, pool, pool_name).await
 }
 
+pub(crate) async fn start_pool_manager_on_node(
+    store: &Db,
+    docker: &DockerCtl,
+    pool: &Pool,
+    pool_name: &str,
+    node_alias: Option<&str>,
+) -> Result<()> {
+    match node_alias {
+        Some(alias) if alias != crate::config::LOCAL_NODE_ALIAS => {
+            start_remote_manager_on_node(store, pool, pool_name, alias).await
+        }
+        _ => start_local_manager(store, docker, pool, pool_name).await,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Remote path
 // ---------------------------------------------------------------------------
@@ -64,7 +79,6 @@ pub(crate) async fn start_pool_manager(
 /// Returns `Ok(Some(()))` if a manager was started, `Ok(None)` if no node is available.
 async fn try_start_remote_manager(store: &Db, pool: &Pool, pool_name: &str) -> Result<Option<()>> {
     use crate::node_support;
-    use crate::runner_backend_remote::RemoteDockerBackend;
 
     // Build active-count map for node selection (counts managers currently on each node).
     let all_managers = store.list_managers(Some(pool_name)).await?;
@@ -82,6 +96,34 @@ async fn try_start_remote_manager(store: &Db, pool: &Pool, pool_name: &str) -> R
         Some(n) => n,
         None => return Ok(None),
     };
+
+    start_remote_manager(store, pool, pool_name, node_cfg).await?;
+    Ok(Some(()))
+}
+
+pub(crate) async fn start_remote_manager_on_node(
+    store: &Db,
+    pool: &Pool,
+    pool_name: &str,
+    node_alias: &str,
+) -> Result<()> {
+    let node_cfg = crate::node_support::load_node_config(node_alias)?;
+    if !node_cfg.enabled {
+        anyhow::bail!("node '{node_alias}' is disabled");
+    }
+    if !node_cfg.accepts_pool(pool_name) {
+        anyhow::bail!("node '{node_alias}' does not accept pool '{pool_name}'");
+    }
+    start_remote_manager(store, pool, pool_name, node_cfg).await
+}
+
+async fn start_remote_manager(
+    store: &Db,
+    pool: &Pool,
+    pool_name: &str,
+    node_cfg: crate::node_types::NodeConfig,
+) -> Result<()> {
+    use crate::runner_backend_remote::RemoteDockerBackend;
 
     let backend = RemoteDockerBackend::new(node_cfg.clone());
     let manager_id = uuid::Uuid::new_v4().to_string();
@@ -124,14 +166,14 @@ async fn try_start_remote_manager(store: &Db, pool: &Pool, pool_name: &str) -> R
         "started remote runner manager"
     );
 
-    Ok(Some(()))
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
 // Local path (original behaviour, unchanged)
 // ---------------------------------------------------------------------------
 
-async fn start_local_manager(
+pub(crate) async fn start_local_manager(
     store: &Db,
     docker: &DockerCtl,
     pool: &Pool,
@@ -176,14 +218,15 @@ async fn start_local_manager(
     fs::write(format!("{config_dir}/config.toml"), &config_content)?;
 
     let container_id = docker
-        .start_runner_manager(
-            &manager_id,
-            &config_dir,
-            &manager_cache_dir.display().to_string(),
-            &pool_cache_dir.display().to_string(),
-            &pool.executor,
-            None,
-        )
+        .start_runner_manager(crate::docker::RunnerManagerStartSpec {
+            manager_id: &manager_id,
+            pool_name,
+            config_dir: &config_dir,
+            manager_cache_dir: &manager_cache_dir.display().to_string(),
+            pool_cache_dir: &pool_cache_dir.display().to_string(),
+            executor: &pool.executor,
+            docker_socket: None,
+        })
         .await
         .with_context(|| format!("starting manager for pool '{pool_name}'"))?;
 

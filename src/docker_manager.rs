@@ -5,9 +5,11 @@
 use anyhow::{Context, Result};
 use bollard::container::{
     Config, CreateContainerOptions, KillContainerOptions, ListContainersOptions, LogsOptions,
-    RemoveContainerOptions, StartContainerOptions, StopContainerOptions,
+    RemoveContainerOptions, StartContainerOptions, StopContainerOptions, UpdateContainerOptions,
 };
-use bollard::models::{ContainerSummary, HostConfig, Mount, MountTypeEnum};
+use bollard::models::{
+    ContainerSummary, HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum,
+};
 use futures_util::TryStreamExt;
 use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
@@ -30,18 +32,36 @@ fn compose_up_targets() -> [&'static str; 2] {
     ["gitlab", "vault"]
 }
 
+pub struct RunnerManagerStartSpec<'a> {
+    pub manager_id: &'a str,
+    pub pool_name: &'a str,
+    pub config_dir: &'a str,
+    pub manager_cache_dir: &'a str,
+    pub pool_cache_dir: &'a str,
+    pub executor: &'a str,
+    pub docker_socket: Option<&'a str>,
+}
+
+fn runner_restart_policy() -> RestartPolicy {
+    RestartPolicy {
+        name: Some(RestartPolicyNameEnum::UNLESS_STOPPED),
+        maximum_retry_count: Some(0),
+    }
+}
+
 impl DockerCtl {
     /// Start a new runner-manager container for a pool.
     /// Returns the Docker container ID.
-    pub async fn start_runner_manager(
-        &self,
-        manager_id: &str,
-        config_dir: &str,
-        manager_cache_dir: &str,
-        pool_cache_dir: &str,
-        executor: &str,
-        docker_socket: Option<&str>,
-    ) -> Result<String> {
+    pub async fn start_runner_manager(&self, spec: RunnerManagerStartSpec<'_>) -> Result<String> {
+        let RunnerManagerStartSpec {
+            manager_id,
+            pool_name,
+            config_dir,
+            manager_cache_dir,
+            pool_cache_dir,
+            executor,
+            docker_socket,
+        } = spec;
         let container_name = format!("jeryu-runner-{}", manager_id);
         let socket = docker_socket.unwrap_or("/var/run/docker.sock");
         let bootstrap_cmd_owned = match executor {
@@ -96,6 +116,7 @@ impl DockerCtl {
             mounts: Some(mounts),
             network_mode: Some(config::LOCAL_DOCKER_NETWORK_NAME.to_string()),
             extra_hosts: Some(vec!["host.docker.internal:host-gateway".to_string()]),
+            restart_policy: Some(runner_restart_policy()),
             ..Default::default()
         };
 
@@ -107,7 +128,12 @@ impl DockerCtl {
             host_config: Some(host_config),
             labels: Some(HashMap::from([
                 ("jeryu.managed".to_string(), "true".to_string()),
+                ("jeryu.pool".to_string(), pool_name.to_string()),
                 ("jeryu.manager_id".to_string(), manager_id.to_string()),
+                (
+                    "jeryu.node_alias".to_string(),
+                    config::LOCAL_NODE_ALIAS.to_string(),
+                ),
             ])),
             ..Default::default()
         };
@@ -130,6 +156,21 @@ impl DockerCtl {
 
         info!(container_id = %resp.id, name = %container_name, "started runner manager");
         Ok(resp.id)
+    }
+
+    /// Ensure an existing local runner-manager survives Docker daemon or process restarts.
+    pub async fn ensure_runner_manager_restart_policy(&self, container_id: &str) -> Result<()> {
+        self.docker
+            .update_container(
+                container_id,
+                UpdateContainerOptions::<String> {
+                    restart_policy: Some(runner_restart_policy()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .with_context(|| format!("updating runner restart policy for {container_id}"))?;
+        Ok(())
     }
 
     /// Remove cached job state from a manager's bind-mounted /cache.

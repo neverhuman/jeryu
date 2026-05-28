@@ -146,6 +146,7 @@ impl RunnerBackend for RemoteDockerBackend {
   -v {cache_dir}:/cache \
   -v {pool_cache}:/pool-cache \
   --label jeryu.managed=true \
+  --label jeryu.pool={pool_name_q} \
   --label jeryu.manager_id={manager_id_q} \
   --label jeryu.node_alias={alias_q} \
   {image} \
@@ -155,6 +156,7 @@ impl RunnerBackend for RemoteDockerBackend {
             docker_socket = shell_quote(&self.node.docker_socket),
             cache_dir = shell_quote(&cache_dir),
             pool_cache = shell_quote(&pool_cache),
+            pool_name_q = shell_quote(pool_name),
             manager_id_q = shell_quote(manager_id),
             alias_q = shell_quote(&self.node.alias),
             image = shell_quote(runner_image),

@@ -103,18 +103,18 @@ async fn test_runner_policy_clears_tags_offline() {
     assert!(stored.run_untagged, "runner should accept untagged jobs");
 }
 
-/// Pool-aware runner policy preserves explicit build-pool tags for tagged release jobs.
+/// Pool-aware runner policy preserves explicit tags for non-standard custom pools.
 #[tokio::test]
-async fn test_pool_runner_policy_preserves_build_tags_offline() {
+async fn test_pool_runner_policy_preserves_custom_tags_offline() {
     let mock = MockGitlabServer::start().await;
     let client = mock.gitlab_client();
 
     let runner = client
-        .create_runner("jeryu-build", &["x86-64"], true, "instance_type")
+        .create_runner("jeryu-release-build", &["x86-64"], true, "instance_type")
         .await
         .expect("create runner");
     let pools = vec![Pool {
-        name: "build".into(),
+        name: "release-build".into(),
         gitlab_runner_id: runner.id,
         auth_token: runner.token,
         tags: "build,docker-build,x86-64,docker,dind".into(),
@@ -132,7 +132,7 @@ async fn test_pool_runner_policy_preserves_build_tags_offline() {
     let updated = jeryu::runner_policy::enforce_pool_runner_policy(&client, &pools)
         .await
         .expect("enforce pool runner policy");
-    assert_eq!(updated, 1, "build runner should be normalized");
+    assert_eq!(updated, 1, "custom runner should be normalized");
 
     let s = mock.state.lock().unwrap();
     let stored = s.runners.get(&pools[0].gitlab_runner_id).expect("runner");
@@ -142,8 +142,45 @@ async fn test_pool_runner_policy_preserves_build_tags_offline() {
     );
     assert!(
         !stored.run_untagged,
-        "tagged build runner should require tagged jobs"
+        "tagged custom runner should require tagged jobs"
     );
+}
+
+/// Standard pool policy ignores stale DB tags and forces GitLab to accept untagged jobs.
+#[tokio::test]
+async fn test_standard_pool_policy_clears_stale_tags_offline() {
+    let mock = MockGitlabServer::start().await;
+    let client = mock.gitlab_client();
+
+    let runner = client
+        .create_runner("jeryu-default", &["old"], false, "instance_type")
+        .await
+        .expect("create runner");
+    let pools = vec![Pool {
+        name: "default".into(),
+        gitlab_runner_id: runner.id,
+        auth_token: runner.token,
+        tags: "old,ci".into(),
+        executor: "docker".into(),
+        min_warm: 40,
+        max_managers: 40,
+        concurrent: 1,
+        request_concurrency: 1,
+        paused: false,
+        trust_tier: "trusted".into(),
+        cluster_alias: None,
+        backend_type: "docker-remote".into(),
+    }];
+
+    let updated = jeryu::runner_policy::enforce_pool_runner_policy(&client, &pools)
+        .await
+        .expect("enforce pool runner policy");
+
+    assert_eq!(updated, 1);
+    let s = mock.state.lock().unwrap();
+    let stored = s.runners.get(&pools[0].gitlab_runner_id).expect("runner");
+    assert!(stored.tags.is_empty());
+    assert!(stored.run_untagged);
 }
 
 // ---------------------------------------------------------------------------

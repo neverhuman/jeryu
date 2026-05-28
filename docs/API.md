@@ -122,6 +122,14 @@ Guided SSH provisioning for a remote host. The install plan covers local SSH pre
 
 Prints pools with paused state, executor, min warm count, active managers, max managers, and runner id.
 
+#### `jeryu pool doctor [--json]`
+
+Checks standard runner policy, GitLab runner settings, manager runtime state, and the explicit standard topology. The standard pool is `40` managers: `__local__=10`, `xbabe0=10`, `xbabe1=10`, and `xbabe3=10`. `xbabe2` is reported as a reserved node with desired managers `0` because it is used for active agent execution.
+
+#### `jeryu pool repair --yes [--prune-stale] [--json]`
+
+Repairs standard pool policy and topology drift. `--prune-stale` deletes stale standard GitLab runner registrations that are not referenced by a pool.
+
 #### `jeryu pool scale <name> <count>`
 
 Scales a pool exactly to `count` manager containers.
@@ -184,7 +192,7 @@ Builds a blocking/non-blocking release eligibility report for a pipeline. Groups
 
 #### `jeryu pipeline doctor <pipeline_id> [--project-id 48] [--json]`
 
-Diagnoses active jobs, runner assignment, stale trace symptoms, and likely pipeline health issues.
+Diagnoses active jobs, runner assignment, stale trace symptoms, and likely pipeline health issues. If `veox-testctl ci-schema` is unavailable, the report marks schema context as degraded and still emits the rest of the pipeline doctor report.
 
 #### `jeryu pipeline jobs <pipeline_id> [--project-id 48] [--ingest] [--json]`
 
@@ -417,6 +425,10 @@ Performs a host storage audit.
 #### `jeryu host doctor [--json]`
 
 Checks host, GitLab, Docker, registry/cache, and runner-cache health. Exits non-zero if unhealthy.
+
+#### `jeryu health [--json] [--ci]`
+
+Runs the aggregate read-only health report. Local mode checks access, installed version, GitLab reachability, Vault, host doctor, pool doctor, node doctors, TUI smoke, and pipeline-doctor schema availability. CI mode checks runner context, build metadata, `tui --once` rendering, runner tag policy, and schema availability without host-only secrets.
 
 #### `jeryu host reclaim --mode aggressive (--plan|--apply)`
 

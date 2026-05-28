@@ -52,6 +52,8 @@ pub struct Job {
     pub duration: Option<f64>,
     pub started_at: Option<String>,
     pub finished_at: Option<String>,
+    #[serde(default)]
+    pub tag_list: Vec<String>,
     pub runner: Option<JobRunner>,
 }
 

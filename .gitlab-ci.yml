@@ -135,6 +135,20 @@ rust_tui_smoke:
     - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh tui-smoke
 
+jeryu_health_self:
+  stage: evidence
+  rules: *rules_rust
+  script:
+    - apt-get install -y --no-install-recommends mold
+    - mkdir -p target/jeryu
+    - cargo run -p jeryu --bin jeryu -- health --ci --json > target/jeryu/health.json
+    - jq -e '.ok == true' target/jeryu/health.json
+  artifacts:
+    when: always
+    paths:
+      - target/jeryu/health.json
+    expire_in: 1 week
+
 rust_supply_chain:
   stage: evidence
   rules: *rules_rust

@@ -11,6 +11,24 @@ use std::path::PathBuf;
 pub(crate) enum PoolCommands {
     /// List all pools and their managers.
     List,
+    /// Diagnose runner pool policy, runtime, and topology drift.
+    Doctor {
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Repair standard runner policy and topology drift.
+    Repair {
+        /// Confirm repairs.
+        #[arg(long, default_value_t = false)]
+        yes: bool,
+        /// Delete stale standard GitLab runner registrations that are not referenced by a pool.
+        #[arg(long, default_value_t = false)]
+        prune_stale: bool,
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Scale a pool to N managers.
     Scale { name: String, count: usize },
     /// Pause a pool (stop accepting new jobs).

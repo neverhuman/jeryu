@@ -16,6 +16,7 @@ fn job(name: &str, status: &str, allow_failure: bool) -> Job {
         duration: None,
         started_at: None,
         finished_at: None,
+        tag_list: Vec::new(),
         runner: None,
     }
 }

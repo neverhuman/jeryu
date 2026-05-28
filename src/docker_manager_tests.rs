@@ -37,6 +37,13 @@ fn compose_up_targets_only_gitlab_and_vault() {
     assert_eq!(compose_up_targets(), ["gitlab", "vault"]);
 }
 
+#[test]
+fn runner_managers_restart_unless_stopped() {
+    let policy = runner_restart_policy();
+    assert_eq!(policy.name, Some(RestartPolicyNameEnum::UNLESS_STOPPED));
+    assert_eq!(policy.maximum_retry_count, Some(0));
+}
+
 fn contains_bytes(haystack: &str, needle: &[u8]) -> bool {
     haystack
         .as_bytes()

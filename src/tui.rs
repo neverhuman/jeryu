@@ -24,7 +24,7 @@ pub mod widgets;
 pub mod witness;
 pub mod workflow;
 
-pub use runner::{capture_tui_png, run_tui, run_tui_once, run_tui_screenshot};
+pub use runner::{capture_tui_png, run_tui, run_tui_once, run_tui_screenshot, smoke_render_once};
 
 #[cfg(test)]
 pub(crate) mod test_support {

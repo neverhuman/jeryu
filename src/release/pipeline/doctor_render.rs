@@ -11,6 +11,22 @@ pub fn render_pipeline_doctor_text(report: &PipelineDoctorReport) -> String {
         report.pipeline_ref, report.pipeline_sha
     );
     let _ = writeln!(out, "  Status:   {}", report.pipeline_status);
+    if report.schema_context.available {
+        let _ = writeln!(
+            out,
+            "  Schema:   available ({} job definitions)",
+            report.schema_context.job_count
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "  Schema:   degraded ({})",
+            report.schema_context.source
+        );
+        if let Some(reason) = &report.schema_context.degraded_reason {
+            let _ = writeln!(out, "            {reason}");
+        }
+    }
     let _ = writeln!(out, "  Jobs:     {}", report.jobs.len());
     let _ = writeln!(out, "  Suspect:  {}", report.stuck_suspected.len());
     if !report.jobs.is_empty() {
@@ -74,6 +90,9 @@ pub fn render_pipeline_doctor_text(report: &PipelineDoctorReport) -> String {
             }
             if job.source_fetch_auth_suspected {
                 let _ = writeln!(out, "      source-fetch: auth failed before user code ran");
+            }
+            if let Some(issue) = &job.runner_eligibility_issue {
+                let _ = writeln!(out, "      runner-eligibility: {issue}");
             }
         }
     }

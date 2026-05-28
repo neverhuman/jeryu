@@ -4,35 +4,26 @@
 //!             `SourceDoctorLensInput`. No I/O. Render layer reads only
 //!             the resulting struct. Per-source freshness, schema drift,
 //!             action drift, MCP drift, docs drift, and DB profile
-//!             mismatch land in U29 proper. This first-cut stubs all
-//!             counts to zero; U29 wires
-//!             `crate::api::dashboards::source_doctor::SourceDoctorDashboard`.
+//!             mismatch come from `SourceDoctorDashboard` on the shared
+//!             read model.
 
 use crate::api::read_model::TuiReadModel;
 
 #[derive(Debug, Clone)]
 pub struct SourceDoctorLensInput {
-    /// Total registered sources. Placeholder zero until U29 wires
-    /// `SourceDoctorDashboard::summary::sources_total`.
     pub sources_total: u32,
-    /// Healthy source count. Placeholder zero until U29 wires the
-    /// dashboard projection.
     pub sources_healthy: u32,
-    /// Degraded source count. Placeholder zero until U29 wires the
-    /// dashboard projection.
     pub sources_degraded: u32,
     pub event_cursor: u64,
 }
 
 impl SourceDoctorLensInput {
     pub fn from_read_model(model: &TuiReadModel) -> Self {
+        let summary = model.source_doctor.summary.as_ref();
         Self {
-            // placeholders; U29 proper populates from
-            // SourceDoctorDashboard once that projection is wired into
-            // TuiReadModel.
-            sources_total: 0,
-            sources_healthy: 0,
-            sources_degraded: 0,
+            sources_total: summary.map(|s| s.sources_total).unwrap_or(0),
+            sources_healthy: summary.map(|s| s.sources_healthy).unwrap_or(0),
+            sources_degraded: summary.map(|s| s.sources_degraded).unwrap_or(0),
             event_cursor: model.event_cursor,
         }
     }
@@ -60,5 +51,23 @@ mod tests {
         };
         let input = SourceDoctorLensInput::from_read_model(&model);
         assert_eq!(input.event_cursor, 4321);
+    }
+
+    #[test]
+    fn select_uses_source_doctor_summary_from_read_model() {
+        let mut model = TuiReadModel::default();
+        model.source_doctor.summary =
+            Some(crate::api::dashboards::source_doctor::SourceDoctorSummary {
+                sources_total: 6,
+                sources_healthy: 5,
+                sources_degraded: 1,
+                schema_drift_count: 0,
+            });
+
+        let input = SourceDoctorLensInput::from_read_model(&model);
+
+        assert_eq!(input.sources_total, 6);
+        assert_eq!(input.sources_healthy, 5);
+        assert_eq!(input.sources_degraded, 1);
     }
 }

@@ -16,7 +16,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::{delete, get, post, put},
+    routing::{delete, get, post},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -29,6 +29,7 @@ use tokio::net::TcpListener;
 #[derive(Clone, Debug)]
 pub struct MockRunner {
     pub id: i64,
+    pub description: String,
     pub token: String,
     pub paused: bool,
     pub tags: Vec<String>,
@@ -65,6 +66,7 @@ pub struct MockJob {
     pub stage: String,
     /// One of: "created", "pending", "running", "success", "failed", "canceled"
     pub status: String,
+    pub tag_list: Vec<String>,
     pub trace: String,
 }
 
@@ -226,6 +228,7 @@ impl MockGitlabInner {
                 name: job_name.to_string(),
                 stage: "test".to_string(),
                 status: initial_status.to_string(),
+                tag_list: Vec::new(),
                 trace: trace.to_string(),
             },
         );
@@ -270,10 +273,17 @@ async fn create_runner(
         .and_then(|b| b.get("run_untagged"))
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let description = body
+        .as_ref()
+        .and_then(|b| b.get("description"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("mock-runner")
+        .to_string();
     s.runners.insert(
         id,
         MockRunner {
             id,
+            description,
             token: token.clone(),
             paused: false,
             tags,
@@ -324,6 +334,23 @@ async fn update_runner(
     }
 }
 
+// GET /api/v4/runners/:id
+async fn get_runner(State(state): State<GitlabState>, Path(id): Path<i64>) -> impl IntoResponse {
+    let s = state.lock().unwrap();
+    if let Some(runner) = s.runners.get(&id) {
+        Json(json!({
+            "id": runner.id,
+            "description": runner.description.clone(),
+            "paused": runner.paused,
+            "tag_list": runner.tags.clone(),
+            "run_untagged": runner.run_untagged,
+        }))
+        .into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
 // GET /api/v4/runners/all
 async fn list_all_runners(State(state): State<GitlabState>) -> impl IntoResponse {
     let s = state.lock().unwrap();
@@ -333,10 +360,9 @@ async fn list_all_runners(State(state): State<GitlabState>) -> impl IntoResponse
         .map(|runner| {
             json!({
                 "id": runner.id,
-                "description": format!("mock-runner-{}", runner.id),
+                "description": runner.description.clone(),
                 "paused": runner.paused,
                 "tag_list": runner.tags.clone(),
-                "run_untagged": runner.run_untagged,
             })
         })
         .collect();
@@ -788,6 +814,7 @@ async fn list_pipeline_jobs(
                 "status": j.status,
                 "stage": j.stage,
                 "allow_failure": false,
+                "tag_list": j.tag_list.clone(),
                 "pipeline": {
                     "id": j.pipeline_id,
                     "sha": null,
@@ -866,7 +893,7 @@ fn build_router(state: GitlabState) -> Router {
         .route("/api/v4/runners/all", get(list_all_runners))
         .route(
             "/api/v4/runners/{id}",
-            put(update_runner).delete(delete_runner),
+            get(get_runner).put(update_runner).delete(delete_runner),
         )
         .route("/api/v4/runners/{id}/managers", get(list_runner_managers))
         .route(

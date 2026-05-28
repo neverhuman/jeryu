@@ -58,6 +58,14 @@ pub(crate) enum Commands {
     Undo,
     System,
     Status,
+    Health {
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+        /// Run CI-safe checks only; avoids host-only secrets and local services.
+        #[arg(long, default_value_t = false)]
+        ci: bool,
+    },
     #[command(subcommand)]
     Pool(PoolCommands),
     #[command(subcommand)]

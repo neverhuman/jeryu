@@ -13,6 +13,8 @@ mod docker_manager;
 #[path = "docker_volume.rs"]
 mod docker_volume;
 
+pub use docker_manager::RunnerManagerStartSpec;
+
 #[derive(Clone)]
 pub struct DockerCtl {
     docker: Docker,

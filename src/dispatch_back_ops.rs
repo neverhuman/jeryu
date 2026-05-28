@@ -21,6 +21,16 @@ pub(crate) async fn run_serve() -> Result<()> {
         );
     }
 
+    let repaired_tags = pool::repair_standard_pool_tags(&db).await?;
+    let repaired_capacity = pool::repair_standard_pool_capacity(&db).await?;
+    if repaired_tags + repaired_capacity > 0 {
+        tracing::warn!(
+            repaired_tags,
+            repaired_capacity,
+            "repaired standard runner pool policy before reconciliation"
+        );
+    }
+
     let pools = db.list_pools().await?;
     let normalized_runners =
         jeryu::runner_policy::enforce_pool_runner_policy(&client, &pools).await?;
@@ -33,7 +43,12 @@ pub(crate) async fn run_serve() -> Result<()> {
 
     for p in &pools {
         if !p.paused {
-            pool::scale_pool_to(&db, &docker_ctl, &client, &p.name, p.min_warm as usize).await?;
+            if pool::is_standard_topology_pool(&p.name) {
+                pool::scale_standard_pool_topology(&db, &docker_ctl, &client, &p.name).await?;
+            } else {
+                pool::scale_pool_to(&db, &docker_ctl, &client, &p.name, p.min_warm as usize)
+                    .await?;
+            }
         }
     }
 

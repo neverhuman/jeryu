@@ -1910,6 +1910,42 @@ impl Db {
         Ok(())
     }
 
+    pub async fn update_pool_tags(&self, name: &str, tags: &str) -> Result<()> {
+        let sql = self.sql("UPDATE pools SET tags = ? WHERE name = ?");
+        sqlx::query(&sql)
+            .bind(tags)
+            .bind(name)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_pool_capacity(
+        &self,
+        name: &str,
+        min_warm: i64,
+        max_managers: i64,
+    ) -> Result<()> {
+        let sql = self.sql("UPDATE pools SET min_warm = ?, max_managers = ? WHERE name = ?");
+        sqlx::query(&sql)
+            .bind(min_warm)
+            .bind(max_managers)
+            .bind(name)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn update_pool_backend(&self, name: &str, backend_type: &str) -> Result<()> {
+        let sql = self.sql("UPDATE pools SET backend_type = ? WHERE name = ?");
+        sqlx::query(&sql)
+            .bind(backend_type)
+            .bind(name)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     // -- Manager operations ------------------------------------------------
 
     pub async fn insert_manager(&self, m: &Manager) -> Result<()> {
@@ -4677,6 +4713,19 @@ mod tests {
         db.update_pool_token("test_pool", "new_secret").await?;
         let p = db.get_pool("test_pool").await?.unwrap();
         assert_eq!(p.auth_token, "new_secret");
+
+        db.update_pool_tags("test_pool", "").await?;
+        let p = db.get_pool("test_pool").await?.unwrap();
+        assert_eq!(p.tags, "");
+
+        db.update_pool_capacity("test_pool", 4, 8).await?;
+        let p = db.get_pool("test_pool").await?.unwrap();
+        assert_eq!(p.min_warm, 4);
+        assert_eq!(p.max_managers, 8);
+
+        db.update_pool_backend("test_pool", "docker-remote").await?;
+        let p = db.get_pool("test_pool").await?.unwrap();
+        assert_eq!(p.backend_type, "docker-remote");
 
         Ok(())
     }

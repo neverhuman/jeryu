@@ -365,6 +365,9 @@ async fn cmd_doctor(alias: &str) -> Result<i32> {
         Ok(n) => println!("  ✓ Active managers in DB: {n} / {}", cfg.max_managers),
         Err(_) => println!("  ? Could not query DB for active managers"),
     }
+    if jeryu::config::STANDARD_POOL_RESERVED_NODE_ALIASES.contains(&alias) {
+        println!("  ✓ Standard pool expectation: 0 managers (reserved for active agent execution)");
+    }
 
     println!();
     let all_ok = probe.reachable && probe.docker_ready;

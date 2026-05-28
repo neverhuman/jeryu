@@ -14,9 +14,14 @@ pub struct RunnersLensInput {
 
 impl RunnersLensInput {
     pub fn from_read_model(model: &TuiReadModel) -> Self {
+        let summary = model.runners.summary.as_ref();
         Self {
-            active_runners: model.mission.active_runners,
-            total_runners: model.mission.total_runners,
+            active_runners: summary
+                .map(|summary| summary.active_runners)
+                .unwrap_or(model.mission.active_runners),
+            total_runners: summary
+                .map(|summary| summary.total_runners)
+                .unwrap_or(model.mission.total_runners),
             event_cursor: model.event_cursor,
         }
     }
@@ -41,5 +46,23 @@ mod tests {
         };
         let input = RunnersLensInput::from_read_model(&model);
         assert_eq!(input.event_cursor, 99);
+    }
+
+    #[test]
+    fn select_uses_runners_dashboard_summary_when_present() {
+        let mut model = TuiReadModel::default();
+        model.mission.active_runners = 1;
+        model.mission.total_runners = 2;
+        model.runners.summary = Some(crate::api::dashboards::runners::RunnersSummary {
+            active_runners: 40,
+            total_runners: 40,
+            paused_runners: 0,
+            draining_runners: 0,
+        });
+
+        let input = RunnersLensInput::from_read_model(&model);
+
+        assert_eq!(input.active_runners, 40);
+        assert_eq!(input.total_runners, 40);
     }
 }

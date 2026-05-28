@@ -135,17 +135,16 @@ async fn repair_reports(repo: Option<PathBuf>, all_known: bool) -> Result<Vec<Ac
 
     for repo_path in repo_paths {
         let mut report = repair_repo_layout(&contract, &repo_path)?;
-        if let Some(project_path) = report.repo_slug.clone() {
-            if let Err(err) =
+        if let Some(project_path) = report.repo_slug.clone()
+            && let Err(err) =
                 resolve_project_report(&contract, &repo_path, Some(&project_path), &client).await
-            {
-                report.findings.push(jeryu::access::AccessFinding {
-                    code: "project_resolution_error".to_string(),
-                    severity: "warning".to_string(),
-                    message: err.to_string(),
-                    repair_hint: Some("retry after local GitLab recovers".to_string()),
-                });
-            }
+        {
+            report.findings.push(jeryu::access::AccessFinding {
+                code: "project_resolution_error".to_string(),
+                severity: "warning".to_string(),
+                message: err.to_string(),
+                repair_hint: Some("retry after local GitLab recovers".to_string()),
+            });
         }
         reports.push(report);
     }

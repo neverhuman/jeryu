@@ -29,6 +29,30 @@ pub async fn reconcile_manager_runtime_state(
         .iter()
         .filter(|manager| manager_state_counts_as_active(&manager.state))
         .filter(|manager| manager.node_alias.is_none())
+        .filter(|manager| manager_has_running_container(manager, &running_container_ids))
+    {
+        if let Err(err) = docker
+            .ensure_runner_manager_restart_policy(&manager.docker_container_id)
+            .await
+        {
+            warn!(
+                manager_id = %manager.id,
+                container_id = %manager.docker_container_id,
+                error = %err,
+                "failed to enforce local runner restart policy"
+            );
+        }
+        if manager.state != "online" {
+            store.update_manager_state(&manager.id, "online").await?;
+        }
+        let now = chrono::Utc::now().to_rfc3339();
+        store.update_manager_last_contact(&manager.id, &now).await?;
+    }
+
+    for manager in managers
+        .iter()
+        .filter(|manager| manager_state_counts_as_active(&manager.state))
+        .filter(|manager| manager.node_alias.is_none())
         .filter(|manager| !manager_has_running_container(manager, &running_container_ids))
     {
         warn!(
@@ -202,14 +226,15 @@ async fn start_manager(store: &Db, docker: &DockerCtl, pool: &Pool, pool_name: &
     fs::write(format!("{config_dir}/config.toml"), &config_content)?;
 
     let container_id = docker
-        .start_runner_manager(
-            &manager_id,
-            &config_dir,
-            &manager_cache_dir.display().to_string(),
-            &pool_cache_dir.display().to_string(),
-            &pool.executor,
-            None,
-        )
+        .start_runner_manager(crate::docker::RunnerManagerStartSpec {
+            manager_id: &manager_id,
+            pool_name,
+            config_dir: &config_dir,
+            manager_cache_dir: &manager_cache_dir.display().to_string(),
+            pool_cache_dir: &pool_cache_dir.display().to_string(),
+            executor: &pool.executor,
+            docker_socket: None,
+        })
         .await
         .with_context(|| format!("starting manager for pool '{pool_name}'"))?;
 
@@ -300,5 +325,100 @@ pub async fn scale_pool_to(
     }
 
     wait_for_active_managers(store, pool_name, target as i64, Duration::from_secs(90)).await?;
+    Ok(started)
+}
+
+pub async fn scale_standard_pool_topology(
+    store: &Db,
+    docker: &DockerCtl,
+    _client: &GitlabClient,
+    pool_name: &str,
+) -> Result<usize> {
+    if !super::pool_topology::is_standard_topology_pool(pool_name) {
+        let pool = store
+            .get_pool(pool_name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
+        return scale_pool_to(store, docker, _client, pool_name, pool.min_warm as usize).await;
+    }
+
+    let pool = store
+        .get_pool(pool_name)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
+
+    reconcile_manager_runtime_state(store, docker, Some(pool_name)).await?;
+    let managers = store.list_managers(Some(pool_name)).await?;
+    let targets = super::pool_topology::desired_standard_pool_targets();
+    let plan = super::pool_topology::plan_pool_topology(pool_name, &managers, &targets);
+
+    for entry in plan.entries.iter().filter(|entry| entry.delta < 0) {
+        let excess = entry.delta.unsigned_abs();
+        let to_drain = managers
+            .iter()
+            .filter(|manager| manager_state_counts_as_active(&manager.state))
+            .filter(|manager| super::pool_topology::manager_node_key(manager) == entry.node_alias)
+            .take(excess)
+            .collect::<Vec<_>>();
+
+        for manager in to_drain {
+            info!(
+                manager_id = %manager.id,
+                pool = pool_name,
+                node = %entry.node_alias,
+                "draining manager outside desired standard pool topology"
+            );
+            store.update_manager_state(&manager.id, "draining").await?;
+            stop_manager_for_node(
+                docker,
+                manager,
+                config::runner_shutdown_timeout_secs() as i64,
+            )
+            .await
+            .ok();
+            if manager.node_alias.is_none() {
+                remove_manager_cache_dir(docker, &manager.id).await;
+            }
+            store.update_manager_state(&manager.id, "stopped").await?;
+        }
+    }
+
+    let managers = store.list_managers(Some(pool_name)).await?;
+    let plan = super::pool_topology::plan_pool_topology(pool_name, &managers, &targets);
+    let to_start = plan
+        .entries
+        .iter()
+        .filter(|entry| entry.delta > 0)
+        .map(|entry| entry.delta as usize)
+        .sum::<usize>();
+
+    if to_start > 0 {
+        crate::cache::ensure_root_disk_headroom(
+            crate::cache::ROOT_DISK_HEADROOM_MIN_FREE_BYTES,
+            "standard runner topology fanout",
+        )
+        .await?;
+    }
+
+    let mut started = 0;
+    for entry in plan.entries.iter().filter(|entry| entry.delta > 0) {
+        let node_alias = if entry.node_alias == config::LOCAL_NODE_ALIAS {
+            None
+        } else {
+            Some(entry.node_alias.as_str())
+        };
+        for _ in 0..(entry.delta as usize) {
+            start_pool_manager_on_node(store, docker, &pool, pool_name, node_alias).await?;
+            started += 1;
+        }
+    }
+
+    wait_for_active_managers(
+        store,
+        pool_name,
+        super::pool_topology::standard_pool_desired_total() as i64,
+        Duration::from_secs(90),
+    )
+    .await?;
     Ok(started)
 }

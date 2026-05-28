@@ -138,6 +138,7 @@ pub struct PipelineDoctorJob {
     pub canonical_name: String,
     pub status: String,
     pub stage: String,
+    pub job_tags: Vec<String>,
     pub runner_pool: String,
     pub runner: Option<String>,
     pub started_at: Option<String>,
@@ -153,7 +154,16 @@ pub struct PipelineDoctorJob {
     pub stuck_suspected: bool,
     pub trace_age_suspected: bool,
     pub source_fetch_auth_suspected: bool,
+    pub runner_eligibility_issue: Option<String>,
     pub recommendation: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PipelineDoctorSchemaContext {
+    pub available: bool,
+    pub source: String,
+    pub job_count: usize,
+    pub degraded_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -164,6 +174,7 @@ pub struct PipelineDoctorReport {
     pub pipeline_sha: String,
     pub pipeline_ref: String,
     pub pipeline_status: String,
+    pub schema_context: PipelineDoctorSchemaContext,
     pub jobs: Vec<PipelineDoctorJob>,
     pub stuck_suspected: Vec<PipelineDoctorJob>,
 }

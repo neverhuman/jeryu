@@ -87,6 +87,7 @@ pub mod git;
 pub mod git_host;
 pub mod gitlab_auth;
 pub mod gitlab_client;
+pub mod health;
 pub mod honeypot;
 pub mod host;
 pub use db::jekko_llm_pool_repo as jekko_llm_pool_usage;
