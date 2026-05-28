@@ -19,6 +19,14 @@ pub(crate) struct CreateRunnerReq<'a> {
 }
 
 #[derive(Serialize)]
+pub(crate) struct UpdateRunnerReq<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) tag_list: Option<&'a [&'a str]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) run_untagged: Option<bool>,
+}
+
+#[derive(Serialize)]
 pub(crate) struct SetPausedReq {
     pub(crate) paused: bool,
 }

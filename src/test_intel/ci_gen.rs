@@ -26,8 +26,6 @@ stages:
 
 full-validation:
   stage: test
-  tags:
-    - build
   script:
     - cargo test --lib --tests --all-features
   artifacts:
@@ -55,13 +53,10 @@ full-validation:
 
             for (i, test) in plan.selected_tests.iter().enumerate() {
                 let job_name = format!("vti-{}-{:02}", sanitize_job_name(&test.subsystem), i);
-                let tags = infer_tags(&test.subsystem);
 
                 yaml.push_str(&format!(
                     "{job_name}:\n\
                      \x20 stage: test\n\
-                     \x20 tags:\n\
-                     {tags}\
                      \x20 script:\n\
                      \x20   - {command}\n\
                      \x20 artifacts:\n\
@@ -69,7 +64,6 @@ full-validation:
                      \x20   reports:\n\
                      \x20     junit: target/nextest/ci/junit.xml\n\n",
                     job_name = job_name,
-                    tags = tags,
                     command = test.command,
                 ));
             }
@@ -80,8 +74,6 @@ full-validation:
                     "vti-sentinel-{:02}:\n\
                      \x20 stage: test\n\
                      \x20 allow_failure: true\n\
-                     \x20 tags:\n\
-                     \x20   - default\n\
                      \x20 script:\n\
                      \x20   - {command}\n\n",
                     i,
@@ -128,14 +120,6 @@ fn sanitize_job_name(name: &str) -> String {
         .to_lowercase()
 }
 
-fn infer_tags(subsystem: &str) -> String {
-    let tags = match subsystem {
-        "pool" | "exec" => vec!["build", "docker-build"],
-        _ => vec!["default", "rust", "test"],
-    };
-    tags.iter().map(|t| format!("    - {}\n", t)).collect()
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -168,16 +152,14 @@ mod tests {
         let yaml = emit_gitlab_child_yaml(&plan);
         assert!(yaml.contains("vti-pool-"));
         assert!(yaml.contains("cargo nextest run"));
-        // Should have build tags for pool
-        assert!(yaml.contains("docker-build"));
+        assert!(!yaml.contains("tags:"));
     }
 
     #[test]
-    fn tui_plan_uses_default_tags() {
+    fn tui_plan_is_untagged() {
         let plan = planner::plan_tests(&["src/tui/ui.rs".to_string()]);
         let yaml = emit_gitlab_child_yaml(&plan);
-        assert!(yaml.contains("default"));
-        assert!(!yaml.contains("docker-build"));
+        assert!(!yaml.contains("tags:"));
     }
 
     #[test]

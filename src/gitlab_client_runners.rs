@@ -40,6 +40,30 @@ impl GitlabClient {
         Ok(())
     }
 
+    pub async fn update_runner(
+        &self,
+        runner_id: i64,
+        tag_list: &[&str],
+        run_untagged: bool,
+    ) -> Result<()> {
+        self.api_put_void(
+            self.api_url(&format!("/runners/{}", runner_id)),
+            &UpdateRunnerReq {
+                tag_list: Some(tag_list),
+                run_untagged: Some(run_untagged),
+            },
+        )
+        .await
+        .context("update runner")?;
+        info!(
+            runner_id,
+            run_untagged,
+            tag_count = tag_list.len(),
+            "updated runner tags"
+        );
+        Ok(())
+    }
+
     pub async fn list_runner_managers(&self, runner_id: i64) -> Result<Vec<RunnerManager>> {
         let managers = self
             .api_get_json(self.api_url(&format!("/runners/{}/managers", runner_id)))

@@ -43,12 +43,16 @@ pub(crate) async fn create_authenticated_client(gitlab_url: &str) -> Result<Gitl
 
 pub(crate) async fn create_runner_pools(client: &GitlabClient, db: &Db) -> Result<()> {
     for pool_def in config::DEFAULT_POOLS {
-        let tags: Vec<&str> = pool_def.tags.split(',').collect();
+        let tags: Vec<&str> = if pool_def.tags.is_empty() {
+            Vec::new()
+        } else {
+            pool_def.tags.split(',').collect()
+        };
         let runner = client
             .create_runner(
                 &format!("jeryu-{}", pool_def.name),
                 &tags,
-                pool_def.name == "default", // only default runs untagged
+                true,
                 "instance_type",
             )
             .await
@@ -113,7 +117,6 @@ pub(crate) async fn run_smoke_test(client: &GitlabClient) -> Result<()> {
 
     let ci_yaml = r#"
 smoke_test:
-  tags: [rust]
   script:
     - echo "━━━ jeryu smoke test ━━━"
     - echo "God Mode: Enabled"

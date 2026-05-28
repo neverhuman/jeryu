@@ -104,6 +104,7 @@ pub mod node_types;
 pub mod policy;
 pub mod pool;
 pub mod reclaim;
+pub mod runner_policy;
 pub mod redact;
 pub mod release;
 pub mod remote;

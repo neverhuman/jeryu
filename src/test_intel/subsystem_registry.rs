@@ -26,7 +26,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/pool|docker|runner/)",
         integration_tests: &["pool_tests", "job_tests"],
         force_full_paths: &[],
-        runner_tags: &["build", "docker-build"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -45,7 +45,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/cache|singleflight|gateway|taint|epoch|witness|sccache/)",
         integration_tests: &["cache_integration_test"],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -55,7 +55,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/agent|capability|risk_gate/)",
         integration_tests: &["agent_tests"],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -65,7 +65,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/webhook|pipeline|supersedence|reconcil/)",
         integration_tests: &["job_tests"],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -75,7 +75,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/release|canary|secret|vault|promote/)",
         integration_tests: &[],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -85,7 +85,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/decision|risk_gate|recover|classif|capsule/)",
         integration_tests: &[],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -95,7 +95,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/tui|snapshot|render|widget/)",
         integration_tests: &[],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -110,7 +110,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
             "cache_integration_test",
         ],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: true,
     },
     Subsystem {
@@ -120,7 +120,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/config|template|bootstrap/)",
         integration_tests: &["pool_tests"],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -132,7 +132,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         // Changes to the selector itself should trigger full testing
         // until we have nightly audit confirming correctness.
         force_full_paths: &["src/test_intel/**"],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -142,7 +142,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/exec|sandbox|honeypot|custom_exec/)",
         integration_tests: &["e2e"],
         force_full_paths: &[],
-        runner_tags: &["build", "docker-build"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -152,7 +152,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/gitlab|client|api|endpoint/)",
         integration_tests: &[],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -162,7 +162,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/telemetry|log/)",
         integration_tests: &[],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -172,7 +172,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/explain|buildkit/)",
         integration_tests: &[],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
     Subsystem {
@@ -182,7 +182,7 @@ pub const SUBSYSTEMS: &[Subsystem] = &[
         unit_filter: "test(/reclaim|gc|garbage/)",
         integration_tests: &[],
         force_full_paths: &[],
-        runner_tags: &["default", "rust", "test"],
+        runner_tags: &[],
         cross_cutting: false,
     },
 ];

@@ -32,6 +32,7 @@ pub struct MockRunner {
     pub token: String,
     pub paused: bool,
     pub tags: Vec<String>,
+    pub run_untagged: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -170,6 +171,11 @@ async fn create_runner(
                 .collect()
         })
         .unwrap_or_default();
+    let run_untagged = body
+        .as_ref()
+        .and_then(|b| b.get("run_untagged"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     s.runners.insert(
         id,
         MockRunner {
@@ -177,6 +183,7 @@ async fn create_runner(
             token: token.clone(),
             paused: false,
             tags,
+            run_untagged,
         },
     );
     (
@@ -200,10 +207,46 @@ async fn update_runner(
         {
             runner.paused = paused;
         }
+        if let Some(run_untagged) = body
+            .as_ref()
+            .and_then(|b| b.get("run_untagged"))
+            .and_then(|v| v.as_bool())
+        {
+            runner.run_untagged = run_untagged;
+        }
+        if let Some(tags) = body
+            .as_ref()
+            .and_then(|b| b.get("tag_list"))
+            .and_then(|v| v.as_array())
+        {
+            runner.tags = tags
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect();
+        }
         StatusCode::OK
     } else {
         StatusCode::NOT_FOUND
     }
+}
+
+// GET /api/v4/runners/all
+async fn list_all_runners(State(state): State<GitlabState>) -> impl IntoResponse {
+    let s = state.lock().unwrap();
+    let runners: Vec<Value> = s
+        .runners
+        .values()
+        .map(|runner| {
+            json!({
+                "id": runner.id,
+                "description": format!("mock-runner-{}", runner.id),
+                "paused": runner.paused,
+                "tag_list": runner.tags.clone(),
+                "run_untagged": runner.run_untagged,
+            })
+        })
+        .collect();
+    Json(json!(runners)).into_response()
 }
 
 // DELETE /api/v4/runners/:id
@@ -446,6 +489,7 @@ fn build_router(state: GitlabState) -> Router {
         .route("/users/sign_in", get(health_check))
         // Runners
         .route("/api/v4/user/runners", post(create_runner))
+        .route("/api/v4/runners/all", get(list_all_runners))
         .route(
             "/api/v4/runners/{id}",
             put(update_runner).delete(delete_runner),

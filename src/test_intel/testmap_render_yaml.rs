@@ -29,7 +29,6 @@ pub(crate) fn emit_child_plan_context(plan: &ExternalTestPlan) -> String {
         "plan-tests:\n\
          \x20 stage: lint\n\
          \x20 image: alpine:3.20\n\
-         \x20 tags: [default]\n\
          \x20 script:\n\
          \x20   - mkdir -p target/jeryu\n\
          \x20   - |\n\
@@ -95,7 +94,7 @@ pub fn emit_external_gitlab_yaml(plan: &ExternalTestPlan, workspace: Option<&Pat
             let Some(workspace) = workspace else {
                 for job in super::materialized_jobs(plan) {
                     yaml.push_str(&format!(
-                        "{job}:\n  stage: test-rust\n  image: rust:1.92.0\n  tags: [build]\n  script:\n    - cargo run -p veox-testctl -- ci-job {job}\n\n"
+                        "{job}:\n  stage: test-rust\n  image: rust:1.92.0\n  script:\n    - cargo run -p veox-testctl -- ci-job {job}\n\n"
                     ));
                 }
                 return yaml;
@@ -116,7 +115,7 @@ pub fn emit_external_gitlab_yaml(plan: &ExternalTestPlan, workspace: Option<&Pat
                     yaml.push('\n');
                 } else {
                     yaml.push_str(&format!(
-                        "{job}:\n  stage: test-rust\n  image: rust:1.92.0\n  tags: [build]\n  script:\n    - cargo run -p veox-testctl -- ci-job {job}\n\n"
+                        "{job}:\n  stage: test-rust\n  image: rust:1.92.0\n  script:\n    - cargo run -p veox-testctl -- ci-job {job}\n\n"
                     ));
                 }
             }
