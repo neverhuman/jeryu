@@ -69,7 +69,7 @@ pub struct JobRunner {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Pipeline {
     pub id: i64,
     pub sha: String,

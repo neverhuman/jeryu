@@ -6,6 +6,35 @@ use jeryu::{release, state};
 pub(crate) async fn execute_pipeline_commands(subcmd: PipelineCommands) -> Result<()> {
     let (client, _) = load_client().await?;
     match subcmd {
+        PipelineCommands::List {
+            project_id,
+            ref_name,
+            limit,
+            json,
+        } => {
+            let project_id = crate::commands::resolve_project_id(project_id);
+            let mut pipelines = client
+                .list_pipelines(project_id, ref_name.as_deref())
+                .await?;
+            pipelines.truncate(limit);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&pipelines)?);
+            } else {
+                let ref_label = ref_name.as_deref().unwrap_or("*");
+                println!("Pipelines — project {} ref {}", project_id, ref_label);
+                for pipeline in &pipelines {
+                    println!(
+                        "  #{:<8} {:<10} ref={:<32} sha={} source={} {}",
+                        pipeline.id,
+                        pipeline.status,
+                        pipeline.ref_name,
+                        pipeline.sha.chars().take(12).collect::<String>(),
+                        pipeline.source.as_deref().unwrap_or("-"),
+                        pipeline.web_url.as_deref().unwrap_or("-")
+                    );
+                }
+            }
+        }
         PipelineCommands::Explain {
             project_id,
             pipeline_id,

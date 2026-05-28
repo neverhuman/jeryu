@@ -50,6 +50,17 @@ pub(crate) enum JobCommands {
 
 #[derive(Subcommand)]
 pub(crate) enum PipelineCommands {
+    /// List recent pipelines for a project, optionally filtered by ref.
+    List {
+        #[arg(long)]
+        project_id: Option<i64>,
+        #[arg(long = "ref", alias = "ref-name")]
+        ref_name: Option<String>,
+        #[arg(long, default_value = "10")]
+        limit: usize,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Explain blocking vs non-blocking state for a specific pipeline.
     Explain {
         #[arg(long)]
