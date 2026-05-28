@@ -77,6 +77,7 @@ pub struct Pipeline {
     pub ref_name: String,
     pub status: String,
     pub web_url: Option<String>,
+    pub yaml_errors: Option<String>,
     pub source: Option<String>,
 }
 

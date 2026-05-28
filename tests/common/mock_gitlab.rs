@@ -16,7 +16,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -48,6 +48,13 @@ pub struct MockPipeline {
     pub ref_name: String,
     pub status: String,
     pub sha: String,
+    pub yaml_errors: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+struct MockBranchState {
+    sha: String,
+    ci_job_name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -61,13 +68,50 @@ pub struct MockJob {
     pub trace: String,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct MockLintResponse {
+    pub valid: bool,
+    pub errors: Vec<String>,
+    pub warnings: Vec<String>,
+    pub merged_yaml: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MockCreateBranchReq {
+    branch: String,
+    #[serde(rename = "ref")]
+    ref_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MockCommitActionReq {
+    file_path: String,
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MockCommitReq {
+    branch: Option<String>,
+    actions: Vec<MockCommitActionReq>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MockLintReq {
+    content: String,
+}
+
 #[derive(Default, Debug)]
 pub struct MockGitlabInner {
     next_id: i64,
     pub runners: HashMap<i64, MockRunner>,
     pub projects: HashMap<i64, MockProject>,
+    branches: HashMap<(i64, String), MockBranchState>,
     pub pipelines: HashMap<i64, MockPipeline>,
     pub jobs: HashMap<i64, MockJob>,
+    pub lint_response: Option<MockLintResponse>,
+    pub commit_job_name_override: Option<String>,
+    pub commit_pipeline_status_override: Option<String>,
+    pub commit_yaml_errors_override: Option<String>,
 }
 
 impl MockGitlabInner {
@@ -112,6 +156,54 @@ impl MockGitlabInner {
         initial_status: &str,
         trace: &str,
     ) -> (i64, i64) {
+        let sha = format!("deadbeef{:08x}", self.next_id + 1);
+        self.add_pipeline_with_sha(
+            project_id,
+            ref_name,
+            job_name,
+            initial_status,
+            trace,
+            &sha,
+            None,
+        )
+    }
+
+    fn branch_key(project_id: i64, branch_name: &str) -> (i64, String) {
+        (project_id, branch_name.to_string())
+    }
+
+    fn branch_state_mut(
+        &mut self,
+        project_id: i64,
+        branch_name: &str,
+    ) -> Option<&mut MockBranchState> {
+        self.branches
+            .get_mut(&Self::branch_key(project_id, branch_name))
+    }
+
+    fn set_branch_state(
+        &mut self,
+        project_id: i64,
+        branch_name: &str,
+        sha: String,
+        ci_job_name: Option<String>,
+    ) {
+        self.branches.insert(
+            Self::branch_key(project_id, branch_name),
+            MockBranchState { sha, ci_job_name },
+        );
+    }
+
+    fn add_pipeline_with_sha(
+        &mut self,
+        project_id: i64,
+        ref_name: &str,
+        job_name: &str,
+        initial_status: &str,
+        trace: &str,
+        sha: &str,
+        yaml_errors: Option<String>,
+    ) -> (i64, i64) {
         let pid = self.next_id();
         let jid = self.next_id();
         self.pipelines.insert(
@@ -121,7 +213,8 @@ impl MockGitlabInner {
                 project_id,
                 ref_name: ref_name.to_string(),
                 status: initial_status.to_string(),
-                sha: format!("deadbeef{pid:08x}"),
+                sha: sha.to_string(),
+                yaml_errors,
             },
         );
         self.jobs.insert(
@@ -321,46 +414,140 @@ async fn create_project(
         .into_response()
 }
 
-// POST /api/v4/projects/:project_id/repository/commits
-// Auto-creates a pipeline with one pending job when .gitlab-ci.yml is committed.
-async fn commit_file(
+// POST /api/v4/projects/:project_id/repository/branches
+async fn create_branch(
     State(state): State<GitlabState>,
     Path(project_id): Path<i64>,
-    body: Option<axum::extract::Json<Value>>,
+    axum::extract::Json(req): axum::extract::Json<MockCreateBranchReq>,
 ) -> impl IntoResponse {
     let mut s = state.lock().unwrap();
     if !s.projects.contains_key(&project_id) {
         return StatusCode::NOT_FOUND.into_response();
     }
-    // Detect a CI file commit — create a pipeline automatically.
-    let is_ci_file = body
-        .as_ref()
-        .and_then(|b| b.get("actions"))
-        .and_then(|v| v.as_array())
-        .map(|actions| {
-            actions.iter().any(|a| {
-                a.get("file_path")
-                    .and_then(|p| p.as_str())
-                    .is_some_and(|p| p.contains(".gitlab-ci.yml"))
-            })
-        })
-        .unwrap_or(false);
 
+    let key = MockGitlabInner::branch_key(project_id, &req.branch);
+    if s.branches.contains_key(&key) {
+        return StatusCode::CONFLICT.into_response();
+    }
+
+    let sha = {
+        let base_key = MockGitlabInner::branch_key(project_id, &req.ref_name);
+        s.branches.get(&base_key).map(|branch| branch.sha.clone())
+    }
+    .unwrap_or_else(|| format!("branch-sha-{}", s.next_id()));
+    s.set_branch_state(project_id, &req.branch, sha.clone(), None);
+    s.add_pipeline_with_sha(
+        project_id,
+        &req.branch,
+        "test_job",
+        "success",
+        "Branch created\n",
+        &sha,
+        None,
+    );
+
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "name": req.branch,
+            "ref": req.ref_name,
+            "web_url": format!("http://mock.gitlab.local/project/{}/branches/{}", project_id, req.branch),
+            "commit": { "id": sha },
+        })),
+    )
+        .into_response()
+}
+
+// POST /api/v4/projects/:project_id/repository/commits
+// Auto-creates a pipeline with one pending job when .gitlab-ci.yml is committed.
+async fn commit_file(
+    State(state): State<GitlabState>,
+    Path(project_id): Path<i64>,
+    axum::extract::Json(req): axum::extract::Json<MockCommitReq>,
+) -> impl IntoResponse {
+    let mut s = state.lock().unwrap();
+    if !s.projects.contains_key(&project_id) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let branch = req.branch.unwrap_or_else(|| "main".to_string());
     let sha = format!("sha-{}", s.next_id());
-    if is_ci_file {
-        s.add_pipeline(
+    let ci_action = req
+        .actions
+        .iter()
+        .find(|action| action.file_path.contains(".gitlab-ci.yml"));
+    if let Some(action) = ci_action {
+        let job_name = s
+            .commit_job_name_override
+            .clone()
+            .or_else(|| {
+                if action.content.contains("jeryu-test-run") {
+                    Some("jeryu-test-run".to_string())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| "test_job".to_string());
+        let status = s
+            .commit_pipeline_status_override
+            .clone()
+            .unwrap_or_else(|| "pending".to_string());
+        let yaml_errors = s.commit_yaml_errors_override.clone();
+        s.set_branch_state(project_id, &branch, sha.clone(), Some(job_name.clone()));
+        s.add_pipeline_with_sha(
             project_id,
-            "main",
-            "test_job",
-            "pending",
+            &branch,
+            &job_name,
+            &status,
             "God Mode Active\n",
+            &sha,
+            yaml_errors,
         );
+    } else {
+        s.set_branch_state(project_id, &branch, sha.clone(), None);
     }
     (
         StatusCode::CREATED,
         Json(json!({ "id": sha, "short_id": &sha[..8.min(sha.len())] })),
     )
         .into_response()
+}
+
+// POST /api/v4/projects/:project_id/ci/lint?include_merged_yaml=true
+async fn lint_ci(
+    State(state): State<GitlabState>,
+    Path(project_id): Path<i64>,
+    axum::extract::Json(req): axum::extract::Json<MockLintReq>,
+) -> impl IntoResponse {
+    let s = state.lock().unwrap();
+    if !s.projects.contains_key(&project_id) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if let Some(response) = &s.lint_response {
+        return Json(json!({
+            "valid": response.valid,
+            "errors": response.errors,
+            "warnings": response.warnings,
+            "merged_yaml": response.merged_yaml,
+        }))
+        .into_response();
+    }
+
+    match validate_ci_yaml(&req.content) {
+        Ok(merged_yaml) => Json(json!({
+            "valid": true,
+            "errors": [],
+            "warnings": [],
+            "merged_yaml": merged_yaml,
+        }))
+        .into_response(),
+        Err(errors) => Json(json!({
+            "valid": false,
+            "errors": errors,
+            "warnings": [],
+            "merged_yaml": null,
+        }))
+        .into_response(),
+    }
 }
 
 // GET /api/v4/projects/:project_id/pipelines
@@ -383,17 +570,203 @@ async fn list_pipelines(
         .values()
         .filter(|p| p.project_id == project_id)
         .filter(|p| q.ref_name.as_ref().is_none_or(|r| p.ref_name == *r))
-        .map(|p| {
-            json!({
-                "id": p.id,
-                "sha": p.sha,
-                "ref": p.ref_name,
-                "status": p.status,
-                "web_url": format!("http://mock.gitlab.local/project/{}/pipelines/{}", project_id, p.id),
+            .map(|p| {
+                json!({
+                    "id": p.id,
+                    "sha": p.sha,
+                    "ref": p.ref_name,
+                    "status": p.status,
+                    "yaml_errors": p.yaml_errors,
+                    "web_url": format!("http://mock.gitlab.local/project/{}/pipelines/{}", project_id, p.id),
+                })
             })
-        })
-        .collect();
+            .collect();
     Json(json!(pipelines)).into_response()
+}
+
+// GET /api/v4/projects/:project_id/pipelines/:pipeline_id
+async fn get_pipeline(
+    State(state): State<GitlabState>,
+    Path((project_id, pipeline_id)): Path<(i64, i64)>,
+) -> impl IntoResponse {
+    let s = state.lock().unwrap();
+    let pipeline = match s.pipelines.get(&pipeline_id) {
+        Some(pipeline) if pipeline.project_id == project_id => pipeline,
+        _ => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    Json(json!({
+        "id": pipeline.id,
+        "sha": pipeline.sha,
+        "ref": pipeline.ref_name,
+        "status": pipeline.status,
+        "web_url": format!("http://mock.gitlab.local/project/{}/pipelines/{}", project_id, pipeline.id),
+        "yaml_errors": pipeline.yaml_errors,
+        "source": "push",
+    }))
+    .into_response()
+}
+
+// POST /api/v4/projects/:project_id/pipeline
+async fn trigger_pipeline(
+    State(state): State<GitlabState>,
+    Path(project_id): Path<i64>,
+    axum::extract::Json(req): axum::extract::Json<Value>,
+) -> impl IntoResponse {
+    let ref_name = req
+        .get("ref")
+        .and_then(|value| value.as_str())
+        .unwrap_or("main")
+        .to_string();
+    let mut s = state.lock().unwrap();
+    if !s.projects.contains_key(&project_id) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    let branch_key = MockGitlabInner::branch_key(project_id, &ref_name);
+    let (sha, job_name) = match s.branches.get(&branch_key) {
+        Some(branch) => (
+            branch.sha.clone(),
+            branch
+                .ci_job_name
+                .clone()
+                .unwrap_or_else(|| "test_job".to_string()),
+        ),
+        None => {
+            let sha = format!("trigger-sha-{}", s.next_id());
+            (sha, "test_job".to_string())
+        }
+    };
+    let status = s
+        .commit_pipeline_status_override
+        .clone()
+        .unwrap_or_else(|| "pending".to_string());
+    let yaml_errors = s.commit_yaml_errors_override.clone();
+    let (pipeline_id, _) = s.add_pipeline_with_sha(
+        project_id,
+        &ref_name,
+        &job_name,
+        &status,
+        "God Mode Active\n",
+        &sha,
+        yaml_errors,
+    );
+
+    Json(json!({ "id": pipeline_id })).into_response()
+}
+
+// POST /api/v4/projects/:project_id/pipelines/:pipeline_id/cancel
+async fn cancel_pipeline(
+    State(state): State<GitlabState>,
+    Path((project_id, pipeline_id)): Path<(i64, i64)>,
+) -> impl IntoResponse {
+    let mut s = state.lock().unwrap();
+    let canceled = match s.pipelines.get_mut(&pipeline_id) {
+        Some(pipeline) if pipeline.project_id == project_id => {
+            pipeline.status = "canceled".to_string();
+            true
+        }
+        _ => false,
+    };
+    if !canceled {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    for job in s
+        .jobs
+        .values_mut()
+        .filter(|job| job.pipeline_id == pipeline_id)
+    {
+        job.status = "canceled".to_string();
+    }
+
+    StatusCode::NO_CONTENT.into_response()
+}
+
+// DELETE /api/v4/projects/:project_id/repository/branches/:branch_name
+async fn delete_branch(
+    State(state): State<GitlabState>,
+    Path((project_id, branch_name)): Path<(i64, String)>,
+) -> impl IntoResponse {
+    let mut s = state.lock().unwrap();
+    s.branches
+        .remove(&MockGitlabInner::branch_key(project_id, &branch_name));
+    StatusCode::NO_CONTENT.into_response()
+}
+
+fn validate_ci_yaml(content: &str) -> Result<String, Vec<String>> {
+    let parsed: serde_yaml::Value = match serde_yaml::from_str(content) {
+        Ok(value) => value,
+        Err(err) => {
+            return Err(vec![format!("CI YAML failed to parse: {err}")]);
+        }
+    };
+
+    let Some(root) = parsed.as_mapping() else {
+        return Err(vec![
+            "jobs config should contain at least one visible job".to_string(),
+        ]);
+    };
+
+    let mut errors = Vec::new();
+    let mut visible_job_count = 0usize;
+
+    for (key, value) in root {
+        let Some(job_name) = key.as_str() else {
+            continue;
+        };
+        if job_name.starts_with('.') {
+            continue;
+        }
+
+        let Some(job) = value.as_mapping() else {
+            continue;
+        };
+        let Some(script) = job.get(&serde_yaml::Value::String("script".to_string())) else {
+            continue;
+        };
+
+        visible_job_count += 1;
+        match script {
+            serde_yaml::Value::String(_) => {}
+            serde_yaml::Value::Sequence(items) => {
+                for (index, item) in items.iter().enumerate() {
+                    if !matches!(item, serde_yaml::Value::String(_)) {
+                        errors.push(format!(
+                            "job `{job_name}` script item {index} must be a string, got {}",
+                            yaml_value_kind(item)
+                        ));
+                    }
+                }
+            }
+            other => errors.push(format!(
+                "job `{job_name}` script must be a string or list of strings, got {}",
+                yaml_value_kind(other)
+            )),
+        }
+    }
+
+    if visible_job_count == 0 {
+        errors.push("jobs config should contain at least one visible job".to_string());
+    }
+
+    if errors.is_empty() {
+        Ok(content.to_string())
+    } else {
+        Err(errors)
+    }
+}
+
+fn yaml_value_kind(value: &serde_yaml::Value) -> &'static str {
+    match value {
+        serde_yaml::Value::Null => "null",
+        serde_yaml::Value::Bool(_) => "bool",
+        serde_yaml::Value::Number(_) => "number",
+        serde_yaml::Value::String(_) => "string",
+        serde_yaml::Value::Sequence(_) => "array",
+        serde_yaml::Value::Mapping(_) => "object",
+        serde_yaml::Value::Tagged(_) => "tagged",
+    }
 }
 
 // GET /api/v4/projects/:project_id/pipelines/:pipeline_id/jobs
@@ -502,13 +875,26 @@ fn build_router(state: GitlabState) -> Router {
         // Projects
         .route("/api/v4/projects", post(create_project))
         .route(
+            "/api/v4/projects/{project_id}/repository/branches",
+            post(create_branch),
+        )
+        .route(
+            "/api/v4/projects/{project_id}/repository/branches/{branch_name}",
+            delete(delete_branch),
+        )
+        .route(
             "/api/v4/projects/{project_id}/repository/commits",
             post(commit_file),
         )
+        .route("/api/v4/projects/{project_id}/ci/lint", post(lint_ci))
         // Pipelines
         .route(
             "/api/v4/projects/{project_id}/pipelines",
             get(list_pipelines),
+        )
+        .route(
+            "/api/v4/projects/{project_id}/pipelines/{pipeline_id}",
+            get(get_pipeline),
         )
         .route(
             "/api/v4/projects/{project_id}/pipelines/{pipeline_id}/jobs",
@@ -517,6 +903,14 @@ fn build_router(state: GitlabState) -> Router {
         .route(
             "/api/v4/projects/{project_id}/pipelines/{pipeline_id}/bridges",
             get(list_pipeline_bridges),
+        )
+        .route(
+            "/api/v4/projects/{project_id}/pipelines",
+            post(trigger_pipeline),
+        )
+        .route(
+            "/api/v4/projects/{project_id}/pipelines/{pipeline_id}/cancel",
+            post(cancel_pipeline),
         )
         // Jobs
         .route(

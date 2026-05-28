@@ -102,6 +102,11 @@ pub(crate) struct CreateProjectReq<'a> {
 }
 
 #[derive(Serialize)]
+pub(crate) struct LintCiReq<'a> {
+    pub(crate) content: &'a str,
+}
+
+#[derive(Serialize)]
 pub(crate) struct CommitAction<'a> {
     pub(crate) action: &'a str,
     pub(crate) file_path: &'a str,
@@ -130,4 +135,12 @@ pub(crate) struct CreatePipelineReq<'a> {
 #[derive(Deserialize)]
 pub(crate) struct PipelineResp {
     pub(crate) id: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LintCiResp {
+    pub(crate) valid: bool,
+    pub(crate) errors: Vec<String>,
+    pub(crate) warnings: Vec<String>,
+    pub(crate) merged_yaml: Option<String>,
 }

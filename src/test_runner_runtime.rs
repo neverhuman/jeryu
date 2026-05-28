@@ -12,7 +12,7 @@ use crate::test_runner::{TestRunOpts, TestRunResult, render_ephemeral_ci_yaml};
 
 #[path = "test_runner_runtime_support.rs"]
 mod support;
-pub(crate) use support::{create_file_on_branch, wait_for_test_result};
+pub(crate) use support::wait_for_test_result;
 
 /// Run a single test command via a dynamic CI pipeline.
 ///
@@ -89,6 +89,33 @@ pub async fn run_test(
     );
 
     let ci_yaml = render_ephemeral_ci_yaml(&plan);
+    let lint = client
+        .lint_ci_yaml(opts.project_id, &ci_yaml)
+        .await
+        .context("failed to lint generated test CI yaml")?;
+    if !lint.valid {
+        let errors = if lint.errors.is_empty() {
+            "none".to_string()
+        } else {
+            lint.errors.join("; ")
+        };
+        let warnings = if lint.warnings.is_empty() {
+            "none".to_string()
+        } else {
+            lint.warnings.join("; ")
+        };
+        anyhow::bail!(
+            "generated test CI yaml failed GitLab lint: errors=[{errors}]; warnings=[{warnings}]"
+        );
+    }
+    if !lint.warnings.is_empty() {
+        tracing::warn!(
+            project_id = opts.project_id,
+            branch = %branch_name,
+            warnings = ?lint.warnings,
+            "generated test CI yaml lint returned warnings"
+        );
+    }
 
     info!(
         project_id = opts.project_id,
@@ -104,40 +131,42 @@ pub async fn run_test(
         .await
         .context("failed to create test branch")?;
 
-    // 2. Commit the dynamic CI yaml
-    // Use create_or_replace to handle both cases
-    if client
-        .update_file(
+    // 2. Commit the dynamic CI yaml and keep the commit SHA so we can select
+    //    the pipeline created by this exact commit rather than whichever branch
+    //    pipeline GitLab surfaces first.
+    let commit_message = format!("[jeryu] test run: {}", plan.command);
+    let commit_sha = match client
+        .commit_actions_with_sha(
             opts.project_id,
             &branch_name,
-            ".gitlab-ci.yml",
-            &ci_yaml,
-            &format!("[jeryu] test run: {}", plan.command),
+            &commit_message,
+            &[("update", ".gitlab-ci.yml", &ci_yaml)],
         )
         .await
-        .is_err()
     {
-        // If write failed (file might not exist on branch yet), try creating via the
-        // commits API with "create" action
-        create_file_on_branch(
-            client,
-            opts.project_id,
-            &branch_name,
-            ".gitlab-ci.yml",
-            &ci_yaml,
-            &format!("[jeryu] test run: {}", plan.command),
-        )
-        .await
-        .context("failed to commit test CI yaml")?;
-    }
+        Ok(commit_sha) => commit_sha,
+        Err(_) => client
+            .commit_actions_with_sha(
+                opts.project_id,
+                &branch_name,
+                &commit_message,
+                &[("create", ".gitlab-ci.yml", &ci_yaml)],
+            )
+            .await
+            .context("failed to commit test CI yaml")?,
+    };
+    info!(
+        project_id = opts.project_id,
+        branch = %branch_name,
+        commit_sha = %commit_sha,
+        "committed ephemeral test CI"
+    );
 
-    // 3. The commit triggers a pipeline automatically. Find it.
-    //    Note: creating the branch also triggers a pipeline with the FULL CI
-    //    config from main. We need to find the LATEST pipeline (from our commit)
-    //    and cancel any older ones to avoid consumer runner slots.
-    //    GitLab may take several seconds to register the pipeline under load,
-    //    so we poll again with escalating delays.
+    // 3. The commit triggers a pipeline automatically. Find the pipeline whose
+    //    SHA matches this exact commit rather than relying on branch pipeline
+    //    ordering from GitLab.
     let mut pipelines = Vec::new();
+    let mut matching_pipeline_id = None;
     for attempt in 0..5u32 {
         let delay = Duration::from_secs(3 + (attempt as u64) * 2);
         sleep(delay).await;
@@ -145,17 +174,23 @@ pub async fn run_test(
             .list_pipelines(opts.project_id, Some(&branch_name))
             .await
             .context("failed to list pipelines for test branch")?;
-        if !pipelines.is_empty() {
+        matching_pipeline_id = pipelines
+            .iter()
+            .filter(|pipeline| pipeline.sha == commit_sha)
+            .max_by_key(|pipeline| pipeline.id)
+            .map(|pipeline| pipeline.id);
+        if matching_pipeline_id.is_some() {
             break;
         }
     }
 
-    let pipeline_id = if let Some(pipeline) = pipelines.first() {
-        pipeline.id
+    let pipeline_id = if let Some(pipeline_id) = matching_pipeline_id {
+        pipeline_id
     } else {
         info!(
             branch = %branch_name,
-            "branch pipeline not visible yet; triggering one explicitly"
+            commit_sha = %commit_sha,
+            "matching branch pipeline not visible yet; triggering one explicitly"
         );
         client
             .trigger_pipeline(opts.project_id, &branch_name, Vec::new())
@@ -163,9 +198,12 @@ pub async fn run_test(
             .context("failed to trigger recovery test pipeline")?
     };
 
-    // Cancel any older pipelines on this branch (from the branch-create event)
-    for p in &pipelines[1..] {
-        if matches!(p.status.as_str(), "pending" | "running" | "created") {
+    // Cancel any older or different-SHA non-terminal pipelines on this branch.
+    for p in &pipelines {
+        if p.id != pipeline_id
+            && matches!(p.status.as_str(), "pending" | "running" | "created")
+            && (p.sha != commit_sha || p.id < pipeline_id)
+        {
             info!(
                 pipeline_id = p.id,
                 "canceling spurious branch-create pipeline"

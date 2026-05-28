@@ -1,22 +1,9 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::gitlab_client::GitlabClient;
 use crate::test_runner::TestRunResult;
-
-pub(crate) async fn create_file_on_branch(
-    client: &GitlabClient,
-    project_id: i64,
-    branch: &str,
-    file_path: &str,
-    content: &str,
-    message: &str,
-) -> Result<()> {
-    client
-        .create_file(project_id, branch, file_path, content, message)
-        .await
-}
 
 #[allow(dead_code)]
 pub(crate) async fn wait_for_pipeline(
@@ -43,6 +30,7 @@ pub(crate) async fn wait_for_test_result(
     timeout_secs: u64,
 ) -> Result<TestRunResult> {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_secs);
+    let mut retried_source_fetch_auth = false;
 
     loop {
         if tokio::time::Instant::now() > deadline {
@@ -59,7 +47,11 @@ pub(crate) async fn wait_for_test_result(
 
         let jobs = client.list_pipeline_jobs(project_id, pipeline_id).await?;
 
-        if let Some(job) = jobs.iter().find(|j| j.name == job_name) {
+        if let Some(job) = jobs
+            .iter()
+            .filter(|j| j.name == job_name)
+            .max_by_key(|j| j.id)
+        {
             match job.status.as_str() {
                 "success" => {
                     let trace = match client.get_job_log_snippet(project_id, job.id, 2000).await {
@@ -81,6 +73,37 @@ pub(crate) async fn wait_for_test_result(
                         Ok(s) => s,
                         Err(_) => String::new(),
                     };
+                    if crate::ci_failure::is_source_fetch_auth_failure(&trace) {
+                        if !retried_source_fetch_auth {
+                            tracing::warn!(
+                                project_id,
+                                pipeline_id,
+                                job_id = job.id,
+                                job_name,
+                                "source fetch auth failure detected; retrying once"
+                            );
+                            client
+                                .requeue_job(project_id, job.id)
+                                .await
+                                .context("retry source-fetch auth failure")?;
+                            retried_source_fetch_auth = true;
+                            sleep(Duration::from_secs(3)).await;
+                            continue;
+                        }
+                        return Ok(TestRunResult {
+                            pipeline_id,
+                            job_id: Some(job.id),
+                            job_name: job_name.to_string(),
+                            status: "infrastructure_failure".to_string(),
+                            duration_secs: job.queued_duration,
+                            trace_tail: format!(
+                                "{}\n\n{}",
+                                crate::ci_failure::source_fetch_auth_incident_summary(),
+                                trace
+                            ),
+                            passed: false,
+                        });
+                    }
                     return Ok(TestRunResult {
                         pipeline_id,
                         job_id: Some(job.id),
@@ -104,6 +127,35 @@ pub(crate) async fn wait_for_test_result(
                 }
                 _ => {}
             }
+        }
+
+        if let Ok(pipeline) = client.get_pipeline(project_id, pipeline_id).await
+            && matches!(
+                pipeline.status.as_str(),
+                "failed" | "canceled" | "skipped" | "success"
+            )
+        {
+            let mut trace_tail = format!(
+                "Pipeline {pipeline_id} reached terminal status '{}' before job '{}' appeared.",
+                pipeline.status, job_name
+            );
+            if let Some(web_url) = pipeline.web_url.as_deref() {
+                trace_tail.push_str(&format!("\nweb_url: {web_url}"));
+            }
+            if let Some(yaml_errors) = pipeline.yaml_errors.as_deref() {
+                trace_tail.push_str(&format!("\nyaml_errors: {yaml_errors}"));
+            }
+            trace_tail.push_str("\nNo job trace was available.");
+
+            return Ok(TestRunResult {
+                pipeline_id,
+                job_id: None,
+                job_name: job_name.to_string(),
+                status: format!("pipeline_{}", pipeline.status),
+                duration_secs: None,
+                trace_tail,
+                passed: false,
+            });
         }
 
         sleep(Duration::from_secs(3)).await;

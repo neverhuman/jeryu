@@ -20,8 +20,8 @@ pub use gitlab_client_types::{
 use gitlab_client_types_requests::{
     CommitAction, CreateBranchReq, CreateCommitReq, CreateCommitResp, CreateIssueReq, CreateMrReq,
     CreatePipelineReq, CreateProjectPatReq, CreateProjectReq, CreateRunnerReq, CreateWebhookReq,
-    NoteReq, PipelineResp, ProtectBranchReq, ResetTokenResp, SetPausedReq, UpdateLabelsReq,
-    UpdateRunnerReq, WebhookResp,
+    LintCiReq, LintCiResp, NoteReq, PipelineResp, ProtectBranchReq, ResetTokenResp, SetPausedReq,
+    UpdateLabelsReq, UpdateRunnerReq, WebhookResp,
 };
 
 #[path = "gitlab_client_branches.rs"]

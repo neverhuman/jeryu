@@ -95,14 +95,97 @@ fn ephemeral_ci_yaml_uses_isolated_clone_path() {
     });
 
     let yaml = render_ephemeral_ci_yaml(&plan);
+    let doc: serde_yaml::Value = serde_yaml::from_str(&yaml).expect("rendered yaml should parse");
+    let root = doc.as_mapping().expect("top-level yaml mapping");
+    let stages = root
+        .get(&serde_yaml::Value::String("stages".to_string()))
+        .and_then(|value| value.as_sequence())
+        .expect("stages sequence");
+    assert_eq!(stages[0].as_str(), Some("test"));
+    let job = root
+        .get(&serde_yaml::Value::String("smoke".to_string()))
+        .and_then(|value| value.as_mapping())
+        .expect("job mapping");
+    let variables = job
+        .get(&serde_yaml::Value::String("variables".to_string()))
+        .and_then(|value| value.as_mapping())
+        .expect("variables mapping");
+    let script = job
+        .get(&serde_yaml::Value::String("script".to_string()))
+        .and_then(|value| value.as_sequence())
+        .expect("script sequence");
 
-    assert!(yaml.contains("GIT_STRATEGY: clone"));
-    assert!(yaml.contains(
-        "GIT_CLONE_PATH: \"$CI_BUILDS_DIR/$CI_PROJECT_PATH_SLUG-jeryu-$CI_PIPELINE_ID-$CI_JOB_ID\""
-    ));
-    assert!(yaml.contains("JERYU_SCHEDULER_PRIORITY: normal"));
-    assert!(yaml.contains("JERYU_SCHEDULER_REASON: general"));
-    assert!(yaml.contains("    - cargo test -p jeryu"));
+    assert_eq!(
+        variables
+            .get(&serde_yaml::Value::String("GIT_STRATEGY".to_string()))
+            .and_then(|value| value.as_str()),
+        Some("clone")
+    );
+    assert_eq!(
+        variables
+            .get(&serde_yaml::Value::String("GIT_CLONE_PATH".to_string()))
+            .and_then(|value| value.as_str()),
+        Some("$CI_BUILDS_DIR/$CI_PROJECT_PATH_SLUG-jeryu-$CI_PIPELINE_ID-$CI_JOB_ID")
+    );
+    assert_eq!(
+        variables
+            .get(&serde_yaml::Value::String(
+                "JERYU_SCHEDULER_PRIORITY".to_string()
+            ))
+            .and_then(|value| value.as_str()),
+        Some("normal")
+    );
+    assert_eq!(
+        variables
+            .get(&serde_yaml::Value::String(
+                "JERYU_SCHEDULER_REASON".to_string()
+            ))
+            .and_then(|value| value.as_str()),
+        Some("general")
+    );
+    assert_eq!(script[0].as_str(), Some("cargo test -p jeryu"));
+}
+
+#[test]
+fn ephemeral_ci_yaml_keeps_yaml_sensitive_script_commands_as_strings() {
+    for command in [
+        "true",
+        "false",
+        "null",
+        "yes",
+        "echo foo: bar",
+        "echo \"quoted\"",
+        "echo foo # bar",
+    ] {
+        let plan = plan_test_run(&TestRunOpts {
+            project_id: release::DEFAULT_RELEASE_PROJECT_ID,
+            test_command: command.to_string(),
+            job_name: Some("smoke".to_string()),
+            image: "rust:1.92.0".to_string(),
+            timeout_secs: 600,
+            ..TestRunOpts::default()
+        });
+
+        let yaml = render_ephemeral_ci_yaml(&plan);
+        let doc: serde_yaml::Value =
+            serde_yaml::from_str(&yaml).expect("rendered yaml should parse");
+        let root = doc.as_mapping().expect("top-level yaml mapping");
+        let job = root
+            .get(&serde_yaml::Value::String("smoke".to_string()))
+            .and_then(|value| value.as_mapping())
+            .expect("job mapping");
+        let script = job
+            .get(&serde_yaml::Value::String("script".to_string()))
+            .and_then(|value| value.as_sequence())
+            .expect("script sequence");
+
+        assert_eq!(script.len(), 1, "script should contain exactly one item");
+        assert_eq!(
+            script[0].as_str(),
+            Some(command),
+            "command {command:?} should remain a YAML string"
+        );
+    }
 }
 
 #[test]
