@@ -498,8 +498,10 @@ web_e2e:
       BFF_LOG="target/jankurai/ux-qa/bff-e2e.log"
       BFF_PORT="${JERYU_PLAYWRIGHT_BFF_PORT:-$(pick_local_port 18788)}"
       BFF_BASE_URL="http://127.0.0.1:${BFF_PORT}"
+      JERYU_WEB_BIN="${CARGO_TARGET_DIR:-target}/release/jeryu"
+      test -x "$JERYU_WEB_BIN"
       mkdir -p "$(dirname "$BFF_LOG")"
-      JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind "127.0.0.1:${BFF_PORT}" --spa-dir apps/web/dist > "$BFF_LOG" 2>&1 &
+      JERYU_WEB_TRUST_LOCAL=1 "$JERYU_WEB_BIN" web serve --bind "127.0.0.1:${BFF_PORT}" --spa-dir apps/web/dist > "$BFF_LOG" 2>&1 &
       BFF_PID=$!
       cleanup_bff() {
         status=$?
@@ -555,8 +557,10 @@ web_lighthouse:
       BFF_LOG="target/jankurai/ux-qa/bff-lighthouse.log"
       BFF_PORT="${JERYU_LIGHTHOUSE_PORT:-$(pick_local_port 18787)}"
       BFF_BASE_URL="http://127.0.0.1:${BFF_PORT}"
+      JERYU_WEB_BIN="${CARGO_TARGET_DIR:-target}/release/jeryu"
+      test -x "$JERYU_WEB_BIN"
       mkdir -p "$(dirname "$BFF_LOG")"
-      JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind "127.0.0.1:${BFF_PORT}" --spa-dir apps/web/dist > "$BFF_LOG" 2>&1 &
+      JERYU_WEB_TRUST_LOCAL=1 "$JERYU_WEB_BIN" web serve --bind "127.0.0.1:${BFF_PORT}" --spa-dir apps/web/dist > "$BFF_LOG" 2>&1 &
       BFF_PID=$!
       cleanup_bff() {
         status=$?

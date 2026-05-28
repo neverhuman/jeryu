@@ -74,6 +74,17 @@ write_changed_files() {
   fi
 }
 
+cargo_target_dir_abs() {
+  if [ -n "${CARGO_TARGET_DIR:-}" ]; then
+    case "$CARGO_TARGET_DIR" in
+      /*) printf '%s\n' "$CARGO_TARGET_DIR" ;;
+      *) printf '%s/%s\n' "$PWD" "$CARGO_TARGET_DIR" ;;
+    esac
+  else
+    printf '%s/target\n' "$PWD"
+  fi
+}
+
 install_redlinedb_if_requested() {
   local backend="${JERYU_DB_BACKEND:-sqlite}"
   local url="${JERYU_DATABASE_URL:-}"
@@ -230,7 +241,7 @@ case "$STAGE" in
   ssh-install-e2e)
     install_redlinedb_if_requested
     cargo build --release -p jeryu
-    export JERYU_BIN="$PWD/target/release/jeryu"
+    export JERYU_BIN="$(cargo_target_dir_abs)/release/jeryu"
     export EVIDENCE_DIR="$PWD/target/ci-evidence/ssh-install"
     bash ops/ci/ssh_install_integration.sh
     ;;
