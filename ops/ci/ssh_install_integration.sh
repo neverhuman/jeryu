@@ -26,6 +26,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Allow the caller to pass a pre-built binary path.
 JERYU_BIN="${JERYU_BIN:-}"
 JERYU_TEMP_BIN_DIR=""
+SSHD_PID=""
 DOCKER_BIN="${DOCKER_BIN:-$(command -v docker 2>/dev/null || true)}"
 if [ -z "$DOCKER_BIN" ] && [ -x /usr/bin/docker ]; then
     DOCKER_BIN=/usr/bin/docker
@@ -35,6 +36,10 @@ if [ -z "$DOCKER_BIN" ] && [ -x /usr/local/bin/docker ]; then
 fi
 if [ -z "$DOCKER_BIN" ]; then
     DOCKER_BIN=docker
+fi
+USE_LOCAL_SSHD=0
+if [ -n "${CI:-}" ] || [ "${JERYU_SSH_INSTALL_FORCE_LOCAL_SSHD:-0}" = "1" ]; then
+    USE_LOCAL_SSHD=1
 fi
 
 docker() {
@@ -61,6 +66,9 @@ cleanup() {
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
     if [ -n "$JERYU_TEMP_BIN_DIR" ]; then
         rm -rf "$JERYU_TEMP_BIN_DIR" 2>/dev/null || true
+    fi
+    if [ -n "$SSHD_PID" ]; then
+        kill "$SSHD_PID" 2>/dev/null || true
     fi
     # Remove the ephemeral SSH key + remote config created during the test.
     rm -f "$HOME/.ssh/jeryu_${ALIAS}_ed25519" "$HOME/.ssh/jeryu_${ALIAS}_ed25519.pub" 2>/dev/null || true
@@ -183,18 +191,67 @@ setup_sshd_container_from_base_image() {
     IMAGE_NAME="ubuntu:24.04"
 }
 
+setup_local_sshd_service() {
+    step "Preparing local sshd service"
+    SSH_USER="$(id -un)"
+    if ! command -v sshd >/dev/null 2>&1 || ! command -v ssh-keyscan >/dev/null 2>&1; then
+        if [ "$(id -u)" -eq 0 ]; then
+            APT_GET="apt-get"
+        elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+            APT_GET="sudo -n apt-get"
+        else
+            fail "openssh-server is missing and passwordless sudo is unavailable"
+            exit 1
+        fi
+        eval "$APT_GET update -y"
+        eval "$APT_GET install -y --no-install-recommends \
+            openssh-server \
+            openssh-client \
+            bash \
+            coreutils \
+            ca-certificates \
+            procps \
+            curl"
+    fi
+    rm -f "$EVIDENCE_DIR/sshd_hostkey" "$EVIDENCE_DIR/sshd_hostkey.pub"
+    ssh-keygen -q -t ed25519 -f "$EVIDENCE_DIR/sshd_hostkey" -N ""
+    SSHD_CONFIG="$EVIDENCE_DIR/sshd_config"
+    SSHD_LOG="$EVIDENCE_DIR/sshd.log"
+    cat > "$SSHD_CONFIG" <<EOF
+Port $SSH_PORT
+ListenAddress 127.0.0.1
+HostKey $EVIDENCE_DIR/sshd_hostkey
+PidFile $EVIDENCE_DIR/sshd.pid
+AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication no
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+UsePAM no
+PrintMotd no
+Subsystem sftp /usr/lib/openssh/sftp-server
+EOF
+    /usr/sbin/sshd -f "$SSHD_CONFIG" -E "$SSHD_LOG" -D &
+    SSHD_PID=$!
+}
+
 # ── Step 2: Build the sshd Docker image ────────────────────────────────────
 step "Building sshd Docker image"
-if docker build -t "$IMAGE_NAME" -f "$REPO_ROOT/ops/ci/Dockerfile.sshd-test" "$REPO_ROOT" 2>&1 | tail -3; then
+if [ "$USE_LOCAL_SSHD" -eq 1 ]; then
+    warn "Using local sshd service in CI to avoid nested Docker instability"
+    setup_local_sshd_service
+    ok "Local sshd service: 127.0.0.1:${SSH_PORT}"
+elif docker build -t "$IMAGE_NAME" -f "$REPO_ROOT/ops/ci/Dockerfile.sshd-test" "$REPO_ROOT" 2>&1 | tail -3; then
     ok "Image: $IMAGE_NAME"
 else
     warn "docker build failed; falling back to base-image sshd setup"
-    USE_BASE_IMAGE_SETUP=1
-    setup_sshd_container_from_base_image
+    USE_LOCAL_SSHD=1
+    setup_local_sshd_service
+    ok "Local sshd service: 127.0.0.1:${SSH_PORT}"
 fi
 
 # ── Step 3: Start the sshd container ──────────────────────────────────────
-if [ "$USE_BASE_IMAGE_SETUP" -eq 0 ]; then
+if [ "$USE_LOCAL_SSHD" -eq 0 ]; then
     step "Starting sshd container on port $SSH_PORT"
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
     docker run -d \
@@ -214,7 +271,11 @@ while ! ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >/dev/null 2>&1; do
     WAITED=$((WAITED + 1))
     if [ "$WAITED" -ge "$MAX_WAIT" ]; then
         fail "sshd did not become ready within ${MAX_WAIT}s"
-        docker logs "$CONTAINER_NAME" 2>&1 | tail -20
+        if [ "$USE_LOCAL_SSHD" -eq 1 ] && [ -n "${SSHD_LOG:-}" ] && [ -f "$SSHD_LOG" ]; then
+            tail -20 "$SSHD_LOG"
+        else
+            docker logs "$CONTAINER_NAME" 2>&1 | tail -20
+        fi
         exit 1
     fi
 done
@@ -230,13 +291,19 @@ rm -f "$KEY_PATH" "${KEY_PATH}.pub"
 ssh-keygen -t ed25519 -f "$KEY_PATH" -N "" -C "jeryu-ci-test" -q
 PUBKEY=$(cat "${KEY_PATH}.pub")
 
-docker exec "$CONTAINER_NAME" bash -c "
-    mkdir -p /home/$SSH_USER/.ssh &&
-    chmod 700 /home/$SSH_USER/.ssh &&
-    echo '$PUBKEY' >> /home/$SSH_USER/.ssh/authorized_keys &&
-    chmod 600 /home/$SSH_USER/.ssh/authorized_keys &&
-    chown -R $SSH_USER:$SSH_USER /home/$SSH_USER/.ssh
-"
+if [ "$USE_LOCAL_SSHD" -eq 1 ]; then
+    install -d -m 700 "$HOME/.ssh"
+    printf '%s\n' "$PUBKEY" > "$HOME/.ssh/authorized_keys"
+    chmod 600 "$HOME/.ssh/authorized_keys"
+else
+    docker exec "$CONTAINER_NAME" bash -c "
+        mkdir -p /home/$SSH_USER/.ssh &&
+        chmod 700 /home/$SSH_USER/.ssh &&
+        echo '$PUBKEY' >> /home/$SSH_USER/.ssh/authorized_keys &&
+        chmod 600 /home/$SSH_USER/.ssh/authorized_keys &&
+        chown -R $SSH_USER:$SSH_USER /home/$SSH_USER/.ssh
+    "
+fi
 ok "Key injected: $KEY_PATH"
 
 # ── Step 6: Configure SSH Alias ───────────────────────────────────────────

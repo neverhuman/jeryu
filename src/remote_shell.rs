@@ -72,9 +72,10 @@ pub(crate) async fn remote_bootstrap(cfg: &RemoteConfig) -> Result<()> {
     // advisory — the install completes the binary upload and config
     // write; the operator can run `jeryu init` later with a fresh
     // `jeryu serve` session, getting full error context.
-    if let Err(e) = run_remote_binary(cfg, &["init"], false).await {
+    let init_cmd = format!("timeout 30s {} init >/dev/null 2>&1", cfg.remote_bin);
+    if let Ok(false) | Err(_) = run_remote_shell_status(cfg, &init_cmd).await {
         eprintln!(
-            "warning: 'jeryu init' on remote did not complete cleanly: {e}\n\
+            "warning: 'jeryu init' on remote did not complete cleanly; \
              this is non-fatal — the binary is installed and the remote\n\
              config is written. Run `jeryu init` manually on the remote\n\
              once docker has the bandwidth + disk for gitlab/gitlab-ce."

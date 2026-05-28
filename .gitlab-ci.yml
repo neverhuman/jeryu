@@ -524,7 +524,7 @@ web_e2e:
       curl -fs "$BFF_BASE_URL/health"
       export JERYU_PLAYWRIGHT_EXTERNAL_BFF=1
       export JERYU_PLAYWRIGHT_BFF_URL="$BFF_BASE_URL"
-    - (cd apps/web && npx playwright test --reporter=html,line)
+    - (cd apps/web && npx playwright test)
     - node apps/ux-qa/ux-qa-check.mjs test
   artifacts:
     when: always
