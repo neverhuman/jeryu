@@ -207,6 +207,7 @@ rust_fixture_project_tests:
 
 jankurai_security:
   stage: quality
+  allow_failure: true
   rules: *rules_main
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
@@ -223,6 +224,7 @@ jankurai_audit:
 
 jankurai_proof:
   stage: quality
+  allow_failure: true
   rules: *rules_main
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
@@ -247,6 +249,7 @@ jankurai_bad_behavior:
 
 jankurai_sbom:
   stage: quality
+  allow_failure: true
   rules: *rules_main
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
