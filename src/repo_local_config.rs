@@ -1,28 +1,33 @@
 use anyhow::{Context, Result, bail};
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::LocalRepoConfig;
 
 pub(super) fn load_configs() -> Result<Vec<LocalRepoConfig>> {
-    let dir = config_dir();
-    if !dir.is_dir() {
-        return Ok(Vec::new());
-    }
-
     let mut configs = Vec::new();
-    for entry in fs::read_dir(&dir).with_context(|| format!("reading {}", dir.display()))? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
+    let mut seen = HashSet::new();
+
+    for dir in config_dirs() {
+        if !dir.is_dir() {
             continue;
         }
-        let content =
-            fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-        let mut config: LocalRepoConfig =
-            toml::from_str(&content).with_context(|| format!("parsing {}", path.display()))?;
-        config.source_path = path;
-        configs.push(config);
+        for entry in fs::read_dir(&dir).with_context(|| format!("reading {}", dir.display()))? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
+                continue;
+            }
+            let content =
+                fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+            let mut config: LocalRepoConfig =
+                toml::from_str(&content).with_context(|| format!("parsing {}", path.display()))?;
+            config.source_path = path;
+            if seen.insert(config.repo.clone()) {
+                configs.push(config);
+            }
+        }
     }
     configs.sort_by(|left, right| left.repo.cmp(&right.repo));
     Ok(configs)
@@ -39,19 +44,30 @@ pub(super) fn matching_configs(repo: Option<&str>) -> Result<Vec<LocalRepoConfig
     })
 }
 
-pub(super) fn config_dir() -> PathBuf {
+pub(super) fn config_dirs() -> Vec<PathBuf> {
     if let Some(path) = std::env::var_os("JERYU_LOCAL_REPO_CONFIG_DIR") {
-        return PathBuf::from(path);
+        return vec![PathBuf::from(path)];
     }
-    if let Some(path) = discover_config_dir() {
-        return path;
+
+    let mut dirs = Vec::new();
+    for path in discover_config_dirs() {
+        push_unique_dir(&mut dirs, path);
     }
-    std::env::current_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join(".jeryu/local/repos")
+    if let Some(home) = std::env::var_os("HOME") {
+        push_unique_dir(&mut dirs, PathBuf::from(home).join(".jeryu/local/repos"));
+    }
+    if dirs.is_empty() {
+        dirs.push(
+            std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join(".jeryu/local/repos"),
+        );
+    }
+    dirs
 }
 
-fn discover_config_dir() -> Option<PathBuf> {
+fn discover_config_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
     for root in [std::env::current_dir().ok(), std::env::current_exe().ok()]
         .into_iter()
         .flatten()
@@ -59,11 +75,17 @@ fn discover_config_dir() -> Option<PathBuf> {
         for ancestor in root.ancestors() {
             let candidate = ancestor.join(".jeryu/local/repos");
             if candidate.is_dir() {
-                return Some(candidate);
+                push_unique_dir(&mut dirs, candidate);
             }
         }
     }
-    None
+    dirs
+}
+
+fn push_unique_dir(dirs: &mut Vec<PathBuf>, path: PathBuf) {
+    if !dirs.iter().any(|existing| existing == &path) {
+        dirs.push(path);
+    }
 }
 
 pub(super) fn shadow_ref_matches(config: &LocalRepoConfig, ref_name: &str) -> bool {

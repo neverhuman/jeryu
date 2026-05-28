@@ -9,6 +9,8 @@ fn config() -> LocalRepoConfig {
             enabled: true,
             remote_url: "git@github.com:neverhuman/warp.git".into(),
             refs: vec!["refs/heads/main".into()],
+            trigger: "main_pipeline_success".into(),
+            fallback_review: true,
         },
         backup: BackupConfig {
             target: "xbabe3:/home/ubuntu/jeryu-backups/veox".into(),
@@ -27,6 +29,8 @@ default_branch = "main"
 enabled = true
 remote_url = "git@github.com:neverhuman/warp.git"
 refs = ["refs/heads/main"]
+trigger = "main_pipeline_success"
+fallback_review = true
 
 [backup]
 target = "xbabe3:/home/ubuntu/jeryu-backups/veox"
@@ -36,6 +40,8 @@ target = "xbabe3:/home/ubuntu/jeryu-backups/veox"
     parsed.source_path = PathBuf::from("root-veox.toml");
     assert_eq!(parsed.repo, "root/veox");
     assert!(parsed.shadow_main.enabled);
+    assert_eq!(parsed.shadow_main.trigger, "main_pipeline_success");
+    assert!(parsed.shadow_main.fallback_review);
     assert_eq!(shadow_refs(&parsed), vec!["refs/heads/main"]);
     assert!(matches!(
         parse_backup_target(&parsed.backup.target).unwrap(),

@@ -40,6 +40,10 @@ pub struct ShadowMainConfig {
     pub remote_url: String,
     #[serde(default)]
     pub refs: Vec<String>,
+    #[serde(default)]
+    pub trigger: String,
+    #[serde(default)]
+    pub fallback_review: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
