@@ -100,7 +100,7 @@ jobs:
   rust-web-nextest-integration:
     name: Rust (web) nextest integration
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust (pinned via rust-toolchain.toml)
@@ -120,6 +120,10 @@ jobs:
           fi
       - name: Install nextest
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
+      - name: Pre-build binaries for integration tests
+        run: |
+          cargo build -p jeryu --bin jeryu --features web
+          cargo build -p jeryu --bin autonomy
       - name: cargo nextest --features web --tests
         run: cargo nextest run -p jeryu --features web --tests --no-fail-fast
 

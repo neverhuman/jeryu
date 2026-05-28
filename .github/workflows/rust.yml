@@ -45,6 +45,8 @@ jobs:
           components: clippy
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Run clippy
         run: bash ops/ci/rust-lane.sh clippy
 
@@ -60,6 +62,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -83,6 +87,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Run install commands
         run: bash ops/ci/rust-lane.sh install-smoke
 
@@ -103,6 +109,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -140,6 +148,8 @@ jobs:
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -174,6 +184,8 @@ jobs:
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -200,6 +212,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -220,6 +234,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -278,6 +294,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -304,6 +322,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -334,6 +354,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -360,6 +382,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -388,6 +412,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -417,6 +443,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -449,6 +477,8 @@ jobs:
           toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
