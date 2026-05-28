@@ -26,6 +26,20 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Allow the caller to pass a pre-built binary path.
 JERYU_BIN="${JERYU_BIN:-}"
 JERYU_TEMP_BIN_DIR=""
+DOCKER_BIN="${DOCKER_BIN:-$(command -v docker 2>/dev/null || true)}"
+if [ -z "$DOCKER_BIN" ] && [ -x /usr/bin/docker ]; then
+    DOCKER_BIN=/usr/bin/docker
+fi
+if [ -z "$DOCKER_BIN" ] && [ -x /usr/local/bin/docker ]; then
+    DOCKER_BIN=/usr/local/bin/docker
+fi
+if [ -z "$DOCKER_BIN" ]; then
+    DOCKER_BIN=docker
+fi
+
+docker() {
+    "$DOCKER_BIN" "$@"
+}
 
 # ── Colour helpers ─────────────────────────────────────────────────────────
 RED='\033[0;31m'
