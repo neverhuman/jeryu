@@ -28,6 +28,10 @@ jobs:
           fetch-depth: 0
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+            flock /tmp/rustup-bootstrap.lock sh -c \
+              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
+          fi
           export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
@@ -98,6 +102,10 @@ jobs:
           fetch-depth: 0
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+            flock /tmp/rustup-bootstrap.lock sh -c \
+              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
+          fi
           export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
@@ -154,6 +162,10 @@ jobs:
           fetch-depth: 0
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+            flock /tmp/rustup-bootstrap.lock sh -c \
+              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
+          fi
           export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
@@ -190,6 +202,10 @@ jobs:
           fetch-depth: 0
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+            flock /tmp/rustup-bootstrap.lock sh -c \
+              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
+          fi
           export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
@@ -228,6 +244,10 @@ jobs:
           fetch-depth: 0
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+            flock /tmp/rustup-bootstrap.lock sh -c \
+              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
+          fi
           export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
@@ -268,6 +288,10 @@ jobs:
           fetch-depth: 0
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+            flock /tmp/rustup-bootstrap.lock sh -c \
+              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
+          fi
           export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
