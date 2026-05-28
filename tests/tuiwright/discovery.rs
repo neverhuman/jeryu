@@ -12,16 +12,10 @@ use crate::helpers::*;
 /// if the TUI was launched from an unrelated working directory.
 ///
 /// This test exercises the Strategy-1 (env-override) path of
-/// `resolve_workspace_root()` end-to-end through the TUI render loop.
-/// It does NOT use `--demo`; instead it provides a synthetic workspace root
-/// with two custom aliases ("myalpha", "mybeta") that are impossible to
-/// confuse with the demo fixture or any production repo.
-///
-/// **CI bootstrap notes** — non-demo mode calls `load_client()` which needs a
-/// GitLab token in the auth chain.  We point `GITLAB_URL` at port 1 (always
-/// ECONNREFUSED) and set `GITLAB_TOKEN` to a dummy value so the auth resolver
-/// returns immediately (non-local URL path, no validation call).  Every
-/// subsequent GitLab API call also gets ECONNREFUSED with no 30 s timeout.
+/// `resolve_workspace_root()` through a real PTY render. It does NOT use
+/// `--demo`; instead it provides a synthetic workspace root with two custom
+/// aliases ("myalpha", "mybeta") that are impossible to confuse with the demo
+/// fixture or any production repo.
 #[test]
 fn fleet_bar_discovers_repos_via_workspace_root_env() -> anyhow::Result<()> {
     use tempfile::TempDir;
@@ -59,34 +53,29 @@ health_profile = "rust-workspace"
 "#,
     )?;
 
-    // Launch the TUI without --demo.  The dispatch layer calls load_client()
-    // which reads GITLAB_TOKEN from the environment.  We provide:
-    //   GITLAB_URL=http://127.0.0.1:1  — non-local URL (port 1 ≠ GITLAB_HTTP_PORT)
-    //   GITLAB_TOKEN=dummy             — satisfies the auth chain immediately
-    // Because the URL is non-local, resolve_or_repair returns the dummy token
-    // without making any network call.  All subsequent GitLab API calls get
-    // ECONNREFUSED at once (port 1), so hydrate_smoke_state completes quickly.
+    // Screenshot mode renders the real TUI chrome in a PTY and exits after the
+    // hold period. The live-fleet flag keeps this focused on workspace
+    // discovery without starting the long-running GitLab/DB sync workers.
     let bin = jeryu_bin();
     let page = Page::spawn(
         SpawnConfig::new(&bin)
             .arg("tui")
+            .arg("--screenshot")
             .arg("--tab")
             .arg("workflow")
+            .arg("--screenshot-hold-ms")
+            .arg("7000")
             .size(220, 44)
             .env("TERM", "xterm-256color")
             .env("COLORTERM", "truecolor")
             .env("NO_COLOR", "")
-            .env("GITLAB_URL", "http://127.0.0.1:1")
-            .env("GITLAB_TOKEN", "dummy-tuiwright-token")
             .env("JERYU_DATABASE_URL", jeryu::db::config::sqlite_memory_url())
+            .env("JERYU_TUI_SCREENSHOT_LIVE_FLEET", "1")
             .env("JERYU_WORKSPACE_ROOT", tmp.path().to_str().unwrap())
             .timeout(Duration::from_secs(15)),
     )?;
 
-    // Give the TUI time to run hydrate_smoke_state + initial render.
-    // Use 5 s to absorb any CI timing slack.
-    std::thread::sleep(Duration::from_millis(5000));
-
+    page.wait_for_text("myalpha", Duration::from_secs(5))?;
     let text = screen_text(&page);
 
     // Both synthetic aliases must appear in the fleet bar.

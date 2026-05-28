@@ -115,7 +115,11 @@ pub async fn run_tui_screenshot(
         None => App::new_render_only(docker_ctl, client),
     };
     app.active_tab = parse_capture_tab(tab)?;
-    app.apply_demo_fixture();
+    if std::env::var_os("JERYU_TUI_SCREENSHOT_LIVE_FLEET").is_some() {
+        hydrate_workspace_fleet_for_render(&mut app).await;
+    } else {
+        app.apply_demo_fixture();
+    }
 
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -137,6 +141,37 @@ pub async fn run_tui_screenshot(
 
     std::thread::sleep(std::time::Duration::from_millis(hold_ms));
     cleanup_screenshot_terminal(&mut terminal)
+}
+
+async fn hydrate_workspace_fleet_for_render(app: &mut App) {
+    let Some(root) = crate::repo_fleet::resolve_workspace_root().await else {
+        return;
+    };
+    match crate::repo_fleet::collect_fleet_snapshot(&root, None).await {
+        Ok(fleet) => {
+            app.state.delivery_source_status = crate::tui::app::DeliverySourceStatus {
+                configured: true,
+                backend_label: Some("fleet registry".into()),
+                source_label: Some(format!("fleet registry: {}", fleet.registry_path)),
+                last_sync_at: Some(chrono::Utc::now()),
+                last_sync_error: None,
+            };
+            app.state.fleet = fleet;
+        }
+        Err(error) => {
+            app.state.delivery_source_status = crate::tui::app::DeliverySourceStatus {
+                configured: false,
+                backend_label: Some("fleet registry".into()),
+                source_label: Some(format!(
+                    "fleet registry: {}",
+                    root.join(crate::repo_fleet::DEFAULT_REGISTRY_PATH)
+                        .display()
+                )),
+                last_sync_at: Some(chrono::Utc::now()),
+                last_sync_error: Some(error.to_string()),
+            };
+        }
+    }
 }
 
 /// Render one deterministic TUI frame into a PNG file.
