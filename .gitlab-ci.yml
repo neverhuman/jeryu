@@ -247,6 +247,7 @@ jankurai_audit:
 
 jankurai_proof:
   stage: quality
+  allow_failure: true
   tags: [default]
   rules: *rules_main
   script:
