@@ -1,5 +1,13 @@
 # test_intel — VTI Smart Test Selection
 
+## Workspace Boundary
+
+- Work only in the user-named active repo/worktree.
+- Never switch to sibling clones, archives, backups, resolved symlink targets, `/tmp` worktrees, or duplicate roots.
+- Never create repo copies or side folders outside the active repo; preserve work with git branches.
+- Before edits, report `pwd`, `git rev-parse --show-toplevel`, and `git status --short --branch`.
+- Use Jeryu APIs/CLI for local GitLab/MR work; no `glab`, credential scraping, or raw local GitLab API calls.
+
 Maps changed files to the minimal test set needed to validate a change.
 Reads `dougx/.jeryu/testmap.toml` (shared map — JeRyu never writes it).
 
