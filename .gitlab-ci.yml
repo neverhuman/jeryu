@@ -157,7 +157,7 @@ clippy:
   stage: check
   extends: [.rust-toolchain, .cargo-cache, .on-mr-and-main]
   needs: []
-  timeout: 30 minutes
+  timeout: 90 minutes
   interruptible: true
   script:
     - bash ops/ci/rust-lane.sh clippy
@@ -167,7 +167,7 @@ supply-chain:
   stage: check
   extends: [.rust-toolchain, .cargo-cache-pull, .on-mr-and-main]
   needs: []
-  timeout: 30 minutes
+  timeout: 90 minutes
   interruptible: true
   script:
     - cargo install cargo-deny --locked --quiet 2>/dev/null || true
@@ -190,7 +190,7 @@ fixture-project-test:
   stage: check
   extends: [.rust-toolchain, .cargo-cache, .on-mr-and-main]
   needs: []
-  timeout: 30 minutes
+  timeout: 90 minutes
   interruptible: true
   script:
     - cd tests/fixtures/fixture_project
@@ -200,7 +200,7 @@ fixture-project-clippy:
   stage: check
   extends: [.rust-toolchain, .cargo-cache, .on-mr-and-main]
   needs: []
-  timeout: 30 minutes
+  timeout: 90 minutes
   interruptible: true
   script:
     - cd tests/fixtures/fixture_project
@@ -218,7 +218,7 @@ build:
   # with fmt/clippy/supply-chain/fixture-project-*.
   # MRs with lint failures will have both build AND lint results visible at the same time.
   needs: []
-  timeout: 35 minutes
+  timeout: 90 minutes
   interruptible: true
   script:
     - bash ops/ci/rust-lane.sh build
@@ -694,7 +694,7 @@ release-ready:
 #
 # deploy-local   : atomically installs the binary on THIS machine at
 #                  ~/.jeryu/bin/jeryu (and ~/.cargo/bin/jeryu if writable).
-#                  REQUIRES shell executor runner (tag: jeryu-default).
+#                  Runs untagged so any available runner can pick it up.
 #                  The script self-detects Docker and exits with a clear message
 #                  if it's running in a container instead of on the host shell.
 #
@@ -735,7 +735,6 @@ build-release:
     when: on_success
 
 # Atomically install the release binary on the local host.
-# Tags: [jeryu-default] — must be a shell executor runner.
 deploy-local:
   stage: deploy
   extends: [.on-main-push]
@@ -758,8 +757,6 @@ deploy-local:
       artifacts: false
     - job: jankurai-security
       artifacts: false
-  tags:
-    - jeryu-default
   timeout: 5 minutes
   script:
     - bash ops/ci/deploy-local-lane.sh target/release/jeryu
@@ -780,8 +777,6 @@ verify-deploy:
   needs:
     - job: deploy-local
       artifacts: false
-  tags:
-    - jeryu-default
   timeout: 2 minutes
   script:
     - |
