@@ -322,6 +322,17 @@ fn veox_hard_switch_repo_infers_remote_slug_and_writes_jeryu_policy() {
 }
 
 #[test]
+fn checked_in_gitlab_ci_is_untagged() {
+    let content =
+        fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".gitlab-ci.yml"))
+            .unwrap();
+    assert!(
+        !content.contains("\n  tags:"),
+        "checked-in .gitlab-ci.yml must stay untagged"
+    );
+}
+
+#[test]
 fn verify_reports_drift_when_managed_file_changes() {
     let tmp = tempfile::tempdir().unwrap();
     let opts = RepoStandardOptions {
