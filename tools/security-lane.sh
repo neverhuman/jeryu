@@ -15,6 +15,25 @@ json_string() {
   printf '"%s"' "$value"
 }
 
+step_status() {
+  case "$1" in
+    0) printf 'ran' ;;
+    127) printf 'skipped' ;;
+    *) printf 'failed' ;;
+  esac
+}
+
+emit_security_step() {
+  local label="$1" tool="$2" status_code="$3" advisory="$4" shell_command="$5"
+  printf 'jankurai-security-step={"label":%s,"shell_command":%s,"tool":%s,"status":%s,"exit_code":%s,"advisory":%s}\n' \
+    "$(json_string "$label")" \
+    "$(json_string "$shell_command")" \
+    "$(json_string "$tool")" \
+    "$(json_string "$(step_status "$status_code")")" \
+    "$status_code" \
+    "$advisory"
+}
+
 gitleaks_report="$out_dir/gitleaks.sarif"
 gitleaks_log="$out_dir/gitleaks.log"
 cargo_deny_log="$out_dir/cargo-deny.log"
@@ -62,10 +81,15 @@ else
   gitleaks_status=127
 fi
 
-if cargo deny check >"$cargo_deny_log" 2>&1; then
-  cargo_deny_status=0
+if command -v cargo-deny >/dev/null 2>&1; then
+  if cargo deny check >"$cargo_deny_log" 2>&1; then
+    cargo_deny_status=0
+  else
+    cargo_deny_status=$?
+  fi
 else
-  cargo_deny_status=$?
+  echo "security lane needs cargo-deny for dependency policy scanning" >&2
+  cargo_deny_status=127
 fi
 
 if command -v syft >/dev/null 2>&1; then
@@ -114,6 +138,15 @@ if is_real_failure "$gitleaks_status" \
     || is_real_failure "$workflow_lint_status"; then
   status=1
 fi
+
+emit_security_step "gitleaks" "gitleaks" "$gitleaks_status" true \
+  "gitleaks detect --no-banner --no-git --redact"
+emit_security_step "cargo-deny" "cargo-deny" "$cargo_deny_status" true \
+  "cargo deny check"
+emit_security_step "syft" "syft" "$sbom_status" true \
+  "syft dir:. -o spdx-json"
+emit_security_step "actionlint" "actionlint" "$workflow_lint_status" true \
+  "actionlint .github/workflows/*.yml"
 
 commit="$(git -C "$repo_root" rev-parse HEAD)"
 generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

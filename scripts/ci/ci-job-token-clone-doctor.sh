@@ -18,12 +18,18 @@ fi
 
 base="${CI_SERVER_URL%/}"
 case "$base" in
-  http://*|https://*) probe_url="${base}/${project_path}.git" ;;
+  http://*|https://*) fallback_probe_url="${base}/${project_path}.git" ;;
   *)
     echo "error: unsupported CI_SERVER_URL scheme" >&2
     exit 2
     ;;
 esac
+
+# Prefer the exact repository URL GitLab handed to this job. The runner's
+# source checkout already proved this URL shape is authoritative for the job;
+# hand-building the URL can diverge from GitLab's token-bearing clone URL and
+# produce false negatives after checkout has succeeded.
+probe_url="${CI_REPOSITORY_URL:-$fallback_probe_url}"
 
 askpass="$(mktemp)"
 trap 'rm -f "$askpass"' EXIT
@@ -36,11 +42,14 @@ esac
 EOF
 chmod 700 "$askpass"
 
-if GIT_ASKPASS="$askpass" \
+if GIT_TERMINAL_PROMPT=0 \
+  git -c credential.helper= ls-remote "$probe_url" >/dev/null 2>&1; then
+  echo "CI job source clone doctor ok for ${project_path}"
+elif [[ "$probe_url" != "$fallback_probe_url" ]] && GIT_ASKPASS="$askpass" \
   GIT_TERMINAL_PROMPT=0 \
   GIT_USERNAME=gitlab-ci-token \
   GIT_PASSWORD="$CI_JOB_TOKEN" \
-  git -c credential.helper= ls-remote --exit-code "$probe_url" HEAD >/dev/null 2>&1; then
+  git -c credential.helper= ls-remote "$fallback_probe_url" >/dev/null 2>&1; then
   echo "CI_JOB_TOKEN source clone doctor ok for ${project_path}"
 else
   echo "error: CI_JOB_TOKEN cannot read ${project_path}; fix GitLab job-token clone permissions before high-value pipelines run" >&2

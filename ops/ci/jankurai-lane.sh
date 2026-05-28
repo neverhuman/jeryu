@@ -61,6 +61,36 @@ is_utf8_file() {
   iconv -f UTF-8 -t UTF-8 "$path" >/dev/null 2>&1
 }
 
+ensure_proofbind_base_ref() {
+  local base="$1"
+  local depth="${JANKURAI_BASE_FETCH_DEPTH:-50}"
+
+  if git rev-parse --verify "$base^{commit}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  case "$base" in
+    origin/*)
+      local branch="${base#origin/}"
+      if git remote get-url origin >/dev/null 2>&1; then
+        log "fetch proofbind base ref: $base"
+        git fetch --no-tags --depth="$depth" origin \
+          "+refs/heads/${branch}:refs/remotes/origin/${branch}" >/dev/null 2>&1 || true
+      fi
+      ;;
+    refs/remotes/origin/*)
+      local branch="${base#refs/remotes/origin/}"
+      if git remote get-url origin >/dev/null 2>&1; then
+        log "fetch proofbind base ref: $base"
+        git fetch --no-tags --depth="$depth" origin \
+          "+refs/heads/${branch}:${base}" >/dev/null 2>&1 || true
+      fi
+      ;;
+  esac
+
+  git rev-parse --verify "$base^{commit}" >/dev/null 2>&1
+}
+
 write_empty_proofbind_outputs() {
   log "proofbind changed set has no text inputs after binary filtering"
   local head generated
@@ -87,7 +117,7 @@ proofbind_changed_args() {
   local diff_ref="$base...HEAD"
   PROOFBIND_CHANGED_ARGS=()
 
-  if ! git rev-parse --verify "$base" >/dev/null 2>&1; then
+  if ! ensure_proofbind_base_ref "$base"; then
     die "proofbind base ref is not available: $base"
   fi
 
