@@ -458,6 +458,7 @@ post_merge_deploy:
 
 web_rust_feature:
   stage: test
+  needs: []
   rules: *rules_web
   script:
     - rustup component add rustfmt clippy
@@ -474,6 +475,7 @@ web_rust_feature:
 
 web_frontend:
   stage: test
+  needs: []
   rules: *rules_web
   script:
     - apt-get install -y --no-install-recommends nodejs npm
