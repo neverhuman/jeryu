@@ -227,6 +227,7 @@ jankurai_security:
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - bash ops/ci/jankurai-lane.sh security
 
 jankurai_audit:
@@ -236,6 +237,7 @@ jankurai_audit:
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - bash ops/ci/jankurai-lane.sh audit
 
 jankurai_proof:
@@ -245,6 +247,7 @@ jankurai_proof:
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
+    - export PATH="$HOME/.local/bin:$PATH"
     # proofbind needs origin/main for diff base; GIT_DEPTH=1 doesn't fetch it
     - git fetch --depth=1 origin main || true
     - bash ops/ci/jankurai-lane.sh proof
@@ -256,6 +259,7 @@ jankurai_tools:
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - bash ops/ci/jankurai-lane.sh tools
 
 jankurai_bad_behavior:
@@ -265,6 +269,7 @@ jankurai_bad_behavior:
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - bash ops/ci/jankurai-lane.sh bad-behavior
 
 jankurai_sbom:
@@ -274,6 +279,7 @@ jankurai_sbom:
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - bash ops/ci/jankurai-lane.sh sbom
 
 # ---------------------------------------------------------------------------
