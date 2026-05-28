@@ -42,6 +42,7 @@ pub fn render_install_demo(args: &Args) -> anyhow::Result<()> {
     if let Some(png_path) = args.png.as_ref()
         && let Some(first) = rendered.first()
     {
+        ensure_parent_dir(png_path)?;
         first.save(png_path)?;
     }
 
@@ -130,9 +131,7 @@ fn render_frame(spec: &FrameSpec) -> anyhow::Result<RgbaImage> {
 }
 
 fn write_gif(output: &Path, frames: &[RgbaImage]) -> anyhow::Result<()> {
-    if let Some(parent) = output.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    ensure_parent_dir(output)?;
     let file = File::create(output)?;
     let mut encoder = Encoder::new(file, WIDTH as u16, HEIGHT as u16, &[])?;
     encoder.set_repeat(Repeat::Infinite)?;
@@ -141,6 +140,13 @@ fn write_gif(output: &Path, frames: &[RgbaImage]) -> anyhow::Result<()> {
         let mut frame = Frame::from_rgba_speed(WIDTH as u16, HEIGHT as u16, &mut rgba, 10);
         frame.delay = 12;
         encoder.write_frame(&frame)?;
+    }
+    Ok(())
+}
+
+fn ensure_parent_dir(path: &Path) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
     }
     Ok(())
 }

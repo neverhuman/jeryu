@@ -29,3 +29,19 @@ fn demo_renderer_is_deterministic() {
         std::fs::metadata(&png_b).unwrap().len()
     );
 }
+
+#[test]
+fn demo_renderer_creates_nested_output_dirs() {
+    let dir = tempdir().unwrap();
+    let gif = dir.path().join("nested/gif/install-demo.gif");
+    let png = dir.path().join("nested/png/install-demo.png");
+
+    render_install_demo(&Args {
+        output: gif.clone(),
+        png: Some(png.clone()),
+    })
+    .unwrap();
+
+    assert!(gif.exists());
+    assert!(png.exists());
+}
