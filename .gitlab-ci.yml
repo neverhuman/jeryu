@@ -20,6 +20,7 @@ variables:
 
 default:
   image: rust:1.95.0
+  interruptible: true
   before_script:
     - *evict_sccache
     - apt-get update -y
