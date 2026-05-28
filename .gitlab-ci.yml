@@ -184,6 +184,7 @@ rust_ssh_install_e2e:
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
+    - apt-get install -y --no-install-recommends docker.io
     - bash ops/ci/rust-lane.sh ssh-install-e2e
   artifacts:
     when: always
