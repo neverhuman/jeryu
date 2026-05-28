@@ -10,7 +10,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST_PATH="${JANKURAI_MANIFEST:-$SCRIPT_DIR/jankurai-manifest.json}"
 JANKURAI_INSTALL_MODE="${JANKURAI_INSTALL_MODE:-release}"
-PREFIX="${JANKURAI_PREFIX:-$HOME/.local}"
+# Default to /usr/local when running as root (e.g. GitLab CI Docker containers)
+# so the binary lands in PATH without extra configuration.
+if [ -z "${JANKURAI_PREFIX:-}" ] && [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
+  PREFIX="/usr/local"
+else
+  PREFIX="${JANKURAI_PREFIX:-$HOME/.local}"
+fi
 BIN_DIR="$PREFIX/bin"
 INSTALL_NAME="${JANKURAI_INSTALL_NAME:-jankurai}"
 JANKURAI_BIN="${JANKURAI_BIN:-$BIN_DIR/$INSTALL_NAME}"
