@@ -23,6 +23,7 @@ default:
   interruptible: true
   before_script:
     - *evict_sccache
+    - export PATH="$HOME/.local/bin:$PATH"
     - apt-get update -y
     - apt-get install -y --no-install-recommends ca-certificates curl git jq
 
@@ -59,7 +60,6 @@ rust_clippy:
   rules: *rules_rust
   script:
     - rustup component add clippy
-    - cargo install -q --locked taiki-e --force
     - bash ops/ci/rust-lane.sh clippy
 
 rust_build:
@@ -68,7 +68,6 @@ rust_build:
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
-    - cargo install -q --locked taiki-e --force
     - bash ops/ci/rust-lane.sh build
 
 rust_install_smoke:
@@ -100,7 +99,6 @@ rust_test_lib:
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
-    - cargo install -q --locked taiki-e --force
     - |
       mode="full"
       filter=""
