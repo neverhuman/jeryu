@@ -11,11 +11,11 @@ pub fn render_pipeline_doctor_text(report: &PipelineDoctorReport) -> String {
         report.pipeline_ref, report.pipeline_sha
     );
     let _ = writeln!(out, "  Status:   {}", report.pipeline_status);
-    let _ = writeln!(out, "  Active:   {}", report.jobs.len());
+    let _ = writeln!(out, "  Jobs:     {}", report.jobs.len());
     let _ = writeln!(out, "  Suspect:  {}", report.stuck_suspected.len());
     if !report.jobs.is_empty() {
         let _ = writeln!(out);
-        let _ = writeln!(out, "  Active jobs:");
+        let _ = writeln!(out, "  Active/source-health jobs:");
         for job in &report.jobs {
             let trace = job
                 .trace_bytes
@@ -71,6 +71,9 @@ pub fn render_pipeline_doctor_text(report: &PipelineDoctorReport) -> String {
             }
             if job.trace_age_suspected {
                 let _ = writeln!(out, "      trace: outdated compared with historical timing");
+            }
+            if job.source_fetch_auth_suspected {
+                let _ = writeln!(out, "      source-fetch: auth failed before user code ran");
             }
         }
     }

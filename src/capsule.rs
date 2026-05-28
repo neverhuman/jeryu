@@ -137,6 +137,9 @@ fn env_string_or_default(value: Result<String, env::VarError>, default: &'static
 }
 
 fn classify_failure_kind(stage: &str, exit_code: i32, log_lower: &str) -> String {
+    if crate::ci_failure::is_source_fetch_auth_failure(log_lower) {
+        return crate::ci_failure::SOURCE_FETCH_AUTH_FAILURE_KIND.to_string();
+    }
     if exit_code == 999 || log_lower.contains("quarantined") {
         return "quarantined".to_string();
     }

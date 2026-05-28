@@ -29,10 +29,32 @@ pub async fn build_pipeline_doctor_report(
 
     let mut doctor_jobs = Vec::new();
     for job in jobs {
-        if !matches!(
+        let active = matches!(
             job.status.as_str(),
             "running" | "pending" | "created" | "waiting_for_resource" | "preparing"
-        ) {
+        );
+        let mut trace_bytes = None;
+        let mut trace_tail = None;
+        let mut source_fetch_auth_suspected = false;
+        if matches!(job.status.as_str(), "running" | "failed")
+            && let Ok(trace) = client.job_trace(project_id, job.id).await
+        {
+            trace_bytes = Some(trace.len());
+            trace_tail = Some(
+                trace
+                    .lines()
+                    .rev()
+                    .filter(|line| !line.trim().is_empty())
+                    .take(5)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            );
+            source_fetch_auth_suspected = crate::ci_failure::is_source_fetch_auth_failure(&trace);
+        }
+        if !active && !source_fetch_auth_suspected {
             continue;
         }
         let canonical_name = canonical_job_name(&job.name);
@@ -49,25 +71,6 @@ pub async fn build_pipeline_doctor_report(
                     row.runs,
                 )
             });
-        let mut trace_bytes = None;
-        let mut trace_tail = None;
-        if job.status == "running"
-            && let Ok(trace) = client.job_trace(project_id, job.id).await
-        {
-            trace_bytes = Some(trace.len());
-            trace_tail = Some(
-                trace
-                    .lines()
-                    .rev()
-                    .filter(|line| !line.trim().is_empty())
-                    .take(5)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            );
-        }
         let duration = job.duration.or(job.queued_duration);
         let trace_empty = trace_bytes == Some(0) || trace_tail.as_deref().unwrap_or("").is_empty();
         let historical_avg_duration_secs = historical.map(|row| row.avg_duration_secs);
@@ -83,19 +86,22 @@ pub async fn build_pipeline_doctor_report(
             && trace_empty
             && (slow_factor.map(|factor| factor >= 1.5).unwrap_or(false)
                 || duration.unwrap_or(0.0) > 900.0);
-        let stuck_suspected = match job.status.as_str() {
-            "running" => {
-                trace_age_suspected
-                    || slow_factor
-                        .map(|factor| factor >= 2.0)
-                        .unwrap_or(duration.unwrap_or(0.0) > 600.0)
-            }
-            "pending" | "created" | "waiting_for_resource" | "preparing" => queue_factor
-                .map(|factor| factor >= 2.0)
-                .unwrap_or(job.queued_duration.unwrap_or(0.0) > 600.0),
-            _ => false,
-        };
-        let recommendation = if trace_age_suspected {
+        let stuck_suspected = source_fetch_auth_suspected
+            || match job.status.as_str() {
+                "running" => {
+                    trace_age_suspected
+                        || slow_factor
+                            .map(|factor| factor >= 2.0)
+                            .unwrap_or(duration.unwrap_or(0.0) > 600.0)
+                }
+                "pending" | "created" | "waiting_for_resource" | "preparing" => queue_factor
+                    .map(|factor| factor >= 2.0)
+                    .unwrap_or(job.queued_duration.unwrap_or(0.0) > 600.0),
+                _ => false,
+            };
+        let recommendation = if source_fetch_auth_suspected {
+            crate::ci_failure::source_fetch_auth_incident_summary().to_string()
+        } else if trace_age_suspected {
             let avg = historical_avg_duration_secs
                 .map(|value| format!("{value:.1}s"))
                 .unwrap_or("n/a".to_string());
@@ -135,6 +141,7 @@ pub async fn build_pipeline_doctor_report(
             trace_tail,
             stuck_suspected,
             trace_age_suspected,
+            source_fetch_auth_suspected,
             recommendation,
         });
     }

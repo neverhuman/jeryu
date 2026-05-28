@@ -61,6 +61,18 @@ fn recommends_failure_response_for_transient_failures() {
 }
 
 #[test]
+fn classifies_gitlab_source_fetch_auth_as_infrastructure() {
+    let log = "Getting source from Git repository\nremote: HTTP Basic: Access denied\nfatal: Authentication failed";
+    let cap = capsule("unknown", log, 1);
+
+    assert_eq!(
+        classify_failure(&cap),
+        FailureClassification::Infrastructure
+    );
+    assert_eq!(failure_response_for(&cap), RetryDecision::RetryOnce);
+}
+
+#[test]
 fn risk_gate_denies_failed_refs() {
     let result = evaluate_risk_gate(
         TrustTier::Trusted,

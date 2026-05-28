@@ -15,6 +15,20 @@ fn assert_no_nonblocking_shell_terminators(path: &str) -> Result<()> {
     Ok(())
 }
 
+fn assert_no_gitlab_runner_tags(path: &str) -> Result<()> {
+    let contents = fs::read_to_string(path)?;
+    for (index, line) in contents.lines().enumerate() {
+        if line.starts_with("  tags:") {
+            bail!(
+                "{}:{} defines GitLab runner tags; standard CI must stay untagged",
+                path,
+                index + 1
+            );
+        }
+    }
+    Ok(())
+}
+
 fn collect_files_named(root: &Path, filename: &str, files: &mut Vec<PathBuf>) -> Result<()> {
     for entry in fs::read_dir(root).with_context(|| format!("reading {}", root.display()))? {
         let entry = entry?;
@@ -422,9 +436,13 @@ fn normalize_script_path(path: &str) -> String {
 #[test]
 fn ci_bad_behavior_lane_is_blocking() -> Result<()> {
     assert_no_nonblocking_shell_terminators(".github/workflows/jankurai.yml")?;
+    assert_no_gitlab_runner_tags(".gitlab-ci.yml")?;
+    assert!(jeryu::ci_failure::is_source_fetch_auth_failure(
+        "Getting source from Git repository\nremote: HTTP Basic: Access denied\nfatal: Authentication failed"
+    ));
     write_lane_log(
         "target/jankurai/ci-bad-behavior.log",
-        "ci bad behavior lane verified: workflow shell terminators are blocking\n",
+        "ci bad behavior lane verified: workflow shell terminators are blocking; standard GitLab CI has no runner tags; source-fetch auth failures classify as infrastructure\n",
     )
 }
 

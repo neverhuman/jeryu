@@ -24,6 +24,12 @@ pub fn classify_failure(capsule: &FailureCapsule) -> FailureClassification {
         return FailureClassification::Infrastructure;
     }
 
+    if capsule.failure_kind == crate::ci_failure::SOURCE_FETCH_AUTH_FAILURE_KIND
+        || crate::ci_failure::is_source_fetch_auth_failure(&capsule.log_snippet)
+    {
+        return FailureClassification::Infrastructure;
+    }
+
     if haystack.contains("timed out")
         || haystack.contains("network")
         || haystack.contains("connection reset")

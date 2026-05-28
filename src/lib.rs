@@ -68,6 +68,7 @@ pub mod cache_proxy;
 pub mod capability;
 pub mod capsule;
 pub mod cargo_cache;
+pub mod ci_failure;
 pub mod config;
 pub mod db;
 pub use db::admission_repo as admission_records;

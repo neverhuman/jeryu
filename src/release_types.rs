@@ -152,6 +152,7 @@ pub struct PipelineDoctorJob {
     pub trace_tail: Option<String>,
     pub stuck_suspected: bool,
     pub trace_age_suspected: bool,
+    pub source_fetch_auth_suspected: bool,
     pub recommendation: String,
 }
 
