@@ -279,7 +279,7 @@ jankurai_sbom:
 
 release_ready:
   stage: quality
-  tags: [build]
+  tags: [rust]
   timeout: 90m
   rules: *rules_main
   variables:
