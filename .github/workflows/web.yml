@@ -50,8 +50,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update --component clippy --component rustfmt
           rustup override set 1.95.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
@@ -78,8 +80,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
@@ -104,8 +108,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
@@ -134,8 +140,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
@@ -153,8 +161,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
@@ -226,8 +236,10 @@ jobs:
           cache: "npm"
       - name: Set up Rust (pinned via rust-toolchain.toml)
         run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
           flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
           rustup override set 1.95.0
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
         with:
