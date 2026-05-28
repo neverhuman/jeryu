@@ -42,6 +42,7 @@ pub fn render_runner_config(
 ) -> String {
     let pool_cache_mount = pool_cache_mount_path(executor);
     let builds_dir = manager_builds_dir(pool_name, manager_id);
+    let clone_url_line = runner_clone_url_line(gitlab_url);
     let cargo_host_cores = std::thread::available_parallelism()
         .map(usize::from)
         .unwrap_or(4);
@@ -83,6 +84,7 @@ pub fn render_runner_config(
             } else {
                 "false"
             };
+            let network_config = docker_executor_network_config(gitlab_url);
             format!(
                 r#"  executor = "docker"
   pre_get_sources_script = "export SSL_CERT_FILE={ca_cert} CARGO_HTTP_CAINFO={ca_cert} GIT_SSL_CAINFO={ca_cert} NODE_EXTRA_CA_CERTS={ca_cert}; mkdir -p /cache; if [ -n \"$CI_PROJECT_DIR\" ] && [ -d \"$CI_PROJECT_DIR\" ]; then if [ -d \"$CI_PROJECT_DIR/.git\" ]; then rm -f \"$CI_PROJECT_DIR/.git/shallow.lock\" \"$CI_PROJECT_DIR/.git/index.lock\"; git -C \"$CI_PROJECT_DIR\" remote get-url origin >/dev/null 2>&1 || rm -rf \"$CI_PROJECT_DIR\"; else rm -rf \"$CI_PROJECT_DIR\"; fi; fi"
@@ -96,7 +98,7 @@ pub fn render_runner_config(
     allowed_pull_policies = ["always", "if-not-present", "never"]
     privileged = {privileged}
     volumes = ["{ca_cert}:{ca_cert}:ro", "{cache_dir}:/cache:rw"]
-    extra_hosts = ["host.docker.internal:host-gateway", "gitlab.local:host-gateway"]"#
+{network_config}"#
             )
         }
     };
@@ -113,7 +115,7 @@ shutdown_timeout = 3600
   name = "jeryu-{pool_name}"
   url = "{gitlab_url}"
   token = "{token}"
-  builds_dir = "{builds_dir}"
+{clone_url_line}  builds_dir = "{builds_dir}"
   limit = {concurrent}
   request_concurrency = {request_concurrency}
   environment = [
@@ -160,6 +162,49 @@ shutdown_timeout = 3600
         cargo_host_cores = cargo_host_cores,
         cargo_total_runner_slots = cargo_total_runner_slots,
     )
+}
+
+fn runner_clone_url_line(gitlab_url: &str) -> String {
+    if gitlab_url.contains(GITLAB_HOSTNAME) {
+        String::new()
+    } else {
+        format!("  clone_url = \"{gitlab_url}\"\n")
+    }
+}
+
+fn docker_executor_network_config(gitlab_url: &str) -> String {
+    if gitlab_url.contains(GITLAB_HOSTNAME) {
+        return format!(
+            r#"    network_mode = "{LOCAL_DOCKER_NETWORK_NAME}"
+    extra_hosts = ["host.docker.internal:host-gateway"]"#
+        );
+    }
+
+    let mut extra_hosts = vec!["host.docker.internal:host-gateway".to_string()];
+    if let Some(host) = host_from_url(gitlab_url) {
+        extra_hosts.push(format!("{GITLAB_HOSTNAME}:{host}"));
+    }
+    let entries = extra_hosts
+        .into_iter()
+        .map(|entry| format!("{entry:?}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("    extra_hosts = [{entries}]")
+}
+
+fn host_from_url(url: &str) -> Option<String> {
+    let after_scheme = url.split_once("://").map_or(url, |(_, rest)| rest);
+    let authority = after_scheme.split('/').next().unwrap_or(after_scheme);
+    let host_port = authority.rsplit('@').next().unwrap_or(authority);
+    let host = host_port
+        .strip_prefix('[')
+        .and_then(|value| value.split_once(']').map(|(host, _)| host))
+        .unwrap_or_else(|| host_port.split(':').next().unwrap_or(host_port));
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
 }
 
 #[cfg(test)]

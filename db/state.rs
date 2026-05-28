@@ -2043,7 +2043,7 @@ impl Db {
 
     pub async fn count_active_managers(&self, pool_name: &str) -> Result<i64> {
         let sql = self.sql(
-            "SELECT COUNT(*) FROM managers WHERE pool_name = ? AND state IN ('starting','online')",
+            "SELECT COUNT(*) FROM managers WHERE pool_name = ? AND state IN ('starting','online','node_starting','node_unreachable')",
         );
         let row: (i64,) = sqlx::query_as(&sql)
             .bind(pool_name)
@@ -4776,6 +4776,13 @@ mod tests {
         let fetched = db.get_manager("uuid-1").await?.unwrap();
         assert_eq!(fetched.system_id.unwrap(), "sys-uuid");
         assert_eq!(fetched.state, "online");
+        assert_eq!(db.count_active_managers("test_pool").await?, 1);
+
+        db.update_manager_state("uuid-1", "node_starting").await?;
+        assert_eq!(db.count_active_managers("test_pool").await?, 1);
+
+        db.update_manager_state("uuid-1", "node_unreachable")
+            .await?;
         assert_eq!(db.count_active_managers("test_pool").await?, 1);
 
         db.update_manager_state("uuid-1", "stopped").await?;

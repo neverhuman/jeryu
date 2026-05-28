@@ -94,7 +94,8 @@ impl DockerCtl {
 
         let host_config = HostConfig {
             mounts: Some(mounts),
-            extra_hosts: Some(vec![format!("{}:host-gateway", config::GITLAB_HOSTNAME)]),
+            network_mode: Some(config::LOCAL_DOCKER_NETWORK_NAME.to_string()),
+            extra_hosts: Some(vec!["host.docker.internal:host-gateway".to_string()]),
             ..Default::default()
         };
 

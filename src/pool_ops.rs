@@ -1,4 +1,6 @@
-use super::pool_scale::remove_manager_cache_dir;
+use super::pool_scale::{
+    manager_state_counts_as_active, remove_manager_cache_dir, stop_manager_for_node,
+};
 use super::*;
 
 /// Pause a pool in GitLab (stops accepting new jobs) but keeps managers alive.
@@ -45,31 +47,16 @@ pub async fn drain_pool(
 
     let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
     for m in &managers {
-        if m.state == "online" || m.state == "starting" {
+        if manager_state_counts_as_active(&m.state) {
             info!(manager_id = %m.id, "draining manager");
             store.update_manager_state(&m.id, "draining").await?; // allowlist: pool orchestration owns runner state
 
-            docker
-                .cleanup_runner_cache(&m.docker_container_id)
+            stop_manager_for_node(docker, m, config::runner_shutdown_timeout_secs() as i64)
                 .await
                 .ok();
-            docker
-                .drain_runner_manager(
-                    &m.docker_container_id,
-                    config::runner_shutdown_timeout_secs() as i64,
-                )
-                .await
-                .ok();
-
-            docker
-                .cleanup_runner_cache(&m.docker_container_id)
-                .await
-                .ok();
-            docker
-                .remove_runner_manager(&m.docker_container_id)
-                .await
-                .ok();
-            remove_manager_cache_dir(docker, &m.id).await;
+            if m.node_alias.is_none() {
+                remove_manager_cache_dir(docker, &m.id).await;
+            }
             store.update_manager_state(&m.id, "stopped").await?; // allowlist: pool orchestration owns runner state
 
             info!(manager_id = %m.id, "manager drained and stopped");
@@ -135,7 +122,7 @@ pub async fn rotate_pool_token(
         fs::write(&config_path, &config_content)
             .with_context(|| format!("rewriting config for manager {}", m.id))?;
 
-        if m.state == "online" || m.state == "starting" {
+        if manager_state_counts_as_active(&m.state) {
             docker
                 .reload_runner_config(&m.docker_container_id)
                 .await

@@ -140,6 +140,7 @@ impl RunnerBackend for RemoteDockerBackend {
             "docker run -d \
   --name {name} \
   --restart unless-stopped \
+  --entrypoint sh \
   -v {runner_dir}:/etc/gitlab-runner \
   -v {docker_socket}:/var/run/docker.sock \
   -v {cache_dir}:/cache \
@@ -148,7 +149,7 @@ impl RunnerBackend for RemoteDockerBackend {
   --label jeryu.manager_id={manager_id_q} \
   --label jeryu.node_alias={alias_q} \
   {image} \
-  sh -lc {bootstrap}",
+  -lc {bootstrap}",
             name = shell_quote(&container_name),
             runner_dir = shell_quote(&runner_dir),
             docker_socket = shell_quote(&self.node.docker_socket),

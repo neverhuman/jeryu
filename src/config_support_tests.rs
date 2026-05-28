@@ -67,6 +67,9 @@ fn test_render_runner_config() {
     assert!(docker_cfg.contains("builds_dir = \"/builds/default-manager-1\""));
     assert!(docker_cfg.contains("limit = 4"));
     assert!(docker_cfg.contains("privileged = false"));
+    assert!(docker_cfg.contains("network_mode = \"jeryu_default\""));
+    assert!(docker_cfg.contains("extra_hosts = [\"host.docker.internal:host-gateway\"]"));
+    assert!(!docker_cfg.contains("gitlab.local:host-gateway"));
     assert!(docker_cfg.contains("pull_policy = \"if-not-present\""));
     assert!(docker_cfg.contains("JERYU_CARGO_CACHE=1"));
     assert!(docker_cfg.contains("JERYU_CARGO_CACHE_ROOT=/cache"));
@@ -121,6 +124,21 @@ fn test_render_runner_config() {
     );
     assert!(build_cfg.contains("executor = \"docker\""));
     assert!(build_cfg.contains("privileged = true"));
+
+    let remote_cfg = render_runner_config(
+        "build",
+        "manager-remote",
+        "http://192.168.68.87:8929",
+        "example-runner-token",
+        "docker",
+        "/tmp/jeryu-cache/build",
+        4,
+        2,
+    );
+    assert!(remote_cfg.contains("url = \"http://192.168.68.87:8929\""));
+    assert!(remote_cfg.contains("clone_url = \"http://192.168.68.87:8929\""));
+    assert!(remote_cfg.contains("gitlab.local:192.168.68.87"));
+    assert!(!remote_cfg.contains("network_mode = \"jeryu_default\""));
 
     let custom_cfg = render_runner_config(
         "default",

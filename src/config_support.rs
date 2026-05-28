@@ -59,6 +59,7 @@ pub fn gitlab_pre_receive_hooks_dir() -> PathBuf {
 pub const GITLAB_IMAGE: &str = "gitlab/gitlab-ce:17.9.2-ce.0";
 pub const GITLAB_RUNNER_IMAGE: &str = "gitlab/gitlab-runner:v17.9.2";
 pub const GITLAB_HOSTNAME: &str = "gitlab.local";
+pub const LOCAL_DOCKER_NETWORK_NAME: &str = "jeryu_default";
 pub const GITLAB_HTTP_PORT: u16 = 8929;
 pub const GITLAB_SSH_PORT: u16 = 2224;
 pub const WEBHOOK_LISTEN_PORT: u16 = 9777;

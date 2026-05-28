@@ -16,7 +16,13 @@ pub(crate) fn manager_has_running_container(
     manager: &Manager,
     running_container_ids: &BTreeSet<String>,
 ) -> bool {
-    running_container_ids.contains(&manager.docker_container_id)
+    running_container_ids
+        .iter()
+        .any(|running_id| container_ids_match(running_id, &manager.docker_container_id))
+}
+
+pub(crate) fn container_ids_match(left: &str, right: &str) -> bool {
+    left == right || left.starts_with(right) || right.starts_with(left)
 }
 
 /// Start a single new manager for `pool_name`, routing to local Docker or a
@@ -246,4 +252,17 @@ pub(crate) async fn stop_manager_for_node(
             .ok();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::container_ids_match;
+
+    #[test]
+    fn container_ids_match_short_and_full_docker_ids() {
+        let full = "ae04b80d94b0f3b0adba174f391d512bbdf0453f482b20a9913df8af693045a8";
+        assert!(container_ids_match("ae04b80d94b0", full));
+        assert!(container_ids_match(full, "ae04b80d94b0"));
+        assert!(!container_ids_match("beefb80d94b0", full));
+    }
 }

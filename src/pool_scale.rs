@@ -1,11 +1,12 @@
 use anyhow::{Context, Result};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use tracing::{info, warn};
 
 use crate::config;
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
+use crate::runner_backend::RunnerBackend;
 use crate::state::{Db, Manager, Pool};
 use tokio::time::Duration;
 
@@ -27,6 +28,7 @@ pub async fn reconcile_manager_runtime_state(
     for manager in managers
         .iter()
         .filter(|manager| manager_state_counts_as_active(&manager.state))
+        .filter(|manager| manager.node_alias.is_none())
         .filter(|manager| !manager_has_running_container(manager, &running_container_ids))
     {
         warn!(
@@ -40,6 +42,61 @@ pub async fn reconcile_manager_runtime_state(
         stopped += 1;
     }
 
+    let mut remote_managers: BTreeMap<String, Vec<&Manager>> = BTreeMap::new();
+    for manager in managers
+        .iter()
+        .filter(|manager| manager_state_counts_as_active(&manager.state))
+        .filter(|manager| manager.node_alias.is_some())
+    {
+        if let Some(alias) = &manager.node_alias {
+            remote_managers
+                .entry(alias.clone())
+                .or_default()
+                .push(manager);
+        }
+    }
+
+    for (alias, managers) in remote_managers {
+        let node_cfg = match crate::node_support::load_node_config(&alias) {
+            Ok(node_cfg) => node_cfg,
+            Err(err) => {
+                warn!(node = %alias, error = %err, "could not load remote node config; marking managers unreachable");
+                store.mark_node_managers_unreachable(&alias).await?;
+                continue;
+            }
+        };
+        let backend = crate::runner_backend_remote::RemoteDockerBackend::new(node_cfg);
+        let running_ids = match backend.list_running_backend_ids().await {
+            Ok(ids) => ids,
+            Err(err) => {
+                warn!(node = %alias, error = %err, "could not inspect remote node; marking managers unreachable");
+                store.mark_node_managers_unreachable(&alias).await?;
+                continue;
+            }
+        };
+
+        for manager in managers {
+            if manager_has_running_container(manager, &running_ids) {
+                if manager.state != "online" {
+                    store.update_manager_state(&manager.id, "online").await?;
+                }
+                let now = chrono::Utc::now().to_rfc3339();
+                store.update_manager_last_contact(&manager.id, &now).await?;
+            } else {
+                warn!(
+                    manager_id = %manager.id,
+                    pool = %manager.pool_name,
+                    node = %alias,
+                    container_id = %manager.docker_container_id,
+                    previous_state = %manager.state,
+                    "marking expired remote runner manager stopped; container is not running"
+                );
+                store.update_manager_state(&manager.id, "stopped").await?;
+                stopped += 1;
+            }
+        }
+    }
+
     Ok(stopped)
 }
 
@@ -48,13 +105,52 @@ pub async fn count_running_managers(
     docker: &DockerCtl,
     pool_name: &str,
 ) -> Result<i64> {
-    let running_container_ids = docker.running_managed_container_ids().await?;
     let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
-    Ok(managers
+    let running_container_ids = docker.running_managed_container_ids().await?;
+    let mut running = managers
         .iter()
         .filter(|manager| manager_state_counts_as_active(&manager.state))
+        .filter(|manager| manager.node_alias.is_none())
         .filter(|manager| manager_has_running_container(manager, &running_container_ids))
-        .count() as i64)
+        .count() as i64;
+
+    let mut remote_managers: BTreeMap<String, Vec<&Manager>> = BTreeMap::new();
+    for manager in managers
+        .iter()
+        .filter(|manager| manager_state_counts_as_active(&manager.state))
+        .filter(|manager| manager.node_alias.is_some())
+    {
+        if let Some(alias) = &manager.node_alias {
+            remote_managers
+                .entry(alias.clone())
+                .or_default()
+                .push(manager);
+        }
+    }
+
+    for (alias, managers) in remote_managers {
+        let node_cfg = match crate::node_support::load_node_config(&alias) {
+            Ok(node_cfg) => node_cfg,
+            Err(err) => {
+                warn!(node = %alias, error = %err, "could not load remote node config while counting managers");
+                continue;
+            }
+        };
+        let backend = crate::runner_backend_remote::RemoteDockerBackend::new(node_cfg);
+        let running_ids = match backend.list_running_backend_ids().await {
+            Ok(ids) => ids,
+            Err(err) => {
+                warn!(node = %alias, error = %err, "could not inspect remote node while counting managers");
+                continue;
+            }
+        };
+        running += managers
+            .iter()
+            .filter(|manager| manager_has_running_container(manager, &running_ids))
+            .count() as i64;
+    }
+
+    Ok(running)
 }
 
 pub(crate) async fn remove_manager_cache_dir(docker: &DockerCtl, manager_id: &str) {
@@ -162,7 +258,7 @@ pub async fn scale_pool_to(
         let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
         let to_drain: Vec<_> = managers
             .iter()
-            .filter(|m| m.state == "online" || m.state == "starting")
+            .filter(|m| manager_state_counts_as_active(&m.state))
             .take(excess)
             .collect();
 
