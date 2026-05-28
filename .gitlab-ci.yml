@@ -36,6 +36,18 @@ workflow:
 # Rust pipeline mirror
 # ---------------------------------------------------------------------------
 
+ci_runner_policy:
+  stage: quality
+  rules: *rules_rust
+  script:
+    - bash scripts/ci/no-runner-tags.sh .
+
+gitlab_source_auth_doctor:
+  stage: quality
+  rules: *rules_rust
+  script:
+    - bash scripts/ci/ci-job-token-clone-doctor.sh
+
 rust_fmt:
   stage: quality
   rules: *rules_rust
@@ -48,7 +60,6 @@ rust_clippy:
   rules: *rules_rust
   script:
     - rustup component add clippy
-    - cargo install -q --locked taiki-e --force
     - bash ops/ci/rust-lane.sh clippy
 
 rust_build:
@@ -56,7 +67,6 @@ rust_build:
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
-    - cargo install -q --locked taiki-e --force
     - bash ops/ci/rust-lane.sh build
 
 rust_install_smoke:
@@ -85,7 +95,6 @@ rust_test_lib:
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
-    - cargo install -q --locked taiki-e --force
     - |
       mode="full"
       filter=""
@@ -378,20 +387,17 @@ post_merge_build_artifact:
       - target/release/jeryu
     expire_in: 1 day
 
-# Deploys the verified artifact to the host machine.
-# Requires a GitLab runner registered with the 'deploy-host' tag and
-# a shell executor (not Docker) so systemctl --user commands reach the
-# host systemd session. Register with:
-#   gitlab-runner register --url http://gitlab.local:8929 \
-#     --token $RUNNER_TOKEN_DEPLOY_HOST --executor shell \
-#     --tag-list deploy-host --name host-deploy-shell
+# Deploys the verified artifact to the host machine. This is isolated from the
+# standard local GitLab path by a manual rule and an explicit operator variable.
+# The runner must be a dedicated shell executor that accepts untagged jobs.
 post_merge_deploy:
   stage: deploy
   needs: [post_merge_build_artifact]
-  when: on_success
   allow_failure: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main" && $ENABLE_HOST_DEPLOY == "1"'
+      when: manual
+    - when: never
   script:
     - bash ops/ci/post-merge-deploy-lane.sh install-from-artifact target/release/jeryu
 
