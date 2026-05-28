@@ -64,6 +64,7 @@ case "$STAGE" in
     cargo run -p jeryu -- install --yes --prefix "$PREFIX" --path-mode skip
     cargo run -p jeryu -- install doctor --prefix "$PREFIX"
     cargo run -p jeryu -- install smoke --dry-run
+    mkdir -p target
     cargo run -p jeryu -- install render-demo --output target/jeryu-install-demo.gif --png target/jeryu-install-demo.png
     cargo run -p jeryu -- remote install xbabe1 --dry-run --yes --setup-key --json
     ;;
