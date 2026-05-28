@@ -4809,7 +4809,10 @@ mod tests {
         };
         db.insert_pool(&pool).await?;
 
-        for (id, state) in [("uuid-remote-1", "node_starting"), ("uuid-remote-2", "node_unreachable")] {
+        for (id, state) in [
+            ("uuid-remote-1", "node_starting"),
+            ("uuid-remote-2", "node_unreachable"),
+        ] {
             db.insert_manager(&Manager {
                 id: id.into(),
                 pool_name: pool.name.clone(),
