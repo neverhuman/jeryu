@@ -73,3 +73,19 @@ fn ephemeral_ci_yaml_uses_isolated_clone_path() {
     ));
     assert!(yaml.contains("    - cargo test -p jeryu"));
 }
+
+#[test]
+fn ephemeral_ci_yaml_is_untagged() {
+    let plan = plan_test_run(&TestRunOpts {
+        project_id: release::DEFAULT_RELEASE_PROJECT_ID,
+        test_command: "cargo test -p jeryu".to_string(),
+        job_name: Some("smoke".to_string()),
+        image: "rust:1.92.0".to_string(),
+        tags: None,
+        timeout_secs: 600,
+        ..TestRunOpts::default()
+    });
+
+    let yaml = render_ephemeral_ci_yaml(&plan);
+    assert!(!yaml.contains("tags:"));
+}

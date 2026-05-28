@@ -20,7 +20,6 @@ async fn test_job_cycle() -> Result<()> {
 
     let ci_yaml = r#"
 test_retry:
-  tags: [e2e-test]
   script:
     - echo 'First attempt'
     - exit 1
@@ -83,7 +82,6 @@ test_retry:
     // Fix it
     let ci_yaml_fix = r#"
 test_retry:
-  tags: [e2e-test]
   script:
     - echo 'Success attempt'
   rules:

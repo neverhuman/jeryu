@@ -80,6 +80,28 @@ async fn test_runner_crud_offline() {
     }
 }
 
+/// Enforce the untagged runner policy against the mock API and verify tags are cleared.
+#[tokio::test]
+async fn test_runner_policy_clears_tags_offline() {
+    let mock = MockGitlabServer::start().await;
+    let client = mock.gitlab_client();
+
+    let runner = client
+        .create_runner("policy-test", &["ci", "test"], false, "instance_type")
+        .await
+        .expect("create runner");
+
+    let updated = jeryu::runner_policy::enforce_untagged_runners(&client)
+        .await
+        .expect("enforce untagged runner policy");
+    assert_eq!(updated, 1, "one runner should have been normalized");
+
+    let s = mock.state.lock().unwrap();
+    let stored = s.runners.get(&runner.id).expect("runner in mock state");
+    assert!(stored.tags.is_empty(), "runner tags should be cleared");
+    assert!(stored.run_untagged, "runner should accept untagged jobs");
+}
+
 // ---------------------------------------------------------------------------
 // Token rotation
 // ---------------------------------------------------------------------------

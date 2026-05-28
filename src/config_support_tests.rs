@@ -165,3 +165,11 @@ fn runner_shutdown_timeout_uses_env_override() {
         None => remove_env_var("JERYU_POOL_SHUTDOWN_TIMEOUT_SECS"),
     }
 }
+
+#[test]
+fn default_pools_are_untagged() {
+    assert!(
+        DEFAULT_POOLS.iter().all(|pool| pool.tags.is_empty()),
+        "default pools should not encode runner tags"
+    );
+}

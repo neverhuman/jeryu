@@ -86,6 +86,14 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
                 );
             }
 
+            let normalized_runners = jeryu::runner_policy::enforce_untagged_runners(&client).await?;
+            if normalized_runners > 0 {
+                tracing::warn!(
+                    normalized_runners,
+                    "normalized GitLab runners to untagged policy before reconciliation"
+                );
+            }
+
             // Reconcile every pool to min_warm, including zero-warm pools.
             // This drains outdated ad hoc managers instead of leaving them alive
             // indefinitely between serve restarts.

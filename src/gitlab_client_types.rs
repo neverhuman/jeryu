@@ -20,6 +20,10 @@ pub struct RunnerInfo {
     pub id: i64,
     pub description: Option<String>,
     pub paused: Option<bool>,
+    #[serde(default)]
+    pub tag_list: Vec<String>,
+    #[serde(default)]
+    pub run_untagged: bool,
 }
 
 #[derive(Debug, Deserialize)]

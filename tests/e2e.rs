@@ -64,8 +64,6 @@ async fn test_full_lifecycle() -> Result<()> {
 
     let ci_yaml = r#"
 test_job:
-  tags:
-    - e2e-test
   script:
     - echo 'God Mode Active'
     - sleep 2

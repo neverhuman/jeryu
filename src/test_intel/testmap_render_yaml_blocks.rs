@@ -47,21 +47,35 @@ fn top_level_block_names(content: &str) -> Vec<String> {
 pub(crate) fn strip_job_rules(block: &str) -> String {
     let mut out = Vec::new();
     let mut skipping_rules = false;
+    let mut skipping_tags = false;
 
-    for line in block.lines() {
-        let indent = line.chars().take_while(|ch| *ch == ' ').count();
-        if indent == 2 && line.trim() == "rules:" {
-            skipping_rules = true;
-            continue;
-        }
-        if skipping_rules {
-            if !line.trim().is_empty() && indent <= 2 {
-                skipping_rules = false;
-            } else {
-                continue;
+    'lines: for line in block.lines() {
+
+        loop {
+            let indent = line.chars().take_while(|ch| *ch == ' ').count();
+            let trimmed = line.trim();
+
+            if skipping_rules || skipping_tags {
+                if !trimmed.is_empty() && indent <= 2 {
+                    skipping_rules = false;
+                    skipping_tags = false;
+                    continue;
+                }
+                continue 'lines;
             }
+
+            if indent == 2 && trimmed == "rules:" {
+                skipping_rules = true;
+                continue 'lines;
+            }
+            if indent == 2 && trimmed == "tags:" {
+                skipping_tags = true;
+                continue 'lines;
+            }
+
+            out.push(line.to_string());
+            break;
         }
-        out.push(line.to_string());
     }
 
     format!("{}\n", out.join("\n"))
@@ -102,4 +116,27 @@ pub(crate) fn collect_ci_blocks(
     }
 
     (hidden, jobs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_job_rules;
+
+    #[test]
+    fn strip_job_rules_removes_tags_and_rules() {
+        let block = r#"example:
+  stage: test
+  tags:
+    - build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+  script:
+    - echo ok
+"#;
+
+        let stripped = strip_job_rules(block);
+        assert!(!stripped.contains("tags:"));
+        assert!(!stripped.contains("rules:"));
+        assert!(stripped.contains("script:"));
+    }
 }

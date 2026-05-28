@@ -34,7 +34,7 @@ pub async fn create_ephemeral_pool(
     let runner = client
         .create_runner(
             &format!("jeryu-{pool_name}"),
-            &["e2e-test"],
+            &[],
             true,
             "instance_type",
         )
@@ -44,7 +44,7 @@ pub async fn create_ephemeral_pool(
         name: pool_name.clone(),
         gitlab_runner_id: runner.id,
         auth_token: runner.token.clone(),
-        tags: "e2e-test".into(),
+        tags: String::new(),
         executor: "docker".into(),
         min_warm: 0,
         max_managers: 2,

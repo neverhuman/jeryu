@@ -113,7 +113,7 @@ pub struct PoolDef {
 pub const DEFAULT_POOLS: &[PoolDef] = &[
     PoolDef {
         name: "default",
-        tags: "default,rust,test",
+        tags: "",
         executor: "docker",
         min_warm: 2,
         max_managers: 4,
@@ -123,7 +123,7 @@ pub const DEFAULT_POOLS: &[PoolDef] = &[
     },
     PoolDef {
         name: "build",
-        tags: "build,docker-build,x86-64,docker,dind",
+        tags: "",
         executor: "docker",
         min_warm: 2,
         max_managers: 4,
@@ -133,7 +133,7 @@ pub const DEFAULT_POOLS: &[PoolDef] = &[
     },
     PoolDef {
         name: "untrusted",
-        tags: "untrusted,sandbox,mr",
+        tags: "",
         executor: "custom",
         min_warm: 1,
         max_managers: 2,
