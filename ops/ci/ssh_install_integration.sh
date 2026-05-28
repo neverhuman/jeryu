@@ -148,20 +148,62 @@ cargo build --release -p jeryu --target-dir /workspace/target/linux-remote"
     ok "Linux binary: $JERYU_REMOTE_BINARY_PATH"
 fi
 
+USE_BASE_IMAGE_SETUP=0
+
+setup_sshd_container_from_base_image() {
+    step "Preparing base sshd container"
+    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        --privileged \
+        -p "${SSH_PORT}:22" \
+        ubuntu:24.04 \
+        sleep infinity
+
+    docker exec "$CONTAINER_NAME" bash -lc '
+        set -euo pipefail
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+            openssh-server \
+            bash \
+            coreutils \
+            ca-certificates \
+            procps \
+            curl
+        mkdir -p /run/sshd
+        useradd -m -s /bin/bash testuser
+        echo "testuser:testpass" | chpasswd
+        sed -i '"'"'s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/'"'"' /etc/ssh/sshd_config
+        sed -i '"'"'s/^#\?PermitRootLogin.*/PermitRootLogin no/'"'"' /etc/ssh/sshd_config
+        sed -i '"'"'s/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/'"'"' /etc/ssh/sshd_config
+        ssh-keygen -A
+    '
+    docker exec -d "$CONTAINER_NAME" /usr/sbin/sshd -D -e
+    IMAGE_NAME="ubuntu:24.04"
+}
+
 # ── Step 2: Build the sshd Docker image ────────────────────────────────────
 step "Building sshd Docker image"
-docker build -t "$IMAGE_NAME" -f "$REPO_ROOT/ops/ci/Dockerfile.sshd-test" "$REPO_ROOT" 2>&1 | tail -3
-ok "Image: $IMAGE_NAME"
+if docker build -t "$IMAGE_NAME" -f "$REPO_ROOT/ops/ci/Dockerfile.sshd-test" "$REPO_ROOT" 2>&1 | tail -3; then
+    ok "Image: $IMAGE_NAME"
+else
+    warn "docker build failed; falling back to base-image sshd setup"
+    USE_BASE_IMAGE_SETUP=1
+    setup_sshd_container_from_base_image
+fi
 
 # ── Step 3: Start the sshd container ──────────────────────────────────────
-step "Starting sshd container on port $SSH_PORT"
-docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-docker run -d \
-    --name "$CONTAINER_NAME" \
-    --privileged \
-    -p "${SSH_PORT}:22" \
-    "$IMAGE_NAME"
-ok "Container: $CONTAINER_NAME"
+if [ "$USE_BASE_IMAGE_SETUP" -eq 0 ]; then
+    step "Starting sshd container on port $SSH_PORT"
+    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        --privileged \
+        -p "${SSH_PORT}:22" \
+        "$IMAGE_NAME"
+    ok "Container: $CONTAINER_NAME"
+fi
 
 # ── Step 4: Wait for sshd readiness ───────────────────────────────────────
 step "Waiting for sshd to accept connections"
