@@ -25,15 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update --component rustfmt
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+          components: rustfmt
       - name: Check formatting
         run: bash ops/ci/rust-lane.sh fmt
 
@@ -44,19 +39,12 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update --component clippy
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
+          components: clippy
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Run clippy
         run: bash ops/ci/rust-lane.sh clippy
 
@@ -67,19 +55,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -98,19 +78,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Run install commands
         run: bash ops/ci/rust-lane.sh install-smoke
 
@@ -126,19 +98,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -169,21 +133,13 @@ jobs:
           # full history lets the tests actually run.
           fetch-depth: 0
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Install nextest
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -211,21 +167,13 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Install nextest
         uses: taiki-e/install-action@65f36558ea9682525f70919321ba6b20e4a8d7a6 # nextest
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -247,19 +195,11 @@ jobs:
           # See library-tests above: shadow tests need full git history.
           fetch-depth: 0
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -275,19 +215,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -308,15 +240,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Install cargo-deny
         uses: taiki-e/install-action@4276f5c5467209401f06d04b0026ae72e3bf4b97 # cargo-deny
       - name: Install actionlint (prebuilt binary)
@@ -347,19 +273,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -381,19 +299,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -419,19 +329,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -453,19 +355,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -489,19 +383,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -526,19 +412,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -566,19 +444,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
-        with:
-          shared-key: "rust-${{ runner.name }}"
       - name: Install mold
         run: |
           if command -v mold >/dev/null 2>&1; then echo "mold already installed";
@@ -626,15 +496,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Rust
-        run: |
-          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
-            flock /tmp/rustup-bootstrap.lock sh -c \
-              '[ -x "$HOME/.cargo/bin/rustup" ] || curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path'
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          flock /tmp/rustup-install.lock rustup toolchain install 1.95.0 --no-self-update
-          rustup override set 1.95.0
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: 1.95.0
       - name: Build and test fixture project
         working-directory: tests/fixtures/fixture_project
         run: bash ../../../ops/ci/rust-lane.sh fixture-project-test
