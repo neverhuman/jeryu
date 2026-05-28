@@ -48,8 +48,23 @@ pub fn is_local_gitlab_url(url: &str) -> bool {
     let Some((host, port)) = host_port(url) else {
         return false;
     };
-    let local_host = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1" | "[::1]");
+    let local_host = matches!(
+        host.as_str(),
+        "127.0.0.1" | "localhost" | "::1" | "[::1]" | config::GITLAB_HOSTNAME
+    );
     local_host && port.is_none_or(|port| port == config::GITLAB_HTTP_PORT)
+}
+
+/// True when a remote URL targets the local GitLab SSH authority.
+pub fn is_local_gitlab_ssh_remote(remote: &str) -> bool {
+    let Some((host, port)) = host_port(remote) else {
+        return false;
+    };
+    let local_host = matches!(
+        host.as_str(),
+        "127.0.0.1" | "localhost" | "::1" | "[::1]" | config::GITLAB_HOSTNAME
+    );
+    local_host && port.is_none_or(|port| port == config::GITLAB_SSH_PORT)
 }
 
 /// Load a token without validating or repairing it.

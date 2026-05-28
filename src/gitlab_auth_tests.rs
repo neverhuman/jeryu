@@ -75,6 +75,13 @@ fn loads_gitlab_pat_from_canonical_env_file() {
 }
 
 #[test]
+fn local_gitlab_url_classifier_accepts_gitlab_local() {
+    assert!(is_local_gitlab_url("http://gitlab.local:8929"));
+    assert!(is_local_gitlab_url("http://localhost:8929"));
+    assert!(!is_local_gitlab_url("https://gitlab.example.invalid"));
+}
+
+#[test]
 fn upserts_gitlab_pat_and_preserves_other_keys() {
     let _lock = env_lock();
     let temp = tempfile::tempdir().unwrap();

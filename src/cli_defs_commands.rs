@@ -112,6 +112,74 @@ pub(crate) enum BugProjectCommands {
     },
 }
 
+#[derive(Subcommand)]
+pub(crate) enum AccessCommands {
+    /// Diagnose local GitLab access for a checkout or the known workspace set.
+    Doctor {
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        all_known: bool,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Repair local GitLab access for a checkout or the known workspace set.
+    Repair {
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        all_known: bool,
+        #[arg(long)]
+        yes: bool,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Resolve a GitLab project by path or by local repo checkout.
+    Project {
+        project: Option<String>,
+        #[arg(long)]
+        repo: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Inspect the machine-readable remote-key metadata.
+    #[command(subcommand)]
+    Keys(AccessKeyCommands),
+}
+
+#[derive(Subcommand)]
+pub(crate) enum AccessKeyCommands {
+    /// List the configured remote-key metadata.
+    List {
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Doctor the configured remote-key metadata.
+    Doctor {
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum MrCommands {
+    /// Create a merge request for the current local GitLab checkout.
+    Create {
+        #[arg(long)]
+        source: String,
+        #[arg(long)]
+        target: String,
+        #[arg(long)]
+        title: String,
+        #[arg(long, default_value_t = false)]
+        draft: bool,
+        #[arg(long, default_value_t = false)]
+        push: bool,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+}
+
 #[path = "cli_defs_commands_repo.rs"]
 mod cli_defs_commands_repo;
 pub(crate) use cli_defs_commands_repo::{

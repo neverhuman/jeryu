@@ -82,11 +82,26 @@ pub(crate) fn render_github_agents_md() -> String {
     r#"# .github/AGENTS.md
 
 Read `AGENTS.md` first. Workflow files in this directory are adapters for the canonical ops lanes under `ops/ci/`.
+Access contract: local agent workspaces use `~/.jeryu/access.toml`, `jeryu access doctor`, and `jeryu access repair --repo . --yes`; do not install/use `glab`, scrape credential stores, or keep HTTP local GitLab origins.
 Owns `.github/`.
 Forbidden: product feature code, domain policy, and handwritten release bypasses.
 Proof lane: `bash ops/ci/quality-gates.sh` plus the matching `ops/ci/*-lane.sh` script for the workflow being changed.
 "#
     .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn github_agents_md_includes_access_contract() {
+        let rendered = render_github_agents_md();
+        assert!(rendered.contains("~/.jeryu/access.toml"));
+        assert!(rendered.contains("jeryu access repair --repo . --yes"));
+        assert!(rendered.contains("glab"));
+        assert!(rendered.contains("HTTP local GitLab origins"));
+    }
 }
 
 pub(crate) fn render_codeowners(spec: &StandardSpec) -> String {

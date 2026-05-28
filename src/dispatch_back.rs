@@ -21,6 +21,16 @@ pub(crate) async fn run(command: Commands) -> Result<i32> {
         // ---- Agent -------------------------------------------------------
         Commands::Agent(subcmd) => ops::run_agent(subcmd).await?,
 
+        // ---- Access -----------------------------------------------------
+        Commands::Access(subcmd) => {
+            return crate::commands::access::execute_access_commands(subcmd).await;
+        }
+
+        // ---- Merge Request ---------------------------------------------
+        Commands::Mr(subcmd) => {
+            return crate::commands::mr::execute_mr_commands(subcmd).await;
+        }
+
         // ---- Test --------------------------------------------------------
         Commands::Test(subcmd) => crate::commands::test::execute_test_commands(subcmd).await?,
 

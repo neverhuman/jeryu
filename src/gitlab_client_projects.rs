@@ -14,6 +14,14 @@ impl GitlabClient {
         Ok(project)
     }
 
+    pub async fn get_project_by_path(&self, path_with_namespace: &str) -> Result<Project> {
+        let encoded = urlencoding::encode(path_with_namespace);
+        let project = self
+            .api_get_json(self.api_url(&format!("/projects/{}", encoded)))
+            .await?;
+        Ok(project)
+    }
+
     pub async fn create_project(&self, name: &str) -> Result<Project> {
         self.create_project_with_readme(name, true).await
     }

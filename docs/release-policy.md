@@ -145,7 +145,7 @@ Always in this order. Never re-tag a published version.
 
 | Command                              | Who runs it      | What it does                                       |
 |--------------------------------------|------------------|----------------------------------------------------|
-| `jeryu agent submit`                 | agent            | Run proof → write capsule → `gh pr create --draft` |
+| `jeryu agent submit`                 | agent            | Run proof → write capsule → local GitLab draft MR or `gh pr create --draft` on explicit GitHub repos |
 | `jeryu release ready --pr N`         | CI workflow      | Compose gate, post GitHub Check Run                |
 | `jeryu release dry-run --version V`  | agent or human   | Run full pipeline locally, no publish              |
 | `jeryu release submit --version V`   | release manager  | Tag + push + trigger `release.yml`                 |

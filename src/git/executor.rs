@@ -15,6 +15,12 @@ use crate::state::Db;
 
 pub async fn execute_git(db: Option<&Db>, argv: &[String]) -> Result<i32> {
     let cwd = std::env::current_dir()?;
+    if crate::access::repo_origin_is_local_http(&cwd).unwrap_or(false) {
+        eprintln!(
+            "jeryu git: local GitLab HTTP origins are forbidden; run `jeryu access repair --repo . --yes`"
+        );
+        return Ok(1);
+    }
     let invocation = GitInvocation::new(&cwd, argv.to_vec());
     let git = SystemGit::resolve()?;
     let before = snapshot_or_empty(&cwd);

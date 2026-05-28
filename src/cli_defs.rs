@@ -76,6 +76,10 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Agent(AgentCommands),
     #[command(subcommand)]
+    Access(AccessCommands),
+    #[command(subcommand)]
+    Mr(MrCommands),
+    #[command(subcommand)]
     Settings(SettingsCommands),
     #[command(subcommand)]
     Test(TestCommands),
@@ -129,8 +133,9 @@ pub(crate) enum Commands {
 #[path = "cli_defs_commands.rs"]
 mod cli_defs_commands;
 pub(crate) use cli_defs_commands::{
-    BugAttemptCommands, BugCommands, BugProjectCommands, RepoCommands, RepoFleetCommands,
-    RepoHookCommands, RepoStandardCommand, RepoStandardCommands,
+    AccessCommands, AccessKeyCommands, BugAttemptCommands, BugCommands, BugProjectCommands,
+    MrCommands, RepoCommands, RepoFleetCommands, RepoHookCommands, RepoStandardCommand,
+    RepoStandardCommands,
 };
 
 #[path = "cli_defs_node.rs"]

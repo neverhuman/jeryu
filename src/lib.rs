@@ -52,6 +52,7 @@
 #![allow(clippy::unnecessary_unwrap)]
 #![allow(clippy::manual_checked_ops)]
 
+pub mod access;
 pub mod admission;
 pub mod agent;
 pub mod agent_review;

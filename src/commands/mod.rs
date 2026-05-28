@@ -1,3 +1,4 @@
+pub mod access;
 pub mod agent_submit;
 pub mod bug;
 pub mod exec;
@@ -5,6 +6,7 @@ pub mod git;
 pub mod host;
 pub mod install;
 pub mod job;
+pub mod mr;
 pub mod node;
 pub mod pipeline;
 pub mod pool;

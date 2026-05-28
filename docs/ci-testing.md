@@ -127,7 +127,7 @@ A full E2E test requires a bootstrapped GitLab environment. The test infrastruct
 
 ### Canonical GitLab Auth
 
-For local GitLab access, the canonical credential source is `~/.jeryu/jeryu.env` with `GITLAB_PAT`. The repair/bootstrap path is `jeryu init` / `jeryu bootstrap`, and code should load that token through `gitlab_auth::resolve_or_repair_default()` or `GitLabClient::from_jeryu_env_or_repair()`. Do not require agents to hunt for a separate GitLab auth store when the jeryu env file is already present. When the operation can be handled by jeryu's own APIs, prefer those surfaces first and only fall back to GitLab REST for GitLab-native repository and CI actions.
+For local GitLab access, the canonical credential source is `~/.jeryu/jeryu.env` with `GITLAB_PAT`, and the canonical local authority is `http://127.0.0.1:8929` plus `gitlab.local`. The repair/bootstrap path is `jeryu init` / `jeryu bootstrap`, and code should load that token through `gitlab_auth::resolve_or_repair_default()` or `GitLabClient::from_jeryu_env_or_repair()`. Do not require agents to hunt for a separate GitLab auth store when the jeryu env file is already present. When the operation can be handled by jeryu's own APIs, prefer those surfaces first and only fall back to GitLab REST for GitLab-native repository and CI actions. The machine-readable access contract lives at `~/.jeryu/access.toml`; agents must not install/use `glab`, scrape credential stores, or keep HTTP local GitLab origins in place.
 
 ### Garbage Collection & Diagnostics
 
