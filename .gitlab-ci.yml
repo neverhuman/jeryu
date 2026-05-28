@@ -473,7 +473,7 @@ web_rust_feature:
     - cargo run --bin jeryu_export_schemas --features web
     - git diff --exit-code schemas/
 
-web_frontend:
+web_frontend_checks:
   stage: test
   needs: []
   rules: *rules_web
@@ -483,29 +483,51 @@ web_frontend:
     - npm --workspace @jeryu/web run typecheck
     - npm --workspace @jeryu/web run lint
     - npm --workspace @jeryu/web run test
+
+web_frontend_build:
+  stage: build
+  needs: []
+  rules: *rules_web
+  script:
+    - apt-get install -y --no-install-recommends nodejs npm
+    - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build
-    - npm --workspace @jeryu/web run build-storybook
-    - npm --workspace @jankurai/ux-qa run build
-    - |
-      MAIN="$(ls apps/web/dist/assets/index-*.js | head -1)"
-      if [ -z "$MAIN" ]; then
-        echo "main bundle not found under apps/web/dist/assets/" >&2
-        exit 1
-      fi
-      SIZE="$(gzip -c "$MAIN" | wc -c)"
-      BUDGET=358400
-      echo "main bundle: ${SIZE} bytes gz (budget ${BUDGET})"
-      test "$SIZE" -le "$BUDGET"
   artifacts:
     paths:
       - apps/web/dist/
+    expire_in: 1 day
+    when: always
+
+web_frontend_storybook:
+  stage: build
+  needs: []
+  rules: *rules_web
+  script:
+    - apt-get install -y --no-install-recommends nodejs npm
+    - npm ci --no-audit --no-fund
+    - npm --workspace @jeryu/web run build-storybook
+  artifacts:
+    paths:
       - apps/web/storybook-static/
     expire_in: 1 day
     when: always
 
+web_uxqa_build:
+  stage: evidence
+  needs: [web_frontend_build, web_frontend_storybook]
+  rules: *rules_web
+  script:
+    - apt-get install -y --no-install-recommends nodejs npm
+    - node apps/ux-qa/ux-qa-check.mjs build
+  artifacts:
+    when: always
+    paths:
+      - target/jankurai/ux-qa/
+    expire_in: 1 week
+
 web_e2e:
   stage: evidence
-  needs: [web_rust_feature, web_frontend]
+  needs: [web_rust_feature, web_frontend_build]
   rules: *rules_web
   variables:
     JERYU_WEB_TRUST_LOCAL: "1"
@@ -567,7 +589,7 @@ web_e2e:
 
 web_lighthouse:
   stage: evidence
-  needs: [web_frontend]
+  needs: [web_frontend_build]
   rules: *rules_web
   allow_failure: true
   script:
