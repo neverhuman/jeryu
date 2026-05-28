@@ -88,8 +88,11 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     step "macOS host — cross-compiling $LINUX_PLATFORM binary for container"
     LINUX_BIN_DIR="$REPO_ROOT/target/linux-remote"
     mkdir -p "$LINUX_BIN_DIR"
+    # Honour per-workspace CARGO_HOME isolation (set by .github/workflows/*).
+    # Falls back to ~/.cargo for local dev where CARGO_HOME is unset.
+    CARGO_HOST_HOME="${CARGO_HOME:-$HOME/.cargo}"
     # Ensure cargo home dirs exist before mounting (Docker may not create them).
-    mkdir -p "$HOME/.cargo/registry" "$HOME/.cargo/git"
+    mkdir -p "$CARGO_HOST_HOME/registry" "$CARGO_HOST_HOME/git"
     # Use rust:bookworm (has build-essential/gcc). Install cmake for libgit2.
     # RUSTUP_TOOLCHAIN=stable overrides rust-toolchain.toml so we skip the
     # 1.92.0 toolchain download inside the container.
@@ -98,8 +101,8 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
         -e RUSTUP_TOOLCHAIN=stable \
         -e DEBIAN_FRONTEND=noninteractive \
         -v "$REPO_ROOT:/workspace" \
-        -v "$HOME/.cargo/registry:/root/.cargo/registry" \
-        -v "$HOME/.cargo/git:/root/.cargo/git" \
+        -v "$CARGO_HOST_HOME/registry:/root/.cargo/registry" \
+        -v "$CARGO_HOST_HOME/git:/root/.cargo/git" \
         -w /workspace \
         rust:bookworm \
         bash -c "set -euo pipefail
