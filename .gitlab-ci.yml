@@ -98,6 +98,7 @@ rust_test_lib:
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
+    - cargo install cargo-nextest --locked --quiet 2>/dev/null || true
     - |
       mode="full"
       filter=""
@@ -119,6 +120,7 @@ rust_test_mock:
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
+    - cargo install cargo-nextest --locked --quiet 2>/dev/null || true
     - bash ops/ci/rust-lane.sh test-mock
 
 rust_test_integration:
