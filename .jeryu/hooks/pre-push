@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "jeryu: direct push to main is blocked; use merge request plus local JeRyu/GitLab gate" >&2
+    exit 1
+  fi
+done
+
+if [ -x .jeryu/ci/required.sh ]; then
+  bash .jeryu/ci/required.sh
+fi

@@ -1,0 +1,3 @@
+schema_version = "1"
+github_actions_required = false
+local_gitlab_required = true
