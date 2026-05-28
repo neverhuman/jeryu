@@ -11,9 +11,17 @@ variables:
   CARGO_INCREMENTAL: "0"
   GIT_DEPTH: "1"
 
+# Kill any stale sccache server from a previous job on this runner slot.
+# Stale servers cause "Address in use" errors that prevent sccache from
+# working, making cold compilation fall back to direct rustc (much slower).
+.evict_sccache: &evict_sccache
+  - unset RUSTC_WRAPPER
+  - pkill sccache 2>/dev/null || true
+
 default:
   image: rust:1.95.0
   before_script:
+    - *evict_sccache
     - apt-get update -y
     - apt-get install -y --no-install-recommends ca-certificates curl git jq
 
@@ -272,7 +280,8 @@ jankurai_sbom:
 
 release_ready:
   stage: quality
-  tags: [default]
+  tags: [build]
+  timeout: 90m
   rules: *rules_main
   variables:
     GITHUB_TOKEN: "$GITHUB_TOKEN"
