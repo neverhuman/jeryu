@@ -153,6 +153,21 @@ fn manager_builds_dir_is_pool_and_manager_scoped() {
 }
 
 #[test]
+fn default_pool_capacity_expands_build_pool_to_twelve() {
+    let build = DEFAULT_POOLS
+        .iter()
+        .find(|pool| pool.name == "build")
+        .expect("build pool definition");
+    let default = DEFAULT_POOLS
+        .iter()
+        .find(|pool| pool.name == "default")
+        .expect("default pool definition");
+
+    assert_eq!(build.max_managers, 12);
+    assert_eq!(default.max_managers, 4);
+}
+
+#[test]
 fn runner_shutdown_timeout_uses_env_override() {
     let _guard = ENV_LOCK.lock().unwrap();
     let original = std::env::var("JERYU_POOL_SHUTDOWN_TIMEOUT_SECS").ok();

@@ -115,7 +115,7 @@ pub(super) async fn reconcile_remote_managers_for_pool(state: &EngineState, pool
             let is_running = running_ids.contains(&m.docker_container_id);
 
             match m.state.as_str() {
-                "node_starting" | "node_unreachable" if is_running => {
+                "starting" | "node_starting" | "node_unreachable" if is_running => {
                     info!(
                         manager_id = %m.id,
                         node = %alias,

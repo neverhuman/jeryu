@@ -2043,7 +2043,7 @@ impl Db {
 
     pub async fn count_active_managers(&self, pool_name: &str) -> Result<i64> {
         let sql = self.sql(
-            "SELECT COUNT(*) FROM managers WHERE pool_name = ? AND state IN ('starting','online')",
+            "SELECT COUNT(*) FROM managers WHERE pool_name = ? AND state IN ('starting','online','node_starting','node_unreachable')",
         );
         let row: (i64,) = sqlx::query_as(&sql)
             .bind(pool_name)
@@ -4784,6 +4784,47 @@ mod tests {
         db.delete_manager("uuid-1").await?;
         let fetched = db.get_manager("uuid-1").await?;
         assert!(fetched.is_none());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_count_active_managers_includes_remote_transitional_states() -> Result<()> {
+        let db = setup_db().await?;
+
+        let pool = Pool {
+            name: "remote_pool".into(),
+            gitlab_runner_id: 7,
+            auth_token: "secret".into(),
+            tags: "tag1".into(),
+            executor: "docker".into(),
+            min_warm: 1,
+            max_managers: 10,
+            concurrent: 5,
+            request_concurrency: 2,
+            paused: false,
+            trust_tier: "trusted".into(),
+            cluster_alias: Some("xbabe0".into()),
+            backend_type: "docker-remote".into(),
+        };
+        db.insert_pool(&pool).await?;
+
+        for (id, state) in [("uuid-remote-1", "node_starting"), ("uuid-remote-2", "node_unreachable")] {
+            db.insert_manager(&Manager {
+                id: id.into(),
+                pool_name: pool.name.clone(),
+                docker_container_id: format!("{id}-container"),
+                system_id: None,
+                state: state.into(),
+                config_dir: format!("/tmp/{id}"),
+                started_at: Some("2024-01-01T00:00:00Z".into()),
+                last_contact_at: None,
+                node_alias: Some("xbabe0".into()),
+            })
+            .await?;
+        }
+
+        assert_eq!(db.count_active_managers(&pool.name).await?, 2);
 
         Ok(())
     }

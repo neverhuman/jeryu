@@ -128,14 +128,13 @@ async fn cmd_add(
     match probe.disk_free_gb {
         Some(free) if free < storage_limit_gb => {
             eprintln!(
-                "⚠️  Node '{alias}' has only {free:.1} GiB free but storage_limit_gb is \
+                "❌ Node '{alias}' has only {free:.1} GiB free but storage_limit_gb is \
                  {storage_limit_gb:.1} GiB."
             );
             eprintln!(
-                "   The auto-GC will trigger at 90% of storage_limit_gb ({:.1} GiB used).",
-                storage_limit_gb * 0.9
+                "   Lower --storage-limit-gb or free disk space before registering this node."
             );
-            eprintln!("   Consider lowering --storage-limit-gb or freeing disk space.");
+            return Ok(1);
         }
         Some(free) => {
             println!("  ✓ Disk free: {free:.1} GiB  (limit: {storage_limit_gb:.1} GiB)");
@@ -329,8 +328,6 @@ async fn cmd_doctor(alias: &str) -> Result<i32> {
         Some(free) => {
             let status = if free >= cfg.storage_limit_gb {
                 "✓"
-            } else if free >= cfg.storage_limit_gb * 0.5 {
-                "⚠"
             } else {
                 "✗"
             };
@@ -339,6 +336,12 @@ async fn cmd_doctor(alias: &str) -> Result<i32> {
                 cfg.storage_limit_gb,
                 cfg.storage_limit_gb * 0.9,
             );
+            if free < cfg.storage_limit_gb {
+                eprintln!(
+                    "❌ Node '{alias}' does not have enough free disk to schedule managers safely."
+                );
+                return Ok(1);
+            }
         }
         None => println!("  ? Could not determine free disk space"),
     }

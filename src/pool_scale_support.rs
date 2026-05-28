@@ -1,5 +1,6 @@
 use super::*;
 use crate::runner_backend::RunnerBackend;
+use std::collections::HashMap;
 
 pub(crate) fn manager_state_counts_as_active(state: &str) -> bool {
     // node_starting: remote SSH docker run issued; waiting for docker ps confirmation.
@@ -17,6 +18,27 @@ pub(crate) fn manager_has_running_container(
     running_container_ids: &BTreeSet<String>,
 ) -> bool {
     running_container_ids.contains(&manager.docker_container_id)
+}
+
+pub(crate) fn local_manager_missing_from_docker(
+    manager: &Manager,
+    running_container_ids: &BTreeSet<String>,
+) -> bool {
+    manager.node_alias.is_none()
+        && manager_state_counts_as_active(&manager.state)
+        && !manager_has_running_container(manager, running_container_ids)
+}
+
+pub(crate) fn active_manager_counts_by_node(managers: &[Manager]) -> HashMap<String, usize> {
+    let mut active_counts = HashMap::new();
+    for manager in managers {
+        if let Some(alias) = &manager.node_alias
+            && manager_state_counts_as_active(&manager.state)
+        {
+            *active_counts.entry(alias.clone()).or_insert(0) += 1;
+        }
+    }
+    active_counts
 }
 
 /// Start a single new manager for `pool_name`, routing to local Docker or a
@@ -61,16 +83,8 @@ async fn try_start_remote_manager(store: &Db, pool: &Pool, pool_name: &str) -> R
     use crate::runner_backend_remote::RemoteDockerBackend;
 
     // Build active-count map for node selection (counts managers currently on each node).
-    let all_managers = store.list_managers(Some(pool_name)).await?;
-    let mut active_counts: std::collections::HashMap<String, usize> =
-        std::collections::HashMap::new();
-    for m in &all_managers {
-        if let Some(alias) = &m.node_alias
-            && manager_state_counts_as_active(&m.state)
-        {
-            *active_counts.entry(alias.clone()).or_insert(0) += 1;
-        }
-    }
+    let all_managers = store.list_managers(None).await?;
+    let active_counts = active_manager_counts_by_node(&all_managers);
 
     let node_cfg = match node_support::select_node_for_pool(pool_name, &active_counts) {
         Some(n) => n,
@@ -246,4 +260,48 @@ pub(crate) async fn stop_manager_for_node(
             .ok();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn manager(pool_name: &str, node_alias: Option<&str>, state: &str) -> Manager {
+        Manager {
+            id: format!("{pool_name}-{state}"),
+            pool_name: pool_name.to_string(),
+            docker_container_id: format!("{pool_name}-{state}-container"),
+            system_id: None,
+            state: state.to_string(),
+            config_dir: "/tmp/config".to_string(),
+            started_at: None,
+            last_contact_at: None,
+            node_alias: node_alias.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn active_manager_counts_include_all_pools_on_the_node() {
+        let managers = vec![
+            manager("build", Some("xbabe0"), "online"),
+            manager("default", Some("xbabe0"), "node_unreachable"),
+            manager("build", Some("xbabe1"), "starting"),
+            manager("build", Some("xbabe1"), "stopped"),
+        ];
+
+        let counts = active_manager_counts_by_node(&managers);
+        assert_eq!(counts.get("xbabe0"), Some(&2));
+        assert_eq!(counts.get("xbabe1"), Some(&1));
+        assert!(!counts.contains_key("xbabe2"));
+    }
+
+    #[test]
+    fn local_runtime_reconcile_ignores_remote_managers() {
+        let running = BTreeSet::new();
+        let remote = manager("build", Some("xbabe3"), "node_starting");
+        let local = manager("build", None, "starting");
+
+        assert!(!local_manager_missing_from_docker(&remote, &running));
+        assert!(local_manager_missing_from_docker(&local, &running));
+    }
 }

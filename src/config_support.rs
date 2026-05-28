@@ -126,7 +126,7 @@ pub const DEFAULT_POOLS: &[PoolDef] = &[
         tags: "build,docker-build,x86-64,docker,dind",
         executor: "docker",
         min_warm: 2,
-        max_managers: 4,
+        max_managers: 12,
         concurrent: 1,
         request_concurrency: 1,
         trust_tier: "privileged",
