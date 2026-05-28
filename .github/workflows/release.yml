@@ -29,6 +29,10 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
+  # Per-workspace isolation so concurrent jobs on different self-hosted runner
+  # instances do not race on a shared /home/ubuntu/.cargo or /home/ubuntu/.rustup.
+  CARGO_HOME: ${{ github.workspace }}/.cargo-home
+  RUSTUP_HOME: ${{ github.workspace }}/.rustup-home
 
 jobs:
   preflight:
