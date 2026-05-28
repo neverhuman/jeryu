@@ -28,6 +28,7 @@ fn ensure_built() {
     BUILT.get_or_init(|| {
         let s = Command::new("cargo")
             .args(["build", "-p", "jeryu", "--bin", "autonomy"])
+            .env_remove("CARGO_TARGET_DIR")
             .status()
             .expect("cargo build");
         assert!(s.success(), "cargo build --bin autonomy failed");
