@@ -63,7 +63,7 @@ rust_clippy:
 
 rust_build:
   stage: build
-  tags: [build]
+  tags: [default]
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
@@ -149,7 +149,7 @@ rust_supply_chain:
 
 rust_witness:
   stage: evidence
-  tags: [build]
+  tags: [default]
   rules: *rules_rust
   script:
     - apt-get install -y --no-install-recommends mold
@@ -460,7 +460,7 @@ post_merge_deploy:
 
 web_rust_feature:
   stage: test
-  tags: [build]
+  tags: [default]
   rules: *rules_web
   script:
     - rustup component add rustfmt clippy
@@ -508,7 +508,7 @@ web_frontend:
 
 web_e2e:
   stage: evidence
-  tags: [build]
+  tags: [default]
   needs: [web_rust_feature, web_frontend]
   rules: *rules_web
   variables:
