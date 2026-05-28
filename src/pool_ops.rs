@@ -108,6 +108,18 @@ pub async fn rotate_pool_token(
         config::GITLAB_HTTP_PORT
     );
     for m in &managers {
+        if !manager_state_counts_as_active(&m.state) {
+            continue;
+        }
+        if m.node_alias.is_some() {
+            warn!(
+                manager_id = %m.id,
+                node = ?m.node_alias,
+                "skipping remote manager during local token rotation"
+            );
+            continue;
+        }
+
         let config_content = config::render_runner_config(
             pool_name,
             &m.id,
@@ -122,12 +134,10 @@ pub async fn rotate_pool_token(
         fs::write(&config_path, &config_content)
             .with_context(|| format!("rewriting config for manager {}", m.id))?;
 
-        if manager_state_counts_as_active(&m.state) {
-            docker
-                .reload_runner_config(&m.docker_container_id)
-                .await
-                .ok();
-        }
+        docker
+            .reload_runner_config(&m.docker_container_id)
+            .await
+            .ok();
     }
 
     store.update_pool_token(pool_name, &new_token).await?; // allowlist: pool orchestration owns runner state
