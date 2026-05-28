@@ -381,15 +381,10 @@ impl GithubRemote {
 
 fn parse_github_remote(remote_url: &str) -> Option<GithubRemote> {
     let trimmed = remote_url.trim().trim_end_matches(".git");
-    let path = if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
-        rest
-    } else if let Some(rest) = trimmed.strip_prefix("https://github.com/") {
-        rest
-    } else if let Some(rest) = trimmed.strip_prefix("http://github.com/") {
-        rest
-    } else {
-        return None;
-    };
+    let path = trimmed
+        .strip_prefix("git@github.com:")
+        .or_else(|| trimmed.strip_prefix("https://github.com/"))
+        .or_else(|| trimmed.strip_prefix("http://github.com/"))?;
     let (owner, name) = path.split_once('/')?;
     if owner.is_empty() || name.is_empty() || name.contains('/') {
         return None;
@@ -403,41 +398,6 @@ fn parse_github_remote(remote_url: &str) -> Option<GithubRemote> {
 #[derive(Debug, Deserialize)]
 struct GithubPullResponse {
     html_url: String,
-}
-
-#[cfg(test)]
-mod git_tests {
-    use super::*;
-
-    #[test]
-    fn parses_github_shadow_remote_urls() {
-        assert_eq!(
-            parse_github_remote("git@github.com:neverhuman/redline-testing.git"),
-            Some(GithubRemote {
-                owner: "neverhuman".into(),
-                name: "redline-testing".into()
-            })
-        );
-        assert_eq!(
-            parse_github_remote("https://github.com/neverhuman/jeryu"),
-            Some(GithubRemote {
-                owner: "neverhuman".into(),
-                name: "jeryu".into()
-            })
-        );
-        assert_eq!(
-            parse_github_remote("ssh://git@127.0.0.1/root/jeryu.git"),
-            None
-        );
-    }
-
-    #[test]
-    fn relay_branch_is_sha_bound() {
-        assert_eq!(
-            relay_branch_for_sha("0123456789abcdef"),
-            "jeryu/main-relay/0123456789ab"
-        );
-    }
 }
 
 fn sync_backup(config: &LocalRepoConfig) -> Result<()> {
@@ -505,4 +465,39 @@ fn sync_backup(config: &LocalRepoConfig) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod git_tests {
+    use super::*;
+
+    #[test]
+    fn parses_github_shadow_remote_urls() {
+        assert_eq!(
+            parse_github_remote("git@github.com:neverhuman/redline-testing.git"),
+            Some(GithubRemote {
+                owner: "neverhuman".into(),
+                name: "redline-testing".into()
+            })
+        );
+        assert_eq!(
+            parse_github_remote("https://github.com/neverhuman/jeryu"),
+            Some(GithubRemote {
+                owner: "neverhuman".into(),
+                name: "jeryu".into()
+            })
+        );
+        assert_eq!(
+            parse_github_remote("ssh://git@127.0.0.1/root/jeryu.git"),
+            None
+        );
+    }
+
+    #[test]
+    fn relay_branch_is_sha_bound() {
+        assert_eq!(
+            relay_branch_for_sha("0123456789abcdef"),
+            "jeryu/main-relay/0123456789ab"
+        );
+    }
 }

@@ -121,6 +121,19 @@ pub async fn rotate_pool_token(
         config::GITLAB_HTTP_PORT
     );
     for m in &managers {
+        // Skip orphan managers whose config_dir has been removed under us:
+        // writing to a missing dir errors out and strands the remaining
+        // managers with the old (now-invalid) token.
+        if !std::path::Path::new(&m.config_dir).exists() {
+            tracing::warn!(
+                pool = pool_name,
+                manager_id = %m.id,
+                config_dir = %m.config_dir,
+                state = %m.state,
+                "skipping orphan manager: config_dir missing"
+            );
+            continue;
+        }
         let config_content = config::render_runner_config(
             pool_name,
             &m.id,
