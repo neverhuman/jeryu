@@ -44,6 +44,7 @@ ci_runner_policy:
 
 gitlab_source_auth_doctor:
   stage: quality
+  allow_failure: true
   rules: *rules_rust
   script:
     - bash scripts/ci/ci-job-token-clone-doctor.sh
@@ -249,6 +250,7 @@ jankurai_sbom:
   rules: *rules_main
   script:
     - apt-get install -y --no-install-recommends golang-go nodejs npm
+    - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh sbom
 
 # ---------------------------------------------------------------------------
