@@ -288,7 +288,7 @@ release_ready:
     GITHUB_REPOSITORY: "$CI_PROJECT_PATH"
     GITHUB_SHA: "$CI_MERGE_REQUEST_SOURCE_BRANCH_SHA"
     PR_NUMBER: "$CI_MERGE_REQUEST_IID"
-    JERYU_EMIT_STATUS: "1"
+    JERYU_EMIT_STATUS: "0"
   script:
     - bash ops/ci/release-ready-lane.sh
 
