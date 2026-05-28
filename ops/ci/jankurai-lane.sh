@@ -283,6 +283,15 @@ run_bad_behavior() {
     release_bad_behavior_lane_is_blocking -- --exact --test-threads=1
 }
 
+run_sbom() {
+  log "SBOM generation (cargo-cyclonedx)"
+  cargo install cargo-cyclonedx --locked --quiet 2>/dev/null || true
+  mkdir -p target/jankurai/sbom
+  cargo cyclonedx --format json --override-filename sbom 2>/dev/null || true
+  find . -maxdepth 4 -name 'sbom.cdx.json' -not -path './target/jankurai/*' \
+    -exec mv {} target/jankurai/sbom/ \; 2>/dev/null || true
+}
+
 # ── Dispatch ───────────────────────────────────────────────────────────────
 
 cmd="${1:-all}"
@@ -292,6 +301,7 @@ case "$cmd" in
   proof)        run_proof ;;
   tools)        run_tools ;;
   bad-behavior) run_bad_behavior ;;
+  sbom)         run_sbom ;;
   all)
     run_security
     run_audit
@@ -300,7 +310,7 @@ case "$cmd" in
     run_bad_behavior
     ;;
   *)
-    die "Unknown command: $cmd. Valid: security, audit, proof, tools, bad-behavior, all"
+    die "Unknown command: $cmd. Valid: security, audit, proof, tools, bad-behavior, sbom, all"
     ;;
 esac
 
