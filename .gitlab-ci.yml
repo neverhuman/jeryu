@@ -507,12 +507,30 @@ web_lighthouse:
   rules: *rules_web
   allow_failure: true
   script:
-    - apt-get install -y --no-install-recommends nodejs npm
+    - apt-get install -y --no-install-recommends mold nodejs npm
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build
-    - npm --workspace @jeryu/web run perf
+    - cargo build --release --features web -p jeryu
+    - (cd apps/web && npx playwright install chromium --with-deps)
+    - |
+      JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist > /tmp/bff-lighthouse.log 2>&1 &
+      BFF_PID=$!
+      trap 'kill "$BFF_PID" 2>/dev/null || true' EXIT
+      for i in $(seq 1 30); do
+        if curl -fs http://127.0.0.1:8787/health >/dev/null 2>&1; then
+          echo "BFF up after ${i}s"
+          break
+        fi
+        sleep 1
+      done
+      curl -fs http://127.0.0.1:8787/health
+      export CHROME_PATH="$(cd apps/web && node -e 'console.log(require("playwright").chromium.executablePath())')"
+      test -x "$CHROME_PATH"
+      npm --workspace @jeryu/web run perf
   artifacts:
     when: always
     paths:
       - apps/web/.lighthouseci/
+      - target/jankurai/ux-qa/lighthouse/
+      - /tmp/bff-lighthouse.log
     expire_in: 1 week

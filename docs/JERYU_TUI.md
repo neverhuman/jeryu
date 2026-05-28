@@ -25,7 +25,7 @@ cargo run -p jeryu -- tui --capture --tab jobs --output paper/assets/jeryu-tui-j
 cargo run -p jeryu -- tui --capture --tab tests --output paper/assets/jeryu-tui-tests-vti.png
 ```
 
-`--capture` accepts `workflow`, `mission`, `release`, `approvals`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, `llms`, `secrets`, and `git`. The capture path renders the same Ratatui layout through `TestBackend` and writes a PNG.
+`jeryu tui` opens the Workflow cockpit by default. `--capture` accepts `workflow`, `mission`, `release`, `approvals`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, `repos`, `bugs`, `llms`, `secrets`, `git`, and `jankurai`. The capture path renders the same Ratatui layout through `TestBackend` and writes a PNG.
 
 ## Source Map
 
@@ -51,7 +51,7 @@ The TUI is a Ratatui/crossterm application. It uses crossterm raw mode and the t
 
 The application state is owned by `App` in `src/tui/app.rs`. `App` is not just view state: it also owns handles to the database, Docker controller, and GitLab client so it can run operational actions such as retrying jobs, deleting local records, and pausing/resuming pools.
 
-The TUI has thirteen top-level tabs:
+The TUI has sixteen top-level tabs:
 
 1. `Workflow`
 2. `Mission`
@@ -63,15 +63,18 @@ The TUI has thirteen top-level tabs:
 8. `Pools`
 9. `Cache`
 10. `Evidence`
-11. `Secrets`
-12. `LLMs`
-13. `Git`
+11. `Repos`
+12. `Bugs`
+13. `LLMs`
+14. `Git`
+15. `Secrets`
+16. `Jankurai`
 
-The default tab is `Mission`. The default active pane is `Jobs`, which keeps
-job/log keyboard behavior predictable when the operator switches to the Jobs
-tab.
+The default tab is `Workflow`. The default active pane remains `Jobs`, which
+keeps job/log keyboard behavior predictable when the operator switches to the
+Jobs tab.
 
-The current Mission screen is the landing surface. It is designed as an
+The current Workflow screen is the landing surface. It is designed as an
 action-first cockpit rather than a passive status dashboard:
 
 ```text
