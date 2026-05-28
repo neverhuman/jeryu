@@ -425,6 +425,9 @@ fn runner_pre_build_script_can_isolate_target_by_runner_slot() {
         .env("CI_PROJECT_PATH_SLUG", "demo-project")
         .env("CI_CONCURRENT_ID", "7")
         .env("CI_RUNNER_ID", "runner-1")
+        .env_remove("CI_BUILDS_DIR")
+        .env_remove("CI_RUNNER_SHORT_TOKEN")
+        .env_remove("CI_CONCURRENT_PROJECT_ID")
         .output()
         .unwrap();
     assert!(output.status.success());

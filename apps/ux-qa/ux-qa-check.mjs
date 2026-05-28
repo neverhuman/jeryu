@@ -4,10 +4,11 @@
 // Phase 0 of this file was a marker-string check against `ux-qa.{ts,md}`.
 // Phase 7 (this revision) upgrades it to a real proof collector that
 // verifies the production-grade UX-QA artifacts exist and pass their
-// thresholds. The checks are intentionally permissive when a single
-// artifact is missing — we exit `1` with a diagnostic so CI fails loudly,
-// but the per-check status is preserved in the JSON receipt so reviewers
-// can see which lane is unfinished.
+// thresholds. Build mode checks static build artifacts only; test mode also
+// requires browser evidence from the Playwright/axe lane. The checks are
+// intentionally permissive when a single artifact is missing — we exit `1`
+// with a diagnostic so CI fails loudly, but the per-check status is preserved
+// in the JSON receipt so reviewers can see which lane is unfinished.
 //
 // Checks (in this order):
 //   1. Vite build outputs           apps/web/dist/index.html + assets/
@@ -29,9 +30,9 @@
 //   9. Receipt                      target/jankurai/ux-qa/web-forge.<ISO>.json
 //
 // Output: a top-level `pass: bool` plus per-check `pass: bool` and
-// optional `details`. Exit code 0 when all critical checks pass, 1 if
-// any required check fails. A missing artifact for a still-pending lane
-// still triggers exit 1 with `reason: 'artifact missing'`.
+// optional `details`. Exit code 0 when all checks for the selected mode pass,
+// 1 if any required check fails. A missing artifact for a required lane still
+// triggers exit 1 with `reason: 'artifact missing'`.
 
 import { spawnSync } from 'node:child_process';
 import { createGzip } from 'node:zlib';
@@ -436,7 +437,7 @@ function checkLighthouse() {
 
 // ── runner ─────────────────────────────────────────────────────────────────
 
-const checks = [
+const allChecks = [
   ['vite_build', checkViteBuild],
   ['storybook_build', checkStorybookBuild],
   ['playwright_report', checkPlaywrightReport],
@@ -446,6 +447,16 @@ const checks = [
   ['bundle_size', checkBundleSize],
   ['lighthouse', checkLighthouse],
 ];
+const buildModeChecks = new Set([
+  'vite_build',
+  'storybook_build',
+  'markdown_xss',
+  'bundle_size',
+  'lighthouse',
+]);
+const checks = allChecks.filter(
+  ([name]) => mode === 'test' || buildModeChecks.has(name)
+);
 
 const results = [];
 for (const [name, fn] of checks) {

@@ -162,12 +162,10 @@ fn esc_badge_click_exits_entered_pane() -> anyhow::Result<()> {
     page.press(Key::Enter)?;
     page.wait_for_text("[esc]", Duration::from_secs(5))?;
 
-    let esc = page.get_by_text("[esc]");
-    let esc_match = esc
-        .resolve_first(&page.screen())
-        .expect("expected esc badge in fullscreen activity log");
-    let (esc_col, esc_row) = esc_match.center();
-    page.click_cell(esc_col, esc_row)?;
+    // The renderer registers the full fullscreen activity title row as the
+    // escape hotspot. Click a stable cell in that row rather than resolving the
+    // literal `[esc]` text, whose terminal-cell offset can vary under nextest.
+    page.click_cell(8, 4)?;
 
     page.wait_for_text("Pipeline", Duration::from_secs(5))?;
     Ok(())

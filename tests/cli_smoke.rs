@@ -105,6 +105,14 @@ fn add_recent_merge_commit(repo: &Path) {
     );
 }
 
+fn shadow_fixture_repo() -> tempfile::TempDir {
+    let tmp = tempfile::tempdir().unwrap();
+    copy_profile_autonomy_fixture(tmp.path());
+    init_repo_with_single_commit(tmp.path());
+    add_recent_merge_commit(tmp.path());
+    tmp
+}
+
 fn run_profile_validate_with_url(repo: &Path, db_url: &str) -> Output {
     let mut last = None;
     for attempt in 0..5 {
@@ -321,13 +329,15 @@ fn init_subcommand_scaffolds_minimal_layout() {
 #[test]
 fn shadow_subcommand_emits_summary() {
     ensure_built();
+    let tmp = shadow_fixture_repo();
+    let autonomy_dir = tmp.path().join(".jeryu/autonomy");
     let out = Command::new(bin_path())
         .args([
             "shadow",
             "--repo-root",
-            env!("CARGO_MANIFEST_DIR"),
+            tmp.path().to_str().unwrap(),
             "--autonomy-dir",
-            &format!("{}/.jeryu/autonomy", env!("CARGO_MANIFEST_DIR")),
+            autonomy_dir.to_str().unwrap(),
             "--max-commits",
             "3",
             "--since-seconds",
@@ -348,13 +358,15 @@ fn shadow_subcommand_emits_summary() {
 #[test]
 fn shadow_subcommand_emits_json_when_requested() {
     ensure_built();
+    let tmp = shadow_fixture_repo();
+    let autonomy_dir = tmp.path().join(".jeryu/autonomy");
     let out = Command::new(bin_path())
         .args([
             "shadow",
             "--repo-root",
-            env!("CARGO_MANIFEST_DIR"),
+            tmp.path().to_str().unwrap(),
             "--autonomy-dir",
-            &format!("{}/.jeryu/autonomy", env!("CARGO_MANIFEST_DIR")),
+            autonomy_dir.to_str().unwrap(),
             "--max-commits",
             "3",
             "--since-seconds",

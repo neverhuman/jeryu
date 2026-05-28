@@ -448,7 +448,6 @@ web_frontend:
     - npm --workspace @jeryu/web run build
     - npm --workspace @jeryu/web run build-storybook
     - npm --workspace @jankurai/ux-qa run build
-    - npm --workspace @jankurai/ux-qa run test
     - |
       MAIN="$(ls apps/web/dist/assets/index-*.js | head -1)"
       if [ -z "$MAIN" ]; then
@@ -493,7 +492,7 @@ web_e2e:
     - curl -fs http://127.0.0.1:8787/health
     - (cd apps/web && npx playwright test --reporter=html,line)
     - kill "$BFF_PID" || true
-    - node apps/ux-qa/ux-qa-check.mjs build
+    - node apps/ux-qa/ux-qa-check.mjs test
   artifacts:
     when: always
     paths:

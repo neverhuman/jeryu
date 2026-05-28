@@ -13,8 +13,16 @@ retries = 1
 # Docker-backed runners that would compete with the e2e pipeline.
 [test-groups]
 serial-infra = { max-threads = 1 }
+serial-tui = { max-threads = 1 }
 
 [[profile.default.overrides]]
 filter = 'binary(e2e) | binary(job_tests) | binary(agent_tests) | binary(pool_tests)'
 test-group = 'serial-infra'
 slow-timeout = { period = "300s", terminate-after = 6 }
+
+# Tuiwright tests drive real PTYs. The in-process test mutex only serializes
+# `cargo test`; nextest executes tests in separate processes, so serialize the
+# binary at the runner level.
+[[profile.default.overrides]]
+filter = 'binary(tuiwright)'
+test-group = 'serial-tui'
