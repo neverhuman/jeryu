@@ -136,29 +136,17 @@ impl RunnerBackend for RemoteDockerBackend {
         let runner_image = config::GITLAB_RUNNER_IMAGE;
         let bootstrap_cmd = runner_bootstrap_cmd_docker();
 
-        let docker_run = format!(
-            "docker run -d \
-  --name {name} \
-  --restart unless-stopped \
-  -v {runner_dir}:/etc/gitlab-runner \
-  -v {docker_socket}:/var/run/docker.sock \
-  -v {cache_dir}:/cache \
-  -v {pool_cache}:/pool-cache \
-  --label jeryu.managed=true \
-  --label jeryu.manager_id={manager_id_q} \
-  --label jeryu.node_alias={alias_q} \
-  {image} \
-  sh -lc {bootstrap}",
-            name = shell_quote(&container_name),
-            runner_dir = shell_quote(&runner_dir),
-            docker_socket = shell_quote(&self.node.docker_socket),
-            cache_dir = shell_quote(&cache_dir),
-            pool_cache = shell_quote(&pool_cache),
-            manager_id_q = shell_quote(manager_id),
-            alias_q = shell_quote(&self.node.alias),
-            image = shell_quote(runner_image),
-            bootstrap = shell_quote(&bootstrap_cmd),
-        );
+        let docker_run = remote_docker_run_command(RemoteDockerRunArgs {
+            container_name: &container_name,
+            runner_dir: &runner_dir,
+            docker_socket: &self.node.docker_socket,
+            cache_dir: &cache_dir,
+            pool_cache: &pool_cache,
+            manager_id,
+            node_alias: &self.node.alias,
+            runner_image,
+            bootstrap_cmd: &bootstrap_cmd,
+        });
         run_remote_shell(&cfg, &docker_run, false)
             .await
             .context("starting runner container on remote node")?;
@@ -234,7 +222,7 @@ impl RunnerBackend for RemoteDockerBackend {
     /// List all running container IDs for jeryu-managed containers on this node.
     async fn list_running_backend_ids(&self) -> Result<BTreeSet<String>> {
         let cfg = self.remote_config();
-        let script = "docker ps --filter label=jeryu.managed=true --format '{{.ID}}' 2>/dev/null";
+        let script = remote_running_backend_ids_command();
         match run_remote_shell_capture(&cfg, script).await {
             Ok(Some(output)) => {
                 let ids: BTreeSet<String> = output
@@ -315,6 +303,49 @@ impl RunnerBackend for RemoteDockerBackend {
     }
 }
 
+struct RemoteDockerRunArgs<'a> {
+    container_name: &'a str,
+    runner_dir: &'a str,
+    docker_socket: &'a str,
+    cache_dir: &'a str,
+    pool_cache: &'a str,
+    manager_id: &'a str,
+    node_alias: &'a str,
+    runner_image: &'a str,
+    bootstrap_cmd: &'a str,
+}
+
+fn remote_docker_run_command(args: RemoteDockerRunArgs<'_>) -> String {
+    format!(
+        "docker run -d \
+  --name {name} \
+  --restart unless-stopped \
+  -v {runner_dir}:/etc/gitlab-runner \
+  -v {docker_socket}:/var/run/docker.sock \
+  -v {cache_dir}:/cache \
+  -v {pool_cache}:/pool-cache \
+  --label jeryu.managed=true \
+  --label jeryu.manager_id={manager_id_q} \
+  --label jeryu.node_alias={alias_q} \
+  --entrypoint sh \
+  {image} \
+  -lc {bootstrap}",
+        name = shell_quote(args.container_name),
+        runner_dir = shell_quote(args.runner_dir),
+        docker_socket = shell_quote(args.docker_socket),
+        cache_dir = shell_quote(args.cache_dir),
+        pool_cache = shell_quote(args.pool_cache),
+        manager_id_q = shell_quote(args.manager_id),
+        alias_q = shell_quote(args.node_alias),
+        image = shell_quote(args.runner_image),
+        bootstrap = shell_quote(args.bootstrap_cmd),
+    )
+}
+
+fn remote_running_backend_ids_command() -> &'static str {
+    "docker ps --no-trunc --filter label=jeryu.managed=true --format '{{.ID}}' 2>/dev/null"
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -354,5 +385,32 @@ mod tests {
         let backend = RemoteDockerBackend::new(node);
         let url = backend.gitlab_url();
         assert!(url.contains("gitlab.local") || url.contains("localhost"));
+    }
+
+    #[test]
+    fn remote_docker_run_overrides_runner_entrypoint() {
+        let command = remote_docker_run_command(RemoteDockerRunArgs {
+            container_name: "jeryu-runner-id",
+            runner_dir: "/home/ubuntu/.jeryu/runners/id",
+            docker_socket: "/var/run/docker.sock",
+            cache_dir: "/home/ubuntu/.jeryu/cache/managers/id",
+            pool_cache: "/home/ubuntu/.jeryu/cache/pools/build",
+            manager_id: "id",
+            node_alias: "xbabe3",
+            runner_image: "gitlab/gitlab-runner:v17.9.2",
+            bootstrap_cmd: "set -eu\nexec gitlab-runner run",
+        });
+
+        assert!(command.contains("--entrypoint sh"));
+        assert!(command.contains("'gitlab/gitlab-runner:v17.9.2'"));
+        assert!(command.contains("-lc 'set -eu"));
+        assert!(!command.contains(" sh -lc 'set -eu"));
+    }
+
+    #[test]
+    fn remote_running_backend_ids_uses_full_container_ids() {
+        let command = remote_running_backend_ids_command();
+        assert!(command.contains("docker ps --no-trunc"));
+        assert!(command.contains("--format '{{.ID}}'"));
     }
 }

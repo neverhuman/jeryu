@@ -26,8 +26,7 @@ pub async fn reconcile_manager_runtime_state(
 
     for manager in managers
         .iter()
-        .filter(|manager| manager_state_counts_as_active(&manager.state))
-        .filter(|manager| !manager_has_running_container(manager, &running_container_ids))
+        .filter(|manager| local_manager_missing_from_docker(manager, &running_container_ids))
     {
         warn!(
             manager_id = %manager.id,
