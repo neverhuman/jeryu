@@ -316,6 +316,10 @@ run_bad_behavior() {
 run_sbom() {
   log "Generate CycloneDX SBOM"
   mkdir -p target/jankurai/sbom
+  if ! command -v cargo-cyclonedx >/dev/null 2>&1; then
+    log "installing cargo-cyclonedx"
+    cargo install cargo-cyclonedx --locked --version "^0.5"
+  fi
   cargo cyclonedx --format json --override-filename sbom
   local f rel safe
   while IFS= read -r f; do
