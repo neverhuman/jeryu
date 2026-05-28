@@ -3,14 +3,9 @@ use std::cmp::max;
 use super::TestRunOpts;
 
 pub(crate) struct TestRoutingInference {
-    pub(crate) tags: Vec<String>,
     pub(crate) risk_class: String,
     pub(crate) timeout_secs: u64,
     pub(crate) rationale: Vec<String>,
-}
-
-pub(crate) fn infer_test_tags(command: &str) -> Vec<String> {
-    infer_test_routing(command).tags
 }
 
 pub(crate) fn infer_test_routing(command: &str) -> TestRoutingInference {
@@ -30,7 +25,6 @@ pub(crate) fn infer_test_routing(command: &str) -> TestRoutingInference {
         .any(|pattern| lower.contains(pattern))
     {
         return TestRoutingInference {
-            tags: vec!["untrusted".to_string()],
             risk_class: "untrusted".to_string(),
             timeout_secs: 1800,
             rationale: vec!["matched untrusted/risky command pattern".to_string()],
@@ -59,7 +53,6 @@ pub(crate) fn infer_test_routing(command: &str) -> TestRoutingInference {
     ];
     if build_patterns.iter().any(|pattern| lower.contains(pattern)) {
         return TestRoutingInference {
-            tags: vec!["build".to_string()],
             risk_class: "build".to_string(),
             timeout_secs: 1200,
             rationale: vec!["matched build-heavy command pattern".to_string()],
@@ -67,7 +60,6 @@ pub(crate) fn infer_test_routing(command: &str) -> TestRoutingInference {
     }
 
     TestRoutingInference {
-        tags: vec!["default".to_string()],
         risk_class: "default".to_string(),
         timeout_secs: max(600, TestRunOpts::default().timeout_secs),
         rationale: vec!["no heavy/risky pattern matched; using default runner".to_string()],

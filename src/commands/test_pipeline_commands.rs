@@ -3,7 +3,7 @@ use jeryu::{state, test_runner};
 
 use jeryu::gitlab_client::GitlabClient;
 
-use super::{current_commit_sha, parse_tag_list};
+use super::current_commit_sha;
 
 #[allow(clippy::too_many_arguments)] // CLI flag passthrough; this dispatcher is intentionally flat
 pub(crate) async fn handle_run_command(
@@ -12,7 +12,6 @@ pub(crate) async fn handle_run_command(
     command: String,
     project_id: i64,
     image: String,
-    tags: Option<String>,
     timeout: u64,
     force: bool,
     priority: Option<test_runner::TestRunPriority>,
@@ -23,7 +22,6 @@ pub(crate) async fn handle_run_command(
         test_command: command,
         job_name: None,
         image,
-        tags: parse_tag_list(tags),
         timeout_secs: timeout,
         force,
         commit_sha: current_commit_sha(),
@@ -36,7 +34,6 @@ pub(crate) async fn handle_run_command(
     let plan = test_runner::plan_test_run(&opts);
     println!("  Inferred Routing:");
     println!("    Risk Class: {}", plan.risk_class);
-    println!("    Tags:       {:?}", plan.tags);
     println!(
         "    Scheduler:  {} ({})",
         plan.priority.label(),
@@ -69,7 +66,6 @@ pub(crate) fn handle_plan_command(
     command: String,
     project_id: i64,
     image: String,
-    tags: Option<String>,
     timeout: u64,
     priority: Option<test_runner::TestRunPriority>,
     reason: test_runner::TestRunReason,
@@ -79,7 +75,6 @@ pub(crate) fn handle_plan_command(
         test_command: command,
         job_name: None,
         image,
-        tags: parse_tag_list(tags),
         timeout_secs: timeout,
         force: false,
         commit_sha: String::new(),
@@ -95,7 +90,6 @@ pub(crate) fn handle_plan_command(
         plan.priority.label(),
         plan.reason.label()
     );
-    println!("  Tags:         {:?}", plan.tags);
     println!("  Timeout:      {}s", plan.timeout_secs);
     println!("  Rationale:");
     for reason in &plan.rationale {
@@ -111,7 +105,6 @@ pub(crate) async fn handle_batch_command(
     commands: Vec<String>,
     project_id: i64,
     image: String,
-    tags: Option<String>,
     timeout: u64,
     max_parallel: usize,
     force: bool,
@@ -123,7 +116,6 @@ pub(crate) async fn handle_batch_command(
         test_commands: commands.clone(),
         job_name_prefix: Some("batch-test".to_string()),
         image,
-        tags: parse_tag_list(tags),
         timeout_secs: timeout,
         max_parallel,
         force,
@@ -134,11 +126,6 @@ pub(crate) async fn handle_batch_command(
     println!("🧪 Starting batched test run...");
     println!("   Commands:  {}", opts.test_commands.len());
     println!("   Image:     {}", opts.image);
-    let tags_label = match opts.tags.as_ref() {
-        Some(tags) => format!("{:?}", tags),
-        None => "smart-inferred".to_string(),
-    };
-    println!("   Tags:      {}", tags_label);
     println!(
         "   Scheduler: {} ({})",
         match opts.priority {

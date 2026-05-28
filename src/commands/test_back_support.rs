@@ -11,14 +11,6 @@ pub(crate) fn split_csv(input: &str) -> Vec<String> {
         .collect()
 }
 
-/// Convert an optional comma-separated `--tags` argument into the
-/// `Option<Vec<String>>` shape that the test runner expects. Returns
-/// `None` when the user did not pass `--tags` (so the runner can fall
-/// back to its default tag inference).
-pub(crate) fn parse_tag_list(tags: Option<String>) -> Option<Vec<String>> {
-    tags.map(|raw| split_csv(&raw))
-}
-
 /// Resolve the current commit SHA via `git log -1 --format=%H`,
 /// falling back to the literal string `"latest"` when git is
 /// unavailable or the working copy has no commits.

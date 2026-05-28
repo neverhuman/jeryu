@@ -50,7 +50,6 @@ pub(crate) fn strip_job_rules(block: &str) -> String {
     let mut skipping_tags = false;
 
     'lines: for line in block.lines() {
-
         loop {
             let indent = line.chars().take_while(|ch| *ch == ' ').count();
             let trimmed = line.trim();

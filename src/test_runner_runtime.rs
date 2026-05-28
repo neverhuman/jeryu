@@ -94,7 +94,6 @@ pub async fn run_test(
         project_id = opts.project_id,
         branch = %branch_name,
         command = %plan.command,
-        tags = ?plan.tags,
         risk_class = %plan.risk_class,
         "creating ephemeral test pipeline"
     );

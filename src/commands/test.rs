@@ -6,7 +6,7 @@ use jeryu::state;
 #[path = "test_back.rs"]
 mod test_back;
 #[allow(unused_imports)]
-pub(crate) use test_back::test_back_support::{current_commit_sha, parse_tag_list};
+pub(crate) use test_back::test_back_support::current_commit_sha;
 
 #[path = "test_intel_commands.rs"]
 mod test_intel_commands;
@@ -30,7 +30,6 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             command,
             project_id,
             image,
-            tags,
             timeout,
             force,
             priority,
@@ -38,7 +37,7 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
         } => {
             let project_id = crate::commands::resolve_project_id(project_id);
             handle_run_command(
-                &client, &db, command, project_id, image, tags, timeout, force, priority, reason,
+                &client, &db, command, project_id, image, timeout, force, priority, reason,
             )
             .await?;
         }
@@ -46,19 +45,17 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
             command,
             project_id,
             image,
-            tags,
             timeout,
             priority,
             reason,
         } => {
             let project_id = crate::commands::resolve_project_id(project_id);
-            handle_plan_command(command, project_id, image, tags, timeout, priority, reason)?;
+            handle_plan_command(command, project_id, image, timeout, priority, reason)?;
         }
         TestCommands::Batch {
             commands,
             project_id,
             image,
-            tags,
             timeout,
             max_parallel,
             force,
@@ -72,7 +69,6 @@ pub(crate) async fn execute_test_commands(subcmd: TestCommands) -> Result<()> {
                 commands,
                 project_id,
                 image,
-                tags,
                 timeout,
                 max_parallel,
                 force,

@@ -37,7 +37,6 @@ pub struct TestRunPlan {
     pub command: String,
     pub job_name: String,
     pub image: String,
-    pub tags: Vec<String>,
     pub timeout_secs: u64,
     pub risk_class: String,
     pub priority: TestRunPriority,
@@ -52,7 +51,6 @@ pub struct TestRunOpts {
     pub test_command: String,
     pub job_name: Option<String>,
     pub image: String,
-    pub tags: Option<Vec<String>>,
     pub timeout_secs: u64,
     pub force: bool,
     pub commit_sha: String,
@@ -67,7 +65,6 @@ impl Default for TestRunOpts {
             test_command: String::new(),
             job_name: None,
             image: "rust:1.92.0".to_string(),
-            tags: None,
             timeout_secs: 600,
             force: false,
             commit_sha: "latest".to_string(),
@@ -84,7 +81,6 @@ pub struct TestBatchOpts {
     pub test_commands: Vec<String>,
     pub job_name_prefix: Option<String>,
     pub image: String,
-    pub tags: Option<Vec<String>>,
     pub timeout_secs: u64,
     pub max_parallel: usize,
     pub force: bool,
@@ -100,7 +96,6 @@ impl Default for TestBatchOpts {
             test_commands: Vec::new(),
             job_name_prefix: None,
             image: "rust:1.92.0".to_string(),
-            tags: None,
             timeout_secs: 600,
             max_parallel: 3,
             force: false,
@@ -119,7 +114,6 @@ pub struct TestSubmission {
     pub test_command: String,
     pub job_name: Option<String>,
     pub image: String,
-    pub tags: Option<Vec<String>>,
     pub timeout_secs: u64,
     pub force: bool,
     pub commit_sha: String,
@@ -135,10 +129,6 @@ pub fn plan_test_run(opts: &TestRunOpts) -> TestRunPlan {
     let job_name = match opts.job_name.clone() {
         Some(value) => value,
         None => "jeryu-test-run".to_string(),
-    };
-    let inferred = match opts.tags.clone() {
-        Some(value) => value,
-        None => routing::infer_test_tags(&opts.test_command),
     };
     let routing = routing::infer_test_routing(&opts.test_command);
     let reason = opts.reason;
@@ -156,7 +146,6 @@ pub fn plan_test_run(opts: &TestRunOpts) -> TestRunPlan {
         command: opts.test_command.clone(),
         job_name,
         image: opts.image.clone(),
-        tags: inferred,
         timeout_secs,
         risk_class: routing.risk_class,
         priority,

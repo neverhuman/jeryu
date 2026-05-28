@@ -19,8 +19,6 @@ pub(crate) enum TestCommands {
         project_id: Option<i64>,
         #[arg(long, default_value = "rust:1.92.0")]
         image: String,
-        #[arg(long)]
-        tags: Option<String>,
         #[arg(long, default_value = "600")]
         timeout: u64,
         #[arg(long)]
@@ -40,8 +38,6 @@ pub(crate) enum TestCommands {
         project_id: Option<i64>,
         #[arg(long, default_value = "rust:1.92.0")]
         image: String,
-        #[arg(long)]
-        tags: Option<String>,
         #[arg(long, default_value = "600")]
         timeout: u64,
         /// Scheduler priority for this submission.
@@ -59,8 +55,6 @@ pub(crate) enum TestCommands {
         project_id: Option<i64>,
         #[arg(long, default_value = "rust:1.92.0")]
         image: String,
-        #[arg(long)]
-        tags: Option<String>,
         #[arg(long, default_value = "600")]
         timeout: u64,
         #[arg(long, default_value = "3")]

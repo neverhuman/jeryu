@@ -86,7 +86,8 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
                 );
             }
 
-            let normalized_runners = jeryu::runner_policy::enforce_untagged_runners(&client).await?;
+            let normalized_runners =
+                jeryu::runner_policy::enforce_untagged_runners(&client).await?;
             if normalized_runners > 0 {
                 tracing::warn!(
                     normalized_runners,

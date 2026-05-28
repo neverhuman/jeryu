@@ -32,12 +32,7 @@ pub async fn create_ephemeral_pool(
         .collect::<String>();
     let pool_name = format!("jeryu-e2e-pool-{suffix}");
     let runner = client
-        .create_runner(
-            &format!("jeryu-{pool_name}"),
-            &[],
-            true,
-            "instance_type",
-        )
+        .create_runner(&format!("jeryu-{pool_name}"), &[], true, "instance_type")
         .await?;
 
     db.insert_pool(&Pool {
