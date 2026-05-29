@@ -20,7 +20,8 @@ default:
       export APT_CACHE_DIR="$CI_PROJECT_DIR/.cache/apt-cache"
       export APT_STATE_DIR="$CI_PROJECT_DIR/.cache/apt-state"
       rm -rf "$APT_CACHE_DIR" "$APT_STATE_DIR" "$APT_CONFIG"
-      mkdir -p "$APT_CACHE_DIR/archives/partial" "$APT_STATE_DIR/lists/partial"
+      mkdir -p "$APT_CACHE_DIR/archives" "$APT_STATE_DIR/lists"
+      install -d -o _apt -g root -m 700 "$APT_CACHE_DIR/archives/partial" "$APT_STATE_DIR/lists/partial"
       cat >"$APT_CONFIG" <<EOF
       Dir::Cache "$APT_CACHE_DIR";
       Dir::State "$APT_STATE_DIR";

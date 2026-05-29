@@ -17,7 +17,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV APT_CONFIG=/tmp/apt.conf
 
 RUN set -eux; \
-    mkdir -p /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial; \
+    mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists; \
+    install -d -o _apt -g root -m 700 /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial; \
     printf '%s\n' \
         'Dir::Cache "/tmp/apt-cache";' \
         'Dir::State "/tmp/apt-state";' \

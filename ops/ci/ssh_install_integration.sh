@@ -143,7 +143,8 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
         -w /workspace \
         rust:bookworm \
         bash -c "set -euo pipefail
-        mkdir -p /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
+        mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+        install -d -o _apt -g root -m 700 /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
 cat >/tmp/apt.conf <<'EOF'
 Dir::Cache \"/tmp/apt-cache\";
 Dir::State \"/tmp/apt-state\";
@@ -176,7 +177,8 @@ setup_sshd_container_from_base_image() {
         set -euo pipefail
         export DEBIAN_FRONTEND=noninteractive
         export APT_CONFIG=/tmp/apt.conf
-        mkdir -p /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
+        mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+        install -d -o _apt -g root -m 700 /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
         cat >/tmp/apt.conf <<'"'"'EOF'"'"'
 Dir::Cache "/tmp/apt-cache";
 Dir::State "/tmp/apt-state";
