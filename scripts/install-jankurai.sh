@@ -389,7 +389,8 @@ install_from_git() {
         exit 1
     fi
 
-    root_len=$(( ${#BUILD_MANIFEST_DIR} - ${#"/crates/jankurai"} ))
+    local build_suffix="/crates/jankurai"
+    root_len=$(( ${#BUILD_MANIFEST_DIR} - ${#build_suffix} ))
     base_name="jankurai-src-"
     pad_len=$(( root_len - ${#tmp} - 1 - ${#base_name} ))
     if [ "$pad_len" -lt 0 ]; then
