@@ -10,7 +10,23 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST_PATH="${JANKURAI_MANIFEST:-$SCRIPT_DIR/jankurai-manifest.json}"
 JANKURAI_INSTALL_MODE="${JANKURAI_INSTALL_MODE:-release}"
-JANKURAI_GIT_REMOTE="${JANKURAI_GIT_REMOTE:-ssh://git@127.0.0.1:2224/root/jankurai.git}"
+if [ -z "${JANKURAI_GIT_REMOTE:-}" ]; then
+    if [ -n "${CI_JOB_TOKEN:-}" ] && [ -n "${CI_SERVER_URL:-}" ]; then
+        case "$CI_SERVER_URL" in
+            http://*)
+                JANKURAI_GIT_REMOTE="http://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_URL#http://}/root/jankurai.git"
+                ;;
+            https://*)
+                JANKURAI_GIT_REMOTE="https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_URL#https://}/root/jankurai.git"
+                ;;
+            *)
+                JANKURAI_GIT_REMOTE="ssh://git@127.0.0.1:2224/root/jankurai.git"
+                ;;
+        esac
+    else
+        JANKURAI_GIT_REMOTE="ssh://git@127.0.0.1:2224/root/jankurai.git"
+    fi
+fi
 # Default to /usr/local when running as root (e.g. GitLab CI Docker containers)
 # so the binary lands in PATH without extra configuration.
 if [ -z "${JANKURAI_PREFIX:-}" ] && [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then

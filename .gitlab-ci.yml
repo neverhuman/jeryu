@@ -10,7 +10,6 @@ variables:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
   GIT_DEPTH: "1"
-  JANKURAI_GIT_REMOTE: ssh://git@127.0.0.1:2224/root/jankurai.git
   JANKURAI_INSTALL_MODE: "git"
   JERYU_CARGO_CACHE: "0"
   PATH: /usr/local/rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
