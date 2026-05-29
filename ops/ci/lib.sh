@@ -32,11 +32,13 @@ install_ci_packages() {
 
   log "installing CI packages: ${packages[*]}"
   export DEBIAN_FRONTEND=noninteractive
-  local apt_cache_dir="${APT_CACHE_DIR:-/cache/apt-archives}"
+  local apt_cache_root="${APT_CACHE_DIR:-/cache/apt-archives}"
+  local apt_cache_dir="$apt_cache_root/${CI_JOB_ID:-$$}"
   mkdir -p "$apt_cache_dir/partial"
   apt-get update -qq
   apt-get -o Dir::Cache::archives="$apt_cache_dir" \
     install -y -qq --no-install-recommends "${packages[@]}"
+  rm -rf "$apt_cache_dir"
 }
 
 require_jankurai() {
