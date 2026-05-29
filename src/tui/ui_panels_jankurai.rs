@@ -31,20 +31,31 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
     let scan = app.state.jankurai.last_scan.as_ref();
     let history = &app.state.jankurai.history;
 
+    focus::register_pane(app, PaneId::JankSummary, top_cols[0]);
+    focus::register_pane(app, PaneId::JankStatus, top_cols[1]);
+    focus::register_pane(app, PaneId::JankScoreChart, middle_cols[0]);
+    focus::register_pane(app, PaneId::JankBreakdown, middle_cols[1]);
+    focus::register_pane(app, PaneId::JankIssues, bottom_cols[0]);
+    focus::register_pane(app, PaneId::JankEntryDetail, bottom_cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::JankSummary, top_cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::JankStatus, top_cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::JankScoreChart, middle_cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::JankBreakdown, middle_cols[1]);
+    focus::register_drill_esc_hotspot(app, PaneId::JankIssues, bottom_cols[0]);
+    focus::register_drill_esc_hotspot(app, PaneId::JankEntryDetail, bottom_cols[1]);
+
     // ── Summary block (top-left) ────────────────────────────────────────
-    render_summary_block(f, top_cols[0], scan, history);
+    render_summary_block(f, app, top_cols[0], scan, history);
 
     // ── Status block (top-right) ────────────────────────────────────────
     render_status_block(f, top_cols[1], app);
 
     // ── Score history chart (middle-left) ───────────────────────────────
-    render_score_chart(f, middle_cols[0], history);
+    render_score_chart(f, app, middle_cols[0], history);
 
     // ── Dimension breakdown (middle-right) ──────────────────────────────
-    let breakdown_block = Block::default()
-        .title(" [ Last Scan Dimensions ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+    let breakdown_block =
+        focus::pane_block(app, PaneId::JankBreakdown, " [ Last Scan Dimensions ] ");
     let breakdown_inner = breakdown_block.inner(middle_cols[1]);
     f.render_widget(breakdown_block, middle_cols[1]);
     ui_panels_jankurai_panels::render_breakdown_panel(
@@ -55,10 +66,7 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
     );
 
     // ── Caps / Findings list (bottom-left) ──────────────────────────────
-    let issues_block = Block::default()
-        .title(" [ Caps / Findings ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+    let issues_block = focus::pane_block(app, PaneId::JankIssues, " [ Caps / Findings ] ");
     let issues_inner = issues_block.inner(bottom_cols[0]);
     f.render_widget(issues_block, bottom_cols[0]);
     ui_panels_jankurai_panels::render_issues_panel(
@@ -70,10 +78,7 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
     );
 
     // ── Entry detail (bottom-right) ─────────────────────────────────────
-    let detail_block = Block::default()
-        .title(" [ Entry Detail ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+    let detail_block = focus::pane_block(app, PaneId::JankEntryDetail, " [ Entry Detail ] ");
     let detail_inner = detail_block.inner(bottom_cols[1]);
     f.render_widget(detail_block, bottom_cols[1]);
     if let Some(entry) = app.selected_jankurai_entry() {
@@ -89,6 +94,7 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
 
 fn render_summary_block(
     f: &mut Frame,
+    app: &App,
     area: Rect,
     scan: Option<&crate::tui::jankurai::JankuraiScan>,
     history: &[crate::tui::jankurai::JankuraiHistoryPoint],
@@ -157,24 +163,14 @@ fn render_summary_block(
         ]),
     ];
 
-    let summary_block = Block::default()
-        .title(" [ Jankurai Summary ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+    let summary_block = focus::pane_block(app, PaneId::JankSummary, " [ Jankurai Summary ] ");
     let summary_inner = summary_block.inner(area);
     f.render_widget(summary_block, area);
     f.render_widget(Paragraph::new(summary_lines), summary_inner);
 }
 
 fn render_status_block(f: &mut Frame, area: Rect, app: &App) {
-    let status_block = Block::default()
-        .title(" [ Jankurai Status ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(if app.state.jankurai.error.is_some() {
-            Color::Red
-        } else {
-            Color::DarkGray
-        }));
+    let status_block = focus::pane_block(app, PaneId::JankStatus, " [ Jankurai Status ] ");
     let status_inner = status_block.inner(area);
     f.render_widget(status_block, area);
 
@@ -229,15 +225,13 @@ fn render_status_block(f: &mut Frame, area: Rect, app: &App) {
 
 fn render_score_chart(
     f: &mut Frame,
+    app: &App,
     area: Rect,
     history: &[crate::tui::jankurai::JankuraiHistoryPoint],
 ) {
     use ui_panels_jankurai_helpers::{chart_labels, y_axis_labels};
 
-    let chart_block = Block::default()
-        .title(" [ Score History ] ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+    let chart_block = focus::pane_block(app, PaneId::JankScoreChart, " [ Score History ] ");
     let chart_inner = chart_block.inner(area);
     f.render_widget(chart_block, area);
 

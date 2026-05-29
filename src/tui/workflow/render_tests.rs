@@ -9,7 +9,9 @@ use super::hit_map::DeliveryHitMap;
 use super::inspector::{InspectorTab, draw_inspector_pane};
 use super::nav::WorkflowNav;
 use super::widget::draw_delivery_tab;
+use crate::tui::app::App;
 use crate::tui::app::LiveLogState;
+use crate::tui::focus::PaneId;
 use crate::tui::theme::Theme;
 
 #[test]
@@ -18,12 +20,17 @@ fn delivery_view_renders_at_200x60_without_panic() {
     let nav = WorkflowNav::default();
     let theme = Theme::dark();
     let mut hits = DeliveryHitMap::default();
+    let mut app = App::new_render_only(
+        crate::tui::test_support::docker_ctl().unwrap(),
+        crate::gitlab_client::GitlabClient::new("http://127.0.0.1:9", None),
+    );
+    app.apply_demo_fixture();
 
     let backend = TestBackend::new(200, 60);
     let mut term = Terminal::new(backend).unwrap();
 
     term.draw(|f| {
-        draw_delivery_tab(f, f.area(), &snap, &nav, &theme, 0, &mut hits);
+        draw_delivery_tab(f, f.area(), &snap, &nav, &mut app, &theme, 0, &mut hits);
     })
     .unwrap();
 
@@ -55,11 +62,16 @@ fn delivery_view_collapses_chrome_at_narrow_terminal() {
     let nav = WorkflowNav::default();
     let theme = Theme::dark();
     let mut hits = DeliveryHitMap::default();
+    let mut app = App::new_render_only(
+        crate::tui::test_support::docker_ctl().unwrap(),
+        crate::gitlab_client::GitlabClient::new("http://127.0.0.1:9", None),
+    );
+    app.apply_demo_fixture();
 
     let backend = TestBackend::new(90, 30);
     let mut term = Terminal::new(backend).unwrap();
     term.draw(|f| {
-        draw_delivery_tab(f, f.area(), &snap, &nav, &theme, 0, &mut hits);
+        draw_delivery_tab(f, f.area(), &snap, &nav, &mut app, &theme, 0, &mut hits);
     })
     .unwrap();
 
@@ -80,6 +92,12 @@ fn inspector_pane_renders_for_each_subtab() {
         text: "running cargo test\nwarning: slow test\nerror: bang".into(),
         ..Default::default()
     };
+    let mut app = App::new_render_only(
+        crate::tui::test_support::docker_ctl().unwrap(),
+        crate::gitlab_client::GitlabClient::new("http://127.0.0.1:9", None),
+    );
+    app.apply_demo_fixture();
+    app.focus.active = PaneId::WorkflowInspector;
 
     let backend = TestBackend::new(60, 30);
     let mut term = Terminal::new(backend).unwrap();
@@ -92,6 +110,7 @@ fn inspector_pane_renders_for_each_subtab() {
                 f.area(),
                 &snap,
                 Some(&selected_id),
+                &app,
                 tab,
                 &log,
                 Some("Test action message — last rollback scheduled"),
@@ -109,12 +128,17 @@ fn ticking_progress_doesnt_panic_with_pulsing_borders() {
     let nav = WorkflowNav::default();
     let theme = Theme::dark();
     let mut hits = DeliveryHitMap::default();
+    let mut app = App::new_render_only(
+        crate::tui::test_support::docker_ctl().unwrap(),
+        crate::gitlab_client::GitlabClient::new("http://127.0.0.1:9", None),
+    );
+    app.apply_demo_fixture();
 
     let backend = TestBackend::new(180, 50);
     let mut term = Terminal::new(backend).unwrap();
     for tick in 0..8 {
         term.draw(|f| {
-            draw_delivery_tab(f, f.area(), &snap, &nav, &theme, tick, &mut hits);
+            draw_delivery_tab(f, f.area(), &snap, &nav, &mut app, &theme, tick, &mut hits);
         })
         .unwrap();
     }

@@ -17,6 +17,8 @@ mod bugs;
 mod capture;
 #[path = "tuiwright/discovery.rs"]
 mod discovery;
+#[path = "tuiwright/drilldown.rs"]
+mod drilldown;
 #[path = "tuiwright/fleet_bar.rs"]
 mod fleet_bar;
 #[path = "tuiwright/jankurai.rs"]
