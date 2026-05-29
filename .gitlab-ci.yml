@@ -12,7 +12,25 @@ variables:
   GIT_DEPTH: "1"
 
 default:
-  image: jeryu-ci-rust:1.95.0
+  image: rust:1.95.0
+  before_script:
+    - |
+      cat >/tmp/apt.conf <<'EOF'
+      Dir::Cache "/tmp/apt-cache";
+      Dir::State "/tmp/apt-state";
+      Dir::Cache::archives "/tmp/apt-cache/archives";
+      Dir::State::lists "/tmp/apt-state/lists";
+      Dir::Cache::pkgcache "";
+      Dir::Cache::srcpkgcache "";
+      Acquire::Languages "none";
+      DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+      APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+      EOF
+      export APT_CONFIG=/tmp/apt.conf
+      mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+      install -d -o _apt -g root -m 700 /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
+      apt-get update -qq
+      apt-get install -y --no-install-recommends jq
   timeout: 30m
 
 .workflow_rules_main: &rules_main
