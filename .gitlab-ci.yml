@@ -15,7 +15,7 @@ default:
   image: rust:1.95.0
   before_script:
     - |
-      apt_root="/cache/apt-${CI_JOB_ID:-$$}"
+      apt_root="$(mktemp -d /tmp/apt.XXXXXX)"
       rm -rf "$apt_root"
       mkdir -p "$apt_root/cache/archives" "$apt_root/state/lists"
       install -d -o _apt -g root -m 700 "$apt_root/cache/archives/partial" "$apt_root/state/lists/partial"
