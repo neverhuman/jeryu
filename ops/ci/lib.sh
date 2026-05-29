@@ -32,8 +32,11 @@ install_ci_packages() {
 
   log "installing CI packages: ${packages[*]}"
   export DEBIAN_FRONTEND=noninteractive
+  local apt_cache_dir="${APT_CACHE_DIR:-/tmp/apt-archives}"
+  mkdir -p "$apt_cache_dir/partial"
   apt-get update -qq
-  apt-get install -y -qq --no-install-recommends "${packages[@]}"
+  apt-get -o Dir::Cache::archives="$apt_cache_dir" \
+    install -y -qq --no-install-recommends "${packages[@]}"
 }
 
 require_jankurai() {
