@@ -2,9 +2,11 @@
 //! Proof: `cargo test -p jeryu --lib repo_local`
 //! Invariants: Repo sidecars are config-driven, non-blocking for local GitLab merges, and secret-free in repo policy.
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use serde::Deserialize;
+use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 use crate::state::Db;
 
@@ -56,14 +58,8 @@ pub struct SidecarRun {
 }
 
 pub async fn shadow_main_command(repo: Option<String>) -> Result<i32> {
-    let db = Db::open().await?;
-    let configs = matching_configs(repo.as_deref())?;
-    if configs.is_empty() {
-        bail!("no local repo config matched");
-    }
-
-    for config in configs {
-        let run = run_shadow_main(&db, &config, "manual").await;
+    let runs = shadow_main_runs(repo).await?;
+    for run in runs {
         println!("{} shadow_main: {} {}", run.repo, run.status, run.detail);
     }
     Ok(0)
@@ -81,6 +77,43 @@ pub async fn backup_command(repo: Option<String>) -> Result<i32> {
         println!("{} backup: {} {}", run.repo, run.status, run.detail);
     }
     Ok(0)
+}
+
+pub async fn shadow_main_runs(repo: Option<String>) -> Result<Vec<SidecarRun>> {
+    let db = Db::open().await?;
+    let configs = matching_configs(repo.as_deref())?;
+    if configs.is_empty() {
+        bail!("no local repo config matched");
+    }
+
+    let mut runs = Vec::new();
+    for config in configs {
+        runs.push(run_shadow_main(&db, &config, "manual").await);
+    }
+    Ok(runs)
+}
+
+pub fn open_github_draft_pr(title: &str, body_path: &Path) -> Result<()> {
+    let out = Command::new("gh")
+        .args([
+            "pr",
+            "create",
+            "--draft",
+            "--title",
+            title,
+            "--body-file",
+            &body_path.to_string_lossy(),
+        ])
+        .output()
+        .context("invoke gh pr create (is `gh` installed and authenticated?)")?;
+    if !out.status.success() {
+        return Err(anyhow::anyhow!(
+            "gh pr create failed (exit={:?}): {}",
+            out.status.code(),
+            String::from_utf8_lossy(&out.stderr)
+        ));
+    }
+    Ok(())
 }
 
 pub async fn shadow_main_for_push(db: &Db, repo: Option<&str>, ref_name: &str, after_sha: &str) {

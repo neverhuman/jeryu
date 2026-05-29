@@ -8,7 +8,7 @@ use crate::state::Pool as RunnerPool;
 
 #[path = "engine_background_reconcile_remote.rs"]
 mod remote;
-use remote::{gc_remote_nodes, reconcile_remote_managers_for_pool};
+use remote::gc_remote_nodes;
 
 pub(crate) async fn check_scale_up(state: &EngineState) -> Result<()> {
     let pools = state.db.list_pools().await?;
@@ -30,6 +30,8 @@ pub(crate) async fn check_scale_up(state: &EngineState) -> Result<()> {
             continue;
         }
 
+        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(&state.db, &p.name).await?;
+        pool::reconcile_manager_runtime_state(&state.db, &state.docker, Some(&p.name)).await?;
         let active = state.db.count_active_managers(&p.name).await?;
         let target = desired_manager_target(p, queued, running);
 
@@ -97,12 +99,10 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
             continue;
         }
 
+        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(&state.db, &p.name).await?;
         // Reconcile local managers (existing behavior, unchanged).
         let _stale_managers =
             pool::reconcile_manager_runtime_state(&state.db, &state.docker, Some(&p.name)).await?;
-
-        // Reconcile remote managers: group by node_alias, one SSH call per node.
-        reconcile_remote_managers_for_pool(state, &p.name).await;
 
         let active = state.db.count_active_managers(&p.name).await?;
 

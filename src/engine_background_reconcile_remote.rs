@@ -4,7 +4,6 @@
 //!   - SSH failures mark managers `node_unreachable`; they never mark them `stopped`.
 //!   - Storage GC fires at most once per hour per node (rate-limited by the caller).
 
-use std::collections::BTreeSet;
 use std::time::Instant;
 use tracing::{debug, info, warn};
 
@@ -53,92 +52,6 @@ pub(super) async fn gc_remote_nodes(state: &EngineState) {
                 Err(e) => {
                     warn!(node = %alias, error = %e, "storage GC failed");
                 }
-            }
-        }
-    }
-}
-
-/// Reconcile managers on remote nodes for a pool.
-///
-/// Groups managers by `node_alias`, makes one SSH call per node to get the
-/// running container IDs, then syncs DB states:
-/// - Container running      → ensure state is `online` (or `node_starting` → `online`)
-/// - Container gone         → set state to `stopped`
-/// - SSH unreachable        → set state to `node_unreachable` (don't assume dead)
-pub(super) async fn reconcile_remote_managers_for_pool(state: &EngineState, pool_name: &str) {
-    let managers = match state.db.list_managers(Some(pool_name)).await {
-        Ok(m) => m,
-        Err(e) => {
-            warn!(pool = pool_name, error = %e, "failed to list managers for remote reconciliation");
-            return;
-        }
-    };
-
-    // Collect unique node aliases for managers in active-ish states.
-    let node_aliases: std::collections::HashSet<String> = managers
-        .iter()
-        .filter(|m| m.node_alias.is_some())
-        .filter(|m| {
-            matches!(
-                m.state.as_str(),
-                "starting" | "online" | "node_starting" | "node_unreachable" | "draining"
-            )
-        })
-        .filter_map(|m| m.node_alias.clone())
-        .collect();
-
-    for alias in &node_aliases {
-        let backend = match state.backend_registry.get_by_alias(alias) {
-            Some(b) => b,
-            None => {
-                warn!(node = %alias, "no backend registered for node alias; skipping reconcile");
-                continue;
-            }
-        };
-
-        let running_ids: BTreeSet<String> = match backend.list_running_backend_ids().await {
-            Ok(ids) => ids,
-            Err(e) => {
-                warn!(node = %alias, error = %e, "SSH failed; marking managers node_unreachable");
-                if let Err(db_err) = state.db.mark_node_managers_unreachable(alias).await {
-                    warn!(node = %alias, error = %db_err, "failed to mark managers unreachable in DB");
-                }
-                continue;
-            }
-        };
-
-        // Sync each manager on this node.
-        for m in managers
-            .iter()
-            .filter(|m| m.node_alias.as_deref() == Some(alias.as_str()))
-        {
-            let is_running = running_ids.contains(&m.docker_container_id);
-
-            match m.state.as_str() {
-                "node_starting" | "node_unreachable" if is_running => {
-                    info!(
-                        manager_id = %m.id,
-                        node = %alias,
-                        "remote manager recovered and running; marking online"
-                    );
-                    let _ = state.db.update_manager_state(&m.id, "online").await;
-                    let now = chrono::Utc::now().to_rfc3339();
-                    let _ = state.db.update_manager_last_contact(&m.id, &now).await;
-                }
-                "online" | "starting" | "node_starting" if !is_running => {
-                    warn!(
-                        manager_id = %m.id,
-                        node = %alias,
-                        "remote manager container gone; marking stopped"
-                    );
-                    let _ = state.db.update_manager_state(&m.id, "stopped").await;
-                }
-                "online" if is_running => {
-                    // Healthy — just refresh last_contact_at.
-                    let now = chrono::Utc::now().to_rfc3339();
-                    let _ = state.db.update_manager_last_contact(&m.id, &now).await;
-                }
-                _ => {} // draining, stopped, failed — leave alone
             }
         }
     }

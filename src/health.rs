@@ -16,7 +16,9 @@ use crate::api::read_model::{ComponentHealth, RunnerHealth, TuiReadModel};
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
 use crate::pool::{PoolReservedNode, PoolTopologyPlan};
+use crate::runner_backend::RunnerBackend;
 use crate::runner_backend_remote;
+use crate::runner_backend_remote::RemoteDockerBackend;
 use crate::state::Db;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -611,7 +613,7 @@ async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
                 continue;
             }
         };
-        let active = db
+        let db_active = db
             .list_managers_for_node(alias)
             .await
             .map(|managers| {
@@ -630,8 +632,34 @@ async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
                     .count()
             })
             .unwrap_or_default();
+        let live_running = match live_running_managers_on_node(&cfg).await {
+            Ok(count) => count,
+            Err(err) => {
+                checks.push(check(
+                    &format!("node_{alias}"),
+                    HealthCheckStatus::Failed,
+                    format!("could not inspect live node inventory: {err}"),
+                    started.elapsed().as_millis(),
+                    Some(json!({
+                        "alias": alias,
+                        "reserved": reserved,
+                        "target": cfg.target,
+                        "enabled": cfg.enabled,
+                        "db_active_managers": db_active,
+                        "expected_managers": expected,
+                    })),
+                ));
+                continue;
+            }
+        };
         let probe = runner_backend_remote::probe_node(&cfg).await;
-        let ok = probe.reachable && probe.docker_ready && active == expected;
+        let over_capacity =
+            db_active > cfg.max_managers as usize || live_running > cfg.max_managers as usize;
+        let ok = probe.reachable
+            && probe.docker_ready
+            && db_active == expected
+            && live_running == expected
+            && !over_capacity;
         checks.push(check(
             &format!("node_{alias}"),
             if ok {
@@ -640,8 +668,8 @@ async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
                 HealthCheckStatus::Failed
             },
             format!(
-                "reachable={} docker={} active={} expected={}",
-                probe.reachable, probe.docker_ready, active, expected
+                "reachable={} docker={} db_active={} live_running={} expected={}",
+                probe.reachable, probe.docker_ready, db_active, live_running, expected
             ),
             started.elapsed().as_millis(),
             Some(json!({
@@ -649,8 +677,10 @@ async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
                 "reserved": reserved,
                 "target": cfg.target,
                 "enabled": cfg.enabled,
-                "active_managers": active,
+                "db_active_managers": db_active,
+                "live_running_managers": live_running,
                 "expected_managers": expected,
+                "over_capacity": over_capacity,
                 "reachable": probe.reachable,
                 "docker_ready": probe.docker_ready,
                 "disk_free_gb": probe.disk_free_gb,
@@ -659,6 +689,18 @@ async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
             })),
         ));
     }
+}
+
+async fn live_running_managers_on_node(
+    cfg: &crate::node_types::NodeConfig,
+) -> anyhow::Result<usize> {
+    let backend = RemoteDockerBackend::new(cfg.clone());
+    Ok(backend
+        .list_managed_containers()
+        .await?
+        .into_iter()
+        .filter(|container| container.running)
+        .count())
 }
 
 async fn pipeline_doctor_schema_check() -> HealthCheck {

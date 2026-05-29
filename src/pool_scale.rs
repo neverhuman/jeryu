@@ -1,13 +1,17 @@
 use anyhow::{Context, Result};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::sync::Arc;
 use tracing::{info, warn};
 
 use crate::config;
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
-use crate::runner_backend::RunnerBackend;
+use crate::runner_backend::{ManagedContainerSnapshot, RunnerBackend};
+use crate::runner_backend_local::LocalDockerBackend;
+use crate::runner_backend_remote::RemoteDockerBackend;
 use crate::state::{Db, Manager, Pool};
+use futures_util::future::join_all;
 use tokio::time::Duration;
 
 use super::wait_for_active_managers;
@@ -16,24 +20,122 @@ use super::wait_for_active_managers;
 mod support;
 pub(crate) use support::*;
 
-pub async fn reconcile_manager_runtime_state(
-    store: &Db,
-    docker: &DockerCtl,
-    pool_name: Option<&str>,
-) -> Result<usize> {
-    let running_container_ids = docker.running_managed_container_ids().await?;
-    let managers = store.list_managers(pool_name).await?; // allowlist: pool orchestration owns runner state
-    let mut stopped = 0;
+#[derive(Debug, Default)]
+struct LiveInventory {
+    containers: Vec<ManagedContainerSnapshot>,
+    unreachable_nodes: BTreeSet<String>,
+}
 
-    for manager in managers
-        .iter()
-        .filter(|manager| manager_state_counts_as_active(&manager.state))
-        .filter(|manager| manager.node_alias.is_none())
-        .filter(|manager| manager_has_running_container(manager, &running_container_ids))
+async fn collect_live_inventory(docker: &DockerCtl) -> Result<LiveInventory> {
+    let mut backends: Vec<(Option<String>, Arc<dyn RunnerBackend>)> = Vec::new();
+    backends.push((
+        Some(crate::config::LOCAL_NODE_ALIAS.to_string()),
+        Arc::new(LocalDockerBackend::new(docker.clone())),
+    ));
+
+    let node_configs = crate::node_support::list_node_configs()?;
+    for node in node_configs.into_iter().filter(|node| node.enabled) {
+        backends.push((
+            Some(node.alias.clone()),
+            Arc::new(RemoteDockerBackend::new(node)),
+        ));
+    }
+
+    let mut live = LiveInventory::default();
+    let results = join_all(backends.into_iter().map(|(alias, backend)| async move {
+        let result = backend.list_managed_containers().await;
+        (alias, result)
+    }))
+    .await;
+
+    for (alias, result) in results {
+        match result {
+            Ok(mut containers) => live.containers.append(&mut containers),
+            Err(err) => {
+                if alias.as_deref() == Some(crate::config::LOCAL_NODE_ALIAS) {
+                    return Err(err);
+                }
+                if let Some(alias) = alias {
+                    warn!(node = %alias, error = %err, "could not inspect remote node inventory");
+                    live.unreachable_nodes.insert(alias);
+                }
+            }
+        }
+    }
+
+    Ok(live)
+}
+
+fn manager_matches_snapshot(manager: &Manager, snapshot: &ManagedContainerSnapshot) -> bool {
+    manager.id == snapshot.manager_id || manager.docker_container_id == snapshot.container_id
+}
+
+fn manager_config_dir_from_snapshot(snapshot: &ManagedContainerSnapshot) -> Result<String> {
+    if let Some(alias) = snapshot.node_alias.as_deref()
+        && alias != crate::config::LOCAL_NODE_ALIAS
     {
-        if let Err(err) = docker
-            .ensure_runner_manager_restart_policy(&manager.docker_container_id)
-            .await
+        let node_cfg = crate::node_support::load_node_config(alias)?;
+        return Ok(format!(
+            "{}/{}",
+            node_cfg.runner_data_dir, snapshot.manager_id
+        ));
+    }
+
+    Ok(config::runners_dir()
+        .join(&snapshot.manager_id)
+        .display()
+        .to_string())
+}
+
+async fn rehydrate_missing_manager(store: &Db, snapshot: &ManagedContainerSnapshot) -> Result<()> {
+    let config_dir = match manager_config_dir_from_snapshot(snapshot) {
+        Ok(path) => path,
+        Err(err) => {
+            warn!(
+                manager_id = %snapshot.manager_id,
+                node = ?snapshot.node_alias,
+                error = %err,
+                "could not derive config dir for live manager snapshot"
+            );
+            return Ok(());
+        }
+    };
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let manager = Manager {
+        id: snapshot.manager_id.clone(),
+        pool_name: snapshot.pool_name.clone(),
+        docker_container_id: snapshot.container_id.clone(),
+        system_id: None,
+        state: if snapshot.running {
+            "online".to_string()
+        } else {
+            "stopped".to_string()
+        },
+        config_dir,
+        started_at: Some(now.clone()),
+        last_contact_at: snapshot.running.then_some(now),
+        node_alias: snapshot
+            .node_alias
+            .as_deref()
+            .filter(|alias| *alias != crate::config::LOCAL_NODE_ALIAS)
+            .map(str::to_string),
+    };
+    store.insert_manager(&manager).await?;
+    Ok(())
+}
+
+async fn reconcile_snapshot(
+    store: &Db,
+    manager: &Manager,
+    snapshot: &ManagedContainerSnapshot,
+    docker: &DockerCtl,
+) -> Result<()> {
+    if snapshot.running {
+        if manager.node_alias.is_none()
+            && let Err(err) = docker
+                .ensure_runner_manager_restart_policy(&manager.docker_container_id)
+                .await
         {
             warn!(
                 manager_id = %manager.id,
@@ -42,139 +144,121 @@ pub async fn reconcile_manager_runtime_state(
                 "failed to enforce local runner restart policy"
             );
         }
-        if manager.state != "online" {
+        if manager.state != "draining" && manager.state != "online" {
             store.update_manager_state(&manager.id, "online").await?;
         }
-        let now = chrono::Utc::now().to_rfc3339();
-        store.update_manager_last_contact(&manager.id, &now).await?;
+        if manager.state != "draining" {
+            let now = chrono::Utc::now().to_rfc3339();
+            store.update_manager_last_contact(&manager.id, &now).await?;
+        }
+    } else if manager_state_counts_as_active(&manager.state) {
+        warn!(
+            manager_id = %manager.id,
+            pool = %manager.pool_name,
+            node = ?manager.node_alias,
+            container_id = %manager.docker_container_id,
+            previous_state = %manager.state,
+            "marking expired runner manager stopped; Docker inventory says it is gone"
+        );
+        store.update_manager_state(&manager.id, "stopped").await?;
     }
 
-    for manager in managers
+    Ok(())
+}
+
+pub async fn reconcile_manager_runtime_state(
+    store: &Db,
+    docker: &DockerCtl,
+    pool_name: Option<&str>,
+) -> Result<usize> {
+    let _lease = match pool_name {
+        Some(pool_name) => {
+            Some(super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?)
+        }
+        None => None,
+    };
+    let live = collect_live_inventory(docker).await?;
+    let managers = store.list_managers(pool_name).await?; // allowlist: pool orchestration owns runner state
+    let manager_by_id: BTreeMap<String, Manager> = managers
         .iter()
-        .filter(|manager| manager_state_counts_as_active(&manager.state))
-        .filter(|manager| manager.node_alias.is_none())
-        .filter(|manager| !manager_has_running_container(manager, &running_container_ids))
+        .cloned()
+        .map(|manager| (manager.id.clone(), manager))
+        .collect();
+    let seen_manager_ids: BTreeSet<String> = live
+        .containers
+        .iter()
+        .map(|snapshot| snapshot.manager_id.clone())
+        .collect();
+    let unreachable_nodes = live.unreachable_nodes.clone();
+    let mut stopped = 0;
+
+    for alias in &unreachable_nodes {
+        warn!(
+            node = %alias,
+            "could not inspect remote node; marking managers unreachable"
+        );
+        store.mark_node_managers_unreachable(alias).await?;
+    }
+
+    for snapshot in live
+        .containers
+        .iter()
+        .filter(|snapshot| pool_name.is_none_or(|pool| snapshot.pool_name == pool))
     {
+        if let Some(manager) = manager_by_id.get(&snapshot.manager_id) {
+            if manager_matches_snapshot(manager, snapshot) {
+                reconcile_snapshot(store, manager, snapshot, docker).await?;
+                if !snapshot.running && manager_state_counts_as_active(&manager.state) {
+                    stopped += 1;
+                }
+            } else if snapshot.running {
+                warn!(
+                    manager_id = %manager.id,
+                    pool = %manager.pool_name,
+                    live_container_id = %snapshot.container_id,
+                    stored_container_id = %manager.docker_container_id,
+                    "live manager snapshot container id differs from DB row"
+                );
+            }
+        } else if snapshot.running {
+            rehydrate_missing_manager(store, snapshot).await?;
+        }
+    }
+
+    for manager in managers.iter().filter(|manager| {
+        manager_state_counts_as_active(&manager.state)
+            && !seen_manager_ids.contains(&manager.id)
+            && manager
+                .node_alias
+                .as_deref()
+                .map(|alias| !unreachable_nodes.contains(alias))
+                .unwrap_or(true)
+    }) {
         warn!(
             manager_id = %manager.id,
             pool = %manager.pool_name,
             container_id = %manager.docker_container_id,
             previous_state = %manager.state,
-            "marking expired runner manager stopped; Docker container is not running"
+            "marking expired runner manager stopped; Docker inventory does not contain it"
         );
-        store.update_manager_state(&manager.id, "stopped").await?; // allowlist: pool orchestration owns runner state
+        store.update_manager_state(&manager.id, "stopped").await?;
         stopped += 1;
-    }
-
-    let mut remote_managers: BTreeMap<String, Vec<&Manager>> = BTreeMap::new();
-    for manager in managers
-        .iter()
-        .filter(|manager| manager_state_counts_as_active(&manager.state))
-        .filter(|manager| manager.node_alias.is_some())
-    {
-        if let Some(alias) = &manager.node_alias {
-            remote_managers
-                .entry(alias.clone())
-                .or_default()
-                .push(manager);
-        }
-    }
-
-    for (alias, managers) in remote_managers {
-        let node_cfg = match crate::node_support::load_node_config(&alias) {
-            Ok(node_cfg) => node_cfg,
-            Err(err) => {
-                warn!(node = %alias, error = %err, "could not load remote node config; marking managers unreachable");
-                store.mark_node_managers_unreachable(&alias).await?;
-                continue;
-            }
-        };
-        let backend = crate::runner_backend_remote::RemoteDockerBackend::new(node_cfg);
-        let running_ids = match backend.list_running_backend_ids().await {
-            Ok(ids) => ids,
-            Err(err) => {
-                warn!(node = %alias, error = %err, "could not inspect remote node; marking managers unreachable");
-                store.mark_node_managers_unreachable(&alias).await?;
-                continue;
-            }
-        };
-
-        for manager in managers {
-            if manager_has_running_container(manager, &running_ids) {
-                if manager.state != "online" {
-                    store.update_manager_state(&manager.id, "online").await?;
-                }
-                let now = chrono::Utc::now().to_rfc3339();
-                store.update_manager_last_contact(&manager.id, &now).await?;
-            } else {
-                warn!(
-                    manager_id = %manager.id,
-                    pool = %manager.pool_name,
-                    node = %alias,
-                    container_id = %manager.docker_container_id,
-                    previous_state = %manager.state,
-                    "marking expired remote runner manager stopped; container is not running"
-                );
-                store.update_manager_state(&manager.id, "stopped").await?;
-                stopped += 1;
-            }
-        }
     }
 
     Ok(stopped)
 }
 
 pub async fn count_running_managers(
-    store: &Db,
+    _store: &Db,
     docker: &DockerCtl,
     pool_name: &str,
 ) -> Result<i64> {
-    let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
-    let running_container_ids = docker.running_managed_container_ids().await?;
-    let mut running = managers
+    let live = collect_live_inventory(docker).await?;
+    Ok(live
+        .containers
         .iter()
-        .filter(|manager| manager_state_counts_as_active(&manager.state))
-        .filter(|manager| manager.node_alias.is_none())
-        .filter(|manager| manager_has_running_container(manager, &running_container_ids))
-        .count() as i64;
-
-    let mut remote_managers: BTreeMap<String, Vec<&Manager>> = BTreeMap::new();
-    for manager in managers
-        .iter()
-        .filter(|manager| manager_state_counts_as_active(&manager.state))
-        .filter(|manager| manager.node_alias.is_some())
-    {
-        if let Some(alias) = &manager.node_alias {
-            remote_managers
-                .entry(alias.clone())
-                .or_default()
-                .push(manager);
-        }
-    }
-
-    for (alias, managers) in remote_managers {
-        let node_cfg = match crate::node_support::load_node_config(&alias) {
-            Ok(node_cfg) => node_cfg,
-            Err(err) => {
-                warn!(node = %alias, error = %err, "could not load remote node config while counting managers");
-                continue;
-            }
-        };
-        let backend = crate::runner_backend_remote::RemoteDockerBackend::new(node_cfg);
-        let running_ids = match backend.list_running_backend_ids().await {
-            Ok(ids) => ids,
-            Err(err) => {
-                warn!(node = %alias, error = %err, "could not inspect remote node while counting managers");
-                continue;
-            }
-        };
-        running += managers
-            .iter()
-            .filter(|manager| manager_has_running_container(manager, &running_ids))
-            .count() as i64;
-    }
-
-    Ok(running)
+        .filter(|snapshot| snapshot.pool_name == pool_name && snapshot.running)
+        .count() as i64)
 }
 
 pub(crate) async fn remove_manager_cache_dir(docker: &DockerCtl, manager_id: &str) {
@@ -268,6 +352,7 @@ pub async fn scale_pool_to(
         Some(pool) => pool,
         None => return Err(anyhow::anyhow!("pool '{}' not found", pool_name)),
     };
+    let _lease = super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?;
 
     reconcile_manager_runtime_state(store, docker, Some(pool_name)).await?;
     let active = store.count_active_managers(pool_name).await? as usize; // allowlist: pool orchestration owns runner state
@@ -346,6 +431,7 @@ pub async fn scale_standard_pool_topology(
         .get_pool(pool_name)
         .await?
         .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
+    let _lease = super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?;
 
     reconcile_manager_runtime_state(store, docker, Some(pool_name)).await?;
     let managers = store.list_managers(Some(pool_name)).await?;

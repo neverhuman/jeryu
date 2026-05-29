@@ -234,6 +234,15 @@ pub struct TrackedRepository {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone, FromRow)]
+pub struct PoolOrchestrationLease {
+    pub pool_name: String,
+    pub holder_id: String,
+    pub acquired_at: i64,
+    pub heartbeat_at: i64,
+    pub expires_at: i64,
+}
+
 #[derive(Debug, Clone, FromRow, serde::Serialize)]
 pub struct ReleaseAttempt {
     pub id: i64,
@@ -1314,6 +1323,16 @@ impl Db {
                 PRIMARY KEY (resource_key, job_id)
             );
 
+            CREATE TABLE IF NOT EXISTS pool_orchestration_leases (
+                pool_name     TEXT PRIMARY KEY,
+                holder_id     TEXT NOT NULL,
+                acquired_at   INTEGER NOT NULL,
+                heartbeat_at  INTEGER NOT NULL,
+                expires_at    INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_pool_orchestration_leases_expires
+                ON pool_orchestration_leases(expires_at);
+
             CREATE TABLE IF NOT EXISTS cache_verdicts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 job_id INTEGER NOT NULL,
@@ -2086,6 +2105,91 @@ impl Db {
             .fetch_one(&self.pool)
             .await?;
         Ok(row.0)
+    }
+
+    pub async fn acquire_pool_orchestration_lease(
+        &self,
+        pool_name: &str,
+        holder_id: &str,
+        ttl_secs: i64,
+    ) -> Result<bool> {
+        let now = chrono::Utc::now().timestamp_millis();
+        let expires_at = now + ttl_secs.saturating_mul(1000);
+        let sql = self.sql(
+            r#"INSERT INTO pool_orchestration_leases
+               (pool_name, holder_id, acquired_at, heartbeat_at, expires_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(pool_name) DO UPDATE SET
+                 holder_id = excluded.holder_id,
+                 acquired_at = excluded.acquired_at,
+                 heartbeat_at = excluded.heartbeat_at,
+                 expires_at = excluded.expires_at
+               WHERE pool_orchestration_leases.expires_at <= excluded.acquired_at
+                  OR pool_orchestration_leases.holder_id = excluded.holder_id"#,
+        );
+        let result = sqlx::query(&sql)
+            .bind(pool_name)
+            .bind(holder_id)
+            .bind(now)
+            .bind(now)
+            .bind(expires_at)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn renew_pool_orchestration_lease(
+        &self,
+        pool_name: &str,
+        holder_id: &str,
+        ttl_secs: i64,
+    ) -> Result<bool> {
+        let now = chrono::Utc::now().timestamp_millis();
+        let expires_at = now + ttl_secs.saturating_mul(1000);
+        let sql = self.sql(
+            r#"UPDATE pool_orchestration_leases
+               SET heartbeat_at = ?,
+                   expires_at = ?
+               WHERE pool_name = ?
+                 AND holder_id = ?
+                 AND expires_at > ?"#,
+        );
+        let result = sqlx::query(&sql)
+            .bind(now)
+            .bind(expires_at)
+            .bind(pool_name)
+            .bind(holder_id)
+            .bind(now)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn release_pool_orchestration_lease(
+        &self,
+        pool_name: &str,
+        holder_id: &str,
+    ) -> Result<()> {
+        let sql =
+            self.sql("DELETE FROM pool_orchestration_leases WHERE pool_name = ? AND holder_id = ?");
+        sqlx::query(&sql)
+            .bind(pool_name)
+            .bind(holder_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_pool_orchestration_lease(
+        &self,
+        pool_name: &str,
+    ) -> Result<Option<PoolOrchestrationLease>> {
+        let sql = self.sql("SELECT * FROM pool_orchestration_leases WHERE pool_name = ?");
+        let lease = sqlx::query_as::<_, PoolOrchestrationLease>(&sql)
+            .bind(pool_name)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(lease)
     }
 
     // -- Job event operations ----------------------------------------------
@@ -4840,6 +4944,56 @@ mod tests {
         db.delete_manager("uuid-1").await?;
         let fetched = db.get_manager("uuid-1").await?;
         assert!(fetched.is_none());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pool_orchestration_lease_lifecycle() -> Result<()> {
+        let db = setup_db().await?;
+        let pool_name = "lease_pool";
+        db.insert_pool(&Pool {
+            name: pool_name.to_string(),
+            gitlab_runner_id: 1,
+            auth_token: "token".into(),
+            tags: "".into(),
+            executor: "docker".into(),
+            min_warm: 1,
+            max_managers: 2,
+            concurrent: 1,
+            request_concurrency: 1,
+            paused: false,
+            trust_tier: "trusted".into(),
+            cluster_alias: None,
+            backend_type: "docker".into(),
+        })
+        .await?;
+
+        assert!(
+            db.acquire_pool_orchestration_lease(pool_name, "holder-a", 1)
+                .await?
+        );
+        assert!(
+            !db.acquire_pool_orchestration_lease(pool_name, "holder-b", 1)
+                .await?
+        );
+
+        let lease = db
+            .get_pool_orchestration_lease(pool_name)
+            .await?
+            .expect("lease row");
+        assert_eq!(lease.holder_id, "holder-a");
+
+        assert!(
+            db.renew_pool_orchestration_lease(pool_name, "holder-a", 1)
+                .await?
+        );
+        db.release_pool_orchestration_lease(pool_name, "holder-a")
+            .await?;
+        assert!(
+            db.acquire_pool_orchestration_lease(pool_name, "holder-b", 1)
+                .await?
+        );
 
         Ok(())
     }

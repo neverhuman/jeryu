@@ -7,7 +7,9 @@
 //!     unless --force is passed.
 
 use anyhow::Result;
-use jeryu::{node_support, node_types::NodeConfig, runner_backend_remote};
+use jeryu::{
+    node_support, node_types::NodeConfig, runner_backend::RunnerBackend, runner_backend_remote,
+};
 
 use crate::cli::NodeCommands;
 
@@ -275,6 +277,16 @@ async fn check_active_managers_on_node(alias: &str) -> Result<usize> {
     node_support::count_active_managers_on_node(alias).await
 }
 
+async fn live_running_managers_on_node(cfg: &NodeConfig) -> Result<usize> {
+    let backend = runner_backend_remote::RemoteDockerBackend::new(cfg.clone());
+    Ok(backend
+        .list_managed_containers()
+        .await?
+        .into_iter()
+        .filter(|container| container.running)
+        .count())
+}
+
 // ---------------------------------------------------------------------------
 // node doctor
 // ---------------------------------------------------------------------------
@@ -360,17 +372,47 @@ async fn cmd_doctor(alias: &str) -> Result<i32> {
     // Max managers
     println!("  ✓ Max managers: {}", cfg.max_managers);
 
-    // Active DB managers
-    match check_active_managers_on_node(alias).await {
-        Ok(n) => println!("  ✓ Active managers in DB: {n} / {}", cfg.max_managers),
-        Err(_) => println!("  ? Could not query DB for active managers"),
+    // Active managers
+    let db_active = match check_active_managers_on_node(alias).await {
+        Ok(n) => {
+            println!("  ✓ Active managers in DB: {n} / {}", cfg.max_managers);
+            Some(n)
+        }
+        Err(_) => {
+            println!("  ? Could not query DB for active managers");
+            None
+        }
+    };
+    let live_running = match live_running_managers_on_node(&cfg).await {
+        Ok(n) => {
+            let status = if n > cfg.max_managers { "✗" } else { "✓" };
+            println!(
+                "  {status} Live running managers: {n} / {}",
+                cfg.max_managers
+            );
+            Some(n)
+        }
+        Err(_) => {
+            println!("  ? Could not query live node inventory");
+            None
+        }
+    };
+    if db_active.map(|n| n > cfg.max_managers).unwrap_or(false)
+        || live_running.map(|n| n > cfg.max_managers).unwrap_or(false)
+    {
+        println!("  ✗ Over capacity: node exceeds max_managers");
     }
     if jeryu::config::STANDARD_POOL_RESERVED_NODE_ALIASES.contains(&alias) {
         println!("  ✓ Standard pool expectation: 0 managers (reserved for active agent execution)");
     }
 
     println!();
-    let all_ok = probe.reachable && probe.docker_ready;
+    let all_ok = probe.reachable
+        && probe.docker_ready
+        && db_active.is_some()
+        && live_running.is_some()
+        && db_active.map(|n| n <= cfg.max_managers).unwrap_or(false)
+        && live_running.map(|n| n <= cfg.max_managers).unwrap_or(false);
     if all_ok {
         println!("✅ Node '{alias}' is healthy.");
     } else {

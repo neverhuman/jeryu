@@ -149,7 +149,11 @@ async fn open_local_gitlab_mr(
     Ok(())
 }
 
-fn open_github_draft_pr(capsule: &EvidenceCapsule, task: &str, json: bool) -> Result<()> {
+pub(crate) fn open_github_draft_pr(
+    capsule: &EvidenceCapsule,
+    task: &str,
+    json: bool,
+) -> Result<()> {
     let branch = jeryu::access::git_branch_current(&std::env::current_dir()?)?;
     let body = capsule.render_pr_body();
     let body_path = draft_dir(&branch).join("pr-body.md");
@@ -164,7 +168,7 @@ fn open_github_draft_pr(capsule: &EvidenceCapsule, task: &str, json: bool) -> Re
     Ok(())
 }
 
-fn open_draft_pr(title: &str, body_path: &Path) -> Result<()> {
+pub(crate) fn open_draft_pr(title: &str, body_path: &Path) -> Result<()> {
     let out = Command::new("gh")
         .args([
             "pr",

@@ -177,7 +177,12 @@ pub async fn repair_pool_state(
         }
     }
 
-    let stopped = crate::pool::reconcile_manager_runtime_state(db, docker, None).await?;
+    let mut stopped = 0;
+    for pool in pools.iter().filter(|pool| !pool.paused) {
+        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(db, &pool.name).await?;
+        stopped +=
+            crate::pool::reconcile_manager_runtime_state(db, docker, Some(&pool.name)).await?;
+    }
     if stopped > 0 {
         actions.push(format!("marked {stopped} dead manager(s) stopped"));
     }
@@ -195,6 +200,11 @@ pub async fn repair_pool_state(
         .iter()
         .any(|pool| pool.name == crate::config::STANDARD_POOL_NAME && !pool.paused)
     {
+        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(
+            db,
+            crate::config::STANDARD_POOL_NAME,
+        )
+        .await?;
         let started = crate::pool::scale_standard_pool_topology(
             db,
             docker,
@@ -482,10 +492,12 @@ async fn inspect_manager_runtime(
     managers: &[Manager],
     issues: &mut Vec<PoolDoctorIssue>,
 ) {
-    let running_local = docker
-        .running_managed_container_ids()
-        .await
-        .unwrap_or_default();
+    let local_containers = docker.list_managed_containers().await.unwrap_or_default();
+    let running_local = local_containers
+        .iter()
+        .filter(|container| container.state.as_deref() == Some("running"))
+        .filter_map(|container| container.id.clone())
+        .collect::<BTreeSet<_>>();
     for manager in managers
         .iter()
         .filter(|manager| manager_state_counts_as_active(&manager.state))
@@ -546,8 +558,12 @@ async fn inspect_manager_runtime(
             }
         };
         let backend = crate::runner_backend_remote::RemoteDockerBackend::new(cfg);
-        let running = match backend.list_running_backend_ids().await {
-            Ok(running) => running,
+        let running = match backend.list_managed_containers().await {
+            Ok(running) => running
+                .into_iter()
+                .filter(|container| container.running)
+                .map(|container| container.container_id)
+                .collect::<BTreeSet<_>>(),
             Err(err) => {
                 issues.push(issue(
                     "node_unreachable",

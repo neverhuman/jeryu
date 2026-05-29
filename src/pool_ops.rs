@@ -43,6 +43,7 @@ pub async fn drain_pool(
     client: &GitlabClient,
     pool_name: &str,
 ) -> Result<()> {
+    let _lease = super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?;
     pause_pool(store, client, pool_name).await?;
 
     let managers = store.list_managers(Some(pool_name)).await?; // allowlist: pool orchestration owns runner state
@@ -79,6 +80,7 @@ pub async fn delete_pool(
         Some(pool) => pool,
         None => return Err(anyhow::anyhow!("pool '{}' not found", pool_name)),
     };
+    let _lease = super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?;
 
     drain_pool(store, docker, client, pool_name).await.ok();
     client.delete_runner(pool.gitlab_runner_id).await.ok();

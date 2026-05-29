@@ -42,6 +42,24 @@ pub(crate) enum ReleaseCommands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
+    /// Orchestrate MR creation, CI, risk-gate merge, promotion, deploy, and health verification.
+    FullPath {
+        /// Source branch to release from. Must be the current checkout branch.
+        #[arg(long)]
+        source: String,
+        /// Target branch to merge into.
+        #[arg(long, default_value = "main")]
+        target: String,
+        /// Optional release version label. Defaults to VERSION or a sha-derived fallback.
+        #[arg(long)]
+        version: Option<String>,
+        /// Push the source branch to `origin` before opening the MR.
+        #[arg(long, default_value_t = false)]
+        push: bool,
+        /// Emit stage-by-stage JSON lines and a final JSON report.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Trigger approved A/B production promotion for a passed canary.
     PromoteProd {
         #[arg(long)]

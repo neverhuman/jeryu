@@ -28,6 +28,37 @@ fn release_watch_accepts_ref_name_spelling() {
 }
 
 #[test]
+fn release_full_path_parses_core_flags() {
+    let cli = Cli::parse_from([
+        "jeryu",
+        "release",
+        "full-path",
+        "--source",
+        "feature/release-orch",
+        "--push",
+        "--json",
+        "--version",
+        "v1.2.4",
+    ]);
+    match cli.command {
+        Commands::Release(ReleaseCommands::FullPath {
+            source,
+            target,
+            version,
+            push,
+            json,
+        }) => {
+            assert_eq!(source, "feature/release-orch");
+            assert_eq!(target, "main");
+            assert_eq!(version.as_deref(), Some("v1.2.4"));
+            assert!(push);
+            assert!(json);
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
 fn install_render_demo_is_nested_under_install() {
     let cli = Cli::parse_from([
         "jeryu",

@@ -29,6 +29,7 @@ pub mod draft_loader;
 // Re-exports below (`pub use foundry::*`) still publish the same surface
 // to outside crates.
 pub mod foundry;
+mod full_path;
 mod gate;
 mod lifecycle;
 mod pipeline;
@@ -46,6 +47,7 @@ mod tests;
 pub use canary::*;
 pub use capsule::*;
 pub use foundry::*;
+pub use full_path::*;
 pub use gate::*;
 pub use lifecycle::*;
 pub use pipeline::*;

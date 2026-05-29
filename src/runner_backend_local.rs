@@ -5,11 +5,10 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use std::collections::BTreeSet;
 
 use crate::config;
 use crate::docker::DockerCtl;
-use crate::runner_backend::{ManagerHandle, RunnerBackend};
+use crate::runner_backend::{ManagedContainerSnapshot, ManagerHandle, RunnerBackend};
 use crate::state::Pool;
 
 // ---------------------------------------------------------------------------
@@ -103,8 +102,12 @@ impl RunnerBackend for LocalDockerBackend {
         Ok(())
     }
 
-    async fn list_running_backend_ids(&self) -> Result<BTreeSet<String>> {
-        self.docker.running_managed_container_ids().await
+    async fn list_managed_containers(&self) -> Result<Vec<ManagedContainerSnapshot>> {
+        let containers = self.docker.list_managed_containers().await?;
+        Ok(containers
+            .into_iter()
+            .filter_map(managed_container_snapshot_from_summary)
+            .collect())
     }
 
     async fn get_manager_logs(&self, backend_id: &str, lines: usize) -> Result<String> {
@@ -116,4 +119,25 @@ impl RunnerBackend for LocalDockerBackend {
         self.docker.reload_runner_config(backend_id).await.ok();
         Ok(())
     }
+}
+
+fn managed_container_snapshot_from_summary(
+    container: bollard::models::ContainerSummary,
+) -> Option<ManagedContainerSnapshot> {
+    let container_id = container.id?;
+    let labels = container.labels.unwrap_or_default();
+    let manager_id = labels.get("jeryu.manager_id").cloned()?;
+    let pool_name = labels.get("jeryu.pool").cloned().unwrap_or_default();
+    let node_alias = labels.get("jeryu.node_alias").cloned();
+    let state = container.state.unwrap_or_else(|| "unknown".to_string());
+    let running = state == "running";
+
+    Some(ManagedContainerSnapshot {
+        manager_id,
+        pool_name,
+        node_alias,
+        container_id,
+        running,
+        state,
+    })
 }

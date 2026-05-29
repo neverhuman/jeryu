@@ -10,12 +10,12 @@
 
 use anyhow::{Context, Result, bail};
 use async_trait::async_trait;
-use std::collections::BTreeSet;
 use tracing::{debug, info, warn};
 
 use crate::config;
 use crate::node_types::NodeConfig;
 use crate::remote::{run_remote_shell, run_remote_shell_capture};
+use crate::runner_backend::ManagedContainerSnapshot;
 use crate::runner_backend::{ManagerHandle, RunnerBackend};
 use crate::runner_backend_remote_support::{
     base64_encode, get_remote_used_kb, runner_bootstrap_cmd_docker, shell_quote,
@@ -234,21 +234,20 @@ impl RunnerBackend for RemoteDockerBackend {
         Ok(())
     }
 
-    /// List all running container IDs for jeryu-managed containers on this node.
-    async fn list_running_backend_ids(&self) -> Result<BTreeSet<String>> {
+    /// List the live managed-container inventory for this node.
+    async fn list_managed_containers(&self) -> Result<Vec<ManagedContainerSnapshot>> {
         let cfg = self.remote_config();
-        let script = "docker ps --filter label=jeryu.managed=true --format '{{.ID}}' 2>/dev/null";
+        let script = r#"docker ps -a --filter label=jeryu.managed=true --format '{{.ID}}\t{{.State}}\t{{.Label "jeryu.manager_id"}}\t{{.Label "jeryu.pool"}}\t{{.Label "jeryu.node_alias"}}' 2>/dev/null"#;
         match run_remote_shell_capture(&cfg, script).await {
             Ok(Some(output)) => {
-                let ids: BTreeSet<String> = output
+                let containers: Vec<ManagedContainerSnapshot> = output
                     .lines()
-                    .map(|l| l.trim().to_string())
-                    .filter(|l| !l.is_empty())
+                    .filter_map(parse_managed_container_snapshot)
                     .collect();
-                Ok(ids)
+                Ok(containers)
             }
             Ok(None) | Err(_) => {
-                warn!(node = %self.node.alias, "SSH unreachable during list_running_backend_ids");
+                warn!(node = %self.node.alias, "SSH unreachable during managed container inventory");
                 Err(anyhow::anyhow!("SSH to node '{}' failed", self.node.alias))
             }
         }
@@ -318,6 +317,32 @@ impl RunnerBackend for RemoteDockerBackend {
     }
 }
 
+fn parse_managed_container_snapshot(line: &str) -> Option<ManagedContainerSnapshot> {
+    let mut parts = line.trim().splitn(5, '\t');
+    let container_id = parts.next()?.trim().to_string();
+    let state = parts.next()?.trim().to_string();
+    let manager_id = parts.next()?.trim().to_string();
+    let pool_name = parts.next()?.trim().to_string();
+    let node_alias = parts
+        .next()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    if manager_id.is_empty() || container_id.is_empty() {
+        return None;
+    }
+
+    Some(ManagedContainerSnapshot {
+        manager_id,
+        pool_name,
+        node_alias,
+        container_id,
+        running: state == "running",
+        state,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -357,5 +382,16 @@ mod tests {
         let backend = RemoteDockerBackend::new(node);
         let url = backend.gitlab_url();
         assert!(url.contains("gitlab.local") || url.contains("localhost"));
+    }
+
+    #[test]
+    fn parse_managed_container_snapshot_reads_label_inventory() {
+        let line = "abcdef123\trunning\tmanager-123\tbuild\txbabe0";
+        let snapshot = parse_managed_container_snapshot(line).expect("snapshot");
+        assert_eq!(snapshot.manager_id, "manager-123");
+        assert_eq!(snapshot.pool_name, "build");
+        assert_eq!(snapshot.node_alias.as_deref(), Some("xbabe0"));
+        assert_eq!(snapshot.container_id, "abcdef123");
+        assert!(snapshot.running);
     }
 }

@@ -12,15 +12,6 @@ pub(crate) fn manager_state_counts_as_active(state: &str) -> bool {
     )
 }
 
-pub(crate) fn manager_has_running_container(
-    manager: &Manager,
-    running_container_ids: &BTreeSet<String>,
-) -> bool {
-    running_container_ids
-        .iter()
-        .any(|running_id| container_ids_match(running_id, &manager.docker_container_id))
-}
-
 pub(crate) fn container_ids_match(left: &str, right: &str) -> bool {
     left == right || left.starts_with(right) || right.starts_with(left)
 }

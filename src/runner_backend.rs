@@ -32,6 +32,17 @@ pub struct RunningManager {
     pub pool_name: String,
 }
 
+/// Live managed-container inventory entry shared by all backends.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManagedContainerSnapshot {
+    pub manager_id: String,
+    pub pool_name: String,
+    pub node_alias: Option<String>,
+    pub container_id: String,
+    pub running: bool,
+    pub state: String,
+}
+
 // ---------------------------------------------------------------------------
 // Trait
 // ---------------------------------------------------------------------------
@@ -60,9 +71,20 @@ pub trait RunnerBackend: Send + Sync {
     /// Stop (drain + remove) one manager instance.
     async fn stop_manager(&self, backend_id: &str, drain_timeout_secs: i64) -> Result<()>;
 
+    /// Return the full managed-container inventory for this backend.
+    async fn list_managed_containers(&self) -> Result<Vec<ManagedContainerSnapshot>>;
+
     /// Return the backend IDs of all running managed containers / pods.
     /// Used by the reconciler to detect crashed managers.
-    async fn list_running_backend_ids(&self) -> Result<BTreeSet<String>>;
+    async fn list_running_backend_ids(&self) -> Result<BTreeSet<String>> {
+        Ok(self
+            .list_managed_containers()
+            .await?
+            .into_iter()
+            .filter(|container| container.running)
+            .map(|container| container.container_id)
+            .collect())
+    }
 
     /// Fetch recent logs for a manager.
     async fn get_manager_logs(&self, backend_id: &str, lines: usize) -> Result<String>;
@@ -93,12 +115,15 @@ pub trait RunnerBackend: Send + Sync {
 /// In-memory backend for unit tests. No Docker or SSH required.
 #[cfg(test)]
 #[allow(unused_imports)]
+use std::collections::BTreeMap;
+#[cfg(test)]
 use std::sync::{Arc, Mutex};
 
 #[cfg(test)]
 #[derive(Debug, Default, Clone)]
 pub struct MockBackend {
     pub running: Arc<Mutex<BTreeSet<String>>>,
+    pub inventory: Arc<Mutex<BTreeMap<String, ManagedContainerSnapshot>>>,
     pub started_count: Arc<Mutex<usize>>,
     pub stopped_ids: Arc<Mutex<Vec<String>>>,
     /// If set, `start_manager` returns this error.
@@ -124,6 +149,17 @@ impl RunnerBackend for MockBackend {
         }
         let backend_id = format!("mock-container-{}", manager_id);
         self.running.lock().unwrap().insert(backend_id.clone());
+        self.inventory.lock().unwrap().insert(
+            backend_id.clone(),
+            ManagedContainerSnapshot {
+                manager_id: manager_id.to_string(),
+                pool_name: _pool_name.to_string(),
+                node_alias: None,
+                container_id: backend_id.clone(),
+                running: true,
+                state: "running".to_string(),
+            },
+        );
         *self.started_count.lock().unwrap() += 1;
         Ok(ManagerHandle {
             backend_id,
@@ -133,6 +169,10 @@ impl RunnerBackend for MockBackend {
 
     async fn stop_manager(&self, backend_id: &str, _drain_timeout_secs: i64) -> Result<()> {
         self.running.lock().unwrap().remove(backend_id);
+        if let Some(entry) = self.inventory.lock().unwrap().get_mut(backend_id) {
+            entry.running = false;
+            entry.state = "exited".to_string();
+        }
         self.stopped_ids
             .lock()
             .unwrap()
@@ -140,8 +180,8 @@ impl RunnerBackend for MockBackend {
         Ok(())
     }
 
-    async fn list_running_backend_ids(&self) -> Result<BTreeSet<String>> {
-        Ok(self.running.lock().unwrap().clone())
+    async fn list_managed_containers(&self) -> Result<Vec<ManagedContainerSnapshot>> {
+        Ok(self.inventory.lock().unwrap().values().cloned().collect())
     }
 
     async fn get_manager_logs(&self, backend_id: &str, _lines: usize) -> Result<String> {

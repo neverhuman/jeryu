@@ -8,13 +8,164 @@
 use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::fs;
+use std::sync::{Mutex, OnceLock};
 use tracing::{info, warn};
 
 use crate::config;
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
 use crate::state::{Db, Pool};
+use tokio::sync::watch;
+use tokio::task::JoinHandle;
 use tokio::time::{Duration, Instant, sleep};
+
+pub const POOL_ORCHESTRATION_LEASE_TTL_SECS: i64 = 120;
+
+static LEASE_HOLDER_ID: OnceLock<String> = OnceLock::new();
+static LEASE_COUNTS: OnceLock<Mutex<std::collections::BTreeMap<String, usize>>> = OnceLock::new();
+
+fn orchestration_holder_id() -> &'static str {
+    LEASE_HOLDER_ID.get_or_init(|| format!("jeryu-{}-{}", std::process::id(), uuid::Uuid::new_v4()))
+}
+
+fn lease_counts() -> &'static Mutex<std::collections::BTreeMap<String, usize>> {
+    LEASE_COUNTS.get_or_init(|| Mutex::new(std::collections::BTreeMap::new()))
+}
+
+pub struct PoolOrchestrationLeaseGuard {
+    db: Db,
+    pool_name: String,
+    owned: bool,
+    stop_tx: Option<watch::Sender<bool>>,
+    heartbeat: Option<JoinHandle<()>>,
+}
+
+impl PoolOrchestrationLeaseGuard {
+    pub async fn acquire(db: &Db, pool_name: &str) -> Result<Self> {
+        let holder_id = orchestration_holder_id().to_string();
+        let already_held = {
+            let counts = lease_counts().lock().unwrap();
+            counts.get(pool_name).copied().unwrap_or(0) > 0
+        };
+        if already_held {
+            let reacquired = db
+                .acquire_pool_orchestration_lease(
+                    pool_name,
+                    &holder_id,
+                    POOL_ORCHESTRATION_LEASE_TTL_SECS,
+                )
+                .await?;
+            if !reacquired {
+                anyhow::bail!("pool '{pool_name}' orchestration lease is held by another process");
+            }
+            let mut counts = lease_counts().lock().unwrap();
+            *counts.entry(pool_name.to_string()).or_insert(0) += 1;
+            return Ok(Self {
+                db: db.clone(),
+                pool_name: pool_name.to_string(),
+                owned: false,
+                stop_tx: None,
+                heartbeat: None,
+            });
+        }
+
+        let acquired = db
+            .acquire_pool_orchestration_lease(
+                pool_name,
+                &holder_id,
+                POOL_ORCHESTRATION_LEASE_TTL_SECS,
+            )
+            .await?;
+        if !acquired {
+            anyhow::bail!("pool '{pool_name}' orchestration lease is held by another process");
+        }
+
+        {
+            let mut counts = lease_counts().lock().unwrap();
+            counts.insert(pool_name.to_string(), 1);
+        }
+
+        let (stop_tx, mut stop_rx) = watch::channel(false);
+        let heartbeat_db = db.clone();
+        let heartbeat_pool = pool_name.to_string();
+        let heartbeat_holder = holder_id.clone();
+        let heartbeat = tokio::spawn(async move {
+            let interval_secs = std::cmp::max(POOL_ORCHESTRATION_LEASE_TTL_SECS / 3, 5) as u64;
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(interval_secs)) => {
+                        match heartbeat_db
+                            .renew_pool_orchestration_lease(
+                                &heartbeat_pool,
+                                &heartbeat_holder,
+                                POOL_ORCHESTRATION_LEASE_TTL_SECS,
+                            )
+                            .await
+                        {
+                            Ok(true) => {}
+                            Ok(false) => {
+                                warn!(pool = %heartbeat_pool, "pool orchestration lease heartbeat lost");
+                                break;
+                            }
+                            Err(err) => {
+                                warn!(pool = %heartbeat_pool, error = %err, "pool orchestration lease heartbeat failed");
+                                break;
+                            }
+                        }
+                    }
+                    _ = stop_rx.changed() => {
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(Self {
+            db: db.clone(),
+            pool_name: pool_name.to_string(),
+            owned: true,
+            stop_tx: Some(stop_tx),
+            heartbeat: Some(heartbeat),
+        })
+    }
+}
+
+impl Drop for PoolOrchestrationLeaseGuard {
+    fn drop(&mut self) {
+        if let Some(stop_tx) = self.stop_tx.take() {
+            let _ = stop_tx.send(true);
+        }
+        if let Some(heartbeat) = self.heartbeat.take() {
+            heartbeat.abort();
+        }
+
+        let pool_name = self.pool_name.clone();
+        let db = self.db.clone();
+        let owned = self.owned;
+        let should_release = {
+            let mut counts = lease_counts().lock().unwrap();
+            match counts.get_mut(&pool_name) {
+                Some(count) if *count > 1 => {
+                    *count -= 1;
+                    false
+                }
+                Some(_) => {
+                    counts.remove(&pool_name);
+                    owned
+                }
+                None => false,
+            }
+        };
+
+        if should_release {
+            tokio::spawn(async move {
+                let _ = db
+                    .release_pool_orchestration_lease(&pool_name, orchestration_holder_id())
+                    .await;
+            });
+        }
+    }
+}
 
 #[path = "pool_ops.rs"]
 mod pool_ops;

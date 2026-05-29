@@ -79,6 +79,25 @@ pub(crate) async fn execute_release_commands(subcmd: ReleaseCommands) -> Result<
                 print!("{}", release::render_release_status_text(&report));
             }
         }
+        ReleaseCommands::FullPath {
+            source,
+            target,
+            version,
+            push,
+            json,
+        } => {
+            let report = release::run_full_path(release::FullPathOptions {
+                source,
+                target,
+                version,
+                push,
+                json,
+            })
+            .await?;
+            if !json {
+                print!("{}", release::render_full_path_text(&report));
+            }
+        }
         ReleaseCommands::PromoteProd {
             project_id,
             ref_name,

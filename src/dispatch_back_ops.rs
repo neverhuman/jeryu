@@ -52,6 +52,13 @@ pub(crate) async fn run_serve() -> Result<()> {
         }
     }
 
+    for p in &pools {
+        if p.paused {
+            continue;
+        }
+        pool::reconcile_manager_runtime_state(&db, &docker_ctl, Some(&p.name)).await?;
+    }
+
     println!("✅ All pools at min_warm. Starting background engine...");
 
     let db_clone = db.clone();

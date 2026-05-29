@@ -352,6 +352,14 @@
       "command": "cargo test -p jeryu --lib release::canary",
       "purpose": "verify Nightwatch canary ring ladder + SLO-breach-beats-time-in-ring invariant"
     },
+    "src/release/full_path.rs": {
+      "command": "cargo test -p jeryu --lib release::full_path",
+      "purpose": "verify the full-path release orchestrator stage machine, JSON reporting, and fallback helpers"
+    },
+    "src/health.rs": {
+      "command": "cargo test -p jeryu --lib health",
+      "purpose": "verify the aggregate health reporting and local health probe paths"
+    },
     "src/release/foundry.rs": {
       "command": "cargo test -p jeryu --lib release::foundry",
       "purpose": "verify FoundryTrain build-once + ReleasePassport ed25519 signing"
@@ -359,6 +367,10 @@
     "src/release/sql_foundry_queue.rs": {
       "command": "cargo test -p jeryu --lib release::sql_foundry_queue",
       "purpose": "verify SQL-backed FoundryTrain queue mirrors in-memory drain trigger semantics"
+    },
+    "ops/ci/post-merge-deploy-lane.sh": {
+      "command": "bash ops/ci/post-merge-deploy-lane.sh gate workflow_dispatch success main",
+      "purpose": "verify the canonical post-merge deploy lane gate remains routed"
     },
     "src/test_intel/": {
       "command": "cargo test -p jeryu -- test_intel",
