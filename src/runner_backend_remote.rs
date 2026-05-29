@@ -2,7 +2,9 @@
 //! Proof: `cargo test -p jeryu -- runner_backend_remote`
 //! Invariants:
 //!   - Containers on remote nodes have `--restart unless-stopped` so they
-//!     survive SSH drops and control-plane reboots.
+//!     survive SSH drops and control-plane reboots, plus bounded
+//!     logs/memory/cpu/file-descriptors (`RUNNER_RESOURCE_FLAGS`) so a single
+//!     runaway runner can never exhaust its host node's disk, RAM, or FDs.
 //!   - A single SSH connection per reconciliation cycle (one `docker ps` call
 //!     covers all managed containers on the node).
 //!   - SSH multiplexing (ControlMaster=auto) is inherited from `ssh_args()`.
@@ -26,6 +28,26 @@ use crate::state::Pool;
 pub use crate::runner_backend_remote_support::{
     NodeProbeResult, gc_orphaned_runner_dirs, probe_node,
 };
+
+/// Resource caps applied to every managed runner container so a single
+/// runaway runner can never take down its host node — the root cause behind
+/// "runners crash / the fleet spins down". Concretely:
+///   - `--log-driver=json-file --log-opt max-size=50m --log-opt max-file=3`
+///     bounds container logs to 150 MiB (was unbounded → could fill `/`).
+///   - `--memory=8g --memory-swap=8g` keeps an OOM inside the container instead
+///     of the kernel OOM-killer reaping host processes (incl. other runners).
+///   - `--cpus=4` prevents one compile from starving the node.
+///   - `--ulimit nofile=65536:65536` stops file-descriptor exhaustion during
+///     heavy parallel builds.
+/// Tunable here in one place; kept as a single string so the assembled
+/// `docker run` stays readable and the flags are unit-testable.
+pub(crate) const RUNNER_RESOURCE_FLAGS: &str = "--log-driver=json-file \
+  --log-opt max-size=50m \
+  --log-opt max-file=3 \
+  --memory=8g \
+  --memory-swap=8g \
+  --cpus=4 \
+  --ulimit nofile=65536:65536";
 
 // ---------------------------------------------------------------------------
 // RemoteDockerBackend
@@ -140,6 +162,7 @@ impl RunnerBackend for RemoteDockerBackend {
             "docker run -d \
   --name {name} \
   --restart unless-stopped \
+  {resource_flags} \
   -v {runner_dir}:/etc/gitlab-runner \
   -v {docker_socket}:/var/run/docker.sock \
   -v {cache_dir}:/cache \
@@ -158,6 +181,7 @@ impl RunnerBackend for RemoteDockerBackend {
             alias_q = shell_quote(&self.node.alias),
             image = shell_quote(runner_image),
             bootstrap = shell_quote(&bootstrap_cmd),
+            resource_flags = RUNNER_RESOURCE_FLAGS,
         );
         run_remote_shell(&cfg, &docker_run, false)
             .await
@@ -354,5 +378,24 @@ mod tests {
         let backend = RemoteDockerBackend::new(node);
         let url = backend.gitlab_url();
         assert!(url.contains("gitlab.local") || url.contains("localhost"));
+    }
+
+    #[test]
+    fn resource_flags_bound_logs_memory_cpu_and_fds() {
+        // A runaway runner must not be able to take down its host node.
+        for flag in [
+            "--log-driver=json-file",
+            "--log-opt max-size=50m",
+            "--log-opt max-file=3",
+            "--memory=8g",
+            "--memory-swap=8g",
+            "--cpus=4",
+            "--ulimit nofile=65536:65536",
+        ] {
+            assert!(
+                RUNNER_RESOURCE_FLAGS.contains(flag),
+                "missing runner resource cap: {flag}"
+            );
+        }
     }
 }
