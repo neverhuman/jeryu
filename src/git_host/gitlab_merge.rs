@@ -156,6 +156,16 @@ impl GitLabClient {
             .merge_commit_sha
             .or(parsed.squash_commit_sha)
             .or(parsed.sha);
+        if merged {
+            if let Err(err) = crate::git::mirror_jobs::enqueue_merge_mirror_intent(
+                &input.repo.owner,
+                &input.repo.name,
+                sha.as_deref(),
+                parsed.web_url.as_deref(),
+            ) {
+                tracing::warn!(error = %err, "post-merge mirror enqueue failed");
+            }
+        }
         Ok(HostMergeResult {
             merged,
             sha,

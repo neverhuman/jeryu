@@ -8,6 +8,7 @@ pub mod event;
 pub mod executor;
 pub mod invocation;
 pub mod mirror;
+pub mod mirror_jobs;
 pub mod policy;
 pub mod receipt;
 pub mod snapshot;
