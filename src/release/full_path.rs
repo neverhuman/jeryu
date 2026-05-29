@@ -122,7 +122,23 @@ pub async fn run_full_path(options: FullPathOptions) -> Result<FullPathReport> {
     let auth = crate::gitlab_auth::resolve_or_repair_default().await?;
     let client = crate::gitlab_client::GitlabClient::new(&auth.url, Some(auth.token));
     let db = crate::state::Db::open().await?;
-    let project = client.get_project_by_path(&project_path).await?;
+    let project = {
+        let mut attempts = 0usize;
+        loop {
+            attempts += 1;
+            match client.get_project_by_path(&project_path).await {
+                Ok(project) => break project,
+                Err(err) if attempts < 5 => {
+                    eprintln!(
+                        "retrying GitLab project lookup for {} after error: {}",
+                        project_path, err
+                    );
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                }
+                Err(err) => return Err(err).context("lookup GitLab project by path"),
+            }
+        }
+    };
 
     if options.push {
         crate::access::git_push_branch(&cwd, "origin", &options.source)?;
