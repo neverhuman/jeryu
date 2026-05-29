@@ -12,7 +12,7 @@ variables:
   GIT_DEPTH: "1"
 
 default:
-  image: 127.0.0.1:5000/jeryu-ci-rust:1.95.0
+  image: 172.17.0.1:5000/jeryu-ci-rust:1.95.0
   timeout: 30m
 
 .workflow_rules_main: &rules_main
