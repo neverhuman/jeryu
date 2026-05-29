@@ -25,7 +25,7 @@ cargo run -p jeryu -- tui --capture --tab jobs --output paper/assets/jeryu-tui-j
 cargo run -p jeryu -- tui --capture --tab tests --output paper/assets/jeryu-tui-tests-vti.png
 ```
 
-`jeryu tui` opens the Workflow cockpit by default. `--capture` accepts `workflow`, `mission`, `release`, `approvals`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, `repos`, `bugs`, `llms`, `secrets`, `git`, and `jankurai`. The capture path renders the same Ratatui layout through `TestBackend` and writes a PNG.
+`jeryu tui` opens the Jobs Flight Deck by default. `--capture` accepts `workflow`, `mission`, `release`, `approvals`, `jobs`, `agents`, `tests`, `pools`, `cache`, `evidence`, `repos`, `bugs`, `llms`, `secrets`, `git`, and `jankurai`. The capture path renders the same Ratatui layout through `TestBackend` and writes a PNG.
 
 ## Source Map
 
@@ -70,7 +70,7 @@ The TUI has sixteen top-level tabs:
 15. `Secrets`
 16. `Jankurai`
 
-The default tab is `Workflow`. The default active pane remains `Jobs`, which
+The default tab is `Jobs`. The default active pane remains `Jobs`, which
 keeps job/log keyboard behavior predictable when the operator switches to the
 Jobs tab.
 

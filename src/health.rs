@@ -736,7 +736,7 @@ async fn pipeline_doctor_schema_check() -> HealthCheck {
 async fn tui_smoke_check() -> HealthCheck {
     let started = Instant::now();
     let client = GitlabClient::new("http://127.0.0.1:9", None);
-    match crate::tui::smoke_render_once(None, DockerCtl::disconnected(), client, "mission").await {
+    match crate::tui::smoke_render_once(None, DockerCtl::disconnected(), client, "jobs").await {
         Ok(live_jobs) => check(
             "tui_smoke",
             HealthCheckStatus::Ok,

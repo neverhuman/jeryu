@@ -882,7 +882,7 @@ Important surfaces: `SmartCache::start`, `SmartCache::enable`, `SmartCache::doct
 
 ## 16. TUI API Summary
 
-Launch: `jeryu tui` opens the Workflow cockpit by default. Screenshot capture: `jeryu tui --capture --tab jobs --output paper/assets/jeryu-tui-jobs-flow.png`. Key actions are defined in the action registry (section 7). Additional TUI-specific controls:
+Launch: `jeryu tui` opens the Jobs Flight Deck by default. Screenshot capture: `jeryu tui --capture --tab jobs --output paper/assets/jeryu-tui-jobs-flow.png`. Key actions are defined in the action registry (section 7). Additional TUI-specific controls:
 
 - `Tab`, arrows: focus/select within pane
 - `Enter` on jobs: open real-time log view

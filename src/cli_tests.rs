@@ -248,6 +248,17 @@ fn remote_install_accepts_service_and_ui_flags() {
 }
 
 #[test]
+fn tui_defaults_to_jobs_tab() {
+    let cli = Cli::parse_from(["jeryu", "tui"]);
+    match cli.command {
+        Commands::Tui { tab, .. } => {
+            assert_eq!(tab, "jobs");
+        }
+        _ => panic!("unexpected command parsed"),
+    }
+}
+
+#[test]
 fn repo_init_direct_parses_policy_options() {
     let cli = Cli::parse_from([
         "jeryu",
