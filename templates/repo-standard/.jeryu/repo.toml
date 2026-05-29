@@ -1,0 +1,6 @@
+schema_version = "1"
+mode = "direct"
+namespace = "{{REPO_NAMESPACE}}"
+name = "{{REPO_NAME}}"
+default_branch = "{{DEFAULT_BRANCH}}"
+remote_url = "ssh://git@127.0.0.1:2224/{{REPO_NAMESPACE}}/{{REPO_NAME}}.git"

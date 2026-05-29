@@ -1,0 +1,70 @@
+schema_version = "1"
+template = "jeryu-repo-standard"
+template_version = "agent-first-quickstart-v1"
+generated_by = "jeryu repo standard apply"
+upstream = "jeryu @ {{JERYU_VERSION}}"
+
+# What the rendered pipeline pulls. Updates here ripple to every project on
+# the next `jeryu repo standard apply`.
+ci_base_image = "${CI_REGISTRY}/root/jeryu/ci-base:1.95.0"
+jankurai_pin = "v1.5.1"
+runner_policy = "untagged-only"
+
+# Substitution map. `jeryu repo standard apply` infers values from git and
+# fills these placeholders in every `[[managed_file]]` below. Verify reads
+# this back from .jeryu/standard.lock and re-renders to detect drift.
+[substitutions]
+required = ["REPO_NAMESPACE", "REPO_NAME", "DEFAULT_BRANCH"]
+optional = ["OFFLINE_MIRROR_ENABLED", "EXTERNAL_REMOTE"]
+default_OFFLINE_MIRROR_ENABLED = "false"
+default_EXTERNAL_REMOTE = ""
+
+# ── files written into the target repo at apply time ──────────────────────
+# Order is load-bearing: standard.lock records files in this order so cross-
+# version diffs are byte-stable.
+
+[[managed_file]]
+path = ".gitlab-ci.yml"
+substitutes = ["DEFAULT_BRANCH"]
+
+[[managed_file]]
+path = ".gitlab/ci/_shared.yml"
+substitutes = []
+
+[[managed_file]]
+path = ".jeryu/repo.toml"
+substitutes = ["REPO_NAMESPACE", "REPO_NAME", "DEFAULT_BRANCH"]
+
+[[managed_file]]
+path = ".jeryu/policy.toml"
+substitutes = ["DEFAULT_BRANCH", "OFFLINE_MIRROR_ENABLED", "EXTERNAL_REMOTE"]
+
+[[managed_file]]
+path = ".jeryu/ci.toml"
+substitutes = []
+
+[[managed_file]]
+path = ".jeryu/backup.toml"
+substitutes = []
+
+# These three files are byte-mirrored from canonical sources at apply time —
+# the template directory does not duplicate them. apply.rs uses include_str!
+# to embed the source bytes into the jeryu binary.
+
+[[managed_file]]
+path = ".jeryu/ci/jankurai-manifest.json"
+source = "scripts/jankurai-manifest.json"
+substitutes = []
+executable = false
+
+[[managed_file]]
+path = ".jeryu/ci/install-jankurai.sh"
+source = "scripts/install-jankurai.sh"
+substitutes = []
+executable = true
+
+[[managed_file]]
+path = ".jeryu/ci/no-runner-tags.sh"
+source = "scripts/ci/no-runner-tags.sh"
+substitutes = []
+executable = true
