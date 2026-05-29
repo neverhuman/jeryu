@@ -80,7 +80,12 @@ pub fn draw_lens(f: &mut Frame, app: &App, model: &TuiReadModel, lens: LensId, a
             area,
         ),
         LensId::Runners => {
-            runners::draw(f, &runners::RunnersLensInput::from_read_model(model), area)
+            // Live multinode runner health from the synced node fleet.
+            runners::draw(
+                f,
+                &runners::RunnersLensInput::from_nodes(&app.state.remote_nodes, model.event_cursor),
+                area,
+            )
         }
         LensId::Agents => agents::draw(f, &agents::AgentsLensInput::from_read_model(model), area),
         LensId::Bugs => bugs::draw(f, &bugs::BugsLensInput::from_read_model(model), area),
