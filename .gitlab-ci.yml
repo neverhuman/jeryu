@@ -16,9 +16,9 @@ default:
   before_script:
     - |
       export DEBIAN_FRONTEND=noninteractive
-      export APT_CONFIG="$CI_PROJECT_DIR/.cache/apt.conf"
-      export APT_CACHE_DIR="$CI_PROJECT_DIR/.cache/apt-cache"
-      export APT_STATE_DIR="$CI_PROJECT_DIR/.cache/apt-state"
+      export APT_CONFIG=/cache/apt.conf
+      export APT_CACHE_DIR=/cache/apt-cache
+      export APT_STATE_DIR=/cache/apt-state
       rm -rf "$APT_CACHE_DIR" "$APT_STATE_DIR" "$APT_CONFIG"
       mkdir -p "$APT_CACHE_DIR/archives" "$APT_STATE_DIR/lists"
       install -d -o _apt -g root -m 700 "$APT_CACHE_DIR/archives/partial" "$APT_STATE_DIR/lists/partial"
