@@ -77,7 +77,7 @@ rust_install_smoke:
     - bash ops/ci/rust-lane.sh install-smoke
 
 rust_test_select:
-  stage: test
+  stage: build
   rules: *rules_rust
   variables:
     GIT_DEPTH: "0"
@@ -90,7 +90,8 @@ rust_test_select:
 
 rust_test_lib:
   stage: test
-  needs: [rust_test_select]
+  dependencies:
+    - rust_test_select
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh test-lib

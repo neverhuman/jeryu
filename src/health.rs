@@ -15,7 +15,7 @@ use crate::api::entity::{BlockerSummary, EntityKind, EntityRef, HealthLevel, Sev
 use crate::api::read_model::{ComponentHealth, RunnerHealth, TuiReadModel};
 use crate::docker::DockerCtl;
 use crate::gitlab_client::GitlabClient;
-use crate::pool::{PoolReservedNode, PoolTopologyPlan};
+use crate::pool::{self, PoolReservedNode, PoolTopologyPlan};
 use crate::runner_backend::RunnerBackend;
 use crate::runner_backend_remote;
 use crate::runner_backend_remote::RemoteDockerBackend;
@@ -334,6 +334,7 @@ async fn collect_local_checks(
                 *reserved_runner_nodes = nodes;
             }
             checks.push(pool_check);
+            checks.push(runner_drift_check(db, docker).await);
             collect_node_checks(checks, db).await;
         }
         _ => {
@@ -348,6 +349,13 @@ async fn collect_local_checks(
                 "pool_doctor",
                 HealthCheckStatus::Skipped,
                 "database or Docker unavailable; skipped pool doctor".to_string(),
+                0,
+                None,
+            ));
+            checks.push(check(
+                "runners_drift",
+                HealthCheckStatus::Skipped,
+                "database or Docker unavailable; skipped runner drift check".to_string(),
                 0,
                 None,
             ));
@@ -589,6 +597,103 @@ async fn pool_doctor_check(db: &Db, docker: &DockerCtl, client: &GitlabClient) -
             None,
         ),
     }
+}
+
+async fn runner_drift_check(db: &Db, docker: &DockerCtl) -> HealthCheck {
+    let started = Instant::now();
+    let pools = match db.list_pools().await {
+        Ok(pools) => pools,
+        Err(err) => {
+            return check(
+                "runners_drift",
+                HealthCheckStatus::Failed,
+                format!("runner drift check failed: could not list pools: {err}"),
+                started.elapsed().as_millis(),
+                None,
+            );
+        }
+    };
+
+    let mut db_active_total = 0_i64;
+    let mut live_running_total = 0_i64;
+
+    for pool_entry in &pools {
+        match db.count_active_managers(&pool_entry.name).await {
+            Ok(count) => db_active_total += count,
+            Err(err) => {
+                return check(
+                    "runners_drift",
+                    HealthCheckStatus::Failed,
+                    format!(
+                        "runner drift check failed: could not count active managers for pool '{}': {err}",
+                        pool_entry.name
+                    ),
+                    started.elapsed().as_millis(),
+                    None,
+                );
+            }
+        }
+
+        match pool::count_running_managers(db, docker, &pool_entry.name).await {
+            Ok(count) => live_running_total += count,
+            Err(err) => {
+                return check(
+                    "runners_drift",
+                    HealthCheckStatus::Failed,
+                    format!(
+                        "runner drift check failed: could not count live managers for pool '{}': {err}",
+                        pool_entry.name
+                    ),
+                    started.elapsed().as_millis(),
+                    None,
+                );
+            }
+        }
+    }
+
+    runner_drift_check_from_totals(
+        db_active_total,
+        live_running_total,
+        pools.len(),
+        started.elapsed().as_millis(),
+    )
+}
+
+fn runner_drift_check_from_totals(
+    db_active_total: i64,
+    live_running_total: i64,
+    pool_count: usize,
+    duration_ms: u128,
+) -> HealthCheck {
+    let drift = live_running_total - db_active_total;
+    let status = if drift == 0 {
+        HealthCheckStatus::Ok
+    } else {
+        HealthCheckStatus::Failed
+    };
+    let detail = if drift == 0 {
+        format!(
+            "runner fleet in sync (db_active={} live_running={})",
+            db_active_total, live_running_total
+        )
+    } else {
+        format!(
+            "runner fleet drift detected (db_active={} live_running={} delta={:+})",
+            db_active_total, live_running_total, drift
+        )
+    };
+    check(
+        "runners_drift",
+        status,
+        detail,
+        duration_ms,
+        Some(json!({
+            "db_active_total": db_active_total,
+            "live_running_total": live_running_total,
+            "drift": drift,
+            "pool_count": pool_count,
+        })),
+    )
 }
 
 async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
@@ -926,5 +1031,26 @@ mod tests {
         assert_eq!(model.mission.total_runners, 40);
         assert_eq!(model.mission.overall, HealthLevel::Critical);
         assert!(model.mission.top_blocker.is_some());
+    }
+
+    #[test]
+    fn runner_drift_check_from_totals_reports_drift() {
+        let healthy = runner_drift_check_from_totals(8, 8, 2, 1);
+        assert_eq!(healthy.status, HealthCheckStatus::Ok);
+        assert!(healthy.detail.contains("in sync"));
+        let healthy_data = healthy.data.expect("expected drift data");
+        assert_eq!(healthy_data["db_active_total"], 8);
+        assert_eq!(healthy_data["live_running_total"], 8);
+        assert_eq!(healthy_data["drift"], 0);
+        assert_eq!(healthy_data["pool_count"], 2);
+
+        let drifted = runner_drift_check_from_totals(8, 11, 2, 1);
+        assert_eq!(drifted.status, HealthCheckStatus::Failed);
+        assert!(drifted.detail.contains("delta=+3"));
+        let drifted_data = drifted.data.expect("expected drift data");
+        assert_eq!(drifted_data["db_active_total"], 8);
+        assert_eq!(drifted_data["live_running_total"], 11);
+        assert_eq!(drifted_data["drift"], 3);
+        assert_eq!(drifted_data["pool_count"], 2);
     }
 }
