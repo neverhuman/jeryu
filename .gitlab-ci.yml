@@ -13,7 +13,7 @@ variables:
   PATH: /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 default:
-  image: rust:1.95.0
+  image: rust:1.95.0@sha256:39d8cb39a54e7d1da665c4fabfdd265e532a5f836c11ab5aee27fd5c73891ce4
   timeout: 30m
 
 .workflow_rules_main: &rules_main
@@ -95,20 +95,39 @@ rust_test_lib:
   stage: test
   needs: [rust_test_select]
   rules: *rules_rust
-  before_script:
-    - . ops/ci/lib.sh
-    - install_ci_packages jq
   script:
     - |
       mode="full"
       filter=""
       if [ -f target/jeryu/test-plan.json ]; then
-        mode="$(jq -r '.mode // "full"' target/jeryu/test-plan.json)"
+        eval "$(
+          python3 - <<'PY'
+import json
+import shlex
+
+with open("target/jeryu/test-plan.json", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+mode = data.get("mode", "full")
+filter_expr = ""
+if mode not in {"selected", "full"}:
+    for item in data.get("selected_tests", []):
+        command = item.get("command")
+        if not command:
+            continue
+        if command.startswith("cargo nextest run -E '"):
+            command = command[len("cargo nextest run -E '"):]
+        if command.endswith("'"):
+            command = command[:-1]
+        filter_expr = command
+        break
+
+print(f"mode={shlex.quote(mode)}")
+print(f"filter={shlex.quote(filter_expr)}")
+PY
+        )"
         if [ "$mode" = "selected" ] || [ "$mode" = "full" ]; then
           filter=""
-        else
-          filter="$(jq -r '.selected_tests[]? | .command' target/jeryu/test-plan.json 2>/dev/null | sed -e "s/^cargo nextest run -E '//" -e "s/'$//")"
-          filter="${filter%%$'\n'*}"
         fi
       fi
       bash ops/ci/rust-lane.sh test-lib "$mode" "$filter"
@@ -141,7 +160,17 @@ jeryu_health_self:
   script:
     - mkdir -p target/jeryu
     - cargo run -p jeryu --bin jeryu -- health --ci --json > target/jeryu/health.json
-    - jq -e '.ok == true' target/jeryu/health.json
+    - |
+      python3 - <<'PY'
+import json
+import sys
+
+with open("target/jeryu/health.json", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+if not data.get("ok"):
+    raise SystemExit(1)
+PY
   artifacts:
     when: always
     paths:

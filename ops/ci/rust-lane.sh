@@ -16,9 +16,6 @@ bootstrap_ci_rust_tools() {
     return 0
   fi
   case "$STAGE" in
-    test-select|test-lib)
-      install_ci_packages jq
-      ;;
     ssh-install-e2e)
       install_ci_packages docker.io
       ;;
@@ -153,22 +150,35 @@ case "$STAGE" in
       --head HEAD \
       --explain \
       --emit-plan target/jeryu/test-plan.json 2>/dev/null; then
-      MODE="$(jq -r '.mode' target/jeryu/test-plan.json)"
-      UNIT_FILTER_EXPR=""
-      while IFS= read -r expr; do
-        [ -n "$expr" ] || continue
-        if [ -z "$UNIT_FILTER_EXPR" ]; then
-          UNIT_FILTER_EXPR="$expr"
-        else
-          UNIT_FILTER_EXPR="$UNIT_FILTER_EXPR | $expr"
-        fi
-      done < <(
-        jq -r '
-          .selected_tests[]
-          | select(.kind == "unit_filter")
-          | .command
-        ' target/jeryu/test-plan.json | sed -e "s/^cargo nextest run -E '//" -e "s/'$//"
-      )
+      eval "$(
+        python3 - <<'PY'
+import json
+import shlex
+
+with open("target/jeryu/test-plan.json", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+mode = data.get("mode", "full")
+unit_filter_expr = ""
+for item in data.get("selected_tests", []):
+    if item.get("kind") != "unit_filter":
+        continue
+    command = item.get("command")
+    if not command:
+        continue
+    if command.startswith("cargo nextest run -E '"):
+        command = command[len("cargo nextest run -E '"):]
+    if command.endswith("'"):
+        command = command[:-1]
+    if unit_filter_expr:
+        unit_filter_expr = f"{unit_filter_expr} | {command}"
+    else:
+        unit_filter_expr = command
+
+print(f"MODE={shlex.quote(mode)}")
+print(f"UNIT_FILTER_EXPR={shlex.quote(unit_filter_expr)}")
+PY
+      )"
     else
       echo '{"mode":"full","selected_tests":[]}' > target/jeryu/test-plan.json
       MODE="full"
