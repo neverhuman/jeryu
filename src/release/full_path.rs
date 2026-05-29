@@ -547,7 +547,30 @@ async fn wait_for_source_pipeline(
                 ));
             }
             _ => {
-                let doctor = build_pipeline_doctor_report(client, project_id, pipeline.id).await?;
+                let doctor =
+                    match build_pipeline_doctor_report(client, project_id, pipeline.id).await {
+                        Ok(doctor) => doctor,
+                        Err(err) => {
+                            if json {
+                                push_stage(
+                                    report,
+                                    json,
+                                    "ci",
+                                    "wait",
+                                    "waiting for source pipeline doctor lookup to recover",
+                                    Some(json!({
+                                        "pipeline_id": pipeline.id,
+                                        "status": pipeline.status,
+                                        "sha": pipeline.sha,
+                                        "attempt": attempts,
+                                        "error": err.to_string(),
+                                    })),
+                                )?;
+                            }
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                            continue;
+                        }
+                    };
                 if let Some(issue) = doctor
                     .stuck_suspected
                     .iter()
