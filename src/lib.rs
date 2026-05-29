@@ -76,6 +76,7 @@ pub use db::capability_repo as capability_records;
 pub mod decision;
 pub mod docker;
 pub mod engine;
+pub mod engine_background_remote_mirror;
 pub(crate) mod env_file;
 pub mod epoch;
 pub mod exec;
