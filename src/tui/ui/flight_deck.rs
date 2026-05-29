@@ -208,6 +208,53 @@ pub fn app_to_read_model(app: &App) -> TuiReadModel {
     } else {
         crate::api::entity::HealthLevel::Healthy
     };
+
+    // Cache + proof posture from the live snapshot so the Cache / Evidence /
+    // Mission / Release lenses show real numbers instead of zeros.
+    model.mission.cache_hit_ratio = app.state.hit_ratio;
+    model.mission.active_taints = app.state.active_taint_count.max(0) as u32;
+    model.mission.taint_count = app.state.active_taint_count.max(0) as u32;
+    model.mission.evidence_count = app.state.recent_evidence.len() as u32;
+    model.mission.safe_to_release = app
+        .state
+        .release_status
+        .as_ref()
+        .map(|r| matches!(r.canary_state.as_str(), "green" | "released"))
+        .unwrap_or(false);
+
+    // Per-component system health from the live flags so the Source Doctor lens
+    // renders real status instead of "not yet checked" for every row.
+    use crate::api::entity::HealthLevel;
+    use crate::api::read_model::{ComponentHealth, RunnerHealth};
+    let comp = |name: &str, healthy: bool, detail: Option<String>| ComponentHealth {
+        name: name.to_string(),
+        status: if healthy {
+            HealthLevel::Healthy
+        } else {
+            HealthLevel::Degraded
+        },
+        latency_ms: None,
+        detail,
+    };
+    model.system.gitlab = comp("gitlab", app.state.gitlab_ready, None);
+    model.system.database = comp("database", app.state.agent_connected, None);
+    model.system.docker = comp(
+        "docker",
+        true,
+        Some(format!("{} active containers", app.state.active_containers)),
+    );
+    model.system.cache = comp(
+        "cache",
+        app.state.proxy_healthy && app.state.registry_healthy,
+        Some(format!("{:.0}% hit", app.state.hit_ratio * 100.0)),
+    );
+    model.system.runners = RunnerHealth {
+        online: active,
+        busy: 0,
+        idle: active,
+        degraded: unreachable_nodes as u32,
+    };
+
     model
 }
 
