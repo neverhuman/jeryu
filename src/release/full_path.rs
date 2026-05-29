@@ -496,11 +496,23 @@ async fn wait_for_source_pipeline(
         };
 
         if pipeline.sha != expected_sha {
-            return Err(anyhow::anyhow!(
-                "latest pipeline sha {} does not match expected source sha {}",
-                pipeline.sha,
-                expected_sha
-            ));
+            if json {
+                push_stage(
+                    report,
+                    json,
+                    "ci",
+                    "wait",
+                    "waiting for source pipeline to reach expected sha",
+                    Some(json!({
+                        "pipeline_id": pipeline.id,
+                        "latest_sha": pipeline.sha,
+                        "expected_sha": expected_sha,
+                        "attempt": attempts,
+                    })),
+                )?;
+            }
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            continue;
         }
 
         match pipeline.status.as_str() {
