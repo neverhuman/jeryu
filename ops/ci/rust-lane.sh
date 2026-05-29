@@ -9,6 +9,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 cd "$REPO_ROOT"
+
+bootstrap_ci_rust_tools() {
+  if [ -z "${CI:-}" ] && [ -z "${GITLAB_CI:-}" ]; then
+    return 0
+  fi
+  install_ci_packages jq mold docker.io
+}
+
+bootstrap_ci_rust_tools
 require_tool cargo
 
 STAGE="${1:-}"

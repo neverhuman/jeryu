@@ -16,6 +16,26 @@ require_tool() {
     || die "Required tool not found: $1 — run scripts/ci-doctor.sh to diagnose"
 }
 
+install_ci_packages() {
+  if [ -z "${CI:-}" ] && [ -z "${GITLAB_CI:-}" ]; then
+    return 0
+  fi
+
+  if [ "$(id -u)" != "0" ]; then
+    die "CI package bootstrap requires root; run the lane inside the GitLab CI container"
+  fi
+
+  local packages=("$@")
+  if [ "${#packages[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  log "installing CI packages: ${packages[*]}"
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends "${packages[@]}"
+}
+
 require_jankurai() {
   require_tool jankurai
   local version_output
