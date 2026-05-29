@@ -26,25 +26,25 @@ use crate::tui::lenses::{self, LensId};
 /// the closest existing tab so they are reachable today.
 pub fn tab_lens(tab: ActiveTab) -> Option<LensId> {
     match tab {
-        // Conservative cutover: only tabs whose legacy panel had no rich
-        // tested behaviour or focus/overlay wiring are routed to their lens, so
-        // the cutover never regresses existing render/focus tests. The Pools
-        // tab is repurposed to the new Runners lens — the headline multinode
-        // runner pane — which has no separate tab of its own.
+        // Route a tab to its lens ONLY when that lens is genuinely built-out —
+        // never trade a working legacy panel for a placeholder lens. Today the
+        // shipped-quality lenses are Mission (posture cockpit) and Runners (the
+        // live multinode pane, surfaced via the Pools tab). Repos is already a
+        // lens via its legacy wrapper (which also registers focus). Cache /
+        // Evidence / Agents / VTI / Release / Bugs / LLMs lenses are still
+        // scaffolds ("lands in U2x") so their richer legacy panels stay until
+        // each lens reaches parity.
         ActiveTab::Mission => Some(LensId::Mission),
-        ActiveTab::Cache => Some(LensId::Cache),
-        ActiveTab::Evidence => Some(LensId::Evidence),
-        ActiveTab::Agents => Some(LensId::Agents),
         ActiveTab::Pools => Some(LensId::Runners),
-        // Kept on their tested legacy panels until each lens is a verified
-        // drop-in replacement (Workflow/Release/Repos/Bugs/LLMs/Tests) or has no
-        // lens yet (Jobs/Approvals/Git/Secrets/Jankurai).
         ActiveTab::Workflow
         | ActiveTab::Release
         | ActiveTab::Repos
         | ActiveTab::Bugs
         | ActiveTab::LLMs
         | ActiveTab::Tests
+        | ActiveTab::Cache
+        | ActiveTab::Evidence
+        | ActiveTab::Agents
         | ActiveTab::Jobs
         | ActiveTab::Approvals
         | ActiveTab::Git
@@ -157,6 +157,25 @@ pub fn app_to_read_model(app: &App) -> TuiReadModel {
     model.mission.running_jobs = running;
     model.mission.failed_jobs = failed;
     model.mission.queued_jobs = queued;
+
+    // Posture from real signals so the Mission cockpit reflects the live fleet
+    // rather than static defaults.
+    let unreachable_nodes = app
+        .state
+        .remote_nodes
+        .iter()
+        .filter(|n| n.reachable == Some(false))
+        .count();
+    model.mission.active_agents = app.state.agent_sessions.len() as u32;
+    model.mission.safe_to_code = active > 0;
+    model.mission.safe_to_merge = failed == 0 && active > 0;
+    model.mission.overall = if failed > 0 || unreachable_nodes > 0 {
+        crate::api::entity::HealthLevel::Warning
+    } else if active == 0 {
+        crate::api::entity::HealthLevel::Degraded
+    } else {
+        crate::api::entity::HealthLevel::Healthy
+    };
     model
 }
 
@@ -170,19 +189,26 @@ mod tests {
     }
 
     #[test]
-    fn mapped_tabs_resolve_to_their_lens() {
+    fn only_built_out_lenses_are_routed() {
+        // Mission cockpit + Runners pane are the shipped-quality lenses.
         assert_eq!(tab_lens(ActiveTab::Mission), Some(LensId::Mission));
-        assert_eq!(tab_lens(ActiveTab::Cache), Some(LensId::Cache));
-        assert_eq!(tab_lens(ActiveTab::Evidence), Some(LensId::Evidence));
-        assert_eq!(tab_lens(ActiveTab::Agents), Some(LensId::Agents));
+        assert_eq!(tab_lens(ActiveTab::Pools), Some(LensId::Runners));
     }
 
     #[test]
-    fn legacy_tabs_keep_their_panel() {
-        // Rich/tested legacy panels stay until their lens is a verified drop-in.
-        assert_eq!(tab_lens(ActiveTab::Workflow), None);
-        assert_eq!(tab_lens(ActiveTab::Repos), None);
-        assert_eq!(tab_lens(ActiveTab::Bugs), None);
-        assert_eq!(tab_lens(ActiveTab::Jankurai), None);
+    fn placeholder_and_rich_legacy_tabs_keep_their_panel() {
+        // Scaffold lenses (cache/evidence/agents) must NOT replace their richer
+        // legacy panels; rich legacy tabs stay until their lens reaches parity.
+        for tab in [
+            ActiveTab::Cache,
+            ActiveTab::Evidence,
+            ActiveTab::Agents,
+            ActiveTab::Workflow,
+            ActiveTab::Repos,
+            ActiveTab::Bugs,
+            ActiveTab::Jankurai,
+        ] {
+            assert_eq!(tab_lens(tab), None, "{tab:?} must keep its legacy panel");
+        }
     }
 }

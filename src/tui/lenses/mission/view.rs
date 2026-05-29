@@ -47,7 +47,11 @@ fn draw_posture(f: &mut Frame, input: &MissionLensInput, area: Rect) {
         },
         input.event_cursor,
     );
-    let p = Paragraph::new(text).block(Block::default().borders(Borders::ALL).title(" Posture "));
+    let p = Paragraph::new(text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Mission Control — Posture "),
+    );
     f.render_widget(p, area);
 }
 
