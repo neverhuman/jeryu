@@ -21,9 +21,6 @@ bootstrap_ci_jankurai_tools() {
     return 0
   fi
   case "$1" in
-    audit)
-      install_ci_packages jq
-      ;;
     tools)
       install_ci_packages nodejs npm python3 curl tar
       if ! command -v node >/dev/null 2>&1 && command -v nodejs >/dev/null 2>&1; then
