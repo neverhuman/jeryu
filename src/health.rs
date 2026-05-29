@@ -65,6 +65,12 @@ pub struct HealthSummary {
     pub checks_failed: usize,
     pub runner_active_total: Option<usize>,
     pub runner_desired_total: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runner_utilization_ratio: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runner_idle_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runner_stuck_count: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +118,8 @@ pub async fn build_health_report(options: HealthOptions) -> HealthReport {
         .as_ref()
         .map(|topology| (Some(topology.active_total), Some(topology.desired_total)))
         .unwrap_or((None, None));
+    let (runner_utilization_ratio, runner_idle_count, runner_stuck_count) =
+        runner_utilization_summary_from_checks(&checks);
 
     HealthReport {
         generated_at: Utc::now(),
@@ -129,6 +137,9 @@ pub async fn build_health_report(options: HealthOptions) -> HealthReport {
             checks_failed,
             runner_active_total,
             runner_desired_total,
+            runner_utilization_ratio,
+            runner_idle_count,
+            runner_stuck_count,
         },
         checks,
         pool_topology,
@@ -696,6 +707,54 @@ fn runner_drift_check_from_totals(
     )
 }
 
+fn runner_utilization_summary_from_checks(
+    checks: &[HealthCheck],
+) -> (Option<f64>, Option<usize>, Option<usize>) {
+    let Some(data) = checks
+        .iter()
+        .find(|check| check.id == "runners_drift")
+        .and_then(|check| check.data.as_ref())
+    else {
+        return (None, None, None);
+    };
+
+    let Some(db_active_total) = data.get("db_active_total").and_then(|value| value.as_i64()) else {
+        return (None, None, None);
+    };
+    let Some(live_running_total) = data
+        .get("live_running_total")
+        .and_then(|value| value.as_i64())
+    else {
+        return (None, None, None);
+    };
+
+    let (ratio, idle_count, stuck_count) =
+        runner_utilization_from_totals(db_active_total, live_running_total);
+    (Some(ratio), Some(idle_count), Some(stuck_count))
+}
+
+fn runner_utilization_from_totals(
+    db_active_total: i64,
+    live_running_total: i64,
+) -> (f64, usize, usize) {
+    let ratio = if db_active_total > 0 {
+        live_running_total as f64 / db_active_total as f64
+    } else {
+        0.0
+    };
+    let idle_count = if live_running_total > db_active_total {
+        (live_running_total - db_active_total) as usize
+    } else {
+        0
+    };
+    let stuck_count = if db_active_total > live_running_total {
+        (db_active_total - live_running_total) as usize
+    } else {
+        0
+    };
+    (ratio, idle_count, stuck_count)
+}
+
 async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
     for alias in ["xbabe0", "xbabe1", "xbabe2", "xbabe3"] {
         let started = Instant::now();
@@ -979,6 +1038,9 @@ mod tests {
                 checks_failed: 0,
                 runner_active_total: None,
                 runner_desired_total: None,
+                runner_utilization_ratio: None,
+                runner_idle_count: None,
+                runner_stuck_count: None,
             },
             checks: vec![check(
                 "pipeline_doctor_schema",
@@ -1012,6 +1074,9 @@ mod tests {
                 checks_failed: 1,
                 runner_active_total: Some(39),
                 runner_desired_total: Some(40),
+                runner_utilization_ratio: Some(0.975),
+                runner_idle_count: Some(1),
+                runner_stuck_count: Some(0),
             },
             checks: vec![check(
                 "pool_doctor",
@@ -1034,23 +1099,44 @@ mod tests {
     }
 
     #[test]
+    fn runner_utilization_from_totals_reports_idle_and_stuck_counts() {
+        let (ratio, idle_count, stuck_count) = runner_utilization_from_totals(8, 11);
+        assert!((ratio - 1.375).abs() < f64::EPSILON);
+        assert_eq!(idle_count, 3);
+        assert_eq!(stuck_count, 0);
+
+        let (ratio, idle_count, stuck_count) = runner_utilization_from_totals(8, 5);
+        assert!((ratio - 0.625).abs() < f64::EPSILON);
+        assert_eq!(idle_count, 0);
+        assert_eq!(stuck_count, 3);
+    }
+
+    #[test]
     fn runner_drift_check_from_totals_reports_drift() {
         let healthy = runner_drift_check_from_totals(8, 8, 2, 1);
         assert_eq!(healthy.status, HealthCheckStatus::Ok);
         assert!(healthy.detail.contains("in sync"));
-        let healthy_data = healthy.data.expect("expected drift data");
+        let healthy_data = healthy.data.clone().expect("expected drift data");
         assert_eq!(healthy_data["db_active_total"], 8);
         assert_eq!(healthy_data["live_running_total"], 8);
         assert_eq!(healthy_data["drift"], 0);
         assert_eq!(healthy_data["pool_count"], 2);
+        let utilization = runner_utilization_summary_from_checks(&[healthy]);
+        assert!((utilization.0.expect("utilization ratio") - 1.0).abs() < f64::EPSILON);
+        assert_eq!(utilization.1, Some(0));
+        assert_eq!(utilization.2, Some(0));
 
         let drifted = runner_drift_check_from_totals(8, 11, 2, 1);
         assert_eq!(drifted.status, HealthCheckStatus::Failed);
         assert!(drifted.detail.contains("delta=+3"));
-        let drifted_data = drifted.data.expect("expected drift data");
+        let drifted_data = drifted.data.clone().expect("expected drift data");
         assert_eq!(drifted_data["db_active_total"], 8);
         assert_eq!(drifted_data["live_running_total"], 11);
         assert_eq!(drifted_data["drift"], 3);
         assert_eq!(drifted_data["pool_count"], 2);
+        let utilization = runner_utilization_summary_from_checks(&[drifted]);
+        assert!((utilization.0.expect("utilization ratio") - 1.375).abs() < f64::EPSILON);
+        assert_eq!(utilization.1, Some(3));
+        assert_eq!(utilization.2, Some(0));
     }
 }

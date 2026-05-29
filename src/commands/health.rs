@@ -27,6 +27,18 @@ fn print_health_report(report: &jeryu::health::HealthReport) {
             topology.active_total, topology.desired_total
         );
     }
+    if let (Some(ratio), Some(idle_count), Some(stuck_count)) = (
+        report.summary.runner_utilization_ratio,
+        report.summary.runner_idle_count,
+        report.summary.runner_stuck_count,
+    ) {
+        println!(
+            "  Utilization: {:>5.1}% idle={} stuck={}",
+            ratio * 100.0,
+            idle_count,
+            stuck_count
+        );
+    }
     if !report.reserved_runner_nodes.is_empty() {
         println!("  Reserved:");
         for node in &report.reserved_runner_nodes {
