@@ -16,17 +16,19 @@ default:
   before_script:
     - |
       export DEBIAN_FRONTEND=noninteractive
-      export APT_CONFIG=/cache/apt.conf
-      rm -rf /cache/apt-cache /cache/apt-state
-      mkdir -p /cache/apt-cache/archives/partial /cache/apt-state/lists/partial
-      cat >"$APT_CONFIG" <<'EOF'
-      Dir::Cache "/cache/apt-cache";
-      Dir::State "/cache/apt-state";
-      Dir::Cache::archives "/cache/apt-cache/archives";
-      Dir::State::lists "/cache/apt-state/lists";
+      export APT_CONFIG="$CI_PROJECT_DIR/.cache/apt.conf"
+      export APT_CACHE_DIR="$CI_PROJECT_DIR/.cache/apt-cache"
+      export APT_STATE_DIR="$CI_PROJECT_DIR/.cache/apt-state"
+      rm -rf "$APT_CACHE_DIR" "$APT_STATE_DIR" "$APT_CONFIG"
+      mkdir -p "$APT_CACHE_DIR/archives/partial" "$APT_STATE_DIR/lists/partial"
+      cat >"$APT_CONFIG" <<EOF
+      Dir::Cache "$APT_CACHE_DIR";
+      Dir::State "$APT_STATE_DIR";
+      Dir::Cache::archives "$APT_CACHE_DIR/archives";
+      Dir::State::lists "$APT_STATE_DIR/lists";
       Acquire::Languages "none";
-      DPkg::Post-Invoke { "rm -rf /cache/apt-cache/archives/* /cache/apt-cache/archives/partial/* || true"; };
-      APT::Update::Post-Invoke { "rm -rf /cache/apt-cache/archives/* /cache/apt-cache/archives/partial/* || true"; };
+      DPkg::Post-Invoke { "rm -rf $APT_CACHE_DIR/archives/* $APT_CACHE_DIR/archives/partial/* || true"; };
+      APT::Update::Post-Invoke { "rm -rf $APT_CACHE_DIR/archives/* $APT_CACHE_DIR/archives/partial/* || true"; };
       EOF
     - apt-get update -y
     - apt-get install -y --no-install-recommends ca-certificates curl git jq
