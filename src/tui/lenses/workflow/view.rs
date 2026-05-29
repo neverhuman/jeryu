@@ -2,103 +2,203 @@
 //! Proof: `cargo test -p jeryu --lib tui::lenses::workflow::view`
 //! Invariants: Pure draw. Reads `WorkflowLensInput`; never touches DB,
 //!             GitLab, Docker, Vault, filesystem, MCP, or network during
-//!             render. Real DAG canvas + critical path + PR/phase rail
-//!             + inspector + logs land in U19 (model + delivery) and
-//!             U20 (canvas + rails + inspector + logs).
+//!             render. Renders the Workflow Atlas: a fleet header, a colored
+//!             per-repo delivery table, and a keys footer.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Modifier, Style};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::Span;
+use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 
-use super::data::WorkflowLensInput;
+use super::data::{WorkflowLensInput, WorkflowRepoRow};
+use crate::api::entity::HealthLevel;
 
 pub fn draw(f: &mut Frame, input: &WorkflowLensInput, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Min(0),
-            Constraint::Length(3),
+            Constraint::Length(3), // fleet header
+            Constraint::Min(0),    // delivery table
+            Constraint::Length(3), // keys footer
         ])
         .split(area);
 
     draw_header(f, input, chunks[0]);
-    draw_canvas_placeholder(f, input, chunks[1]);
+    draw_atlas(f, input, chunks[1]);
     draw_footer(f, input, chunks[2]);
 }
 
+fn health_style(level: HealthLevel) -> Style {
+    match level {
+        HealthLevel::Healthy => Style::default().fg(Color::Green),
+        HealthLevel::Warning => Style::default().fg(Color::Yellow),
+        HealthLevel::Degraded => Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+        HealthLevel::Critical => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        HealthLevel::Unknown => Style::default().fg(Color::DarkGray),
+    }
+}
+
+fn posture_style(posture: &str) -> Style {
+    match posture {
+        "FAILING" => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        "running" => Style::default().fg(Color::Green),
+        "stale" => Style::default().fg(Color::Yellow),
+        _ => Style::default().fg(Color::Gray),
+    }
+}
+
 fn draw_header(f: &mut Frame, input: &WorkflowLensInput, area: Rect) {
-    let text = format!(
-        "Workflow atlas — {} pipelines  |  {} blocked  |  Cursor: {}",
-        input.total_pipelines, input.blocked_count, input.event_cursor,
+    let head = Span::raw(format!(
+        "Workflow Atlas — {} repos · {} running · {} failing · health ",
+        input.repo_count(),
+        input.running_jobs,
+        input.failed_jobs,
+    ));
+    let badge = Span::styled(input.overall.label(), health_style(input.overall));
+    let line = ratatui::text::Line::from(vec![head, badge]);
+    f.render_widget(
+        Paragraph::new(line).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Workflow Atlas — Delivery Flow "),
+        ),
+        area,
     );
-    let p = Paragraph::new(text).block(Block::default().borders(Borders::ALL).title(" Workflow "));
-    f.render_widget(p, area);
 }
 
-fn draw_canvas_placeholder(f: &mut Frame, _input: &WorkflowLensInput, area: Rect) {
-    let p = Paragraph::new("(DAG canvas + critical path + PR/phase rail land in U20)").block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" Atlas ")
-            .border_style(Style::default().add_modifier(Modifier::DIM)),
-    );
-    f.render_widget(p, area);
-}
+fn draw_atlas(f: &mut Frame, input: &WorkflowLensInput, area: Rect) {
+    if input.repos.is_empty() {
+        f.render_widget(
+            Paragraph::new("No active delivery workflows.")
+                .block(Block::default().borders(Borders::ALL).title(" Atlas ")),
+            area,
+        );
+        return;
+    }
 
-fn draw_footer(f: &mut Frame, _input: &WorkflowLensInput, area: Rect) {
-    let p = Paragraph::new(
-        "Enter: drill pipeline  |  Esc: back  |  a: actions  |  e: evidence  |  l: logs  |  n: next  |  ?: help",
+    let header = Row::new(vec![
+        Cell::from("REPO"),
+        Cell::from("FAMILY"),
+        Cell::from("POSTURE"),
+        Cell::from("RUNNING"),
+        Cell::from("FAILING"),
+    ])
+    .style(Style::default().add_modifier(Modifier::BOLD));
+
+    let rows: Vec<Row> = input.repos.iter().map(repo_row).collect();
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Min(16),
+            Constraint::Length(16),
+            Constraint::Length(10),
+            Constraint::Length(9),
+            Constraint::Length(9),
+        ],
     )
+    .header(header)
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Help ")
-            .border_style(Style::default().add_modifier(Modifier::BOLD)),
+            .title(format!(" Atlas — {} active ", input.active_count())),
     );
-    f.render_widget(p, area);
+
+    f.render_widget(table, area);
+}
+
+fn repo_row(repo: &WorkflowRepoRow) -> Row {
+    let failing = if repo.failed_count > 0 {
+        Cell::from(Span::styled(
+            repo.failed_count.to_string(),
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ))
+    } else {
+        Cell::from(repo.failed_count.to_string())
+    };
+    Row::new(vec![
+        Cell::from(repo.alias.clone()),
+        Cell::from(repo.family.clone()),
+        Cell::from(Span::styled(
+            repo.posture.clone(),
+            posture_style(&repo.posture),
+        )),
+        Cell::from(repo.running_count.to_string()),
+        failing,
+    ])
+}
+
+fn draw_footer(f: &mut Frame, input: &WorkflowLensInput, area: Rect) {
+    let text = format!(
+        "cursor={} · Keys: enter drill · g graph · e evidence",
+        input.event_cursor,
+    );
+    f.render_widget(
+        Paragraph::new(text).block(Block::default().borders(Borders::ALL).title(" Keys ")),
+        area,
+    );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::read_model::TuiReadModel;
+    use crate::api::read_model::{RepoSummary, ReposSnapshot, TuiReadModel};
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
 
-    #[test]
-    fn renders_default_at_80x24() {
-        let model = TuiReadModel::default();
-        let input = WorkflowLensInput::from_read_model(&model);
-        let backend = TestBackend::new(80, 24);
+    fn render(w: u16, h: u16, input: &WorkflowLensInput) -> String {
+        let backend = TestBackend::new(w, h);
         let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| draw(f, input, f.area())).unwrap();
         terminal
-            .draw(|f| {
-                draw(f, &input, f.area());
-            })
-            .unwrap();
-        let buf = terminal.backend().buffer();
-        let ink: String = buf.content.iter().map(|c| c.symbol()).collect();
-        assert!(!ink.trim().is_empty());
-        assert!(ink.contains("Workflow"));
-        assert!(ink.contains("Atlas"));
-        assert!(ink.contains("Help"));
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect()
     }
 
     #[test]
-    fn renders_default_at_120x36() {
+    fn renders_empty_at_80x24() {
         let model = TuiReadModel::default();
         let input = WorkflowLensInput::from_read_model(&model);
-        let backend = TestBackend::new(120, 36);
-        let mut terminal = Terminal::new(backend).unwrap();
-        terminal
-            .draw(|f| {
-                draw(f, &input, f.area());
-            })
-            .unwrap();
-        let buf = terminal.backend().buffer();
-        let ink: String = buf.content.iter().map(|c| c.symbol()).collect();
-        assert!(ink.contains("pipelines"));
+        let ink = render(80, 24, &input);
+        assert!(!ink.trim().is_empty());
+        assert!(ink.contains("Workflow Atlas"));
+        assert!(ink.contains("No active delivery workflows."));
+        assert!(ink.contains("cursor=0"));
+    }
+
+    #[test]
+    fn renders_populated_at_120x36() {
+        let mut model = TuiReadModel::default();
+        let mut repo = RepoSummary::new("core", "neverhuman/jeryu");
+        repo.failed_count = 1;
+        model.repos = ReposSnapshot::from_repo_summaries(".jeryu/repos.toml", vec![repo]);
+        model.mission.running_jobs = 3;
+        model.mission.failed_jobs = 1;
+        let input = WorkflowLensInput::from_read_model(&model);
+        let ink = render(120, 36, &input);
+        assert!(ink.contains("3 running"));
+        assert!(ink.contains("1 failing"));
+        assert!(ink.contains("core"));
+        assert!(ink.contains("neverhuman"));
+        assert!(ink.contains("FAILING"));
+        assert!(ink.contains("Keys: enter drill"));
+    }
+
+    #[test]
+    fn renders_no_placeholder_markers() {
+        let model = TuiReadModel::default();
+        let input = WorkflowLensInput::from_read_model(&model);
+        let ink = render(120, 36, &input).to_lowercase();
+        assert!(!ink.contains("placeholder"));
+        assert!(!ink.contains("todo"));
+        assert!(!ink.contains("land in u"));
+        assert!(!ink.contains("lands in u"));
     }
 }

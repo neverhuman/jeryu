@@ -1,40 +1,95 @@
 //! Owner: Interactive TUI subsystem - Source Doctor lens data selector
 //! Proof: `cargo test -p jeryu --lib tui::lenses::source_doctor::data`
 //! Invariants: Pure projection from `TuiReadModel` to
-//!             `SourceDoctorLensInput`. No I/O. Render layer reads only
-//!             the resulting struct. Per-source freshness, schema drift,
-//!             action drift, MCP drift, docs drift, and DB profile
-//!             mismatch land in U29 proper. This first-cut stubs all
-//!             counts to zero; U29 wires
-//!             `crate::api::dashboards::source_doctor::SourceDoctorDashboard`.
+//!             `SourceDoctorLensInput`. No I/O. Render layer reads only the
+//!             resulting struct. Component rows are projected from
+//!             `model.system` (gitlab/database/docker/cache/vault via
+//!             `SystemHealth::components()`) plus a synthetic runners row
+//!             derived from `model.system.runners` (`RunnerHealth`).
 
+use crate::api::entity::HealthLevel;
 use crate::api::read_model::TuiReadModel;
+
+/// One infra/config component row in the Source Doctor diagnostic table.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComponentRow {
+    pub name: String,
+    pub health: HealthLevel,
+    /// Human-readable detail: the component message plus latency, or a
+    /// runner fleet summary. Always a concrete diagnostic string.
+    pub detail: String,
+}
 
 #[derive(Debug, Clone)]
 pub struct SourceDoctorLensInput {
-    /// Total registered sources. Placeholder zero until U29 wires
-    /// `SourceDoctorDashboard::summary::sources_total`.
-    pub sources_total: u32,
-    /// Healthy source count. Placeholder zero until U29 wires the
-    /// dashboard projection.
-    pub sources_healthy: u32,
-    /// Degraded source count. Placeholder zero until U29 wires the
-    /// dashboard projection.
-    pub sources_degraded: u32,
+    /// All infra/config components diagnosed this paint, in display order.
+    pub components: Vec<ComponentRow>,
     pub event_cursor: u64,
 }
 
 impl SourceDoctorLensInput {
     pub fn from_read_model(model: &TuiReadModel) -> Self {
+        let system = &model.system;
+
+        let mut components: Vec<ComponentRow> = system
+            .components()
+            .iter()
+            .map(|c| {
+                let mut detail = c.detail.clone().unwrap_or_default();
+                if let Some(ms) = c.latency_ms {
+                    if detail.is_empty() {
+                        detail = format!("{ms}ms");
+                    } else {
+                        detail = format!("{detail} ({ms}ms)");
+                    }
+                }
+                if detail.is_empty() {
+                    detail = "ok".to_string();
+                }
+                ComponentRow {
+                    name: c.name.clone(),
+                    health: c.status,
+                    detail,
+                }
+            })
+            .collect();
+
+        // Runners are tracked as a fleet count rather than a ComponentHealth,
+        // so project them into a row of their own.
+        let r = &system.runners;
+        let runner_health = if r.online == 0 {
+            HealthLevel::Unknown
+        } else if r.degraded > 0 {
+            HealthLevel::Degraded
+        } else {
+            HealthLevel::Healthy
+        };
+        components.push(ComponentRow {
+            name: "runners".to_string(),
+            health: runner_health,
+            detail: format!(
+                "{} online · {} busy · {} idle · {} degraded",
+                r.online, r.busy, r.idle, r.degraded
+            ),
+        });
+
         Self {
-            // placeholders; U29 proper populates from
-            // SourceDoctorDashboard once that projection is wired into
-            // TuiReadModel.
-            sources_total: 0,
-            sources_healthy: 0,
-            sources_degraded: 0,
+            components,
             event_cursor: model.event_cursor,
         }
+    }
+
+    /// Count of components reporting `Healthy`.
+    pub fn healthy_count(&self) -> usize {
+        self.components
+            .iter()
+            .filter(|c| c.health == HealthLevel::Healthy)
+            .count()
+    }
+
+    /// Total components diagnosed.
+    pub fn total_count(&self) -> usize {
+        self.components.len()
     }
 }
 
@@ -43,22 +98,58 @@ mod tests {
     use super::*;
 
     #[test]
-    fn select_from_default_read_model_returns_default_input() {
+    fn select_from_default_read_model_returns_unknown_components() {
         let model = TuiReadModel::default();
         let input = SourceDoctorLensInput::from_read_model(&model);
-        assert_eq!(input.sources_total, 0);
-        assert_eq!(input.sources_healthy, 0);
-        assert_eq!(input.sources_degraded, 0);
-        assert_eq!(input.event_cursor, 0);
+        // 5 infra components + 1 runners row.
+        assert_eq!(input.total_count(), 6);
+        let names: Vec<&str> = input.components.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"gitlab"));
+        assert!(names.contains(&"database"));
+        assert!(names.contains(&"runners"));
+        // Default infra components are "not yet checked" (Degraded), and the
+        // default runner fleet is empty (Unknown) — none are Healthy.
+        assert_eq!(input.healthy_count(), 0);
     }
 
     #[test]
     fn select_preserves_event_cursor() {
         let model = TuiReadModel {
-            event_cursor: 4321,
+            event_cursor: 42,
             ..Default::default()
         };
         let input = SourceDoctorLensInput::from_read_model(&model);
-        assert_eq!(input.event_cursor, 4321);
+        assert_eq!(input.event_cursor, 42);
+    }
+
+    #[test]
+    fn runner_row_reflects_fleet_counts() {
+        let mut model = TuiReadModel::default();
+        model.system.runners.online = 4;
+        model.system.runners.busy = 2;
+        model.system.runners.idle = 2;
+        model.system.runners.degraded = 0;
+        let input = SourceDoctorLensInput::from_read_model(&model);
+        let runners = input
+            .components
+            .iter()
+            .find(|c| c.name == "runners")
+            .expect("runners row present");
+        assert_eq!(runners.health, HealthLevel::Healthy);
+        assert!(runners.detail.contains("4 online"));
+    }
+
+    #[test]
+    fn degraded_runner_fleet_is_degraded() {
+        let mut model = TuiReadModel::default();
+        model.system.runners.online = 3;
+        model.system.runners.degraded = 1;
+        let input = SourceDoctorLensInput::from_read_model(&model);
+        let runners = input
+            .components
+            .iter()
+            .find(|c| c.name == "runners")
+            .unwrap();
+        assert_eq!(runners.health, HealthLevel::Degraded);
     }
 }
