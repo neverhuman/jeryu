@@ -102,6 +102,7 @@ pub mod messaging;
 pub mod node_support;
 pub mod node_types;
 pub mod policy;
+pub mod policy_main_relay;
 pub mod pool;
 pub mod reclaim;
 pub mod redact;

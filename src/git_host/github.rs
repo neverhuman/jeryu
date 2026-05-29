@@ -159,6 +159,68 @@ impl GitHubClient {
         Ok(body.workflow_runs)
     }
 
+    /// Open a pull request `head_branch -> base_branch` and return its details.
+    ///
+    /// This is the protected-main fallback for the post-merge GitHub relay
+    /// (MASTER_HARDENING_PLAN.md Phase H): when a fast-forward push to the
+    /// external `main` is rejected because the branch is protected, the mirror
+    /// consumer pushes an ephemeral branch and opens a PR via this method so a
+    /// human/required-check can land it. It deliberately stays OUTSIDE the
+    /// `GitHost` merge-gate trait (same rationale as `list_workflow_runs`):
+    /// this is delivery plumbing, not a merge-passport verdict.
+    ///
+    /// `head` may be a plain branch name (same-repo) or `owner:branch` for a
+    /// cross-fork head. Idempotency: GitHub returns 422 when an open PR already
+    /// exists for the same `head -> base`; that is reported as
+    /// `PullRequestOutcome::AlreadyExists` rather than an error, so the
+    /// consumer can record success and move on without retry storms.
+    pub async fn create_pull_request(
+        &self,
+        repo: &RepoRef,
+        head: &str,
+        base: &str,
+        title: &str,
+        body: &str,
+        draft: bool,
+    ) -> Result<PullRequestOutcome, HostError> {
+        let payload = serde_json::json!({
+            "title": title,
+            "head": head,
+            "base": base,
+            "body": body,
+            "draft": draft,
+        });
+        let r = self
+            .req(
+                reqwest::Method::POST,
+                &format!("/repos/{}/{}/pulls", repo.owner, repo.name),
+            )
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| HostError::Transient(e.to_string()))?;
+        let status = r.status();
+        let headers = r.headers().clone();
+        if status.is_success() {
+            let parsed: CreatePrResp = r
+                .json()
+                .await
+                .map_err(|e| HostError::Permanent(e.to_string()))?;
+            return Ok(PullRequestOutcome::Created {
+                number: parsed.number.to_string(),
+                url: parsed.html_url,
+            });
+        }
+        let text = response_text_or_empty(r).await;
+        // GitHub answers 422 Unprocessable Entity when an open PR already
+        // exists for this head->base pair (message contains "A pull request
+        // already exists"). Treat that as a benign idempotent hit.
+        if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY && text.contains("already exists") {
+            return Ok(PullRequestOutcome::AlreadyExists);
+        }
+        Err(map_http_err(status, &headers, text))
+    }
+
     /// Read every `*.yml` under `.jeryu/autonomy/policies/` on `target_branch`,
     /// decode base64 bodies if needed, and hash the concatenation in
     /// alphabetical filename order. Returns `Ok(None)` when the directory
@@ -346,6 +408,20 @@ struct UserResp {
 #[derive(Deserialize)]
 struct CheckRunResp {
     id: u64,
+    html_url: Option<String>,
+}
+
+/// Result of `GitHubClient::create_pull_request`. `AlreadyExists` is the
+/// idempotent hit when an open PR already covers the same head->base pair.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PullRequestOutcome {
+    Created { number: String, url: Option<String> },
+    AlreadyExists,
+}
+
+#[derive(Deserialize)]
+struct CreatePrResp {
+    number: u64,
     html_url: Option<String>,
 }
 
@@ -930,6 +1006,33 @@ mod tests {
         assert!(
             matches!(err, HostError::Transient(_)),
             "expected Transient, got {err:?}"
+        );
+    }
+
+    /// `create_pull_request` must exercise the network codepath (no silent
+    /// short-circuit) — same dry-run pattern as the other PR methods.
+    #[tokio::test]
+    async fn github_create_pull_request_dry_run_uses_network() {
+        let c = GitHubClient::new("fake-token-not-used").with_base_url("http://127.0.0.1:1/");
+        let r = RepoRef::parse("anthropics/claude-code").unwrap();
+        let err = c
+            .create_pull_request(&r, "jeryu-relay-abc", "main", "relay", "body", false)
+            .await
+            .expect_err("must fail because the base URL is unreachable");
+        assert!(
+            matches!(err, HostError::Transient(_)),
+            "expected Transient, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn github_create_pr_resp_deserializes() {
+        let raw = r#"{"number": 42, "html_url": "https://github.com/o/r/pull/42"}"#;
+        let parsed: CreatePrResp = serde_json::from_str(raw).unwrap();
+        assert_eq!(parsed.number, 42);
+        assert_eq!(
+            parsed.html_url.as_deref(),
+            Some("https://github.com/o/r/pull/42")
         );
     }
 
