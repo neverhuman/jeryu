@@ -129,6 +129,25 @@ pub fn app_to_read_model(app: &App) -> TuiReadModel {
         .sum();
     model.mission.active_runners = active;
     model.mission.total_runners = total;
+
+    // Job posture from tracked pipelines: running = unfinished jobs on running
+    // pipelines; failed/queued by pipeline status. Best-effort projection so the
+    // Mission and Queue lenses show real local numbers.
+    let mut running = 0u32;
+    let mut failed = 0u32;
+    let mut queued = 0u32;
+    for pm in &app.state.pipelines {
+        let status = pm.pipeline.status.to_ascii_lowercase();
+        match status.as_str() {
+            "running" => running += pm.total.saturating_sub(pm.completed) as u32,
+            "failed" => failed += 1,
+            "pending" | "created" | "waiting_for_resource" | "scheduled" => queued += 1,
+            _ => {}
+        }
+    }
+    model.mission.running_jobs = running;
+    model.mission.failed_jobs = failed;
+    model.mission.queued_jobs = queued;
     model
 }
 
