@@ -3,6 +3,7 @@
 //! Invariants: TUI entry points preserve terminal cleanup and keep operational actions policy-gated.
 
 pub mod action_registry;
+pub mod actions;
 pub mod activity;
 pub mod aer;
 pub mod app;
@@ -12,6 +13,7 @@ pub mod focus;
 pub mod jankurai;
 pub mod lenses;
 pub mod live;
+pub mod nav;
 pub mod proof_lanes;
 pub mod repo_fleet_bar;
 pub mod runner;

@@ -10,37 +10,55 @@ fn entity_ref_display() {
 #[test]
 fn entity_kinds_have_unique_labels() {
     use std::collections::HashSet;
-    let kinds = [
-        EntityKind::Job,
-        EntityKind::Pipeline,
-        EntityKind::Agent,
-        EntityKind::AgentTask,
-        EntityKind::MergeRequest,
-        EntityKind::TestPlan,
-        EntityKind::TestCase,
-        EntityKind::EvidenceCapsule,
-        EntityKind::ReleaseAttempt,
-        EntityKind::ReleaseGate,
-        EntityKind::CacheTaint,
-        EntityKind::CacheObject,
-        EntityKind::Bug,
-        EntityKind::BugAttempt,
-        EntityKind::Repo,
-        EntityKind::RepoFamily,
-        EntityKind::Project,
-        EntityKind::SecretAccess,
-        EntityKind::Grant,
-        EntityKind::Pool,
-        EntityKind::Runner,
-        EntityKind::System,
-    ];
     let mut labels = HashSet::new();
-    for kind in &kinds {
+    for kind in EntityKind::ALL {
         assert!(
             labels.insert(kind.label()),
             "duplicate label: {}",
             kind.label()
         );
+    }
+}
+
+#[test]
+fn entity_kinds_have_routes_and_badges() {
+    for kind in EntityKind::ALL {
+        assert!(
+            !kind.route_segment().is_empty(),
+            "missing route for {kind:?}"
+        );
+        assert!(!kind.badge().is_empty(), "missing badge for {kind:?}");
+    }
+}
+
+#[test]
+fn legacy_entity_kind_json_still_deserializes() {
+    let fixtures = [
+        ("\"job\"", EntityKind::Job),
+        ("\"pipeline\"", EntityKind::Pipeline),
+        ("\"agent\"", EntityKind::Agent),
+        ("\"agent_task\"", EntityKind::AgentTask),
+        ("\"merge_request\"", EntityKind::MergeRequest),
+        ("\"test_plan\"", EntityKind::TestPlan),
+        ("\"test_case\"", EntityKind::TestCase),
+        ("\"evidence_capsule\"", EntityKind::EvidenceCapsule),
+        ("\"release_attempt\"", EntityKind::ReleaseAttempt),
+        ("\"release_gate\"", EntityKind::ReleaseGate),
+        ("\"cache_taint\"", EntityKind::CacheTaint),
+        ("\"cache_object\"", EntityKind::CacheObject),
+        ("\"bug\"", EntityKind::Bug),
+        ("\"bug_attempt\"", EntityKind::BugAttempt),
+        ("\"project\"", EntityKind::Project),
+        ("\"secret_access\"", EntityKind::SecretAccess),
+        ("\"grant\"", EntityKind::Grant),
+        ("\"pool\"", EntityKind::Pool),
+        ("\"runner\"", EntityKind::Runner),
+        ("\"system\"", EntityKind::System),
+    ];
+
+    for (json, expected) in fixtures {
+        let actual: EntityKind = serde_json::from_str(json).unwrap();
+        assert_eq!(actual, expected);
     }
 }
 

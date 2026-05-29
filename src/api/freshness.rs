@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum SourceKind {
     GitLab,
-    StateDb,
+    StateStore,
     Docker,
     Cache,
     Vault,
@@ -33,6 +33,7 @@ pub enum SourceKind {
 pub enum FreshnessState {
     Live,
     Fresh,
+    Aged,
     Stale,
     LastKnown,
     Inferred,
@@ -46,6 +47,7 @@ impl FreshnessState {
         match self {
             Self::Live => "LIVE",
             Self::Fresh => "FRESH",
+            Self::Aged => "AGED",
             Self::Stale => "STALE",
             Self::LastKnown => "LAST KNOWN",
             Self::Inferred => "INFERRED",
@@ -58,7 +60,12 @@ impl FreshnessState {
     pub fn blocks_risky_action(self) -> bool {
         matches!(
             self,
-            Self::Stale | Self::LastKnown | Self::Inferred | Self::Partial | Self::SourceDown
+            Self::Aged
+                | Self::Stale
+                | Self::LastKnown
+                | Self::Inferred
+                | Self::Partial
+                | Self::SourceDown
         )
     }
 }
@@ -117,8 +124,8 @@ mod tests {
     }
 
     #[test]
-    fn stale_or_down_sources_block_risky_actions() {
-        assert!(FreshnessState::Stale.blocks_risky_action());
+    fn aged_or_down_sources_block_risky_actions() {
+        assert!(FreshnessState::Aged.blocks_risky_action());
         assert!(FreshnessState::SourceDown.blocks_risky_action());
         assert!(!FreshnessState::Fresh.blocks_risky_action());
     }

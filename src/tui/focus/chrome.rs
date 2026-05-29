@@ -11,6 +11,7 @@ use crate::tui::app::App;
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
+    widgets::{Block, Borders},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -67,6 +68,15 @@ pub fn pane_chrome(app: &App, pane: PaneId) -> PaneChrome {
         border_style: border_style(app, pane),
         show_esc: should_show_drill_esc(app, pane),
     }
+}
+
+pub fn pane_block<'a>(app: &App, pane: PaneId, title: impl Into<String>) -> Block<'a> {
+    let chrome = pane_chrome(app, pane);
+    let title = title.into();
+    Block::default()
+        .title(chrome.title(title.trim()))
+        .borders(Borders::ALL)
+        .border_style(chrome.border_style)
 }
 
 pub fn register_pane(app: &mut App, pane: PaneId, rect: Rect) {

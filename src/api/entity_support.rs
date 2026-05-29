@@ -70,7 +70,7 @@ pub struct Project {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DataFreshness {
     pub gitlab_ms: Option<u64>,
-    pub db_ms: Option<u64>,
+    pub state_store_ms: Option<u64>,
     pub docker_ms: Option<u64>,
     pub cache_ms: Option<u64>,
     pub vault_ms: Option<u64>,

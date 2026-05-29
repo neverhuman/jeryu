@@ -225,3 +225,7 @@ async fn seed_live_flow_snapshot(app: &mut App) {
         app.tick().await;
     }
 }
+
+#[cfg(test)]
+#[path = "runner_tests.rs"]
+mod tests;

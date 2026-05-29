@@ -6,7 +6,7 @@ mod ui_panels_jankurai_helpers;
 #[path = "ui_panels_jankurai_panels.rs"]
 mod ui_panels_jankurai_panels;
 
-pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
+pub(crate) fn draw_jank_tab(f: &mut Frame, app: &mut App, area: Rect) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -28,9 +28,6 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Percentage(42), Constraint::Percentage(58)])
         .split(rows[2]);
 
-    let scan = app.state.jankurai.last_scan.as_ref();
-    let history = &app.state.jankurai.history;
-
     focus::register_pane(app, PaneId::JankSummary, top_cols[0]);
     focus::register_pane(app, PaneId::JankStatus, top_cols[1]);
     focus::register_pane(app, PaneId::JankScoreChart, middle_cols[0]);
@@ -43,6 +40,9 @@ pub(crate) fn draw_jank_tab(f: &mut Frame, app: &App, area: Rect) {
     focus::register_drill_esc_hotspot(app, PaneId::JankBreakdown, middle_cols[1]);
     focus::register_drill_esc_hotspot(app, PaneId::JankIssues, bottom_cols[0]);
     focus::register_drill_esc_hotspot(app, PaneId::JankEntryDetail, bottom_cols[1]);
+
+    let scan = app.state.jankurai.last_scan.as_ref();
+    let history = &app.state.jankurai.history;
 
     // ── Summary block (top-left) ────────────────────────────────────────
     render_summary_block(f, app, top_cols[0], scan, history);

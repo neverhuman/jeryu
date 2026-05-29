@@ -10,9 +10,12 @@ use super::entity::{ActionRef, BlockerSummary, DataFreshness, EntityRef, HealthL
 
 #[path = "read_model_health.rs"]
 mod health;
+#[path = "read_model_queue.rs"]
+mod queue;
 #[path = "read_model_repos.rs"]
 mod repos;
 pub use health::{ComponentHealth, RunnerHealth};
+pub use queue::{QueueJobSummary, QueuePoolSnapshot, QueueSnapshot};
 pub use repos::{RepoFamilySummary, RepoSummary, ReposSnapshot};
 
 /// Schema version for forward-compatibility checks.
@@ -30,6 +33,8 @@ pub struct TuiReadModel {
     pub event_cursor: u64,
     pub freshness: DataFreshness,
     pub mission: MissionSnapshot,
+    #[serde(default)]
+    pub queue: QueueSnapshot,
     #[serde(default)]
     pub repos: ReposSnapshot,
     #[serde(default)]
@@ -49,6 +54,7 @@ impl Default for TuiReadModel {
             event_cursor: 0,
             freshness: DataFreshness::default(),
             mission: MissionSnapshot::default(),
+            queue: QueueSnapshot::default(),
             repos: ReposSnapshot::default(),
             source_doctor: SourceDoctorDashboard::default(),
             runners: RunnersDashboard::default(),

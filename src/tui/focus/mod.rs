@@ -31,7 +31,7 @@ pub use map::{FocusMap, FocusPane};
 // `esc_label`, `title_with_esc`) are called via `focus::*` paths from
 // `ui_panels*.rs` and `repo_fleet_bar.rs`.
 pub use chrome::{
-    PaneChrome, border_color, border_style, esc_label, is_active, pane_chrome,
+    PaneChrome, border_color, border_style, esc_label, is_active, pane_block, pane_chrome,
     register_drill_esc_hotspot, register_esc_hotspot, register_pane, should_show_drill_esc,
     should_show_esc, title_with_esc,
 };

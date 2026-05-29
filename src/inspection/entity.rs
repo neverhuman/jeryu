@@ -48,30 +48,7 @@ pub async fn get_entity(
 }
 
 fn kind_label(kind: EntityKind) -> &'static str {
-    match kind {
-        EntityKind::Job => "job",
-        EntityKind::Pipeline => "pipeline",
-        EntityKind::Agent => "agent",
-        EntityKind::AgentTask => "agent_task",
-        EntityKind::MergeRequest => "merge_request",
-        EntityKind::TestPlan => "test_plan",
-        EntityKind::TestCase => "test_case",
-        EntityKind::EvidenceCapsule => "evidence_capsule",
-        EntityKind::ReleaseAttempt => "release_attempt",
-        EntityKind::ReleaseGate => "release_gate",
-        EntityKind::CacheTaint => "cache_taint",
-        EntityKind::CacheObject => "cache_object",
-        EntityKind::Bug => "bug",
-        EntityKind::BugAttempt => "bug_attempt",
-        EntityKind::Repo => "repo",
-        EntityKind::RepoFamily => "repo_family",
-        EntityKind::Project => "project",
-        EntityKind::SecretAccess => "secret_access",
-        EntityKind::Grant => "grant",
-        EntityKind::Pool => "pool",
-        EntityKind::Runner => "runner",
-        EntityKind::System => "system",
-    }
+    kind.label()
 }
 
 #[cfg(test)]

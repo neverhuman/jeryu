@@ -124,6 +124,9 @@ excluded_paths = [
     # TUI action registry entries are UI command metadata. Lexical action
     # names such as update/record map to handlers; they are not persistence.
     "src/tui/action_registry_entries.rs",
+    # Entity taxonomy is protocol metadata only. Variants such as
+    # GitRefUpdate and CacheRequest are not persistence calls.
+    "src/api/entity_kind.rs",
     # TUI files are rendering/input/state composition, not durable truth.
     # Many labels and action names contain update/record/select words that
     # trip the lexical DB detector; persistence stays behind typed repos.

@@ -5,6 +5,8 @@
 mod png;
 
 #[cfg(test)]
+mod tab_tests;
+#[cfg(test)]
 mod tests;
 
 use anyhow::Result;

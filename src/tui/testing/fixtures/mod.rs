@@ -31,7 +31,7 @@ pub(crate) fn ts(h: u32, m: u32, s: u32) -> DateTime<Utc> {
 pub(crate) fn fresh(g: u64, d: u64, dk: u64, c: u64, v: u64, stale: bool) -> DataFreshness {
     DataFreshness {
         gitlab_ms: Some(g),
-        db_ms: Some(d),
+        state_store_ms: Some(d),
         docker_ms: Some(dk),
         cache_ms: Some(c),
         vault_ms: Some(v),
