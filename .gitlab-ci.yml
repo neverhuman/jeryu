@@ -10,10 +10,10 @@ variables:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
   GIT_DEPTH: "1"
-  PATH: /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  PATH: /usr/local/rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 default:
-  image: rust:1.95.0@sha256:39d8cb39a54e7d1da665c4fabfdd265e532a5f836c11ab5aee27fd5c73891ce4
+  image: rust:1.95.0
   timeout: 30m
 
 .workflow_rules_main: &rules_main
@@ -61,7 +61,6 @@ rust_clippy:
   stage: quality
   rules: *rules_rust
   script:
-    - rustup component add clippy
     - bash ops/ci/rust-lane.sh clippy
 
 rust_build:
@@ -443,7 +442,7 @@ web_rust_feature:
   needs: []
   rules: *rules_web
   script:
-    - rustup component add rustfmt clippy
+    - rustup component add rustfmt
     - cargo install -q --locked cargo-nextest --force
     - cargo fmt --all -- --check
     - cargo check --workspace --features web
