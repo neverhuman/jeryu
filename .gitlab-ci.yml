@@ -14,6 +14,19 @@ variables:
 default:
   image: rust:1.95.0
   before_script:
+    - |
+      export DEBIAN_FRONTEND=noninteractive
+      export APT_CONFIG=/tmp/apt.conf
+      rm -rf /tmp/apt-cache /tmp/apt-state
+      mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+      cat >"$APT_CONFIG" <<'EOF'
+      Dir::Cache "/tmp/apt-cache";
+      Dir::State "/tmp/apt-state";
+      Dir::Cache::archives "/tmp/apt-cache/archives";
+      Dir::State::lists "/tmp/apt-state/lists";
+      DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+      APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+      EOF
     - apt-get update -y
     - apt-get install -y --no-install-recommends ca-certificates curl git jq
 

@@ -136,12 +136,22 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
         --platform "$LINUX_PLATFORM" \
         -e RUSTUP_TOOLCHAIN=stable \
         -e DEBIAN_FRONTEND=noninteractive \
+        -e APT_CONFIG=/tmp/apt.conf \
         -v "$REPO_ROOT:/workspace" \
         -v "$HOME/.cargo/registry:/root/.cargo/registry" \
         -v "$HOME/.cargo/git:/root/.cargo/git" \
         -w /workspace \
         rust:bookworm \
         bash -c "set -euo pipefail
+mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+cat >/tmp/apt.conf <<'EOF'
+Dir::Cache \"/tmp/apt-cache\";
+Dir::State \"/tmp/apt-state\";
+Dir::Cache::archives \"/tmp/apt-cache/archives\";
+Dir::State::lists \"/tmp/apt-state/lists\";
+DPkg::Post-Invoke { \"rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true\"; };
+APT::Update::Post-Invoke { \"rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true\"; };
+EOF
 apt-get update -qq >/dev/null 2>&1
 apt-get install -y -qq cmake pkg-config >/dev/null 2>&1
 cargo build --release -p jeryu --target-dir /workspace/target/linux-remote"
@@ -164,6 +174,16 @@ setup_sshd_container_from_base_image() {
     docker exec "$CONTAINER_NAME" bash -lc '
         set -euo pipefail
         export DEBIAN_FRONTEND=noninteractive
+        export APT_CONFIG=/tmp/apt.conf
+        mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+        cat >/tmp/apt.conf <<'"'"'EOF'"'"'
+Dir::Cache "/tmp/apt-cache";
+Dir::State "/tmp/apt-state";
+Dir::Cache::archives "/tmp/apt-cache/archives";
+Dir::State::lists "/tmp/apt-state/lists";
+DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+EOF
         apt-get update
         apt-get install -y --no-install-recommends \
             openssh-server \

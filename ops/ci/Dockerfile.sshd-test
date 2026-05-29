@@ -14,8 +14,18 @@ LABEL org.opencontainers.image.description="Minimal sshd target for SSH install 
 
 # Avoid interactive prompts during package install.
 ENV DEBIAN_FRONTEND=noninteractive
+ENV APT_CONFIG=/tmp/apt.conf
 
 RUN set -eux; \
+    mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists; \
+    printf '%s\n' \
+        'Dir::Cache "/tmp/apt-cache";' \
+        'Dir::State "/tmp/apt-state";' \
+        'Dir::Cache::archives "/tmp/apt-cache/archives";' \
+        'Dir::State::lists "/tmp/apt-state/lists";' \
+        'DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };' \
+        'APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };' \
+        >"$APT_CONFIG"; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         openssh-server \
