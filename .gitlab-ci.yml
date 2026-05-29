@@ -96,41 +96,7 @@ rust_test_lib:
   needs: [rust_test_select]
   rules: *rules_rust
   script:
-    - |
-      mode="full"
-      filter=""
-      if [ -f target/jeryu/test-plan.json ]; then
-        eval "$(
-          python3 - <<'PY'
-import json
-import shlex
-
-with open("target/jeryu/test-plan.json", encoding="utf-8") as fh:
-    data = json.load(fh)
-
-mode = data.get("mode", "full")
-filter_expr = ""
-if mode not in {"selected", "full"}:
-    for item in data.get("selected_tests", []):
-        command = item.get("command")
-        if not command:
-            continue
-        if command.startswith("cargo nextest run -E '"):
-            command = command[len("cargo nextest run -E '"):]
-        if command.endswith("'"):
-            command = command[:-1]
-        filter_expr = command
-        break
-
-print(f"mode={shlex.quote(mode)}")
-print(f"filter={shlex.quote(filter_expr)}")
-PY
-        )"
-        if [ "$mode" = "selected" ] || [ "$mode" = "full" ]; then
-          filter=""
-        fi
-      fi
-      bash ops/ci/rust-lane.sh test-lib "$mode" "$filter"
+    - bash ops/ci/rust-lane.sh test-lib
 
 rust_test_mock:
   stage: test
@@ -160,17 +126,7 @@ jeryu_health_self:
   script:
     - mkdir -p target/jeryu
     - cargo run -p jeryu --bin jeryu -- health --ci --json > target/jeryu/health.json
-    - |
-      python3 - <<'PY'
-import json
-import sys
-
-with open("target/jeryu/health.json", encoding="utf-8") as fh:
-    data = json.load(fh)
-
-if not data.get("ok"):
-    raise SystemExit(1)
-PY
+    - python3 -c 'import json; from pathlib import Path; data = json.loads(Path("target/jeryu/health.json").read_text(encoding="utf-8")); raise SystemExit(1) if not data.get("ok") else None'
   artifacts:
     when: always
     paths:

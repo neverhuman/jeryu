@@ -192,6 +192,33 @@ PY
   test-lib)
     MODE="${2:-full}"
     FILTER="${3:-}"
+    if [ -f target/jeryu/test-plan.json ]; then
+      eval "$(
+        python3 - <<'PY'
+import json
+import shlex
+from pathlib import Path
+
+data = json.loads(Path("target/jeryu/test-plan.json").read_text(encoding="utf-8"))
+mode = data.get("mode", "full")
+filter_expr = ""
+if mode not in {"selected", "full"}:
+    for item in data.get("selected_tests", []):
+        command = item.get("command")
+        if not command:
+            continue
+        if command.startswith("cargo nextest run -E '"):
+            command = command[len("cargo nextest run -E '"):]
+        if command.endswith("'"):
+            command = command[:-1]
+        filter_expr = command
+        break
+
+print(f"MODE={shlex.quote(mode)}")
+print(f"FILTER={shlex.quote(filter_expr)}")
+PY
+      )"
+    fi
     install_redlinedb_if_requested
     if [ "$MODE" = "selected" ] && [ -n "$FILTER" ]; then
       cargo nextest run -p jeryu --lib --profile ci -E "$FILTER"
