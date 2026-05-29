@@ -16,10 +16,11 @@ default:
   before_script:
     - |
       export DEBIAN_FRONTEND=noninteractive
-      export APT_CONFIG=/cache/apt.conf
-      export APT_CACHE_DIR=/cache/apt-cache
-      export APT_STATE_DIR=/cache/apt-state
-      rm -rf "$APT_CACHE_DIR" "$APT_STATE_DIR" "$APT_CONFIG"
+      export APT_ROOT="/cache/apt/${CI_JOB_ID:-$$}"
+      export APT_CONFIG="$APT_ROOT/apt.conf"
+      export APT_CACHE_DIR="$APT_ROOT/cache"
+      export APT_STATE_DIR="$APT_ROOT/state"
+      rm -rf "$APT_ROOT"
       mkdir -p "$APT_CACHE_DIR/archives" "$APT_STATE_DIR/lists"
       install -d -o _apt -g root -m 700 "$APT_CACHE_DIR/archives/partial" "$APT_STATE_DIR/lists/partial"
       cat >"$APT_CONFIG" <<EOF
@@ -27,12 +28,17 @@ default:
       Dir::State "$APT_STATE_DIR";
       Dir::Cache::archives "$APT_CACHE_DIR/archives";
       Dir::State::lists "$APT_STATE_DIR/lists";
+      Dir::Cache::pkgcache "";
+      Dir::Cache::srcpkgcache "";
       Acquire::Languages "none";
-      DPkg::Post-Invoke { "rm -rf $APT_CACHE_DIR/archives/* $APT_CACHE_DIR/archives/partial/* || true"; };
+      DPkg::Post-Invoke { "rm -rf $APT_CACHE_DIR/archives/* $APT_CACHE_DIR/archives/partial/* $APT_STATE_DIR/lists/* $APT_STATE_DIR/lists/partial/* || true"; };
       APT::Update::Post-Invoke { "rm -rf $APT_CACHE_DIR/archives/* $APT_CACHE_DIR/archives/partial/* || true"; };
       EOF
     - apt-get update -y
     - apt-get install -y --no-install-recommends ca-certificates curl git jq
+  after_script:
+    - |
+      rm -rf "${APT_ROOT:-/cache/apt/${CI_JOB_ID:-$$}}" 2>/dev/null || true
 
 .workflow_rules_main: &rules_main
   - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

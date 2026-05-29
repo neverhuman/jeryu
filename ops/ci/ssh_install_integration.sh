@@ -150,12 +150,15 @@ Dir::Cache \"/tmp/apt-cache\";
 Dir::State \"/tmp/apt-state\";
 Dir::Cache::archives \"/tmp/apt-cache/archives\";
 Dir::State::lists \"/tmp/apt-state/lists\";
+Dir::Cache::pkgcache \"\";
+Dir::Cache::srcpkgcache \"\";
 Acquire::Languages \"none\";
-DPkg::Post-Invoke { \"rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true\"; };
+DPkg::Post-Invoke { \"rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/* || true\"; };
 APT::Update::Post-Invoke { \"rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true\"; };
 EOF
 apt-get update -qq >/dev/null 2>&1
 apt-get install -y -qq cmake pkg-config >/dev/null 2>&1
+rm -rf /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/* >/dev/null 2>&1 || true
 cargo build --release -p jeryu --target-dir /workspace/target/linux-remote"
     export JERYU_REMOTE_BINARY_PATH="$LINUX_BIN_DIR/release/jeryu"
     ok "Linux binary: $JERYU_REMOTE_BINARY_PATH"
@@ -184,8 +187,10 @@ Dir::Cache "/tmp/apt-cache";
 Dir::State "/tmp/apt-state";
 Dir::Cache::archives "/tmp/apt-cache/archives";
 Dir::State::lists "/tmp/apt-state/lists";
+Dir::Cache::pkgcache "";
+Dir::Cache::srcpkgcache "";
 Acquire::Languages "none";
-DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/* || true"; };
 APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
 EOF
         apt-get update
@@ -196,6 +201,7 @@ EOF
             ca-certificates \
             procps \
             curl
+        rm -rf /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/* >/dev/null 2>&1 || true
         mkdir -p /run/sshd
         useradd -m -s /bin/bash testuser
         echo "testuser:testpass" | chpasswd

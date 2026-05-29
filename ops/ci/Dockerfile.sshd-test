@@ -24,8 +24,10 @@ RUN set -eux; \
         'Dir::State "/tmp/apt-state";' \
         'Dir::Cache::archives "/tmp/apt-cache/archives";' \
         'Dir::State::lists "/tmp/apt-state/lists";' \
+        'Dir::Cache::pkgcache "";' \
+        'Dir::Cache::srcpkgcache "";' \
         'Acquire::Languages "none";' \
-        'DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };' \
+        'DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/* || true"; };' \
         'APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };' \
         >"$APT_CONFIG"; \
     apt-get update; \
@@ -37,6 +39,7 @@ RUN set -eux; \
         procps \
         curl \
         iptables; \
+    rm -rf /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/*; \
     rm -rf /var/lib/apt/lists/*; \
     curl -fsSL https://get.docker.com | sh; \
     # sshd needs /run/sshd to exist.
