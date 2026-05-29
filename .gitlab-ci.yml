@@ -10,6 +10,7 @@ variables:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
   GIT_DEPTH: "1"
+  PATH: /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 default:
   image: rust:1.95.0
