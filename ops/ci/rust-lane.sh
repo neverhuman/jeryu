@@ -9,18 +9,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 cd "$REPO_ROOT"
+STAGE="${1:-}"
 
 bootstrap_ci_rust_tools() {
   if [ -z "${CI:-}" ] && [ -z "${GITLAB_CI:-}" ]; then
     return 0
   fi
-  install_ci_packages jq mold docker.io
+  case "$STAGE" in
+    test-select|test-lib)
+      install_ci_packages jq
+      ;;
+    ssh-install-e2e)
+      install_ci_packages docker.io
+      ;;
+  esac
 }
 
 bootstrap_ci_rust_tools
 require_tool cargo
 
-STAGE="${1:-}"
 if [ -z "$STAGE" ]; then
   die "usage: bash ops/ci/rust-lane.sh <stage>"
 fi

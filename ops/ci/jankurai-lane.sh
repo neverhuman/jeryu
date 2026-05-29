@@ -14,21 +14,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$SCRIPT_DIR/lib.sh"
 cd "$REPO_ROOT"
+cmd="${1:-all}"
 
 bootstrap_ci_jankurai_tools() {
   if [ -z "${CI:-}" ] && [ -z "${GITLAB_CI:-}" ]; then
     return 0
   fi
-  install_ci_packages jq nodejs npm python3 curl tar
-  if ! command -v node >/dev/null 2>&1 && command -v nodejs >/dev/null 2>&1; then
-    ln -sf "$(command -v nodejs)" /usr/local/bin/node
-  fi
+  case "$1" in
+    audit)
+      install_ci_packages jq
+      ;;
+    tools)
+      install_ci_packages nodejs npm python3 curl tar
+      if ! command -v node >/dev/null 2>&1 && command -v nodejs >/dev/null 2>&1; then
+        ln -sf "$(command -v nodejs)" /usr/local/bin/node
+      fi
+      ;;
+  esac
   if ! command -v jankurai >/dev/null 2>&1; then
     bash scripts/install-jankurai.sh
   fi
 }
 
-bootstrap_ci_jankurai_tools
+bootstrap_ci_jankurai_tools "$cmd"
 ensure_dirs
 require_jankurai
 
@@ -350,7 +358,6 @@ run_sbom() {
 
 # ── Dispatch ───────────────────────────────────────────────────────────────
 
-cmd="${1:-all}"
 case "$cmd" in
   security)     run_security ;;
   audit)        run_audit ;;
