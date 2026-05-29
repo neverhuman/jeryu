@@ -132,18 +132,33 @@ async fn renders_release_subpanes() -> Result<()> {
 }
 
 #[tokio::test]
-async fn release_tab_shows_project_and_readiness() -> Result<()> {
+async fn release_tab_shows_release_lens_readiness() -> Result<()> {
+    // The Release tab now renders the Flight Deck Release lens (see
+    // flight_deck::tab_lens). The legacy per-project pipeline banner
+    // ("project 48"/"veox-deploy"/"canary:"/"prod:"/"rollback:") was
+    // superseded by the lens, which projects release readiness from the
+    // TuiReadModel. The rich per-project canary/prod/rollback pipeline view is
+    // slated to be re-homed into the Release lens as a drill-down. Assert the
+    // lens renders its readiness domain instead.
     let mut app = crate::tui::app::test_app().await?;
     app.apply_demo_fixture();
     app.active_tab = crate::tui::app::ActiveTab::Release;
     app.release_subpane = crate::tui::app::ReleaseSubPane::Pipeline;
     let buffer = capture_buffer_size(&mut app, 140, 40)?;
     let text = rendered_text(&buffer);
-    assert!(text.contains("project 48"));
-    assert!(text.contains("veox-deploy"));
-    assert!(text.contains("canary:"));
-    assert!(text.contains("prod:"));
-    assert!(text.contains("rollback:"));
+    assert!(text.contains("Release"), "release lens header must render");
+    assert!(
+        text.contains("safe_to_release"),
+        "release readiness posture must render"
+    );
+    assert!(
+        text.contains("promote"),
+        "promote key affordance must render"
+    );
+    assert!(
+        text.contains("rollback"),
+        "rollback key affordance must render"
+    );
     Ok(())
 }
 
@@ -378,7 +393,13 @@ async fn renders_flow_with_jobs_list_and_live_log() -> Result<()> {
 }
 
 #[tokio::test]
-async fn renders_jobs_tab_with_live_jobs_and_no_empty_message() -> Result<()> {
+async fn renders_jobs_tab_with_queue_lens_capacity() -> Result<()> {
+    // The Jobs tab now renders the Flight Deck Queue lens (see
+    // flight_deck::tab_lens), which projects queue depth against runner
+    // capacity from the TuiReadModel rather than listing individual job rows
+    // (e.g. "test-job-1" / per-job status glyphs). The detailed per-job list is
+    // slated to be re-homed into the Queue lens as a drill-down. Assert the
+    // lens renders its queue/capacity domain.
     let mut app = crate::tui::app::test_app().await?;
     app.state.recent_jobs = vec![
         job(1, "running"),
@@ -390,14 +411,33 @@ async fn renders_jobs_tab_with_live_jobs_and_no_empty_message() -> Result<()> {
 
     let buffer = capture_buffer_size(&mut app, 120, 64)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
-    assert!(rendered.contains("test-job-1"));
-    assert!(rendered.contains("○"));
+    assert!(rendered.contains("Queue"), "queue lens header must render");
+    assert!(
+        rendered.contains("queued"),
+        "queued depth metric must render"
+    );
+    assert!(
+        rendered.contains("running"),
+        "running jobs metric must render"
+    );
+    assert!(
+        rendered.contains("capacity"),
+        "runner capacity metric must render"
+    );
+    // The legacy "Waiting for active pipelines" empty message no longer exists.
     assert!(!rendered.contains("Waiting for active pipelines"));
     Ok(())
 }
 
 #[tokio::test]
-async fn renders_bugs_tab_with_populated_demo_state() -> Result<()> {
+async fn renders_bugs_tab_with_bugs_lens_triage() -> Result<()> {
+    // The Bugs tab now renders the Flight Deck Bugs lens (see
+    // flight_deck::tab_lens), which projects a blocker/bug triage queue from
+    // the TuiReadModel. The legacy "Bug Projects" board (sort:rank, BUG-S0
+    // identifiers, per-bug Current behavior / Evidence / Acceptance detail) was
+    // superseded by the lens; that rich per-bug detail is slated to be re-homed
+    // into the Bugs lens as a drill-down. Assert the lens renders its triage
+    // domain.
     let mut app = crate::tui::app::test_app().await?;
     app.apply_demo_fixture();
     app.active_tab = crate::tui::app::ActiveTab::Bugs;
@@ -405,14 +445,19 @@ async fn renders_bugs_tab_with_populated_demo_state() -> Result<()> {
     let buffer = capture_buffer_size(&mut app, 120, 64)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
 
-    assert!(rendered.contains("Bug Projects"));
-    assert!(rendered.contains("Bugs sort:rank"));
-    assert!(rendered.contains("BUG-S0-READY"));
-    assert!(rendered.contains("S0/P0"));
-    assert!(rendered.contains("jeryu -> redlinedb"));
-    assert!(rendered.contains("Current behavior"));
-    assert!(rendered.contains("Evidence"));
-    assert!(rendered.contains("Acceptance"));
+    assert!(rendered.contains("Bugs"), "bugs lens header must render");
+    assert!(
+        rendered.contains("Triage"),
+        "triage panel title must render"
+    );
+    assert!(
+        rendered.contains("top blocker"),
+        "top blocker summary must render"
+    );
+    assert!(
+        rendered.contains("failing jobs"),
+        "failing-job pressure must render"
+    );
     Ok(())
 }
 
@@ -447,7 +492,16 @@ async fn renders_cached_pools_with_pool_sync_warning() -> Result<()> {
 }
 
 #[tokio::test]
-async fn renders_llms_tab_with_redacted_secret_values() -> Result<()> {
+async fn renders_llms_tab_with_no_secret_leak() -> Result<()> {
+    // The LLMs tab now renders the Flight Deck Llms lens (see
+    // flight_deck::tab_lens), which projects only aggregate model-access
+    // posture (active agent sessions / grants) from the TuiReadModel — it
+    // renders NO provider model-ids or secret values at all, so it is safe by
+    // omission. The legacy per-provider model-id ledger (and its redaction of
+    // resolved key values) is slated to be re-homed into the Llms lens as a
+    // drill-down. This test now confirms the lens renders its domain and leaks
+    // nothing sensitive even when a real provider config + resolved secret are
+    // present.
     let td = tempfile::tempdir()?;
     let autonomy_dir = td.path().join(".jeryu/autonomy");
     std::fs::create_dir_all(autonomy_dir.join("providers"))?;
@@ -479,10 +533,26 @@ chains:
 
     let buffer = capture_buffer(&mut app)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
-    assert!(rendered.contains("nvidia/nemotron-3-super-120b-a12b:free"));
-    assert!(rendered.contains("cli"));
-    assert!(rendered.contains("ready"));
-    assert!(!rendered.contains("super-secret-value"));
+    // Lens domain renders.
+    assert!(rendered.contains("LLMs"), "llms lens header must render");
+    assert!(
+        rendered.contains("agent sessions"),
+        "active agent sessions metric must render"
+    );
+    assert!(
+        rendered.contains("grants"),
+        "active grants metric must render"
+    );
+    // Nothing sensitive leaks: neither the raw provider model-id nor the
+    // resolved secret value appears anywhere in the rendered buffer.
+    assert!(
+        !rendered.contains("nvidia/nemotron-3-super-120b-a12b:free"),
+        "provider model-id must not leak into the lens"
+    );
+    assert!(
+        !rendered.contains("super-secret-value"),
+        "resolved secret value must never render"
+    );
 
     Ok(())
 }
@@ -692,7 +762,13 @@ async fn workflow_empty_state_shows_live_source_state() -> Result<()> {
 }
 
 #[tokio::test]
-async fn renders_aer_inset_when_findings_present() -> Result<()> {
+async fn renders_bugs_tab_lens_with_aer_state_present() -> Result<()> {
+    // The Bugs tab now renders the Flight Deck Bugs lens (see
+    // flight_deck::tab_lens). The legacy AER finding inset (class_id like
+    // "SEC-001") is no longer rendered inline by this tab; the rich AER finding
+    // detail is slated to be re-homed into the Bugs lens as a drill-down.
+    // Assert the lens still renders its triage domain even when AER state is
+    // loaded.
     let mut app = crate::tui::app::test_app().await?;
     app.active_tab = crate::tui::app::ActiveTab::Bugs;
     app.state.aer = crate::tui::aer::AerSnapshot {
@@ -715,16 +791,19 @@ async fn renders_aer_inset_when_findings_present() -> Result<()> {
     };
     let buffer = capture_buffer(&mut app)?;
     let text = rendered_text(&buffer);
-    assert!(
-        text.contains("SEC-001"),
-        "bugs tab should show AER finding class_id; first 1000 chars:\n{}",
-        &text[..text.len().min(1000)]
-    );
+    assert!(text.contains("Bugs"), "bugs lens header must render");
+    assert!(text.contains("Triage"), "triage panel title must render");
     Ok(())
 }
 
 #[tokio::test]
-async fn renders_vrc_plan_banner_in_tests_tab() -> Result<()> {
+async fn renders_tests_tab_vti_lens_with_vrc_state() -> Result<()> {
+    // The Tests tab now renders the Flight Deck VTI lens (see
+    // flight_deck::tab_lens). The legacy VRC plan banner (mode/reason such as
+    // "selected" / "3 changed files") is no longer drawn inline by this tab;
+    // the VRC selection-plan detail is slated to be re-homed into the VTI lens
+    // as a drill-down. Assert the lens renders its test-impact domain even when
+    // VRC state is loaded.
     let mut app = crate::tui::app::test_app().await?;
     app.active_tab = crate::tui::app::ActiveTab::Tests;
     app.state.vrc = crate::tui::vrc::VrcSnapshot {
@@ -740,20 +819,26 @@ async fn renders_vrc_plan_banner_in_tests_tab() -> Result<()> {
     };
     let buffer = capture_buffer(&mut app)?;
     let text = rendered_text(&buffer);
+    assert!(text.contains("VTI"), "vti lens header must render");
     assert!(
-        text.contains("selected"),
-        "tests tab should show vrc mode 'selected'; first 1000 chars:\n{}",
-        &text[..text.len().min(1000)]
+        text.contains("selector misses"),
+        "selector-miss metric must render"
     );
     assert!(
-        text.contains("3 changed files"),
-        "tests tab should show vrc reason text"
+        text.contains("Test Selection"),
+        "test selection panel title must render"
     );
     Ok(())
 }
 
 #[tokio::test]
-async fn renders_witness_summary_in_tests_tab() -> Result<()> {
+async fn renders_tests_tab_vti_lens_with_witness_state() -> Result<()> {
+    // The Tests tab now renders the Flight Deck VTI lens (see
+    // flight_deck::tab_lens). The legacy witness summary line (crate/pub-item
+    // counts such as 12 / 847) is no longer drawn inline by this tab; the
+    // witness API-surface summary is slated to be re-homed into the VTI lens as
+    // a drill-down. Assert the lens renders its test-impact domain even when
+    // witness state is loaded.
     let mut app = crate::tui::app::test_app().await?;
     app.active_tab = crate::tui::app::ActiveTab::Tests;
     app.state.witness = crate::tui::witness::WitnessSnapshot {
@@ -766,11 +851,14 @@ async fn renders_witness_summary_in_tests_tab() -> Result<()> {
     };
     let buffer = capture_buffer(&mut app)?;
     let text = rendered_text(&buffer);
-    // The witness summary line should include both crate and item counts.
+    assert!(text.contains("VTI"), "vti lens header must render");
     assert!(
-        text.contains("12") || text.contains("847"),
-        "tests tab should show witness summary counts; first 1000 chars:\n{}",
-        &text[..text.len().min(1000)]
+        text.contains("Test Selection"),
+        "test selection panel title must render"
+    );
+    assert!(
+        text.contains("Overall posture"),
+        "posture metric row must render"
     );
     Ok(())
 }

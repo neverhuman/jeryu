@@ -9,9 +9,10 @@
 //!     `LensId` to its `<lens>::draw`, and `tab_lens` maps the existing
 //!     `ActiveTab` nav onto the lens set so opening `jeryu tui` shows the new
 //!     Flight Deck instead of the legacy panels.
-//!   - Tabs without a 1:1 lens (Jobs/Approvals/Git/Secrets/Jankurai) return
-//!     `None` and keep their legacy panel until their lens lands — so the cutover
-//!     is incremental and never blanks a working screen.
+//!   - Reset screens route through `tab_lens` to their lens; Workflow + Repos
+//!     keep their own richer reset wrappers; Approvals/Git/Secrets/Jankurai
+//!     keep their legacy panel until their lens lands — so the cutover never
+//!     blanks a working screen.
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -26,30 +27,27 @@ use crate::tui::lenses::{self, LensId};
 /// the closest existing tab so they are reachable today.
 pub fn tab_lens(tab: ActiveTab) -> Option<LensId> {
     match tab {
-        // Route a tab to its lens ONLY when that lens is genuinely built-out —
-        // never trade a working legacy panel for a placeholder lens. Today the
-        // shipped-quality lenses are Mission (posture cockpit) and Runners (the
-        // live multinode pane, surfaced via the Pools tab). Repos is already a
-        // lens via its legacy wrapper (which also registers focus). Cache /
-        // Evidence / Agents / VTI / Release / Bugs / LLMs lenses are still
-        // scaffolds ("lands in U2x") so their richer legacy panels stay until
-        // each lens reaches parity.
+        // Every screen with a built-out Flight Deck lens routes to it. The lens
+        // library is now complete, so all data-summary screens render as lenses
+        // projected from the TuiReadModel.
         ActiveTab::Mission => Some(LensId::Mission),
         ActiveTab::Pools => Some(LensId::Runners),
-        ActiveTab::Workflow
-        | ActiveTab::Release
-        | ActiveTab::Repos
-        | ActiveTab::Bugs
-        | ActiveTab::LLMs
-        | ActiveTab::Tests
-        | ActiveTab::Cache
-        | ActiveTab::Evidence
-        | ActiveTab::Agents
-        | ActiveTab::Jobs
-        | ActiveTab::Approvals
-        | ActiveTab::Git
-        | ActiveTab::Secrets
-        | ActiveTab::Jankurai => None,
+        ActiveTab::Release => Some(LensId::Release),
+        ActiveTab::Jobs => Some(LensId::Queue),
+        ActiveTab::Agents => Some(LensId::Agents),
+        ActiveTab::Tests => Some(LensId::Vti),
+        ActiveTab::Cache => Some(LensId::Cache),
+        ActiveTab::Evidence => Some(LensId::Evidence),
+        ActiveTab::Bugs => Some(LensId::Bugs),
+        ActiveTab::LLMs => Some(LensId::Llms),
+        // Already reset via their own richer wrappers in ui/draw.rs (more than a
+        // generic lens): Workflow = delivery atlas widget (DAG + inspector +
+        // focus panes); Repos = repos lens + focus/drill registration.
+        ActiveTab::Workflow | ActiveTab::Repos => None,
+        // Residual legacy panels with no lens yet (rich/sensitive): Approvals
+        // gates, Git sync/MR, Secrets/artifacts, Jankurai audit. Kept until
+        // their lenses land.
+        ActiveTab::Approvals | ActiveTab::Git | ActiveTab::Secrets | ActiveTab::Jankurai => None,
     }
 }
 
@@ -189,26 +187,39 @@ mod tests {
     }
 
     #[test]
-    fn only_built_out_lenses_are_routed() {
-        // Mission cockpit + Runners pane are the shipped-quality lenses.
-        assert_eq!(tab_lens(ActiveTab::Mission), Some(LensId::Mission));
-        assert_eq!(tab_lens(ActiveTab::Pools), Some(LensId::Runners));
+    fn reset_screens_route_to_their_lens() {
+        // The full lens library is built out, so every data-summary screen
+        // renders as its Flight Deck lens.
+        for (tab, lens) in [
+            (ActiveTab::Mission, LensId::Mission),
+            (ActiveTab::Pools, LensId::Runners),
+            (ActiveTab::Release, LensId::Release),
+            (ActiveTab::Jobs, LensId::Queue),
+            (ActiveTab::Agents, LensId::Agents),
+            (ActiveTab::Tests, LensId::Vti),
+            (ActiveTab::Cache, LensId::Cache),
+            (ActiveTab::Evidence, LensId::Evidence),
+            (ActiveTab::Bugs, LensId::Bugs),
+            (ActiveTab::LLMs, LensId::Llms),
+        ] {
+            assert_eq!(tab_lens(tab), Some(lens), "{tab:?} must render its lens");
+        }
     }
 
     #[test]
-    fn placeholder_and_rich_legacy_tabs_keep_their_panel() {
-        // Scaffold lenses (cache/evidence/agents) must NOT replace their richer
-        // legacy panels; rich legacy tabs stay until their lens reaches parity.
+    fn wrapper_and_residual_tabs_keep_their_panel() {
+        // Workflow + Repos render via their own richer reset wrappers in
+        // ui/draw.rs; Approvals/Git/Secrets/Jankurai keep their legacy panel
+        // until their lens lands. All must return None from tab_lens.
         for tab in [
-            ActiveTab::Cache,
-            ActiveTab::Evidence,
-            ActiveTab::Agents,
             ActiveTab::Workflow,
             ActiveTab::Repos,
-            ActiveTab::Bugs,
+            ActiveTab::Approvals,
+            ActiveTab::Git,
+            ActiveTab::Secrets,
             ActiveTab::Jankurai,
         ] {
-            assert_eq!(tab_lens(tab), None, "{tab:?} must keep its legacy panel");
+            assert_eq!(tab_lens(tab), None, "{tab:?} must keep its own panel");
         }
     }
 }

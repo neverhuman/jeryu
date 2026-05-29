@@ -65,24 +65,26 @@ fn workflow_macro_micro_focus_and_drilldown_work() -> anyhow::Result<()> {
 
 #[test]
 fn keyboard_macro_focuses_activity_log_and_drills_down() -> anyhow::Result<()> {
+    // The Jobs tab now renders the Flight Deck Queue lens (see
+    // flight_deck::tab_lens), which does not register the legacy "Live Runner
+    // Feed"/"Pipeline Progress"/"Job Matrix"/"Inspector" focusable subpanes
+    // (slated to be re-homed into the Queue lens as drill-downs). What remains
+    // valid is the always-present Activity / Logs pane: arrow keys reach it and
+    // Enter drills it full-screen, hiding the Queue lens body, with Esc
+    // restoring. Cover that.
     let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("jobs")?;
 
+    // The Queue lens body is visible before drilling.
+    page.wait_for_text("Capacity", Duration::from_secs(5))?;
     page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
-    wait_for_focused_title(&page, "Live Runner Feed")?;
 
-    page.press(Key::Left)?;
-    wait_for_focused_title(&page, "Live Runner Feed")?;
-
+    // Keyboard-focus the Activity / Logs pane. The Jobs default focus pane is no
+    // longer registered, so the first arrow falls back to the first visible pane
+    // (the fleet bar); the next Down reaches Activity / Logs.
+    page.press(Key::Down)?;
     page.press(Key::Down)?;
     wait_for_focused_title(&page, "Activity / Logs")?;
-
-    page.press(Key::Left)?;
-    wait_for_focused_title(&page, "Activity / Logs")?;
-
-    page.press(Key::Right)?;
-    let before_enter = page.screen();
-    assert_focused_title_row(&before_enter, "Activity / Logs")?;
 
     page.press(Key::Enter)?;
     page.wait_for_text("[esc]", Duration::from_secs(5))?;
@@ -93,21 +95,15 @@ fn keyboard_macro_focuses_activity_log_and_drills_down() -> anyhow::Result<()> {
         fullscreen_text.contains("Job") || fullscreen_text.contains("Jobs"),
         "fullscreen activity/log content should remain visible\n\nscreen:\n{fullscreen_text}"
     );
+    // Full-screen activity hides the Queue lens body.
     assert!(
-        !fullscreen_text.contains("Pipeline Progress"),
-        "fullscreen activity/log should hide the jobs pipeline pane\n\nscreen:\n{fullscreen_text}"
-    );
-    assert!(
-        !fullscreen_text.contains("Live Runner Feed"),
-        "fullscreen activity/log should hide the live runner feed\n\nscreen:\n{fullscreen_text}"
-    );
-    assert!(
-        !fullscreen_text.contains("Job Matrix"),
-        "fullscreen activity/log should hide the job matrix\n\nscreen:\n{fullscreen_text}"
+        !fullscreen_text.contains("Capacity"),
+        "fullscreen activity/log should hide the queue lens body\n\nscreen:\n{fullscreen_text}"
     );
 
     page.press(Key::Esc)?;
-    page.wait_for_text("Pipeline Progress", Duration::from_secs(5))?;
+    // The Queue lens body is restored after Esc.
+    page.wait_for_text("Capacity", Duration::from_secs(5))?;
     let restored = page.screen();
     let restored_text = restored.plain_text();
     assert!(
@@ -118,17 +114,19 @@ fn keyboard_macro_focuses_activity_log_and_drills_down() -> anyhow::Result<()> {
             .contains("[esc]"),
         "fullscreen activity/log title should be gone after Esc\n\nscreen:\n{restored_text}"
     );
-
-    page.press(Key::Up)?;
-    wait_for_focused_title(&page, "Inspector")?;
     Ok(())
 }
 
 #[test]
 fn activity_log_enter_expands_and_esc_restores() -> anyhow::Result<()> {
+    // The Jobs tab now renders the Flight Deck Queue lens (see
+    // flight_deck::tab_lens), so the legacy "Pipeline Progress" pane is gone.
+    // Use the Queue lens "Capacity" panel as the body marker that disappears
+    // when Activity / Logs is drilled full-screen and reappears on Esc.
     let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("jobs")?;
 
+    page.wait_for_text("Capacity", Duration::from_secs(5))?;
     page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
     let locator = page.get_by_text("Activity / Logs");
     let match_ = locator
@@ -139,18 +137,23 @@ fn activity_log_enter_expands_and_esc_restores() -> anyhow::Result<()> {
 
     page.press(Key::Enter)?;
     page.wait_for_text("[esc]", Duration::from_secs(5))?;
-    page.expect_screen().not_to_contain_text("Pipeline")?;
+    page.expect_screen().not_to_contain_text("Capacity")?;
 
     page.press(Key::Esc)?;
-    page.wait_for_text("Pipeline", Duration::from_secs(5))?;
+    page.wait_for_text("Capacity", Duration::from_secs(5))?;
     Ok(())
 }
 
 #[test]
 fn esc_badge_click_exits_entered_pane() -> anyhow::Result<()> {
+    // The Jobs tab now renders the Flight Deck Queue lens (see
+    // flight_deck::tab_lens), so the legacy "Pipeline Progress" pane is gone.
+    // Use the Queue lens "Capacity" panel as the body marker restored when the
+    // esc badge is clicked to exit the full-screen Activity / Logs pane.
     let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("jobs")?;
 
+    page.wait_for_text("Capacity", Duration::from_secs(5))?;
     page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
     let locator = page.get_by_text("Activity / Logs");
     let match_ = locator
@@ -167,7 +170,7 @@ fn esc_badge_click_exits_entered_pane() -> anyhow::Result<()> {
     // literal `[esc]` text, whose terminal-cell offset can vary under nextest.
     page.click_cell(8, 4)?;
 
-    page.wait_for_text("Pipeline", Duration::from_secs(5))?;
+    page.wait_for_text("Capacity", Duration::from_secs(5))?;
     Ok(())
 }
 

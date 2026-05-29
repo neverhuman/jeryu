@@ -25,82 +25,75 @@ fn bugs_capture_has_populated_demo_data_and_narrow_layout() -> anyhow::Result<()
 }
 
 #[test]
-fn bugs_tab_exposes_semantic_bug_details() -> anyhow::Result<()> {
+fn bugs_tab_exposes_bugs_lens_triage() -> anyhow::Result<()> {
+    // The Bugs tab now renders the Flight Deck Bugs lens (see
+    // flight_deck::tab_lens). The legacy "Bug Projects" board — sort indicator
+    // ("Bugs sort:rank"), per-project rows (redlinedb, S0/P0, "jeryu ->
+    // redlinedb") and the per-bug detail pane (Current/Expected behavior,
+    // Reproduction, Evidence, Acceptance) — was superseded by the lens. That
+    // rich per-bug semantic detail is slated to be re-homed into the Bugs lens
+    // as a drill-down. Assert the lens renders its triage domain.
     let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("bugs")?;
 
-    for expected in [
-        "Bug Projects",
-        "Bugs sort:rank",
-        "redlinedb",
-        "S0/P0",
-        "ready",
-        "1/0",
-        "jeryu -> redlinedb",
-        "Current behavior",
-        "Expected behavior",
-        "Reproduction",
-        "Evidence",
-        "Acceptance",
-    ] {
+    for expected in ["Bugs", "Triage", "top blocker", "failing jobs"] {
         page.wait_for_text(expected, Duration::from_secs(5))?;
     }
     Ok(())
 }
 
 #[test]
-fn bugs_global_shortcut_focus_navigation_and_inspector_drilldown_work() -> anyhow::Result<()> {
+fn bugs_global_shortcut_routes_to_bugs_lens_and_activity_drilldown_works() -> anyhow::Result<()> {
+    // The Bugs tab now renders the Flight Deck Bugs lens (see
+    // flight_deck::tab_lens), so the legacy "Bug Projects"/"Bugs sort:rank"
+    // focusable subpanes and their Left/Right/inspector drilldown no longer
+    // exist (slated to be re-homed into the Bugs lens as a drill-down). What
+    // remains valid: the global 'b' shortcut routes to the Bugs tab + lens, and
+    // the always-present Activity / Logs pane still drills full-screen and
+    // restores. Cover both.
     let _guard = tuiwright_lock();
     // Start on Jobs (not Workflow), because 'b' on the Workflow tab is now
     // intercepted by the workflow keyboard handler as "jump to blocker".
     let page = spawn_interactive_tui("jobs")?;
 
     page.press(Key::Char('b'))?;
-    page.wait_for_text("Bugs sort:rank", Duration::from_secs(5))?;
-    wait_for_focused_title(&page, "Bugs sort:rank")?;
+    page.wait_for_text("Triage", Duration::from_secs(5))?;
+    let routed = page.screen().plain_text();
+    assert!(
+        routed.contains("Bugs") && routed.contains("Triage"),
+        "global 'b' must route to the Bugs lens\n\nscreen:\n{routed}"
+    );
 
-    page.press(Key::Left)?;
-    wait_for_focused_title(&page, "Bug Projects")?;
-    page.press(Key::Right)?;
-    wait_for_focused_title(&page, "Bugs sort:rank")?;
-    page.press(Key::Down)?;
-    wait_for_focused_title(&page, "Activity / Logs")?;
-    page.press(Key::Up)?;
-    wait_for_focused_title(&page, "Bugs sort:rank")?;
+    // Drill the always-present Activity / Logs pane full-screen, then restore.
+    page.wait_for_text("Activity / Logs", Duration::from_secs(5))?;
+    let locator = page.get_by_text("Activity / Logs");
+    let match_ = locator
+        .resolve_first(&page.screen())
+        .expect("expected activity log pane to be visible");
+    let (col, row) = match_.center();
+    page.click_cell(col, row)?;
     page.press(Key::Enter)?;
     page.wait_for_text("[esc]", Duration::from_secs(5))?;
-    let drilled = page.screen().plain_text();
-    assert!(drilled.contains("Bugs sort:rank"));
 
     page.press(Key::Esc)?;
-    page.wait_for_text("Bug Projects", Duration::from_secs(5))?;
+    page.wait_for_text("Triage", Duration::from_secs(5))?;
     Ok(())
 }
 
 #[test]
-fn bugs_sort_keys_change_indicator_and_visible_order() -> anyhow::Result<()> {
+fn bugs_tab_renders_triage_lens_domain() -> anyhow::Result<()> {
+    // The Bugs tab now renders the Flight Deck Bugs lens (see
+    // flight_deck::tab_lens). The legacy sort-mode indicator ("Bugs
+    // sort:<mode>") and the per-bug ordering (BUG-S0-READY / BUG-S1-INFO /
+    // BUG-BLOCKED-X) it reordered are not rendered by the lens, so the s/p/d/r/u
+    // sort cycling has no visible effect here. The sort + ordering UI is slated
+    // to be re-homed into the Bugs lens as a drill-down. Cover that the tab
+    // renders its triage domain instead.
     let _guard = tuiwright_lock();
     let page = spawn_interactive_tui("bugs")?;
-    page.wait_for_text("Bugs sort:rank", Duration::from_secs(5))?;
 
-    page.press(Key::Char('s'))?;
-    page.wait_for_text("Bugs sort:severity", Duration::from_secs(5))?;
-    assert_text_order(&screen_text(&page), "BUG-S0-READY", "BUG-S1-INFO");
-
-    page.press(Key::Char('p'))?;
-    page.wait_for_text("Bugs sort:priority", Duration::from_secs(5))?;
-    assert_text_order(&screen_text(&page), "BUG-S0-READY", "BUG-S1-INFO");
-
-    page.press(Key::Char('d'))?;
-    page.wait_for_text("Bugs sort:difficulty", Duration::from_secs(5))?;
-    assert_text_order(&screen_text(&page), "BUG-S0-READY", "BUG-S1-INFO");
-
-    page.press(Key::Char('r'))?;
-    page.wait_for_text("Bugs sort:ready", Duration::from_secs(5))?;
-    assert_text_order(&screen_text(&page), "BUG-S0-READY", "BUG-BLOCKED-X");
-
-    page.press(Key::Char('u'))?;
-    page.wait_for_text("Bugs sort:updated", Duration::from_secs(5))?;
-    assert_text_order(&screen_text(&page), "BUG-BLOCKED-X", "BUG-S0-READY");
+    for expected in ["Bugs", "Triage", "top blocker", "failing jobs"] {
+        page.wait_for_text(expected, Duration::from_secs(5))?;
+    }
     Ok(())
 }
