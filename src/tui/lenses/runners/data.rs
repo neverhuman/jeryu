@@ -54,6 +54,9 @@ pub struct RunnersLensInput {
     pub total_runners: u32,
     pub event_cursor: u64,
     pub nodes: Vec<RunnerNodeRow>,
+    /// Pool/runner sync warning carried from `app.state.pool_sync_error` so the
+    /// pane keeps surfacing sync failures (preserved from the legacy pools tab).
+    pub sync_warning: Option<String>,
 }
 
 impl RunnersLensInput {
@@ -64,6 +67,7 @@ impl RunnersLensInput {
             total_runners: model.mission.total_runners,
             event_cursor: model.event_cursor,
             nodes: Vec::new(),
+            sync_warning: None,
         }
     }
 
@@ -79,7 +83,14 @@ impl RunnersLensInput {
             total_runners: total,
             event_cursor,
             nodes: rows,
+            sync_warning: None,
         }
+    }
+
+    /// Attach a pool/runner sync warning (preserved from the legacy pools tab).
+    pub fn with_sync_warning(mut self, warning: Option<String>) -> Self {
+        self.sync_warning = warning;
+        self
     }
 
     /// Count of nodes whose last probe failed — drives the fleet alert banner.

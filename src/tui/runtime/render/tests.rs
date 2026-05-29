@@ -418,6 +418,9 @@ async fn renders_bugs_tab_with_populated_demo_state() -> Result<()> {
 
 #[tokio::test]
 async fn renders_cached_pools_with_pool_sync_warning() -> Result<()> {
+    // The Pools tab now renders the Flight Deck Runners lens (the runner pane
+    // is the evolved "Runner Pools" view). The pool sync warning is preserved:
+    // it is carried into the Runners lens footer so sync failures still surface.
     let mut app = crate::tui::app::test_app().await?;
     app.active_tab = crate::tui::app::ActiveTab::Pools;
     app.state.pools = vec![pool("linux-large", false), pool("linux-paused", true)];
@@ -426,12 +429,20 @@ async fn renders_cached_pools_with_pool_sync_warning() -> Result<()> {
     let buffer = capture_buffer(&mut app)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
 
-    assert!(rendered.contains("pools:1/2 cached"));
-    assert!(rendered.contains("Runner Pools (2 cached) sync warning"));
-    assert!(rendered.contains("linux-large"));
-    assert!(rendered.contains("Pool sync warning"));
-    assert!(!rendered.contains("Runner Pools (0)"));
-    assert!(!rendered.contains("No pool selected."));
+    // New Runners lens chrome renders.
+    assert!(
+        rendered.contains("Runners"),
+        "runners lens header must render"
+    );
+    // Pool sync warning is preserved (now in the runners footer).
+    assert!(
+        rendered.contains("Pool sync warning"),
+        "sync warning must still surface"
+    );
+    assert!(
+        rendered.contains("redline unavailable"),
+        "the actual sync error text must surface"
+    );
     Ok(())
 }
 

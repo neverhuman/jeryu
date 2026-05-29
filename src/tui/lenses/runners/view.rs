@@ -121,6 +121,21 @@ fn draw_node_grid(f: &mut Frame, input: &RunnersLensInput, area: Rect) {
 }
 
 fn draw_footer(f: &mut Frame, input: &RunnersLensInput, area: Rect) {
+    // A pool/runner sync warning takes precedence — it means the fleet view may
+    // be stale, which the operator must see before acting.
+    if let Some(warn) = input.sync_warning.as_ref() {
+        f.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                format!("⚠ Pool sync warning: {warn}"),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )))
+            .block(Block::default().borders(Borders::ALL)),
+            area,
+        );
+        return;
+    }
     let unreachable = input.unreachable_nodes();
     let line = if unreachable > 0 {
         Line::from(Span::styled(

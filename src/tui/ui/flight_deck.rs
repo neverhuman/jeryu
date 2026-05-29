@@ -26,19 +26,26 @@ use crate::tui::lenses::{self, LensId};
 /// the closest existing tab so they are reachable today.
 pub fn tab_lens(tab: ActiveTab) -> Option<LensId> {
     match tab {
+        // Conservative cutover: only tabs whose legacy panel had no rich
+        // tested behaviour or focus/overlay wiring are routed to their lens, so
+        // the cutover never regresses existing render/focus tests. The Pools
+        // tab is repurposed to the new Runners lens — the headline multinode
+        // runner pane — which has no separate tab of its own.
         ActiveTab::Mission => Some(LensId::Mission),
-        ActiveTab::Workflow => Some(LensId::Workflow),
-        ActiveTab::Release => Some(LensId::Release),
-        ActiveTab::Agents => Some(LensId::Agents),
         ActiveTab::Cache => Some(LensId::Cache),
         ActiveTab::Evidence => Some(LensId::Evidence),
-        ActiveTab::Repos => Some(LensId::Repos),
-        ActiveTab::Bugs => Some(LensId::Bugs),
-        ActiveTab::LLMs => Some(LensId::Llms),
+        ActiveTab::Agents => Some(LensId::Agents),
         ActiveTab::Pools => Some(LensId::Runners),
-        ActiveTab::Tests => Some(LensId::Vti),
-        // No lens yet — keep the legacy panel.
-        ActiveTab::Jobs
+        // Kept on their tested legacy panels until each lens is a verified
+        // drop-in replacement (Workflow/Release/Repos/Bugs/LLMs/Tests) or has no
+        // lens yet (Jobs/Approvals/Git/Secrets/Jankurai).
+        ActiveTab::Workflow
+        | ActiveTab::Release
+        | ActiveTab::Repos
+        | ActiveTab::Bugs
+        | ActiveTab::LLMs
+        | ActiveTab::Tests
+        | ActiveTab::Jobs
         | ActiveTab::Approvals
         | ActiveTab::Git
         | ActiveTab::Secrets
@@ -80,10 +87,12 @@ pub fn draw_lens(f: &mut Frame, app: &App, model: &TuiReadModel, lens: LensId, a
             area,
         ),
         LensId::Runners => {
-            // Live multinode runner health from the synced node fleet.
+            // Live multinode runner health from the synced node fleet, carrying
+            // the pool sync warning forward from the legacy pools tab.
             runners::draw(
                 f,
-                &runners::RunnersLensInput::from_nodes(&app.state.remote_nodes, model.event_cursor),
+                &runners::RunnersLensInput::from_nodes(&app.state.remote_nodes, model.event_cursor)
+                    .with_sync_warning(app.state.pool_sync_error.clone()),
                 area,
             )
         }
@@ -158,20 +167,22 @@ mod tests {
     #[test]
     fn pools_tab_surfaces_runners_lens() {
         assert_eq!(tab_lens(ActiveTab::Pools), Some(LensId::Runners));
-        assert_eq!(tab_lens(ActiveTab::Tests), Some(LensId::Vti));
     }
 
     #[test]
     fn mapped_tabs_resolve_to_their_lens() {
         assert_eq!(tab_lens(ActiveTab::Mission), Some(LensId::Mission));
-        assert_eq!(tab_lens(ActiveTab::Repos), Some(LensId::Repos));
         assert_eq!(tab_lens(ActiveTab::Cache), Some(LensId::Cache));
+        assert_eq!(tab_lens(ActiveTab::Evidence), Some(LensId::Evidence));
+        assert_eq!(tab_lens(ActiveTab::Agents), Some(LensId::Agents));
     }
 
     #[test]
-    fn unmapped_tabs_keep_legacy_panel() {
-        assert_eq!(tab_lens(ActiveTab::Jobs), None);
+    fn legacy_tabs_keep_their_panel() {
+        // Rich/tested legacy panels stay until their lens is a verified drop-in.
+        assert_eq!(tab_lens(ActiveTab::Workflow), None);
+        assert_eq!(tab_lens(ActiveTab::Repos), None);
+        assert_eq!(tab_lens(ActiveTab::Bugs), None);
         assert_eq!(tab_lens(ActiveTab::Jankurai), None);
-        assert_eq!(tab_lens(ActiveTab::Git), None);
     }
 }
