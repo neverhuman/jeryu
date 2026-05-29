@@ -143,12 +143,13 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
         -w /workspace \
         rust:bookworm \
         bash -c "set -euo pipefail
-mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+        mkdir -p /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
 cat >/tmp/apt.conf <<'EOF'
 Dir::Cache \"/tmp/apt-cache\";
 Dir::State \"/tmp/apt-state\";
 Dir::Cache::archives \"/tmp/apt-cache/archives\";
 Dir::State::lists \"/tmp/apt-state/lists\";
+Acquire::Languages \"none\";
 DPkg::Post-Invoke { \"rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true\"; };
 APT::Update::Post-Invoke { \"rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true\"; };
 EOF
@@ -175,12 +176,13 @@ setup_sshd_container_from_base_image() {
         set -euo pipefail
         export DEBIAN_FRONTEND=noninteractive
         export APT_CONFIG=/tmp/apt.conf
-        mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
+        mkdir -p /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
         cat >/tmp/apt.conf <<'"'"'EOF'"'"'
 Dir::Cache "/tmp/apt-cache";
 Dir::State "/tmp/apt-state";
 Dir::Cache::archives "/tmp/apt-cache/archives";
 Dir::State::lists "/tmp/apt-state/lists";
+Acquire::Languages "none";
 DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
 APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
 EOF

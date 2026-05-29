@@ -17,12 +17,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV APT_CONFIG=/tmp/apt.conf
 
 RUN set -eux; \
-    mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists; \
+    mkdir -p /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial; \
     printf '%s\n' \
         'Dir::Cache "/tmp/apt-cache";' \
         'Dir::State "/tmp/apt-state";' \
         'Dir::Cache::archives "/tmp/apt-cache/archives";' \
         'Dir::State::lists "/tmp/apt-state/lists";' \
+        'Acquire::Languages "none";' \
         'DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };' \
         'APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };' \
         >"$APT_CONFIG"; \
