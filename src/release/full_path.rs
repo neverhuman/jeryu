@@ -1,4 +1,5 @@
 use super::*;
+use crate::gitlab_client::MergeRequest;
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use serde_json::json;
@@ -149,17 +150,23 @@ pub async fn run_full_path(options: FullPathOptions) -> Result<FullPathReport> {
         target = options.target
     );
     let body = render_merge_request_body(&report, &project.web_url);
-    let mr = client
-        .create_merge_request(project.id, &options.source, &options.target, &title, &body)
-        .await
-        .context("create release merge request")?;
+    let (mr, mr_detail) = ensure_release_merge_request(
+        &client,
+        project.id,
+        &options.source,
+        &options.target,
+        &title,
+        &body,
+    )
+    .await
+    .context("create or update release merge request")?;
     report.mr_iid = Some(mr.iid);
     push_stage(
         &mut report,
         options.json,
         "mr",
         "pass",
-        "merge request created",
+        &mr_detail,
         Some(json!({
             "mr_iid": mr.iid,
             "web_url": mr.web_url,
@@ -433,6 +440,33 @@ fn render_merge_request_body(report: &FullPathReport, web_url: &str) -> String {
         project = report.project_path,
         web_url = web_url
     )
+}
+
+async fn ensure_release_merge_request(
+    client: &GitlabClient,
+    project_id: i64,
+    source: &str,
+    target: &str,
+    title: &str,
+    body: &str,
+) -> Result<(MergeRequest, String)> {
+    let existing = client
+        .list_open_merge_requests_for_branches(project_id, source, target)
+        .await
+        .context("list existing release merge requests")?;
+    if let Some(mr) = existing.into_iter().next() {
+        let updated = client
+            .update_merge_request_metadata(project_id, mr.iid, title, body)
+            .await
+            .context("update existing release merge request")?;
+        return Ok((updated, "merge request updated".to_string()));
+    }
+
+    let mr = client
+        .create_merge_request(project_id, source, target, title, body)
+        .await
+        .context("create release merge request")?;
+    Ok((mr, "merge request created".to_string()))
 }
 
 async fn wait_for_source_pipeline(
