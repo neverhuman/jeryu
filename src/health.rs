@@ -6,8 +6,10 @@ use std::path::Path;
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
+use futures_util::future::join_all;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tokio::time::{Duration, timeout};
 
 use crate::api::dashboards::runners::{RunnersDashboard, RunnersSummary};
 use crate::api::dashboards::source_doctor::{SourceDoctorDashboard, SourceDoctorSummary};
@@ -20,6 +22,8 @@ use crate::runner_backend::RunnerBackend;
 use crate::runner_backend_remote;
 use crate::runner_backend_remote::RemoteDockerBackend;
 use crate::state::Db;
+
+const HEALTH_PROBE_TIMEOUT_SECS: u64 = 12;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -138,6 +142,24 @@ pub async fn build_health_report(options: HealthOptions) -> HealthReport {
 
 pub fn apply_report_to_read_model(report: &HealthReport, model: &mut TuiReadModel) {
     let degraded = report.summary.checks_degraded + report.summary.checks_failed;
+    let partial_sources = report
+        .checks
+        .iter()
+        .filter(|check| {
+            check
+                .data
+                .as_ref()
+                .and_then(|data| data.get("timed_out"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+        })
+        .count() as u32;
+    let source_down_count = report
+        .checks
+        .iter()
+        .filter(|check| check.status == HealthCheckStatus::Failed)
+        .count() as u32;
+    let orphaned_containers = pool_doctor_issue_count(report, "orphaned_local_container");
     model.source_doctor = SourceDoctorDashboard {
         summary: Some(SourceDoctorSummary {
             sources_total: report.summary.checks_total as u32,
@@ -149,6 +171,8 @@ pub fn apply_report_to_read_model(report: &HealthReport, model: &mut TuiReadMode
                 .filter(|check| check.id == "pipeline_doctor_schema")
                 .filter(|check| check.status == HealthCheckStatus::Degraded)
                 .count() as u32,
+            source_down_count,
+            partial_sources,
         }),
         ..SourceDoctorDashboard::default()
     };
@@ -171,6 +195,9 @@ pub fn apply_report_to_read_model(report: &HealthReport, model: &mut TuiReadMode
             active_runners,
             paused_runners: 0,
             draining_runners: 0,
+            degraded_runners: degraded.try_into().unwrap_or(u32::MAX),
+            orphaned_containers,
+            partial_inventory: partial_sources > 0,
         }),
         ..RunnersDashboard::default()
     };
@@ -205,6 +232,28 @@ pub fn apply_report_to_read_model(report: &HealthReport, model: &mut TuiReadMode
     model.system.docker = component_from_check("docker", report, "docker");
     model.system.cache = component_from_check("cache", report, "host_doctor");
     model.system.vault = component_from_check("vault", report, "vault");
+}
+
+fn pool_doctor_issue_count(report: &HealthReport, code: &str) -> u32 {
+    report
+        .checks
+        .iter()
+        .find(|check| check.id == "pool_doctor")
+        .and_then(|check| check.data.as_ref())
+        .and_then(|data| data.get("issues"))
+        .and_then(serde_json::Value::as_array)
+        .map(|issues| {
+            issues
+                .iter()
+                .filter(|issue| {
+                    issue
+                        .get("code")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|found| found == code)
+                })
+                .count() as u32
+        })
+        .unwrap_or(0)
 }
 
 async fn collect_ci_checks(checks: &mut Vec<HealthCheck>) {
@@ -317,8 +366,12 @@ async fn collect_local_checks(
 
     match (db.as_ref(), docker.as_ref()) {
         (Some(db), Some(docker)) => {
-            checks.push(host_doctor_check(db).await);
-            let pool_check = pool_doctor_check(db, docker, &client).await;
+            let (host_check, pool_check, node_checks) = tokio::join!(
+                host_doctor_check(db),
+                pool_doctor_check(db, docker, &client),
+                collect_node_checks(db),
+            );
+            checks.push(host_check);
             if let Some(data) = pool_check.data.as_ref()
                 && let Some(topology_value) = data.get("topology")
                 && let Ok(topology) =
@@ -334,7 +387,7 @@ async fn collect_local_checks(
                 *reserved_runner_nodes = nodes;
             }
             checks.push(pool_check);
-            collect_node_checks(checks, db).await;
+            checks.extend(node_checks);
         }
         _ => {
             checks.push(check(
@@ -515,11 +568,13 @@ async fn vault_check(db: &Db) -> HealthCheck {
 
 async fn host_doctor_check(db: &Db) -> HealthCheck {
     let started = Instant::now();
-    match crate::cache::SmartCache::new(db.clone())
-        .host_doctor_report()
-        .await
+    match timeout(
+        Duration::from_secs(HEALTH_PROBE_TIMEOUT_SECS),
+        crate::cache::SmartCache::new(db.clone()).host_doctor_report(),
+    )
+    .await
     {
-        Ok(report) => check(
+        Ok(Ok(report)) => check(
             "host_doctor",
             if report.ok {
                 HealthCheckStatus::Ok
@@ -539,20 +594,35 @@ async fn host_doctor_check(db: &Db) -> HealthCheck {
                 "manager_cache_bytes": report.cache.manager_cache_bytes,
             })),
         ),
-        Err(err) => check(
+        Ok(Err(err)) => check(
             "host_doctor",
             HealthCheckStatus::Failed,
             format!("host doctor failed: {err}"),
             started.elapsed().as_millis(),
             None,
         ),
+        Err(_) => check(
+            "host_doctor",
+            HealthCheckStatus::Failed,
+            format!(
+                "host doctor exceeded {}s deadline; partial health report emitted",
+                HEALTH_PROBE_TIMEOUT_SECS
+            ),
+            started.elapsed().as_millis(),
+            Some(json!({ "timed_out": true })),
+        ),
     }
 }
 
 async fn pool_doctor_check(db: &Db, docker: &DockerCtl, client: &GitlabClient) -> HealthCheck {
     let started = Instant::now();
-    match crate::pool::build_pool_doctor_report(db, docker, client).await {
-        Ok(report) => check(
+    match timeout(
+        Duration::from_secs(HEALTH_PROBE_TIMEOUT_SECS),
+        crate::pool::build_pool_doctor_report(db, docker, client),
+    )
+    .await
+    {
+        Ok(Ok(report)) => check(
             "pool_doctor",
             if report.ok {
                 HealthCheckStatus::Ok
@@ -581,114 +651,180 @@ async fn pool_doctor_check(db: &Db, docker: &DockerCtl, client: &GitlabClient) -
                 "reserved_nodes": report.reserved_nodes,
             })),
         ),
-        Err(err) => check(
+        Ok(Err(err)) => check(
             "pool_doctor",
             HealthCheckStatus::Failed,
             format!("pool doctor failed: {err}"),
             started.elapsed().as_millis(),
             None,
         ),
+        Err(_) => check(
+            "pool_doctor",
+            HealthCheckStatus::Failed,
+            format!(
+                "pool doctor exceeded {}s deadline; partial health report emitted",
+                HEALTH_PROBE_TIMEOUT_SECS
+            ),
+            started.elapsed().as_millis(),
+            Some(json!({ "timed_out": true })),
+        ),
     }
 }
 
-async fn collect_node_checks(checks: &mut Vec<HealthCheck>, db: &Db) {
-    for alias in ["xbabe0", "xbabe1", "xbabe2", "xbabe3"] {
-        let started = Instant::now();
-        let reserved = crate::config::STANDARD_POOL_RESERVED_NODE_ALIASES.contains(&alias);
-        let expected = if reserved { 0 } else { 10 };
-        let cfg = match crate::node_support::load_node_config(alias) {
-            Ok(cfg) => cfg,
-            Err(err) => {
-                checks.push(check(
-                    &format!("node_{alias}"),
-                    if reserved {
-                        HealthCheckStatus::Degraded
-                    } else {
-                        HealthCheckStatus::Failed
-                    },
-                    format!("node config missing/unreadable: {err}"),
-                    started.elapsed().as_millis(),
-                    Some(json!({ "alias": alias, "expected_managers": expected })),
-                ));
-                continue;
-            }
-        };
-        let db_active = db
-            .list_managers_for_node(alias)
-            .await
-            .map(|managers| {
-                managers
-                    .iter()
-                    .filter(|manager| {
-                        matches!(
-                            manager.state.as_str(),
-                            "starting"
-                                | "online"
-                                | "node_starting"
-                                | "node_unreachable"
-                                | "draining"
-                        )
-                    })
-                    .count()
-            })
-            .unwrap_or_default();
-        let live_running = match live_running_managers_on_node(&cfg).await {
-            Ok(count) => count,
-            Err(err) => {
-                checks.push(check(
-                    &format!("node_{alias}"),
-                    HealthCheckStatus::Failed,
-                    format!("could not inspect live node inventory: {err}"),
-                    started.elapsed().as_millis(),
-                    Some(json!({
-                        "alias": alias,
-                        "reserved": reserved,
-                        "target": cfg.target,
-                        "enabled": cfg.enabled,
-                        "db_active_managers": db_active,
-                        "expected_managers": expected,
-                    })),
-                ));
-                continue;
-            }
-        };
-        let probe = runner_backend_remote::probe_node(&cfg).await;
-        let over_capacity =
-            db_active > cfg.max_managers as usize || live_running > cfg.max_managers as usize;
-        let ok = probe.reachable
-            && probe.docker_ready
-            && db_active == expected
-            && live_running == expected
-            && !over_capacity;
-        checks.push(check(
-            &format!("node_{alias}"),
-            if ok {
-                HealthCheckStatus::Ok
-            } else {
-                HealthCheckStatus::Failed
-            },
-            format!(
-                "reachable={} docker={} db_active={} live_running={} expected={}",
-                probe.reachable, probe.docker_ready, db_active, live_running, expected
-            ),
-            started.elapsed().as_millis(),
-            Some(json!({
-                "alias": alias,
-                "reserved": reserved,
-                "target": cfg.target,
-                "enabled": cfg.enabled,
-                "db_active_managers": db_active,
-                "live_running_managers": live_running,
-                "expected_managers": expected,
-                "over_capacity": over_capacity,
-                "reachable": probe.reachable,
-                "docker_ready": probe.docker_ready,
-                "disk_free_gb": probe.disk_free_gb,
-                "os": probe.os,
-                "arch": probe.arch,
-            })),
-        ));
-    }
+async fn collect_node_checks(db: &Db) -> Vec<HealthCheck> {
+    join_all(
+        ["xbabe0", "xbabe1", "xbabe2", "xbabe3"]
+            .into_iter()
+            .map(|alias| node_health_check(alias, db.clone())),
+    )
+    .await
+}
+
+async fn node_health_check(alias: &'static str, db: Db) -> HealthCheck {
+    let started = Instant::now();
+    let reserved = crate::config::STANDARD_POOL_RESERVED_NODE_ALIASES.contains(&alias);
+    let expected = if reserved { 0 } else { 10 };
+    let cfg = match crate::node_support::load_node_config(alias) {
+        Ok(cfg) => cfg,
+        Err(err) => {
+            return check(
+                &format!("node_{alias}"),
+                if reserved {
+                    HealthCheckStatus::Degraded
+                } else {
+                    HealthCheckStatus::Failed
+                },
+                format!("node config missing/unreadable: {err}"),
+                started.elapsed().as_millis(),
+                Some(json!({ "alias": alias, "expected_managers": expected })),
+            );
+        }
+    };
+    let db_active = db
+        .list_managers_for_node(alias)
+        .await
+        .map(|managers| {
+            managers
+                .iter()
+                .filter(|manager| {
+                    matches!(
+                        manager.state.as_str(),
+                        "starting" | "online" | "node_starting" | "node_unreachable" | "draining"
+                    )
+                })
+                .count()
+        })
+        .unwrap_or_default();
+    let (live_running, probe) = tokio::join!(
+        timeout(
+            Duration::from_secs(HEALTH_PROBE_TIMEOUT_SECS),
+            live_running_managers_on_node(&cfg),
+        ),
+        timeout(
+            Duration::from_secs(HEALTH_PROBE_TIMEOUT_SECS),
+            runner_backend_remote::probe_node(&cfg),
+        ),
+    );
+    let live_running = match live_running {
+        Ok(Ok(count)) => count,
+        Ok(Err(err)) => {
+            return check(
+                &format!("node_{alias}"),
+                HealthCheckStatus::Failed,
+                format!("could not inspect live node inventory: {err}"),
+                started.elapsed().as_millis(),
+                Some(json!({
+                    "alias": alias,
+                    "reserved": reserved,
+                    "target": cfg.target,
+                    "enabled": cfg.enabled,
+                    "db_active_managers": db_active,
+                    "expected_managers": expected,
+                })),
+            );
+        }
+        Err(_) => {
+            return check(
+                &format!("node_{alias}"),
+                HealthCheckStatus::Failed,
+                format!(
+                    "live node inventory exceeded {}s deadline",
+                    HEALTH_PROBE_TIMEOUT_SECS
+                ),
+                started.elapsed().as_millis(),
+                Some(json!({
+                    "alias": alias,
+                    "reserved": reserved,
+                    "target": cfg.target,
+                    "enabled": cfg.enabled,
+                    "db_active_managers": db_active,
+                    "expected_managers": expected,
+                    "timed_out": true,
+                })),
+            );
+        }
+    };
+    let probe = match probe {
+        Ok(probe) => probe,
+        Err(_) => {
+            return check(
+                &format!("node_{alias}"),
+                HealthCheckStatus::Failed,
+                format!(
+                    "node probe exceeded {}s deadline",
+                    HEALTH_PROBE_TIMEOUT_SECS
+                ),
+                started.elapsed().as_millis(),
+                Some(json!({
+                    "alias": alias,
+                    "reserved": reserved,
+                    "target": cfg.target,
+                    "enabled": cfg.enabled,
+                    "db_active_managers": db_active,
+                    "live_running_managers": live_running,
+                    "expected_managers": expected,
+                    "timed_out": true,
+                })),
+            );
+        }
+    };
+    let over_capacity =
+        db_active > cfg.max_managers as usize || live_running > cfg.max_managers as usize;
+    let ok = probe.reachable
+        && probe.docker_ready
+        && !probe.timed_out
+        && db_active == expected
+        && live_running == expected
+        && !over_capacity;
+    check(
+        &format!("node_{alias}"),
+        if ok {
+            HealthCheckStatus::Ok
+        } else {
+            HealthCheckStatus::Failed
+        },
+        format!(
+            "reachable={} docker={} db_active={} live_running={} expected={}",
+            probe.reachable, probe.docker_ready, db_active, live_running, expected
+        ),
+        started.elapsed().as_millis(),
+        Some(json!({
+            "alias": alias,
+            "reserved": reserved,
+            "target": cfg.target,
+            "enabled": cfg.enabled,
+            "db_active_managers": db_active,
+            "live_running_managers": live_running,
+            "expected_managers": expected,
+            "over_capacity": over_capacity,
+            "reachable": probe.reachable,
+            "docker_ready": probe.docker_ready,
+            "disk_free_gb": probe.disk_free_gb,
+            "os": probe.os,
+            "arch": probe.arch,
+            "timed_out": probe.timed_out,
+        })),
+    )
 }
 
 async fn live_running_managers_on_node(

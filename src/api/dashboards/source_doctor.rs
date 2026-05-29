@@ -31,6 +31,10 @@ pub struct SourceDoctorSummary {
     pub sources_healthy: u32,
     pub sources_degraded: u32,
     pub schema_drift_count: u32,
+    #[serde(default)]
+    pub source_down_count: u32,
+    #[serde(default)]
+    pub partial_sources: u32,
 }
 
 #[cfg(test)]

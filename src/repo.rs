@@ -96,7 +96,7 @@ pub async fn adopt_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
 pub async fn set_repo_mode(mode: RepoMode) -> Result<i32> {
     let repo_root = git_repo_root()?;
     let hooks = match mode {
-        RepoMode::Direct => HookMode::Off,
+        RepoMode::Direct => HookMode::Enforce,
         RepoMode::Observed => HookMode::Advisory,
         RepoMode::Enforced => HookMode::Enforce,
     };

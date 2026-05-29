@@ -50,6 +50,8 @@ if [[ "${JERYU_DB_BACKEND:-sqlite}" == "redlinedb" || "${JERYU_DATABASE_URL:-}" 
 fi
 run "Install Jankurai binary" bash scripts/install-jankurai.sh
 run "Jankurai version pin" bash -c 'jankurai --version | grep -Fx "jankurai 1.5.1"'
+run "Jankurai staged install smoke" bash scripts/ci/jankurai-staged-install-smoke.sh
+run "Install security tools" bash scripts/install-security-tools.sh
 run "Workflow lint" actionlint .github/workflows/*.yml
 
 # ─── 2. Rust workflow parity ────────────────────────────────────────────────

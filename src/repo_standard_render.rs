@@ -29,7 +29,7 @@ fn render_delivery_toml(spec: &StandardSpec) -> String {
     };
     let required_check = required_check_name(spec.provider);
     format!(
-        "schema_version = \"1\"\nprofile = \"{}\"\nprovider = \"{}\"\nrepo = \"{}\"\nbase_branch = \"{}\"\nautonomy_dir = \"{}\"\nrequired_check = \"{}\"\nmerge_queue_required = true\nmain_is_only_release_branch = true\n{}deploy_identity = \"oidc\"\nlong_lived_deploy_credentials_allowed = false\n\n[artifact]\nbuild_once = true\npromote_same_digest = true\nrequire_signature = true\nrequire_sbom = true\nrequire_provenance = true\nrollback = \"previous_signed_digest\"\n\n[approvals]\ndefault_human_approvals = 0\nprotected_path_human_approvals = 1\ncommittee_approval_default = false\nagent_self_approval_allowed = false\n",
+        "schema_version = \"1\"\nprofile = \"{}\"\nprovider = \"{}\"\nrepo = \"{}\"\nbase_branch = \"{}\"\nautonomy_dir = \"{}\"\nrequired_check = \"{}\"\nmerge_queue_required = true\nmain_is_only_release_branch = true\ndirect_push_to_main = \"deny\"\nmerge_request_required = true\nlinear_history_required = true\nbranch_must_be_rebased_on_base = true\n{}deploy_identity = \"oidc\"\nlong_lived_deploy_credentials_allowed = false\n\n[artifact]\nbuild_once = true\npromote_same_digest = true\nrequire_signature = true\nrequire_sbom = true\nrequire_provenance = true\nrollback = \"previous_signed_digest\"\n\n[approvals]\ndefault_human_approvals = 0\nprotected_path_human_approvals = 1\ncommittee_approval_default = false\nagent_self_approval_allowed = false\n",
         spec.profile,
         spec.provider,
         spec.repo_slug,
@@ -178,15 +178,34 @@ fn render_pre_push_hook(base_branch: &str, provider: StandardProvider) -> String
 set -euo pipefail
 
 protected_branch="{base_branch}"
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
+zero_sha="0000000000000000000000000000000000000000"
+updates=()
+while read -r _local_ref local_sha remote_ref _remote_sha; do
   if [ "$remote_ref" = "refs/heads/$protected_branch" ]; then
     echo "jeryu: direct push to $protected_branch is blocked; use {merge_surface}" >&2
     exit 1
+  fi
+  if [ "${{local_sha:-$zero_sha}}" != "$zero_sha" ]; then
+    updates+=("$local_sha")
   fi
 done
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+if [ "${{#updates[@]}}" -gt 0 ]; then
+  git fetch --quiet origin "$protected_branch"
+  base_ref="refs/remotes/origin/$protected_branch"
+  for local_sha in "${{updates[@]}}"; do
+    if ! git merge-base --is-ancestor "$base_ref" "$local_sha"; then
+      echo "jeryu: branch is not rebased on $base_ref; run git fetch origin $protected_branch && git rebase $base_ref" >&2
+      exit 1
+    fi
+    if git rev-list --merges "$base_ref..$local_sha" | grep -q .; then
+      echo "jeryu: merge commits after $base_ref are blocked; keep history linear with rebase" >&2
+      exit 1
+    fi
+  done
+fi
 bash .jeryu/ci/required.sh
 "#
     )
@@ -198,6 +217,26 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
+protected_branch="${JERYU_PROTECTED_BRANCH:-main}"
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$current_branch" = "$protected_branch" ]; then
+  echo "jeryu: direct commits on $protected_branch are blocked; branch first and submit an MR" >&2
+  exit 1
+fi
+base_ref="${JERYU_CHANGED_FROM:-origin/$protected_branch}"
+if git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+  if ! git merge-base --is-ancestor "$base_ref" HEAD; then
+    echo "jeryu: branch is not rebased on $base_ref; rebase before submitting an MR" >&2
+    exit 1
+  fi
+  if git rev-list --merges "$base_ref..HEAD" | grep -q .; then
+    echo "jeryu: merge commits after $base_ref are blocked; keep history linear with rebase" >&2
+    exit 1
+  fi
+else
+  echo "jeryu: $base_ref is unavailable; run git fetch origin $protected_branch before submitting an MR" >&2
+  exit 1
+fi
 mkdir -p target/jankurai
 if command -v jankurai >/dev/null 2>&1; then
   jankurai audit . \

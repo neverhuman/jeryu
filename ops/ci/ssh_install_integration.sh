@@ -389,7 +389,7 @@ API_RETRY=0
 API_MAX_RETRY=15
 API_SUCCESS=false
 while [ $API_RETRY -lt $API_MAX_RETRY ]; do
-    if curl -s http://127.0.0.1:8929/api/v4/version >/dev/null 2>&1 || curl -s http://127.0.0.1:8929/health >/dev/null 2>&1 || curl -s http://127.0.0.1:8929/ >/dev/null 2>&1; then
+    if curl -s http://127.0.0.1:8929/health >/dev/null 2>&1 || curl -s http://127.0.0.1:8929/ >/dev/null 2>&1; then
         API_SUCCESS=true
         break
     fi

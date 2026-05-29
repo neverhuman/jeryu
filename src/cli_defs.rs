@@ -2,8 +2,9 @@ use clap::Subcommand;
 use std::path::PathBuf;
 
 use super::{
-    AgentCommands, CacheCommands, HostCommands, JobCommands, LocalCommands, PipelineCommands,
-    PolicyCommands, PoolCommands, ReleaseCommands, SecretsCommands, SettingsCommands, TestCommands,
+    AgentCommands, CacheCommands, CiCommands, HostCommands, JobCommands, LocalCommands,
+    PipelineCommands, PolicyCommands, PoolCommands, ReleaseCommands, RunnerCommands,
+    SecretsCommands, SettingsCommands, TestCommands,
 };
 
 #[path = "cli_defs_install.rs"]
@@ -68,6 +69,10 @@ pub(crate) enum Commands {
     },
     #[command(subcommand)]
     Pool(PoolCommands),
+    #[command(subcommand)]
+    Runner(RunnerCommands),
+    #[command(subcommand)]
+    Ci(CiCommands),
     #[command(subcommand)]
     Job(JobCommands),
     #[command(subcommand)]

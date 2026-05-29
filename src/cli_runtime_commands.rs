@@ -45,6 +45,60 @@ pub(crate) enum PoolCommands {
 }
 
 #[derive(Subcommand)]
+pub(crate) enum RunnerCommands {
+    /// Inspect and repair the runner-manager fleet.
+    #[command(subcommand)]
+    Fleet(RunnerFleetCommands),
+}
+
+#[derive(Subcommand)]
+pub(crate) enum RunnerFleetCommands {
+    /// Diagnose DB, Docker, node, topology, and orphan drift.
+    Doctor {
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Preview or execute safe runner-fleet repair.
+    Repair {
+        /// Preview actions without changing state.
+        #[arg(long, default_value_t = false)]
+        preview: bool,
+        /// Execute safe non-destructive repairs only after full inventory succeeds.
+        #[arg(long, default_value_t = false)]
+        yes: bool,
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub(crate) enum CiCommands {
+    /// Diagnose one repository's Jeryu CI runner policy.
+    Doctor {
+        /// Repository root to inspect.
+        #[arg(long, default_value = ".")]
+        repo: PathBuf,
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Diagnose the default local repository fleet.
+    FleetDoctor {
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Print a Jeryu-owned generated CI template.
+    Template {
+        /// Template profile.
+        #[arg(long, default_value = "rust")]
+        profile: String,
+    },
+}
+
+#[derive(Subcommand)]
 pub(crate) enum JobCommands {
     /// List jobs for a project.
     List {

@@ -14,6 +14,8 @@ pub struct SourceDoctorLensInput {
     pub sources_total: u32,
     pub sources_healthy: u32,
     pub sources_degraded: u32,
+    pub source_down_count: u32,
+    pub partial_sources: u32,
     pub event_cursor: u64,
 }
 
@@ -24,6 +26,8 @@ impl SourceDoctorLensInput {
             sources_total: summary.map(|s| s.sources_total).unwrap_or(0),
             sources_healthy: summary.map(|s| s.sources_healthy).unwrap_or(0),
             sources_degraded: summary.map(|s| s.sources_degraded).unwrap_or(0),
+            source_down_count: summary.map(|s| s.source_down_count).unwrap_or(0),
+            partial_sources: summary.map(|s| s.partial_sources).unwrap_or(0),
             event_cursor: model.event_cursor,
         }
     }
@@ -40,6 +44,8 @@ mod tests {
         assert_eq!(input.sources_total, 0);
         assert_eq!(input.sources_healthy, 0);
         assert_eq!(input.sources_degraded, 0);
+        assert_eq!(input.source_down_count, 0);
+        assert_eq!(input.partial_sources, 0);
         assert_eq!(input.event_cursor, 0);
     }
 
@@ -62,6 +68,8 @@ mod tests {
                 sources_healthy: 5,
                 sources_degraded: 1,
                 schema_drift_count: 0,
+                source_down_count: 1,
+                partial_sources: 2,
             });
 
         let input = SourceDoctorLensInput::from_read_model(&model);
@@ -69,5 +77,7 @@ mod tests {
         assert_eq!(input.sources_total, 6);
         assert_eq!(input.sources_healthy, 5);
         assert_eq!(input.sources_degraded, 1);
+        assert_eq!(input.source_down_count, 1);
+        assert_eq!(input.partial_sources, 2);
     }
 }

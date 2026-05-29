@@ -308,6 +308,10 @@ fn jeryu_toml_rendering_is_deterministic_and_secret_free() {
     let second = fs::read_to_string(repo.path().join(".jeryu/policy.toml")).unwrap();
     assert_eq!(first, second);
     assert!(first.contains("[main_relay]"));
+    assert!(first.contains("direct_push_to_main = \"deny\""));
+    assert!(first.contains("merge_request_required = true"));
+    assert!(first.contains("linear_history_required = true"));
+    assert!(first.contains("branch_must_be_rebased_on_base = true"));
     assert!(first.contains("actor = \"jeryu\""));
     assert!(first.contains("[offline_release_mirror]"));
     let combined = ["repo.toml", "policy.toml", "backup.toml", "ci.toml"]

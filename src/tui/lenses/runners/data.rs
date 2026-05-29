@@ -9,6 +9,9 @@ use crate::api::read_model::TuiReadModel;
 pub struct RunnersLensInput {
     pub active_runners: u32,
     pub total_runners: u32,
+    pub degraded_runners: u32,
+    pub orphaned_containers: u32,
+    pub partial_inventory: bool,
     pub event_cursor: u64,
 }
 
@@ -22,6 +25,15 @@ impl RunnersLensInput {
             total_runners: summary
                 .map(|summary| summary.total_runners)
                 .unwrap_or(model.mission.total_runners),
+            degraded_runners: summary
+                .map(|summary| summary.degraded_runners)
+                .unwrap_or(model.system.runners.degraded),
+            orphaned_containers: summary
+                .map(|summary| summary.orphaned_containers)
+                .unwrap_or(0),
+            partial_inventory: summary
+                .map(|summary| summary.partial_inventory)
+                .unwrap_or(false),
             event_cursor: model.event_cursor,
         }
     }
@@ -58,11 +70,17 @@ mod tests {
             total_runners: 40,
             paused_runners: 0,
             draining_runners: 0,
+            degraded_runners: 2,
+            orphaned_containers: 1,
+            partial_inventory: true,
         });
 
         let input = RunnersLensInput::from_read_model(&model);
 
         assert_eq!(input.active_runners, 40);
         assert_eq!(input.total_runners, 40);
+        assert_eq!(input.degraded_runners, 2);
+        assert_eq!(input.orphaned_containers, 1);
+        assert!(input.partial_inventory);
     }
 }

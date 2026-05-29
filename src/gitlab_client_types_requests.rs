@@ -95,6 +95,16 @@ pub(crate) struct ProtectBranchReq<'a> {
 }
 
 #[derive(Serialize)]
+pub(crate) struct UpdateProjectPolicyReq<'a> {
+    pub(crate) merge_method: &'a str,
+    pub(crate) only_allow_merge_if_pipeline_succeeds: bool,
+    pub(crate) allow_merge_on_skipped_pipeline: bool,
+    pub(crate) only_allow_merge_if_all_discussions_are_resolved: bool,
+    pub(crate) remove_source_branch_after_merge: bool,
+    pub(crate) squash_option: &'a str,
+}
+
+#[derive(Serialize)]
 pub(crate) struct CreateProjectReq<'a> {
     pub(crate) name: &'a str,
     pub(crate) visibility: &'a str,

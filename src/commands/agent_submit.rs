@@ -117,9 +117,13 @@ async fn open_local_gitlab_mr(
                 .map(|entry| format!("{}/{}", entry.namespace, entry.name))
         })
         .ok_or_else(|| anyhow::anyhow!("could not determine local GitLab project path"))?;
+    let target_branch = repo_entry_for_path(&contract, &cwd)
+        .map(|entry| entry.default_branch.clone())
+        .unwrap_or_else(|| "main".to_string());
     let auth = jeryu::gitlab_auth::resolve_or_repair_default().await?;
     let client = jeryu::gitlab_client::GitlabClient::new(&auth.url, Some(auth.token));
     let project = client.get_project_by_path(&project_path).await?;
+    super::mr::ensure_mr_branch_policy(&cwd, branch, &target_branch)?;
     jeryu::access::git_push_branch(&cwd, "origin", branch)?;
     let title = format!(
         "Draft: [{tier}] {task}",
@@ -129,9 +133,7 @@ async fn open_local_gitlab_mr(
         .create_merge_request(
             project.id,
             branch,
-            &repo_entry_for_path(&contract, &cwd)
-                .map(|entry| entry.default_branch.clone())
-                .unwrap_or_else(|| "main".to_string()),
+            &target_branch,
             &title,
             &capsule.render_pr_body(),
         )

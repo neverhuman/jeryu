@@ -1,3 +1,17 @@
 schema_version = "1"
-github_actions_required = false
+github_actions_required = true
 local_gitlab_required = true
+
+[runner]
+policy = "untagged-only"
+forbid_tags = true
+standard_jobs_untagged = true
+
+[image]
+rust = "rust:1.95.0"
+pinned = true
+
+[cache]
+policy = "jeryu-managed"
+cargo_jeryu_managed = true
+project_sccache_disabled = true

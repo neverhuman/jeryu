@@ -113,6 +113,12 @@ pub struct Project {
     pub name: String,
     pub path_with_namespace: String,
     pub web_url: String,
+    pub merge_method: Option<String>,
+    pub only_allow_merge_if_pipeline_succeeds: Option<bool>,
+    pub allow_merge_on_skipped_pipeline: Option<bool>,
+    pub only_allow_merge_if_all_discussions_are_resolved: Option<bool>,
+    pub remove_source_branch_after_merge: Option<bool>,
+    pub squash_option: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

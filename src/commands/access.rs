@@ -11,6 +11,9 @@ use jeryu::access::{
     ensure_contract_file, load_contract, repair_repo_layout, resolve_project_report,
 };
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+const PROJECT_RESOLVE_DEADLINE: Duration = Duration::from_secs(8);
 
 pub(crate) async fn execute_access_commands(cmd: AccessCommands) -> Result<i32> {
     match cmd {
@@ -91,19 +94,26 @@ async fn doctor_reports(repo: Option<PathBuf>, all_known: bool) -> Result<Vec<Ac
     let token = jeryu::gitlab_auth::load_token_for_url(&contract.local_api_url)?;
     let client = token
         .map(|token| jeryu::gitlab_client::GitlabClient::new(&contract.local_api_url, Some(token)));
+    let mut project_resolution_blocked = false;
 
     for repo_path in repo_paths {
         let mut report = access_findings_for_repo(&contract, &repo_path)?;
         if let Some(client) = &client
             && let Some(project_path) = report.project_path.clone()
+            && !project_resolution_blocked
         {
-            match resolve_project_report(&contract, &repo_path, Some(&project_path), client).await {
-                Ok(project) => {
+            match tokio::time::timeout(
+                PROJECT_RESOLVE_DEADLINE,
+                resolve_project_report(&contract, &repo_path, Some(&project_path), client),
+            )
+            .await
+            {
+                Ok(Ok(project)) => {
                     report.project_id = project.project_id;
                     report.web_url = project.web_url;
                     report.findings.extend(project.findings);
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     report.findings.push(jeryu::access::AccessFinding {
                         code: "project_resolution_error".to_string(),
                         severity: "error".to_string(),
@@ -111,7 +121,26 @@ async fn doctor_reports(repo: Option<PathBuf>, all_known: bool) -> Result<Vec<Ac
                         repair_hint: Some("jeryu access repair --repo . --yes".to_string()),
                     });
                 }
+                Err(_) => {
+                    project_resolution_blocked = true;
+                    report.findings.push(jeryu::access::AccessFinding {
+                        code: "project_resolution_timeout".to_string(),
+                        severity: "error".to_string(),
+                        message: format!(
+                            "project resolution exceeded {}s deadline",
+                            PROJECT_RESOLVE_DEADLINE.as_secs()
+                        ),
+                        repair_hint: Some("retry after local GitLab recovers".to_string()),
+                    });
+                }
             }
+        } else if report.project_path.is_some() && project_resolution_blocked {
+            report.findings.push(jeryu::access::AccessFinding {
+                code: "project_resolution_skipped".to_string(),
+                severity: "warning".to_string(),
+                message: "project resolution skipped after a previous timeout".to_string(),
+                repair_hint: Some("retry after local GitLab recovers".to_string()),
+            });
         } else if report.project_path.is_some() {
             report.findings.push(jeryu::access::AccessFinding {
                 code: "missing_gitlab_pat".to_string(),
@@ -135,16 +164,84 @@ async fn repair_reports(repo: Option<PathBuf>, all_known: bool) -> Result<Vec<Ac
 
     for repo_path in repo_paths {
         let mut report = repair_repo_layout(&contract, &repo_path)?;
-        if let Some(project_path) = report.repo_slug.clone()
-            && let Err(err) =
-                resolve_project_report(&contract, &repo_path, Some(&project_path), &client).await
-        {
-            report.findings.push(jeryu::access::AccessFinding {
-                code: "project_resolution_error".to_string(),
-                severity: "warning".to_string(),
-                message: err.to_string(),
-                repair_hint: Some("retry after local GitLab recovers".to_string()),
-            });
+        if let Some(project_path) = report.repo_slug.clone() {
+            match tokio::time::timeout(
+                PROJECT_RESOLVE_DEADLINE,
+                resolve_project_report(&contract, &repo_path, Some(&project_path), &client),
+            )
+            .await
+            {
+                Ok(Ok(project)) => {
+                    let mut project_policy_repaired = false;
+                    if let Some(project_id) = project.project_id {
+                        match tokio::time::timeout(
+                            PROJECT_RESOLVE_DEADLINE,
+                            client.enforce_project_merge_policy(project_id),
+                        )
+                        .await
+                        {
+                            Ok(Ok(())) => {
+                                report.findings.push(jeryu::access::AccessFinding {
+                                    code: "project_merge_policy_enforced".to_string(),
+                                    severity: "info".to_string(),
+                                    message:
+                                        "GitLab project merge policy set to fast-forward-only with required pipelines"
+                                            .to_string(),
+                                    repair_hint: None,
+                                });
+                                project_policy_repaired = true;
+                            }
+                            Ok(Err(err)) => {
+                                report.findings.push(jeryu::access::AccessFinding {
+                                    code: "project_merge_policy_repair_failed".to_string(),
+                                    severity: "warning".to_string(),
+                                    message: err.to_string(),
+                                    repair_hint: Some(
+                                        "retry after local GitLab recovers".to_string(),
+                                    ),
+                                });
+                            }
+                            Err(_) => {
+                                report.findings.push(jeryu::access::AccessFinding {
+                                    code: "project_merge_policy_repair_timeout".to_string(),
+                                    severity: "warning".to_string(),
+                                    message: format!(
+                                        "project merge policy repair exceeded {}s deadline",
+                                        PROJECT_RESOLVE_DEADLINE.as_secs()
+                                    ),
+                                    repair_hint: Some(
+                                        "retry after local GitLab recovers".to_string(),
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                    report
+                        .findings
+                        .extend(project.findings.into_iter().filter(|finding| {
+                            !project_policy_repaired || !is_project_policy_drift(&finding.code)
+                        }));
+                }
+                Ok(Err(err)) => {
+                    report.findings.push(jeryu::access::AccessFinding {
+                        code: "project_resolution_error".to_string(),
+                        severity: "warning".to_string(),
+                        message: err.to_string(),
+                        repair_hint: Some("retry after local GitLab recovers".to_string()),
+                    });
+                }
+                Err(_) => {
+                    report.findings.push(jeryu::access::AccessFinding {
+                        code: "project_resolution_timeout".to_string(),
+                        severity: "warning".to_string(),
+                        message: format!(
+                            "project resolution exceeded {}s deadline",
+                            PROJECT_RESOLVE_DEADLINE.as_secs()
+                        ),
+                        repair_hint: Some("retry after local GitLab recovers".to_string()),
+                    });
+                }
+            }
         }
         reports.push(report);
     }
@@ -156,6 +253,18 @@ async fn repair_reports(repo: Option<PathBuf>, all_known: bool) -> Result<Vec<Ac
     }
 
     Ok(reports)
+}
+
+fn is_project_policy_drift(code: &str) -> bool {
+    matches!(
+        code,
+        "project_merge_method_drift"
+            | "project_required_pipeline_drift"
+            | "project_skipped_pipeline_merge_drift"
+            | "project_discussion_resolution_drift"
+            | "project_source_branch_cleanup_drift"
+            | "project_squash_policy_drift"
+    )
 }
 
 async fn project_report(project: Option<&str>, repo: Option<&Path>) -> Result<AccessProjectReport> {

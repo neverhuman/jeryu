@@ -3,6 +3,10 @@ protect_main = true
 protected_branches = ["main"]
 protected_tags = ["v*"]
 hooks = "enforce"
+direct_push_to_main = "deny"
+merge_request_required = true
+linear_history_required = true
+branch_must_be_rebased_on_base = true
 
 [main_relay]
 enabled = true

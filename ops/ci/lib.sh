@@ -5,6 +5,9 @@ set -euo pipefail
 # ── Tool version pins (keep in sync with scripts/jankurai-manifest.json) ──
 JANKURAI_REQUIRED_VERSION="1.5.1"
 ACTIONLINT_VERSION="v1.7.8"
+GITLEAKS_VERSION="8.30.0"
+SYFT_VERSION="1.40.0"
+CARGO_DENY_VERSION="0.19.8"
 
 # ── Log helpers ────────────────────────────────────────────────────────────
 log() { printf '\033[1;34m[ci]\033[0m %s\n' "$*" >&2; }

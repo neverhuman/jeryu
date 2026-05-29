@@ -36,9 +36,18 @@ fn draw_posture(f: &mut Frame, input: &QueueLensInput, area: Rect) {
 }
 
 fn draw_capacity(f: &mut Frame, input: &QueueLensInput, area: Rect) {
+    let scaling_hint = if input.queue_depth == 0 {
+        "no queued jobs"
+    } else if input.degraded_runners > 0 {
+        "repair runner sources before adding runners"
+    } else if input.active_runners < input.total_runners {
+        "adding runners can help if queued jobs fit this pool"
+    } else {
+        "pool limit reached; adding managers alone will not help"
+    };
     let text = format!(
-        "Runners: {} active / {} total",
-        input.active_runners, input.total_runners,
+        "Runners: {} active / {} total / {} degraded | {}",
+        input.active_runners, input.total_runners, input.degraded_runners, scaling_hint,
     );
     let p = Paragraph::new(text).block(
         Block::default()

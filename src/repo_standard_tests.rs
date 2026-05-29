@@ -168,6 +168,19 @@ fn apply_then_verify_is_clean_in_temp_git_repo() {
     assert_eq!(run_standard(RepoStandardMode::Verify, opts).unwrap(), 0);
     assert!(tmp.path().join(".jeryu/project.toml").is_file());
     assert!(tmp.path().join(".jeryu/standard.lock").is_file());
+    let pre_push = fs::read_to_string(tmp.path().join(".jeryu/hooks/pre-push")).unwrap();
+    assert!(pre_push.contains("direct push"));
+    assert!(pre_push.contains("merge-base --is-ancestor"));
+    assert!(pre_push.contains("rev-list --merges"));
+    let pre_commit = fs::read_to_string(tmp.path().join(".jeryu/hooks/pre-commit")).unwrap();
+    assert!(pre_commit.contains("direct commits"));
+    assert!(pre_commit.contains("merge-base --is-ancestor"));
+    assert!(pre_commit.contains("rev-list --merges"));
+    let delivery = fs::read_to_string(tmp.path().join(".jeryu/delivery.toml")).unwrap();
+    assert!(delivery.contains("direct_push_to_main = \"deny\""));
+    assert!(delivery.contains("merge_request_required = true"));
+    assert!(delivery.contains("linear_history_required = true"));
+    assert!(delivery.contains("branch_must_be_rebased_on_base = true"));
     assert_eq!(
         git_config_get(tmp.path(), "core.hooksPath")
             .unwrap()

@@ -1,12 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
+zero_sha="0000000000000000000000000000000000000000"
+updates=()
+while read -r _local_ref local_sha remote_ref _remote_sha; do
   if [ "$remote_ref" = "refs/heads/main" ]; then
     echo "jeryu: direct push to main is blocked; use merge request plus local JeRyu/GitLab gate" >&2
     exit 1
   fi
+  if [ "${local_sha:-$zero_sha}" != "$zero_sha" ]; then
+    updates+=("$local_sha")
+  fi
 done
+
+if [ "${#updates[@]}" -gt 0 ]; then
+  git fetch --quiet origin "main"
+  base_ref="refs/remotes/origin/main"
+  for local_sha in "${updates[@]}"; do
+    if ! git merge-base --is-ancestor "$base_ref" "$local_sha"; then
+      echo "jeryu: branch is not rebased on $base_ref; run git fetch origin main && git rebase $base_ref" >&2
+      exit 1
+    fi
+    if git rev-list --merges "$base_ref..$local_sha" | grep -q .; then
+      echo "jeryu: merge commits after $base_ref are blocked; keep history linear with rebase" >&2
+      exit 1
+    fi
+  done
+fi
 
 if [ -x .jeryu/ci/required.sh ]; then
   bash .jeryu/ci/required.sh

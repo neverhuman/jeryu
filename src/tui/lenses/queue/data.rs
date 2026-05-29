@@ -14,6 +14,7 @@ pub struct QueueLensInput {
     pub failed_jobs: u32,
     pub active_runners: u32,
     pub total_runners: u32,
+    pub degraded_runners: u32,
     pub event_cursor: u64,
 }
 
@@ -25,6 +26,7 @@ impl QueueLensInput {
             failed_jobs: model.mission.failed_jobs,
             active_runners: model.mission.active_runners,
             total_runners: model.mission.total_runners,
+            degraded_runners: model.system.runners.degraded,
             event_cursor: model.event_cursor,
         }
     }
@@ -43,6 +45,7 @@ mod tests {
         assert_eq!(input.failed_jobs, 0);
         assert_eq!(input.active_runners, 0);
         assert_eq!(input.total_runners, 0);
+        assert_eq!(input.degraded_runners, 0);
         assert_eq!(input.event_cursor, 0);
     }
 

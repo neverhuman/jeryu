@@ -32,6 +32,12 @@ pub struct RunnersSummary {
     pub active_runners: u32,
     pub paused_runners: u32,
     pub draining_runners: u32,
+    #[serde(default)]
+    pub degraded_runners: u32,
+    #[serde(default)]
+    pub orphaned_containers: u32,
+    #[serde(default)]
+    pub partial_inventory: bool,
 }
 
 #[cfg(test)]

@@ -87,7 +87,7 @@ pub(super) fn write_jeryu_configs(repo_root: &Path, spec: JeryuConfigSpec<'_>) -
     write_file_if_changed(
         &dir.join("policy.toml"),
         &format!(
-            "schema_version = \"1\"\nprotect_main = {}\nprotected_branches = [\"{}\"]\nprotected_tags = [\"v*\"]\nhooks = \"{}\"\n\n[main_relay]\nenabled = {}\nactor = \"jeryu\"\nprotected_branch = \"{}\"\nrequire_admission_receipt = true\n\n[offline_release_mirror]\nenabled = {}\nremote = \"{}\"\nrefs = [\"refs/tags/v*\", \"refs/heads/release/*\"]\n",
+            "schema_version = \"1\"\nprotect_main = {}\nprotected_branches = [\"{}\"]\nprotected_tags = [\"v*\"]\nhooks = \"{}\"\ndirect_push_to_main = \"deny\"\nmerge_request_required = true\nlinear_history_required = true\nbranch_must_be_rebased_on_base = true\n\n[main_relay]\nenabled = {}\nactor = \"jeryu\"\nprotected_branch = \"{}\"\nrequire_admission_receipt = true\n\n[offline_release_mirror]\nenabled = {}\nremote = \"{}\"\nrefs = [\"refs/tags/v*\", \"refs/heads/release/*\"]\n",
             spec.protect_main,
             spec.branch,
             hook_label(spec.hooks),

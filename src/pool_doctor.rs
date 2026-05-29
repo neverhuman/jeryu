@@ -6,13 +6,17 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Result;
 use bollard::models::ContainerSummary;
+use futures_util::future::join_all;
 use serde::Serialize;
+use tokio::time::{Duration, timeout};
 
 use crate::docker::DockerCtl;
 use crate::gitlab_client::{GitlabClient, RunnerInfo};
 use crate::pool::{self, PoolReservedNode, PoolTopologyPlan};
 use crate::runner_backend::RunnerBackend;
 use crate::state::{Db, Manager, Pool};
+
+const POOL_DOCTOR_PROBE_TIMEOUT_SECS: u64 = 8;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PoolDoctorIssue {
@@ -53,9 +57,45 @@ pub async fn build_pool_doctor_report(
     client: &GitlabClient,
 ) -> Result<PoolDoctorReport> {
     let pools = db.list_pools().await?;
-    let runners = client.list_all_runner_details().await?;
-    let managers = db.list_managers(None).await?;
     let mut issues = Vec::new();
+    let runners = match timeout(
+        Duration::from_secs(POOL_DOCTOR_PROBE_TIMEOUT_SECS),
+        client.list_all_runner_details(),
+    )
+    .await
+    {
+        Ok(Ok(runners)) => runners,
+        Ok(Err(err)) => {
+            issues.push(issue(
+                "gitlab_runner_inventory_failed",
+                "error",
+                format!("could not list GitLab runners: {err}"),
+                None,
+                None,
+                None,
+                None,
+                true,
+            ));
+            Vec::new()
+        }
+        Err(_) => {
+            issues.push(issue(
+                "gitlab_runner_inventory_timeout",
+                "error",
+                format!(
+                    "GitLab runner inventory exceeded {}s deadline",
+                    POOL_DOCTOR_PROBE_TIMEOUT_SECS
+                ),
+                None,
+                None,
+                None,
+                None,
+                true,
+            ));
+            Vec::new()
+        }
+    };
+    let managers = db.list_managers(None).await?;
 
     inspect_standard_pool_policy(&pools, &runners, &mut issues);
     inspect_duplicate_runner_records(&pools, &runners, &mut issues);
@@ -492,7 +532,43 @@ async fn inspect_manager_runtime(
     managers: &[Manager],
     issues: &mut Vec<PoolDoctorIssue>,
 ) {
-    let local_containers = docker.list_managed_containers().await.unwrap_or_default();
+    let local_containers = match timeout(
+        Duration::from_secs(POOL_DOCTOR_PROBE_TIMEOUT_SECS),
+        docker.list_managed_containers(),
+    )
+    .await
+    {
+        Ok(Ok(containers)) => containers,
+        Ok(Err(err)) => {
+            issues.push(issue(
+                "local_inventory_failed",
+                "error",
+                format!("could not inspect local Docker runner inventory: {err}"),
+                None,
+                None,
+                None,
+                Some(crate::config::LOCAL_NODE_ALIAS.to_string()),
+                true,
+            ));
+            Vec::new()
+        }
+        Err(_) => {
+            issues.push(issue(
+                "local_inventory_timeout",
+                "error",
+                format!(
+                    "local Docker runner inventory exceeded {}s deadline",
+                    POOL_DOCTOR_PROBE_TIMEOUT_SECS
+                ),
+                None,
+                None,
+                None,
+                Some(crate::config::LOCAL_NODE_ALIAS.to_string()),
+                true,
+            ));
+            Vec::new()
+        }
+    };
     let running_local = local_containers
         .iter()
         .filter(|container| container.state.as_deref() == Some("running"))
@@ -519,20 +595,18 @@ async fn inspect_manager_runtime(
         ));
     }
 
-    if let Ok(containers) = docker.list_managed_containers().await {
-        for container in orphaned_local_runner_containers(&containers, managers) {
-            let name = container_summary_name(container);
-            issues.push(issue(
-                "orphaned_local_container",
-                "error",
-                format!("local runner container {name} is not attached to an active manager row"),
-                None,
-                None,
-                None,
-                Some(crate::config::LOCAL_NODE_ALIAS.to_string()),
-                true,
-            ));
-        }
+    for container in orphaned_local_runner_containers(&local_containers, managers) {
+        let name = container_summary_name(container);
+        issues.push(issue(
+            "orphaned_local_container",
+            "error",
+            format!("local runner container {name} is not attached to an active manager row"),
+            None,
+            None,
+            None,
+            Some(crate::config::LOCAL_NODE_ALIAS.to_string()),
+            true,
+        ));
     }
 
     let aliases = managers
@@ -540,11 +614,11 @@ async fn inspect_manager_runtime(
         .filter(|manager| manager_state_counts_as_active(&manager.state))
         .filter_map(|manager| manager.node_alias.clone())
         .collect::<BTreeSet<_>>();
-    for alias in aliases {
+    let remote_results = join_all(aliases.into_iter().map(|alias| async move {
         let cfg = match crate::node_support::load_node_config(&alias) {
             Ok(cfg) => cfg,
             Err(err) => {
-                issues.push(issue(
+                return Err(issue(
                     "node_config_missing",
                     "error",
                     format!("manager node {alias} config is missing: {err}"),
@@ -554,27 +628,54 @@ async fn inspect_manager_runtime(
                     Some(alias),
                     true,
                 ));
-                continue;
             }
         };
         let backend = crate::runner_backend_remote::RemoteDockerBackend::new(cfg);
-        let running = match backend.list_managed_containers().await {
-            Ok(running) => running
-                .into_iter()
-                .filter(|container| container.running)
-                .map(|container| container.container_id)
-                .collect::<BTreeSet<_>>(),
-            Err(err) => {
-                issues.push(issue(
-                    "node_unreachable",
-                    "error",
-                    format!("could not inspect node {alias}: {err}"),
-                    None,
-                    None,
-                    None,
-                    Some(alias),
-                    true,
-                ));
+        match timeout(
+            Duration::from_secs(POOL_DOCTOR_PROBE_TIMEOUT_SECS),
+            backend.list_managed_containers(),
+        )
+        .await
+        {
+            Ok(Ok(running)) => Ok((
+                alias,
+                running
+                    .into_iter()
+                    .filter(|container| container.running)
+                    .map(|container| container.container_id)
+                    .collect::<BTreeSet<_>>(),
+            )),
+            Ok(Err(err)) => Err(issue(
+                "node_unreachable",
+                "error",
+                format!("could not inspect node {alias}: {err}"),
+                None,
+                None,
+                None,
+                Some(alias),
+                true,
+            )),
+            Err(_) => Err(issue(
+                "node_inventory_timeout",
+                "error",
+                format!(
+                    "node {alias} runner inventory exceeded {}s deadline",
+                    POOL_DOCTOR_PROBE_TIMEOUT_SECS
+                ),
+                None,
+                None,
+                None,
+                Some(alias),
+                true,
+            )),
+        }
+    }))
+    .await;
+    for remote_result in remote_results {
+        let (alias, running) = match remote_result {
+            Ok(value) => value,
+            Err(issue) => {
+                issues.push(issue);
                 continue;
             }
         };

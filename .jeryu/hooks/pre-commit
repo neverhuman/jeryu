@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$current_branch" = "main" ]; then
+  echo "jeryu: direct commits on main are blocked; branch first and submit an MR" >&2
+  exit 1
+fi
+
+base_ref="${JERYU_CHANGED_FROM:-origin/main}"
+if git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+  if ! git merge-base --is-ancestor "$base_ref" HEAD; then
+    echo "jeryu: branch is not rebased on $base_ref; rebase before submitting an MR" >&2
+    exit 1
+  fi
+  if git rev-list --merges "$base_ref..HEAD" | grep -q .; then
+    echo "jeryu: merge commits after $base_ref are blocked; keep history linear with rebase" >&2
+    exit 1
+  fi
+else
+  echo "jeryu: $base_ref is unavailable; run git fetch origin main before submitting an MR" >&2
+  exit 1
+fi

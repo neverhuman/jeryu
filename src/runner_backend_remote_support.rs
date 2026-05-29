@@ -7,10 +7,14 @@
 
 use anyhow::Result;
 use std::collections::BTreeSet;
+use std::time::Duration;
+use tokio::time::timeout;
 use tracing::info;
 
 use crate::node_types::NodeConfig;
 use crate::remote::{run_remote_shell, run_remote_shell_capture, run_remote_shell_status};
+
+const NODE_PROBE_STEP_TIMEOUT_SECS: u64 = 8;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -24,6 +28,7 @@ pub struct NodeProbeResult {
     pub arch: Option<String>,
     pub docker_ready: bool,
     pub disk_free_gb: Option<f64>,
+    pub timed_out: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -37,31 +42,23 @@ pub async fn probe_node(node: &NodeConfig) -> NodeProbeResult {
     let cfg = node.as_remote_config();
 
     // OS + arch: best-effort SSH probe.
-    let os_output = match run_remote_shell_capture(&cfg, "uname -sm 2>/dev/null").await {
-        Ok(Some(out)) => out,
-        _ => String::new(),
-    };
+    let (os_output, os_timed_out) = bounded_remote_capture(&cfg, "uname -sm 2>/dev/null").await;
     let mut parts = os_output.trim().splitn(2, ' ');
     let os = parts.next().map(str::to_string).filter(|s| !s.is_empty());
     let arch = parts.next().map(str::to_string).filter(|s| !s.is_empty());
 
     // Docker: returns false if SSH or docker info fails.
-    let docker_ready = run_remote_shell_status(&cfg, "docker info >/dev/null 2>&1")
-        .await
-        .unwrap_or(false);
+    let (docker_ready, docker_timed_out) =
+        bounded_remote_status(&cfg, "docker info >/dev/null 2>&1").await;
 
     // Free disk (in GiB): best-effort, None on SSH or parse failure.
-    let disk_free_gb =
-        match run_remote_shell_capture(&cfg, "df -Pk $HOME 2>/dev/null | awk 'NR==2 {print $4}'")
-            .await
-        {
-            Ok(Some(out)) => out
-                .trim()
-                .parse::<u64>()
-                .ok()
-                .map(|kb| kb as f64 / (1024.0 * 1024.0)),
-            _ => None,
-        };
+    let (disk_output, disk_timed_out) =
+        bounded_remote_capture(&cfg, "df -Pk $HOME 2>/dev/null | awk 'NR==2 {print $4}'").await;
+    let disk_free_gb = disk_output
+        .trim()
+        .parse::<u64>()
+        .ok()
+        .map(|kb| kb as f64 / (1024.0 * 1024.0));
 
     NodeProbeResult {
         reachable: os.is_some() || docker_ready,
@@ -69,6 +66,33 @@ pub async fn probe_node(node: &NodeConfig) -> NodeProbeResult {
         arch,
         docker_ready,
         disk_free_gb,
+        timed_out: os_timed_out || docker_timed_out || disk_timed_out,
+    }
+}
+
+async fn bounded_remote_capture(cfg: &crate::remote::RemoteConfig, script: &str) -> (String, bool) {
+    match timeout(
+        Duration::from_secs(NODE_PROBE_STEP_TIMEOUT_SECS),
+        run_remote_shell_capture(cfg, script),
+    )
+    .await
+    {
+        Ok(Ok(Some(output))) => (output, false),
+        Ok(Ok(None)) | Ok(Err(_)) => (String::new(), false),
+        Err(_) => (String::new(), true),
+    }
+}
+
+async fn bounded_remote_status(cfg: &crate::remote::RemoteConfig, script: &str) -> (bool, bool) {
+    match timeout(
+        Duration::from_secs(NODE_PROBE_STEP_TIMEOUT_SECS),
+        run_remote_shell_status(cfg, script),
+    )
+    .await
+    {
+        Ok(Ok(value)) => (value, false),
+        Ok(Err(_)) => (false, false),
+        Err(_) => (false, true),
     }
 }
 

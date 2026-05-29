@@ -38,6 +38,9 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
             } else {
                 print_pool_doctor_report(&report);
             }
+            if !report.ok {
+                anyhow::bail!("pool doctor found unhealthy runner pool state");
+            }
         }
         PoolCommands::Repair {
             yes,
@@ -62,6 +65,9 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
                     println!("  - {action}");
                 }
                 print_pool_doctor_report(&report.doctor);
+            }
+            if !report.doctor.ok {
+                anyhow::bail!("pool repair completed but pool doctor still reports issues");
             }
         }
         PoolCommands::Scale { name, count } => {

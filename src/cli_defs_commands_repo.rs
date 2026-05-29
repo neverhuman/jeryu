@@ -73,7 +73,7 @@ pub(crate) struct RepoInitCommand {
     pub branch: String,
     #[arg(long, default_value_t = true)]
     pub protect_main: bool,
-    #[arg(long, value_enum, default_value_t = HookMode::Off)]
+    #[arg(long, value_enum, default_value_t = HookMode::Enforce)]
     pub hooks: HookMode,
     /// Allow JeRyu, and only JeRyu, to relay approved updates to protected main.
     #[arg(long, default_value_t = false)]
@@ -97,7 +97,7 @@ pub(crate) struct RepoAdoptCommand {
     pub name: String,
     #[arg(long, default_value_t = true)]
     pub protect_main: bool,
-    #[arg(long, value_enum, default_value_t = HookMode::Off)]
+    #[arg(long, value_enum, default_value_t = HookMode::Enforce)]
     pub hooks: HookMode,
     /// Allow JeRyu, and only JeRyu, to relay approved updates to protected main.
     #[arg(long, default_value_t = false)]
@@ -173,14 +173,14 @@ pub(crate) struct RepoFleetStatusCommand {
 pub(crate) enum RepoHookCommands {
     Status,
     Enable {
-        #[arg(long, value_enum, default_value_t = HookMode::Advisory)]
+        #[arg(long, value_enum, default_value_t = HookMode::Enforce)]
         mode: HookMode,
     },
     Disable,
     Install {
         #[arg(long, value_enum, default_value_t = HookProfile::PrePush)]
         profile: HookProfile,
-        #[arg(long, value_enum, default_value_t = HookMode::Advisory)]
+        #[arg(long, value_enum, default_value_t = HookMode::Enforce)]
         mode: HookMode,
     },
 }

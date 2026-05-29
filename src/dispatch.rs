@@ -235,6 +235,16 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
         // ---- Pool --------------------------------------------------------
         Commands::Pool(subcmd) => crate::commands::pool::execute_pool_commands(subcmd).await?,
 
+        // ---- Runner Fleet -----------------------------------------------
+        Commands::Runner(subcmd) => {
+            return crate::commands::runner::execute_runner_commands(subcmd).await;
+        }
+
+        // ---- CI Policy ---------------------------------------------------
+        Commands::Ci(subcmd) => {
+            return crate::commands::ci::execute_ci_commands(subcmd).await;
+        }
+
         // ---- Job ---------------------------------------------------------
         Commands::Job(subcmd) => crate::commands::job::execute_job_commands(subcmd).await?,
 

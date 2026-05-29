@@ -139,7 +139,10 @@ pub fn load_contract() -> Result<AccessContract> {
         }
         Err(err) => return Err(err).with_context(|| format!("reading {}", path.display())),
     };
-    toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))
+    let mut contract: AccessContract =
+        toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+    merge_default_known_repos(&mut contract);
+    Ok(contract)
 }
 
 pub fn ensure_contract_file() -> Result<AccessContract> {
@@ -156,6 +159,19 @@ pub fn write_contract(contract: &AccessContract) -> Result<()> {
     let rendered = toml::to_string_pretty(contract)?.trim_end().to_string() + "\n";
     fs::write(&path, rendered).with_context(|| format!("writing {}", path.display()))?;
     Ok(())
+}
+
+fn merge_default_known_repos(contract: &mut AccessContract) {
+    for repo in default_known_repos() {
+        let path = normalize_path_for_match(Path::new(&repo.path));
+        if !contract
+            .known_repos
+            .iter()
+            .any(|entry| normalize_path_for_match(Path::new(&entry.path)) == path)
+        {
+            contract.known_repos.push(repo);
+        }
+    }
 }
 
 pub fn default_contract() -> AccessContract {
@@ -198,6 +214,7 @@ pub fn default_known_repos() -> Vec<AccessRepoEntry> {
         "/home/ubuntu/jankurai",
         "/home/ubuntu/jansu",
         "/home/ubuntu/jnoccio",
+        "/home/ubuntu/openQG",
         "/home/ubuntu/redlineDB",
         "/home/ubuntu/redline-testing",
     ] {
@@ -253,11 +270,24 @@ pub fn repo_entry_for_path<'a>(
     contract: &'a AccessContract,
     repo_path: &Path,
 ) -> Option<&'a AccessRepoEntry> {
-    let canonical = repo_path.canonicalize().ok()?;
-    contract
-        .known_repos
-        .iter()
-        .find(|entry| Path::new(&entry.path).canonicalize().ok().as_ref() == Some(&canonical))
+    let canonical = repo_path.canonicalize().ok();
+    let normalized = normalize_path_for_match(repo_path);
+    contract.known_repos.iter().find(|entry| {
+        let entry_path = Path::new(&entry.path);
+        if let (Some(entry_canonical), Some(repo_canonical)) =
+            (entry_path.canonicalize().ok(), canonical.as_ref())
+        {
+            entry_canonical == *repo_canonical
+        } else {
+            normalize_path_for_match(entry_path) == normalized
+        }
+    })
+}
+
+fn normalize_path_for_match(path: &Path) -> String {
+    path.to_string_lossy()
+        .trim_end_matches(std::path::MAIN_SEPARATOR)
+        .to_string()
 }
 
 pub fn canonical_git_remote(contract: &AccessContract, name: &str) -> String {
@@ -510,7 +540,6 @@ pub fn access_findings_for_repo(
     let repo_root = git_repo_root(repo_path).unwrap_or_else(|_| repo_path.to_path_buf());
     let repo_root_text = repo_root.display().to_string();
     let entry = repo_entry_for_path(contract, &repo_root);
-    let origin_url = git_remote_url(&repo_root, "origin")?;
     let expected_origin_url = entry
         .as_ref()
         .map(|entry| canonical_git_remote(contract, &entry.name));
@@ -525,6 +554,34 @@ pub fn access_findings_for_repo(
             repair_hint: Some("add the checkout to ~/.jeryu/access.toml".to_string()),
         });
     }
+
+    if !repo_root.exists() {
+        findings.push(AccessFinding {
+            code: "repo_path_missing".to_string(),
+            severity: "error".to_string(),
+            message: format!(
+                "registered repo path does not exist: {}",
+                repo_root.display()
+            ),
+            repair_hint: Some(
+                "remove or repair the ~/.jeryu/access.toml known_repos entry".to_string(),
+            ),
+        });
+        return Ok(AccessDoctorReport {
+            contract_path: contract_path().display().to_string(),
+            repo_path: repo_root_text,
+            repo_slug,
+            origin_url: None,
+            expected_origin_url,
+            project_path: entry.map(|entry| format!("{}/{}", entry.namespace, entry.name)),
+            project_id: None,
+            web_url: None,
+            known_repo: entry.is_some(),
+            findings,
+        });
+    }
+
+    let origin_url = git_remote_url(&repo_root, "origin")?;
 
     match origin_url.as_deref().map(classify_remote) {
         Some(RemoteKind::LocalGitLabHttp) => findings.push(AccessFinding {
@@ -558,6 +615,7 @@ pub fn access_findings_for_repo(
             });
         }
     }
+    audit_branch_policy(&repo_root, entry, &mut findings)?;
 
     if gitlab_auth::load_token_for_url(&contract.local_api_url)?.is_none() {
         findings.push(AccessFinding {
@@ -702,6 +760,7 @@ pub async fn resolve_project_report(
                 });
             }
             project_id = Some(project.id);
+            findings.extend(project_policy_findings(&project));
             web_url = Some(project.web_url);
         }
         Err(err) => {
@@ -735,6 +794,62 @@ pub async fn resolve_project_report(
         web_url,
         findings,
     })
+}
+
+fn project_policy_findings(project: &crate::gitlab_client::Project) -> Vec<AccessFinding> {
+    let mut findings = Vec::new();
+    if project.merge_method.as_deref() != Some("ff") {
+        findings.push(project_policy_finding(
+            "project_merge_method_drift",
+            format!(
+                "GitLab project must use fast-forward-only merge_method=ff, got {:?}",
+                project.merge_method
+            ),
+        ));
+    }
+    if project.only_allow_merge_if_pipeline_succeeds != Some(true) {
+        findings.push(project_policy_finding(
+            "project_required_pipeline_drift",
+            "GitLab project must require successful pipelines before merge".to_string(),
+        ));
+    }
+    if project.allow_merge_on_skipped_pipeline == Some(true) {
+        findings.push(project_policy_finding(
+            "project_skipped_pipeline_merge_drift",
+            "GitLab project must not allow merge on skipped pipelines".to_string(),
+        ));
+    }
+    if project.only_allow_merge_if_all_discussions_are_resolved != Some(true) {
+        findings.push(project_policy_finding(
+            "project_discussion_resolution_drift",
+            "GitLab project must require resolved discussions before merge".to_string(),
+        ));
+    }
+    if project.remove_source_branch_after_merge != Some(true) {
+        findings.push(project_policy_finding(
+            "project_source_branch_cleanup_drift",
+            "GitLab project must remove source branches after merge".to_string(),
+        ));
+    }
+    if project.squash_option.as_deref() != Some("never") {
+        findings.push(project_policy_finding(
+            "project_squash_policy_drift",
+            format!(
+                "GitLab project must keep commits unsquashed for linear audit history, got {:?}",
+                project.squash_option
+            ),
+        ));
+    }
+    findings
+}
+
+fn project_policy_finding(code: &str, message: String) -> AccessFinding {
+    AccessFinding {
+        code: code.to_string(),
+        severity: "error".to_string(),
+        message,
+        repair_hint: Some("jeryu access repair --repo . --yes".to_string()),
+    }
 }
 
 pub fn build_keys_report(contract: &AccessContract) -> AccessKeysReport {
@@ -799,14 +914,14 @@ pub fn write_repo_metadata(repo_root: &Path, entry: &AccessRepoEntry) -> Result<
     write_text_if_changed(
         &dir.join("policy.toml"),
         &format!(
-            "schema_version = \"1\"\nprotect_main = {}\nprotected_branches = [\"{}\"]\nprotected_tags = [\"v*\"]\nhooks = \"enforce\"\n\n[main_relay]\nenabled = {}\nactor = \"jeryu\"\nprotected_branch = \"{}\"\nrequire_admission_receipt = true\n\n[offline_release_mirror]\nenabled = false\nremote = \"\"\nrefs = [\"refs/tags/v*\", \"refs/heads/release/*\"]\n",
+            "schema_version = \"1\"\nprotect_main = {}\nprotected_branches = [\"{}\"]\nprotected_tags = [\"v*\"]\nhooks = \"enforce\"\ndirect_push_to_main = \"deny\"\nmerge_request_required = true\nlinear_history_required = true\nbranch_must_be_rebased_on_base = true\n\n[main_relay]\nenabled = {}\nactor = \"jeryu\"\nprotected_branch = \"{}\"\nrequire_admission_receipt = true\n\n[offline_release_mirror]\nenabled = false\nremote = \"\"\nrefs = [\"refs/tags/v*\", \"refs/heads/release/*\"]\n",
             entry.protect_main, entry.default_branch, entry.protect_main, entry.default_branch
         ),
         &mut written,
     )?;
     write_text_if_changed(
         &dir.join("ci.toml"),
-        "schema_version = \"1\"\ngithub_actions_required = false\nlocal_gitlab_required = true\n",
+        &render_ci_policy_toml(&dir.join("ci.toml"), entry),
         &mut written,
     )?;
     if entry.protect_main {
@@ -815,9 +930,24 @@ pub fn write_repo_metadata(repo_root: &Path, entry: &AccessRepoEntry) -> Result<
             &render_pre_push_hook(&entry.default_branch),
             &mut written,
         )?;
+        write_text_if_changed(
+            &dir.join("hooks").join("pre-commit"),
+            &render_pre_commit_hook(&entry.default_branch),
+            &mut written,
+        )?;
         git_config_set(repo_root, "core.hooksPath", ".jeryu/hooks")?;
     }
     Ok(written)
+}
+
+fn render_ci_policy_toml(path: &Path, entry: &AccessRepoEntry) -> String {
+    let existing = fs::read_to_string(path).unwrap_or_default();
+    let github_actions_required =
+        entry.name == "jeryu" || existing.contains("github_actions_required = true");
+    format!(
+        "schema_version = \"1\"\ngithub_actions_required = {}\nlocal_gitlab_required = true\n\n[runner]\npolicy = \"untagged-only\"\nforbid_tags = true\nstandard_jobs_untagged = true\n\n[image]\nrust = \"rust:1.95.0\"\npinned = true\n\n[cache]\npolicy = \"jeryu-managed\"\ncargo_jeryu_managed = true\nproject_sccache_disabled = true\n",
+        github_actions_required
+    )
 }
 
 pub fn cleanup_local_http_gitlab_credentials() -> Result<bool> {
@@ -866,12 +996,154 @@ fn write_text_if_changed(path: &Path, content: &str, written: &mut Vec<String>) 
         fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
     }
     if fs::read_to_string(path).ok().as_deref() == Some(content) {
+        set_executable_if_needed(
+            path,
+            path.ends_with("pre-push") || path.ends_with("pre-commit"),
+        )?;
         return Ok(());
     }
     fs::write(path, content).with_context(|| format!("writing {}", path.display()))?;
-    set_executable_if_needed(path, path.ends_with("pre-push"))?;
+    set_executable_if_needed(
+        path,
+        path.ends_with("pre-push") || path.ends_with("pre-commit"),
+    )?;
     written.push(path.display().to_string());
     Ok(())
+}
+
+fn audit_branch_policy(
+    repo_root: &Path,
+    entry: Option<&AccessRepoEntry>,
+    findings: &mut Vec<AccessFinding>,
+) -> Result<()> {
+    let Some(entry) = entry else {
+        return Ok(());
+    };
+    if !entry.protect_main {
+        findings.push(AccessFinding {
+            code: "protected_main_disabled".to_string(),
+            severity: "error".to_string(),
+            message: format!(
+                "{} is initialized without protected-main policy",
+                entry.default_branch
+            ),
+            repair_hint: Some(
+                "set protect_main=true and run `jeryu access repair --repo . --yes`".to_string(),
+            ),
+        });
+        return Ok(());
+    }
+
+    if git_config_get(repo_root, "core.hooksPath")?.as_deref() != Some(".jeryu/hooks") {
+        findings.push(AccessFinding {
+            code: "hooks_path_not_enforced".to_string(),
+            severity: "error".to_string(),
+            message: "core.hooksPath must be .jeryu/hooks for initialized Jeryu repos".to_string(),
+            repair_hint: Some("jeryu access repair --repo . --yes".to_string()),
+        });
+    }
+
+    audit_hook_file(
+        repo_root,
+        "pre-push",
+        &[
+            "direct push",
+            "merge-base --is-ancestor",
+            "rev-list --merges",
+        ],
+        findings,
+    )?;
+    audit_hook_file(
+        repo_root,
+        "pre-commit",
+        &[
+            "direct commits",
+            "merge-base --is-ancestor",
+            "rev-list --merges",
+        ],
+        findings,
+    )?;
+    audit_policy_keys(repo_root, findings)?;
+    Ok(())
+}
+
+fn audit_hook_file(
+    repo_root: &Path,
+    hook_name: &str,
+    required_markers: &[&str],
+    findings: &mut Vec<AccessFinding>,
+) -> Result<()> {
+    let path = repo_root.join(".jeryu/hooks").join(hook_name);
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            findings.push(AccessFinding {
+                code: format!("missing_{hook_name}_hook"),
+                severity: "error".to_string(),
+                message: format!(".jeryu/hooks/{hook_name} is missing"),
+                repair_hint: Some("jeryu access repair --repo . --yes".to_string()),
+            });
+            return Ok(());
+        }
+        Err(err) => return Err(err).with_context(|| format!("reading {}", path.display())),
+    };
+    if !is_executable(&path)? {
+        findings.push(AccessFinding {
+            code: format!("{hook_name}_hook_not_executable"),
+            severity: "error".to_string(),
+            message: format!(".jeryu/hooks/{hook_name} must be executable"),
+            repair_hint: Some("jeryu access repair --repo . --yes".to_string()),
+        });
+    }
+    for marker in required_markers {
+        if !text.contains(marker) {
+            findings.push(AccessFinding {
+                code: format!("{hook_name}_hook_policy_drift").replace('-', "_"),
+                severity: "error".to_string(),
+                message: format!(".jeryu/hooks/{hook_name} is missing `{marker}` policy guard"),
+                repair_hint: Some("jeryu access repair --repo . --yes".to_string()),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn audit_policy_keys(repo_root: &Path, findings: &mut Vec<AccessFinding>) -> Result<()> {
+    let path = repo_root.join(".jeryu/policy.toml");
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(err) => return Err(err).with_context(|| format!("reading {}", path.display())),
+    };
+    for marker in [
+        "direct_push_to_main = \"deny\"",
+        "merge_request_required = true",
+        "linear_history_required = true",
+        "branch_must_be_rebased_on_base = true",
+    ] {
+        if !text.contains(marker) {
+            findings.push(AccessFinding {
+                code: "branch_policy_metadata_drift".to_string(),
+                severity: "error".to_string(),
+                message: format!(".jeryu/policy.toml is missing `{marker}`"),
+                repair_hint: Some("jeryu access repair --repo . --yes".to_string()),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn is_executable(path: &Path) -> Result<bool> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        return Ok(fs::metadata(path)?.permissions().mode() & 0o111 != 0);
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(true)
+    }
 }
 
 fn set_executable_if_needed(path: &Path, executable: bool) -> Result<()> {
@@ -892,15 +1164,64 @@ fn render_pre_push_hook(protected_branch: &str) -> String {
         r#"#!/usr/bin/env bash
 set -euo pipefail
 
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
+zero_sha="0000000000000000000000000000000000000000"
+updates=()
+while read -r _local_ref local_sha remote_ref _remote_sha; do
   if [ "$remote_ref" = "refs/heads/{protected_branch}" ]; then
     echo "jeryu: direct push to {protected_branch} is blocked; use merge request plus local JeRyu/GitLab gate" >&2
     exit 1
   fi
+  if [ "${{local_sha:-$zero_sha}}" != "$zero_sha" ]; then
+    updates+=("$local_sha")
+  fi
 done
+
+if [ "${{#updates[@]}}" -gt 0 ]; then
+  git fetch --quiet origin "{protected_branch}"
+  base_ref="refs/remotes/origin/{protected_branch}"
+  for local_sha in "${{updates[@]}}"; do
+    if ! git merge-base --is-ancestor "$base_ref" "$local_sha"; then
+      echo "jeryu: branch is not rebased on $base_ref; run git fetch origin {protected_branch} && git rebase $base_ref" >&2
+      exit 1
+    fi
+    if git rev-list --merges "$base_ref..$local_sha" | grep -q .; then
+      echo "jeryu: merge commits after $base_ref are blocked; keep history linear with rebase" >&2
+      exit 1
+    fi
+  done
+fi
 
 if [ -x .jeryu/ci/required.sh ]; then
   bash .jeryu/ci/required.sh
+fi
+"#
+    )
+}
+
+fn render_pre_commit_hook(protected_branch: &str) -> String {
+    format!(
+        r#"#!/usr/bin/env bash
+set -euo pipefail
+
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$current_branch" = "{protected_branch}" ]; then
+  echo "jeryu: direct commits on {protected_branch} are blocked; branch first and submit an MR" >&2
+  exit 1
+fi
+
+base_ref="${{JERYU_CHANGED_FROM:-origin/{protected_branch}}}"
+if git rev-parse --verify "$base_ref" >/dev/null 2>&1; then
+  if ! git merge-base --is-ancestor "$base_ref" HEAD; then
+    echo "jeryu: branch is not rebased on $base_ref; rebase before submitting an MR" >&2
+    exit 1
+  fi
+  if git rev-list --merges "$base_ref..HEAD" | grep -q .; then
+    echo "jeryu: merge commits after $base_ref are blocked; keep history linear with rebase" >&2
+    exit 1
+  fi
+else
+  echo "jeryu: $base_ref is unavailable; run git fetch origin {protected_branch} before submitting an MR" >&2
+  exit 1
 fi
 "#
     )
@@ -1110,6 +1431,12 @@ mod tests {
                 .iter()
                 .any(|repo| repo.path.ends_with("/veox-split/veox-deploy"))
         );
+        assert!(
+            contract
+                .known_repos
+                .iter()
+                .any(|repo| repo.path.ends_with("/openQG"))
+        );
     }
 
     #[test]
@@ -1136,6 +1463,149 @@ mod tests {
         assert!(codes.contains(&"missing_policy_toml"));
         assert!(codes.contains(&"missing_ci_toml"));
         assert!(codes.contains(&"missing_gitlab_pat"));
+    }
+
+    #[test]
+    fn doctor_keeps_missing_registered_paths_known() {
+        let temp = tempfile::tempdir().unwrap();
+        let missing_repo = temp.path().join("missing-repo");
+        let entry = AccessRepoEntry {
+            path: missing_repo.display().to_string(),
+            namespace: "root".to_string(),
+            name: "missing-repo".to_string(),
+            default_branch: "main".to_string(),
+            protect_main: true,
+        };
+        let contract = AccessContract {
+            known_repos: vec![entry],
+            ..default_contract()
+        };
+
+        let report = access_findings_for_repo(&contract, &missing_repo).unwrap();
+        let codes = report
+            .findings
+            .iter()
+            .map(|finding| finding.code.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(report.known_repo);
+        assert_eq!(report.project_path.as_deref(), Some("root/missing-repo"));
+        assert!(codes.contains(&"repo_path_missing"));
+        assert!(!codes.contains(&"missing_known_repo_entry"));
+    }
+
+    #[test]
+    fn repair_metadata_writes_linear_history_branch_hooks() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let _guard = EnvGuard::new(temp.path());
+        let repo = temp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_git_repo(&repo, "ssh://git@127.0.0.1:2224/root/example.git");
+        let entry = AccessRepoEntry {
+            path: repo.display().to_string(),
+            namespace: "root".to_string(),
+            name: "example".to_string(),
+            default_branch: "main".to_string(),
+            protect_main: true,
+        };
+
+        write_repo_metadata(&repo, &entry).unwrap();
+
+        let pre_push = std::fs::read_to_string(repo.join(".jeryu/hooks/pre-push")).unwrap();
+        assert!(pre_push.contains("direct push"));
+        assert!(pre_push.contains("merge-base --is-ancestor"));
+        assert!(pre_push.contains("rev-list --merges"));
+        assert!(is_executable(&repo.join(".jeryu/hooks/pre-push")).unwrap());
+        let pre_commit = std::fs::read_to_string(repo.join(".jeryu/hooks/pre-commit")).unwrap();
+        assert!(pre_commit.contains("direct commits"));
+        assert!(pre_commit.contains("merge-base --is-ancestor"));
+        assert!(pre_commit.contains("rev-list --merges"));
+        assert!(is_executable(&repo.join(".jeryu/hooks/pre-commit")).unwrap());
+        let policy = std::fs::read_to_string(repo.join(".jeryu/policy.toml")).unwrap();
+        assert!(policy.contains("direct_push_to_main = \"deny\""));
+        assert!(policy.contains("merge_request_required = true"));
+        assert!(policy.contains("linear_history_required = true"));
+        assert!(policy.contains("branch_must_be_rebased_on_base = true"));
+
+        let contract = AccessContract {
+            known_repos: vec![entry],
+            ..default_contract()
+        };
+        let report = access_findings_for_repo(&contract, &repo).unwrap();
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|finding| finding.code.contains("hook")
+                    || finding.code == "branch_policy_metadata_drift")
+        );
+    }
+
+    #[test]
+    fn doctor_reports_branch_policy_drift() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let _guard = EnvGuard::new(temp.path());
+        let repo = temp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_git_repo(&repo, "ssh://git@127.0.0.1:2224/root/example.git");
+        let entry = AccessRepoEntry {
+            path: repo.display().to_string(),
+            namespace: "root".to_string(),
+            name: "example".to_string(),
+            default_branch: "main".to_string(),
+            protect_main: true,
+        };
+        write_repo_metadata(&repo, &entry).unwrap();
+        std::fs::write(
+            repo.join(".jeryu/hooks/pre-push"),
+            "#!/usr/bin/env bash\necho old hook\n",
+        )
+        .unwrap();
+        std::fs::write(repo.join(".jeryu/policy.toml"), "schema_version = \"1\"\n").unwrap();
+
+        let contract = AccessContract {
+            known_repos: vec![entry],
+            ..default_contract()
+        };
+        let report = access_findings_for_repo(&contract, &repo).unwrap();
+        let codes = report
+            .findings
+            .iter()
+            .map(|finding| finding.code.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(codes.contains(&"pre_push_hook_policy_drift"));
+        assert!(codes.contains(&"branch_policy_metadata_drift"));
+    }
+
+    #[test]
+    fn project_policy_findings_require_fast_forward_and_green_pipelines() {
+        let project = crate::gitlab_client::Project {
+            id: 1,
+            name: "example".to_string(),
+            path_with_namespace: "root/example".to_string(),
+            web_url: "http://gitlab.local/root/example".to_string(),
+            merge_method: Some("merge".to_string()),
+            only_allow_merge_if_pipeline_succeeds: Some(false),
+            allow_merge_on_skipped_pipeline: Some(true),
+            only_allow_merge_if_all_discussions_are_resolved: Some(false),
+            remove_source_branch_after_merge: Some(false),
+            squash_option: Some("default_on".to_string()),
+        };
+
+        let codes = project_policy_findings(&project)
+            .into_iter()
+            .map(|finding| finding.code)
+            .collect::<Vec<_>>();
+
+        assert!(codes.contains(&"project_merge_method_drift".to_string()));
+        assert!(codes.contains(&"project_required_pipeline_drift".to_string()));
+        assert!(codes.contains(&"project_skipped_pipeline_merge_drift".to_string()));
+        assert!(codes.contains(&"project_discussion_resolution_drift".to_string()));
+        assert!(codes.contains(&"project_source_branch_cleanup_drift".to_string()));
+        assert!(codes.contains(&"project_squash_policy_drift".to_string()));
     }
 
     #[tokio::test]

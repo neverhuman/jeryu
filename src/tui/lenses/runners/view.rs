@@ -19,16 +19,25 @@ pub fn draw(f: &mut Frame, input: &RunnersLensInput, area: Rect) {
         .split(area);
 
     let header = format!(
-        "Runners — {}/{} active",
-        input.active_runners, input.total_runners
+        "Runners - {}/{} active | degraded={} orphaned={} partial={}",
+        input.active_runners,
+        input.total_runners,
+        input.degraded_runners,
+        input.orphaned_containers,
+        if input.partial_inventory { "yes" } else { "no" }
     );
     f.render_widget(
         Paragraph::new(header).block(Block::default().borders(Borders::ALL).title(" Runners ")),
         chunks[0],
     );
     f.render_widget(
-        Paragraph::new("(pools / nodes / tags / scale preview land in U22)")
-            .block(Block::default().borders(Borders::ALL)),
+        Paragraph::new(format!(
+            "Inventory: degraded={} orphaned={} partial={}",
+            input.degraded_runners,
+            input.orphaned_containers,
+            if input.partial_inventory { "yes" } else { "no" }
+        ))
+        .block(Block::default().borders(Borders::ALL)),
         chunks[1],
     );
     f.render_widget(
@@ -54,6 +63,7 @@ mod tests {
         let buf = terminal.backend().buffer();
         let ink: String = buf.content.iter().map(|c| c.symbol()).collect();
         assert!(ink.contains("Runners"));
+        assert!(ink.contains("partial"));
     }
 
     #[test]

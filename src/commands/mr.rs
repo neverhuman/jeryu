@@ -4,6 +4,7 @@
 
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
+use std::process::Command;
 
 use crate::cli::MrCommands;
 use jeryu::access::{access_findings_for_repo, load_contract, repo_entry_for_path};
@@ -92,6 +93,7 @@ async fn create_merge_request(
         })
         .ok_or_else(|| anyhow::anyhow!("could not determine project path"))?;
     let project = client.get_project_by_path(&project_path).await?;
+    ensure_mr_branch_policy(&repo_path, source, target)?;
 
     if push {
         jeryu::access::git_push_branch(&repo_path, "origin", source)?;
@@ -137,6 +139,69 @@ async fn create_merge_request(
         web_url: Some(mr.web_url),
         findings: access_report.findings,
     })
+}
+
+pub(crate) fn ensure_mr_branch_policy(
+    repo_path: &std::path::Path,
+    source: &str,
+    target: &str,
+) -> Result<()> {
+    if source == target {
+        bail!("merge request source and target must differ; direct {target} changes are forbidden");
+    }
+    run_git(repo_path, &["fetch", "--quiet", "origin", target])
+        .with_context(|| format!("fetching origin/{target} before MR creation"))?;
+    let base_ref = format!("refs/remotes/origin/{target}");
+    run_git(repo_path, &["rev-parse", "--verify", &base_ref])
+        .with_context(|| format!("{base_ref} is unavailable; run git fetch origin {target}"))?;
+    if !git_status(
+        repo_path,
+        &["merge-base", "--is-ancestor", &base_ref, source],
+    )? {
+        bail!(
+            "branch {source} is not rebased on {base_ref}; run `git rebase {base_ref}` before creating an MR"
+        );
+    }
+    let output = git_output(
+        repo_path,
+        &["rev-list", "--merges", &format!("{base_ref}..{source}")],
+    )
+    .with_context(|| format!("checking merge commits in {source}"))?;
+    if !output.status.success() {
+        bail!(
+            "git rev-list failed while checking linear history: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    if !String::from_utf8_lossy(&output.stdout).trim().is_empty() {
+        bail!(
+            "branch {source} contains merge commits after {base_ref}; rebase to keep history linear before creating an MR"
+        );
+    }
+    Ok(())
+}
+
+fn run_git(repo_path: &std::path::Path, args: &[&str]) -> Result<()> {
+    let output = git_output(repo_path, args)?;
+    if !output.status.success() {
+        bail!(
+            "git {} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    Ok(())
+}
+
+fn git_status(repo_path: &std::path::Path, args: &[&str]) -> Result<bool> {
+    Ok(git_output(repo_path, args)?.status.success())
+}
+
+fn git_output(repo_path: &std::path::Path, args: &[&str]) -> std::io::Result<std::process::Output> {
+    Command::new("git")
+        .current_dir(repo_path)
+        .args(args)
+        .output()
 }
 
 fn print_report(report: &MrCreateReport) {

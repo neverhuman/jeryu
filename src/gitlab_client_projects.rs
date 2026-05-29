@@ -45,6 +45,26 @@ impl GitlabClient {
         Ok(project)
     }
 
+    pub async fn enforce_project_merge_policy(&self, project_id: i64) -> Result<()> {
+        self.api_put_void(
+            self.api_url(&format!("/projects/{project_id}")),
+            &UpdateProjectPolicyReq {
+                merge_method: "ff",
+                only_allow_merge_if_pipeline_succeeds: true,
+                allow_merge_on_skipped_pipeline: false,
+                only_allow_merge_if_all_discussions_are_resolved: true,
+                remove_source_branch_after_merge: true,
+                squash_option: "never",
+            },
+        )
+        .await?;
+        info!(
+            project_id,
+            "enforced fast-forward merge and required-pipeline policy"
+        );
+        Ok(())
+    }
+
     pub async fn create_project_bot(
         &self,
         project_id: i64,

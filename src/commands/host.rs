@@ -1,6 +1,9 @@
 use crate::cli::HostCommands;
 use anyhow::Result;
 use jeryu::{cache, reclaim, state};
+use tokio::time::{Duration, timeout};
+
+const HOST_DOCTOR_TIMEOUT_SECS: u64 = 12;
 
 pub(crate) async fn execute_host_commands(subcmd: HostCommands) -> Result<i32> {
     match subcmd {
@@ -8,9 +11,14 @@ pub(crate) async fn execute_host_commands(subcmd: HostCommands) -> Result<i32> {
             reclaim::run_storage_audit().await?;
         }
         HostCommands::Doctor { json } => {
-            let report = cache::SmartCache::new(state::Db::open().await?)
-                .host_doctor_report()
-                .await?;
+            let report = timeout(
+                Duration::from_secs(HOST_DOCTOR_TIMEOUT_SECS),
+                cache::SmartCache::new(state::Db::open().await?).host_doctor_report(),
+            )
+            .await
+            .map_err(|_| {
+                anyhow::anyhow!("host doctor exceeded {HOST_DOCTOR_TIMEOUT_SECS}s deadline")
+            })??;
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {

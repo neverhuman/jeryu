@@ -21,7 +21,7 @@ use gitlab_client_types_requests::{
     CommitAction, CreateBranchReq, CreateCommitReq, CreateCommitResp, CreateIssueReq, CreateMrReq,
     CreatePipelineReq, CreateProjectPatReq, CreateProjectReq, CreateRunnerReq, CreateWebhookReq,
     LintCiReq, LintCiResp, NoteReq, PipelineResp, ProtectBranchReq, ResetTokenResp, SetPausedReq,
-    UpdateLabelsReq, UpdateRunnerReq, WebhookResp,
+    UpdateLabelsReq, UpdateProjectPolicyReq, UpdateRunnerReq, WebhookResp,
 };
 
 #[path = "gitlab_client_branches.rs"]

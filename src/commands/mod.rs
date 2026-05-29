@@ -1,6 +1,7 @@
 pub mod access;
 pub mod agent_submit;
 pub mod bug;
+pub mod ci;
 pub mod exec;
 pub mod git;
 pub mod health;
@@ -14,6 +15,7 @@ pub mod pool;
 pub mod release;
 pub mod remote;
 pub mod repo;
+pub mod runner;
 pub mod secrets;
 pub mod settings;
 pub mod system;

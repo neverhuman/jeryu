@@ -9,7 +9,12 @@ use super::repo_direct::{
 use super::{DirectRepoOptions, DirectRepoPlan, HookMode, HookProfile, JeryuConfigSpec, RepoMode};
 
 pub(crate) async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
-    let mode = match opts.hooks {
+    let hooks = if opts.protect_main && matches!(opts.hooks, HookMode::Off) {
+        HookMode::Enforce
+    } else {
+        opts.hooks
+    };
+    let mode = match hooks {
         HookMode::Off => RepoMode::Direct,
         HookMode::Advisory => RepoMode::Observed,
         HookMode::Enforce => RepoMode::Enforced,
@@ -29,7 +34,7 @@ pub(crate) async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
         remote_name: remote_name.into(),
         remote_url: remote_url.clone(),
         mode,
-        hooks: opts.hooks,
+        hooks,
         protect_main: opts.protect_main,
         main_relay: opts.main_relay,
         offline_release_remote: opts.offline_release_remote.clone(),
@@ -72,6 +77,10 @@ pub(crate) async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
             .protect_branch_mr_only(project.id, &opts.branch)
             .await
             .with_context(|| format!("protecting branch {}", opts.branch))?;
+        client
+            .enforce_project_merge_policy(project.id)
+            .await
+            .with_context(|| format!("enforcing project merge policy for {}", opts.name))?;
     }
 
     configure_remote(&opts.path, remote_name, &remote_url, opts.replace_origin)?;
@@ -106,7 +115,7 @@ pub(crate) async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
         &opts.path,
         JeryuConfigSpec {
             mode,
-            hooks: opts.hooks,
+            hooks,
             namespace: &opts.namespace,
             name: &opts.name,
             branch: &opts.branch,
@@ -115,7 +124,7 @@ pub(crate) async fn setup_direct_repo(opts: DirectRepoOptions) -> Result<i32> {
             offline_release_remote: opts.offline_release_remote.as_deref(),
         },
     )?;
-    configure_hook_mode(&opts.path, opts.hooks, HookProfile::All)?;
+    configure_hook_mode(&opts.path, hooks, HookProfile::All)?;
     println!("Configured direct JeRyu repo at {}", opts.path.display());
     println!("Remote {remote_name}: {remote_url}");
     Ok(0)

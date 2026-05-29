@@ -30,8 +30,13 @@ pub fn draw(f: &mut Frame, input: &SourceDoctorLensInput, area: Rect) {
 
 fn draw_header(f: &mut Frame, input: &SourceDoctorLensInput, area: Rect) {
     let text = format!(
-        "Source Doctor — {}/{} healthy  |  {} degraded  |  Cursor: {}",
-        input.sources_healthy, input.sources_total, input.sources_degraded, input.event_cursor,
+        "Source Doctor - {}/{} healthy | degraded={} down={} partial={} | Cursor: {}",
+        input.sources_healthy,
+        input.sources_total,
+        input.sources_degraded,
+        input.source_down_count,
+        input.partial_sources,
+        input.event_cursor,
     );
     let p = Paragraph::new(text).block(
         Block::default()
@@ -41,10 +46,11 @@ fn draw_header(f: &mut Frame, input: &SourceDoctorLensInput, area: Rect) {
     f.render_widget(p, area);
 }
 
-fn draw_body_placeholder(f: &mut Frame, _input: &SourceDoctorLensInput, area: Rect) {
-    let p = Paragraph::new(
-        "(per-source freshness, schema drift, action drift, MCP drift, docs drift, DB profile mismatch — lands in U29)",
-    )
+fn draw_body_placeholder(f: &mut Frame, input: &SourceDoctorLensInput, area: Rect) {
+    let p = Paragraph::new(format!(
+        "Source state: degraded={} down={} partial={}",
+        input.sources_degraded, input.source_down_count, input.partial_sources
+    ))
     .block(
         Block::default()
             .borders(Borders::ALL)
@@ -107,5 +113,6 @@ mod tests {
         let buf = terminal.backend().buffer();
         let ink: String = buf.content.iter().map(|c| c.symbol()).collect();
         assert!(ink.contains("healthy"));
+        assert!(ink.contains("partial"));
     }
 }
