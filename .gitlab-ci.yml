@@ -12,28 +12,7 @@ variables:
   GIT_DEPTH: "1"
 
 default:
-  image: rust:1.95.0
-  before_script:
-    - |
-      apt_root="$(mktemp -d /tmp/apt.XXXXXX)"
-      rm -rf "$apt_root"
-      mkdir -p "$apt_root/cache/archives" "$apt_root/state/lists"
-      install -d -o _apt -g root -m 700 "$apt_root/cache/archives/partial" "$apt_root/state/lists/partial"
-      trap 'rm -rf "$apt_root"' EXIT
-      cat >/tmp/apt.conf <<EOF
-      Dir::Cache "$apt_root/cache";
-      Dir::State "$apt_root/state";
-      Dir::Cache::archives "$apt_root/cache/archives";
-      Dir::State::lists "$apt_root/state/lists";
-      Dir::Cache::pkgcache "";
-      Dir::Cache::srcpkgcache "";
-      Acquire::Languages "none";
-      DPkg::Post-Invoke { "rm -rf $apt_root/cache/archives/* $apt_root/cache/archives/partial/* || true"; };
-      APT::Update::Post-Invoke { "rm -rf $apt_root/cache/archives/* $apt_root/cache/archives/partial/* || true"; };
-      EOF
-      export APT_CONFIG=/tmp/apt.conf
-      apt-get update -qq
-      apt-get install -y --no-install-recommends jq
+  image: jeryu-ci-rust:1.95.0
   timeout: 30m
 
 .workflow_rules_main: &rules_main
@@ -89,7 +68,6 @@ rust_build:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh build
 
 rust_install_smoke:
@@ -97,7 +75,6 @@ rust_install_smoke:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh install-smoke
 
 rust_test_select:
@@ -107,7 +84,6 @@ rust_test_select:
   variables:
     GIT_DEPTH: "0"
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh test-select
   artifacts:
     paths:
@@ -119,7 +95,6 @@ rust_test_lib:
   needs: [rust_test_select]
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - |
       mode="full"
       filter=""
@@ -139,7 +114,6 @@ rust_test_mock:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh test-mock
 
 rust_test_integration:
@@ -147,7 +121,6 @@ rust_test_integration:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh test-integration
 
 rust_tui_smoke:
@@ -155,7 +128,6 @@ rust_tui_smoke:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh tui-smoke
 
 jeryu_health_self:
@@ -163,7 +135,6 @@ jeryu_health_self:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - mkdir -p target/jeryu
     - cargo run -p jeryu --bin jeryu -- health --ci --json > target/jeryu/health.json
     - jq -e '.ok == true' target/jeryu/health.json
@@ -178,7 +149,6 @@ rust_supply_chain:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - cargo install -q --locked cargo-deny --force
     - bash ops/ci/rust-lane.sh supply-chain
 
@@ -187,7 +157,6 @@ rust_witness:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh witness
 
 rust_vrc_map:
@@ -195,7 +164,6 @@ rust_vrc_map:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh vrc-map
 
 rust_vrc_plan:
@@ -203,7 +171,6 @@ rust_vrc_plan:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh vrc-plan
 
 rust_aer_scan:
@@ -211,7 +178,6 @@ rust_aer_scan:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh aer
 
 rust_scheduled_hardening:
@@ -220,7 +186,6 @@ rust_scheduled_hardening:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh hardening
 
 rust_ssh_install_e2e:
@@ -228,7 +193,6 @@ rust_ssh_install_e2e:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - apt-get install -y --no-install-recommends docker.io
     - bash ops/ci/rust-lane.sh ssh-install-e2e
   artifacts:
@@ -242,7 +206,6 @@ rust_tui_screenshots:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh tui-screenshots
     - bash ops/ci/rust-lane.sh tui-recording
     - bash ops/ci/update-tui-readme-media.sh
@@ -252,7 +215,6 @@ rust_fixture_project_tests:
   needs: []
   rules: *rules_rust
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/rust-lane.sh fixture-project-test
     - bash ops/ci/rust-lane.sh fixture-project-clippy
 
@@ -265,7 +227,6 @@ jankurai_security:
   allow_failure: true
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh security
 
@@ -273,7 +234,6 @@ jankurai_audit:
   stage: quality
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh audit
 
@@ -282,7 +242,6 @@ jankurai_proof:
   allow_failure: true
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh proof
 
@@ -291,7 +250,6 @@ jankurai_tools:
   allow_failure: true
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh tools
 
@@ -299,7 +257,6 @@ jankurai_bad_behavior:
   stage: quality
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh bad-behavior
 
@@ -308,7 +265,6 @@ jankurai_sbom:
   allow_failure: true
   rules: *rules_main
   script:
-    - apt-get install -y --no-install-recommends golang-go nodejs npm
     - bash scripts/install-jankurai.sh
     - bash ops/ci/jankurai-lane.sh sbom
 
@@ -443,7 +399,6 @@ post_merge_build_artifact:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
   script:
-    - apt-get install -y --no-install-recommends mold
     - bash ops/ci/post-merge-deploy-lane.sh build "$CI_COMMIT_SHA"
     - bash ops/ci/post-merge-deploy-lane.sh verify-tui
   artifacts:
@@ -481,7 +436,6 @@ web_rust_feature:
   rules: *rules_web
   script:
     - rustup component add rustfmt clippy
-    - apt-get install -y --no-install-recommends mold
     - cargo install -q --locked cargo-nextest --force
     - cargo fmt --all -- --check
     - cargo check --workspace --features web
@@ -497,7 +451,6 @@ web_frontend_checks:
   needs: []
   rules: *rules_web
   script:
-    - apt-get install -y --no-install-recommends nodejs npm
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run typecheck
     - npm --workspace @jeryu/web run lint
@@ -508,7 +461,6 @@ web_frontend_build:
   needs: []
   rules: *rules_web
   script:
-    - apt-get install -y --no-install-recommends nodejs npm
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build
   artifacts:
@@ -522,7 +474,6 @@ web_frontend_storybook:
   needs: []
   rules: *rules_web
   script:
-    - apt-get install -y --no-install-recommends nodejs npm
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build-storybook
   artifacts:
@@ -536,7 +487,6 @@ web_uxqa_build:
   needs: [web_frontend_build, web_frontend_storybook]
   rules: *rules_web
   script:
-    - apt-get install -y --no-install-recommends nodejs npm
     - node apps/ux-qa/ux-qa-check.mjs build
   artifacts:
     when: always
@@ -553,7 +503,6 @@ web_e2e:
     JERYU_LOCAL_USERS: "alice:repo.read,repo.write|bob:repo.read"
     JERYU_PLAYWRIGHT_E2E_MODE: bff-only
   script:
-    - apt-get install -y --no-install-recommends mold nodejs npm
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build
     - cargo build --release --features web -p jeryu
@@ -612,7 +561,6 @@ web_lighthouse:
   rules: *rules_web
   allow_failure: true
   script:
-    - apt-get install -y --no-install-recommends mold nodejs npm
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build
     - cargo build --release --features web -p jeryu
