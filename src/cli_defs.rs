@@ -30,7 +30,7 @@ pub(crate) enum Commands {
         capture: bool,
         #[arg(long, default_value_t = false)]
         screenshot: bool,
-        #[arg(long, default_value = "jobs")]
+        #[arg(long, default_value = "mission")]
         tab: String,
         #[arg(long, default_value = "paper/assets/jeryu-tui.png")]
         output: PathBuf,

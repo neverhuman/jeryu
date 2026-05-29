@@ -117,6 +117,27 @@ async fn renders_all_primary_tabs_with_empty_state() -> Result<()> {
 }
 
 #[tokio::test]
+async fn header_identifies_flight_deck_and_proof_state() -> Result<()> {
+    let mut app = crate::tui::app::test_app().await?;
+    app.apply_demo_fixture();
+    app.active_tab = crate::tui::app::ActiveTab::Mission;
+    app.state.active_taint_count = 0;
+    app.state.pool_sync_error = None;
+    app.state.gitlab_ready = true;
+
+    let buffer = capture_buffer_size(&mut app, 140, 44)?;
+    let text = rendered_text(&buffer);
+
+    assert!(text.contains("JERYU FLIGHT DECK"));
+    assert!(text.contains("source:LIVE"));
+    assert!(text.contains("proof:LIVE"));
+    assert!(text.contains("top:"));
+    assert!(text.contains("next:"));
+    assert!(text.contains("[1:Mission]"));
+    Ok(())
+}
+
+#[tokio::test]
 async fn renders_release_subpanes() -> Result<()> {
     let mut app = crate::tui::app::test_app().await?;
     app.active_tab = crate::tui::app::ActiveTab::Release;
@@ -426,7 +447,7 @@ async fn renders_cached_pools_with_pool_sync_warning() -> Result<()> {
     let buffer = capture_buffer(&mut app)?;
     let rendered: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
 
-    assert!(rendered.contains("pools:1/2 cached"));
+    assert!(rendered.contains("proof:PARTIAL"));
     assert!(rendered.contains("Runner Pools (2 cached) sync warning"));
     assert!(rendered.contains("linux-large"));
     assert!(rendered.contains("Pool sync warning"));

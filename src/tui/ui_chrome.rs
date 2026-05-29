@@ -163,6 +163,7 @@ pub(crate) fn outdated_indicator(app: &App) -> (i64, Color, &'static str) {
 
 pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
     let (outdated_age, outdated_color, outdated_label) = outdated_indicator(app);
+    let (headline, headline_color, next_action) = top_attention(app);
 
     let gitlab_span = if app.state.gitlab_ready {
         Span::styled("GitLab:OK", Style::default().fg(Color::Green))
@@ -170,31 +171,19 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
         Span::styled("GitLab:BOOT", Style::default().fg(Color::Yellow))
     };
 
-    let pools_total = app.state.pools.len();
-    let pools_active = app.state.pools.iter().filter(|p| !p.paused).count();
-    let pools_using_cache = app.state.pool_sync_error.is_some();
-
-    let release_span = if let Some(ref rel) = app.state.release_status {
-        let short_sha = rel.attempt.sha.get(..8).unwrap_or(rel.attempt.sha.as_str());
-        Span::styled(
-            format!(" rel:{} {}", short_sha, rel.canary_state),
-            Style::default()
-                .fg(release_color(&rel.canary_state))
-                .add_modifier(Modifier::BOLD),
-        )
+    let source_label = if outdated_label.is_empty() {
+        "source:LIVE".to_string()
     } else {
-        Span::styled(" rel:none", Style::default().fg(Color::DarkGray))
+        format!("source:{}:{}s", outdated_label, outdated_age)
     };
-
-    let outdated_span = if !outdated_label.is_empty() {
-        Span::styled(
-            format!(" {}({}s)", outdated_label, outdated_age),
-            Style::default()
-                .fg(outdated_color)
-                .add_modifier(Modifier::BOLD),
-        )
+    let proof_label = if app.state.active_taint_count > 0 {
+        "proof:TAINTED"
+    } else if app.state.pool_sync_error.is_some() {
+        "proof:PARTIAL"
+    } else if app.state.gitlab_ready {
+        "proof:LIVE"
     } else {
-        Span::raw("")
+        "proof:SOURCE DOWN"
     };
 
     let tab_defs: &[(&str, ActiveTab, Option<u8>)] = &[
@@ -240,87 +229,47 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
 
     let top_spans: Vec<Span> = vec![
         Span::styled(
-            " jeryu ",
+            " JERYU FLIGHT DECK ",
             Style::default()
-                .fg(Color::Cyan)
+                .fg(Color::Black)
+                .bg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
+        Span::styled("  ", Style::default()),
         repo_filter_span,
         Span::raw(" "),
         gitlab_span,
         Span::styled(
-            format!(" ctrs:{}", app.state.active_containers),
-            Style::default().fg(Color::Gray),
-        ),
-        Span::styled(
-            if pools_using_cache {
-                format!(" pools:{}/{} cached", pools_active, pools_total)
-            } else {
-                format!(" pools:{}/{}", pools_active, pools_total)
-            },
-            Style::default().fg(if pools_using_cache {
-                Color::LightRed
-            } else if pools_active == pools_total {
-                Color::Green
-            } else {
-                Color::Yellow
-            }),
-        ),
-        release_span,
-        // v3 — Agent count badge
-        Span::styled(
-            format!(" agents:{}", app.state.agent_pipelines.len()),
-            Style::default().fg(if app.state.agent_pipelines.is_empty() {
-                Color::DarkGray
-            } else {
-                Color::Rgb(102, 255, 255)
-            }),
-        ),
-        // v3 — Cache hit ratio
-        Span::styled(
-            format!(" cache:{:.0}%", app.state.hit_ratio * 100.0),
-            Style::default().fg(if app.state.hit_ratio > 0.8 {
-                Color::Green
-            } else if app.state.hit_ratio > 0.5 {
-                Color::Yellow
-            } else {
-                Color::Red
-            }),
-        ),
-        // v3 — Taint indicator
-        if app.state.active_taint_count > 0 {
-            Span::styled(
-                format!(" taint:{}", app.state.active_taint_count),
-                Style::default()
-                    .fg(Color::Magenta)
-                    .add_modifier(Modifier::BOLD),
-            )
-        } else {
-            Span::raw("")
-        },
-        outdated_span,
-        // Agent connection status: blinking green when connected, red when disconnected
-        {
-            let is_connected = app.state.agent_connected;
-            let tick = app.tick_count;
-            if is_connected {
-                // blink at 0.5 Hz when connected
-                let modifier = if (tick / 2).is_multiple_of(2) {
-                    Modifier::BOLD
+            format!(" {source_label}"),
+            Style::default()
+                .fg(if outdated_label.is_empty() {
+                    Color::Green
                 } else {
-                    Modifier::empty()
-                };
-                Span::styled(
-                    " ●",
-                    Style::default()
-                        .fg(Color::Rgb(102, 204, 153))
-                        .add_modifier(modifier),
-                )
-            } else {
-                // static red when disconnected
-                Span::styled(" ●", Style::default().fg(Color::Rgb(255, 102, 102)))
-            }
-        },
+                    outdated_color
+                })
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" {proof_label}"),
+            Style::default()
+                .fg(match proof_label {
+                    "proof:LIVE" => Color::Green,
+                    "proof:PARTIAL" => Color::Yellow,
+                    "proof:TAINTED" => Color::Magenta,
+                    _ => Color::Red,
+                })
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" top:{}", compact_header_text(&headline, 24)),
+            Style::default()
+                .fg(headline_color)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" next:{}", compact_header_text(&next_action, 24)),
+            Style::default().fg(Color::White),
+        ),
     ];
 
     let mut tab_spans: Vec<Span> = vec![];
@@ -348,6 +297,15 @@ pub(crate) fn draw_header_tabs(f: &mut Frame, app: &mut App, area: Rect) {
         .block(Block::default().borders(Borders::BOTTOM))
         .style(Style::default().fg(Color::White));
     f.render_widget(p, area);
+}
+
+fn compact_header_text(input: &str, max_chars: usize) -> String {
+    if input.chars().count() <= max_chars {
+        return input.to_string();
+    }
+    let mut out: String = input.chars().take(max_chars.saturating_sub(1)).collect();
+    out.push('…');
+    out
 }
 
 #[path = "ui_chrome_footer.rs"]
