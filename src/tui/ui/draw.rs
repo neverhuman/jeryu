@@ -13,15 +13,9 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 use super::overlay::draw_workflow_inspect_overlay;
-// ui_chrome and ui_panels declare their helpers as pub(crate); they are
-// re-exported wholesale via `super::*` so name resolution lands here
-// without forcing visibility changes in those legacy files.
-use super::{
-    draw_agents_tab, draw_approvals_tab, draw_bugs_tab, draw_cache_dashboard, draw_command_palette,
-    draw_evidence_tab, draw_footer, draw_git_tab, draw_header_tabs, draw_help_overlay,
-    draw_jank_tab, draw_jobs_tab, draw_llms_tab, draw_mission_tab, draw_pools_tab,
-    draw_release_tab, draw_secrets_tab, draw_tests_tab,
-};
+// Chrome (header/footer) comes from ui_chrome; the global command-palette/help
+// overlays from ui/overlays.rs — both re-exported into the ui module namespace.
+use super::{draw_command_palette, draw_footer, draw_header_tabs, draw_help_overlay};
 
 pub fn draw(f: &mut Frame, app: &mut App) {
     if !app.focus.active.is_global() && app.focus.active.tab() != app.active_tab {
@@ -70,30 +64,18 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     crate::tui::repo_fleet_bar::draw_fleet_bar(f, app, chunks[1]);
     focus::register_pane(app, PaneId::FleetBar, chunks[1]);
 
-    // Flight Deck cutover: tabs that map to a new lens render the lens; the
-    // rest keep their legacy panel until their lens lands. This is the runtime
-    // wiring the reset lens library was missing — see `super::flight_deck`.
+    // Flight Deck: every tab renders its lens via `flight_deck::tab_lens` +
+    // `draw_lens`, EXCEPT Workflow + Repos, which keep their own richer reset
+    // wrappers below. The legacy `ui_panels.*` per-tab tree has been gutted.
     if let Some(lens) = super::flight_deck::tab_lens(app.active_tab) {
         let model = super::flight_deck::app_to_read_model(app);
         super::flight_deck::draw_lens(f, app, &model, lens, chunks[2]);
     } else {
         match app.active_tab {
             ActiveTab::Workflow => draw_workflow_tab(f, app, chunks[2]),
-            ActiveTab::Mission => draw_mission_tab(f, app, chunks[2]),
-            ActiveTab::Release => draw_release_tab(f, app, chunks[2]),
-            ActiveTab::Approvals => draw_approvals_tab(f, app, chunks[2]),
-            ActiveTab::Jobs => draw_jobs_tab(f, app, chunks[2]),
-            ActiveTab::Agents => draw_agents_tab(f, app, chunks[2]),
-            ActiveTab::Tests => draw_tests_tab(f, app, chunks[2]),
-            ActiveTab::Pools => draw_pools_tab(f, app, chunks[2]),
-            ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[2]),
-            ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[2]),
             ActiveTab::Repos => draw_repos_tab(f, app, chunks[2]),
-            ActiveTab::Bugs => draw_bugs_tab(f, app, chunks[2]),
-            ActiveTab::LLMs => draw_llms_tab(f, app, chunks[2]),
-            ActiveTab::Git => draw_git_tab(f, app, chunks[2]),
-            ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[2]),
-            ActiveTab::Jankurai => draw_jank_tab(f, app, chunks[2]),
+            // All other tabs route through a lens above.
+            _ => {}
         }
     }
 

@@ -4,17 +4,6 @@ use super::*;
 // Color helpers
 // ---------------------------------------------------------------------------
 
-pub(crate) fn status_color(status: &str) -> Color {
-    match status {
-        "success" | "omitted" | "vti-skipped" => Color::Green,
-        "running" => Color::Blue,
-        "failed" => Color::Red,
-        "pending" | "created" => Color::Yellow,
-        "canceled" => Color::DarkGray,
-        _ => Color::Gray,
-    }
-}
-
 pub(crate) fn release_color(state: &str) -> Color {
     match state {
         "green" | "released" => Color::Green,
@@ -24,117 +13,6 @@ pub(crate) fn release_color(state: &str) -> Color {
         "failed" => Color::Red,
         _ => Color::DarkGray,
     }
-}
-
-pub(crate) fn status_badge(status: &str) -> (&'static str, Color) {
-    match status {
-        "success" | "passed" | "green" | "released" => ("PASS", Color::Green),
-        "running" | "in-flight" | "canary-authorized" => ("RUN", Color::Cyan),
-        "failed" => ("FAIL", Color::Red),
-        "blocked" | "blocked-by-upstream" => ("BLOCK", Color::Magenta),
-        "pending"
-        | "created"
-        | "waiting"
-        | "waiting_for_resource"
-        | "preparing"
-        | "ready-for-canary" => ("WAIT", Color::Yellow),
-        "canceled" | "vti-skipped" | "omitted" => ("SKIP", Color::DarkGray),
-        _ => ("INFO", Color::Gray),
-    }
-}
-
-pub(crate) fn meter_bar(percent: u16, width: usize) -> String {
-    let width = width.max(1);
-    let filled = (percent.min(100) as usize * width + 50) / 100;
-    format!(
-        "{}{} {:>3}%",
-        "█".repeat(filled),
-        "░".repeat(width.saturating_sub(filled)),
-        percent.min(100)
-    )
-}
-
-pub(crate) fn compact_spark(values: &[i64], width: usize) -> String {
-    const STEPS: &[char] = &['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    if values.is_empty() || width == 0 {
-        return "n/a".to_string();
-    }
-    let take = width.min(values.len());
-    let slice = &values[values.len() - take..];
-    let min = slice.iter().copied().min().unwrap_or(0);
-    let max = slice.iter().copied().max().unwrap_or(min);
-    if max == min {
-        return STEPS[0].to_string().repeat(take);
-    }
-    slice
-        .iter()
-        .map(|value| {
-            let idx = (((*value - min) as f64 / (max - min) as f64) * 7.0).round() as usize;
-            STEPS[idx.min(7)]
-        })
-        .collect()
-}
-
-pub(crate) fn top_attention(app: &App) -> (String, Color, String) {
-    if app.state.active_taint_count > 0 {
-        return (
-            format!(
-                "{} active cache taint(s) can block trusted proof reuse",
-                app.state.active_taint_count
-            ),
-            Color::Magenta,
-            "Open Cache, inspect taint scope, then run clean validation".to_string(),
-        );
-    }
-    if let Some(rel) = &app.state.release_status
-        && !matches!(rel.canary_state.as_str(), "green" | "released")
-    {
-        return (
-            format!("Release {} is {}", rel.attempt.version, rel.canary_state),
-            release_color(&rel.canary_state),
-            "Open Release, inspect missing gate evidence".to_string(),
-        );
-    }
-    if let Some(job) = app
-        .state
-        .recent_jobs
-        .iter()
-        .find(|job| job.status == "failed")
-    {
-        return (
-            format!(
-                "Job #{} failed in {}",
-                job.job_id,
-                job.job_name.as_deref().unwrap_or("unknown job")
-            ),
-            Color::Red,
-            "Open evidence capsule or revisit after blocker explanation".to_string(),
-        );
-    }
-    if app
-        .state
-        .recent_jobs
-        .iter()
-        .any(|job| job.status == "running")
-    {
-        return (
-            "Validation is active on the critical path".to_string(),
-            Color::Cyan,
-            "Watch Flow Board and open the slowest running job".to_string(),
-        );
-    }
-    if !app.state.gitlab_ready {
-        return (
-            "GitLab is not ready".to_string(),
-            Color::Yellow,
-            "Wait for service readiness or inspect docker status".to_string(),
-        );
-    }
-    (
-        "No blocking proof gaps detected".to_string(),
-        Color::Green,
-        "Start work, run VTI planning, or inspect latest release state".to_string(),
-    )
 }
 
 /// Returns (outdated_age_secs, outdated_color, outdated_label) based on last_sync_at.

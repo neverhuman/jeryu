@@ -1,4 +1,28 @@
+//! Owner: Interactive TUI subsystem — global overlays (command palette + help)
+//! Proof: `cargo nextest run -p jeryu -- tui::ui`
+//! Invariants: Pure draw. These are cross-cutting overlays the orchestrator
+//!             draws over whatever lens is active. Relocated out of the deleted
+//!             legacy `ui_panels.*` chain when the Flight Deck cutover gutted it;
+//!             they depend only on `ui_chrome` helpers (via `super::*`), the app
+//!             state, and the action registry — never on the old panels.
+
 use super::*;
+
+/// Truncate `input` to `max_chars` with an ellipsis (relocated from the deleted
+/// legacy panels so the overlays stay self-contained).
+fn short_text(input: &str, max_chars: usize) -> String {
+    let mut chars = input.chars();
+    let text = chars.by_ref().take(max_chars).collect::<String>();
+    if chars.next().is_some() {
+        format!("{}…", text)
+    } else {
+        text
+    }
+}
+
+// ===========================================================================
+// Command palette
+// ===========================================================================
 
 pub(crate) fn draw_command_palette(f: &mut Frame, app: &App) {
     use crate::tui::action_registry;
@@ -268,10 +292,129 @@ pub(crate) fn action_enabled_reason(app: &App, action_id: &str) -> Option<String
     }
 }
 
-// ---------------------------------------------------------------------------
-// TUI v2 — Help overlay (extracted to companion file)
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Help overlay
+// ===========================================================================
 
-#[path = "ui_panels_body_help.rs"]
-mod ui_panels_body_help;
-pub(crate) use ui_panels_body_help::*;
+pub(crate) fn draw_help_overlay(f: &mut Frame, app: &App) {
+    let area = f.area();
+    let popup_w = 60u16.min(area.width.saturating_sub(4));
+    let popup_h = 22u16.min(area.height.saturating_sub(4));
+    let x = area.x + (area.width.saturating_sub(popup_w)) / 2;
+    let y = area.y + (area.height.saturating_sub(popup_h)) / 2;
+    let popup = Rect::new(x, y, popup_w, popup_h);
+
+    f.render_widget(Clear, popup);
+
+    let tab_name = match app.active_tab {
+        ActiveTab::Workflow => "Workflow",
+        ActiveTab::Mission => "Mission",
+        ActiveTab::Release => "Release",
+        ActiveTab::Approvals => "Approvals",
+        ActiveTab::Jobs => "Jobs",
+        ActiveTab::Agents => "Agents",
+        ActiveTab::Tests => "Tests",
+        ActiveTab::Pools => "Pools",
+        ActiveTab::Cache => "Cache",
+        ActiveTab::Evidence => "Evidence",
+        ActiveTab::Repos => "Repos",
+        ActiveTab::Bugs => "Bugs",
+        ActiveTab::LLMs => "LLMs",
+        ActiveTab::Git => "Git",
+        ActiveTab::Secrets => "Secrets",
+        ActiveTab::Jankurai => "Jankurai",
+    };
+
+    let mut lines: Vec<Line> = vec![
+        Line::from(Span::styled(
+            format!(" Keyboard Shortcuts — {tab_name} Tab"),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        help_row("1-0", "Switch to numbered tab"),
+        help_row("Tab", "Cycle to next tab"),
+        help_row("Ctrl-K", "Open command palette"),
+        help_row("?", "Toggle this help overlay"),
+        help_row("F5", "Force refresh all data"),
+        help_row("q / Esc", "Quit TUI"),
+        Line::from(""),
+    ];
+
+    // Tab-specific bindings
+    match app.active_tab {
+        ActiveTab::Workflow => {
+            lines.push(Line::from(Span::styled(
+                " ── Workflow ──",
+                Style::default().fg(Color::Cyan),
+            )));
+            lines.push(help_row("↑↓←→", "Move between panes / drilled selection"));
+            lines.push(help_row("Enter", "Open Inspector (on canvas)"));
+            lines.push(help_row("Tab/BackTab", "Cycle Inspector sub-tabs"));
+            lines.push(help_row("f", "Toggle follow active node"));
+            lines.push(help_row("b", "Jump to next blocker"));
+            lines.push(help_row("c", "Jump to critical-path head"));
+            lines.push(help_row("z", "Cycle DAG zoom"));
+            lines.push(help_row("r", "Trigger rollback (Promote node)"));
+            lines.push(help_row("</>", "Cycle PR"));
+        }
+        ActiveTab::Jobs => {
+            lines.push(Line::from(Span::styled(
+                " ── Runner Feed ──",
+                Style::default().fg(Color::Cyan),
+            )));
+            lines.push(help_row("f", "Freeze/unfreeze auto-cycle"));
+            lines.push(help_row("n", "Next runner"));
+            lines.push(help_row("N", "Previous runner"));
+            lines.push(help_row("g", "Toggle follow-tail mode"));
+            lines.push(help_row("Enter", "Open full-screen log view"));
+            lines.push(help_row("c", "Cancel selected job"));
+            lines.push(help_row("r", "Retry failed job"));
+            lines.push(help_row("d", "Remove job record"));
+        }
+        ActiveTab::Tests => {
+            lines.push(help_row("v / t", "Toggle average/latest view"));
+            lines.push(help_row("Enter", "Show test history"));
+            lines.push(help_row("↑↓", "Choose test"));
+        }
+        ActiveTab::Pools => {
+            lines.push(help_row("p", "Pause/resume selected pool"));
+        }
+        ActiveTab::Evidence => {
+            lines.push(help_row("a", "Toggle capsules/audit ledger"));
+        }
+        ActiveTab::LLMs => {
+            lines.push(help_row("F5", "Refresh model policy and key sources"));
+        }
+        _ => {
+            lines.push(help_row("↑↓", "Navigate items"));
+            lines.push(help_row("Enter", "Inspect selected item"));
+        }
+    }
+
+    let block = Block::default()
+        .title(" [ Help ] ")
+        .title_top(Line::from(" [esc] ").right_aligned())
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    f.render_widget(
+        Paragraph::new(lines)
+            .block(block)
+            .wrap(Wrap { trim: false }),
+        popup,
+    );
+}
+
+pub(crate) fn help_row(key: &str, desc: &str) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(
+            format!("  {key:<12}"),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(desc.to_string(), Style::default().fg(Color::White)),
+    ])
+}
