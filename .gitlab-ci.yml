@@ -16,19 +16,19 @@ default:
   before_script:
     - |
       cat >/tmp/apt.conf <<'EOF'
-      Dir::Cache "/tmp/apt-cache";
-      Dir::State "/tmp/apt-state";
-      Dir::Cache::archives "/tmp/apt-cache/archives";
-      Dir::State::lists "/tmp/apt-state/lists";
+      Dir::Cache "/cache/apt-cache";
+      Dir::State "/cache/apt-state";
+      Dir::Cache::archives "/cache/apt-cache/archives";
+      Dir::State::lists "/cache/apt-state/lists";
       Dir::Cache::pkgcache "";
       Dir::Cache::srcpkgcache "";
       Acquire::Languages "none";
-      DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
-      APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };
+      DPkg::Post-Invoke { "rm -rf /cache/apt-cache/archives/* /cache/apt-cache/archives/partial/* || true"; };
+      APT::Update::Post-Invoke { "rm -rf /cache/apt-cache/archives/* /cache/apt-cache/archives/partial/* || true"; };
       EOF
       export APT_CONFIG=/tmp/apt.conf
-      mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists
-      install -d -o _apt -g root -m 700 /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial
+      mkdir -p /cache/apt-cache/archives /cache/apt-state/lists
+      install -d -o _apt -g root -m 700 /cache/apt-cache/archives/partial /cache/apt-state/lists/partial
       apt-get update -qq
       apt-get install -y --no-install-recommends jq
   timeout: 30m
