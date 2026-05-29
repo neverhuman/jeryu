@@ -37,6 +37,33 @@ fn compose_up_targets_only_gitlab_and_vault() {
     assert_eq!(compose_up_targets(), ["gitlab", "vault"]);
 }
 
+#[test]
+fn runner_manager_host_config_bounds_local_runner_resources() {
+    let host_config = runner_manager_host_config(Vec::new());
+
+    let log_config = host_config.log_config.expect("log config");
+    assert_eq!(log_config.typ.as_deref(), Some("json-file"));
+    let log_limits = log_config.config.expect("log limits");
+    assert_eq!(log_limits.get("max-size").map(String::as_str), Some("50m"));
+    assert_eq!(log_limits.get("max-file").map(String::as_str), Some("3"));
+
+    assert_eq!(host_config.memory, Some(RUNNER_MEMORY_BYTES));
+    assert_eq!(host_config.memory_swap, Some(RUNNER_MEMORY_BYTES));
+    assert_eq!(host_config.nano_cpus, Some(RUNNER_NANO_CPUS));
+
+    let nofile = host_config
+        .ulimits
+        .expect("ulimits")
+        .into_iter()
+        .find(|limit| limit.name.as_deref() == Some("nofile"))
+        .expect("nofile ulimit");
+    assert_eq!(nofile.soft, Some(RUNNER_NOFILE_LIMIT));
+    assert_eq!(nofile.hard, Some(RUNNER_NOFILE_LIMIT));
+
+    let restart = host_config.restart_policy.expect("restart policy");
+    assert_eq!(restart.name, Some(RestartPolicyNameEnum::UNLESS_STOPPED));
+}
+
 fn contains_bytes(haystack: &str, needle: &[u8]) -> bool {
     haystack
         .as_bytes()

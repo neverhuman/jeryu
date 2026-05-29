@@ -7,7 +7,10 @@ use bollard::container::{
     Config, CreateContainerOptions, KillContainerOptions, ListContainersOptions, LogsOptions,
     RemoveContainerOptions, StartContainerOptions, StopContainerOptions,
 };
-use bollard::models::{ContainerSummary, HostConfig, Mount, MountTypeEnum};
+use bollard::models::{
+    ContainerSummary, HostConfig, HostConfigLogConfig, Mount, MountTypeEnum, ResourcesUlimits,
+    RestartPolicy, RestartPolicyNameEnum,
+};
 use futures_util::TryStreamExt;
 use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
@@ -28,6 +31,37 @@ mod docker_manager_ops;
 
 fn compose_up_targets() -> [&'static str; 2] {
     ["gitlab", "vault"]
+}
+
+const RUNNER_MEMORY_BYTES: i64 = 8 * 1024 * 1024 * 1024;
+const RUNNER_NANO_CPUS: i64 = 4_000_000_000;
+const RUNNER_NOFILE_LIMIT: i64 = 65_536;
+
+fn runner_manager_host_config(mounts: Vec<Mount>) -> HostConfig {
+    HostConfig {
+        mounts: Some(mounts),
+        extra_hosts: Some(vec![format!("{}:host-gateway", config::GITLAB_HOSTNAME)]),
+        log_config: Some(HostConfigLogConfig {
+            typ: Some("json-file".to_string()),
+            config: Some(HashMap::from([
+                ("max-size".to_string(), "50m".to_string()),
+                ("max-file".to_string(), "3".to_string()),
+            ])),
+        }),
+        memory: Some(RUNNER_MEMORY_BYTES),
+        memory_swap: Some(RUNNER_MEMORY_BYTES),
+        nano_cpus: Some(RUNNER_NANO_CPUS),
+        ulimits: Some(vec![ResourcesUlimits {
+            name: Some("nofile".to_string()),
+            soft: Some(RUNNER_NOFILE_LIMIT),
+            hard: Some(RUNNER_NOFILE_LIMIT),
+        }]),
+        restart_policy: Some(RestartPolicy {
+            name: Some(RestartPolicyNameEnum::UNLESS_STOPPED),
+            maximum_retry_count: None,
+        }),
+        ..Default::default()
+    }
 }
 
 impl DockerCtl {
@@ -92,11 +126,7 @@ impl DockerCtl {
             },
         ];
 
-        let host_config = HostConfig {
-            mounts: Some(mounts),
-            extra_hosts: Some(vec![format!("{}:host-gateway", config::GITLAB_HOSTNAME)]),
-            ..Default::default()
-        };
+        let host_config = runner_manager_host_config(mounts);
 
         let container_config = Config {
             image: Some(config::GITLAB_RUNNER_IMAGE.to_string()),
