@@ -13,6 +13,7 @@ variables:
 
 default:
   image: rust:1.95.0
+  timeout: 30m
   before_script:
     - |
       export DEBIAN_FRONTEND=noninteractive
