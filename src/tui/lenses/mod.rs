@@ -5,16 +5,20 @@
 //!             mod.rs / view.rs / data.rs / nav.rs / tests.rs.
 
 pub mod agents;
+pub mod approvals;
 pub mod autonomy;
 pub mod bugs;
 pub mod cache;
 pub mod evidence;
+pub mod git;
+pub mod jankurai;
 pub mod llms;
 pub mod mission;
 pub mod queue;
 pub mod release;
 pub mod repos;
 pub mod runners;
+pub mod secrets;
 pub mod source_doctor;
 pub mod vti;
 pub mod workflow;
@@ -35,6 +39,10 @@ pub enum LensId {
     Release,
     Autonomy,
     Llms,
+    Approvals,
+    Git,
+    Jankurai,
+    Secrets,
 }
 
 impl LensId {
@@ -54,6 +62,10 @@ impl LensId {
             Self::Release => "release",
             Self::Autonomy => "autonomy",
             Self::Llms => "llms",
+            Self::Approvals => "approvals",
+            Self::Git => "git",
+            Self::Jankurai => "jankurai",
+            Self::Secrets => "secrets",
         }
     }
 
@@ -73,6 +85,10 @@ impl LensId {
             Self::Release => "Release",
             Self::Autonomy => "Autonomy",
             Self::Llms => "LLMs",
+            Self::Approvals => "Approvals",
+            Self::Git => "Git",
+            Self::Jankurai => "Jankurai",
+            Self::Secrets => "Secrets",
         }
     }
 
@@ -91,6 +107,10 @@ impl LensId {
         Self::Release,
         Self::Autonomy,
         Self::Llms,
+        Self::Approvals,
+        Self::Git,
+        Self::Jankurai,
+        Self::Secrets,
     ];
 }
 

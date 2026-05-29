@@ -40,14 +40,17 @@ pub fn tab_lens(tab: ActiveTab) -> Option<LensId> {
         ActiveTab::Evidence => Some(LensId::Evidence),
         ActiveTab::Bugs => Some(LensId::Bugs),
         ActiveTab::LLMs => Some(LensId::Llms),
-        // Already reset via their own richer wrappers in ui/draw.rs (more than a
-        // generic lens): Workflow = delivery atlas widget (DAG + inspector +
-        // focus panes); Repos = repos lens + focus/drill registration.
+        // App-state lenses (live projections from AppState): the last screens to
+        // cut over, replacing the legacy Approvals/Git/Secrets/Jankurai panels.
+        ActiveTab::Approvals => Some(LensId::Approvals),
+        ActiveTab::Git => Some(LensId::Git),
+        ActiveTab::Secrets => Some(LensId::Secrets),
+        ActiveTab::Jankurai => Some(LensId::Jankurai),
+        // The only screens NOT routed through a lens: Workflow + Repos render via
+        // their own richer reset wrappers in ui/draw.rs (Workflow = delivery
+        // atlas widget with DAG + inspector + focus panes; Repos = repos lens +
+        // focus/drill registration).
         ActiveTab::Workflow | ActiveTab::Repos => None,
-        // Residual legacy panels with no lens yet (rich/sensitive): Approvals
-        // gates, Git sync/MR, Secrets/artifacts, Jankurai audit. Kept until
-        // their lenses land.
-        ActiveTab::Approvals | ActiveTab::Git | ActiveTab::Secrets | ActiveTab::Jankurai => None,
     }
 }
 
@@ -107,6 +110,37 @@ pub fn draw_lens(f: &mut Frame, app: &App, model: &TuiReadModel, lens: LensId, a
             area,
         ),
         LensId::Llms => llms::draw(f, &llms::LlmsLensInput::from_read_model(model), area),
+        // App-state lenses (live projections from AppState, not the read model)
+        // — these replace the last legacy panels so the ui_panels.* tree can go.
+        LensId::Approvals => approvals::draw(
+            f,
+            &approvals::ApprovalsLensInput::from_state(
+                &app.state.approvals_queue,
+                app.selected_approval_index,
+            ),
+            area,
+        ),
+        LensId::Git => git::draw(
+            f,
+            &git::GitLensInput::from_state(&app.state.recent_git_events, app.selected_git_index),
+            area,
+        ),
+        LensId::Jankurai => jankurai::draw(
+            f,
+            &jankurai::JankuraiLensInput::from_state(
+                &app.state.jankurai,
+                app.selected_jankurai_index,
+            ),
+            area,
+        ),
+        LensId::Secrets => secrets::draw(
+            f,
+            &secrets::SecretsLensInput::from_state(
+                &app.state.secret_audit_events,
+                app.selected_secret_index,
+            ),
+            area,
+        ),
     }
 }
 
@@ -201,25 +235,21 @@ mod tests {
             (ActiveTab::Evidence, LensId::Evidence),
             (ActiveTab::Bugs, LensId::Bugs),
             (ActiveTab::LLMs, LensId::Llms),
+            (ActiveTab::Approvals, LensId::Approvals),
+            (ActiveTab::Git, LensId::Git),
+            (ActiveTab::Secrets, LensId::Secrets),
+            (ActiveTab::Jankurai, LensId::Jankurai),
         ] {
             assert_eq!(tab_lens(tab), Some(lens), "{tab:?} must render its lens");
         }
     }
 
     #[test]
-    fn wrapper_and_residual_tabs_keep_their_panel() {
-        // Workflow + Repos render via their own richer reset wrappers in
-        // ui/draw.rs; Approvals/Git/Secrets/Jankurai keep their legacy panel
-        // until their lens lands. All must return None from tab_lens.
-        for tab in [
-            ActiveTab::Workflow,
-            ActiveTab::Repos,
-            ActiveTab::Approvals,
-            ActiveTab::Git,
-            ActiveTab::Secrets,
-            ActiveTab::Jankurai,
-        ] {
-            assert_eq!(tab_lens(tab), None, "{tab:?} must keep its own panel");
+    fn only_workflow_and_repos_keep_their_own_wrapper() {
+        // Every tab routes through a lens EXCEPT Workflow + Repos, which render
+        // via their own richer reset wrappers in ui/draw.rs.
+        for tab in [ActiveTab::Workflow, ActiveTab::Repos] {
+            assert_eq!(tab_lens(tab), None, "{tab:?} must keep its own wrapper");
         }
     }
 }
