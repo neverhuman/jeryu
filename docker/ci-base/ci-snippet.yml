@@ -1,0 +1,52 @@
+# docker/ci-base/ci-snippet.yml
+#
+# To be integrated into .gitlab-ci.yml when Codex's active CI series is stable.
+# Posted as a separate file (not yet merged into .gitlab-ci.yml) because that
+# file currently has uncommitted Codex WIP — coordinated via AGENT_WORK.md.
+#
+# Adds:
+#   1. A single new job `ci_base_publish` that builds + pushes the jeryu/ci-base
+#      image to the local GitLab container registry. Runs only on main when the
+#      Dockerfile (or this snippet) actually changes.
+#   2. An opt-in image variable so jeryu's own pipeline can A/B against the
+#      baked image without flipping the default until it's proven green.
+#
+# The job is OUTSIDE the security-lane block (no overlap with Codex's
+# jankurai_security / jankurai_audit / jankurai_proof / jankurai_tools /
+# jankurai_bad_behavior / jankurai_sbom jobs).
+#
+# Integration step (after Codex CI lands):
+#   1. Append the `ci_base_publish` job to .gitlab-ci.yml (any stage that has
+#      a `release` definition; otherwise add to the existing `release` stage).
+#   2. Optionally change the `default.image` to `${JERYU_CI_BASE_IMAGE:-rust:1.95.0}`
+#      so projects can opt-in via `variables: { JERYU_CI_BASE_IMAGE: ... }`.
+#   3. Flip the default to the baked image after a week of green pipelines.
+
+# ─────────────────────────────────────────────────────────────────────────
+ci_base_publish:
+  stage: release
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+      changes:
+        paths:
+          - docker/ci-base/**
+  image: docker:24.0
+  services:
+    - docker:24.0-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    IMAGE_REPO: "${CI_REGISTRY}/root/jeryu/ci-base"
+    PUSH: "1"
+  before_script:
+    - apk add --no-cache bash curl
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - bash docker/ci-base/build.sh
+  timeout: 45m
+
+# Optional opt-in image override for the default image, so projects can A/B.
+# Add (or merge with) the existing `default:` block in .gitlab-ci.yml:
+#
+# default:
+#   image: ${JERYU_CI_BASE_IMAGE:-rust:1.95.0}
+#   timeout: 30m
