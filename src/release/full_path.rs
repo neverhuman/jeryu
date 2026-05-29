@@ -174,10 +174,11 @@ pub async fn run_full_path(options: FullPathOptions) -> Result<FullPathReport> {
         })),
     )?;
 
+    let source_pipeline_ref = format!("refs/merge-requests/{}/head", mr.iid);
     let pipeline = wait_for_source_pipeline(
         &client,
         project.id,
-        &options.source,
+        &source_pipeline_ref,
         &source_sha,
         options.json,
         &mut report,
@@ -478,29 +479,9 @@ async fn wait_for_source_pipeline(
     report: &mut FullPathReport,
 ) -> Result<Pipeline> {
     let mut attempts = 0usize;
-    let mut triggered_source_pipeline = false;
     loop {
         attempts += 1;
         let Some(pipeline) = latest_pipeline_for_ref(client, project_id, ref_name).await? else {
-            if !triggered_source_pipeline {
-                let pipeline_id = client
-                    .trigger_pipeline(project_id, ref_name, Vec::new())
-                    .await
-                    .context("trigger source pipeline")?;
-                triggered_source_pipeline = true;
-                push_stage(
-                    report,
-                    json,
-                    "ci",
-                    "wait",
-                    "triggered source pipeline for release branch",
-                    Some(json!({
-                        "pipeline_id": pipeline_id,
-                        "expected_sha": expected_sha,
-                        "attempt": attempts,
-                    })),
-                )?;
-            }
             if json {
                 push_stage(
                     report,
@@ -516,26 +497,6 @@ async fn wait_for_source_pipeline(
         };
 
         if pipeline.sha != expected_sha {
-            if !triggered_source_pipeline {
-                let pipeline_id = client
-                    .trigger_pipeline(project_id, ref_name, Vec::new())
-                    .await
-                    .context("trigger source pipeline for expected sha")?;
-                triggered_source_pipeline = true;
-                push_stage(
-                    report,
-                    json,
-                    "ci",
-                    "wait",
-                    "triggered source pipeline for release branch",
-                    Some(json!({
-                        "pipeline_id": pipeline_id,
-                        "latest_sha": pipeline.sha,
-                        "expected_sha": expected_sha,
-                        "attempt": attempts,
-                    })),
-                )?;
-            }
             if json {
                 push_stage(
                     report,
