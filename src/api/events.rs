@@ -102,6 +102,16 @@ pub enum TuiEventKind {
     SecretAccessDenied,
     PolicyViolation,
 
+    // Runner / fleet lifecycle (emitted on STATE TRANSITIONS only, never
+    // every poll — keeps the stream low-noise; see Phase N in the master plan).
+    RunnerNodeUnreachable,
+    RunnerNodeBackOnline,
+    FleetUnderfilled,
+    FleetDrift,
+    RunnerDiskCritical,
+    RunnerOrphanedDetected,
+    HungRunnerDetected,
+
     // Action lifecycle
     ActionPreviewed,
     ActionExecuted,
@@ -154,6 +164,13 @@ impl TuiEventKind {
             Self::SecretAuditCreated => "secret.audit.created",
             Self::SecretAccessDenied => "secret.access.denied",
             Self::PolicyViolation => "policy.violation",
+            Self::RunnerNodeUnreachable => "runner.node.unreachable",
+            Self::RunnerNodeBackOnline => "runner.node.back_online",
+            Self::FleetUnderfilled => "runner.fleet.underfilled",
+            Self::FleetDrift => "runner.fleet.drift",
+            Self::RunnerDiskCritical => "runner.disk.critical",
+            Self::RunnerOrphanedDetected => "runner.orphaned.detected",
+            Self::HungRunnerDetected => "runner.hung.detected",
             Self::ActionPreviewed => "action.previewed",
             Self::ActionExecuted => "action.executed",
             Self::ActionFailed => "action.failed",

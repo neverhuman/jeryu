@@ -77,3 +77,51 @@ fn event_kind_labels_are_dot_separated() {
         "test.vti.accelerated"
     );
 }
+
+#[test]
+fn runner_lifecycle_event_labels() {
+    assert_eq!(
+        TuiEventKind::RunnerNodeUnreachable.label(),
+        "runner.node.unreachable"
+    );
+    assert_eq!(
+        TuiEventKind::RunnerNodeBackOnline.label(),
+        "runner.node.back_online"
+    );
+    assert_eq!(
+        TuiEventKind::FleetUnderfilled.label(),
+        "runner.fleet.underfilled"
+    );
+    assert_eq!(TuiEventKind::FleetDrift.label(), "runner.fleet.drift");
+    assert_eq!(
+        TuiEventKind::RunnerDiskCritical.label(),
+        "runner.disk.critical"
+    );
+    assert_eq!(
+        TuiEventKind::RunnerOrphanedDetected.label(),
+        "runner.orphaned.detected"
+    );
+    assert_eq!(
+        TuiEventKind::HungRunnerDetected.label(),
+        "runner.hung.detected"
+    );
+}
+
+#[test]
+fn runner_lifecycle_event_kind_serde_snake_case_round_trip() {
+    // The enum derives #[serde(rename_all = "snake_case")]; the new variants
+    // must round-trip so the inspection event stream and any consumer agree.
+    for kind in [
+        TuiEventKind::RunnerNodeUnreachable,
+        TuiEventKind::FleetDrift,
+        TuiEventKind::HungRunnerDetected,
+    ] {
+        let json = serde_json::to_string(&kind).unwrap();
+        let back: TuiEventKind = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, kind, "round-trip failed for {json}");
+    }
+    assert_eq!(
+        serde_json::to_string(&TuiEventKind::RunnerNodeUnreachable).unwrap(),
+        "\"runner_node_unreachable\""
+    );
+}
