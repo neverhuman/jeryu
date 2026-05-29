@@ -1,0 +1,35 @@
+FROM rust:1.95.0
+
+LABEL org.opencontainers.image.title="jeryu-gitlab-rust"
+LABEL org.opencontainers.image.description="Prebaked CI image for jeryu GitLab jobs"
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV APT_CONFIG=/tmp/apt.conf
+
+RUN set -eux; \
+    mkdir -p /tmp/apt-cache/archives /tmp/apt-state/lists; \
+    install -d -o _apt -g root -m 700 /tmp/apt-cache/archives/partial /tmp/apt-state/lists/partial; \
+    printf '%s\n' \
+        'Dir::Cache "/tmp/apt-cache";' \
+        'Dir::State "/tmp/apt-state";' \
+        'Dir::Cache::archives "/tmp/apt-cache/archives";' \
+        'Dir::State::lists "/tmp/apt-state/lists";' \
+        'Dir::Cache::pkgcache "";' \
+        'Dir::Cache::srcpkgcache "";' \
+        'Acquire::Languages "none";' \
+        'DPkg::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/* || true"; };' \
+        'APT::Update::Post-Invoke { "rm -rf /tmp/apt-cache/archives/* /tmp/apt-cache/archives/partial/* || true"; };' \
+        >"$APT_CONFIG"; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        jq \
+        mold \
+        docker.io \
+        golang-go \
+        nodejs \
+        npm; \
+    rm -rf /tmp/apt-state/lists/* /tmp/apt-state/lists/partial/*; \
+    rm -rf /var/lib/apt/lists/*
