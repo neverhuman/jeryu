@@ -10,6 +10,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST_PATH="${JANKURAI_MANIFEST:-$SCRIPT_DIR/jankurai-manifest.json}"
 JANKURAI_INSTALL_MODE="${JANKURAI_INSTALL_MODE:-release}"
+JANKURAI_GIT_REMOTE="${JANKURAI_GIT_REMOTE:-ssh://git@127.0.0.1:2224/root/jankurai.git}"
 # Default to /usr/local when running as root (e.g. GitLab CI Docker containers)
 # so the binary lands in PATH without extra configuration.
 if [ -z "${JANKURAI_PREFIX:-}" ] && [ "$(id -u 2>/dev/null || echo 1)" = "0" ]; then
@@ -207,9 +208,25 @@ install_runtime_schemas() {
     cp -R "$schema_dir/." "$RUNTIME_SCHEMA_DIR/"
 }
 
+install_runtime_schemas_from_tree() {
+    local schema_dir="$1"
+
+    if [ ! -d "$schema_dir" ]; then
+        echo "install-jankurai: source tree did not contain schemas directory: $schema_dir" >&2
+        exit 1
+    fi
+
+    mkdir -p "$RUNTIME_MANIFEST_DIR"
+    rm -rf "$RUNTIME_SCHEMA_DIR"
+    mkdir -p "$RUNTIME_SCHEMA_DIR"
+    cp -R "$schema_dir/." "$RUNTIME_SCHEMA_DIR/"
+}
+
 patch_runtime_schema_root() {
     local binary="$1"
-    python3 - "$binary" "$BUILD_MANIFEST_DIR" "$RUNTIME_MANIFEST_DIR" <<'PY'
+    local build_dir="$2"
+    local runtime_dir="$3"
+    python3 - "$binary" "$build_dir" "$runtime_dir" <<'PY'
 import pathlib
 import sys
 
@@ -331,7 +348,7 @@ install_from_release() {
 
     chmod +x "$binary"
     install_runtime_schemas "$tmp"
-    patch_runtime_schema_root "$binary"
+    patch_runtime_schema_root "$binary" "$BUILD_MANIFEST_DIR" "$RUNTIME_MANIFEST_DIR"
     mkdir -p "$BIN_DIR"
     install -m 0755 "$binary" "$BIN_DIR/$INSTALL_NAME"
 
@@ -348,12 +365,90 @@ install_from_release() {
     printf 'install-jankurai: installed %s from %s (%s)\n' "$JANKURAI_BIN" "$release_tag" "$asset_name"
 }
 
+install_from_git() {
+    need git
+    need cargo
+    need python3
+
+    local platform selection status release_tag version asset_name asset_url asset_sha256
+    local tmp clone_root source_checkout source_build_dir binary root_len base_name pad_len pad
+    platform="$(platform_key)"
+
+    tmp="$(mktemp -d)"
+    cleanup() {
+        if [ -n "${tmp:-}" ]; then
+            rm -rf "$tmp"
+        fi
+    }
+    trap cleanup EXIT
+
+    selection="$(manifest_entry "$platform")"
+    IFS=$'\t' read -r status release_tag version asset_name asset_url asset_sha256 <<< "$selection"
+    if [ "$status" != "OK" ]; then
+        echo "install-jankurai: could not parse Jankurai release manifest" >&2
+        exit 1
+    fi
+
+    root_len=$(( ${#BUILD_MANIFEST_DIR} - ${#"/crates/jankurai"} ))
+    base_name="jankurai-src-"
+    pad_len=$(( root_len - ${#tmp} - 1 - ${#base_name} ))
+    if [ "$pad_len" -lt 0 ]; then
+        echo "install-jankurai: cannot derive a padded checkout path for runtime patching" >&2
+        exit 1
+    fi
+    pad="$(python3 - "$pad_len" <<'PY'
+import sys
+print("a" * int(sys.argv[1]), end="")
+PY
+)"
+
+    clone_root="$tmp/${base_name}${pad}"
+    source_checkout="$clone_root"
+    source_build_dir="$source_checkout/crates/jankurai"
+    mkdir -p "$source_checkout"
+
+    git clone --branch "$release_tag" --depth 1 "$JANKURAI_GIT_REMOTE" "$source_checkout" >/dev/null
+    if [ ! -f "$source_build_dir/Cargo.toml" ]; then
+        echo "install-jankurai: cloned source tree does not contain crates/jankurai/Cargo.toml" >&2
+        exit 1
+    fi
+
+    (
+        cd "$source_checkout"
+        cargo build --manifest-path crates/jankurai/Cargo.toml --release --locked --bin jankurai
+    )
+
+    binary="$source_checkout/target/release/jankurai"
+    if [ ! -x "$binary" ]; then
+        echo "install-jankurai: built binary missing: $binary" >&2
+        exit 1
+    fi
+
+    install_runtime_schemas_from_tree "$source_checkout/schemas"
+    patch_runtime_schema_root "$binary" "$source_build_dir" "$RUNTIME_MANIFEST_DIR"
+    mkdir -p "$BIN_DIR"
+    install -m 0755 "$binary" "$BIN_DIR/$INSTALL_NAME"
+
+    case ":$PATH:" in
+        *":$BIN_DIR:"*) ;;
+        *)
+            if [ -n "${GITHUB_PATH:-}" ]; then
+                printf '%s\n' "$BIN_DIR" >> "$GITHUB_PATH"
+            fi
+            ;;
+    esac
+
+    verify_installed_binary
+    printf 'install-jankurai: installed %s from %s (git:%s)\n' "$JANKURAI_BIN" "$release_tag" "$JANKURAI_GIT_REMOTE"
+}
+
 case "$JANKURAI_INSTALL_MODE" in
     release) install_from_release ;;
+    git) install_from_git ;;
     verify) verify_installed_binary ;;
     *)
         echo "install-jankurai: unsupported JANKURAI_INSTALL_MODE=$JANKURAI_INSTALL_MODE" >&2
-        echo "install-jankurai: expected release or verify" >&2
+        echo "install-jankurai: expected release, git, or verify" >&2
         exit 1
         ;;
 esac

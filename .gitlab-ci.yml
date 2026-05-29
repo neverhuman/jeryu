@@ -10,6 +10,8 @@ variables:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
   GIT_DEPTH: "1"
+  JANKURAI_GIT_REMOTE: ssh://git@127.0.0.1:2224/root/jankurai.git
+  JANKURAI_INSTALL_MODE: "git"
   JERYU_CARGO_CACHE: "0"
   PATH: /usr/local/rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -55,7 +57,6 @@ rust_fmt:
   stage: quality
   rules: *rules_rust
   script:
-    - rustup component add rustfmt
     - bash ops/ci/rust-lane.sh fmt
 
 rust_clippy:
@@ -66,21 +67,18 @@ rust_clippy:
 
 rust_build:
   stage: build
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh build
 
 rust_install_smoke:
   stage: build
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh install-smoke
 
 rust_test_select:
   stage: test
-  needs: []
   rules: *rules_rust
   variables:
     GIT_DEPTH: "0"
@@ -100,28 +98,24 @@ rust_test_lib:
 
 rust_test_mock:
   stage: test
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh test-mock
 
 rust_test_integration:
   stage: test
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh test-integration
 
 rust_tui_smoke:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh tui-smoke
 
 jeryu_health_self:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - mkdir -p target/jeryu
@@ -135,7 +129,6 @@ jeryu_health_self:
 
 rust_supply_chain:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - cargo install -q --locked cargo-deny --force
@@ -143,35 +136,30 @@ rust_supply_chain:
 
 rust_witness:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh witness
 
 rust_vrc_map:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh vrc-map
 
 rust_vrc_plan:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh vrc-plan
 
 rust_aer_scan:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh aer
 
 rust_scheduled_hardening:
   stage: evidence
-  needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
@@ -179,7 +167,6 @@ rust_scheduled_hardening:
 
 rust_ssh_install_e2e:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh ssh-install-e2e
@@ -191,7 +178,6 @@ rust_ssh_install_e2e:
 
 rust_tui_screenshots:
   stage: evidence
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh tui-screenshots
@@ -200,7 +186,6 @@ rust_tui_screenshots:
 
 rust_fixture_project_tests:
   stage: test
-  needs: []
   rules: *rules_rust
   script:
     - bash ops/ci/rust-lane.sh fixture-project-test
@@ -280,7 +265,6 @@ release_ready:
 
 release_preflight:
   stage: build
-  needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG'
     - if: '$CI_PIPELINE_SOURCE == "web" && $RELEASE_VERSION'
@@ -385,7 +369,6 @@ release_publish:
 
 post_merge_build_artifact:
   stage: build
-  needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
   script:
@@ -442,10 +425,8 @@ post_merge_deploy:
 
 web_rust_feature:
   stage: test
-  needs: []
   rules: *rules_web
   script:
-    - rustup component add rustfmt
     - cargo install -q --locked cargo-nextest --force
     - cargo fmt --all -- --check
     - cargo check --workspace --features web
@@ -458,7 +439,6 @@ web_rust_feature:
 
 web_frontend_checks:
   stage: test
-  needs: []
   rules: *rules_web
   before_script: *web_node_bootstrap
   script:
@@ -469,7 +449,6 @@ web_frontend_checks:
 
 web_frontend_build:
   stage: build
-  needs: []
   rules: *rules_web
   before_script: *web_node_bootstrap
   script:
@@ -483,7 +462,6 @@ web_frontend_build:
 
 web_frontend_storybook:
   stage: build
-  needs: []
   rules: *rules_web
   before_script: *web_node_bootstrap
   script:
