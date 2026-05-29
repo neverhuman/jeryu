@@ -709,7 +709,7 @@ async fn perform_github_handoff(
 ) -> Result<String> {
     match crate::repo_local::shadow_main_runs(Some(project_path.to_string())).await {
         Ok(runs) if runs.iter().all(|run| run.status != "shadow_failed") && !runs.is_empty() => {
-            return Ok("shadow_push".to_string());
+            Ok("shadow_push".to_string())
         }
         Ok(runs) => {
             let detail = runs
@@ -736,7 +736,7 @@ async fn perform_github_handoff(
             )
             .with_context(|| format!("write {}", body_path.display()))?;
             crate::repo_local::open_github_draft_pr(title, &body_path)?;
-            return Ok("draft_pr_fallback".to_string());
+            Ok("draft_pr_fallback".to_string())
         }
         Err(err) => {
             let body_path = github_pr_body_path(&options.source);
@@ -758,7 +758,7 @@ async fn perform_github_handoff(
             )
             .with_context(|| format!("write {}", body_path.display()))?;
             crate::repo_local::open_github_draft_pr(title, &body_path)?;
-            return Ok("draft_pr_fallback".to_string());
+            Ok("draft_pr_fallback".to_string())
         }
     }
 }

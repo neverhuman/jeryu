@@ -5,7 +5,7 @@
 //!   - Storage GC fires at most once per hour per node (rate-limited by the caller).
 
 use std::time::Instant;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use crate::engine::EngineState;
 

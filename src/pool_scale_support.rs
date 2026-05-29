@@ -12,6 +12,7 @@ pub(crate) fn manager_state_counts_as_active(state: &str) -> bool {
     )
 }
 
+#[allow(dead_code)]
 pub(crate) fn container_ids_match(left: &str, right: &str) -> bool {
     left == right || left.starts_with(right) || right.starts_with(left)
 }
