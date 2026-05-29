@@ -37,6 +37,7 @@ pub(super) use ui_chrome::*;
 pub(super) use ui_panels::*;
 
 mod draw;
+pub mod flight_deck;
 mod overlay;
 
 pub use draw::draw;

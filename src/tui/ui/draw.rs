@@ -70,23 +70,31 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     crate::tui::repo_fleet_bar::draw_fleet_bar(f, app, chunks[1]);
     focus::register_pane(app, PaneId::FleetBar, chunks[1]);
 
-    match app.active_tab {
-        ActiveTab::Workflow => draw_workflow_tab(f, app, chunks[2]),
-        ActiveTab::Mission => draw_mission_tab(f, app, chunks[2]),
-        ActiveTab::Release => draw_release_tab(f, app, chunks[2]),
-        ActiveTab::Approvals => draw_approvals_tab(f, app, chunks[2]),
-        ActiveTab::Jobs => draw_jobs_tab(f, app, chunks[2]),
-        ActiveTab::Agents => draw_agents_tab(f, app, chunks[2]),
-        ActiveTab::Tests => draw_tests_tab(f, app, chunks[2]),
-        ActiveTab::Pools => draw_pools_tab(f, app, chunks[2]),
-        ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[2]),
-        ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[2]),
-        ActiveTab::Repos => draw_repos_tab(f, app, chunks[2]),
-        ActiveTab::Bugs => draw_bugs_tab(f, app, chunks[2]),
-        ActiveTab::LLMs => draw_llms_tab(f, app, chunks[2]),
-        ActiveTab::Git => draw_git_tab(f, app, chunks[2]),
-        ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[2]),
-        ActiveTab::Jankurai => draw_jank_tab(f, app, chunks[2]),
+    // Flight Deck cutover: tabs that map to a new lens render the lens; the
+    // rest keep their legacy panel until their lens lands. This is the runtime
+    // wiring the reset lens library was missing — see `super::flight_deck`.
+    if let Some(lens) = super::flight_deck::tab_lens(app.active_tab) {
+        let model = super::flight_deck::app_to_read_model(app);
+        super::flight_deck::draw_lens(f, app, &model, lens, chunks[2]);
+    } else {
+        match app.active_tab {
+            ActiveTab::Workflow => draw_workflow_tab(f, app, chunks[2]),
+            ActiveTab::Mission => draw_mission_tab(f, app, chunks[2]),
+            ActiveTab::Release => draw_release_tab(f, app, chunks[2]),
+            ActiveTab::Approvals => draw_approvals_tab(f, app, chunks[2]),
+            ActiveTab::Jobs => draw_jobs_tab(f, app, chunks[2]),
+            ActiveTab::Agents => draw_agents_tab(f, app, chunks[2]),
+            ActiveTab::Tests => draw_tests_tab(f, app, chunks[2]),
+            ActiveTab::Pools => draw_pools_tab(f, app, chunks[2]),
+            ActiveTab::Cache => draw_cache_dashboard(f, app, chunks[2]),
+            ActiveTab::Evidence => draw_evidence_tab(f, app, chunks[2]),
+            ActiveTab::Repos => draw_repos_tab(f, app, chunks[2]),
+            ActiveTab::Bugs => draw_bugs_tab(f, app, chunks[2]),
+            ActiveTab::LLMs => draw_llms_tab(f, app, chunks[2]),
+            ActiveTab::Git => draw_git_tab(f, app, chunks[2]),
+            ActiveTab::Secrets => draw_secrets_tab(f, app, chunks[2]),
+            ActiveTab::Jankurai => draw_jank_tab(f, app, chunks[2]),
+        }
     }
 
     activity::draw_activity_pane(f, app, chunks[3]);
