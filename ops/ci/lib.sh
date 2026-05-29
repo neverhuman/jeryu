@@ -32,7 +32,7 @@ install_ci_packages() {
 
   log "installing CI packages: ${packages[*]}"
   export DEBIAN_FRONTEND=noninteractive
-  local apt_cache_dir="${APT_CACHE_DIR:-/tmp/apt-archives}"
+  local apt_cache_dir="${APT_CACHE_DIR:-/cache/apt-archives}"
   mkdir -p "$apt_cache_dir/partial"
   apt-get update -qq
   apt-get -o Dir::Cache::archives="$apt_cache_dir" \

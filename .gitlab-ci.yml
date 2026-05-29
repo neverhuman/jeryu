@@ -429,6 +429,16 @@ post_merge_deploy:
   - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
   - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^web-forge\//'
 
+.web_node_bootstrap: &web_node_bootstrap
+  - |
+    if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1 || ! command -v npx >/dev/null 2>&1; then
+      . ops/ci/lib.sh
+      install_ci_packages nodejs npm python3 curl tar
+      if ! command -v node >/dev/null 2>&1 && command -v nodejs >/dev/null 2>&1; then
+        ln -sf "$(command -v nodejs)" /usr/local/bin/node
+      fi
+    fi
+
 web_rust_feature:
   stage: test
   needs: []
@@ -449,6 +459,7 @@ web_frontend_checks:
   stage: test
   needs: []
   rules: *rules_web
+  before_script: *web_node_bootstrap
   script:
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run typecheck
@@ -459,6 +470,7 @@ web_frontend_build:
   stage: build
   needs: []
   rules: *rules_web
+  before_script: *web_node_bootstrap
   script:
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build
@@ -472,6 +484,7 @@ web_frontend_storybook:
   stage: build
   needs: []
   rules: *rules_web
+  before_script: *web_node_bootstrap
   script:
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build-storybook
@@ -485,6 +498,7 @@ web_uxqa_build:
   stage: evidence
   needs: [web_frontend_build, web_frontend_storybook]
   rules: *rules_web
+  before_script: *web_node_bootstrap
   script:
     - node apps/ux-qa/ux-qa-check.mjs build
   artifacts:
@@ -497,6 +511,7 @@ web_e2e:
   stage: evidence
   needs: [web_rust_feature, web_frontend_build]
   rules: *rules_web
+  before_script: *web_node_bootstrap
   variables:
     JERYU_WEB_TRUST_LOCAL: "1"
     JERYU_LOCAL_USERS: "alice:repo.read,repo.write|bob:repo.read"
@@ -559,6 +574,7 @@ web_lighthouse:
   needs: [web_frontend_build]
   rules: *rules_web
   allow_failure: true
+  before_script: *web_node_bootstrap
   script:
     - npm ci --no-audit --no-fund
     - npm --workspace @jeryu/web run build
