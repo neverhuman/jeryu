@@ -481,7 +481,28 @@ async fn wait_for_source_pipeline(
     let mut attempts = 0usize;
     loop {
         attempts += 1;
-        let Some(pipeline) = latest_pipeline_for_ref(client, project_id, ref_name).await? else {
+        let pipeline = match latest_pipeline_for_ref(client, project_id, ref_name).await {
+            Ok(pipeline) => pipeline,
+            Err(err) => {
+                if json {
+                    push_stage(
+                        report,
+                        json,
+                        "ci",
+                        "wait",
+                        "waiting for source pipeline lookup to recover",
+                        Some(json!({
+                            "attempt": attempts,
+                            "error": err.to_string(),
+                            "ref": ref_name,
+                        })),
+                    )?;
+                }
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            }
+        };
+        let Some(pipeline) = pipeline else {
             if json {
                 push_stage(
                     report,
