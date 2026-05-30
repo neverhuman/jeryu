@@ -47,6 +47,7 @@ members = [
   "crates/jeryu-rustjet-cli",
   "crates/jeryu-signrail",
   "crates/jeryu-tenant",
+  "crates/jeryu-repogate",
 ]
 exclude = [
   "fixtures/rust-small",
