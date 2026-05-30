@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/jeryu-mapcheck",
   "crates/jeryu-tui",
   "crates/jeryu-review",
   "crates/jeryu-autonomy",
