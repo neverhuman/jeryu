@@ -2,6 +2,7 @@
 
 use crate::command::run_capture;
 use crate::error::{GitdError, Result};
+use crate::object_fsck::ObjectFsck;
 use crate::protection::{RefChange, RefOperation};
 use crate::repo::{RepoManager, Repository};
 
@@ -65,13 +66,14 @@ impl RefService {
         } else {
             RefOperation::Create
         };
+        let force = force_update(&self.manager, repo, name, new_oid, old_oid, operation)?;
         let change = RefChange {
             actor: actor.to_string(),
             ref_name: name.to_string(),
             old_oid: old_oid.unwrap_or(ZERO_OID).to_string(),
             new_oid: new_oid.to_string(),
             operation,
-            force: false,
+            force,
         };
         for rule in &self.manager.config().protected_refs {
             rule.evaluate(&change)?;
@@ -99,5 +101,30 @@ pub fn validate_ref_name(name: &str) -> Result<()> {
 /// Whether an oid is all zeroes.
 #[must_use]
 pub fn is_zero_oid(oid: &str) -> bool {
-    !oid.is_empty() && oid.chars().all(|c| c == '0')
+    oid.len() == 40 && oid.chars().all(|c| c == '0')
+}
+
+fn force_update(
+    manager: &RepoManager,
+    repo: &Repository,
+    name: &str,
+    new_oid: &str,
+    old_oid: Option<&str>,
+    operation: RefOperation,
+) -> Result<bool> {
+    let Some(old_oid) = old_oid else {
+        return Ok(false);
+    };
+    if operation != RefOperation::Update || is_zero_oid(old_oid) || is_zero_oid(new_oid) {
+        return Ok(false);
+    }
+    if name.starts_with("refs/tags/") {
+        return Ok(true);
+    }
+    if !name.starts_with("refs/heads/") {
+        return Ok(false);
+    }
+    ObjectFsck::new(manager.config().git_bin.clone())
+        .is_ancestor(repo, old_oid, new_oid)
+        .map(|is_ancestor| !is_ancestor)
 }

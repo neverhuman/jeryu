@@ -293,6 +293,9 @@ impl LeaseBook {
         now_epoch: u64,
         ttl_seconds: u64,
     ) -> Result<LeasedJobRequest, LeaseError> {
+        if !pipeline.jobs.iter().any(|job| job.id == job_id) {
+            return Err(LeaseError::UnknownJob(job_id.to_string()));
+        }
         let lease = self.acquire(job_id, worker_id, now_epoch, ttl_seconds)?;
         let request = self.runner_request(pipeline, &lease)?;
         let receipt = self.lease_receipt(
@@ -355,6 +358,9 @@ impl LeaseBook {
         result: &JobResult,
         at_epoch: u64,
     ) -> Result<LeaseReceipt, LeaseError> {
+        if result.run_id != self.run_id {
+            return Err(LeaseError::ResultMismatch(result.job_id.clone()));
+        }
         let lease = match self.state(&result.job_id) {
             Some(JobLeaseState::Leased(active))
                 if active.id == result.lease_id && active.job_id == result.job_id =>
@@ -702,6 +708,42 @@ mod tests {
             leases.state("test"),
             Some(JobLeaseState::Failed { attempts: 2, .. })
         ));
+    }
+
+    #[test]
+    fn runner_result_from_another_run_is_rejected() {
+        let pipeline = pipeline(1);
+        let schedule = deterministic_schedule(&pipeline).expect("schedule");
+        let mut leases = LeaseBook::new("run-1", &pipeline, &schedule).expect("lease book");
+        let leased = leases
+            .acquire_request(&pipeline, "test", "worker-a", 100, 30)
+            .expect("leased request");
+        let mut result = result_for(&leased.lease, JobOutcome::Success);
+        result.run_id = "run-2".to_string();
+
+        assert!(matches!(
+            leases.apply_result(&result, 120),
+            Err(LeaseError::ResultMismatch(job)) if job == "test"
+        ));
+        assert!(matches!(
+            leases.state("test"),
+            Some(JobLeaseState::Leased(active)) if active.id == leased.lease.id
+        ));
+    }
+
+    #[test]
+    fn acquire_request_failure_does_not_leave_orphaned_lease() {
+        let pipeline = pipeline(1);
+        let schedule = deterministic_schedule(&pipeline).expect("schedule");
+        let mut leases = LeaseBook::new("run-1", &pipeline, &schedule).expect("lease book");
+        let mut missing_job_pipeline = pipeline.clone();
+        missing_job_pipeline.jobs.clear();
+
+        assert!(matches!(
+            leases.acquire_request(&missing_job_pipeline, "test", "worker-a", 100, 30),
+            Err(LeaseError::UnknownJob(job)) if job == "test"
+        ));
+        assert!(matches!(leases.state("test"), Some(JobLeaseState::Pending)));
     }
 
     fn result_for(lease: &super::JobLease, outcome: JobOutcome) -> JobResult {

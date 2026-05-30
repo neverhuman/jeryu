@@ -112,6 +112,14 @@ fn missing_sbom_blocked() {
 }
 
 #[test]
+fn missing_rollback_metadata_blocked() {
+    let (mut release, signer) = signed_release();
+    release.rollback = None;
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    assert!(err.to_string().contains("missing rollback metadata"));
+}
+
+#[test]
 fn mutable_latest_only_asset_blocked() {
     let mut release = unsigned_release();
     release.version = "latest".to_string();
@@ -147,6 +155,14 @@ fn provenance_signature_verifies() {
     let err = validate_release(&release, &policy(), &signer).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("unknown artifact") || msg.contains("signature mismatch"));
+}
+
+#[test]
+fn signer_identity_mismatch_blocked() {
+    let (release, _signer) = signed_release();
+    let wrong_signer = HmacSha256Signer::new("different-key", b"phase8-secret");
+    let err = validate_release(&release, &policy(), &wrong_signer).unwrap_err();
+    assert!(err.to_string().contains("signer identity mismatch"));
 }
 
 #[test]

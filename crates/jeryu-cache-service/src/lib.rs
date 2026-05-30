@@ -292,7 +292,7 @@ mod tests {
     use tempfile::tempdir;
 
     use super::*;
-    use jeryu_cache_core::{CacheKeyMaterial, CacheScope};
+    use jeryu_cache_core::{CacheEvent, CacheKeyMaterial, CacheScope, JeryuCacheError};
 
     fn d(label: &str) -> Digest {
         Digest::from_bytes(label.as_bytes())
@@ -373,6 +373,32 @@ mod tests {
     }
 
     #[test]
+    fn restore_fails_closed_on_corrupt_cas_object() {
+        let tmp = tempdir().unwrap();
+        let mut service = JeryuCache::open(JeryuCachePaths {
+            cas_root: tmp.path().join("cas"),
+            receipt_root: tmp.path().join("receipts"),
+            quarantine_root: tmp.path().join("quarantine"),
+        })
+        .unwrap();
+        let key = key();
+        let written = service
+            .write(request(CacheAction::Write), key.clone(), b"artifact")
+            .unwrap();
+        std::fs::write(
+            service.cas.object_path(&written.object_digest),
+            b"tampered artifact",
+        )
+        .unwrap();
+
+        let err = service
+            .restore(request(CacheAction::Restore), &key)
+            .unwrap_err();
+
+        assert!(matches!(err, JeryuCacheError::FalseHit(_)));
+    }
+
+    #[test]
     fn write_rejects_key_request_trust_tier_mismatch() {
         let tmp = tempdir().unwrap();
         let mut service = JeryuCache::open(JeryuCachePaths {
@@ -433,5 +459,80 @@ mod tests {
             .restore(request(CacheAction::Restore), &key)
             .unwrap();
         assert!(restored.hit);
+    }
+
+    #[test]
+    fn release_lane_mutable_compiled_restore_is_safe_miss_with_deny_receipt() {
+        let tmp = tempdir().unwrap();
+        let mut service = JeryuCache::open(JeryuCachePaths {
+            cas_root: tmp.path().join("cas"),
+            receipt_root: tmp.path().join("receipts"),
+            quarantine_root: tmp.path().join("quarantine"),
+        })
+        .unwrap();
+        let key = key();
+        service
+            .write(request(CacheAction::Write), key.clone(), b"artifact")
+            .unwrap();
+
+        let mut restore = request(CacheAction::Restore);
+        restore.is_release_lane = true;
+        let restored = service.restore(restore, &key).unwrap();
+
+        assert!(!restored.hit);
+        assert_eq!(restored.object_digest, None);
+        assert_eq!(restored.receipt.event, CacheEvent::Deny);
+        assert!(!restored.receipt.decision.allowed());
+        assert!(
+            restored
+                .receipt
+                .decision
+                .reasons()
+                .iter()
+                .any(|reason| reason.contains("release lane"))
+        );
+    }
+
+    #[test]
+    fn agent_patch_cannot_write_trusted_compiled_manifest() {
+        let tmp = tempdir().unwrap();
+        let mut service = JeryuCache::open(JeryuCachePaths {
+            cas_root: tmp.path().join("cas"),
+            receipt_root: tmp.path().join("receipts"),
+            quarantine_root: tmp.path().join("quarantine"),
+        })
+        .unwrap();
+        let mut write = request(CacheAction::Write);
+        write.is_agent_patch = true;
+
+        let err = service.write(write, key(), b"artifact").unwrap_err();
+
+        assert!(err.to_string().contains("agent patches"));
+        assert!(service.manifest().entries.is_empty());
+    }
+
+    #[test]
+    fn promotion_without_receipt_does_not_index_manifest() {
+        let tmp = tempdir().unwrap();
+        let mut service = JeryuCache::open(JeryuCachePaths {
+            cas_root: tmp.path().join("cas"),
+            receipt_root: tmp.path().join("receipts"),
+            quarantine_root: tmp.path().join("quarantine"),
+        })
+        .unwrap();
+        let mut quarantine = request(CacheAction::QuarantineWrite);
+        quarantine.is_agent_patch = true;
+        let record = service
+            .quarantine_write(quarantine, b"artifact", "agent patch")
+            .unwrap();
+        let mut promote = request(CacheAction::Promote);
+        promote.has_receipt = false;
+
+        let err = service
+            .promote_quarantined(promote, key(), &record.object.digest)
+            .unwrap_err();
+
+        assert!(err.to_string().contains("promotion requires receipt"));
+        assert!(service.manifest().entries.is_empty());
     }
 }
