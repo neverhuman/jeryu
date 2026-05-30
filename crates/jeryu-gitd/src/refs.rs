@@ -79,8 +79,8 @@ impl RefService {
             rule.evaluate(&change)?;
         }
         let mut args = vec!["update-ref", name, new_oid];
-        if let Some(old) = old_oid {
-            args.push(old);
+        if let Some(prior_oid) = old_oid {
+            args.push(prior_oid);
         }
         run_capture(&self.manager.config().git_bin, &args, Some(&repo.path))?;
         Ok(())

@@ -21,7 +21,7 @@ impl PreReceiveGuard {
         Self { rules, fsck }
     }
 
-    /// Evaluate newline-separated `old new ref` triplets.
+    /// Evaluate newline-separated `prior next ref` triplets.
     pub fn evaluate_lines(
         &self,
         repo: &Repository,
@@ -37,15 +37,15 @@ impl PreReceiveGuard {
             let parts: Vec<&str> = trimmed.split_whitespace().collect();
             if parts.len() != 3 {
                 return Err(GitdError::InvalidInput(format!(
-                    "pre-receive line {} must be: <old> <new> <ref>",
+                    "pre-receive line {} must be: <prior> <next> <ref>",
                     idx + 1
                 )));
             }
             let old_oid = parts[0];
             let new_oid = parts[1];
             let ref_name = parts[2];
-            validate_object_id(old_oid, idx + 1, "old")?;
-            validate_object_id(new_oid, idx + 1, "new")?;
+            validate_object_id(old_oid, idx + 1, "prior")?;
+            validate_object_id(new_oid, idx + 1, "next")?;
             validate_ref_name(ref_name)?;
             let operation = if is_zero_oid(new_oid) {
                 RefOperation::Delete

@@ -19,12 +19,12 @@ pub mod pack;
 pub mod path;
 pub mod pktline;
 pub mod protection;
-pub mod protocol_v2;
 pub mod quarantine;
 pub mod refs;
 pub mod repo;
 pub mod smart_http;
 pub mod ssh;
+pub mod wire_protocol;
 
 pub use config::GitdConfig;
 pub use error::{GitdError, Result};
