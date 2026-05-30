@@ -431,10 +431,11 @@ fn event_for(scenario: FixtureScenario, timestamp: DateTime<Utc>, seq: u64) -> T
         FixtureScenario::Healthy | FixtureScenario::Empty => {
             (TuiEventKind::SnapshotRefreshed, Severity::Info)
         }
-        FixtureScenario::Stale | FixtureScenario::Aged | FixtureScenario::SourceDown => {
+        FixtureScenario::Stale | FixtureScenario::Aged => {
             (TuiEventKind::SystemHealthUpdated, Severity::Warning)
         }
-        FixtureScenario::Degraded => (TuiEventKind::JobFailed, Severity::Error),
+        FixtureScenario::SourceDown => (TuiEventKind::RunnerNodeUnreachable, Severity::Warning),
+        FixtureScenario::Degraded => (TuiEventKind::FleetUnderfilled, Severity::Error),
         FixtureScenario::Security => (TuiEventKind::PolicyViolation, Severity::Critical),
         FixtureScenario::Release => (TuiEventKind::ReleaseGateUpdated, Severity::Warning),
         FixtureScenario::Cache => (TuiEventKind::CacheTaintCreated, Severity::Warning),
@@ -443,7 +444,7 @@ fn event_for(scenario: FixtureScenario, timestamp: DateTime<Utc>, seq: u64) -> T
         FixtureScenario::Bug | FixtureScenario::Jankurai => {
             (TuiEventKind::SnapshotRefreshed, Severity::Warning)
         }
-        FixtureScenario::Incident => (TuiEventKind::SystemHealthUpdated, Severity::Critical),
+        FixtureScenario::Incident => (TuiEventKind::HungRunnerDetected, Severity::Critical),
     };
     TuiEvent {
         seq,

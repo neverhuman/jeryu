@@ -21,6 +21,9 @@ use crate::runner_backend_remote;
 use crate::runner_backend_remote::RemoteDockerBackend;
 use crate::state::Db;
 
+const HEALTH_ROOT_DISK_WARNING_MIN_FREE_BYTES: u64 = 10 * 1024 * 1024 * 1024;
+const HEALTH_ROOT_DISK_CRITICAL_MIN_FREE_BYTES: u64 = 5 * 1024 * 1024 * 1024;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum HealthMode {
@@ -92,6 +95,16 @@ pub struct HealthOptions {
     pub ci: bool,
 }
 
+fn health_report_status(checks_failed: usize, checks_degraded: usize) -> String {
+    if checks_failed > 0 {
+        "blocked".to_string()
+    } else if checks_degraded > 0 {
+        "warning".to_string()
+    } else {
+        "healthy".to_string()
+    }
+}
+
 pub async fn build_health_report(options: HealthOptions) -> HealthReport {
     let mut checks = Vec::new();
     let mut pool_topology = None;
@@ -129,7 +142,7 @@ pub async fn build_health_report(options: HealthOptions) -> HealthReport {
             HealthMode::Local
         },
         ok,
-        status: if ok { "healthy" } else { "blocked" }.to_string(),
+        status: health_report_status(checks_failed, checks_degraded),
         summary: HealthSummary {
             checks_total,
             checks_ok,
@@ -233,6 +246,7 @@ async fn collect_local_checks(
 ) {
     checks.push(access_check());
     checks.push(installed_version_check().await);
+    checks.push(root_disk_headroom_check().await);
 
     let db = match Db::open().await {
         Ok(db) => {
@@ -677,7 +691,7 @@ fn runner_drift_check_from_totals(
     duration_ms: u128,
 ) -> HealthCheck {
     let drift = live_running_total - db_active_total;
-    let status = if drift == 0 {
+    let status = if drift == 0 || drift.abs() < 2 {
         HealthCheckStatus::Ok
     } else {
         HealthCheckStatus::Failed
@@ -686,6 +700,11 @@ fn runner_drift_check_from_totals(
         format!(
             "runner fleet in sync (db_active={} live_running={})",
             db_active_total, live_running_total
+        )
+    } else if drift.abs() < 2 {
+        format!(
+            "runner fleet nearly in sync (db_active={} live_running={} delta={:+}; tolerated minor drift)",
+            db_active_total, live_running_total, drift
         )
     } else {
         format!(
@@ -703,6 +722,74 @@ fn runner_drift_check_from_totals(
             "live_running_total": live_running_total,
             "drift": drift,
             "pool_count": pool_count,
+        })),
+    )
+}
+
+async fn root_disk_headroom_check() -> HealthCheck {
+    let started = Instant::now();
+    match crate::cache::df_usage("/").await {
+        Ok(usage) => root_disk_headroom_check_from_free_bytes(
+            usage.available_bytes,
+            started.elapsed().as_millis(),
+        ),
+        Err(err) => check(
+            "root_disk_headroom",
+            HealthCheckStatus::Failed,
+            format!("root disk headroom check failed: {err}"),
+            started.elapsed().as_millis(),
+            None,
+        ),
+    }
+}
+
+fn root_disk_headroom_check_from_free_bytes(
+    available_bytes: u64,
+    duration_ms: u128,
+) -> HealthCheck {
+    let status = if available_bytes < HEALTH_ROOT_DISK_CRITICAL_MIN_FREE_BYTES {
+        HealthCheckStatus::Failed
+    } else if available_bytes < HEALTH_ROOT_DISK_WARNING_MIN_FREE_BYTES {
+        HealthCheckStatus::Degraded
+    } else {
+        HealthCheckStatus::Ok
+    };
+    let detail = if available_bytes < HEALTH_ROOT_DISK_CRITICAL_MIN_FREE_BYTES {
+        format!(
+            "root disk critical: {} free on / (warning below {}, critical below {})",
+            crate::cache::human_bytes(available_bytes),
+            crate::cache::human_bytes(HEALTH_ROOT_DISK_WARNING_MIN_FREE_BYTES),
+            crate::cache::human_bytes(HEALTH_ROOT_DISK_CRITICAL_MIN_FREE_BYTES)
+        )
+    } else if available_bytes < HEALTH_ROOT_DISK_WARNING_MIN_FREE_BYTES {
+        format!(
+            "root disk warning: {} free on / (critical below {})",
+            crate::cache::human_bytes(available_bytes),
+            crate::cache::human_bytes(HEALTH_ROOT_DISK_CRITICAL_MIN_FREE_BYTES)
+        )
+    } else {
+        format!(
+            "root disk headroom healthy: {} free on /",
+            crate::cache::human_bytes(available_bytes)
+        )
+    };
+    check(
+        "root_disk_headroom",
+        status,
+        detail,
+        duration_ms,
+        Some(json!({
+            "path": "/",
+            "available_bytes": available_bytes,
+            "warning_threshold_bytes": HEALTH_ROOT_DISK_WARNING_MIN_FREE_BYTES,
+            "critical_threshold_bytes": HEALTH_ROOT_DISK_CRITICAL_MIN_FREE_BYTES,
+            "pressure": if available_bytes < HEALTH_ROOT_DISK_CRITICAL_MIN_FREE_BYTES {
+                "critical"
+            } else if available_bytes < HEALTH_ROOT_DISK_WARNING_MIN_FREE_BYTES {
+                "warning"
+            } else {
+                "nominal"
+            },
         })),
     )
 }
@@ -1030,7 +1117,7 @@ mod tests {
             generated_at: Utc::now(),
             mode: HealthMode::Ci,
             ok: true,
-            status: "healthy".into(),
+            status: health_report_status(0, 1),
             summary: HealthSummary {
                 checks_total: 1,
                 checks_ok: 0,
@@ -1056,8 +1143,17 @@ mod tests {
         let mut model = TuiReadModel::default();
         apply_report_to_read_model(&report, &mut model);
 
+        assert_eq!(report.status, "warning");
         assert_eq!(model.source_doctor.summary.unwrap().sources_degraded, 1);
         assert_eq!(model.mission.overall, HealthLevel::Healthy);
+    }
+
+    #[test]
+    fn health_report_status_reflects_warning_and_blocked_counts() {
+        assert_eq!(health_report_status(0, 0), "healthy");
+        assert_eq!(health_report_status(0, 1), "warning");
+        assert_eq!(health_report_status(1, 0), "blocked");
+        assert_eq!(health_report_status(2, 3), "blocked");
     }
 
     #[test]
@@ -1138,5 +1234,36 @@ mod tests {
         assert!((utilization.0.expect("utilization ratio") - 1.375).abs() < f64::EPSILON);
         assert_eq!(utilization.1, Some(3));
         assert_eq!(utilization.2, Some(0));
+
+        let tolerated = runner_drift_check_from_totals(8, 9, 2, 1);
+        assert_eq!(tolerated.status, HealthCheckStatus::Ok);
+        assert!(tolerated.detail.contains("tolerated minor drift"));
+        let tolerated_data = tolerated.data.clone().expect("expected drift data");
+        assert_eq!(tolerated_data["db_active_total"], 8);
+        assert_eq!(tolerated_data["live_running_total"], 9);
+        assert_eq!(tolerated_data["drift"], 1);
+        assert_eq!(tolerated_data["pool_count"], 2);
+    }
+
+    #[test]
+    fn root_disk_headroom_check_from_free_bytes_classifies_thresholds() {
+        let healthy = root_disk_headroom_check_from_free_bytes(10_u64 * 1024 * 1024 * 1024, 1);
+        assert_eq!(healthy.status, HealthCheckStatus::Ok);
+        assert!(healthy.detail.contains("healthy"));
+        let healthy_data = healthy.data.clone().expect("expected disk data");
+        assert_eq!(healthy_data["available_bytes"], 10_u64 * 1024 * 1024 * 1024);
+        assert_eq!(healthy_data["pressure"], "nominal");
+
+        let warning = root_disk_headroom_check_from_free_bytes(9_u64 * 1024 * 1024 * 1024, 1);
+        assert_eq!(warning.status, HealthCheckStatus::Degraded);
+        assert!(warning.detail.contains("warning"));
+        let warning_data = warning.data.clone().expect("expected disk data");
+        assert_eq!(warning_data["pressure"], "warning");
+
+        let critical = root_disk_headroom_check_from_free_bytes(4_u64 * 1024 * 1024 * 1024, 1);
+        assert_eq!(critical.status, HealthCheckStatus::Failed);
+        assert!(critical.detail.contains("critical"));
+        let critical_data = critical.data.clone().expect("expected disk data");
+        assert_eq!(critical_data["pressure"], "critical");
     }
 }

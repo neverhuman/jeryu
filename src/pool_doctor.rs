@@ -623,7 +623,10 @@ fn stale_standard_runners<'a>(pools: &[Pool], runners: &'a [RunnerInfo]) -> Vec<
         .collect()
 }
 
-async fn prune_orphaned_local_runner_containers(db: &Db, docker: &DockerCtl) -> Result<usize> {
+pub(crate) async fn prune_orphaned_local_runner_containers(
+    db: &Db,
+    docker: &DockerCtl,
+) -> Result<usize> {
     let managers = db.list_managers(None).await?;
     let containers = docker.list_managed_containers().await?;
     let orphans = orphaned_local_runner_containers(&containers, &managers);
@@ -639,7 +642,7 @@ async fn prune_orphaned_local_runner_containers(db: &Db, docker: &DockerCtl) -> 
     Ok(pruned)
 }
 
-fn orphaned_local_runner_containers<'a>(
+pub(crate) fn orphaned_local_runner_containers<'a>(
     containers: &'a [ContainerSummary],
     managers: &[Manager],
 ) -> Vec<&'a ContainerSummary> {

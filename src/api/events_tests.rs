@@ -69,6 +69,18 @@ fn event_store_recent_returns_newest_first() {
 fn event_kind_labels_are_dot_separated() {
     assert_eq!(TuiEventKind::JobFailed.label(), "job.failed");
     assert_eq!(
+        TuiEventKind::RunnerNodeUnreachable.label(),
+        "runner.node.unreachable"
+    );
+    assert_eq!(
+        TuiEventKind::RunnerNodeBackOnline.label(),
+        "runner.node.back_online"
+    );
+    assert_eq!(
+        TuiEventKind::FleetUnderfilled.label(),
+        "runner.fleet.underfilled"
+    );
+    assert_eq!(
         TuiEventKind::AgentRaceWinnerSelected.label(),
         "agent.race.winner"
     );
@@ -76,4 +88,28 @@ fn event_kind_labels_are_dot_separated() {
         TuiEventKind::TestVtiAccelerated.label(),
         "test.vti.accelerated"
     );
+    assert_eq!(
+        TuiEventKind::RunnerOrphanedDetected.label(),
+        "runner.orphaned.detected"
+    );
+    assert_eq!(
+        TuiEventKind::HungRunnerDetected.label(),
+        "runner.hung.detected"
+    );
+}
+
+#[test]
+fn event_kind_runner_lifecycle_variants_round_trip_through_json() {
+    for kind in [
+        TuiEventKind::RunnerNodeUnreachable,
+        TuiEventKind::RunnerNodeBackOnline,
+        TuiEventKind::FleetUnderfilled,
+        TuiEventKind::RunnerDiskCritical,
+        TuiEventKind::RunnerOrphanedDetected,
+        TuiEventKind::HungRunnerDetected,
+    ] {
+        let json = serde_json::to_string(&kind).unwrap();
+        let back: TuiEventKind = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, kind);
+    }
 }

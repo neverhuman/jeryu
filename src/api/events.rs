@@ -47,6 +47,14 @@ pub enum TuiEventKind {
     // System
     SystemHealthUpdated,
 
+    // Runner lifecycle
+    RunnerNodeUnreachable,
+    RunnerNodeBackOnline,
+    FleetUnderfilled,
+    RunnerDiskCritical,
+    RunnerOrphanedDetected,
+    HungRunnerDetected,
+
     // Pipeline lifecycle
     PipelineCreated,
     PipelineUpdated,
@@ -117,6 +125,12 @@ impl TuiEventKind {
     pub fn label(self) -> &'static str {
         match self {
             Self::SystemHealthUpdated => "system.health.updated",
+            Self::RunnerNodeUnreachable => "runner.node.unreachable",
+            Self::RunnerNodeBackOnline => "runner.node.back_online",
+            Self::FleetUnderfilled => "runner.fleet.underfilled",
+            Self::RunnerDiskCritical => "runner.disk.critical",
+            Self::RunnerOrphanedDetected => "runner.orphaned.detected",
+            Self::HungRunnerDetected => "runner.hung.detected",
             Self::PipelineCreated => "pipeline.created",
             Self::PipelineUpdated => "pipeline.updated",
             Self::PipelineCompleted => "pipeline.completed",

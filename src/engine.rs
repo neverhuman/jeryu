@@ -29,7 +29,8 @@ mod background;
 mod webhook;
 
 pub(crate) use background::{
-    cache_summary, check_scale_up, docker_event_loop, reconciliation_loop, system_health_loop,
+    cache_summary, check_scale_up, docker_event_loop, reconciliation_loop, runner_heal_loop,
+    system_health_loop,
 };
 pub(crate) use webhook::dispatch_inline;
 pub(crate) use webhook::{handle_webhook, health};
@@ -117,6 +118,13 @@ pub async fn run_engine(
     let health_state = state.clone();
     tokio::spawn(async move {
         system_health_loop(health_state).await;
+    });
+
+    // Start runner heal preview loop. This only classifies and emits advisory
+    // events; it does not mutate pools or managers yet.
+    let heal_state = state.clone();
+    tokio::spawn(async move {
+        runner_heal_loop(heal_state).await;
     });
 
     // Bring up the selected message log and the consumer loop that drains

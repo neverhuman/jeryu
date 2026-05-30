@@ -73,8 +73,7 @@ pub fn enqueue_merge_mirror_intent_to(
         merge_url: merge_url.map(|s| s.to_string()),
     };
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("mkdir {}", parent.display()))?;
+        std::fs::create_dir_all(parent).with_context(|| format!("mkdir {}", parent.display()))?;
     }
     let line = serde_json::to_string(&intent).context("serialize mirror intent")?;
     let mut file = OpenOptions::new()
@@ -129,8 +128,10 @@ mod tests {
         let log = std::fs::read_to_string(&path).unwrap();
         let lines: Vec<&str> = log.lines().collect();
         assert_eq!(lines.len(), 3);
-        let parsed: Vec<MirrorIntent> =
-            lines.iter().map(|l| serde_json::from_str(l).unwrap()).collect();
+        let parsed: Vec<MirrorIntent> = lines
+            .iter()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
         assert_eq!(parsed[0].repo_owner, "a");
         assert_eq!(parsed[1].repo_owner, "c");
         assert_eq!(parsed[2].repo_owner, "e");
@@ -156,8 +157,7 @@ mod tests {
     fn intent_serde_round_trip_includes_timestamp() {
         let tmp = tempfile::TempDir::new().unwrap();
         let path = tmp.path().join("mirror_intents.jsonl");
-        let intent =
-            enqueue_merge_mirror_intent_to(&path, "x", "y", Some("abc"), None).unwrap();
+        let intent = enqueue_merge_mirror_intent_to(&path, "x", "y", Some("abc"), None).unwrap();
         let json = serde_json::to_string(&intent).unwrap();
         let back: MirrorIntent = serde_json::from_str(&json).unwrap();
         assert_eq!(back, intent);
