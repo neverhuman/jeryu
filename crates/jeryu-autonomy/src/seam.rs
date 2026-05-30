@@ -88,10 +88,10 @@ pub struct LedgerFilter {
 /// The append-only, ed25519-only signed launch ledger. Object-safe. The
 /// in-memory implementation in [`crate::ledger`] enforces the same invariants
 /// the SQL `BEFORE UPDATE/DELETE` triggers do: no mutation after append,
-/// idempotency on id, and refusal of stub/HMAC signatures.
+/// idempotency on id, and refusal of unsigned/HMAC signatures.
 #[async_trait]
 pub trait VerdictLedger: Send + Sync {
-    /// Append one entry. Refuses stub/HMAC signatures. Idempotent on `entry.id`.
+    /// Append one entry. Refuses unsigned/HMAC signatures. Idempotent on `entry.id`.
     async fn append(&self, entry: &LaunchLedgerEntry) -> SeamResult<()>;
 
     /// Return entries matching the filter, oldest first (recorded_at ASC).

@@ -96,7 +96,7 @@ fn receipt(
         not_author: true,
         tokens: Default::default(),
         created_at: Utc::now(),
-        signature: Signature::stub(),
+        signature: Signature::unsigned(),
     }
 }
 

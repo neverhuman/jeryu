@@ -7,7 +7,7 @@
 //!     (R-5).
 //!   - Every `pause()` / `resume()` appends a signed `KillBellEngaged` /
 //!     `KillBellResumed` ledger entry through the [`VerdictLedger`] seam. Signing
-//!     uses [`EdSigningKey`], so the ledger's stub/HMAC refusal automatically
+//!     uses [`EdSigningKey`], so the ledger's unsigned/HMAC refusal automatically
 //!     applies — no path lands an unsigned Kill Bell event.
 //!   - While paused, [`KillBell::downgrade_if_paused`] rewrites any
 //!     [`GateDecision`] to `RequireHuman`.

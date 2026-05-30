@@ -850,7 +850,7 @@ mod tests {
             not_author: true,
             tokens: TokenCounts::default(),
             created_at: now(),
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         };
         let j = serde_json::to_string(&r).unwrap();
         assert!(j.contains("\"role\":\"security\""));
@@ -880,7 +880,7 @@ mod tests {
             issued_at: issued,
             expires_at: issued + chrono::Duration::seconds(ttl_secs as i64),
             policy_sha: "c".repeat(40),
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 
@@ -1019,7 +1019,7 @@ mod tests {
             rebind_on_train: true,
             expires_at: now,
             created_at: now,
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         };
         let j = serde_json::to_string(&v).unwrap();
         assert!(j.contains("\"pull_request\":\"!42\""), "got {j}");

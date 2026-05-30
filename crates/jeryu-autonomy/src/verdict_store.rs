@@ -144,7 +144,7 @@ mod tests {
             rebind_on_train: true,
             expires_at,
             created_at,
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 
@@ -483,7 +483,7 @@ mod tests {
             now,
             now + Duration::minutes(60),
         );
-        v.signature = Signature::stub();
+        v.signature = Signature::unsigned();
         store
             .save(&v)
             .await
@@ -493,6 +493,6 @@ mod tests {
             .await
             .unwrap()
             .expect("round-trip");
-        assert_eq!(got.signature.algo, "stub");
+        assert_eq!(got.signature.algo, "unsigned");
     }
 }

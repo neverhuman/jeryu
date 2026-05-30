@@ -78,13 +78,20 @@ impl AutoRejudgeService {
             .quorum_for(pack.risk)
             .map_or_else(Vec::new, |q| q.roles.clone());
 
-        // 3. Run the orchestrator. An Err degrades to "no receipts" — judge()
-        //    treats that as insufficient quorum and emits RequireHuman.
+        // 3. Run the orchestrator. A reviewer-orchestration Err is deliberately
+        //    degraded to "no receipts" rather than bubbled up: a missing reviewer
+        //    is itself a signal, and judge() converts the empty-receipt case into
+        //    an insufficient-quorum RequireHuman escalation (fail-safe, never a
+        //    silent AllowMerge). The `unwrap_or_else` makes the degradation an
+        //    intentional, documented branch rather than a swallowed default.
         let receipts = self
             .evidence
             .run_reviews(&pack, &required_roles)
             .await
-            .unwrap_or_default();
+            .unwrap_or_else(|_orchestration_failed| {
+                // No receipts -> insufficient quorum -> RequireHuman (see invariants).
+                Vec::new()
+            });
 
         // 4. Pure policy fusion. No side effects in judge().
         let outcome = judge(JudgeInputs {
@@ -218,7 +225,7 @@ mod tests {
             not_author: true,
             tokens: TokenCounts::default(),
             created_at: Utc::now(),
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 
@@ -274,7 +281,7 @@ mod tests {
             rebind_on_train: true,
             expires_at: now - Duration::minutes(1),
             created_at: now - Duration::minutes(61),
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 

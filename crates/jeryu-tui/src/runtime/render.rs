@@ -147,8 +147,17 @@ mod tests {
 
     #[test]
     fn once_renders_placeholder_for_unported_tab() {
-        let app = app_for(ActiveTab::Agents, TuiReadModel::default());
+        // Cache routes to a still-unported lens, so the placeholder shows.
+        let app = app_for(ActiveTab::Cache, TuiReadModel::default());
         let ink = render_once(&app, 120, 40, StreamMode::Poll);
         assert!(ink.contains("not yet ported"));
+    }
+
+    #[test]
+    fn once_renders_ported_agents_lens() {
+        let app = app_for(ActiveTab::Agents, sample_read_model());
+        let ink = render_once(&app, 120, 40, StreamMode::Live);
+        assert!(ink.contains("Agents"));
+        assert!(ink.contains("Lifecycle"));
     }
 }
