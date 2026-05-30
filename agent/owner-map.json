@@ -14,6 +14,8 @@
     "Cargo.lock": "workspace",
     "rust-toolchain.toml": "workspace",
     "agent/": "agent",
+    "agent/boundaries.toml": "agent",
+    "agent/tool-adoption.toml": "agent",
     "bins/": "devtools",
     "config/": "platform-security",
     "configs/": "platform-security",

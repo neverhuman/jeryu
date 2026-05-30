@@ -37,4 +37,6 @@ jobs:
       - name: Dependency scan
         run: cargo audit --deny warnings && cargo deny check licenses sources bans advisories
       - name: Jankurai audit lane
+        run: bash ops/ci/jankurai.sh
+      - name: Jankurai full score artifacts
         run: jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85

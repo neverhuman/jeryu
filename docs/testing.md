@@ -22,6 +22,17 @@ Budget and stop conditions:
 - Default local CI uses 40 workers and should finish quickly on this workspace; if a lane exceeds 20 minutes, stop and split it into a narrower proof lane.
 - Do not keep retrying a flaky or missing live-capability gate. Mark it PENDING with evidence until the runtime exists.
 - Paid or networked tools must be opt-in and must have an explicit environment variable gate plus a documented stop condition.
+- Networked or paid agent/tool execution is disabled unless
+  `JERYU_ALLOW_NETWORK_TOOLS=1` or a narrower lane-specific opt-in is present.
+- Any paid tool lane must publish a budget receipt naming the request budget,
+  consumed units, remaining quota, and operator who opted in. Missing budget
+  receipt is a failed lane, not a warning.
+- Stop a paid or unbounded lane when it reaches 80 percent of the declared
+  budget, when no progress artifact changes for two consecutive attempts, or
+  when the same failure repeats twice.
+- Kill switch: unset the opt-in variable and create
+  `target/jeryu-ci/STOP_NETWORK_TOOLS` to make networked local CI lanes
+  fail closed before launching work.
 
 Launch-gate evidence:
 - Release candidates require artifact-backed evidence for security, backups, monitoring, rollback, and abuse controls before signing.

@@ -530,7 +530,9 @@ fn review_with_inline_comments_is_recorded_and_associated() {
             number,
             "reviewer",
             CreateReviewRequest {
-                body: Some("looks good".to_string()),
+                body: Some(
+                    "Approved with receipt jeryu-review:sha256:0123456789abcdef".to_string(),
+                ),
                 event: ReviewState::Approved,
                 comments: vec![
                     jeryu_core::ReviewCommentInput {

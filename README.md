@@ -1,11 +1,39 @@
-# Jeryu Composite Workspace
+# Jeryu
 
-This bundle is a Rust-first Jeryu workspace assembled from the phase
-implementations in the engineering spec. It now enrolls the checked-in product
-crates and binaries under one root workspace so local validation can address the
-whole codebase instead of only the Phase 12 cache slice.
+Jeryu is a local, GitHub-compatible forge implemented as a Rust-first workspace.
+Agents should treat it as the local GitHub-shaped control plane: repositories,
+issues, PRs, checks, Actions-compatible workflows, release receipts, and bounded
+agent automation all live behind one workspace root.
 
-## Implemented surfaces in this archive
+The product does not depend on hosted GitHub, external forge source, or external
+forge assets. Compatibility work is self-authored and fixture-driven. Retired
+provider and retired review-request vocabulary are intentionally absent from
+code, docs, fixtures, tests, generated artifacts, and operator scripts.
+
+## Agent Start Here
+
+Read these files before editing:
+
+- `AGENTS.md`
+- `agent/owner-map.json`
+- `agent/test-map.json`
+- `agent/generated-zones.toml`
+- `agent/proof-lanes.toml`
+- `agent/exceptions.toml`
+- `docs/architecture.md`
+- `docs/testing.md`
+- `docs/errors.md`
+- `docs/boundaries.md`
+- `docs/generated-zones.md`
+- `docs/audit-rubric.md`
+- `docs/agent-native-standard.md`
+- `CI_TRACKER.md`
+
+Public and agent-facing review objects are PRs. Do not add aliases, flags,
+fixtures, fields, docs, screenshots, or compatibility layers for retired review
+request terminology.
+
+## Implemented Surfaces
 
 | Area | Crates / binaries |
 | --- | --- |
@@ -17,13 +45,29 @@ whole codebase instead of only the Phase 12 cache slice.
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Jankurai proof and agent bridge | `jeryu-proof`, `jeryu-agentbridge` |
 | Release provenance | `jeryu-signrail` |
-| Migration/backup | `jeryu-mirror`, `jeryu-mirror-cli` |
+| GitHub-compatible backup and restore | `jeryu-mirror`, `jeryu-mirror-cli` |
 | Benchmark and observability | `jeryu-bench`, `jeryu-obs` |
 | Enterprise/operations layer | `jeryu-enterprise`, `phase11-*`, `jeryu-kernel`, `jeryu-tenant`, `jeryu-replay-verifier`, `jeryu-phase11-bin` |
 
-## Current Phase 12 cache gates
+## Local CI
 
-The JeryuCache implementation is designed around these cache laws:
+Local CI is the source of truth. The default worker count is 40.
+
+```bash
+just fast
+just ci
+just full
+just security
+just audit
+```
+
+The tracker in `CI_TRACKER.md` records the latest passing counts and which
+phase gates are PASS or honestly PENDING. Do not make a missing capability look
+green; keep it PENDING with evidence until the runtime exists.
+
+## Cache Laws
+
+The Phase 12 JeryuCache implementation is designed around these cache laws:
 
 - fork and public/untrusted jobs read source caches only and cannot consume trusted compiled caches;
 - trusted compiled cache writes require T1 protected-internal policy and a green protected decision;
@@ -35,7 +79,7 @@ The JeryuCache implementation is designed around these cache laws:
 - all cache events emit deterministic JSON receipts;
 - adversarial false-hit checks compare key material and object digests before accepting reuse.
 
-## Local commands
+## Useful Commands
 
 ```bash
 just fast
@@ -49,10 +93,10 @@ cargo run -p jeryu-cache-cli -- policy --request examples/fork-pr-write-request.
 The archive includes validation scripts that are safe to run even when macOS
 AppleDouble `._*` files are present from tar extraction.
 
-## Important implementation boundary
+## Implementation Boundary
 
-The engineering spec remains broader than this archive. The full GitHub-compatible
-HTTP REST edge, complete Git protocol parity matrix, production signer adapters,
-and full benchmark lab execution adapters are still future work. The checked-in
-code is now wired as one workspace and the local typed APIs/tests reflect what is
-actually present in this bundle.
+The engineering plan remains broader than this workspace checkpoint. The full
+GitHub-compatible HTTP REST edge, complete Git protocol parity matrix,
+production signer adapters, and full benchmark lab execution adapters are still
+future work. Checked-in tests and local gates must reflect what is actually
+present, not aspirational behavior.

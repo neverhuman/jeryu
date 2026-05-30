@@ -2,6 +2,10 @@
 
 Jeryu keeps durable product truth behind typed Rust boundaries.
 
+The machine-readable boundary manifest is `agent/boundaries.toml`. It names the
+domain, adapter, web, queue, data-truth, and agent-tool seams that local audits
+must check before a cross-boundary change is merged.
+
 - `jeryu-core` owns domain objects, branch protection, checks, webhooks, and
   repairable domain errors.
 - `jeryu-domain` exposes the canonical domain repair route for agents and audit

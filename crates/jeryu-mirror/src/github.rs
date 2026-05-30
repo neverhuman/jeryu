@@ -421,12 +421,12 @@ fn parse_app(value: &Value) -> AppInstallationMigration {
             .get("permissions")
             .and_then(Value::as_object)
             .map(|object| object.keys().cloned().collect())
-            .unwrap_or(Vec::new()),
+            .unwrap_or_default(),
         events: value
             .get("events")
             .and_then(Value::as_array)
             .map(|values| strings_from_array(values))
-            .unwrap_or(Vec::new()),
+            .unwrap_or_default(),
         token_secret_name: Some(format!("jeryu_mirror/app/{id}/token")),
         notes: vec![
             "Installation token is not exportable; recreate or rotate after restore.".to_string(),
@@ -446,7 +446,7 @@ fn parse_protected_branch(value: &Value) -> ProtectedBranchArchive {
             .pointer("/required_status_checks/contexts")
             .and_then(Value::as_array)
             .map(|values| strings_from_array(values))
-            .unwrap_or(Vec::new()),
+            .unwrap_or_default(),
         required_reviews: value
             .pointer("/required_pull_request_reviews/required_approving_review_count")
             .or_else(|| value.get("required_reviews"))

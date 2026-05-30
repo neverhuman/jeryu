@@ -2,7 +2,7 @@
 
 Shared living dashboard of **local** test + gate health (maintained by both agents).
 Working policy: local validation, frequent merges to `main`, frequent pushes to
-`git@github.com:neverhuman/jeryu.git`. **PR-based CI is intentionally not required** —
+`https://github.com/neverhuman/jeryu/`. **PR-based CI is intentionally not required** —
 we push straight to `main` until this is 100% healthy and done.
 
 Run locally: `bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh` (foundation)
@@ -12,7 +12,7 @@ Run locally: `bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh`
 Identity law: jeryu reads as a self-hosted GitHub-compatible forge. CI is GitHub-Actions +
 native only; zero retired-provider evidence (enforced by the zero-evidence gate).
 
-_Last updated: 2026-05-30 · `cargo test --workspace` = **957 passed / 0 failed** · targeted PR-only cleanup test set = **616 passed / 0 failed** · `bash scripts/ci-phases.sh` = **OK** (PASS=6, PENDING=1, FAIL=0)._
+_Last updated: 2026-05-30 · `cargo test --workspace` = **961 passed / 0 failed** · targeted PR-only cleanup test set = **616 passed / 0 failed** · `bash scripts/ci-phases.sh` = **OK** (PASS=6, PENDING=1, FAIL=0) · Jankurai diff-audit = **70** with **0 hard / 0 caps**._
 
 ## Per-phase gate status (`scripts/ci-phases.sh`)
 
@@ -35,7 +35,7 @@ _Last updated: 2026-05-30 · `cargo test --workspace` = **957 passed / 0 failed*
 | `cargo metadata` (workspace shape, 42 pkgs, one root) | PASS |
 | `cargo fmt --all -- --check` | PASS _(rechecked by Codex 2026-05-30T21:36Z)_ |
 | `cargo check --workspace --all-targets` | PASS |
-| `cargo test --workspace` (957) | PASS |
+| `cargo test --workspace` (961) | PASS |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
 | `scripts/{zero-evidence-guard,check-docs,release-gate,score-repo}.py` · `ci-doctor.sh` | PASS |
 
@@ -56,6 +56,8 @@ _Last updated: 2026-05-30 · `cargo test --workspace` = **957 passed / 0 failed*
 | Claude GitHub/TUI/vibe stack | GitHub correctness, CI compiler coverage, TUI lenses, jankurai vibe cleanup | 942 |
 | Codex runner-sandbox contract | seccomp/Landlock/cgroup contract guards, env scrubbing, OCI/socket denial | 957 |
 | Codex PR-only cleanup | mirror model/docs, agent-facing comments, conformance gate storage, repair hints | 616 targeted |
+| Codex agent docs/error slice | typed repair hints, domain exception crate, docs index cleanup | 961 |
+| Codex Jankurai docs/metadata slice | README start page, boundary manifest, tool-adoption manifest, real Jankurai evidence lane | 961 |
 
 ## Test coverage by crate (passing)
 
@@ -75,6 +77,7 @@ _Last updated: 2026-05-30 · `cargo test --workspace` = **957 passed / 0 failed*
 | 2026-05-30 | Codex | lifted git-oracle to PASS with local differential-vs-stock bare Git oracle; lifted cache-safety to PASS with local poisoning/false-hit harness; runner-sandbox now includes runnerd and remains honestly PENDING; Jankurai maps/audits pass with fixed git-oracle smoke route |
 | 2026-05-30 | Codex | strengthened runner-sandbox runnable coverage: sandbox plan contract, native seccomp/Landlock/cgroup validation, all denied env scrubbing, direct job validation, OCI dangerous workspace denial, and mapped static sandbox matrix |
 | 2026-05-30 | Codex | enforced PR-only product language by removing retired request/provider vocabulary from mirror archives, docs, tests, comments, and conformance gate text; repo-wide scan clean |
+| 2026-05-30 | Codex | cleared Jankurai docs cap, added boundary/tool-adoption manifests, expanded budget controls, and made the local Jankurai lane produce proof/security/rust-witness evidence before diff-audit |
 
 ## Toward 100% healthy / done
 
@@ -84,6 +87,6 @@ _Last updated: 2026-05-30 · `cargo test --workspace` = **957 passed / 0 failed*
 - [ ] Lift **runner-sandbox** PENDING → PASS (native sandbox runtime + escape matrix).
 - [ ] Build daemon/network transport hardening beyond the local git/cache PASS gates.
 - [x] GitHub-correctness defects FIXED + tested: PR `Closed`/`Merged` stickiness; **enforced** branch protection (CODEOWNERS, linear history, signed commits, force-push/delete, enforce_admins); CI-IR multi-node cycle detection (Kahn's). Workspace 876 green.
-- [ ] **Jankurai standard score = 40/100** (pervasive, mostly pre-existing): fallback-soup density + dead-language heuristic flags on GitHub-required terms (`stale`, etc.) + repo-level gaps (CI audit lane, fast lane). Shared remediation + a policy call on GitHub-term false-positives — see chat.
+- [ ] **Jankurai diff-audit score target ≥85**: current local audit is 70 with no hard findings or caps; remaining work is autonomy type-file split, stronger security posture evidence, build-speed proof, boundary maturity, and durable DB truth.
 - [ ] Consolidate duplicated decision core (conditions/quorum/sha-bind/judge) into `jeryu-proof`.
 - [ ] Deepen the thin engine crates; remaining TUI lenses + live backend wiring.
