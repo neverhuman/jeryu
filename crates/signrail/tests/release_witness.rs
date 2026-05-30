@@ -1,0 +1,158 @@
+use signrail::{
+    validate_release, Artifact, HmacSha256Signer, OidcJobIdentity, Release, ReleasePolicy,
+    RollbackMetadata, SbomDocument, UnavailableSigner,
+};
+use std::fs;
+use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(1)
+}
+
+fn temp_artifact(name: &str, contents: &[u8]) -> PathBuf {
+    let path = std::env::temp_dir().join(format!("signrail-{name}-{}", now()));
+    fs::write(&path, contents).unwrap_or_else(|err| panic!("failed to write temp artifact: {err}"));
+    path
+}
+
+fn identity() -> OidcJobIdentity {
+    OidcJobIdentity::new(
+        "https://jitforge.example.invalid",
+        "jitforge-signrail",
+        "repo:acme/jitforge:ref:refs/tags/v1.2.3",
+        "acme/jitforge",
+        ".jit/release@refs/tags/v1.2.3",
+        "job-release-1",
+        "runner-release-hermetic-1",
+        now() + 3600,
+    )
+}
+
+fn policy() -> ReleasePolicy {
+    ReleasePolicy::strict(
+        "https://git.example.invalid/acme/jitforge",
+        "https://jitforge.example.invalid",
+        "jitforge-signrail",
+        now(),
+    )
+}
+
+fn unsigned_release() -> Release {
+    let path = temp_artifact("release.bin", b"release artifact bytes");
+    let artifact = Artifact::from_file("jitforge-linux-x86_64", &path, "application/octet-stream")
+        .unwrap_or_else(|err| panic!("artifact failed: {err}"));
+    let mut release = Release::new(
+        "rel_01JPHASE8",
+        "JitForge Nitro 1.2.3",
+        "v1.2.3",
+        "https://git.example.invalid/acme/jitforge",
+        "abc123commit",
+        "def456tree",
+        "blake3:ci-ir",
+        "release-hermetic",
+        "sha256:runner-rootfs",
+        "sha256:toolchain",
+        "sha256:cargo-lock",
+        identity(),
+    );
+    release.add_artifact(artifact);
+    release.attach_sbom(SbomDocument::from_artifacts(
+        "v1.2.3",
+        &release.artifacts,
+        now(),
+    ));
+    release.attach_rollback(RollbackMetadata::new(
+        "v1.2.2",
+        "jit release rollback v1.2.2",
+        "sha256:config",
+        "no irreversible migration",
+        now(),
+    ));
+    release
+}
+
+fn signed_release() -> (Release, HmacSha256Signer) {
+    let mut release = unsigned_release();
+    let signer = HmacSha256Signer::new("phase8-test-key", b"phase8-secret");
+    release
+        .sign_with(&signer, now())
+        .unwrap_or_else(|err| panic!("signing failed: {err}"));
+    (release, signer)
+}
+
+#[test]
+fn valid_release_emits_witness_with_full_coverage() {
+    let (release, signer) = signed_release();
+    let witness = validate_release(&release, &policy(), &signer)
+        .unwrap_or_else(|err| panic!("validation failed: {err}"));
+    assert_eq!(witness.artifact_count, 1);
+    assert_eq!(witness.signature_count, 1);
+    assert_eq!(witness.signature_coverage_percent, 100);
+}
+
+#[test]
+fn unsigned_release_blocked() {
+    let release = unsigned_release();
+    let signer = HmacSha256Signer::new("phase8-test-key", b"phase8-secret");
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    assert!(err.to_string().contains("signature coverage"));
+}
+
+#[test]
+fn missing_sbom_blocked() {
+    let mut release = unsigned_release();
+    release.sbom = None;
+    let signer = HmacSha256Signer::new("phase8-test-key", b"phase8-secret");
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    assert!(err.to_string().contains("missing SBOM"));
+}
+
+#[test]
+fn mutable_latest_only_asset_blocked() {
+    let mut release = unsigned_release();
+    release.version = "latest".to_string();
+    release.set_immutable(false);
+    let signer = HmacSha256Signer::new("phase8-test-key", b"phase8-secret");
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("mutable"));
+}
+
+#[test]
+fn wrong_source_sha_blocked() {
+    let (mut release, signer) = signed_release();
+    release.commit_sha = "wrong-sha".to_string();
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    assert!(err.to_string().contains("wrong source SHA"));
+}
+
+#[test]
+fn signing_outage_fails_closed() {
+    let mut release = unsigned_release();
+    let signer = UnavailableSigner::new("offline-key");
+    let err = release.sign_with(&signer, now()).unwrap_err();
+    assert!(err.to_string().contains("signing unavailable"));
+}
+
+#[test]
+fn provenance_signature_verifies() {
+    let (mut release, signer) = signed_release();
+    validate_release(&release, &policy(), &signer)
+        .unwrap_or_else(|err| panic!("initial validation failed: {err}"));
+    release.provenance[0].statement.artifact_digest = "sha256:tampered".to_string();
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("unknown artifact") || msg.contains("signature mismatch"));
+}
+
+#[test]
+fn oidc_expiry_blocks_release() {
+    let (mut release, signer) = signed_release();
+    release.oidc.expires_at_epoch = 1;
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    assert!(err.to_string().contains("expired"));
+}

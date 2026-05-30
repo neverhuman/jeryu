@@ -1,0 +1,6 @@
+{
+  "issuer": "https://idp.example",
+  "audience": "jitforge",
+  "redirect_uri": "https://forge.example/auth/oidc/callback",
+  "jwks_uri": "https://idp.example/.well-known/jwks.json"
+}

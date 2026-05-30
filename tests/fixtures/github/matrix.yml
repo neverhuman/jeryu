@@ -1,0 +1,33 @@
+name: matrix
+on: [push, pull_request]
+jobs:
+  fmt:
+    runs-on: native-rust-clean
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: format
+        run: cargo fmt --all -- --check
+  test:
+    runs-on: native-rust-clean
+    needs: [fmt]
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        toolchain: [stable, beta]
+        os: [ubuntu-latest, linux]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: test ${{ matrix.toolchain }}
+        run: cargo +${{ matrix.toolchain }} test --workspace
+        env:
+          RUST_BACKTRACE: "1"
+    cache:
+      paths:
+        - target/
+        - ~/.cargo/registry
+    artifacts:
+      paths:
+        - target/nextest/default/junit.xml
+      expire_in: 1 week

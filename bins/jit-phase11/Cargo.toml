@@ -1,0 +1,17 @@
+[package]
+name = "jit-phase11"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+phase11-core = { path = "../../crates/phase11-core" }
+nitro-kernel = { path = "../../crates/nitro-kernel" }
+
+[[bin]]
+name = "jit-phase11"
+path = "src/main.rs"
+
+[lints]
+workspace = true

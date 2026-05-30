@@ -1,0 +1,17 @@
+{
+  "benchmark_id": "fnv64:example",
+  "competitor": "baseline-runner-container",
+  "jitforge_runner": "native-rust-hot",
+  "repo_fixture": "rust-medium",
+  "scenario": "medium-affected-crate-pr",
+  "hardware": "32c/128gb/nvme",
+  "cache_state": "warm_project_cache",
+  "trust_tier": "internal_branch",
+  "git_sha": "abc123phase10",
+  "pipeline_ir_hash": "fnv64:example",
+  "duration_ms": 56250,
+  "speedup_vs_baseline": 3.2,
+  "false_cache_hits": 0,
+  "artifact_digest": "fnv64:artifact",
+  "reproduce": "jit bench replay fnv64:example"
+}

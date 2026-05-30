@@ -1,0 +1,35 @@
+[[laws]]
+id = "CV-LAW-001"
+text = "No false cache hits tolerated."
+
+[[laws]]
+id = "CV-LAW-002"
+text = "No fork writes trusted cache."
+
+[[laws]]
+id = "CV-LAW-003"
+text = "No untrusted code writes global cache."
+
+[[laws]]
+id = "CV-LAW-004"
+text = "No release consumes mutable compiled cache."
+
+[[laws]]
+id = "CV-LAW-005"
+text = "No cross-project compiled artifact sharing by default."
+
+[[laws]]
+id = "CV-LAW-006"
+text = "No build.rs output sharing across projects by default."
+
+[[laws]]
+id = "CV-LAW-007"
+text = "No proc-macro output sharing across projects by default."
+
+[[laws]]
+id = "CV-LAW-008"
+text = "No cache restore without explainable fingerprint."
+
+[[laws]]
+id = "CV-LAW-009"
+text = "No cache promotion without receipt."

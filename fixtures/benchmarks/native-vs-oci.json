@@ -1,0 +1,12 @@
+{
+  "schema": "jitforge.benchlab.native-vs-oci.v1",
+  "jitforge_runners": [
+    "native-rust-hot",
+    "native-rust-clean",
+    "microvm-rust",
+    "oci-docker",
+    "k8s-oci"
+  ],
+  "baseline": "baseline-runner-container",
+  "cache_false_hits_allowed": 0
+}

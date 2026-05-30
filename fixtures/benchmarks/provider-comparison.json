@@ -1,0 +1,18 @@
+{
+  "schema": "jitforge.benchlab.comparison.v1",
+  "competitors": [
+    "baseline-runner-container",
+    "baseline-runner-shell",
+    "baseline-runner-kubernetes",
+    "github-actions-self-hosted",
+    "gitea-actions",
+    "forgejo-actions"
+  ],
+  "fixtures": [
+    "rust-small",
+    "rust-medium",
+    "rust-large",
+    "merge-queue"
+  ],
+  "required_replay": "jit bench replay <benchmark_id>"
+}

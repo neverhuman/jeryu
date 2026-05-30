@@ -1,0 +1,17 @@
+{
+  "source": "github.com/acme",
+  "repositories": [
+    {
+      "owner": {"login": "acme"},
+      "name": "rocket",
+      "private": true,
+      "default_branch": "main",
+      "issues": [{"number": 1, "title": "bug", "state": "open"}],
+      "pull_requests": [{"number": 2, "title": "fix", "state": "closed", "merged_at": "2026-01-01T00:00:00Z"}],
+      "releases": [{"tag_name": "v1.0.0", "assets": [{"name": "rocket.tar.gz", "size": 42}]}],
+      "artifacts": [{"name": "linux-amd64", "size_in_bytes": 9}],
+      "hooks": [{"id": 7, "config": {"url": "https://ci.invalid/hook", "secret": "redacted"}, "events": ["push"]}],
+      "app_installations": [{"id": 9, "slug": "ci-bot", "permissions": {"checks": "write"}}]
+    }
+  ]
+}

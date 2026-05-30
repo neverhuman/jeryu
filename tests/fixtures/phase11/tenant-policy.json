@@ -1,0 +1,7 @@
+{
+  "cases": [
+    { "role": "viewer", "action": "update_quota", "allowed": false },
+    { "role": "auditor", "action": "export_compliance", "allowed": true },
+    { "role": "break_glass", "action": "apply_upgrade", "ticket_required": true }
+  ]
+}

@@ -1,0 +1,9 @@
+[[zones]]
+path = "docs/generated/**"
+generator = "scripts/render-policy-docs.sh"
+manual_edits = false
+
+[[zones]]
+path = "receipts/generated/**"
+generator = "cratevault-service"
+manual_edits = false

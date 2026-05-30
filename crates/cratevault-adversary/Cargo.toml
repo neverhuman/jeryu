@@ -1,0 +1,15 @@
+[package]
+name = "cratevault-adversary"
+version = "0.12.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+cratevault-core = { path = "../cratevault-core" }
+cratevault-service = { path = "../cratevault-service" }
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

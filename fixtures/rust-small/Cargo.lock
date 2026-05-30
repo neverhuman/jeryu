@@ -1,0 +1,2 @@
+# This lockfile is a small fixture. RustJet treats any Cargo.lock change as workspace-wide.
+version = 4

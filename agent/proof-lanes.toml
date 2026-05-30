@@ -1,0 +1,23 @@
+[lanes.cache-key]
+required = ["cargo test -p cratevault-core cache_key"]
+blocks_merge = true
+
+[lanes.cache-law]
+required = ["cargo test -p cratevault-core policy"]
+blocks_merge = true
+
+[lanes.cache-service]
+required = ["cargo test -p cratevault-core -p cratevault-service"]
+blocks_merge = true
+
+[lanes.adversarial-cache]
+required = ["cargo test -p cratevault-adversary"]
+blocks_merge = true
+
+[lanes.tooling]
+required = ["cargo test -p cratevault-cli", "cargo run -p cratevault-cli -- self-test"]
+blocks_merge = true
+
+[lanes.policy-config]
+required = ["./scripts/ci-doctor.sh"]
+blocks_merge = true

@@ -1,0 +1,41 @@
+[t0_release_hermetic]
+default_runner = "release-hermetic"
+network = "deny"
+secrets = "allowed"
+trusted_cache_write = "trusted-after-green"
+mutable_compiled_cache = false
+
+[t1_protected_internal]
+default_runner = "native-rust-hot"
+network = "deny"
+secrets = "allowed"
+trusted_cache_write = "trusted-after-green"
+mutable_compiled_cache = true
+
+[t2_internal_branch]
+default_runner = "native-rust-clean"
+network = "deny"
+secrets = "allowed"
+trusted_cache_write = "quarantine"
+mutable_compiled_cache = true
+
+[t3_agent_authored]
+default_runner = "agent-guard"
+network = "deny"
+secrets = "denied-by-default"
+trusted_cache_write = "quarantine"
+mutable_compiled_cache = false
+
+[t4_fork_pr]
+default_runner = "microvm-rust"
+network = "deny"
+secrets = "denied"
+trusted_cache_write = "deny"
+mutable_compiled_cache = false
+
+[t5_public_untrusted]
+default_runner = "microvm-rust"
+network = "deny"
+secrets = "denied"
+trusted_cache_write = "deny"
+mutable_compiled_cache = false

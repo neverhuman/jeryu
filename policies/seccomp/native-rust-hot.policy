@@ -1,0 +1,22 @@
+# Phase 4 seccomp profile model for native-rust-hot.
+# Production launcher should translate this declarative profile into BPF.
+name = "native-rust-hot-phase4-seccomp"
+default_action = "kill-process"
+allow_groups = [
+  "process-basic",
+  "file-readwrite-workspace",
+  "futex",
+  "time",
+  "rust-build-tooling"
+]
+deny = [
+  "keyctl",
+  "bpf",
+  "perf_event_open",
+  "ptrace",
+  "mount",
+  "umount2",
+  "swapon",
+  "swapoff",
+  "reboot"
+]

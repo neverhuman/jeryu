@@ -1,0 +1,16 @@
+[package]
+name = "tenant-guard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+phase11-core = { path = "../phase11-core" }
+phase11-audit = { path = "../phase11-audit" }
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true

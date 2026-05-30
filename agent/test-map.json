@@ -1,0 +1,247 @@
+{
+  "version": 1,
+  "routes": [
+    {
+      "paths": [
+        "crates/cratevault-core/**",
+        "crates/cratevault-service/**",
+        "crates/cratevault-cli/**",
+        "crates/cratevault-adversary/**",
+        "crates/cratevault/**",
+        "config/**",
+        "policies/**"
+      ],
+      "commands": [
+        "cargo test -p cratevault-core -p cratevault-service -p cratevault-adversary",
+        "cargo test -p cratevault-cli",
+        "./tests/cache_poisoning_matrix.sh"
+      ],
+      "proof_lane": "cache-law"
+    },
+    {
+      "paths": [
+        "crates/gitd/**",
+        "configs/**"
+      ],
+      "commands": [
+        "cargo test -p gitd",
+        "./ops/git-oracle/smoke.sh"
+      ],
+      "proof_lane": "git-oracle"
+    },
+    {
+      "paths": [
+        "crates/forge-core/**",
+        "crates/jitforge-api/**",
+        "web/**"
+      ],
+      "commands": [
+        "cargo test -p forge-core -p jitforge-api"
+      ],
+      "proof_lane": "api-compat"
+    },
+    {
+      "paths": [
+        "crates/ci-ir/**",
+        "crates/ci-compiler/**",
+        "crates/ci-scheduler/**",
+        "crates/cache-policy/**",
+        "crates/artifact-metadata/**",
+        "bins/jit-ci/**"
+      ],
+      "commands": [
+        "cargo test -p ci-ir -p ci-compiler -p ci-scheduler -p cache-policy -p artifact-metadata",
+        "cargo test -p jit-ci"
+      ],
+      "proof_lane": "ci-ir"
+    },
+    {
+      "paths": [
+        "crates/runner-core/**",
+        "crates/runner-native/**",
+        "crates/runner-microvm/**",
+        "crates/runner-oci/**",
+        "crates/runner-protocol/**",
+        "crates/runnerd/**"
+      ],
+      "commands": [
+        "cargo test -p runner-core -p runner-native -p runner-microvm -p runner-oci -p runner-protocol -p runnerd",
+        "./tests/sandbox_escape_matrix.sh"
+      ],
+      "proof_lane": "runner-sandbox"
+    },
+    {
+      "paths": [
+        "crates/rustjet/**",
+        "crates/rustjet-cli/**",
+        "fixtures/**"
+      ],
+      "commands": [
+        "cargo test -p rustjet -p rustjet-cli",
+        "./scripts/check-fixtures.py"
+      ],
+      "proof_lane": "rustjet"
+    },
+    {
+      "paths": [
+        "crates/proofcore/**",
+        "crates/agentbridge/**",
+        "agent/**"
+      ],
+      "commands": [
+        "cargo test -p proofcore -p agentbridge",
+        "./scripts/check-agent-maps.py"
+      ],
+      "proof_lane": "jankurai-proof"
+    },
+    {
+      "paths": [
+        "crates/signrail/**"
+      ],
+      "commands": [
+        "cargo test -p signrail"
+      ],
+      "proof_lane": "release-provenance"
+    },
+    {
+      "paths": [
+        "crates/mirrorvault/**",
+        "crates/mirrorvault-cli/**"
+      ],
+      "commands": [
+        "cargo test -p mirrorvault -p mirrorvault-cli"
+      ],
+      "proof_lane": "migration-replay"
+    },
+    {
+      "paths": [
+        "crates/benchlab/**",
+        "crates/jitforge-obs/**",
+        "dashboards/**"
+      ],
+      "commands": [
+        "cargo test -p benchlab -p jitforge-obs"
+      ],
+      "proof_lane": "benchmark-receipts"
+    },
+    {
+      "paths": [
+        "crates/jitforge-enterprise/**",
+        "crates/phase11-core/**",
+        "crates/phase11-audit/**",
+        "crates/ops-automation/**",
+        "crates/compliance-export/**",
+        "crates/lifecycle-manager/**",
+        "crates/tenant-guard/**",
+        "crates/replay-verifier/**",
+        "crates/nitro-kernel/**",
+        "bins/jit-phase11/**"
+      ],
+      "commands": [
+        "cargo test -p jitforge-enterprise -p phase11-core -p phase11-audit -p ops-automation -p compliance-export -p lifecycle-manager -p tenant-guard -p replay-verifier -p nitro-kernel",
+        "cargo test -p jit-phase11"
+      ],
+      "proof_lane": "enterprise-ops"
+    },
+    {
+      "paths": [
+        "ops/**",
+        "scripts/**",
+        "tests/**",
+        "examples/**",
+        "Justfile",
+        "Cargo.toml",
+        "rust-toolchain.toml"
+      ],
+      "commands": [
+        "./scripts/ci-doctor.sh",
+        "./scripts/check-owner-test-map.py"
+      ],
+      "proof_lane": "devex"
+    },
+    {
+      "paths": [
+        "docs/**",
+        "README.md",
+        "AGENTS.md"
+      ],
+      "commands": [
+        "./scripts/check-docs.py"
+      ],
+      "proof_lane": "docs"
+    },
+    {
+      "paths": [
+        "bins/**"
+      ],
+      "commands": [
+        "cargo test -p jit-ci -p jit-phase11"
+      ],
+      "proof_lane": "tooling"
+    },
+    {
+      "paths": [
+        "crates/**"
+      ],
+      "commands": [
+        "cargo test --workspace"
+      ],
+      "proof_lane": "workspace"
+    },
+    {
+      "paths": [
+        "config/**"
+      ],
+      "commands": [
+        "./scripts/ci-doctor.sh"
+      ],
+      "proof_lane": "policy-config"
+    },
+    {
+      "paths": [
+        "configs/**"
+      ],
+      "commands": [
+        "./scripts/ci-doctor.sh"
+      ],
+      "proof_lane": "runtime-config"
+    },
+    {
+      "paths": [
+        "policies/**"
+      ],
+      "commands": [
+        "./scripts/ci-doctor.sh",
+        "./scripts/render-policy-docs.sh"
+      ],
+      "proof_lane": "policy-docs"
+    },
+    {
+      "paths": [
+        "fixtures/**"
+      ],
+      "commands": [
+        "./scripts/check-fixtures.py"
+      ],
+      "proof_lane": "fixtures"
+    },
+    {
+      "paths": [
+        "examples/**"
+      ],
+      "commands": [
+        "./scripts/ci-doctor.sh"
+      ],
+      "proof_lane": "examples"
+    },
+    {
+      "paths": [
+        "tests/**"
+      ],
+      "commands": [
+        "./scripts/ci-doctor.sh"
+      ],
+      "proof_lane": "tests"
+    }
+  ]
+}

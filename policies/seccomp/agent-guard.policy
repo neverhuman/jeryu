@@ -1,0 +1,9 @@
+name = "agent-guard-phase4-seccomp"
+default_action = "kill-process"
+allow_groups = [
+  "process-basic",
+  "file-readwrite-workspace",
+  "futex",
+  "time"
+]
+deny = ["keyctl", "bpf", "perf_event_open", "ptrace", "mount", "umount2", "clone3-unprivileged"]

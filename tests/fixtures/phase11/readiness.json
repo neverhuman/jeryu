@@ -1,0 +1,12 @@
+{
+  "tenant": "tenant-a",
+  "actor": "phase11-fixture",
+  "expected_state": "healthy",
+  "required_findings": [
+    "phase11.ready",
+    "tenant.allowed",
+    "compliance.complete",
+    "lifecycle.valid",
+    "replay.verified"
+  ]
+}

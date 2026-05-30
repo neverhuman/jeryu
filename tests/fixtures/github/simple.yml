@@ -1,0 +1,19 @@
+name: simple
+on: [push, pull_request]
+jobs:
+  fmt:
+    runs-on: native-rust-clean
+    steps:
+      - name: format
+        run: cargo fmt --all -- --check
+  test:
+    runs-on: native-rust-clean
+    needs: [fmt]
+    timeout-minutes: 20
+    steps:
+      - name: test
+        run: cargo test --workspace
+    artifacts:
+      paths:
+        - target/nextest/default/junit.xml
+      when: always

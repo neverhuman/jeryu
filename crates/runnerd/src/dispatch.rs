@@ -1,0 +1,534 @@
+#![doc = "Dispatch engine for runnerd."]
+
+use runner_core::error::{RunnerError, RunnerResult};
+use runner_core::job::{NetworkPolicy, SecretPolicy, TokenPolicy};
+use runner_core::policy::select_runner;
+use runner_core::receipt::Receipt;
+use runner_core::sandbox::SandboxPlan;
+use runner_core::trust::{RunnerClass, TrustTier};
+use runner_core::JobRequest as CoreJobRequest;
+use runner_microvm::MicroVmRunner;
+use runner_native::NativeRunner;
+use runner_oci::OciRunner;
+use runner_protocol::JobRequest as ProtocolJobRequest;
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
+/// Dispatch mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DispatchMode {
+    /// Explain policy and sandbox plan without execution.
+    Explain,
+    /// Execute where enabled.
+    Run,
+}
+
+/// Host context required before a protocol job can enter runner policy.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProtocolDispatchContext {
+    /// Repository id or slug.
+    pub repo_id: String,
+    /// Commit SHA bound to this execution.
+    pub commit_sha: String,
+    /// Prepared absolute workspace path.
+    pub workspace: PathBuf,
+    /// Scheduler-authorized trust tier.
+    pub trust_tier: TrustTier,
+    /// True when the job originates from a fork.
+    pub fork: bool,
+    /// Scheduler-authorized network policy.
+    pub network_policy: NetworkPolicy,
+    /// Scheduler-authorized secret policy.
+    pub secret_policy: SecretPolicy,
+    /// Scheduler-authorized token policy.
+    pub token_policy: TokenPolicy,
+}
+
+/// runnerd dispatch engine.
+#[derive(Debug, Default, Clone)]
+pub struct DispatchEngine {
+    native: NativeRunner,
+    microvm: MicroVmRunner,
+    oci: OciRunner,
+}
+
+impl DispatchEngine {
+    /// Create a dispatch engine.
+    pub fn new() -> Self {
+        Self {
+            native: NativeRunner::new(),
+            microvm: MicroVmRunner::new(),
+            oci: OciRunner::new(),
+        }
+    }
+
+    /// Dispatch a job and return a receipt.
+    pub fn dispatch(&self, job: &CoreJobRequest, mode: DispatchMode) -> Receipt {
+        match self.try_dispatch(job, mode) {
+            Ok(receipt) => receipt,
+            Err(err) => Receipt::denied(job, err.to_string()),
+        }
+    }
+
+    /// Convert a protocol request with host context and dispatch it.
+    pub fn try_dispatch_protocol(
+        &self,
+        request: &ProtocolJobRequest,
+        context: &ProtocolDispatchContext,
+        mode: DispatchMode,
+    ) -> RunnerResult<Receipt> {
+        let job = protocol_to_core_job(request, context)?;
+        self.try_dispatch(&job, mode)
+    }
+
+    fn try_dispatch(&self, job: &CoreJobRequest, mode: DispatchMode) -> RunnerResult<Receipt> {
+        let decision = select_runner(job)?;
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        match (mode, decision.runner_class) {
+            (DispatchMode::Explain, RunnerClass::NativeRustHot)
+            | (DispatchMode::Explain, RunnerClass::NativeRustClean)
+            | (DispatchMode::Explain, RunnerClass::AgentGuard)
+            | (DispatchMode::Explain, RunnerClass::ReleaseHermetic) => {
+                self.native.plan_only(job, &decision, &plan)
+            }
+            (DispatchMode::Explain, RunnerClass::MicroVmRust) => {
+                self.microvm.execute(job, &decision, &plan)
+            }
+            (DispatchMode::Explain, RunnerClass::OciDocker) => {
+                self.oci.execute(job, &decision, &plan)
+            }
+            (DispatchMode::Run, RunnerClass::NativeRustHot)
+            | (DispatchMode::Run, RunnerClass::NativeRustClean)
+            | (DispatchMode::Run, RunnerClass::AgentGuard)
+            | (DispatchMode::Run, RunnerClass::ReleaseHermetic) => {
+                self.native.execute(job, &decision, &plan)
+            }
+            (DispatchMode::Run, RunnerClass::MicroVmRust) => {
+                self.microvm.execute(job, &decision, &plan)
+            }
+            (DispatchMode::Run, RunnerClass::OciDocker) => self.oci.execute(job, &decision, &plan),
+        }
+    }
+}
+
+/// Convert a runner protocol job into runner-core's executable job shape.
+pub fn protocol_to_core_job(
+    request: &ProtocolJobRequest,
+    context: &ProtocolDispatchContext,
+) -> RunnerResult<CoreJobRequest> {
+    validate_protocol_identity(request)?;
+    if !request.cache_mounts.is_empty() {
+        return adapter_error("cache mounts are not supported by runner-core jobs yet");
+    }
+    if !request.artifact_paths.is_empty() {
+        return adapter_error("artifact paths are not supported by runner-core jobs yet");
+    }
+    if request.steps.len() != 1 {
+        return adapter_error(format!(
+            "expected exactly one executable step, got {}",
+            request.steps.len()
+        ));
+    }
+
+    let step = &request.steps[0];
+    if step.uses.is_some() {
+        return adapter_error("action-style steps are not executable by runnerd");
+    }
+    if step.working_directory.is_some() {
+        return adapter_error("step working directories are not supported by runnerd");
+    }
+    let Some(command) = step
+        .command
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+    else {
+        return adapter_error("protocol step is missing an executable command");
+    };
+    if command.contains('\0') {
+        return adapter_error("protocol step command contains NUL byte");
+    }
+
+    let mut env = request.env.clone();
+    merge_step_env(&mut env, &step.env)?;
+    validate_env(&env)?;
+
+    let timeout_ms = request
+        .timeout_seconds
+        .checked_mul(1000)
+        .ok_or_else(|| adapter_runner_error("timeout_seconds overflows timeout_ms"))?;
+    if timeout_ms == 0 {
+        return adapter_error("timeout_seconds must be positive");
+    }
+
+    let job = CoreJobRequest {
+        job_id: request.job_id.clone(),
+        repo_id: context.repo_id.clone(),
+        commit_sha: context.commit_sha.clone(),
+        workspace: context.workspace.clone(),
+        command: "/bin/sh".to_string(),
+        args: vec!["-lc".to_string(), command.clone()],
+        env,
+        trust_tier: context.trust_tier,
+        requested_runner: Some(map_runner_class(&request.runner_class)?),
+        network_policy: context.network_policy,
+        secret_policy: context.secret_policy,
+        token_policy: context.token_policy,
+        timeout_ms,
+        fork: context.fork,
+    };
+    job.validate()?;
+    select_runner(&job)?;
+    Ok(job)
+}
+
+fn validate_protocol_identity(request: &ProtocolJobRequest) -> RunnerResult<()> {
+    for (field, value) in [
+        ("request_id", request.request_id.as_str()),
+        ("pipeline_id", request.pipeline_id.as_str()),
+        ("run_id", request.run_id.as_str()),
+        ("lease_id", request.lease_id.as_str()),
+        ("job_id", request.job_id.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return adapter_error(format!("protocol field '{field}' cannot be blank"));
+        }
+    }
+
+    let expected_request_id = ci_ir::deterministic_hash(&format!(
+        "job-request|{}|{}|{}|{}",
+        request.pipeline_id, request.run_id, request.lease_id, request.job_id
+    ));
+    if request.request_id != expected_request_id {
+        return adapter_error("protocol request_id does not match stable identity fields");
+    }
+    Ok(())
+}
+
+fn map_runner_class(class: &ci_ir::RunnerClass) -> RunnerResult<RunnerClass> {
+    match class {
+        ci_ir::RunnerClass::NativeRustHot => Ok(RunnerClass::NativeRustHot),
+        ci_ir::RunnerClass::NativeRustClean => Ok(RunnerClass::NativeRustClean),
+        ci_ir::RunnerClass::AgentGuard => Ok(RunnerClass::AgentGuard),
+        ci_ir::RunnerClass::ReleaseHermetic => Ok(RunnerClass::ReleaseHermetic),
+        ci_ir::RunnerClass::MicrovmRust => Ok(RunnerClass::MicroVmRust),
+        ci_ir::RunnerClass::OciDocker => Ok(RunnerClass::OciDocker),
+        unsupported => adapter_error(format!(
+            "unsupported protocol runner class '{}'",
+            unsupported.as_str()
+        )),
+    }
+}
+
+fn merge_step_env(
+    target: &mut BTreeMap<String, String>,
+    step_env: &BTreeMap<String, String>,
+) -> RunnerResult<()> {
+    for (key, value) in step_env {
+        if let Some(existing) = target.get(key) {
+            if existing != value {
+                return adapter_error(format!("conflicting environment value for '{key}'"));
+            }
+        } else {
+            target.insert(key.clone(), value.clone());
+        }
+    }
+    Ok(())
+}
+
+fn validate_env(env: &BTreeMap<String, String>) -> RunnerResult<()> {
+    for key in env.keys() {
+        let valid = !key.is_empty()
+            && key
+                .chars()
+                .all(|ch| ch.is_ascii_uppercase() || ch.is_ascii_digit() || ch == '_')
+            && !key.chars().next().is_some_and(|ch| ch.is_ascii_digit());
+        if !valid {
+            return adapter_error(format!("invalid environment variable '{key}'"));
+        }
+        if is_denied_env_key(key) {
+            return adapter_error(format!("ambient environment variable '{key}' is denied"));
+        }
+    }
+    Ok(())
+}
+
+fn is_denied_env_key(key: &str) -> bool {
+    matches!(
+        key,
+        "SSH_AUTH_SOCK"
+            | "AWS_ACCESS_KEY_ID"
+            | "AWS_SECRET_ACCESS_KEY"
+            | "AWS_SESSION_TOKEN"
+            | "GOOGLE_APPLICATION_CREDENTIALS"
+            | "GITHUB_TOKEN"
+    )
+}
+
+fn adapter_error<T>(message: impl Into<String>) -> RunnerResult<T> {
+    Err(adapter_runner_error(message))
+}
+
+fn adapter_runner_error(message: impl Into<String>) -> RunnerError {
+    RunnerError::new("protocol_adapter_denied", message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ci_ir::{ArtifactPath, ArtifactWhen, CacheMode, CacheMount, Step};
+    use runner_core::job::{NetworkPolicy, SecretPolicy, TokenPolicy};
+    use runner_core::receipt::ReceiptStatus;
+    use runner_core::trust::{RunnerClass, TrustTier};
+    use std::path::PathBuf;
+
+    fn job(tier: TrustTier) -> CoreJobRequest {
+        CoreJobRequest {
+            job_id: "job".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace: PathBuf::from("/tmp/work"),
+            command: "/bin/echo".to_string(),
+            args: vec!["ok".to_string()],
+            env: Default::default(),
+            trust_tier: tier,
+            requested_runner: None,
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::Default,
+            token_policy: TokenPolicy::ReadOnly,
+            timeout_ms: 1000,
+            fork: matches!(tier, TrustTier::T4ForkPr),
+        }
+    }
+
+    fn context(tier: TrustTier) -> ProtocolDispatchContext {
+        ProtocolDispatchContext {
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace: PathBuf::from("/tmp/work"),
+            trust_tier: tier,
+            fork: matches!(tier, TrustTier::T4ForkPr),
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::None,
+            token_policy: TokenPolicy::ReadOnly,
+        }
+    }
+
+    fn protocol_request(class: ci_ir::RunnerClass) -> ProtocolJobRequest {
+        let mut request = ProtocolJobRequest::new("pipeline", "run", "lease", "job", class);
+        request.steps.push(Step::run("s1", "test", "cargo test"));
+        request
+            .env
+            .insert("RUST_LOG".to_string(), "info".to_string());
+        request.timeout_seconds = 90;
+        request
+    }
+
+    #[test]
+    fn explain_native_returns_planned_receipt() {
+        let receipt = DispatchEngine::new()
+            .dispatch(&job(TrustTier::T1ProtectedInternal), DispatchMode::Explain);
+        assert_eq!(receipt.status, ReceiptStatus::Planned);
+        assert_eq!(receipt.runner_class, RunnerClass::NativeRustHot.as_str());
+    }
+
+    #[test]
+    fn denied_policy_still_receipts() {
+        let mut request = job(TrustTier::T5PublicUntrusted);
+        request.requested_runner = Some(RunnerClass::NativeRustHot);
+        let receipt = DispatchEngine::new().dispatch(&request, DispatchMode::Explain);
+        assert_eq!(receipt.status, ReceiptStatus::Denied);
+        assert_eq!(receipt.runner_class, "denied");
+    }
+
+    #[test]
+    fn protocol_adapter_builds_core_job_from_single_run_step() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.steps[0]
+            .env
+            .insert("CARGO_TERM_COLOR".to_string(), "always".to_string());
+
+        let job = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .unwrap_or_else(|err| panic!("{err}"));
+
+        assert_eq!(job.job_id, "job");
+        assert_eq!(job.repo_id, "repo");
+        assert_eq!(job.commit_sha, "abc");
+        assert_eq!(job.command, "/bin/sh");
+        assert_eq!(job.args, vec!["-lc", "cargo test"]);
+        assert_eq!(job.env["RUST_LOG"], "info");
+        assert_eq!(job.env["CARGO_TERM_COLOR"], "always");
+        assert_eq!(job.timeout_ms, 90_000);
+        assert_eq!(job.requested_runner, Some(RunnerClass::NativeRustClean));
+        assert_eq!(job.trust_tier, TrustTier::T2InternalBranch);
+    }
+
+    #[test]
+    fn protocol_dispatch_runs_through_runner_policy() {
+        let request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        let receipt = DispatchEngine::new()
+            .try_dispatch_protocol(
+                &request,
+                &context(TrustTier::T2InternalBranch),
+                DispatchMode::Explain,
+            )
+            .unwrap_or_else(|err| panic!("{err}"));
+
+        assert_eq!(receipt.status, ReceiptStatus::Planned);
+        assert_eq!(receipt.runner_class, RunnerClass::NativeRustClean.as_str());
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_identity_mismatch() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.request_id = "tampered".to_string();
+
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected adapter denial"));
+
+        assert_eq!(err.code(), "protocol_adapter_denied");
+        assert!(err.message().contains("request_id"));
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_multiple_steps() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.steps.push(Step::run("s2", "lint", "cargo clippy"));
+
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected adapter denial"));
+
+        assert_eq!(err.code(), "protocol_adapter_denied");
+        assert!(err.message().contains("exactly one"));
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_action_steps() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.steps[0] = Step::uses("s1", "checkout", "actions/checkout");
+
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected adapter denial"));
+
+        assert_eq!(err.code(), "protocol_adapter_denied");
+        assert!(err.message().contains("action-style"));
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_working_directory_until_core_supports_it() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.steps[0].working_directory = Some("crates/runnerd".to_string());
+
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected adapter denial"));
+
+        assert_eq!(err.code(), "protocol_adapter_denied");
+        assert!(err.message().contains("working directories"));
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_unsupported_runner_classes() {
+        for class in [
+            ci_ir::RunnerClass::CrategraphDelta,
+            ci_ir::RunnerClass::NextestCapsule,
+            ci_ir::RunnerClass::MergeSpec,
+            ci_ir::RunnerClass::K8sOci,
+            ci_ir::RunnerClass::Custom("native-rust-hot".to_string()),
+            ci_ir::RunnerClass::Custom("docker".to_string()),
+        ] {
+            let request = protocol_request(class);
+            let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+                .err()
+                .unwrap_or_else(|| panic!("expected adapter denial"));
+            assert_eq!(err.code(), "protocol_adapter_denied");
+        }
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_runner_policy_denial() {
+        let request = protocol_request(ci_ir::RunnerClass::NativeRustHot);
+
+        let err = protocol_to_core_job(&request, &context(TrustTier::T5PublicUntrusted))
+            .err()
+            .unwrap_or_else(|| panic!("expected policy denial"));
+
+        assert_eq!(err.code(), "runner_policy_denied");
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_zero_and_overflow_timeout() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.timeout_seconds = 0;
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected zero timeout denial"));
+        assert_eq!(err.code(), "protocol_adapter_denied");
+
+        request.timeout_seconds = u64::MAX;
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected overflow timeout denial"));
+        assert_eq!(err.code(), "protocol_adapter_denied");
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_env_conflict_invalid_and_denied_keys() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.steps[0]
+            .env
+            .insert("RUST_LOG".to_string(), "debug".to_string());
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected env conflict denial"));
+        assert!(err.message().contains("conflicting"));
+
+        request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request
+            .env
+            .insert("bad-name".to_string(), "value".to_string());
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected invalid env denial"));
+        assert!(err.message().contains("invalid environment"));
+
+        request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request
+            .env
+            .insert("SSH_AUTH_SOCK".to_string(), "/tmp/agent.sock".to_string());
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected ambient env denial"));
+        assert!(err.message().contains("denied"));
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_metadata_that_runner_core_cannot_preserve() {
+        let mut request = protocol_request(ci_ir::RunnerClass::NativeRustClean);
+        request.cache_mounts.push(CacheMount {
+            name: "cargo".to_string(),
+            path: "target".to_string(),
+            mode: CacheMode::ReadOnly,
+            fingerprint: "hash".to_string(),
+        });
+
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected cache denial"));
+        assert!(err.message().contains("cache mounts"));
+
+        request.cache_mounts.clear();
+        request.artifact_paths.push(ArtifactPath {
+            name: "logs".to_string(),
+            paths: vec!["target/logs".to_string()],
+            when: ArtifactWhen::Always,
+            retention_days: 1,
+        });
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected artifact denial"));
+        assert!(err.message().contains("artifact paths"));
+    }
+}

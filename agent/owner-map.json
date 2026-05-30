@@ -1,0 +1,229 @@
+{
+  "version": 1,
+  "owners": [
+    {
+      "paths": [
+        "crates/cratevault-core/**",
+        "crates/cratevault-service/**",
+        "crates/cratevault-cli/**",
+        "crates/cratevault-adversary/**",
+        "crates/cratevault/**",
+        "config/**",
+        "policies/**"
+      ],
+      "owners": [
+        "@jitforge/cache"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/gitd/**",
+        "configs/**"
+      ],
+      "owners": [
+        "@jitforge/git"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/forge-core/**",
+        "crates/jitforge-api/**",
+        "web/**"
+      ],
+      "owners": [
+        "@jitforge/forge-api"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/ci-ir/**",
+        "crates/ci-compiler/**",
+        "crates/ci-scheduler/**",
+        "crates/cache-policy/**",
+        "crates/artifact-metadata/**",
+        "crates/runner-core/**",
+        "crates/runner-native/**",
+        "crates/runner-microvm/**",
+        "crates/runner-oci/**",
+        "crates/runner-protocol/**",
+        "crates/runnerd/**",
+        "bins/jit-ci/**"
+      ],
+      "owners": [
+        "@jitforge/ci-runtime"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/rustjet/**",
+        "crates/rustjet-cli/**",
+        "fixtures/**"
+      ],
+      "owners": [
+        "@jitforge/rust-ci"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/proofcore/**",
+        "crates/agentbridge/**",
+        "agent/**"
+      ],
+      "owners": [
+        "@jitforge/jankurai"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/signrail/**"
+      ],
+      "owners": [
+        "@jitforge/release-security"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/mirrorvault/**",
+        "crates/mirrorvault-cli/**"
+      ],
+      "owners": [
+        "@jitforge/migration"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "crates/benchlab/**",
+        "crates/jitforge-obs/**",
+        "dashboards/**"
+      ],
+      "owners": [
+        "@jitforge/bench-obs"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "crates/jitforge-enterprise/**",
+        "crates/phase11-core/**",
+        "crates/phase11-audit/**",
+        "crates/ops-automation/**",
+        "crates/compliance-export/**",
+        "crates/lifecycle-manager/**",
+        "crates/tenant-guard/**",
+        "crates/replay-verifier/**",
+        "crates/nitro-kernel/**",
+        "bins/jit-phase11/**"
+      ],
+      "owners": [
+        "@jitforge/enterprise-ops"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "ops/**",
+        "scripts/**",
+        "tests/**",
+        "examples/**",
+        "Justfile",
+        "Cargo.toml",
+        "rust-toolchain.toml"
+      ],
+      "owners": [
+        "@jitforge/devex"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "docs/**",
+        "README.md",
+        "AGENTS.md"
+      ],
+      "owners": [
+        "@jitforge/docs"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "bins/**"
+      ],
+      "owners": [
+        "@jitforge/devtools"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "crates/**"
+      ],
+      "owners": [
+        "@jitforge/core"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "config/**"
+      ],
+      "owners": [
+        "@jitforge/platform-security"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "configs/**"
+      ],
+      "owners": [
+        "@jitforge/platform-security"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "policies/**"
+      ],
+      "owners": [
+        "@jitforge/platform-security"
+      ],
+      "required_reviews": 2
+    },
+    {
+      "paths": [
+        "fixtures/**"
+      ],
+      "owners": [
+        "@jitforge/test-fixtures"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "examples/**"
+      ],
+      "owners": [
+        "@jitforge/devtools"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "tests/**"
+      ],
+      "owners": [
+        "@jitforge/quality"
+      ],
+      "required_reviews": 1
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+name = "object-store-latency"
+blast_radius = "artifact-cas"
+expected_recovery_ms = 10000
+data_loss_allowed = false

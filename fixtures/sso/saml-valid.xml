@@ -1,0 +1,11 @@
+<EntityDescriptor entityID="jitforge">
+  <IDPSSODescriptor>
+    <KeyDescriptor use="signing">
+      <KeyInfo>
+        <X509Data>
+          <X509Certificate>-----BEGIN CERTIFICATE-----PHASE10-----END CERTIFICATE-----</X509Certificate>
+        </X509Data>
+      </KeyInfo>
+    </KeyDescriptor>
+  </IDPSSODescriptor>
+</EntityDescriptor>

@@ -1,0 +1,33 @@
+[T0]
+name = "release-hermetic"
+can_write_trusted_compiled_cache = false
+can_read_mutable_compiled_cache = false
+requires_l6 = true
+
+[T1]
+name = "protected-internal"
+can_write_trusted_compiled_cache = true
+write_requires_green_protected_policy = true
+
+[T2]
+name = "internal-branch"
+can_write_trusted_compiled_cache = false
+can_read_repo_cache = true
+
+[T3]
+name = "agent-authored"
+can_write_trusted_compiled_cache = false
+write_scope = "quarantine"
+requires_proof_receipt = true
+
+[T4]
+name = "fork-pr"
+can_write_trusted_compiled_cache = false
+can_read_source_cache = true
+secrets = "deny"
+
+[T5]
+name = "public-untrusted"
+can_write_trusted_compiled_cache = false
+can_read_source_cache = true
+secrets = "deny"

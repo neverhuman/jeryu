@@ -1,0 +1,12 @@
+{
+  "title": "JitForge Nitro Phase 10",
+  "schemaVersion": 39,
+  "panels": [
+    { "id": 1, "title": "benchmark_replay_success (30d)", "type": "timeseries", "targets": [{ "expr": "sum(rate(bench_replay_ok[30d])) / sum(rate(bench_replay_total[30d]))" }] },
+    { "id": 2, "title": "audit_log_append_success (30d)", "type": "timeseries", "targets": [{ "expr": "sum(rate(audit_append_ok[30d])) / sum(rate(audit_append_total[30d]))" }] },
+    { "id": 3, "title": "rbac_decision_latency (7d)", "type": "timeseries", "targets": [{ "expr": "histogram_quantile(0.995, rbac_decision_seconds_bucket) < 0.050" }] },
+    { "id": 4, "title": "tenant_isolation_gate (30d)", "type": "stat", "targets": [{ "expr": "tenant_escape_total == 0" }] },
+    { "id": 5, "title": "backup_restore_drill_success (90d)", "type": "timeseries", "targets": [{ "expr": "sum(restore_drill_ok) / sum(restore_drill_total)" }] },
+    { "id": 6, "title": "upgrade_rollback_drill_success (90d)", "type": "timeseries", "targets": [{ "expr": "sum(rollback_drill_ok) / sum(rollback_drill_total)" }] }
+  ]
+}
