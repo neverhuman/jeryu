@@ -1,6 +1,7 @@
 #![doc = "Job request parsing and validation."]
 
 use crate::error::{RunnerError, RunnerResult};
+use crate::fscheck::deny_dangerous_host_path;
 use crate::trust::{RunnerClass, TrustTier};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -354,6 +355,7 @@ fn validate_workspace_path(path: &Path) -> RunnerResult<()> {
             format!("workspace '{}' must not contain '..'", path.display()),
         ));
     }
+    deny_dangerous_host_path(path)?;
     Ok(())
 }
 
@@ -396,5 +398,22 @@ mod tests {
         .err()
         .unwrap_or_else(|| panic!("expected validation failure"));
         assert_eq!(err.code(), "invalid_workspace");
+    }
+
+    #[test]
+    fn rejects_dangerous_workspace_paths() {
+        let err = JobRequest::from_key_value(
+            r#"
+            job_id=job_1
+            repo_id=jeryu/jeryu
+            commit_sha=abc123
+            workspace=/var/run/docker.sock
+            command=/bin/echo
+            "#,
+        )
+        .err()
+        .unwrap_or_else(|| panic!("expected host path denial"));
+        assert_eq!(err.code(), "host_path_denied");
+        assert!(err.message().contains("/var/run/docker.sock"));
     }
 }

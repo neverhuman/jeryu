@@ -219,7 +219,6 @@ impl PolicyEngine {
         }
 
         if request.layer == CacheLayer::L5ExplicitSharedCompiledCas
-            && !request.same_repo()
             && !request.explicit_shared_allowed()
         {
             deny.push("CV-LAW-005: cross-project compiled artifact sharing denied without explicit allowlist".into());
@@ -352,5 +351,45 @@ mod tests {
         );
         req.target_repo_id = "repo-b".into();
         assert!(!PolicyEngine.evaluate(&req).allowed());
+    }
+
+    #[test]
+    fn policy_denies_explicit_shared_compiled_without_allowlist_even_same_repo() {
+        let mut req = base(
+            CacheAction::Read,
+            CacheLayer::L5ExplicitSharedCompiledCas,
+            TrustTier::T2InternalBranch,
+        );
+        req.scope = CacheScope::ExplicitShared {
+            tenant_id: "tenant".into(),
+            scope_id: "shared-compiled".into(),
+            allowlisted: false,
+        };
+
+        let decision = PolicyEngine.evaluate(&req);
+
+        assert!(!decision.allowed());
+        assert!(
+            decision
+                .reasons()
+                .iter()
+                .any(|reason| reason.contains("CV-LAW-005"))
+        );
+    }
+
+    #[test]
+    fn policy_allows_explicit_shared_compiled_when_allowlisted() {
+        let mut req = base(
+            CacheAction::Read,
+            CacheLayer::L5ExplicitSharedCompiledCas,
+            TrustTier::T2InternalBranch,
+        );
+        req.scope = CacheScope::ExplicitShared {
+            tenant_id: "tenant".into(),
+            scope_id: "shared-compiled".into(),
+            allowlisted: true,
+        };
+
+        assert!(PolicyEngine.evaluate(&req).allowed());
     }
 }

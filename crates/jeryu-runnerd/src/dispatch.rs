@@ -459,6 +459,20 @@ mod tests {
     }
 
     #[test]
+    fn protocol_adapter_rejects_dangerous_context_workspace() {
+        let request = protocol_request(jeryu_ci_ir::RunnerClass::NativeRustClean);
+        let mut context = context(TrustTier::T2InternalBranch);
+        context.workspace = PathBuf::from("/var/run/docker.sock");
+
+        let err = protocol_to_core_job(&request, &context)
+            .err()
+            .unwrap_or_else(|| panic!("expected dangerous workspace denial"));
+
+        assert_eq!(err.code(), "host_path_denied");
+        assert!(err.message().contains("not allowed in runner sandbox"));
+    }
+
+    #[test]
     fn protocol_adapter_rejects_zero_and_overflow_timeout() {
         let mut request = protocol_request(jeryu_ci_ir::RunnerClass::NativeRustClean);
         request.timeout_seconds = 0;

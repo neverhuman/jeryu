@@ -193,6 +193,16 @@ impl FingerprintInputs {
             ("cargo_version", &self.cargo_version),
             ("host_triple", &self.host_triple),
             ("target_triple", &self.target_triple),
+            (
+                "cargo_lock_subgraph_digest",
+                &self.cargo_lock_subgraph_digest,
+            ),
+            ("workspace_metadata_digest", &self.workspace_metadata_digest),
+            ("crate_source_digest", &self.crate_source_digest),
+            ("build_rs_digest", &self.build_rs_digest),
+            ("proc_macro_digest", &self.proc_macro_digest),
+            ("native_deps_digest", &self.native_deps_digest),
+            ("env_allowlist_digest", &self.env_allowlist_digest),
             ("runner_rootfs_digest", &self.runner_rootfs_digest),
             ("sandbox_policy_digest", &self.sandbox_policy_digest),
         ];
@@ -380,5 +390,43 @@ mod tests {
             assert_cross_project_compiled_allowed(false),
             Err(CachePolicyError::CrossProjectCompiledDenied)
         ));
+    }
+
+    #[test]
+    fn validate_rejects_missing_cache_law_inputs() {
+        for required in [
+            "cargo_lock_subgraph_digest",
+            "workspace_metadata_digest",
+            "crate_source_digest",
+            "build_rs_digest",
+            "proc_macro_digest",
+            "native_deps_digest",
+            "env_allowlist_digest",
+            "runner_rootfs_digest",
+            "sandbox_policy_digest",
+        ] {
+            let mut inputs = FingerprintInputs::default_for_dev();
+            blank_input(&mut inputs, required);
+
+            assert!(matches!(
+                inputs.validate(),
+                Err(CachePolicyError::MissingFingerprintInput(name)) if name == required
+            ));
+        }
+    }
+
+    fn blank_input(inputs: &mut FingerprintInputs, name: &str) {
+        match name {
+            "cargo_lock_subgraph_digest" => inputs.cargo_lock_subgraph_digest.clear(),
+            "workspace_metadata_digest" => inputs.workspace_metadata_digest.clear(),
+            "crate_source_digest" => inputs.crate_source_digest.clear(),
+            "build_rs_digest" => inputs.build_rs_digest.clear(),
+            "proc_macro_digest" => inputs.proc_macro_digest.clear(),
+            "native_deps_digest" => inputs.native_deps_digest.clear(),
+            "env_allowlist_digest" => inputs.env_allowlist_digest.clear(),
+            "runner_rootfs_digest" => inputs.runner_rootfs_digest.clear(),
+            "sandbox_policy_digest" => inputs.sandbox_policy_digest.clear(),
+            other => panic!("unhandled required input {other}"),
+        }
     }
 }

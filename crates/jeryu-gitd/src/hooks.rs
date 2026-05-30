@@ -3,7 +3,7 @@
 use crate::error::{GitdError, Result};
 use crate::object_fsck::ObjectFsck;
 use crate::protection::{ProtectedRefRule, RefChange, RefOperation};
-use crate::refs::{ZERO_OID, is_zero_oid};
+use crate::refs::{is_zero_oid, validate_ref_name};
 use crate::repo::Repository;
 use std::io::{self, Read};
 
@@ -44,9 +44,12 @@ impl PreReceiveGuard {
             let old_oid = parts[0];
             let new_oid = parts[1];
             let ref_name = parts[2];
+            validate_object_id(old_oid, idx + 1, "old")?;
+            validate_object_id(new_oid, idx + 1, "new")?;
+            validate_ref_name(ref_name)?;
             let operation = if is_zero_oid(new_oid) {
                 RefOperation::Delete
-            } else if is_zero_oid(old_oid) || old_oid == ZERO_OID {
+            } else if is_zero_oid(old_oid) {
                 RefOperation::Create
             } else {
                 RefOperation::Update
@@ -79,4 +82,13 @@ impl PreReceiveGuard {
         io::stdin().read_to_string(&mut input)?;
         self.evaluate_lines(repo, actor, &input)
     }
+}
+
+fn validate_object_id(oid: &str, line: usize, field: &str) -> Result<()> {
+    if oid.len() == 40 && oid.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Ok(());
+    }
+    Err(GitdError::InvalidInput(format!(
+        "pre-receive line {line} has invalid {field} oid"
+    )))
 }
