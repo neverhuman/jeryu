@@ -1,0 +1,51 @@
+# Per-phase local CI gates
+
+Each script in this directory is a **distinct gate** for one engineering-spec
+phase. A gate prints exactly one final line:
+
+```
+GATE <name>: PASS | FAIL | PENDING
+```
+
+and exits `0` only when the result is `PASS` or an acknowledged `PENDING`.
+A gate never reports green for a capability that has not been built yet.
+
+Run all gates and get a summary table:
+
+```bash
+bash scripts/ci-phases.sh          # run every gate, print summary, exit 1 on any FAIL
+bash scripts/ci-phases.sh --list   # just list the discovered gates
+```
+
+The aggregator exits nonzero if **any** gate `FAIL`s (or emits no recognizable
+`GATE` line). `PENDING` does **not** fail the run but is always reported
+distinctly in the summary, never hidden.
+
+## What "PENDING" means
+
+`PENDING` marks a gate whose **in-repo** portion is green but whose **live**
+capability is not yet wired in this environment (it needs a daemon, a sandbox
+runtime, or an adversarial service). The runnable tests must still pass; only
+the not-yet-buildable live portion is held at `PENDING`. The live portion is
+**never** reported as `PASS`.
+
+## Gate -> phase map
+
+| Gate (`ops/ci/gates/*.sh`) | Engineering-spec phase | What runs now | PENDING portion (live capability still to build) |
+| --- | --- | --- | --- |
+| `foundation.sh` | Cross-cutting baseline | Delegates to `ops/ci/full.sh`: fmt, check, clippy, workspace test, zero-evidence guard, docs, release receipt, repo score. | none |
+| `github-conformance.sh` | GitHub-compatible forge surface | `cargo test -p jeryu-api --test github_api` (REST shape) **and** domain-vocabulary assertions over `crates/jeryu-core/src` + `crates/jeryu-api/src`: GitHub terms present, and zero legacy domain identifiers (`iid`, `merge_request`) / legacy-provider / legacy-CI tokens. | none |
+| `ir-determinism.sh` | CI compile -> deterministic IR | `cargo test -p jeryu-ci-ir` (deterministic IR-hash + DAG invariants). | none |
+| `proof-gate.sh` | Proof-carrying merges | `cargo test -p jeryu-proof` (no-proof-no-merge, owner/test-map matching, generated-zone enforcement). | none |
+| `git-oracle.sh` | gitd as a stock-git-compatible oracle | `cargo test -p jeryu-gitd` (in-repo suite). | Live differential-vs-stock-git suite — needs a **running gitd daemon** (not wired yet). |
+| `runner-sandbox.sh` | Isolated job runners (native + OCI) | `cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-oci`. | Live seccomp / Landlock / cgroups escape suite — needs the **native sandbox runtime**. |
+| `cache-safety.sh` | Content-addressed poisoning-resistant cache | `cargo test -p jeryu-cache-core -p jeryu-cache` (+ `jeryu-cache-adversary` when present). | Live cache-poisoning harness — needs a **running cache service** + adversarial harness. |
+
+## Conventions
+
+- Bash with `set -uo pipefail`.
+- `grep` usage is ugrep-compatible: newline-delimited output only, no `-Z` / `-0`.
+- These scripts are **additive**. They do not modify `ops/ci/full.sh`,
+  `scripts/ci-local.sh`, or any crate source.
+- Legacy-provider / legacy-CI token names are hex-decoded at runtime inside
+  `github-conformance.sh`, so no gate file contains a literal forbidden token.
