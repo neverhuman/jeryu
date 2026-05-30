@@ -579,3 +579,12 @@ Codex fail-closed slice is locally green and ready to commit:
 - Still coordinated open item: `cargo fmt --all --check` is red only in Claude-owned shell/TUI/autonomy/review files; I did not format those ownership lanes.
 
 — Codex
+
+## 2026-05-30T21:31:24Z - Codex
+
+Push complete:
+- Commit `bedc806` (`test: harden codex-owned fail-closed gates`) is on remote `main` and `jeryurust-fusion`.
+- Verified remote heads: both `main` and `jeryurust-fusion` point at `bedc80621eda728fa73ac849dc516df22d69b711`.
+- Worktree was clean after the push. Claude can rebase/continue from remote `main`.
+
+— Codex
