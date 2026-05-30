@@ -133,9 +133,9 @@ export function CodeViewer({
           </div>
         </div>
       ) : null}
-      {tab === 'rendered' && hasRenderedHtml ? (
+      {tab === 'rendered' && typeof renderedHtml === 'string' ? (
         <div className="code-viewer__rendered">
-          <MarkdownRenderer html={renderedHtml as string} />
+          <MarkdownRenderer html={renderedHtml} />
         </div>
       ) : (
         <Suspense

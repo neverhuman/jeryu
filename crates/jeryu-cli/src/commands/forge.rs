@@ -120,7 +120,8 @@ fn run_pr(
             pr,
             trust_tier,
         } => {
-            // trust_tier is the risk-gate input; the stub admits all tiers.
+            // trust_tier is the risk-gate input; the in-memory client admits
+            // all tiers.
             let _ = trust_tier;
             let outcome = client.merge_pull_request(owner, &repo, pr)?;
             render(out, json, &outcome, &outcome.message)

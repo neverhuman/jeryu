@@ -8,7 +8,7 @@
 //! - [`cli`]: pure clap data (no logic).
 //! - [`commands`]: thin adapters that map each clap leaf onto a client call.
 //! - [`dispatch`]: the router that wires the two together and yields an exit code.
-//! - [`client`]: the [`client::ForgeClient`] seam plus an in-memory stub.
+//! - [`client`]: the [`client::ForgeClient`] seam plus an in-memory client.
 
 pub mod cli;
 pub mod client;
@@ -16,5 +16,5 @@ pub mod commands;
 pub mod dispatch;
 
 pub use cli::Cli;
-pub use client::{ForgeClient, StubClient};
+pub use client::{ForgeClient, InMemoryClient};
 pub use dispatch::dispatch;

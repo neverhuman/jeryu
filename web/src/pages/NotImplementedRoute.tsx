@@ -1,8 +1,10 @@
-// StubPage.tsx — shared layout for the Phase 1 stub pages.
+// NotImplementedRoute.tsx — shared chrome for routes that resolve but whose
+// feature content ships in a later work package.
 //
-// Each W-FE-08..12 work package replaces its corresponding stub with the
-// real implementation. Keeping the chrome consistent makes it obvious to
-// reviewers which routes are not yet wired.
+// The route, breadcrumbs, and selection store are wired so the navigation
+// shell behaves correctly; the body explains which work package owns the
+// feature so reviewers can see at a glance what is and is not available in
+// the current build.
 
 import { Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -12,20 +14,21 @@ import { EmptyState } from '../components/state';
 
 import './page.css';
 
-export interface StubPageProps {
+export interface NotImplementedRouteProps {
   title: string;
+  /** Tracking reference for the work package that delivers this route. */
   workPackage: string;
   description?: string;
-  /** Optional content to render above the empty state placeholder. */
+  /** Optional content to render above the empty state. */
   preface?: ReactNode;
 }
 
-export function StubPage({
+export function NotImplementedRoute({
   title,
   workPackage,
   description,
   preface,
-}: StubPageProps): JSX.Element {
+}: NotImplementedRouteProps): JSX.Element {
   return (
     <div className="page">
       <header className="page__header">
@@ -35,18 +38,18 @@ export function StubPage({
         ) : null}
         <div className="page__inline-actions">
           <span className="page__pill page__pill--warning">
-            Stub · {workPackage}
+            Planned · {workPackage}
           </span>
         </div>
       </header>
       {preface}
       <EmptyState
         icon={Wrench}
-        title={`${workPackage} not implemented`}
-        description={`This route is reserved for ${workPackage}. The route, breadcrumbs, and selection store are wired so downstream work can plug in.`}
+        title={`${title} is not available in this build`}
+        description={`The route, breadcrumbs, and selection store are wired; the feature content is delivered by ${workPackage}.`}
         action={
           <ActionButton variant="ghost" disabled>
-            Pending implementation
+            Awaiting {workPackage}
           </ActionButton>
         }
       />

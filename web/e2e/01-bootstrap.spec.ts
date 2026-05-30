@@ -54,7 +54,7 @@ test.describe('Bootstrap + Dashboard (W-T-09)', () => {
       timeout: 5_000,
     });
 
-    // 3. Live indicator transitions away from the initial `idle` placeholder.
+    // 3. Live indicator transitions away from the initial `idle` state.
     // The WS upgrade against the local BFF (with `JERYU_WEB_TRUST_LOCAL=1`)
     // is expected to succeed — but on slower runners we may see
     // "Connecting" / "Reconnecting" before "Live". All four are acceptable;

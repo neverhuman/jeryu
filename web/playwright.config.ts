@@ -6,22 +6,25 @@
 // instance without coordinating fixtures across parallel runners.
 //
 // NOTE: the `cargo run` command below brings up the jeryu-api web edge that
-// serves the GitHub-shaped `/api/v1/repos/{id}/pulls*` routes. That edge is
-// owned by the backend (Task A) and must be live for the e2e suite to run
-// against a real server; the specs themselves are fully mock-driven via
-// `page.route(...)` so they exercise the SPA without depending on backend
-// data, but the SPA static bundle still needs to be served from somewhere.
+// serves the REST routes (`/api/v1/repos/{id}/pulls*`) AND the realtime
+// transport at `/api/v1/ws`. That WS endpoint speaks the `jeryu.ws.v1`
+// protocol consumed by the SPA's `JeRyuWsClient` (`web/src/api/websocket.ts`);
+// the reconnect spec (`e2e/08-ws-reconnect.spec.ts`) exercises it against this
+// same edge. The edge is owned by the backend (Task A) and must be live for
+// the e2e suite; the specs themselves are mock-driven via `page.route(...)`
+// for the REST surface, but the SPA bundle and the WS upgrade are served from
+// this process.
 //
 // Trace / screenshot / video are captured only on failure to keep the
-// happy-path runs cheap; once W-T-18 lands the a11y scans will piggyback
-// on the same trace.
+// happy-path runs cheap; the a11y scans (`e2e/10-a11y.spec.ts`) piggyback on
+// the same trace artifacts.
 
 import { defineConfig, devices } from '@playwright/test';
 
 // `JERYU_PLAYWRIGHT_E2E_MODE` toggles the test target:
 //   - `bff-only` (default): point baseURL at the BFF which serves the
-//     built SPA from `apps/web/dist`. One process to launch; lowest
-//     resource footprint; what CI runs.
+//     built SPA from `web/dist` (matches the `--spa-dir` flag below). One
+//     process to launch; lowest resource footprint; what CI runs.
 //   - `with-vite`: also launch the Vite dev server at :5173. Useful for
 //     local iteration but requires generous inotify watcher limits
 //     (~50k+) — set this only when developing.

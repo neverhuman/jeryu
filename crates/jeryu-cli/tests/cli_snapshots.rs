@@ -5,12 +5,12 @@
 //!    vocabulary is GitHub-shaped (no foreign-forge terms, no merge-request /
 //!    pipeline / pool leakage) and that the renamed verbs are present.
 //! 2. Dispatch smoke tests: parse a real argv, run it against the in-memory
-//!    stub client, and assert on the rendered output / exit code.
+//!    client, and assert on the rendered output / exit code.
 
 use clap::{CommandFactory, Parser};
 use jeryu_cli::ForgeClient;
 use jeryu_cli::cli::{Cli, Commands};
-use jeryu_cli::client::{IssueState, PullRequestState, StubClient};
+use jeryu_cli::client::{InMemoryClient, IssueState, PullRequestState};
 use jeryu_cli::dispatch;
 
 // ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ fn group_subnames(group: &str) -> Vec<String> {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn help_tree_contains_no_legacy_terms() {
+fn help_tree_contains_no_forbidden_terms() {
     let mut cmd = Cli::command();
     cmd.build();
     let haystack = collect_help_strings(&cmd).join("\u{1f}").to_lowercase();
@@ -288,10 +288,11 @@ fn runner_enroll_parses_executor() {
 }
 
 // ---------------------------------------------------------------------------
-// Dispatch smoke tests (real assertions against the stub client)
+// Dispatch smoke tests (real assertions against the in-memory client)
 // ---------------------------------------------------------------------------
 
-/// Run a full argv through parse + dispatch against a shared stub, returning
+/// Run a full argv through parse + dispatch against a shared in-memory client,
+/// returning
 /// `(exit_code, stdout, stderr)`.
 fn run_cli(client: &dyn ForgeClient, argv: &[&str]) -> (i32, String, String) {
     let cli = Cli::try_parse_from(argv).expect("argv parses");
@@ -307,7 +308,7 @@ fn run_cli(client: &dyn ForgeClient, argv: &[&str]) -> (i32, String, String) {
 
 #[test]
 fn dispatch_repo_create_then_list_roundtrips() {
-    let client = StubClient::new();
+    let client = InMemoryClient::new();
     let (code, out, _) = run_cli(&client, &["jeryu", "forge", "repo", "create", "alpha"]);
     assert_eq!(code, 0);
     assert!(out.contains("created jeryu/alpha"), "stdout was {out:?}");
@@ -324,7 +325,7 @@ fn dispatch_repo_create_then_list_roundtrips() {
 
 #[test]
 fn dispatch_pr_open_status_merge_uses_pr_number() {
-    let client = StubClient::with_seed_repo("jeryu", "alpha");
+    let client = InMemoryClient::with_seed_repo("jeryu", "alpha");
 
     let (code, out, _) = run_cli(
         &client,
@@ -372,7 +373,7 @@ fn dispatch_pr_open_status_merge_uses_pr_number() {
 
 #[test]
 fn dispatch_issue_create_then_list() {
-    let client = StubClient::with_seed_repo("jeryu", "alpha");
+    let client = InMemoryClient::with_seed_repo("jeryu", "alpha");
     let (code, out, _) = run_cli(
         &client,
         &[
@@ -389,7 +390,7 @@ fn dispatch_issue_create_then_list() {
 
 #[test]
 fn dispatch_ci_run_schedules_then_status_and_explain() {
-    let client = StubClient::with_seed_repo("jeryu", "alpha");
+    let client = InMemoryClient::with_seed_repo("jeryu", "alpha");
     let (code, out, _) = run_cli(
         &client,
         &[
@@ -418,7 +419,7 @@ fn dispatch_ci_run_schedules_then_status_and_explain() {
 
 #[test]
 fn dispatch_ci_run_github_kind_compiles_different_ir() {
-    let client = StubClient::with_seed_repo("jeryu", "alpha");
+    let client = InMemoryClient::with_seed_repo("jeryu", "alpha");
     let (code, out, _) = run_cli(
         &client,
         &["jeryu", "ci", "run", "--repo", "alpha", "--kind", "github"],
@@ -434,7 +435,7 @@ fn dispatch_ci_run_github_kind_compiles_different_ir() {
 
 #[test]
 fn dispatch_runner_enroll_list_drain_rotate() {
-    let client = StubClient::new();
+    let client = InMemoryClient::new();
 
     let (code, _, _) = run_cli(
         &client,
@@ -466,7 +467,7 @@ fn dispatch_runner_enroll_list_drain_rotate() {
 
 #[test]
 fn dispatch_proof_verify_is_replay_stable() {
-    let client = StubClient::new();
+    let client = InMemoryClient::new();
     let (code, out_a, _) = run_cli(&client, &["jeryu", "--json", "proof", "verify", "cs-123"]);
     assert_eq!(code, 0);
     let (code, out_b, _) = run_cli(&client, &["jeryu", "--json", "proof", "verify", "cs-123"]);
@@ -485,7 +486,7 @@ fn dispatch_proof_verify_is_replay_stable() {
 
 #[test]
 fn dispatch_proof_verify_blocks_forbidden_changeset() {
-    let client = StubClient::new();
+    let client = InMemoryClient::new();
     let (code, out, _) = run_cli(
         &client,
         &["jeryu", "proof", "verify", "touch-FORBIDDEN-path"],
@@ -499,7 +500,7 @@ fn dispatch_proof_verify_blocks_forbidden_changeset() {
 
 #[test]
 fn dispatch_release_and_cache_self_test() {
-    let client = StubClient::new();
+    let client = InMemoryClient::new();
     let (code, out, _) = run_cli(&client, &["jeryu", "release", "--version", "3.0.1"]);
     assert_eq!(code, 0);
     assert!(
@@ -518,22 +519,36 @@ fn dispatch_release_and_cache_self_test() {
 
 #[test]
 fn dispatch_missing_repo_returns_nonzero_exit() {
-    let client = StubClient::new();
+    let client = InMemoryClient::new();
     let (code, out, err) = run_cli(
         &client,
         &[
             "jeryu", "forge", "issue", "create", "--repo", "ghost", "--title", "x",
         ],
     );
-    assert_ne!(code, 0, "missing repo must yield non-zero exit");
-    assert_eq!(code, 2, "NotFound maps to exit code 2");
+    // NotFound maps to exit code 2 (the contract dispatch.rs encodes); this is
+    // strictly stronger than a bare non-zero check.
+    assert_eq!(code, 2, "NotFound must map to exit code 2, got {code}");
+    // Failures write nothing to stdout, so a caller piping `--json` never sees a
+    // half-formed record.
     assert!(out.is_empty(), "no stdout on error, got {out:?}");
-    assert!(err.contains("not found"), "stderr was {err:?}");
+    // The diagnostic must name the *specific* missing repo, not just any
+    // "not found": catches a regression that reported the wrong entity or
+    // swallowed the owner/name. The owner defaults to the canonical "jeryu".
+    assert!(
+        err.contains("not found") && err.contains("jeryu/ghost"),
+        "stderr must name the missing repo jeryu/ghost, was {err:?}"
+    );
+    // No issue must have leaked into the backing store on the failed create.
+    assert!(
+        client.list_issues("jeryu", "ghost").unwrap().is_empty(),
+        "failed create must not persist an issue"
+    );
 }
 
 #[test]
 fn dispatch_json_output_is_machine_readable() {
-    let client = StubClient::new();
+    let client = InMemoryClient::new();
     let (code, out, _) = run_cli(
         &client,
         &["jeryu", "--json", "forge", "repo", "create", "alpha"],

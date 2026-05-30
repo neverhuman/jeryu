@@ -1,8 +1,7 @@
 // RepositoryOverviewPage — Page Object for `/repos/{provider}/{owner}/{repo}` (W-T-08).
 //
-// Phase 2 overview page is the Phase 1 StubPage (W-FE-09 not yet landed).
-// Once W-FE-09 lands, the same POM methods locate the README panel and
-// branch selector.
+// The overview route (W-FE-09) renders the README panel, branch selector,
+// and sidebar cards; the POM methods below locate those surfaces.
 
 import { expect, type Locator, type Page } from '@playwright/test';
 

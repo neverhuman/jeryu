@@ -1,7 +1,9 @@
-// AdminSettingsPage.tsx — Phase 1 admin settings stub.
+// AdminSettingsPage.tsx — admin preferences surface.
 //
-// Lights up theme + density toggles so the UX-QA "Settings" surface is
-// exercised even before the full §4.7 settings studio lands.
+// Implements the theme + density preference toggles wired to
+// `preferencesStore`. The broader §4.7 settings studio (organization SSO,
+// tokens, integrations) is served by the backend admin tier and surfaces
+// here once those endpoints exist.
 
 import { Moon, Monitor, Sun, ToggleRight } from 'lucide-react';
 
@@ -30,7 +32,7 @@ export function AdminSettingsPage(): JSX.Element {
         </p>
         <div className="page__inline-actions">
           <span className="page__pill page__pill--warning">
-            Phase 1 · theme + density only
+            Theme + density preferences
           </span>
         </div>
       </header>

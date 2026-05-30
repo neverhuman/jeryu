@@ -1,15 +1,15 @@
-// RepositoryOverviewPage.tsx — Phase 2 implementation (W-FE-09).
+// RepositoryOverviewPage.tsx — repository overview (W-FE-09).
 //
 // Resolves `:provider/*fullName` to an opaque `repo_id` via the list cache
 // (`useResolveRepo`) and renders:
 //   * Top strip: title, visibility, default branch, clone URL popover, health
 //   * Main: rendered README via <ReadmePanel>
-//   * Sidebar: latest commit placeholder, open MRs placeholder, recent
-//     activity placeholder
+//   * Sidebar: default branch + last-updated, open pull request / failing
+//     check counts, and recent agent activity — all from `RepositorySummary`.
 //
-// The realtime store is told to subscribe to `repo.${id}` once the resolution
-// completes; the original Phase 1 stub subscribed to a synthetic
-// `repo.${provider}.${fullName}` scope which is now obsolete.
+// The realtime store subscribes to `repo.${id}` once the resolution
+// completes. (An earlier revision subscribed to a synthetic
+// `repo.${provider}.${fullName}` scope before opaque ids were available.)
 
 import { Check, Copy, ExternalLink, GitBranch, Link as LinkIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -169,8 +169,16 @@ export function RepositoryOverviewPage(): JSX.Element {
         </div>
         <aside className="repo-overview__sidebar" aria-label="Sidebar">
           <article className="repo-overview__sidebar-card">
-            <h2 className="repo-overview__sidebar-title">Latest commit</h2>
-            <p className="text-muted">Coming soon — wired in W-FE-09b.</p>
+            <h2 className="repo-overview__sidebar-title">Default branch</h2>
+            <p className="text-muted">
+              <code>{summary.default_branch}</code> · updated{' '}
+              {summary.updated_at}
+            </p>
+            <Link
+              to={`/repos/${encodeURIComponent(provider)}/${fullName}/code`}
+            >
+              Browse code
+            </Link>
           </article>
           <article className="repo-overview__sidebar-card">
             <h2 className="repo-overview__sidebar-title">Open pull requests</h2>

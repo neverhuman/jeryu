@@ -81,7 +81,7 @@ function explain(blocker: MergePassportBlocker): { title: string; hint: string }
 
 export interface MergeGatePanelProps {
   passport: MergePassport | null;
-  /** When `true`, render a placeholder while the passport is being computed. */
+  /** When `true`, render a loading skeleton while the passport is computed. */
   isLoading?: boolean;
   className?: string;
 }

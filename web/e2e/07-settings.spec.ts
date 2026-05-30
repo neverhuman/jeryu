@@ -7,10 +7,11 @@
 //   3. (Phase 3) `PATCH /api/v1/repos/{id}/settings` commits.
 //
 // Phase-3-tolerant: both endpoints are mocked. The SPA's
-// `RepositorySettingsPage` is a stub today (W-FE-12) so we exercise the
-// surface via `request` and assert the BFF round-trips the dry-run payload
-// without losing warning copy. The route-level smoke confirms the SPA
-// fallback still resolves the deep settings URL.
+// `RepositorySettingsPage` may still render the not-implemented envelope
+// (W-FE-12), so we exercise the surface via `request` and assert the BFF
+// round-trips the dry-run payload without losing warning copy. The
+// route-level smoke confirms the SPA fallback still resolves the deep
+// settings URL.
 
 import { expect, test } from '@playwright/test';
 
@@ -39,8 +40,8 @@ test.describe('Settings preview (W-T-15)', () => {
       `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/settings/merge`
     );
 
-    // SPA renders either the stub envelope or the real settings page; both
-    // must put SOMETHING readable on screen.
+    // SPA renders either the not-implemented envelope or the real settings
+    // page; both must put SOMETHING readable on screen.
     const heading = page.locator('h1', { hasText: /settings/i });
     const errorState = page.locator('[role="alert"]');
     await expect(heading.or(errorState)).toBeVisible({ timeout: 15_000 });

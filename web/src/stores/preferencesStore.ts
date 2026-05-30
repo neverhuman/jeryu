@@ -66,23 +66,32 @@ function loadInitial(): typeof DEFAULTS {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULTS;
-    const parsed = JSON.parse(raw) as Partial<typeof DEFAULTS>;
+    // localStorage is attacker-/corruption-prone, so the parsed value stays
+    // `unknown`: we read each field through `field()` and run it past a
+    // per-field validator before it can reach the store. Nothing is trusted
+    // on the strength of the cast alone.
+    const parsed: unknown = JSON.parse(raw);
+    const field = (key: keyof typeof DEFAULTS): unknown =>
+      typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, unknown>)[key]
+        : undefined;
+    const codeFontSize = field('codeFontSize');
     return {
-      theme: validateTheme(parsed.theme) ?? DEFAULTS.theme,
-      density: validateDensity(parsed.density) ?? DEFAULTS.density,
+      theme: validateTheme(field('theme')) ?? DEFAULTS.theme,
+      density: validateDensity(field('density')) ?? DEFAULTS.density,
       codeFontSize:
-        typeof parsed.codeFontSize === 'number' &&
-        parsed.codeFontSize >= 10 &&
-        parsed.codeFontSize <= 24
-          ? parsed.codeFontSize
+        typeof codeFontSize === 'number' &&
+        codeFontSize >= 10 &&
+        codeFontSize <= 24
+          ? codeFontSize
           : DEFAULTS.codeFontSize,
-      dateFormat: validateDateFormat(parsed.dateFormat) ?? DEFAULTS.dateFormat,
+      dateFormat: validateDateFormat(field('dateFormat')) ?? DEFAULTS.dateFormat,
       keyboardMode:
-        validateKeyboardMode(parsed.keyboardMode) ?? DEFAULTS.keyboardMode,
-      reposView: validateReposView(parsed.reposView) ?? DEFAULTS.reposView,
-      diffMode: validateDiffMode(parsed.diffMode) ?? DEFAULTS.diffMode,
+        validateKeyboardMode(field('keyboardMode')) ?? DEFAULTS.keyboardMode,
+      reposView: validateReposView(field('reposView')) ?? DEFAULTS.reposView,
+      diffMode: validateDiffMode(field('diffMode')) ?? DEFAULTS.diffMode,
       notificationsLastSeen:
-        validateIsoTimestamp(parsed.notificationsLastSeen) ??
+        validateIsoTimestamp(field('notificationsLastSeen')) ??
         DEFAULTS.notificationsLastSeen,
     };
   } catch {

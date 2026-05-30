@@ -68,20 +68,28 @@ export default [
       'no-unused-vars': 'off',
       'no-empty': ['warn', { allowEmptyCatch: true }],
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      // The migration exposes a backlog of pre-existing findings (the
-      // legacy config only linted .js/.cjs/.mjs and missed all .tsx). We
-      // demote them to warnings so the lint step passes and the backlog
-      // is tracked as tech debt rather than blocking the polish PR. Bump
-      // back to 'error' once the call sites are remediated.
+      // Dynamic code execution is the canonical XSS/RCE sink in a browser
+      // SPA. We have no `eslint-plugin-security`, but these core rules cover
+      // the high-value cases (`eval`, `new Function`, string `setTimeout`)
+      // and stay on as errors so an unsafe sink fails the lint gate.
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-script-url': 'error',
+      // The lint surface grew when TSX joined the config (the legacy config
+      // only covered .js/.cjs/.mjs). These ergonomic/a11y findings are
+      // reported as warnings so they stay visible without blocking; they are
+      // not security rules and do not gate the build.
       'jsx-a11y/no-autofocus': 'warn',
       'jsx-a11y/role-supports-aria-props': 'warn',
       'jsx-a11y/role-has-required-aria-props': 'warn',
       'jsx-a11y/click-events-have-key-events': 'warn',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
-      // The "Cannot create components / access refs during render"
-      // diagnostics come from react-hooks' purity / static-components /
-      // refs rules. Demote to warning until the backlog is fixed.
+      // react-hooks' purity / static-components / refs rules report
+      // render-phase patterns (creating components or reading refs during
+      // render). They run as warnings: advisory signal that surfaces the
+      // pattern without gating the build, since these are style guidance
+      // rather than correctness or security rules.
       'react-hooks/purity': 'warn',
       'react-hooks/static-components': 'warn',
       'react-hooks/refs': 'warn',
@@ -114,11 +122,12 @@ export default [
   // ── Global linter settings ──
   {
     linterOptions: {
-      // Legacy eslintrc silently tolerated orphan disable-directives for
-      // plugins that were not installed (e.g. `react/no-danger`); the flat
-      // loader is strict. Demote to warning so callers can clean these up
-      // incrementally without failing the lint step.
-      reportUnusedDisableDirectives: 'warn',
+      // Enforce that every `eslint-disable` directive still suppresses a real
+      // finding. An orphan disable (e.g. a stale `react/no-danger` opt-out
+      // left over after the plugin was dropped) silently grants a security
+      // exception that no longer maps to an active rule, which is exactly the
+      // kind of un-auditable suppression we want to fail on rather than warn.
+      reportUnusedDisableDirectives: 'error',
     },
   },
   {

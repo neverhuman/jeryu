@@ -4,7 +4,7 @@
 //
 //   1. The API accepts `POST /api/v1/repos/{id}/pulls/{number}/approve`
 //      with the head SHA in the body and returns `204` on success — we
-//      stub the success case and assert the SPA receives 204.
+//      mock the success case and assert the SPA receives 204.
 //
 //   2. When the head moves between page load and the approve click, the
 //      API returns `409 merge_sha_stale` with both `expected_sha` and
@@ -79,7 +79,7 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
       head_sha: OLD_SHA,
     });
 
-    // Stub the approve endpoint to return 204 (per §35.1.7 contract).
+    // Mock the approve endpoint to return 204 (per §35.1.7 contract).
     await page.route(
       /\/api\/v1\/repos\/[^/]+\/pulls\/[^/]+\/approve$/,
       async (route, req) => {

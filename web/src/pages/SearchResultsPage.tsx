@@ -99,6 +99,16 @@ export function SearchResultsPage(): JSX.Element {
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // `params`/`setParams` get a fresh identity on every render, which would
+  // restart the debounce timer below if they were effect dependencies. We
+  // read their latest values through a ref (kept current via an effect, not
+  // during render) so the debounce effect can depend solely on `input`
+  // without an exhaustive-deps suppression.
+  const urlSyncRef = useRef({ params, setParams });
+  useEffect(() => {
+    urlSyncRef.current = { params, setParams };
+  }, [params, setParams]);
+
   // Focus the input when the page mounts so `/` -> /search lands ready
   // to type.
   useEffect(() => {
@@ -110,19 +120,17 @@ export function SearchResultsPage(): JSX.Element {
   // last query the user was on.
   useEffect(() => {
     const handle = window.setTimeout(() => {
+      const { params: current, setParams: commit } = urlSyncRef.current;
       setDebouncedQuery(input);
-      const next = new URLSearchParams(params);
+      const next = new URLSearchParams(current);
       if (input.trim().length === 0) {
         next.delete('q');
       } else {
         next.set('q', input);
       }
-      setParams(next, { replace: true });
+      commit(next, { replace: true });
     }, DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-    // We intentionally exclude `params` and `setParams` from deps — they
-    // recompute on every render and would defeat the debounce.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [input]);
 
   const searchQuery = useSearch(debouncedQuery, { limit: 20 });

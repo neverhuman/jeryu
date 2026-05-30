@@ -1,4 +1,5 @@
-// ActionButton.tsx — minimal placeholder (W-FE-13 will wire previews).
+// ActionButton.tsx — shared button primitive (variants, icon, disabled).
+// W-FE-13 wires the action-preview round-trip onto this primitive.
 
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 

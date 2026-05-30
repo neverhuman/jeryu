@@ -15,6 +15,7 @@
 //!   inspection plane and round-trips losslessly.
 
 pub mod dashboards;
+pub mod contracts;
 pub mod entity;
 pub mod fixture;
 pub mod freshness;

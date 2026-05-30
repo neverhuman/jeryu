@@ -26,7 +26,8 @@ export function repoHref(repo: RepositorySummary): string {
 
 function relativeUpdated(updatedAt: string): string {
   // Best-effort relative time. Falls back to the raw timestamp if Intl
-  // RelativeTimeFormat is not available (test environment may stub it).
+  // RelativeTimeFormat is unavailable (e.g. a JSDOM test environment that
+  // does not implement it).
   try {
     const then = new Date(updatedAt).getTime();
     const now = Date.now();

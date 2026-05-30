@@ -1,8 +1,8 @@
-// RepoSwitcher.tsx — placeholder repo selector (W-FE-01).
+// RepoSwitcher.tsx — current-repo selector in the global header (W-FE-01).
 //
-// Phase 1: displays the current repo id from `selectionStore` and opens the
-// command palette so the user can navigate. W-FE-08 adds a real combobox
-// fed by `useRepositories()`.
+// Displays the current repo id from `selectionStore` and opens the command
+// palette so the user can navigate. The richer combobox fed by
+// `useRepositories()` is layered on by W-FE-08.
 
 import { FolderGit2 } from 'lucide-react';
 

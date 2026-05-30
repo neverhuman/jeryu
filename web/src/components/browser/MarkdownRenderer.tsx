@@ -31,7 +31,12 @@ const PURIFY_CONFIG: DOMPurifyConfig = {
 };
 
 export function sanitizeMarkdownHtml(html: string): string {
-  return DOMPurify.sanitize(html, PURIFY_CONFIG) as unknown as string;
+  // `PURIFY_CONFIG` sets neither `RETURN_DOM` nor `RETURN_DOM_FRAGMENT`, so
+  // DOMPurify returns a string. Its overloaded signature still widens the
+  // return to a DOM union; narrow it with a runtime check instead of an
+  // unchecked cast so the proven `string` shape is what we hand to React.
+  const result: unknown = DOMPurify.sanitize(html, PURIFY_CONFIG);
+  return typeof result === 'string' ? result : '';
 }
 
 export function MarkdownRenderer({

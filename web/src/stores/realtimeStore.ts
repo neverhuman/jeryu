@@ -43,8 +43,9 @@ export interface RealtimeState {
   unsubscribe: (scopes: string[]) => void;
   addInvalidator: (listener: EventInvalidationListener) => () => void;
   /**
-   * Trigger a fake snapshot-required (mostly for tests / debug widgets).
-   * Listeners that watch `lastError` / `events` see the equivalent state.
+   * Clear the rolling event buffer and the last transient error, resetting
+   * the live activity dock to an empty state. Used by tests and by UI that
+   * wants to discard the current event window.
    */
   flush: () => void;
   /** Re-emit the snapshot-required signal so consumers can refetch. */
@@ -61,7 +62,11 @@ function readPersistedSeq(): bigint | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.sessionStorage.getItem(SEQ_STORAGE_KEY);
-    if (!raw) return null;
+    // sessionStorage is a tamperable input source: validate that the value
+    // is a canonical non-negative integer before it becomes a resume cursor.
+    // `BigInt()` would otherwise accept hex/whitespace/`0x` forms or throw on
+    // junk, so we constrain it to the exact u64-decimal shape we wrote.
+    if (raw === null || !/^[0-9]+$/.test(raw)) return null;
     return BigInt(raw);
   } catch {
     return null;
@@ -71,7 +76,10 @@ function readPersistedSeq(): bigint | null {
 function persistSeq(seq: bigint | null): void {
   if (typeof window === 'undefined') return;
   try {
-    if (seq === null) {
+    // Only persist non-negative cursors; a negative bigint here would mean a
+    // logic bug upstream, and we must never write a value `readPersistedSeq`
+    // would reject (or one the server cannot resume from).
+    if (seq === null || seq < BigInt(0)) {
       window.sessionStorage.removeItem(SEQ_STORAGE_KEY);
     } else {
       window.sessionStorage.setItem(SEQ_STORAGE_KEY, seq.toString());
