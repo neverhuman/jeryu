@@ -1,8 +1,13 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
+# Parallelism shared by every recipe so local runs match CI.
+jobs := env_var_or_default("JERYU_CI_JOBS", "40")
+
+# Deterministic fast lane: format, narrow check, and core/cache tests.
 fast:
   ./ops/ci/fast.sh
 
+# Full local CI lane.
 full:
   ./ops/ci/full.sh
 
@@ -23,6 +28,36 @@ score:
 
 doctor:
   ./scripts/ci-doctor.sh
+
+# --- Narrow proof lanes for agent iteration -------------------------------
+# Each lane runs the smallest deterministic command that proves one surface,
+# so an agent can re-prove a single change without a full-workspace rebuild.
+
+# Cheapest signal: type-check the whole workspace without running tests.
+check:
+  cargo check --workspace --all-targets --jobs {{jobs}}
+
+# Run one crate's tests, e.g. `just test jeryu-gitd`.
+test crate:
+  cargo nextest run -p {{crate}} --jobs {{jobs}}
+
+# Cache-law proof lane.
+prove-cache:
+  cargo nextest run -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache-adversary --jobs {{jobs}}
+
+# Git server proof lane.
+prove-git:
+  cargo nextest run -p jeryu-gitd --jobs {{jobs}}
+
+# Release provenance and SBOM proof lane.
+prove-provenance:
+  cargo nextest run -p jeryu-signrail --jobs {{jobs}}
+
+# Agent map/zone/fixture/doc governance proof lane.
+prove-maps:
+  ./scripts/check-owner-test-map.sh
+  ./scripts/check-agent-maps.sh
+  cargo run -q -p jeryu-mapcheck -- generated-zones
 
 phase12-tree:
   find . -type f | sort

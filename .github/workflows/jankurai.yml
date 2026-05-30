@@ -36,6 +36,8 @@ jobs:
         run: bash scripts/secret-scan.sh
       - name: Dependency scan
         run: cargo audit --deny warnings && cargo deny check licenses sources bans advisories
+      - name: Provenance and SBOM scan
+        run: cargo test -p jeryu-signrail --jobs "$JERYU_CI_JOBS"
       - name: Jankurai audit lane
         run: bash ops/ci/jankurai.sh
       - name: Jankurai full score artifacts
