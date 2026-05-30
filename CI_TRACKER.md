@@ -12,7 +12,7 @@ Run locally: `bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh`
 Identity law: jeryu reads as a self-hosted GitHub-compatible forge. CI is GitHub-Actions +
 native only; zero retired-provider evidence (enforced by the zero-evidence gate).
 
-_Last updated: 2026-05-30 · `cargo test --workspace` = **961 passed / 0 failed** · targeted PR-only cleanup test set = **616 passed / 0 failed** · `bash scripts/ci-phases.sh` = **OK** (PASS=6, PENDING=1, FAIL=0) · Jankurai diff-audit = **70** with **0 hard / 0 caps**._
+_Last updated: 2026-05-31 · **0 Python** (all 10 scripts → Rust crates jeryu-evidence/mapcheck/repogate) · **0 GitLab** (verified) · 100% Rust except the React/TS web · `cargo nextest run --workspace` = **991 passed / 0 failed** · `ops/ci/full.sh` PASS via Rust · `bash scripts/ci-phases.sh` = **OK** (PASS=6, PENDING=1) · Jankurai full-audit score **64**, caps 8→6 (cleared: python-direct-product-truth, rust-bad-behavior; remaining: fallback-soup, dead-language `stale`/`legacy`, non-optimal-language, severe-duplication, input-boundary-gap, repo-rot)._
 
 ## Per-phase gate status (`scripts/ci-phases.sh`)
 
