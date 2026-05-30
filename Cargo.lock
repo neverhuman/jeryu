@@ -1279,8 +1279,11 @@ name = "jeryu-api"
 version = "0.10.0"
 dependencies = [
  "jeryu-bench",
+ "jeryu-core",
  "jeryu-enterprise",
  "jeryu-obs",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
