@@ -1,0 +1,112 @@
+{
+  "owners": [
+    {
+      "paths": [
+        "agent/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "bins/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "config/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "configs/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "crates/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "docs/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "examples/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "fixtures/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "ops/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "policies/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "scripts/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    },
+    {
+      "paths": [
+        "tests/**"
+      ],
+      "owners": [
+        "team"
+      ],
+      "required_reviews": 1
+    }
+  ]
+}

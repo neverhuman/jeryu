@@ -1,0 +1,25 @@
+[package]
+name = "jeryu-mapcheck"
+description = "Jankurai governance gates: owner/test map, agent maps, generated zones, fixtures, and docs validators (Rust port of the scripts/check-*.py gates)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "jeryu-mapcheck"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

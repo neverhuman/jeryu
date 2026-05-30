@@ -1,0 +1,23 @@
+[package]
+name = "jeryu-evidence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "jeryu-evidence"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+hex = { workspace = true }
+
+[lints]
+workspace = true

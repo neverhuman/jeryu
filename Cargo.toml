@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/jeryu-mapcheck",
   "crates/jeryu-tui",
   "crates/jeryu-review",
   "crates/jeryu-autonomy",
@@ -27,6 +28,7 @@ members = [
   "crates/jeryu-gitd",
   "crates/jeryu-api",
   "crates/jeryu-enterprise",
+  "crates/jeryu-evidence",
   "crates/jeryu-obs",
   "crates/jeryu-lifecycle",
   "crates/jeryu-mirror",
@@ -48,6 +50,7 @@ members = [
   "crates/jeryu-rustjet-cli",
   "crates/jeryu-signrail",
   "crates/jeryu-tenant",
+  "crates/jeryu-repogate",
 ]
 exclude = [
   "fixtures/rust-small",

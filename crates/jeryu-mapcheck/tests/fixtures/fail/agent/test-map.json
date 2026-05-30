@@ -1,0 +1,5 @@
+{
+  "routes": [
+    { "paths": ["agent/**"], "commands": ["just fast"], "proof_lane": "lane" }
+  ]
+}
