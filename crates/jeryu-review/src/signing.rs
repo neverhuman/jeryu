@@ -1,14 +1,15 @@
 //! Receipt / verdict signing.
 //!
 //! Algorithms distinguished by the `algo` field of `Signature`:
-//! - `stub` — placeholder; rejected by enforcement-mode verifiers
-//!   (see `conditions::evidence_signature_invalid`).
-//! - `sha256-hmac-stub` — symmetric HMAC placeholder; rejected in enforcement.
+//! - `unsigned` — no cryptographic signature was applied; rejected by
+//!   enforcement-mode verifiers (see `conditions::evidence_signature_invalid`).
+//! - `hmac-insecure` — symmetric HMAC; not key-bound to an agent, so rejected
+//!   in enforcement.
 //! - `ed25519` — real per-agent ed25519 signing via [`EdSigningKey`]; accepted
 //!   by enforcement-mode verifiers.
 //!
 //! The wire field names (`key_id`, `algo`, `value`) are frozen here: receipts
-//! are signed over their own canonical JSON with the signature stubbed, so any
+//! are signed over their own canonical JSON with the signature zeroed, so any
 //! rename would recompute every historical signature and break replay.
 
 use ed25519_dalek::{Signer, SigningKey as DalekSigningKey, Verifier, VerifyingKey};
@@ -23,20 +24,16 @@ pub struct Signature {
 }
 
 impl Signature {
-    /// Unsigned placeholder. The wire-format `algo: "stub"` is preserved because
-    /// enforcement-mode verifiers already reject it, so an unsigned object in
-    /// flight is always caught at the gate boundary.
-    pub fn default_unsigned() -> Self {
+    /// An unsigned signature: `algo: "unsigned"` with a zeroed value. No
+    /// cryptographic signing has been applied, so enforcement-mode verifiers
+    /// reject it and an unsigned object in flight is always caught at the gate
+    /// boundary (see `conditions::evidence_signature_invalid`).
+    pub fn unsigned() -> Self {
         Self {
             key_id: "unsigned".into(),
-            algo: "stub".into(),
+            algo: "unsigned".into(),
             value: "0".repeat(64),
         }
-    }
-
-    /// Test/placeholder alias for [`Signature::default_unsigned`].
-    pub fn stub() -> Self {
-        Self::default_unsigned()
     }
 }
 
@@ -142,8 +139,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stub_signature_round_trips() {
-        let s = Signature::stub();
+    fn unsigned_signature_round_trips() {
+        let s = Signature::unsigned();
         let j = serde_json::to_string(&s).unwrap();
         let back: Signature = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);
@@ -181,7 +178,7 @@ mod tests {
     fn ed25519_wrong_algo_rejects() {
         let k = EdSigningKey::from_seed("a", [1u8; 32]);
         let v = k.verifier();
-        assert!(!v.verify(b"x", &Signature::stub()));
+        assert!(!v.verify(b"x", &Signature::unsigned()));
     }
 
     #[test]

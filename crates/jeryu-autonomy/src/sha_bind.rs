@@ -111,7 +111,7 @@ mod tests {
             not_author: true,
             tokens: TokenCounts::default(),
             created_at: Utc::now(),
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 

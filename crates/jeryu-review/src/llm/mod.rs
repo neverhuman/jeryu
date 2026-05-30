@@ -9,7 +9,7 @@
 //! Everything is OpenAI-compatible at the transport level; "Claude/GPT/Gemini"
 //! is a config concern (per-role chains), not separate code paths. The real
 //! provider impl lands behind the [`LlmProvider`] trait; tests use a
-//! deterministic stub provider.
+//! deterministic in-memory provider.
 
 pub mod budget;
 pub mod router;
@@ -122,7 +122,7 @@ pub enum DataUse {
 
 /// Thin seam over an LLM endpoint. The reviewer-call engine only ever sees this
 /// trait; the real OpenAI-compatible client implements it in the fused
-/// workspace, tests use a deterministic stub.
+/// workspace, tests use a deterministic in-memory provider.
 #[async_trait]
 pub trait LlmProvider: Send + Sync {
     /// Stable provider id.

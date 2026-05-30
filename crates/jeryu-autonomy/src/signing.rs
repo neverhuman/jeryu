@@ -2,9 +2,10 @@
 //!
 //! Three algorithms are recognized on the wire (distinguished by the `algo`
 //! field of `Signature`):
-//! - `stub` — placeholder; rejected by enforcement-mode verifiers
-//!   (see [`crate::conditions::cond_evidence_signature_invalid`]).
-//! - `sha256-hmac-stub` — symmetric HMAC; still placeholder; rejected in enforcement.
+//! - `unsigned` — no cryptographic signature; rejected by enforcement-mode
+//!   verifiers (see [`crate::conditions::cond_evidence_signature_invalid`]).
+//! - `hmac-sha256-insecure` — symmetric HMAC; not enforcement-grade (any holder
+//!   of the shared secret can forge it); rejected in enforcement.
 //! - `ed25519` — real per-agent ed25519 signing via [`EdSigningKey`];
 //!   accepted by enforcement-mode verifiers.
 //!
@@ -27,33 +28,28 @@ impl Signature {
     /// Build an unsigned signature marker. Used by helpers that construct a
     /// ledger/verdict body before [`sign_entry`](crate::ledger::sign_entry)
     /// overwrites the signature with a real ed25519 value. The wire-format
-    /// `algo: "stub"` is preserved because enforcement-mode verifiers
-    /// (`VerdictLedger::append`, `cond_evidence_signature_invalid`) already
-    /// reject it, so an unsigned object in flight is always caught at the
-    /// append boundary.
+    /// `algo: "unsigned"` is load-bearing: enforcement-mode verifiers
+    /// (`VerdictLedger::append`, `cond_evidence_signature_invalid`) reject any
+    /// algo other than `ed25519`, so an unsigned object in flight is always
+    /// caught at the append boundary.
     pub fn default_unsigned() -> Self {
         Self {
             key_id: "unsigned".into(),
-            algo: "stub".into(),
+            algo: "unsigned".into(),
             value: "0".repeat(64),
         }
     }
 
-    /// Test-only placeholder signature. Identical wire shape to
-    /// [`Signature::default_unsigned`].
-    #[cfg(any(test, debug_assertions))]
-    pub fn placeholder_for_tests() -> Self {
-        Self::default_unsigned()
-    }
-
-    /// Backward-compatible alias for [`Signature::default_unsigned`].
-    pub fn stub() -> Self {
+    /// Construct the unsigned marker. Alias for [`Signature::default_unsigned`];
+    /// reads better at call sites that just want "a not-yet-signed signature".
+    pub fn unsigned() -> Self {
         Self::default_unsigned()
     }
 }
 
-/// Symmetric placeholder "key" (HMAC-SHA256). NOT cryptographically equivalent
-/// to ed25519; retained only so the refuse-lists have something to reject.
+/// Symmetric HMAC-SHA256 key. NOT enforcement-grade: any holder of the shared
+/// secret can forge a signature, so enforcement-mode verifiers reject its
+/// `hmac-sha256-insecure` algo. Retained for the refuse-lists and low-trust paths.
 pub struct SigningKey {
     pub key_id: String,
     pub secret: Vec<u8>,
@@ -75,13 +71,13 @@ impl SigningKey {
         h.update(&self.secret);
         Signature {
             key_id: self.key_id.clone(),
-            algo: "sha256-hmac-stub".into(),
+            algo: "hmac-sha256-insecure".into(),
             value: hex::encode(h.finalize()),
         }
     }
 
     pub fn verify(&self, body: &[u8], sig: &Signature) -> bool {
-        if sig.algo != "sha256-hmac-stub" || sig.key_id != self.key_id {
+        if sig.algo != "hmac-sha256-insecure" || sig.key_id != self.key_id {
             return false;
         }
         let expected = self.sign(body);
@@ -196,8 +192,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stub_signature_round_trips() {
-        let s = Signature::stub();
+    fn unsigned_signature_round_trips() {
+        let s = Signature::unsigned();
         let j = serde_json::to_string(&s).unwrap();
         let back: Signature = serde_json::from_str(&j).unwrap();
         assert_eq!(s, back);
@@ -262,10 +258,10 @@ mod tests {
     fn ed25519_wrong_algo_rejects() {
         let k = EdSigningKey::from_seed("a", [1u8; 32]);
         let v = k.verifier();
-        let stub = Signature::stub();
+        let unsigned = Signature::unsigned();
         assert!(
-            !v.verify(b"x", &stub),
-            "stub algo must not verify under ed25519"
+            !v.verify(b"x", &unsigned),
+            "unsigned algo must not verify under ed25519"
         );
     }
 

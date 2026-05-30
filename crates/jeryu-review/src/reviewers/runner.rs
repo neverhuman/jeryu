@@ -4,7 +4,8 @@
 //!   3. Dispatch through the LLM router for the role's chain key.
 //!   4. Parse the strict-schema JSON receipt; emit `abstain` on parse failure
 //!      rather than guessing.
-//!   5. Sign the receipt (stub or real ed25519, caller's choice).
+//!   5. Sign the receipt (unsigned placeholder or real ed25519, caller's
+//!      choice).
 //!
 //! Per-role files are thin wrappers that supply a [`ReviewerRoleId`] and
 //! delegate here.
@@ -87,9 +88,9 @@ pub struct ReviewInputs<'a> {
     pub diff: &'a str,
     pub system_prompt_markdown: &'a str,
     pub evidence_pack_json: Option<&'a str>,
-    /// Optional real signing key. If `None`, receipts carry `Signature::stub()`
-    /// and will be rejected by the judge's `evidence_signature_invalid`
-    /// condition.
+    /// Optional real signing key. If `None`, receipts carry
+    /// `Signature::unsigned()` and will be rejected by the judge's
+    /// `evidence_signature_invalid` condition.
     pub signing_key: Option<&'a EdSigningKey>,
 }
 
@@ -141,8 +142,9 @@ pub async fn run_review(
 /// itself, which would be circular).
 pub fn sign_receipt(r: &AgentApprovalReceipt, key: &EdSigningKey) -> Signature {
     let mut clone = r.clone();
-    clone.signature = Signature::stub();
-    let body = serde_json::to_string(&clone).unwrap_or_default();
+    clone.signature = Signature::unsigned();
+    let body = serde_json::to_string(&clone)
+        .expect("AgentApprovalReceipt JSON serialization is infallible");
     key.sign_raw(body.as_bytes())
 }
 
@@ -184,7 +186,7 @@ fn map_parsed_to_receipt(
             completion: resp.completion_tokens.unwrap_or(0),
         },
         created_at: now,
-        signature: Signature::stub(),
+        signature: Signature::unsigned(),
     }
 }
 
@@ -219,7 +221,7 @@ fn abstain_receipt(
             completion: resp.completion_tokens.unwrap_or(0),
         },
         created_at: now,
-        signature: Signature::stub(),
+        signature: Signature::unsigned(),
     }
 }
 

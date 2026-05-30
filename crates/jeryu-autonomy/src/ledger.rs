@@ -5,8 +5,8 @@
 //!   - The store is append-only. There is no update/delete on the public API;
 //!     the in-memory [`MemoryLedger`] never mutates a row once written, mirroring
 //!     the SQL `BEFORE UPDATE/DELETE` triggers in the fused DB layer.
-//!   - [`VerdictLedger::append`] refuses entries signed with stub/HMAC algos —
-//!     only `ed25519` is accepted.
+//!   - [`VerdictLedger::append`] refuses entries signed with unsigned/HMAC
+//!     algos — only `ed25519` is accepted.
 //!   - `append` is idempotent on `entry.id`: re-appending the same id is a
 //!     no-op. Callers mint a fresh id per logical event.
 //!
@@ -257,12 +257,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn append_refuses_stub_signature() {
+    async fn append_refuses_unsigned_signature() {
         let ledger = MemoryLedger::new();
-        let mut e = signed_entry("evt-stub", LedgerKind::VerdictIssued);
-        e.signature = Signature::stub();
+        let mut e = signed_entry("evt-unsigned", LedgerKind::VerdictIssued);
+        e.signature = Signature::unsigned();
         let err = ledger.append(&e).await.unwrap_err();
-        assert!(err.to_string().contains("stub"), "actual: {err}");
+        assert!(err.to_string().contains("unsigned"), "actual: {err}");
     }
 
     #[tokio::test]
@@ -270,13 +270,13 @@ mod tests {
         let ledger = MemoryLedger::new();
         let mut e = signed_entry("evt-hmac", LedgerKind::VerdictIssued);
         e.signature = Signature {
-            algo: "sha256-hmac-stub".into(),
+            algo: "hmac-sha256-insecure".into(),
             key_id: "k".into(),
             value: "0".repeat(64),
         };
         let err = ledger.append(&e).await.unwrap_err();
         assert!(
-            err.to_string().contains("sha256-hmac-stub"),
+            err.to_string().contains("hmac-sha256-insecure"),
             "actual: {err}"
         );
     }
@@ -324,11 +324,11 @@ mod tests {
             rebind_on_train: true,
             expires_at: now + Duration::minutes(60),
             created_at: now,
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         };
         let key = EdSigningKey::generate("judge.v1");
         let mut entry = verdict_issued_entry(&verdict, "judge.v1");
-        // Before signing, append must refuse (stub algo).
+        // Before signing, append must refuse (unsigned algo).
         assert!(ledger.append(&entry).await.is_err());
         sign_entry(&mut entry, &key);
         ledger.append(&entry).await.unwrap();

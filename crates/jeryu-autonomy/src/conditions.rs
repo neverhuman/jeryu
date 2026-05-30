@@ -250,14 +250,16 @@ fn cond_evidence_signature_invalid(
 ) -> Option<HardStop> {
     match &p.signature {
         Some(s) if s.algo == "ed25519" => None,
-        Some(s) if s.algo == "stub" => Some(HardStop {
+        Some(s) if s.algo == "unsigned" => Some(HardStop {
             name: "evidence_signature_invalid".into(),
-            reason: "evidence pack signed with 'stub' algo; not acceptable in enforcement".into(),
+            reason: "evidence pack carries an unsigned signature; not acceptable in enforcement"
+                .into(),
             details: serde_json::json!({ "algo": s.algo }),
         }),
-        Some(s) if s.algo == "sha256-hmac-stub" => Some(HardStop {
+        Some(s) if s.algo == "hmac-sha256-insecure" => Some(HardStop {
             name: "evidence_signature_invalid".into(),
-            reason: "evidence pack signed with HMAC stub; ed25519 required in enforcement".into(),
+            reason: "evidence pack signed with insecure HMAC; ed25519 required in enforcement"
+                .into(),
             details: serde_json::json!({ "algo": s.algo }),
         }),
         Some(s) => Some(HardStop {
@@ -721,7 +723,7 @@ mod tests {
             not_author: true,
             tokens: TokenCounts::default(),
             created_at: Utc::now(),
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 

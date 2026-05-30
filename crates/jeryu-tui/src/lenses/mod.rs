@@ -5,13 +5,20 @@
 //! I/O. Each lens follows the canonical shape: `data` (pure projector) + `view`
 //! (pure renderer).
 //!
-//! This crate ships 3 of the 18 lenses (mission/queue/repos) wired end-to-end
-//! against the read-model contract; [`LensId`] enumerates the full set so the
-//! routing surface is stable while the remaining lenses are ported.
+//! This crate ships 9 of the 18 lenses wired end-to-end against the read-model
+//! contract (mission/queue/repos + runners/approvals/evidence/agents/release/
+//! workflow); [`LensId`] enumerates the full set so the routing surface is
+//! stable while the remaining lenses are ported.
 
+pub mod agents;
+pub mod approvals;
+pub mod evidence;
 pub mod mission;
 pub mod queue;
+pub mod release;
 pub mod repos;
+pub mod runners;
+pub mod workflow;
 
 use jeryu_readmodel::TuiReadModel;
 use ratatui::Frame;
@@ -110,7 +117,17 @@ impl LensId {
     ];
 
     /// The lenses fully wired to the read model in this crate.
-    pub const IMPLEMENTED: &'static [Self] = &[Self::Mission, Self::Queue, Self::Repos];
+    pub const IMPLEMENTED: &'static [Self] = &[
+        Self::Mission,
+        Self::Queue,
+        Self::Repos,
+        Self::Runners,
+        Self::Approvals,
+        Self::Evidence,
+        Self::Agents,
+        Self::Release,
+        Self::Workflow,
+    ];
 
     /// Is this lens implemented end-to-end (data + view) in this crate?
     pub fn is_implemented(self) -> bool {
@@ -149,6 +166,30 @@ pub fn draw_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
         }
         LensId::Queue => queue::view::draw(f, &queue::QueueLensInput::from_read_model(model), area),
         LensId::Repos => repos::view::draw(f, &repos::ReposLensInput::from_read_model(model), area),
+        LensId::Runners => {
+            runners::view::draw(f, &runners::RunnersLensInput::from_read_model(model), area)
+        }
+        LensId::Approvals => approvals::view::draw(
+            f,
+            &approvals::ApprovalsLensInput::from_read_model(model),
+            area,
+        ),
+        LensId::Evidence => evidence::view::draw(
+            f,
+            &evidence::EvidenceLensInput::from_read_model(model),
+            area,
+        ),
+        LensId::Agents => {
+            agents::view::draw(f, &agents::AgentsLensInput::from_read_model(model), area)
+        }
+        LensId::Release => {
+            release::view::draw(f, &release::ReleaseLensInput::from_read_model(model), area)
+        }
+        LensId::Workflow => workflow::view::draw(
+            f,
+            &workflow::WorkflowLensInput::from_read_model(model),
+            area,
+        ),
         other => draw_placeholder(f, other, area),
     }
 }
@@ -191,12 +232,24 @@ mod tests {
     }
 
     #[test]
-    fn three_lenses_are_implemented() {
-        assert_eq!(LensId::IMPLEMENTED.len(), 3);
-        assert!(LensId::Mission.is_implemented());
-        assert!(LensId::Queue.is_implemented());
-        assert!(LensId::Repos.is_implemented());
-        assert!(!LensId::Workflow.is_implemented());
+    fn nine_lenses_are_implemented() {
+        assert_eq!(LensId::IMPLEMENTED.len(), 9);
+        for lens in [
+            LensId::Mission,
+            LensId::Queue,
+            LensId::Repos,
+            LensId::Runners,
+            LensId::Approvals,
+            LensId::Evidence,
+            LensId::Agents,
+            LensId::Release,
+            LensId::Workflow,
+        ] {
+            assert!(lens.is_implemented(), "{lens:?} should be implemented");
+        }
+        // Not-yet-ported lenses remain placeholders.
+        assert!(!LensId::Bugs.is_implemented());
+        assert!(!LensId::Cache.is_implemented());
     }
 
     #[test]

@@ -111,7 +111,7 @@ mod tests {
             *self.last_messages.lock().unwrap() = m.to_vec();
             Ok(CallResponse {
                 provider: self.id.clone(),
-                model: "stub-model".into(),
+                model: "deterministic-model".into(),
                 content: self.payload.clone(),
                 prompt_tokens: Some(20),
                 completion_tokens: Some(10),

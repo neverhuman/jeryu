@@ -1,6 +1,6 @@
 //! tuiwright-style snapshot tests.
 //!
-//! Each test renders one of the 3 implemented lenses from a fixture
+//! Each test renders one of the implemented lenses from a fixture
 //! [`TuiReadModel`] through the full chrome (`render_once`) and asserts key
 //! content of the flattened cell text. This proves the read-model → TUI rewire:
 //! the lenses are pure projections of `jeryu-readmodel`, and the runtime
@@ -131,6 +131,69 @@ fn repos_lens_default_model_shows_empty_fleet() {
     assert!(ink.contains("No repo families"));
 }
 
+// ── Approvals lens ─────────────────────────────────────────────────────────
+
+#[test]
+fn approvals_lens_renders_pending_prs_from_read_model() {
+    let ink = snapshot(sample_read_model(), ActiveTab::Approvals);
+    assert!(ink.contains("Approvals"), "approvals header missing");
+    assert!(ink.contains("#101"), "PR number not projected");
+    assert!(ink.contains("#102"), "PR number not projected");
+    // GitHub PR shape: CI checks status colored, risk tier shown.
+    assert!(ink.contains("failure"), "failing checks not projected");
+    assert!(ink.contains("failing checks"), "queue alert not rendered");
+}
+
+// ── Evidence lens ──────────────────────────────────────────────────────────
+
+#[test]
+fn evidence_lens_renders_proof_receipts_from_read_model() {
+    let ink = snapshot(sample_read_model(), ActiveTab::Evidence);
+    assert!(ink.contains("Evidence"), "evidence header missing");
+    assert!(ink.contains("cap-17"), "capsule id not projected");
+    assert!(ink.contains("allow"), "allow decision not projected");
+    assert!(ink.contains("deny"), "deny decision not projected");
+    assert!(ink.contains("17 capsules"), "capsule count not projected");
+}
+
+// ── Agents lens ────────────────────────────────────────────────────────────
+
+#[test]
+fn agents_lens_renders_fleet_from_read_model() {
+    let ink = snapshot(sample_read_model(), ActiveTab::Agents);
+    assert!(ink.contains("Agents"), "agents header missing");
+    assert!(ink.contains("Lifecycle"), "lifecycle panel missing");
+    assert!(
+        ink.contains("agent-wrath-17"),
+        "agent session not projected"
+    );
+    assert!(ink.contains("blocked"), "blocked status not projected");
+}
+
+// ── Release lens ───────────────────────────────────────────────────────────
+
+#[test]
+fn release_lens_renders_candidates_from_read_model() {
+    let ink = snapshot(sample_read_model(), ActiveTab::Release);
+    assert!(ink.contains("Release"), "release header missing");
+    assert!(ink.contains("GATE"), "gate column missing");
+    assert!(ink.contains("SBOM"), "sbom column missing");
+    assert!(ink.contains("canary"), "promotion stage not projected");
+    assert!(ink.contains("verified"), "sbom status not projected");
+}
+
+// ── Workflow lens ──────────────────────────────────────────────────────────
+
+#[test]
+fn workflow_lens_renders_delivery_posture_from_read_model() {
+    let ink = snapshot(sample_read_model(), ActiveTab::Workflow);
+    assert!(ink.contains("Workflow Atlas"), "atlas header missing");
+    assert!(ink.contains("core/web"), "repo slug not projected");
+    // GitHub PR shape: pipelines keyed by PR number.
+    assert!(ink.contains("#101"), "driving PR number not projected");
+    assert!(ink.contains("BLOCKED"), "blocked posture not projected");
+}
+
 // ── Chrome / routing invariants ───────────────────────────────────────────
 
 #[test]
@@ -142,11 +205,12 @@ fn builder_fixture_round_trips_into_a_renderable_frame() {
 
 #[test]
 fn unported_tab_renders_placeholder_not_a_panic() {
-    let ink = snapshot(sample_read_model(), ActiveTab::Workflow);
+    // Cache routes to a still-unported lens, so the placeholder shows.
+    let ink = snapshot(sample_read_model(), ActiveTab::Cache);
     assert!(ink.contains("not yet ported"));
     // Chrome still present.
     assert!(ink.contains("jeryu"));
-    assert!(ink.contains("Workflow"));
+    assert!(ink.contains("Cache"));
 }
 
 #[test]

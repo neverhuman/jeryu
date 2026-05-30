@@ -7,8 +7,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::dashboards::agents::AgentsSnapshot;
+use crate::dashboards::approvals::ApprovalsSnapshot;
+use crate::dashboards::evidence::EvidenceSnapshot;
+use crate::dashboards::release::ReleaseSnapshot;
 use crate::dashboards::runners::RunnersDashboard;
 use crate::dashboards::source_doctor::SourceDoctorDashboard;
+use crate::dashboards::workflow::WorkflowSnapshot;
 use crate::entity::{ActionRef, BlockerSummary, DataFreshness, EntityRef, HealthLevel, Severity};
 use crate::health::{ComponentHealth, RunnerHealth};
 use crate::queue::QueueSnapshot;
@@ -38,6 +43,16 @@ pub struct TuiReadModel {
     pub source_doctor: SourceDoctorDashboard,
     #[serde(default)]
     pub runners: RunnersDashboard,
+    #[serde(default)]
+    pub approvals: ApprovalsSnapshot,
+    #[serde(default)]
+    pub evidence: EvidenceSnapshot,
+    #[serde(default)]
+    pub agents: AgentsSnapshot,
+    #[serde(default)]
+    pub release: ReleaseSnapshot,
+    #[serde(default)]
+    pub workflow: WorkflowSnapshot,
     pub attention: Vec<AttentionItem>,
     pub next_action: Option<NextActionRecommendation>,
     pub system: SystemHealth,
@@ -55,6 +70,11 @@ impl Default for TuiReadModel {
             repos: ReposSnapshot::default(),
             source_doctor: SourceDoctorDashboard::default(),
             runners: RunnersDashboard::default(),
+            approvals: ApprovalsSnapshot::default(),
+            evidence: EvidenceSnapshot::default(),
+            agents: AgentsSnapshot::default(),
+            release: ReleaseSnapshot::default(),
+            workflow: WorkflowSnapshot::default(),
             attention: Vec::new(),
             next_action: None,
             system: SystemHealth::default(),
