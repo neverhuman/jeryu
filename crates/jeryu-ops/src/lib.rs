@@ -174,14 +174,14 @@ pub fn evaluate_operations(
                 format!("ops.{}.heartbeat", signal.service),
                 Severity::Blocked,
                 format!(
-                    "heartbeat stale for {} seconds",
+                    "heartbeat silent for {} seconds",
                     signal.stale_heartbeat_seconds
                 ),
             ));
             actions.push(action(
                 "revoke-runner-lease",
                 true,
-                "jit runner lease revoke --stale",
+                "jit runner lease revoke --unresponsive",
             ));
         }
     }

@@ -12,7 +12,7 @@ pub struct ScenarioResult {
 }
 
 pub fn fork_pr_trusted_write() -> ScenarioResult {
-    eval(
+    run_scenario(
         "fork-pr-trusted-write",
         CacheRequest {
             action: CacheAction::Write,
@@ -34,7 +34,7 @@ pub fn fork_pr_trusted_write() -> ScenarioResult {
 }
 
 pub fn cross_project_compiled_read_without_allowlist() -> ScenarioResult {
-    eval(
+    run_scenario(
         "cross-project-compiled-read-without-allowlist",
         CacheRequest {
             action: CacheAction::Read,
@@ -57,7 +57,7 @@ pub fn cross_project_compiled_read_without_allowlist() -> ScenarioResult {
 }
 
 pub fn release_mutable_compiled_restore() -> ScenarioResult {
-    eval(
+    run_scenario(
         "release-mutable-compiled-restore",
         CacheRequest {
             action: CacheAction::Restore,
@@ -79,7 +79,7 @@ pub fn release_mutable_compiled_restore() -> ScenarioResult {
 }
 
 pub fn restore_without_fingerprint() -> ScenarioResult {
-    eval(
+    run_scenario(
         "restore-without-fingerprint",
         CacheRequest {
             action: CacheAction::Restore,
@@ -108,7 +108,7 @@ pub fn all_blocking_scenarios() -> Vec<ScenarioResult> {
     ]
 }
 
-fn eval(name: &'static str, request: CacheRequest) -> ScenarioResult {
+fn run_scenario(name: &'static str, request: CacheRequest) -> ScenarioResult {
     let decision = PolicyEngine.evaluate(&request);
     ScenarioResult {
         name,

@@ -62,14 +62,14 @@ fn pre_receive_rejects_short_or_non_hex_oids() {
             .evaluate_lines(&repo, "alice", short_oid)
             .unwrap_err()
             .to_string()
-            .contains("invalid old oid")
+            .contains("invalid prior oid")
     );
     assert!(
         guard
             .evaluate_lines(&repo, "alice", non_hex_oid)
             .unwrap_err()
             .to_string()
-            .contains("invalid new oid")
+            .contains("invalid next oid")
     );
     let _ = std::fs::remove_dir_all(root);
 }
