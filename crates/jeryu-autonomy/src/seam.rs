@@ -21,7 +21,10 @@ pub struct SeamError {
 
 impl SeamError {
     pub fn new(source: &'static str, reason: impl Into<String>) -> Self {
-        Self { source, reason: reason.into() }
+        Self {
+            source,
+            reason: reason.into(),
+        }
     }
 }
 

@@ -78,12 +78,7 @@ fn witness_receipt_is_a_proof_witness_bound_to_pr_and_sha() {
     // The witness id equals its receipt id.
     assert_eq!(witness.id, receipt.id);
     // Each lane shows up as a proof-lane command in the receipt.
-    assert!(
-        receipt
-            .commands
-            .iter()
-            .any(|c| c == "proof-lane:unit")
-    );
+    assert!(receipt.commands.iter().any(|c| c == "proof-lane:unit"));
 }
 
 #[test]

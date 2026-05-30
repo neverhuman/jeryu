@@ -21,9 +21,18 @@ pub struct ScrubReport {
 }
 
 /// Scrub a diff for embedded secrets. In fail-closed default, any finding
-/// aborts the LLM call.
+/// aborts the LLM call. The opt-in skip flag is read from the environment here
+/// (a safe read); tests exercise the skip path via [`scrub_diff_with_skip`] so
+/// they never mutate process-global env (which is `unsafe` in edition 2024).
 pub fn scrub_diff(diff: &str) -> ScrubReport {
-    if std::env::var("JERYU_LLM_SCRUB_SKIP").as_deref() == Ok("1") {
+    let skip = std::env::var("JERYU_LLM_SCRUB_SKIP").as_deref() == Ok("1");
+    scrub_diff_with_skip(diff, skip)
+}
+
+/// Skip-explicit core. Production reads the env flag in [`scrub_diff`]; callers
+/// (and tests) that already know the decision call this directly.
+pub(crate) fn scrub_diff_with_skip(diff: &str, skip: bool) -> ScrubReport {
+    if skip {
         return ScrubReport {
             passed: true,
             findings: vec![],
@@ -93,50 +102,28 @@ fn scan_pure_rust(diff: &str) -> Vec<ScrubFinding> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-    use std::sync::OnceLock;
-
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
 
     #[test]
     fn clean_diff_passes() {
-        let _g = env_lock().lock().unwrap();
-        unsafe {
-            std::env::remove_var("JERYU_LLM_SCRUB_SKIP");
-        }
         let diff = "+ fn add(a: i32, b: i32) -> i32 { a + b }";
-        let r = scrub_diff(diff);
+        let r = scrub_diff_with_skip(diff, false);
         assert!(r.passed);
         assert!(r.findings.is_empty());
     }
 
     #[test]
     fn aws_key_is_caught() {
-        let _g = env_lock().lock().unwrap();
-        unsafe {
-            std::env::remove_var("JERYU_LLM_SCRUB_SKIP");
-        }
         let diff = format!("+ const KEY: &str = \"{}{}\";", "AKIA", "IOSFODNN7EXAMPLE");
-        let r = scrub_diff(&diff);
+        let r = scrub_diff_with_skip(&diff, false);
         assert!(!r.passed);
         assert_eq!(r.findings[0].kind, "aws-access-key-id");
     }
 
     #[test]
-    fn skip_env_var_bypasses() {
-        let _g = env_lock().lock().unwrap();
-        unsafe {
-            std::env::set_var("JERYU_LLM_SCRUB_SKIP", "1");
-        }
+    fn skip_flag_bypasses() {
         let diff = format!("+ const KEY: &str = \"{}{}\";", "AKIA", "IOSFODNN7EXAMPLE");
-        let r = scrub_diff(&diff);
+        let r = scrub_diff_with_skip(&diff, true);
         assert!(r.passed);
         assert_eq!(r.tool, "skipped");
-        unsafe {
-            std::env::remove_var("JERYU_LLM_SCRUB_SKIP");
-        }
     }
 }

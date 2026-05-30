@@ -21,7 +21,12 @@ async fn fake_orchestrator_returns_canned_receipts() {
     let pack = mint_pack();
     let orch = FakeReviewerOrchestrator::new().with_canned(
         ReviewerRole::Security,
-        receipt_for(ReviewerRole::Security, "sec.v1", ReviewDecision::Block, &pack),
+        receipt_for(
+            ReviewerRole::Security,
+            "sec.v1",
+            ReviewDecision::Block,
+            &pack,
+        ),
     );
     let out = orch
         .run_all(&pack, &[ReviewerRole::Security], "diff")
@@ -126,12 +131,7 @@ async fn run_all_returns_one_receipt_per_required_role() {
 async fn run_all_empty_required_roles_returns_empty_vec() {
     let orch = FakeReviewerOrchestrator::new();
     let pack = mint_pack();
-    assert!(
-        orch.run_all(&pack, &[], "diff")
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    assert!(orch.run_all(&pack, &[], "diff").await.unwrap().is_empty());
 }
 
 // ---- 7. Concurrent reviewers complete in parallel --------------------------
@@ -192,7 +192,12 @@ async fn production_orchestrator_with_exhausted_budget_returns_abstain_for_all_r
     assert_eq!(out.len(), 4);
     for r in &out {
         assert!(matches!(r.decision, ReviewDecision::Abstain));
-        assert!(r.reason.as_deref().unwrap_or("").contains("budget exhausted"));
+        assert!(
+            r.reason
+                .as_deref()
+                .unwrap_or("")
+                .contains("budget exhausted")
+        );
     }
 }
 
@@ -337,6 +342,10 @@ async fn not_author_flag_is_true_on_all_synthesized_receipts() {
         .await
         .unwrap();
     for r in &out {
-        assert!(r.not_author, "synthesized receipt for {:?} must set not_author", r.role);
+        assert!(
+            r.not_author,
+            "synthesized receipt for {:?} must set not_author",
+            r.role
+        );
     }
 }

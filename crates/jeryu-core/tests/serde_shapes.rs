@@ -17,8 +17,14 @@ fn to_json_str<T: serde::Serialize>(value: &T) -> String {
 
 #[test]
 fn pull_request_state_is_snake_case() {
-    assert_eq!(to_json_str(&PullRequestState::ReadyForReview), "\"ready_for_review\"");
-    assert_eq!(to_json_str(&PullRequestState::BlockedByChecks), "\"blocked_by_checks\"");
+    assert_eq!(
+        to_json_str(&PullRequestState::ReadyForReview),
+        "\"ready_for_review\""
+    );
+    assert_eq!(
+        to_json_str(&PullRequestState::BlockedByChecks),
+        "\"blocked_by_checks\""
+    );
     assert_eq!(to_json_str(&PullRequestState::Merged), "\"merged\"");
     assert_eq!(to_json_str(&PullRequestState::Open), "\"open\"");
     assert_eq!(to_json_str(&PullRequestState::Draft), "\"draft\"");
@@ -58,7 +64,10 @@ fn pull_request_state_roundtrips() {
 #[test]
 fn review_state_serializes_uppercase() {
     assert_eq!(to_json_str(&ReviewState::Approved), "\"APPROVED\"");
-    assert_eq!(to_json_str(&ReviewState::ChangesRequested), "\"CHANGES_REQUESTED\"");
+    assert_eq!(
+        to_json_str(&ReviewState::ChangesRequested),
+        "\"CHANGES_REQUESTED\""
+    );
     assert_eq!(to_json_str(&ReviewState::Commented), "\"COMMENTED\"");
     assert_eq!(to_json_str(&ReviewState::Dismissed), "\"DISMISSED\"");
 }
@@ -105,7 +114,10 @@ fn check_run_status_is_snake_case() {
 #[test]
 fn check_conclusion_is_snake_case() {
     assert_eq!(to_json_str(&CheckConclusion::Success), "\"success\"");
-    assert_eq!(to_json_str(&CheckConclusion::ActionRequired), "\"action_required\"");
+    assert_eq!(
+        to_json_str(&CheckConclusion::ActionRequired),
+        "\"action_required\""
+    );
     assert_eq!(to_json_str(&CheckConclusion::TimedOut), "\"timed_out\"");
     assert_eq!(to_json_str(&CheckConclusion::Neutral), "\"neutral\"");
 }

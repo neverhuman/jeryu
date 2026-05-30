@@ -91,10 +91,26 @@ async fn setup_authenticated_session()
 #[test]
 fn manifest_includes_capability_tools() {
     let manifest = tool_manifest();
-    assert!(manifest.iter().any(|tool| tool["name"] == "jeryu.run_tests"));
-    assert!(manifest.iter().any(|tool| tool["name"] == "jeryu.fetch_capsule"));
-    assert!(manifest.iter().any(|tool| tool["name"] == "jeryu.get_ci_run_jobs"));
-    assert!(manifest.iter().any(|tool| tool["name"] == "jeryu.get_ci_bottlenecks"));
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.run_tests")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.fetch_capsule")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.get_ci_run_jobs")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.get_ci_bottlenecks")
+    );
 }
 
 #[test]
@@ -124,7 +140,12 @@ fn manifest_covers_all_catalog_actions() {
         "bug_update",
         "bug_record_attempt",
     ];
-    assert_eq!(names.len(), 16, "expected exactly 16 tools, got {}", names.len());
+    assert_eq!(
+        names.len(),
+        16,
+        "expected exactly 16 tools, got {}",
+        names.len()
+    );
     for id in expected {
         assert!(
             names.contains(&format!("jeryu.{id}")),
@@ -156,7 +177,9 @@ fn loopback_origin_validation_is_strict() {
     assert!(jeryu_mcp::http::is_loopback_origin("http://localhost:8899"));
     assert!(jeryu_mcp::http::is_loopback_origin("https://[::1]:8899"));
     assert!(!jeryu_mcp::http::is_loopback_origin("https://example.com"));
-    assert!(!jeryu_mcp::http::is_loopback_origin("http://localhost.evil"));
+    assert!(!jeryu_mcp::http::is_loopback_origin(
+        "http://localhost.evil"
+    ));
 }
 
 #[tokio::test]

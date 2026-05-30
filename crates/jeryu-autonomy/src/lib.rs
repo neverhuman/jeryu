@@ -54,7 +54,9 @@ pub use escalation::{
     DispatchResult, EscalationConfig, EscalationError, EscalationEvent, EscalationKind,
     WebhookConfig, build_payload, dispatch_all,
 };
-pub use evidence::{EvidenceInputs, build_evidence_pack, make_gate_receipt, verify_evidence_digest};
+pub use evidence::{
+    EvidenceInputs, build_evidence_pack, make_gate_receipt, verify_evidence_digest,
+};
 pub use freeze::{FreezeWindow, FreezeWindows};
 pub use judge::{JudgeInputs, JudgeOutcome, judge};
 pub use kill_bell::{BreakGlassReceipt, KillBell, KillBellState};

@@ -36,7 +36,9 @@ impl PolicyBundle {
         let release: ReleasePolicy = parse(release, "release.yml")?;
         let protected_paths: ProtectedPathsPolicy = parse(protected_paths, "protected-paths.yml")?;
         let freeze = match freeze {
-            Some(s) => Some(FreezeWindows::from_str_yaml(s).map_err(|e| format!("freeze.yml: {e}"))?),
+            Some(s) => {
+                Some(FreezeWindows::from_str_yaml(s).map_err(|e| format!("freeze.yml: {e}"))?)
+            }
             None => None,
         };
         Ok(Self {
@@ -196,10 +198,16 @@ mod tests {
         assert_eq!(b.approvals.hard_stops.len(), 15);
         assert!(b.quorum_for(crate::types::RiskTier::R2).is_some());
         assert_eq!(
-            b.quorum_for(crate::types::RiskTier::R2).unwrap().approvals_needed,
+            b.quorum_for(crate::types::RiskTier::R2)
+                .unwrap()
+                .approvals_needed,
             2
         );
-        assert!(b.quorum_for(crate::types::RiskTier::R4).unwrap().human_required);
+        assert!(
+            b.quorum_for(crate::types::RiskTier::R4)
+                .unwrap()
+                .human_required
+        );
     }
 
     #[test]

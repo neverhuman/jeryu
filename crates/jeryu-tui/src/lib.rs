@@ -75,8 +75,7 @@ pub fn parse_capture_tab(tab: &str) -> Option<ActiveTab> {
 /// flattened cell text. The standalone analogue of the product's
 /// `run_tui_once`/`smoke_render_once` (which shelled a real terminal).
 pub fn run_tui_once(model: TuiReadModel, tab: &str) -> Result<String, String> {
-    let active_tab =
-        parse_capture_tab(tab).ok_or_else(|| format!("unknown tui tab: {tab:?}"))?;
+    let active_tab = parse_capture_tab(tab).ok_or_else(|| format!("unknown tui tab: {tab:?}"))?;
     let mut app = App::new_render_only(model);
     app.set_tab(active_tab);
     Ok(render_once(&app, 120, 40, StreamMode::Fixture))

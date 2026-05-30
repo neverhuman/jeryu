@@ -53,7 +53,13 @@ impl AutoRejudgeService {
         signing_key: Arc<EdSigningKey>,
         policy: Arc<PolicyBundle>,
     ) -> Self {
-        Self { evidence, verdict_store, ledger, signing_key, policy }
+        Self {
+            evidence,
+            verdict_store,
+            ledger,
+            signing_key,
+            policy,
+        }
     }
 
     /// Run one full rejudge cycle for a single PR.
@@ -67,8 +73,10 @@ impl AutoRejudgeService {
         let pack = self.evidence.build_pack(repo, pr_id).await?;
 
         // 2. Required reviewer roles for the pack's risk tier.
-        let required_roles: Vec<ReviewerRole> =
-            self.policy.quorum_for(pack.risk).map_or_else(Vec::new, |q| q.roles.clone());
+        let required_roles: Vec<ReviewerRole> = self
+            .policy
+            .quorum_for(pack.risk)
+            .map_or_else(Vec::new, |q| q.roles.clone());
 
         // 3. Run the orchestrator. An Err degrades to "no receipts" — judge()
         //    treats that as insufficient quorum and emits RequireHuman.
@@ -117,8 +125,8 @@ impl AutoRejudgeService {
 }
 
 fn build_auto_rejudge_entry(verdict: &VibeGateVerdict, old_verdict_id: &str) -> LaunchLedgerEntry {
-    let mut payload = serde_json::to_value(verdict)
-        .expect("VibeGateVerdict serializes to JSON value");
+    let mut payload =
+        serde_json::to_value(verdict).expect("VibeGateVerdict serializes to JSON value");
     if let serde_json::Value::Object(map) = &mut payload {
         map.insert("wave_scope".into(), json!("auto_rejudge"));
         map.insert("supersedes".into(), json!(old_verdict_id));
@@ -162,13 +170,30 @@ mod tests {
             risk: RiskTier::R2,
             changed_files: vec![],
             claims: vec![],
-            tests: TestsSection { targeted: vec![], full_required: false, skipped: vec![], coverage_delta: None },
-            security: SecuritySection { sast: ScanOutcome::Passed, dependency_scan: ScanOutcome::Passed, secret_scan: ScanOutcome::Passed },
+            tests: TestsSection {
+                targeted: vec![],
+                full_required: false,
+                skipped: vec![],
+                coverage_delta: None,
+            },
+            security: SecuritySection {
+                sast: ScanOutcome::Passed,
+                dependency_scan: ScanOutcome::Passed,
+                secret_scan: ScanOutcome::Passed,
+            },
             supply_chain: SupplyChainSection::default(),
-            rollback: RollbackSection { strategy: RollbackStrategy::RevertCommit, feature_flag: None, data_migration_reversible: Some(true) },
+            rollback: RollbackSection {
+                strategy: RollbackStrategy::RevertCommit,
+                feature_flag: None,
+                data_migration_reversible: Some(true),
+            },
             gate_receipts: vec![],
         });
-        p.signature = Some(Signature { key_id: "evidence-builder.v1".into(), algo: "ed25519".into(), value: "0".repeat(128) });
+        p.signature = Some(Signature {
+            key_id: "evidence-builder.v1".into(),
+            algo: "ed25519".into(),
+            value: "0".repeat(128),
+        });
         p
     }
 
@@ -253,7 +278,13 @@ mod tests {
         }
     }
 
-    fn service(evidence: FakeEvidence) -> (AutoRejudgeService, Arc<MemoryLedger>, Arc<MemoryVerdictStore>) {
+    fn service(
+        evidence: FakeEvidence,
+    ) -> (
+        AutoRejudgeService,
+        Arc<MemoryLedger>,
+        Arc<MemoryVerdictStore>,
+    ) {
         let ledger = Arc::new(MemoryLedger::new());
         let store = Arc::new(MemoryVerdictStore::new());
         let svc = AutoRejudgeService::new(
@@ -278,12 +309,19 @@ mod tests {
         store.save(&old).await.unwrap();
 
         let out = svc.rejudge("owner/repo", "1", &old).await.unwrap();
-        assert_eq!(out.new_decision, GateDecision::AllowMerge, "quorum met → AllowMerge");
+        assert_eq!(
+            out.new_decision,
+            GateDecision::AllowMerge,
+            "quorum met → AllowMerge"
+        );
         assert_eq!(out.receipts_count, 2);
 
         // Exactly one new VerdictIssued ledger entry, ed25519-signed.
         let entries = ledger
-            .list(&LedgerFilter { kind: Some(LedgerKind::VerdictIssued), ..Default::default() })
+            .list(&LedgerFilter {
+                kind: Some(LedgerKind::VerdictIssued),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(entries.len(), 1);
@@ -291,7 +329,11 @@ mod tests {
         assert_eq!(entries[0].payload["wave_scope"], "auto_rejudge");
 
         // The new verdict superseded the old one for (repo, pr).
-        let latest = store.load_latest("owner/repo", Some("1")).await.unwrap().unwrap();
+        let latest = store
+            .load_latest("owner/repo", Some("1"))
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(latest.id, out.new_verdict_id);
         assert_ne!(latest.id, old.id);
     }

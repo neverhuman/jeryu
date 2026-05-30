@@ -5,9 +5,9 @@
 //! a given binary doesn't call reads as dead code there; allow it crate-wide.
 #![allow(dead_code)]
 
+use chrono::Utc;
 use jeryu_review::schema::*;
 use jeryu_review::signing::Signature;
-use chrono::Utc;
 
 pub fn assets_prompts_dir() -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")

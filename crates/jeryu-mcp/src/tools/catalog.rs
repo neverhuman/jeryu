@@ -273,10 +273,7 @@ fn tool_input_schema(action_id: &str) -> Option<Value> {
         "get_system_snapshot" => object_schema(&[], &[]),
         "get_ci_run_jobs" => object_schema(
             &["repo", "ci_run_id"],
-            &[
-                ("repo", integer_schema()),
-                ("ci_run_id", integer_schema()),
-            ],
+            &[("repo", integer_schema()), ("ci_run_id", integer_schema())],
         ),
         "get_ci_bottlenecks" => object_schema(
             &["repo"],
@@ -351,10 +348,7 @@ fn tool_input_schema(action_id: &str) -> Option<Value> {
                                 "modifications",
                                 array_schema(object_schema(
                                     &["file_path", "content"],
-                                    &[
-                                        ("file_path", string_schema()),
-                                        ("content", string_schema()),
-                                    ],
+                                    &[("file_path", string_schema()), ("content", string_schema())],
                                 )),
                             ),
                         ],

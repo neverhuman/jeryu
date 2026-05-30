@@ -44,21 +44,42 @@ impl Default for ConditionRegistry {
         // fail-closes) without faking logic we don't have.
         let table = vec![
             // Implemented locally
-            NamedCondition { name: "evidence_missing", func: cond_evidence_missing },
+            NamedCondition {
+                name: "evidence_missing",
+                func: cond_evidence_missing,
+            },
             NamedCondition {
                 name: "evidence_signature_invalid",
                 func: cond_evidence_signature_invalid,
             },
-            NamedCondition { name: "secret_scan_failed", func: cond_secret_scan_failed },
-            NamedCondition { name: "secret_scan_missing", func: cond_secret_scan_missing },
-            NamedCondition { name: "sast_failed", func: cond_sast_failed },
-            NamedCondition { name: "dependency_scan_failed", func: cond_dependency_scan_failed },
-            NamedCondition { name: "reviewer_blocked", func: cond_reviewer_blocked },
+            NamedCondition {
+                name: "secret_scan_failed",
+                func: cond_secret_scan_failed,
+            },
+            NamedCondition {
+                name: "secret_scan_missing",
+                func: cond_secret_scan_missing,
+            },
+            NamedCondition {
+                name: "sast_failed",
+                func: cond_sast_failed,
+            },
+            NamedCondition {
+                name: "dependency_scan_failed",
+                func: cond_dependency_scan_failed,
+            },
+            NamedCondition {
+                name: "reviewer_blocked",
+                func: cond_reviewer_blocked,
+            },
             NamedCondition {
                 name: "reviewer_abstained_required",
                 func: cond_reviewer_abstained_required,
             },
-            NamedCondition { name: "lockfile_only_change", func: cond_lockfile_only_change },
+            NamedCondition {
+                name: "lockfile_only_change",
+                func: cond_lockfile_only_change,
+            },
             NamedCondition {
                 name: "prompt_injection_suspected",
                 func: cond_prompt_injection_suspected,
@@ -73,21 +94,42 @@ impl Default for ConditionRegistry {
                 func: cond_snapshot_mass_replacement,
             },
             // Externally supplied (judge / orchestrator injects via external_hard_stops)
-            NamedCondition { name: "sha_drift", func: cond_externally_supplied },
-            NamedCondition { name: "policy_sha_drift", func: cond_externally_supplied },
+            NamedCondition {
+                name: "sha_drift",
+                func: cond_externally_supplied,
+            },
+            NamedCondition {
+                name: "policy_sha_drift",
+                func: cond_externally_supplied,
+            },
             NamedCondition {
                 name: "missing_required_review_role",
                 func: cond_externally_supplied,
             },
-            NamedCondition { name: "missing_evidence_pack", func: cond_externally_supplied },
-            NamedCondition { name: "codeowners_not_satisfied", func: cond_externally_supplied },
-            NamedCondition { name: "freeze_window_active", func: cond_externally_supplied },
-            NamedCondition { name: "budget_exceeded", func: cond_externally_supplied },
+            NamedCondition {
+                name: "missing_evidence_pack",
+                func: cond_externally_supplied,
+            },
+            NamedCondition {
+                name: "codeowners_not_satisfied",
+                func: cond_externally_supplied,
+            },
+            NamedCondition {
+                name: "freeze_window_active",
+                func: cond_externally_supplied,
+            },
+            NamedCondition {
+                name: "budget_exceeded",
+                func: cond_externally_supplied,
+            },
             NamedCondition {
                 name: "training_use_required_but_disallowed",
                 func: cond_externally_supplied,
             },
-            NamedCondition { name: "judge_signature_invalid", func: cond_externally_supplied },
+            NamedCondition {
+                name: "judge_signature_invalid",
+                func: cond_externally_supplied,
+            },
             NamedCondition {
                 name: "changes_security_scanner_config",
                 func: cond_changes_security_scanner_config,
@@ -131,10 +173,22 @@ impl Default for ConditionRegistry {
             // Release-artifact integrity + rollback drill. All four are
             // evaluated by the release pipeline / orchestrator and injected via
             // external_hard_stops.
-            NamedCondition { name: "release_artifact_unsigned", func: cond_externally_supplied },
-            NamedCondition { name: "release_sbom_missing", func: cond_externally_supplied },
-            NamedCondition { name: "release_provenance_missing", func: cond_externally_supplied },
-            NamedCondition { name: "rollback_drill_failed", func: cond_externally_supplied },
+            NamedCondition {
+                name: "release_artifact_unsigned",
+                func: cond_externally_supplied,
+            },
+            NamedCondition {
+                name: "release_sbom_missing",
+                func: cond_externally_supplied,
+            },
+            NamedCondition {
+                name: "release_provenance_missing",
+                func: cond_externally_supplied,
+            },
+            NamedCondition {
+                name: "rollback_drill_failed",
+                func: cond_externally_supplied,
+            },
         ];
         Self { table }
     }
@@ -297,11 +351,18 @@ fn cond_prompt_injection_suspected(
 ) -> Option<HardStop> {
     let hits: Vec<&AgentApprovalReceipt> = receipts
         .iter()
-        .filter(|r| r.findings.iter().any(|f| f.class.starts_with("prompt-injection")))
+        .filter(|r| {
+            r.findings
+                .iter()
+                .any(|f| f.class.starts_with("prompt-injection"))
+        })
         .collect();
     (!hits.is_empty()).then(|| HardStop {
         name: "prompt_injection_suspected".into(),
-        reason: format!("{} reviewer(s) flagged prompt-injection-class finding", hits.len()),
+        reason: format!(
+            "{} reviewer(s) flagged prompt-injection-class finding",
+            hits.len()
+        ),
         details: serde_json::Value::Null,
     })
 }
@@ -319,7 +380,14 @@ fn cond_externally_supplied(_p: &EvidencePack, _r: &[AgentApprovalReceipt]) -> O
 // an LLM.
 
 const TEST_PATH_SUBSTRINGS: &[&str] = &[
-    "/tests/", "/test/", "/__tests__/", "/spec/", ".test.", "_test.", ".spec.", "_spec.",
+    "/tests/",
+    "/test/",
+    "/__tests__/",
+    "/spec/",
+    ".test.",
+    "_test.",
+    ".spec.",
+    "_spec.",
 ];
 
 const SECURITY_SCANNER_CONFIG_PATHS: &[&str] = &[
@@ -417,7 +485,10 @@ fn cond_removes_or_weakens_tests(
     if deletions.is_empty() {
         return None;
     }
-    let total_removed: u32 = deletions.iter().map(|f| f.lines_removed - f.lines_added).sum();
+    let total_removed: u32 = deletions
+        .iter()
+        .map(|f| f.lines_removed - f.lines_added)
+        .sum();
     // Tolerate one small refactor; flag if ≥2 deletion files or ≥20 net lines gone.
     if deletions.len() < 2 && total_removed < 20 {
         return None;
@@ -488,12 +559,15 @@ fn cond_changes_security_scanner_config(
     p: &EvidencePack,
     _r: &[AgentApprovalReceipt],
 ) -> Option<HardStop> {
-    any_path_matches(p, SECURITY_SCANNER_CONFIG_PATHS, SECURITY_SCANNER_PATH_PREFIXES).map(|paths| {
-        HardStop {
-            name: "changes_security_scanner_config".into(),
-            reason: "PR edits security scanner config; require elevated review".into(),
-            details: serde_json::json!({ "paths": paths }),
-        }
+    any_path_matches(
+        p,
+        SECURITY_SCANNER_CONFIG_PATHS,
+        SECURITY_SCANNER_PATH_PREFIXES,
+    )
+    .map(|paths| HardStop {
+        name: "changes_security_scanner_config".into(),
+        reason: "PR edits security scanner config; require elevated review".into(),
+        details: serde_json::json!({ "paths": paths }),
     })
 }
 
@@ -554,12 +628,15 @@ fn cond_lockfile_diff_without_manifest_diff(
         p.changed_files.iter().map(|f| f.path.as_str()).collect();
     let mut orphans: Vec<String> = vec![];
     for (lock, manifest) in LOCKFILE_BY_MANIFEST {
-        let lock_touched = paths.iter().any(|p| *p == *lock || p.ends_with(&format!("/{lock}")));
+        let lock_touched = paths
+            .iter()
+            .any(|p| *p == *lock || p.ends_with(&format!("/{lock}")));
         if !lock_touched {
             continue;
         }
-        let manifest_touched =
-            paths.iter().any(|p| *p == *manifest || p.ends_with(&format!("/{manifest}")));
+        let manifest_touched = paths
+            .iter()
+            .any(|p| *p == *manifest || p.ends_with(&format!("/{manifest}")));
         if !manifest_touched {
             orphans.push(lock.to_string());
         }
@@ -605,7 +682,11 @@ mod tests {
                 skipped: vec![],
                 coverage_delta: None,
             },
-            security: SecuritySection { sast, dependency_scan: dep, secret_scan: sec },
+            security: SecuritySection {
+                sast,
+                dependency_scan: dep,
+                secret_scan: sec,
+            },
             supply_chain: SupplyChainSection::default(),
             rollback: RollbackSection {
                 strategy: RollbackStrategy::RevertCommit,
@@ -647,7 +728,11 @@ mod tests {
     #[test]
     fn unknown_condition_fail_closes() {
         let reg = ConditionRegistry::default();
-        let p = pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         let hits = reg.evaluate(&["does_not_exist".into()], &p, &[]);
         assert_eq!(hits.len(), 1);
         assert!(hits[0].name.starts_with("unknown_condition:"));
@@ -656,7 +741,11 @@ mod tests {
     #[test]
     fn secret_scan_failed_triggers() {
         let reg = ConditionRegistry::default();
-        let p = pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Failed);
+        let p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Failed,
+        );
         let hits = reg.evaluate(&["secret_scan_failed".into()], &p, &[]);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].name, "secret_scan_failed");
@@ -665,15 +754,22 @@ mod tests {
     #[test]
     fn one_blocking_reviewer_is_a_hard_stop() {
         let reg = ConditionRegistry::default();
-        let p = pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         let hits = reg.evaluate(&["reviewer_blocked".into()], &p, &[blocked_receipt()]);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].name, "reviewer_blocked");
     }
 
     fn with_files(paths_and_lines: &[(&str, u32, u32)]) -> EvidencePack {
-        let mut p =
-            pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let mut p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         p.changed_files = paths_and_lines
             .iter()
             .map(|(path, add, rem)| ChangedFile {
@@ -704,14 +800,20 @@ mod tests {
         let reg = ConditionRegistry::default();
         let p = with_files(&[("tests/util_test.rs", 8, 12)]);
         let hits = reg.evaluate(&["removes_or_weakens_tests".into()], &p, &[]);
-        assert!(hits.is_empty(), "small single-file refactor should not fire");
+        assert!(
+            hits.is_empty(),
+            "small single-file refactor should not fire"
+        );
     }
 
     #[test]
     fn coverage_threshold_lowered_fires_on_drop() {
         let reg = ConditionRegistry::default();
-        let mut p =
-            pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let mut p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         p.tests.coverage_delta = Some(-3.5);
         let hits = reg.evaluate(&["coverage_threshold_lowered".into()], &p, &[]);
         assert_eq!(hits.len(), 1);
@@ -793,8 +895,11 @@ mod tests {
     #[test]
     fn introduces_new_external_code_source_fires() {
         let reg = ConditionRegistry::default();
-        let mut p =
-            pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let mut p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         p.supply_chain.external_code_sources = vec!["https://example.com/gist/foo".into()];
         let hits = reg.evaluate(&["introduces_new_external_code_source".into()], &p, &[]);
         assert_eq!(hits.len(), 1);
@@ -836,7 +941,11 @@ mod tests {
     #[test]
     fn wave3_release_conditions_are_externally_supplied() {
         let reg = ConditionRegistry::default();
-        let p = pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         for name in [
             "release_artifact_unsigned",
             "release_sbom_missing",
@@ -844,7 +953,10 @@ mod tests {
             "rollback_drill_failed",
         ] {
             let nc = reg.lookup(name).expect("registered above");
-            assert!((nc.func)(&p, &[]).is_none(), "{name} must be a no-op locally");
+            assert!(
+                (nc.func)(&p, &[]).is_none(),
+                "{name} must be a no-op locally"
+            );
             let hits = reg.evaluate(&[name.to_string()], &p, &[]);
             assert!(hits.is_empty(), "{name} fired unexpectedly: {hits:?}");
         }
@@ -855,7 +967,10 @@ mod tests {
         let reg = ConditionRegistry::default();
         let p = with_files(&[("repo\\Cargo.lock", 20, 5), ("repo\\src\\main.rs", 3, 1)]);
         let hits = reg.evaluate(&["lockfile_diff_without_manifest_diff".into()], &p, &[]);
-        assert!(hits.is_empty(), "backslash paths must not match; got: {hits:?}");
+        assert!(
+            hits.is_empty(),
+            "backslash paths must not match; got: {hits:?}"
+        );
         let win = with_files(&[("repo\\tests\\foo_test.rs", 0, 100)]);
         let _ = reg.evaluate(&["removes_or_weakens_tests".into()], &win, &[]);
     }
@@ -863,7 +978,11 @@ mod tests {
     #[test]
     fn empty_pack_request_list_returns_no_hits() {
         let reg = ConditionRegistry::default();
-        let p = pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         let hits = reg.evaluate(&[], &p, &[]);
         assert!(hits.is_empty(), "empty request must produce zero hits");
     }
@@ -871,18 +990,28 @@ mod tests {
     #[test]
     fn pack_with_all_tests_skipped_does_not_trigger_removes_or_weakens() {
         let reg = ConditionRegistry::default();
-        let mut p =
-            pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let mut p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         p.tests.skipped = (0..50).map(|i| format!("test::skip_{i}")).collect();
         p.tests.targeted.clear();
         let hits = reg.evaluate(&["removes_or_weakens_tests".into()], &p, &[]);
-        assert!(hits.is_empty(), "skipped tests without file deletions must not fire");
+        assert!(
+            hits.is_empty(),
+            "skipped tests without file deletions must not fire"
+        );
     }
 
     #[test]
     fn clean_pack_no_hard_stops() {
         let reg = ConditionRegistry::default();
-        let p = pack_with_security(ScanOutcome::Passed, ScanOutcome::Passed, ScanOutcome::Passed);
+        let p = pack_with_security(
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+            ScanOutcome::Passed,
+        );
         let asked: Vec<String> = reg.names().iter().map(|s| s.to_string()).collect();
         let hits = reg.evaluate(&asked, &p, &[]);
         // evidence_signature_invalid fires because the pack is unsigned here.

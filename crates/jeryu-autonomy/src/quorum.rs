@@ -109,7 +109,10 @@ pub fn evaluate_quorum(
                 "needed {} approvals (roles {:?}); got {}",
                 entry.approvals_needed,
                 entry.roles,
-                counted.iter().filter(|r| matches!(r.decision, ReviewDecision::Pass)).count()
+                counted
+                    .iter()
+                    .filter(|r| matches!(r.decision, ReviewDecision::Pass))
+                    .count()
             ),
         };
     }
@@ -238,7 +241,11 @@ mod tests {
             vec![ReviewerRole::Security, ReviewerRole::TestIntegrity],
             false,
         );
-        let r = vec![receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass)];
+        let r = vec![receipt(
+            ReviewerRole::Security,
+            "sec.v1",
+            ReviewDecision::Pass,
+        )];
         let outcome = evaluate_quorum(RiskTier::R2, &r, &p, None);
         assert_eq!(outcome.decision, QuorumDecision::Insufficient);
         assert!(outcome.missing_roles.contains(&ReviewerRole::TestIntegrity));
@@ -247,7 +254,11 @@ mod tests {
     #[test]
     fn author_self_approval_does_not_count() {
         let p = policy_with_quorum(RiskTier::R1, 1, vec![ReviewerRole::TestIntegrity], false);
-        let mut self_r = receipt(ReviewerRole::TestIntegrity, "builder.author", ReviewDecision::Pass);
+        let mut self_r = receipt(
+            ReviewerRole::TestIntegrity,
+            "builder.author",
+            ReviewDecision::Pass,
+        );
         self_r.not_author = false;
         let outcome = evaluate_quorum(RiskTier::R1, &[self_r], &p, Some("builder.author"));
         assert_eq!(outcome.decision, QuorumDecision::Insufficient);
@@ -278,7 +289,11 @@ mod tests {
     #[test]
     fn author_agent_cannot_self_approve_even_when_not_author_flag_true() {
         let p = policy_with_quorum(RiskTier::R1, 1, vec![ReviewerRole::TestIntegrity], false);
-        let mut r = receipt(ReviewerRole::TestIntegrity, "builder.author", ReviewDecision::Pass);
+        let mut r = receipt(
+            ReviewerRole::TestIntegrity,
+            "builder.author",
+            ReviewDecision::Pass,
+        );
         r.not_author = true;
         let outcome = evaluate_quorum(RiskTier::R1, &[r], &p, Some("builder.author"));
         assert_eq!(

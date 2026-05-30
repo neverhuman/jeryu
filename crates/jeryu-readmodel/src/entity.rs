@@ -206,7 +206,9 @@ impl EntityKind {
             Self::PullRequest => "PR",
             Self::CiRun | Self::CiRunBridge | Self::Stage => "CI",
             Self::Job => "JOB",
-            Self::RunnerPool | Self::RunnerManager | Self::Runner | Self::Pool | Self::Node => "RUN",
+            Self::RunnerPool | Self::RunnerManager | Self::Runner | Self::Pool | Self::Node => {
+                "RUN"
+            }
             Self::CacheObject | Self::CacheRequest | Self::CacheVerdict | Self::CacheTaint => "CAC",
             Self::TestPlan | Self::TestCase | Self::SelectorMiss => "TST",
             Self::Agent | Self::AgentSession | Self::AgentTask | Self::AgentRace => "AGT",

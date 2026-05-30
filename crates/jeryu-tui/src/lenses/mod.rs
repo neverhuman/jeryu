@@ -147,12 +147,8 @@ pub fn draw_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
         LensId::Mission => {
             mission::view::draw(f, &mission::MissionLensInput::from_read_model(model), area)
         }
-        LensId::Queue => {
-            queue::view::draw(f, &queue::QueueLensInput::from_read_model(model), area)
-        }
-        LensId::Repos => {
-            repos::view::draw(f, &repos::ReposLensInput::from_read_model(model), area)
-        }
+        LensId::Queue => queue::view::draw(f, &queue::QueueLensInput::from_read_model(model), area),
+        LensId::Repos => repos::view::draw(f, &repos::ReposLensInput::from_read_model(model), area),
         other => draw_placeholder(f, other, area),
     }
 }
@@ -186,7 +182,11 @@ mod tests {
     fn routes_are_unique() {
         let mut seen = std::collections::HashSet::new();
         for lens in LensId::CORE {
-            assert!(seen.insert(lens.route()), "duplicate route: {}", lens.route());
+            assert!(
+                seen.insert(lens.route()),
+                "duplicate route: {}",
+                lens.route()
+            );
         }
     }
 

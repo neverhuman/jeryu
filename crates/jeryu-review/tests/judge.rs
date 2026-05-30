@@ -8,10 +8,17 @@ use jeryu_review::judge::{JudgeInputs, judge, mint_verdict_id};
 use jeryu_review::policy::PolicyBundle;
 use jeryu_review::schema::{GateDecision, ReviewDecision, ReviewerRole, RiskTier, ScanOutcome};
 
-fn passes(p: &jeryu_review::schema::EvidencePack) -> Vec<jeryu_review::schema::AgentApprovalReceipt> {
+fn passes(
+    p: &jeryu_review::schema::EvidencePack,
+) -> Vec<jeryu_review::schema::AgentApprovalReceipt> {
     vec![
         receipt_for(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, p),
-        receipt_for(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, p),
+        receipt_for(
+            ReviewerRole::TestIntegrity,
+            "test.v1",
+            ReviewDecision::Pass,
+            p,
+        ),
     ]
 }
 
@@ -39,11 +46,21 @@ fn one_block_rejects_via_reviewer_blocked() {
     let p = pack_with(RiskTier::R2, true, ScanOutcome::Passed);
     let r = vec![
         receipt_for(ReviewerRole::Security, "sec.v1", ReviewDecision::Block, &p),
-        receipt_for(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+        receipt_for(
+            ReviewerRole::TestIntegrity,
+            "test.v1",
+            ReviewDecision::Pass,
+            &p,
+        ),
     ];
     let out = judge(JudgeInputs::new(&p, &r, &b, "org/p", "main"));
     assert_eq!(out.verdict.decision, GateDecision::Reject);
-    assert!(out.verdict.hard_stops.iter().any(|n| n == "reviewer_blocked"));
+    assert!(
+        out.verdict
+            .hard_stops
+            .iter()
+            .any(|n| n == "reviewer_blocked")
+    );
 }
 
 #[test]
@@ -53,7 +70,12 @@ fn secret_scan_failed_rejects_with_unanimous_approval() {
     let r = passes(&p);
     let out = judge(JudgeInputs::new(&p, &r, &b, "org/p", "main"));
     assert_eq!(out.verdict.decision, GateDecision::Reject);
-    assert!(out.verdict.hard_stops.iter().any(|n| n == "secret_scan_failed"));
+    assert!(
+        out.verdict
+            .hard_stops
+            .iter()
+            .any(|n| n == "secret_scan_failed")
+    );
 }
 
 #[test]
@@ -62,7 +84,12 @@ fn sha_drift_drops_receipt_and_requires_human() {
     let p = pack_with(RiskTier::R2, true, ScanOutcome::Passed);
     let mut bad = receipt_for(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p);
     bad.head_sha = "d".repeat(40);
-    let good = receipt_for(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p);
+    let good = receipt_for(
+        ReviewerRole::TestIntegrity,
+        "test.v1",
+        ReviewDecision::Pass,
+        &p,
+    );
     let out = judge(JudgeInputs::new(&p, &[bad, good], &b, "org/p", "main"));
     assert_eq!(out.dropped_receipts.len(), 1);
     assert_eq!(out.verdict.decision, GateDecision::RequireHuman);

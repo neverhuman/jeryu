@@ -61,11 +61,7 @@ impl McpCore {
 
     /// Drive one JSON-RPC line through the dispatcher and return the response(s).
     /// Public so integration tests can exercise the stdio path without a real stream.
-    pub async fn handle_line_test(
-        &self,
-        state: &mut McpSessionState,
-        line: &str,
-    ) -> Vec<Value> {
+    pub async fn handle_line_test(&self, state: &mut McpSessionState, line: &str) -> Vec<Value> {
         self.handle_line(state, line).await
     }
 

@@ -275,7 +275,10 @@ mod tests {
             value: "0".repeat(64),
         };
         let err = ledger.append(&e).await.unwrap_err();
-        assert!(err.to_string().contains("sha256-hmac-stub"), "actual: {err}");
+        assert!(
+            err.to_string().contains("sha256-hmac-stub"),
+            "actual: {err}"
+        );
     }
 
     /// Append-only invariant: once a row is written, re-appending the same id
@@ -292,7 +295,10 @@ mod tests {
         ledger.append(&tampered).await.unwrap(); // no-op
         let got = ledger.list(&LedgerFilter::default()).await.unwrap();
         assert_eq!(got.len(), 1);
-        assert_eq!(got[0].actor, "judge.v1", "row must be immutable after append");
+        assert_eq!(
+            got[0].actor, "judge.v1",
+            "row must be immutable after append"
+        );
     }
 
     #[tokio::test]
@@ -338,20 +344,29 @@ mod tests {
     #[tokio::test]
     async fn list_filters_by_kind_and_subject() {
         let ledger = MemoryLedger::new();
-        ledger.append(&signed_entry("a", LedgerKind::VerdictIssued)).await.unwrap();
+        ledger
+            .append(&signed_entry("a", LedgerKind::VerdictIssued))
+            .await
+            .unwrap();
         let mut other = signed_entry("b", LedgerKind::RollbackInitiated);
         other.subject_id = "subj-2".into();
         ledger.append(&other).await.unwrap();
 
         let verdicts = ledger
-            .list(&LedgerFilter { kind: Some(LedgerKind::VerdictIssued), ..Default::default() })
+            .list(&LedgerFilter {
+                kind: Some(LedgerKind::VerdictIssued),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(verdicts.len(), 1);
         assert_eq!(verdicts[0].id, "a");
 
         let subj_2 = ledger
-            .list(&LedgerFilter { subject_id: Some("subj-2".into()), ..Default::default() })
+            .list(&LedgerFilter {
+                subject_id: Some("subj-2".into()),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(subj_2.len(), 1);
@@ -376,7 +391,11 @@ mod tests {
             h.await.expect("task joined");
         }
         let got = ledger.list(&LedgerFilter::default()).await.unwrap();
-        assert_eq!(got.len(), 20, "4 tasks * 5 entries should produce exactly 20 rows");
+        assert_eq!(
+            got.len(),
+            20,
+            "4 tasks * 5 entries should produce exactly 20 rows"
+        );
         let unique: std::collections::HashSet<_> = got.iter().map(|e| e.id.clone()).collect();
         assert_eq!(unique.len(), 20, "no duplicate ids must survive");
     }
@@ -384,9 +403,15 @@ mod tests {
     #[tokio::test]
     async fn list_empty_filter_match_returns_empty_vec() {
         let ledger = MemoryLedger::new();
-        ledger.append(&signed_entry("only-one", LedgerKind::VerdictIssued)).await.unwrap();
+        ledger
+            .append(&signed_entry("only-one", LedgerKind::VerdictIssued))
+            .await
+            .unwrap();
         let got = ledger
-            .list(&LedgerFilter { subject_id: Some("does-not-exist".into()), ..Default::default() })
+            .list(&LedgerFilter {
+                subject_id: Some("does-not-exist".into()),
+                ..Default::default()
+            })
             .await
             .expect("empty result must be Ok");
         assert!(got.is_empty());
@@ -400,12 +425,18 @@ mod tests {
             ledger.append(&e).await.unwrap();
         }
         let none = ledger
-            .list(&LedgerFilter { limit: Some(0), ..Default::default() })
+            .list(&LedgerFilter {
+                limit: Some(0),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(none.len(), 0);
         let one = ledger
-            .list(&LedgerFilter { limit: Some(1), ..Default::default() })
+            .list(&LedgerFilter {
+                limit: Some(1),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(one.len(), 1);
@@ -428,7 +459,10 @@ mod tests {
         let entry = signed_entry("wh-1", LedgerKind::WebhookReceived);
         ledger.append(&entry).await.expect("append webhook entry");
         let got = ledger
-            .list(&LedgerFilter { kind: Some(LedgerKind::WebhookReceived), ..Default::default() })
+            .list(&LedgerFilter {
+                kind: Some(LedgerKind::WebhookReceived),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(got.len(), 1);
@@ -440,7 +474,10 @@ mod tests {
             })
             .await
             .unwrap();
-        assert!(human.is_empty(), "webhook entries must NOT leak into the human-decision stream");
+        assert!(
+            human.is_empty(),
+            "webhook entries must NOT leak into the human-decision stream"
+        );
     }
 
     #[tokio::test]

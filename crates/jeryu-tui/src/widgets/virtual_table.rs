@@ -151,9 +151,18 @@ mod tests {
         let mut term = Terminal::new(backend).unwrap();
         let p = Palette::dark();
         let cols = [
-            Column { title: "ID", width: 8 },
-            Column { title: "Name", width: 24 },
-            Column { title: "State", width: 16 },
+            Column {
+                title: "ID",
+                width: 8,
+            },
+            Column {
+                title: "Name",
+                width: 24,
+            },
+            Column {
+                title: "State",
+                width: 16,
+            },
         ];
         let rows = vec![
             Row::new(vec!["123", "build-main", "running"]),
@@ -178,12 +187,26 @@ mod tests {
         let mut term = Terminal::new(backend).unwrap();
         let p = Palette::dark();
         let cols = [
-            Column { title: "ID", width: 8 },
-            Column { title: "Name", width: 40 },
-            Column { title: "State", width: 20 },
-            Column { title: "Age", width: 10 },
+            Column {
+                title: "ID",
+                width: 8,
+            },
+            Column {
+                title: "Name",
+                width: 40,
+            },
+            Column {
+                title: "State",
+                width: 20,
+            },
+            Column {
+                title: "Age",
+                width: 10,
+            },
         ];
-        let rows: Vec<Row> = (0..20).map(|_| Row::new(vec!["—", "—", "—", "—"])).collect();
+        let rows: Vec<Row> = (0..20)
+            .map(|_| Row::new(vec!["—", "—", "—", "—"]))
+            .collect();
         let props = VirtualTableProps {
             title: "Jobs",
             columns: &cols,

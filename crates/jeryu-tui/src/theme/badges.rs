@@ -190,32 +190,54 @@ mod tests {
 
     #[test]
     fn read_model_risk_tier_maps_to_badge() {
-        assert_eq!(RiskBadge::from(jeryu_readmodel::RiskTier::R2), RiskBadge::R2);
-        assert_eq!(RiskBadge::from(jeryu_readmodel::RiskTier::R5), RiskBadge::R5);
+        assert_eq!(
+            RiskBadge::from(jeryu_readmodel::RiskTier::R2),
+            RiskBadge::R2
+        );
+        assert_eq!(
+            RiskBadge::from(jeryu_readmodel::RiskTier::R5),
+            RiskBadge::R5
+        );
     }
 
     #[test]
     fn every_badge_styles_against_palette() {
         let p = Palette::dark();
         let fresh = [
-            FreshnessBadge::Live, FreshnessBadge::Fresh, FreshnessBadge::Stale,
-            FreshnessBadge::LastKnown, FreshnessBadge::Inferred, FreshnessBadge::Partial,
-            FreshnessBadge::SourceDown, FreshnessBadge::Unknown, FreshnessBadge::NoProof,
-            FreshnessBadge::Unverified, FreshnessBadge::Poll, FreshnessBadge::Fixture,
+            FreshnessBadge::Live,
+            FreshnessBadge::Fresh,
+            FreshnessBadge::Stale,
+            FreshnessBadge::LastKnown,
+            FreshnessBadge::Inferred,
+            FreshnessBadge::Partial,
+            FreshnessBadge::SourceDown,
+            FreshnessBadge::Unknown,
+            FreshnessBadge::NoProof,
+            FreshnessBadge::Unverified,
+            FreshnessBadge::Poll,
+            FreshnessBadge::Fixture,
         ];
         for b in fresh {
             let _ = b.style(&p);
         }
         let proof = [
-            ProofBadge::Meas, ProofBadge::Struct, ProofBadge::Hist,
-            ProofBadge::Heur, ProofBadge::Miss, ProofBadge::Stale,
+            ProofBadge::Meas,
+            ProofBadge::Struct,
+            ProofBadge::Hist,
+            ProofBadge::Heur,
+            ProofBadge::Miss,
+            ProofBadge::Stale,
         ];
         for b in proof {
             let _ = b.style(&p);
         }
         let risk = [
-            RiskBadge::R0, RiskBadge::R1, RiskBadge::R2,
-            RiskBadge::R3, RiskBadge::R4, RiskBadge::R5,
+            RiskBadge::R0,
+            RiskBadge::R1,
+            RiskBadge::R2,
+            RiskBadge::R3,
+            RiskBadge::R4,
+            RiskBadge::R5,
         ];
         for b in risk {
             let _ = b.style(&p);

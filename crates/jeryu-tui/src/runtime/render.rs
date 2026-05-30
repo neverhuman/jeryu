@@ -58,15 +58,34 @@ pub fn draw(f: &mut Frame, app: &App, stream_mode: StreamMode) {
 
     // Status strip
     let hints = [
-        KeyHint { key: "Tab", desc: "next pane" },
-        KeyHint { key: "0-9", desc: "tabs" },
-        KeyHint { key: ":", desc: "cmd" },
-        KeyHint { key: "?", desc: "help" },
-        KeyHint { key: "q", desc: "quit" },
+        KeyHint {
+            key: "Tab",
+            desc: "next pane",
+        },
+        KeyHint {
+            key: "0-9",
+            desc: "tabs",
+        },
+        KeyHint {
+            key: ":",
+            desc: "cmd",
+        },
+        KeyHint {
+            key: "?",
+            desc: "help",
+        },
+        KeyHint {
+            key: "q",
+            desc: "quit",
+        },
     ];
     let strip = StatusStripProps {
         hints: &hints,
-        metrics: FrameMetrics { frame_ms: 0, fps: 60, dropped: 0 },
+        metrics: FrameMetrics {
+            frame_ms: 0,
+            fps: 60,
+            dropped: 0,
+        },
     };
     status_strip::render(f, &strip, rows[2], &palette);
 }

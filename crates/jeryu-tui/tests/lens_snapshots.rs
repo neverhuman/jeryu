@@ -37,7 +37,10 @@ fn mission_lens_renders_posture_attention_and_next_action() {
     assert!(ink.contains("Next Action"), "next-action panel missing");
 
     // Fixture data surfaced: the sample model has a build-web failure + retry.
-    assert!(ink.contains("build-web failing"), "attention item not projected");
+    assert!(
+        ink.contains("build-web failing"),
+        "attention item not projected"
+    );
     assert!(ink.contains("Retry"), "next action label not projected");
     // Sample posture is Warning and not safe to merge.
     assert!(ink.contains("Warning"), "overall posture not projected");
@@ -114,7 +117,10 @@ fn repos_lens_renders_fleet_families_and_detail_from_read_model() {
     // Projected family + repo content.
     assert!(ink.contains("neverhuman"), "family name not projected");
     assert!(ink.contains("core"), "repo alias not projected");
-    assert!(ink.contains(".jeryu/repos.toml"), "registry path not projected");
+    assert!(
+        ink.contains(".jeryu/repos.toml"),
+        "registry path not projected"
+    );
 }
 
 #[test]

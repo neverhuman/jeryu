@@ -280,10 +280,9 @@ impl ToolBackend for StubBackend {
                 "patch proposed",
                 serde_json::json!({ "pr_number": 1, "url": "pr://1" }),
             ),
-            "race_patches" => ToolResponse::ok(
-                "patches racing",
-                serde_json::json!({ "ci_run_ids": [] }),
-            ),
+            "race_patches" => {
+                ToolResponse::ok("patches racing", serde_json::json!({ "ci_run_ids": [] }))
+            }
             "request_merge" => ToolResponse::ok(
                 "enqueued to merge queue",
                 serde_json::json!({ "pr_number": arg("pr_number"), "enqueued": true }),
@@ -300,26 +299,37 @@ impl ToolBackend for StubBackend {
             "bug_list" => {
                 let record = BugStore::list(
                     self,
-                    args.get("project").and_then(Value::as_str).map(String::from),
+                    args.get("project")
+                        .and_then(Value::as_str)
+                        .map(String::from),
                     args.get("status").and_then(Value::as_str).map(String::from),
                     args.get("sort").and_then(Value::as_str).map(String::from),
                 )?;
                 ToolResponse::ok("bugs", record)
             }
             "bug_show" => {
-                let id = args.get("bug_id").and_then(Value::as_str).unwrap_or_default();
+                let id = args
+                    .get("bug_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
                 match self.show(id) {
                     Ok(record) => ToolResponse::ok("bug", record),
                     Err(e) => ToolResponse::error(e.to_string()),
                 }
             }
             "bug_ready" => {
-                let record =
-                    self.ready(args.get("project").and_then(Value::as_str).map(String::from))?;
+                let record = self.ready(
+                    args.get("project")
+                        .and_then(Value::as_str)
+                        .map(String::from),
+                )?;
                 ToolResponse::ok("ready bugs", record)
             }
             "bug_update" => {
-                let id = args.get("bug_id").and_then(Value::as_str).unwrap_or_default();
+                let id = args
+                    .get("bug_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
                 let pick = |k: &str| args.get(k).and_then(Value::as_str).map(String::from);
                 match self.update(
                     id,
@@ -334,7 +344,10 @@ impl ToolBackend for StubBackend {
                 }
             }
             "bug_record_attempt" => {
-                let id = args.get("bug_id").and_then(Value::as_str).unwrap_or_default();
+                let id = args
+                    .get("bug_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
                 match self.record_attempt(id, arg("attempt")) {
                     Ok(record) => ToolResponse::ok("attempt recorded", record),
                     Err(e) => ToolResponse::error(e.to_string()),

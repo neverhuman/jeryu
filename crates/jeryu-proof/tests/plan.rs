@@ -71,7 +71,10 @@ fn plan_owner_set_is_sorted_and_deduplicated() {
         ]))
         .expect("docs and Cargo.toml owned and mapped");
 
-    assert_eq!(plan.owners, vec!["@docs".to_string(), "@phase7".to_string()]);
+    assert_eq!(
+        plan.owners,
+        vec!["@docs".to_string(), "@phase7".to_string()]
+    );
 }
 
 #[test]

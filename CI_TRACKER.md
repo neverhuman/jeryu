@@ -1,51 +1,80 @@
-# CI_TRACKER: Local Confidence Ledger
+# jeryu — Local CI Tracker (confidence ledger)
 
-This file tracks local CI and targeted gates that are added or strengthened while the fused Jeryu workspace is built. PR CI is intentionally not required yet; the working policy is local validation, frequent merges to `main`, and frequent pushes to `git@github.com:neverhuman/jeryu.git`.
+Shared living dashboard of **local** test + gate health (maintained by both agents).
+Working policy: local validation, frequent merges to `main`, frequent pushes to
+`git@github.com:neverhuman/jeryu.git`. **PR-based CI is intentionally not required** —
+we push straight to `main` until this is 100% healthy and done.
 
-## Current Local Gate Set
+Run locally: `bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh` (foundation)
+· `cargo nextest run --workspace` (raw tests). A gate is **PASS / FAIL / PENDING**
+(capability not built yet — never silently green).
 
-| Gate | Scope | Status | Last Known Evidence |
+Identity law: jeryu reads as a self-hosted GitHub-compatible forge. CI is GitHub-Actions +
+native only; zero retired-provider evidence (enforced by the zero-evidence gate).
+
+_Last updated: 2026-05-30 · `cargo nextest run --workspace` = **853 passed / 0 failed**._
+
+## Per-phase gate status (`scripts/ci-phases.sh`)
+
+| Gate | Spec phase | Status | Notes |
 |---|---|---|---|
-| `cargo metadata --format-version 1 --no-deps` | Workspace shape | Passing | Rename checkpoint, 40 packages, one workspace root |
-| `cargo fmt --all --check` | Workspace formatting | Needs refresh | Red on Claude-owned shell/TUI/autonomy/review files as of 2026-05-30T21:25Z |
-| `cargo check --workspace --all-targets` | Workspace compile | Passing | Codex slice 2026-05-30T21:25Z |
-| `cargo test --workspace` | Workspace tests | Passing | 853 tests on Codex slice 2026-05-30T21:25Z |
-| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Workspace lint | Passing at rename checkpoint | Scoped clippy passing for later Codex-owned crates |
-| `scripts/zero-evidence-guard.py .` | Retired-provider/product evidence | Passing | Codex slice 2026-05-30T21:25Z |
-| `scripts/check-docs.py` | Documentation policy | Passing | Rename checkpoint |
-| `scripts/release-gate.py` | Release metadata gate | Passing | Rename checkpoint |
-| `scripts/score-repo.py` | Repository score gate | Passing | Rename checkpoint |
-| `scripts/ci-doctor.sh` | Local CI environment | Passing | Rename checkpoint |
-| `scripts/ci-local.sh` | Local aggregate CI | Passing | Rename checkpoint |
-| `ops/ci/fast.sh` | Fast local gate | Passing | Rename checkpoint |
-| `ops/ci/security.sh` | Security/cache safety gate | Passing | Rename checkpoint |
-| `ops/ci/full.sh` | Full local gate | Passing at rename checkpoint | Needs re-run after shell-crate formatting refresh |
+| foundation | all | **PASS** | fmt + check + clippy(-D warnings) + `test --workspace` + zero-evidence + docs + release-gate + score + ci-doctor |
+| github-conformance | 2 (forge/API) | **PASS** | GitHub REST shape (`jeryu-api`) + GitHub vocabulary asserts (no `iid`/retired terms) |
+| ir-determinism | 3 (CI IR) | **PASS** | identical pipeline ⇒ identical IR hash; DAG validity; trust tiers; policy preservation |
+| proof-gate | 7 (proof/merge) | **PASS** | owner/test-map matching; proof plan; generated-zones; no-proof-no-merge |
+| git-oracle | 1 (Git service) | **PENDING** | in-repo `jeryu-gitd` suite PASS; live differential-vs-stock-git suite needs the running git daemon |
+| runner-sandbox | 4 (runners) | **PENDING** | in-repo runner suites PASS; live seccomp/Landlock/cgroups escape matrix needs the native sandbox runtime |
+| cache-safety | 6 (cache/CAS) | **PENDING** | in-repo cache suites PASS; live poisoning/false-hit harness needs the running cache service |
 
-## Passing Test Growth
+**Totals: PASS=4 · PENDING=3 · FAIL=0** → local CI result OK.
 
-| Checkpoint | Added Confidence | Passing Count |
+## Foundation gate sub-checks (`ops/ci/full.sh`)
+
+| Check | Status |
+|---|---|
+| `cargo metadata` (workspace shape, 42 pkgs, one root) | PASS |
+| `cargo fmt --all -- --check` | PASS _(was red on shell/TUI/autonomy/review files; fixed 2026-05-30)_ |
+| `cargo check --workspace --all-targets` | PASS |
+| `cargo test --workspace` (853) | PASS |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
+| `scripts/{zero-evidence-guard,check-docs,release-gate,score-repo}.py` · `ci-doctor.sh` | PASS |
+
+## Passing test growth
+
+| Checkpoint | Added confidence | Passing |
 |---|---|---:|
-| Foundation cleanup | Initial fused workspace tests | 195 |
-| P14 scheduler leases | Lease/retry/idempotency foundations | 199 |
-| P15 runner bridge | Runner protocol adapter and policy bridge | 215 |
-| Shell foundation merge | MCP/readmodel/bugtracker shell tests | 276 |
-| Shell autonomy/review/TUI merge | Evidence-gate, review quorum, TUI bootstrap tests | 613 |
-| Core coverage merge | Domain, CI IR, proof tests | 835 |
-| Codex-owned core gates | Scheduler, runner, gitd, signrail tests | 842 |
-| Codex fail-closed slice | Cache, scheduler, gitd, signrail behavior tests | 853 |
+| Foundation cleanup | initial fused workspace tests | 195 |
+| P14 scheduler leases | lease/retry/idempotency foundations | 199 |
+| P15 runner bridge | runner protocol adapter + policy bridge | 215 |
+| Shell batch 1 (`43fb400`) | MCP / readmodel / bugtracker | 276 |
+| Shell batch 2 (`5e416b8`) | autonomy / review / TUI | 613 |
+| Core coverage (`764d556`) | domain / CI-IR / proof (+222) | 835 → 842 |
+| Codex fail-closed slice | cache / scheduler / gitd / signrail behavior | 853 |
+| Foundation health (this) | rustfmt + remove test-only unsafe + per-phase CI gate harness | 853 |
 
-## Added Local CI Coverage
+## Test coverage by crate (passing)
 
-| Date UTC | Owner | Area | Passing Gate |
-|---|---|---|---|
-| 2026-05-30T21:18Z | Codex | Scheduler duplicate-job/cycle failure, runner release/agent trust policy edges, protected-ref force/bypass policy, duplicate release provenance digest | Targeted package tests, workspace check/test, scoped clippy, zero-evidence guard |
-| 2026-05-30T21:25Z | Codex | Cache corrupt-CAS/release-lane/agent-write/promotion-denial tests, scheduler run-id and orphaned-lease guards, gitd service-level delete/non-fast-forward protected-ref tests, signrail rollback/signer-identity gates | 61 targeted tests, workspace check, 853 workspace tests, scoped clippy, scoped fmt, zero-evidence guard |
+**Product shell (Claude):** jeryu-autonomy 145 (Evidence-Gate: conditions/judge/quorum/sha-bind/ledger/kill-bell/escalation/auto-rejudge), jeryu-review 105 (multi-reviewer orchestrator + LLM seam + quorum/sha-bind), jeryu-tui 87 (runtime/widgets/theme/focus + mission/queue/repos lenses), jeryu-readmodel 36 (contract types + serde), jeryu-bugtracker 13, jeryu-mcp 12 (stdio+HTTP transport + 16-tool catalog).
 
-## Open Local CI Work
+**Core engine coverage by Claude:** jeryu-core 129 (domain CRUD, PR state machine, branch protection, checks, webhooks), jeryu-ci-ir 63 (deterministic IR hash, DAG validity), jeryu-proof 44 (owner/test-map, generated-zones, no-proof-no-merge).
 
-- Add Claude's phase-gate harness once his claimed `ops/ci/gates/*` and `scripts/ci-phases.sh` work lands.
-- Refresh global formatting after Claude-owned shell-crate formatting is settled, then re-run `ops/ci/full.sh`.
-- Expand git oracle tests toward clone/fetch/push/protected-ref/LFS coverage.
-- Expand runner gates toward sandbox escape, secret isolation, fork denial, and crash/requeue coverage.
-- Expand cache gates toward false-hit, poisoning, cross-project denial, release-hermetic safe-miss, and quarantine promotion boundaries.
-- Expand release gates toward signer identity, rollback metadata, SBOM/provenance, and OIDC fail-closed coverage.
+**Core engine (Codex):** jeryu-gitd, jeryu-rustjet, jeryu-runnerd, jeryu-ci-scheduler, jeryu-cache*, jeryu-signrail, jeryu-runner-*, jeryu-mirror, jeryu-enterprise, jeryu-obs, jeryu-bench, jeryu-tenant, jeryu-phase11-*, jeryu-kernel — the balance of the 853 total (incl. fail-closed gates: scheduler cycle, runner trust, protected-ref force, duplicate provenance).
+
+## Added local CI coverage (log)
+
+| Date UTC | Owner | Area |
+|---|---|---|
+| 2026-05-30 | Codex | scheduler duplicate-job/cycle failure, runner release/agent trust edges, protected-ref force/bypass, duplicate release-provenance digest |
+| 2026-05-30 | Claude | shell crates (mcp/readmodel/bugtracker/autonomy/review/tui) + core coverage (core/ci-ir/proof) + per-phase gate harness (`ops/ci/gates/*`, `scripts/ci-phases.sh`) + GitHub-REST conformance gate |
+
+## Toward 100% healthy / done
+
+- [x] Workspace compiles (edition 2024) + `cargo nextest run --workspace` green (853).
+- [x] foundation gate green (fmt/clippy/zero-evidence/docs/security-scan).
+- [x] github-conformance · ir-determinism · proof-gate PASS.
+- [ ] Lift **git-oracle** PENDING → PASS (live Git daemon + differential-vs-stock suite).
+- [ ] Lift **runner-sandbox** PENDING → PASS (native sandbox runtime + escape matrix).
+- [ ] Lift **cache-safety** PENDING → PASS (live cache service + poisoning harness).
+- [ ] GitHub-correctness defects surfaced by tests: PR `Closed` stickiness; enforce persisted branch-protection fields (CODEOWNERS / linear history / signed commits); CI-IR multi-node cycle detection.
+- [ ] Consolidate duplicated decision core (conditions/quorum/sha-bind/judge) into `jeryu-proof`.
+- [ ] Deepen the thin engine crates; remaining TUI lenses + live backend wiring.

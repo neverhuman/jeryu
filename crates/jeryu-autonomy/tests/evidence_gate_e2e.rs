@@ -8,20 +8,25 @@ use std::sync::Arc;
 
 use chrono::{Duration, Utc};
 use jeryu_autonomy::{
-    AgentApprovalReceipt, ConditionRegistry, EdSigningKey, EscalationConfig, EscalationEvent,
-    EscalationKind, EscalationSink, EvidenceInputs, FixedClock, GateDecision, JudgeInputs, KillBell,
-    LedgerFilter, MemoryLedger, MemoryVerdictStore, PolicyBundle, ReviewDecision, ReviewerRole,
-    RiskTier, RollbackSection, RollbackStrategy, ScanOutcome, SchemaTag, SecuritySection,
-    Signature, SupplyChainSection, TestsSection, VerdictLedger, VerdictStore, WebhookConfig,
-    build_evidence_pack, build_payload, dispatch_all, judge, policy_yaml, replay_subject,
-    sign_entry, verdict_issued_entry, verify_sha_binding, Clock,
+    AgentApprovalReceipt, Clock, ConditionRegistry, EdSigningKey, EscalationConfig,
+    EscalationEvent, EscalationKind, EscalationSink, EvidenceInputs, FixedClock, GateDecision,
+    JudgeInputs, KillBell, LedgerFilter, MemoryLedger, MemoryVerdictStore, PolicyBundle,
+    ReviewDecision, ReviewerRole, RiskTier, RollbackSection, RollbackStrategy, ScanOutcome,
+    SchemaTag, SecuritySection, Signature, SupplyChainSection, TestsSection, VerdictLedger,
+    VerdictStore, WebhookConfig, build_evidence_pack, build_payload, dispatch_all, judge,
+    policy_yaml, replay_subject, sign_entry, verdict_issued_entry, verify_sha_binding,
 };
 
 fn bundle() -> PolicyBundle {
     policy_yaml::fixtures::default_bundle()
 }
 
-fn signed_pack(repo: &str, head: &str, policy: &str, secret_failed: bool) -> jeryu_autonomy::EvidencePack {
+fn signed_pack(
+    repo: &str,
+    head: &str,
+    policy: &str,
+    secret_failed: bool,
+) -> jeryu_autonomy::EvidencePack {
     let base = "b".repeat(40);
     let mut p = build_evidence_pack(EvidenceInputs {
         repo,
@@ -35,21 +40,42 @@ fn signed_pack(repo: &str, head: &str, policy: &str, secret_failed: bool) -> jer
         risk: RiskTier::R2,
         changed_files: vec![],
         claims: vec![],
-        tests: TestsSection { targeted: vec![], full_required: false, skipped: vec![], coverage_delta: None },
+        tests: TestsSection {
+            targeted: vec![],
+            full_required: false,
+            skipped: vec![],
+            coverage_delta: None,
+        },
         security: SecuritySection {
             sast: ScanOutcome::Passed,
             dependency_scan: ScanOutcome::Passed,
-            secret_scan: if secret_failed { ScanOutcome::Failed } else { ScanOutcome::Passed },
+            secret_scan: if secret_failed {
+                ScanOutcome::Failed
+            } else {
+                ScanOutcome::Passed
+            },
         },
         supply_chain: SupplyChainSection::default(),
-        rollback: RollbackSection { strategy: RollbackStrategy::RevertCommit, feature_flag: None, data_migration_reversible: Some(true) },
+        rollback: RollbackSection {
+            strategy: RollbackStrategy::RevertCommit,
+            feature_flag: None,
+            data_migration_reversible: Some(true),
+        },
         gate_receipts: vec![],
     });
-    p.signature = Some(Signature { key_id: "evidence-builder.v1".into(), algo: "ed25519".into(), value: "0".repeat(128) });
+    p.signature = Some(Signature {
+        key_id: "evidence-builder.v1".into(),
+        algo: "ed25519".into(),
+        value: "0".repeat(128),
+    });
     p
 }
 
-fn receipt(role: ReviewerRole, agent: &str, pack: &jeryu_autonomy::EvidencePack) -> AgentApprovalReceipt {
+fn receipt(
+    role: ReviewerRole,
+    agent: &str,
+    pack: &jeryu_autonomy::EvidencePack,
+) -> AgentApprovalReceipt {
     AgentApprovalReceipt {
         schema: SchemaTag::new(),
         id: format!("aar_{agent}"),
@@ -141,8 +167,17 @@ async fn hard_stop_veto_beats_unanimous_approval() {
         author_agent: Some("builder.x"),
         external_hard_stops: &[],
     });
-    assert_eq!(out.verdict.decision, GateDecision::Reject, "veto > approval");
-    assert!(out.verdict.hard_stops.iter().any(|n| n == "secret_scan_failed"));
+    assert_eq!(
+        out.verdict.decision,
+        GateDecision::Reject,
+        "veto > approval"
+    );
+    assert!(
+        out.verdict
+            .hard_stops
+            .iter()
+            .any(|n| n == "secret_scan_failed")
+    );
 
     // And the registry itself reports the same hard stop directly.
     let reg = ConditionRegistry::default();
@@ -158,16 +193,24 @@ async fn kill_bell_downgrades_allow_merge_to_require_human() {
     let key = EdSigningKey::generate("operator.alice");
 
     // Engage the bell.
-    bell.pause("incident", "alice", 3600, &key, clock.now()).await.unwrap();
+    bell.pause("incident", "alice", 3600, &key, clock.now())
+        .await
+        .unwrap();
 
     // A would-be AllowMerge downgrades while paused.
-    let (decision, why) = bell.downgrade_if_paused(GateDecision::AllowMerge, clock.now()).await.unwrap();
+    let (decision, why) = bell
+        .downgrade_if_paused(GateDecision::AllowMerge, clock.now())
+        .await
+        .unwrap();
     assert_eq!(decision, GateDecision::RequireHuman);
     assert!(why.unwrap().contains("incident"));
 
     // The pause left a signed KillBellEngaged ledger entry.
     let entries = ledger
-        .list(&LedgerFilter { kind: Some(jeryu_autonomy::LedgerKind::KillBellEngaged), ..Default::default() })
+        .list(&LedgerFilter {
+            kind: Some(jeryu_autonomy::LedgerKind::KillBellEngaged),
+            ..Default::default()
+        })
         .await
         .unwrap();
     assert_eq!(entries.len(), 1);
@@ -175,8 +218,15 @@ async fn kill_bell_downgrades_allow_merge_to_require_human() {
 
     // After the TTL elapses, the bell auto-arms and decisions pass through.
     clock.advance(Duration::seconds(3601));
-    let (decision, why) = bell.downgrade_if_paused(GateDecision::AllowMerge, clock.now()).await.unwrap();
-    assert_eq!(decision, GateDecision::AllowMerge, "TTL auto-arm releases the pause");
+    let (decision, why) = bell
+        .downgrade_if_paused(GateDecision::AllowMerge, clock.now())
+        .await
+        .unwrap();
+    assert_eq!(
+        decision,
+        GateDecision::AllowMerge,
+        "TTL auto-arm releases the pause"
+    );
     assert!(why.is_none());
 }
 
@@ -209,16 +259,32 @@ async fn require_human_escalates_to_all_webhooks() {
     let out = judge(JudgeInputs::new(&pack, &[], &policy, "owner/repo", "main"));
     assert_eq!(out.verdict.decision, GateDecision::RequireHuman);
 
-    let event = EscalationEvent::RequireHuman { verdict: Box::new(out.verdict) };
+    let event = EscalationEvent::RequireHuman {
+        verdict: Box::new(out.verdict),
+    };
     let cfg = EscalationConfig {
         enabled: true,
         on_events: vec!["require_human".into()],
         webhooks: vec![
-            WebhookConfig { kind: EscalationKind::Slack, url_secret_name: "SLACK".into(), channel: None, severity: None, headers: Default::default() },
-            WebhookConfig { kind: EscalationKind::GenericJson, url_secret_name: "GEN".into(), channel: None, severity: None, headers: Default::default() },
+            WebhookConfig {
+                kind: EscalationKind::Slack,
+                url_secret_name: "SLACK".into(),
+                channel: None,
+                severity: None,
+                headers: Default::default(),
+            },
+            WebhookConfig {
+                kind: EscalationKind::GenericJson,
+                url_secret_name: "GEN".into(),
+                channel: None,
+                severity: None,
+                headers: Default::default(),
+            },
         ],
     };
-    let sink = CountingSink { calls: Mutex::new(0) };
+    let sink = CountingSink {
+        calls: Mutex::new(0),
+    };
     let results = dispatch_all(&cfg, &event, &sink).await;
     assert_eq!(results.len(), 2);
     assert!(results.iter().all(|r| r.error.is_none()));

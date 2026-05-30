@@ -47,7 +47,10 @@ fn wire_shape_has_no_provider_named_fields() {
         assert!(!lowered.contains(needle), "found forbidden literal on wire");
     }
     // Provider-neutral source-control field is present.
-    assert!(json.contains("\"scm\""), "expected scm component on the wire");
+    assert!(
+        json.contains("\"scm\""),
+        "expected scm component on the wire"
+    );
 }
 
 #[test]
