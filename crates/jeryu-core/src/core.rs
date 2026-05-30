@@ -6,7 +6,10 @@ use parking_lot::RwLock;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::branch_protection::{BranchProtectionEvaluation, evaluate_branch_protection};
+use crate::branch_protection::{
+    BranchProtectionEvaluation, EvaluationContext, RefOperation, RefOperationEvaluation,
+    evaluate_branch_protection_with, evaluate_ref_operation,
+};
 use crate::errors::{ForgeError, Result};
 use crate::model::*;
 use crate::webhooks::{event_payload, should_deliver, sign_webhook_payload};
@@ -30,6 +33,7 @@ struct State {
     reviews: HashMap<(String, String, u64), Vec<Review>>,
     review_comments: HashMap<(String, String, u64), Vec<ReviewComment>>,
     branch_protections: HashMap<(String, String, String), BranchProtectionRule>,
+    codeowners: HashMap<(String, String), String>,
     statuses: HashMap<(String, String, String), Vec<CommitStatus>>,
     check_runs: HashMap<(String, String), Vec<CheckRun>>,
     webhooks: HashMap<(String, String), Vec<Webhook>>,
@@ -504,6 +508,8 @@ impl ForgeCore {
             merged: false,
             merged_at: None,
             merge_commit_sha: None,
+            commits: request.commits,
+            changed_files: request.changed_files,
             created_at: now,
             updated_at: now,
         };
@@ -597,6 +603,12 @@ impl ForgeCore {
         if let Some(state_update) = request.state {
             pr.state = state_update;
             pr.draft = pr.state == PullRequestState::Draft;
+        }
+        if let Some(commits) = request.commits {
+            pr.commits = commits;
+        }
+        if let Some(changed_files) = request.changed_files {
+            pr.changed_files = changed_files;
         }
         pr.updated_at = Utc::now();
         let mut updated = pr.clone();
@@ -763,6 +775,27 @@ impl ForgeCore {
             })
     }
 
+    /// Stores the repository's CODEOWNERS file contents. Used by branch
+    /// protection to require code-owner approval of changed paths.
+    pub fn set_codeowners(&self, owner: &str, repo: &str, contents: &str) -> Result<()> {
+        self.ensure_repo_exists(owner, repo)?;
+        self.state
+            .write()
+            .codeowners
+            .insert((owner.to_string(), repo.to_string()), contents.to_string());
+        Ok(())
+    }
+
+    pub fn get_codeowners(&self, owner: &str, repo: &str) -> Result<String> {
+        self.ensure_repo_exists(owner, repo)?;
+        self.state
+            .read()
+            .codeowners
+            .get(&(owner.to_string(), repo.to_string()))
+            .cloned()
+            .ok_or_else(|| ForgeError::NotFound(format!("CODEOWNERS {owner}/{repo}")))
+    }
+
     pub fn evaluate_pull_request(
         &self,
         owner: &str,
@@ -776,6 +809,79 @@ impl ForgeCore {
             .get(&(owner.to_string(), repo.to_string(), number))
             .ok_or_else(|| ForgeError::NotFound(format!("pull request {owner}/{repo}#{number}")))?;
         Ok(evaluate_locked(&state, pr, sha))
+    }
+
+    /// Evaluates a force-push or branch-deletion against the branch's
+    /// protection rule. `actor_is_admin` lets an admin bypass when the rule's
+    /// `enforce_admins` is off (GitHub's "Include administrators" toggle).
+    pub fn evaluate_ref_operation(
+        &self,
+        owner: &str,
+        repo: &str,
+        branch: &str,
+        operation: RefOperation,
+        actor_is_admin: bool,
+    ) -> Result<RefOperationEvaluation> {
+        self.ensure_repo_exists(owner, repo)?;
+        let state = self.state.read();
+        let protection = state.branch_protections.get(&(
+            owner.to_string(),
+            repo.to_string(),
+            branch.to_string(),
+        ));
+        Ok(evaluate_ref_operation(
+            operation,
+            protection,
+            EvaluationContext {
+                codeowners: None,
+                actor_is_admin,
+            },
+        ))
+    }
+
+    /// Attempts to force-push the branch, honoring `allow_force_pushes`.
+    pub fn force_push(
+        &self,
+        owner: &str,
+        repo: &str,
+        branch: &str,
+        actor_is_admin: bool,
+    ) -> Result<()> {
+        let evaluation = self.evaluate_ref_operation(
+            owner,
+            repo,
+            branch,
+            RefOperation::ForcePush,
+            actor_is_admin,
+        )?;
+        if evaluation.allowed {
+            Ok(())
+        } else {
+            Err(ForgeError::BranchProtection(format!(
+                "{:?}",
+                evaluation.blockers
+            )))
+        }
+    }
+
+    /// Attempts to delete the branch ref, honoring `allow_deletions`.
+    pub fn delete_ref(
+        &self,
+        owner: &str,
+        repo: &str,
+        branch: &str,
+        actor_is_admin: bool,
+    ) -> Result<()> {
+        let evaluation =
+            self.evaluate_ref_operation(owner, repo, branch, RefOperation::Delete, actor_is_admin)?;
+        if evaluation.allowed {
+            Ok(())
+        } else {
+            Err(ForgeError::BranchProtection(format!(
+                "{:?}",
+                evaluation.blockers
+            )))
+        }
     }
 
     pub fn merge_pull_request(
@@ -1191,20 +1297,38 @@ fn evaluate_locked(
         .into_iter()
         .filter(|check| check.head_sha == pr.head.sha)
         .collect::<Vec<_>>();
-    evaluate_branch_protection(
+    let codeowners = state.codeowners.get(&(pr.owner.clone(), pr.repo.clone()));
+    let context = EvaluationContext {
+        codeowners: codeowners.map(String::as_str),
+        actor_is_admin: false,
+    };
+    evaluate_branch_protection_with(
         pr,
         protection,
         &reviews,
         &statuses,
         &check_runs,
         requested_sha,
+        context,
     )
 }
 
 fn apply_evaluation(pr: &mut PullRequest, evaluation: BranchProtectionEvaluation) {
-    if pr.merged {
+    // Terminal states are sticky. GitHub never resurrects a Merged or Closed PR
+    // by recomputing mergeability on read: a merged PR stays merged, and a
+    // closed PR stays closed until it is explicitly reopened. Previously only
+    // `merged` was sticky, so a Closed PR with no blocking protection was
+    // silently reverted to Mergeable on the next read (pinned by the former
+    // `closing_a_mergeable_pr_does_not_stick`). This is the deliberate
+    // correctness fix.
+    if pr.merged || pr.state == PullRequestState::Merged {
         pr.mergeable = false;
         pr.mergeable_state = "merged".to_string();
+        return;
+    }
+    if pr.state == PullRequestState::Closed {
+        pr.mergeable = false;
+        pr.mergeable_state = "closed".to_string();
         return;
     }
     pr.mergeable = evaluation.mergeable;
@@ -1213,7 +1337,7 @@ fn apply_evaluation(pr: &mut PullRequest, evaluation: BranchProtectionEvaluation
         pr.state = PullRequestState::Draft;
     } else if evaluation.mergeable {
         pr.state = PullRequestState::Mergeable;
-    } else if pr.state != PullRequestState::Closed {
+    } else {
         pr.state = PullRequestState::BlockedByChecks;
     }
 }
@@ -1361,6 +1485,8 @@ mod tests {
                     head_sha: Some("abc".to_string()),
                     base_sha: None,
                     draft: false,
+                    commits: Vec::new(),
+                    changed_files: Vec::new(),
                 },
             )
             .unwrap();
@@ -1442,6 +1568,8 @@ mod tests {
                     head_sha: Some("abc".to_string()),
                     base_sha: None,
                     draft: false,
+                    commits: Vec::new(),
+                    changed_files: Vec::new(),
                 },
             )
             .unwrap();

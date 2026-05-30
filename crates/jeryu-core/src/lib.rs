@@ -14,7 +14,10 @@ pub mod phase7;
 mod receipt;
 mod webhooks;
 
-pub use crate::branch_protection::{BranchProtectionEvaluation, MergeBlocker};
+pub use crate::branch_protection::{
+    BranchProtectionEvaluation, EvaluationContext, MergeBlocker, RefOperation, RefOperationBlocker,
+    RefOperationEvaluation,
+};
 pub use crate::core::ForgeCore;
 pub use crate::error::{JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};
