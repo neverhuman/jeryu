@@ -9,6 +9,9 @@ use crate::state::TrackedPipeline;
 mod types;
 pub(crate) use types::{PipelineHookPayload, handle_pipeline_event_from_body};
 
+#[path = "engine_webhook_fast_track.rs"]
+mod fast_track_hook;
+
 pub(crate) async fn handle_pipeline_event(state: SharedState, payload: PipelineHookPayload) {
     if let Some(attrs) = payload.object_attributes {
         info!(
@@ -34,6 +37,20 @@ pub(crate) async fn handle_pipeline_event(state: SharedState, payload: PipelineH
                     updated_at: chrono::Utc::now().to_rfc3339(),
                 })
                 .await;
+
+            // Fast-track MR pipelines: when a pipeline re-runs after a failure,
+            // cancel the jobs that already passed so runners aren't re-burned;
+            // the full pipeline still runs post-merge on main as the backstop.
+            if matches!(status.as_str(), "pending" | "running") {
+                fast_track_hook::apply_fast_track(
+                    &state,
+                    project_id,
+                    &ref_name,
+                    pipeline_id,
+                    &sha,
+                )
+                .await;
+            }
 
             if ref_name == "main" && status == "success" {
                 if let Ok(Some(attempt)) = state
