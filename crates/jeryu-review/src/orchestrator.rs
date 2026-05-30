@@ -267,7 +267,7 @@ impl ReviewerOrchestrator for ProductionReviewerOrchestrator {
                 });
 
                 // 4. Ensure the receipt is signed with the real ed25519 key.
-                if receipt.signature.algo == "stub" {
+                if receipt.signature.algo == "unsigned" {
                     receipt.signature = sign_canonical(&receipt, &signing_key);
                 }
 
@@ -455,7 +455,7 @@ fn synth_abstain(
         not_author: true,
         tokens: TokenCounts::default(),
         created_at: Utc::now(),
-        signature: Signature::default_unsigned(),
+        signature: Signature::unsigned(),
     };
     r.signature = sign_canonical(&r, signing_key);
     r
@@ -465,7 +465,7 @@ fn synth_abstain(
 /// itself, which would be circular).
 fn sign_canonical(r: &AgentApprovalReceipt, key: &EdSigningKey) -> Signature {
     let mut clone = r.clone();
-    clone.signature = Signature::default_unsigned();
+    clone.signature = Signature::unsigned();
     let body = serde_json::to_string(&clone)
         .expect("AgentApprovalReceipt JSON serialization is infallible");
     key.sign_raw(body.as_bytes())
@@ -498,7 +498,7 @@ fn default_pass_receipt(
         not_author: true,
         tokens: TokenCounts::default(),
         created_at: Utc::now(),
-        signature: Signature::default_unsigned(),
+        signature: Signature::unsigned(),
     }
 }
 
@@ -529,6 +529,6 @@ fn default_abstain_receipt(
         not_author: true,
         tokens: TokenCounts::default(),
         created_at: Utc::now(),
-        signature: Signature::default_unsigned(),
+        signature: Signature::unsigned(),
     }
 }

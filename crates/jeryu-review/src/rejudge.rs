@@ -138,7 +138,7 @@ mod tests {
             rebind_on_train: true,
             expires_at: now + Duration::minutes(60),
             created_at: now,
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 

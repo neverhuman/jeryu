@@ -150,14 +150,16 @@ fn cond_evidence_signature_invalid(
     match &p.signature {
         // Real ed25519 is accepted (the verifier path cross-checks elsewhere).
         Some(s) if s.algo == "ed25519" => None,
-        Some(s) if s.algo == "stub" => Some(HardStop {
+        Some(s) if s.algo == "unsigned" => Some(HardStop {
             name: "evidence_signature_invalid".into(),
-            reason: "evidence pack signed with 'stub' algo; not acceptable in enforcement".into(),
+            reason: "evidence pack is unsigned (algo: 'unsigned'); not acceptable in enforcement"
+                .into(),
             details: serde_json::json!({ "algo": s.algo }),
         }),
-        Some(s) if s.algo == "sha256-hmac-stub" => Some(HardStop {
+        Some(s) if s.algo == "hmac-insecure" => Some(HardStop {
             name: "evidence_signature_invalid".into(),
-            reason: "evidence pack signed with HMAC stub; ed25519 required in enforcement".into(),
+            reason: "evidence pack signed with insecure HMAC; ed25519 required in enforcement"
+                .into(),
             details: serde_json::json!({ "algo": s.algo }),
         }),
         Some(s) => Some(HardStop {

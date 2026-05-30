@@ -270,7 +270,7 @@ async fn abstain_receipt_for_role_signature_is_valid_ed25519() {
     let r = &out[0];
     assert_eq!(r.signature.algo, "ed25519");
     let mut clone = r.clone();
-    clone.signature = Signature::stub();
+    clone.signature = Signature::unsigned();
     let body = serde_json::to_string(&clone).unwrap();
     assert!(
         verifier.verify(body.as_bytes(), &r.signature),

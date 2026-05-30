@@ -1,6 +1,6 @@
 //! Reviewer family: the shared dispatch flow ([`runner`]), the per-role
 //! reviewers, and the [`Reviewer`] trait seam that lets the orchestrator drive
-//! an LLM-backed reviewer or a deterministic stub interchangeably.
+//! an LLM-backed reviewer or a deterministic reviewer interchangeably.
 
 pub mod lockfile;
 pub mod nightwatch;
@@ -25,7 +25,7 @@ pub struct ReviewContext<'a> {
 }
 
 /// A reviewer produces one structured receipt per call. LLM calls live behind
-/// this seam; a deterministic [`StubReviewer`] stands in for tests.
+/// this seam; a [`DeterministicReviewer`] stands in for tests.
 ///
 /// The contract: on its own internal failure a reviewer SHOULD return an
 /// `Abstain` receipt rather than erroring, so one reviewer never aborts the
@@ -40,10 +40,10 @@ pub trait Reviewer: Send + Sync {
 }
 
 #[cfg(test)]
-pub use stub::StubReviewer;
+pub use deterministic::DeterministicReviewer;
 
 #[cfg(test)]
-mod stub {
+mod deterministic {
     use super::*;
     use crate::schema::{ReviewDecision, SchemaTag, TokenCounts};
     use crate::signing::Signature;
@@ -51,28 +51,28 @@ mod stub {
 
     /// Deterministic reviewer for tests: returns a fixed decision and binds the
     /// receipt to the pack's `(id, head_sha, policy_sha)` tuple.
-    pub struct StubReviewer {
+    pub struct DeterministicReviewer {
         pub decision: ReviewDecision,
         pub reason: String,
     }
 
-    impl StubReviewer {
+    impl DeterministicReviewer {
         pub fn passing() -> Self {
             Self {
                 decision: ReviewDecision::Pass,
-                reason: "stub pass".into(),
+                reason: "deterministic pass".into(),
             }
         }
         pub fn blocking() -> Self {
             Self {
                 decision: ReviewDecision::Block,
-                reason: "stub block".into(),
+                reason: "deterministic block".into(),
             }
         }
     }
 
     #[async_trait]
-    impl Reviewer for StubReviewer {
+    impl Reviewer for DeterministicReviewer {
         async fn review(
             &self,
             ctx: &ReviewContext<'_>,
@@ -80,13 +80,13 @@ mod stub {
             let prompt_hash = crate::prompt_builder::prompt_sha(ctx.system_prompt_markdown);
             Ok(AgentApprovalReceipt {
                 schema: SchemaTag::new(),
-                id: format!("aar_stub_{:?}", ctx.role),
+                id: format!("aar_deterministic_{:?}", ctx.role),
                 evidence_pack_id: ctx.pack.id.clone(),
                 role: ctx.role,
-                agent_id: format!("reviewer-{:?}.stub", ctx.role).to_ascii_lowercase(),
+                agent_id: format!("reviewer-{:?}.deterministic", ctx.role).to_ascii_lowercase(),
                 prompt_sha: Some(prompt_hash),
-                provider: Some("stub".into()),
-                model: Some("stub-model".into()),
+                provider: Some("deterministic".into()),
+                model: Some("deterministic-model".into()),
                 temperature: Some(0.0),
                 seed: None,
                 raw_response_sha: Some(format!("sha256:{}", "0".repeat(64))),
@@ -98,7 +98,7 @@ mod stub {
                 not_author: true,
                 tokens: TokenCounts::default(),
                 created_at: Utc::now(),
-                signature: Signature::stub(),
+                signature: Signature::unsigned(),
             })
         }
     }

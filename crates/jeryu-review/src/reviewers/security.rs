@@ -71,7 +71,7 @@ mod tests {
         ) -> Result<CallResponse, LlmError> {
             Ok(CallResponse {
                 provider: self.id.clone(),
-                model: "stub-model".into(),
+                model: "deterministic-model".into(),
                 content: self.payload.clone(),
                 prompt_tokens: Some(10),
                 completion_tokens: Some(5),

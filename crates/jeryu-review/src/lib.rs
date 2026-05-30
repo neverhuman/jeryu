@@ -20,8 +20,8 @@
 //! stand in for the external systems (LLM client, reviewer engine); the wire
 //! schema, signing primitives, conditions registry, and policy bundle are
 //! hosted here until the autonomy/proof port absorbs them. A real impl wires
-//! the forge PR / proof receipts / store later; deterministic stubs ship for
-//! tests.
+//! the forge PR / proof receipts / store later; deterministic in-memory
+//! implementations ship for tests.
 
 pub mod approval;
 pub mod conditions;
