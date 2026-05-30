@@ -200,10 +200,8 @@ mod tests {
 
     #[test]
     fn repos_snapshot_round_trips_json() {
-        let snapshot = ReposSnapshot::from_repo_summaries(
-            "/reg",
-            vec![RepoSummary::new("web", "core/web")],
-        );
+        let snapshot =
+            ReposSnapshot::from_repo_summaries("/reg", vec![RepoSummary::new("web", "core/web")]);
         let encoded = serde_json::to_string(&snapshot).unwrap();
         let decoded: ReposSnapshot = serde_json::from_str(&encoded).unwrap();
         assert_eq!(decoded, snapshot);

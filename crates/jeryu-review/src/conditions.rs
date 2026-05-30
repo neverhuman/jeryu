@@ -254,8 +254,8 @@ fn cond_externally_supplied(_p: &EvidencePack, _r: &[AgentApprovalReceipt]) -> O
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{pack_with, receipt_for};
     use crate::schema::ReviewerRole;
+    use crate::test_support::{pack_with, receipt_for};
 
     #[test]
     fn unknown_condition_fails_closed() {

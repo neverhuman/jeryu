@@ -131,8 +131,18 @@ mod tests {
             intent_id: None,
             risk: RiskTier::R2,
             changed_files: vec![
-                ChangedFile { path: "z.rs".into(), risk_tags: vec![], lines_added: 1, lines_removed: 0 },
-                ChangedFile { path: "a.rs".into(), risk_tags: vec![], lines_added: 1, lines_removed: 0 },
+                ChangedFile {
+                    path: "z.rs".into(),
+                    risk_tags: vec![],
+                    lines_added: 1,
+                    lines_removed: 0,
+                },
+                ChangedFile {
+                    path: "a.rs".into(),
+                    risk_tags: vec![],
+                    lines_added: 1,
+                    lines_removed: 0,
+                },
             ],
             claims: vec!["fix bug".into()],
             tests: TestsSection {

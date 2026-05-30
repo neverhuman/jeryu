@@ -886,7 +886,13 @@ mod tests {
 
     #[test]
     fn permits_happy_path() {
-        let l = lease_for("builder.v1", &["pr.create", "evidence.write"], &[], &[], 3600);
+        let l = lease_for(
+            "builder.v1",
+            &["pr.create", "evidence.write"],
+            &[],
+            &[],
+            3600,
+        );
         assert!(
             l.permits("pr.create", "builder.v1", &["src/foo.rs"], now())
                 .is_ok()
@@ -956,7 +962,13 @@ mod tests {
 
     #[test]
     fn permits_allows_paths_not_in_denied_list() {
-        let l = lease_for("builder.v1", &["pr.create"], &[], &[".jeryu/autonomy/**"], 3600);
+        let l = lease_for(
+            "builder.v1",
+            &["pr.create"],
+            &[],
+            &[".jeryu/autonomy/**"],
+            3600,
+        );
         assert!(
             l.permits("pr.create", "builder.v1", &["src/main.rs"], now())
                 .is_ok()

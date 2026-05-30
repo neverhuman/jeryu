@@ -39,10 +39,7 @@ pub trait BugStore {
     ) -> impl std::future::Future<Output = Result<BugProject>> + Send;
 
     /// Fetch a single project by alias.
-    fn project(
-        &self,
-        alias: &str,
-    ) -> impl std::future::Future<Output = Result<BugProject>> + Send;
+    fn project(&self, alias: &str) -> impl std::future::Future<Output = Result<BugProject>> + Send;
 
     /// All projects, sorted by alias.
     fn list_projects(&self) -> impl std::future::Future<Output = Result<Vec<BugProject>>> + Send;
@@ -71,10 +68,8 @@ pub trait BugStore {
     ) -> impl std::future::Future<Output = Result<Vec<BugRecord>>> + Send;
 
     /// A single bug with its events and attempt history.
-    fn show_bug(
-        &self,
-        bug_id: &str,
-    ) -> impl std::future::Future<Output = Result<BugDetail>> + Send;
+    fn show_bug(&self, bug_id: &str)
+    -> impl std::future::Future<Output = Result<BugDetail>> + Send;
 
     /// Triage update; enforces `validate_transition` (terminal bugs cannot reopen).
     #[allow(clippy::too_many_arguments)] // CLI/MCP triage surface is intentionally flat.
@@ -147,8 +142,11 @@ impl InMemoryBugStore {
     }
 
     fn attach_attempt_counts_locked(state: &State, bug: &mut BugRecord) {
-        let attempts: Vec<&BugAttempt> =
-            state.attempts.iter().filter(|a| a.bug_id == bug.id).collect();
+        let attempts: Vec<&BugAttempt> = state
+            .attempts
+            .iter()
+            .filter(|a| a.bug_id == bug.id)
+            .collect();
         bug.attempt_count = attempts.len() as i64;
         bug.failed_attempt_count = attempts
             .iter()
@@ -292,11 +290,19 @@ impl BugStore for InMemoryBugStore {
             .cloned()
             .with_context(|| format!("load bug {bug_id}"))?;
         Self::attach_attempt_counts_locked(&state, &mut bug);
-        let mut events: Vec<BugEvent> =
-            state.events.iter().filter(|e| e.bug_id == bug_id).cloned().collect();
+        let mut events: Vec<BugEvent> = state
+            .events
+            .iter()
+            .filter(|e| e.bug_id == bug_id)
+            .cloned()
+            .collect();
         events.sort_by_key(|e| e.id);
-        let mut attempts: Vec<BugAttempt> =
-            state.attempts.iter().filter(|a| a.bug_id == bug_id).cloned().collect();
+        let mut attempts: Vec<BugAttempt> = state
+            .attempts
+            .iter()
+            .filter(|a| a.bug_id == bug_id)
+            .cloned()
+            .collect();
         attempts.sort_by_key(|a| a.id);
         Ok(BugDetail {
             bug,
@@ -325,7 +331,9 @@ impl BugStore for InMemoryBugStore {
         validate_transition(before.status, next_status)?;
         let next_severity = severity.unwrap_or(before.severity);
         let next_priority = priority.unwrap_or(before.priority);
-        let next_component = component.map(ToString::to_string).or(before.component.clone());
+        let next_component = component
+            .map(ToString::to_string)
+            .or(before.component.clone());
         let next_owner = owner.map(ToString::to_string).or(before.owner.clone());
         let now = Utc::now().to_rfc3339();
         {

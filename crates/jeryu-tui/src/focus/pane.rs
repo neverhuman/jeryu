@@ -322,7 +322,11 @@ mod tests {
     fn default_pane_belongs_to_its_tab() {
         for tab in ActiveTab::ALL {
             let pane = PaneId::default_for_tab(*tab);
-            assert_eq!(pane.tab(), *tab, "default pane for {tab:?} must report that tab");
+            assert_eq!(
+                pane.tab(),
+                *tab,
+                "default pane for {tab:?} must report that tab"
+            );
         }
     }
 

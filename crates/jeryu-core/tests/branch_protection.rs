@@ -85,7 +85,9 @@ fn set_and_get_branch_protection_roundtrips() {
     assert!(!rule.allow_force_pushes);
     assert!(!rule.allow_deletions);
 
-    let fetched = core.get_branch_protection("alice", "jeryu", "main").unwrap();
+    let fetched = core
+        .get_branch_protection("alice", "jeryu", "main")
+        .unwrap();
     assert_eq!(fetched, rule);
 }
 
@@ -102,7 +104,12 @@ fn get_branch_protection_missing_is_not_found() {
 fn set_branch_protection_on_missing_repo_is_not_found() {
     let core = ForgeCore::new();
     let err = core
-        .set_branch_protection("nobody", "void", "main", SetBranchProtectionRequest::default())
+        .set_branch_protection(
+            "nobody",
+            "void",
+            "main",
+            SetBranchProtectionRequest::default(),
+        )
         .unwrap_err();
     assert!(matches!(err, ForgeError::NotFound(_)));
 }
@@ -111,7 +118,12 @@ fn set_branch_protection_on_missing_repo_is_not_found() {
 fn empty_protected_branch_name_is_rejected() {
     let core = core_with_repo();
     let err = core
-        .set_branch_protection("alice", "jeryu", "  ", SetBranchProtectionRequest::default())
+        .set_branch_protection(
+            "alice",
+            "jeryu",
+            "  ",
+            SetBranchProtectionRequest::default(),
+        )
         .unwrap_err();
     assert!(matches!(err, ForgeError::Validation(_)));
 }
@@ -360,10 +372,11 @@ fn jankurai_proof_required_blocks_until_proof_succeeds() {
 
     let e = eval(&core, number);
     assert!(!e.mergeable);
-    assert!(e
-        .blockers
-        .iter()
-        .any(|b| matches!(b, MergeBlocker::JankuraiProofRequired)));
+    assert!(
+        e.blockers
+            .iter()
+            .any(|b| matches!(b, MergeBlocker::JankuraiProofRequired))
+    );
 
     // A check run named "jankurai/proof" succeeding clears the gate.
     core.create_check_run(
@@ -410,10 +423,11 @@ fn evaluation_with_matching_sha_has_no_mismatch_blocker() {
         .evaluate_pull_request("alice", "jeryu", number, Some("fresh"))
         .unwrap();
     assert!(e.mergeable);
-    assert!(!e
-        .blockers
-        .iter()
-        .any(|b| matches!(b, MergeBlocker::ShaMismatch { .. })));
+    assert!(
+        !e.blockers
+            .iter()
+            .any(|b| matches!(b, MergeBlocker::ShaMismatch { .. }))
+    );
 }
 
 // ---------------------------------------------------------------------------

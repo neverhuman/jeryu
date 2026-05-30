@@ -10,6 +10,7 @@
 //!   - Every receipt records `prompt_sha` / `model` / `provider` /
 //!     `raw_response_sha`, and is SHA-bound to its pack's
 //!     `(evidence_pack_id, head_sha, policy_sha)` (Law 4).
+#![forbid(unsafe_code)]
 //!   - Veto > approval: any single `Block` or hard-stop → Reject.
 //!   - Fail-closed: missing quorum policy, unsigned pack, secret-in-diff,
 //!     exhausted budget, or a missing prompt → Abstain / RequireHuman / Reject,

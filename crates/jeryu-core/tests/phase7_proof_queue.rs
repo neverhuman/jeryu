@@ -2,9 +2,7 @@
 //! append-only receipt + typed id machinery.
 
 use jeryu_core::phase7::{AgentScope, ChangedPath, PullRequest, QueueEntryState};
-use jeryu_core::{
-    AgentId, JeryuError, PullRequestId, Receipt, ReceiptId, ReceiptKind, RepoId,
-};
+use jeryu_core::{AgentId, JeryuError, PullRequestId, Receipt, ReceiptId, ReceiptKind, RepoId};
 
 // ---------------------------------------------------------------------------
 // Typed ids

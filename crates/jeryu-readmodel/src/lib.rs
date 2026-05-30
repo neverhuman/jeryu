@@ -44,6 +44,4 @@ pub use risk::RiskTier;
 pub use seam::{BugStore, ReadModelSource, SeamError, SeamResult, ToolBackend};
 
 pub use dashboards::runners::{RunnersDashboard, RunnersItem, RunnersSummary};
-pub use dashboards::source_doctor::{
-    SourceDoctorDashboard, SourceDoctorItem, SourceDoctorSummary,
-};
+pub use dashboards::source_doctor::{SourceDoctorDashboard, SourceDoctorItem, SourceDoctorSummary};

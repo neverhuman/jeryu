@@ -34,5 +34,8 @@ pub(crate) const CATALOG: &[&str] = &[
 
 /// Return every catalog descriptor as MCP-shaped JSON for `tools/list`.
 pub fn tool_manifest() -> Vec<serde_json::Value> {
-    catalog::catalog().iter().map(ToolDescriptor::to_mcp_json).collect()
+    catalog::catalog()
+        .iter()
+        .map(ToolDescriptor::to_mcp_json)
+        .collect()
 }

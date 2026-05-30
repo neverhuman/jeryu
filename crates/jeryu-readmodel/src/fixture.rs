@@ -9,9 +9,7 @@ use crate::dashboards::runners::{RunnersDashboard, RunnersItem, RunnersSummary};
 use crate::dashboards::source_doctor::{
     SourceDoctorDashboard, SourceDoctorItem, SourceDoctorSummary,
 };
-use crate::entity::{
-    ActionRef, BlockerSummary, EntityKind, EntityRef, HealthLevel, Severity,
-};
+use crate::entity::{ActionRef, BlockerSummary, EntityKind, EntityRef, HealthLevel, Severity};
 use crate::freshness::{FreshnessState, SourceFreshness, SourceKind};
 use crate::health::{ComponentHealth, RunnerHealth};
 use crate::queue::{QueueJobSummary, QueuePoolSnapshot, QueueSnapshot};
@@ -19,7 +17,7 @@ use crate::read_model::{
     ActionSafety, AttentionItem, MissionSnapshot, NextActionRecommendation, SystemHealth,
     TuiReadModel,
 };
-use crate::repos::{ReposSnapshot, RepoSummary};
+use crate::repos::{RepoSummary, ReposSnapshot};
 use crate::risk::RiskTier;
 
 /// Fluent builder for a sample read model.
@@ -101,7 +99,10 @@ impl Default for TuiReadModelBuilder {
 /// A fully-populated, deterministic sample read model exercising every nested
 /// contract type. Suitable for serde round-trip tests and demo rendering.
 pub fn sample_read_model() -> TuiReadModel {
-    let at: DateTime<Utc> = Utc.with_ymd_and_hms(2026, 5, 30, 12, 0, 0).single().unwrap();
+    let at: DateTime<Utc> = Utc
+        .with_ymd_and_hms(2026, 5, 30, 12, 0, 0)
+        .single()
+        .unwrap();
 
     let mission = MissionSnapshot {
         overall: HealthLevel::Warning,
@@ -113,11 +114,7 @@ pub fn sample_read_model() -> TuiReadModel {
             severity: Severity::Error,
             summary: "build-web failing on core/web".into(),
             entity: Some(EntityRef::new(EntityKind::Job, "build-web")),
-            recommended_action: Some(ActionRef::new(
-                "retry_job",
-                "Retry build-web",
-                RiskTier::R2,
-            )),
+            recommended_action: Some(ActionRef::new("retry_job", "Retry build-web", RiskTier::R2)),
         }),
         active_agents: 4,
         blocked_agents: 1,

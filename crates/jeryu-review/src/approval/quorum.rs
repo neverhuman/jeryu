@@ -219,7 +219,11 @@ mod tests {
             vec![ReviewerRole::Security, ReviewerRole::TestIntegrity],
             false,
         );
-        let r = vec![receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass)];
+        let r = vec![receipt(
+            ReviewerRole::Security,
+            "sec.v1",
+            ReviewDecision::Pass,
+        )];
         let outcome = evaluate_quorum(RiskTier::R2, &r, &p, None);
         assert_eq!(outcome.decision, QuorumDecision::Insufficient);
         assert!(outcome.missing_roles.contains(&ReviewerRole::TestIntegrity));

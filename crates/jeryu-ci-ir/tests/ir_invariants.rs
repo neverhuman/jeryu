@@ -34,7 +34,8 @@ fn sample_pipeline() -> Pipeline {
         TrustTier::InternalBranch,
     );
     let mut fmt = Job::new("fmt", "fmt", RunnerClass::NativeRustClean);
-    fmt.steps.push(Step::run("fmt_0", "fmt", "cargo fmt --check"));
+    fmt.steps
+        .push(Step::run("fmt_0", "fmt", "cargo fmt --check"));
     let mut test = Job::new("test", "test", RunnerClass::NativeRustClean);
     test.steps.push(Step::run("test_0", "test", "cargo test"));
     pipeline.jobs.push(fmt);
@@ -67,7 +68,9 @@ fn rich_pipeline() -> Pipeline {
         "crates.io".to_string(),
     ]);
     build.token_scope = TokenScope::WriteChecks;
-    build.inputs.insert("profile".to_string(), "release".to_string());
+    build
+        .inputs
+        .insert("profile".to_string(), "release".to_string());
     build
         .outputs
         .insert("artifact".to_string(), "bin/forge".to_string());
@@ -95,8 +98,7 @@ fn rich_pipeline() -> Pipeline {
 
     let mut sign = Job::new("sign", "Sign", RunnerClass::ReleaseHermetic);
     sign.token_scope = TokenScope::Custom(vec!["id-token:write".to_string()]);
-    sign.steps
-        .push(Step::run("sign_0", "sign", "cosign sign"));
+    sign.steps.push(Step::run("sign_0", "sign", "cosign sign"));
 
     pipeline.jobs.push(build);
     pipeline.jobs.push(sign);
@@ -370,7 +372,8 @@ fn duplicate_job_id_is_rejected() {
 #[test]
 fn job_without_steps_is_rejected() {
     let mut p = sample_pipeline();
-    p.jobs.push(Job::new("empty", "empty", RunnerClass::NativeRustClean));
+    p.jobs
+        .push(Job::new("empty", "empty", RunnerClass::NativeRustClean));
     assert_eq!(
         p.validate(),
         Err(ValidationError::JobHasNoSteps("empty".to_string()))
@@ -564,7 +567,10 @@ fn trust_tiers_order_from_most_to_least_trusted() {
 #[test]
 fn trust_tier_as_str_maps_to_tiered_labels() {
     assert_eq!(TrustTier::ReleaseHermetic.as_str(), "T0-release-hermetic");
-    assert_eq!(TrustTier::ProtectedInternal.as_str(), "T1-protected-internal");
+    assert_eq!(
+        TrustTier::ProtectedInternal.as_str(),
+        "T1-protected-internal"
+    );
     assert_eq!(TrustTier::InternalBranch.as_str(), "T2-internal-branch");
     assert_eq!(TrustTier::AgentAuthored.as_str(), "T3-agent-authored");
     assert_eq!(TrustTier::ForkPr.as_str(), "T4-fork-pr");
@@ -673,7 +679,11 @@ fn runner_class_from_str_maps_canonical_names() {
         ("k8s-oci", RunnerClass::K8sOci),
     ];
     for (input, expected) in cases {
-        assert_eq!(input.parse::<RunnerClass>().as_ref(), Ok(expected), "{input}");
+        assert_eq!(
+            input.parse::<RunnerClass>().as_ref(),
+            Ok(expected),
+            "{input}"
+        );
     }
 }
 
@@ -688,14 +698,8 @@ fn runner_class_from_str_maps_github_runner_aliases() {
         "linux".parse::<RunnerClass>(),
         Ok(RunnerClass::NativeRustClean)
     );
-    assert_eq!(
-        "docker".parse::<RunnerClass>(),
-        Ok(RunnerClass::OciDocker)
-    );
-    assert_eq!(
-        "kubernetes".parse::<RunnerClass>(),
-        Ok(RunnerClass::K8sOci)
-    );
+    assert_eq!("docker".parse::<RunnerClass>(), Ok(RunnerClass::OciDocker));
+    assert_eq!("kubernetes".parse::<RunnerClass>(), Ok(RunnerClass::K8sOci));
     assert_eq!("k8s".parse::<RunnerClass>(), Ok(RunnerClass::K8sOci));
     assert_eq!(
         "microvm".parse::<RunnerClass>(),
@@ -816,7 +820,10 @@ fn canonical_form_escapes_newlines_and_backslashes() {
     let c = p.canonical();
     // Raw newline inside the value must be escaped so it cannot break the
     // line-oriented canonical format (and thus cannot collide hashes).
-    assert!(c.contains("job.step.run=line1\\nline2\\\\done"), "got:\n{c}");
+    assert!(
+        c.contains("job.step.run=line1\\nline2\\\\done"),
+        "got:\n{c}"
+    );
 }
 
 #[test]
@@ -931,10 +938,7 @@ fn pipeline_source_display_matches_as_str() {
         PipelineSource::GitHubActions.to_string(),
         PipelineSource::GitHubActions.as_str()
     );
-    assert_eq!(
-        PipelineSource::Unknown("x".to_string()).to_string(),
-        "x"
-    );
+    assert_eq!(PipelineSource::Unknown("x".to_string()).to_string(), "x");
 }
 
 #[test]

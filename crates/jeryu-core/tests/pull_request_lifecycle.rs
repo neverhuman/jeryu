@@ -7,10 +7,10 @@
 //! operations (e.g. merging a closed PR, merging while blocked) are rejected.
 
 use jeryu_core::{
-    CreateCheckRunRequest, CreateCommitStatusRequest, CreatePullRequestRequest, CreateRepositoryRequest,
-    CreateReviewRequest, CreateUserRequest, CheckConclusion, CheckRunStatus, CommitStatusState,
-    ForgeCore, ForgeError, MergePullRequestRequest, PullRequestState, ReviewState,
-    SetBranchProtectionRequest, UpdatePullRequestRequest,
+    CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
+    CreateCommitStatusRequest, CreatePullRequestRequest, CreateRepositoryRequest,
+    CreateReviewRequest, CreateUserRequest, ForgeCore, ForgeError, MergePullRequestRequest,
+    PullRequestState, ReviewState, SetBranchProtectionRequest, UpdatePullRequestRequest,
 };
 
 fn core_with_repo() -> ForgeCore {
@@ -173,12 +173,7 @@ fn draft_pr_cannot_be_merged_even_without_protection() {
     let core = core_with_repo();
     let number = open_pr(&core, "abc", true);
     let err = core
-        .merge_pull_request(
-            "alice",
-            "jeryu",
-            number,
-            MergePullRequestRequest::default(),
-        )
+        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
     assert!(matches!(err, ForgeError::BranchProtection(_)));
 }
@@ -282,7 +277,10 @@ fn changes_requested_review_does_not_count_as_approval() {
     .unwrap();
 
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
-    assert!(!pr.mergeable, "changes-requested must not satisfy review gate");
+    assert!(
+        !pr.mergeable,
+        "changes-requested must not satisfy review gate"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -298,12 +296,7 @@ fn full_lifecycle_to_merged_closes_backing_issue() {
     pass_status(&core, "abc", "ci/fast");
 
     let result = core
-        .merge_pull_request(
-            "alice",
-            "jeryu",
-            number,
-            MergePullRequestRequest::default(),
-        )
+        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap();
     assert!(result.merged);
     assert!(result.sha.starts_with("merge-"));
@@ -328,20 +321,10 @@ fn merging_an_already_merged_pr_is_idempotent() {
     let core = core_with_repo();
     let number = open_pr(&core, "abc", false);
     let first = core
-        .merge_pull_request(
-            "alice",
-            "jeryu",
-            number,
-            MergePullRequestRequest::default(),
-        )
+        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap();
     let second = core
-        .merge_pull_request(
-            "alice",
-            "jeryu",
-            number,
-            MergePullRequestRequest::default(),
-        )
+        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap();
     assert!(second.merged);
     // Returns the original merge sha rather than minting a new one.
@@ -356,12 +339,7 @@ fn merging_blocked_pr_is_rejected_with_branch_protection_error() {
     let number = open_pr(&core, "abc", false);
     // No review, no status -> illegal to merge.
     let err = core
-        .merge_pull_request(
-            "alice",
-            "jeryu",
-            number,
-            MergePullRequestRequest::default(),
-        )
+        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
     assert!(matches!(err, ForgeError::BranchProtection(_)));
     // PR must remain unmerged after a rejected merge.
@@ -390,18 +368,15 @@ fn closed_pr_cannot_be_merged() {
     )
     .unwrap();
     assert_eq!(
-        core.get_pull_request("alice", "jeryu", number).unwrap().state,
+        core.get_pull_request("alice", "jeryu", number)
+            .unwrap()
+            .state,
         PullRequestState::Closed,
         "a blocked PR keeps its manually-set Closed state"
     );
 
     let err = core
-        .merge_pull_request(
-            "alice",
-            "jeryu",
-            number,
-            MergePullRequestRequest::default(),
-        )
+        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
         .unwrap_err();
     // Closed PRs are an illegal merge target -> Validation error, not protection.
     assert!(matches!(err, ForgeError::Validation(_)));
@@ -486,7 +461,12 @@ fn required_check_run_success_satisfies_protection() {
     let core = core_with_repo();
     protect_main(&core, 0, &["ci/build"]);
     let number = open_pr(&core, "abc", false);
-    assert!(!core.get_pull_request("alice", "jeryu", number).unwrap().mergeable);
+    assert!(
+        !core
+            .get_pull_request("alice", "jeryu", number)
+            .unwrap()
+            .mergeable
+    );
 
     core.create_check_run(
         "alice",
@@ -606,13 +586,18 @@ fn multiple_approvals_count_toward_threshold() {
 
     approve(&core, number, "alice");
     assert!(
-        !core.get_pull_request("alice", "jeryu", number).unwrap().mergeable,
+        !core
+            .get_pull_request("alice", "jeryu", number)
+            .unwrap()
+            .mergeable,
         "one approval should not satisfy a two-review requirement"
     );
 
     approve(&core, number, "bob");
     assert!(
-        core.get_pull_request("alice", "jeryu", number).unwrap().mergeable,
+        core.get_pull_request("alice", "jeryu", number)
+            .unwrap()
+            .mergeable,
         "two approvals satisfy the gate"
     );
 }

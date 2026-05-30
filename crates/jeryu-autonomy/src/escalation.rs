@@ -164,10 +164,18 @@ pub struct DispatchResult {
 
 impl DispatchResult {
     pub fn ok(kind: EscalationKind, status: u16) -> Self {
-        Self { webhook_kind: kind, status: Some(status), error: None }
+        Self {
+            webhook_kind: kind,
+            status: Some(status),
+            error: None,
+        }
     }
     pub fn err(kind: EscalationKind, status: Option<u16>, error: impl Into<String>) -> Self {
-        Self { webhook_kind: kind, status, error: Some(error.into()) }
+        Self {
+            webhook_kind: kind,
+            status,
+            error: Some(error.into()),
+        }
     }
 }
 
@@ -185,7 +193,9 @@ impl std::fmt::Display for EscalationError {
         match self {
             EscalationError::SecretMissing(name) => write!(f, "secret not resolvable: {name}"),
             EscalationError::Transport(s) => write!(f, "transport error: {s}"),
-            EscalationError::HttpStatus { code, body } => write!(f, "non-2xx status {code}: {body}"),
+            EscalationError::HttpStatus { code, body } => {
+                write!(f, "non-2xx status {code}: {body}")
+            }
         }
     }
 }
@@ -239,10 +249,18 @@ mod tests {
 
     impl RecordingSink {
         fn new() -> Self {
-            Self { calls: Arc::new(Mutex::new(Vec::new())), outcomes: Vec::new(), idx: Mutex::new(0) }
+            Self {
+                calls: Arc::new(Mutex::new(Vec::new())),
+                outcomes: Vec::new(),
+                idx: Mutex::new(0),
+            }
         }
         fn with_outcomes(outcomes: Vec<Result<u16, EscalationError>>) -> Self {
-            Self { calls: Arc::new(Mutex::new(Vec::new())), outcomes, idx: Mutex::new(0) }
+            Self {
+                calls: Arc::new(Mutex::new(Vec::new())),
+                outcomes,
+                idx: Mutex::new(0),
+            }
         }
         fn calls(&self) -> Vec<(WebhookConfig, serde_json::Value)> {
             self.calls.lock().unwrap().clone()
@@ -256,7 +274,10 @@ mod tests {
             webhook: &WebhookConfig,
             payload: serde_json::Value,
         ) -> Result<u16, EscalationError> {
-            self.calls.lock().unwrap().push((webhook.clone(), payload.clone()));
+            self.calls
+                .lock()
+                .unwrap()
+                .push((webhook.clone(), payload.clone()));
             let mut i = self.idx.lock().unwrap();
             let outcome = self.outcomes.get(*i).cloned();
             *i += 1;
@@ -293,7 +314,9 @@ mod tests {
     }
 
     fn require_human_event() -> EscalationEvent {
-        EscalationEvent::RequireHuman { verdict: Box::new(sample_verdict()) }
+        EscalationEvent::RequireHuman {
+            verdict: Box::new(sample_verdict()),
+        }
     }
 
     fn kill_bell_event() -> EscalationEvent {
@@ -305,9 +328,27 @@ mod tests {
 
     fn all_webhooks() -> Vec<WebhookConfig> {
         vec![
-            WebhookConfig { kind: EscalationKind::Slack, url_secret_name: "SLACK_WEBHOOK_URL".into(), channel: Some("#jeryu-needs-you".into()), severity: None, headers: HashMap::new() },
-            WebhookConfig { kind: EscalationKind::PagerDuty, url_secret_name: "PAGERDUTY_INTEGRATION_URL".into(), channel: None, severity: Some("warning".into()), headers: HashMap::new() },
-            WebhookConfig { kind: EscalationKind::GenericJson, url_secret_name: "ESCALATION_WEBHOOK_URL".into(), channel: None, severity: None, headers: HashMap::from([("X-Source".into(), "jeryu".into())]) },
+            WebhookConfig {
+                kind: EscalationKind::Slack,
+                url_secret_name: "SLACK_WEBHOOK_URL".into(),
+                channel: Some("#jeryu-needs-you".into()),
+                severity: None,
+                headers: HashMap::new(),
+            },
+            WebhookConfig {
+                kind: EscalationKind::PagerDuty,
+                url_secret_name: "PAGERDUTY_INTEGRATION_URL".into(),
+                channel: None,
+                severity: Some("warning".into()),
+                headers: HashMap::new(),
+            },
+            WebhookConfig {
+                kind: EscalationKind::GenericJson,
+                url_secret_name: "ESCALATION_WEBHOOK_URL".into(),
+                channel: None,
+                severity: None,
+                headers: HashMap::from([("X-Source".into(), "jeryu".into())]),
+            },
         ]
     }
 
@@ -363,7 +404,10 @@ webhooks:
         assert_eq!(payload["event_action"], "trigger");
         assert_eq!(payload["payload"]["source"], "jeryu");
         assert_eq!(payload["payload"]["severity"], "critical");
-        assert_eq!(payload["payload"]["custom_details"]["event"], "kill_bell_engaged");
+        assert_eq!(
+            payload["payload"]["custom_details"]["event"],
+            "kill_bell_engaged"
+        );
     }
 
     #[test]
@@ -380,7 +424,11 @@ webhooks:
 
     #[tokio::test]
     async fn dispatch_all_filters_by_on_events() {
-        let cfg = EscalationConfig { enabled: true, on_events: vec!["require_human".into()], webhooks: all_webhooks() };
+        let cfg = EscalationConfig {
+            enabled: true,
+            on_events: vec!["require_human".into()],
+            webhooks: all_webhooks(),
+        };
         let sink = RecordingSink::new();
         let results = dispatch_all(&cfg, &kill_bell_event(), &sink).await;
         assert!(results.is_empty(), "kill_bell_engaged is not allowlisted");
@@ -389,7 +437,11 @@ webhooks:
 
     #[tokio::test]
     async fn dispatch_all_fans_out_to_all_webhooks_for_matching_event() {
-        let cfg = EscalationConfig { enabled: true, on_events: vec!["require_human".into(), "kill_bell_engaged".into()], webhooks: all_webhooks() };
+        let cfg = EscalationConfig {
+            enabled: true,
+            on_events: vec!["require_human".into(), "kill_bell_engaged".into()],
+            webhooks: all_webhooks(),
+        };
         let sink = RecordingSink::new();
         let results = dispatch_all(&cfg, &require_human_event(), &sink).await;
         assert_eq!(results.len(), 3);
@@ -404,7 +456,11 @@ webhooks:
 
     #[tokio::test]
     async fn dispatch_all_continues_on_individual_webhook_failure() {
-        let cfg = EscalationConfig { enabled: true, on_events: vec!["require_human".into()], webhooks: all_webhooks() };
+        let cfg = EscalationConfig {
+            enabled: true,
+            on_events: vec!["require_human".into()],
+            webhooks: all_webhooks(),
+        };
         let sink = RecordingSink::with_outcomes(vec![
             Err(EscalationError::Transport("connection refused".into())),
             Ok(202),
@@ -427,18 +483,33 @@ webhooks:
         let cfg = EscalationConfig {
             enabled: true,
             on_events: vec!["require_human".into()],
-            webhooks: vec![WebhookConfig { kind: EscalationKind::Slack, url_secret_name: "DEFINITELY_NOT_SET_4F2B".into(), channel: None, severity: None, headers: HashMap::new() }],
+            webhooks: vec![WebhookConfig {
+                kind: EscalationKind::Slack,
+                url_secret_name: "DEFINITELY_NOT_SET_4F2B".into(),
+                channel: None,
+                severity: None,
+                headers: HashMap::new(),
+            }],
         };
-        let sink = RecordingSink::with_outcomes(vec![Err(EscalationError::SecretMissing("DEFINITELY_NOT_SET_4F2B".into()))]);
+        let sink = RecordingSink::with_outcomes(vec![Err(EscalationError::SecretMissing(
+            "DEFINITELY_NOT_SET_4F2B".into(),
+        ))]);
         let results = dispatch_all(&cfg, &require_human_event(), &sink).await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].status, None);
-        assert_eq!(results[0].error.as_deref(), Some("secret not resolvable: DEFINITELY_NOT_SET_4F2B"));
+        assert_eq!(
+            results[0].error.as_deref(),
+            Some("secret not resolvable: DEFINITELY_NOT_SET_4F2B")
+        );
     }
 
     #[tokio::test]
     async fn disabled_config_returns_empty_dispatch_results() {
-        let cfg = EscalationConfig { enabled: false, on_events: vec!["require_human".into()], webhooks: all_webhooks() };
+        let cfg = EscalationConfig {
+            enabled: false,
+            on_events: vec!["require_human".into()],
+            webhooks: all_webhooks(),
+        };
         let sink = RecordingSink::new();
         let results = dispatch_all(&cfg, &require_human_event(), &sink).await;
         assert!(results.is_empty());
@@ -453,7 +524,10 @@ webhooks:
 
     #[test]
     fn slack_payload_escapes_special_chars_via_serde_json() {
-        let event = EscalationEvent::KillBellEngaged { reason: "broken \"prod\" \\ and a\nnewline".into(), paused_by: "ops".into() };
+        let event = EscalationEvent::KillBellEngaged {
+            reason: "broken \"prod\" \\ and a\nnewline".into(),
+            paused_by: "ops".into(),
+        };
         let payload = build_payload(&event, EscalationKind::Slack);
         let json = serde_json::to_string(&payload).expect("serialize");
         let _: serde_json::Value = serde_json::from_str(&json).expect("round-trips");
@@ -463,7 +537,13 @@ webhooks:
 
     #[test]
     fn webhook_config_with_empty_headers_serializes_compactly() {
-        let wh = WebhookConfig { kind: EscalationKind::Slack, url_secret_name: "FOO".into(), channel: None, severity: None, headers: HashMap::new() };
+        let wh = WebhookConfig {
+            kind: EscalationKind::Slack,
+            url_secret_name: "FOO".into(),
+            channel: None,
+            severity: None,
+            headers: HashMap::new(),
+        };
         let yaml = serde_yaml::to_string(&wh).unwrap();
         assert!(!yaml.contains("headers"));
         assert!(!yaml.contains("channel"));

@@ -5,6 +5,7 @@
 
 mod common;
 
+use async_trait::async_trait;
 use common::{assets_prompts_dir, pack_with};
 use jeryu_review::judge::{JudgeInputs, judge};
 use jeryu_review::llm::{
@@ -15,7 +16,6 @@ use jeryu_review::orchestrator::{ProductionReviewerOrchestrator, ReviewerOrchest
 use jeryu_review::policy::PolicyBundle;
 use jeryu_review::schema::{GateDecision, ReviewerRole, RiskTier, ScanOutcome};
 use jeryu_review::signing::EdSigningKey;
-use async_trait::async_trait;
 use std::sync::Arc;
 
 /// Deterministic provider that returns a fixed receipt JSON for every call.
@@ -151,7 +151,14 @@ async fn orchestrator_block_from_one_reviewer_rejects_via_judge() {
         .unwrap();
 
     let policy = PolicyBundle::default_enforcing();
-    let out = judge(JudgeInputs::new(&pack, &receipts, &policy, "org/proj", "main"));
+    let out = judge(JudgeInputs::new(
+        &pack, &receipts, &policy, "org/proj", "main",
+    ));
     assert_eq!(out.verdict.decision, GateDecision::Reject);
-    assert!(out.verdict.hard_stops.iter().any(|n| n == "reviewer_blocked"));
+    assert!(
+        out.verdict
+            .hard_stops
+            .iter()
+            .any(|n| n == "reviewer_blocked")
+    );
 }

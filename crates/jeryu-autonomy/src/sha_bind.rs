@@ -9,9 +9,15 @@ use crate::types::{AgentApprovalReceipt, EvidencePack};
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ShaBindError {
     #[error("head_sha mismatch: receipt says {receipt_head}, pack says {pack_head}")]
-    HeadMismatch { receipt_head: String, pack_head: String },
+    HeadMismatch {
+        receipt_head: String,
+        pack_head: String,
+    },
     #[error("policy_sha mismatch: receipt says {receipt_policy}, pack says {pack_policy}")]
-    PolicyMismatch { receipt_policy: String, pack_policy: String },
+    PolicyMismatch {
+        receipt_policy: String,
+        pack_policy: String,
+    },
     #[error("evidence_pack_id mismatch: receipt says {receipt_id}, pack says {pack_id}")]
     PackIdMismatch { receipt_id: String, pack_id: String },
 }

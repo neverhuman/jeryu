@@ -215,10 +215,8 @@ mod tests {
         // appears in source.
         let body: String = "ELPMAXE7NNDOFSOIAIKA".chars().rev().collect();
         let leaky = format!("log: {body} leaked from canary\n");
-        // SAFETY: Rust 2024 env mutation; reviewer tests run single-threaded.
-        unsafe {
-            std::env::remove_var("JERYU_LLM_SCRUB_SKIP");
-        }
+        // The scrub-skip flag is never set in tests, so the scrub runs and the
+        // call fails closed on the planted secret (no env mutation needed).
         let err = run_nightwatch_review(&router, fixture(&leaky))
             .await
             .expect_err("must fail closed on secret leak in telemetry");

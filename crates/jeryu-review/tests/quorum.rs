@@ -16,7 +16,12 @@ fn quorum_met_when_required_roles_pass() {
     let p = pack_with(RiskTier::R2, true, ScanOutcome::Passed);
     let r = vec![
         receipt_for(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p),
-        receipt_for(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+        receipt_for(
+            ReviewerRole::TestIntegrity,
+            "test.v1",
+            ReviewDecision::Pass,
+            &p,
+        ),
     ];
     assert_eq!(
         evaluate_quorum(RiskTier::R2, &r, &r2_policy(), Some("builder.x")).decision,
@@ -29,7 +34,12 @@ fn one_block_vetoes_regardless_of_count() {
     let p = pack_with(RiskTier::R2, true, ScanOutcome::Passed);
     let r = vec![
         receipt_for(ReviewerRole::Security, "sec.v1", ReviewDecision::Block, &p),
-        receipt_for(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+        receipt_for(
+            ReviewerRole::TestIntegrity,
+            "test.v1",
+            ReviewDecision::Pass,
+            &p,
+        ),
         receipt_for(ReviewerRole::Runtime, "rt.v1", ReviewDecision::Pass, &p),
     ];
     let out = evaluate_quorum(RiskTier::R2, &r, &r2_policy(), None);
@@ -40,7 +50,12 @@ fn one_block_vetoes_regardless_of_count() {
 #[test]
 fn missing_required_role_is_insufficient() {
     let p = pack_with(RiskTier::R2, true, ScanOutcome::Passed);
-    let r = vec![receipt_for(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p)];
+    let r = vec![receipt_for(
+        ReviewerRole::Security,
+        "sec.v1",
+        ReviewDecision::Pass,
+        &p,
+    )];
     let out = evaluate_quorum(RiskTier::R2, &r, &r2_policy(), None);
     assert_eq!(out.decision, QuorumDecision::Insufficient);
     assert!(out.missing_roles.contains(&ReviewerRole::TestIntegrity));
@@ -57,7 +72,13 @@ fn author_self_approval_does_not_count() {
     );
     self_r.not_author = false;
     assert_eq!(
-        evaluate_quorum(RiskTier::R1, &[self_r], &r2_policy(), Some("builder.author")).decision,
+        evaluate_quorum(
+            RiskTier::R1,
+            &[self_r],
+            &r2_policy(),
+            Some("builder.author")
+        )
+        .decision,
         QuorumDecision::Insufficient
     );
 }

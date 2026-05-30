@@ -152,10 +152,8 @@ mod tests {
         let body: String = "ELPMAXE7NNDOFSOIAIKA".chars().rev().collect();
         let diff = format!("+ const KEY: &str = \"{body}\";");
         let i = inputs(&diff);
-        // SAFETY: Rust 2024 env mutation; reviewer tests run single-threaded.
-        unsafe {
-            std::env::remove_var("JERYU_LLM_SCRUB_SKIP");
-        }
+        // The scrub-skip flag is never set in tests, so the scrub runs and the
+        // call fails closed on the planted secret (no env mutation needed).
         let err = run_security_review(&router, &i).await.unwrap_err();
         assert!(matches!(err, ReviewerCallError::SecretScrubFailed { .. }));
     }

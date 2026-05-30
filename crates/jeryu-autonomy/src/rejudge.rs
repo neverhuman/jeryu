@@ -157,7 +157,10 @@ mod tests {
     fn head_sha_drift_triggers_new_commit_on_pr() {
         let v = fresh_verdict();
         let new_head = "d".repeat(40);
-        let live = LiveState { head_sha: Some(&new_head), ..Default::default() };
+        let live = LiveState {
+            head_sha: Some(&new_head),
+            ..Default::default()
+        };
         let hits = check(&v, &live);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].short_name(), "new_commit_on_pr");
@@ -168,7 +171,10 @@ mod tests {
     fn policy_drift_triggers_rejudge() {
         let v = fresh_verdict();
         let new_policy = "e".repeat(40);
-        let live = LiveState { target_policy_sha: Some(&new_policy), ..Default::default() };
+        let live = LiveState {
+            target_policy_sha: Some(&new_policy),
+            ..Default::default()
+        };
         let hits = check(&v, &live);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].short_name(), "policy_change_on_target");
@@ -178,7 +184,10 @@ mod tests {
     fn ttl_expiry_triggers_rejudge() {
         let v = fresh_verdict();
         let future = v.expires_at + Duration::seconds(1);
-        let live = LiveState { now: Some(future), ..Default::default() };
+        let live = LiveState {
+            now: Some(future),
+            ..Default::default()
+        };
         let hits = check(&v, &live);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].short_name(), "verdict_ttl_expired");
@@ -216,9 +225,15 @@ mod tests {
         let mut v = fresh_verdict();
         v.rebind_on_train = false;
         let new_target = "f".repeat(40);
-        let live = LiveState { target_branch_sha: Some(&new_target), ..Default::default() };
+        let live = LiveState {
+            target_branch_sha: Some(&new_target),
+            ..Default::default()
+        };
         let hits = check(&v, &live);
-        assert!(hits.is_empty(), "rebind_on_train=false must NOT fire; got: {hits:?}");
+        assert!(
+            hits.is_empty(),
+            "rebind_on_train=false must NOT fire; got: {hits:?}"
+        );
     }
 
     #[test]
@@ -237,7 +252,11 @@ mod tests {
         let h2 = check(&v, &live);
         assert_eq!(
             h1.iter().map(|r| r.short_name()).collect::<Vec<_>>(),
-            vec!["new_commit_on_pr", "policy_change_on_target", "verdict_ttl_expired"],
+            vec![
+                "new_commit_on_pr",
+                "policy_change_on_target",
+                "verdict_ttl_expired"
+            ],
         );
         assert_eq!(
             h1.iter().map(|r| r.short_name()).collect::<Vec<_>>(),

@@ -106,7 +106,10 @@ fn webhook_defaults_match_github_shape() {
     let req = CreateWebhookRequest::default();
     assert_eq!(req.name, "web");
     assert!(req.active);
-    assert_eq!(req.events, vec!["push".to_string(), "pull_request".to_string()]);
+    assert_eq!(
+        req.events,
+        vec!["push".to_string(), "pull_request".to_string()]
+    );
     assert_eq!(req.config.content_type, "json");
 }
 

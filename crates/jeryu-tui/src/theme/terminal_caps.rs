@@ -74,7 +74,9 @@ mod tests {
     #[test]
     fn empty_env_is_conservative() {
         let c = TerminalCaps::from_env_values(None, None, None, None, None);
-        assert!(!c.supports_truecolor && !c.supports_256 && !c.supports_color && !c.supports_unicode);
+        assert!(
+            !c.supports_truecolor && !c.supports_256 && !c.supports_color && !c.supports_unicode
+        );
     }
 
     #[test]

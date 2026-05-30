@@ -97,9 +97,18 @@ mod tests {
 
     fn sample_hints() -> [KeyHint<'static>; 3] {
         [
-            KeyHint { key: "?", desc: "help" },
-            KeyHint { key: ":", desc: "cmd" },
-            KeyHint { key: "Esc", desc: "back" },
+            KeyHint {
+                key: "?",
+                desc: "help",
+            },
+            KeyHint {
+                key: ":",
+                desc: "cmd",
+            },
+            KeyHint {
+                key: "Esc",
+                desc: "back",
+            },
         ]
     }
 
@@ -111,7 +120,11 @@ mod tests {
         let hints = sample_hints();
         let props = StatusStripProps {
             hints: &hints,
-            metrics: FrameMetrics { frame_ms: 14, fps: 60, dropped: 0 },
+            metrics: FrameMetrics {
+                frame_ms: 14,
+                fps: 60,
+                dropped: 0,
+            },
         };
         term.draw(|f| render(f, &props, Rect::new(0, 22, 80, 2), &p))
             .unwrap();
@@ -125,7 +138,11 @@ mod tests {
         let hints = sample_hints();
         let props = StatusStripProps {
             hints: &hints,
-            metrics: FrameMetrics { frame_ms: 8, fps: 120, dropped: 2 },
+            metrics: FrameMetrics {
+                frame_ms: 8,
+                fps: 120,
+                dropped: 2,
+            },
         };
         term.draw(|f| render(f, &props, Rect::new(0, 34, 120, 2), &p))
             .unwrap();

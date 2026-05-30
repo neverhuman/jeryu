@@ -96,7 +96,10 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
         .map(|r| VerdictReceiptRef {
             role: r.role,
             agent_id: r.agent_id.clone(),
-            receipt_digest: r.raw_response_sha.clone().unwrap_or_else(|| "sha256:0".into()),
+            receipt_digest: r
+                .raw_response_sha
+                .clone()
+                .unwrap_or_else(|| "sha256:0".into()),
             decision: r.decision,
             not_author: r.not_author,
         })
@@ -131,7 +134,10 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
             created_at: now,
             signature: Signature::stub(),
         };
-        return JudgeOutcome { verdict, dropped_receipts: dropped };
+        return JudgeOutcome {
+            verdict,
+            dropped_receipts: dropped,
+        };
     }
 
     // 3. Quorum.
@@ -173,7 +179,10 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
         signature: Signature::stub(),
     };
 
-    JudgeOutcome { verdict, dropped_receipts: dropped }
+    JudgeOutcome {
+        verdict,
+        dropped_receipts: dropped,
+    }
 }
 
 fn mint_verdict_id(now: chrono::DateTime<Utc>, head_sha: &str) -> String {
@@ -229,7 +238,11 @@ mod tests {
             security: SecuritySection {
                 sast: ScanOutcome::Passed,
                 dependency_scan: ScanOutcome::Passed,
-                secret_scan: if secret_failed { ScanOutcome::Failed } else { ScanOutcome::Passed },
+                secret_scan: if secret_failed {
+                    ScanOutcome::Failed
+                } else {
+                    ScanOutcome::Passed
+                },
             },
             supply_chain: SupplyChainSection::default(),
             rollback: RollbackSection {
@@ -289,7 +302,12 @@ mod tests {
         let p = pack_at_tier(RiskTier::R2, true, false);
         let receipts = vec![
             receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p),
-            receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+            receipt(
+                ReviewerRole::TestIntegrity,
+                "test.v1",
+                ReviewDecision::Pass,
+                &p,
+            ),
         ];
         let out = judge(JudgeInputs {
             pack: &p,
@@ -312,7 +330,12 @@ mod tests {
         let p = pack_at_tier(RiskTier::R2, true, false);
         let receipts = vec![
             receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Block, &p),
-            receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+            receipt(
+                ReviewerRole::TestIntegrity,
+                "test.v1",
+                ReviewDecision::Pass,
+                &p,
+            ),
             receipt(ReviewerRole::Runtime, "rt.v1", ReviewDecision::Pass, &p),
         ];
         let out = judge(JudgeInputs {
@@ -326,7 +349,11 @@ mod tests {
             external_hard_stops: &[],
         });
         assert_eq!(out.verdict.decision, GateDecision::Reject);
-        assert!(out.verdict.hard_stops.contains(&"reviewer_blocked".to_string()));
+        assert!(
+            out.verdict
+                .hard_stops
+                .contains(&"reviewer_blocked".to_string())
+        );
     }
 
     #[test]
@@ -335,7 +362,12 @@ mod tests {
         let p = pack_at_tier(RiskTier::R2, true, true);
         let receipts = vec![
             receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p),
-            receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+            receipt(
+                ReviewerRole::TestIntegrity,
+                "test.v1",
+                ReviewDecision::Pass,
+                &p,
+            ),
         ];
         let out = judge(JudgeInputs {
             pack: &p,
@@ -348,7 +380,12 @@ mod tests {
             external_hard_stops: &[],
         });
         assert_eq!(out.verdict.decision, GateDecision::Reject);
-        assert!(out.verdict.hard_stops.iter().any(|n| n == "secret_scan_failed"));
+        assert!(
+            out.verdict
+                .hard_stops
+                .iter()
+                .any(|n| n == "secret_scan_failed")
+        );
     }
 
     #[test]
@@ -357,7 +394,12 @@ mod tests {
         let p = pack_at_tier(RiskTier::R2, true, false);
         let mut bad = receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p);
         bad.head_sha = "d".repeat(40);
-        let good = receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p);
+        let good = receipt(
+            ReviewerRole::TestIntegrity,
+            "test.v1",
+            ReviewDecision::Pass,
+            &p,
+        );
         let receipts = vec![bad, good];
         let out = judge(JudgeInputs {
             pack: &p,
@@ -380,7 +422,12 @@ mod tests {
         let p = pack_at_tier(RiskTier::R2, false, false);
         let receipts = vec![
             receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p),
-            receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+            receipt(
+                ReviewerRole::TestIntegrity,
+                "test.v1",
+                ReviewDecision::Pass,
+                &p,
+            ),
         ];
         let out = judge(JudgeInputs {
             pack: &p,
@@ -393,7 +440,12 @@ mod tests {
             external_hard_stops: &[],
         });
         assert_eq!(out.verdict.decision, GateDecision::Reject);
-        assert!(out.verdict.hard_stops.iter().any(|n| n == "evidence_signature_invalid"));
+        assert!(
+            out.verdict
+                .hard_stops
+                .iter()
+                .any(|n| n == "evidence_signature_invalid")
+        );
     }
 
     #[test]
@@ -402,7 +454,12 @@ mod tests {
         let p = pack_at_tier(RiskTier::R2, true, false);
         let receipts = vec![
             receipt(ReviewerRole::Security, "sec.v1", ReviewDecision::Pass, &p),
-            receipt(ReviewerRole::TestIntegrity, "test.v1", ReviewDecision::Pass, &p),
+            receipt(
+                ReviewerRole::TestIntegrity,
+                "test.v1",
+                ReviewDecision::Pass,
+                &p,
+            ),
         ];
         let injected = [HardStop {
             name: "codeowners_not_satisfied".into(),
@@ -420,7 +477,12 @@ mod tests {
             external_hard_stops: &injected,
         });
         assert_eq!(out.verdict.decision, GateDecision::Reject);
-        assert!(out.verdict.hard_stops.iter().any(|n| n == "codeowners_not_satisfied"));
+        assert!(
+            out.verdict
+                .hard_stops
+                .iter()
+                .any(|n| n == "codeowners_not_satisfied")
+        );
     }
 
     #[test]

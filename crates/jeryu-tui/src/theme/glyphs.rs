@@ -64,7 +64,10 @@ mod tests {
     fn every_glyph_has_ascii_fallback() {
         for g in Glyph::ALL {
             let a = g.ascii_fallback();
-            assert!(!a.is_empty() && a.is_ascii(), "{g:?} fallback non-empty ASCII");
+            assert!(
+                !a.is_empty() && a.is_ascii(),
+                "{g:?} fallback non-empty ASCII"
+            );
             assert!(!g.unicode().is_empty(), "{g:?} unicode non-empty");
         }
     }

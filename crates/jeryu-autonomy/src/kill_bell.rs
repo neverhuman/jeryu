@@ -41,8 +41,15 @@ impl KillBellState {
 /// One physical state-transition row in the (append-only) history.
 #[derive(Debug, Clone)]
 enum Transition {
-    Armed { at: DateTime<Utc> },
-    Paused { reason: String, paused_by: String, paused_at: DateTime<Utc>, expires_at: DateTime<Utc> },
+    Armed {
+        at: DateTime<Utc>,
+    },
+    Paused {
+        reason: String,
+        paused_by: String,
+        paused_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
+    },
 }
 
 impl Transition {
@@ -76,7 +83,10 @@ pub struct KillBell {
 
 impl KillBell {
     pub fn new(ledger: Arc<dyn VerdictLedger>) -> Self {
-        Self { history: Arc::new(Mutex::new(Vec::new())), ledger }
+        Self {
+            history: Arc::new(Mutex::new(Vec::new())),
+            ledger,
+        }
     }
 
     /// Read the most-recent transition. If the latest row is `Paused` but its
@@ -88,11 +98,21 @@ impl KillBell {
         Ok(match latest {
             None => KillBellState::Armed,
             Some(Transition::Armed { .. }) => KillBellState::Armed,
-            Some(Transition::Paused { reason, paused_by, paused_at, expires_at }) => {
+            Some(Transition::Paused {
+                reason,
+                paused_by,
+                paused_at,
+                expires_at,
+            }) => {
                 if now >= expires_at {
                     KillBellState::Armed
                 } else {
-                    KillBellState::Paused { reason, paused_by, paused_at, expires_at }
+                    KillBellState::Paused {
+                        reason,
+                        paused_by,
+                        paused_at,
+                        expires_at,
+                    }
                 }
             }
         })
@@ -169,7 +189,10 @@ impl KillBell {
             .await
             .map_err(|e| SeamError::new("kill_bell", format!("append KillBellResumed: {e}")))?;
 
-        self.history.lock().unwrap().push(Transition::Armed { at: now });
+        self.history
+            .lock()
+            .unwrap()
+            .push(Transition::Armed { at: now });
         Ok(())
     }
 
@@ -188,7 +211,9 @@ impl KillBell {
     ) -> SeamResult<(GateDecision, Option<String>)> {
         match self.current(now).await? {
             KillBellState::Armed => Ok((decision, None)),
-            KillBellState::Paused { reason, paused_by, .. } => {
+            KillBellState::Paused {
+                reason, paused_by, ..
+            } => {
                 let detail = format!(
                     "kill bell engaged by '{paused_by}': {reason}; downgraded {decision:?} -> RequireHuman"
                 );
@@ -217,10 +242,14 @@ mod tests {
     async fn pause_then_is_paused_true() {
         let (bell, _l) = bell();
         let now = Utc::now();
-        bell.pause("brown alert", "alice", 3600, &key(), now).await.unwrap();
+        bell.pause("brown alert", "alice", 3600, &key(), now)
+            .await
+            .unwrap();
         assert!(bell.is_paused(now).await.unwrap());
         match bell.current(now).await.unwrap() {
-            KillBellState::Paused { reason, paused_by, .. } => {
+            KillBellState::Paused {
+                reason, paused_by, ..
+            } => {
                 assert_eq!(reason, "brown alert");
                 assert_eq!(paused_by, "alice");
             }
@@ -232,7 +261,9 @@ mod tests {
     async fn pause_with_ttl_expires_auto_arms() {
         let (bell, _l) = bell();
         let t0 = Utc::now();
-        bell.pause("short pause", "bob", 1, &key(), t0).await.unwrap();
+        bell.pause("short pause", "bob", 1, &key(), t0)
+            .await
+            .unwrap();
         assert!(bell.is_paused(t0).await.unwrap(), "paused at t0");
         let t_later = t0 + Duration::seconds(5);
         assert_eq!(
@@ -247,9 +278,13 @@ mod tests {
     async fn resume_clears_paused() {
         let (bell, _l) = bell();
         let now = Utc::now();
-        bell.pause("incident", "alice", 3600, &key(), now).await.unwrap();
+        bell.pause("incident", "alice", 3600, &key(), now)
+            .await
+            .unwrap();
         assert!(bell.is_paused(now).await.unwrap());
-        bell.resume("alice", &key(), now + Duration::seconds(10)).await.unwrap();
+        bell.resume("alice", &key(), now + Duration::seconds(10))
+            .await
+            .unwrap();
         assert_eq!(
             bell.current(now + Duration::seconds(20)).await.unwrap(),
             KillBellState::Armed,
@@ -261,8 +296,13 @@ mod tests {
     async fn downgrade_if_paused_downgrades_allow_merge() {
         let (bell, _l) = bell();
         let now = Utc::now();
-        bell.pause("freeze", "alice", 3600, &key(), now).await.unwrap();
-        let (decision, why) = bell.downgrade_if_paused(GateDecision::AllowMerge, now).await.unwrap();
+        bell.pause("freeze", "alice", 3600, &key(), now)
+            .await
+            .unwrap();
+        let (decision, why) = bell
+            .downgrade_if_paused(GateDecision::AllowMerge, now)
+            .await
+            .unwrap();
         assert_eq!(decision, GateDecision::RequireHuman);
         let why = why.expect("paused must surface a reason");
         assert!(why.contains("freeze"), "reason should round-trip: {why}");
@@ -273,10 +313,16 @@ mod tests {
     async fn downgrade_if_paused_passes_through_when_armed() {
         let (bell, _l) = bell();
         let now = Utc::now();
-        let (decision, why) = bell.downgrade_if_paused(GateDecision::AllowMerge, now).await.unwrap();
+        let (decision, why) = bell
+            .downgrade_if_paused(GateDecision::AllowMerge, now)
+            .await
+            .unwrap();
         assert_eq!(decision, GateDecision::AllowMerge);
         assert!(why.is_none(), "armed must not surface a reason");
-        let (decision, why) = bell.downgrade_if_paused(GateDecision::Reject, now).await.unwrap();
+        let (decision, why) = bell
+            .downgrade_if_paused(GateDecision::Reject, now)
+            .await
+            .unwrap();
         assert_eq!(decision, GateDecision::Reject);
         assert!(why.is_none());
     }
@@ -285,9 +331,14 @@ mod tests {
     async fn pause_appends_signed_ledger_entry_with_kill_bell_engaged_kind() {
         let (bell, ledger) = bell();
         let now = Utc::now();
-        bell.pause("network split", "alice", 60, &key(), now).await.unwrap();
+        bell.pause("network split", "alice", 60, &key(), now)
+            .await
+            .unwrap();
         let entries = ledger
-            .list(&LedgerFilter { kind: Some(LedgerKind::KillBellEngaged), ..Default::default() })
+            .list(&LedgerFilter {
+                kind: Some(LedgerKind::KillBellEngaged),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(entries.len(), 1);
@@ -305,9 +356,14 @@ mod tests {
         let (bell, ledger) = bell();
         let now = Utc::now();
         bell.pause("ttest", "alice", 60, &key(), now).await.unwrap();
-        bell.resume("bob", &key(), now + Duration::seconds(5)).await.unwrap();
+        bell.resume("bob", &key(), now + Duration::seconds(5))
+            .await
+            .unwrap();
         let entries = ledger
-            .list(&LedgerFilter { kind: Some(LedgerKind::KillBellResumed), ..Default::default() })
+            .list(&LedgerFilter {
+                kind: Some(LedgerKind::KillBellResumed),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(entries.len(), 1);
@@ -320,14 +376,21 @@ mod tests {
         let (bell, ledger) = bell();
         let now = Utc::now();
         bell.pause("first", "alice", 60, &key(), now).await.unwrap();
-        bell.pause("second", "bob", 120, &key(), now + Duration::seconds(5)).await.unwrap();
+        bell.pause("second", "bob", 120, &key(), now + Duration::seconds(5))
+            .await
+            .unwrap();
         let entries = ledger
-            .list(&LedgerFilter { kind: Some(LedgerKind::KillBellEngaged), ..Default::default() })
+            .list(&LedgerFilter {
+                kind: Some(LedgerKind::KillBellEngaged),
+                ..Default::default()
+            })
             .await
             .unwrap();
         assert_eq!(entries.len(), 2, "both pauses must each leave a receipt");
         match bell.current(now + Duration::seconds(10)).await.unwrap() {
-            KillBellState::Paused { reason, paused_by, .. } => {
+            KillBellState::Paused {
+                reason, paused_by, ..
+            } => {
                 assert_eq!(reason, "second", "latest pause's reason must surface");
                 assert_eq!(paused_by, "bob");
             }
@@ -339,12 +402,19 @@ mod tests {
     async fn status_query_consistency_across_apis() {
         let (bell, _l) = bell();
         let now = Utc::now();
-        bell.pause("freeze", "alice", 3600, &key(), now).await.unwrap();
+        bell.pause("freeze", "alice", 3600, &key(), now)
+            .await
+            .unwrap();
         let probe = now + Duration::seconds(30);
-        let cur_paused = matches!(bell.current(probe).await.unwrap(), KillBellState::Paused { .. });
+        let cur_paused = matches!(
+            bell.current(probe).await.unwrap(),
+            KillBellState::Paused { .. }
+        );
         let is_paused = bell.is_paused(probe).await.unwrap();
-        let (decision, why) =
-            bell.downgrade_if_paused(GateDecision::AllowMerge, probe).await.unwrap();
+        let (decision, why) = bell
+            .downgrade_if_paused(GateDecision::AllowMerge, probe)
+            .await
+            .unwrap();
         assert_eq!(cur_paused, is_paused, "current()/is_paused() must agree");
         assert!(cur_paused);
         assert_eq!(decision, GateDecision::RequireHuman);
