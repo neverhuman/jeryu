@@ -1,8 +1,8 @@
 //! Theme module root — palette / glyphs / badges / terminal capabilities.
 //!
 //! Invariants: the [`ThemeBundle`] bundles a [`Palette`], a unicode/ASCII glyph
-//! switch (driven by [`TerminalCaps`]), and a legacy [`Theme`] for status-color
-//! helpers. Constructed at startup; pure thereafter.
+//! switch (driven by [`TerminalCaps`]), and a status-string [`Theme`] for
+//! surfaces that color by status string. Constructed at startup; pure thereafter.
 
 pub mod badges;
 pub mod glyphs;
@@ -16,8 +16,9 @@ use glyphs::Glyph;
 use palette::Palette;
 use terminal_caps::TerminalCaps;
 
-/// Legacy status-color theme. Resolves [`HealthLevel`] (read-model contract) and
-/// queue states onto palette colors. Preserved for the chrome/status surfaces.
+/// Status-string color theme. Resolves [`HealthLevel`] (read-model contract)
+/// and queue states onto palette colors. Used by the chrome/status surfaces
+/// that style by status string rather than by typed badge.
 #[derive(Debug, Clone, Copy)]
 pub struct Theme {
     pub palette: Palette,
@@ -49,7 +50,7 @@ impl Theme {
             "passed" | "success" | "green" => self.palette.ok,
             "failed" | "error" => self.palette.crit,
             "warning" | "warn" => self.palette.warn,
-            "stale" | "aged" => self.palette.stale,
+            "expired" | "aged" => self.palette.muted,
             _ => self.palette.unknown,
         }
     }
@@ -62,12 +63,12 @@ impl Default for Theme {
 }
 
 /// Aggregate theme view-model bundling a [`Palette`], a glyph capability switch
-/// driven by [`TerminalCaps`], and the legacy [`Theme`].
+/// driven by [`TerminalCaps`], and the status-string [`Theme`].
 #[derive(Debug, Clone)]
 pub struct ThemeBundle {
     pub palette: Palette,
     pub caps: TerminalCaps,
-    pub legacy: Theme,
+    pub status_theme: Theme,
 }
 
 impl ThemeBundle {
@@ -75,7 +76,7 @@ impl ThemeBundle {
         Self {
             palette: Palette::dark(),
             caps,
-            legacy: Theme::dark(),
+            status_theme: Theme::dark(),
         }
     }
 

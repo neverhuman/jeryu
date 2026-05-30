@@ -20,7 +20,7 @@ pub struct Palette {
     pub vti: Color,      // #69DD8E
     pub release: Color,  // #FF79C6
     pub evidence: Color, // #F8C471
-    pub stale: Color,    // #6E7681
+    pub muted: Color,    // #6E7681 — dim gray for inactive/secondary chrome
     pub unknown: Color,  // #4A5057
 }
 
@@ -38,7 +38,7 @@ impl Palette {
             vti: Color::Rgb(0x69, 0xDD, 0x8E),
             release: Color::Rgb(0xFF, 0x79, 0xC6),
             evidence: Color::Rgb(0xF8, 0xC4, 0x71),
-            stale: Color::Rgb(0x6E, 0x76, 0x81),
+            muted: Color::Rgb(0x6E, 0x76, 0x81),
             unknown: Color::Rgb(0x4A, 0x50, 0x57),
         }
     }
@@ -56,7 +56,7 @@ impl Palette {
             vti: Color::LightGreen,
             release: Color::LightMagenta,
             evidence: Color::LightYellow,
-            stale: Color::DarkGray,
+            muted: Color::DarkGray,
             unknown: Color::Gray,
         }
     }
@@ -78,7 +78,7 @@ mod tests {
         let p = Palette::dark();
         let all = [
             p.ok, p.queued, p.running, p.warn, p.crit, p.agent, p.cache, p.vti, p.release,
-            p.evidence, p.stale, p.unknown,
+            p.evidence, p.muted, p.unknown,
         ];
         assert_eq!(all.len(), 12);
         for c in all {
@@ -97,7 +97,7 @@ mod tests {
         assert_eq!(p.agent, Color::Rgb(0xC7, 0x92, 0xEA));
         assert_eq!(p.release, Color::Rgb(0xFF, 0x79, 0xC6));
         assert_eq!(p.evidence, Color::Rgb(0xF8, 0xC4, 0x71));
-        assert_eq!(p.stale, Color::Rgb(0x6E, 0x76, 0x81));
+        assert_eq!(p.muted, Color::Rgb(0x6E, 0x76, 0x81));
     }
 
     /// 16-color fallback maps every semantic to a basic terminal color.
@@ -106,10 +106,10 @@ mod tests {
         let p = Palette::fallback_16();
         assert_eq!(p.ok, Color::Green);
         assert_eq!(p.crit, Color::Red);
-        assert_eq!(p.stale, Color::DarkGray);
+        assert_eq!(p.muted, Color::DarkGray);
         for c in [
             p.ok, p.queued, p.running, p.warn, p.crit, p.agent, p.cache, p.vti, p.release,
-            p.evidence, p.stale, p.unknown,
+            p.evidence, p.muted, p.unknown,
         ] {
             assert!(
                 !matches!(c, Color::Rgb(_, _, _)),

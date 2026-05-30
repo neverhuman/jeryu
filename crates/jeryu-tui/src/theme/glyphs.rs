@@ -11,7 +11,7 @@ pub enum Glyph {
     Running, Active, Queued, Waiting,
     Passed, Failed, Blocked, Skipped,
     Proof, Paused, Grant, Release,
-    Warn, Stale,
+    Warn, Expired,
 }
 
 impl Glyph {
@@ -22,7 +22,7 @@ impl Glyph {
             Self::Running => "●", Self::Active  => "▶", Self::Queued  => "○", Self::Waiting => "…",
             Self::Passed  => "✓", Self::Failed  => "✗", Self::Blocked => "⛔", Self::Skipped => "↷",
             Self::Proof   => "◆", Self::Paused  => "⏸", Self::Grant   => "⚿", Self::Release => "⬢",
-            Self::Warn    => "!", Self::Stale   => "~",
+            Self::Warn    => "!", Self::Expired => "~",
         }
     }
 
@@ -33,7 +33,7 @@ impl Glyph {
             Self::Running => "*", Self::Active  => ">", Self::Queued  => "o", Self::Waiting => "...",
             Self::Passed  => "v", Self::Failed  => "x", Self::Blocked => "X", Self::Skipped => "/",
             Self::Proof   => "#", Self::Paused  => "||", Self::Grant  => "K", Self::Release => "R",
-            Self::Warn    => "!", Self::Stale   => "~",
+            Self::Warn    => "!", Self::Expired => "~",
         }
     }
 
@@ -52,7 +52,7 @@ impl Glyph {
         Self::Running, Self::Active, Self::Queued, Self::Waiting,
         Self::Passed, Self::Failed, Self::Blocked, Self::Skipped,
         Self::Proof, Self::Paused, Self::Grant, Self::Release,
-        Self::Warn, Self::Stale,
+        Self::Warn, Self::Expired,
     ];
 }
 

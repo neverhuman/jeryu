@@ -56,7 +56,7 @@ pub fn render(f: &mut Frame, props: &VirtualTableProps, area: Rect, palette: &Pa
             props.total_rows
         ))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(palette.stale));
+        .border_style(Style::default().fg(palette.muted));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -98,7 +98,7 @@ pub fn render(f: &mut Frame, props: &VirtualTableProps, area: Rect, palette: &Pa
                 .fg(palette.running)
                 .add_modifier(Modifier::BOLD | Modifier::REVERSED)
         } else if (props.viewport_top + idx) % 2 == 1 {
-            Style::default().fg(palette.stale)
+            Style::default().fg(palette.muted)
         } else {
             Style::default()
         };

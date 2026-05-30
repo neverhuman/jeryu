@@ -23,12 +23,12 @@ pub fn should_show_esc(focus: &FocusState, pane: PaneId) -> bool {
     focus.active == pane && (focus.fullscreen == Some(pane) || !focus.stack.is_empty())
 }
 
-/// Border color: active panes use `running`, inactive panes use `stale`.
+/// Border color: active panes use `running`, inactive panes use `muted`.
 pub fn border_color(focus: &FocusState, pane: PaneId, palette: &Palette) -> ratatui::style::Color {
     if is_active(focus, pane) {
         palette.running
     } else {
-        palette.stale
+        palette.muted
     }
 }
 
@@ -84,7 +84,7 @@ mod tests {
             border_color(&focus, PaneId::MissionTopSignal, &p),
             p.running
         );
-        assert_eq!(border_color(&focus, PaneId::MissionMetrics, &p), p.stale);
+        assert_eq!(border_color(&focus, PaneId::MissionMetrics, &p), p.muted);
     }
 
     #[test]
