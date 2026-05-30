@@ -23,6 +23,7 @@ members = [
   "crates/jeryu-cache-cli",
   "crates/jeryu-cache-core",
   "crates/jeryu-cache-service",
+  "crates/jeryu-cli",
   "crates/jeryu-core",
   "crates/domain",
   "crates/jeryu-gitd",
