@@ -1,191 +1,24 @@
 //! Receipt / ledger / verdict signing.
 //!
-//! Three algorithms are recognized on the wire (distinguished by the `algo`
-//! field of `Signature`):
+//! The signing primitives are owned by the shared [`jeryu_signing`] leaf crate
+//! so the `Signature` wire object, the ed25519 path, the insecure-HMAC path, and
+//! the digest helper stay byte-for-byte identical with `jeryu-review`. This
+//! module re-exports them under the historical `crate::signing::*` path used
+//! throughout the control plane.
+//!
+//! Three algorithms are recognized on the wire (the `algo` field of
+//! [`Signature`]):
 //! - `unsigned` — no cryptographic signature; rejected by enforcement-mode
 //!   verifiers (see [`crate::conditions::cond_evidence_signature_invalid`]).
 //! - `hmac-sha256-insecure` — symmetric HMAC; not enforcement-grade (any holder
 //!   of the shared secret can forge it); rejected in enforcement.
-//! - `ed25519` — real per-agent ed25519 signing via [`EdSigningKey`];
-//!   accepted by enforcement-mode verifiers.
+//! - `ed25519` — real per-agent ed25519 signing via [`EdSigningKey`]; accepted
+//!   by enforcement-mode verifiers.
 //!
 //! Public keys live under `.jeryu/autonomy/keys/<agent_id>.ed25519.pub`
-//! (32 bytes, hex). Private key material is vaulted by the host (a thin seam,
-//! not part of this crate).
+//! (32 bytes, hex). Private key material is vaulted by the host.
 
-use ed25519_dalek::{Signer, SigningKey as DalekSigningKey, Verifier, VerifyingKey};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Signature {
-    pub key_id: String,
-    pub algo: String,
-    pub value: String,
-}
-
-impl Signature {
-    /// Build an unsigned signature marker. Used by helpers that construct a
-    /// ledger/verdict body before [`sign_entry`](crate::ledger::sign_entry)
-    /// overwrites the signature with a real ed25519 value. The wire-format
-    /// `algo: "unsigned"` is load-bearing: enforcement-mode verifiers
-    /// (`VerdictLedger::append`, `cond_evidence_signature_invalid`) reject any
-    /// algo other than `ed25519`, so an unsigned object in flight is always
-    /// caught at the append boundary.
-    pub fn default_unsigned() -> Self {
-        Self {
-            key_id: "unsigned".into(),
-            algo: "unsigned".into(),
-            value: "0".repeat(64),
-        }
-    }
-
-    /// Construct the unsigned marker. Alias for [`Signature::default_unsigned`];
-    /// reads better at call sites that just want "a not-yet-signed signature".
-    pub fn unsigned() -> Self {
-        Self::default_unsigned()
-    }
-}
-
-/// Symmetric HMAC-SHA256 key. NOT enforcement-grade: any holder of the shared
-/// secret can forge a signature, so enforcement-mode verifiers reject its
-/// `hmac-sha256-insecure` algo. Retained for the refuse-lists and low-trust paths.
-pub struct SigningKey {
-    pub key_id: String,
-    pub secret: Vec<u8>,
-}
-
-impl SigningKey {
-    pub fn new(key_id: impl Into<String>, secret: impl Into<Vec<u8>>) -> Self {
-        Self {
-            key_id: key_id.into(),
-            secret: secret.into(),
-        }
-    }
-
-    /// HMAC-SHA-256 over `body`. NOT cryptographically equivalent to ed25519.
-    pub fn sign(&self, body: &[u8]) -> Signature {
-        let mut h = Sha256::new();
-        h.update(&self.secret);
-        h.update(body);
-        h.update(&self.secret);
-        Signature {
-            key_id: self.key_id.clone(),
-            algo: "hmac-sha256-insecure".into(),
-            value: hex::encode(h.finalize()),
-        }
-    }
-
-    pub fn verify(&self, body: &[u8], sig: &Signature) -> bool {
-        if sig.algo != "hmac-sha256-insecure" || sig.key_id != self.key_id {
-            return false;
-        }
-        let expected = self.sign(body);
-        expected.value == sig.value
-    }
-}
-
-/// SHA-256 hex digest helper (returns `sha256:<hex>`).
-pub fn sha256_digest(bytes: &[u8]) -> String {
-    let mut h = Sha256::new();
-    h.update(bytes);
-    format!("sha256:{}", hex::encode(h.finalize()))
-}
-
-// ---------------------------------------------------------------------------
-// Real ed25519 signing key (algo = "ed25519")
-// ---------------------------------------------------------------------------
-
-/// Per-agent ed25519 signing key. Wraps `ed25519-dalek`'s `SigningKey`.
-pub struct EdSigningKey {
-    pub key_id: String,
-    inner: DalekSigningKey,
-}
-
-impl EdSigningKey {
-    /// Build a key from a 32-byte seed. Deterministic — same seed → same key.
-    pub fn from_seed(key_id: impl Into<String>, seed: [u8; 32]) -> Self {
-        Self {
-            key_id: key_id.into(),
-            inner: DalekSigningKey::from_bytes(&seed),
-        }
-    }
-
-    /// Generate a fresh random key. Test/dev convenience; production should
-    /// call [`EdSigningKey::from_seed`] with vaulted bytes.
-    pub fn generate(key_id: impl Into<String>) -> Self {
-        let seed: [u8; 32] = rand::random();
-        Self::from_seed(key_id, seed)
-    }
-
-    /// Sign raw bytes and return the wire-format [`Signature`] with
-    /// `algo: "ed25519"`.
-    pub fn sign_raw(&self, body: &[u8]) -> Signature {
-        let sig = self.inner.sign(body);
-        Signature {
-            key_id: self.key_id.clone(),
-            algo: "ed25519".into(),
-            value: hex::encode(sig.to_bytes()),
-        }
-    }
-
-    /// Export the public-key bytes as 32-byte hex. Suitable for writing to
-    /// `.jeryu/autonomy/keys/<agent_id>.ed25519.pub`.
-    pub fn public_key_hex(&self) -> String {
-        hex::encode(self.inner.verifying_key().to_bytes())
-    }
-
-    /// Return the corresponding verifier (cheap; derived from the secret).
-    pub fn verifier(&self) -> EdVerifier {
-        EdVerifier {
-            key_id: self.key_id.clone(),
-            inner: self.inner.verifying_key(),
-        }
-    }
-}
-
-/// Public-key verifier for `algo: "ed25519"` signatures.
-pub struct EdVerifier {
-    pub key_id: String,
-    inner: VerifyingKey,
-}
-
-impl EdVerifier {
-    /// Reconstruct from the 32-byte hex string written to
-    /// `.jeryu/autonomy/keys/*.ed25519.pub`.
-    pub fn from_public_key_hex(key_id: impl Into<String>, hex_str: &str) -> Result<Self, String> {
-        let bytes = hex::decode(hex_str.trim()).map_err(|e| format!("hex decode: {e}"))?;
-        let arr: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| "public key must be 32 bytes".to_string())?;
-        let vk = VerifyingKey::from_bytes(&arr).map_err(|e| format!("vk decode: {e}"))?;
-        Ok(Self {
-            key_id: key_id.into(),
-            inner: vk,
-        })
-    }
-
-    /// Verify `body` against `sig`. Rejects on algo mismatch, key-id mismatch,
-    /// malformed signature bytes, or signature/body mismatch.
-    pub fn verify(&self, body: &[u8], sig: &Signature) -> bool {
-        if sig.algo != "ed25519" {
-            return false;
-        }
-        if sig.key_id != self.key_id {
-            return false;
-        }
-        let bytes = match hex::decode(&sig.value) {
-            Ok(b) => b,
-            Err(_) => return false,
-        };
-        let arr: [u8; 64] = match bytes.try_into() {
-            Ok(a) => a,
-            Err(_) => return false,
-        };
-        let dalek_sig = ed25519_dalek::Signature::from_bytes(&arr);
-        self.inner.verify(body, &dalek_sig).is_ok()
-    }
-}
+pub use jeryu_signing::{EdSigningKey, EdVerifier, Signature, SigningKey, sha256_digest};
 
 #[cfg(test)]
 mod tests {

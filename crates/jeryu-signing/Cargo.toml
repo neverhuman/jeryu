@@ -1,0 +1,16 @@
+[package]
+name = "jeryu-signing"
+version = "0.1.0"
+edition = "2024"
+description = "Shared receipt / ledger / verdict signing core for the jeryu autonomy gate: the wire-format Signature object, ed25519 per-agent signing and verification, the insecure-HMAC low-trust path, and the sha256 digest helper."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+hex = "0.4"
+
+[dev-dependencies]
+serde_json = "1"

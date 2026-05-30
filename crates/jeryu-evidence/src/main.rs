@@ -1,8 +1,8 @@
 //! Binary entry point for the zero-evidence guard.
 //!
-//! Port of `scripts/zero-evidence-guard.py`: scan a workspace root (default
-//! `.`) for blocked legacy/retired product markers. Prints one finding per
-//! offending file to stderr and exits non-zero when any are present.
+//! Scan a workspace root (default `.`) for forbidden third-party forge brand
+//! markers. Prints one finding per offending file to stderr and exits non-zero
+//! when any are present.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -10,11 +10,11 @@ use std::process::ExitCode;
 use clap::Parser;
 use jeryu_evidence::scan;
 
-/// scan for blocked legacy-provider markers
+/// scan for forbidden third-party forge brand markers
 #[derive(Parser, Debug)]
 #[command(
     name = "jeryu-evidence",
-    about = "scan for blocked legacy-provider markers"
+    about = "scan for forbidden third-party forge brand markers"
 )]
 struct Cli {
     /// workspace root to scan

@@ -1,19 +1,18 @@
-//! Zero-evidence guard: scan a workspace for blocked legacy and retired
-//! product markers.
+//! Zero-evidence guard: scan a workspace for forbidden third-party forge brand
+//! markers.
 //!
-//! This is a faithful Rust port of `scripts/zero-evidence-guard.py`. The
-//! forbidden literals are stored only as hex-encoded strings and decoded at
-//! runtime, so this crate's own source can never match itself (the
-//! "self-clean" trick from the original script).
+//! The forbidden literals are stored only as hex-encoded strings and decoded at
+//! runtime, so this crate's own source can never match itself (the scanner stays
+//! self-clean).
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Hex-encoded blocked markers.
+/// Hex-encoded forbidden brand markers.
 ///
 /// Storing the markers as hex keeps the literal bytes out of this source file,
-/// so the scanner never flags itself. The decoded set must remain byte-for-byte
-/// identical to the Python original's `BLOCKED_MARKER_HEX`.
+/// so the scanner never flags itself. Each entry is the lowercase byte sequence
+/// of one forbidden third-party forge brand or product name.
 const BLOCKED_MARKER_HEX: &[&str] = &[
     "6769746c6162",
     "676974206c6162",
@@ -29,10 +28,10 @@ const BLOCKED_MARKER_HEX: &[&str] = &[
 
 /// Directory names whose entire subtree is skipped during a scan.
 ///
-/// The first three (`.git`, `.worktrees`, `target`) match the Python original's
-/// `SKIP_DIRS`. The remaining entries (`node_modules`, `dist`) cover the
-/// React/TS web build artifacts, and the external worktree roots live outside
-/// the repo so a default `.` scan never reaches them.
+/// `.git`, `.worktrees`, and `target` hold VCS internals and build output that
+/// are never product source. `node_modules` and `dist` cover the web build
+/// artifacts. External worktree roots live outside the repo, so a default `.`
+/// scan never reaches them.
 const SKIP_DIRS: &[&str] = &[".git", ".worktrees", "target", "node_modules", "dist"];
 
 /// Errors that can occur while scanning a workspace.
@@ -58,7 +57,7 @@ pub enum ScanError {
     },
 }
 
-/// A single forbidden-marker finding, rendered to match the Python output:
+/// A single forbidden-marker finding, rendered as
 /// `"{rel}:{line}: blocked marker"`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Finding {
@@ -89,8 +88,7 @@ fn blocked_markers() -> Result<Vec<Vec<u8>>, ScanError> {
 
 /// Recursively collect scannable files under `root`, skipping [`SKIP_DIRS`].
 ///
-/// Returns `(relative_path, absolute_path)` pairs for regular files only,
-/// mirroring the Python `iter_files`.
+/// Returns `(relative_path, absolute_path)` pairs for regular files only.
 fn iter_files(root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ScanError> {
     let mut out = Vec::new();
     let mut stack = vec![root.to_path_buf()];
@@ -115,8 +113,7 @@ fn iter_files(root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ScanError> {
                 source: std::io::Error::other("path escaped scan root"),
             })?;
 
-            // Skip any path whose components include a skipped directory name,
-            // matching the Python `any(part in SKIP_DIRS for part in rel.parts)`.
+            // Skip any path whose components include a skipped directory name.
             if rel
                 .components()
                 .any(|c| SKIP_DIRS.contains(&c.as_os_str().to_string_lossy().as_ref()))
@@ -129,15 +126,15 @@ fn iter_files(root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ScanError> {
             } else if file_type.is_file() {
                 out.push((rel.to_path_buf(), path));
             }
-            // Symlinks and other non-regular entries are ignored, matching the
-            // Python `path.is_file()` filter.
+            // Symlinks and other non-regular entries are ignored; only regular
+            // files are scanned.
         }
     }
     Ok(out)
 }
 
-/// Compute the one-based line number of byte offset `index` in `data`,
-/// matching the Python `line_number` (count of `\n` before the index, plus 1).
+/// Compute the one-based line number of byte offset `index` in `data`
+/// (count of `\n` before the index, plus 1).
 fn line_number(data: &[u8], index: usize) -> usize {
     data[..index].iter().filter(|&&b| b == b'\n').count() + 1
 }
@@ -152,11 +149,12 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
-/// Scan `root` for blocked markers, returning one [`Finding`] per offending
-/// file (the first matching marker wins, as in the Python `break`).
+/// Scan `root` for forbidden brand markers, returning one [`Finding`] per
+/// offending file (the first matching marker wins; scanning of that file stops
+/// at the first hit).
 ///
-/// File contents are lowercased before matching, mirroring the Python
-/// `path.read_bytes().lower()`.
+/// File contents are lowercased before matching so the comparison is
+/// case-insensitive.
 ///
 /// # Errors
 ///
@@ -192,7 +190,7 @@ mod tests {
     fn markers_decode_to_expected_count() {
         let markers = blocked_markers().expect("markers decode");
         assert_eq!(markers.len(), BLOCKED_MARKER_HEX.len());
-        // First marker decodes to the seven-byte legacy provider name.
+        // First marker decodes to the six-byte forbidden brand name.
         assert_eq!(markers[0].len(), 6);
     }
 
