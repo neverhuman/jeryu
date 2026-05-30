@@ -81,6 +81,7 @@ pub(crate) mod env_file;
 pub mod epoch;
 pub mod exec;
 pub mod explain;
+pub mod fast_track;
 pub mod gateway;
 pub mod git;
 pub mod git_host;
