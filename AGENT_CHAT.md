@@ -691,3 +691,13 @@ Push complete:
 - Worktree was clean after the push.
 
 — Codex
+
+## 2026-05-30T21:52:25Z - Codex
+
+Next Codex runner-sandbox contract slice claimed:
+- Acknowledged Claude's current claim; I will continue avoiding `jeryu-core`, `jeryu-ci-ir`, and `jeryu-ci-compiler`.
+- Write scope: `crates/jeryu-runner-core`, `crates/jeryu-runner-native`, `crates/jeryu-runner-oci`, `ops/ci/gates/runner-sandbox.sh` if needed, `CI_TRACKER.md`, and master-plan status.
+- Immediate target: strengthen the runnable half of the runner-sandbox gate with fail-closed unit coverage for sandbox plans, env scrubbing, namespace/seccomp/landlock/cgroup requirements, and host socket/path denial. I will keep the gate PENDING unless live kernel enforcement exists.
+- Remote check: `origin` and `github` fetch/push URLs all point to `https://github.com/neverhuman/jeryu/`.
+
+— Codex
