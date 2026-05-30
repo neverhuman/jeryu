@@ -45,6 +45,7 @@ fn open_pr(core: &ForgeCore, head_sha: &str, draft: bool) -> u64 {
             head_sha: Some(head_sha.to_string()),
             base_sha: None,
             draft,
+            ..Default::default()
         },
     )
     .unwrap()
@@ -350,12 +351,9 @@ fn merging_blocked_pr_is_rejected_with_branch_protection_error() {
 #[test]
 fn closed_pr_cannot_be_merged() {
     let core = core_with_repo();
-    // The PR must be genuinely-stored as Closed for the merge guard to fire. The
-    // forge only preserves a manually-set Closed state when the PR is otherwise
-    // not mergeable (see `closing_a_mergeable_pr_does_not_stick` for the inverse),
-    // so we close it under a blocking protection rule -- the realistic "abandon a
-    // PR that never passed checks" path.
-    protect_main(&core, 1, &["ci/fast"]);
+    // Closed is now a sticky terminal state regardless of mergeability (see
+    // `closing_a_mergeable_pr_sticks`), so we can close a plain open PR and the
+    // merge guard fires on the preserved Closed state.
     let number = open_pr(&core, "abc", false);
     core.update_pull_request(
         "alice",
@@ -372,7 +370,7 @@ fn closed_pr_cannot_be_merged() {
             .unwrap()
             .state,
         PullRequestState::Closed,
-        "a blocked PR keeps its manually-set Closed state"
+        "a closed PR keeps its terminal Closed state"
     );
 
     let err = core
@@ -383,12 +381,13 @@ fn closed_pr_cannot_be_merged() {
 }
 
 #[test]
-fn closing_a_mergeable_pr_does_not_stick() {
-    // KNOWN CORE BEHAVIOR (flagged as a likely bug): unlike `merged`, the
-    // `closed` terminal state is recomputed on every read. When no protection
-    // blocks the PR, `apply_evaluation` forces an undrafted, mergeable PR back to
-    // `Mergeable`, clobbering a just-set `Closed`. This test pins that behavior so
-    // a future fix is a deliberate, visible change rather than a silent one.
+fn closing_a_mergeable_pr_sticks() {
+    // DELIBERATE CORRECTNESS CHANGE: previously `apply_evaluation` recomputed the
+    // PR state on every read and reverted an undrafted, otherwise-mergeable PR
+    // from a just-set `Closed` back to `Mergeable` (the old, buggy behavior pinned
+    // by `closing_a_mergeable_pr_does_not_stick`). GitHub treats `Closed` (like
+    // `Merged`) as a sticky terminal state that is never recomputed away until the
+    // PR is explicitly reopened. This test pins the corrected behavior.
     let core = core_with_repo();
     let number = open_pr(&core, "abc", false);
     core.update_pull_request(
@@ -402,8 +401,14 @@ fn closing_a_mergeable_pr_does_not_stick() {
     )
     .unwrap();
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
-    assert_eq!(pr.state, PullRequestState::Mergeable);
+    assert_eq!(pr.state, PullRequestState::Closed);
+    assert_eq!(pr.mergeable_state, "closed");
+    assert!(!pr.mergeable);
     assert!(!pr.merged);
+
+    // And it stays Closed across repeated reads (true stickiness, not a one-shot).
+    let pr_again = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert_eq!(pr_again.state, PullRequestState::Closed);
 }
 
 #[test]

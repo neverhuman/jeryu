@@ -214,6 +214,27 @@ pub enum PullRequestState {
     Closed,
 }
 
+/// A single commit on a pull request branch.
+///
+/// Carries the data branch-protection enforcement needs that is not derivable
+/// from the head ref alone: signature verification status (for
+/// `require_signed_commits`) and parent count (for `required_linear_history`,
+/// where a parent count > 1 marks a merge commit).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PullRequestCommit {
+    pub sha: String,
+    /// Whether the commit signature is verified (GitHub's `verification.verified`).
+    #[serde(default)]
+    pub verified: bool,
+    /// Number of parents. `> 1` indicates a merge commit (non-linear history).
+    #[serde(default = "default_commit_parents")]
+    pub parents: u64,
+}
+
+pub fn default_commit_parents() -> u64 {
+    1
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GitBranchRef {
     pub label: String,
@@ -256,6 +277,14 @@ pub struct PullRequest {
     pub merged: bool,
     pub merged_at: Option<DateTime<Utc>>,
     pub merge_commit_sha: Option<String>,
+    /// Commits on the PR head, newest data first is not required. Used by
+    /// `required_linear_history` and `require_signed_commits` enforcement.
+    #[serde(default)]
+    pub commits: Vec<PullRequestCommit>,
+    /// Repository-relative paths changed by the PR. Used for CODEOWNERS
+    /// owner-approval enforcement.
+    #[serde(default)]
+    pub changed_files: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -273,6 +302,10 @@ pub struct CreatePullRequestRequest {
     pub base_sha: Option<String>,
     #[serde(default)]
     pub draft: bool,
+    #[serde(default)]
+    pub commits: Vec<PullRequestCommit>,
+    #[serde(default)]
+    pub changed_files: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -285,6 +318,10 @@ pub struct UpdatePullRequestRequest {
     pub state: Option<PullRequestState>,
     #[serde(default)]
     pub draft: Option<bool>,
+    #[serde(default)]
+    pub commits: Option<Vec<PullRequestCommit>>,
+    #[serde(default)]
+    pub changed_files: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
