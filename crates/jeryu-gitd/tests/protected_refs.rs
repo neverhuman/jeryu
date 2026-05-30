@@ -29,3 +29,31 @@ fn protected_tag_pattern_matches() {
     };
     assert!(rule.evaluate(&change).is_err());
 }
+
+#[test]
+fn protected_main_denies_force_update() {
+    let rule = ProtectedRefRule::default_phase1_rules().remove(0);
+    let change = RefChange {
+        actor: "alice".to_string(),
+        ref_name: "refs/heads/main".to_string(),
+        old_oid: "abc".to_string(),
+        new_oid: "def".to_string(),
+        operation: RefOperation::Update,
+        force: true,
+    };
+    assert!(rule.evaluate(&change).is_err());
+}
+
+#[test]
+fn protected_main_allows_configured_mirror_bypass() {
+    let rule = ProtectedRefRule::default_phase1_rules().remove(0);
+    let change = RefChange {
+        actor: "system:mirror".to_string(),
+        ref_name: "refs/heads/main".to_string(),
+        old_oid: "abc".to_string(),
+        new_oid: "def".to_string(),
+        operation: RefOperation::Update,
+        force: true,
+    };
+    assert!(rule.evaluate(&change).is_ok());
+}

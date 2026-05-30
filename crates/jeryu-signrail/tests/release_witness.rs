@@ -150,6 +150,37 @@ fn provenance_signature_verifies() {
 }
 
 #[test]
+fn duplicate_provenance_artifact_digest_blocked() {
+    let mut release = unsigned_release();
+    let second_path = temp_artifact("release-extra.bin", b"extra artifact bytes");
+    let second = Artifact::from_file(
+        "jeryu-extra-linux-x86_64",
+        &second_path,
+        "application/octet-stream",
+    )
+    .unwrap_or_else(|err| panic!("artifact failed: {err}"));
+    release.add_artifact(second);
+    release.attach_sbom(SbomDocument::from_artifacts(
+        "v1.2.3",
+        &release.artifacts,
+        now(),
+    ));
+
+    let signer = HmacSha256Signer::new("phase8-test-key", b"phase8-secret");
+    release
+        .sign_with(&signer, now())
+        .unwrap_or_else(|err| panic!("signing failed: {err}"));
+    release.provenance[1].statement.artifact_digest =
+        release.provenance[0].statement.artifact_digest.clone();
+
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("duplicate provenance artifact digest")
+    );
+}
+
+#[test]
 fn oidc_expiry_blocks_release() {
     let (mut release, signer) = signed_release();
     release.oidc.expires_at_epoch = 1;

@@ -275,4 +275,45 @@ mod tests {
             .unwrap_or_else(|| panic!("expected error"));
         assert_eq!(err.code(), "runner_policy_denied");
     }
+
+    #[test]
+    fn release_hermetic_requires_network_deny() {
+        let mut request = job(TrustTier::T0ReleaseHermetic);
+        let decision = select_runner(&request).unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(decision.runner_class, RunnerClass::ReleaseHermetic);
+        assert_eq!(
+            decision.cache_write_policy,
+            CacheWritePolicy::TrustedAfterGreen
+        );
+
+        request.network_policy = NetworkPolicy::EgressOnly;
+        let err = select_runner(&request)
+            .err()
+            .unwrap_or_else(|| panic!("expected network denial"));
+        assert_eq!(err.code(), "network_policy_denied");
+    }
+
+    #[test]
+    fn agent_authored_gets_scoped_write_but_not_native_hot_or_egress() {
+        let mut request = job(TrustTier::T3AgentAuthored);
+        request.token_policy = TokenPolicy::ScopedWrite;
+        request.requested_runner = Some(RunnerClass::AgentGuard);
+        let decision = select_runner(&request).unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(decision.runner_class, RunnerClass::AgentGuard);
+        assert_eq!(decision.token_policy, TokenPolicy::ScopedWrite);
+        assert_eq!(decision.cache_write_policy, CacheWritePolicy::Quarantine);
+
+        request.requested_runner = Some(RunnerClass::NativeRustHot);
+        let err = select_runner(&request)
+            .err()
+            .unwrap_or_else(|| panic!("expected runner denial"));
+        assert_eq!(err.code(), "runner_policy_denied");
+
+        request.requested_runner = Some(RunnerClass::AgentGuard);
+        request.network_policy = NetworkPolicy::EgressOnly;
+        let err = select_runner(&request)
+            .err()
+            .unwrap_or_else(|| panic!("expected network denial"));
+        assert_eq!(err.code(), "network_policy_denied");
+    }
 }

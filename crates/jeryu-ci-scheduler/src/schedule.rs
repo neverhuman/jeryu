@@ -111,7 +111,7 @@ pub fn deterministic_schedule(pipeline: &Pipeline) -> Result<Schedule, ScheduleE
 
 #[cfg(test)]
 mod tests {
-    use super::deterministic_schedule;
+    use super::{ScheduleError, deterministic_schedule};
     use jeryu_ci_ir::{Dependency, Job, Pipeline, PipelineSource, RunnerClass, Step, TrustTier};
 
     #[test]
@@ -145,5 +145,49 @@ mod tests {
         let schedule = deterministic_schedule(&pipeline).expect("schedule");
         assert_eq!(schedule.rounds[0].jobs, vec!["build", "fmt"]);
         assert_eq!(schedule.rounds[1].jobs, vec!["test"]);
+    }
+
+    #[test]
+    fn duplicate_job_ids_fail_before_scheduling() {
+        let mut pipeline = Pipeline::new(
+            PipelineSource::NativeToml,
+            "acme/repo",
+            "abc",
+            TrustTier::InternalBranch,
+        );
+        pipeline.jobs = vec![
+            Job::new("test", "first", RunnerClass::NativeRustClean),
+            Job::new("test", "second", RunnerClass::NativeRustClean),
+        ];
+
+        let err = deterministic_schedule(&pipeline).unwrap_err();
+        assert_eq!(err, ScheduleError::DuplicateJob("test".to_string()));
+    }
+
+    #[test]
+    fn dependency_cycle_fails_closed() {
+        let mut pipeline = Pipeline::new(
+            PipelineSource::NativeToml,
+            "acme/repo",
+            "abc",
+            TrustTier::InternalBranch,
+        );
+        pipeline.jobs = vec![
+            Job::new("a", "a", RunnerClass::NativeRustClean),
+            Job::new("b", "b", RunnerClass::NativeRustClean),
+        ];
+        pipeline.edges = vec![
+            Dependency {
+                from: "a".to_owned(),
+                to: "b".to_owned(),
+            },
+            Dependency {
+                from: "b".to_owned(),
+                to: "a".to_owned(),
+            },
+        ];
+
+        let err = deterministic_schedule(&pipeline).unwrap_err();
+        assert_eq!(err, ScheduleError::Cycle);
     }
 }
