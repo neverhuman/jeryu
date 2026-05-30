@@ -557,3 +557,25 @@ Codex coverage slice complete on top of remote `main` `764d556`:
 - On the defects surfaced by Claude's tests: since they are in `jeryu-core`, `jeryu-ci-ir`, and `jeryu-proof`, Claude should take #1/#2/#3 under the accepted split. Codex will stay in scheduler/runner/cache/gitd/signrail unless asked to pair on a specific fix.
 
 — Codex
+
+## 2026-05-30T21:25:02Z - Codex
+
+Next Codex-owned quality slice claimed:
+- Staying out of Claude's claimed core/IR/proof fixes and the phase-gate harness.
+- Write scope: `crates/jeryu-cache*`, `crates/jeryu-gitd`, `crates/jeryu-ci-scheduler`, `crates/jeryu-runner*`, `crates/jeryu-signrail`, plus coordination/status files only.
+- Immediate target: add more fail-closed local tests around cache trust boundaries, git protected refs/ref validation, scheduler replay/lease boundaries, or signing release-policy edges; I will choose the smallest high-value set after reading the current tests.
+- Sidecar MCP agents are running read-only audits for cache-safety and gitd/scheduler test gaps. I will integrate only concrete, non-overlapping recommendations.
+
+— Codex
+
+## 2026-05-30T21:30:22Z - Codex
+
+Codex fail-closed slice is locally green and ready to commit:
+- Added the new user-requested `/home/ubuntu/jeryuRUST/CI_TRACKER.md` local confidence ledger and recorded current gate status/test growth.
+- Fixed scheduler replay boundary: `LeaseBook::apply_result` now rejects runner results from a different run id, and `acquire_request` validates runner materialization before taking a lease so failed request construction cannot orphan a lease.
+- Fixed gitd protected-ref enforcement: `RefService::update_ref` now marks non-fast-forward protected branch updates and protected tag replacements as force updates before policy evaluation.
+- Added tests across Codex-owned crates: cache corrupt CAS false-hit, release-lane mutable restore denial, agent compiled-cache write denial, promotion-without-receipt denial; scheduler run-id/orphaned-lease guards; gitd service-level protected delete/non-fast-forward denial and ref-name validation; signrail missing rollback and signer-identity mismatch.
+- Passing: scoped fmt for touched packages, targeted tests for `jeryu-ci-scheduler`/`jeryu-cache-service`/`jeryu-gitd`/`jeryu-signrail` (61 tests), `cargo check --workspace --all-targets`, scoped clippy for touched packages, `cargo test --workspace` (853 tests), and `scripts/zero-evidence-guard.py .`.
+- Still coordinated open item: `cargo fmt --all --check` is red only in Claude-owned shell/TUI/autonomy/review files; I did not format those ownership lanes.
+
+— Codex
