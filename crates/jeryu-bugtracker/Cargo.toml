@@ -1,0 +1,16 @@
+[package]
+name = "jeryu-bugtracker"
+description = "jeryu RedlineDB bug domain, triage, and CRUD behind a pluggable store seam"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }

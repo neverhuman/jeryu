@@ -1,0 +1,351 @@
+//! Backend trait seam + in-memory stub.
+//!
+//! The MCP transport is a thin adapter. All tool DISPATCH goes behind the
+//! [`ToolBackend`] trait so the transport stays free of any engine dependency.
+//! The real impl (wiring jeryu-agentbridge / jeryu-proof / jeryu-ci-scheduler) lands
+//! later; [`StubBackend`] is a deterministic in-memory impl used by the tests here.
+//!
+//! Bug tracking (the `bug_*` tools) is split out behind [`BugStore`] so the KEPT
+//! RedlineDB persistence layer can be supplied independently of the agent backend.
+
+use std::sync::Mutex;
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+/// Descriptor for one tool in the catalog. Mirrors the MCP `tools/list` entry shape.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToolDescriptor {
+    /// Fully-qualified tool name, e.g. `jeryu.fetch_capsule`.
+    pub name: String,
+    /// Human-readable title.
+    pub title: String,
+    /// One-line description.
+    pub description: String,
+    /// JSON Schema for the tool's arguments.
+    #[serde(rename = "inputSchema")]
+    pub input_schema: Value,
+    /// JSON Schema for the tool's structured result.
+    #[serde(rename = "outputSchema")]
+    pub output_schema: Value,
+    /// MCP behavioral hints (`readOnlyHint`, `destructiveHint`, ...).
+    pub annotations: Value,
+}
+
+impl ToolDescriptor {
+    /// Render to the JSON shape `tools/list` returns.
+    pub fn to_mcp_json(&self) -> Value {
+        serde_json::json!({
+            "name": self.name,
+            "title": self.title,
+            "description": self.description,
+            "inputSchema": self.input_schema,
+            "outputSchema": self.output_schema,
+            "annotations": self.annotations,
+        })
+    }
+}
+
+/// Result of a tool call. Keeps the historic `{ success, message, data }` JSON shape so
+/// the `content` / `structuredContent` / `isError` wrapping in the transport ports
+/// unchanged and existing MCP clients see no contract drift.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolResponse {
+    pub success: bool,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<Value>,
+}
+
+impl ToolResponse {
+    pub fn ok(message: impl Into<String>, data: Value) -> Self {
+        Self {
+            success: true,
+            message: message.into(),
+            data: Some(data),
+        }
+    }
+
+    pub fn error(message: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            message: message.into(),
+            data: None,
+        }
+    }
+}
+
+/// Context threaded into each tool call: who is calling (actor), the JSON-RPC request id,
+/// and the negotiated protocol version. Feeds agent identity/scope in the real backend.
+#[derive(Debug, Clone)]
+pub struct McpCallContext {
+    pub request_id: String,
+    pub actor: String,
+    pub protocol_version: String,
+}
+
+impl McpCallContext {
+    pub fn mcp(
+        request_id: impl Into<String>,
+        actor: impl Into<String>,
+        protocol_version: impl Into<String>,
+    ) -> Self {
+        Self {
+            request_id: request_id.into(),
+            actor: actor.into(),
+            protocol_version: protocol_version.into(),
+        }
+    }
+}
+
+/// The single dispatch seam. The real impl wires jeryu-agentbridge later.
+///
+/// `call` receives the *unprefixed* tool id (e.g. `fetch_capsule`, not `jeryu.fetch_capsule`)
+/// and the raw JSON arguments object. `list` produces the catalog the transport advertises.
+pub trait ToolBackend: Send + Sync {
+    /// Dispatch a tool by its unprefixed id with raw JSON arguments.
+    fn call(&self, tool: &str, args: Value, ctx: &McpCallContext) -> anyhow::Result<ToolResponse>;
+
+    /// The catalog this backend exposes (already fully-prefixed names).
+    fn list(&self) -> Vec<ToolDescriptor>;
+}
+
+/// Persistence seam for the `bug_*` tools (KEPT RedlineDB layer in the fused tree).
+/// Split from [`ToolBackend`] so the durable bug store can be supplied independently.
+pub trait BugStore: Send + Sync {
+    fn submit(&self, report: Value, idempotency_key: Option<String>) -> anyhow::Result<Value>;
+    fn list(
+        &self,
+        project: Option<String>,
+        status: Option<String>,
+        sort: Option<String>,
+    ) -> anyhow::Result<Value>;
+    fn show(&self, bug_id: &str) -> anyhow::Result<Value>;
+    fn ready(&self, project: Option<String>) -> anyhow::Result<Value>;
+    #[allow(clippy::too_many_arguments)]
+    fn update(
+        &self,
+        bug_id: &str,
+        status: Option<String>,
+        severity: Option<String>,
+        priority: Option<String>,
+        component: Option<String>,
+        owner: Option<String>,
+    ) -> anyhow::Result<Value>;
+    fn record_attempt(&self, bug_id: &str, attempt: Value) -> anyhow::Result<Value>;
+}
+
+/// Deterministic in-memory backend for tests. Validates argument shape via the catalog
+/// parsers and returns a predictable `ToolResponse` per tool. Holds an in-memory bug store.
+pub struct StubBackend {
+    bugs: Mutex<Vec<Value>>,
+}
+
+impl Default for StubBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StubBackend {
+    pub fn new() -> Self {
+        Self {
+            bugs: Mutex::new(Vec::new()),
+        }
+    }
+}
+
+impl BugStore for StubBackend {
+    fn submit(&self, report: Value, idempotency_key: Option<String>) -> anyhow::Result<Value> {
+        let mut bugs = self.bugs.lock().expect("bug store lock");
+        let id = format!("BUG-{}", bugs.len() + 1);
+        let record = serde_json::json!({
+            "bug_id": id,
+            "report": report,
+            "idempotency_key": idempotency_key,
+            "attempts": [],
+        });
+        bugs.push(record.clone());
+        Ok(record)
+    }
+
+    fn list(
+        &self,
+        _project: Option<String>,
+        _status: Option<String>,
+        _sort: Option<String>,
+    ) -> anyhow::Result<Value> {
+        let bugs = self.bugs.lock().expect("bug store lock");
+        Ok(Value::Array(bugs.clone()))
+    }
+
+    fn show(&self, bug_id: &str) -> anyhow::Result<Value> {
+        let bugs = self.bugs.lock().expect("bug store lock");
+        bugs.iter()
+            .find(|b| b.get("bug_id").and_then(Value::as_str) == Some(bug_id))
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("unknown bug {bug_id}"))
+    }
+
+    fn ready(&self, _project: Option<String>) -> anyhow::Result<Value> {
+        let bugs = self.bugs.lock().expect("bug store lock");
+        Ok(Value::Array(bugs.clone()))
+    }
+
+    fn update(
+        &self,
+        bug_id: &str,
+        status: Option<String>,
+        severity: Option<String>,
+        priority: Option<String>,
+        component: Option<String>,
+        owner: Option<String>,
+    ) -> anyhow::Result<Value> {
+        let mut bugs = self.bugs.lock().expect("bug store lock");
+        let record = bugs
+            .iter_mut()
+            .find(|b| b.get("bug_id").and_then(Value::as_str) == Some(bug_id))
+            .ok_or_else(|| anyhow::anyhow!("unknown bug {bug_id}"))?;
+        let map = record.as_object_mut().expect("bug record object");
+        for (k, v) in [
+            ("status", status),
+            ("severity", severity),
+            ("priority", priority),
+            ("component", component),
+            ("owner", owner),
+        ] {
+            if let Some(value) = v {
+                map.insert(k.to_string(), Value::String(value));
+            }
+        }
+        Ok(record.clone())
+    }
+
+    fn record_attempt(&self, bug_id: &str, attempt: Value) -> anyhow::Result<Value> {
+        let mut bugs = self.bugs.lock().expect("bug store lock");
+        let record = bugs
+            .iter_mut()
+            .find(|b| b.get("bug_id").and_then(Value::as_str) == Some(bug_id))
+            .ok_or_else(|| anyhow::anyhow!("unknown bug {bug_id}"))?;
+        record
+            .get_mut("attempts")
+            .and_then(Value::as_array_mut)
+            .expect("attempts array")
+            .push(attempt);
+        Ok(record.clone())
+    }
+}
+
+impl ToolBackend for StubBackend {
+    fn call(&self, tool: &str, args: Value, _ctx: &McpCallContext) -> anyhow::Result<ToolResponse> {
+        // The transport already validated the tool exists in the catalog and parsed
+        // arguments via `tool_definition(...).build_intent(...)`. Here we produce a
+        // deterministic, brandless response per tool family.
+        let arg = |k: &str| args.get(k).cloned().unwrap_or(Value::Null);
+        let resp = match tool {
+            "fetch_capsule" => ToolResponse::ok(
+                "fetched capsule",
+                serde_json::json!({ "job_id": arg("job_id"), "capsule": Value::Null }),
+            ),
+            "get_system_snapshot" => ToolResponse::ok(
+                "system snapshot",
+                serde_json::json!({ "engine_ready": true, "open_prs": 0 }),
+            ),
+            "get_ci_run_jobs" => ToolResponse::ok(
+                "ci run jobs",
+                serde_json::json!({ "repo": arg("repo"), "ci_run_id": arg("ci_run_id"), "jobs": [] }),
+            ),
+            "get_ci_bottlenecks" => ToolResponse::ok(
+                "ci bottlenecks",
+                serde_json::json!({ "repo": arg("repo"), "bottlenecks": [] }),
+            ),
+            "explain_blockers" => ToolResponse::ok(
+                "no blockers",
+                serde_json::json!({
+                    "entity_type": arg("entity_type"),
+                    "entity_id": arg("entity_id"),
+                    "mergeable": true,
+                    "blockers": [],
+                }),
+            ),
+            "plan_validation" => ToolResponse::ok(
+                "validation plan",
+                serde_json::json!({ "lanes": ["unit"], "blockers": [] }),
+            ),
+            "run_tests" => ToolResponse::ok(
+                "ci run triggered",
+                serde_json::json!({ "ci_run_id": 1, "scope": arg("test_scope") }),
+            ),
+            "propose_patch" => ToolResponse::ok(
+                "patch proposed",
+                serde_json::json!({ "pr_number": 1, "url": "pr://1" }),
+            ),
+            "race_patches" => ToolResponse::ok(
+                "patches racing",
+                serde_json::json!({ "ci_run_ids": [] }),
+            ),
+            "request_merge" => ToolResponse::ok(
+                "enqueued to merge queue",
+                serde_json::json!({ "pr_number": arg("pr_number"), "enqueued": true }),
+            ),
+            "bug_submit" => {
+                let record = self.submit(
+                    arg("report"),
+                    args.get("idempotency_key")
+                        .and_then(Value::as_str)
+                        .map(ToString::to_string),
+                )?;
+                ToolResponse::ok("bug submitted", record)
+            }
+            "bug_list" => {
+                let record = BugStore::list(
+                    self,
+                    args.get("project").and_then(Value::as_str).map(String::from),
+                    args.get("status").and_then(Value::as_str).map(String::from),
+                    args.get("sort").and_then(Value::as_str).map(String::from),
+                )?;
+                ToolResponse::ok("bugs", record)
+            }
+            "bug_show" => {
+                let id = args.get("bug_id").and_then(Value::as_str).unwrap_or_default();
+                match self.show(id) {
+                    Ok(record) => ToolResponse::ok("bug", record),
+                    Err(e) => ToolResponse::error(e.to_string()),
+                }
+            }
+            "bug_ready" => {
+                let record =
+                    self.ready(args.get("project").and_then(Value::as_str).map(String::from))?;
+                ToolResponse::ok("ready bugs", record)
+            }
+            "bug_update" => {
+                let id = args.get("bug_id").and_then(Value::as_str).unwrap_or_default();
+                let pick = |k: &str| args.get(k).and_then(Value::as_str).map(String::from);
+                match self.update(
+                    id,
+                    pick("status"),
+                    pick("severity"),
+                    pick("priority"),
+                    pick("component"),
+                    pick("owner"),
+                ) {
+                    Ok(record) => ToolResponse::ok("bug updated", record),
+                    Err(e) => ToolResponse::error(e.to_string()),
+                }
+            }
+            "bug_record_attempt" => {
+                let id = args.get("bug_id").and_then(Value::as_str).unwrap_or_default();
+                match self.record_attempt(id, arg("attempt")) {
+                    Ok(record) => ToolResponse::ok("attempt recorded", record),
+                    Err(e) => ToolResponse::error(e.to_string()),
+                }
+            }
+            other => ToolResponse::error(format!("unknown tool: {other}")),
+        };
+        Ok(resp)
+    }
+
+    fn list(&self) -> Vec<ToolDescriptor> {
+        crate::tools::catalog()
+    }
+}

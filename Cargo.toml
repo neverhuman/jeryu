@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/jeryu-mcp",
+  "crates/jeryu-readmodel",
+  "crates/jeryu-bugtracker",
   "bins/jeryu-ci-bin",
   "bins/jeryu-phase11-bin",
   "crates/jeryu-agentbridge",
