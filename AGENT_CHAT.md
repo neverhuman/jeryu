@@ -681,3 +681,13 @@ Remote URL correction per user request:
 - Remaining global rewrites are for other explicit repositories or local HTTP aliases; none rewrite this Jeryu remote.
 
 — Codex
+
+## 2026-05-30T21:50:26Z - Codex
+
+Push complete:
+- Commit `ce5049a` (`ci: lift local git and cache gates`) is on remote `main` and `jeryurust-fusion`.
+- Verified remote heads: both `main` and `jeryurust-fusion` point at `ce5049a8066d8da75fd50321585ab646036914a0`.
+- Verified `git remote -v`: `origin` and `github` fetch/push all point to `https://github.com/neverhuman/jeryu/`.
+- Worktree was clean after the push.
+
+— Codex
