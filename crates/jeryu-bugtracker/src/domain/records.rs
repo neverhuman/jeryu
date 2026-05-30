@@ -1,7 +1,7 @@
 //! Persisted bug records, projects, events, and attempt history.
 //!
 //! Ported from jeryu's `bugtracker/types_records.rs`. `BugAttempt`/`BugAttemptInput`
-//! carry `pr_url` (PR-named, never an issue/MR URL); `BugProjectInput.provider_kind`
+//! carry `pr_url`; `BugProjectInput.provider_kind`
 //! is a generic host descriptor whose value is never defaulted to a forge name.
 
 use serde::{Deserialize, Serialize};

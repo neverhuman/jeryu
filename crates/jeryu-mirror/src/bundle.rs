@@ -40,7 +40,6 @@ pub fn write_bundle(path: impl AsRef<Path>, archive: &Archive) -> Result<BundleM
         write_json(&repo_dir.join("repository.json"), repo)?;
         write_json(&repo_dir.join("issues.json"), &repo.issues)?;
         write_json(&repo_dir.join("pull_requests.json"), &repo.pull_requests)?;
-        write_json(&repo_dir.join("merge_requests.json"), &repo.merge_requests)?;
         write_json(&repo_dir.join("releases.json"), &repo.releases)?;
         write_json(&repo_dir.join("artifacts.json"), &repo.artifacts)?;
         write_json(&repo_dir.join("webhooks.json"), &repo.webhooks)?;
@@ -51,7 +50,6 @@ pub fn write_bundle(path: impl AsRef<Path>, archive: &Archive) -> Result<BundleM
                 "repository.json",
                 "issues.json",
                 "pull_requests.json",
-                "merge_requests.json",
                 "releases.json",
                 "artifacts.json",
                 "webhooks.json",
@@ -150,12 +148,11 @@ fn safe(input: &str) -> String {
 fn restore_instructions(archive: &Archive) -> String {
     let counts = archive.counts();
     format!(
-        "# JeryuMirror restore instructions\n\nBundle `{}` contains {} repositories, {} issues, {} pull requests, {} merge requests, and {} releases.\n\n1. Verify `manifest.json` and `archive.json` digest.\n2. Recreate repositories and protected branches.\n3. Restore issues, pull requests, merge requests, labels, milestones, releases, and artifact metadata.\n4. Rehydrate webhook/app tokens from the target secret store; secret values are not included.\n5. Run mirror drift detection after first sync.\n",
+        "# JeryuMirror restore instructions\n\nBundle `{}` contains {} repositories, {} issues, {} pull requests, and {} releases.\n\n1. Verify `manifest.json` and `archive.json` digest.\n2. Recreate repositories and protected branches.\n3. Restore issues, pull requests, labels, milestones, releases, and artifact metadata.\n4. Rehydrate webhook/app tokens from the target secret store; secret values are not included.\n5. Run mirror drift detection after first sync.\n",
         archive.archive_id,
         counts.repositories,
         counts.issues,
         counts.pull_requests,
-        counts.merge_requests,
         counts.releases
     )
 }

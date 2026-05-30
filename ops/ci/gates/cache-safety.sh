@@ -19,6 +19,7 @@ GATE_NAME="cache-safety"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/../../.." && pwd)"
 cd "${ROOT}" || { echo "GATE ${GATE_NAME}: FAIL (cannot cd to repo root)"; exit 1; }
+source "${ROOT}/ops/ci/common.sh"
 
 # Base cache packages.
 PKGS="-p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache"
@@ -33,7 +34,7 @@ fi
 
 echo "[${GATE_NAME}] (A) cargo test ${PKGS}"
 # shellcheck disable=SC2086
-if ! cargo test ${PKGS}; then
+if ! cargo test ${PKGS} --jobs "${JERYU_CI_JOBS}"; then
   echo "GATE ${GATE_NAME}: FAIL (cache crate tests did not pass)"
   exit 1
 fi

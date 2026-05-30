@@ -1,0 +1,64 @@
+//! Canonical domain repair surface.
+//!
+//! The durable implementation lives in `jeryu-core`; this crate gives local
+//! agents and audit tools a stable domain route for typed, repairable errors.
+
+pub use jeryu_core::{AgentRepairHint, JeryuError, JeryuResult};
+
+/// Owned domain exception pattern for agent-readable repair.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainExceptionPattern {
+    /// Purpose of the failed domain operation.
+    pub purpose: &'static str,
+    /// Reason the operation failed.
+    pub reason: &'static str,
+    /// Common fixes that can repair the failure locally.
+    pub common_fixes: &'static [&'static str],
+    /// Documentation URL for the failure class.
+    pub docs_url: &'static str,
+    /// Repair hint with the next rerun command.
+    pub repair_hint: &'static str,
+}
+
+/// Return the machine-readable repair hint for a domain error.
+pub fn repair_hint(error: &JeryuError) -> AgentRepairHint {
+    error.agent_repair_hint()
+}
+
+/// Return the canonical exception pattern expected by agents.
+pub fn exception_pattern() -> DomainExceptionPattern {
+    DomainExceptionPattern {
+        purpose: "route domain errors to local repair",
+        reason: "domain operation requires typed evidence before retry",
+        common_fixes: &[
+            "inspect the structured domain error",
+            "run the mapped proof lane before retrying mutation",
+        ],
+        docs_url: "docs/errors.md",
+        repair_hint: "rerun cargo test -p jeryu-domain --jobs 40",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{JeryuError, exception_pattern, repair_hint};
+
+    #[test]
+    fn domain_errors_expose_agent_repair_hints() {
+        let hint = repair_hint(&JeryuError::PolicyDenied("branch protection".to_string()));
+        assert_eq!(hint.reason, "policy_denied");
+        assert_eq!(hint.docs_url, "docs/errors.md#policy-denied");
+        assert!(hint.common_fixes.iter().any(|fix| fix.contains("receipt")));
+        assert!(hint.repair_hint.contains("rerun"));
+    }
+
+    #[test]
+    fn domain_exception_pattern_names_repair_contract_fields() {
+        let pattern = exception_pattern();
+        assert_eq!(pattern.purpose, "route domain errors to local repair");
+        assert!(pattern.reason.contains("typed evidence"));
+        assert!(!pattern.common_fixes.is_empty());
+        assert_eq!(pattern.docs_url, "docs/errors.md");
+        assert!(pattern.repair_hint.contains("jeryu-domain"));
+    }
+}

@@ -59,6 +59,7 @@ pub fn sanitize_env(env: &BTreeMap<String, String>) -> BTreeMap<String, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn denies_docker_socket() {
@@ -69,6 +70,23 @@ mod tests {
     }
 
     #[test]
+    fn denies_socket_and_ssh_path_prefixes() {
+        for path in [
+            "/var/run/docker.sock",
+            "/run/podman/podman.sock",
+            "/root/.ssh/id_rsa",
+            "/home/.ssh/config",
+        ] {
+            let err = deny_dangerous_host_path(Path::new(path))
+                .err()
+                .unwrap_or_else(|| panic!("expected denial for {path}"));
+            assert_eq!(err.code(), "host_path_denied");
+        }
+        deny_dangerous_host_path(Path::new("/tmp/jeryu-work"))
+            .unwrap_or_else(|err| panic!("{err}"));
+    }
+
+    #[test]
     fn strips_ssh_agent() {
         let mut env = BTreeMap::new();
         env.insert("SSH_AUTH_SOCK".to_string(), "/tmp/agent".to_string());
@@ -76,5 +94,23 @@ mod tests {
         let sanitized = sanitize_env(&env);
         assert!(!sanitized.contains_key("SSH_AUTH_SOCK"));
         assert_eq!(sanitized.get("RUST_LOG"), Some(&"info".to_string()));
+    }
+
+    proptest! {
+        #[test]
+        fn sanitize_env_never_forwards_denied_vars(value in "\\PC*") {
+            let mut env = BTreeMap::new();
+            for denied in DENIED_ENV_VARS {
+                env.insert((*denied).to_string(), value.clone());
+            }
+            env.insert("RUST_LOG".to_string(), value);
+
+            let sanitized = sanitize_env(&env);
+
+            for denied in DENIED_ENV_VARS {
+                prop_assert!(!sanitized.contains_key(*denied));
+            }
+            prop_assert!(sanitized.contains_key("RUST_LOG"));
+        }
     }
 }

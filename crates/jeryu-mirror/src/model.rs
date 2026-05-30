@@ -69,7 +69,6 @@ impl Archive {
         for repo in &self.repositories {
             counts.issues += repo.issues.len();
             counts.pull_requests += repo.pull_requests.len();
-            counts.merge_requests += repo.merge_requests.len();
             counts.labels += repo.labels.len();
             counts.milestones += repo.milestones.len();
             counts.releases += repo.releases.len();
@@ -100,7 +99,6 @@ impl Archive {
             repo.milestones.sort_by(|a, b| a.title.cmp(&b.title));
             repo.issues.sort_by_key(|issue| issue.number);
             repo.pull_requests.sort_by_key(|pr| pr.number);
-            repo.merge_requests.sort_by_key(|mr| mr.iid);
             repo.releases.sort_by(|a, b| a.tag_name.cmp(&b.tag_name));
             repo.artifacts.sort_by(|a, b| a.name.cmp(&b.name));
             repo.webhooks.sort_by(|a, b| a.url.cmp(&b.url));
@@ -116,7 +114,6 @@ pub struct ArchiveCounts {
     pub repositories: usize,
     pub issues: usize,
     pub pull_requests: usize,
-    pub merge_requests: usize,
     pub labels: usize,
     pub milestones: usize,
     pub releases: usize,
@@ -148,7 +145,6 @@ pub struct RepositoryArchive {
     pub milestones: Vec<MilestoneArchive>,
     pub issues: Vec<NormalizedIssue>,
     pub pull_requests: Vec<NormalizedPullRequest>,
-    pub merge_requests: Vec<NormalizedMergeRequest>,
     pub releases: Vec<ReleaseArchive>,
     pub artifacts: Vec<ArtifactMetadata>,
     pub webhooks: Vec<WebhookMigration>,
@@ -172,7 +168,6 @@ impl RepositoryArchive {
             milestones: Vec::new(),
             issues: Vec::new(),
             pull_requests: Vec::new(),
-            merge_requests: Vec::new(),
             releases: Vec::new(),
             artifacts: Vec::new(),
             webhooks: Vec::new(),
@@ -283,23 +278,6 @@ impl NormalizedPullRequest {
             raw_source: None,
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct NormalizedMergeRequest {
-    pub iid: u64,
-    pub title: String,
-    pub description: Option<String>,
-    pub state: ObjectState,
-    pub author: Option<String>,
-    pub source_branch: Option<String>,
-    pub target_branch: Option<String>,
-    pub merge_commit_sha: Option<String>,
-    pub comments: Vec<NormalizedComment>,
-    pub created_at: Option<DateTime<Utc>>,
-    pub updated_at: Option<DateTime<Utc>>,
-    pub merged_at: Option<DateTime<Utc>>,
-    pub raw_source: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

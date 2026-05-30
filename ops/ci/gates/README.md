@@ -34,7 +34,7 @@ the not-yet-buildable live portion is held at `PENDING`. The live portion is
 | Gate (`ops/ci/gates/*.sh`) | Engineering-spec phase | What runs now | PENDING portion (live capability still to build) |
 | --- | --- | --- | --- |
 | `foundation.sh` | Cross-cutting baseline | Delegates to `ops/ci/full.sh`: fmt, check, clippy, workspace test, zero-evidence guard, docs, release receipt, repo score. | none |
-| `github-conformance.sh` | GitHub-compatible forge surface | `cargo test -p jeryu-api --test github_api` (REST shape) **and** domain-vocabulary assertions over `crates/jeryu-core/src` + `crates/jeryu-api/src`: GitHub terms present, and zero legacy domain identifiers (`iid`, `merge_request`) / legacy-provider / legacy-CI tokens. | none |
+| `github-conformance.sh` | GitHub-compatible forge surface | `cargo test -p jeryu-api --test github_api` (REST shape) **and** domain-vocabulary assertions over `crates/jeryu-core/src` + `crates/jeryu-api/src`: GitHub terms present, and zero retired domain identifiers / legacy-provider / legacy-CI tokens. | none |
 | `ir-determinism.sh` | CI compile -> deterministic IR | `cargo test -p jeryu-ci-ir` (deterministic IR-hash + DAG invariants). | none |
 | `proof-gate.sh` | Proof-carrying merges | `cargo test -p jeryu-proof` (no-proof-no-merge, owner/test-map matching, generated-zone enforcement). | none |
 | `git-oracle.sh` | gitd as a stock-git-compatible oracle | `cargo test -p jeryu-gitd` plus a local differential oracle comparing a gitd-managed repo with stock bare Git for refs, object types/content, clone, fetch, and push behavior. | none for the local gate; daemon HTTP/SSH transport oracle remains future hardening |

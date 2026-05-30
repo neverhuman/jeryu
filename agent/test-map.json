@@ -1,247 +1,190 @@
 {
-  "version": 1,
-  "routes": [
-    {
-      "paths": [
-        "crates/jeryu-cache-core/**",
-        "crates/jeryu-cache-service/**",
-        "crates/jeryu-cache-cli/**",
-        "crates/jeryu-cache-adversary/**",
-        "crates/jeryu-cache/**",
-        "config/**",
-        "policies/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache-adversary",
-        "cargo test -p jeryu-cache-cli",
-        "./tests/cache_poisoning_matrix.sh"
-      ],
-      "proof_lane": "cache-law"
+  "workspace": "jeryu",
+  "tests": {
+    "AGENT_CHAT.md": {
+      "command": "./scripts/check-agent-maps.sh",
+      "purpose": "verify coordination files remain routed through the agent control plane",
+      "lane": "agent"
     },
-    {
-      "paths": [
-        "crates/jeryu-gitd/**",
-        "configs/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-gitd",
-        "./ops/git-oracle/run.sh smoke"
-      ],
-      "proof_lane": "git-oracle"
+    "CI_TRACKER.md": {
+      "command": "bash scripts/ci-phases.sh",
+      "purpose": "verify the local CI confidence ledger matches executable phase gates",
+      "lane": "devex"
     },
-    {
-      "paths": [
-        "crates/jeryu-core/**",
-        "crates/jeryu-api/**",
-        "web/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-core -p jeryu-api"
-      ],
-      "proof_lane": "api-compat"
+    "ci-fast-push.sh": {
+      "command": "just fast",
+      "purpose": "verify fast push helper stays aligned with local CI",
+      "lane": "fast"
     },
-    {
-      "paths": [
-        "crates/jeryu-ci-ir/**",
-        "crates/jeryu-ci-compiler/**",
-        "crates/jeryu-ci-scheduler/**",
-        "crates/jeryu-cache-policy/**",
-        "crates/jeryu-artifact-metadata/**",
-        "bins/jeryu-ci-bin/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-ci-ir -p jeryu-ci-compiler -p jeryu-ci-scheduler -p jeryu-cache-policy -p jeryu-artifact-metadata",
-        "cargo test -p jeryu-ci-bin"
-      ],
-      "proof_lane": "jeryu-ci-ir"
+    ".gitignore": {
+      "command": "just fast",
+      "purpose": "verify ignore policy does not hide canonical source or CI artifacts",
+      "lane": "fast"
     },
-    {
-      "paths": [
-        "crates/jeryu-runner-core/**",
-        "crates/jeryu-runner-native/**",
-        "crates/jeryu-runner-microvm/**",
-        "crates/jeryu-runner-oci/**",
-        "crates/jeryu-runner-protocol/**",
-        "crates/jeryu-runnerd/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd",
-        "./tests/sandbox_escape_matrix.sh"
-      ],
-      "proof_lane": "runner-sandbox"
+    ".github/": {
+      "command": "just fast && just security && just audit",
+      "purpose": "verify hosted mirrors call real local CI lanes without marketplace action dependencies",
+      "lane": "ops"
     },
-    {
-      "paths": [
-        "crates/jeryu-rustjet/**",
-        "crates/jeryu-rustjet-cli/**",
-        "fixtures/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-rustjet -p jeryu-rustjet-cli",
-        "./scripts/check-fixtures.py"
-      ],
-      "proof_lane": "jeryu-rustjet"
+    "AGENTS.md": {
+      "command": "./scripts/check-docs.py",
+      "purpose": "verify root agent guidance stays reachable and concise",
+      "lane": "docs"
     },
-    {
-      "paths": [
-        "crates/jeryu-proof/**",
-        "crates/jeryu-agentbridge/**",
-        "agent/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-proof -p jeryu-agentbridge",
-        "./scripts/check-agent-maps.py"
-      ],
-      "proof_lane": "jankurai-proof"
+    "CHANGELOG.md": {
+      "command": "./scripts/check-docs.py",
+      "purpose": "verify release notes remain routed",
+      "lane": "docs"
     },
-    {
-      "paths": [
-        "crates/jeryu-signrail/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-signrail"
-      ],
-      "proof_lane": "release-provenance"
+    "README.md": {
+      "command": "./scripts/check-docs.py",
+      "purpose": "verify public docs remain routed",
+      "lane": "docs"
     },
-    {
-      "paths": [
-        "crates/jeryu-mirror/**",
-        "crates/jeryu-mirror-cli/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-mirror -p jeryu-mirror-cli"
-      ],
-      "proof_lane": "migration-replay"
+    "Justfile": {
+      "command": "just fast",
+      "purpose": "verify the deterministic fast lane runs locally",
+      "lane": "fast"
     },
-    {
-      "paths": [
-        "crates/jeryu-bench/**",
-        "crates/jeryu-obs/**",
-        "dashboards/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-bench -p jeryu-obs"
-      ],
-      "proof_lane": "benchmark-receipts"
+    "Cargo.toml": {
+      "command": "cargo metadata --format-version 1 --no-deps",
+      "purpose": "verify workspace manifest shape",
+      "lane": "workspace"
     },
-    {
-      "paths": [
-        "crates/jeryu-enterprise/**",
-        "crates/jeryu-phase11-core/**",
-        "crates/jeryu-phase11-audit/**",
-        "crates/jeryu-ops/**",
-        "crates/jeryu-compliance-export/**",
-        "crates/jeryu-lifecycle/**",
-        "crates/jeryu-tenant/**",
-        "crates/jeryu-replay-verifier/**",
-        "crates/jeryu-kernel/**",
-        "bins/jeryu-phase11-bin/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-enterprise -p jeryu-phase11-core -p jeryu-phase11-audit -p jeryu-ops -p jeryu-compliance-export -p jeryu-lifecycle -p jeryu-tenant -p jeryu-replay-verifier -p jeryu-kernel",
-        "cargo test -p jeryu-phase11-bin"
-      ],
-      "proof_lane": "enterprise-ops"
+    "Cargo.lock": {
+      "command": "cargo metadata --format-version 1 --no-deps",
+      "purpose": "verify locked dependency graph stays parseable",
+      "lane": "workspace"
     },
-    {
-      "paths": [
-        "ops/**",
-        "scripts/**",
-        "tests/**",
-        "examples/**",
-        "Justfile",
-        "Cargo.toml",
-        "rust-toolchain.toml"
-      ],
-      "commands": [
-        "./scripts/ci-doctor.sh",
-        "./scripts/check-owner-test-map.py"
-      ],
-      "proof_lane": "devex"
+    "rust-toolchain.toml": {
+      "command": "cargo metadata --format-version 1 --no-deps",
+      "purpose": "verify toolchain metadata remains parseable",
+      "lane": "workspace"
     },
-    {
-      "paths": [
-        "docs/**",
-        "README.md",
-        "AGENTS.md"
-      ],
-      "commands": [
-        "./scripts/check-docs.py"
-      ],
-      "proof_lane": "docs"
+    "agent/": {
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && ./scripts/check-generated-zones.py",
+      "purpose": "verify agent ownership, proof routing, and generated-zone maps",
+      "lane": "jankurai-proof"
     },
-    {
-      "paths": [
-        "bins/**"
-      ],
-      "commands": [
-        "cargo test -p jeryu-ci-bin -p jeryu-phase11-bin"
-      ],
-      "proof_lane": "tooling"
+    "bins/": {
+      "command": "cargo test -p jeryu-ci-bin -p jeryu-phase11-bin --jobs 40",
+      "purpose": "verify local tool binaries",
+      "lane": "tooling"
     },
-    {
-      "paths": [
-        "crates/**"
-      ],
-      "commands": [
-        "cargo test --workspace"
-      ],
-      "proof_lane": "workspace"
+    "config/": {
+      "command": "./scripts/ci-doctor.sh",
+      "purpose": "verify policy config shape",
+      "lane": "policy-config"
     },
-    {
-      "paths": [
-        "config/**"
-      ],
-      "commands": [
-        "./scripts/ci-doctor.sh"
-      ],
-      "proof_lane": "policy-config"
+    "configs/": {
+      "command": "./scripts/ci-doctor.sh",
+      "purpose": "verify runtime config shape",
+      "lane": "runtime-config"
     },
-    {
-      "paths": [
-        "configs/**"
-      ],
-      "commands": [
-        "./scripts/ci-doctor.sh"
-      ],
-      "proof_lane": "runtime-config"
+    "crates/": {
+      "command": "cargo test --workspace --jobs 40",
+      "purpose": "verify Rust workspace behavior",
+      "lane": "workspace"
     },
-    {
-      "paths": [
-        "policies/**"
-      ],
-      "commands": [
-        "./scripts/ci-doctor.sh",
-        "./scripts/render-policy-docs.sh"
-      ],
-      "proof_lane": "policy-docs"
+    "crates/jeryu-cache-core/": {
+      "command": "cargo test -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache-adversary --jobs 40 && ./tests/cache_poisoning_matrix.sh",
+      "purpose": "verify cache safety laws and adversarial poisoning matrix",
+      "lane": "cache-law"
     },
-    {
-      "paths": [
-        "fixtures/**"
-      ],
-      "commands": [
-        "./scripts/check-fixtures.py"
-      ],
-      "proof_lane": "fixtures"
+    "crates/jeryu-cache-service/": {
+      "command": "cargo test -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache-adversary --jobs 40 && ./tests/cache_poisoning_matrix.sh",
+      "purpose": "verify cache service fail-closed behavior",
+      "lane": "cache-law"
     },
-    {
-      "paths": [
-        "examples/**"
-      ],
-      "commands": [
-        "./scripts/ci-doctor.sh"
-      ],
-      "proof_lane": "examples"
+    "crates/jeryu-gitd/": {
+      "command": "cargo test -p jeryu-gitd --jobs 40 && ./ops/git-oracle/run.sh smoke",
+      "purpose": "verify git oracle behavior and local git smoke",
+      "lane": "git-oracle"
     },
-    {
-      "paths": [
-        "tests/**"
-      ],
-      "commands": [
-        "./scripts/ci-doctor.sh"
-      ],
-      "proof_lane": "tests"
+    "crates/jeryu-runner-core/": {
+      "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
+      "purpose": "verify runner sandbox contracts and static escape matrix",
+      "lane": "runner-sandbox"
+    },
+    "crates/jeryu-runner-native/": {
+      "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
+      "purpose": "verify native runner guard contracts",
+      "lane": "runner-sandbox"
+    },
+    "crates/jeryu-runner-oci/": {
+      "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
+      "purpose": "verify OCI runner guard contracts",
+      "lane": "runner-sandbox"
+    },
+    "crates/jeryu-ci-ir/": {
+      "command": "cargo test -p jeryu-ci-ir -p jeryu-ci-compiler -p jeryu-ci-scheduler --jobs 40",
+      "purpose": "verify deterministic CI IR and scheduler behavior",
+      "lane": "jeryu-ci-ir"
+    },
+    "crates/jeryu-proof/": {
+      "command": "cargo test -p jeryu-proof -p jeryu-agentbridge --jobs 40",
+      "purpose": "verify proof and agent bridge contracts",
+      "lane": "jankurai-proof"
+    },
+    "crates/jeryu-signrail/": {
+      "command": "cargo test -p jeryu-signrail --jobs 40",
+      "purpose": "verify release provenance and signing gates",
+      "lane": "release-provenance"
+    },
+    "dashboards/": {
+      "command": "cargo test -p jeryu-bench -p jeryu-obs --jobs 40",
+      "purpose": "verify observability and benchmark receipts",
+      "lane": "benchmark-receipts"
+    },
+    "deny.toml": {
+      "command": "cargo deny check licenses sources bans advisories",
+      "purpose": "verify dependency license and source policy",
+      "lane": "security"
+    },
+    "docs/": {
+      "command": "./scripts/check-docs.py",
+      "purpose": "verify docs stay complete enough for agents",
+      "lane": "docs"
+    },
+    "examples/": {
+      "command": "./scripts/ci-doctor.sh",
+      "purpose": "verify example fixtures remain local-only",
+      "lane": "examples"
+    },
+    "fixtures/": {
+      "command": "./scripts/check-fixtures.py",
+      "purpose": "verify fixtures stay provider-clean",
+      "lane": "fixtures"
+    },
+    "ops/": {
+      "command": "./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
+      "purpose": "verify local CI gates and ops scripts",
+      "lane": "devex"
+    },
+    "ops/git-hooks/": {
+      "command": "bash ops/git-hooks/pre-push",
+      "purpose": "verify pre-push hook runs real local quality gates",
+      "lane": "devex"
+    },
+    "policies/": {
+      "command": "./scripts/ci-doctor.sh && ./scripts/render-policy-docs.sh",
+      "purpose": "verify policy docs and config",
+      "lane": "policy-docs"
+    },
+    "scripts/": {
+      "command": "./scripts/ci-doctor.sh && ./scripts/check-owner-test-map.sh",
+      "purpose": "verify support scripts and proof map coverage",
+      "lane": "devex"
+    },
+    "tests/": {
+      "command": "bash scripts/ci-phases.sh",
+      "purpose": "verify local test harnesses remain executable",
+      "lane": "tests"
+    },
+    "web/": {
+      "command": "npm run typecheck && npm run test && npm run build",
+      "purpose": "verify web surface when present",
+      "lane": "web"
     }
-  ]
+  }
 }

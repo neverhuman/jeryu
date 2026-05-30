@@ -4,7 +4,7 @@
 //! No I/O. Each pending PR is cloned into an owned row so the render layer reads
 //! only the resulting struct. The selected index is clamped to the queue so the
 //! inspector always points at a real row (or none, when empty). GitHub PR shape:
-//! PR `number`, CI `checks` status — never a legacy merge-request iid.
+//! PR `number` and CI `checks` status.
 
 use jeryu_readmodel::{ApprovalItem, CheckStatus, RiskTier, TuiReadModel};
 

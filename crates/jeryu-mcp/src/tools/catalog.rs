@@ -1,10 +1,7 @@
 //! The 16-tool catalog: kinds, definitions, input schemas, and argument normalization.
 //!
-//! Concept renames applied vs. the source (D4):
-//! - `mr_iid`      -> `pr_number`
-//! - `project_id`  -> `repo`
-//! - `pipeline_id` -> `ci_run_id`
-//! - tool `get_pipeline_jobs` -> `get_ci_run_jobs`
+//! The catalog uses repository and pull-request identifiers that match the local
+//! GitHub-compatible API surface.
 
 use serde_json::Value;
 

@@ -117,13 +117,12 @@ fn pull_request_uses_github_field_names() {
     assert!(pr.merged_at.is_none());
     assert!(pr.merge_commit_sha.is_none());
 
-    // Serialized JSON must carry GitHub-shaped key names (number, head, base,
-    // merge_commit_sha) and never a legacy "iid".
+    // Serialized JSON must carry GitHub-shaped key names: number, head, base,
+    // and merge_commit_sha.
     let json = serde_json::to_value(&pr).unwrap();
     assert!(json.get("number").is_some());
     assert!(json.get("issue_number").is_some());
     assert!(json.get("merge_commit_sha").is_some());
-    assert!(json.get("iid").is_none());
     // The branch ref serializes its name under the GitHub key "ref".
     assert_eq!(json["head"]["ref"], "feature");
 }

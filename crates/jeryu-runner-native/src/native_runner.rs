@@ -32,6 +32,7 @@ impl NativeRunner {
         decision: &PolicyDecision,
         plan: &SandboxPlan,
     ) -> RunnerResult<Receipt> {
+        job.validate()?;
         validate_native_plan(job, plan)?;
         fs::create_dir_all(&job.workspace)?;
 
@@ -79,6 +80,7 @@ impl NativeRunner {
         decision: &PolicyDecision,
         plan: &SandboxPlan,
     ) -> RunnerResult<Receipt> {
+        job.validate()?;
         validate_native_plan(job, plan)?;
         let now = now_ms();
         Ok(Receipt::new(
@@ -179,5 +181,98 @@ mod tests {
             .unwrap_or_else(|err| panic!("{err}"));
         assert_eq!(receipt.status, ReceiptStatus::Passed);
         assert_eq!(receipt.exit_code, Some(0));
+    }
+
+    #[test]
+    fn native_runner_sanitizes_process_environment() {
+        let workspace = temp_dir();
+        let mut env = std::collections::BTreeMap::new();
+        env.insert("SSH_AUTH_SOCK".to_string(), "/tmp/leaked-agent".to_string());
+        env.insert("AWS_ACCESS_KEY_ID".to_string(), "leaked-key".to_string());
+        env.insert("RUST_LOG".to_string(), "debug".to_string());
+        let job = JobRequest {
+            job_id: "job".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace,
+            command: "/usr/bin/env".to_string(),
+            args: vec!["-0".to_string()],
+            env,
+            trust_tier: TrustTier::T1ProtectedInternal,
+            requested_runner: None,
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::None,
+            token_policy: TokenPolicy::ReadOnly,
+            timeout_ms: 1000,
+            fork: false,
+        };
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        let receipt = NativeRunner::new()
+            .execute(&job, &decision, &plan)
+            .unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(receipt.status, ReceiptStatus::Passed);
+        assert!(receipt.message.contains("RUST_LOG=debug"));
+        assert!(receipt.message.contains("JERYU_SECRETS=disabled"));
+        assert!(!receipt.message.contains("leaked-agent"));
+        assert!(!receipt.message.contains("leaked-key"));
+        assert!(!receipt.message.contains("SSH_AUTH_SOCK="));
+        assert!(!receipt.message.contains("AWS_ACCESS_KEY_ID="));
+    }
+
+    #[test]
+    fn execute_rejects_invalid_job_before_spawn() {
+        let mut job = JobRequest {
+            job_id: "job".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace: temp_dir(),
+            command: "/bin/echo".to_string(),
+            args: vec!["ok".to_string()],
+            env: Default::default(),
+            trust_tier: TrustTier::T1ProtectedInternal,
+            requested_runner: None,
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::Default,
+            token_policy: TokenPolicy::ReadOnly,
+            timeout_ms: 1000,
+            fork: false,
+        };
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        job.workspace = PathBuf::from("relative");
+        let err = NativeRunner::new()
+            .execute(&job, &decision, &plan)
+            .err()
+            .unwrap_or_else(|| panic!("expected validation failure"));
+        assert_eq!(err.code(), "invalid_workspace");
+    }
+
+    #[test]
+    fn plan_only_rejects_invalid_job_before_receipt() {
+        let mut job = JobRequest {
+            job_id: "job".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace: temp_dir(),
+            command: "/bin/echo".to_string(),
+            args: vec!["ok".to_string()],
+            env: Default::default(),
+            trust_tier: TrustTier::T1ProtectedInternal,
+            requested_runner: None,
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::Default,
+            token_policy: TokenPolicy::ReadOnly,
+            timeout_ms: 1000,
+            fork: false,
+        };
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        job.timeout_ms = 0;
+        let err = NativeRunner::new()
+            .plan_only(&job, &decision, &plan)
+            .err()
+            .unwrap_or_else(|| panic!("expected validation failure"));
+        assert_eq!(err.code(), "invalid_job");
     }
 }

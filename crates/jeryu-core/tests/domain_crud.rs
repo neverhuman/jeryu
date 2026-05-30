@@ -457,7 +457,7 @@ fn issues_get_sequential_numbers_starting_at_one() {
             },
         )
         .unwrap();
-    // GitHub-shaped: `number`, monotonic, starts at 1 -- NOT a per-namespace iid.
+    // GitHub-shaped: `number`, monotonic, starts at 1.
     assert_eq!(first.number, 1);
     assert_eq!(second.number, 2);
     assert_eq!(first.state, IssueState::Open);

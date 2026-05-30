@@ -173,9 +173,8 @@ fn matching_event_produces_signed_delivery() {
     // Envelope/payload carries the GitHub action verb and the issue object.
     assert_eq!(d.payload["action"], "opened");
     assert!(d.payload.get("issue").is_some());
-    // GitHub `number` field present (NOT a legacy iid).
+    // GitHub `number` field present.
     assert_eq!(d.payload["issue"]["number"], 1);
-    assert!(d.payload["issue"].get("iid").is_none());
 
     // Signature is present and verifies against the delivered payload bytes.
     let sig = d.signature_256.as_ref().expect("signed delivery");

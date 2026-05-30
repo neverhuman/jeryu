@@ -3,6 +3,7 @@ name = "jeryu-bugtracker"
 description = "jeryu RedlineDB bug domain, triage, and CRUD behind a pluggable store seam"
 version = "0.1.0"
 edition = "2024"
+license.workspace = true
 
 [dependencies]
 anyhow = "1"

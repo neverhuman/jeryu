@@ -16,16 +16,17 @@ GATE_NAME="git-oracle"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/../../.." && pwd)"
 cd "${ROOT}" || { echo "GATE ${GATE_NAME}: FAIL (cannot cd to repo root)"; exit 1; }
+source "${ROOT}/ops/ci/common.sh"
 
 echo "[${GATE_NAME}] (A) cargo test -p jeryu-gitd  (in-repo suite)"
-if ! cargo test -p jeryu-gitd; then
+if ! cargo test -p jeryu-gitd --jobs "${JERYU_CI_JOBS}"; then
   echo "GATE ${GATE_NAME}: FAIL (jeryu-gitd in-repo tests did not pass)"
   exit 1
 fi
 echo "[${GATE_NAME}]   ok: in-repo jeryu-gitd suite passed"
 
 echo "[${GATE_NAME}] (B) local differential-vs-stock-git suite"
-if ! cargo test -p jeryu-gitd --test oracle_differential; then
+if ! cargo test -p jeryu-gitd --test oracle_differential --jobs "${JERYU_CI_JOBS}"; then
   echo "GATE ${GATE_NAME}: FAIL (local differential-vs-stock-git suite did not pass)"
   exit 1
 fi

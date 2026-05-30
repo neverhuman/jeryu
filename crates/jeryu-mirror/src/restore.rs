@@ -32,7 +32,6 @@ pub struct RestoreReport {
     pub repositories_planned: usize,
     pub issues_planned: usize,
     pub pull_requests_planned: usize,
-    pub merge_requests_planned: usize,
     pub releases_planned: usize,
     pub artifacts_planned: usize,
     pub webhooks_planned: usize,
@@ -52,11 +51,6 @@ pub trait RestoreTarget {
         repo: &RepositoryArchive,
         pr: &NormalizedPullRequest,
     ) -> Result<()>;
-    fn create_merge_request(
-        &mut self,
-        repo: &RepositoryArchive,
-        mr: &NormalizedMergeRequest,
-    ) -> Result<()>;
     fn create_release(&mut self, repo: &RepositoryArchive, release: &ReleaseArchive) -> Result<()>;
     fn record_artifact(
         &mut self,
@@ -75,7 +69,6 @@ pub struct InMemoryRestoreTarget {
     pub repositories: BTreeSet<String>,
     pub issue_count: usize,
     pub pull_request_count: usize,
-    pub merge_request_count: usize,
     pub release_count: usize,
     pub artifact_count: usize,
     pub protected_branch_count: usize,
@@ -102,15 +95,6 @@ impl RestoreTarget for InMemoryRestoreTarget {
         _pr: &NormalizedPullRequest,
     ) -> Result<()> {
         self.pull_request_count += 1;
-        Ok(())
-    }
-
-    fn create_merge_request(
-        &mut self,
-        _repo: &RepositoryArchive,
-        _mr: &NormalizedMergeRequest,
-    ) -> Result<()> {
-        self.merge_request_count += 1;
         Ok(())
     }
 
@@ -200,15 +184,6 @@ pub fn plan_restore<T: RestoreTarget>(
             report.pull_requests_planned += 1;
             if !options.dry_run {
                 target.create_pull_request(repo, pr)?;
-            }
-        }
-        for mr in &repo.merge_requests {
-            report
-                .commands
-                .push(format!("restore merge request {full_name}!{}", mr.iid));
-            report.merge_requests_planned += 1;
-            if !options.dry_run {
-                target.create_merge_request(repo, mr)?;
             }
         }
         for release in &repo.releases {

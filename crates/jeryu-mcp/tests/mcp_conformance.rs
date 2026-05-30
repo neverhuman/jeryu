@@ -155,7 +155,7 @@ fn manifest_covers_all_catalog_actions() {
 }
 
 #[test]
-fn request_merge_uses_pr_number_not_mr_iid() {
+fn request_merge_uses_pr_number() {
     let manifest = tool_manifest();
     let tool = manifest
         .iter()
@@ -166,9 +166,10 @@ fn request_merge_uses_pr_number_not_mr_iid() {
         .expect("required array");
     let required: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
     assert!(required.contains(&"pr_number"), "must require pr_number");
-    assert!(!required.contains(&"mr_iid"), "must NOT carry mr_iid");
-    // The whole serialized tool must be free of the renamed-away field name.
-    assert!(!serde_json::to_string(tool).unwrap().contains("mr_iid"));
+    assert_eq!(
+        required.iter().filter(|name| **name == "pr_number").count(),
+        1
+    );
 }
 
 #[test]

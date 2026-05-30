@@ -1,5 +1,6 @@
 /target/
 /.worktrees/
+/.jankurai/
 /.cargo-home/
 /.cache/
 *.receipt.json

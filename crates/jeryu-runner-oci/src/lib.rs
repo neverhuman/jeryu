@@ -175,4 +175,30 @@ mod tests {
         assert_eq!(spec.network, "none");
         assert!(spec.args().iter().any(|arg| arg == "--network"));
     }
+
+    #[test]
+    fn oci_spec_rejects_dangerous_workspace() {
+        let job = JobRequest {
+            job_id: "job".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace: PathBuf::from("/var/run/docker.sock"),
+            command: "/bin/echo".to_string(),
+            args: vec!["ok".to_string()],
+            env: Default::default(),
+            trust_tier: TrustTier::T4ForkPr,
+            requested_runner: Some(RunnerClass::OciDocker),
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::Default,
+            token_policy: TokenPolicy::ReadOnly,
+            timeout_ms: 1000,
+            fork: true,
+        };
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        let err = OciSpec::from_job(&job, &plan)
+            .err()
+            .unwrap_or_else(|| panic!("expected host path denial"));
+        assert_eq!(err.code(), "host_path_denied");
+    }
 }

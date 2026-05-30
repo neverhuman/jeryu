@@ -29,7 +29,7 @@ pub struct JudgeInputs<'a> {
     pub policy: &'a PolicyBundle,
     pub repo: &'a str,
     pub target_branch: &'a str,
-    /// Pull-request reference (PR model, not the legacy MR model).
+    /// Pull-request reference.
     pub pull_request: Option<&'a str>,
     pub author_agent: Option<&'a str>,
     /// Hard stops the orchestrator pre-computed (e.g. `codeowners_not_satisfied`,

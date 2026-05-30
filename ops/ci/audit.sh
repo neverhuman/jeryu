@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if command -v cargo-deny >/dev/null 2>&1; then
-  cargo deny check
-else
-  echo "cargo-deny not installed; skipping dependency audit smoke gate"
-fi
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+./ops/ci/jankurai.sh
+echo "dependency review: cargo audit plus cargo-deny policy"
+cargo audit --deny warnings
+cargo deny check licenses sources bans advisories

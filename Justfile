@@ -6,6 +6,9 @@ fast:
 full:
   ./ops/ci/full.sh
 
+ci:
+  ./scripts/ci-phases.sh
+
 audit:
   ./ops/ci/audit.sh
 
@@ -16,6 +19,9 @@ release:
   ./ops/ci/release.sh
 
 score:
+  ./scripts/ci-doctor.sh
+
+doctor:
   ./scripts/ci-doctor.sh
 
 phase12-tree:

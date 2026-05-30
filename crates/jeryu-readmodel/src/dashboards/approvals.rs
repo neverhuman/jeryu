@@ -1,7 +1,7 @@
 //! Approvals dashboard contract — pending pull requests awaiting human review.
 //!
-//! Provider-neutral, GitHub-shaped: pull requests are identified by a `number`
-//! (no legacy MR `iid`), carry a CI `checks` status, a risk tier, and an age.
+//! Provider-neutral, GitHub-shaped: pull requests are identified by a `number`,
+//! carry a CI `checks` status, a risk tier, and an age.
 //! Pure data; freshness carried alongside; default = "empty/unavailable".
 
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ impl ApprovalsSnapshot {
 /// One pull request awaiting a human approval decision (GitHub PR shape).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ApprovalItem {
-    /// GitHub-style PR number (never a legacy merge-request iid).
+    /// GitHub-style PR number.
     pub pr_number: u64,
     pub title: String,
     /// The agent (or author) that opened the PR.
@@ -125,8 +125,6 @@ mod tests {
         let json = serde_json::to_string(&d).unwrap();
         let back: ApprovalsSnapshot = serde_json::from_str(&json).unwrap();
         assert_eq!(d, back);
-        // GitHub PR number is on the wire; no legacy iid.
         assert!(json.contains("pr_number"));
-        assert!(!json.contains("iid"));
     }
 }

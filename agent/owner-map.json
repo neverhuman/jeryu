@@ -1,229 +1,57 @@
 {
-  "version": 1,
-  "owners": [
-    {
-      "paths": [
-        "crates/jeryu-cache-core/**",
-        "crates/jeryu-cache-service/**",
-        "crates/jeryu-cache-cli/**",
-        "crates/jeryu-cache-adversary/**",
-        "crates/jeryu-cache/**",
-        "config/**",
-        "policies/**"
-      ],
-      "owners": [
-        "@jeryu/cache"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-gitd/**",
-        "configs/**"
-      ],
-      "owners": [
-        "@jeryu/git"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-core/**",
-        "crates/jeryu-api/**",
-        "web/**"
-      ],
-      "owners": [
-        "@jeryu/forge-api"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-ci-ir/**",
-        "crates/jeryu-ci-compiler/**",
-        "crates/jeryu-ci-scheduler/**",
-        "crates/jeryu-cache-policy/**",
-        "crates/jeryu-artifact-metadata/**",
-        "crates/jeryu-runner-core/**",
-        "crates/jeryu-runner-native/**",
-        "crates/jeryu-runner-microvm/**",
-        "crates/jeryu-runner-oci/**",
-        "crates/jeryu-runner-protocol/**",
-        "crates/jeryu-runnerd/**",
-        "bins/jeryu-ci-bin/**"
-      ],
-      "owners": [
-        "@jeryu/ci-runtime"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-rustjet/**",
-        "crates/jeryu-rustjet-cli/**",
-        "fixtures/**"
-      ],
-      "owners": [
-        "@jeryu/rust-ci"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-proof/**",
-        "crates/jeryu-agentbridge/**",
-        "agent/**"
-      ],
-      "owners": [
-        "@jeryu/jankurai"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-signrail/**"
-      ],
-      "owners": [
-        "@jeryu/release-security"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-mirror/**",
-        "crates/jeryu-mirror-cli/**"
-      ],
-      "owners": [
-        "@jeryu/migration"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "crates/jeryu-bench/**",
-        "crates/jeryu-obs/**",
-        "dashboards/**"
-      ],
-      "owners": [
-        "@jeryu/bench-obs"
-      ],
-      "required_reviews": 1
-    },
-    {
-      "paths": [
-        "crates/jeryu-enterprise/**",
-        "crates/jeryu-phase11-core/**",
-        "crates/jeryu-phase11-audit/**",
-        "crates/jeryu-ops/**",
-        "crates/jeryu-compliance-export/**",
-        "crates/jeryu-lifecycle/**",
-        "crates/jeryu-tenant/**",
-        "crates/jeryu-replay-verifier/**",
-        "crates/jeryu-kernel/**",
-        "bins/jeryu-phase11-bin/**"
-      ],
-      "owners": [
-        "@jeryu/enterprise-ops"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "ops/**",
-        "scripts/**",
-        "tests/**",
-        "examples/**",
-        "Justfile",
-        "Cargo.toml",
-        "rust-toolchain.toml"
-      ],
-      "owners": [
-        "@jeryu/devex"
-      ],
-      "required_reviews": 1
-    },
-    {
-      "paths": [
-        "docs/**",
-        "README.md",
-        "AGENTS.md"
-      ],
-      "owners": [
-        "@jeryu/docs"
-      ],
-      "required_reviews": 1
-    },
-    {
-      "paths": [
-        "bins/**"
-      ],
-      "owners": [
-        "@jeryu/devtools"
-      ],
-      "required_reviews": 1
-    },
-    {
-      "paths": [
-        "crates/**"
-      ],
-      "owners": [
-        "@jeryu/core"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "config/**"
-      ],
-      "owners": [
-        "@jeryu/platform-security"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "configs/**"
-      ],
-      "owners": [
-        "@jeryu/platform-security"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "policies/**"
-      ],
-      "owners": [
-        "@jeryu/platform-security"
-      ],
-      "required_reviews": 2
-    },
-    {
-      "paths": [
-        "fixtures/**"
-      ],
-      "owners": [
-        "@jeryu/test-fixtures"
-      ],
-      "required_reviews": 1
-    },
-    {
-      "paths": [
-        "examples/**"
-      ],
-      "owners": [
-        "@jeryu/devtools"
-      ],
-      "required_reviews": 1
-    },
-    {
-      "paths": [
-        "tests/**"
-      ],
-      "owners": [
-        "@jeryu/quality"
-      ],
-      "required_reviews": 1
-    }
-  ]
+  "workspace": "jeryu",
+  "owners": {
+    "AGENT_CHAT.md": "agent",
+    "CI_TRACKER.md": "ops",
+    "ci-fast-push.sh": "ops",
+    ".gitignore": "workspace",
+    ".github/": "ops",
+    "AGENTS.md": "docs",
+    "CHANGELOG.md": "docs",
+    "README.md": "docs",
+    "Justfile": "workspace",
+    "Cargo.toml": "workspace",
+    "Cargo.lock": "workspace",
+    "rust-toolchain.toml": "workspace",
+    "agent/": "agent",
+    "bins/": "devtools",
+    "config/": "platform-security",
+    "configs/": "platform-security",
+    "crates/": "core",
+    "crates/jeryu-agentbridge/": "jankurai",
+    "crates/jeryu-api/": "forge-api",
+    "crates/jeryu-artifact-metadata/": "ci-runtime",
+    "crates/jeryu-bench/": "bench-obs",
+    "crates/jeryu-cache/": "cache",
+    "crates/jeryu-cache-adversary/": "cache",
+    "crates/jeryu-cache-cli/": "cache",
+    "crates/jeryu-cache-core/": "cache",
+    "crates/jeryu-cache-policy/": "ci-runtime",
+    "crates/jeryu-cache-service/": "cache",
+    "crates/jeryu-ci-compiler/": "ci-runtime",
+    "crates/jeryu-ci-ir/": "ci-runtime",
+    "crates/jeryu-ci-scheduler/": "ci-runtime",
+    "crates/jeryu-core/": "forge-api",
+    "crates/jeryu-gitd/": "git",
+    "crates/jeryu-proof/": "jankurai",
+    "crates/jeryu-runner-core/": "ci-runtime",
+    "crates/jeryu-runner-microvm/": "ci-runtime",
+    "crates/jeryu-runner-native/": "ci-runtime",
+    "crates/jeryu-runner-oci/": "ci-runtime",
+    "crates/jeryu-runner-protocol/": "ci-runtime",
+    "crates/jeryu-runnerd/": "ci-runtime",
+    "crates/jeryu-rustjet/": "rust-ci",
+    "crates/jeryu-signrail/": "release-security",
+    "dashboards/": "bench-obs",
+    "deny.toml": "platform-security",
+    "docs/": "docs",
+    "examples/": "devtools",
+    "fixtures/": "test-fixtures",
+    "ops/": "devex",
+    "ops/git-hooks/": "devex",
+    "policies/": "platform-security",
+    "scripts/": "devex",
+    "tests/": "quality",
+    "web/": "forge-api"
+  }
 }

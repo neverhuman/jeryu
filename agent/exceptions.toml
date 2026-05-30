@@ -1,0 +1,49 @@
+[exception_surface]
+owner = "core"
+docs_url = "docs/errors.md"
+required_fields = ["purpose", "reason", "common_fixes", "docs_url", "repair_hint"]
+rerun = "cargo test -p jeryu-core --jobs 40"
+
+[[error_kind]]
+name = "not_found"
+purpose = "load requested domain entity"
+reason = "requested entity is absent from the current read model"
+common_fixes = [
+  "verify the typed id",
+  "refresh the read model before retrying mutation",
+]
+docs_url = "docs/errors.md#not-found"
+repair_hint = "rerun the narrow read-model or domain test for the owning path"
+
+[[error_kind]]
+name = "invalid_input"
+purpose = "validate request boundary"
+reason = "input failed typed boundary validation"
+common_fixes = [
+  "check request fields before entering domain code",
+  "add a boundary test for the rejected shape",
+]
+docs_url = "docs/errors.md#invalid-input"
+repair_hint = "rerun crate boundary tests and the mapped proof lane"
+
+[[error_kind]]
+name = "policy_denied"
+purpose = "enforce repository or CI policy"
+reason = "policy requires proof, approval, trust, or release evidence"
+common_fixes = [
+  "inspect policy reasons instead of bypassing the guard",
+  "supply the required receipt or witness",
+]
+docs_url = "docs/errors.md#policy-denied"
+repair_hint = "rerun owner/test-map checks and policy crate tests"
+
+[[error_kind]]
+name = "missing_receipt"
+purpose = "bind mutation to durable evidence"
+reason = "receipt-backed mutation attempted without evidence"
+common_fixes = [
+  "produce the required signed receipt",
+  "verify receipt id, digest, and operation kind",
+]
+docs_url = "docs/errors.md#missing-receipt"
+repair_hint = "rerun the release, cache, or scheduler receipt test for the path"

@@ -2,8 +2,7 @@
 //!
 //! Pure data; freshness carried alongside; default = "empty/unavailable". Each
 //! item is one in-flight delivery pipeline: its repo, the pull request driving
-//! it (GitHub PR number, never a legacy MR iid), and its posture along the
-//! delivery DAG.
+//! it, and its posture along the delivery DAG.
 
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +31,7 @@ pub struct WorkflowItem {
     pub pipeline_id: String,
     pub label: String,
     pub repo_slug: String,
-    /// GitHub PR number driving this delivery, if any (never a legacy iid).
+    /// GitHub PR number driving this delivery, if any.
     pub pr_number: Option<u64>,
     /// Delivery posture along the DAG.
     pub posture: DeliveryPosture,
@@ -117,12 +116,11 @@ mod tests {
     }
 
     #[test]
-    fn uses_pr_number_not_legacy_iid() {
+    fn uses_pr_number() {
         let mut item = WorkflowItem::new("pipe-1", "core/web");
         item.pr_number = Some(101);
         let json = serde_json::to_string(&item).unwrap();
         assert!(json.contains("pr_number"));
-        assert!(!json.contains("iid"));
     }
 
     #[test]

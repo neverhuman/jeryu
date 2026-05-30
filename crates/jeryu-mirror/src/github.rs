@@ -145,11 +145,18 @@ fn parse_repo(value: &Value) -> RepositoryArchive {
 }
 
 fn array<'a>(value: &'a Value, key: &str) -> Vec<&'a Value> {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .map(|v| v.iter().collect())
-        .unwrap_or_default()
+    match value.get(key).and_then(Value::as_array) {
+        Some(items) => items.iter().collect(),
+        None => Vec::new(),
+    }
+}
+
+fn strings_from_array(values: &[Value]) -> Vec<String> {
+    values
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::to_string)
+        .collect()
 }
 
 fn parse_label(value: &Value) -> LabelArchive {
@@ -414,18 +421,12 @@ fn parse_app(value: &Value) -> AppInstallationMigration {
             .get("permissions")
             .and_then(Value::as_object)
             .map(|object| object.keys().cloned().collect())
-            .unwrap_or_default(),
+            .unwrap_or(Vec::new()),
         events: value
             .get("events")
             .and_then(Value::as_array)
-            .map(|events| {
-                events
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .map(str::to_string)
-                    .collect()
-            })
-            .unwrap_or_default(),
+            .map(|values| strings_from_array(values))
+            .unwrap_or(Vec::new()),
         token_secret_name: Some(format!("jeryu_mirror/app/{id}/token")),
         notes: vec![
             "Installation token is not exportable; recreate or rotate after restore.".to_string(),
@@ -444,14 +445,8 @@ fn parse_protected_branch(value: &Value) -> ProtectedBranchArchive {
         required_status_checks: value
             .pointer("/required_status_checks/contexts")
             .and_then(Value::as_array)
-            .map(|contexts| {
-                contexts
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .map(str::to_string)
-                    .collect()
-            })
-            .unwrap_or_default(),
+            .map(|values| strings_from_array(values))
+            .unwrap_or(Vec::new()),
         required_reviews: value
             .pointer("/required_pull_request_reviews/required_approving_review_count")
             .or_else(|| value.get("required_reviews"))
@@ -498,11 +493,7 @@ fn string(value: &Value, key: &str, default: &str) -> String {
 }
 
 fn number(value: &Value, key: &str) -> u64 {
-    value
-        .get(key)
-        .or_else(|| value.get("iid"))
-        .and_then(Value::as_u64)
-        .unwrap_or(0)
+    value.get(key).and_then(Value::as_u64).unwrap_or(0)
 }
 
 fn parse_state(value: Option<&str>) -> ObjectState {

@@ -28,7 +28,7 @@ pub struct JudgeInputs<'a> {
     pub policy: &'a PolicyBundle,
     pub repo: &'a str,
     pub target_branch: &'a str,
-    /// D4: the PR identifier (was `merge_request`).
+    /// Pull request identifier bound to the evidence pack.
     pub pull_request: Option<&'a str>,
     pub author_agent: Option<&'a str>,
     /// Hard stops the orchestrator pre-computed (e.g. `codeowners_not_satisfied`,

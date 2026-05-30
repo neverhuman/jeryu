@@ -19,7 +19,6 @@ pub struct RepositoryDrift {
     pub repository: String,
     pub issue_delta: isize,
     pub pull_request_delta: isize,
-    pub merge_request_delta: isize,
     pub release_delta: isize,
     pub artifact_delta: isize,
     pub webhook_delta: isize,
@@ -52,8 +51,6 @@ pub fn compare_archives(source: &Archive, target: &Archive) -> MirrorDriftReport
             issue_delta: right.issues.len() as isize - left.issues.len() as isize,
             pull_request_delta: right.pull_requests.len() as isize
                 - left.pull_requests.len() as isize,
-            merge_request_delta: right.merge_requests.len() as isize
-                - left.merge_requests.len() as isize,
             release_delta: right.releases.len() as isize - left.releases.len() as isize,
             artifact_delta: right.artifacts.len() as isize - left.artifacts.len() as isize,
             webhook_delta: right.webhooks.len() as isize - left.webhooks.len() as isize,
@@ -62,7 +59,6 @@ pub fn compare_archives(source: &Archive, target: &Archive) -> MirrorDriftReport
         };
         if drift.issue_delta != 0
             || drift.pull_request_delta != 0
-            || drift.merge_request_delta != 0
             || drift.release_delta != 0
             || drift.artifact_delta != 0
             || drift.webhook_delta != 0

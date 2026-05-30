@@ -9,6 +9,8 @@ required=(
   agent/generated-zones.toml
   agent/standard-version.toml
   agent/baselines/main.repo-score.json
+  ops/ci/common.sh
+  ops/ci/jankurai.sh
   ops/ci/fast.sh
   ops/ci/full.sh
   ops/ci/audit.sh
@@ -49,8 +51,8 @@ print('json fixtures ok')
 PYCHECK
 ./scripts/check-docs.py
 ./scripts/check-generated-zones.py
-./scripts/check-owner-test-map.py
-./scripts/check-agent-maps.py
+./scripts/check-owner-test-map.sh
+./scripts/check-agent-maps.sh
 ./scripts/check-fixtures.py
 ./scripts/security-scan.py
 printf '%s\n' 'ci-doctor passed'

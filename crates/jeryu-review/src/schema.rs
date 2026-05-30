@@ -254,7 +254,7 @@ pub struct VibeGateVerdict {
     pub schema: SchemaTag<VibeGateVerdictTag>,
     pub id: String,
     pub evidence_pack_id: String,
-    /// Pull-request reference (string id; PR model, not the legacy MR model).
+    /// Pull-request reference (string id).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull_request: Option<String>,
     pub repo: String,

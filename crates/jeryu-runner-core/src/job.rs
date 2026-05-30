@@ -416,4 +416,21 @@ mod tests {
         assert_eq!(err.code(), "host_path_denied");
         assert!(err.message().contains("/var/run/docker.sock"));
     }
+
+    #[test]
+    fn rejects_dangerous_workspace_path_children() {
+        let err = JobRequest::from_key_value(
+            r#"
+            job_id=job_1
+            repo_id=jeryu/jeryu
+            commit_sha=abc123
+            workspace=/root/.ssh/id_rsa
+            command=/bin/echo
+            "#,
+        )
+        .err()
+        .unwrap_or_else(|| panic!("expected host path denial"));
+        assert_eq!(err.code(), "host_path_denied");
+        assert!(err.message().contains("/root/.ssh/id_rsa"));
+    }
 }

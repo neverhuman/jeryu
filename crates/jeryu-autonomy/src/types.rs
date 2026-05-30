@@ -3,11 +3,8 @@
 //! Schemas: `.jeryu/autonomy/schemas/*.schema.json`. These Rust types and those
 //! JSON schemas evolve together; any change must update BOTH (CI lints this).
 //!
-//! D4 rename: the wire concept "merge request" / "MR" is renamed to
-//! "pull request" / "PR". The Rust field that used to be `merge_request` is now
-//! `pull_request`; the local var `mr_iid` is now `pr_id`. `MergePassport`
-//! retains the word "merge" because it is the passport to *perform a git merge*,
-//! not a host MR object.
+//! Pull request evidence types for the local forge. `MergePassport` retains the
+//! word "merge" because it is the passport to perform a Git merge.
 
 use crate::signing::Signature;
 use chrono::{DateTime, Utc};
@@ -472,9 +469,7 @@ pub struct VibeGateVerdict {
     pub schema: SchemaTag<VibeGateVerdictTag>,
     pub id: String,
     pub evidence_pack_id: String,
-    /// D4: the wire field that used to be `merge_request`. Renamed to
-    /// `pull_request` (the schema string stays `.v1` — this is a Rust-field
-    /// rename, the JSON key is `pull_request`).
+    /// Pull request identifier bound to the evidence pack head SHA.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pull_request: Option<String>,
     pub repo: String,
@@ -1004,7 +999,7 @@ mod tests {
             schema: SchemaTag::new(),
             id: "vgv_x".into(),
             evidence_pack_id: "ep_1".into(),
-            pull_request: Some("!42".into()),
+            pull_request: Some("#42".into()),
             repo: "org/repo".into(),
             target_branch: "main".into(),
             head_sha: "a".repeat(40),
@@ -1022,8 +1017,7 @@ mod tests {
             signature: Signature::unsigned(),
         };
         let j = serde_json::to_string(&v).unwrap();
-        assert!(j.contains("\"pull_request\":\"!42\""), "got {j}");
-        assert!(!j.contains("merge_request"));
+        assert!(j.contains("\"pull_request\":\"#42\""), "got {j}");
         let back: VibeGateVerdict = serde_json::from_str(&j).unwrap();
         assert_eq!(v, back);
     }

@@ -1,6 +1,6 @@
-# JeryuMirror offline bundle format v1
+# Jeryu Mirror offline bundle format v1
 
-A JeryuMirror bundle is a directory with a deterministic manifest and archive:
+A Jeryu Mirror bundle is a directory with a deterministic manifest and archive:
 
 ```text
 JERYU_BUNDLE
@@ -10,7 +10,6 @@ docs/restore-instructions.md
 repos/<owner>/<repo>/repository.json
 repos/<owner>/<repo>/issues.json
 repos/<owner>/<repo>/pull_requests.json
-repos/<owner>/<repo>/merge_requests.json
 repos/<owner>/<repo>/releases.json
 repos/<owner>/<repo>/artifacts.json
 repos/<owner>/<repo>/webhooks.json
@@ -36,7 +35,7 @@ for human inspection, partial restore tooling, and offline review.
 checks the manifest file list. Restore should refuse bundles that fail this
 verification.
 
-## Secret handling
+## Secret Handling
 
 Secret values are not present in the bundle. Webhooks and app installations store
 only target secret names such as `jeryu-mirror/webhook/123`.

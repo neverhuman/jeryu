@@ -199,3 +199,84 @@ impl SandboxPlan {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::job::NetworkPolicy;
+    use crate::policy::{CacheWritePolicy, PolicyDecision};
+    use crate::trust::RunnerClass;
+    use std::path::Path;
+
+    fn decision(runner_class: RunnerClass) -> PolicyDecision {
+        PolicyDecision {
+            runner_class,
+            network_policy: NetworkPolicy::Deny,
+            allow_secrets: false,
+            token_policy: crate::job::TokenPolicy::ReadOnly,
+            cache_write_policy: CacheWritePolicy::Deny,
+            reasons: vec!["test".to_string()],
+        }
+    }
+
+    #[test]
+    fn default_native_plan_has_fail_closed_kernel_contract() {
+        let workspace = PathBuf::from("/tmp/jeryu-work");
+        let plan = SandboxPlan::from_decision(&workspace, &decision(RunnerClass::NativeRustClean));
+
+        assert!(plan.user_namespace);
+        assert!(plan.mount_namespace);
+        assert!(plan.pid_namespace);
+        assert_eq!(plan.seccomp.default_action, "kill-process");
+        assert!(
+            plan.seccomp
+                .allow_groups
+                .iter()
+                .any(|group| group == "process-basic")
+        );
+        assert!(
+            plan.seccomp
+                .allow_groups
+                .iter()
+                .any(|group| group == "file-readwrite-workspace")
+        );
+        assert!(plan.cgroup_limits.memory_max_bytes > 0);
+        assert!(plan.cgroup_limits.cpu_weight > 0);
+        assert!(plan.cgroup_limits.pids_max > 0);
+        assert!(plan.cgroup_limits.io_weight > 0);
+    }
+
+    #[test]
+    fn default_plan_limits_writes_to_workspace() {
+        let workspace = PathBuf::from("/tmp/jeryu-work");
+        let plan = SandboxPlan::from_decision(&workspace, &decision(RunnerClass::NativeRustClean));
+
+        let workspace_rule = plan
+            .landlock_rules
+            .iter()
+            .find(|rule| rule.path == workspace)
+            .unwrap_or_else(|| panic!("expected workspace Landlock rule"));
+        assert!(workspace_rule.read);
+        assert!(workspace_rule.write);
+        assert!(workspace_rule.execute);
+
+        for system_path in ["/usr", "/nix/store"] {
+            let rule = plan
+                .landlock_rules
+                .iter()
+                .find(|rule| rule.path == Path::new(system_path))
+                .unwrap_or_else(|| panic!("expected {system_path} Landlock rule"));
+            assert!(rule.read);
+            assert!(!rule.write);
+            assert!(rule.execute);
+        }
+
+        let usr_mount = plan
+            .mounts
+            .iter()
+            .find(|mount| mount.source == Path::new("/usr"))
+            .unwrap_or_else(|| panic!("expected /usr mount"));
+        assert_eq!(usr_mount.target, PathBuf::from("/usr"));
+        assert!(usr_mount.read_only);
+    }
+}
