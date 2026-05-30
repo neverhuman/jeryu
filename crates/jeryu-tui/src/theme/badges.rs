@@ -1,6 +1,6 @@
-//! Semantic badges (freshness / proof / risk) — ported from the source theme.
+//! Semantic badges (freshness / proof / risk).
 //!
-//! Invariants: freshness/proof/risk labels are pinned verbatim; legacy risk
+//! Invariants: freshness/proof/risk labels are pinned verbatim; the named risk
 //! aliases stay convertible into the canonical R0-R5 tiers.
 
 use ratatui::style::{Modifier, Style};
@@ -13,7 +13,7 @@ use super::palette::Palette;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum FreshnessBadge {
-    Live, Fresh, Stale, LastKnown, Inferred, Partial,
+    Live, Fresh, Expired, LastKnown, Inferred, Partial,
     SourceDown, Unknown, NoProof, Unverified, Poll, Fixture,
 }
 
@@ -23,7 +23,7 @@ impl FreshnessBadge {
     pub fn label(self) -> &'static str {
         match self {
             Self::Live       => "LIVE",        Self::Fresh      => "FRESH",
-            Self::Stale      => "STALE",       Self::LastKnown  => "LAST KNOWN",
+            Self::Expired    => "EXPIRED",     Self::LastKnown  => "LAST KNOWN",
             Self::Inferred   => "INFERRED",    Self::Partial    => "PARTIAL",
             Self::SourceDown => "SOURCE DOWN", Self::Unknown    => "UNKNOWN",
             Self::NoProof    => "NO PROOF",    Self::Unverified => "UNVERIFIED",
@@ -31,21 +31,21 @@ impl FreshnessBadge {
         }
     }
 
-    /// Style mapping: LIVE/FRESH use `running`, STALE dims to amber/stale,
+    /// Style mapping: LIVE/FRESH use `running`, EXPIRED dims to amber,
     /// SOURCE DOWN uses `crit`, NO PROOF uses a `crit` outline.
     pub fn style(self, p: &Palette) -> Style {
         let base = Style::default();
         match self {
             Self::Live => base.fg(p.running).add_modifier(Modifier::BOLD),
             Self::Fresh => base.fg(p.running),
-            Self::Stale | Self::Unverified => base.fg(p.warn).add_modifier(Modifier::DIM),
+            Self::Expired | Self::Unverified => base.fg(p.warn).add_modifier(Modifier::DIM),
             Self::LastKnown | Self::Inferred | Self::Unknown => {
-                base.fg(p.stale).add_modifier(Modifier::DIM)
+                base.fg(p.muted).add_modifier(Modifier::DIM)
             }
             Self::Partial => base.fg(p.warn),
             Self::SourceDown => base.fg(p.crit).add_modifier(Modifier::BOLD),
             Self::NoProof => base.fg(p.crit),
-            Self::Poll => base.fg(p.stale),
+            Self::Poll => base.fg(p.muted),
             Self::Fixture => base.fg(p.agent).add_modifier(Modifier::ITALIC),
         }
     }
@@ -56,14 +56,14 @@ impl FreshnessBadge {
 /// Proof confidence variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum ProofBadge { Meas, Struct, Hist, Heur, Miss, Stale }
+pub enum ProofBadge { Meas, Struct, Hist, Heur, Miss, Expired }
 
 impl ProofBadge {
     #[rustfmt::skip]
     pub fn label(self) -> &'static str {
         match self {
             Self::Meas => "MEAS", Self::Struct => "STRUCT", Self::Hist => "HIST",
-            Self::Heur => "HEUR", Self::Miss   => "MISS",   Self::Stale => "STALE",
+            Self::Heur => "HEUR", Self::Miss   => "MISS",   Self::Expired => "EXPIRED",
         }
     }
 
@@ -74,7 +74,7 @@ impl ProofBadge {
             Self::Hist => Style::default().fg(p.cache),
             Self::Heur => Style::default().fg(p.warn),
             Self::Miss => Style::default().fg(p.crit),
-            Self::Stale => Style::default().fg(p.stale).add_modifier(Modifier::DIM),
+            Self::Expired => Style::default().fg(p.muted).add_modifier(Modifier::DIM),
         }
     }
 }
@@ -86,11 +86,11 @@ impl ProofBadge {
 #[rustfmt::skip]
 pub enum RiskBadge { R0, R1, R2, R3, R4, R5 }
 
-/// Legacy aliases preserved by the migration table. These map onto R0-R5 via
-/// `RiskBadge::from`.
+/// Human-named risk aliases preserved by the migration table. These map onto
+/// R0-R5 via `RiskBadge::from`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
-pub enum LegacyRiskTier { ReadOnly, Low, High, Production }
+pub enum NamedRiskTier { ReadOnly, Low, High, Production }
 
 impl RiskBadge {
     #[rustfmt::skip]
@@ -122,15 +122,15 @@ impl RiskBadge {
     }
 }
 
-impl From<LegacyRiskTier> for RiskBadge {
+impl From<NamedRiskTier> for RiskBadge {
     /// Migration map: `ReadOnly -> R0`, `Low -> R1`, `High -> R3`,
     /// `Production -> R4`. (Per-action upgrades to R2/R5 are caller-controlled.)
-    fn from(legacy: LegacyRiskTier) -> Self {
-        match legacy {
-            LegacyRiskTier::ReadOnly => Self::R0,
-            LegacyRiskTier::Low => Self::R1,
-            LegacyRiskTier::High => Self::R3,
-            LegacyRiskTier::Production => Self::R4,
+    fn from(tier: NamedRiskTier) -> Self {
+        match tier {
+            NamedRiskTier::ReadOnly => Self::R0,
+            NamedRiskTier::Low => Self::R1,
+            NamedRiskTier::High => Self::R3,
+            NamedRiskTier::Production => Self::R4,
         }
     }
 }
@@ -158,7 +158,7 @@ mod tests {
     fn freshness_badge_labels_are_pinned() {
         assert_eq!(FreshnessBadge::Live.label(), "LIVE");
         assert_eq!(FreshnessBadge::Fresh.label(), "FRESH");
-        assert_eq!(FreshnessBadge::Stale.label(), "STALE");
+        assert_eq!(FreshnessBadge::Expired.label(), "EXPIRED");
         assert_eq!(FreshnessBadge::LastKnown.label(), "LAST KNOWN");
         assert_eq!(FreshnessBadge::Inferred.label(), "INFERRED");
         assert_eq!(FreshnessBadge::Partial.label(), "PARTIAL");
@@ -177,15 +177,15 @@ mod tests {
         assert_eq!(ProofBadge::Hist.label(), "HIST");
         assert_eq!(ProofBadge::Heur.label(), "HEUR");
         assert_eq!(ProofBadge::Miss.label(), "MISS");
-        assert_eq!(ProofBadge::Stale.label(), "STALE");
+        assert_eq!(ProofBadge::Expired.label(), "EXPIRED");
     }
 
     #[test]
-    fn risk_badge_legacy_aliases() {
-        assert_eq!(RiskBadge::from(LegacyRiskTier::ReadOnly), RiskBadge::R0);
-        assert_eq!(RiskBadge::from(LegacyRiskTier::Low), RiskBadge::R1);
-        assert_eq!(RiskBadge::from(LegacyRiskTier::High), RiskBadge::R3);
-        assert_eq!(RiskBadge::from(LegacyRiskTier::Production), RiskBadge::R4);
+    fn risk_badge_named_aliases() {
+        assert_eq!(RiskBadge::from(NamedRiskTier::ReadOnly), RiskBadge::R0);
+        assert_eq!(RiskBadge::from(NamedRiskTier::Low), RiskBadge::R1);
+        assert_eq!(RiskBadge::from(NamedRiskTier::High), RiskBadge::R3);
+        assert_eq!(RiskBadge::from(NamedRiskTier::Production), RiskBadge::R4);
     }
 
     #[test]
@@ -206,7 +206,7 @@ mod tests {
         let fresh = [
             FreshnessBadge::Live,
             FreshnessBadge::Fresh,
-            FreshnessBadge::Stale,
+            FreshnessBadge::Expired,
             FreshnessBadge::LastKnown,
             FreshnessBadge::Inferred,
             FreshnessBadge::Partial,
@@ -226,7 +226,7 @@ mod tests {
             ProofBadge::Hist,
             ProofBadge::Heur,
             ProofBadge::Miss,
-            ProofBadge::Stale,
+            ProofBadge::Expired,
         ];
         for b in proof {
             let _ = b.style(&p);

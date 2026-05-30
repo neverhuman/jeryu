@@ -40,7 +40,7 @@ impl StreamMode {
     fn style(self, p: &Palette) -> Style {
         match self {
             Self::Live => Style::default().fg(p.running).add_modifier(Modifier::BOLD),
-            Self::Poll => Style::default().fg(p.stale),
+            Self::Poll => Style::default().fg(p.muted),
             Self::Degraded => Style::default().fg(p.warn).add_modifier(Modifier::BOLD),
             Self::Fixture => Style::default().fg(p.agent).add_modifier(Modifier::ITALIC),
         }
@@ -92,11 +92,11 @@ pub fn render(f: &mut Frame, props: &HeaderProps, area: Rect, palette: &Palette)
                     .fg(palette.running)
                     .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
             } else {
-                Style::default().fg(palette.stale)
+                Style::default().fg(palette.muted)
             };
             vec![
                 Span::styled(format!(" {label} "), style),
-                Span::styled("│", Style::default().fg(palette.stale)),
+                Span::styled("│", Style::default().fg(palette.muted)),
             ]
         })
         .collect();

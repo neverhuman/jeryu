@@ -195,7 +195,7 @@ mod tests {
         let input = QueueLensInput::from_read_model(&TuiReadModel::default());
         let out = ink(120, 36, &input);
         for marker in ["placeholder", "TODO"] {
-            assert!(!out.contains(marker), "stale marker leaked: {marker}");
+            assert!(!out.contains(marker), "leftover marker leaked: {marker}");
         }
     }
 }

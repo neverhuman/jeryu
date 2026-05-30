@@ -93,7 +93,7 @@ pub fn draw(f: &mut Frame, app: &App, stream_mode: StreamMode) {
 /// Map the read model's overall freshness to a header chip.
 fn freshness_badge(app: &App) -> FreshnessBadge {
     if app.model.freshness.overall_stale {
-        FreshnessBadge::Stale
+        FreshnessBadge::Expired
     } else {
         FreshnessBadge::Fresh
     }
@@ -159,5 +159,27 @@ mod tests {
         let ink = render_once(&app, 120, 40, StreamMode::Live);
         assert!(ink.contains("Agents"));
         assert!(ink.contains("Lifecycle"));
+    }
+
+    #[test]
+    fn degraded_freshness_watermark_renders_expired_chip() {
+        // A degraded read-model freshness watermark maps to the EXPIRED
+        // freshness chip in the header; a current watermark shows FRESH.
+        let mut model = TuiReadModel::default();
+        model.freshness.overall_stale = true;
+        let degraded = app_for(ActiveTab::Mission, model);
+        assert_eq!(freshness_badge(&degraded), FreshnessBadge::Expired);
+        let degraded_ink = render_once(&degraded, 120, 40, StreamMode::Fixture);
+        assert!(
+            degraded_ink.contains(FreshnessBadge::Expired.label()),
+            "expired chip label not rendered"
+        );
+
+        let current = app_for(ActiveTab::Mission, TuiReadModel::default());
+        assert_eq!(freshness_badge(&current), FreshnessBadge::Fresh);
+        assert!(
+            render_once(&current, 120, 40, StreamMode::Fixture)
+                .contains(FreshnessBadge::Fresh.label())
+        );
     }
 }

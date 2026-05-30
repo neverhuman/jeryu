@@ -63,7 +63,7 @@ pub fn render(f: &mut Frame, props: &StatusStripProps, area: Rect, palette: &Pal
         ));
         spans.push(Span::styled(
             format!(" {}", hint.desc),
-            Style::default().fg(palette.stale),
+            Style::default().fg(palette.muted),
         ));
     }
     f.render_widget(Paragraph::new(Line::from(spans)), cols[0]);
@@ -78,7 +78,7 @@ pub fn render(f: &mut Frame, props: &StatusStripProps, area: Rect, palette: &Pal
     let metrics_color = if props.metrics.dropped > 0 {
         palette.warn
     } else {
-        palette.stale
+        palette.muted
     };
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
