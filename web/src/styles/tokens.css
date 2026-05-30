@@ -1,0 +1,288 @@
+/*
+ * JeRyu design tokens (W-F-08)
+ *
+ * Mission-control aesthetic shared with the JeRyu TUI:
+ *   - dark theme is the first-class experience; light theme is a polished
+ *     daylight surface; high-contrast is a WCAG AAA-leaning variant.
+ *   - sharp edges (small radii) and restrained shadows.
+ *   - cyan / blue for primary, green / amber / red for status, monospace-
+ *     friendly for code.
+ *
+ * Token vocabulary
+ *   --color-bg-{0,1,2,3}                 page, surface, raised, inset
+ *   --color-fg-{primary,secondary,muted} body, secondary, tertiary text
+ *   --color-accent-{primary,success,warning,danger,info}
+ *   --color-accent-{*}-bg                tinted background for the accent
+ *   --color-border-{subtle,strong}
+ *   --font-{sans,mono}
+ *   --font-size-{xs,sm,base,md,lg,xl,2xl,3xl}
+ *   --line-height-{tight,normal,relaxed}
+ *   --font-weight-{regular,medium,semibold,bold}
+ *   --space-{1..8}                       4 8 12 16 20 24 32 48
+ *   --radius-{sm,md,lg,full}
+ *   --shadow-{1,2,3}
+ *   --ease-{standard,emphasized}
+ *   --duration-{fast,std,slow}
+ *   --z-{base,dropdown,sticky,modal,popover,toast}
+ *
+ * Themes
+ *   :root                          light theme (default)
+ *   @media (prefers-color-scheme: dark)   dark overrides
+ *   [data-theme="light"]           explicit light (overrides media query)
+ *   [data-theme="dark"]            explicit dark
+ *   [data-theme="high-contrast"]   high-contrast
+ *
+ * Only color, shadow, and border tokens vary per theme. Typography,
+ * spacing, radii, motion, and z-index are theme-invariant and declared
+ * once on :root.
+ */
+
+/* -------------------------------------------------------------------------
+ * Theme-invariant tokens
+ * --------------------------------------------------------------------- */
+
+:root {
+  /* Typography ----------------------------------------------------------- */
+  --font-sans:
+    'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono:
+    'JetBrains Mono', 'Fira Code', 'SF Mono', 'Monaco', 'Inconsolata',
+    'Roboto Mono', 'Source Code Pro', 'Menlo', 'Consolas', 'DejaVu Sans Mono',
+    monospace;
+
+  --font-size-xs: 0.75rem; /* 12 */
+  --font-size-sm: 0.8125rem; /* 13 */
+  --font-size-base: 0.875rem; /* 14 */
+  --font-size-md: 1rem; /* 16 */
+  --font-size-lg: 1.125rem; /* 18 */
+  --font-size-xl: 1.375rem; /* 22 */
+  --font-size-2xl: 1.75rem; /* 28 */
+  --font-size-3xl: 2.25rem; /* 36 */
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Spacing (4 px grid) ------------------------------------------------- */
+  --space-1: 0.25rem; /* 4  */
+  --space-2: 0.5rem; /* 8  */
+  --space-3: 0.75rem; /* 12 */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.25rem; /* 20 */
+  --space-6: 1.5rem; /* 24 */
+  --space-7: 2rem; /* 32 */
+  --space-8: 3rem; /* 48 */
+
+  /* Radii (sharp, mission-control) -------------------------------------- */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* Motion -------------------------------------------------------------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+
+  --duration-fast: 120ms;
+  --duration-std: 200ms;
+  --duration-slow: 320ms;
+
+  /* Z-index scale ------------------------------------------------------- */
+  --z-base: 1;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-modal: 1200;
+  --z-popover: 1300;
+  --z-toast: 1400;
+}
+
+/* -------------------------------------------------------------------------
+ * Light theme (default)
+ *
+ * Paper white surfaces, ink-black text, accents lifted from the JeRyu
+ * mission-control palette so the brand reads identical across themes.
+ * --------------------------------------------------------------------- */
+
+:root {
+  --color-bg-0: #fafbfc;
+  --color-bg-1: #ffffff;
+  --color-bg-2: #f4f6f8;
+  --color-bg-3: #eaeef2;
+
+  --color-fg-primary: #0b1220;
+  --color-fg-secondary: #424d61;
+  --color-fg-muted: #6b7689;
+
+  --color-accent-primary: #0a66c2;
+  --color-accent-primary-bg: rgba(10, 102, 194, 0.12);
+  --color-accent-success: #1f7a3a;
+  --color-accent-success-bg: rgba(31, 122, 58, 0.12);
+  --color-accent-warning: #a55c00;
+  --color-accent-warning-bg: rgba(165, 92, 0, 0.14);
+  --color-accent-danger: #b3261e;
+  --color-accent-danger-bg: rgba(179, 38, 30, 0.12);
+  --color-accent-info: #0a6e8c;
+  --color-accent-info-bg: rgba(10, 110, 140, 0.12);
+
+  --color-border-subtle: #d8dde4;
+  --color-border-strong: #b3bac4;
+
+  --shadow-1: 0 1px 2px rgba(11, 18, 32, 0.06);
+  --shadow-2: 0 2px 6px rgba(11, 18, 32, 0.08), 0 1px 2px rgba(11, 18, 32, 0.04);
+  --shadow-3:
+    0 8px 24px rgba(11, 18, 32, 0.12), 0 2px 6px rgba(11, 18, 32, 0.06);
+
+  color-scheme: light;
+}
+
+/* -------------------------------------------------------------------------
+ * Dark theme - first-class, mission-control
+ *
+ * Two activation paths:
+ *   1. prefers-color-scheme: dark (system preference).
+ *   2. [data-theme="dark"]        (explicit user override).
+ *
+ * The explicit selector appears below the media query so it always wins.
+ * --------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-0: #0b0f17;
+    --color-bg-1: #11161f;
+    --color-bg-2: #161c27;
+    --color-bg-3: #0a0d13;
+
+    --color-fg-primary: #e6ecf3;
+    --color-fg-secondary: #b6c0cf;
+    --color-fg-muted: #7c8898;
+
+    --color-accent-primary: #4cb3ff;
+    --color-accent-primary-bg: rgba(76, 179, 255, 0.16);
+    --color-accent-success: #4ade80;
+    --color-accent-success-bg: rgba(74, 222, 128, 0.16);
+    --color-accent-warning: #fbbf24;
+    --color-accent-warning-bg: rgba(251, 191, 36, 0.16);
+    --color-accent-danger: #ff6b6b;
+    --color-accent-danger-bg: rgba(255, 107, 107, 0.16);
+    --color-accent-info: #67e8f9;
+    --color-accent-info-bg: rgba(103, 232, 249, 0.16);
+
+    --color-border-subtle: #232a36;
+    --color-border-strong: #3a4452;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+
+    color-scheme: dark;
+  }
+}
+
+[data-theme='light'] {
+  --color-bg-0: #fafbfc;
+  --color-bg-1: #ffffff;
+  --color-bg-2: #f4f6f8;
+  --color-bg-3: #eaeef2;
+
+  --color-fg-primary: #0b1220;
+  --color-fg-secondary: #424d61;
+  --color-fg-muted: #6b7689;
+
+  --color-accent-primary: #0a66c2;
+  --color-accent-primary-bg: rgba(10, 102, 194, 0.12);
+  --color-accent-success: #1f7a3a;
+  --color-accent-success-bg: rgba(31, 122, 58, 0.12);
+  --color-accent-warning: #a55c00;
+  --color-accent-warning-bg: rgba(165, 92, 0, 0.14);
+  --color-accent-danger: #b3261e;
+  --color-accent-danger-bg: rgba(179, 38, 30, 0.12);
+  --color-accent-info: #0a6e8c;
+  --color-accent-info-bg: rgba(10, 110, 140, 0.12);
+
+  --color-border-subtle: #d8dde4;
+  --color-border-strong: #b3bac4;
+
+  --shadow-1: 0 1px 2px rgba(11, 18, 32, 0.06);
+  --shadow-2: 0 2px 6px rgba(11, 18, 32, 0.08), 0 1px 2px rgba(11, 18, 32, 0.04);
+  --shadow-3:
+    0 8px 24px rgba(11, 18, 32, 0.12), 0 2px 6px rgba(11, 18, 32, 0.06);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --color-bg-0: #0b0f17;
+  --color-bg-1: #11161f;
+  --color-bg-2: #161c27;
+  --color-bg-3: #0a0d13;
+
+  --color-fg-primary: #e6ecf3;
+  --color-fg-secondary: #b6c0cf;
+  --color-fg-muted: #7c8898;
+
+  --color-accent-primary: #4cb3ff;
+  --color-accent-primary-bg: rgba(76, 179, 255, 0.16);
+  --color-accent-success: #4ade80;
+  --color-accent-success-bg: rgba(74, 222, 128, 0.16);
+  --color-accent-warning: #fbbf24;
+  --color-accent-warning-bg: rgba(251, 191, 36, 0.16);
+  --color-accent-danger: #ff6b6b;
+  --color-accent-danger-bg: rgba(255, 107, 107, 0.16);
+  --color-accent-info: #67e8f9;
+  --color-accent-info-bg: rgba(103, 232, 249, 0.16);
+
+  --color-border-subtle: #232a36;
+  --color-border-strong: #3a4452;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}
+
+/* -------------------------------------------------------------------------
+ * High-contrast theme
+ *
+ * Mission-control on amber/cyan with maximum chroma separation. Targets
+ * users who need stronger fg/bg contrast than dark/light provide. Borders
+ * become opaque, shadows step up to reinforce surface hierarchy.
+ * --------------------------------------------------------------------- */
+
+[data-theme='high-contrast'] {
+  --color-bg-0: #000000;
+  --color-bg-1: #0a0a0a;
+  --color-bg-2: #141414;
+  --color-bg-3: #050505;
+
+  --color-fg-primary: #ffffff;
+  --color-fg-secondary: #e8e8e8;
+  --color-fg-muted: #c8c8c8;
+
+  --color-accent-primary: #5ad8ff;
+  --color-accent-primary-bg: rgba(90, 216, 255, 0.24);
+  --color-accent-success: #5cff7f;
+  --color-accent-success-bg: rgba(92, 255, 127, 0.24);
+  --color-accent-warning: #ffd24a;
+  --color-accent-warning-bg: rgba(255, 210, 74, 0.24);
+  --color-accent-danger: #ff7a7a;
+  --color-accent-danger-bg: rgba(255, 122, 122, 0.24);
+  --color-accent-info: #9ee5ff;
+  --color-accent-info-bg: rgba(158, 229, 255, 0.24);
+
+  --color-border-subtle: #6a6a6a;
+  --color-border-strong: #ffffff;
+
+  --shadow-1: 0 0 0 1px #ffffff;
+  --shadow-2: 0 0 0 1px #ffffff, 0 4px 8px rgba(0, 0, 0, 0.8);
+  --shadow-3: 0 0 0 2px #ffffff, 0 12px 24px rgba(0, 0, 0, 0.9);
+
+  color-scheme: dark;
+}
