@@ -1,6 +1,6 @@
 // 08-ws-reconnect.spec.ts — WS disconnect + reconnect smoke (W-T-16).
 //
-// The SPA's `JeRyuWsClient` (apps/web/src/api/websocket.ts) drives
+// The SPA's `JeRyuWsClient` (web/src/api/websocket.ts) drives
 // transport-level state in the GlobalHeader's "live" pill: "Live" once the
 // server `hello` arrives, "Connecting" / "Reconnecting" / "Offline" / "Idle"
 // otherwise. The reconnect policy is exponential backoff capped at 30 s

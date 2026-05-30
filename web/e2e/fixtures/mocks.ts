@@ -1,6 +1,6 @@
 // mocks.ts — Playwright route-mocking helpers (W-T-12..17).
 //
-// These helpers wrap `page.route(...)` so individual specs can stub out
+// These helpers wrap `page.route(...)` so individual specs can mock out
 // `/api/v1/*` JSON endpoints without sharing fragile cross-test state. The
 // fixtures here intentionally do NOT depend on the real backend — Phase 3
 // services may still be partially live. When a test wants the SPA to
@@ -50,7 +50,7 @@ export interface ViewerOverride {
 }
 
 /**
- * Stub `GET /api/v1/bootstrap` so the SPA boots in a fully deterministic
+ * Mock `GET /api/v1/bootstrap` so the SPA boots in a fully deterministic
  * state regardless of whether the backend is live. The default body is the
  * canonical Phase 2 fixture (`fixtures/data/bootstrap.json`); pass
  * `viewer` to override individual fields.
@@ -87,7 +87,7 @@ export interface MockRepoSummary {
 }
 
 /**
- * Stub `GET /api/v1/repos` with a list of repositories. The shape mirrors
+ * Mock `GET /api/v1/repos` with a list of repositories. The shape mirrors
  * the contract in `RepositoryListResponse` (`generated_at` / `total` /
  * `repositories` / `facets`) so the SPA picks them up without an envelope
  * translation layer. Only the base `/api/v1/repos` (with or without a
@@ -133,7 +133,7 @@ export async function mockRepoList(
 }
 
 /**
- * Stub `GET /api/v1/repos/{id}` so the SPA's `useResolveRepo` returns a
+ * Mock `GET /api/v1/repos/{id}` so the SPA's `useResolveRepo` returns a
  * fully populated `RepositorySummary` without touching the live forge.
  */
 export async function mockRepoLookup(
@@ -172,7 +172,7 @@ export interface MockPullRequest {
 }
 
 /**
- * Stub `GET /api/v1/repos/{id}/pulls/{number}`. The Phase-3 PR
+ * Mock `GET /api/v1/repos/{id}/pulls/{number}`. The Phase-3 PR
  * cockpit consumes the `PullRequestDetail` shape; we serve the minimum
  * surface and add extension fields the SPA's selectors look at.
  */
@@ -220,7 +220,7 @@ export async function mockPullRequest(
 }
 
 /**
- * Stub the PR list endpoint with a single PR so list-driven UIs can hydrate.
+ * Mock the PR list endpoint with a single PR so list-driven UIs can hydrate.
  */
 export async function mockPullRequestList(
   page: Page,
@@ -293,7 +293,7 @@ export async function forceStaleSha(
 }
 
 /**
- * Stub `GET /api/v1/repos/{id}/refs` so the BranchSelector + code browser
+ * Mock `GET /api/v1/repos/{id}/refs` so the BranchSelector + code browser
  * resolve `default_branch` without hitting the live forge.
  */
 export async function mockRefs(
@@ -331,7 +331,7 @@ export async function mockRefs(
 }
 
 /**
- * Stub `GET /api/v1/repos/{id}/tree` with a small file-tree payload.
+ * Mock `GET /api/v1/repos/{id}/tree` with a small file-tree payload.
  */
 export async function mockTree(
   page: Page,
@@ -374,7 +374,7 @@ export interface MockRenderedReadme {
 }
 
 /**
- * Stub `GET /api/v1/repos/{id}/readme` with a `RenderedMarkdown`-shaped
+ * Mock `GET /api/v1/repos/{id}/readme` with a `RenderedMarkdown`-shaped
  * payload. Used by the README rendering smoke (W-T-11) to feed a fixed HTML
  * blob into the ReadmePanel so the test can assert sanitization invariants
  * without depending on a live forge repo.
@@ -408,7 +408,7 @@ export async function mockReadme(
 }
 
 /**
- * Stub `GET /api/v1/repos/{id}/settings` with a minimal RepositorySettings
+ * Mock `GET /api/v1/repos/{id}/settings` with a minimal RepositorySettings
  * envelope so the settings page can render values.
  */
 export async function mockSettings(page: Page, overrides: Record<string, unknown> = {}): Promise<void> {
@@ -442,7 +442,7 @@ export async function mockSettings(page: Page, overrides: Record<string, unknown
 }
 
 /**
- * Stub `POST /api/v1/repos/{id}/settings/preview` so the SPA can render the
+ * Mock `POST /api/v1/repos/{id}/settings/preview` so the SPA can render the
  * diff card without hitting the live forge. Returns a fixed receipt + warnings list.
  */
 export async function mockSettingsPreview(

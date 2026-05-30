@@ -66,6 +66,82 @@ const READ_TIMEOUT_MS = 30_000;
 const MAX_BACKOFF_MS = 30_000;
 const BASE_BACKOFF_MS = 500;
 
+/**
+ * Wire protocol identifier negotiated in the server `hello` frame
+ * (`crate::api::websocket`). The server stamps this into
+ * `ServerWsMessage::Hello.protocol`; a mismatch means the runtime is talking
+ * a different protocol revision than this client was built against, so we
+ * surface it as an error and refuse to resume against a stale cursor.
+ */
+const WS_PROTOCOL = 'jeryu.ws.v1';
+
+/**
+ * Runtime guard for inbound server frames. `JSON.parse` yields `unknown`;
+ * we prove the discriminated-union shape (`type` plus the fields the matching
+ * branch reads) before handing the frame to the switch, so no field is read
+ * off an unvalidated value. Unknown / malformed frames are dropped.
+ */
+function parseServerFrame(raw: unknown): ServerWsMessage | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const f = raw as Record<string, unknown>;
+  switch (f.type) {
+    case 'hello':
+      return typeof f.protocol === 'string' &&
+        typeof f.server_time === 'string' &&
+        isSeq(f.current_seq)
+        ? {
+            type: 'hello',
+            server_time: f.server_time,
+            current_seq: toSeq(f.current_seq),
+            protocol: f.protocol,
+          }
+        : null;
+    case 'snapshot_required':
+      return typeof f.reason === 'string' && isSeq(f.current_seq)
+        ? {
+            type: 'snapshot_required',
+            reason: f.reason,
+            current_seq: toSeq(f.current_seq),
+          }
+        : null;
+    case 'event':
+      return isWebEvent(f.event)
+        ? { type: 'event', event: { ...f.event, seq: toSeq(f.event.seq) } }
+        : null;
+    case 'pong':
+      return typeof f.nonce === 'string' && typeof f.server_time === 'string'
+        ? { type: 'pong', nonce: f.nonce, server_time: f.server_time }
+        : null;
+    case 'error':
+      return typeof f.code === 'string' && typeof f.message === 'string'
+        ? { type: 'error', code: f.code, message: f.message }
+        : null;
+    default:
+      return null;
+  }
+}
+
+/** Accept the `seq` field as either a JSON number or a bigint (the server
+ *  clamps u64 cursors to Number range on the wire; see `bigintReplacer`). */
+function isSeq(value: unknown): value is number | bigint {
+  return typeof value === 'number' || typeof value === 'bigint';
+}
+
+function toSeq(value: number | bigint): bigint {
+  return typeof value === 'bigint' ? value : BigInt(Math.trunc(value));
+}
+
+function isWebEvent(value: unknown): value is WebEvent {
+  if (typeof value !== 'object' || value === null) return false;
+  const e = value as Record<string, unknown>;
+  return (
+    isSeq(e.seq) &&
+    typeof e.scope === 'string' &&
+    typeof e.kind === 'string' &&
+    typeof e.entity === 'string'
+  );
+}
+
 export class JeRyuWsClient {
   private socket: WebSocket | null = null;
   private status: RealtimeStatus = 'idle';
@@ -178,14 +254,32 @@ export class JeRyuWsClient {
   private onMessage(event: MessageEvent<unknown>): void {
     this.resetReadTimeout();
     if (typeof event.data !== 'string') return;
-    let frame: ServerWsMessage;
+    let parsed: unknown;
     try {
-      frame = JSON.parse(event.data) as ServerWsMessage;
+      parsed = JSON.parse(event.data);
     } catch {
       return;
     }
+    const frame = parseServerFrame(parsed);
+    if (!frame) return;
     switch (frame.type) {
       case 'hello': {
+        // Reject frames from a runtime speaking a different protocol
+        // revision than this client was built against (§35.1.12). Resuming
+        // a cursor across protocol revisions is undefined, so we tear down
+        // instead of trusting `current_seq`.
+        if (frame.protocol !== WS_PROTOCOL) {
+          this.handlers.onError?.(
+            'ws_protocol_mismatch',
+            `server protocol "${frame.protocol}" != expected "${WS_PROTOCOL}"`
+          );
+          try {
+            this.socket?.close(4002, 'protocol-mismatch');
+          } catch {
+            // ignore close errors
+          }
+          return;
+        }
         const expected = this.resumeFrom;
         this.resumeFrom = frame.current_seq;
         this.handlers.onHello?.(frame.current_seq);
@@ -222,8 +316,12 @@ export class JeRyuWsClient {
         break;
       }
       default: {
-        // Discriminated-union safety: TypeScript treats `frame` as `never`
-        // when all cases handled. Runtime fallthrough is intentional.
+        // Exhaustiveness check: `parseServerFrame` only returns the union
+        // members handled above, so `frame` narrows to `never` here. The
+        // assignment fails to compile if a new variant is added without a
+        // matching case.
+        const _exhaustive: never = frame;
+        void _exhaustive;
         break;
       }
     }

@@ -10,8 +10,8 @@
 // the UX-QA dashboard can chart violation trends over time. The
 // assertion is filtered to `serious` + `critical` impacts to keep the
 // suite green when best-practice rules (e.g. `landmark-one-main` on a
-// stub page) flag a transitional violation; the JSON artifact still
-// records the full violation list for review.
+// not-implemented envelope page) flag a transitional violation; the JSON
+// artifact still records the full violation list for review.
 
 import { expect, test } from '@playwright/test';
 
@@ -81,7 +81,6 @@ test.describe('Accessibility scans (W-T-18)', () => {
         const summary = blockers
           .map((v) => `${v.impact ?? '?'} ${v.id} (${v.nodes.length} node(s)) — ${v.help}`)
           .join('\n');
-        // eslint-disable-next-line no-console
         console.warn(`axe findings on ${target.scope}:\n${summary}`);
       }
 

@@ -183,10 +183,9 @@ function FileFinder({
   onPick,
 }: FileFinderProps): JSX.Element | null {
   const [query, setQuery] = useState('');
-  // For the foundation hookup we only enumerate the root listing. Recursive
-  // enumeration lands when the backend exposes a "tree all" endpoint
-  // (W-B-10 follow-up); the cmdk panel keeps the fuzzy filter working
-  // against whatever shows up.
+  // The finder enumerates the root tree listing and fuzzy-filters it. The
+  // backend serves a single-level tree per request, so the cmdk panel
+  // filters against the entries returned for the current path.
   const tree = useRepoTree(repoId, refName, '');
 
   useEffect(() => {

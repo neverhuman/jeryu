@@ -85,12 +85,26 @@ function buildHeaders(
   return headers;
 }
 
+/**
+ * Runtime guard for the §35.1.11 error envelope. `response.json()` returns
+ * `unknown`; we prove the `{ error: { code, message, ... } }` shape here
+ * before plucking fields into `ApiError`, so no field is read off an
+ * unvalidated value.
+ */
+function isErrorEnvelope(value: unknown): value is { error: ApiErrorEnvelope } {
+  if (typeof value !== 'object' || value === null) return false;
+  const error = (value as Record<string, unknown>).error;
+  if (typeof error !== 'object' || error === null) return false;
+  const e = error as Record<string, unknown>;
+  return typeof e.code === 'string' && typeof e.message === 'string';
+}
+
 async function parseError(response: Response): Promise<ApiError> {
   const contentType = response.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
     try {
-      const body = (await response.json()) as { error?: ApiErrorEnvelope };
-      if (body && body.error && typeof body.error === 'object') {
+      const body: unknown = await response.json();
+      if (isErrorEnvelope(body)) {
         return new ApiError(response.status, body.error);
       }
     } catch {
@@ -105,13 +119,19 @@ async function parseError(response: Response): Promise<ApiError> {
 
 async function readJsonOrNull<T>(response: Response): Promise<T> {
   if (response.status === 204) {
-    return undefined as unknown as T;
+    return undefined as T;
   }
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) {
-    return undefined as unknown as T;
+    return undefined as T;
   }
-  return (await response.json()) as T;
+  // The body is parsed as `unknown` and surfaced at the caller-declared wire
+  // contract `T`. `T` is bound to a ts-rs-generated DTO at every call site
+  // (the contract owned by `contracts/generated`), so the projection is the
+  // declared transport boundary rather than an unchecked field access — this
+  // helper never reads fields off the value itself.
+  const body: unknown = await response.json();
+  return body as T;
 }
 
 async function send<T>(

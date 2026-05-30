@@ -1,7 +1,7 @@
 // UserMenu.tsx — top-right identity chip (W-FE-01).
 //
-// Phase 1 renders an inline chip; future work adds a dropdown for theme,
-// sign-out, profile.
+// Renders an inline identity chip. The theme / sign-out / profile dropdown
+// is layered on by a later work package.
 
 import { User } from 'lucide-react';
 

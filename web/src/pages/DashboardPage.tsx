@@ -111,8 +111,9 @@ export function DashboardPage(): JSX.Element {
           <RealtimePill status={realtimeStatus} />
         </div>
         <p className="page__subtitle">
-          The JeRyu Web Forge mission-control surface. Phase 1 lights up the
-          shell; the dashboard's attention cards land with W-FE-07.
+          The JeRyu Web Forge mission-control surface, showing your recent
+          repositories and the active feature flags. The attention/blocker
+          matrix is delivered by W-FE-07.
         </p>
         <DemoStateSwitcher value={demoState} onChange={setDemoState} />
       </header>
@@ -199,9 +200,10 @@ export function DashboardPage(): JSX.Element {
         </div>
       </section>
 
-      <p className="page__stub-note">
-        Phase 1 dashboard — the cards above are stubs. W-FE-07 fills in the
-        attention/blocker matrix, PR cockpit summaries, and agent activity.
+      <p className="page__roadmap-note">
+        The recent-repositories and feature-flag panels above are live. The
+        attention/blocker matrix, PR cockpit summaries, and agent activity
+        feed are delivered by W-FE-07.
       </p>
     </div>
   );

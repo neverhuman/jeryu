@@ -48,8 +48,9 @@ export function useResolveRepo(
   fullName: string
 ): UseResolveRepoResult {
   // Use a minimal query — the host filter narrows the list, the rest is
-  // matched in memory. Backend may eventually expose a "resolve" endpoint
-  // (TODO §35.1.2 follow-up); until then this is the agreed contract.
+  // matched in memory. This is the agreed §35.1.2 contract: the backend
+  // exposes list-with-host-filter, and the SPA resolves the full name
+  // client-side against that page.
   const list = useRepositories({ host: provider });
 
   const data = useMemo<ResolvedRepo | null>(() => {

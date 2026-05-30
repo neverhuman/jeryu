@@ -36,9 +36,11 @@ test.describe('Code browser (W-T-12)', () => {
     // (BranchSelector + FileTree visible) or one of the state surfaces.
     const layout = page.locator('.code-browser-layout');
     const errorState = page.locator('[role="alert"]');
-    const stub = page.locator('h1', { hasText: /not implemented|stub/i });
+    const notAvailable = page.locator('h2', {
+      hasText: /not available in this build/i,
+    });
 
-    await expect(layout.or(errorState).or(stub)).toBeVisible({
+    await expect(layout.or(errorState).or(notAvailable)).toBeVisible({
       timeout: 15_000,
     });
 

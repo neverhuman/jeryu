@@ -1,4 +1,4 @@
-// LoadingState.tsx — generic loading placeholder (W-CC-02).
+// LoadingState.tsx — generic loading indicator surface (W-CC-02).
 //
 // Two visual modes:
 //   * `variant="skeleton"` (default) renders the pulse skeleton shapes used

@@ -1,7 +1,7 @@
-// CommandPalette.tsx — global ⌘K palette (W-FE-14 minimal).
+// CommandPalette.tsx — global ⌘K palette (W-FE-14).
 //
-// Phase 1 ships navigation + theme commands registered by `useShellCommands`.
-// W-FE-13 wires action commands; W-FE-08 hooks in repo lookup.
+// Ships navigation + theme commands registered by `useShellCommands`.
+// Action commands are wired by W-FE-13; repo lookup is added by W-FE-08.
 
 import { Command } from 'cmdk';
 import { useEffect, useMemo } from 'react';

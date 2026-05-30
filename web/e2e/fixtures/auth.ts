@@ -5,10 +5,11 @@
 // `__Host-jeryu-session` cookie check and attach a local-dev `Viewer`
 // carrying every canonical permission (see `src/web/auth.rs`).
 //
-// `setupTrustedSession(context)` is a no-op in that mode but reserved
-// for the future where a CI session cookie replaces the trust-local
-// short-circuit. It also injects a placeholder cookie so manual probes
-// at `http://127.0.0.1:5173` exhibit the same session-present codepath.
+// `setupTrustedSession(context)` is a no-op against that mode; it exists so
+// a CI session cookie can later replace the trust-local short-circuit
+// without touching call sites. It also injects a fixed session cookie so
+// manual probes at `http://127.0.0.1:5173` exercise the same
+// session-present codepath.
 
 import type { BrowserContext, Page } from '@playwright/test';
 
@@ -16,11 +17,11 @@ import type { BrowserContext, Page } from '@playwright/test';
 export const SESSION_COOKIE_NAME = '__Host-jeryu-session';
 
 /**
- * Inject the placeholder session cookie so the BFF auth middleware takes
- * the session-cookie code path (rather than the trust-local fallback).
- * The cookie value is a fixed placeholder because Phase 2's BFF still
- * accepts ANY non-empty cookie value when `JERYU_WEB_TRUST_LOCAL=1`; the
- * real session-table lookup ships with the W-B-* auth service.
+ * Inject a fixed session cookie so the BFF auth middleware takes the
+ * session-cookie code path (rather than the trust-local fallback). The
+ * value is a fixed constant because the BFF accepts ANY non-empty cookie
+ * value when `JERYU_WEB_TRUST_LOCAL=1`; the real session-table lookup
+ * ships with the W-B-* auth service.
  */
 export async function setupTrustedSession(context: BrowserContext): Promise<void> {
   // Cookies under `__Host-` MUST be Secure; in dev (http://127.0.0.1:5173)
@@ -30,7 +31,7 @@ export async function setupTrustedSession(context: BrowserContext): Promise<void
   await context.addCookies([
     {
       name: SESSION_COOKIE_NAME,
-      value: 'placeholder-e2e-session',
+      value: 'fixed-e2e-session',
       domain: '127.0.0.1',
       path: '/',
       httpOnly: true,

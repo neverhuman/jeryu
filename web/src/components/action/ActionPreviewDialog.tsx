@@ -1,7 +1,8 @@
-// ActionPreviewDialog.tsx — minimal placeholder (W-FE-13).
+// ActionPreviewDialog.tsx — modal shell for action confirmation (W-FE-13).
 //
-// Phase 1 renders the dialog shape so future work can flesh out the preview
-// payload, will-not-do bullet list, and execute round-trip.
+// Renders the dialog frame (focus trap, dismiss affordances, title) into
+// which the action preview payload, will-not-do bullet list, and execute
+// round-trip are composed by W-FE-13.
 
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';

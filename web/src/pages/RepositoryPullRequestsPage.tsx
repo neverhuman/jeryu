@@ -1,13 +1,13 @@
-// RepositoryPullRequestsPage.tsx — Phase 1 stub for W-FE-11.
+// RepositoryPullRequestsPage.tsx — PR list route; cockpit lands with W-FE-11.
 
-import { StubPage } from './StubPage';
+import { NotImplementedRoute } from './NotImplementedRoute';
 
 export function RepositoryPullRequestsPage(): JSX.Element {
   return (
-    <StubPage
+    <NotImplementedRoute
       title="Pull requests"
       workPackage="W-FE-11"
-      description="PR list with filters (state, draft, reviewer, blockers). Cockpit lands with W-FE-11."
+      description="PR list with filters (state, draft, reviewer, blockers). The cockpit lands with W-FE-11."
     />
   );
 }

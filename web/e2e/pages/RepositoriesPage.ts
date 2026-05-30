@@ -1,9 +1,9 @@
 // RepositoriesPage — Page Object for `/repos` (W-T-08).
 //
-// Phase 2 Repositories page is the Phase 1 StubPage (W-FE-08 not yet
-// landed). Selectors below target the stub envelope; once W-FE-08 lands
-// the real implementation, the same POM methods point at the filter
-// input, sort header, and create button.
+// The `/repos` route currently renders the NotImplementedRoute envelope
+// until W-FE-08 lands the full list. Selectors below target that envelope;
+// once W-FE-08 lands, the same POM methods point at the filter input, sort
+// header, and create button without changing the spec call sites.
 
 import { expect, type Locator, type Page } from '@playwright/test';
 
@@ -30,8 +30,8 @@ export class RepositoriesPage {
   }
 
   /**
-   * Phase 2 acceptable behaviour:
-   *   - StubPage envelope ("Repositories" heading + stub pill); OR
+   * Acceptable behaviour for `/repos`:
+   *   - NotImplementedRoute envelope ("Repositories" heading + planned pill); OR
    *   - real list with cards; OR
    *   - ErrorState explaining "upstream unavailable" when the forge backend is down.
    */
@@ -42,19 +42,23 @@ export class RepositoriesPage {
   }
 
   async filterByFamily(name: string): Promise<void> {
-    // Reserved for W-FE-08; current stub does not expose a filter input.
+    // The W-FE-08 list exposes a filter input; the current envelope does
+    // not, so this is a no-op until that input renders.
     if ((await this.filterInput.count()) > 0) {
       await this.filterInput.first().fill(name);
     }
   }
 
   async sortBy(field: string): Promise<void> {
-    // Reserved for W-FE-08.
-    if ((await this.sortSelector.count()) > 0) {
-      await this.sortSelector.first().click();
+    // Click the sort control matching `field` if the page exposes one;
+    // falls back to the first sort control otherwise. A no-op when the
+    // repositories list does not render a sort header yet.
+    const byField = this.page.locator(`[data-sort="${field}"]`);
+    const control =
+      (await byField.count()) > 0 ? byField : this.sortSelector;
+    if ((await control.count()) > 0) {
+      await control.first().click();
     }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = field;
   }
 
   async clickCreate(): Promise<void> {

@@ -1,10 +1,10 @@
-// IssuesPage.tsx — Phase 1 stub for the issues route.
+// IssuesPage.tsx — issues route; feature content lands with W-FE-13/14.
 
-import { StubPage } from './StubPage';
+import { NotImplementedRoute } from './NotImplementedRoute';
 
 export function IssuesPage(): JSX.Element {
   return (
-    <StubPage
+    <NotImplementedRoute
       title="Issues"
       workPackage="W-FE-13/14"
       description="Filters: state, label, assignee, milestone. Inline triage actions land alongside Action UX primitives."

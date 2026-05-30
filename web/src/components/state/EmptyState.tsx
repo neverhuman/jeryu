@@ -1,4 +1,4 @@
-// EmptyState.tsx — "nothing here yet" placeholder (W-CC-02).
+// EmptyState.tsx — empty-collection surface ("nothing here yet") (W-CC-02).
 
 import { Inbox, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';

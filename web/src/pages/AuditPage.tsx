@@ -1,10 +1,10 @@
-// AuditPage.tsx — Phase 1 stub for the audit timeline.
+// AuditPage.tsx — audit timeline route; feature content lands with W-CC-05.
 
-import { StubPage } from './StubPage';
+import { NotImplementedRoute } from './NotImplementedRoute';
 
 export function AuditPage(): JSX.Element {
   return (
-    <StubPage
+    <NotImplementedRoute
       title="Audit"
       workPackage="W-CC-05 / W-FE-15"
       description="Audit timeline backed by `web_action_receipts` + `audit_events`."

@@ -1,4 +1,5 @@
-// RiskBadge.tsx — minimal placeholder (W-FE-13 will replace with full UX).
+// RiskBadge.tsx — risk-tier badge (icon + label) for action surfaces.
+// The richer action UX treatment is layered on by W-FE-13.
 
 import {
   AlertOctagon,

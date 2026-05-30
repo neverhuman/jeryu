@@ -38,7 +38,7 @@ function renderValue(value: string | null): JSX.Element {
 
 export interface SettingsDiffPreviewProps {
   preview: SettingsDiffPreviewWire | null;
-  /** When true, render placeholder text while the preview is loading. */
+  /** When true, render a loading skeleton while the preview is computed. */
   isLoading?: boolean;
   className?: string;
 }
