@@ -25,7 +25,7 @@
       ],
       "commands": [
         "cargo test -p jeryu-gitd",
-        "./ops/git-oracle/smoke.sh"
+        "./ops/git-oracle/run.sh smoke"
       ],
       "proof_lane": "git-oracle"
     },

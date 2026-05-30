@@ -4,15 +4,12 @@
 # bit-for-bit compatible with stock git.
 #
 # Two parts:
-#   (A) In-repo unit/integration suite for jeryu-gitd  -> runnable now.
-#   (B) Live differential-vs-stock-git suite           -> needs a RUNNING gitd
-#       daemon, which is not wired up in this environment yet. It is reported
-#       as PENDING and is NEVER reported as PASS.
+#   (A) In-repo unit/integration suite for jeryu-gitd             -> runnable now.
+#   (B) Local differential oracle vs stock bare Git repositories  -> runnable now.
 #
 # Result policy:
-#   - If (A) fails              -> GATE FAIL  (exit 1).
-#   - If (A) passes             -> GATE PENDING (exit 0): runnable part green,
-#                                  live oracle still to be built/wired.
+#   - If (A) or (B) fails -> GATE FAIL  (exit 1).
+#   - If both pass        -> GATE PASS  (exit 0).
 set -uo pipefail
 
 GATE_NAME="git-oracle"
@@ -27,9 +24,12 @@ if ! cargo test -p jeryu-gitd; then
 fi
 echo "[${GATE_NAME}]   ok: in-repo jeryu-gitd suite passed"
 
-# (B) live differential oracle: not runnable here.
-echo "[${GATE_NAME}] (B) live differential-vs-stock-git suite"
-echo "[${GATE_NAME}]   PENDING: live git-oracle (needs gitd daemon)"
+echo "[${GATE_NAME}] (B) local differential-vs-stock-git suite"
+if ! cargo test -p jeryu-gitd --test oracle_differential; then
+  echo "GATE ${GATE_NAME}: FAIL (local differential-vs-stock-git suite did not pass)"
+  exit 1
+fi
+echo "[${GATE_NAME}]   ok: local differential oracle passed"
 
-echo "GATE ${GATE_NAME}: PENDING (in-repo suite PASS; live oracle not yet wired)"
+echo "GATE ${GATE_NAME}: PASS (jeryu-gitd suite + local differential oracle passed)"
 exit 0

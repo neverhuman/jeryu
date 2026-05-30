@@ -18,7 +18,8 @@ git -C "$work" add README.md
 git -C "$work" commit -m 'oracle seed' >/dev/null
 git -C "$work" remote add origin "$repo_root/repos/oracle/demo.git"
 git -C "$work" push origin HEAD:refs/heads/main >/dev/null
-git clone "$repo_root/repos/oracle/demo.git" "$repo_root/clone" >/dev/null
+git --git-dir="$repo_root/repos/oracle/demo.git" symbolic-ref HEAD refs/heads/main
+git clone --branch main "$repo_root/repos/oracle/demo.git" "$repo_root/clone" >/dev/null
 cmp "$work/README.md" "$repo_root/clone/README.md"
 git -C "$repo_root/repos/oracle/demo.git" fsck --strict >/dev/null
 if [[ "$mode" == "full" ]]; then

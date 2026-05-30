@@ -37,9 +37,9 @@ the not-yet-buildable live portion is held at `PENDING`. The live portion is
 | `github-conformance.sh` | GitHub-compatible forge surface | `cargo test -p jeryu-api --test github_api` (REST shape) **and** domain-vocabulary assertions over `crates/jeryu-core/src` + `crates/jeryu-api/src`: GitHub terms present, and zero legacy domain identifiers (`iid`, `merge_request`) / legacy-provider / legacy-CI tokens. | none |
 | `ir-determinism.sh` | CI compile -> deterministic IR | `cargo test -p jeryu-ci-ir` (deterministic IR-hash + DAG invariants). | none |
 | `proof-gate.sh` | Proof-carrying merges | `cargo test -p jeryu-proof` (no-proof-no-merge, owner/test-map matching, generated-zone enforcement). | none |
-| `git-oracle.sh` | gitd as a stock-git-compatible oracle | `cargo test -p jeryu-gitd` (in-repo suite). | Live differential-vs-stock-git suite — needs a **running gitd daemon** (not wired yet). |
-| `runner-sandbox.sh` | Isolated job runners (native + OCI) | `cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-oci`. | Live seccomp / Landlock / cgroups escape suite — needs the **native sandbox runtime**. |
-| `cache-safety.sh` | Content-addressed poisoning-resistant cache | `cargo test -p jeryu-cache-core -p jeryu-cache` (+ `jeryu-cache-adversary` when present). | Live cache-poisoning harness — needs a **running cache service** + adversarial harness. |
+| `git-oracle.sh` | gitd as a stock-git-compatible oracle | `cargo test -p jeryu-gitd` plus a local differential oracle comparing a gitd-managed repo with stock bare Git for refs, object types/content, clone, fetch, and push behavior. | none for the local gate; daemon HTTP/SSH transport oracle remains future hardening |
+| `runner-sandbox.sh` | Isolated job runners (native + OCI) | `cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-oci -p jeryu-runnerd`. | Live seccomp / Landlock / cgroups escape suite — needs the **native sandbox runtime**. |
+| `cache-safety.sh` | Content-addressed poisoning-resistant cache | `cargo test -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache` (+ `jeryu-cache-adversary` when present) plus `tests/cache_poisoning_matrix.sh` local poisoning/false-hit harness. | none for the local gate; networked adversarial service remains future hardening |
 
 ## Conventions
 

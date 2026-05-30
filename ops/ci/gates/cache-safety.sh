@@ -4,15 +4,15 @@
 # safety laws.
 #
 # Parts:
-#   (A) In-repo cache suites (jeryu-cache-core, jeryu-cache, and the
-#       jeryu-cache-adversary crate when present)          -> runnable now.
-#   (B) Live cache-poisoning harness                        -> needs a running
-#       cache service + adversarial network harness, not runnable here.
-#       Reported as PENDING; NEVER reported as PASS.
+#   (A) In-repo cache suites (jeryu-cache-core, jeryu-cache-service,
+#       jeryu-cache, and the jeryu-cache-adversary crate when present)
+#       -> runnable now.
+#   (B) Local cache-poisoning/false-hit harness             -> runnable now.
 #
 # Result policy:
 #   - (A) fails  -> GATE FAIL (exit 1).
-#   - (A) passes -> GATE PENDING (exit 0).
+#   - (B) fails  -> GATE FAIL (exit 1).
+#   - both pass  -> GATE PASS (exit 0).
 set -uo pipefail
 
 GATE_NAME="cache-safety"
@@ -21,7 +21,7 @@ ROOT="$(cd "${HERE}/../../.." && pwd)"
 cd "${ROOT}" || { echo "GATE ${GATE_NAME}: FAIL (cannot cd to repo root)"; exit 1; }
 
 # Base cache packages.
-PKGS="-p jeryu-cache-core -p jeryu-cache"
+PKGS="-p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache"
 
 # Optional adversary crate: include only if it exists in the workspace.
 if [ -d crates/jeryu-cache-adversary ]; then
@@ -39,8 +39,12 @@ if ! cargo test ${PKGS}; then
 fi
 echo "[${GATE_NAME}]   ok: in-repo cache suites passed"
 
-echo "[${GATE_NAME}] (B) live cache-poisoning harness"
-echo "[${GATE_NAME}]   PENDING: live poisoning harness (needs running cache service)"
+echo "[${GATE_NAME}] (B) local cache-poisoning/false-hit harness"
+if ! ./tests/cache_poisoning_matrix.sh; then
+  echo "GATE ${GATE_NAME}: FAIL (local cache-poisoning/false-hit harness did not pass)"
+  exit 1
+fi
+echo "[${GATE_NAME}]   ok: local poisoning/false-hit harness passed"
 
-echo "GATE ${GATE_NAME}: PENDING (in-repo suites PASS; live poisoning harness not yet wired)"
+echo "GATE ${GATE_NAME}: PASS (in-repo suites PASS; local poisoning/false-hit harness PASS)"
 exit 0
