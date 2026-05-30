@@ -78,6 +78,7 @@ _Last updated: 2026-05-30 · `cargo test --workspace` = **862 passed / 0 failed*
 - [x] github-conformance · ir-determinism · proof-gate · git-oracle · cache-safety PASS.
 - [ ] Lift **runner-sandbox** PENDING → PASS (native sandbox runtime + escape matrix).
 - [ ] Build daemon/network transport hardening beyond the local git/cache PASS gates.
-- [ ] GitHub-correctness defects surfaced by tests: PR `Closed` stickiness; enforce persisted branch-protection fields (CODEOWNERS / linear history / signed commits); CI-IR multi-node cycle detection.
+- [x] GitHub-correctness defects FIXED + tested: PR `Closed`/`Merged` stickiness; **enforced** branch protection (CODEOWNERS, linear history, signed commits, force-push/delete, enforce_admins); CI-IR multi-node cycle detection (Kahn's). Workspace 876 green.
+- [ ] **Jankurai standard score = 40/100** (pervasive, mostly pre-existing): fallback-soup density + dead-language heuristic flags on GitHub-required terms (`stale`, etc.) + repo-level gaps (CI audit lane, fast lane). Shared remediation + a policy call on GitHub-term false-positives — see chat.
 - [ ] Consolidate duplicated decision core (conditions/quorum/sha-bind/judge) into `jeryu-proof`.
 - [ ] Deepen the thin engine crates; remaining TUI lenses + live backend wiring.
