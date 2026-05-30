@@ -5,5 +5,5 @@ manual_edits = false
 
 [[zones]]
 path = "receipts/generated/**"
-generator = "cratevault-service"
+generator = "jeryu-cache-service"
 manual_edits = false

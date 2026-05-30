@@ -1,46 +1,46 @@
 [workspace]
 resolver = "2"
 members = [
-  "bins/jit-ci",
-  "bins/jit-phase11",
-  "crates/agentbridge",
-  "crates/artifact-metadata",
-  "crates/benchlab",
-  "crates/cache-policy",
-  "crates/ci-compiler",
-  "crates/ci-ir",
-  "crates/ci-scheduler",
-  "crates/compliance-export",
-  "crates/cratevault",
-  "crates/cratevault-adversary",
-  "crates/cratevault-cli",
-  "crates/cratevault-core",
-  "crates/cratevault-service",
-  "crates/forge-core",
-  "crates/gitd",
-  "crates/jitforge-api",
-  "crates/jitforge-enterprise",
-  "crates/jitforge-obs",
-  "crates/lifecycle-manager",
-  "crates/mirrorvault",
-  "crates/mirrorvault-cli",
-  "crates/nitro-kernel",
-  "crates/ops-automation",
-  "crates/phase11-audit",
-  "crates/phase11-core",
-  "crates/phase7-cli",
-  "crates/proofcore",
-  "crates/replay-verifier",
-  "crates/runner-core",
-  "crates/runner-microvm",
-  "crates/runner-native",
-  "crates/runner-oci",
-  "crates/runner-protocol",
-  "crates/runnerd",
-  "crates/rustjet",
-  "crates/rustjet-cli",
-  "crates/signrail",
-  "crates/tenant-guard",
+  "bins/jeryu-ci-bin",
+  "bins/jeryu-phase11-bin",
+  "crates/jeryu-agentbridge",
+  "crates/jeryu-artifact-metadata",
+  "crates/jeryu-bench",
+  "crates/jeryu-cache-policy",
+  "crates/jeryu-ci-compiler",
+  "crates/jeryu-ci-ir",
+  "crates/jeryu-ci-scheduler",
+  "crates/jeryu-compliance-export",
+  "crates/jeryu-cache",
+  "crates/jeryu-cache-adversary",
+  "crates/jeryu-cache-cli",
+  "crates/jeryu-cache-core",
+  "crates/jeryu-cache-service",
+  "crates/jeryu-core",
+  "crates/jeryu-gitd",
+  "crates/jeryu-api",
+  "crates/jeryu-enterprise",
+  "crates/jeryu-obs",
+  "crates/jeryu-lifecycle",
+  "crates/jeryu-mirror",
+  "crates/jeryu-mirror-cli",
+  "crates/jeryu-kernel",
+  "crates/jeryu-ops",
+  "crates/jeryu-phase11-audit",
+  "crates/jeryu-phase11-core",
+  "crates/jeryu-phase7-cli",
+  "crates/jeryu-proof",
+  "crates/jeryu-replay-verifier",
+  "crates/jeryu-runner-core",
+  "crates/jeryu-runner-microvm",
+  "crates/jeryu-runner-native",
+  "crates/jeryu-runner-oci",
+  "crates/jeryu-runner-protocol",
+  "crates/jeryu-runnerd",
+  "crates/jeryu-rustjet",
+  "crates/jeryu-rustjet-cli",
+  "crates/jeryu-signrail",
+  "crates/jeryu-tenant",
 ]
 exclude = [
   "fixtures/rust-small",
@@ -48,10 +48,10 @@ exclude = [
 
 [workspace.package]
 version = "0.12.0"
-edition = "2021"
+edition = "2024"
 license = "Apache-2.0"
-repository = "https://example.invalid/jitforge-nitro"
-authors = ["JitForge Nitro"]
+repository = "https://example.invalid/jeryu"
+authors = ["Jeryu"]
 rust-version = "1.95"
 
 [workspace.dependencies]

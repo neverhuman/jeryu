@@ -7,4 +7,4 @@ deny /var/run/docker.sock all
 deny /run/docker.sock all
 deny /root/.ssh all
 deny $SSH_AUTH_SOCK all
-deny /var/lib/jitforge/trusted-cache write
+deny /var/lib/jeryu/trusted-cache write

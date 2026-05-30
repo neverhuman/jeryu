@@ -9,33 +9,33 @@
 ├── agent/
 ├── bench/
 ├── bins/
-│   ├── jit-ci/
-│   └── jit-phase11/
+│   ├── jeryu-ci-bin/
+│   └── jeryu-phase11-bin/
 ├── config/
 ├── configs/
 ├── crates/
-│   ├── agentbridge/
-│   ├── artifact-metadata/
-│   ├── benchlab/
-│   ├── cache-policy/
-│   ├── ci-compiler/
-│   ├── ci-ir/
-│   ├── ci-scheduler/
-│   ├── compliance-export/
-│   ├── cratevault*/
-│   ├── forge-core/
-│   ├── gitd/
-│   ├── jitforge-api/
-│   ├── jitforge-enterprise/
-│   ├── jitforge-obs/
-│   ├── mirrorvault*/
-│   ├── nitro-kernel/
+│   ├── jeryu-agentbridge/
+│   ├── jeryu-artifact-metadata/
+│   ├── jeryu-bench/
+│   ├── jeryu-cache-policy/
+│   ├── jeryu-ci-compiler/
+│   ├── jeryu-ci-ir/
+│   ├── jeryu-ci-scheduler/
+│   ├── jeryu-compliance-export/
+│   ├── jeryu-cache*/
+│   ├── jeryu-core/
+│   ├── jeryu-gitd/
+│   ├── jeryu-api/
+│   ├── jeryu-enterprise/
+│   ├── jeryu-obs/
+│   ├── jeryu-mirror*/
+│   ├── jeryu-kernel/
 │   ├── phase11-*/
-│   ├── proofcore/
+│   ├── jeryu-proof/
 │   ├── runner*/
-│   ├── rustjet*/
-│   ├── signrail/
-│   └── tenant-guard/
+│   ├── jeryu-rustjet*/
+│   ├── jeryu-signrail/
+│   └── jeryu-tenant/
 ├── dashboards/
 ├── docs/
 ├── examples/

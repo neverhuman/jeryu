@@ -1,4 +1,4 @@
-# JitForge Nitro Engineering Spec
+# Jeryu Engineering Spec
 
 This document is the sanitized engineering overview for the fused Rust
 workspace. It records product invariants that are currently represented by the
@@ -8,9 +8,9 @@ checked-in crates, scripts, and local verification gates.
 
 - One workspace root owns every product crate and binary.
 - Runtime-facing commands stay under the `jeryu` product surface while service
-  internals use JitForge components.
+  internals use Jeryu components.
 - Cache correctness beats cache hit rate.
-- CI inputs are native JitForge TOML, GitHub Actions workflows, API-created
+- CI inputs are native Jeryu TOML, GitHub Actions workflows, API-created
   runs, scheduled runs, agent dry runs, hotfix runs, release runs, and
   merge-queue synthetic runs.
 - Release paths use hermetic cache policy, provenance receipts, checksums, and
@@ -20,14 +20,14 @@ checked-in crates, scripts, and local verification gates.
 
 ## Current Workspace Scope
 
-- `forge-core` and `jitforge-api` provide typed forge domain models and API
+- `jeryu-core` and `jeryu-api` provide typed forge domain models and API
   facades.
-- `ci-ir`, `ci-compiler`, `ci-scheduler`, and `jit-ci` provide CI compilation
+- `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, and `jeryu-ci-bin` provide CI compilation
   and scheduling foundations.
 - `runner-*` crates define runner fabric and sandbox policy surfaces.
-- `cratevault-*` crates provide cache, CAS, quarantine, and receipt behavior.
-- `proofcore` and `agentbridge` provide proof and agent-control foundations.
-- `signrail` provides release artifact, SBOM, provenance, and witness logic.
+- `jeryu-cache-*` crates provide cache, CAS, quarantine, and receipt behavior.
+- `jeryu-proof` and `jeryu-agentbridge` provide proof and agent-control foundations.
+- `jeryu-signrail` provides release artifact, SBOM, provenance, and witness logic.
 
 ## Acceptance Baseline
 

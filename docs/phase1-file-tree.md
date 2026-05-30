@@ -9,7 +9,7 @@
 ├── agent/
 ├── configs/
 ├── crates/
-│   └── gitd/
+│   └── jeryu-gitd/
 │       ├── Cargo.toml
 │       ├── src/
 │       │   ├── audit.rs

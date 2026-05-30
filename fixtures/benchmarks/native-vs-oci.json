@@ -1,6 +1,6 @@
 {
-  "schema": "jitforge.benchlab.native-vs-oci.v1",
-  "jitforge_runners": [
+  "schema": "jeryu.jeryu-bench.native-vs-oci.v1",
+  "jeryu_runners": [
     "native-rust-hot",
     "native-rust-clean",
     "microvm-rust",

@@ -1,8 +1,8 @@
-# Phase 6 — CrateVault cache/CAS
+# Phase 6 — JeryuCache cache/CAS
 
 ## Built surface
 
-CrateVault implements project-scoped source/cache/CAS with a strict policy layer and append-only receipts.
+JeryuCache implements project-scoped source/cache/CAS with a strict policy layer and append-only receipts.
 
 ## Cache layers represented
 

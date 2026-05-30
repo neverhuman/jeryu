@@ -2,8 +2,8 @@
 from pathlib import Path
 
 required = {
-    Path("README.md"): ["JitForge", "CrateVault", "Phase 12"],
-    Path("docs/engineering_spec.md"): ["JitForge Nitro Engineering Spec", "Cache correctness beats cache hit rate"],
+    Path("README.md"): ["Jeryu", "JeryuCache", "Phase 12"],
+    Path("docs/engineering_spec.md"): ["Jeryu Engineering Spec", "Cache correctness beats cache hit rate"],
     Path("docs/PHASE12_SPEC.md"): ["Phase 12", "Zero false hits"],
     Path("docs/RUNBOOKS.md"): ["runbooks"],
 }

@@ -3,143 +3,143 @@
   "routes": [
     {
       "paths": [
-        "crates/cratevault-core/**",
-        "crates/cratevault-service/**",
-        "crates/cratevault-cli/**",
-        "crates/cratevault-adversary/**",
-        "crates/cratevault/**",
+        "crates/jeryu-cache-core/**",
+        "crates/jeryu-cache-service/**",
+        "crates/jeryu-cache-cli/**",
+        "crates/jeryu-cache-adversary/**",
+        "crates/jeryu-cache/**",
         "config/**",
         "policies/**"
       ],
       "commands": [
-        "cargo test -p cratevault-core -p cratevault-service -p cratevault-adversary",
-        "cargo test -p cratevault-cli",
+        "cargo test -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache-adversary",
+        "cargo test -p jeryu-cache-cli",
         "./tests/cache_poisoning_matrix.sh"
       ],
       "proof_lane": "cache-law"
     },
     {
       "paths": [
-        "crates/gitd/**",
+        "crates/jeryu-gitd/**",
         "configs/**"
       ],
       "commands": [
-        "cargo test -p gitd",
+        "cargo test -p jeryu-gitd",
         "./ops/git-oracle/smoke.sh"
       ],
       "proof_lane": "git-oracle"
     },
     {
       "paths": [
-        "crates/forge-core/**",
-        "crates/jitforge-api/**",
+        "crates/jeryu-core/**",
+        "crates/jeryu-api/**",
         "web/**"
       ],
       "commands": [
-        "cargo test -p forge-core -p jitforge-api"
+        "cargo test -p jeryu-core -p jeryu-api"
       ],
       "proof_lane": "api-compat"
     },
     {
       "paths": [
-        "crates/ci-ir/**",
-        "crates/ci-compiler/**",
-        "crates/ci-scheduler/**",
-        "crates/cache-policy/**",
-        "crates/artifact-metadata/**",
-        "bins/jit-ci/**"
+        "crates/jeryu-ci-ir/**",
+        "crates/jeryu-ci-compiler/**",
+        "crates/jeryu-ci-scheduler/**",
+        "crates/jeryu-cache-policy/**",
+        "crates/jeryu-artifact-metadata/**",
+        "bins/jeryu-ci-bin/**"
       ],
       "commands": [
-        "cargo test -p ci-ir -p ci-compiler -p ci-scheduler -p cache-policy -p artifact-metadata",
-        "cargo test -p jit-ci"
+        "cargo test -p jeryu-ci-ir -p jeryu-ci-compiler -p jeryu-ci-scheduler -p jeryu-cache-policy -p jeryu-artifact-metadata",
+        "cargo test -p jeryu-ci-bin"
       ],
-      "proof_lane": "ci-ir"
+      "proof_lane": "jeryu-ci-ir"
     },
     {
       "paths": [
-        "crates/runner-core/**",
-        "crates/runner-native/**",
-        "crates/runner-microvm/**",
-        "crates/runner-oci/**",
-        "crates/runner-protocol/**",
-        "crates/runnerd/**"
+        "crates/jeryu-runner-core/**",
+        "crates/jeryu-runner-native/**",
+        "crates/jeryu-runner-microvm/**",
+        "crates/jeryu-runner-oci/**",
+        "crates/jeryu-runner-protocol/**",
+        "crates/jeryu-runnerd/**"
       ],
       "commands": [
-        "cargo test -p runner-core -p runner-native -p runner-microvm -p runner-oci -p runner-protocol -p runnerd",
+        "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd",
         "./tests/sandbox_escape_matrix.sh"
       ],
       "proof_lane": "runner-sandbox"
     },
     {
       "paths": [
-        "crates/rustjet/**",
-        "crates/rustjet-cli/**",
+        "crates/jeryu-rustjet/**",
+        "crates/jeryu-rustjet-cli/**",
         "fixtures/**"
       ],
       "commands": [
-        "cargo test -p rustjet -p rustjet-cli",
+        "cargo test -p jeryu-rustjet -p jeryu-rustjet-cli",
         "./scripts/check-fixtures.py"
       ],
-      "proof_lane": "rustjet"
+      "proof_lane": "jeryu-rustjet"
     },
     {
       "paths": [
-        "crates/proofcore/**",
-        "crates/agentbridge/**",
+        "crates/jeryu-proof/**",
+        "crates/jeryu-agentbridge/**",
         "agent/**"
       ],
       "commands": [
-        "cargo test -p proofcore -p agentbridge",
+        "cargo test -p jeryu-proof -p jeryu-agentbridge",
         "./scripts/check-agent-maps.py"
       ],
       "proof_lane": "jankurai-proof"
     },
     {
       "paths": [
-        "crates/signrail/**"
+        "crates/jeryu-signrail/**"
       ],
       "commands": [
-        "cargo test -p signrail"
+        "cargo test -p jeryu-signrail"
       ],
       "proof_lane": "release-provenance"
     },
     {
       "paths": [
-        "crates/mirrorvault/**",
-        "crates/mirrorvault-cli/**"
+        "crates/jeryu-mirror/**",
+        "crates/jeryu-mirror-cli/**"
       ],
       "commands": [
-        "cargo test -p mirrorvault -p mirrorvault-cli"
+        "cargo test -p jeryu-mirror -p jeryu-mirror-cli"
       ],
       "proof_lane": "migration-replay"
     },
     {
       "paths": [
-        "crates/benchlab/**",
-        "crates/jitforge-obs/**",
+        "crates/jeryu-bench/**",
+        "crates/jeryu-obs/**",
         "dashboards/**"
       ],
       "commands": [
-        "cargo test -p benchlab -p jitforge-obs"
+        "cargo test -p jeryu-bench -p jeryu-obs"
       ],
       "proof_lane": "benchmark-receipts"
     },
     {
       "paths": [
-        "crates/jitforge-enterprise/**",
-        "crates/phase11-core/**",
-        "crates/phase11-audit/**",
-        "crates/ops-automation/**",
-        "crates/compliance-export/**",
-        "crates/lifecycle-manager/**",
-        "crates/tenant-guard/**",
-        "crates/replay-verifier/**",
-        "crates/nitro-kernel/**",
-        "bins/jit-phase11/**"
+        "crates/jeryu-enterprise/**",
+        "crates/jeryu-phase11-core/**",
+        "crates/jeryu-phase11-audit/**",
+        "crates/jeryu-ops/**",
+        "crates/jeryu-compliance-export/**",
+        "crates/jeryu-lifecycle/**",
+        "crates/jeryu-tenant/**",
+        "crates/jeryu-replay-verifier/**",
+        "crates/jeryu-kernel/**",
+        "bins/jeryu-phase11-bin/**"
       ],
       "commands": [
-        "cargo test -p jitforge-enterprise -p phase11-core -p phase11-audit -p ops-automation -p compliance-export -p lifecycle-manager -p tenant-guard -p replay-verifier -p nitro-kernel",
-        "cargo test -p jit-phase11"
+        "cargo test -p jeryu-enterprise -p jeryu-phase11-core -p jeryu-phase11-audit -p jeryu-ops -p jeryu-compliance-export -p jeryu-lifecycle -p jeryu-tenant -p jeryu-replay-verifier -p jeryu-kernel",
+        "cargo test -p jeryu-phase11-bin"
       ],
       "proof_lane": "enterprise-ops"
     },
@@ -175,7 +175,7 @@
         "bins/**"
       ],
       "commands": [
-        "cargo test -p jit-ci -p jit-phase11"
+        "cargo test -p jeryu-ci-bin -p jeryu-phase11-bin"
       ],
       "proof_lane": "tooling"
     },

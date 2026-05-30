@@ -1,6 +1,6 @@
-# Phase 12 Spec — CrateVault Cache/CAS
+# Phase 12 Spec — JeryuCache Cache/CAS
 
-This phase implements the CrateVault cache architecture described in the JitForge Nitro spec.
+This phase implements the JeryuCache cache architecture described in the Jeryu spec.
 
 ## Deliverables
 

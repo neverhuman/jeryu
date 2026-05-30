@@ -1,6 +1,6 @@
 # Phase 10 Enterprise Hardening
 
-Phase 10 hardens JitForge for enterprise operation with:
+Phase 10 hardens Jeryu for enterprise operation with:
 
 - SSO validation for OIDC and SAML.
 - Tenant-scoped RBAC with explainable decisions.

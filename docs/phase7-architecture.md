@@ -2,9 +2,9 @@
 
 Phase 7 joins three Rust-first subsystems:
 
-1. `proofcore` produces proof plans and proof witnesses from changed paths.
-2. `agentbridge` gives agents typed, scoped APIs for context, dry-run patches, proof plans, proof execution, proposed fixes, and hotfixes.
-3. `ci-scheduler` admits only proof-witnessed pull requests into a merge queue and validates speculative merge entries.
+1. `jeryu-proof` produces proof plans and proof witnesses from changed paths.
+2. `jeryu-agentbridge` gives agents typed, scoped APIs for context, dry-run patches, proof plans, proof execution, proposed fixes, and hotfixes.
+3. `jeryu-ci-scheduler` admits only proof-witnessed pull requests into a merge queue and validates speculative merge entries.
 
 ## Merge law
 

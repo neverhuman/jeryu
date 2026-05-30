@@ -1,9 +1,9 @@
-# MirrorVault offline bundle format v1
+# JeryuMirror offline bundle format v1
 
-A MirrorVault bundle is a directory with a deterministic manifest and archive:
+A JeryuMirror bundle is a directory with a deterministic manifest and archive:
 
 ```text
-JITFORGE_BUNDLE
+JERYU_BUNDLE
 manifest.json
 archive.json
 docs/restore-instructions.md
@@ -32,11 +32,11 @@ for human inspection, partial restore tooling, and offline review.
 
 ## Integrity
 
-`mirrorvault verify --bundle <path>` recalculates the `archive.json` digest and
+`jeryu-mirror verify --bundle <path>` recalculates the `archive.json` digest and
 checks the manifest file list. Restore should refuse bundles that fail this
 verification.
 
 ## Secret handling
 
 Secret values are not present in the bundle. Webhooks and app installations store
-only target secret names such as `mirrorvault/webhook/123`.
+only target secret names such as `jeryu-mirror/webhook/123`.

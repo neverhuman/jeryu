@@ -1,6 +1,6 @@
 # Cache poisoning fixtures
 
-The executable harness in `cratevault::harness` creates runtime fixtures for:
+The executable harness in `jeryu-cache::harness` creates runtime fixtures for:
 
 - fork compiled-cache write attempts
 - cross-project read attempts
@@ -13,5 +13,5 @@ The executable harness in `cratevault::harness` creates runtime fixtures for:
 Run:
 
 ```bash
-cargo run -p cratevault -- self-test .cratevault-dev
+cargo run -p jeryu-cache -- self-test .jeryu-cache-dev
 ```

@@ -4,7 +4,7 @@ Run:
 
 ```bash
 cargo test --workspace
-cargo run -p phase7-cli -- simulate --prs 100
+cargo run -p jeryu-phase7-cli -- simulate --prs 100
 ```
 
 Acceptance gates included in tests:

@@ -4,7 +4,7 @@ mkdir -p receipts/generated
 cat > receipts/generated/phase12-release.receipt.json <<JSON
 {
   "phase": 12,
-  "artifact": "cratevault",
+  "artifact": "jeryu-cache",
   "release_lane": "hermetic",
   "mutable_compiled_cache_consumed": false,
   "cache_false_hits": 0,

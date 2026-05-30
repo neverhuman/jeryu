@@ -11,7 +11,7 @@ config = tomllib.loads(path.read_text(encoding="utf-8"))
 zones = {zone.get("path"): zone for zone in config.get("zones", [])}
 required = {
     "docs/generated/**": "scripts/render-policy-docs.sh",
-    "receipts/generated/**": "cratevault-service",
+    "receipts/generated/**": "jeryu-cache-service",
 }
 
 missing = []

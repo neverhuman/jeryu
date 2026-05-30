@@ -26,4 +26,4 @@ owner/test maps cover all public paths
 
 ## Exit bar
 
-JitForge can be operated as a long-lived self-hosted forge with repeatable evidence, safe upgrades, tenant isolation, and replayable public claims.
+Jeryu can be operated as a long-lived self-hosted forge with repeatable evidence, safe upgrades, tenant isolation, and replayable public claims.

@@ -1,4 +1,4 @@
-# Jankurai Standard — Phase 12 CrateVault
+# Jankurai Standard — Phase 12 JeryuCache
 
 No proof, no merge. No receipt, no trust.
 

@@ -1,0 +1,15 @@
+[package]
+name = "jeryu-agentbridge"
+description = "Typed AgentBridge API for Jeryu Phase 7"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-core = { path = "../jeryu-core" }
+jeryu-proof = { path = "../jeryu-proof" }
+jeryu-ci-scheduler = { path = "../jeryu-ci-scheduler" }
+
+[lints]
+workspace = true

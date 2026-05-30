@@ -4,15 +4,6 @@
 version = 4
 
 [[package]]
-name = "agentbridge"
-version = "0.12.0"
-dependencies = [
- "ci-scheduler",
- "forge-core",
- "proofcore",
-]
-
-[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -90,21 +81,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
-name = "artifact-metadata"
-version = "0.12.0"
-dependencies = [
- "ci-ir",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
-
-[[package]]
-name = "benchlab"
-version = "0.10.0"
 
 [[package]]
 name = "bitflags"
@@ -142,13 +122,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
 
 [[package]]
-name = "cache-policy"
-version = "0.12.0"
-dependencies = [
- "ci-ir",
-]
-
-[[package]]
 name = "cc"
 version = "1.2.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -174,27 +147,6 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-link",
-]
-
-[[package]]
-name = "ci-compiler"
-version = "0.12.0"
-dependencies = [
- "ci-ir",
-]
-
-[[package]]
-name = "ci-ir"
-version = "0.12.0"
-
-[[package]]
-name = "ci-scheduler"
-version = "0.12.0"
-dependencies = [
- "ci-ir",
- "forge-core",
- "proofcore",
- "runner-protocol",
 ]
 
 [[package]]
@@ -244,14 +196,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
-name = "compliance-export"
-version = "0.12.0"
-dependencies = [
- "phase11-audit",
- "phase11-core",
-]
-
-[[package]]
 name = "constant_time_eq"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -279,56 +223,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b2a41393f66f16b0823bb79094d54ac5fbd34ab292ddafb9a0456ac9f87d201"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "cratevault"
-version = "0.6.0"
-
-[[package]]
-name = "cratevault-adversary"
-version = "0.12.0"
-dependencies = [
- "cratevault-core",
- "cratevault-service",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "cratevault-cli"
-version = "0.12.0"
-dependencies = [
- "anyhow",
- "clap",
- "cratevault-core",
- "cratevault-service",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "cratevault-core"
-version = "0.12.0"
-dependencies = [
- "blake3",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "cratevault-service"
-version = "0.12.0"
-dependencies = [
- "cratevault-core",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
 ]
 
 [[package]]
@@ -387,21 +281,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
-name = "forge-core"
-version = "0.2.0"
-dependencies = [
- "chrono",
- "hex",
- "hmac",
- "parking_lot",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "uuid",
-]
-
-[[package]]
 name = "futures-core"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -447,10 +326,6 @@ dependencies = [
  "wasip2",
  "wasip3",
 ]
-
-[[package]]
-name = "gitd"
-version = "0.1.0"
 
 [[package]]
 name = "hashbrown"
@@ -543,41 +418,318 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
-name = "jit-ci"
+name = "jeryu-agentbridge"
 version = "0.12.0"
 dependencies = [
- "artifact-metadata",
- "cache-policy",
- "ci-compiler",
- "ci-ir",
- "ci-scheduler",
- "runner-protocol",
+ "jeryu-ci-scheduler",
+ "jeryu-core",
+ "jeryu-proof",
 ]
 
 [[package]]
-name = "jit-phase11"
+name = "jeryu-api"
+version = "0.10.0"
+dependencies = [
+ "jeryu-bench",
+ "jeryu-enterprise",
+ "jeryu-obs",
+]
+
+[[package]]
+name = "jeryu-artifact-metadata"
 version = "0.12.0"
 dependencies = [
- "nitro-kernel",
- "phase11-core",
+ "jeryu-ci-ir",
 ]
 
 [[package]]
-name = "jitforge-api"
+name = "jeryu-bench"
 version = "0.10.0"
+
+[[package]]
+name = "jeryu-cache"
+version = "0.6.0"
+
+[[package]]
+name = "jeryu-cache-adversary"
+version = "0.12.0"
 dependencies = [
- "benchlab",
- "jitforge-enterprise",
- "jitforge-obs",
+ "jeryu-cache-core",
+ "jeryu-cache-service",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
-name = "jitforge-enterprise"
+name = "jeryu-cache-cli"
+version = "0.12.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "jeryu-cache-core",
+ "jeryu-cache-service",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "jeryu-cache-core"
+version = "0.12.0"
+dependencies = [
+ "blake3",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "jeryu-cache-policy"
+version = "0.12.0"
+dependencies = [
+ "jeryu-ci-ir",
+]
+
+[[package]]
+name = "jeryu-cache-service"
+version = "0.12.0"
+dependencies = [
+ "jeryu-cache-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "jeryu-ci-bin"
+version = "0.12.0"
+dependencies = [
+ "jeryu-artifact-metadata",
+ "jeryu-cache-policy",
+ "jeryu-ci-compiler",
+ "jeryu-ci-ir",
+ "jeryu-ci-scheduler",
+ "jeryu-runner-protocol",
+]
+
+[[package]]
+name = "jeryu-ci-compiler"
+version = "0.12.0"
+dependencies = [
+ "jeryu-ci-ir",
+]
+
+[[package]]
+name = "jeryu-ci-ir"
+version = "0.12.0"
+
+[[package]]
+name = "jeryu-ci-scheduler"
+version = "0.12.0"
+dependencies = [
+ "jeryu-ci-ir",
+ "jeryu-core",
+ "jeryu-proof",
+ "jeryu-runner-protocol",
+]
+
+[[package]]
+name = "jeryu-compliance-export"
+version = "0.12.0"
+dependencies = [
+ "jeryu-phase11-audit",
+ "jeryu-phase11-core",
+]
+
+[[package]]
+name = "jeryu-core"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "hmac",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "jeryu-enterprise"
 version = "0.10.0"
 
 [[package]]
-name = "jitforge-obs"
+name = "jeryu-gitd"
+version = "0.1.0"
+
+[[package]]
+name = "jeryu-kernel"
+version = "0.12.0"
+dependencies = [
+ "jeryu-compliance-export",
+ "jeryu-lifecycle",
+ "jeryu-ops",
+ "jeryu-phase11-audit",
+ "jeryu-phase11-core",
+ "jeryu-replay-verifier",
+ "jeryu-tenant",
+]
+
+[[package]]
+name = "jeryu-lifecycle"
+version = "0.12.0"
+dependencies = [
+ "jeryu-phase11-audit",
+ "jeryu-phase11-core",
+]
+
+[[package]]
+name = "jeryu-mirror"
+version = "0.9.0"
+dependencies = [
+ "chrono",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "jeryu-mirror-cli"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "jeryu-mirror",
+ "serde_json",
+]
+
+[[package]]
+name = "jeryu-obs"
 version = "0.10.0"
+
+[[package]]
+name = "jeryu-ops"
+version = "0.12.0"
+dependencies = [
+ "jeryu-phase11-audit",
+ "jeryu-phase11-core",
+]
+
+[[package]]
+name = "jeryu-phase11-audit"
+version = "0.12.0"
+dependencies = [
+ "jeryu-phase11-core",
+]
+
+[[package]]
+name = "jeryu-phase11-bin"
+version = "0.12.0"
+dependencies = [
+ "jeryu-kernel",
+ "jeryu-phase11-core",
+]
+
+[[package]]
+name = "jeryu-phase11-core"
+version = "0.12.0"
+
+[[package]]
+name = "jeryu-phase7-cli"
+version = "0.12.0"
+dependencies = [
+ "jeryu-ci-scheduler",
+]
+
+[[package]]
+name = "jeryu-proof"
+version = "0.12.0"
+dependencies = [
+ "jeryu-core",
+]
+
+[[package]]
+name = "jeryu-replay-verifier"
+version = "0.12.0"
+dependencies = [
+ "jeryu-phase11-audit",
+ "jeryu-phase11-core",
+]
+
+[[package]]
+name = "jeryu-runner-core"
+version = "0.4.0"
+
+[[package]]
+name = "jeryu-runner-microvm"
+version = "0.4.0"
+dependencies = [
+ "jeryu-runner-core",
+]
+
+[[package]]
+name = "jeryu-runner-native"
+version = "0.4.0"
+dependencies = [
+ "jeryu-runner-core",
+]
+
+[[package]]
+name = "jeryu-runner-oci"
+version = "0.4.0"
+dependencies = [
+ "jeryu-runner-core",
+]
+
+[[package]]
+name = "jeryu-runner-protocol"
+version = "0.12.0"
+dependencies = [
+ "jeryu-ci-ir",
+]
+
+[[package]]
+name = "jeryu-runnerd"
+version = "0.4.0"
+dependencies = [
+ "jeryu-ci-ir",
+ "jeryu-runner-core",
+ "jeryu-runner-microvm",
+ "jeryu-runner-native",
+ "jeryu-runner-oci",
+ "jeryu-runner-protocol",
+]
+
+[[package]]
+name = "jeryu-rustjet"
+version = "0.5.0"
+
+[[package]]
+name = "jeryu-rustjet-cli"
+version = "0.5.0"
+dependencies = [
+ "jeryu-rustjet",
+]
+
+[[package]]
+name = "jeryu-signrail"
+version = "0.8.0"
+
+[[package]]
+name = "jeryu-tenant"
+version = "0.12.0"
+dependencies = [
+ "jeryu-phase11-audit",
+ "jeryu-phase11-core",
+]
 
 [[package]]
 name = "js-sys"
@@ -602,14 +754,6 @@ name = "libc"
 version = "0.2.186"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
-
-[[package]]
-name = "lifecycle-manager"
-version = "0.12.0"
-dependencies = [
- "phase11-audit",
- "phase11-core",
-]
 
 [[package]]
 name = "linux-raw-sys"
@@ -639,42 +783,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
 
 [[package]]
-name = "mirrorvault"
-version = "0.9.0"
-dependencies = [
- "chrono",
- "hex",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "mirrorvault-cli"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "clap",
- "mirrorvault",
- "serde_json",
-]
-
-[[package]]
-name = "nitro-kernel"
-version = "0.12.0"
-dependencies = [
- "compliance-export",
- "lifecycle-manager",
- "ops-automation",
- "phase11-audit",
- "phase11-core",
- "replay-verifier",
- "tenant-guard",
-]
-
-[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -694,14 +802,6 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
-
-[[package]]
-name = "ops-automation"
-version = "0.12.0"
-dependencies = [
- "phase11-audit",
- "phase11-core",
-]
 
 [[package]]
 name = "parking_lot"
@@ -724,24 +824,6 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-link",
-]
-
-[[package]]
-name = "phase11-audit"
-version = "0.12.0"
-dependencies = [
- "phase11-core",
-]
-
-[[package]]
-name = "phase11-core"
-version = "0.12.0"
-
-[[package]]
-name = "phase7-cli"
-version = "0.12.0"
-dependencies = [
- "ci-scheduler",
 ]
 
 [[package]]
@@ -770,13 +852,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proofcore"
-version = "0.12.0"
-dependencies = [
- "forge-core",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -801,58 +876,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "replay-verifier"
-version = "0.12.0"
-dependencies = [
- "phase11-audit",
- "phase11-core",
-]
-
-[[package]]
-name = "runner-core"
-version = "0.4.0"
-
-[[package]]
-name = "runner-microvm"
-version = "0.4.0"
-dependencies = [
- "runner-core",
-]
-
-[[package]]
-name = "runner-native"
-version = "0.4.0"
-dependencies = [
- "runner-core",
-]
-
-[[package]]
-name = "runner-oci"
-version = "0.4.0"
-dependencies = [
- "runner-core",
-]
-
-[[package]]
-name = "runner-protocol"
-version = "0.12.0"
-dependencies = [
- "ci-ir",
-]
-
-[[package]]
-name = "runnerd"
-version = "0.4.0"
-dependencies = [
- "ci-ir",
- "runner-core",
- "runner-microvm",
- "runner-native",
- "runner-oci",
- "runner-protocol",
-]
-
-[[package]]
 name = "rustix"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -863,17 +886,6 @@ dependencies = [
  "libc",
  "linux-raw-sys",
  "windows-sys",
-]
-
-[[package]]
-name = "rustjet"
-version = "0.5.0"
-
-[[package]]
-name = "rustjet-cli"
-version = "0.5.0"
-dependencies = [
- "rustjet",
 ]
 
 [[package]]
@@ -955,10 +967,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
-name = "signrail"
-version = "0.8.0"
-
-[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1004,14 +1012,6 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys",
-]
-
-[[package]]
-name = "tenant-guard"
-version = "0.12.0"
-dependencies = [
- "phase11-audit",
- "phase11-core",
 ]
 
 [[package]]

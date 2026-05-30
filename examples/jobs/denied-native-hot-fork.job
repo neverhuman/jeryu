@@ -1,7 +1,7 @@
 job_id=phase4_denied_hot_fork
-repo_id=jitforge/nitro
+repo_id=jeryu/jeryu
 commit_sha=badbad
-workspace=/tmp/jitforge-phase4-denied
+workspace=/tmp/jeryu-phase4-denied
 command=/bin/echo
 args=should,not,run
 trust_tier=T4

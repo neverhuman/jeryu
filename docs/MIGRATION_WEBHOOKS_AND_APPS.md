@@ -1,6 +1,6 @@
 # Webhook and app token migration
 
-MirrorVault migrates webhook and app *metadata*, not live secret values.
+JeryuMirror migrates webhook and app *metadata*, not live secret values.
 This is required for safe backup/restore because exporting a backup must not turn
 into a credential exfiltration channel.
 
@@ -15,8 +15,8 @@ Imported webhook records include:
 - target secret name
 - migration notes
 
-When the source export indicates a secret/token existed, MirrorVault records a
-secret name such as `mirrorvault/webhook/7`. Operators must create that secret in
+When the source export indicates a secret/token existed, JeryuMirror records a
+secret name such as `jeryu-mirror/webhook/7`. Operators must create that secret in
 the destination secret store before enabling the webhook.
 
 ## GitHub Apps

@@ -1,15 +1,15 @@
-[signrail]
+[jeryu-signrail]
 policy_version = "phase8.1"
-artifact_store = "/srv/jitforge/artifacts"
-receipt_store = "/srv/jitforge/receipts"
+artifact_store = "/srv/jeryu/artifacts"
+receipt_store = "/srv/jeryu/receipts"
 required_signature_coverage_percent = 100
 block_mutable_latest_assets = true
 require_sbom = true
 require_rollback = true
 
 [identity]
-issuer = "https://jitforge.example.invalid"
-audience = "jitforge-signrail"
+issuer = "https://jeryu.example.invalid"
+audience = "jeryu-signrail"
 
 [signing]
 algorithm = "JFSIG-HMAC-SHA256"

@@ -25,13 +25,13 @@ for raw in required:
         advisories.append(f"missing {raw}")
 
 workspace = Path("Cargo.toml").read_text(encoding="utf-8") if Path("Cargo.toml").exists() else ""
-for member in ["crates/cratevault-core", "crates/cratevault-service", "crates/runner-core", "crates/rustjet", "crates/gitd"]:
+for member in ["crates/jeryu-cache-core", "crates/jeryu-cache-service", "crates/jeryu-runner-core", "crates/jeryu-rustjet", "crates/jeryu-gitd"]:
     if member not in workspace:
         score -= 3
         advisories.append(f"workspace missing {member}")
 
 result = {
-    "repo": "jitforge-nitro",
+    "repo": "jeryu",
     "phase": 12,
     "score": max(score, 0),
     "required_exit_score": 95,

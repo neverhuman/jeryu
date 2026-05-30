@@ -3,127 +3,127 @@
   "owners": [
     {
       "paths": [
-        "crates/cratevault-core/**",
-        "crates/cratevault-service/**",
-        "crates/cratevault-cli/**",
-        "crates/cratevault-adversary/**",
-        "crates/cratevault/**",
+        "crates/jeryu-cache-core/**",
+        "crates/jeryu-cache-service/**",
+        "crates/jeryu-cache-cli/**",
+        "crates/jeryu-cache-adversary/**",
+        "crates/jeryu-cache/**",
         "config/**",
         "policies/**"
       ],
       "owners": [
-        "@jitforge/cache"
+        "@jeryu/cache"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/gitd/**",
+        "crates/jeryu-gitd/**",
         "configs/**"
       ],
       "owners": [
-        "@jitforge/git"
+        "@jeryu/git"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/forge-core/**",
-        "crates/jitforge-api/**",
+        "crates/jeryu-core/**",
+        "crates/jeryu-api/**",
         "web/**"
       ],
       "owners": [
-        "@jitforge/forge-api"
+        "@jeryu/forge-api"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/ci-ir/**",
-        "crates/ci-compiler/**",
-        "crates/ci-scheduler/**",
-        "crates/cache-policy/**",
-        "crates/artifact-metadata/**",
-        "crates/runner-core/**",
-        "crates/runner-native/**",
-        "crates/runner-microvm/**",
-        "crates/runner-oci/**",
-        "crates/runner-protocol/**",
-        "crates/runnerd/**",
-        "bins/jit-ci/**"
+        "crates/jeryu-ci-ir/**",
+        "crates/jeryu-ci-compiler/**",
+        "crates/jeryu-ci-scheduler/**",
+        "crates/jeryu-cache-policy/**",
+        "crates/jeryu-artifact-metadata/**",
+        "crates/jeryu-runner-core/**",
+        "crates/jeryu-runner-native/**",
+        "crates/jeryu-runner-microvm/**",
+        "crates/jeryu-runner-oci/**",
+        "crates/jeryu-runner-protocol/**",
+        "crates/jeryu-runnerd/**",
+        "bins/jeryu-ci-bin/**"
       ],
       "owners": [
-        "@jitforge/ci-runtime"
+        "@jeryu/ci-runtime"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/rustjet/**",
-        "crates/rustjet-cli/**",
+        "crates/jeryu-rustjet/**",
+        "crates/jeryu-rustjet-cli/**",
         "fixtures/**"
       ],
       "owners": [
-        "@jitforge/rust-ci"
+        "@jeryu/rust-ci"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/proofcore/**",
-        "crates/agentbridge/**",
+        "crates/jeryu-proof/**",
+        "crates/jeryu-agentbridge/**",
         "agent/**"
       ],
       "owners": [
-        "@jitforge/jankurai"
+        "@jeryu/jankurai"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/signrail/**"
+        "crates/jeryu-signrail/**"
       ],
       "owners": [
-        "@jitforge/release-security"
+        "@jeryu/release-security"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/mirrorvault/**",
-        "crates/mirrorvault-cli/**"
+        "crates/jeryu-mirror/**",
+        "crates/jeryu-mirror-cli/**"
       ],
       "owners": [
-        "@jitforge/migration"
+        "@jeryu/migration"
       ],
       "required_reviews": 2
     },
     {
       "paths": [
-        "crates/benchlab/**",
-        "crates/jitforge-obs/**",
+        "crates/jeryu-bench/**",
+        "crates/jeryu-obs/**",
         "dashboards/**"
       ],
       "owners": [
-        "@jitforge/bench-obs"
+        "@jeryu/bench-obs"
       ],
       "required_reviews": 1
     },
     {
       "paths": [
-        "crates/jitforge-enterprise/**",
-        "crates/phase11-core/**",
-        "crates/phase11-audit/**",
-        "crates/ops-automation/**",
-        "crates/compliance-export/**",
-        "crates/lifecycle-manager/**",
-        "crates/tenant-guard/**",
-        "crates/replay-verifier/**",
-        "crates/nitro-kernel/**",
-        "bins/jit-phase11/**"
+        "crates/jeryu-enterprise/**",
+        "crates/jeryu-phase11-core/**",
+        "crates/jeryu-phase11-audit/**",
+        "crates/jeryu-ops/**",
+        "crates/jeryu-compliance-export/**",
+        "crates/jeryu-lifecycle/**",
+        "crates/jeryu-tenant/**",
+        "crates/jeryu-replay-verifier/**",
+        "crates/jeryu-kernel/**",
+        "bins/jeryu-phase11-bin/**"
       ],
       "owners": [
-        "@jitforge/enterprise-ops"
+        "@jeryu/enterprise-ops"
       ],
       "required_reviews": 2
     },
@@ -138,7 +138,7 @@
         "rust-toolchain.toml"
       ],
       "owners": [
-        "@jitforge/devex"
+        "@jeryu/devex"
       ],
       "required_reviews": 1
     },
@@ -149,7 +149,7 @@
         "AGENTS.md"
       ],
       "owners": [
-        "@jitforge/docs"
+        "@jeryu/docs"
       ],
       "required_reviews": 1
     },
@@ -158,7 +158,7 @@
         "bins/**"
       ],
       "owners": [
-        "@jitforge/devtools"
+        "@jeryu/devtools"
       ],
       "required_reviews": 1
     },
@@ -167,7 +167,7 @@
         "crates/**"
       ],
       "owners": [
-        "@jitforge/core"
+        "@jeryu/core"
       ],
       "required_reviews": 2
     },
@@ -176,7 +176,7 @@
         "config/**"
       ],
       "owners": [
-        "@jitforge/platform-security"
+        "@jeryu/platform-security"
       ],
       "required_reviews": 2
     },
@@ -185,7 +185,7 @@
         "configs/**"
       ],
       "owners": [
-        "@jitforge/platform-security"
+        "@jeryu/platform-security"
       ],
       "required_reviews": 2
     },
@@ -194,7 +194,7 @@
         "policies/**"
       ],
       "owners": [
-        "@jitforge/platform-security"
+        "@jeryu/platform-security"
       ],
       "required_reviews": 2
     },
@@ -203,7 +203,7 @@
         "fixtures/**"
       ],
       "owners": [
-        "@jitforge/test-fixtures"
+        "@jeryu/test-fixtures"
       ],
       "required_reviews": 1
     },
@@ -212,7 +212,7 @@
         "examples/**"
       ],
       "owners": [
-        "@jitforge/devtools"
+        "@jeryu/devtools"
       ],
       "required_reviews": 1
     },
@@ -221,7 +221,7 @@
         "tests/**"
       ],
       "owners": [
-        "@jitforge/quality"
+        "@jeryu/quality"
       ],
       "required_reviews": 1
     }

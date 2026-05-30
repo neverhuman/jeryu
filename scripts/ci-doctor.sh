@@ -18,7 +18,7 @@ required=(
   scripts/ci-doctor.sh
   Justfile
   rust-toolchain.toml
-  config/cache-policy.toml
+  config/jeryu-cache-policy.toml
   config/trust-tiers.toml
   policies/cache-laws.toml
 )

@@ -1,6 +1,6 @@
 # Phase 9 Implementation Notes
 
-This package implements the Phase 9 scope from the supplied JitForge Nitro engineering spec:
+This package implements the Phase 9 scope from the supplied Jeryu engineering spec:
 
 - users/orgs/teams/repos
 - issues/comments/labels
@@ -11,11 +11,11 @@ This package implements the Phase 9 scope from the supplied JitForge Nitro engin
 - webhooks and durable delivery outbox
 - GitHub-compatible REST subset
 
-The repository is organized as a Rust workspace with product truth in `crates/forge-core` and the REST edge in `crates/jitforge-api`.
+The repository is organized as a Rust workspace with product truth in `crates/jeryu-core` and the REST edge in `crates/jeryu-api`.
 
 ## What is intentionally deferred
 
-The uploaded spec defines later phases for CI compiler, scheduler, native runners, RustJet, CrateVault, merge queue, SignRail, and imports. Those systems are not implemented in this Phase 9 tarball except as compatibility boundaries in the API surface.
+The uploaded spec defines later phases for CI compiler, scheduler, native runners, RustJet, JeryuCache, merge queue, SignRail, and imports. Those systems are not implemented in this Phase 9 tarball except as compatibility boundaries in the API surface.
 
 ## Local validation
 

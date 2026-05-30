@@ -1,7 +1,7 @@
 {
   "cache_schema_version": 1,
   "tenant_id": "tenant_01",
-  "repo_id_or_explicit_shared_scope": "repo_jitforge",
+  "repo_id_or_explicit_shared_scope": "repo_jeryu",
   "trust_tier": "t1-protected-internal",
   "rustc_version": "rustc 1.78.0",
   "cargo_version": "cargo 1.78.0",

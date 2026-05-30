@@ -1,7 +1,7 @@
 # Phase 8 File Tree
 
 ```text
-jitforge-nitro-phase8/
+jeryu-phase8/
 ├── AGENTS.md
 ├── Cargo.toml
 ├── Justfile
@@ -15,8 +15,8 @@ jitforge-nitro-phase8/
 │   ├── proof-lanes.toml
 │   ├── standard-version.toml
 │   └── test-map.json
-├── configs/signrail.example.toml
-├── crates/signrail/
+├── configs/jeryu-signrail.example.toml
+├── crates/jeryu-signrail/
 │   ├── Cargo.toml
 │   ├── src/
 │   │   ├── artifact.rs
@@ -40,10 +40,10 @@ jitforge-nitro-phase8/
 ├── docs/
 │   ├── engineering_spec.md
 │   ├── phase8-file-tree.md
-│   └── signrail-threat-model.md
+│   └── jeryu-signrail-threat-model.md
 ├── ops/
 │   ├── ci/{audit,fast,full,release,security}.sh
-│   └── signrail-verify/{README.md,run.sh}
+│   └── jeryu-signrail-verify/{README.md,run.sh}
 └── scripts/{ci-doctor,ci-local}.sh
 ```
 

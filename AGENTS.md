@@ -1,6 +1,6 @@
-# JitForge Nitro Phase 12 Agent Instructions
+# Jeryu Phase 12 Agent Instructions
 
-Phase 12 owns CrateVault cache correctness. Narrow changes are mandatory.
+Phase 12 owns JeryuCache cache correctness. Narrow changes are mandatory.
 
 Before editing code, inspect:
 

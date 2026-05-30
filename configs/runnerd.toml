@@ -1,6 +1,6 @@
-[runnerd]
+[jeryu-runnerd]
 node_id = "phase4-local"
-receipt_dir = "/var/lib/jitforge/receipts"
+receipt_dir = "/var/lib/jeryu/receipts"
 default_timeout_ms = 600000
 fail_closed = true
 
@@ -20,8 +20,8 @@ forbid_host_ssh_agent = true
 [microvm]
 enabled = true
 runtime = "firecracker"
-kernel = "/var/lib/jitforge/microvm/vmlinux"
-rootfs = "/var/lib/jitforge/microvm/rust-rootfs.ext4"
+kernel = "/var/lib/jeryu/microvm/vmlinux"
+rootfs = "/var/lib/jeryu/microvm/rust-rootfs.ext4"
 plan_only_by_default = true
 
 [oci]

@@ -1,7 +1,7 @@
 job_id=phase4_oci
-repo_id=jitforge/nitro
+repo_id=jeryu/jeryu
 commit_sha=fedcba
-workspace=/tmp/jitforge-phase4-oci
+workspace=/tmp/jeryu-phase4-oci
 command=/bin/echo
 args=hello,oci
 trust_tier=T4

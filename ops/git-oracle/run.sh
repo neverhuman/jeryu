@@ -8,7 +8,7 @@ fi
 repo_root="$(mktemp -d)"
 trap 'rm -rf "$repo_root"' EXIT
 mkdir -p "$repo_root/repos"
-cargo run -q -p gitd -- init-repo --root "$repo_root/repos" oracle demo >/dev/null
+cargo run -q -p jeryu-gitd -- init-repo --root "$repo_root/repos" oracle demo >/dev/null
 work="$repo_root/work"
 git init "$work" >/dev/null
 git -C "$work" config user.email oracle@example.invalid

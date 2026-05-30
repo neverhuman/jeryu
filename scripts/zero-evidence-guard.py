@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scan the workspace for blocked legacy-provider markers."""
+"""Scan the workspace for blocked legacy and retired product markers."""
 
 from __future__ import annotations
 
@@ -14,10 +14,16 @@ BLOCKED_MARKER_HEX = [
     "6769742d6c6162",
     "2e6769746c61622d63692e796d6c",
     "676c6162",
+    "6a6974666f726765",
+    "6e6974726f",
+    "63726174657661756c74",
+    "6d6972726f727661756c74",
+    "62656e63686c6162",
 ]
 
 SKIP_DIRS = {
     ".git",
+    ".worktrees",
     "target",
 }
 

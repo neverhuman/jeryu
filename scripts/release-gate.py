@@ -5,11 +5,11 @@ required = [
     "Cargo.toml",
     "docs/engineering_spec.md",
     "docs/PHASE12_SPEC.md",
-    "crates/cratevault-core/src/lib.rs",
-    "crates/cratevault-service/src/lib.rs",
-    "crates/runner-core/src/lib.rs",
-    "crates/rustjet/src/lib.rs",
-    "bins/jit-ci/src/main.rs",
+    "crates/jeryu-cache-core/src/lib.rs",
+    "crates/jeryu-cache-service/src/lib.rs",
+    "crates/jeryu-runner-core/src/lib.rs",
+    "crates/jeryu-rustjet/src/lib.rs",
+    "bins/jeryu-ci-bin/src/main.rs",
 ]
 missing = [path for path in required if not Path(path).exists()]
 if missing:

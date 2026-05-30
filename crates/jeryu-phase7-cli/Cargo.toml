@@ -1,0 +1,13 @@
+[package]
+name = "jeryu-phase7-cli"
+description = "CLI for Jeryu Phase 7 validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-ci-scheduler = { path = "../jeryu-ci-scheduler" }
+
+[lints]
+workspace = true

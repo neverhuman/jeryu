@@ -1,5 +1,5 @@
 {
-  "title": "JitForge Nitro Phase 10",
+  "title": "Jeryu Phase 10",
   "schemaVersion": 39,
   "panels": [
     { "id": 1, "title": "benchmark_replay_success (30d)", "type": "timeseries", "targets": [{ "expr": "sum(rate(bench_replay_ok[30d])) / sum(rate(bench_replay_total[30d]))" }] },
