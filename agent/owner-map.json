@@ -54,6 +54,9 @@
     "policies/": "platform-security",
     "scripts/": "devex",
     "tests/": "quality",
+    "ux-qa/": "quality",
+    "contracts/": "forge-api",
+    "crates/jeryu-cli/": "forge-api",
     "web/": "forge-api"
   }
 }

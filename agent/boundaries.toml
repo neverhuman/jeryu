@@ -12,6 +12,7 @@ domain_paths = [
 ]
 adapter_paths = [
   "crates/jeryu-api",
+  "crates/jeryu-cli",
   "crates/jeryu-gitd",
   "crates/jeryu-cache-service",
   "crates/jeryu-runnerd",
@@ -33,7 +34,7 @@ forbidden_domain_imports = [
 
 [web]
 paths = ["web"]
-generated_contract_paths = ["crates/jeryu-readmodel"]
+generated_contract_paths = ["crates/jeryu-readmodel", "contracts/generated"]
 forbidden_direct_data_imports = [
   "pg",
   "postgres",

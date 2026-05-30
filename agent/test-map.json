@@ -195,6 +195,21 @@
       "command": "npm run typecheck && npm run test && npm run build",
       "purpose": "verify web surface when present",
       "lane": "web"
+    },
+    "contracts/": {
+      "command": "cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck",
+      "purpose": "verify generated TS contract bindings match their Rust source and stay consumable by the web surface",
+      "lane": "contract"
+    },
+    "ux-qa/": {
+      "command": "cd ux-qa && npm run build",
+      "purpose": "verify the rendered UX-QA harness builds",
+      "lane": "ux-qa"
+    },
+    "crates/jeryu-cli/": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify the jeryu CLI command surface and snapshots",
+      "lane": "cli"
     }
   }
 }
