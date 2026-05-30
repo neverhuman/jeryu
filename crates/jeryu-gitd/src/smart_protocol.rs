@@ -1,4 +1,4 @@
-//! Git protocol v2 request parsing and capability advertisement.
+//! Git smart-protocol (wire version 2) request parsing and capability advertisement.
 
 use crate::error::{GitdError, Result};
 use crate::pktline::{PktLine, decode_all, encode_str, flush};
@@ -88,7 +88,7 @@ mod tests {
     use crate::pktline;
 
     #[test]
-    fn protocol_v2_advertises_core_caps() {
+    fn smart_protocol_advertises_core_caps() {
         let ad = CapabilitySet::default().advertise();
         let text = String::from_utf8_lossy(&ad);
         assert!(text.contains("version 2"));
@@ -97,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn protocol_v2_parses_command() {
+    fn smart_protocol_parses_command() {
         let mut body = pktline::encode_str("command=ls-refs\n");
         body.extend(pktline::flush());
         body.extend(pktline::encode_str("peel\n"));

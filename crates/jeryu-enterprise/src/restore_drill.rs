@@ -1,4 +1,4 @@
-//! Backup and restore drills.
+//! Restore drills: exercise the backup-and-restore path and assert recovery invariants.
 
 /// Restore invariant required after a backup drill.
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -1,0 +1,15 @@
+# Build acceleration shared by local runs and CI.
+#
+# These settings keep iterative rebuilds incremental and parallel so the
+# narrow proof lanes in the Justfile stay fast for agents. They match the
+# JERYU_CI_JOBS=40 parallelism the CI workflow already exports.
+
+[build]
+incremental = true
+jobs = 40
+
+[net]
+git-fetch-with-cli = true
+
+[term]
+quiet = false

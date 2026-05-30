@@ -101,6 +101,16 @@ mod tests {
 
     #[test]
     fn ssh_rejects_path_traversal() {
-        assert!(SshGitCommand::parse("git-upload-pack '../demo.git'").is_err());
+        // Build the hostile request from a parent-directory owner segment kept in
+        // its own binding so the boundary's negative test asserts the rejected
+        // shape without smuggling a traversal-shaped repo path past validation.
+        let parent_owner = "..";
+        let hostile = format!("git-upload-pack '{parent_owner}/demo.git'");
+        let err = SshGitCommand::parse(&hostile)
+            .expect_err("owner/repo boundary must reject parent-directory owner segments");
+        assert!(
+            matches!(err, GitdError::InvalidPath(_)),
+            "expected a typed InvalidPath rejection, got {err:?}"
+        );
     }
 }
