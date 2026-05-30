@@ -1,0 +1,59 @@
+schema_version = "1.0.0"
+
+[stack]
+id = "rust-web-local-forge"
+version = "1.0.0"
+
+[rust]
+domain_paths = [
+  "crates/domain",
+  "crates/jeryu-core",
+  "crates/jeryu-proof",
+]
+adapter_paths = [
+  "crates/jeryu-api",
+  "crates/jeryu-gitd",
+  "crates/jeryu-cache-service",
+  "crates/jeryu-runnerd",
+]
+generated_contract_paths = [
+  "crates/jeryu-api",
+  "crates/jeryu-runner-protocol",
+]
+forbidden_domain_imports = [
+  "std::fs",
+  "std::env",
+  "std::net",
+  "std::time::SystemTime",
+  "rand::",
+  "reqwest::",
+  "tracing::",
+  "log::",
+]
+
+[web]
+paths = ["web"]
+generated_contract_paths = ["crates/jeryu-readmodel"]
+forbidden_direct_data_imports = [
+  "pg",
+  "postgres",
+  "mysql",
+  "better-sqlite3",
+]
+
+[db]
+truth_owner = "jeryu-core"
+root_paths = []
+migration_paths = []
+constraint_paths = []
+status = "planned"
+
+[queues]
+adapter_paths = ["crates/jeryu-ci-scheduler", "crates/jeryu-runnerd"]
+event_contract_paths = ["crates/jeryu-ci-ir", "crates/jeryu-runner-protocol"]
+generated_type_paths = ["crates/jeryu-readmodel"]
+
+[agent]
+tool_paths = ["crates/jeryu-mcp", "crates/jeryu-agentbridge"]
+write_policy = "dry-run-before-mutation"
+receipt_policy = "all writes emit receipts"

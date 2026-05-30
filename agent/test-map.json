@@ -66,6 +66,16 @@
       "purpose": "verify agent ownership, proof routing, and generated-zone maps",
       "lane": "jankurai-proof"
     },
+    "agent/boundaries.toml": {
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && ./scripts/check-generated-zones.py",
+      "purpose": "verify typed boundary ownership and proof routing metadata",
+      "lane": "contract"
+    },
+    "agent/tool-adoption.toml": {
+      "command": "./ops/ci/jankurai.sh",
+      "purpose": "verify Jankurai tool adoption evidence remains wired into local audit",
+      "lane": "audit"
+    },
     "bins/": {
       "command": "cargo test -p jeryu-ci-bin -p jeryu-phase11-bin --jobs 40",
       "purpose": "verify local tool binaries",

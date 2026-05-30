@@ -5,18 +5,21 @@ changes are mandatory.
 
 Before editing code, inspect:
 
-1. `agent/owner-map.json`
-2. `agent/test-map.json`
-3. `agent/generated-zones.toml`
-4. `agent/proof-lanes.toml`
-5. `agent/exceptions.toml`
-6. `docs/architecture.md`
-7. `docs/testing.md`
-8. `docs/errors.md`
-9. `docs/boundaries.md`
-10. `docs/generated-zones.md`
-11. `docs/audit-rubric.md`
-12. `docs/agent-native-standard.md`
+1. `README.md`
+2. `agent/owner-map.json`
+3. `agent/test-map.json`
+4. `agent/generated-zones.toml`
+5. `agent/proof-lanes.toml`
+6. `agent/exceptions.toml`
+7. `agent/boundaries.toml`
+8. `agent/tool-adoption.toml`
+9. `docs/architecture.md`
+10. `docs/testing.md`
+11. `docs/errors.md`
+12. `docs/boundaries.md`
+13. `docs/generated-zones.md`
+14. `docs/audit-rubric.md`
+15. `docs/agent-native-standard.md`
 
 Hard rules:
 
