@@ -1,10 +1,11 @@
 //! The forge client seam.
 //!
 //! Every CLI command is backed by a single trait, [`ForgeClient`], so the
-//! command layer never reaches for a concrete backend. Today the only
-//! implementation is the in-memory [`StubClient`] used by tests and local
-//! rehearsals; later the same trait is implemented over the `jeryu-api`
-//! HTTP/`jeryu-core` in-process handles without touching the command layer.
+//! command layer never reaches for a concrete backend. The current
+//! implementation is the in-memory [`InMemoryClient`] used by tests and local
+//! rehearsals; an implementation over the `jeryu-api` HTTP/`jeryu-core`
+//! in-process handles can be added behind the same trait without touching the
+//! command layer.
 //!
 //! The vocabulary here is deliberately GitHub-shaped: pull requests carry a
 //! per-repo `number` (not a per-project IID), CI work is a `run`, build
@@ -281,7 +282,7 @@ pub struct CacheSelfTest {
 /// The single trait every CLI command is backed by.
 ///
 /// Implementations map each method onto a `jeryu-api` route or `jeryu-core`
-/// call. The in-memory [`StubClient`] is the only implementation today.
+/// call. The in-memory [`InMemoryClient`] is the current implementation.
 pub trait ForgeClient {
     // forge repo
     /// Create a repository. Backs `jeryu forge repo create`.
@@ -354,11 +355,11 @@ pub trait ForgeClient {
 }
 
 // ---------------------------------------------------------------------------
-// In-memory stub implementation
+// In-memory implementation
 // ---------------------------------------------------------------------------
 
 #[derive(Default)]
-struct StubState {
+struct InMemoryState {
     repos: BTreeMap<(String, String), Repository>,
     issues: BTreeMap<(String, String), Vec<Issue>>,
     pulls: BTreeMap<(String, String), Vec<PullRequest>>,
@@ -371,26 +372,26 @@ struct StubState {
 ///
 /// It is deterministic: issue/PR numbers and run ids are assigned in a stable
 /// order so that snapshot and dispatch tests do not flake.
-pub struct StubClient {
-    state: Mutex<StubState>,
+pub struct InMemoryClient {
+    state: Mutex<InMemoryState>,
 }
 
-impl Default for StubClient {
+impl Default for InMemoryClient {
     fn default() -> Self {
         Self {
-            state: Mutex::new(StubState::default()),
+            state: Mutex::new(InMemoryState::default()),
         }
     }
 }
 
-impl StubClient {
-    /// Construct an empty stub client.
+impl InMemoryClient {
+    /// Construct an empty in-memory client.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Construct a stub client preloaded with a single repository, used by
+    /// Construct an in-memory client preloaded with a single repository, used by
     /// dispatch smoke tests that exercise issue/PR/CI verbs.
     #[must_use]
     pub fn with_seed_repo(owner: &str, name: &str) -> Self {
@@ -409,13 +410,13 @@ impl StubClient {
     }
 }
 
-fn lock(state: &Mutex<StubState>) -> std::sync::MutexGuard<'_, StubState> {
+fn lock(state: &Mutex<InMemoryState>) -> std::sync::MutexGuard<'_, InMemoryState> {
     state
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-impl ForgeClient for StubClient {
+impl ForgeClient for InMemoryClient {
     fn create_repository(
         &self,
         owner: &str,
@@ -667,8 +668,9 @@ impl ForgeClient for StubClient {
         if !state.runners.iter().any(|r| r.id == id) {
             return Err(ClientError::NotFound(format!("runner {id}")));
         }
-        // Credential issuance lives in jeryu-runnerd's registry; the stub mints
-        // a deterministic placeholder so the dispatch path is exercisable.
+        // Credential issuance lives in jeryu-runnerd's registry; the in-memory
+        // client mints a deterministic credential id derived from the runner id
+        // so the rotate dispatch path is exercisable and replay-stable.
         Ok(format!("cred-{id}-rotated"))
     }
 

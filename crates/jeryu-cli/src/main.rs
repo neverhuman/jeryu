@@ -4,13 +4,13 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use clap::Parser;
-use jeryu_cli::{Cli, StubClient, dispatch};
+use jeryu_cli::{Cli, InMemoryClient, dispatch};
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    // Until the `jeryu-api`/`jeryu-core` handles are wired, the binary runs
-    // against the in-memory stub client. The dispatch seam is identical.
-    let client = StubClient::new();
+    // The binary runs against the in-memory client; swapping in an
+    // `jeryu-api`/`jeryu-core`-backed client uses the identical dispatch seam.
+    let client = InMemoryClient::new();
 
     let stdout = io::stdout();
     let stderr = io::stderr();
