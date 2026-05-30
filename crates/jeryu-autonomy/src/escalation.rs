@@ -309,7 +309,7 @@ mod tests {
             rebind_on_train: true,
             expires_at: Utc.with_ymd_and_hms(2030, 1, 1, 0, 0, 0).unwrap(),
             created_at: Utc.with_ymd_and_hms(2026, 5, 16, 0, 0, 0).unwrap(),
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         }
     }
 

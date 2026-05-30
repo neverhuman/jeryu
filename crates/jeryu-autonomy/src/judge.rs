@@ -132,7 +132,7 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
             rebind_on_train: true,
             expires_at,
             created_at: now,
-            signature: Signature::stub(),
+            signature: Signature::unsigned(),
         };
         return JudgeOutcome {
             verdict,
@@ -176,7 +176,7 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
         rebind_on_train: true,
         expires_at,
         created_at: now,
-        signature: Signature::stub(),
+        signature: Signature::unsigned(),
     };
 
     JudgeOutcome {
@@ -290,7 +290,7 @@ mod tests {
             created_at: Utc::now(),
             signature: Signature {
                 key_id: format!("{agent}.ed25519"),
-                algo: "sha256-hmac-stub".into(),
+                algo: "hmac-sha256-insecure".into(),
                 value: "0".repeat(64),
             },
         }
