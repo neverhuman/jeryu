@@ -110,7 +110,7 @@ fn draw_atlas(f: &mut Frame, input: &WorkflowLensInput, area: Rect) {
     f.render_widget(table, area);
 }
 
-fn repo_row(repo: &WorkflowRepoRow) -> Row {
+fn repo_row(repo: &WorkflowRepoRow) -> Row<'_> {
     let failing = if repo.failed_count > 0 {
         Cell::from(Span::styled(
             repo.failed_count.to_string(),

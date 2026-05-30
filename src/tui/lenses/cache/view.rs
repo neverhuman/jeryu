@@ -167,8 +167,10 @@ mod tests {
 
     #[test]
     fn renders_populated_at_120x36() {
-        let mut model = TuiReadModel::default();
-        model.event_cursor = 99;
+        let mut model = TuiReadModel {
+            event_cursor: 99,
+            ..Default::default()
+        };
         model.mission.cache_hit_ratio = 0.8;
         model.mission.active_taints = 3;
         model.mission.taint_count = 11;

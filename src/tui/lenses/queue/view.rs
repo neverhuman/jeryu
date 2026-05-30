@@ -174,8 +174,10 @@ mod tests {
 
     #[test]
     fn renders_populated_queue_at_120x36() {
-        let mut model = TuiReadModel::default();
-        model.event_cursor = 99;
+        let mut model = TuiReadModel {
+            event_cursor: 99,
+            ..Default::default()
+        };
         model.mission.queued_jobs = 12;
         model.mission.running_jobs = 4;
         model.mission.failed_jobs = 2;

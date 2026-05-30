@@ -301,16 +301,3 @@ pub fn wait_for_text_absent(page: &Page, needle: &str) -> anyhow::Result<()> {
         last = page.screen();
     }
 }
-
-pub fn assert_text_order(text: &str, first: &str, second: &str) {
-    let first_pos = text
-        .find(first)
-        .unwrap_or_else(|| panic!("expected {first:?} in screen\n\n{text}"));
-    let second_pos = text
-        .find(second)
-        .unwrap_or_else(|| panic!("expected {second:?} in screen\n\n{text}"));
-    assert!(
-        first_pos < second_pos,
-        "expected {first:?} before {second:?}\n\n{text}"
-    );
-}
