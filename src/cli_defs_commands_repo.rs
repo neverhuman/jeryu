@@ -18,6 +18,20 @@ pub(crate) enum RepoCommands {
         #[arg(long, default_value_t = false)]
         json: bool,
     },
+    /// Read-only git/auth hygiene audit (HTTP-PAT origin, stale AGENTS.md, missing .jeryu).
+    AuditHygiene {
+        /// Audit a specific checkout (defaults to the current directory).
+        #[arg(long, value_parser = parse_expanded_path)]
+        path: Option<PathBuf>,
+        /// Sweep every repo in the fleet registry instead of a single checkout.
+        #[arg(long, default_value_t = false)]
+        fleet: bool,
+        /// Optional explicit fleet registry path (with --fleet).
+        #[arg(long, value_parser = parse_expanded_path)]
+        registry: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Configure the repo-managed git hook directory for this checkout.
     InstallGitHooks,
     /// Initialize a new local checkout backed by local JeRyu/GitLab.

@@ -20,6 +20,12 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
             jeryu::agent_surface::audit_agent_surface(json)?;
             Ok(0)
         }
+        RepoCommands::AuditHygiene {
+            path,
+            fleet,
+            registry,
+            json,
+        } => execute_audit_hygiene(path, fleet, registry, json).await,
         RepoCommands::InstallGitHooks => repo::install_git_hooks().await,
         RepoCommands::Init(cmd) => {
             if !cmd.direct {
@@ -88,6 +94,45 @@ pub(crate) async fn execute_repo_commands(cmd: RepoCommands) -> Result<i32> {
             repo::capture_tui_screenshots(output_dir).await
         }
     }
+}
+
+async fn execute_audit_hygiene(
+    path: Option<PathBuf>,
+    fleet: bool,
+    registry: Option<PathBuf>,
+    json: bool,
+) -> Result<i32> {
+    use jeryu::repo_hygiene_audit as hygiene;
+
+    let roots: Vec<(String, PathBuf)> = if fleet {
+        let (registry, _path) = load_fleet_registry(registry)?;
+        registry
+            .repo
+            .iter()
+            .map(|r| (r.slug.clone(), r.local_root.clone()))
+            .collect()
+    } else {
+        let target = match path {
+            Some(p) => p,
+            None => std::env::current_dir()?,
+        };
+        let label = target
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| target.display().to_string());
+        vec![(label, target)]
+    };
+
+    let reports = hygiene::audit_fleet(&roots);
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&reports)?);
+        let errors = reports.iter().filter(|r| r.has_error()).count();
+        return Ok(if errors > 0 { 1 } else { 0 });
+    }
+
+    let error_count = hygiene::print_reports(&reports);
+    Ok(if error_count > 0 { 1 } else { 0 })
 }
 
 async fn execute_repo_fleet_commands(cmd: crate::cli::RepoFleetCommands) -> Result<i32> {

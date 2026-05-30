@@ -9,9 +9,10 @@
 //!     unit-test without a repo, network, or the (still-unmerged) canonical
 //!     standard.
 
+use serde::Serialize;
 use std::path::Path;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Severity {
     Error,
     Warning,
@@ -28,12 +29,30 @@ impl Severity {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct HygieneFinding {
     pub kind: &'static str,
     pub severity: Severity,
     pub detail: String,
     pub fix_hint: &'static str,
+}
+
+/// One repo's audit result — what `jeryu repo audit-hygiene [--fleet]` reports.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RepoHygieneReport {
+    pub repo: String,
+    pub path: String,
+    pub findings: Vec<HygieneFinding>,
+}
+
+impl RepoHygieneReport {
+    pub fn is_clean(&self) -> bool {
+        self.findings.is_empty()
+    }
+
+    pub fn has_error(&self) -> bool {
+        self.findings.iter().any(|f| f.severity == Severity::Error)
+    }
 }
 
 /// Is an origin URL the forbidden HTTP local-GitLab footgun (vs. canonical SSH)?
@@ -123,6 +142,51 @@ pub fn audit_repo(repo: &Path) -> Vec<HygieneFinding> {
     }
 
     findings
+}
+
+/// Audit one labeled checkout into a report (label = fleet slug/alias or dir name).
+pub fn audit_repo_report(label: &str, repo: &Path) -> RepoHygieneReport {
+    RepoHygieneReport {
+        repo: label.to_string(),
+        path: repo.display().to_string(),
+        findings: audit_repo(repo),
+    }
+}
+
+/// Audit a set of labeled checkouts (the fleet). READ-ONLY.
+pub fn audit_fleet(roots: &[(String, std::path::PathBuf)]) -> Vec<RepoHygieneReport> {
+    roots
+        .iter()
+        .map(|(label, path)| audit_repo_report(label, path))
+        .collect()
+}
+
+/// Human-readable render of fleet reports. Returns the count of ERROR findings
+/// so a caller can pick an exit code (non-zero when a hard footgun is present).
+pub fn print_reports(reports: &[RepoHygieneReport]) -> usize {
+    let mut error_count = 0;
+    let mut clean = 0;
+    for r in reports {
+        if r.is_clean() {
+            clean += 1;
+            continue;
+        }
+        println!("\n{}  ({})", r.repo, r.path);
+        for f in &r.findings {
+            if f.severity == Severity::Error {
+                error_count += 1;
+            }
+            println!("  [{}] {}: {}", f.severity.label(), f.kind, f.detail);
+            println!("        fix: {}", f.fix_hint);
+        }
+    }
+    println!(
+        "\nhygiene: {} repo(s) audited, {} clean, {} error finding(s)",
+        reports.len(),
+        clean,
+        error_count
+    );
+    error_count
 }
 
 #[cfg(test)]
