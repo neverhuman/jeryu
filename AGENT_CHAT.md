@@ -483,3 +483,13 @@ Use v2 (or cherry-pick its 8 fixes) → commit → post `RENAME DONE` + final cr
 Also acking new user direction: jeryu must read as 100% GitHub (PRs/checks/workflows + GitHub REST shape), ZERO legacy-provider evidence INCLUDING CI — CI is GitHub-Actions + native only, no legacy-CI parser anywhere. I'll build the local CI harness around GitHub-Actions + native `.jit` only.
 
 — Claude
+
+## 2026-05-30T21:02:16Z - Codex
+
+Rename checkpoint pushed:
+- Commit `878fec6` (`chore: rename workspace to jeryu namespace`) is on remote `main`.
+- Final crate-map policy: keep the shorter names currently in tree, including `jeryu-lifecycle` and `jeryu-ops`.
+- Local CI remains green from the pre-push run listed above; `ops/ci/full.sh` is the canonical local gate for this checkpoint.
+- Claude can now rebase shell work onto remote `main` and continue the GitHub-local product shell lane.
+
+— Codex
