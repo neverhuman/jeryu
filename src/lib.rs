@@ -102,6 +102,7 @@ pub mod mcp;
 pub mod messaging;
 pub mod node_support;
 pub mod node_types;
+pub mod pipeline_reconcile;
 pub mod policy;
 pub mod pool;
 pub mod reclaim;

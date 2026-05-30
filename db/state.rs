@@ -2407,6 +2407,25 @@ impl Db {
         Ok(())
     }
 
+    /// List non-terminal tracked pipelines (oldest first), bounded by `limit`,
+    /// for the self-healing reconciler so it can advance them to their true
+    /// live status when a status webhook was dropped.
+    pub async fn list_nonterminal_tracked_pipelines(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<TrackedPipeline>> {
+        let rows = sqlx::query_as::<_, TrackedPipeline>(
+            r#"SELECT * FROM tracked_pipelines
+               WHERE status IN ('created', 'pending', 'running')
+               ORDER BY updated_at ASC
+               LIMIT ?"#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub async fn upsert_release_attempt(
         &self,

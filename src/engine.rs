@@ -104,6 +104,14 @@ pub async fn run_engine(
         reconciliation_loop(reconcile_state).await;
     });
 
+    // Start pipeline-cache self-healing loop: reconciles tracked pipelines
+    // against live GitLab so a dropped status webhook never leaves a phantom
+    // "created" pipeline in `jeryu next` / the TUI.
+    let pipeline_reconcile_state = state.clone();
+    tokio::spawn(async move {
+        crate::pipeline_reconcile::reconcile_loop(pipeline_reconcile_state).await;
+    });
+
     // Start Docker event listener loop (makes scaling instant)
     let event_state = state.clone();
     tokio::spawn(async move {
