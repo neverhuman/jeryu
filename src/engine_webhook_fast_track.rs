@@ -42,6 +42,13 @@ pub(crate) async fn apply_fast_track(
     new_pipeline_id: i64,
     new_sha: &str,
 ) {
+    // SAFETY: inert by default. Pruning jobs without the effective-status merge
+    // gate would leave the MR pipeline "canceled" and block merge — a regression.
+    // This stays OFF until the gate + auto-merge land and are proven on a real
+    // pipeline, then flips to default-on via `.jeryu/ci.toml [fast_track]`.
+    if std::env::var("JERYU_FAST_TRACK").as_deref() != Ok("on") {
+        return;
+    }
     if project_id == 0
         || matches!(ref_name, "main" | "master")
         || ref_name.starts_with("refs/tags/")
