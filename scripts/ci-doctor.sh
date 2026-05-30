@@ -31,28 +31,36 @@ for script in ops/ci/*.sh scripts/*.sh tests/*.sh; do
   [[ "$(basename "$script")" == ._* ]] && continue
   bash -n "$script"
 done
-python3 - <<'PYCHECK'
-import json
-from pathlib import Path
-for raw in [
-    'agent/owner-map.json',
-    'agent/test-map.json',
-    'agent/baselines/main.repo-score.json',
-    'examples/cache-key-material.json',
-    'examples/fork-pr-write-request.json',
-    'examples/t1-green-write-request.json',
-]:
-    path = Path(raw)
-    if path.name.startswith('._'):
-        continue
-    with path.open('r', encoding='utf-8') as fh:
-        json.load(fh)
-print('json fixtures ok')
-PYCHECK
-./scripts/check-docs.py
-./scripts/check-generated-zones.py
+json_fixtures=(
+  agent/owner-map.json
+  agent/test-map.json
+  agent/baselines/main.repo-score.json
+  examples/cache-key-material.json
+  examples/fork-pr-write-request.json
+  examples/t1-green-write-request.json
+)
+for raw in "${json_fixtures[@]}"; do
+  [[ "$(basename "$raw")" == ._* ]] && continue
+  jq -e . "$raw" >/dev/null || { echo "invalid json: $raw" >&2; exit 1; }
+done
+printf '%s\n' 'json fixtures ok'
+
+# Rust governance gates (replace the legacy scripts/*.py validators). Prefer the
+# prebuilt release binaries; fall back to `cargo run` when they are absent.
+jeryu_gate() {
+  local crate="$1"; shift
+  local bin="target/release/${crate}"
+  if [ -x "${bin}" ]; then
+    "${bin}" "$@"
+  else
+    cargo run -q --release -p "${crate}" -- "$@"
+  fi
+}
+
+jeryu_gate jeryu-mapcheck docs
+jeryu_gate jeryu-mapcheck generated-zones
 ./scripts/check-owner-test-map.sh
 ./scripts/check-agent-maps.sh
-./scripts/check-fixtures.py
-./scripts/security-scan.py
+jeryu_gate jeryu-mapcheck fixtures
+jeryu_gate jeryu-repogate security-scan
 printf '%s\n' 'ci-doctor passed'

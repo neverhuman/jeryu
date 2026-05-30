@@ -37,4 +37,4 @@ The foundation gate for this workspace is:
 - `cargo check --workspace --all-targets`
 - `cargo test --workspace`
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
-- `scripts/zero-evidence-guard.py .`
+- `jeryu-evidence .`

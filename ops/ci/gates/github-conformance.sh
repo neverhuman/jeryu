@@ -42,11 +42,17 @@ else
 fi
 
 decode_hex() {
-  # portable hex -> ascii (prefers xxd, falls back to python3).
+  # portable hex -> ascii (prefers xxd, falls back to a pure-shell decoder).
   if command -v xxd >/dev/null 2>&1; then
     printf '%s' "$1" | xxd -r -p
   else
-    python3 -c 'import sys;sys.stdout.write(bytes.fromhex(sys.argv[1]).decode())' "$1"
+    # Pure-shell hex decode: walk the input two nibbles at a time and emit the
+    # corresponding byte with printf's octal escape. No external interpreter.
+    local hex="$1" i byte
+    for (( i=0; i<${#hex}; i+=2 )); do
+      byte="${hex:i:2}"
+      printf '%b' "\\$(printf '%03o' "$((16#${byte}))")"
+    done
   fi
 }
 

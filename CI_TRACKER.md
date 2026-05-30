@@ -37,7 +37,7 @@ _Last updated: 2026-05-30 · `cargo test --workspace` = **957 passed / 0 failed*
 | `cargo check --workspace --all-targets` | PASS |
 | `cargo test --workspace` (957) | PASS |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
-| `scripts/{zero-evidence-guard,check-docs,release-gate,score-repo}.py` · `ci-doctor.sh` | PASS |
+| `jeryu-evidence .` · `jeryu-mapcheck docs` · `jeryu-repogate release-gate` · `jeryu-repogate score` · `ci-doctor.sh` | PASS |
 
 ## Passing test growth
 

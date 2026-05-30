@@ -29,6 +29,16 @@ run_step() { # run_step "name" cmd...
   fi
 }
 
+jeryu_gate() { # jeryu_gate <crate> [args...] — prefer prebuilt release binary, else cargo run
+  local crate="$1"; shift
+  local bin="target/release/${crate}"
+  if [ -x "${bin}" ]; then
+    "${bin}" "$@"
+  else
+    cargo run -q --release -p "${crate}" -- "$@"
+  fi
+}
+
 # ---- gates (run them all so you see every failure, then decide on push) ----
 run_step "fmt"    cargo fmt --all -- --check
 run_step "clippy" cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -41,9 +51,9 @@ else
     cargo test --workspace -- --test-threads="$JOBS"
 fi
 
-[ -f scripts/zero-evidence-guard.py ] && run_step "zero-evidence" python3 scripts/zero-evidence-guard.py .
-[ -f scripts/check-docs.py ]          && run_step "docs-markers"  python3 scripts/check-docs.py
-[ -f scripts/ci-phases.sh ]           && run_step "phase-gates"   bash scripts/ci-phases.sh
+run_step "zero-evidence" jeryu_gate jeryu-evidence .
+run_step "docs-markers"  jeryu_gate jeryu-mapcheck docs
+[ -f scripts/ci-phases.sh ] && run_step "phase-gates" bash scripts/ci-phases.sh
 
 # jankurai audit: REAL score gate. Advisory until the score clears its floor
 # (set JERYU_CI_STRICT=1 to block the push on it).

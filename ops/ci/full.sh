@@ -6,8 +6,8 @@ cargo fmt --all -- --check
 cargo check --workspace --all-targets --jobs "${JERYU_CI_JOBS}"
 cargo test --workspace --jobs "${JERYU_CI_JOBS}"
 cargo clippy --workspace --all-targets --all-features --jobs "${JERYU_CI_JOBS}" -- -D warnings
-./scripts/zero-evidence-guard.py .
-./scripts/check-docs.py
-./scripts/release-gate.py
-./scripts/score-repo.py
+jeryu_gate jeryu-evidence .
+jeryu_gate jeryu-mapcheck docs
+jeryu_gate jeryu-repogate release-gate
+jeryu_gate jeryu-repogate score
 ./scripts/ci-doctor.sh
