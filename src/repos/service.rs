@@ -108,8 +108,10 @@ impl RepoService {
     /// Fetch a single repository by opaque id. Phase 2: re-fetches via
     /// `get_repository`. The id format matches `RepoId::parse`.
     pub async fn get(&self, repo_id: &str) -> Result<RepositorySummary, ApiError> {
-        let parsed = RepoId::parse(repo_id)
-            .ok_or_else(|| ApiError::BadRequest(format!("invalid repo_id: {repo_id}")))?;
+        let parsed = match RepoId::parse(repo_id) {
+            Some(parsed) => parsed,
+            None => return Err(ApiError::BadRequest(format!("invalid repo_id: {repo_id}"))),
+        };
         let repo = RepoRef {
             owner: parsed.owner.clone(),
             name: parsed.name.clone(),
@@ -292,7 +294,7 @@ pub fn host_to_api_error(err: HostError) -> ApiError {
         HostError::RateLimited { .. } => ApiError::RateLimited,
         HostError::Transient(msg) | HostError::Permanent(msg) => ApiError::Upstream(msg),
         HostError::Conflict(msg) => ApiError::Conflict(msg),
-        HostError::NotImplemented => ApiError::Upstream("not implemented".into()),
+        HostError::NotImplemented => ApiError::Upstream("repo host adapter unavailable".into()),
     }
 }
 

@@ -12,6 +12,7 @@ use jeryu::exec;
 
 #[path = "cli_runtime_commands.rs"]
 mod cli_runtime_commands;
+pub(crate) use crate::commands::pool::PoolCommands;
 pub(crate) use cli_runtime_commands::*;
 
 #[path = "cli_test_commands.rs"]

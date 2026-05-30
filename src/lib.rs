@@ -106,6 +106,7 @@ pub mod node_support;
 pub mod node_types;
 pub mod policy;
 pub mod pool;
+pub mod pool_service;
 pub mod reclaim;
 pub mod redact;
 pub mod release;

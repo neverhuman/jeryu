@@ -317,7 +317,7 @@ fn demo_fleet_snapshot(now_str: &str) -> crate::repo_fleet::FleetSnapshot {
             status: status.into(),
             running_count: running,
             failed_count: failed,
-            stale: false,
+            aged: false,
             score_badge: Some("92".into()),
             local: RepoLocalStatus {
                 exists: true,

@@ -137,11 +137,17 @@ impl GitLabClient {
             .map_err(map_reqwest)?;
         let status = resp.status();
         if status == StatusCode::CONFLICT {
-            let body = resp.text().await.unwrap_or_default();
+            let body = match resp.text().await {
+                Ok(body) => body,
+                Err(_) => String::new(),
+            };
             return Err(HostError::Conflict(format!("gitlab merge 409: {body}")));
         }
         if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
+            let body = match resp.text().await {
+                Ok(body) => body,
+                Err(_) => String::new(),
+            };
             return Err(HostError::Permanent(format!(
                 "gitlab merge http {status}: {body}"
             )));
@@ -156,15 +162,15 @@ impl GitLabClient {
             .merge_commit_sha
             .or(parsed.squash_commit_sha)
             .or(parsed.sha);
-        if merged {
-            if let Err(err) = crate::git::mirror_jobs::enqueue_merge_mirror_intent(
+        if merged
+            && let Err(err) = crate::git::mirror_jobs::enqueue_merge_mirror_intent(
                 &input.repo.owner,
                 &input.repo.name,
                 sha.as_deref(),
                 parsed.web_url.as_deref(),
-            ) {
-                tracing::warn!(error = %err, "post-merge mirror enqueue failed");
-            }
+            )
+        {
+            tracing::warn!(error = %err, "post-merge mirror enqueue failed");
         }
         Ok(HostMergeResult {
             merged,
@@ -264,8 +270,8 @@ impl GitLabClient {
             .into_iter()
             .map(|p| HostPipeline {
                 id: p.id.to_string(),
-                ref_name: p.r#ref.unwrap_or_default(),
-                sha: p.sha.unwrap_or_default(),
+                ref_name: p.r#ref.unwrap_or_else(String::new),
+                sha: p.sha.unwrap_or_else(String::new),
                 status: p.status.unwrap_or_else(|| "unknown".to_string()),
                 created_at: p.created_at.unwrap_or(now),
                 updated_at: p.updated_at.unwrap_or(now),

@@ -84,3 +84,23 @@ web_paths = [
     "packages/web",
     "packages/ui",
 ]
+
+[public_api]
+paths = [
+    "src/api/",
+    "src/web/",
+    "src/web/rest/",
+    "src/merge/",
+    "src/inspection/",
+]
+generated_contract_paths = ["contracts/generated", "schemas"]
+doc_paths = ["docs", "templates", "docker"]
+
+[cross_runtime]
+paths = [
+    "src/bin/",
+    "src/tui/",
+    "src/git_host/",
+    "src/repo_fleet.rs",
+]
+adapter_paths = ["crates/adapters/queues", "crates/adapters/src/queues"]

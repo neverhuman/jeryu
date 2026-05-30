@@ -33,7 +33,7 @@ pub fn draw_fleet_bar(f: &mut Frame, app: &App, area: Rect) {
             " {} {} r{} f{}",
             repo.alias, repo.status, repo.running_count, repo.failed_count
         );
-        if repo.stale {
+        if repo.aged {
             label.push_str(" aged");
         }
         if let Some(score) = repo.score_badge.as_deref() {
@@ -97,7 +97,7 @@ pub fn draw_repo_detail_overlay(f: &mut Frame, app: &mut App) {
                 Span::styled(repo.status.clone(), status_style(&repo.status)),
                 Span::raw(format!(
                     "  run:{} fail:{} aged:{}",
-                    repo.running_count, repo.failed_count, repo.stale
+                    repo.running_count, repo.failed_count, repo.aged
                 )),
             ]),
             Line::from(vec![

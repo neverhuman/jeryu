@@ -175,6 +175,7 @@ pub struct PipelineDoctorReport {
     pub pipeline_ref: String,
     pub pipeline_status: String,
     pub schema_context: PipelineDoctorSchemaContext,
+    pub runner_inventory_degraded_reason: Option<String>,
     pub jobs: Vec<PipelineDoctorJob>,
     pub stuck_suspected: Vec<PipelineDoctorJob>,
 }

@@ -8,43 +8,6 @@ use clap::Subcommand;
 use std::path::PathBuf;
 
 #[derive(Subcommand)]
-pub(crate) enum PoolCommands {
-    /// List all pools and their managers.
-    List,
-    /// Diagnose runner pool policy, runtime, and topology drift.
-    Doctor {
-        /// Output as JSON for scripting/agent consumption.
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Repair standard runner policy and topology drift.
-    Repair {
-        /// Confirm repairs.
-        #[arg(long, default_value_t = false)]
-        yes: bool,
-        /// Delete stale standard GitLab runner registrations that are not referenced by a pool.
-        #[arg(long, default_value_t = false)]
-        prune_stale: bool,
-        /// Output as JSON for scripting/agent consumption.
-        #[arg(long, default_value_t = false)]
-        json: bool,
-    },
-    /// Scale a pool to N managers.
-    Scale { name: String, count: usize },
-    /// Pause a pool (stop accepting new jobs).
-    Pause { name: String },
-    /// Resume a paused pool.
-    Resume { name: String },
-    /// Drain a pool: pause, wait for jobs to finish, stop managers.
-    Drain { name: String },
-    /// Drain and remove a pool plus its GitLab runner registration.
-    #[clap(name = "delete")]
-    Remove { name: String },
-    /// Rotate the auth token for a pool.
-    RotateToken { name: String },
-}
-
-#[derive(Subcommand)]
 pub(crate) enum JobCommands {
     /// List jobs for a project.
     List {
@@ -62,8 +25,6 @@ pub(crate) enum JobCommands {
     Retry { project_id: i64, job_id: i64 },
     /// Explain the latest structured failure evidence for a job.
     Explain { project_id: i64, job_id: i64 },
-    /// Clear all job and pipeline histories from the database.
-    Clear,
 }
 
 #[derive(Subcommand)]

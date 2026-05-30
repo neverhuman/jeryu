@@ -133,16 +133,24 @@ impl App {
     /// rather than aborting the cockpit. The TUI itself never blocks
     /// waiting for this method.
     pub async fn try_install_production_adapter(&mut self) -> anyhow::Result<()> {
+        let resolver = crate::llm::secrets::SecretResolver::from_env();
+        self.try_install_production_adapter_with_resolver(&resolver)
+            .await
+    }
+
+    pub async fn try_install_production_adapter_with_resolver(
+        &mut self,
+        resolver: &crate::llm::secrets::SecretResolver,
+    ) -> anyhow::Result<()> {
         use crate::autonomy::signing::EdSigningKey;
         use crate::git_host::GitHubClient;
-        use crate::llm::secrets::{SecretResolver, resolve_secret};
+        use crate::llm::secrets::resolve_secret;
         use crate::state::Db;
         use crate::tui::workflow::action_adapter::ProductionActionAdapter;
         use anyhow::{Context, anyhow};
         use std::sync::Arc;
 
-        let resolver = SecretResolver::from_env();
-        let token = resolve_secret("GITHUB_TOKEN", &resolver)
+        let token = resolve_secret("GITHUB_TOKEN", resolver)
             .ok_or_else(|| anyhow!("GITHUB_TOKEN not found in secret chain"))?;
         let db = Db::open()
             .await

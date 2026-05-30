@@ -1,12 +1,12 @@
 //! `jeryu web serve` — Phase-1 BFF entry point (W-B-01..05).
 //!
-//! Wires the Axum + WebSocket + SPA static-asset binding. The legacy
-//! engine routes (`/health`, `/hooks`, `/cache/summary`) are preserved
+//! Wires the Axum + WebSocket + SPA static-asset binding. The engine
+//! compatibility routes (`/health`, `/hooks`, `/cache/summary`) are preserved
 //! verbatim by merging `engine::build_router(state)` into the new
 //! `/api/v1/*` router per `WEB_WORK_CLAUDE.md` §35.1.5.
 //!
 //! Phase 1 boots a minimal `EngineState` (in-memory SQLite, disconnected
-//! Docker, no-op GitLab client) so the legacy routes survive without
+//! Docker, no-op GitLab client) so the compatibility routes survive without
 //! requiring a full operator-provisioned environment. Production
 //! deployments will compose this entry point with the real `EngineState`
 //! once the service layer (W-B-06+) lands.
@@ -28,12 +28,14 @@ pub(crate) async fn run(cmd: WebCommand) -> Result<()> {
             spa_dir,
         } => serve(&bind, open, dev_assets.as_deref(), &spa_dir).await,
         WebCommand::Open => {
-            println!("jeryu web open (stub): would print the bound URL");
+            println!(
+                "jeryu web open is unavailable in this binary; use `jeryu web serve` and open the printed URL"
+            );
             Ok(())
         }
         WebCommand::BuildAssets => {
             println!(
-                "jeryu web build-assets (stub): delegates to `npm --workspace @jeryu/web run build`"
+                "jeryu web build-assets is unavailable in this binary; run `npm --workspace @jeryu/web run build`"
             );
             Ok(())
         }
@@ -80,11 +82,11 @@ async fn serve(bind: &str, open: bool, dev_assets: Option<&str>, spa_dir: &str) 
         // silently serving 502s.
         tracing::warn!(
             dev_assets = url,
-            "--dev-assets is not implemented in Phase 1; run `npm --workspace @jeryu/web run dev` separately"
+            "--dev-assets is unavailable in Phase 1; run `npm --workspace @jeryu/web run dev` separately"
         );
     }
 
-    // ── Build the legacy engine router ────────────────────────────────
+    // ── Build the engine compatibility router ─────────────────────────
     // Phase 1 boots with a minimal in-memory state so /health, /hooks,
     // /cache/summary remain bound per §35.1.5. The real engine (W-B-*)
     // will compose this entry point with its provisioned state.
@@ -103,14 +105,14 @@ async fn serve(bind: &str, open: bool, dev_assets: Option<&str>, spa_dir: &str) 
         backend_registry,
         node_gc_timestamps: Mutex::new(HashMap::new()),
     });
-    let legacy_router = engine::build_router(engine_state);
+    let engine_router = engine::build_router(engine_state);
 
     // ── Build the Web Forge BFF state ─────────────────────────────────
     let event_bus = Arc::new(WebEventBus::with_defaults());
     let web_state = WebState::new_for_serve(event_bus, session_pool);
 
     // ── Compose and bind ──────────────────────────────────────────────
-    let router = build_web_router(web_state, legacy_router, spa_dir);
+    let router = build_web_router(web_state, engine_router, spa_dir);
     let listener = tokio::net::TcpListener::bind(bind)
         .await
         .with_context(|| format!("binding {bind}"))?;
@@ -123,7 +125,7 @@ async fn serve(bind: &str, open: bool, dev_assets: Option<&str>, spa_dir: &str) 
     println!("  spa-dir:      {spa_dir}");
     println!("  bootstrap:    http://{local_addr}/api/v1/bootstrap");
     println!("  websocket:    ws://{local_addr}/api/v1/ws");
-    println!("  legacy:       /health /hooks /cache/summary");
+    println!("  engine:       /health /hooks /cache/summary");
 
     if open {
         let url = format!("http://{local_addr}/");

@@ -50,6 +50,8 @@ pub struct ReviewComment {
     /// Present when this comment is an inline ``` ```suggestion``` ``` block.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suggestion: Option<ReviewSuggestion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<ReviewEvidence>,
 }
 
 #[derive(
@@ -62,6 +64,21 @@ pub struct ReviewSuggestion {
     pub end_line: u32,
     pub original_text: String,
     pub suggested_text: String,
+}
+
+#[derive(
+    Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
+)]
+#[ts(export, export_to = "../../contracts/generated/")]
+pub struct ReviewEvidence {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replay_command: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ci_log_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digest: Option<String>,
 }
 
 /// Body for `POST /api/v1/repos/{id}/merge-requests/{iid}/comments`.
@@ -93,6 +110,8 @@ pub struct SubmitReviewRequest {
     pub body_markdown: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub thread_comments: Vec<CreateReviewCommentRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<ReviewEvidence>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,11 +160,17 @@ mod tests {
             comments: vec![ReviewComment {
                 id: "c1".into(),
                 author: "reviewer".into(),
-                body_markdown: "LGTM".into(),
-                body_html: Some("<p>LGTM</p>".into()),
+                body_markdown: "Approved with reproducible evidence attached.".into(),
+                body_html: Some("<p>Approved with reproducible evidence attached.</p>".into()),
                 created_at: chrono::DateTime::<Utc>::from_timestamp(1_700_000_000, 0).unwrap(),
                 edited_at: None,
                 suggestion: None,
+                evidence: Some(ReviewEvidence {
+                    replay_command: Some("cargo test -p jeryu --lib merge::review".into()),
+                    ci_log_path: Some("target/ci/review.log".into()),
+                    receipt_path: Some("target/ci/review.receipt.json".into()),
+                    digest: Some("sha256:0123456789abcdef".into()),
+                }),
             }],
             created_at: chrono::DateTime::<Utc>::from_timestamp(1_700_000_000, 0).unwrap(),
             updated_at: chrono::DateTime::<Utc>::from_timestamp(1_700_000_001, 0).unwrap(),
@@ -153,7 +178,10 @@ mod tests {
         let json = serde_json::to_string(&thread).unwrap();
         let back: ReviewThread = serde_json::from_str(&json).unwrap();
         assert_eq!(back.comments.len(), 1);
-        assert_eq!(back.comments[0].body_markdown, "LGTM");
+        assert_eq!(
+            back.comments[0].body_markdown,
+            "Approved with reproducible evidence attached."
+        );
     }
 
     #[test]
@@ -163,11 +191,18 @@ mod tests {
             expected_head_sha: "abc123".into(),
             body_markdown: None,
             thread_comments: vec![],
+            evidence: Some(ReviewEvidence {
+                replay_command: Some("cargo test -p jeryu --lib api".into()),
+                ci_log_path: Some("target/ci/review.log".into()),
+                receipt_path: Some("target/ci/review.receipt.json".into()),
+                digest: Some("sha256:feedface".into()),
+            }),
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("expected_head_sha"));
         let back: SubmitReviewRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(back.expected_head_sha, "abc123");
         assert!(matches!(back.verdict, ReviewVerdict::Approve));
+        assert!(back.evidence.is_some());
     }
 }

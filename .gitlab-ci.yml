@@ -17,6 +17,7 @@ variables:
 default:
   image: rust:1.95.0
   timeout: 30m
+  interruptible: true
 
 .workflow_rules_main: &rules_main
   - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -27,6 +28,9 @@ default:
   - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+    on_job_failure: all
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
@@ -47,7 +51,6 @@ ci_runner_policy:
 
 gitlab_source_auth_doctor:
   stage: quality
-  allow_failure: true
   rules: *rules_rust
   script:
     - bash scripts/ci/ci-job-token-clone-doctor.sh
@@ -197,7 +200,6 @@ rust_fixture_project_tests:
 
 jankurai_security:
   stage: quality
-  allow_failure: true
   rules: *rules_main
   script:
     - bash scripts/install-jankurai.sh
@@ -212,7 +214,6 @@ jankurai_audit:
 
 jankurai_proof:
   stage: quality
-  allow_failure: true
   rules: *rules_main
   variables:
     GIT_DEPTH: "0"
@@ -222,7 +223,6 @@ jankurai_proof:
 
 jankurai_tools:
   stage: quality
-  allow_failure: true
   rules: *rules_main
   script:
     - bash scripts/install-jankurai.sh
@@ -237,7 +237,6 @@ jankurai_bad_behavior:
 
 jankurai_sbom:
   stage: quality
-  allow_failure: true
   rules: *rules_main
   script:
     - bash scripts/install-jankurai.sh
@@ -271,9 +270,10 @@ release_preflight:
     - when: never
   variables:
     INPUT_DRY_RUN: "$RELEASE_DRY_RUN"
-    GITHUB_OUTPUT: "$CI_PROJECT_DIR/.release-resolve.env"
+    GITHUB_OUTPUT: "$CI_PROJECT_DIR/target/gitlab/release-resolve.vars"
   script:
     - |
+      mkdir -p "$CI_PROJECT_DIR/target/gitlab"
       if [ "$CI_PIPELINE_SOURCE" = "push" ] && [ -n "${CI_COMMIT_TAG:-}" ]; then
         export GITHUB_EVENT_NAME=push
         export GITHUB_REF_NAME="$CI_COMMIT_TAG"
@@ -285,7 +285,7 @@ release_preflight:
       bash ops/ci/release-resolve.sh
   artifacts:
     reports:
-      dotenv: .release-resolve.env
+      dotenv: target/gitlab/release-resolve.vars
 
 release_audit:
   stage: release
@@ -385,7 +385,6 @@ post_merge_build_artifact:
 post_merge_deploy:
   stage: deploy
   needs: [post_merge_build_artifact]
-  allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main" && $ENABLE_HOST_DEPLOY == "1"'
       when: manual

@@ -461,6 +461,7 @@ chains:
             "LLM_TEST_KEY".to_string(),
             "super-secret-value".to_string(),
         )]),
+        env_overrides: std::collections::HashMap::new(),
         repo_root: None,
         ci_mode: true,
     });
@@ -675,7 +676,7 @@ async fn workflow_empty_state_shows_live_source_state() -> Result<()> {
     );
     assert!(
         !text.contains("jeryu repo fleet sync"),
-        "empty workflow card should no longer show the stale setup command"
+        "empty workflow card should no longer show the outdated setup command"
     );
     Ok(())
 }

@@ -7,11 +7,6 @@ pub(crate) async fn execute_job_commands(subcmd: JobCommands) -> Result<()> {
     let (client, _) = load_client().await?;
 
     match subcmd {
-        JobCommands::Clear => {
-            let db = state::Db::open().await?;
-            db.clear_history().await?;
-            println!("🗑 All jobs and pipelines cleared from local DB.");
-        }
         JobCommands::List { project_id, status } => {
             let scopes: Vec<&str> = status.split(',').collect();
             let jobs = client.list_jobs(project_id, &scopes).await?;

@@ -24,16 +24,16 @@
 //!
 //! The double `cargo run` invocation reuses the build cache; the inner
 //! call is the one that actually emits the JSON. Set
-//! `JERYU_SCHEMA_OUT_DIR` to redirect output (defaults to `schemas`).
+//! `JERYU_SCHEMA_OUT_DIR` to redirect output; the default is `schemas`.
 
 #![cfg(feature = "web")]
 
+use std::path::PathBuf;
 use std::process::Command;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out_dir = std::env::var("JERYU_SCHEMA_OUT_DIR").unwrap_or_else(|_| "schemas".into());
-    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-    let status = Command::new(&cargo)
+    let config = schema_export_config();
+    let status = Command::new(&config.cargo_bin)
         .args([
             "run",
             "--quiet",
@@ -45,11 +45,55 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "web",
             "export-schemas",
             "--out-dir",
-            &out_dir,
+            config.out_dir.to_str().unwrap_or("schemas"),
         ])
         .status()?;
     if !status.success() {
         return Err(format!("jeryu web export-schemas exited with {status}").into());
     }
+    eprintln!(
+        "schema export dir: {} ({})",
+        config.out_dir.display(),
+        config.source.label()
+    );
     Ok(())
+}
+
+struct SchemaExportConfig {
+    out_dir: PathBuf,
+    source: SchemaOutputSource,
+    cargo_bin: String,
+}
+
+enum SchemaOutputSource {
+    Env,
+    Default,
+}
+
+impl SchemaOutputSource {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Env => "env:JERYU_SCHEMA_OUT_DIR",
+            Self::Default => "default:schemas",
+        }
+    }
+}
+
+fn schema_export_config() -> SchemaExportConfig {
+    let cargo_bin = match std::env::var("CARGO") {
+        Ok(bin) if !bin.is_empty() => bin,
+        _ => "cargo".to_string(),
+    };
+    match std::env::var_os("JERYU_SCHEMA_OUT_DIR") {
+        Some(path) => SchemaExportConfig {
+            out_dir: PathBuf::from(path),
+            source: SchemaOutputSource::Env,
+            cargo_bin,
+        },
+        None => SchemaExportConfig {
+            out_dir: PathBuf::from("schemas"),
+            source: SchemaOutputSource::Default,
+            cargo_bin,
+        },
+    }
 }

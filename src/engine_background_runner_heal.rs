@@ -11,7 +11,7 @@ use crate::api::events::TuiEventKind;
 use crate::pool;
 use crate::state::{Manager, Pool};
 
-const HUNG_MANAGER_STALE_AFTER: chrono::Duration = chrono::Duration::minutes(30);
+const HUNG_MANAGER_UNRESPONSIVE_AFTER: chrono::Duration = chrono::Duration::minutes(30);
 
 static LAST_ADVISORY_SIGNATURE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
 static LAST_LIFECYCLE_STATE: OnceLock<Mutex<RunnerHealLifecycleState>> = OnceLock::new();
@@ -187,7 +187,10 @@ pub(crate) fn runner_heal_preview_from_snapshot(
             .filter(|manager| manager_state_counts_as_active(&manager.state))
             .collect();
         let active_count = active_managers.len();
-        let live_count = live_by_pool.get(&pool.name).copied().unwrap_or_default();
+        let live_count = match live_by_pool.get(&pool.name) {
+            Some(count) => *count,
+            None => 0,
+        };
         active_total += active_count;
         live_total += live_count;
 
@@ -233,7 +236,7 @@ pub(crate) fn runner_heal_preview_from_snapshot(
                 kind: RunnerHealActionKind::RestartHung,
                 pool_name: pool.name.clone(),
                 detail: format!(
-                    "stale active managers missing fresh contact: {}",
+                    "unresponsive active managers missing fresh contact: {}",
                     hung_managers.join(", ")
                 ),
                 target_managers: target,
@@ -427,9 +430,12 @@ async fn execute_runner_heal_zombie_cleanup(state: &SharedState, report: &Runner
     }
 
     for pool in &pools {
-        if let Err(err) =
-            crate::pool::reconcile_manager_runtime_state(&state.db, &state.docker, Some(&pool.name))
-                .await
+        if let Err(err) = crate::pool::reconcile_manager_runtime_state_inner(
+            &state.db,
+            &state.docker,
+            Some(&pool.name),
+        )
+        .await
         {
             warn!(
                 pool = %pool.name,
@@ -513,7 +519,8 @@ fn is_hung_manager(manager: &Manager, now: DateTime<Utc>) -> bool {
         return false;
     };
 
-    now.signed_duration_since(last_contact_at.with_timezone(&Utc)) >= HUNG_MANAGER_STALE_AFTER
+    now.signed_duration_since(last_contact_at.with_timezone(&Utc))
+        >= HUNG_MANAGER_UNRESPONSIVE_AFTER
 }
 
 fn render_signature(
@@ -627,18 +634,24 @@ mod tests {
         assert_eq!(report.live_total, 4);
         assert!(report.blocked_reason.is_none());
         assert!(report.unreachable_nodes.is_empty());
-        assert!(report
-            .actions
-            .iter()
-            .any(|action| matches!(action.kind, RunnerHealActionKind::ScaleUp)));
-        assert!(report
-            .actions
-            .iter()
-            .any(|action| matches!(action.kind, RunnerHealActionKind::GarbageCollectZombie)));
-        assert!(report
-            .actions
-            .iter()
-            .any(|action| matches!(action.kind, RunnerHealActionKind::RestartHung)));
+        assert!(
+            report
+                .actions
+                .iter()
+                .any(|action| matches!(action.kind, RunnerHealActionKind::ScaleUp))
+        );
+        assert!(
+            report
+                .actions
+                .iter()
+                .any(|action| matches!(action.kind, RunnerHealActionKind::GarbageCollectZombie))
+        );
+        assert!(
+            report
+                .actions
+                .iter()
+                .any(|action| matches!(action.kind, RunnerHealActionKind::RestartHung))
+        );
         assert!(report.signature.contains("scale_up"));
         assert!(report.signature.contains("restart_hung"));
         assert!(report.signature.contains("garbage_collect_zombie"));
@@ -787,7 +800,7 @@ mod tests {
                 RunnerHealAction {
                     kind: RunnerHealActionKind::RestartHung,
                     pool_name: "docs".into(),
-                    detail: "stale active managers missing fresh contact: m3".into(),
+                    detail: "unresponsive active managers missing fresh contact: m3".into(),
                     target_managers: 1,
                     active_managers: 1,
                     live_running_managers: 3,
@@ -820,7 +833,7 @@ mod tests {
             vec![RunnerHealAction {
                 kind: RunnerHealActionKind::RestartHung,
                 pool_name: "docs".into(),
-                detail: "stale active managers missing fresh contact: m3".into(),
+                detail: "unresponsive active managers missing fresh contact: m3".into(),
                 target_managers: 1,
                 active_managers: 1,
                 live_running_managers: 3,

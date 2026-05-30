@@ -27,6 +27,10 @@ pub fn render_pipeline_doctor_text(report: &PipelineDoctorReport) -> String {
             let _ = writeln!(out, "            {reason}");
         }
     }
+    if let Some(reason) = &report.runner_inventory_degraded_reason {
+        let _ = writeln!(out, "  Runners:  degraded");
+        let _ = writeln!(out, "            {reason}");
+    }
     let _ = writeln!(out, "  Jobs:     {}", report.jobs.len());
     let _ = writeln!(out, "  Suspect:  {}", report.stuck_suspected.len());
     if !report.jobs.is_empty() {

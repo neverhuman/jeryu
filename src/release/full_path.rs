@@ -741,7 +741,7 @@ async fn perform_github_handoff(
             fs::write(
                 &body_path,
                 format!(
-                    "Fallback GitHub handoff for {version}\n\nSource: `{source}`\nTarget: `{target}`\nSHA: `{sha}`\nProject: `{project}`\nReason: {detail}\n",
+                    "GitHub handoff for {version}\n\nSource: `{source}`\nTarget: `{target}`\nSHA: `{sha}`\nProject: `{project}`\nReason: {detail}\n",
                     version = report.version,
                     source = options.source,
                     target = options.target,
@@ -752,7 +752,7 @@ async fn perform_github_handoff(
             )
             .with_context(|| format!("write {}", body_path.display()))?;
             crate::repo_local::open_github_draft_pr(title, &body_path)?;
-            Ok("draft_pr_fallback".to_string())
+            Ok("draft_pr_relay".to_string())
         }
         Err(err) => {
             let body_path = github_pr_body_path(&options.source);
@@ -763,7 +763,7 @@ async fn perform_github_handoff(
             fs::write(
                 &body_path,
                 format!(
-                    "Fallback GitHub handoff for {version}\n\nSource: `{source}`\nTarget: `{target}`\nSHA: `{sha}`\nProject: `{project}`\nReason: {detail}\n",
+                    "GitHub handoff for {version}\n\nSource: `{source}`\nTarget: `{target}`\nSHA: `{sha}`\nProject: `{project}`\nReason: {detail}\n",
                     version = report.version,
                     source = options.source,
                     target = options.target,
@@ -774,7 +774,7 @@ async fn perform_github_handoff(
             )
             .with_context(|| format!("write {}", body_path.display()))?;
             crate::repo_local::open_github_draft_pr(title, &body_path)?;
-            Ok("draft_pr_fallback".to_string())
+            Ok("draft_pr_relay".to_string())
         }
     }
 }
@@ -811,7 +811,17 @@ async fn probe_health() -> Result<HealthProbeReport> {
         .context("build health probe client")?;
     let response = client.get(health_probe_url()).send().await?;
     let status_code = response.status().as_u16();
-    let body = response.text().await.unwrap_or_default();
+    let body = match response.text().await {
+        Ok(body) => body,
+        Err(err) => {
+            tracing::warn!(
+                target: "jeryu.release",
+                error = %err,
+                "health probe body unavailable"
+            );
+            String::new()
+        }
+    };
     Ok(HealthProbeReport {
         ok: status_code == 200,
         detail: if status_code == 200 {

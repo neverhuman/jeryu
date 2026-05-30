@@ -45,10 +45,10 @@ pub struct SettingsPatch {
     pub archived: Option<bool>,
 }
 
-/// Preview output: what would change if the patch were applied, plus an
-/// initial cut at blast-radius messaging. Phase 2 returns a stub blast
-/// radius; the full implementation lands with W-B-* (counts branches/MRs
-/// affected by visibility changes, default-branch swap, etc.).
+/// Preview output: what would change if the patch were applied, plus a
+/// bounded blast-radius summary for the currently supported patch surface.
+/// The preview includes the affected branches/MRs and other downstream side
+/// effects already known to this service.
 #[derive(
     Debug, Clone, Serialize, Deserialize, utoipa::ToSchema, schemars::JsonSchema, ts_rs::TS,
 )]
@@ -85,12 +85,14 @@ impl SettingsService {
         }
     }
 
-    /// Fetch the current settings snapshot. Phase 2: pulls visibility,
-    /// default_branch, description from the host adapter and fills the rest
-    /// with sensible defaults.
+    /// Fetch the current settings snapshot. The host adapter provides
+    /// visibility, default_branch, and description; the rest is filled with
+    /// deterministic defaults.
     pub async fn read(&self, repo_id: &str) -> Result<RepositorySettings, ApiError> {
-        let parsed = RepoId::parse(repo_id)
-            .ok_or_else(|| ApiError::BadRequest(format!("invalid repo_id: {repo_id}")))?;
+        let parsed = match RepoId::parse(repo_id) {
+            Some(parsed) => parsed,
+            None => return Err(ApiError::BadRequest(format!("invalid repo_id: {repo_id}"))),
+        };
         let repo = RepoRef {
             owner: parsed.owner.clone(),
             name: parsed.name.clone(),
@@ -114,10 +116,9 @@ impl SettingsService {
         ))
     }
 
-    /// Compute the diff between current settings and the patch. Phase 2: hash
-    /// of the current settings is included so callers can stash it and pass
-    /// it back as `base_settings_hash` on `apply_patch` for optimistic
-    /// concurrency.
+    /// Compute the diff between current settings and the patch. The current
+    /// settings hash is included so callers can stash it and pass it back as
+    /// `base_settings_hash` on `apply_patch` for optimistic concurrency.
     pub async fn preview_patch(
         &self,
         repo_id: &str,
@@ -198,8 +199,10 @@ impl SettingsService {
         if !base_settings_hash.is_empty() && live_hash != base_settings_hash {
             return Err(ApiError::SettingsHashStale);
         }
-        let parsed = RepoId::parse(repo_id)
-            .ok_or_else(|| ApiError::BadRequest(format!("invalid repo_id: {repo_id}")))?;
+        let parsed = match RepoId::parse(repo_id) {
+            Some(parsed) => parsed,
+            None => return Err(ApiError::BadRequest(format!("invalid repo_id: {repo_id}"))),
+        };
         let repo = RepoRef {
             owner: parsed.owner.clone(),
             name: parsed.name.clone(),
@@ -234,10 +237,9 @@ fn visibility_to_string(v: &RepositoryVisibility) -> &'static str {
 
 fn hash_settings(s: &RepositorySettings) -> String {
     // Canonical serialization keeps the hash deterministic across handler
-    // invocations. We use serde_json with sorted keys via `to_string`'s default
-    // ordering — sufficient for Phase 2; future hardening can swap for a
-    // canonicalization layer (cbor / RFC 8785 JCS) without changing the
-    // wire format.
+    // invocations. We use serde_json with the serializer's default ordering;
+    // future hardening can swap for a canonicalization layer (cbor / RFC 8785
+    // JCS) without changing the wire format.
     let mut hasher = Sha256::new();
     let canon = serde_json::to_vec(&s).unwrap_or_default();
     hasher.update(&canon);

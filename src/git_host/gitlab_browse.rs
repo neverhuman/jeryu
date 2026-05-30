@@ -391,11 +391,14 @@ impl GitlabBrowse for GitLabClient {
                 "/projects/{enc}/repository/compare?from={base_enc}&to={head_enc}"
             ))
             .await?;
-        let head_sha = cmp
-            .commit
-            .as_ref()
-            .map(|c| c.id.clone())
-            .unwrap_or_default();
+        let head_sha = match cmp.commit.as_ref() {
+            Some(commit) => commit.id.clone(),
+            None => {
+                return Err(HostError::Permanent(
+                    "compare response omitted head commit id".into(),
+                ));
+            }
+        };
         let ahead_by = cmp.commits.len() as u32;
         let files: Vec<HostChangedFile> =
             cmp.diffs.into_iter().map(changed_file_from_diff).collect();
@@ -635,7 +638,10 @@ pub(super) fn project_to_host_repository(p: GitLabProject) -> HostRepository {
         id: p.id.to_string(),
         description: p.description,
         visibility: p.visibility.unwrap_or_else(|| "private".into()),
-        default_branch: p.default_branch.unwrap_or_default(),
+        default_branch: match p.default_branch {
+            Some(default_branch) => default_branch,
+            None => "main".into(),
+        },
         archived: p.archived,
         topics: if !p.topics.is_empty() {
             p.topics
@@ -667,7 +673,7 @@ fn changed_file_from_diff(d: GitLabCompareDiff) -> HostChangedFile {
         .new_path
         .clone()
         .or_else(|| d.old_path.clone())
-        .unwrap_or_default();
+        .unwrap_or_else(String::new);
     let (additions, deletions) = count_diff_lines_local(&d.diff);
     HostChangedFile {
         path,

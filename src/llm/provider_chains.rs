@@ -250,6 +250,7 @@ mod tests {
     fn fake_resolver(entries: &[(&str, &str)]) -> SecretResolver {
         let mut r = SecretResolver {
             cli_overrides: HashMap::new(),
+            env_overrides: HashMap::new(),
             repo_root: None,
             ci_mode: true, // skip filesystem tiers entirely
         };
@@ -267,6 +268,7 @@ mod tests {
     fn never_resolver() -> SecretResolver {
         SecretResolver {
             cli_overrides: HashMap::new(),
+            env_overrides: HashMap::new(),
             repo_root: None,
             ci_mode: true,
         }

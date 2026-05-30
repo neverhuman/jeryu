@@ -33,8 +33,20 @@
       "purpose": "verify GitLab bug issue template remains routed"
     },
     ".jeryu/": {
-      "command": "cargo test -p jeryu --lib repo_standard",
-      "purpose": "verify agent-first managed repo standards stay deterministic"
+      "command": "just score",
+      "purpose": "verify audit state remains routed"
+    },
+    ".jankurai/": {
+      "command": "just score",
+      "purpose": "verify audit state remains routed"
+    },
+    ".jeryu/score-history.jsonl": {
+      "command": "just score",
+      "purpose": "verify audit score history remains routed"
+    },
+    ".worktrees/ci-fast-track/": {
+      "command": "just score",
+      "purpose": "verify sibling worktree audit surface remains routed"
     },
     ".gitignore": {
       "command": "just score",
@@ -55,6 +67,10 @@
     "AGENTS.md": {
       "command": "just score",
       "purpose": "verify root routing remains visible to the audit"
+    },
+    "AGENT_CHAT.md": {
+      "command": "just score",
+      "purpose": "verify agent chat coordination notes remain routed"
     },
     "CHANGELOG.md": {
       "command": "just score",
@@ -84,6 +100,10 @@
       "command": "just fast",
       "purpose": "verify workspace manifest remains routed"
     },
+    "docker/": {
+      "command": "just score",
+      "purpose": "verify Docker build templates remain routed"
+    },
     "package.json": {
       "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test && npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run build",
       "purpose": "verify both ux-qa marker workspace and @jeryu/web product workspace stay routed"
@@ -99,6 +119,10 @@
     "MISSION.md": {
       "command": "just score",
       "purpose": "verify mission statement remains routed"
+    },
+    "MASTER_HARDENING_PLAN.md": {
+      "command": "just score",
+      "purpose": "verify the hardening plan remains routed"
     },
     "README-jankurai-scaffold.md": {
       "command": "just score",
@@ -232,6 +256,10 @@
       "command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
       "purpose": "verify decision records remain visible to the audit"
     },
+    "templates/": {
+      "command": "just score",
+      "purpose": "verify repo standard templates remain routed"
+    },
     "examples/labs/exception-zoo/": {
       "command": "cargo test -p arc-bench",
       "purpose": "verify exception zoo lab cases remain routed"
@@ -354,7 +382,7 @@
     },
     "src/release/full_path.rs": {
       "command": "cargo test -p jeryu --lib release::full_path",
-      "purpose": "verify the full-path release orchestrator stage machine, JSON reporting, and fallback helpers"
+      "purpose": "verify the full-path release orchestrator stage machine, JSON reporting, and index helpers"
     },
     "src/health.rs": {
       "command": "cargo test -p jeryu --lib health",

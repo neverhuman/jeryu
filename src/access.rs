@@ -425,14 +425,14 @@ pub fn git_config_get(repo_path: &Path, key: &str) -> Result<Option<String>> {
     }
 }
 
-pub fn git_remote_rename(repo_path: &Path, old: &str, new: &str) -> Result<()> {
+pub fn git_remote_rename(repo_path: &Path, previous_remote: &str, new: &str) -> Result<()> {
     let status = Command::new("git")
         .current_dir(repo_path)
-        .args(["remote", "rename", old, new])
+        .args(["remote", "rename", previous_remote, new])
         .status()
-        .with_context(|| format!("running git remote rename {old} {new}"))?;
+        .with_context(|| format!("running git remote rename {previous_remote} {new}"))?;
     if !status.success() {
-        bail!("git remote rename {old} {new} failed");
+        bail!("git remote rename {previous_remote} {new} failed");
     }
     Ok(())
 }
@@ -985,6 +985,8 @@ mod tests {
                 .iter()
                 .map(|key| (*key, std::env::var_os(key)))
                 .collect::<Vec<_>>();
+            // SAFETY: the test guard serializes env mutation with ENV_LOCK,
+            // and the mutation is confined to process-local variables.
             unsafe {
                 std::env::set_var("HOME", home);
                 for key in [
@@ -1003,6 +1005,8 @@ mod tests {
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
+            // SAFETY: EnvGuard only restores state that it captured while
+            // ENV_LOCK was held, so this cannot race with another test.
             unsafe {
                 for (key, value) in self.saved.drain(..) {
                     match value {

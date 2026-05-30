@@ -85,10 +85,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
       - name: Install mold
-        run: |
-          if command -v mold >/dev/null 2>&1; then echo "mold already installed";
-          elif sudo -n true 2>/dev/null; then sudo apt-get install -y mold || true;
-          else echo "no passwordless sudo; skipping mold"; fi
+        run: bash ops/ci/install-mold.sh
       - id: version
         name: Resolve crate version
         run: |

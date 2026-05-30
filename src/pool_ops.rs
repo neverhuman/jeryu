@@ -80,7 +80,6 @@ pub async fn delete_pool(
         Some(pool) => pool,
         None => return Err(anyhow::anyhow!("pool '{}' not found", pool_name)),
     };
-    let _lease = super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?;
 
     drain_pool(store, docker, client, pool_name).await.ok();
     client.delete_runner(pool.gitlab_runner_id).await.ok();

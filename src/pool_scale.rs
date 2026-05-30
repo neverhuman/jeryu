@@ -177,6 +177,14 @@ pub async fn reconcile_manager_runtime_state(
         }
         None => None,
     };
+    reconcile_manager_runtime_state_inner(store, docker, pool_name).await
+}
+
+pub(crate) async fn reconcile_manager_runtime_state_inner(
+    store: &Db,
+    docker: &DockerCtl,
+    pool_name: Option<&str>,
+) -> Result<usize> {
     let live = collect_live_inventory(docker).await?;
     let managers = store.list_managers(pool_name).await?; // allowlist: pool orchestration owns runner state
     let manager_by_id: BTreeMap<String, Manager> = managers
@@ -354,7 +362,7 @@ pub async fn scale_pool_to(
     };
     let _lease = super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?;
 
-    reconcile_manager_runtime_state(store, docker, Some(pool_name)).await?;
+    reconcile_manager_runtime_state_inner(store, docker, Some(pool_name)).await?;
     let active = store.count_active_managers(pool_name).await? as usize; // allowlist: pool orchestration owns runner state
 
     if active == target {
@@ -433,7 +441,7 @@ pub async fn scale_standard_pool_topology(
         .ok_or_else(|| anyhow::anyhow!("pool '{}' not found", pool_name))?;
     let _lease = super::PoolOrchestrationLeaseGuard::acquire(store, pool_name).await?;
 
-    reconcile_manager_runtime_state(store, docker, Some(pool_name)).await?;
+    reconcile_manager_runtime_state_inner(store, docker, Some(pool_name)).await?;
     let managers = store.list_managers(Some(pool_name)).await?;
     let targets = super::pool_topology::desired_standard_pool_targets();
     let plan = super::pool_topology::plan_pool_topology(pool_name, &managers, &targets);

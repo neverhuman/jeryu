@@ -300,7 +300,7 @@ impl BrowserError {
                 }
             }
             HostError::Conflict(msg) => Self::Upstream(msg),
-            HostError::NotImplemented => Self::Upstream("not implemented".into()),
+            HostError::NotImplemented => Self::Upstream("browser adapter unavailable".into()),
         }
     }
 }

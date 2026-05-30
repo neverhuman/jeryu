@@ -39,6 +39,12 @@ pub async fn load_client() -> Result<(gitlab_client::GitlabClient, String)> {
     Ok((client, webhook_secret))
 }
 
+/// Build a pool service with its DB, Docker, and GitLab handles wired in.
+pub async fn load_pool_service() -> Result<jeryu::pool_service::PoolService> {
+    let (client, _) = load_client().await?;
+    jeryu::pool_service::PoolService::connect(client).await
+}
+
 fn load_client_optional() -> (gitlab_client::GitlabClient, String) {
     let url = format!("http://localhost:{}", config::GITLAB_HTTP_PORT);
     let pat = gitlab_auth::load_token_for_url(&url).ok().flatten();
@@ -233,7 +239,10 @@ pub(crate) async fn run(cli: Cli) -> Result<i32> {
         }
 
         // ---- Pool --------------------------------------------------------
-        Commands::Pool(subcmd) => crate::commands::pool::execute_pool_commands(subcmd).await?,
+        Commands::Pool(subcmd) => {
+            let service = load_pool_service().await?;
+            crate::commands::pool::execute_pool_commands(&service, subcmd).await?;
+        }
 
         // ---- Job ---------------------------------------------------------
         Commands::Job(subcmd) => crate::commands::job::execute_job_commands(subcmd).await?,

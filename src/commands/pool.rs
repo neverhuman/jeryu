@@ -1,38 +1,55 @@
-use crate::cli::PoolCommands;
 use anyhow::Result;
-use jeryu::{docker, pool, state};
+use clap::Subcommand;
+use jeryu::pool;
+use jeryu::pool_service::PoolListRow;
 
-pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
-    let (client, _) = crate::dispatch::load_client().await?;
-    let db = state::Db::open().await?;
-    let docker_ctl = docker::DockerCtl::connect()?;
+#[derive(Subcommand)]
+pub(crate) enum PoolCommands {
+    /// List all pools and their managers.
+    List,
+    /// Diagnose runner pool policy, runtime, and topology drift.
+    Doctor {
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Repair standard runner policy and topology drift.
+    Repair {
+        /// Confirm repairs.
+        #[arg(long, default_value_t = false)]
+        yes: bool,
+        /// Delete outdated standard GitLab runner registrations that are not referenced by a pool.
+        #[arg(long, default_value_t = false)]
+        prune_outdated: bool,
+        /// Output as JSON for scripting/agent consumption.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
+    /// Scale a pool to N managers.
+    Scale { name: String, count: usize },
+    /// Pause a pool (stop accepting new jobs).
+    Pause { name: String },
+    /// Resume a paused pool.
+    Resume { name: String },
+    /// Drain a pool: pause, wait for jobs to finish, stop managers.
+    Drain { name: String },
+    /// Drain and remove a pool plus its GitLab runner registration.
+    #[clap(name = "delete")]
+    Remove { name: String },
+    /// Rotate the auth token for a pool.
+    RotateToken { name: String },
+}
 
+pub(crate) async fn execute_pool_commands(
+    service: &jeryu::pool_service::PoolService,
+    subcmd: PoolCommands,
+) -> Result<()> {
     match subcmd {
         PoolCommands::List => {
-            let pools = db.list_pools().await?;
-            println!(
-                "{:<15} {:<8} {:<10} {:<8} {:<12} {:<8}",
-                "NAME", "PAUSED", "EXECUTOR", "WARM", "LIVE/DB/MAX", "RUNNER"
-            );
-            for p in &pools {
-                let active = db.count_active_managers(&p.name).await.unwrap_or(0);
-                let running = pool::count_running_managers(&db, &docker_ctl, &p.name)
-                    .await
-                    .unwrap_or(0);
-                let manager_status = format!("{running}/{active}/{}", p.max_managers);
-                println!(
-                    "{:<15} {:<8} {:<10} {:<8} {:<12} {:<8}",
-                    p.name,
-                    if p.paused { "yes" } else { "no" },
-                    p.executor,
-                    p.min_warm,
-                    manager_status,
-                    p.gitlab_runner_id,
-                );
-            }
+            print_pool_list(&service.list().await?);
         }
         PoolCommands::Doctor { json } => {
-            let report = pool::build_pool_doctor_report(&db, &docker_ctl, &client).await?;
+            let report = service.doctor().await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
@@ -41,19 +58,15 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
         }
         PoolCommands::Repair {
             yes,
-            prune_stale,
+            prune_outdated,
             json,
         } => {
             if !yes {
                 anyhow::bail!("refusing to repair pools without --yes");
             }
-            let report = pool::repair_pool_state(
-                &db,
-                &docker_ctl,
-                &client,
-                pool::PoolRepairOptions { prune_stale },
-            )
-            .await?;
+            let report = service
+                .repair(pool::PoolRepairOptions { prune_outdated })
+                .await?;
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
@@ -65,30 +78,30 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
             }
         }
         PoolCommands::Scale { name, count } => {
-            let started = pool::scale_pool_to(&db, &docker_ctl, &client, &name, count).await?;
+            let started = service.scale(&name, count).await?;
             println!(
                 "✅ Pool '{}' scaled to {} (started {} new)",
                 name, count, started
             );
         }
         PoolCommands::Pause { name } => {
-            pool::pause_pool(&db, &client, &name).await?;
+            service.pause(&name).await?;
             println!("⏸  Pool '{}' paused", name);
         }
         PoolCommands::Resume { name } => {
-            pool::resume_pool(&db, &client, &name).await?;
+            service.resume(&name).await?;
             println!("▶  Pool '{}' resumed", name);
         }
         PoolCommands::Drain { name } => {
-            pool::drain_pool(&db, &docker_ctl, &client, &name).await?;
+            service.drain(&name).await?;
             println!("✅ Pool '{}' drained", name);
         }
         PoolCommands::Remove { name } => {
-            pool::delete_pool(&db, &docker_ctl, &client, &name).await?;
+            service.delete(&name).await?;
             println!("✅ Pool '{}' deleted", name);
         }
         PoolCommands::RotateToken { name } => {
-            let new_token = pool::rotate_pool_token(&db, &docker_ctl, &client, &name).await?;
+            let new_token = service.rotate_token(&name).await?;
             println!(
                 "🔑 Pool '{}' token rotated: {}...{}",
                 name,
@@ -98,6 +111,24 @@ pub(crate) async fn execute_pool_commands(subcmd: PoolCommands) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn print_pool_list(rows: &[PoolListRow]) {
+    println!(
+        "{:<15} {:<8} {:<10} {:<8} {:<12} {:<8}",
+        "NAME", "PAUSED", "EXECUTOR", "WARM", "LIVE/DB/MAX", "RUNNER"
+    );
+    for row in rows {
+        println!(
+            "{:<15} {:<8} {:<10} {:<8} {:<12} {:<8}",
+            row.name.as_str(),
+            if row.paused { "yes" } else { "no" },
+            row.executor.as_str(),
+            row.min_warm,
+            row.manager_status(),
+            row.gitlab_runner_id,
+        );
+    }
 }
 
 fn print_pool_doctor_report(report: &pool::PoolDoctorReport) {

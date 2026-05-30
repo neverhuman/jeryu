@@ -7,10 +7,12 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
 
 pub const DEFAULT_REGISTRY_PATH: &str = ".jeryu/repos.toml";
 pub const DEFAULT_REPO_SLUG: &str = "neverhuman/jeryu";
 const LOCAL_WORKSPACE_ROOT_DEFAULT: &str = "/home/ubuntu/veox-repos";
+static WORKSPACE_ROOT_HINT: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct RepoRegistry {
@@ -120,7 +122,7 @@ pub struct FleetRepoSnapshot {
     pub status: String,
     pub running_count: u32,
     pub failed_count: u32,
-    pub stale: bool,
+    pub aged: bool,
     pub score_badge: Option<String>,
     pub local: RepoLocalStatus,
     pub latest_run: Option<RepoRunSummary>,
@@ -129,7 +131,7 @@ pub struct FleetRepoSnapshot {
 
 impl FleetRepoSnapshot {
     pub fn aged(&self) -> bool {
-        self.stale
+        self.aged
     }
 
     #[cfg(test)]
@@ -144,7 +146,7 @@ impl FleetRepoSnapshot {
             status: "failed".into(),
             running_count: 1,
             failed_count: 2,
-            stale: aged,
+            aged,
             score_badge: Some("89".into()),
             local: RepoLocalStatus {
                 exists: true,
@@ -177,7 +179,7 @@ impl FleetSnapshot {
     pub fn counts(&self) -> (u32, u32, u32) {
         let running = self.repos.iter().map(|repo| repo.running_count).sum();
         let failed = self.repos.iter().map(|repo| repo.failed_count).sum();
-        let aged = self.repos.iter().filter(|repo| repo.stale).count() as u32;
+        let aged = self.repos.iter().filter(|repo| repo.aged).count() as u32;
         (running, failed, aged)
     }
 }
@@ -333,7 +335,7 @@ pub fn local_git_status(repo: &RepoConfig) -> RepoLocalStatus {
 
 /// Ensure the local daemon/TUI has a stable workspace-root default when no
 /// explicit override is present. This is only applied when the configured
-/// fallback workspace actually exists on disk.
+/// default workspace actually exists on disk.
 pub async fn collect_fleet_snapshot(
     repo_root: &Path,
     github: Option<&GitHubClient>,
@@ -357,7 +359,7 @@ pub async fn collect_fleet_snapshot_from_registry(
         let mut latest_run = None;
         let mut running_count = 0;
         let mut failed_count = 0;
-        let mut stale = false;
+        let mut aged = false;
 
         if repo.provider == "github"
             && let Some(client) = github
@@ -398,7 +400,7 @@ pub async fn collect_fleet_snapshot_from_registry(
                 html_url: run.html_url.clone(),
                 updated_at: run.updated_at.clone(),
             });
-            stale = latest_run
+            aged = latest_run
                 .as_ref()
                 .and_then(|run| run.updated_at.as_deref())
                 .and_then(parse_utc)
@@ -422,7 +424,7 @@ pub async fn collect_fleet_snapshot_from_registry(
             status,
             running_count,
             failed_count,
-            stale,
+            aged,
             score_badge,
             local,
             latest_run,
@@ -467,7 +469,7 @@ pub fn print_fleet_status(snapshot: &FleetSnapshot) {
             repo.status,
             repo.running_count,
             repo.failed_count,
-            repo.stale,
+            repo.aged,
             repo.score_badge.as_deref().unwrap_or("-"),
             repo.next_command
         );
@@ -558,15 +560,13 @@ fn parse_utc(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 /// daemon/TUI inherit the local workspace path and child processes see the
 /// same value.
 pub fn ensure_workspace_root_default() {
-    // Already set — nothing to do.
-    if std::env::var("JERYU_WORKSPACE_ROOT").is_ok() {
+    if workspace_root_hint().is_some() {
         return;
     }
 
     let default_root = Path::new(LOCAL_WORKSPACE_ROOT_DEFAULT);
     if default_root.join(DEFAULT_REGISTRY_PATH).exists() {
-        // SAFETY: single-threaded startup; no other thread reads this var yet.
-        unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", default_root) };
+        set_workspace_root_hint(Some(default_root.to_path_buf()));
         return;
     }
 
@@ -574,8 +574,7 @@ pub fn ensure_workspace_root_default() {
     if let Ok(mut dir) = std::env::current_dir() {
         loop {
             if dir.join(DEFAULT_REGISTRY_PATH).exists() {
-                // SAFETY: single-threaded startup; no other thread reads this var yet.
-                unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", &dir) };
+                set_workspace_root_hint(Some(dir));
                 return;
             }
             if !dir.pop() {
@@ -587,9 +586,25 @@ pub fn ensure_workspace_root_default() {
     // Daemon /proc scan (Linux only).
     #[cfg(target_os = "linux")]
     if let Some(root) = serve_daemon_workspace_root() {
-        // SAFETY: single-threaded startup; no other thread reads this var yet.
-        unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", &root) };
+        set_workspace_root_hint(Some(root));
     }
+}
+
+fn workspace_root_hint_cell() -> &'static Mutex<Option<PathBuf>> {
+    WORKSPACE_ROOT_HINT.get_or_init(|| Mutex::new(None))
+}
+
+pub(crate) fn workspace_root_hint() -> Option<PathBuf> {
+    workspace_root_hint_cell()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+pub(crate) fn set_workspace_root_hint(root: Option<PathBuf>) {
+    *workspace_root_hint_cell()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = root;
 }
 
 /// Find the workspace root that owns a `.jeryu/repos.toml` fleet registry.
@@ -605,7 +620,14 @@ pub fn ensure_workspace_root_default() {
 /// Returns `None` when no parent directory with `.jeryu/repos.toml` is found, which
 /// is a valid configuration (first-run or non-monorepo workspace).
 pub(crate) async fn resolve_workspace_root() -> Option<PathBuf> {
-    // Strategy 1: explicit env override
+    // Strategy 1: explicit process-wide hint from startup.
+    if let Some(root) = workspace_root_hint()
+        && root.join(DEFAULT_REGISTRY_PATH).exists()
+    {
+        return Some(root);
+    }
+
+    // Strategy 2: explicit env override
     if let Ok(p) = std::env::var("JERYU_WORKSPACE_ROOT") {
         let p = PathBuf::from(p);
         if p.join(DEFAULT_REGISTRY_PATH).exists() {
@@ -613,7 +635,7 @@ pub(crate) async fn resolve_workspace_root() -> Option<PathBuf> {
         }
     }
 
-    // Strategy 2: walk upward from cwd
+    // Strategy 3: walk upward from cwd
     if let Ok(mut dir) = std::env::current_dir() {
         loop {
             if dir.join(DEFAULT_REGISTRY_PATH).exists() {
@@ -625,7 +647,7 @@ pub(crate) async fn resolve_workspace_root() -> Option<PathBuf> {
         }
     }
 
-    // Strategy 3: git rev-parse --show-toplevel
+    // Strategy 4: git rev-parse --show-toplevel
     if let Ok(out) = tokio::process::Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
         .output()
@@ -638,7 +660,7 @@ pub(crate) async fn resolve_workspace_root() -> Option<PathBuf> {
         }
     }
 
-    // Strategy 4 (Linux): find a running `jeryu serve` daemon and borrow its cwd.
+    // Strategy 5 (Linux): find a running `jeryu serve` daemon and borrow its cwd.
     // This handles the common case where the user runs `jeryu tui` from an
     // unrelated directory (e.g. $HOME) but has a daemon running from the project root.
     #[cfg(target_os = "linux")]
@@ -802,20 +824,16 @@ project_id = "veox-shared"
         std::fs::create_dir_all(&child).unwrap();
 
         // Setup under lock, then drop before the await (clippy::await_holding_lock).
-        let prev_cwd = {
+        let (prev_cwd, prev_hint) = {
             let _guard = crate::test_sync::PATH_ENV_LOCK
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
-            let prev_ws = std::env::var("JERYU_WORKSPACE_ROOT").ok();
-            // Clear env override so we exercise the upward-walk strategy.
-            // SAFETY: serialised by PATH_ENV_LOCK.
-            if prev_ws.is_some() {
-                unsafe { std::env::remove_var("JERYU_WORKSPACE_ROOT") };
-            }
+            let prev_hint = workspace_root_hint();
+            set_workspace_root_hint(None);
             let prev_cwd = std::env::current_dir().unwrap();
             std::env::set_current_dir(&child).unwrap();
-            prev_cwd
-            // _guard dropped; env restored in the cleanup block below.
+            (prev_cwd, prev_hint)
+            // _guard dropped; cwd and hint restored in the cleanup block below.
         };
 
         let result = resolve_workspace_root().await;
@@ -826,6 +844,7 @@ project_id = "veox-shared"
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
             std::env::set_current_dir(&prev_cwd).unwrap();
+            set_workspace_root_hint(prev_hint);
         }
 
         let found = result.expect("resolve_workspace_root should find the toml via upward walk");
@@ -837,7 +856,8 @@ project_id = "veox-shared"
     }
 
     #[tokio::test]
-    async fn resolve_workspace_root_respects_env_override() {
+    #[allow(clippy::await_holding_lock)]
+    async fn resolve_workspace_root_respects_hint_override() {
         use tempfile::TempDir;
 
         let tmp = TempDir::new().unwrap();
@@ -845,35 +865,17 @@ project_id = "veox-shared"
         std::fs::create_dir_all(&registry_dir).unwrap();
         std::fs::write(registry_dir.join("repos.toml"), b"schema_version = \"1\"\n").unwrap();
 
-        // Setup under lock, then drop before the await (clippy::await_holding_lock).
-        let prev_ws = {
-            let _guard = crate::test_sync::PATH_ENV_LOCK
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
-            // SAFETY: serialised by PATH_ENV_LOCK.
-            unsafe { std::env::set_var("JERYU_WORKSPACE_ROOT", tmp.path()) };
-            prev
-            // _guard dropped here.
-        };
+        let _guard = crate::test_sync::PATH_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev_hint = workspace_root_hint();
+        set_workspace_root_hint(Some(tmp.path().to_path_buf()));
 
         let result = resolve_workspace_root().await;
 
-        // Restore env under lock.
-        {
-            let _guard = crate::test_sync::PATH_ENV_LOCK
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            // SAFETY: serialised by PATH_ENV_LOCK.
-            unsafe {
-                match prev_ws {
-                    Some(v) => std::env::set_var("JERYU_WORKSPACE_ROOT", v),
-                    None => std::env::remove_var("JERYU_WORKSPACE_ROOT"),
-                }
-            }
-        }
+        set_workspace_root_hint(prev_hint);
 
-        let found = result.expect("resolve_workspace_root should honour JERYU_WORKSPACE_ROOT");
+        let found = result.expect("resolve_workspace_root should honour the startup hint");
         assert_eq!(
             found.canonicalize().unwrap(),
             tmp.path().canonicalize().unwrap()
@@ -935,24 +937,16 @@ project_id = "veox-shared"
         let _guard = crate::test_sync::PATH_ENV_LOCK
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        let prev = std::env::var("JERYU_WORKSPACE_ROOT").ok();
-        // SAFETY: serialized by PATH_ENV_LOCK.
-        unsafe {
-            std::env::remove_var("JERYU_WORKSPACE_ROOT");
-        }
+        let prev = workspace_root_hint();
+        set_workspace_root_hint(None);
 
         ensure_workspace_root_default();
 
-        let resolved = std::env::var("JERYU_WORKSPACE_ROOT").unwrap_or_default();
+        let resolved = workspace_root_hint().unwrap_or_default();
 
-        // Restore the previous environment value before the assertion so the lock
-        // is not held across a potential panic.
-        unsafe {
-            match prev {
-                Some(ref value) => std::env::set_var("JERYU_WORKSPACE_ROOT", value),
-                None => std::env::remove_var("JERYU_WORKSPACE_ROOT"),
-            }
-        }
+        // Restore the previous hint before the assertion so the lock is not
+        // held across a potential panic.
+        set_workspace_root_hint(prev);
 
         // When LOCAL_WORKSPACE_ROOT_DEFAULT exists on this machine, it is the
         // first match and must be returned exactly.  In CI environments where
@@ -964,12 +958,13 @@ project_id = "veox-shared"
             .exists()
         {
             assert_eq!(
-                resolved, LOCAL_WORKSPACE_ROOT_DEFAULT,
+                resolved,
+                PathBuf::from(LOCAL_WORKSPACE_ROOT_DEFAULT),
                 "hardcoded default should be preferred when it exists"
             );
         } else {
             assert!(
-                !resolved.is_empty() && Path::new(&resolved).join(DEFAULT_REGISTRY_PATH).exists(),
+                !resolved.as_os_str().is_empty() && resolved.join(DEFAULT_REGISTRY_PATH).exists(),
                 "ensure_workspace_root_default must find a workspace with {DEFAULT_REGISTRY_PATH}; got {resolved:?}"
             );
         }

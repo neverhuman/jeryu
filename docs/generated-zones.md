@@ -1,9 +1,8 @@
 # Generated Zones
 
-`agent/generated-zones.toml` declares directories whose contents are
-generated and must not be hand-edited. The file is currently empty for
-this repo, which is the correct state today: jeryu has no codegen
-output checked in to its own tree.
+`agent/generated-zones.toml` declares paths whose contents are generated
+and must not be hand-edited. This repo currently checks in contract
+artifacts under `contracts/generated/` and `schemas/`.
 
 ## Convention
 
@@ -13,9 +12,9 @@ When a future change adds a generated artifact, declare it here and in
 ```toml
 [[zone]]
 path = "contracts/generated"
-generator = "buf generate"  # or the exact command
-owner = "platform"
-regenerate = "just contracts"
+generator = "cargo run --bin jeryu_export_types --features web"
+owner = "contracts"
+regenerate = "cargo run --bin jeryu_export_types --features web"
 ```
 
 Rules for a zone:
@@ -38,9 +37,9 @@ Rules for a zone:
   output will surface in `agent/repo-score.md` under the relevant
   contract or data dimension.
 
-## Why this file exists even when the manifest is empty
+## Why this file exists
 
-Audit findings expect agent-readable docs at
-`docs/generated-zones.md`. Keeping the explainer here means the next
-contributor can declare a zone correctly the first time, without
-needing to read the upstream jankurai source.
+Audit findings expect agent-readable docs at `docs/generated-zones.md`.
+Keeping the explainer here means the next contributor can declare a zone
+correctly the first time, without needing to read the upstream jankurai
+source.

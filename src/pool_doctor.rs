@@ -37,7 +37,7 @@ pub struct PoolDoctorReport {
 
 #[derive(Debug, Clone, Copy)]
 pub struct PoolRepairOptions {
-    pub prune_stale: bool,
+    pub prune_outdated: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,7 +121,7 @@ pub async fn repair_pool_state(
     let repaired_tags = crate::pool::repair_standard_pool_tags(db).await?;
     if repaired_tags > 0 {
         actions.push(format!(
-            "cleared stale DB tags on {repaired_tags} standard pool(s)"
+            "cleared outdated DB tags on {repaired_tags} standard pool(s)"
         ));
     }
 
@@ -170,16 +170,15 @@ pub async fn repair_pool_state(
 
     let pools = db.list_pools().await?;
 
-    if options.prune_stale {
-        for runner in stale_standard_runners(&pools, &runners) {
+    if options.prune_outdated {
+        for runner in outdated_standard_runners(&pools, &runners) {
             client.delete_runner(runner.id).await?;
-            actions.push(format!("deleted stale GitLab runner {}", runner.id));
+            actions.push(format!("deleted outdated GitLab runner {}", runner.id));
         }
     }
 
     let mut stopped = 0;
     for pool in pools.iter().filter(|pool| !pool.paused) {
-        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(db, &pool.name).await?;
         stopped +=
             crate::pool::reconcile_manager_runtime_state(db, docker, Some(&pool.name)).await?;
     }
@@ -187,7 +186,7 @@ pub async fn repair_pool_state(
         actions.push(format!("marked {stopped} dead manager(s) stopped"));
     }
 
-    if options.prune_stale {
+    if options.prune_outdated {
         let pruned = prune_orphaned_local_runner_containers(db, docker).await?;
         if pruned > 0 {
             actions.push(format!(
@@ -200,11 +199,6 @@ pub async fn repair_pool_state(
         .iter()
         .any(|pool| pool.name == crate::config::STANDARD_POOL_NAME && !pool.paused)
     {
-        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(
-            db,
-            crate::config::STANDARD_POOL_NAME,
-        )
-        .await?;
         let started = crate::pool::scale_standard_pool_topology(
             db,
             docker,
@@ -241,10 +235,10 @@ fn inspect_standard_pool_policy(
     {
         if !pool.tags.trim().is_empty() {
             issues.push(issue(
-                "stale_db_tags",
+                "outdated_db_tags",
                 "error",
                 format!(
-                    "standard pool {} has stale DB tags {:?}; standard CI must be untagged",
+                    "standard pool {} has outdated DB tags {:?}; standard CI must be untagged",
                     pool.name, pool.tags
                 ),
                 Some(pool.name.clone()),
@@ -373,10 +367,10 @@ fn inspect_duplicate_runner_records(
         ));
     }
 
-    let stale = stale_standard_runners(pools, runners);
-    for runner in stale {
+    let outdated = outdated_standard_runners(pools, runners);
+    for runner in outdated {
         issues.push(issue(
-            "stale_gitlab_runner",
+            "outdated_gitlab_runner",
             "warning",
             format!(
                 "GitLab runner {} ({}) is not referenced by any pool",
@@ -492,7 +486,22 @@ async fn inspect_manager_runtime(
     managers: &[Manager],
     issues: &mut Vec<PoolDoctorIssue>,
 ) {
-    let local_containers = docker.list_managed_containers().await.unwrap_or_default();
+    let local_containers = match docker.list_managed_containers().await {
+        Ok(containers) => containers,
+        Err(err) => {
+            issues.push(issue(
+                "docker_inspection_failed",
+                "error",
+                format!("could not inspect local runner containers: {err}"),
+                None,
+                None,
+                None,
+                Some(crate::config::LOCAL_NODE_ALIAS.to_string()),
+                false,
+            ));
+            Vec::new()
+        }
+    };
     let running_local = local_containers
         .iter()
         .filter(|container| container.state.as_deref() == Some("running"))
@@ -601,7 +610,7 @@ async fn inspect_manager_runtime(
     }
 }
 
-fn stale_standard_runners<'a>(pools: &[Pool], runners: &'a [RunnerInfo]) -> Vec<&'a RunnerInfo> {
+fn outdated_standard_runners<'a>(pools: &[Pool], runners: &'a [RunnerInfo]) -> Vec<&'a RunnerInfo> {
     let referenced = pools
         .iter()
         .map(|pool| pool.gitlab_runner_id)
@@ -776,7 +785,7 @@ mod tests {
     }
 
     #[test]
-    fn stale_standard_runners_are_reported_not_pruned_by_default() {
+    fn outdated_standard_runners_are_reported_not_pruned_by_default() {
         let pools = vec![pool(crate::config::STANDARD_POOL_NAME, 1, "")];
         let runners = vec![
             runner(1, "jeryu-default"),
@@ -784,22 +793,22 @@ mod tests {
             runner(3, "unrelated"),
         ];
 
-        let stale = stale_standard_runners(&pools, &runners);
+        let outdated = outdated_standard_runners(&pools, &runners);
 
-        assert_eq!(stale.len(), 1);
-        assert_eq!(stale[0].id, 2);
+        assert_eq!(outdated.len(), 1);
+        assert_eq!(outdated[0].id, 2);
     }
 
     #[test]
-    fn standard_pool_stale_db_tags_are_repairable_errors() {
-        let pools = vec![pool(crate::config::STANDARD_POOL_NAME, 1, "ci,old")];
+    fn standard_pool_outdated_db_tags_are_repairable_errors() {
+        let pools = vec![pool(crate::config::STANDARD_POOL_NAME, 1, "ci,outdated")];
         let runners = vec![runner(1, "jeryu-default")];
         let mut issues = Vec::new();
 
         inspect_standard_pool_policy(&pools, &runners, &mut issues);
 
         assert!(issues.iter().any(|issue| {
-            issue.code == "stale_db_tags" && issue.severity == "error" && issue.repairable
+            issue.code == "outdated_db_tags" && issue.severity == "error" && issue.repairable
         }));
     }
 

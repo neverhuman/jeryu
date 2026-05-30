@@ -2,7 +2,7 @@
 //! Proof: `cargo nextest run -p jeryu --lib merge::service`
 //! Invariants:
 //!   - `approve_exact_sha` and `merge_exact_sha` ALWAYS refetch live state and
-//!     compare the head SHA before writing (Tip1 Law 4; §28.3 stub pattern).
+//!     compare the head SHA before writing (Tip1 Law 4; §28.3 supported-state pattern).
 //!   - Every mutation writes audit + emits a WS event (`mr.approved` /
 //!     `mr.merged`) per §35.1.14 steps 12-14.
 //!   - The Phase-3 service is a thin pass-through over `GitHost`; local cache
@@ -19,7 +19,9 @@ use jeryu::api::merge_request::{
 };
 use jeryu::api::repository::RepositoryId;
 use jeryu::api::websocket::WebEvent;
-use jeryu::git_host::{GitHost, GitLabClient, HostMergeInput, MrApproval, PrLiveState, PrSummary};
+use jeryu::git_host::{
+    GitHost, GitLabClient, HostMergeInput, HostMergeResult, MrApproval, PrLiveState, PrSummary,
+};
 use jeryu::web_events::WebEventBus;
 use serde_json::json;
 use sqlx::AnyPool;
@@ -250,7 +252,17 @@ impl MergeService {
         )
         .await
         .map_err(host_to_api_error)?;
-        let receipt = result.sha.clone().unwrap_or_default();
+        let receipt = match merge_receipt_from_result(&result) {
+            Ok(receipt) => receipt,
+            Err(err) => {
+                tracing::warn!(
+                    target: "jeryu.web.audit",
+                    "merge result missing receipt sha: {}",
+                    err
+                );
+                return Err(err);
+            }
+        };
         if let Err(err) = write_audit(
             &self.db_pool,
             actor,
@@ -294,10 +306,10 @@ impl MergeService {
         })
     }
 
-    /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/close` — Phase 3
-    /// stub. GitLab adapter doesn't expose a "close" call yet; surface as
-    /// 501-equivalent so the UI can degrade gracefully without breaking the
-    /// API contract.
+    /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/close` — unavailable
+    /// until the GitLab host adapter supports this mutation. GitLab adapter
+    /// doesn't expose a "close" call yet; surface a typed upstream error so
+    /// the UI can degrade gracefully without breaking the API contract.
     pub async fn close_mr(&self, repo_id: &str, iid: &str, actor: &str) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
         if let Err(err) = write_audit(
@@ -317,12 +329,12 @@ impl MergeService {
             );
         }
         Err(ApiError::Upstream(
-            "mr.close not implemented in Phase 3 (host adapter pending)".into(),
+            "mr.close requires GitLab host adapter support".into(),
         ))
     }
 
-    /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/reopen` — Phase 3
-    /// stub. See `close_mr`.
+    /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/reopen` — unavailable
+    /// until the GitLab host adapter supports this mutation. See `close_mr`.
     pub async fn reopen_mr(&self, repo_id: &str, iid: &str, actor: &str) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
         if let Err(err) = write_audit(
@@ -342,12 +354,12 @@ impl MergeService {
             );
         }
         Err(ApiError::Upstream(
-            "mr.reopen not implemented in Phase 3 (host adapter pending)".into(),
+            "mr.reopen requires GitLab host adapter support".into(),
         ))
     }
 
-    /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/rebase` — Phase 3
-    /// stub. See `close_mr`.
+    /// `POST /api/v1/repos/{repo_id}/merge-requests/{iid}/rebase` — unavailable
+    /// until the GitLab host adapter supports this mutation. See `close_mr`.
     pub async fn rebase_mr(&self, repo_id: &str, iid: &str, actor: &str) -> Result<(), ApiError> {
         let _parsed = parse_repo_id(repo_id)?;
         if let Err(err) = write_audit(
@@ -367,7 +379,7 @@ impl MergeService {
             );
         }
         Err(ApiError::Upstream(
-            "mr.rebase not implemented in Phase 3 (host adapter pending)".into(),
+            "mr.rebase requires GitLab host adapter support".into(),
         ))
     }
 
@@ -398,7 +410,19 @@ impl MergeService {
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 fn parse_repo_id(raw: &str) -> Result<RepoId, ApiError> {
-    RepoId::parse(raw).ok_or_else(|| ApiError::BadRequest(format!("invalid repo_id: {raw}")))
+    match RepoId::parse(raw) {
+        Some(repo_id) => Ok(repo_id),
+        None => Err(ApiError::BadRequest(format!("invalid repo_id: {raw}"))),
+    }
+}
+
+fn merge_receipt_from_result(result: &HostMergeResult) -> Result<String, ApiError> {
+    match result.sha.as_ref() {
+        Some(receipt) => Ok(receipt.clone()),
+        None => Err(ApiError::Upstream(
+            "merge completed without a host receipt sha".into(),
+        )),
+    }
 }
 
 /// Stable receipt digest used for `MrApproval::receipt_digest` and the audit
@@ -436,7 +460,7 @@ fn passport_hash(passport: &MergePassport) -> Option<String> {
 }
 
 /// Build a `MergeRequestSummary` from a list-page `PrSummary`. The Phase-3
-/// summary uses placeholder posture counters; W-B-12/13 fill review/checks/
+/// summary uses neutral posture counters; W-B-12/13 fill review/checks/
 /// agent posture from the host adapter.
 fn summary_from_pr(repo: &RepositoryId, pr: &PrSummary) -> MergeRequestSummary {
     MergeRequestSummary {
@@ -571,6 +595,26 @@ mod tests {
     #[test]
     fn compute_receipt_differs_on_sha_change() {
         assert_ne!(compute_receipt("42", "aaa"), compute_receipt("42", "bbb"));
+    }
+
+    #[test]
+    fn merge_receipt_from_result_requires_sha() {
+        let result = HostMergeResult {
+            merged: true,
+            sha: Some("abc".into()),
+            url: None,
+        };
+        assert_eq!(merge_receipt_from_result(&result).unwrap(), "abc");
+
+        let missing = HostMergeResult {
+            merged: true,
+            sha: None,
+            url: None,
+        };
+        assert!(matches!(
+            merge_receipt_from_result(&missing),
+            Err(ApiError::Upstream(message)) if message.contains("host receipt sha")
+        ));
     }
 
     #[test]

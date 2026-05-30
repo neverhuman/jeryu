@@ -4,8 +4,8 @@ use std::sync::{Mutex, OnceLock};
 use serde_json::json;
 use tracing::warn;
 
-use super::pressure::{handle_nominal_pressure, handle_pressure_cycle};
 use super::SharedState;
+use super::pressure::{handle_nominal_pressure, handle_pressure_cycle};
 use crate::api::events::TuiEventKind;
 
 static HEALTH_EVENT_STATE: OnceLock<Mutex<RunnerLifecycleState>> = OnceLock::new();
@@ -386,15 +386,21 @@ mod tests {
 
         assert!(baseline_events.is_empty());
         assert_eq!(first_events.len(), 3);
-        assert!(first_events
-            .iter()
-            .any(|event| matches!(event.0, TuiEventKind::RunnerNodeUnreachable)));
-        assert!(first_events
-            .iter()
-            .any(|event| matches!(event.0, TuiEventKind::FleetUnderfilled)));
-        assert!(first_events
-            .iter()
-            .any(|event| matches!(event.0, TuiEventKind::RunnerDiskCritical)));
+        assert!(
+            first_events
+                .iter()
+                .any(|event| matches!(event.0, TuiEventKind::RunnerNodeUnreachable))
+        );
+        assert!(
+            first_events
+                .iter()
+                .any(|event| matches!(event.0, TuiEventKind::FleetUnderfilled))
+        );
+        assert!(
+            first_events
+                .iter()
+                .any(|event| matches!(event.0, TuiEventKind::RunnerDiskCritical))
+        );
         assert!(second_events.is_empty());
     }
 }

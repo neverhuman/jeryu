@@ -11,6 +11,7 @@
 // TUI flows through `App::action_adapter` without ever touching the
 // concrete GitHubClient / SqlLedger types directly.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::super::{ActionAdapter, FakeActionAdapter, ProductionActionAdapter, RecordedCall};
@@ -24,10 +25,6 @@ async fn app_with_demo_delivery() -> crate::tui::app::App {
     app.delivery_snapshot = build_demo_delivery();
     app
 }
-
-/// Serializes the env-var dependent tests so parallel runs don't race
-/// each other when toggling `GITHUB_TOKEN` / `JERYU_DATABASE_URL`.
-static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[tokio::test]
 async fn app_default_action_adapter_is_fake() {
@@ -68,17 +65,7 @@ async fn app_action_pane_key_uses_installed_adapter() {
 }
 
 #[tokio::test]
-#[allow(clippy::await_holding_lock)]
 async fn try_install_production_adapter_succeeds_when_secrets_resolve() {
-    let _guard = match ENV_LOCK.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-    // SAFETY: tests in this crate co-operatively guard env mutation via
-    // ENV_LOCK; we restore the prior values before returning.
-    let prev_token = std::env::var("GITHUB_TOKEN").ok();
-    let prev_db = std::env::var("JERYU_DATABASE_URL").ok();
-
     // `Db::open` memoizes the first successful pool in a global
     // OnceCell. Use a tempfile-backed SQLite DB so the multi-connection
     // pool (`open_url` uses max_connections=4) sees a shared schema
@@ -88,38 +75,23 @@ async fn try_install_production_adapter_succeeds_when_secrets_resolve() {
     // cached pool.
     let tmp = tempfile::NamedTempFile::new().expect("tempfile");
     let db_url = crate::db::config::sqlite_url(tmp.path());
-    // Rust 2024 marks `std::env::set_var` as unsafe because it
-    // races with other threads reading env. Test runs single-threaded
-    // via `cargo test -- --test-threads=1` (see scripts/pre-pr.sh) and
-    // we restore env before the assertion barrier below.
-    // SAFETY: env mutation is serialized by ENV_LOCK above.
-    unsafe {
-        // test-fixture: synthetic GitHub token shape, not a real credential.
-        let synth_token = concat!("ghp_", "test_wave6a_install");
-        std::env::set_var("GITHUB_TOKEN", synth_token);
-        std::env::set_var("JERYU_DATABASE_URL", &db_url);
-    }
+    let resolver = crate::llm::secrets::SecretResolver {
+        env_overrides: HashMap::from([
+            (
+                "GITHUB_TOKEN".to_string(),
+                concat!("ghp_", "test_wave6a_install").to_string(),
+            ),
+            ("JERYU_DATABASE_URL".to_string(), db_url.clone()),
+        ]),
+        ..Default::default()
+    };
 
     let mut app = app_with_demo_delivery().await;
     assert_eq!(app.action_adapter.kind(), "fake", "starts as fake");
 
-    let result = app.try_install_production_adapter().await;
-
-    // Rust 2024 marks `set_var`/`remove_var` unsafe due to
-    // unsynchronized env reads; tests are serialized
-    // (`--test-threads=1`) so no concurrent reader exists.
-    // Restore env before any assertions so a panic doesn't leak state.
-    // SAFETY: env mutation is serialized by ENV_LOCK above.
-    unsafe {
-        match prev_token {
-            Some(v) => std::env::set_var("GITHUB_TOKEN", v),
-            None => std::env::remove_var("GITHUB_TOKEN"),
-        }
-        match prev_db {
-            Some(v) => std::env::set_var("JERYU_DATABASE_URL", v),
-            None => std::env::remove_var("JERYU_DATABASE_URL"),
-        }
-    }
+    let result = app
+        .try_install_production_adapter_with_resolver(&resolver)
+        .await;
 
     assert!(
         result.is_ok(),
@@ -134,39 +106,17 @@ async fn try_install_production_adapter_succeeds_when_secrets_resolve() {
 }
 
 #[tokio::test]
-#[allow(clippy::await_holding_lock)]
 async fn try_install_production_adapter_keeps_fake_when_token_missing() {
-    let _guard = match ENV_LOCK.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    };
-    let prev_token = std::env::var("GITHUB_TOKEN").ok();
-    let prev_ci = std::env::var("CI").ok();
-    // SAFETY: Rust 2024 marks env mutation unsafe (unsynchronized
-    // reads). The test holds `ENV_LOCK` for the duration of these
-    // mutations and restores prior values before the assertion barrier.
-    unsafe {
-        std::env::remove_var("GITHUB_TOKEN");
-        // SecretResolver walks local file tiers when not in CI mode. Force CI=true so
-        // the test never picks up a developer-machine GITHUB_TOKEN from
-        // one of those files.
-        std::env::set_var("CI", "true");
-    }
+    let mut resolver = crate::llm::secrets::SecretResolver::default();
+    resolver
+        .env_overrides
+        .insert("GITHUB_TOKEN".to_string(), String::new());
+    resolver.ci_mode = true;
 
     let mut app = app_with_demo_delivery().await;
-    let result = app.try_install_production_adapter().await;
-
-    // SAFETY: same lock + serialization invariants as the prior block.
-    // Restore env before assertions so a panic doesn't leak state.
-    unsafe {
-        if let Some(v) = prev_token {
-            std::env::set_var("GITHUB_TOKEN", v);
-        }
-        match prev_ci {
-            Some(v) => std::env::set_var("CI", v),
-            None => std::env::remove_var("CI"),
-        }
-    }
+    let result = app
+        .try_install_production_adapter_with_resolver(&resolver)
+        .await;
 
     assert!(
         result.is_err(),

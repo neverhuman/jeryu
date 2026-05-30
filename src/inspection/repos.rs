@@ -77,6 +77,11 @@ fn repos_from_workspace_registry() -> Option<ReposSnapshot> {
 }
 
 fn inspection_workspace_root() -> Option<std::path::PathBuf> {
+    if let Some(root) = crate::repo_fleet::workspace_root_hint()
+        && root.join(crate::repo_fleet::DEFAULT_REGISTRY_PATH).exists()
+    {
+        return Some(root);
+    }
     if let Ok(root) = std::env::var("JERYU_WORKSPACE_ROOT") {
         let root = std::path::PathBuf::from(root);
         if root.join(crate::repo_fleet::DEFAULT_REGISTRY_PATH).exists() {

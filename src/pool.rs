@@ -8,7 +8,6 @@
 use anyhow::{Context, Result};
 use std::collections::HashSet;
 use std::fs;
-use std::sync::{Mutex, OnceLock};
 use tracing::{info, warn};
 
 use crate::config;
@@ -21,20 +20,10 @@ use tokio::time::{Duration, Instant, sleep};
 
 pub const POOL_ORCHESTRATION_LEASE_TTL_SECS: i64 = 120;
 
-static LEASE_HOLDER_ID: OnceLock<String> = OnceLock::new();
-static LEASE_COUNTS: OnceLock<Mutex<std::collections::BTreeMap<String, usize>>> = OnceLock::new();
-
-fn orchestration_holder_id() -> &'static str {
-    LEASE_HOLDER_ID.get_or_init(|| format!("jeryu-{}-{}", std::process::id(), uuid::Uuid::new_v4()))
-}
-
-fn lease_counts() -> &'static Mutex<std::collections::BTreeMap<String, usize>> {
-    LEASE_COUNTS.get_or_init(|| Mutex::new(std::collections::BTreeMap::new()))
-}
-
 pub struct PoolOrchestrationLeaseGuard {
     db: Db,
     pool_name: String,
+    holder_id: String,
     owned: bool,
     stop_tx: Option<watch::Sender<bool>>,
     heartbeat: Option<JoinHandle<()>>,
@@ -42,33 +31,7 @@ pub struct PoolOrchestrationLeaseGuard {
 
 impl PoolOrchestrationLeaseGuard {
     pub async fn acquire(db: &Db, pool_name: &str) -> Result<Self> {
-        let holder_id = orchestration_holder_id().to_string();
-        let already_held = {
-            let counts = lease_counts().lock().unwrap();
-            counts.get(pool_name).copied().unwrap_or(0) > 0
-        };
-        if already_held {
-            let reacquired = db
-                .acquire_pool_orchestration_lease(
-                    pool_name,
-                    &holder_id,
-                    POOL_ORCHESTRATION_LEASE_TTL_SECS,
-                )
-                .await?;
-            if !reacquired {
-                anyhow::bail!("pool '{pool_name}' orchestration lease is held by another process");
-            }
-            let mut counts = lease_counts().lock().unwrap();
-            *counts.entry(pool_name.to_string()).or_insert(0) += 1;
-            return Ok(Self {
-                db: db.clone(),
-                pool_name: pool_name.to_string(),
-                owned: false,
-                stop_tx: None,
-                heartbeat: None,
-            });
-        }
-
+        let holder_id = format!("jeryu-{}-{}", std::process::id(), uuid::Uuid::new_v4());
         let acquired = db
             .acquire_pool_orchestration_lease(
                 pool_name,
@@ -78,11 +41,6 @@ impl PoolOrchestrationLeaseGuard {
             .await?;
         if !acquired {
             anyhow::bail!("pool '{pool_name}' orchestration lease is held by another process");
-        }
-
-        {
-            let mut counts = lease_counts().lock().unwrap();
-            counts.insert(pool_name.to_string(), 1);
         }
 
         let (stop_tx, mut stop_rx) = watch::channel(false);
@@ -123,6 +81,7 @@ impl PoolOrchestrationLeaseGuard {
         Ok(Self {
             db: db.clone(),
             pool_name: pool_name.to_string(),
+            holder_id,
             owned: true,
             stop_tx: Some(stop_tx),
             heartbeat: Some(heartbeat),
@@ -139,28 +98,13 @@ impl Drop for PoolOrchestrationLeaseGuard {
             heartbeat.abort();
         }
 
-        let pool_name = self.pool_name.clone();
         let db = self.db.clone();
-        let owned = self.owned;
-        let should_release = {
-            let mut counts = lease_counts().lock().unwrap();
-            match counts.get_mut(&pool_name) {
-                Some(count) if *count > 1 => {
-                    *count -= 1;
-                    false
-                }
-                Some(_) => {
-                    counts.remove(&pool_name);
-                    owned
-                }
-                None => false,
-            }
-        };
-
-        if should_release {
+        if self.owned {
+            let pool_name = self.pool_name.clone();
+            let holder_id = self.holder_id.clone();
             tokio::spawn(async move {
                 let _ = db
-                    .release_pool_orchestration_lease(&pool_name, orchestration_holder_id())
+                    .release_pool_orchestration_lease(&pool_name, &holder_id)
                     .await;
             });
         }
@@ -174,6 +118,7 @@ pub use pool_ops::{delete_pool, drain_pool, pause_pool, resume_pool, rotate_pool
 
 #[path = "pool_scale.rs"]
 mod pool_scale;
+pub(crate) use pool_scale::reconcile_manager_runtime_state_inner;
 pub use pool_scale::{
     count_running_managers, reconcile_manager_runtime_state, scale_pool_to,
     scale_standard_pool_topology,
@@ -281,7 +226,7 @@ pub async fn repair_standard_pool_tags(store: &Db) -> Result<usize> {
         warn!(
             pool = %pool.name,
             previous_tags = %pool.tags,
-            "cleared stale tags from standard runner pool row"
+            "cleared outdated tags from standard runner pool row"
         );
     }
 
@@ -357,9 +302,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn stale_standard_pool_tags_are_repaired_to_empty() -> Result<()> {
+    async fn outdated_standard_pool_tags_are_repaired_to_empty() -> Result<()> {
         let db = Db::open_memory().await?;
-        db.insert_pool(&pool(config::STANDARD_POOL_NAME, "ci,stale"))
+        db.insert_pool(&pool(config::STANDARD_POOL_NAME, "ci,outdated"))
             .await?;
 
         let repaired = repair_standard_pool_tags(&db).await?;

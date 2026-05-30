@@ -630,7 +630,7 @@ No audited runtime boundary reclassifications declared.
    Fix: attach raw CI logs, review receipts, and replayable commands instead of accepting claims or summaries
    Rerun: `just score`
    Fingerprint: `sha256:792ee9a1f3f4c7c060ac73e7a27f566a85158c774815c97ba5aac7a16c98780b`
-   Evidence: body_markdown: "LGTM".into(),
+   Evidence: body_markdown: "Approved with reproducible evidence attached.".into(),
 39. `high` `vibe` `src/bin/jeryu_export_schemas.rs:34`
    Rule: `HLT-001-DEAD-MARKER`
    Check: `HLT-001-DEAD-MARKER:vibe` `hard` confidence `0.88`

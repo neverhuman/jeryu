@@ -30,7 +30,6 @@ pub(crate) async fn check_scale_up(state: &EngineState) -> Result<()> {
             continue;
         }
 
-        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(&state.db, &p.name).await?;
         pool::reconcile_manager_runtime_state(&state.db, &state.docker, Some(&p.name)).await?;
         let active = state.db.count_active_managers(&p.name).await?;
         let target = desired_manager_target(p, queued, running);
@@ -99,7 +98,6 @@ pub(crate) async fn reconcile_once(state: &EngineState) -> Result<()> {
             continue;
         }
 
-        let _lease = crate::pool::PoolOrchestrationLeaseGuard::acquire(&state.db, &p.name).await?;
         // Reconcile local managers (existing behavior, unchanged).
         let _stale_managers =
             pool::reconcile_manager_runtime_state(&state.db, &state.docker, Some(&p.name)).await?;

@@ -12,27 +12,62 @@ pub async fn build_pipeline_doctor_report(
     let jobs = client
         .list_pipeline_jobs_with_downstream(project_id, pipeline_id)
         .await?;
-    let runners = client.list_all_runner_details().await.unwrap_or_default();
+    let (runners, runner_inventory_degraded_reason) = match client.list_all_runner_details().await {
+        Ok(runners) => (runners, None),
+        Err(err) => {
+            tracing::warn!(
+                target: "jeryu.release.pipeline",
+                error = %err,
+                "runner inventory unavailable"
+            );
+            (Vec::new(), Some(err.to_string()))
+        }
+    };
     let historical_bottlenecks = match Db::open().await {
         Ok(db) => match db
             .ci_job_bottlenecks(project_id, Some(&pipeline.ref_name), 500)
             .await
         {
             Ok(rows) => rows,
-            Err(_) => Vec::new(),
+            Err(err) => {
+                tracing::warn!(
+                    target: "jeryu.release.pipeline",
+                    error = %err,
+                    project_id,
+                    pipeline_id,
+                    "historical bottleneck query unavailable"
+                );
+                Vec::new()
+            }
         },
-        Err(_) => Vec::new(),
+        Err(err) => {
+            tracing::warn!(
+                target: "jeryu.release.pipeline",
+                error = %err,
+                project_id,
+                pipeline_id,
+                "historical bottleneck database unavailable"
+            );
+            Vec::new()
+        }
     };
-    let schema_pools = schema_result
-        .as_ref()
-        .map(|schema| {
-            schema
-                .jobs
-                .iter()
-                .map(|job| (job.id.clone(), job.runner_pool.clone()))
-                .collect::<HashMap<_, _>>()
-        })
-        .unwrap_or_default();
+    let schema_pools = match &schema_result {
+        Ok(schema) => schema
+            .jobs
+            .iter()
+            .map(|job| (job.id.clone(), job.runner_pool.clone()))
+            .collect::<HashMap<_, _>>(),
+        Err(err) => {
+            tracing::warn!(
+                target: "jeryu.release.pipeline",
+                error = %err,
+                project_id,
+                pipeline_id,
+                "CI schema unavailable for runner pool mapping"
+            );
+            HashMap::new()
+        }
+    };
 
     let mut doctor_jobs = Vec::new();
     for job in jobs {
@@ -171,6 +206,7 @@ pub async fn build_pipeline_doctor_report(
         pipeline_ref: pipeline.ref_name,
         pipeline_status: pipeline.status,
         schema_context,
+        runner_inventory_degraded_reason,
         jobs: doctor_jobs,
         stuck_suspected,
     })

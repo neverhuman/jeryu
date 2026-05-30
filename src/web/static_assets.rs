@@ -5,19 +5,18 @@
 //! * `/assets/*` is served directly from `<spa-dir>/assets/` by
 //!   [`ServeDir`] — bundled JS/CSS/images keep their natural
 //!   `Content-Type` + `200`/`404` semantics.
-//! * Every other route falls through to [`spa_fallback`], which reads
+//! * Every other route resolves through [`spa_index_response`], which reads
 //!   `index.html` from disk and returns it with an explicit
 //!   `HTTP/1.1 200 OK` + `text/html; charset=utf-8`. React Router then
 //!   resolves the in-browser path.
 //!
-//! The earlier shape (`ServeDir::new(spa_dir).fallback(ServeFile::new(index))`)
-//! relied on `tower-http`'s internal chain to flip the 404 from the
-//! `ServeDir::call_inner` not-found branch into the fallback `ServeFile`
-//! response. In practice this was fragile — the chain occasionally
-//! propagated the 404 status onto the fallback body (Phase 1 retro audit
-//! finding: `GET /repos/github/foo/bar → 404` with the index HTML body).
-//! A custom handler is unambiguous: there is exactly one branch that
-//! produces a response, and it always sets `StatusCode::OK`.
+//! The earlier shape (`ServeDir::new(spa_dir).nest_service(...)` with a
+//! shared index handler) relied on `tower-http`'s internal chain to flip the
+//! 404 from the `ServeDir::call_inner` not-found branch into the index-page
+//! response. In practice this was fragile because the chain could propagate
+//! the 404 status onto the index body. A custom handler is unambiguous:
+//! there is exactly one branch that produces a response, and it always sets
+//! `StatusCode::OK`.
 //!
 //! Dev-mode reverse-proxy (`--dev-assets <url>`) is intentionally
 //! deferred to v1.1; for Phase 1 developers run `npm --workspace
@@ -38,22 +37,35 @@ use tower_http::services::ServeDir;
 ///
 /// * `GET /assets/*` → [`ServeDir`] over `<spa_dir>/assets/` (natural
 ///   `200` for hits, `404` for misses).
-/// * Every other path → [`spa_fallback`] → `index.html` with `200 OK`.
+/// * Every other path → [`spa_index_response`] → `index.html` with `200 OK`.
 ///
 /// The returned router is intended to be `.merge()`d into the outer
-/// router; its catch-all `fallback` swallows every unmatched route and
+/// router; a glob route serves the SPA index for every unmatched path and
 /// is the last thing the outer router consults.
 pub fn spa_router(spa_dir: &str) -> Router {
     let dir = PathBuf::from(spa_dir);
     let assets_dir = dir.join("assets");
 
-    let fallback_dir = dir.clone();
+    let index_dir = dir.clone();
     Router::new()
         .nest_service("/assets", ServeDir::new(assets_dir))
-        .fallback(get(move || {
-            let dir = fallback_dir.clone();
-            async move { spa_fallback(dir).await }
-        }))
+        .route(
+            "/",
+            get({
+                let dir = index_dir.clone();
+                move || {
+                    let dir = dir.clone();
+                    async move { spa_index_response(dir).await }
+                }
+            }),
+        )
+        .route(
+            "/{*path}",
+            get(move || {
+                let dir = index_dir.clone();
+                async move { spa_index_response(dir).await }
+            }),
+        )
 }
 
 /// Read `<spa_dir>/index.html` and return it as `200 OK text/html`.
@@ -62,7 +74,7 @@ pub fn spa_router(spa_dir: &str) -> Router {
 /// deployment-time misconfiguration (the SPA build did not run / the
 /// `--spa-dir` flag points somewhere wrong) rather than a client error,
 /// so a `5xx` is the honest signal.
-async fn spa_fallback(spa_dir: PathBuf) -> Response {
+async fn spa_index_response(spa_dir: PathBuf) -> Response {
     let index = spa_dir.join("index.html");
     match tokio::fs::read(&index).await {
         Ok(bytes) => {
@@ -112,7 +124,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn fallback_returns_200_for_unmatched_routes() {
+    async fn index_handler_returns_200_for_unmatched_routes() {
         let Some(dist) = spa_dir_or_skip() else {
             eprintln!("apps/web/dist/index.html not present; skipping");
             return;
@@ -138,12 +150,12 @@ mod tests {
         let body = to_bytes(resp.into_body(), 1 << 20).await.unwrap();
         assert!(
             body.starts_with(b"<!doctype html") || body.starts_with(b"<!DOCTYPE html"),
-            "fallback body must be the index.html document"
+            "index body must be the index.html document"
         );
     }
 
     #[tokio::test]
-    async fn fallback_returns_200_for_root() {
+    async fn index_handler_returns_200_for_root() {
         let Some(dist) = spa_dir_or_skip() else {
             return;
         };

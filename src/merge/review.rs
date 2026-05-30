@@ -2,7 +2,7 @@
 //! Proof: `cargo nextest run -p jeryu --lib merge::review`
 //! Invariants:
 //!   - `submit_review` ALWAYS calls `verify_head_sha` so review verdicts
-//!     never apply to a stale head (Tip1 Law 4).
+//!     never apply to an outdated head (Tip1 Law 4).
 //!   - Every mutation writes audit + emits a WS event.
 //!   - Inline `suggestion` parsing is a thin extractor; the suggestion engine
 //!     proper lives in W-B-15.
@@ -131,6 +131,7 @@ impl ReviewService {
                 created_at: host_comment.created_at,
                 edited_at: None,
                 suggestion: parse_suggestion(&host_comment.body, file_path, line),
+                evidence: None,
             }],
             created_at: Utc::now(),
             updated_at: Utc::now(),
@@ -225,6 +226,7 @@ impl ReviewService {
                 req.line
                     .and_then(|l| parse_suggestion(&req.body_markdown, p, l))
             }),
+            evidence: None,
         };
         if let Err(err) = write_audit(
             &self.db_pool,
@@ -269,6 +271,7 @@ impl ReviewService {
     ) -> Result<ReviewSubmissionResult, ApiError> {
         let parsed = parse_repo_id(repo_id)?;
         let repo = parsed.repo_ref();
+        let evidence = req.evidence.clone();
         let bound =
             guards::verify_head_sha(self.gitlab.as_ref(), &repo, iid, &req.expected_head_sha)
                 .await?;
@@ -328,6 +331,7 @@ impl ReviewService {
                 "head_sha": bound,
                 "review_id": review.id,
                 "idempotency_key": idempotency_key,
+                "evidence": evidence.clone(),
             }),
         )
         .await
@@ -343,7 +347,13 @@ impl ReviewService {
             iid,
             kind,
             "review verdict submitted",
-            json!({"iid": iid, "verdict": event, "review_id": review.id, "head_sha": bound}),
+            json!({
+                "iid": iid,
+                "verdict": event,
+                "review_id": review.id,
+                "head_sha": bound,
+                "evidence": evidence,
+            }),
         );
         Ok(ReviewSubmissionResult {
             review_id: review.id,
@@ -383,7 +393,10 @@ pub struct ReviewSubmissionResult {
 }
 
 fn parse_repo_id(raw: &str) -> Result<RepoId, ApiError> {
-    RepoId::parse(raw).ok_or_else(|| ApiError::BadRequest(format!("invalid repo_id: {raw}")))
+    match RepoId::parse(raw) {
+        Some(repo_id) => Ok(repo_id),
+        None => Err(ApiError::BadRequest(format!("invalid repo_id: {raw}"))),
+    }
 }
 
 fn host_thread_to_api(
@@ -416,6 +429,7 @@ fn host_thread_to_api(
                     .as_deref()
                     .zip(t.line)
                     .and_then(|(p, l)| parse_suggestion(&c.body, p, l)),
+                evidence: None,
             }
         })
         .collect();

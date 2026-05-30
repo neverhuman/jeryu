@@ -31,6 +31,7 @@ pub struct ResolvedSecret {
 #[derive(Debug, Default, Clone)]
 pub struct SecretResolver {
     pub cli_overrides: HashMap<String, String>,
+    pub env_overrides: HashMap<String, String>,
     pub repo_root: Option<PathBuf>,
     pub ci_mode: bool,
 }
@@ -39,6 +40,7 @@ impl SecretResolver {
     pub fn from_env() -> Self {
         Self {
             cli_overrides: HashMap::new(),
+            env_overrides: HashMap::new(),
             repo_root: std::env::current_dir().ok(),
             ci_mode: std::env::var("CI")
                 .map(|v| v == "true" || v == "1")
@@ -52,6 +54,15 @@ pub fn resolve_secret(name: &str, resolver: &SecretResolver) -> Option<ResolvedS
     if let Some(v) = resolver.cli_overrides.get(name) {
         return Some(ResolvedSecret {
             source: SecretSource::Cli,
+            value: v.clone(),
+        });
+    }
+    if let Some(v) = resolver.env_overrides.get(name) {
+        if v.is_empty() {
+            return None;
+        }
+        return Some(ResolvedSecret {
+            source: SecretSource::Env,
             value: v.clone(),
         });
     }
@@ -115,45 +126,31 @@ mod tests {
     fn cli_override_beats_everything() {
         let mut r = SecretResolver::from_env();
         r.cli_overrides.insert("FOO".into(), "from_cli".into());
-        // Even if env is set, cli wins.
-        // SAFETY: Rust 2024 marks env mutation unsafe due to unsynchronized
-        // reads. Tests run serially (`--test-threads=1` per pre-pr.sh) and
-        // we restore the var below.
-        unsafe {
-            std::env::set_var("FOO", "from_env");
-        }
+        r.env_overrides.insert("FOO".into(), "from_env".into());
         let s = resolve_secret("FOO", &r).unwrap();
         assert_eq!(s.source, SecretSource::Cli);
         assert_eq!(s.value, "from_cli");
-        // SAFETY: serialized as above.
-        unsafe {
-            std::env::remove_var("FOO");
-        }
     }
 
     #[test]
     fn env_var_resolves_when_set() {
         let r = SecretResolver {
+            env_overrides: HashMap::from([(
+                String::from("JERYU_LLM_TEST_K"),
+                String::from("hello"),
+            )]),
             ci_mode: true,
             ..Default::default()
         };
-        // SAFETY: Rust 2024 marks env mutation unsafe; tests serialize via
-        // `--test-threads=1` and we restore the var at the end of the test.
-        unsafe {
-            std::env::set_var("JERYU_LLM_TEST_K", "hello");
-        }
         let s = resolve_secret("JERYU_LLM_TEST_K", &r).unwrap();
         assert_eq!(s.source, SecretSource::Env);
         assert_eq!(s.value, "hello");
-        // SAFETY: serialized as above.
-        unsafe {
-            std::env::remove_var("JERYU_LLM_TEST_K");
-        }
     }
 
     #[test]
     fn ci_mode_skips_local_files() {
         let r = SecretResolver {
+            env_overrides: HashMap::new(),
             ci_mode: true,
             ..Default::default()
         };

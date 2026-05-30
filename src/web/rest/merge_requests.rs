@@ -2,9 +2,9 @@
 //!
 //! Endpoint map (mirrors §35.7):
 //!   - `GET    /api/v1/repos/{id}/merge-requests?state=`         list
-//!   - `POST   /api/v1/repos/{id}/merge-requests`                create (501 stub)
+//!   - `POST   /api/v1/repos/{id}/merge-requests`                create (unsupported for now)
 //!   - `GET    /api/v1/repos/{id}/merge-requests/{iid}`          detail (with passport)
-//!   - `PATCH  /api/v1/repos/{id}/merge-requests/{iid}`          update (501 stub)
+//!   - `PATCH  /api/v1/repos/{id}/merge-requests/{iid}`          update (unsupported for now)
 //!   - `GET    /api/v1/repos/{id}/merge-requests/{iid}/diff`     diff
 //!   - `GET    /api/v1/repos/{id}/merge-requests/{iid}/checks`   CI checks
 //!   - `GET    /api/v1/repos/{id}/merge-requests/{iid}/blockers` blockers (= passport)
@@ -206,8 +206,8 @@ pub async fn get_merge_request(
     params(("repo_id" = String, Path, description = "Stable opaque repo ID")),
     request_body = CreateMrRequest,
     responses(
-        (status = 200, description = "Stub OK (Phase 3 placeholder)", body = EmptyOk),
-        (status = 502, description = "Upstream adapter not implemented"),
+        (status = 200, description = "Unsupported for now", body = EmptyOk),
+        (status = 502, description = "Upstream adapter unavailable"),
         (status = 401, description = "Unauthenticated"),
         (status = 403, description = "Forbidden"),
     ),
@@ -224,10 +224,10 @@ pub async fn create_merge_request(
     require(&viewer, perms::MR_WRITE)?;
     let _ = idempotency_key(&headers)
         .ok_or_else(|| ApiError::BadRequest("Idempotency-Key header is required".into()))?;
-    // Phase 3 stub: the host adapter doesn't yet expose MR creation; surface
-    // as 502 upstream_unavailable so the UI can degrade.
+    // The host adapter does not yet expose MR creation; surface a typed
+    // upstream error so the UI can render the unsupported state cleanly.
     Err(ApiError::Upstream(
-        "mr.create not implemented in Phase 3 (host adapter pending)".into(),
+        "mr.create unavailable: host adapter pending".into(),
     ))
 }
 
@@ -240,8 +240,8 @@ pub async fn create_merge_request(
     ),
     request_body = PatchMrRequest,
     responses(
-        (status = 200, description = "Stub OK (Phase 3 placeholder)", body = EmptyOk),
-        (status = 502, description = "Upstream adapter not implemented"),
+        (status = 200, description = "Unsupported for now", body = EmptyOk),
+        (status = 502, description = "Upstream adapter unavailable"),
         (status = 401, description = "Unauthenticated"),
         (status = 403, description = "Forbidden"),
     ),
@@ -256,7 +256,7 @@ pub async fn patch_merge_request(
 ) -> Result<Json<EmptyOk>, ApiError> {
     require(&viewer, perms::MR_WRITE)?;
     Err(ApiError::Upstream(
-        "mr.update not implemented in Phase 3 (host adapter pending)".into(),
+        "mr.update unavailable: host adapter pending".into(),
     ))
 }
 
@@ -338,6 +338,7 @@ pub async fn request_changes(
                 expected_head_sha: req.expected_head_sha,
                 body_markdown: req.body_markdown,
                 thread_comments: vec![],
+                evidence: None,
             },
             &viewer.login,
             None,

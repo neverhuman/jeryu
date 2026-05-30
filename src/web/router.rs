@@ -3,8 +3,8 @@
 //! Layout:
 //! * `/api/v1/*` — JSON REST endpoints (auth + CSRF on mutating verbs).
 //! * `/api/v1/ws` — WebSocket upgrade (auth required, no CSRF).
-//! * `/health`, `/hooks`, `/cache/summary` — legacy engine routes,
-//!   preserved verbatim per §35.1.5 by merging the supplied `legacy`
+//! * `/health`, `/hooks`, `/cache/summary` — engine compatibility routes,
+//!   preserved verbatim per §35.1.5 by merging the supplied `engine`
 //!   router as-is.
 //! * Fallback — SPA static-asset service from `<spa-dir>` (W-B-03).
 //!
@@ -34,11 +34,11 @@ use super::static_assets::spa_router;
 use super::telemetry::instrument;
 use super::ws::ws_handler;
 
-/// Build the combined router (legacy engine + Web Forge BFF + SPA).
+/// Build the combined router (engine compatibility + Web Forge BFF + SPA).
 ///
 /// Returns a `Router<()>` ready to be passed to `axum::serve`.
-pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Router {
-    // /api/v1/* — REST + WS. Auth + CSRF apply here; the SPA + legacy
+pub fn build_web_router(state: WebState, engine: Router, spa_dir: &str) -> Router {
+    // /api/v1/* — REST + WS. Auth + CSRF apply here; the SPA + engine
     // routes stay outside the auth perimeter.
     let api = Router::new()
         .route("/api/v1/bootstrap", get(get_bootstrap))
@@ -183,7 +183,7 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
         .route("/api/v1/search", get(search::search))
         // ── W-B-17: activity feed ──
         .route("/api/v1/activity", get(activity::list_activity))
-        // ── W-B-30: issues stubs (501) ──
+        // ── W-B-30: issues compatibility endpoints (501) ──
         .route(
             "/api/v1/repos/{repo_id}/issues",
             get(issues::list_issues).post(issues::create_issue),
@@ -217,13 +217,13 @@ pub fn build_web_router(state: WebState, legacy: Router, spa_dir: &str) -> Route
         .route("/api/v1/auth/login", post(auth_rest::login))
         .with_state(state);
 
-    // SPA router owns the catch-all fallback. Merging (rather than
-    // `.fallback_service(spa_service(...))`) keeps the SPA's `/assets/*`
+    // SPA router owns the catch-all index route. Merging (rather than
+    // `.merge(spa_router(...))`) keeps the SPA's `/assets/*`
     // ServeDir as a sibling route — that way a missing asset returns a
-    // real `404` instead of being swallowed by the SPA fallback into a
+    // real `404` instead of being swallowed by the SPA index route into a
     // 200-with-HTML response (which would otherwise mis-train browsers
     // to treat broken JS chunks as HTML).
-    let merged = legacy
+    let merged = engine
         .merge(api)
         .merge(auth_open)
         .merge(spa_router(spa_dir));
