@@ -6,14 +6,11 @@ description = "Evidence-Gate autonomous-delivery control plane for jeryu: hard-s
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+jeryu-signing = { path = "../jeryu-signing" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 chrono = { version = "0.4", features = ["serde"] }
-sha2 = "0.10"
-hex = "0.4"
-ed25519-dalek = { version = "2", features = ["rand_core"] }
-rand = "0.8"
 uuid = { version = "1", features = ["v4"] }
 async-trait = "0.1"
 thiserror = "1"

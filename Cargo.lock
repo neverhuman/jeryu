@@ -1299,13 +1299,10 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "ed25519-dalek",
- "hex",
- "rand 0.8.6",
+ "jeryu-signing",
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2",
  "thiserror 1.0.69",
  "tokio",
  "uuid",
@@ -1627,13 +1624,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
- "ed25519-dalek",
- "hex",
- "rand 0.8.6",
+ "jeryu-signing",
  "regex",
  "serde",
  "serde_json",
- "sha2",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -1694,6 +1688,18 @@ name = "jeryu-rustjet-cli"
 version = "0.5.0"
 dependencies = [
  "jeryu-rustjet",
+]
+
+[[package]]
+name = "jeryu-signing"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "hex",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

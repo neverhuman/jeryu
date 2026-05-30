@@ -49,6 +49,7 @@ members = [
   "crates/jeryu-runnerd",
   "crates/jeryu-rustjet",
   "crates/jeryu-rustjet-cli",
+  "crates/jeryu-signing",
   "crates/jeryu-signrail",
   "crates/jeryu-tenant",
   "crates/jeryu-repogate",

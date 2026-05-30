@@ -35,7 +35,7 @@ fn clean_tree_passes() {
 #[test]
 fn injected_forbidden_token_fails() {
     let dir = TempDir::new().expect("tempdir");
-    // "6769746c6162" decodes to the legacy provider literal.
+    // "6769746c6162" decodes to a forbidden third-party forge brand literal.
     let mut content = b"first line is fine\nsecond line has ".to_vec();
     content.extend_from_slice(&marker("6769746c6162"));
     content.extend_from_slice(b" embedded\n");
@@ -92,8 +92,8 @@ fn skip_dirs_are_ignored() {
 #[test]
 fn first_marker_wins_one_finding_per_file() {
     let dir = TempDir::new().expect("tempdir");
-    // Two distinct markers in one file yield a single finding (Python breaks
-    // on first match).
+    // Two distinct markers in one file yield a single finding: scanning of a
+    // file stops at the first match.
     let mut content = Vec::new();
     content.extend_from_slice(&marker("6769746c6162"));
     content.extend_from_slice(b"\n");
