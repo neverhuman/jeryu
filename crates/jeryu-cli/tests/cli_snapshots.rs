@@ -518,7 +518,7 @@ fn dispatch_release_and_cache_self_test() {
 }
 
 #[test]
-fn dispatch_missing_repo_returns_nonzero_exit() {
+fn dispatch_missing_repo_maps_to_exit_code_2_and_names_repo() {
     let client = InMemoryClient::new();
     let (code, out, err) = run_cli(
         &client,

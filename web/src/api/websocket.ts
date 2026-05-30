@@ -13,7 +13,7 @@
 //   * Client sends `Subscribe` to register additional scopes, `Unsubscribe`
 //     to drop them. Both can be sent any time after the initial Hello.
 //   * Heartbeats: server pings every 15 s with a 30 s read timeout
-//     (§35.1.12). We piggyback on the browser-handled WS Ping/Pong; we
+//     (§35.1.12). We rely on the browser-handled WS Ping/Pong; we
 //     additionally send a JSON `Ping { nonce }` every 15 s so the server
 //     observes liveness even through proxies that strip control frames.
 //

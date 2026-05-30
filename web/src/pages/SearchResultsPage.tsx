@@ -6,7 +6,7 @@
 //
 // Results are grouped by kind. Each section renders an icon, primary text,
 // context (full_name / path / commit sha), and navigates on click. Empty,
-// loading, and error states piggy-back on the shared state surfaces so the
+// loading, and error states reuse the shared state surfaces so the
 // page stays consistent with the rest of the SPA.
 
 import {

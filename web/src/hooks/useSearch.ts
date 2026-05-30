@@ -86,7 +86,7 @@ export function useSearch(
   const kinds = options.kinds ?? [];
   const trimmed = q.trim();
   return useQuery<SearchResults, Error>({
-    queryKey: ['search', trimmed, kinds.join(','), options.limit ?? 20] as const,
+    queryKey: ['search', trimmed, kinds.join(','), options.limit ?? 20],
     queryFn: ({ signal }) =>
       apiGet<SearchResults>(
         endpoints.search(trimmed, {

@@ -16,8 +16,8 @@
 // this process.
 //
 // Trace / screenshot / video are captured only on failure to keep the
-// happy-path runs cheap; the a11y scans (`e2e/10-a11y.spec.ts`) piggyback on
-// the same trace artifacts.
+// happy-path runs cheap; the a11y scans (`e2e/10-a11y.spec.ts`) reuse the
+// same trace artifacts.
 
 import { defineConfig, devices } from '@playwright/test';
 

@@ -6,7 +6,7 @@ import { apiGet } from '../api/client';
 import { endpoints } from '../api/endpoints';
 import type { WebBootstrap } from '../api/types';
 
-export const BOOTSTRAP_QUERY_KEY = ['bootstrap'] as const;
+export const BOOTSTRAP_QUERY_KEY: readonly ['bootstrap'] = ['bootstrap'];
 
 export function useBootstrap(): UseQueryResult<WebBootstrap, Error> {
   return useQuery({
