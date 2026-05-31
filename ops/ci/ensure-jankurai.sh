@@ -69,7 +69,7 @@ fi
 
 if [ "${strict_tag:-0}" = "1" ]; then
   raw_tag_rev="$(resolve_tag_rev)"
-  tag_rev="$(printf '%s\n' "${raw_tag_rev}" | awk '/^[0-9a-f]{40}$/ { print; exit }')"
+  tag_rev="$(printf '%s\n' "${raw_tag_rev}" | tr -d '\r' | grep -Eo '^[0-9a-fA-F]{40}$' | head -n 1 || true)"
   if [ -z "${tag_rev}" ]; then
     echo "jankurai tag not published: ${JANKURAI_TAG}; verifying pinned rev ${JANKURAI_REV}"
     verify_pinned_rev_fetchable
