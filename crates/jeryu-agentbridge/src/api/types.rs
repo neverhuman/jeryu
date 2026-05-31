@@ -98,6 +98,33 @@ pub struct ProposedFixRequest {
     pub residual_risk: String,
 }
 
+/// Scoped patch request: a single bounded, scope-checked mutation.
+///
+/// This is the clean public mutation seam used by external transports (e.g. the
+/// MCP `propose_patch` tool). It folds the scope check and the proof-engine
+/// ownership gate into one bounded call and records an audit receipt, without
+/// requiring the caller to first mint a dry-run receipt and proof witness.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ScopedPatchRequest {
+    /// Agent write scope (identity, repo, allowed path prefixes, mutation cap).
+    pub scope: AgentScope,
+    /// PR id the patch targets.
+    pub pr: PullRequestId,
+    /// Base SHA the patch is bound to (must match the PR base or head).
+    pub base_sha: String,
+    /// Patch entries. Never committed to the tree; scoped and recorded as metadata.
+    pub patches: Vec<FilePatch>,
+}
+
+/// Scoped patch response.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ScopedPatchResponse {
+    /// Receipt id proving the mutation was scope-validated.
+    pub receipt_id: ReceiptId,
+    /// Paths the mutation touched (all within scope).
+    pub changed_paths: Vec<String>,
+}
+
 /// Hotfix request.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HotfixRequest {

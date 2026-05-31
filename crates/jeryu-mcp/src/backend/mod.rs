@@ -1,15 +1,18 @@
 //! Backend trait seam + in-memory implementation.
 //!
 //! The MCP transport is a thin adapter. All tool DISPATCH goes behind the
-//! [`ToolBackend`] trait so the transport stays free of any engine dependency.
-//! [`MemoryBackend`] is a deterministic in-memory implementation used by the
-//! tests here.
+//! [`ToolBackend`] trait so the transport stays free of any one engine choice.
+//! [`BridgeBackend`] is the real implementation: the mutating tools route
+//! through [`jeryu_agentbridge::AgentBridge`] for scope-validated bounded
+//! mutations. [`MemoryBackend`] is kept as a deterministic in-memory test double.
 //!
 //! Bug tracking (the `bug_*` tools) is split out behind [`BugStore`] so the KEPT
 //! RedlineDB persistence layer can be supplied independently of the agent backend.
 
+mod bridge;
 mod memory;
 
+pub use bridge::BridgeBackend;
 pub use memory::MemoryBackend;
 
 use serde::{Deserialize, Serialize};
@@ -100,7 +103,8 @@ impl McpCallContext {
     }
 }
 
-/// The single dispatch seam. The real impl wires jeryu-agentbridge later.
+/// The single dispatch seam. [`BridgeBackend`] is the real jeryu-agentbridge-backed
+/// implementation; [`MemoryBackend`] is the test double.
 ///
 /// `call` receives the *unprefixed* tool id (e.g. `fetch_capsule`, not `jeryu.fetch_capsule`)
 /// and the raw JSON arguments object. `list` produces the catalog the transport advertises.

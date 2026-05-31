@@ -13,6 +13,9 @@ tokio = { version = "1", features = ["io-std", "io-util", "rt", "rt-multi-thread
 axum = "0.7"
 uuid = { version = "1", features = ["v4"] }
 tracing = "0.1"
+jeryu-core = { path = "../jeryu-core" }
+jeryu-proof = { path = "../jeryu-proof" }
+jeryu-agentbridge = { path = "../jeryu-agentbridge" }
 
 [dev-dependencies]
 reqwest = { version = "0.12", features = ["json"] }

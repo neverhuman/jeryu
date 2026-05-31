@@ -1608,6 +1608,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "jeryu-agentbridge",
+ "jeryu-core",
+ "jeryu-proof",
  "reqwest",
  "serde",
  "serde_json",

@@ -4,11 +4,13 @@
 //! [`ProofEngine`], and exposes the typed endpoints grouped by responsibility:
 //!   - read-only context + mergeability + receipt lookup (this module),
 //!   - dry-run + proof operations ([`dry_run`]),
+//!   - the bounded scope-checked mutation seam ([`mutate`]),
 //!   - proposal + hotfix operations ([`propose`]).
 //!
 //! All request/response value types live in [`types`] and are re-exported here.
 
 mod dry_run;
+mod mutate;
 mod propose;
 mod types;
 
