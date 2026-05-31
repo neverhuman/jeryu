@@ -1,6 +1,7 @@
 //! Command line interface.
 
 use crate::audit::append_receipt;
+use crate::auth::{AuthRegistry, SCOPE_READ, SCOPE_WRITE};
 use crate::config::GitdConfig;
 use crate::error::{GitdError, Result};
 use crate::hooks::PreReceiveGuard;
@@ -81,6 +82,30 @@ pub fn run_with_args(args: Vec<String>) -> Result<i32> {
             let root = value_after(&args, "--root")?;
             let config = GitdConfig::new(&root);
             ssh::exec_from_env(&PathBuf::from(root), &config.git_bin)
+        }
+        "auth-mint-pat" => {
+            let root = value_after(&args, "--root")?;
+            let owner = positional(&args, 0)?;
+            // Default scope set is read+write; `--read-only` narrows to read.
+            let scopes = if args.iter().any(|a| a == "--read-only") {
+                vec![SCOPE_READ.to_string()]
+            } else {
+                vec![SCOPE_READ.to_string(), SCOPE_WRITE.to_string()]
+            };
+            let mut registry = AuthRegistry::open(&PathBuf::from(&root))?;
+            let pat = registry.mint_pat(&owner, scopes)?;
+            // The plaintext token is shown exactly once; only its hash persists.
+            println!("{}", pat.token());
+            Ok(0)
+        }
+        "auth-register-ssh-key" => {
+            let root = value_after(&args, "--root")?;
+            let owner = positional(&args, 0)?;
+            let pubkey = value_after(&args, "--pubkey")?;
+            let mut registry = AuthRegistry::open(&PathBuf::from(&root))?;
+            let fingerprint = registry.register_ssh_key(&owner, &pubkey)?;
+            println!("{fingerprint}");
+            Ok(0)
         }
         "mirror-clone" => {
             let root = value_after(&args, "--root")?;
@@ -166,6 +191,8 @@ fn print_help() {
     eprintln!("  refs --root PATH OWNER REPO");
     eprintln!("  pre-receive --root PATH [--actor ACTOR] OWNER REPO");
     eprintln!("  ssh-exec --root PATH");
+    eprintln!("  auth-mint-pat --root PATH [--read-only] OWNER");
+    eprintln!("  auth-register-ssh-key --root PATH --pubkey KEY OWNER");
     eprintln!("  mirror-clone --root PATH --remote URL OWNER REPO");
     eprintln!("  lfs-put --root PATH --oid SHA256 --file PATH OWNER REPO");
     eprintln!("  lfs-get --root PATH --oid SHA256 OWNER REPO");

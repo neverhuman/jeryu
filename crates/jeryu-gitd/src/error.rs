@@ -32,6 +32,10 @@ pub enum GitdError {
     Http(String),
     /// LFS object operation failed.
     Lfs(String),
+    /// Authentication is required or the presented credential is invalid.
+    Unauthorized,
+    /// Authenticated, but the principal lacks authorization for the action.
+    Forbidden(String),
 }
 
 impl Display for GitdError {
@@ -55,6 +59,8 @@ impl Display for GitdError {
             Self::Protocol(msg) => write!(f, "protocol error: {msg}"),
             Self::Http(msg) => write!(f, "http error: {msg}"),
             Self::Lfs(msg) => write!(f, "lfs error: {msg}"),
+            Self::Unauthorized => write!(f, "unauthorized"),
+            Self::Forbidden(msg) => write!(f, "forbidden: {msg}"),
         }
     }
 }

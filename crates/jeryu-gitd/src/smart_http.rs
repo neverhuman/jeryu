@@ -1,5 +1,6 @@
 //! Minimal smart HTTP server for Phase 1 Git operations.
 
+use crate::auth::{AuthDecision, AuthRegistry, extract_bearer_or_basic};
 use crate::error::{GitdError, Result};
 use crate::pack::{PackService, advertise_refs, stateless_rpc};
 use crate::pktline;
@@ -7,6 +8,9 @@ use crate::repo::RepoManager;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+
+/// Realm advertised in `WWW-Authenticate` challenges.
+const AUTH_REALM: &str = "jeryu";
 
 /// Blocking smart HTTP server.
 #[derive(Clone, Debug)]
@@ -19,6 +23,32 @@ impl SmartHttpServer {
     #[must_use]
     pub fn new(manager: RepoManager) -> Self {
         Self { manager }
+    }
+
+    /// Open the auth registry rooted under the manager's storage root.
+    fn auth_registry(&self) -> Result<AuthRegistry> {
+        AuthRegistry::open(&self.manager.config().storage_root)
+    }
+
+    /// Authorize a request against the credential registry.
+    ///
+    /// `write` selects receive-pack (mutating) semantics. On denial the
+    /// returned response is a GitHub-shaped 401 (with `WWW-Authenticate`) or a
+    /// 403 JSON body.
+    fn authorize(&self, request: &HttpRequest, owner: &str, write: bool) -> Result<()> {
+        let registry = self.auth_registry()?;
+        let credential = request
+            .headers
+            .get("authorization")
+            .and_then(|h| extract_bearer_or_basic(h));
+        match registry.decide(credential.as_deref(), request.is_loopback, owner, write) {
+            AuthDecision::Allow(_) => Ok(()),
+            AuthDecision::Deny401 => Err(GitdError::Unauthorized),
+            AuthDecision::Deny403 => Err(GitdError::Forbidden(format!(
+                "principal not authorized to {} {owner}",
+                if write { "write" } else { "read" }
+            ))),
+        }
     }
 
     /// Serve forever on the configured address.
@@ -39,15 +69,25 @@ impl SmartHttpServer {
     }
 
     fn handle_stream(&self, mut stream: TcpStream) -> Result<()> {
-        let request = HttpRequest::read(&mut stream)?;
+        let is_loopback = stream
+            .peer_addr()
+            .map(|addr| addr.ip().is_loopback())
+            .unwrap_or(false);
+        let mut request = HttpRequest::read(&mut stream)?;
+        request.is_loopback = is_loopback;
         let response = self.route(request);
         response.write(&mut stream)
     }
 
     /// Route an HTTP request and return a response.
+    ///
+    /// Authentication denials are rendered as GitHub-shaped responses: a 401
+    /// carrying `WWW-Authenticate: Basic realm="jeryu"`, or a 403 JSON body.
     pub fn route(&self, request: HttpRequest) -> HttpResponse {
         match self.route_inner(request) {
             Ok(response) => response,
+            Err(GitdError::Unauthorized) => unauthorized_response(),
+            Err(GitdError::Forbidden(msg)) => forbidden_response(&msg),
             Err(err) => HttpResponse::text(500, &format!("jeryu_gitd error: {err}\n")),
         }
     }
@@ -79,6 +119,7 @@ impl SmartHttpServer {
         let service = PackService::parse(service)
             .ok_or_else(|| GitdError::Http(format!("unsupported service: {service}")))?;
         let (owner, repo_name) = parse_repo_from_path(request.path.trim_end_matches("/info/refs"))?;
+        self.authorize(request, &owner, service.is_write())?;
         let repo = self.manager.open_parts(&owner, &repo_name)?;
         let mut body = pktline::encode_str(&format!("# service={}\n", service.http_name()));
         body.extend(pktline::flush());
@@ -98,6 +139,7 @@ impl SmartHttpServer {
         let suffix = format!("/{}", service.http_name());
         let base = request.path.trim_end_matches(&suffix);
         let (owner, repo_name) = parse_repo_from_path(base)?;
+        self.authorize(request, &owner, service.is_write())?;
         let repo = self.manager.open_parts(&owner, &repo_name)?;
         let body = stateless_rpc(
             &self.manager.config().git_bin,
@@ -151,6 +193,11 @@ pub struct HttpRequest {
     pub headers: HashMap<String, String>,
     /// Request body.
     pub body: Vec<u8>,
+    /// Whether the peer connected over the loopback interface.
+    ///
+    /// Set by the connection handler from the socket peer address; defaults to
+    /// `false` for synthetic requests so authorization fails closed.
+    pub is_loopback: bool,
 }
 
 impl HttpRequest {
@@ -211,6 +258,7 @@ impl HttpRequest {
             query,
             headers,
             body,
+            is_loopback: false,
         })
     }
 }
@@ -258,6 +306,9 @@ pub struct HttpResponse {
     status: u16,
     content_type: String,
     body: Vec<u8>,
+    /// Extra response headers (name, value) emitted verbatim, e.g.
+    /// `WWW-Authenticate`.
+    extra_headers: Vec<(String, String)>,
 }
 
 impl HttpResponse {
@@ -268,6 +319,7 @@ impl HttpResponse {
             status,
             content_type: "text/plain; charset=utf-8".to_string(),
             body: body.as_bytes().to_vec(),
+            extra_headers: Vec::new(),
         }
     }
 
@@ -278,27 +330,102 @@ impl HttpResponse {
             status,
             content_type: content_type.to_string(),
             body,
+            extra_headers: Vec::new(),
         }
+    }
+
+    /// Attach an extra response header.
+    #[must_use]
+    pub fn with_header(mut self, name: &str, value: &str) -> Self {
+        self.extra_headers
+            .push((name.to_string(), value.to_string()));
+        self
+    }
+
+    /// The HTTP status code.
+    #[must_use]
+    pub fn status(&self) -> u16 {
+        self.status
+    }
+
+    /// Look up an extra header value by case-insensitive name.
+    #[must_use]
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.extra_headers
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
+
+    /// The response body bytes.
+    #[must_use]
+    pub fn body(&self) -> &[u8] {
+        &self.body
     }
 
     fn write(&self, stream: &mut TcpStream) -> Result<()> {
         let status_text = match self.status {
             200 => "OK",
+            401 => "Unauthorized",
+            403 => "Forbidden",
             404 => "Not Found",
             500 => "Internal Server Error",
             _ => "OK",
         };
         write!(
             stream,
-            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-cache\r\nConnection: close\r\n",
             self.status,
             status_text,
             self.content_type,
             self.body.len()
         )?;
+        for (name, value) in &self.extra_headers {
+            write!(stream, "{name}: {value}\r\n")?;
+        }
+        write!(stream, "\r\n")?;
         stream.write_all(&self.body)?;
         Ok(())
     }
+}
+
+/// Build a GitHub-shaped 401 challenge.
+///
+/// Mirrors GitHub's smart-HTTP 401: a `WWW-Authenticate: Basic realm="jeryu"`
+/// header plus a short plaintext body so `git` re-prompts for credentials.
+#[must_use]
+fn unauthorized_response() -> HttpResponse {
+    HttpResponse::text(401, "Requires authentication\n")
+        .with_header("WWW-Authenticate", &format!("Basic realm=\"{AUTH_REALM}\""))
+}
+
+/// Build a GitHub-shaped 403 JSON body for an authorization failure.
+#[must_use]
+fn forbidden_response(message: &str) -> HttpResponse {
+    let body = format!(
+        "{{\"message\":{},\"documentation_url\":\"https://docs.jeryu/auth\"}}",
+        json_string(message)
+    );
+    HttpResponse::bytes(403, "application/json; charset=utf-8", body.into_bytes())
+}
+
+/// Minimal JSON string escaper for the small, controlled messages we emit.
+fn json_string(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }
 
 #[cfg(test)]
