@@ -10,8 +10,9 @@ use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{OriginalUri, Path as AxumPath, State};
-use axum::http::{Method as HttpMethod, StatusCode, header};
+use axum::extract::{OriginalUri, Path as AxumPath, Request, State};
+use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
+use axum::middleware::{Next, from_fn};
 use axum::response::{Html, IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
@@ -157,6 +158,9 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
     let spa = ServeDir::new(spa_dir).fallback(ServeFile::new(spa_dir.join("index.html")));
     AxumRouter::new()
         .route("/health", get(health))
+        // Steering surface: advertises the faster jeryu/MCP path so external
+        // agents stuck on bespoke `gh` commands can discover it.
+        .route("/.jeryu/capabilities", get(capabilities))
         .route("/api/v1/bootstrap", get(bootstrap))
         .route("/api/v1/bootstrap.tui", get(bootstrap_tui))
         .route("/api/v1/repos", get(repos))
@@ -201,11 +205,125 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/repos/:owner/:repo/releases", any(github_forward))
         .route("/repos/:owner/:repo/hooks", any(github_forward))
         .fallback_service(spa)
+        // Response middleware that stamps every reply with advisory steering
+        // headers (and a per-route MCP tool hint for gh/automation UAs).
+        .layer(from_fn(steer_headers))
         .with_state(Arc::new(state))
 }
 
 async fn health() -> Json<Value> {
     Json(json!({ "status": "ok", "service": "jeryu-api" }))
+}
+
+const HDR_API: &str = "x-jeryu-api";
+const HDR_FAST_PATH: &str = "x-jeryu-fast-path";
+const HDR_TOOL: &str = "x-jeryu-tool";
+
+/// Response middleware: stamps every reply with advisory steering headers. For
+/// `gh`/automation user-agents it also injects a suggested jeryu MCP tool for
+/// the request's route+method, nudging external agents off bespoke `gh`
+/// invocations and onto the faster MCP path. Cheap and infallible: it never
+/// fails the request and only ever appends headers.
+async fn steer_headers(request: Request, next: Next) -> AxumResponse {
+    let user_agent = request
+        .headers()
+        .get(header::USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let method = request.method().clone();
+    let path = request.uri().path().to_string();
+
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+    for (name, value) in advisory_headers(&user_agent, &method, &path) {
+        if let (Ok(name), Ok(value)) = (
+            HeaderName::from_bytes(name.as_bytes()),
+            HeaderValue::from_str(&value),
+        ) {
+            headers.insert(name, value);
+        }
+    }
+    response
+}
+
+/// Pure builder for the advisory steering headers. Always emits the API version
+/// and fast-path pointer; for `gh`/automation/agent user-agents it additionally
+/// emits a per-route MCP tool hint when one is known. Factored out of the
+/// middleware so the header policy can be unit-tested without a live server.
+fn advisory_headers(
+    user_agent: &str,
+    method: &HttpMethod,
+    path: &str,
+) -> Vec<(&'static str, String)> {
+    let mut headers = vec![
+        (HDR_API, "v4".to_string()),
+        (HDR_FAST_PATH, "/.jeryu/capabilities".to_string()),
+    ];
+    if is_automation_agent(user_agent)
+        && let Some(tool) = suggested_tool(method, path)
+    {
+        headers.push((HDR_TOOL, tool.to_string()));
+    }
+    headers
+}
+
+/// Heuristic: does this user-agent look like the `gh` CLI, a generic HTTP
+/// client used by automation, or a Jeryu/agent UA? Matched case-insensitively.
+fn is_automation_agent(user_agent: &str) -> bool {
+    let ua = user_agent.to_ascii_lowercase();
+    const NEEDLES: [&str; 7] = [
+        "github cli",
+        "go-gh",
+        "okhttp",
+        "curl",
+        "python-requests",
+        "jeryu",
+        "agent",
+    ];
+    NEEDLES.iter().any(|needle| ua.contains(needle))
+}
+
+/// Suggests the jeryu MCP tool for a route+method so steered agents can switch
+/// to the faster path. Mutations map to dedicated MCP tools; all other GETs map
+/// to the generic read tool. Returns `None` when no hint applies.
+fn suggested_tool(method: &HttpMethod, path: &str) -> Option<&'static str> {
+    let trimmed = path.trim_end_matches('/');
+    match *method {
+        HttpMethod::POST if trimmed.ends_with("/pulls") => Some("jeryu.mcp.propose_patch"),
+        HttpMethod::PUT if trimmed.ends_with("/merge") => Some("jeryu.mcp.request_merge"),
+        HttpMethod::POST if trimmed.ends_with("/issues") => Some("jeryu.mcp.open_issue"),
+        HttpMethod::POST if trimmed == "/repos" => Some("jeryu.mcp.create_repo"),
+        HttpMethod::GET => Some("jeryu.mcp.read"),
+        _ => None,
+    }
+}
+
+/// Capability manifest: advertises the live endpoints plus a `gh` command -> jeryu
+/// mapping so external agents can discover and prefer the faster MCP path.
+async fn capabilities() -> Json<Value> {
+    Json(capabilities_payload())
+}
+
+/// Pure builder for the `/.jeryu/capabilities` payload (unit-testable).
+fn capabilities_payload() -> Value {
+    json!({
+        "server": "jeryu",
+        "api_version": "v4",
+        "graphql": "/graphql",
+        "websocket": "/api/v1/ws",
+        "mcp_endpoint": "/mcp",
+        "gh_command_map": {
+            "gh pr create": "jeryu.mcp.propose_patch",
+            "gh pr merge": "jeryu.mcp.request_merge",
+            "gh pr list": "GET /repos/{owner}/{repo}/pulls",
+            "gh issue create": "POST /repos/{owner}/{repo}/issues",
+            "gh api": "REST/GraphQL pass-through",
+            "gh repo create": "POST /repos",
+        },
+        "fast_path_advice":
+            "Prefer the jeryu MCP tools for mutations; gh REST/GraphQL is supported but slower.",
+    })
 }
 
 async fn bootstrap(State(state): State<Arc<WebState>>) -> Json<WebBootstrap> {
@@ -798,11 +916,147 @@ mod tests {
     #[test]
     fn app_router_builds_without_route_conflicts() {
         // Axum panics during construction on overlapping/ambiguous routes, so
-        // building the full router is the regression guard for the REST mount.
+        // building the full router is the regression guard for the REST mount,
+        // the steering middleware layer, and the /.jeryu/capabilities route.
         let _app = app(
             WebState::new(ForgeCore::new()),
             std::path::Path::new("/tmp"),
         );
+    }
+
+    fn header_value<'a>(headers: &'a [(&'static str, String)], name: &str) -> Option<&'a str> {
+        headers
+            .iter()
+            .find(|(n, _)| *n == name)
+            .map(|(_, v)| v.as_str())
+    }
+
+    #[test]
+    fn advisory_headers_always_present_on_any_route() {
+        // A plain browser UA still gets the API + fast-path advisories, but no
+        // tool hint (we only steer automation/gh-like clients).
+        let headers = advisory_headers(
+            "Mozilla/5.0 (browser)",
+            &HttpMethod::GET,
+            "/api/v1/bootstrap",
+        );
+        assert_eq!(header_value(&headers, HDR_API), Some("v4"));
+        assert_eq!(
+            header_value(&headers, HDR_FAST_PATH),
+            Some("/.jeryu/capabilities")
+        );
+        assert!(header_value(&headers, HDR_TOOL).is_none());
+    }
+
+    #[test]
+    fn advisory_headers_steer_gh_like_agents_to_mcp_tools() {
+        // The gh CLI UA on a PR-create maps to the propose_patch MCP tool.
+        let gh = advisory_headers(
+            "GitHub CLI 2.40.0 go-gh/2.0",
+            &HttpMethod::POST,
+            "/repos/alice/jeryu/pulls",
+        );
+        assert_eq!(header_value(&gh, HDR_TOOL), Some("jeryu.mcp.propose_patch"));
+
+        // A merge PUT maps to request_merge for any automation UA (curl here).
+        let merge = advisory_headers(
+            "curl/8.0",
+            &HttpMethod::PUT,
+            "/repos/alice/jeryu/pulls/7/merge",
+        );
+        assert_eq!(
+            header_value(&merge, HDR_TOOL),
+            Some("jeryu.mcp.request_merge")
+        );
+
+        // GET routes steer to the generic read tool for agent UAs.
+        let read = advisory_headers(
+            "jeryu-agent/1.0",
+            &HttpMethod::GET,
+            "/repos/alice/jeryu/pulls",
+        );
+        assert_eq!(header_value(&read, HDR_TOOL), Some("jeryu.mcp.read"));
+
+        // Issue + repo create get their dedicated mutation tools.
+        assert_eq!(
+            header_value(
+                &advisory_headers(
+                    "python-requests/2.31",
+                    &HttpMethod::POST,
+                    "/repos/a/b/issues"
+                ),
+                HDR_TOOL
+            ),
+            Some("jeryu.mcp.open_issue")
+        );
+        assert_eq!(
+            header_value(
+                &advisory_headers("okhttp/4.0", &HttpMethod::POST, "/repos"),
+                HDR_TOOL
+            ),
+            Some("jeryu.mcp.create_repo")
+        );
+    }
+
+    #[test]
+    fn automation_agent_detection_is_case_insensitive_and_scoped() {
+        assert!(is_automation_agent("GitHub CLI 2.40.0"));
+        assert!(is_automation_agent("github cli"));
+        assert!(is_automation_agent("go-gh/2.0"));
+        assert!(is_automation_agent("okhttp/4.12.0"));
+        assert!(is_automation_agent("curl/8.4.0"));
+        assert!(is_automation_agent("python-requests/2.31.0"));
+        assert!(is_automation_agent("Jeryu-Agent/1.0"));
+        assert!(is_automation_agent("some-agent-runner"));
+        // A normal browser is not steered with a tool hint.
+        assert!(!is_automation_agent(
+            "Mozilla/5.0 (Macintosh) AppleWebKit Safari"
+        ));
+        assert!(!is_automation_agent(""));
+    }
+
+    #[test]
+    fn suggested_tool_covers_mutations_and_reads() {
+        assert_eq!(
+            suggested_tool(&HttpMethod::POST, "/repos/a/b/pulls"),
+            Some("jeryu.mcp.propose_patch")
+        );
+        assert_eq!(
+            suggested_tool(&HttpMethod::PUT, "/repos/a/b/pulls/3/merge"),
+            Some("jeryu.mcp.request_merge")
+        );
+        assert_eq!(
+            suggested_tool(&HttpMethod::GET, "/repos/a/b"),
+            Some("jeryu.mcp.read")
+        );
+        // A DELETE (unsupported verb) yields no hint.
+        assert!(suggested_tool(&HttpMethod::DELETE, "/repos/a/b").is_none());
+    }
+
+    #[test]
+    fn capabilities_payload_exposes_the_gh_command_map() {
+        let payload = capabilities_payload();
+        assert_eq!(payload["server"], "jeryu");
+        assert_eq!(payload["api_version"], "v4");
+        assert_eq!(payload["graphql"], "/graphql");
+        assert_eq!(payload["websocket"], "/api/v1/ws");
+        assert_eq!(payload["mcp_endpoint"], "/mcp");
+        assert!(payload["fast_path_advice"].is_string());
+
+        let map = &payload["gh_command_map"];
+        for key in [
+            "gh pr create",
+            "gh pr merge",
+            "gh pr list",
+            "gh issue create",
+            "gh api",
+            "gh repo create",
+        ] {
+            assert!(map.get(key).is_some(), "missing gh_command_map key: {key}");
+        }
+        assert_eq!(map["gh pr create"], "jeryu.mcp.propose_patch");
+        assert_eq!(map["gh pr merge"], "jeryu.mcp.request_merge");
+        assert_eq!(map["gh repo create"], "POST /repos");
     }
 
     /// A `WebState` whose read model has one saturated pool, so the activity
