@@ -38,21 +38,18 @@ excluded_paths = ["tips/", "AGENT_CHAT.md", "CI_TRACKER.md", ".jankurai/", "web/
 full_scan_interval_secs = 3600
 roulette_rate = 0.10
 
-# --- Accepted tool false-positives (DOCUMENTATION ONLY) ---------------------
+# --- Dead-language term allowlist (opt-in) ----------------------------------
 #
-# jankurai 1.6.0 has NO honest mechanism to allowlist a dead-language term or to
-# scope a single rule to a path. Verified exhaustively (probe, 2026-05-31): 9
-# policy-section variants ([domain_terms]/[dead_language]/[hlt_001]/[vibe]/
-# [lexicon]/[terms]/[allowlist]/...), 6 per-rule path-scoping variants, inline
-# ignore markers, --baseline, and docs/exceptions/*.md were ALL silently ignored
-# by `jankurai audit`. The --policy FLAG is also ignored; only this
-# auto-discovered file is read, and only its [scan]/minimum_score/[history] keys
-# take effect. So nothing below is "config" — it is a documented register of
-# findings we reviewed and accept as tool false-positives; the score is honestly
-# tool-capped until jankurai gains a real allowlist.
+# jankurai's HLT-001 future-hostile/dead-language heuristic is a bare-word
+# matcher. A few of its words are LOAD-BEARING API / protocol / domain names in
+# this GitHub-compatible forge + React SPA — renaming them would break GitHub
+# parity, the React/HTML platform contract, or the client/server wire protocol.
+# The `[dead_language] allow_terms` mechanism (jankurai >= 1.6.1) suppresses ONLY
+# these exact words for the dead-marker check; every other dead-language,
+# fallback-soup, and security check still runs on the same files. Each term is
+# justified below; this is a reviewed, documented decision, not a blanket
+# disable (process markers like todo/fixme/hack/stub are deliberately NOT listed).
 #
-# HLT-001 dead-language hits that are LOAD-BEARING API / protocol names (renaming
-# breaks GitHub parity, the React/HTML platform contract, or the wire protocol):
 #   stale       -> GitHub CheckConclusion REST value "stale" (jeryu-api/github.rs
 #                  wire mapping; the Rust variant is renamed `Superseded`, but the
 #                  wire STRING must stay); SPA-facing backend error codes
@@ -60,15 +57,12 @@ roulette_rate = 0.10
 #                  the GitHub `dismiss_stale_approvals` branch-protection field.
 #   placeholder -> the HTML `<input placeholder>` attribute / React prop name.
 #   fallback    -> the React `<Suspense fallback>` / ErrorBoundary prop name.
-#   old / new   -> unified-diff side labels + git ref-update `<old-oid> <new-oid>`.
+#   old         -> unified-diff side labels + git ref-update `<old-oid> <new-oid>`.
 #
-# Same-sink multi-rule false-positives (HLT-031 / HLT-039 / HLT-023 all fire on
-# one line): web/src/components/browser/MarkdownRenderer.tsx dangerouslySetInnerHTML
-# of `safeHtml`, which is ALWAYS DOMPurify.sanitize(...) over server-side ammonia
-# sanitization — the only way to render sanitized Markdown in React, with an
-# existing XSS negative test (MarkdownRenderer.test.tsx, W-FE-09). And
-# web/src/stores/realtimeStore.ts sessionStorage of a non-secret WS resume cursor
-# (monotonic event sequence), not a credential.
-#
-# To raise the score HONESTLY, jankurai needs a per-term / per-rule-per-path
-# allowlist — a jankurai change, not a code-quality fix in this repo.
+# NOTE: the MarkdownRenderer.tsx (sanitized `dangerouslySetInnerHTML`, DOMPurify +
+# server ammonia, with an existing XSS negative test W-FE-09) and realtimeStore.ts
+# (sessionStorage of a non-secret WS resume cursor) findings are separate
+# security-detector false-positives, not dead-language; they are documented here
+# but not yet suppressible by this section.
+[dead_language]
+allow_terms = ["stale", "placeholder", "fallback", "old"]
