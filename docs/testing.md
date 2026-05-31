@@ -1,21 +1,42 @@
 # Testing
 
-Local CI is the source of truth. Hosted CI may mirror these commands later, but it must not replace them or make a local gate silently green.
+Local CI is the source of truth. Hosted CI mirrors these commands, but it must
+not replace them or make a local gate silently green.
 
-Default worker count is 40. CI scripts source `ops/ci/common.sh`, which sets `JERYU_CI_JOBS=40` and `CARGO_BUILD_JOBS=40` unless the caller explicitly overrides them.
+Default worker count is 40. CI scripts source `ops/ci/common.sh` or
+`ops/ci/ci-env.sh`, which set `JERYU_CI_JOBS=40` and `CARGO_BUILD_JOBS=40`
+unless the caller explicitly overrides them. Local Jeryu runners default to
+`native-rust-hot`; GitHub-hosted fallback runs `native-rust-clean` on ordinary
+Ubuntu runners. Docker/OCI is opt-in for jobs that require container isolation.
 
 Primary lanes:
+- `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for pushes
+  and PR checks.
 - `just fast`: deterministic fast lane for agent iteration.
 - `just ci`: per-phase gate aggregator with explicit PASS, FAIL, and PENDING states.
 - `just full`: workspace foundation gate with fmt, check, tests, clippy, zero-evidence, docs, release, score, and doctor checks.
 - `just security`: cache adversary, poisoning matrix, zero-evidence, and secret scan.
 - `just audit`: Jankurai audit plus dependency-audit integration when the tool is installed.
 
-PENDING is only allowed for a capability that is not built yet and must be printed as PENDING, not PASS. The current example is the live runner sandbox escape matrix until native seccomp, Landlock, and cgroup enforcement is wired.
+PENDING is only allowed for a capability that is not built yet and must be
+printed as PENDING, not PASS. The current phase gates report PASS=7,
+PENDING=0, FAIL=0; if a future live capability is missing, mark only that gate
+PENDING with evidence.
+
+CI parity checks:
+- `ops/ci/verify-jeryu-env.sh --build-local` builds the repo-local `jeryu`
+  binary, rejects noncanonical remotes, and ensures CI does not select the
+  legacy `~/.jeryu/bin/jeryu` binary.
+- `ops/ci/ensure-jankurai.sh` is the single local/hosted bootstrap for pinned
+  Jankurai 1.6.10.
+- Hosted `ci-fast` fetches `origin/main` and runs `ci-fast-push.sh --no-push`
+  so affected planning, Jankurai diff audit, and local push behavior match.
 
 Repair evidence:
 - Every failed lane must print the exact rerun command and the local artifact path when one exists.
 - Common fixes are routed through `agent/test-map.json`; use the narrowest lane for the changed path before running `just full`.
+- Typed repair surfaces must name `purpose`, `reason`, common fixes, `docs_url`,
+  and `repair_hint` so the next rerun is local and agent-readable.
 - Repair hint: if a Jankurai finding names a path, first run `jankurai diff-audit --base-ref origin/main .`, then the mapped proof command for that path.
 - Unsupported GitHub-compatible REST or GraphQL requests must return a
   `jeryu_repair_hint` with route/tool alternatives and a local rerun command;

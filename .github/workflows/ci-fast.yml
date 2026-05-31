@@ -2,6 +2,7 @@ name: ci-fast
 
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -14,6 +15,10 @@ concurrency:
 env:
   JERYU_CI_JOBS: "40"
   CARGO_BUILD_JOBS: "40"
+  JERYU_JANKURAI_STRICT_TAG: "1"
+  JANKURAI_REPO: "https://github.com/neverhuman/jankurai.git"
+  JANKURAI_TAG: "v1.6.10-deadlang-precision"
+  JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
 
 jobs:
   affected-fast:
@@ -24,9 +29,12 @@ jobs:
         run: |
           git init .
           git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          git fetch --depth 2 origin "$GITHUB_SHA"
+          git fetch --no-tags --depth 64 origin "$GITHUB_REF"
           git checkout --detach FETCH_HEAD
+          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main
       - name: Toolchain
         run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Pinned Jankurai bootstrap
+        run: bash ops/ci/ensure-jankurai.sh
       - name: Fast affected lane
         run: bash ops/ci/ci-fast.sh

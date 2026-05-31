@@ -1181,3 +1181,89 @@ Result:
   check/clippy/tests, API web feature tests, Jankurai diff audit (`score=90`,
   `hard=0`, `caps=0`), and Jankurai audit (`score=90`, `caps=0`).
 - Implementation commit: `5d8cd7c`.
+
+## 2026-05-31T05:51Z - Codex
+
+CLAIM: README currency pass on clean `origin/main` at `5a2aa7e`.
+
+Scope:
+- Bring the top-level README in line with the current live SQLite/API/TUI/import,
+  GitHub-compatible REST/GraphQL repair, web, CI, and Jankurai evidence state.
+- Refresh the referenced CI tracker only where its status summary is stale
+  relative to already-pushed GraphQL/REST compatibility receipts.
+- No product code changes.
+
+Touched paths expected:
+- `README.md`
+- `CI_TRACKER.md`
+- `docs/release.md`
+- `AGENT_CHAT.md`
+
+Expected gates:
+- `cargo run -q -p jeryu-mapcheck -- docs`
+- `./scripts/check-agent-maps.sh`
+- `./scripts/check-owner-test-map.sh`
+- `git diff --check`
+- `bash ci-fast-push.sh --no-push`
+
+## 2026-05-31T06:03Z - Codex
+
+CLAIM: local/GitHub CI parity and native Rust fast-path tranche on dirty docs
+worktree from README currency pass.
+
+Scope:
+- Make `ci-fast-push.sh --no-push` the single local and hosted fast gate, with
+  40-worker defaults and no hosted-only test behavior.
+- Add CI environment/bootstrap checks that prefer the repo-built `jeryu` binary,
+  reject the legacy `~/.jeryu/bin/jeryu` as the selected operator binary, and
+  verify the canonical GitHub remote when a remote is configured.
+- Keep native Rust execution as the default runner mode; Docker/OCI remains
+  opt-in or a compatibility fallback.
+- Ensure hosted GitHub workflow setup installs the same pinned Jankurai required
+  by the local fast gate.
+- Keep README/CI tracker/release docs aligned with the verified behavior.
+
+Touched paths expected:
+- `ci-fast-push.sh`
+- `ops/ci/**`
+- `.github/workflows/ci-fast.yml`
+- `crates/jeryu-cli/**`
+- `README.md`, `CI_TRACKER.md`, `docs/release.md`, `docs/testing.md`
+- `agent/test-map.json`
+- `AGENT_CHAT.md`
+
+Expected gates:
+- `cargo fmt --all --check`
+- `cargo test -p jeryu-cli --jobs 40`
+- `cargo run -q -p jeryu-mapcheck -- docs`
+- `./scripts/check-agent-maps.sh`
+- `./scripts/check-owner-test-map.sh`
+- `git diff --check`
+- `bash ci-fast-push.sh --no-push`
+
+Result:
+- Added shared CI profile detection in `ops/ci/ci-env.sh`: local runs default
+  to 40 workers, dockerless native Rust, `native-rust-hot`, and opportunistic
+  `sccache`; GitHub falls back to `native-rust-clean` and ordinary Cargo when
+  cache tooling is unavailable.
+- Added `ops/ci/ensure-jankurai.sh` as the single pinned Jankurai bootstrap for
+  local and hosted gates.
+- Added `ops/ci/verify-jeryu-env.sh` and wired it into `ci-fast-push.sh` so the
+  fast gate builds the repo-local `jeryu` binary, ignores legacy
+  `~/.jeryu/bin/jeryu` on `PATH`, and verifies the canonical GitHub remote.
+- Updated hosted `ci-fast` to run on PRs, fetch `origin/main`, install pinned
+  Jankurai through the same bootstrap script, and delegate to the same
+  `ci-fast-push.sh --no-push` path used locally.
+- Replaced duplicated workflow Jankurai install snippets with the shared
+  bootstrap script.
+- Changed `jeryu runner enroll` to default to the native executor and added a
+  CLI regression test for that default.
+- Updated README, testing docs, release docs, and CI tracker with the current
+  local/GitHub parity and release-control state.
+- Verification PASS: `cargo fmt --all --check`; `cargo test -p jeryu-cli --jobs
+  40`; docs/map checks; `git diff --check`; `bash ci-fast-push.sh --no-push`.
+- Final fast gate PASS in 23s: 40-worker local profile, repo-built `jeryu`
+  verified, legacy `~/.jeryu/bin/jeryu` ignored, pinned Jankurai 1.6.10
+  verified, clippy workspace PASS, 1113/1113 nextest tests PASS, zero-evidence
+  PASS, docs markers PASS, phase gates PASS=7/PENDING=0/FAIL=0, Jankurai diff
+  audit `score=88 hard=0 caps=0`, Jankurai audit `score=88 caps=0`.

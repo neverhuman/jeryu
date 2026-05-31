@@ -287,6 +287,20 @@ fn runner_enroll_parses_executor() {
     }
 }
 
+#[test]
+fn runner_enroll_defaults_to_native_executor() {
+    use jeryu_cli::cli::{RunnerCommands, RunnerExecutorArg};
+    let cli =
+        Cli::try_parse_from(["jeryu", "runner", "enroll", "node-8"]).expect("runner enroll parses");
+    match cli.command {
+        Commands::Runner(RunnerCommands::Enroll { node, executor }) => {
+            assert_eq!(node, "node-8");
+            assert_eq!(executor, RunnerExecutorArg::Native);
+        }
+        other => panic!("unexpected parse: {other:?}"),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Dispatch smoke tests (real assertions against the in-memory client)
 // ---------------------------------------------------------------------------

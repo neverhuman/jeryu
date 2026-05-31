@@ -18,7 +18,8 @@ pub struct Runner {
     pub accepting: bool,
 }
 
-/// Runner executor backend (OCI-first, then native).
+/// Runner executor backend. Native Rust is the default fast path; OCI is
+/// explicit for jobs that require container isolation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RunnerExecutor {

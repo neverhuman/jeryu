@@ -157,17 +157,7 @@ jobs:
       - name: Toolchain
         run: rustup toolchain install 1.95.0 --profile minimal
       - name: Ensure pinned jankurai on PATH
-        run: |
-          set -euo pipefail
-          tag_rev="$(git ls-remote --tags "$JANKURAI_REPO" "refs/tags/$JANKURAI_TAG" | awk '{print $1}')"
-          if [ "$tag_rev" != "$JANKURAI_REV" ]; then
-            echo "jankurai tag drift: got $tag_rev want $JANKURAI_REV" >&2
-            exit 1
-          fi
-          if ! command -v jankurai >/dev/null 2>&1 || ! jankurai --version | grep -qx 'jankurai 1.6.10'; then
-            cargo install --git "$JANKURAI_REPO" --rev "$JANKURAI_REV" --locked --package jankurai --bin jankurai
-          fi
-          jankurai --version | grep -qx 'jankurai 1.6.10'
+        run: bash ops/ci/ensure-jankurai.sh
       - name: jankurai audit (standard gate, fail under 85)
         run: |
           mkdir -p .jankurai

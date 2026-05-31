@@ -1,7 +1,7 @@
 //! `jeryu runner` taxonomy: list, enroll, drain, and rotate build runners.
 //!
 //! Runners are jeryu runners. There are no runner pools and no foreign-CI
-//! runner tokens; the executor is OCI-first, then native.
+//! runner tokens; the default executor is native Rust. OCI is explicit.
 
 use clap::{Subcommand, ValueEnum};
 
@@ -35,7 +35,7 @@ pub enum RunnerCommands {
         /// Node identifier to enroll.
         node: String,
         /// Executor backend for the enrolled runner.
-        #[arg(long, value_enum, default_value_t = RunnerExecutorArg::Oci)]
+        #[arg(long, value_enum, default_value_t = RunnerExecutorArg::Native)]
         executor: RunnerExecutorArg,
     },
     /// Drain a runner: stop accepting leases and await in-flight work.

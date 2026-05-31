@@ -5,6 +5,7 @@
 set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
+source "$(pwd)/ops/ci/ci-env.sh"
 
 JOBS="${JERYU_CI_JOBS:-40}"
 NO_PUSH="${JERYU_CI_NO_PUSH:-0}"
@@ -67,6 +68,9 @@ write_changed_list() {
   jq -r '.changed_files[]' "$PLAN" > "$CHANGED_LIST"
 }
 
+run_step "ci profile" jeryu_ci_profile_summary
+run_step "jeryu environment" bash ops/ci/verify-jeryu-env.sh --build-local
+run_step "jankurai bootstrap" bash ops/ci/ensure-jankurai.sh
 run_step "affected-plan" \
   jeryu_gate jeryu-repogate affected-plan --base "$BASE_REF" --out "$PLAN" --workers "$JOBS"
 run_step "affected changed-list" write_changed_list

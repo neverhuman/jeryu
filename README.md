@@ -25,6 +25,7 @@ Read these files before editing:
 - `docs/errors.md`
 - `docs/boundaries.md`
 - `docs/generated-zones.md`
+- `docs/release.md`
 - `docs/audit-rubric.md`
 - `docs/agent-native-standard.md`
 - Local `AGENTS.md` files under changed paths, for example `docs/AGENTS.md`
@@ -35,20 +36,35 @@ Public and agent-facing review objects are PRs. Do not add aliases, flags,
 fixtures, fields, docs, screenshots, or compatibility layers for retired review
 request terminology.
 
+## Current State (2026-05-31)
+
+`origin/main` contains the local v+1.0.0 platform baseline: durable
+`ForgeCore::open_sqlite` storage, the local Axum API, API-backed TUI capture,
+local repository import, affected fast CI, and guided GitHub-compatible
+REST/GraphQL repair responses. The latest full local fast lane passed with
+1113 workspace tests after the local/GitHub CI parity tranche, with Jankurai
+diff/audit gates at `88/88` and zero caps. Earlier GraphQL and REST
+compatibility follow-ups passed focused affected fast lanes, including Jankurai
+diff/audit gates at `88/92` and `90/90`.
+
+This checkpoint is local-first. The default operator path binds loopback and
+uses `~/.local/share/jeryu`; public/LAN access, token rotation, production
+signer adapters, and deeper daemon hardening remain explicit follow-up work.
+
 ## Implemented Surfaces
 
 | Area | Crates / binaries |
 | --- | --- |
-| Git service foundation | `jeryu-gitd` |
-| Forge/API domain and typed API facade | `jeryu-core`, `jeryu-api` |
+| Git service and imports | `jeryu-gitd`, `jeryu-mirror`, `jeryu-mirror-cli` |
+| Forge/domain/API facade | `jeryu-core`, `jeryu-domain`, `jeryu-api`, `jeryu-cli` |
+| Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
 | Runner fabric | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runnerd` |
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
-| Jankurai proof and agent bridge | `jeryu-proof`, `jeryu-agentbridge` |
-| Release provenance | `jeryu-signrail` |
-| GitHub-compatible backup and restore | `jeryu-mirror`, `jeryu-mirror-cli` |
-| Benchmark and observability | `jeryu-bench`, `jeryu-obs` |
+| Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
+| Release provenance and compliance | `jeryu-signrail`, `jeryu-signing`, `jeryu-compliance-export`, `jeryu-lifecycle` |
+| Benchmark, observability, and operations | `jeryu-bench`, `jeryu-obs`, `jeryu-ops`, `jeryu-phase7-cli` |
 | Enterprise/operations layer | `jeryu-enterprise`, `phase11-*`, `jeryu-kernel`, `jeryu-tenant`, `jeryu-replay-verifier`, `jeryu-phase11-bin` |
 
 ## Local Live Runtime
@@ -64,8 +80,9 @@ cargo run -p jeryu-api --features web -- web serve \
 ```
 
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
-`/api/v1/repos`, basic source/README/markdown routes, `/api/v1/ws`, and the
-guided GitHub-compatible `/user` and `/graphql` routes.
+`/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
+`/api/v1/markdown/render`, `/api/v1/ws`, and the guided GitHub-compatible
+`/user` and `/graphql` routes.
 `~/.local/share/jeryu` is intentionally separate from the legacy
 `~/.jeryu` config/secrets tree.
 
@@ -84,9 +101,44 @@ cargo run -p jeryu-mirror-cli -- import-local \
   --data-dir ~/.local/share/jeryu /path/to/repo-or-bare.git
 ```
 
+## GitHub-Compatible API
+
+The REST edge is a guided GitHub subset for common local `gh` and agent flows:
+`/user`, repository list/view/create, pull request list/view/create/merge,
+issues and issue comments, statuses, check runs, branch protection, releases,
+hooks, and `/api/v1/version`. Unknown REST routes return GitHub-shaped `404`
+objects with `jeryu_repair_hint`, MCP tool ids, and closest Jeryu REST route
+alternatives.
+
+`POST /graphql` is intentionally narrow. It supports read-only `__typename`,
+`viewer`, and simple `repository(owner, name)` probes; other GraphQL operations
+return `501` with `jeryu_repair_hint`, MCP tool ids, REST alternatives, and the
+local rerun command expected for extending support.
+
+## Web and TUI
+
+The React web app lives under `web/` and is part of the local product surface.
+The current recorded web proof lane includes typecheck, 28 Vitest tests, build,
+lint, and Playwright end-to-end coverage against the local BFF/API contract.
+
+The TUI exposes `jeryu-tui --once` for deterministic tests and captures. It can
+render fixture data or the live `/api/v1/bootstrap.tui` read model, including
+all 18 tabs used by the local control-plane views.
+
 ## Local CI
 
-Local CI is the source of truth. The default worker count is 40.
+Local CI is the source of truth. The default worker count is 40, and
+`ci-fast-push.sh` is the local push gate: it builds an affected plan from
+tracked and untracked changes, escalates shared roots to full CI, runs mapped
+Rust/web/API/TUI/db lanes, then runs Jankurai diff and repository audits before
+any push. `ops/ci/ci-env.sh` detects the local or GitHub profile, keeps
+dockerless native Rust as the default executor, uses `sccache` when it is
+available, and falls back to ordinary Cargo on GitHub-hosted runners.
+
+The fast gate also verifies this repository before testing: it builds and
+checks the repo-local `jeryu` binary, ignores any legacy `~/.jeryu/bin/jeryu`
+binary on `PATH`, and accepts only the canonical GitHub remote when a remote is
+configured.
 
 ```bash
 just fast
@@ -99,6 +151,12 @@ just audit
 The tracker in `CI_TRACKER.md` records the latest passing counts, Jankurai
 score, and phase-gate status. Do not make a missing capability look green; keep
 it PENDING with evidence until the runtime exists.
+
+Hosted workflows are thin wrappers around local scripts. Jankurai is pinned to
+the `neverhuman/jankurai` `v1.6.10-deadlang-precision` tag and must report
+`jankurai 1.6.10` before CI uses it. The hosted `ci-fast` workflow runs the
+same `ci-fast-push.sh --no-push` path used locally; the difference is profile
+detection, not a separate test plan.
 
 ## Cache Laws
 
@@ -131,9 +189,11 @@ AppleDouble `._*` files are present from tar extraction.
 ## Implementation Boundary
 
 The engineering plan remains broader than this workspace checkpoint. The
-GitHub-compatible REST edge, React web surface, CLI, proof lanes, tool-adoption
-evidence, DB migration evidence, and live runner escape matrix are present.
-Complete Git protocol parity, production signer adapters, benchmark lab
-execution adapters, and deeper daemon hardening remain post-v1 work. Checked-in
-tests and local gates must reflect what is actually present, not aspirational
-behavior.
+GitHub-compatible REST subset, guided GraphQL endpoint, React web surface, CLI,
+proof lanes, tool-adoption evidence, DB migration evidence, and live runner
+escape matrix are present. Complete Git protocol parity beyond current
+oracle/import smoke coverage, authenticated public/LAN deployment, production
+signer adapters, benchmark lab execution adapters, multi-node runner control
+plane, migration waves, and deeper daemon hardening remain post-v1 work.
+Checked-in tests and local gates must reflect what is actually present, not
+aspirational behavior.

@@ -192,7 +192,7 @@
       "lane": "fixtures"
     },
     "ops/": {
-      "command": "./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
+      "command": "bash ops/ci/verify-jeryu-env.sh --build-local && ./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
       "purpose": "verify local CI gates and ops scripts",
       "lane": "devex"
     },
