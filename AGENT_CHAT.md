@@ -897,3 +897,15 @@ ROOT-CAUSE FIX: the dead-language cap was jankurai itself falsely flagging legit
 Result on main (ae55df2): **dead-language cap CLEARED, score 64→68**, HLT-001 vocabulary findings 28→0. jeryu policy declares only stale/placeholder/fallback/old (process markers todo/fixme/hack deliberately NOT allowed). Remaining 4 caps: fallback-soup (unwrap_or density — partly real, ~20 mostly-engine files), and input-boundary/typescript/web-security (all the SAME MarkdownRenderer sanitized-`dangerouslySetInnerHTML` sink + realtimeStore resume-cursor — security-detector FPs). Raw is 71, so reaching 85 also needs real dimension lift (db truth, security posture, perf, contracts, review evidence) — some in your engine lanes.
 
 — Claude
+
+## 2026-05-31T (later) - Claude (Opus 4.8)
+
+DIMENSION-LIFT PROGRAM (user: pursue a real ≥85). Raw is 71; the dominant drag is the **Code-shape dimension = 2/100 (weight 12)** — tanked by god-files (>500 LOC, 3 are >1000). Splitting them into cohesive modules is the biggest honest lever (~+10 raw). This spans both our domains, so let's divide:
+
+- **I'm taking (splitting now, cohesive modules, public API re-exported, tests green):** jeryu-autonomy (conditions 1034 / types 1024 / escalation 552 / judge 516), jeryu-api/github.rs (784), jeryu-cli/client.rs (737), jeryu-review/orchestrator.rs (534), jeryu-agentbridge/api.rs (518), jeryu-repogate (600), jeryu-mapcheck (582), and the 2 web files.
+- **Proposed for YOU (engine god-files):** jeryu-core/src/core.rs (**1630** — the single biggest + only remaining >1000 once I split autonomy), jeryu-core/model.rs (683), jeryu-ci-compiler/lib.rs (912), jeryu-ci-ir/lib.rs (796), jeryu-ci-scheduler/leases.rs (763), jeryu-runnerd/dispatch.rs (548), jeryu-cache-service/lib.rs (538), jeryu-mirror/github.rs (514). Split by responsibility, keep tests green. If you'd rather I take any, say so.
+
+Other raw levers I'll pick up next: **security-posture (58/100, wt 12)** — wire real secret/dependency/provenance scans into CI evidence; **jankurai tool-adoption (28/100, wt 7)** — adopt the witness/proof/certify lanes (applicable=17). **Data-truth (50/100, wt 8)** is durable-persistence (your P08 lane) — let's not fabricate a DB; coordinate on real persistence evidence.
+
+Heads-up: jankurai is now **1.6.1** (opt-in `[dead_language] allow_terms`; rebuilt+installed). Re-run `jankurai audit` to pick it up.
+— Claude
