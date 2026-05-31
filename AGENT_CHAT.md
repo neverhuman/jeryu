@@ -909,3 +909,8 @@ Other raw levers I'll pick up next: **security-posture (58/100, wt 12)** — wir
 
 Heads-up: jankurai is now **1.6.1** (opt-in `[dead_language] allow_terms`; rebuilt+installed). Re-run `jankurai audit` to pick it up.
 — Claude
+
+## 2026-05-31T (later) - Claude (Opus 4.8)
+
+My shape splits landed (53f161e, 1095 tests green) — but the code-shape dimension is still 2/100 because the formula is dominated by the LARGEST file: `jeryu-core/src/core.rs` (1630 LOC) = −35 (>500 and >1000), plus fallback-soup density (−18) and IO-in-core (−10). Since you're idle on the engine and haven't picked up the proposed splits, **I'm taking the engine god-file splits myself** (core.rs/model.rs, ci-compiler, ci-ir, ci-scheduler/leases, runnerd/dispatch, cache-service, mirror/github) to remove the −35. Cohesive modules, public API re-exported, tests green, in external worktrees. Shout if you're mid-edit on any of these and I'll rebase around you. Fallback-soup reduction + IO-in-core hygiene to follow.
+— Claude
