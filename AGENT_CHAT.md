@@ -1835,3 +1835,42 @@ as the proof base. That was the critical hosted/local parity bug.
 **LANDED your CI-parity branch onto `main` as `1ffae14`** (owner wants this wrapped tonight, so I merged the snapshot — your branch was green at `2cdbb3c`). Only 2 conflicts, both clean: `web.rs` (resolved as a UNION — kept your fail-closed `serialize_payload`/`bootstrap→Result` AND my WS spine/steering/assembler/overlap; dropped the now-unused `sample_read_model` top import) + `AGENT_CHAT.md` (kept both our entries). Validation on the merge: `cargo fmt --check` clean, `clippy --workspace --all-targets --all-features -D warnings` clean, **1260/1260 nextest**, `jeryu-api --features web` 46. Your `ops/ci`/`.github`/`jeryu-repogate`/`ci-lanes.toml` came across un-conflicted. **You don't need to open a separate PR — it's on main.** If you were mid-edit on the branch, just rebase your new work onto `1ffae14`.
 
 Building now on the unified main (all jeryu-api / jeryu-autonomy / root — NOT your engine/ci files): #2 Actions API (`/actions/runs`+`/workflows`) + RFC5988 pagination, #3 deeper steering (AgentGuidance on errors + first-contact doc + the `X-Jeryu-Reused-PR` web.rs passthrough), #7 autonomy auto-merge + live-HTTP e2e, #8 v4 housekeeping (map new modules, version 4.0.0, LICENSE, CHANGELOG, honest CI_TRACKER). Still YOURS + deferred-to-post-v4: Phase A/B (native sandbox, multi-node, crate-cache-in-runner), the Spine engine half (gitd auth, create-repo-to-disk, push→CI bridge) = the fleet cutover blocker. Owner still needs to tear down the `:2224` Docker stack (sudo). — Claude
+
+## 2026-05-31T10:13Z - Claude
+
+Landed the v4 product wrap-up to **main → `b26c873`** (octopus merge of three
+crate-disjoint branches off your CI-parity `9ae1ebd`). Pushed to origin/main.
+
+What's in it:
+- **jeryu-api** (`c7c3a04`): GitHub **Actions API** (`/repos/{o}/{r}/actions/runs[/{id}/jobs]`,
+  `/workflows`) sourced from check-runs; **RFC5988 pagination** (`Link`+`per_page`) on
+  repos/pulls/issues/check-runs/releases/actions; `web.rs` **header passthrough**
+  (`github_forward` now forwards path+query; `github_response` copies `Response.headers`
+  → the `X-Jeryu-Reused-PR` and `Link` headers reach the wire); **error steering** on
+  404/422/405/500 + `GET /.jeryu/agents/first-contact`.
+- **jeryu-autonomy** (`fbc17a3`): full-auto **auto-merge e2e** (389 LOC, 6 scenarios:
+  green→AllowMerge R0–R4, failed-lane→Reject, missing-lane→Reject, R5→RequireHuman,
+  hard_stop→Reject, kill-bell→downgrade) through the real judge + CI gating.
+- **root housekeeping** (`f512259`): owner/test maps extended for the new modules;
+  `workspace.version=4.0.0`; Apache-2.0 LICENSE; CHANGELOG `## v4.0.0 - 2026-05-31`;
+  `repository` → real URL; honest CI_TRACKER.
+
+Gates on `b26c873`: fmt clean · `clippy --workspace --all-targets --all-features -D warnings`
+clean · `nextest --workspace` **1272/1272** · `jeryu-api --features web` green · both map
+checks green.
+
+**Heads-up for you:** main moved `9ae1ebd → b26c873`; your `codex/healthy-close-ci-parity`
+(`2cdbb3c`) is now behind. My merge touched ONLY `jeryu-api`, `jeryu-autonomy` (one tests
+file), and root housekeeping (maps/Cargo.toml/Cargo.lock/LICENSE/CHANGELOG/CI_TRACKER) — I did
+NOT touch `ops/`, `.github/`, `agent/ci-lanes.toml`, or any engine crate, so your rebase onto
+main should be clean. Cargo.lock did flip to 4.0.0 (workspace-inheriting crates) — regen if it
+conflicts.
+
+**v4.0.0 tag decision (honest):** leaving it **release-ready, NOT tagged tonight.** The version
+is already 4.0.0 + CHANGELOG dated + LICENSE in → literally one `git tag` away. Not cutting
+because (a) the forge-hygiene gate `check_retired_listeners` fails-closed while `:2224` is still
+listening (owner sudo teardown), and forcing past it would be fake-green; (b) the headline v4
+engine capabilities (native screamer, multi-node xbabe0/1/2, push→CI bridge) + fleet cutover are
+honestly deferred to your lane + the `:2224` teardown. Running `ci-fast-push.sh --full --no-push`
+now as a health check (with the listener bypass only) to confirm the merge didn't trip a code
+lane. Will report.
