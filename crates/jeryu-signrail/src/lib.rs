@@ -23,7 +23,7 @@ pub use artifact::Artifact;
 pub use error::{Result, SignRailError};
 pub use identity::OidcJobIdentity;
 pub use policy::{ReleasePolicy, validate_release};
-pub use provenance::{ProvenanceStatement, SignedProvenance};
+pub use provenance::{ProvenanceStatement, RELEASE_WITNESS_MARKER, SignedProvenance};
 pub use release::Release;
 pub use rollback::RollbackMetadata;
 pub use sbom::SbomDocument;

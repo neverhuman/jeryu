@@ -60,3 +60,22 @@ fn restore_blocks_existing_repo_when_empty_target_required() {
         vec!["target already has repository acme/rocket"]
     );
 }
+
+#[test]
+fn restore_rejects_duplicate_issue_numbers() {
+    let archive = archive_from_github_value(json!({
+      "repositories": [{
+        "owner": {"login": "acme"},
+        "name": "rocket",
+        "issues": [
+          {"number": 1, "title": "bug", "state": "open"},
+          {"number": 1, "title": "duplicate bug", "state": "closed"}
+        ]
+      }]
+    }))
+    .unwrap();
+
+    let mut target = InMemoryRestoreTarget::default();
+    let err = plan_restore(&archive, &mut target, RestoreOptions::default()).unwrap_err();
+    assert!(err.to_string().contains("duplicate issue 1"));
+}

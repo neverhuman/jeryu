@@ -1,6 +1,7 @@
 //! Fail-closed Phase 8 release policy.
 
 use crate::error::{Result, SignRailError};
+use crate::provenance::RELEASE_WITNESS_MARKER;
 use crate::release::Release;
 use crate::signature::Signer;
 use crate::witness::ReleaseWitness;
@@ -179,6 +180,11 @@ pub fn validate_release(
         }
         if statement.oidc_subject != release.oidc.subject {
             return Err(SignRailError::Policy("OIDC subject mismatch".to_string()));
+        }
+        if statement.jankurai_release_witness != RELEASE_WITNESS_MARKER {
+            return Err(SignRailError::Policy(
+                "release witness marker mismatch".to_string(),
+            ));
         }
         if !artifact_digests.contains(statement.artifact_digest.as_str()) {
             return Err(SignRailError::Policy(

@@ -4,7 +4,7 @@ use crate::artifact::Artifact;
 use crate::error::{Result, SignRailError};
 use crate::identity::OidcJobIdentity;
 use crate::json;
-use crate::provenance::{ProvenanceStatement, SignedProvenance};
+use crate::provenance::{ProvenanceStatement, RELEASE_WITNESS_MARKER, SignedProvenance};
 use crate::rollback::RollbackMetadata;
 use crate::sbom::SbomDocument;
 use crate::signature::Signer;
@@ -127,7 +127,7 @@ impl Release {
                 sbom_digest: sbom_digest.clone(),
                 signer_identity: signer.signer_id().to_string(),
                 oidc_subject: self.oidc.subject.clone(),
-                jankurai_release_witness: "phase8-release-witness-required".to_string(),
+                jankurai_release_witness: RELEASE_WITNESS_MARKER.to_string(),
                 created_at_epoch,
             };
             let signature = signer.sign(&statement.canonical_message())?;

@@ -150,6 +150,23 @@ pub fn plan_restore<T: RestoreTarget>(
                 .push(format!("target already has repository {full_name}"));
             continue;
         }
+        ensure_unique(&repo.issues, "issue", |issue| issue.number.to_string())?;
+        ensure_unique(&repo.pull_requests, "pull request", |pr| {
+            pr.number.to_string()
+        })?;
+        ensure_unique(&repo.releases, "release", |release| {
+            release.tag_name.clone()
+        })?;
+        ensure_unique(&repo.artifacts, "artifact", |artifact| {
+            artifact.name.clone()
+        })?;
+        ensure_unique(&repo.webhooks, "webhook", |webhook| webhook.id.clone())?;
+        ensure_unique(&repo.app_installations, "app installation", |app| {
+            app.id.clone()
+        })?;
+        ensure_unique(&repo.protected_branches, "protected branch", |branch| {
+            branch.pattern.clone()
+        })?;
         report
             .commands
             .push(format!("create repository {full_name}"));
@@ -236,4 +253,20 @@ pub fn plan_restore<T: RestoreTarget>(
     report.secret_rehydration_required.sort();
     report.secret_rehydration_required.dedup();
     Ok(report)
+}
+
+fn ensure_unique<T, F>(items: &[T], kind: &str, mut key: F) -> Result<()>
+where
+    F: FnMut(&T) -> String,
+{
+    let mut seen = BTreeSet::new();
+    for item in items {
+        let key = key(item);
+        if !seen.insert(key.clone()) {
+            return Err(JeryuMirrorError::RestoreInvariant(format!(
+                "duplicate {kind} {key}"
+            )));
+        }
+    }
+    Ok(())
 }

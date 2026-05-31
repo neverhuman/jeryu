@@ -1,6 +1,6 @@
 use jeryu_signrail::{
-    Artifact, HmacSha256Signer, OidcJobIdentity, Release, ReleasePolicy, RollbackMetadata,
-    SbomDocument, UnavailableSigner, validate_release,
+    Artifact, HmacSha256Signer, OidcJobIdentity, RELEASE_WITNESS_MARKER, Release, ReleasePolicy,
+    RollbackMetadata, SbomDocument, Signer, UnavailableSigner, validate_release,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -158,11 +158,32 @@ fn provenance_signature_verifies() {
 }
 
 #[test]
+fn wrong_release_witness_marker_blocked() {
+    let (mut release, signer) = signed_release();
+    release.provenance[0].statement.jankurai_release_witness = "tampered-witness".to_string();
+    release.provenance[0].signature = signer
+        .sign(&release.provenance[0].statement.canonical_message())
+        .unwrap_or_else(|err| panic!("resigning failed: {err}"));
+
+    let err = validate_release(&release, &policy(), &signer).unwrap_err();
+    assert!(err.to_string().contains("release witness marker mismatch"));
+}
+
+#[test]
 fn signer_identity_mismatch_blocked() {
     let (release, _signer) = signed_release();
     let wrong_signer = HmacSha256Signer::new("different-key", b"phase8-secret");
     let err = validate_release(&release, &policy(), &wrong_signer).unwrap_err();
     assert!(err.to_string().contains("signer identity mismatch"));
+}
+
+#[test]
+fn release_signing_uses_expected_witness_marker() {
+    let (release, _signer) = signed_release();
+    assert_eq!(
+        release.provenance[0].statement.jankurai_release_witness,
+        RELEASE_WITNESS_MARKER
+    );
 }
 
 #[test]

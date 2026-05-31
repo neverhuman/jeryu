@@ -3,6 +3,9 @@
 use crate::json;
 use crate::signature::Signature;
 
+/// Required provenance marker for SignRail release witnesses.
+pub const RELEASE_WITNESS_MARKER: &str = "phase8-release-witness-required";
+
 /// Provenance statement required for every release artifact.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProvenanceStatement {

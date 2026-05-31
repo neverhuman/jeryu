@@ -103,9 +103,12 @@ pub fn verify_bundle(path: impl AsRef<Path>) -> Result<BundleVerification> {
     let path = path.as_ref();
     let manifest_text = fs::read_to_string(path.join("manifest.json"))?;
     let manifest: BundleManifest = serde_json::from_str(&manifest_text)?;
+    let mut errors = Vec::new();
+    if manifest.format != BUNDLE_FORMAT {
+        errors.push("manifest format is not supported".to_string());
+    }
     let archive = read_bundle(path)?;
     let actual = archive.canonical_digest();
-    let mut errors = Vec::new();
     if actual != manifest.archive_digest {
         errors.push(format!(
             "archive digest mismatch: expected {}, actual {}",
