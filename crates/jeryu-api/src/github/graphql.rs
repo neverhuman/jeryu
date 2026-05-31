@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::GithubRouter;
-use super::support::{docs_url, json_response, parse_body};
+use super::support::{MCP_GUIDANCE_TOOLS, docs_url, json_response, parse_body};
 use crate::routes::Response;
 
 #[derive(Debug, Deserialize)]
@@ -156,21 +156,14 @@ fn unsupported_response(query: &str, operation_name: Option<&str>) -> Response {
                 "docs_url": graphql_docs_url(),
                 "repair_hint": "Prefer the listed Jeryu MCP/API alternatives; add a narrow conformance test before supporting another GraphQL read query."
             },
-            "jeryu_mcp_tools": [
-                "jeryu.repo.list",
-                "jeryu.repo.get",
-                "jeryu.pr.list",
-                "jeryu.pr.get",
-                "jeryu.issue.list",
-                "jeryu.check.list"
-            ],
+            "jeryu_mcp_tools": MCP_GUIDANCE_TOOLS,
             "jeryu_api_routes": [
                 "GET /repos",
                 "GET /repos/{owner}/{repo}",
                 "GET /repos/{owner}/{repo}/pulls",
                 "GET /repos/{owner}/{repo}/issues",
                 "GET /repos/{owner}/{repo}/commits/{ref}/status",
-                "GET /repos/{owner}/{repo}/check-runs"
+                "GET /repos/{owner}/{repo}/commits/{ref}/check-runs"
             ],
             "operation_name": operation_name,
             "query_fingerprint": query_fingerprint(query),

@@ -15,6 +15,11 @@ git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main''
 git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
 git fetch --depth 1 origin "$GITHUB_SHA"
 git checkout --detach FETCH_HEAD''',
+  '''git init .
+git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+git fetch --depth 1 origin "$GITHUB_SHA"
+git fetch --depth 128 origin main:refs/remotes/origin/main
+git checkout --detach FETCH_HEAD''',
   "rustup toolchain install 1.95.0 --profile minimal",
   "bash ops/ci/ensure-jankurai.sh",
   "bash ops/ci/security-tools.sh",

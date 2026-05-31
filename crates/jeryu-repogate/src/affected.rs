@@ -80,17 +80,19 @@ pub fn build_affected_plan(root: &Path, base_ref: &str, workers: u32) -> Result<
 
 fn changed_files(root: &Path, base_ref: &str) -> Result<Vec<String>> {
     let mut files = BTreeSet::new();
-    for args in [
-        vec![
-            "diff",
-            "--name-only",
-            "--diff-filter=ACMRTUXB",
-            &format!("{base_ref}...HEAD"),
-        ],
+    let base_range = format!("{base_ref}...HEAD");
+    let diff_args = [
+        vec!["diff", "--name-only", "--diff-filter=ACMRTUXB", &base_range],
         vec!["diff", "--name-only", "--diff-filter=ACMRTUXB", "--cached"],
         vec!["diff", "--name-only", "--diff-filter=ACMRTUXB"],
-    ] {
-        for file in git_lines(root, &args)? {
+    ];
+    for (idx, args) in diff_args.iter().enumerate() {
+        let changed = if idx == 0 {
+            git_lines_required(root, args)?
+        } else {
+            git_lines(root, args)?
+        };
+        for file in changed {
             if !file.trim().is_empty() {
                 files.insert(file);
             }
@@ -108,6 +110,23 @@ fn git_lines(root: &Path, args: &[&str]) -> Result<Vec<String>> {
     let output = Command::new("git").args(args).current_dir(root).output()?;
     if !output.status.success() {
         return Ok(Vec::new());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+fn git_lines_required(root: &Path, args: &[&str]) -> Result<Vec<String>> {
+    let output = Command::new("git").args(args).current_dir(root).output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "required git command failed: git {}\n{}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
     Ok(String::from_utf8_lossy(&output.stdout)
         .lines()
@@ -331,6 +350,56 @@ mod tests {
             .status()
             .unwrap();
         assert!(status.success());
+        assert!(
+            Command::new("git")
+                .args(["config", "user.email", "ci@example.invalid"])
+                .current_dir(root.path())
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("git")
+                .args(["config", "user.name", "CI"])
+                .current_dir(root.path())
+                .status()
+                .unwrap()
+                .success()
+        );
+        fs::write(root.path().join("README.md"), "base\n").unwrap();
+        assert!(
+            Command::new("git")
+                .args(["add", "README.md"])
+                .current_dir(root.path())
+                .status()
+                .unwrap()
+                .success()
+        );
+        assert!(
+            Command::new("git")
+                .args(["commit", "-m", "base"])
+                .current_dir(root.path())
+                .status()
+                .unwrap()
+                .success()
+        );
+        let head = String::from_utf8(
+            Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(root.path())
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap();
+        assert!(
+            Command::new("git")
+                .args(["update-ref", "refs/remotes/origin/main", head.trim()])
+                .current_dir(root.path())
+                .status()
+                .unwrap()
+                .success()
+        );
         fs::create_dir_all(root.path().join("ops/ci")).unwrap();
         fs::write(
             root.path().join("ops/ci/ci-fast.sh"),

@@ -29,6 +29,9 @@ case ":${PATH}:" in
   *":${BINDIR}:"*) ;;
   *) export PATH="${BINDIR}:${PATH}" ;;
 esac
+if [ -n "${GITHUB_PATH:-}" ]; then
+  printf '%s\n' "${BINDIR}" >> "${GITHUB_PATH}"
+fi
 
 log() { printf '[security-tools] %s\n' "$*"; }
 

@@ -1,9 +1,8 @@
 //! Pure clap data: the `jeryu` operator/agent command taxonomy.
 //!
 //! No business logic lives here. Every leaf maps to a [`crate::client::ForgeClient`]
-//! method in the dispatch layer. The vocabulary is GitHub-shaped: `pr` (not
-//! merge-request), `ci run` (not pipeline), `runner` (not pool/runner-token),
-//! `proof`.
+//! method in the dispatch layer. The vocabulary is GitHub-shaped: `pr`,
+//! `ci run`, `runner`, and `proof`.
 
 use clap::{Parser, Subcommand};
 

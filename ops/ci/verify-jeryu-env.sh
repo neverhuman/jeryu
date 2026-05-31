@@ -92,7 +92,7 @@ check_retired_listeners() {
   [ "${JERYU_CI_ALLOW_RETIRED_LISTENERS:-0}" = "1" ] && return 0
   command -v ss >/dev/null 2>&1 || return 0
 
-  local ports=(2224 8787 18787 18788 19800)
+  local ports=(2224 8787 8929 18787 18788 19800)
   local failed=0
   local line state recv send local_addr peer process port pid
   while IFS= read -r line; do
@@ -129,11 +129,44 @@ check_retired_remotes() {
   local hits
   hits="$(
     git remote -v |
-      grep -E "127\.0\.0\.1:2224|localhost:2224|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu/|${retired_provider}" || true
+      grep -E "127\.0\.0\.1:(2224|8929)|localhost:(2224|8929)|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu/|${retired_provider}" || true
   )"
   if [ -n "${hits}" ]; then
     echo "retired remotes are configured during release validation:" >&2
     printf '%s\n' "${hits}" | sed 's/^/  /' >&2
+    return 1
+  fi
+}
+
+check_retired_source_roots() {
+  [ "${GITHUB_ACTIONS:-}" = "true" ] && return 0
+  [ "${JERYU_CI_ALLOW_RETIRED_SOURCE_ROOTS:-0}" = "1" ] && return 0
+
+  local retired_provider roots root remote_hits failed=0
+  retired_provider="$(decode_hex 6769746c6162)"
+  roots="${JERYU_CI_SOURCE_ROOTS:-/home/ubuntu/jeryu /home/ubuntu/redlineDB /home/ubuntu/redline-testing /home/ubuntu/openQG /home/ubuntu/jekko}"
+
+  for root in ${roots}; do
+    [ -e "${root}" ] || continue
+    if [ -d "${root}/.git" ]; then
+      remote_hits="$(
+        git -C "${root}" remote -v 2>/dev/null |
+          grep -E "127\.0\.0\.1:(2224|8929)|localhost:(2224|8929)|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu/|${retired_provider}" || true
+      )"
+      if [ -n "${remote_hits}" ]; then
+        echo "retired remotes remain in source root ${root}:" >&2
+        printf '%s\n' "${remote_hits}" | sed 's/^/  /' >&2
+        failed=1
+      fi
+    fi
+    if [ -e "${root}/.${retired_provider}-ci.yml" ] || [ -d "${root}/.${retired_provider}" ]; then
+      echo "retired CI config remains in source root ${root}" >&2
+      failed=1
+    fi
+  done
+
+  if [ "${failed}" -ne 0 ]; then
+    echo "migrate or quarantine retired source roots before release validation" >&2
     return 1
   fi
 }
@@ -181,6 +214,7 @@ if [ "${release_guard}" = "1" ]; then
   check_retired_remotes || release_fail=1
   check_retired_processes || release_fail=1
   check_retired_listeners || release_fail=1
+  check_retired_source_roots || release_fail=1
   if [ "${release_fail}" -ne 0 ]; then
     exit 1
   fi

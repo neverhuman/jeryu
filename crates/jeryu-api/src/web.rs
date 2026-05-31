@@ -35,6 +35,20 @@ use markdown::render_markdown;
 use permissions::permissions;
 
 const WS_PROTOCOL: &str = "jeryu.ws.v1";
+const MCP_READ_TOOL: &str = "jeryu.get_system_snapshot";
+const MCP_CHECKS_TOOL: &str = "jeryu.get_ci_run_jobs";
+const MCP_BLOCKERS_TOOL: &str = "jeryu.explain_blockers";
+const MCP_PATCH_TOOL: &str = "jeryu.propose_patch";
+const MCP_MERGE_TOOL: &str = "jeryu.request_merge";
+const MCP_ISSUE_TOOL: &str = "jeryu.bug_submit";
+const MCP_GUIDANCE_TOOLS: &[&str] = &[
+    MCP_READ_TOOL,
+    MCP_CHECKS_TOOL,
+    MCP_BLOCKERS_TOOL,
+    MCP_PATCH_TOOL,
+    MCP_MERGE_TOOL,
+    MCP_ISSUE_TOOL,
+];
 
 #[derive(Clone, Debug)]
 pub struct WebServerConfig {
@@ -156,6 +170,9 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
 
 fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
     let spa = ServeDir::new(spa_dir).fallback(ServeFile::new(spa_dir.join("index.html")));
+    let mcp_state = Arc::new(jeryu_mcp::McpHttpState::new(Arc::new(
+        jeryu_mcp::MemoryBackend::new(),
+    )));
     AxumRouter::new()
         .route("/health", get(health))
         // Steering surface: advertises the faster jeryu/MCP path so external
@@ -196,6 +213,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             "/repos/:owner/:repo/commits/:ref/status",
             any(github_forward),
         )
+        .route(
+            "/repos/:owner/:repo/commits/:ref/check-runs",
+            any(github_forward),
+        )
         .route("/repos/:owner/:repo/statuses/:sha", any(github_forward))
         .route("/repos/:owner/:repo/check-runs", any(github_forward))
         .route(
@@ -204,11 +225,13 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route("/repos/:owner/:repo/releases", any(github_forward))
         .route("/repos/:owner/:repo/hooks", any(github_forward))
+        .route("/repos/:owner/:repo/*rest", any(github_forward))
         .fallback_service(spa)
         // Response middleware that stamps every reply with advisory steering
         // headers (and a per-route MCP tool hint for gh/automation UAs).
         .layer(from_fn(steer_headers))
         .with_state(Arc::new(state))
+        .merge(jeryu_mcp::mcp_router(mcp_state))
 }
 
 async fn health() -> Json<Value> {
@@ -290,11 +313,12 @@ fn is_automation_agent(user_agent: &str) -> bool {
 fn suggested_tool(method: &HttpMethod, path: &str) -> Option<&'static str> {
     let trimmed = path.trim_end_matches('/');
     match *method {
-        HttpMethod::POST if trimmed.ends_with("/pulls") => Some("jeryu.mcp.propose_patch"),
-        HttpMethod::PUT if trimmed.ends_with("/merge") => Some("jeryu.mcp.request_merge"),
-        HttpMethod::POST if trimmed.ends_with("/issues") => Some("jeryu.mcp.open_issue"),
-        HttpMethod::POST if trimmed == "/repos" => Some("jeryu.mcp.create_repo"),
-        HttpMethod::GET => Some("jeryu.mcp.read"),
+        HttpMethod::POST if trimmed.ends_with("/pulls") => Some(MCP_PATCH_TOOL),
+        HttpMethod::PUT if trimmed.ends_with("/merge") => Some(MCP_MERGE_TOOL),
+        HttpMethod::POST if trimmed.ends_with("/issues") => Some(MCP_ISSUE_TOOL),
+        HttpMethod::GET if trimmed.contains("/check-runs") => Some(MCP_CHECKS_TOOL),
+        HttpMethod::GET if trimmed.contains("/pulls") => Some(MCP_BLOCKERS_TOOL),
+        HttpMethod::GET => Some(MCP_READ_TOOL),
         _ => None,
     }
 }
@@ -313,12 +337,13 @@ fn capabilities_payload() -> Value {
         "graphql": "/graphql",
         "websocket": "/api/v1/ws",
         "mcp_endpoint": "/mcp",
+        "mcp_tools": MCP_GUIDANCE_TOOLS,
         "gh_command_map": {
-            "gh pr create": "jeryu.mcp.propose_patch",
-            "gh pr merge": "jeryu.mcp.request_merge",
+            "gh pr create": MCP_PATCH_TOOL,
+            "gh pr merge": MCP_MERGE_TOOL,
             "gh pr list": "GET /repos/{owner}/{repo}/pulls",
-            "gh issue create": "POST /repos/{owner}/{repo}/issues",
-            "gh api": "REST/GraphQL pass-through",
+            "gh issue create": MCP_ISSUE_TOOL,
+            "gh api": "Use /.jeryu/capabilities and the listed jeryu.* MCP tools; unsupported REST returns guided JSON.",
             "gh repo create": "POST /repos",
         },
         "fast_path_advice":
@@ -458,17 +483,67 @@ async fn github_forward(
     body: Bytes,
 ) -> AxumResponse {
     let Some(method) = map_method(&method) else {
-        return (
+        return guided_github_edge_response(
             StatusCode::METHOD_NOT_ALLOWED,
-            Json(json!({
-                "message": "Method Not Allowed",
-                "documentation_url": "https://docs.github.com/rest"
-            })),
-        )
-            .into_response();
+            "Method Not Allowed",
+            "route unsupported GitHub-compatible REST method",
+            "the Jeryu GitHub edge accepts GET, POST, and PUT for the guided compatibility subset",
+            uri.path(),
+        );
     };
+    if let Some(query) = uri.query()
+        && !query.is_empty()
+    {
+        return guided_github_edge_response(
+            StatusCode::NOT_IMPLEMENTED,
+            "Query parameters require a guided Jeryu route",
+            "route unsupported GitHub-compatible REST query parameters",
+            "Jeryu would rather return a guided block than silently ignore GitHub query filters or pagination",
+            uri.path(),
+        );
+    }
     let body = std::str::from_utf8(&body).unwrap_or_default();
     github_response(state.github.handle(method, uri.path(), body))
+}
+
+fn guided_github_edge_response(
+    status: StatusCode,
+    message: &str,
+    purpose: &str,
+    reason: &str,
+    path: &str,
+) -> AxumResponse {
+    (
+        status,
+        Json(json!({
+            "message": message,
+            "documentation_url": "/docs/rest",
+            "jeryu_repair_hint": {
+                "purpose": purpose,
+                "reason": reason,
+                "common_fixes": [
+                    "retry with one of the listed GitHub-compatible REST routes",
+                    "use /.jeryu/capabilities to choose a typed jeryu.* MCP tool",
+                    "add a conformance test before widening the compatibility subset"
+                ],
+                "docs_url": "/docs/rest",
+                "repair_hint": "prefer the listed Jeryu MCP/API alternatives, then rerun cargo test -p jeryu-api --features web"
+            },
+            "jeryu_mcp_tools": MCP_GUIDANCE_TOOLS,
+            "jeryu_api_routes": [
+                "GET /user",
+                "GET /repos",
+                "GET /repos/{owner}/{repo}",
+                "GET /repos/{owner}/{repo}/pulls",
+                "GET /repos/{owner}/{repo}/issues",
+                "GET /repos/{owner}/{repo}/commits/{ref}/status",
+                "GET /repos/{owner}/{repo}/commits/{ref}/check-runs",
+                "POST /graphql"
+            ],
+            "path": path,
+        })),
+    )
+        .into_response()
 }
 
 /// Maps the HTTP verbs the GitHub edge supports to the dispatcher's [`Method`].
@@ -706,7 +781,7 @@ fn bootstrap_payload(state: &WebState) -> Result<WebBootstrap, serde_json::Error
             merge_write: false,
             markdown_html: true,
             agents: false,
-            mcp: false,
+            mcp: true,
         },
     })
 }
@@ -945,6 +1020,21 @@ mod tests {
             .map(|(_, v)| v.as_str())
     }
 
+    fn known_mcp_tools() -> BTreeSet<String> {
+        jeryu_mcp::tool_manifest()
+            .into_iter()
+            .filter_map(|tool| tool["name"].as_str().map(str::to_string))
+            .collect()
+    }
+
+    async fn response_json(response: AxumResponse) -> Value {
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("response body reads");
+        serde_json::from_slice(&bytes)
+            .unwrap_or_else(|err| panic!("response body is not JSON ({err}): {bytes:?}"))
+    }
+
     #[test]
     fn advisory_headers_always_present_on_any_route() {
         // A plain browser UA still gets the API + fast-path advisories, but no
@@ -970,7 +1060,7 @@ mod tests {
             &HttpMethod::POST,
             "/repos/alice/jeryu/pulls",
         );
-        assert_eq!(header_value(&gh, HDR_TOOL), Some("jeryu.mcp.propose_patch"));
+        assert_eq!(header_value(&gh, HDR_TOOL), Some(MCP_PATCH_TOOL));
 
         // A merge PUT maps to request_merge for any automation UA (curl here).
         let merge = advisory_headers(
@@ -978,20 +1068,17 @@ mod tests {
             &HttpMethod::PUT,
             "/repos/alice/jeryu/pulls/7/merge",
         );
-        assert_eq!(
-            header_value(&merge, HDR_TOOL),
-            Some("jeryu.mcp.request_merge")
-        );
+        assert_eq!(header_value(&merge, HDR_TOOL), Some(MCP_MERGE_TOOL));
 
-        // GET routes steer to the generic read tool for agent UAs.
+        // GET PR routes steer to blocker explanation for agent UAs.
         let read = advisory_headers(
             "jeryu-agent/1.0",
             &HttpMethod::GET,
             "/repos/alice/jeryu/pulls",
         );
-        assert_eq!(header_value(&read, HDR_TOOL), Some("jeryu.mcp.read"));
+        assert_eq!(header_value(&read, HDR_TOOL), Some(MCP_BLOCKERS_TOOL));
 
-        // Issue + repo create get their dedicated mutation tools.
+        // Issue create gets a dedicated mutation tool.
         assert_eq!(
             header_value(
                 &advisory_headers(
@@ -1001,14 +1088,7 @@ mod tests {
                 ),
                 HDR_TOOL
             ),
-            Some("jeryu.mcp.open_issue")
-        );
-        assert_eq!(
-            header_value(
-                &advisory_headers("okhttp/4.0", &HttpMethod::POST, "/repos"),
-                HDR_TOOL
-            ),
-            Some("jeryu.mcp.create_repo")
+            Some(MCP_ISSUE_TOOL)
         );
     }
 
@@ -1033,18 +1113,137 @@ mod tests {
     fn suggested_tool_covers_mutations_and_reads() {
         assert_eq!(
             suggested_tool(&HttpMethod::POST, "/repos/a/b/pulls"),
-            Some("jeryu.mcp.propose_patch")
+            Some(MCP_PATCH_TOOL)
         );
         assert_eq!(
             suggested_tool(&HttpMethod::PUT, "/repos/a/b/pulls/3/merge"),
-            Some("jeryu.mcp.request_merge")
+            Some(MCP_MERGE_TOOL)
         );
         assert_eq!(
             suggested_tool(&HttpMethod::GET, "/repos/a/b"),
-            Some("jeryu.mcp.read")
+            Some(MCP_READ_TOOL)
+        );
+        assert_eq!(
+            suggested_tool(&HttpMethod::GET, "/repos/a/b/commits/deadbeef/check-runs"),
+            Some(MCP_CHECKS_TOOL)
         );
         // A DELETE (unsupported verb) yields no hint.
         assert!(suggested_tool(&HttpMethod::DELETE, "/repos/a/b").is_none());
+    }
+
+    #[test]
+    fn advertised_mcp_tools_exist_in_catalog() {
+        let known = known_mcp_tools();
+        for tool in MCP_GUIDANCE_TOOLS {
+            assert!(known.contains(*tool), "missing MCP catalog tool: {tool}");
+        }
+        for tool in [
+            suggested_tool(&HttpMethod::POST, "/repos/a/b/pulls"),
+            suggested_tool(&HttpMethod::PUT, "/repos/a/b/pulls/3/merge"),
+            suggested_tool(&HttpMethod::GET, "/repos/a/b/commits/deadbeef/check-runs"),
+            suggested_tool(&HttpMethod::GET, "/repos/a/b/pulls"),
+            suggested_tool(&HttpMethod::GET, "/repos/a/b"),
+        ] {
+            let tool = tool.expect("tool hint");
+            assert!(known.contains(tool), "invalid suggested MCP tool: {tool}");
+        }
+        let payload = capabilities_payload();
+        for tool in payload["mcp_tools"].as_array().expect("mcp_tools array") {
+            let tool = tool.as_str().expect("tool string");
+            assert!(known.contains(tool), "invalid capability MCP tool: {tool}");
+        }
+    }
+
+    #[tokio::test]
+    async fn live_unknown_github_route_returns_guided_json_not_spa() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let app = app(
+            WebState::new(ForgeCore::new()),
+            std::path::Path::new("/tmp/jeryu-no-spa"),
+        );
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/repos/alice/jeryu/actions/runs")
+                    .header(header::USER_AGENT, "GitHub CLI 2.40.0")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let parsed = response_json(response).await;
+        assert_eq!(
+            parsed["jeryu_repair_hint"]["purpose"],
+            "route unsupported GitHub-compatible REST request"
+        );
+        assert!(parsed["jeryu_mcp_tools"].as_array().unwrap().len() >= 4);
+    }
+
+    #[tokio::test]
+    async fn live_unsupported_verb_and_query_return_guided_json() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let app = app(
+            WebState::new(ForgeCore::new()),
+            std::path::Path::new("/tmp/jeryu-no-spa"),
+        );
+        let patch = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(HttpMethod::PATCH)
+                    .uri("/repos/alice/jeryu")
+                    .header(header::USER_AGENT, "curl/8.0")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch.status(), StatusCode::METHOD_NOT_ALLOWED);
+        let parsed = response_json(patch).await;
+        assert_eq!(
+            parsed["jeryu_repair_hint"]["purpose"],
+            "route unsupported GitHub-compatible REST method"
+        );
+
+        let query = app
+            .oneshot(
+                Request::builder()
+                    .uri("/repos/alice/jeryu/pulls?state=closed")
+                    .header(header::USER_AGENT, "go-gh/2.0")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(query.status(), StatusCode::NOT_IMPLEMENTED);
+        let parsed = response_json(query).await;
+        assert_eq!(
+            parsed["jeryu_repair_hint"]["purpose"],
+            "route unsupported GitHub-compatible REST query parameters"
+        );
+    }
+
+    #[tokio::test]
+    async fn advertised_mcp_endpoint_is_mounted() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let response = app(
+            WebState::new(ForgeCore::new()),
+            std::path::Path::new("/tmp/jeryu-no-spa"),
+        )
+        .oneshot(Request::builder().uri("/mcp").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[test]
@@ -1068,8 +1267,9 @@ mod tests {
         ] {
             assert!(map.get(key).is_some(), "missing gh_command_map key: {key}");
         }
-        assert_eq!(map["gh pr create"], "jeryu.mcp.propose_patch");
-        assert_eq!(map["gh pr merge"], "jeryu.mcp.request_merge");
+        assert_eq!(map["gh pr create"], MCP_PATCH_TOOL);
+        assert_eq!(map["gh pr merge"], MCP_MERGE_TOOL);
+        assert_eq!(map["gh issue create"], MCP_ISSUE_TOOL);
         assert_eq!(map["gh repo create"], "POST /repos");
     }
 
