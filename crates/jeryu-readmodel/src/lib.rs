@@ -20,6 +20,7 @@ pub mod entity;
 pub mod fixture;
 pub mod freshness;
 pub mod health;
+pub mod pool_activity;
 pub mod queue;
 pub mod read_model;
 pub mod repos;
@@ -35,6 +36,9 @@ pub use entity::{
 pub use fixture::{TuiReadModelBuilder, sample_read_model};
 pub use freshness::{FreshnessState, SourceFreshness, SourceKind};
 pub use health::{ComponentHealth, RunnerHealth};
+pub use pool_activity::{
+    ActivityTotals, Bottleneck, PoolActivity, PoolRollup, RepoActivity, TagDemand,
+};
 pub use queue::{QueueJobSummary, QueuePoolSnapshot, QueueSnapshot};
 pub use read_model::{
     ActionSafety, AttentionItem, MissionSnapshot, NextActionRecommendation, SCHEMA_VERSION,

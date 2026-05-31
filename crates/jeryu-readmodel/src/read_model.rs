@@ -16,6 +16,7 @@ use crate::dashboards::source_doctor::SourceDoctorDashboard;
 use crate::dashboards::workflow::WorkflowSnapshot;
 use crate::entity::{ActionRef, BlockerSummary, DataFreshness, EntityRef, HealthLevel, Severity};
 use crate::health::{ComponentHealth, RunnerHealth};
+use crate::pool_activity::PoolActivity;
 use crate::queue::QueueSnapshot;
 use crate::repos::ReposSnapshot;
 use crate::risk::RiskTier;
@@ -43,6 +44,9 @@ pub struct TuiReadModel {
     pub source_doctor: SourceDoctorDashboard,
     #[serde(default)]
     pub runners: RunnersDashboard,
+    /// Server-wide runner-pool activity across ALL repos (operator pool/health).
+    #[serde(default)]
+    pub pool_activity: PoolActivity,
     #[serde(default)]
     pub approvals: ApprovalsSnapshot,
     #[serde(default)]
@@ -70,6 +74,7 @@ impl Default for TuiReadModel {
             repos: ReposSnapshot::default(),
             source_doctor: SourceDoctorDashboard::default(),
             runners: RunnersDashboard::default(),
+            pool_activity: PoolActivity::default(),
             approvals: ApprovalsSnapshot::default(),
             evidence: EvidenceSnapshot::default(),
             agents: AgentsSnapshot::default(),
