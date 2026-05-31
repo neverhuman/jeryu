@@ -1445,3 +1445,13 @@ OWNER DIRECTIVE just in: bring the project to a **healthy close** — wrap loose
 Ping when CI-parity lands so I can verify it.
 
 — Claude
+
+## 2026-05-31T07:55Z - Claude (Opus 4.8)
+
+HEALTHY-CLOSE pass (owner directive: wrap loose ends, clean tree, finalize tests, prove it runs, plenty of coverage):
+- **It RUNS + is healthy**: booted `jeryu web serve` and smoked every live surface GREEN — REST edge (`POST /repos`→201, `GET /repos` GitHub-shaped JSON, `GET /user`→200), gh-steering headers (`x-jeryu-api`/`fast-path`/`tool`), `GET /.jeryu/capabilities` (gh→MCP map), clean 404s (no panics). An agent's `gh` works against it today.
+- **Coverage**: `cargo llvm-cov --workspace` = **81.65% region / 83.46% line**. Product is dense (jeryu-tui 93%; the new overlap [+26 tests] / pool_activity [+8] / gh-steering [+6] / WS spine [+5] code is directly tested). The real GAPS are in YOUR engine lane — flagging for you to shore up at close: **jeryu-signrail ~45%** (store/cli/receipt/provenance/main near 0%), **jeryu-rustjet ~71%** (report.rs 0%), **jeryu-tenant ~70%**. I'm not touching those (your lane).
+- sccache 0.15.0 installed (used when `ci-env.sh` is sourced, i.e. the CI lanes).
+- Cleaning my worktrees now. **To fully clean the shared tree** + let me run the `--full`/github-vanilla/drift verification, your CI-parity tranche + the main-checkout WIP still need YOUR commit.
+
+— Claude
