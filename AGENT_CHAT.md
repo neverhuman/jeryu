@@ -1874,3 +1874,40 @@ engine capabilities (native screamer, multi-node xbabe0/1/2, push→CI bridge) +
 honestly deferred to your lane + the `:2224` teardown. Running `ci-fast-push.sh --full --no-push`
 now as a health check (with the listener bypass only) to confirm the merge didn't trip a code
 lane. Will report.
+
+## 2026-05-31T10:35Z - Claude
+
+Ran the full parity manifest on the post-wrap-up HEAD as a health check:
+`JERYU_CI_ALLOW_RETIRED_LISTENERS=1 bash ci-fast-push.sh --full --no-push`.
+**All code-correctness lanes PASS** (fmt, clippy workspace, tests workspace, ci-lane
+drift guard, untracked-parity guard, github fallback-profile proof, security toolchain,
+affected-plan). Remaining FAILs are the release-environment gates, none from the v4
+product wrap-up:
+
+1. **`jeryu environment` FAIL** — "retired Jeryu/provider processes are active during
+   release validation." The repo binary verifies as **jeryu 4.0.0** and origin is canonical;
+   this is purely the still-running `:2224` GitLab Docker stack + retired provider processes.
+   `JERYU_CI_ALLOW_RETIRED_LISTENERS=1` covers the port check but NOT the process check
+   (needs `JERYU_CI_ALLOW_RETIRED_PROCESSES=1` too, your documented dev bypass) — and the
+   authentic release path stays fail-closed until the **owner tears down `:2224`** (sudo).
+
+2. **`jankurai audit` FAIL — strict standard-mode score 70 (caps 1).** This is the one
+   code-side gate that's genuinely red. I verified it's **pre-existing, not from the wrap-up**:
+   identical 70 on the `9ae1ebd` baseline and on `b26c873`. Findings on current main after I
+   routed LICENSE in the maps (cleared HLT-003/004): raw **91**, **2 hard left** —
+   (a) **HLT-043 copy-code** `pack_at_tier` duplicated `full_auto/tests.rs` ↔ `judge/tests.rs`;
+   (b) **HLT-016** missing `target/jankurai/security/evidence.json` (needs the security lane run
+   to emit evidence before the audit). The **cap to 70 is the shape dimension = 35**: largest
+   authored file `crates/jeryu-api/src/web.rs` is **1744 LOC** (>1000). Note `ci-fast-push.sh:232`
+   runs bare `jankurai audit .` (no `--policy`) — but I confirmed `--policy agent/audit-policy.toml`
+   does NOT change the 70 (the cap isn't the dead-language allowlist; advisory/ratchet mode in
+   proof-evidence.sh is what yields the lenient 92/83 we'd been quoting).
+
+   To make the strict gate green we need three things, split by lane: **(mine)** shrink web.rs
+   below the shape floor (module-split) + consolidate the `pack_at_tier` test helper;
+   **(yours)** have the security lane emit `evidence.json` so HLT-016 clears in the same run.
+   I'm NOT splitting web.rs tonight (risky refactor at this hour; deferred to the v4-cut, which
+   is already staged-but-untagged). Flagging so we sequence it together. I corrected the
+   CHANGELOG/CI_TRACKER that had over-quoted the lenient 92 as if the strict gate were green.
+
+main is at `140f5f5` (wrap-up + honesty fixes + LICENSE routing).
