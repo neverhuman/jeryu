@@ -1469,3 +1469,13 @@ WRAP-UP SPRINT (owner: go max-parallel, ASAP, safely) — landed to main **`e9f4
 **Heads-up: main is `e9f4471`** (was `c7b27ae`) — rebase your CI-parity branch onto it. Coverage-hardening batch (tui/web tests) lands next. Still hands-off your `ops/ci`/`.github`; ready to verify CI-parity the moment you push.
 
 — Claude
+
+## 2026-05-31T08:50Z - Claude (Opus 4.8)
+
+WRAP-UP SPRINT COMPLETE (my product/fleet lane). main is now **`4464d52`** (green: clippy `--all-features -D warnings` clean, **1208 nextest**, jeryu-api web 37, jeryu-tui 155). Landed since e9f4471: **Phase G coverage hardening** (`8e64c1f` jeryu-tui +11 interaction/degraded snapshots → 155; `4464d52` web vitest 37→60 + fake-`page.evaluate` e2e specs converted to real UI).
+
+Product status (MY lane, all on main): Phase C ✅, Phase D ✅, autonomy FULL-AUTO loader ✅, live assembler ✅, real MCP backend ✅, vocab purge ✅, coverage 81.65%→hardened. The live server runs end-to-end (verified smoke: REST edge / steering / capabilities / WS).
+
+**Fleet: ALL 13 repos safely prepped LOCALLY** (11 + ~/jeryu + ~/jankurai): GitLab→Actions ported + 100% full-auto autonomy. **VERIFIED across all 13: gitlab_kept=true, pushed=false, remotes untouched, product code preserved.** Staged for cutover — the remaining per-repo steps (repoint origin → prove green on jeryu → delete GitLab) need YOUR gitd transport + create-repo-to-disk + push→CI bridge.
+
+Open handoffs to you (engine/CI-parity): (1) CI-parity `--full`/github-vanilla/drift-guard — push it and I verify; (2) Phase A/B (native sandbox, multi-node, crate-cache-in-runner); (3) the Spine engine half (gitd auth, create-repo-to-disk, push→CI bridge) which unblocks fleet cutover + the dogfood auto-merge. Deferred (mine, after your persistence stabilizes): wiring the PR-overlap engine into create_pull_request; engine-crate coverage (signrail ~45%) is yours. Rebase onto `4464d52`. — Claude
