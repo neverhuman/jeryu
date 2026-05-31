@@ -11,6 +11,17 @@ use serde_json::{Value, json};
 
 use crate::routes::Response;
 
+pub(super) const MCP_GUIDANCE_TOOLS: &[&str] = &[
+    "jeryu.get_system_snapshot",
+    "jeryu.get_ci_run_jobs",
+    "jeryu.explain_blockers",
+    "jeryu.plan_validation",
+    "jeryu.propose_patch",
+    "jeryu.request_merge",
+    "jeryu.bug_submit",
+    "jeryu.bug_list",
+];
+
 pub(super) fn parse_body<T: serde::de::DeserializeOwned>(
     body: &str,
 ) -> std::result::Result<T, Response> {
@@ -130,13 +141,7 @@ pub(super) fn not_found(status: u16) -> Response {
                 "docs_url": docs_url(),
                 "repair_hint": "map the command to the closest listed Jeryu route or MCP tool, then rerun cargo test -p jeryu-api --features web"
             },
-            "jeryu_mcp_tools": [
-                "jeryu.repo.list",
-                "jeryu.repo.get",
-                "jeryu.pr.list",
-                "jeryu.issue.list",
-                "jeryu.check.list"
-            ],
+            "jeryu_mcp_tools": MCP_GUIDANCE_TOOLS,
             "jeryu_api_routes": [
                 "GET /user",
                 "GET /repos",
@@ -144,7 +149,7 @@ pub(super) fn not_found(status: u16) -> Response {
                 "GET /repos/{owner}/{repo}/pulls",
                 "GET /repos/{owner}/{repo}/issues",
                 "GET /repos/{owner}/{repo}/commits/{ref}/status",
-                "GET /repos/{owner}/{repo}/check-runs",
+                "GET /repos/{owner}/{repo}/commits/{ref}/check-runs",
                 "POST /graphql"
             ]
         }),

@@ -10,8 +10,15 @@ unless the caller explicitly overrides them. Local Jeryu runners default to
 Ubuntu runners. Docker/OCI is opt-in for jobs that require container isolation.
 
 Primary lanes:
-- `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for pushes
+- `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for branch
   and PR checks.
+- `bash ci-fast-push.sh --full --no-push`: local proof of the full hosted-lane
+  union from `agent/ci-lanes.toml`, including GitHub fallback-profile proof,
+  security toolchain verification, retired-listener/process rejection, and all
+  full workflow lanes.
+- `bash ci-fast-push.sh`: local publish path after gates pass; it pushes the
+  current branch and opens or reports a PR. Direct `HEAD:main` push requires
+  explicit `--push-main` or `JERYU_CI_PUSH_MAIN=1`.
 - `just fast`: deterministic fast lane for agent iteration.
 - `just ci`: per-phase gate aggregator with explicit PASS, FAIL, and PENDING states.
 - `just full`: workspace foundation gate with fmt, check, tests, clippy, zero-evidence, docs, release, score, and doctor checks.
@@ -26,11 +33,24 @@ PENDING with evidence.
 CI parity checks:
 - `ops/ci/verify-jeryu-env.sh --build-local` builds the repo-local `jeryu`
   binary, rejects noncanonical remotes, and ensures CI does not select the
-  legacy `~/.jeryu/bin/jeryu` binary.
+  retired `~/.jeryu/bin/jeryu` binary.
+- `ops/ci/verify-jeryu-env.sh --build-local --release-guard` is wired into
+  full release validation and fails while retired-provider runners, `~/.jeryu`,
+  old `/home/ubuntu/jeryu`, local `:2224`, or other monitored listeners are
+  still active.
 - `ops/ci/ensure-jankurai.sh` is the single local/hosted bootstrap for pinned
   Jankurai 1.6.10.
+- `agent/ci-lanes.toml` is the committed CI lane manifest. `cargo run -q -p
+  jeryu-repogate -- ci-lanes-check` fails if a workflow adds hosted-only `run:`
+  commands or stops calling the manifest-declared local lane.
 - Hosted `ci-fast` fetches `origin/main` and runs `ci-fast-push.sh --no-push`
   so affected planning, Jankurai diff audit, and local push behavior match.
+- Hosted security installs pinned open-source tools through
+  `ops/ci/security-tools.sh` and then runs `ops/ci/security.sh`; local full mode
+  uses the same two scripts before claiming security parity.
+- The SBOM lane always writes a cosign transcript. Keyless signing is opt-in via
+  `JERYU_COSIGN_KEYLESS=1`; default local CI records signing instructions so it
+  cannot hang waiting for an OIDC/browser flow.
 
 Repair evidence:
 - Every failed lane must print the exact rerun command and the local artifact path when one exists.

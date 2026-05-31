@@ -235,4 +235,111 @@ mod tests {
         assert!(decide(&input, &mut ledger).is_allowed());
         assert_eq!(ledger.receipts().len(), 1);
     }
+
+    #[test]
+    fn empty_actor_denies_without_receipt() {
+        let mut ledger = AuditLedger::new();
+        let input = TenantPolicyInput {
+            tenant: TenantId::new("tenant-a").unwrap_or_else(|_| panic!("valid")),
+            actor: "  ".to_string(),
+            role: Role::Admin,
+            action: TenantAction::UpdateQuota,
+            quota: QuotaLimit::default(),
+            usage: QuotaUsage::zero(),
+            break_glass_ticket: None,
+        };
+        let decision = decide(&input, &mut ledger);
+        assert!(!decision.is_allowed());
+        assert!(format!("{decision:?}").contains("tenant.actor_missing"));
+        assert!(ledger.receipts().is_empty());
+    }
+
+    #[test]
+    fn quota_excess_denies_before_role_check() {
+        let mut ledger = AuditLedger::new();
+        let input = TenantPolicyInput {
+            tenant: TenantId::new("tenant-a").unwrap_or_else(|_| panic!("valid")),
+            actor: "admin".to_string(),
+            role: Role::Admin,
+            action: TenantAction::UpdateQuota,
+            quota: QuotaLimit {
+                max_repos: 1,
+                max_runners: 1,
+                max_storage_gib: 1,
+                max_audit_exports_per_day: 1,
+            },
+            usage: QuotaUsage {
+                repos: 2,
+                runners: 0,
+                storage_gib: 0,
+                audit_exports_today: 0,
+            },
+            break_glass_ticket: None,
+        };
+        let decision = decide(&input, &mut ledger);
+        assert!(!decision.is_allowed());
+        assert!(format!("{decision:?}").contains("tenant.quota_exceeded"));
+    }
+
+    #[test]
+    fn break_glass_requires_ticket_then_allows_sensitive_action() {
+        let mut ledger = AuditLedger::new();
+        let mut input = TenantPolicyInput {
+            tenant: TenantId::new("tenant-a").unwrap_or_else(|_| panic!("valid")),
+            actor: "incident-commander".to_string(),
+            role: Role::BreakGlass,
+            action: TenantAction::ApplyUpgrade,
+            quota: QuotaLimit::default(),
+            usage: QuotaUsage::zero(),
+            break_glass_ticket: None,
+        };
+        let denied = decide(&input, &mut ledger);
+        assert!(!denied.is_allowed());
+        assert!(ledger.receipts().is_empty());
+
+        input.break_glass_ticket = Some("INC-1234".to_string());
+        let allowed = decide(&input, &mut ledger);
+        assert!(allowed.is_allowed());
+        assert_eq!(ledger.receipts().len(), 1);
+    }
+
+    #[test]
+    fn admin_cannot_apply_upgrade_without_break_glass() {
+        let mut ledger = AuditLedger::new();
+        let input = TenantPolicyInput {
+            tenant: TenantId::new("tenant-a").unwrap_or_else(|_| panic!("valid")),
+            actor: "admin".to_string(),
+            role: Role::Admin,
+            action: TenantAction::ApplyUpgrade,
+            quota: QuotaLimit::default(),
+            usage: QuotaUsage::zero(),
+            break_glass_ticket: None,
+        };
+        let decision = decide(&input, &mut ledger);
+        assert!(!decision.is_allowed());
+        assert!(format!("{decision:?}").contains("tenant.role_denied"));
+    }
+
+    #[test]
+    fn policy_input_json_names_role_action_and_usage() {
+        let input = TenantPolicyInput {
+            tenant: TenantId::new("tenant-a").unwrap_or_else(|_| panic!("valid")),
+            actor: "auditor".to_string(),
+            role: Role::Auditor,
+            action: TenantAction::ReadReplay,
+            quota: QuotaLimit::default(),
+            usage: QuotaUsage {
+                repos: 3,
+                runners: 4,
+                storage_gib: 5,
+                audit_exports_today: 6,
+            },
+            break_glass_ticket: None,
+        };
+        let json = input.to_json();
+        assert!(json.contains("\"role\":\"auditor\""));
+        assert!(json.contains("\"action\":\"read_replay\""));
+        assert!(json.contains("\"repos\":3"));
+        assert!(json.contains("\"audit_exports_today\":6"));
+    }
 }

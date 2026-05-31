@@ -2,11 +2,14 @@
 set -euo pipefail
 
 required_patterns=(
+  ".github/"
   "agent/"
+  "agent/ci-lanes.toml"
   "bins/"
   "config/"
   "configs/"
   "crates/"
+  "crates/jeryu-repogate/"
   "docs/"
   "examples/"
   "fixtures/"

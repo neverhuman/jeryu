@@ -26,6 +26,14 @@ blocks_merge = true
 required = ["./scripts/check-agent-maps.sh"]
 blocks_merge = true
 
+[lanes.local-ci-parity]
+required = [
+  "cargo test -p jeryu-repogate --jobs 40",
+  "cargo run -q -p jeryu-repogate -- ci-lanes-check",
+  "bash scripts/ci-phases.sh"
+]
+blocks_merge = true
+
 [lanes.workspace]
 required = ["cargo test --workspace --jobs 40"]
 blocks_merge = true

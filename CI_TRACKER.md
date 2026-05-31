@@ -1,18 +1,20 @@
 # jeryu — Local CI Tracker (confidence ledger)
 
 Shared living dashboard of **local** test + gate health (maintained by both agents).
-Working policy: local validation, frequent merges to `main`, frequent pushes to
-`https://github.com/neverhuman/jeryu/`. **PR-based CI is intentionally not required** —
-we push straight to `main` until this is 100% healthy and done.
+Working policy: local validation first, then branch push + PR review through
+`https://github.com/neverhuman/jeryu/`. Direct `main` pushes are no longer the
+default closeout path; `ci-fast-push.sh` requires explicit `--push-main` or
+`JERYU_CI_PUSH_MAIN=1` for that escape hatch.
 
-Run locally: `bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh` (foundation)
+Run locally: `bash ci-fast-push.sh --full --no-push` (core parity gate) ·
+`bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh` (foundation)
 · `cargo nextest run --workspace` (raw tests). A gate is **PASS / FAIL / PENDING**
 (capability not built yet — never silently green).
 
 Identity law: jeryu reads as a self-hosted GitHub-compatible forge. CI is GitHub-Actions +
 native only; zero retired-provider evidence (enforced by the zero-evidence gate).
 
-_Last updated: 2026-05-31 · Latest push-mode `bash ci-fast-push.sh` after the gitd import validation tranche reports **all gates green** with 40 workers: CI profile, repo-local `jeryu` binary verification, pinned Jankurai bootstrap, affected-plan, affected changed-list, untracked parity guard, fmt, workspace clippy, **1122 nextest tests**, zero-evidence, docs markers, phase gates, Jankurai diff audit, Jankurai audit, and push to `origin/main`. Jankurai reported diff audit **score 90, hard 0, caps 0** and audit **score 92, caps 0**. First-wave local import registered **28 repos/mirrors** under `~/.local/share/jeryu`, `/api/v1/repos` lists them, and the git oracle now proves imported repos materialize under `git/repos/OWNER/REPO.git` for clone/fetch. · `scripts/ci-phases.sh` reports **PASS=7 · PENDING=0 · FAIL=0**. · Remote is canonical GitHub only (`git@github.com:neverhuman/jeryu.git`; no local `:2224` forge remote)._
+_Last updated: 2026-05-31 · Latest full parity gates are green with 40 workers in both profiles: local-native `JERYU_CI_ALLOW_RETIRED_PROCESSES=1 JERYU_CI_ALLOW_RETIRED_LISTENERS=1 bash ci-fast-push.sh --full --no-push` passed in **91s**, and GitHub-clean `JERYU_CI_ALLOW_RETIRED_PROCESSES=1 JERYU_CI_ALLOW_RETIRED_LISTENERS=1 JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push` passed in **87s**. The explicit retired-state bypass is only for this host because root-owned retired-provider services and the Docker-backed `:2224` listener remain active; authentic `ops/ci/verify-jeryu-env.sh --build-local --release-guard` fails closed until an operator stops them. The full gate verifies the repo-local `jeryu` binary, pins Jankurai 1.6.10, proves the GitHub vanilla profile, installs the pinned open security toolchain, runs workspace clippy and **1175 nextest tests**, phase gates, and every manifest lane in `agent/ci-lanes.toml` (`ci-fast`, `jankurai`, `security`, `proof-evidence`). Latest evidence: phase gates **PASS=7 · PENDING=0 · FAIL=0**, manifest proof-evidence Jankurai full scan **score 92, caps 0**, final Jankurai diff audit **score 83, hard 0, caps 0**, and final changed-file audit **score 83, caps 0**. First-wave local import registered **28 repos/mirrors** under `~/.local/share/jeryu`, `/api/v1/repos` lists them, and the git oracle proves imported repos materialize under `git/repos/OWNER/REPO.git` for clone/fetch. Remote is canonical GitHub only (`git@github.com:neverhuman/jeryu.git`; no local `:2224` forge remote)._
 
 ## Per-phase gate status (`scripts/ci-phases.sh`)
 
@@ -67,6 +69,7 @@ _Last updated: 2026-05-31 · Latest push-mode `bash ci-fast-push.sh` after the g
 | Codex guided REST repair | `/user` identity plus repair-hinted unknown-route 404s; affected API/domain fast lane and Jankurai diff/audit score 90 | 23 focused |
 | Codex local/GitHub CI parity | `ci-fast-push.sh --no-push` preflights local profile, repo-built `jeryu`, pinned Jankurai, native Rust runner defaults, full workspace tests, phase gates, and Jankurai diff/audit | **1113** |
 | Codex gitd import validation | `jeryu-mirror import-local` now materializes gitd storage and `ops/git-oracle` proves clone/fetch from the imported mirror | **1122** |
+| Codex full CI manifest parity | `agent/ci-lanes.toml`, workflow drift guard, explicit `ci-fast-push.sh --full`, GitHub fallback-profile proof, pinned security toolchain, manifest lane union, PR-default publishing, retired-state release guard, and added guard coverage green locally | **1175** |
 
 ## Test coverage by crate (passing)
 
@@ -74,7 +77,7 @@ _Last updated: 2026-05-31 · Latest push-mode `bash ci-fast-push.sh` after the g
 
 **Core engine coverage by Claude:** jeryu-core 129 (domain CRUD, PR state machine, branch protection, checks, webhooks), jeryu-ci-ir 63 (deterministic IR hash, DAG validity), jeryu-proof 44 (owner/test-map, generated-zones, no-proof-no-merge).
 
-**Core engine (Codex):** jeryu-gitd, jeryu-rustjet, jeryu-runnerd, jeryu-ci-scheduler, jeryu-cache*, jeryu-signrail, jeryu-runner-*, jeryu-mirror, jeryu-enterprise, jeryu-obs, jeryu-bench, jeryu-tenant, jeryu-phase11-*, jeryu-kernel — the remaining Rust coverage behind the 1122-test full fast-lane total. It includes fail-closed gates for scheduler cycles, runner trust, protected-ref force, duplicate provenance, pre-receive validation, cache-law allowlists, dangerous workspace denial, git differential oracle, imported-repo clone/fetch, and runner sandbox contract guards.
+**Core engine (Codex):** jeryu-gitd, jeryu-rustjet, jeryu-runnerd, jeryu-ci-scheduler, jeryu-cache*, jeryu-signrail, jeryu-runner-*, jeryu-mirror, jeryu-enterprise, jeryu-obs, jeryu-bench, jeryu-tenant, jeryu-phase11-*, jeryu-kernel — the remaining Rust coverage behind the 1175-test full fast-lane total. It includes fail-closed gates for scheduler cycles, runner trust, protected-ref force, duplicate provenance, pre-receive validation, cache-law allowlists, dangerous workspace denial, git differential oracle, imported-repo clone/fetch, runner sandbox contract guards, release-lane drift guards, and zero-evidence artifact filtering.
 
 ## Added local CI coverage (log)
 
@@ -94,19 +97,24 @@ _Last updated: 2026-05-31 · Latest push-mode `bash ci-fast-push.sh` after the g
 | 2026-05-31 | Codex | added local/GitHub `ci-fast-push.sh` parity bootstrap, repo-local `jeryu` binary verification, native Rust runner defaults, and pinned Jankurai setup |
 | 2026-05-31 | Codex | added gitd materialization for local imports and clone/fetch proof in the git oracle smoke lane |
 | 2026-05-31 | Codex | hardened `ci-fast-push.sh` Jankurai changed-list generation and added a fail-closed untracked-file parity guard before Jankurai diff audit |
+| 2026-05-31 | Codex | added `agent/ci-lanes.toml`, `jeryu-repogate ci-lanes-check/list`, explicit `ci-fast-push.sh --full`, GitHub fallback-profile proof, and pinned local/hosted security tool bootstrap |
+| 2026-05-31 | Codex | switched `ci-fast-push.sh` publishing to branch/PR by default and added the full-release retired process/listener guard |
+| 2026-05-31 | Codex | closed the local/GitHub-profile full parity loop at 1175 nextest tests, added guard self-tests, and made generated Jankurai audit reports non-source for zero-evidence |
 
 ## Toward 100% healthy / done
 
-- [x] Workspace compiles (edition 2024); latest full workspace fast lane was green at 1122 nextest tests.
+- [x] Workspace compiles (edition 2024); latest full workspace fast lane was green at 1175 nextest tests.
 - [x] foundation gate green (fmt/clippy/zero-evidence/docs/security-scan).
 - [x] github-conformance · ir-determinism · proof-gate · git-oracle · cache-safety · runner-sandbox PASS.
 - [ ] Build daemon/network transport hardening beyond the local git/cache PASS gates.
 - [x] GitHub-correctness defects FIXED + tested: PR `Closed`/`Merged` stickiness; **enforced** branch protection (CODEOWNERS, linear history, signed commits, force-push/delete, enforce_admins); CI-IR multi-node cycle detection (Kahn's).
-- [x] **Jankurai audit score target ≥85**: latest full fast lane reports audit score 92 with caps 0; diff audit is score 90 with hard 0 and caps 0.
+- [x] **Jankurai audit score target ≥85**: proof-evidence full scan reports score 92 with caps 0; final diff audit is score 83 with hard 0 and caps 0.
 - [ ] Consolidate duplicated decision core (conditions/quorum/sha-bind/judge) into `jeryu-proof`.
 - [x] Durable SQLite forge truth for core forge resources with reopen and rollback tests.
 - [x] Local-only live API/TUI path on `127.0.0.1` with `~/.local/share/jeryu` as the Rust data dir.
 - [x] Guided GitHub-compatible `/user`, REST repair-hint 404s, and `/graphql` read probes with repair-hint 501s.
 - [x] TUI has a `jeryu-tui --once` binary, API-source mode, and all 18 tabs rendering from the read model.
-- [x] Local and hosted fast CI both route through `ci-fast-push.sh --no-push` with 40 workers, native Rust default execution, pinned Jankurai, and repo-local binary verification.
+- [x] Local and hosted fast CI both route through `ci-fast-push.sh` with 40 workers, native Rust default execution, pinned Jankurai, repo-local binary verification, explicit `--full` manifest-lane parity, and GitHub fallback-profile proof.
+- [x] Direct-main publishing is no longer the default; closeout changes go through a branch + PR path.
+- [ ] Retired-provider and old Jeryu listener/process guard is implemented; local host still needs shutdown/quarantine proof before release validation can pass.
 - [ ] Deepen the thin engine crates and complete authenticated LAN/public deployment hardening.

@@ -18,6 +18,7 @@ audit:
   ./ops/ci/audit.sh
 
 security:
+  ./ops/ci/security-tools.sh
   ./ops/ci/security.sh
 
 release:

@@ -1369,11 +1369,13 @@ dependencies = [
  "jeryu-bench",
  "jeryu-core",
  "jeryu-enterprise",
+ "jeryu-mcp",
  "jeryu-obs",
  "jeryu-readmodel",
  "serde",
  "serde_json",
  "tokio",
+ "tower",
  "tower-http",
 ]
 
@@ -1717,6 +1719,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "toml",
 ]
 
 [[package]]

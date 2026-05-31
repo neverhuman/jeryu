@@ -28,20 +28,24 @@ const BLOCKED_MARKER_HEX: &[&str] = &[
 
 /// Directory names whose entire subtree is skipped during a scan.
 ///
-/// `.git`, `.worktrees`, and `target` hold VCS internals and build output that
-/// are never product source. `node_modules`, `dist`, and `storybook-static`
-/// cover the web build artifacts and local Playwright HTML reports. External
-/// worktree roots live outside the repo, so a default `.` scan never reaches
-/// them.
+/// `.git`, `.worktrees`, `target`, and `.jankurai` hold VCS internals, build
+/// output, and generated audit reports that are never product source.
+/// `node_modules`, `dist`, and `storybook-static` cover the web build artifacts
+/// and local Playwright HTML reports. External worktree roots live outside the
+/// repo, so a default `.` scan never reaches them.
 const SKIP_DIRS: &[&str] = &[
     ".git",
     ".worktrees",
+    ".jankurai",
     "target",
     "node_modules",
     "dist",
     "playwright-report",
     "storybook-static",
 ];
+
+/// Generated file suffixes skipped even when they appear outside skipped dirs.
+const SKIP_FILE_SUFFIXES: &[&str] = &[".tsbuildinfo"];
 
 /// Errors that can occur while scanning a workspace.
 #[derive(Debug, thiserror::Error)]
@@ -133,6 +137,13 @@ fn iter_files(root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ScanError> {
             if file_type.is_dir() {
                 stack.push(path);
             } else if file_type.is_file() {
+                let rel_text = rel.to_string_lossy();
+                if SKIP_FILE_SUFFIXES
+                    .iter()
+                    .any(|suffix| rel_text.ends_with(suffix))
+                {
+                    continue;
+                }
                 out.push((rel.to_path_buf(), path));
             }
             // Symlinks and other non-regular entries are ignored; only regular

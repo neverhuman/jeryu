@@ -38,11 +38,10 @@ env:
   JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
 
 jobs:
-  # --- Dependency review: cargo audit + cargo deny ---------------------------
-  cargo-deny:
-    name: cargo deny + cargo audit
+  security:
+    name: security lane
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Checkout without marketplace actions
         run: |
@@ -52,113 +51,7 @@ jobs:
           git checkout --detach FETCH_HEAD
       - name: Toolchain
         run: rustup toolchain install 1.95.0 --profile minimal
-      - name: Install cargo-deny and cargo-audit (version-locked)
-        run: |
-          cargo install --locked cargo-deny
-          cargo install --locked cargo-audit
-      - name: cargo deny check (advisories, bans, licenses, sources)
-        run: cargo deny check advisories bans licenses sources
-      - name: cargo audit
-        run: cargo audit --deny warnings
-
-  # --- SBOM + supply-chain provenance ----------------------------------------
-  sbom-provenance:
-    name: SBOM + provenance (syft / grype / cosign / SLSA)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout without marketplace actions
-        run: |
-          git init .
-          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          git fetch --depth 1 origin "$GITHUB_SHA"
-          git checkout --detach FETCH_HEAD
-      - name: Install syft, grype and cosign (pinned + checksum-verified)
-        env:
-          # Pinned release checksums (sha256). Update alongside the *_VERSION env vars.
-          SYFT_SHA256: "f551cd16da3a5456f5245bb8045b98594263a678a9d2a07b462a05be0357b795"
-          GRYPE_SHA256: "62f91dfd7d72c16754a99693cf67f58d0cf6f8b71313c450c2585c7b28891d0c"
-          COSIGN_SHA256: "caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708"
-        run: |
-          set -euo pipefail
-          bindir="$HOME/.local/bin"
-          mkdir -p "$bindir"
-          # Download a release archive/binary, verify its sha256, then unpack/run it.
-          # No remote code is piped into a shell.
-          fetch_verify() {
-            url="$1"; want="$2"; out="$3"
-            curl -sSfL "$url" -o "$out"
-            got="$(sha256sum "$out" | awk '{print $1}')"
-            if [ "$want" != "skip" ] && [ "$got" != "$want" ]; then
-              echo "checksum mismatch for $url: got $got want $want" >&2
-              exit 1
-            fi
-            echo "verified $out ($got)"
-          }
-          fetch_verify "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" "${SYFT_SHA256}" /tmp/syft.tgz
-          fetch_verify "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz" "${GRYPE_SHA256}" /tmp/grype.tgz
-          fetch_verify "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" "${COSIGN_SHA256}" "$bindir/cosign"
-          tar -xzf /tmp/syft.tgz -C "$bindir" syft
-          tar -xzf /tmp/grype.tgz -C "$bindir" grype
-          chmod +x "$bindir/cosign"
-          echo "$bindir" >> "$GITHUB_PATH"
-      - name: Generate SBOM, run grype scan, emit SLSA provenance, sign with cosign
-        run: bash ops/ci/sbom-provenance.sh
-      - name: Collect SBOM and provenance artifacts
-        run: |
-          mkdir -p "$RUNNER_TEMP/sbom-out"
-          cp -r target/jankurai/security/sbom/* "$RUNNER_TEMP/sbom-out/"
-          ls -la "$RUNNER_TEMP/sbom-out"
-
-  # --- Workflow linting: actionlint + zizmor ---------------------------------
-  workflow-lint:
-    name: workflow lint (actionlint + zizmor)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout without marketplace actions
-        run: |
-          git init .
-          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          git fetch --depth 1 origin "$GITHUB_SHA"
-          git checkout --detach FETCH_HEAD
-      - name: Install actionlint (pinned + checksum-verified) and zizmor
-        env:
-          ACTIONLINT_VERSION: "1.7.8"
-          ACTIONLINT_SHA256: "be92c2652ab7b6d08425428797ceabeb16e31a781c07bc388456b4e592f3e36a"
-        run: |
-          set -euo pipefail
-          bindir="$HOME/.local/bin"
-          mkdir -p "$bindir"
-          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -o /tmp/actionlint.tgz
-          got="$(sha256sum /tmp/actionlint.tgz | awk '{print $1}')"
-          if [ "$got" != "$ACTIONLINT_SHA256" ]; then
-            echo "actionlint checksum mismatch: got $got" >&2; exit 1
-          fi
-          tar -xzf /tmp/actionlint.tgz -C "$bindir" actionlint
-          rustup toolchain install 1.95.0 --profile minimal
-          cargo install --locked zizmor
-          echo "$bindir" >> "$GITHUB_PATH"
-      - name: actionlint + zizmor
-        run: bash ops/ci/workflow-lint.sh
-
-  # --- jankurai agent-readiness audit gate -----------------------------------
-  jankurai-audit:
-    name: jankurai audit gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout without marketplace actions
-        run: |
-          git init .
-          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          git fetch --depth 1 origin "$GITHUB_SHA"
-          git checkout --detach FETCH_HEAD
-      - name: Toolchain
-        run: rustup toolchain install 1.95.0 --profile minimal
-      - name: Ensure pinned jankurai on PATH
-        run: bash ops/ci/ensure-jankurai.sh
-      - name: jankurai audit (standard gate, fail under 85)
-        run: |
-          mkdir -p .jankurai
-          jankurai audit . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85
+      - name: Install open security tools
+        run: bash ops/ci/security-tools.sh
+      - name: Security and supply-chain lane
+        run: JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh

@@ -157,6 +157,9 @@ impl GithubRouter {
 
             // Check runs -----------------------------------------------------
             (Get, ["repos", owner, repo, "check-runs"]) => Ok(self.list_check_runs(owner, repo)),
+            (Get, ["repos", owner, repo, "commits", _reference, "check-runs"]) => {
+                Ok(self.list_check_runs(owner, repo))
+            }
             (Post, ["repos", owner, repo, "check-runs"]) => {
                 Ok(self.create_check_run(owner, repo, body))
             }

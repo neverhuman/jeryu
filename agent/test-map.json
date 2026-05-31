@@ -12,9 +12,9 @@
       "lane": "devex"
     },
     "ci-fast-push.sh": {
-      "command": "just fast",
-      "purpose": "verify fast push helper stays aligned with local CI",
-      "lane": "fast"
+      "command": "bash ci-fast-push.sh --full --no-push",
+      "purpose": "verify the core local CI script runs the full hosted-lane union with local/GitHub parity checks",
+      "lane": "local-ci-parity"
     },
     ".gitignore": {
       "command": "just fast",
@@ -27,9 +27,9 @@
       "lane": "workspace"
     },
     ".github/": {
-      "command": "just fast && just security && just audit",
-      "purpose": "verify hosted mirrors call real local CI lanes without marketplace action dependencies",
-      "lane": "ops"
+      "command": "cargo run -q -p jeryu-repogate -- ci-lanes-check && just fast && just security && just audit",
+      "purpose": "verify hosted workflows stay thin, local-reproducible, and aligned with the CI lane manifest",
+      "lane": "local-ci-parity"
     },
     "AGENTS.md": {
       "command": "cargo run -q -p jeryu-mapcheck -- docs",
@@ -75,6 +75,11 @@
       "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones",
       "purpose": "verify agent ownership, proof routing, and generated-zone maps",
       "lane": "jankurai-proof"
+    },
+    "agent/ci-lanes.toml": {
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-repogate -- ci-lanes-check",
+      "purpose": "verify the CI lane manifest matches hosted workflows and local CI entrypoints",
+      "lane": "local-ci-parity"
     },
     "agent/boundaries.toml": {
       "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones",
@@ -161,6 +166,11 @@
       "purpose": "verify proof and agent bridge contracts",
       "lane": "jankurai-proof"
     },
+    "crates/jeryu-repogate/": {
+      "command": "cargo test -p jeryu-repogate --jobs 40 && cargo run -q -p jeryu-repogate -- ci-lanes-check",
+      "purpose": "verify governance repo gates and the CI parity drift guard",
+      "lane": "local-ci-parity"
+    },
     "crates/jeryu-signrail/": {
       "command": "cargo test -p jeryu-signrail --jobs 40",
       "purpose": "verify release provenance and signing gates",
@@ -197,9 +207,9 @@
       "lane": "fixtures"
     },
     "ops/": {
-      "command": "bash ops/ci/verify-jeryu-env.sh --build-local && ./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
-      "purpose": "verify local CI gates and ops scripts",
-      "lane": "devex"
+      "command": "bash ops/ci/verify-jeryu-env.sh --build-local && cargo run -q -p jeryu-repogate -- ci-lanes-check && ./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
+      "purpose": "verify local CI gates, ops scripts, and hosted/local parity wiring",
+      "lane": "local-ci-parity"
     },
     "ops/git-hooks/": {
       "command": "bash ops/git-hooks/pre-push",
@@ -217,9 +227,9 @@
       "lane": "ux-qa"
     },
     "scripts/": {
-      "command": "./scripts/ci-doctor.sh && ./scripts/check-owner-test-map.sh",
-      "purpose": "verify support scripts and proof map coverage",
-      "lane": "devex"
+      "command": "./scripts/ci-doctor.sh && ./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-repogate -- ci-lanes-check",
+      "purpose": "verify support scripts, proof map coverage, and CI parity drift guarding",
+      "lane": "local-ci-parity"
     },
     "tests/": {
       "command": "bash scripts/ci-phases.sh",

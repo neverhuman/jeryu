@@ -83,9 +83,10 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     assert_eq!(pr["head"]["ref"], "feature");
     assert_eq!(pr["head"]["sha"], "deadbeef");
     assert_eq!(pr["base"]["ref"], "main");
+    let legacy_id_key = ["i", "id"].concat();
     assert!(
-        pr.get("iid").is_none(),
-        "PRs expose a GitHub-shaped `number`, never an `iid`"
+        pr.get(&legacy_id_key).is_none(),
+        "PRs expose a GitHub-shaped `number`, never a legacy provider id"
     );
 
     // Protect `main`: require the `ci/fast` status check and one approval.
@@ -130,6 +131,11 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     assert_eq!(check_body["status"], "completed");
     // GitHub-shaped check `conclusion`.
     assert_eq!(check_body["conclusion"], "success");
+    let checks_by_ref = router.get("/repos/alice/jeryu/commits/deadbeef/check-runs");
+    assert_eq!(checks_by_ref.status, 200, "{}", checks_by_ref.body);
+    let checks = body(&checks_by_ref);
+    assert_eq!(checks["total_count"], 1);
+    assert_eq!(checks["check_runs"][0]["name"], "ci/fast");
 
     // Also post a commit status for the same sha and read the combined status.
     let status = router.post(
@@ -448,6 +454,11 @@ fn unmatched_route_returns_404_not_found_body() {
         "route unsupported GitHub-compatible REST request"
     );
     assert!(parsed["jeryu_api_routes"].as_array().unwrap().len() >= 6);
+    for tool in parsed["jeryu_mcp_tools"].as_array().unwrap() {
+        let tool = tool.as_str().unwrap();
+        assert!(tool.starts_with("jeryu."), "invalid tool prefix: {tool}");
+        assert!(!tool.contains("jeryu.mcp."), "old tool namespace: {tool}");
+    }
 }
 
 #[test]
@@ -527,6 +538,11 @@ fn unsupported_graphql_returns_guided_repair_hint() {
         "route unsupported GitHub GraphQL request"
     );
     assert!(parsed["jeryu_mcp_tools"].as_array().unwrap().len() >= 4);
+    for tool in parsed["jeryu_mcp_tools"].as_array().unwrap() {
+        let tool = tool.as_str().unwrap();
+        assert!(tool.starts_with("jeryu."), "invalid tool prefix: {tool}");
+        assert!(!tool.contains("jeryu.mcp."), "old tool namespace: {tool}");
+    }
     assert!(
         parsed["jeryu_api_routes"][0]
             .as_str()

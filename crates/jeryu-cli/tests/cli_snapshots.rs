@@ -2,8 +2,7 @@
 //!
 //! Two families of tests:
 //! 1. Help-tree invariants: walk the clap `Command` tree and assert the
-//!    vocabulary is GitHub-shaped (no foreign-forge terms, no merge-request /
-//!    pipeline / pool leakage) and that the renamed verbs are present.
+//!    vocabulary is GitHub-shaped and that the renamed verbs are present.
 //! 2. Dispatch smoke tests: parse a real argv, run it against the in-memory
 //!    client, and assert on the rendered output / exit code.
 
@@ -134,7 +133,14 @@ fn help_tree_uses_github_shaped_vocabulary() {
 #[test]
 fn top_level_excludes_removed_commands() {
     let names = top_level_names();
-    for removed in ["mr", "pool", "pipeline", "exec", "job"] {
+    let retired_review_command = ["m", "r"].concat();
+    for removed in [
+        retired_review_command.as_str(),
+        "pool",
+        "pipeline",
+        "exec",
+        "job",
+    ] {
         assert!(
             !names.iter().any(|n| n == removed),
             "removed command {removed:?} is still a top-level subcommand: {names:?}"

@@ -63,10 +63,10 @@ pub struct WebEvent {
 #[ts(export)]
 pub struct SubscriptionSpec {
     /// Granular topic per §35.1.15, e.g. `global.activity`, `repo.{id}`,
-    /// `mr.{id}`, `agent.{id}`, `cache.{id}`. Backend re-checks each scope
+    /// `pr.{id}`, `agent.{id}`, `cache.{id}`. Backend re-checks each scope
     /// against the viewer's perms on every `Subscribe` frame (§35.1.6).
     pub scope: String,
-    /// Free-form filter object (e.g. `{ kind: ["mr.approved"] }`).
+    /// Free-form filter object (e.g. `{ kind: ["pr.approved"] }`).
     #[ts(type = "Record<string, unknown>")]
     pub filters: serde_json::Value,
 }

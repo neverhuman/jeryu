@@ -1,6 +1,7 @@
 use jeryu_signrail::{
-    Artifact, HmacSha256Signer, OidcJobIdentity, RELEASE_WITNESS_MARKER, Release, ReleasePolicy,
-    RollbackMetadata, SbomDocument, Signer, UnavailableSigner, validate_release,
+    Artifact, ArtifactStore, HmacSha256Signer, OidcJobIdentity, ProvenanceStatement,
+    RELEASE_WITNESS_MARKER, Release, ReleasePolicy, RollbackMetadata, SbomDocument, Signer,
+    UnavailableSigner, validate_release,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -14,9 +15,21 @@ fn now() -> u64 {
 }
 
 fn temp_artifact(name: &str, contents: &[u8]) -> PathBuf {
-    let path = std::env::temp_dir().join(format!("jeryu_signrail-{name}-{}", now()));
+    let path = std::env::temp_dir().join(format!(
+        "jeryu_signrail-{name}-{}-{}",
+        std::process::id(),
+        now()
+    ));
     fs::write(&path, contents).unwrap_or_else(|err| panic!("failed to write temp artifact: {err}"));
     path
+}
+
+fn temp_store_root(name: &str) -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "jeryu_signrail-store-{name}-{}-{}",
+        std::process::id(),
+        now()
+    ))
 }
 
 fn identity() -> OidcJobIdentity {
@@ -223,4 +236,116 @@ fn oidc_expiry_blocks_release() {
     release.oidc.expires_at_epoch = 1;
     let err = validate_release(&release, &policy(), &signer).unwrap_err();
     assert!(err.to_string().contains("expired"));
+}
+
+#[test]
+fn artifact_store_shards_artifacts_and_sanitizes_json_names() {
+    let root = temp_store_root("artifact");
+    let path = temp_artifact("stored.bin", b"stored artifact bytes");
+    let artifact = Artifact::from_file("stored.bin", &path, "application/octet-stream")
+        .unwrap_or_else(|err| panic!("artifact failed: {err}"));
+    let store = ArtifactStore::open(&root).unwrap_or_else(|err| panic!("store failed: {err}"));
+
+    let stored = store
+        .put_artifact(&artifact)
+        .unwrap_or_else(|err| panic!("put artifact failed: {err}"));
+    assert_eq!(
+        fs::read(&stored).unwrap_or_else(|err| panic!("read stored failed: {err}")),
+        b"stored artifact bytes"
+    );
+    assert!(stored.starts_with(store.root().join("artifacts")));
+    assert!(stored.ends_with(PathBuf::from("stored.bin")));
+    assert!(stored.to_string_lossy().contains(&artifact.digest[..2]));
+
+    let json_path = store
+        .put_json("receipts", "release/v1.2.3", "{\"ok\":true}")
+        .unwrap_or_else(|err| panic!("put json failed: {err}"));
+    assert!(json_path.ends_with(PathBuf::from("release_v1.2.3.json")));
+    assert_eq!(
+        fs::read_to_string(json_path).unwrap_or_else(|err| panic!("read json failed: {err}")),
+        "{\"ok\":true}"
+    );
+}
+
+#[test]
+fn cli_checksum_and_sbom_commands_are_deterministic() {
+    let path = temp_artifact("cli.bin", b"cli artifact bytes");
+    let path_str = path.display().to_string();
+
+    let checksum = jeryu_signrail::cli::run_from(["checksum", path_str.as_str()])
+        .unwrap_or_else(|err| panic!("checksum failed: {err}"));
+    assert!(checksum.ends_with(&format!("  {path_str}")));
+
+    let sbom = jeryu_signrail::cli::run_from(["sbom", "v9.0.0", path_str.as_str()])
+        .unwrap_or_else(|err| panic!("sbom failed: {err}"));
+    let file_name = path
+        .file_name()
+        .and_then(|part| part.to_str())
+        .unwrap_or_else(|| panic!("temp path has file name"));
+    assert!(sbom.contains("\"format\":\"CycloneDX-compatible\""));
+    assert!(sbom.contains("\"version\":\"v9.0.0\""));
+    assert!(sbom.contains(&format!("\"name\":\"{file_name}\"")));
+}
+
+#[test]
+fn cli_rejects_unknown_command_with_helpful_usage() {
+    let err = jeryu_signrail::cli::run_from(["bogus"]).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("unknown command bogus"));
+    assert!(msg.contains("checksum <path>"));
+}
+
+#[test]
+fn signed_provenance_json_preserves_canonical_witness_fields() {
+    let (release, _signer) = signed_release();
+    let provenance = &release.provenance[0];
+    let canonical = String::from_utf8(provenance.statement.canonical_message())
+        .unwrap_or_else(|err| panic!("canonical utf8 failed: {err}"));
+    assert!(canonical.starts_with("source_repository=https://git.example.invalid/acme/jeryu\n"));
+    assert!(canonical.contains("jankurai_release_witness=phase8-release-witness-required\n"));
+
+    let json = provenance.to_json();
+    assert!(json.contains("\"statement\":{"));
+    assert!(json.contains("\"signature\":{"));
+    assert!(json.contains("\"jankurai_release_witness\":\"phase8-release-witness-required\""));
+}
+
+#[test]
+fn receipt_digest_changes_with_payload() {
+    let first = jeryu_signrail::receipt::Receipt::new("release", "v1", "{\"ok\":true}");
+    let second = jeryu_signrail::receipt::Receipt::new("release", "v1", "{\"ok\":false}");
+    assert_ne!(first.digest, second.digest);
+    let json = first.to_json();
+    assert!(json.contains("\"kind\":\"release\""));
+    assert!(json.contains("\"payload\":{\"ok\":true}"));
+}
+
+#[test]
+fn rollback_metadata_requires_actionable_fields() {
+    let rollback = RollbackMetadata::new("", "rollback", "sha256:config", "none", now());
+    let err = rollback.validate().unwrap_err();
+    assert!(err.to_string().contains("previous_release"));
+}
+
+#[test]
+fn provenance_statement_json_escapes_fields() {
+    let statement = ProvenanceStatement {
+        source_repository: "https://git.example.invalid/acme/jeryu".to_string(),
+        commit_sha: "abc".to_string(),
+        tree_sha: "def".to_string(),
+        jeryu_ci_ir_hash: "ir".to_string(),
+        runner_class: "release-hermetic".to_string(),
+        runner_rootfs_digest: "rootfs".to_string(),
+        toolchain_digest: "toolchain".to_string(),
+        cargo_lock_digest: "lock".to_string(),
+        artifact_digest: "artifact".to_string(),
+        sbom_digest: "sbom".to_string(),
+        signer_identity: "signer\"quoted".to_string(),
+        oidc_subject: "subject".to_string(),
+        jankurai_release_witness: RELEASE_WITNESS_MARKER.to_string(),
+        created_at_epoch: 7,
+    };
+    let json = statement.to_json();
+    assert!(json.contains("\"signer_identity\":\"signer\\\"quoted\""));
+    assert!(json.contains("\"created_at_epoch\":7"));
 }

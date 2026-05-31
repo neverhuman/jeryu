@@ -22,6 +22,23 @@ BASE_REF="${JERYU_JANKURAI_BASE_REF:-origin/main}"
 # evidence produced in the same run.
 ACCEPTED_BASELINE_SRC="agent/baselines/main.repo-score.json"
 
+ensure_base_ref() {
+  if git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
+    return 0
+  fi
+  case "${BASE_REF}" in
+    origin/*)
+      git fetch --depth "${JERYU_CI_FETCH_DEPTH:-128}" origin \
+        "${BASE_REF#origin/}:refs/remotes/${BASE_REF}" >/dev/null 2>&1 || true
+      ;;
+  esac
+  if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
+    echo "missing proof-evidence base ref: ${BASE_REF}" >&2
+    echo "fetch the base branch before running this lane so proofbind scores the real change set" >&2
+    exit 1
+  fi
+}
+
 # --- Output dirs -----------------------------------------------------------
 mkdir -p \
   .jankurai \
@@ -32,6 +49,11 @@ mkdir -p \
   target/jankurai/proofmark \
   target/jankurai/ux-qa \
   target/jankurai/security
+
+# The security evidence commands below execute the real security lane, so this
+# proof lane must bootstrap the same tools the hosted security workflow uses.
+bash ops/ci/security-tools.sh
+ensure_base_ref
 
 # --- Security evidence (must run BEFORE the audit gate) --------------------
 # Produce the security evidence under the `ci` profile in strict mode so the
@@ -57,8 +79,12 @@ jankurai audit . --mode advisory \
 
 # proofbind / proofmark catalog commands.
 mapfile -t PROOFBIND_CHANGED < <(
-  git diff --name-only --diff-filter=ACMR "${BASE_REF}...HEAD" 2>/dev/null \
-    || git diff --name-only --diff-filter=ACMR
+  {
+    git diff --name-only --diff-filter=ACMR "${BASE_REF}...HEAD"
+    git diff --name-only --diff-filter=ACMR --cached
+    git diff --name-only --diff-filter=ACMR
+    git ls-files --others --exclude-standard
+  } | sort -u
 )
 if [ "${#PROOFBIND_CHANGED[@]}" -eq 0 ]; then
   PROOFBIND_CHANGED=(agent/tool-adoption.toml)

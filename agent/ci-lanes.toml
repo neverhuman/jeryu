@@ -1,0 +1,54 @@
+schema_version = 1
+worker_count = 40
+jankurai_version = "jankurai 1.6.10"
+
+# Setup commands may appear in hosted workflows because they only prepare the
+# same local scripts that developers run. Every substantive test command belongs
+# in a lane below.
+allowed_setup_commands = [
+  '''git init .
+git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+git fetch --no-tags --depth 64 origin "$GITHUB_REF"
+git checkout --detach FETCH_HEAD
+git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main''',
+  '''git init .
+git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+git fetch --depth 1 origin "$GITHUB_SHA"
+git checkout --detach FETCH_HEAD''',
+  '''git init .
+git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+git fetch --depth 1 origin "$GITHUB_SHA"
+git checkout --detach FETCH_HEAD
+git fetch --depth 128 origin main:refs/remotes/origin/main''',
+  "rustup toolchain install 1.95.0 --profile minimal",
+  "bash ops/ci/ensure-jankurai.sh",
+  "bash ops/ci/security-tools.sh",
+]
+
+[[lanes]]
+id = "ci-fast"
+workflow = ".github/workflows/ci-fast.yml"
+job = "affected-fast"
+command = "bash ops/ci/ci-fast.sh"
+full = true
+
+[[lanes]]
+id = "jankurai"
+workflow = ".github/workflows/jankurai.yml"
+job = "jankurai-audit"
+command = "jankurai audit . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85"
+full = true
+
+[[lanes]]
+id = "security"
+workflow = ".github/workflows/security.yml"
+job = "security"
+command = "JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh"
+full = true
+
+[[lanes]]
+id = "proof-evidence"
+workflow = ".github/workflows/proof-evidence.yml"
+job = "tool-adoption-evidence"
+command = "bash ops/ci/proof-evidence.sh"
+full = true

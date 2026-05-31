@@ -11,6 +11,20 @@ cd "${ROOT}"
 
 log() { printf '[workflow-lint] %s\n' "$*"; }
 
+jeryu_gate() {
+  local crate="$1"; shift
+  if [ "$crate" = "jeryu-repogate" ]; then
+    cargo run -q --release -p "${crate}" -- "$@"
+    return
+  fi
+  local bin="target/release/${crate}"
+  if [ -x "${bin}" ]; then
+    "${bin}" "$@"
+  else
+    cargo run -q --release -p "${crate}" -- "$@"
+  fi
+}
+
 shopt -s nullglob
 WORKFLOWS=(.github/workflows/*.yml .github/workflows/*.yaml)
 shopt -u nullglob
@@ -39,5 +53,8 @@ else
   echo "[workflow-lint] zizmor not installed; install with: cargo install zizmor" >&2
   exit 1
 fi
+
+log "checking workflow/manifest parity"
+jeryu_gate jeryu-repogate ci-lanes-check
 
 log "workflow linting complete"

@@ -1,21 +1,21 @@
 {
-  "report_fingerprint": "sha256:61c866fa2814dfafd63143622d17f5eec16f4ead8b226bd6a79a86ddf91f12be",
-  "input_fingerprint": "sha256:c29916bfdb2a44d8393c47579624d32b4f44dddaa2f269bbfa2e9c7a490dcfcc",
+  "report_fingerprint": "sha256:b97b091ac9a25a1b347c08d47434a5f22cec6680c18f26841d002367925b7163",
+  "input_fingerprint": "sha256:668f897fa155ae6380a8886415522b78dda1eea16c6ce378180e3a14e975093c",
   "policy_fingerprint": "sha256:6be56f582e2d7fd6e4137ad1c73be156dcb28c85af81148bba1ad3999db4c562",
   "manifest_fingerprints": {
-    "owner_map": "sha256:ba0dffd2adb7693cdb9284bf4dc695d9ba1688dcf1bf518a8da0442d6a0d5704",
-    "test_map": "sha256:3b18e3fec7b1731dad52b32fd5ea59925af5ad888d59468dfa391e036ae35ab4",
+    "owner_map": "sha256:b201561f2f3b18f11c34bd602b409b05836de43051ffcfc74e5387e31b26345c",
+    "test_map": "sha256:0fc6de0bf77eb63aa41e9b552cfedeb1a2d9d8ef26f305cffb76717b01b1fad4",
     "generated_zones": "sha256:523e0cc440397b388e0d4be30b4f4a5c37491b1fd498210e4cd0052cfbb6e841",
     "boundaries": "sha256:893278582f686b9dc33d17439803e270beba2be2b17f07531028f57483d299ae",
-    "proof_lanes": "sha256:07040ef52be5d71e8df78f481097fe5a6b53f987df5b061ba5f325a990433ce7",
+    "proof_lanes": "sha256:8907a0be7a0b547b9d2496503917771f8d239728785fe5043810a6049117049b",
     "standard_version": "sha256:a5ca3bca5dcc5c48e79f8f66a3ba3dfff64706c90f9e30a352b17fe5950411c0"
   },
   "dirty_worktree": true,
-  "generated_at": "1780197470",
+  "generated_at": "1780212262",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
-  "auditor_version": "1.6.7",
+  "auditor_version": "1.6.10",
   "schema_version": "1.9.0",
   "paper_edition": "2026.05-ed8",
   "target_stack_id": "rust-ts-vite-react-postgres-bounded-python",
@@ -25,23 +25,23 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1780197470",
-  "started_at": "1780197470",
-  "elapsed_ms": 6014,
+  "run_id": "1780212262",
+  "started_at": "1780212262",
+  "elapsed_ms": 6619,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 98,
-  "raw_score": 98,
+  "score": 92,
+  "raw_score": 92,
   "decision": {
     "status": "pass",
     "minimum_score": 85,
     "passed": true,
     "hard_findings": 0,
-    "soft_findings": 0,
+    "soft_findings": 1,
     "ratchet": {
-      "baseline_score": 98,
+      "baseline_score": 92,
       "allowed_drop": 0,
       "passed": true,
       "score_delta": 0,
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "450c23b",
+    "head": "225a430",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -73,7 +73,7 @@
     ],
     "mode": "standard",
     "standard_version": "0.9.0",
-    "auditor_version": "1.6.7",
+    "auditor_version": "1.6.10",
     "schema_version": "1.9.0",
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
@@ -286,7 +286,9 @@
         "reference-profile cell `ops` has local AGENTS.md guidance",
         "root `README.md` routes to workspace layout",
         "owner map covers audited paths",
-        "test map covers audited paths"
+        "test map covers audited paths",
+        "authored code file exceeds 500 LOC",
+        "authored code file exceeds 1000 LOC"
       ],
       "notes": []
     },
@@ -321,11 +323,11 @@
         "rendered UX QA lane present or no web surface",
         "DOM geometry UX QA runtime found",
         "Rust property/integration tests present or no Rust surface",
-        "proofbind artifact found: surfaces=360 missing=360 high_or_critical_missing=48 verdict=review"
+        "proofbind artifact found: surfaces=1 missing=1 high_or_critical_missing=1 verdict=review"
       ],
       "notes": [
-        "proofbind reports 360 unresolved obligation(s)",
-        "proofbind reports 48 missing high/critical semantic proof obligation(s)"
+        "proofbind reports 1 unresolved obligation(s)",
+        "proofbind reports 1 missing high/critical semantic proof obligation(s)"
       ]
     },
     {
@@ -341,13 +343,13 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 1210",
+        "rust bad-behavior advisory signals: 1314",
         "typescript bad-behavior advisory signals: 18",
         "ci bad-behavior advisory signals: 1",
-        "git bad-behavior advisory signals: 1",
+        "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "release bad-behavior advisory signals: 1",
-        "web security bad-behavior advisory signals: 1",
+        "web security bad-behavior advisory signals: 2",
         "Rust and npm dependency audits are operational commands",
         "secret scanning command is operational",
         "complete operational security command posture with zero hard language findings"
@@ -357,17 +359,18 @@
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 100,
-      "weighted_points": 12.0,
+      "score": 45,
+      "weighted_points": 5.4,
       "evidence": [
-        "largest authored code file: web/src/pages/SearchResultsPage.tsx (349 LOC)",
+        "largest authored code file: crates/jeryu-core/src/engine/storage.rs (1014 LOC)",
+        "code file exceeds 500 LOC",
+        "code file exceeds 1000 LOC",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 67 (advisory only, no score impact)",
-        "authored code stays below hard LOC limits with no shape markers",
-        "rust bad-behavior advisory signals: 1210",
+        "copy-code advisory classes found: 68 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 1314",
         "typescript bad-behavior advisory signals: 18",
         "ci bad-behavior advisory signals: 1",
-        "git bad-behavior advisory signals: 1",
+        "git bad-behavior advisory signals: 2",
         "gittools bad-behavior advisory signals: 1",
         "release bad-behavior advisory signals: 1",
         "no hard bad-behavior findings across detector-backed language families"
@@ -1131,7 +1134,7 @@
     "artifact": {
       "path": "target/jankurai/security/evidence.json",
       "envelope_exit_code": 0,
-      "elapsed_ms": 10661,
+      "elapsed_ms": 11390,
       "wrapper_strict": true,
       "profile": "ci",
       "commands_ran": 1,
@@ -1140,8 +1143,8 @@
       "required_commands_skipped": 0,
       "required_commands_failed": 0,
       "blocking_commands": [],
-      "generated_at": "1780197009",
-      "git_head": "450c23b29e0eed0cc713d9a909a2a45152529c15"
+      "generated_at": "1780212106",
+      "git_head": "225a430afe0fa30ccd1b20e7fb0caf2750f1d5a4"
     }
   },
   "boundaries": {
@@ -1161,9 +1164,9 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-31T03:17:44.750404201+00:00",
+    "generated_at": "2026-05-31T07:24:16.439268547+00:00",
     "repo": ".",
-    "auditor_version": "1.6.7",
+    "auditor_version": "1.6.10",
     "status": "review",
     "policy": {
       "active_source_only": true,
@@ -1199,20 +1202,20 @@
       ]
     },
     "summary": {
-      "files_scanned": 1103,
-      "files_considered": 666,
-      "active_files": 666,
+      "files_scanned": 1131,
+      "files_considered": 677,
+      "active_files": 677,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 67,
+      "warning_classes": 68,
       "hard_instances": 0,
-      "warning_instances": 181,
-      "duplicate_lines": 192,
-      "duplicate_tokens": 438,
-      "duplicate_bytes": 5171,
-      "total_redundant_lines": 248,
-      "total_redundant_tokens": 561,
-      "total_redundant_bytes": 6348
+      "warning_instances": 183,
+      "duplicate_lines": 203,
+      "duplicate_tokens": 474,
+      "duplicate_bytes": 5497,
+      "total_redundant_lines": 259,
+      "total_redundant_tokens": 597,
+      "total_redundant_bytes": 6674
     },
     "classes": [
       {
@@ -1579,6 +1582,42 @@
             "start_line": 237,
             "end_line": 238,
             "unit_name": "multiple_triggers_returned_in_documented_order"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-ddd8eca74be9a5ee",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "expand_tilde",
+        "duplicate_lines": 11,
+        "duplicate_tokens": 36,
+        "duplicate_bytes": 326,
+        "instance_count": 2,
+        "total_redundant_lines": 11,
+        "total_redundant_tokens": 36,
+        "total_redundant_bytes": 326,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6ff421f49fd64172",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-api/src/main.rs",
+            "language": "rust",
+            "start_line": 70,
+            "end_line": 81,
+            "unit_name": "expand_tilde"
+          },
+          {
+            "path": "crates/jeryu-mirror-cli/src/main.rs",
+            "language": "rust",
+            "start_line": 285,
+            "end_line": 296,
+            "unit_name": "expand_tilde"
           }
         ]
       },
@@ -2468,8 +2507,8 @@
           {
             "path": "crates/jeryu-evidence/src/lib.rs",
             "language": "rust",
-            "start_line": 99,
-            "end_line": 100,
+            "start_line": 101,
+            "end_line": 102,
             "unit_name": "iter_files"
           },
           {
@@ -3294,49 +3333,13 @@
             "unit_name": "fmt"
           }
         ]
-      },
-      {
-        "id": "copy-code-unit-rust-ee253753212839cf",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "fmt",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 4,
-        "duplicate_bytes": 32,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 4,
-        "total_redundant_bytes": 32,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "aa303703a750d02a",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "crates/jeryu-bench/src/models.rs",
-            "language": "rust",
-            "start_line": 31,
-            "end_line": 32,
-            "unit_name": "fmt"
-          },
-          {
-            "path": "crates/jeryu-bench/src/models.rs",
-            "language": "rust",
-            "start_line": 60,
-            "end_line": 61,
-            "unit_name": "fmt"
-          }
-        ]
       }
     ],
     "notes": [
       "hard classes are limited to exact active-source file matches and substantial exact same-name units",
       "warning classes include same-body different-name units and token/block duplication",
       "tests, fixtures, stories, config, Docker, and migrations are omitted unless --include-tests is set",
-      "showing the top 50 classes and omitting 17 lower-ranked classes"
+      "showing the top 50 classes and omitting 18 lower-ranked classes"
     ]
   },
   "profile_structure": {
@@ -3603,6 +3606,42 @@
     "hard_findings": 0,
     "soft_findings": 0
   },
-  "findings": [],
-  "agent_fix_queue": []
+  "findings": [
+    {
+      "severity": "medium",
+      "category": "shape",
+      "path": ".",
+      "problem": "`Code shape and semantic surface` scored 45 below the standard floor of 85",
+      "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "evidence": [
+        "largest authored code file: crates/jeryu-core/src/engine/storage.rs (1014 LOC)",
+        "code file exceeds 500 LOC",
+        "code file exceeds 1000 LOC",
+        "most code files stay under 300 LOC"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:shape",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:7cbb678c858d4acce2a8c7bf748e9c6b85f94ec759ee1524274e609cf5a9fb52",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "tools"
+    }
+  ],
+  "agent_fix_queue": [
+    {
+      "path": ".",
+      "priority": "medium",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "tools",
+      "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "why": "`Code shape and semantic surface` scored 45 below the standard floor of 85"
+    }
+  ]
 }
