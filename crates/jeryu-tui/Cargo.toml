@@ -11,6 +11,10 @@ clap = { workspace = true }
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 ratatui = { version = "0.30.0", default-features = false, features = ["crossterm_0_29", "underline-color", "all-widgets", "macros", "layout-cache"] }
 crossterm = "0.29.0"
+# tuiwright UX-QA receipt emission (`tuiwright` module): serialize the
+# per-{tab,size,fixture} frame ledger into a deterministic JSON receipt.
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 # (tests render through ratatui's TestBackend; no extra deps required)

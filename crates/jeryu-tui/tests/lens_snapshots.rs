@@ -10,6 +10,7 @@ use jeryu_readmodel::{
     EntityKind, EntityRef, PoolActivity, PoolRollup, RepoActivity, RepoSummary, ReposSnapshot,
     TagDemand, TuiReadModel, TuiReadModelBuilder, sample_read_model,
 };
+use jeryu_tui::tuiwright::{self, SWEEP_SIZES};
 use jeryu_tui::{ActiveTab, App, StreamMode, render_once};
 
 /// Render a single Flight Deck frame for `tab` from `model`.
@@ -491,4 +492,99 @@ fn healthy_and_degraded_fixtures_differ_per_tab() {
             "{tab:?}: degraded snapshot is identical to healthy"
         );
     }
+}
+
+// ── tuiwright receipt emission ────────────────────────────────────────────
+
+/// Resolve the workspace `target/` directory from `CARGO_TARGET_TMPDIR` by
+/// walking up to the nearest ancestor literally named `target`. Falls back to a
+/// `target` dir beside the tmpdir if none is found.
+fn workspace_target_dir() -> std::path::PathBuf {
+    let tmp = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
+    let mut cur: &std::path::Path = &tmp;
+    loop {
+        if cur.file_name().and_then(|n| n.to_str()) == Some("target") {
+            return cur.to_path_buf();
+        }
+        match cur.parent() {
+            Some(p) => cur = p,
+            None => return tmp.join("target"),
+        }
+    }
+}
+
+/// Render every tab at both sweep sizes across the healthy and degraded
+/// fixtures, write the resulting tuiwright receipt under `target/jankurai/ux-qa/`,
+/// and assert it covers the full matrix.
+///
+/// The stamp is injected (never wall-clock): `SOURCE_DATE_EPOCH` if set, else a
+/// stable label. This keeps the receipt's identity reproducible.
+#[test]
+fn tuiwright_receipt_covers_every_tab_at_both_sizes() {
+    let stamp = tuiwright::receipt_stamp();
+
+    // Two fixture families: the healthy sample model under FIXTURE transport,
+    // and the fully-degraded model under DEGRADED transport.
+    let healthy =
+        tuiwright::sweep_fixture(&stamp, "healthy", StreamMode::Fixture, sample_read_model);
+    let degraded = tuiwright::sweep_fixture(
+        &stamp,
+        "degraded",
+        StreamMode::Degraded,
+        degraded_fixture_model,
+    );
+
+    // Merge both family sweeps into one receipt.
+    let mut receipt = healthy;
+    receipt.frames.extend(degraded.frames);
+
+    let expected = ActiveTab::ALL.len() * SWEEP_SIZES.len() * 2;
+    assert_eq!(
+        receipt.len(),
+        expected,
+        "receipt must record every tab x both sizes x both fixtures"
+    );
+    assert_eq!(
+        receipt.ok_count(),
+        expected,
+        "every certified frame must render cleanly"
+    );
+
+    // Every tab x size x fixture is present.
+    for tab in ActiveTab::ALL {
+        for &(width, height) in SWEEP_SIZES {
+            for fixture in ["healthy", "degraded"] {
+                assert!(
+                    receipt.covers(*tab, width, height, fixture),
+                    "receipt missing {tab:?} {width}x{height} ({fixture})"
+                );
+            }
+        }
+    }
+
+    // Stamp is the injected, deterministic value — not a wall-clock instant.
+    assert_eq!(receipt.stamp, stamp);
+    assert!(!receipt.stamp.is_empty(), "receipt stamp must be set");
+
+    // Write into the workspace target dir and assert the JSON file exists.
+    // `CARGO_TARGET_TMPDIR` lives under the workspace `target/` (e.g.
+    // `target/tmp/<pkg>`); walk up to the nearest ancestor named `target`.
+    let target_dir = workspace_target_dir();
+    let path = tuiwright::write_receipt(&target_dir, &receipt).expect("write tuiwright receipt");
+    assert!(
+        path.exists(),
+        "receipt file not written: {}",
+        path.display()
+    );
+    assert!(
+        path.to_string_lossy().contains("jankurai/ux-qa/"),
+        "receipt not under target/jankurai/ux-qa/: {}",
+        path.display()
+    );
+
+    // Round-trip: the on-disk JSON parses back into an identical receipt.
+    let raw = std::fs::read_to_string(&path).expect("read back receipt");
+    let parsed: tuiwright::TuiwrightReceipt =
+        serde_json::from_str(&raw).expect("receipt JSON parses");
+    assert_eq!(parsed, receipt, "round-tripped receipt diverged");
 }
