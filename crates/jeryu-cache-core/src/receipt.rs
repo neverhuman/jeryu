@@ -48,10 +48,13 @@ impl CacheReceipt {
         decision: AccessDecision,
         parent_receipt: Option<Digest>,
     ) -> Result<Self> {
-        let timestamp_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis();
+        let timestamp_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(elapsed) => elapsed.as_millis(),
+            // Pathological clock set before the Unix epoch: anchor the receipt at
+            // 0 so its digest stays deterministic instead of failing an
+            // otherwise-valid cache operation on a misconfigured host.
+            Err(_) => 0,
+        };
         let material = serde_json::json!({
             "event": &event,
             "key_digest": &key_digest,

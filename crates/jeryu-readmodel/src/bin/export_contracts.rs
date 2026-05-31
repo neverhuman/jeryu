@@ -12,7 +12,7 @@
 
 use std::path::PathBuf;
 
-use jeryu_readmodel::contracts::{export_all_contracts, CONTRACT_COUNT};
+use jeryu_readmodel::contracts::{CONTRACT_COUNT, export_all_contracts};
 use ts_rs::Config;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

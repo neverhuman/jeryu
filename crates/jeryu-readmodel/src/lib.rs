@@ -14,8 +14,8 @@
 //! - Every type derives `serde::{Serialize, Deserialize}` for the HTTP/SSE
 //!   inspection plane and round-trips losslessly.
 
-pub mod dashboards;
 pub mod contracts;
+pub mod dashboards;
 pub mod entity;
 pub mod fixture;
 pub mod freshness;

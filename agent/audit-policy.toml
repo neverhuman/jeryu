@@ -38,27 +38,37 @@ excluded_paths = ["tips/", "AGENT_CHAT.md", "CI_TRACKER.md", ".jankurai/", "web/
 full_scan_interval_secs = 3600
 roulette_rate = 0.10
 
-# --- Domain / platform-API term allowlist ----------------------------------
+# --- Accepted tool false-positives (DOCUMENTATION ONLY) ---------------------
 #
-# The dead-language heuristic treats some bare words as "future-hostile". The
-# following are LEGITIMATE, load-bearing API names in this product surface, not
-# dead code or placeholders. Renaming them would break GitHub compatibility or
-# the React/HTML platform contract. Each is documented so the human/agent
-# decision travels with the policy fingerprint. This allowlist scopes ONLY these
-# exact words for the dead-marker check; all other dead-language, fallback-soup,
-# and security checks still run on these files.
+# jankurai 1.6.0 has NO honest mechanism to allowlist a dead-language term or to
+# scope a single rule to a path. Verified exhaustively (probe, 2026-05-31): 9
+# policy-section variants ([domain_terms]/[dead_language]/[hlt_001]/[vibe]/
+# [lexicon]/[terms]/[allowlist]/...), 6 per-rule path-scoping variants, inline
+# ignore markers, --baseline, and docs/exceptions/*.md were ALL silently ignored
+# by `jankurai audit`. The --policy FLAG is also ignored; only this
+# auto-discovered file is read, and only its [scan]/minimum_score/[history] keys
+# take effect. So nothing below is "config" — it is a documented register of
+# findings we reviewed and accept as tool false-positives; the score is honestly
+# tool-capped until jankurai gains a real allowlist.
 #
-# GitHub / git forge vocabulary:
-#   stale   -> CheckRun/CheckSuite conclusion value ("stale"); read-model data
-#              freshness state; GitHub "stale" issue/PR semantics.
-#   old     -> git ref-update / pre-receive wire protocol: `<old-oid> <new-oid>`;
-#              unified-diff "old"/"new" side labels in the review UI.
-#   legacy  -> documented GitHub API compatibility shims kept for forward
-#              compatibility, not retired code.
+# HLT-001 dead-language hits that are LOAD-BEARING API / protocol names (renaming
+# breaks GitHub parity, the React/HTML platform contract, or the wire protocol):
+#   stale       -> GitHub CheckConclusion REST value "stale" (jeryu-api/github.rs
+#                  wire mapping; the Rust variant is renamed `Superseded`, but the
+#                  wire STRING must stay); SPA-facing backend error codes
+#                  (merge_sha_stale / merge_passport_stale / settings_hash_stale);
+#                  the GitHub `dismiss_stale_approvals` branch-protection field.
+#   placeholder -> the HTML `<input placeholder>` attribute / React prop name.
+#   fallback    -> the React `<Suspense fallback>` / ErrorBoundary prop name.
+#   old / new   -> unified-diff side labels + git ref-update `<old-oid> <new-oid>`.
 #
-# Web platform / React API names (cannot be renamed — they ARE the API):
-#   placeholder -> the HTML `<input placeholder="...">` attribute / React prop.
-#   fallback    -> the React `<Suspense fallback={...}>` / ErrorBoundary prop.
-[domain_terms]
-allow = ["stale", "old", "legacy", "placeholder", "fallback"]
-reason = "GitHub-compatible forge/CI vocabulary (CheckConclusion, ref-update oids, diff sides, API shims) and unavoidable HTML/React platform API names (input placeholder attribute, Suspense fallback prop)."
+# Same-sink multi-rule false-positives (HLT-031 / HLT-039 / HLT-023 all fire on
+# one line): web/src/components/browser/MarkdownRenderer.tsx dangerouslySetInnerHTML
+# of `safeHtml`, which is ALWAYS DOMPurify.sanitize(...) over server-side ammonia
+# sanitization — the only way to render sanitized Markdown in React, with an
+# existing XSS negative test (MarkdownRenderer.test.tsx, W-FE-09). And
+# web/src/stores/realtimeStore.ts sessionStorage of a non-secret WS resume cursor
+# (monotonic event sequence), not a credential.
+#
+# To raise the score HONESTLY, jankurai needs a per-term / per-rule-per-path
+# allowlist — a jankurai change, not a code-quality fix in this repo.

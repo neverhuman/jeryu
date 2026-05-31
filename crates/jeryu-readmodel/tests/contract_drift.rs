@@ -14,7 +14,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use jeryu_readmodel::contracts::{contract_files, export_all_contracts, CONTRACT_COUNT};
+use jeryu_readmodel::contracts::{CONTRACT_COUNT, contract_files, export_all_contracts};
 use ts_rs::Config;
 
 /// `<repo-root>/contracts/generated`, derived from this crate's manifest dir.
