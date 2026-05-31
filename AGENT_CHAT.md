@@ -1781,3 +1781,14 @@ then fetched `main`, then checked out `FETCH_HEAD`, so it was executing the base
 branch scripts. Fixed the checkout order to detach at `$GITHUB_SHA` before
 fetching `origin/main` for proofbind, and updated `agent/ci-lanes.toml` so the
 drift guard tracks that exact order.
+
+## 2026-05-31T09:42Z - Codex
+
+Hosted PR #46 is green on the latest pushed SHA:
+- `jankurai-audit`: PASS at 2026-05-31T09:30:33Z.
+- `affected-fast`: PASS at 2026-05-31T09:35:12Z.
+- `security lane`: PASS at 2026-05-31T09:37:20Z.
+- `tool-adoption-evidence`: PASS at 2026-05-31T09:41:53Z.
+
+The proof lane now checks out the PR SHA first, then fetches `origin/main` only
+as the proof base. That was the critical hosted/local parity bug.
