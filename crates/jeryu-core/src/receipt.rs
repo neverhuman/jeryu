@@ -61,9 +61,20 @@ impl Receipt {
         commands: Vec<String>,
         residual_risk: impl Into<String>,
     ) -> Self {
-        let created_at_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |duration| duration.as_millis());
+        // jeryu-core is a domain crate, so reaching for the wall clock here is an
+        // IO-in-core smell. It is retained deliberately: `Receipt::new` is public
+        // API consumed by several sibling crates (proof engine, runners,
+        // ci-scheduler, agentbridge) that all call it with these eight arguments
+        // and no timestamp, so threading a `now`/clock parameter through would
+        // break those callers — out of scope for this domain-only change.
+        let created_at_ms = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration.as_millis(),
+            // The system clock is set before the Unix epoch. Receipts are an
+            // append-only audit log, so we record 0 rather than fail receipt
+            // creation; the anomalous timestamp makes the misconfiguration
+            // visible instead of being silently absorbed mid-expression.
+            Err(_clock_before_epoch) => 0,
+        };
         Self {
             id: ReceiptId::fresh(),
             kind,
