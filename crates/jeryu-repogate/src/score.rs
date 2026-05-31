@@ -35,6 +35,7 @@ pub const SCORE_REQUIRED_PATHS: &[&str] = &[
     "Cargo.toml",
     "agent/owner-map.json",
     "agent/test-map.json",
+    "agent/ci-lanes.toml",
     "agent/proof-lanes.toml",
     "agent/generated-zones.toml",
     "agent/baselines/main.repo-score.json",
@@ -158,7 +159,7 @@ mod tests {
     #[test]
     fn score_fails_and_promotes_hard_blocks_when_artifacts_missing() {
         let dir = tempfile::tempdir().unwrap();
-        // Empty repo: every required path missing => 12*8 = 96 lost from files,
+        // Empty repo: every required path missing, plus all workspace members.
         // plus members missing (Cargo.toml absent) => 5*3 = 15. Score clamps to 0.
         let score = compute_repo_score(dir.path()).unwrap();
         assert_eq!(score.score, 0);

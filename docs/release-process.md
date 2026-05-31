@@ -1,57 +1,46 @@
 # Release Process Doc
 
-This file is the operator release process doc referenced by
-`docs/release.md`. It exists so release readiness has a concrete process
-surface, not only a checklist.
+This release process doc is the step-by-step operator surface for Jeryu
+releases. Releases are local-first. Hosted CI may confirm the same lanes, but it
+does not replace local release proof.
 
-## Inputs
+## Required Local Gates
 
-- Candidate Git commit SHA from `origin/main`.
-- Workspace version from `Cargo.toml` and crate manifests.
-- User-facing change summary from `CHANGELOG.md`.
-- Previous signed artifact, checksum, and rollback target.
+Run these from the canonical repository root before creating a release receipt:
 
-## Local Gate Evidence
+- `bash ci-fast-push.sh --full --no-push`
+- `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
+- `bash scripts/ci-phases.sh`
+- `bash ops/ci/proof-evidence.sh`
+- `just security`
+- `just audit`
 
-Run these commands from the repository root and keep their artifacts until the
-release receipt is signed:
+The full `ci-fast-push.sh` release gate includes the legacy process/listener
+guard. Stop or quarantine GitLab/GitLab-runner, `~/.jeryu`, old
+`/home/ubuntu/jeryu`, and local `:2224` listeners before recording release
+evidence.
 
-```bash
-bash ci-fast-push.sh --no-push
-bash scripts/ci-phases.sh
-./ops/ci/full.sh
-just security
-just audit
-bash ops/ci/proof-evidence.sh
-```
+## Receipt Contents
 
-Required evidence paths:
+Each release receipt records:
 
-- `target/jankurai/security/evidence.json`
-- `target/jankurai/proof-evidence/`
-- `target/jankurai/diff/diff-score.md`
-- `.jankurai/repo-score.md`
-- SQLite backup or restore dry-run receipt when migrations changed.
+- source commit SHA and tag name;
+- workspace version and changelog entry;
+- `target/jankurai/` proof artifacts;
+- SPDX and CycloneDX SBOM digests;
+- provenance checksum and cosign transcript path;
+- migration, restore, and rollback evidence;
+- previous signed artifact checksum.
 
-## Latest Local Validation
+## Tagging
 
-The gitd import validation tranche was pushed with `bash ci-fast-push.sh` on
-40 workers after the repo-local `jeryu` binary and Jankurai 1.6.10 were
-verified. The push-mode gate passed 1122 nextest tests, phase gates
-PASS=7/PENDING=0/FAIL=0, Jankurai diff audit score 90 with hard 0 and caps 0,
-and Jankurai repository audit score 92 with caps 0.
-
-## Build And Sign
-
-1. Verify the candidate SHA matches the checked-out tree.
-2. Build artifacts from that SHA only.
-3. Generate SBOM, checksum, provenance, and signing evidence.
-4. Write a release receipt naming the SHA, artifact paths, checksums, SBOM
-   digest, provenance digest, signer identity, and rollback target.
-5. Tag only after the release receipt and rollback evidence exist.
+Tags are cut only after the receipt names the exact source commit and all gates
+above are green. Publish closeout changes through a PR branch first; direct
+`main` pushes require explicit `--push-main` and are not the default release
+path. Do not tag from an uncommitted worktree or from hosted-only state.
 
 ## Rollback
 
-Rollback restores the previous signed artifact and checksum. If a migration was
-part of the candidate, restore the pre-migration SQLite copy first, then rerun
-API, TUI, and Git clone/fetch smoke commands before write traffic is reopened.
+Rollback restores the previous signed artifact, restores the pre-migration
+SQLite copy when schema changed, reruns API/TUI/git smoke checks, and keeps
+write traffic closed until the rollback receipt is attached.

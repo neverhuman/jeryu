@@ -5,6 +5,7 @@ required=(
   agent/JANKURAI_STANDARD.md
   agent/owner-map.json
   agent/test-map.json
+  agent/ci-lanes.toml
   agent/proof-lanes.toml
   agent/generated-zones.toml
   agent/standard-version.toml
@@ -49,6 +50,10 @@ printf '%s\n' 'json fixtures ok'
 # prebuilt release binaries; fall back to `cargo run` when they are absent.
 jeryu_gate() {
   local crate="$1"; shift
+  if [ "$crate" = "jeryu-repogate" ]; then
+    cargo run -q --release -p "${crate}" -- "$@"
+    return
+  fi
   local bin="target/release/${crate}"
   if [ -x "${bin}" ]; then
     "${bin}" "$@"
@@ -62,5 +67,6 @@ jeryu_gate jeryu-mapcheck generated-zones
 ./scripts/check-owner-test-map.sh
 ./scripts/check-agent-maps.sh
 jeryu_gate jeryu-mapcheck fixtures
+jeryu_gate jeryu-repogate ci-lanes-check
 jeryu_gate jeryu-repogate security-scan
 printf '%s\n' 'ci-doctor passed'

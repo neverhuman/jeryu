@@ -15,7 +15,8 @@ The step-by-step operator process lives in `docs/release-process.md`.
 
 ## Required Gates
 
-- `bash ci-fast-push.sh --no-push`
+- `bash ci-fast-push.sh --full --no-push`
+- `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
 - `./ops/ci/full.sh`
 - `just security`
@@ -27,7 +28,12 @@ The step-by-step operator process lives in `docs/release-process.md`.
 Latest local validation for the gitd import tranche used push-mode
 `bash ci-fast-push.sh` with 40 workers: 1122 nextest tests, phase gates
 PASS=7/PENDING=0/FAIL=0, Jankurai diff audit score 90 hard 0 caps 0, and
-Jankurai repository audit score 92 caps 0.
+Jankurai repository audit score 92 caps 0. The current CI-parity release gate is
+the explicit `--full` mode so hosted workflow lanes and the GitHub fallback
+profile are proven locally before a release receipt is signed. Full mode also
+rejects legacy GitLab/GitLab-runner, `~/.jeryu`, old `/home/ubuntu/jeryu`, and
+local `:2224` listener/remotes so release evidence cannot be produced against
+the retired system.
 
 ## Release Process
 
@@ -37,7 +43,9 @@ Jankurai repository audit score 92 caps 0.
 3. Build release artifacts from the signed commit only, then record checksums,
    SBOM digests, provenance paths, and the rollback target in the release
    receipt.
-4. Tag only after the release receipt names the exact commit, prior rollback
+4. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
+   require explicit `--push-main` and are not the default closeout path.
+5. Tag only after the release receipt names the exact commit, prior rollback
    artifact, and gate evidence paths.
 
 ## Integrity And Provenance

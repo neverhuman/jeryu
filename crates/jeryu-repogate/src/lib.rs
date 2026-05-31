@@ -10,6 +10,7 @@
 //! import paths keep resolving unchanged.
 
 mod affected;
+mod ci_lanes;
 mod fixture;
 mod outcome;
 mod release;
@@ -17,6 +18,7 @@ mod score;
 mod security;
 
 pub use affected::{AffectedPlan, build_affected_plan, run_affected_plan};
+pub use ci_lanes::{CI_LANES_RELATIVE_PATH, CiLane, run_ci_lanes_check, run_ci_lanes_list};
 pub use fixture::{FIXTURE_JOB_COUNT, FIXTURE_RELATIVE_PATH, build_fixture, run_gen_fixture};
 pub use outcome::GateOutcome;
 pub use release::{RELEASE_REQUIRED_PATHS, run_release_gate};
