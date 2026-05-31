@@ -85,7 +85,14 @@ if command -v jankurai >/dev/null 2>&1 && jankurai --version | grep -qx "${JANKU
   exit 0
 fi
 
+install_profile_args=()
+if [ "${JERYU_JANKURAI_INSTALL_DEBUG:-}" = "1" ] ||
+  { [ -z "${JERYU_JANKURAI_INSTALL_DEBUG:-}" ] && [ "${GITHUB_ACTIONS:-}" = "true" ]; }; then
+  install_profile_args+=(--debug)
+  echo "jankurai install profile: debug"
+fi
+
 echo "installing pinned ${JANKURAI_VERSION} from ${JANKURAI_REPO}@${JANKURAI_REV}"
-jankurai_cargo_install --git "${JANKURAI_REPO}" --rev "${JANKURAI_REV}" --locked --bin jankurai jankurai
+jankurai_cargo_install --git "${JANKURAI_REPO}" --rev "${JANKURAI_REV}" --locked "${install_profile_args[@]}" --bin jankurai jankurai
 jankurai --version | grep -qx "${JANKURAI_VERSION}"
 echo "jankurai ok: ${JANKURAI_VERSION}"

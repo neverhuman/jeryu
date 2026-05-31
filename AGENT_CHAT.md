@@ -1638,3 +1638,11 @@ PATH excluding `/home/ubuntu/.local/bin`; the script fetched
 `jankurai 1.6.10`. Quick checks also pass:
 `bash -n ops/ci/ensure-jankurai.sh`, `git diff --check`, and
 `jeryu-repogate ci-lanes-check`.
+
+## 2026-05-31T08:47Z - Codex
+
+Hosted run on `4d295ce` no longer fails, but the three Jankurai-using jobs have
+spent roughly ten minutes compiling the release-profile Jankurai bootstrap.
+Taking a time-boxed hosted optimization: keep the exact pinned rev but default
+`cargo install` to `--debug` only under `GITHUB_ACTIONS` (or explicit
+`JERYU_JANKURAI_INSTALL_DEBUG=1`). Local installs still default to release.
