@@ -12,6 +12,9 @@ Ubuntu runners. Docker/OCI is opt-in for jobs that require container isolation.
 Primary lanes:
 - `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for pushes
   and PR checks.
+- `bash ci-fast-push.sh --full --no-push`: local proof of the full hosted-lane
+  union from `agent/ci-lanes.toml`, including GitHub fallback-profile proof,
+  security toolchain verification, and all full workflow lanes.
 - `just fast`: deterministic fast lane for agent iteration.
 - `just ci`: per-phase gate aggregator with explicit PASS, FAIL, and PENDING states.
 - `just full`: workspace foundation gate with fmt, check, tests, clippy, zero-evidence, docs, release, score, and doctor checks.
@@ -29,8 +32,17 @@ CI parity checks:
   legacy `~/.jeryu/bin/jeryu` binary.
 - `ops/ci/ensure-jankurai.sh` is the single local/hosted bootstrap for pinned
   Jankurai 1.6.10.
+- `agent/ci-lanes.toml` is the committed CI lane manifest. `cargo run -q -p
+  jeryu-repogate -- ci-lanes-check` fails if a workflow adds hosted-only `run:`
+  commands or stops calling the manifest-declared local lane.
 - Hosted `ci-fast` fetches `origin/main` and runs `ci-fast-push.sh --no-push`
   so affected planning, Jankurai diff audit, and local push behavior match.
+- Hosted security installs pinned open-source tools through
+  `ops/ci/security-tools.sh` and then runs `ops/ci/security.sh`; local full mode
+  uses the same two scripts before claiming security parity.
+- The SBOM lane always writes a cosign transcript. Keyless signing is opt-in via
+  `JERYU_COSIGN_KEYLESS=1`; default local CI records signing instructions so it
+  cannot hang waiting for an OIDC/browser flow.
 
 Repair evidence:
 - Every failed lane must print the exact rerun command and the local artifact path when one exists.

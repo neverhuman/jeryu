@@ -20,7 +20,7 @@ env:
   JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
 
 jobs:
-  quality-gates:
+  jankurai-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -34,17 +34,5 @@ jobs:
         run: rustup toolchain install 1.95.0 --profile minimal
       - name: Ensure pinned jankurai on PATH
         run: bash ops/ci/ensure-jankurai.sh
-      - name: Deterministic fast lane
-        run: bash ops/ci/fast.sh
-      - name: Security lane
-        run: bash ops/ci/security.sh
-      - name: Secret scan
-        run: bash scripts/secret-scan.sh
-      - name: Dependency scan
-        run: cargo audit --deny warnings && cargo deny check licenses sources bans advisories
-      - name: Provenance and SBOM scan
-        run: cargo test -p jeryu-signrail --jobs "$JERYU_CI_JOBS"
       - name: Jankurai audit lane
-        run: bash ops/ci/jankurai.sh
-      - name: Jankurai full score artifacts
-        run: jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85
+        run: jankurai audit . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85

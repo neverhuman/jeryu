@@ -142,6 +142,15 @@ or GitHub profile, keeps dockerless native Rust as the default executor, uses
 `sccache` when it is available, and falls back to ordinary Cargo on
 GitHub-hosted runners.
 
+Use `bash ci-fast-push.sh --full --no-push` when a change must prove the full
+hosted-lane union locally. Full mode forces the workspace gate, verifies the
+GitHub fallback profile with `JERYU_CI_PROFILE=github` and
+`JERYU_CI_USE_SCCACHE=0`, installs/verifies the open security toolchain, then
+runs every full lane declared in `agent/ci-lanes.toml`. `jeryu-repogate
+ci-lanes-check` is the drift guard: every workflow under `.github/workflows/`
+must be declared in the manifest, every substantive `run:` command must match a
+local lane, and setup-only commands are explicitly allowlisted.
+
 The fast gate also verifies this repository before testing: it builds and
 checks the repo-local `jeryu` binary, ignores any legacy `~/.jeryu/bin/jeryu`
 binary on `PATH`, and accepts only the canonical GitHub remote when a remote is
@@ -163,7 +172,12 @@ Hosted workflows are thin wrappers around local scripts. Jankurai is pinned to
 the `neverhuman/jankurai` `v1.6.10-deadlang-precision` tag and must report
 `jankurai 1.6.10` before CI uses it. The hosted `ci-fast` workflow runs the
 same `ci-fast-push.sh --no-push` path used locally; the difference is profile
-detection, not a separate test plan.
+detection, not a separate test plan. The hosted security workflow calls
+`ops/ci/security-tools.sh` for pinned open-source tool installation and then
+delegates to `ops/ci/security.sh`; no hosted-only security command is allowed.
+Cosign keyless signing is opt-in with `JERYU_COSIGN_KEYLESS=1`, while default
+local CI writes an honest transcript/instructions artifact instead of blocking
+on an interactive OIDC flow.
 
 ## Cache Laws
 

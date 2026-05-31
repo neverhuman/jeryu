@@ -5,24 +5,38 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT}"
 
 mkdir -p .jankurai target/jankurai
-jankurai proof . \
-  --changed-from "${JERYU_JANKURAI_BASE_REF:-origin/main}" \
+BASE_REF="${JERYU_JANKURAI_BASE_REF:-origin/main}"
+mapfile -t JANKURAI_CHANGED < <(
+  git diff --name-only --diff-filter=ACMR "${BASE_REF}...HEAD" 2>/dev/null \
+    || git diff --name-only --diff-filter=ACMR
+)
+if [ "${#JANKURAI_CHANGED[@]}" -eq 0 ]; then
+  JANKURAI_CHANGED=(agent/tool-adoption.toml)
+fi
+JANKURAI_CHANGED_ARGS=()
+for changed_path in "${JANKURAI_CHANGED[@]}"; do
+  JANKURAI_CHANGED_ARGS+=(--changed "${changed_path}")
+done
+
+jankurai proof \
+  "${JANKURAI_CHANGED_ARGS[@]}" \
   --out target/jankurai/proof-plan.json \
-  --md target/jankurai/proof-plan.md
+  --md target/jankurai/proof-plan.md \
+  .
 jankurai proofbind map . \
-  --changed-from "${JERYU_JANKURAI_BASE_REF:-origin/main}" \
+  "${JANKURAI_CHANGED_ARGS[@]}" \
   --mode advisory \
   --out target/jankurai/proofbind/surface-witness.json \
   --obligations-out target/jankurai/proofbind/obligations.json \
   --md target/jankurai/proofbind/proofbind.md
 jankurai proofbind verify . \
-  --changed-from "${JERYU_JANKURAI_BASE_REF:-origin/main}" \
+  "${JANKURAI_CHANGED_ARGS[@]}" \
   --mode advisory \
   --out target/jankurai/proofbind/surface-witness.json \
   --obligations-out target/jankurai/proofbind/obligations.json \
   --md target/jankurai/proofbind/proofbind.md
 jankurai proofmark rust . \
-  --changed-from "${JERYU_JANKURAI_BASE_REF:-origin/main}" \
+  "${JANKURAI_CHANGED_ARGS[@]}" \
   --mode advisory \
   --obligations target/jankurai/proofbind/obligations.json \
   --out target/jankurai/proofmark/proofmark-receipt.json \
@@ -45,6 +59,6 @@ if [[ "${JERYU_JANKURAI_FULL:-0}" == "1" ]]; then
     --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
 else
   jankurai diff-audit . \
-    --base-ref "${JERYU_JANKURAI_BASE_REF:-origin/main}" \
+    --base-ref "${BASE_REF}" \
     --out-dir target/jankurai/diff
 fi

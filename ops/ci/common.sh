@@ -10,5 +10,9 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ci-env.sh"
 # runner so local gates never execute stale binaries from a previous build.
 jeryu_gate() {
   local crate="$1"; shift
+  if [ "$crate" = "jeryu-repogate" ]; then
+    cargo run -q --release -p "${crate}" -- "$@"
+    return
+  fi
   cargo run -q --release -p "${crate}" -- "$@"
 }

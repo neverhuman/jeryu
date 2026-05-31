@@ -9,6 +9,7 @@ source "$(pwd)/ops/ci/ci-env.sh"
 
 JOBS="${JERYU_CI_JOBS:-40}"
 NO_PUSH="${JERYU_CI_NO_PUSH:-0}"
+FORCE_FULL="${JERYU_CI_FULL:-0}"
 BASE_REF="${JERYU_CI_BASE_REF:-origin/main}"
 PLAN="target/ci-fast/affected-plan.json"
 CHANGED_LIST="target/ci-fast/changed.lst"
@@ -20,6 +21,7 @@ declare -a RESULTS
 for arg in "$@"; do
   case "$arg" in
     --no-push) NO_PUSH=1 ;;
+    --full) FORCE_FULL=1 ;;
     --base=*) BASE_REF="${arg#--base=}" ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
@@ -54,6 +56,7 @@ has_lane() {
 }
 
 is_full_ci() {
+  [ "$FORCE_FULL" = "1" ] && return 0
   jq -e '.full_ci == true' "$PLAN" >/dev/null
 }
 
@@ -91,9 +94,39 @@ fail_untracked_for_remote_parity() {
   return 1
 }
 
+github_fallback_profile_proof() {
+  env -u RUSTC_WRAPPER -u SCCACHE_DIR -u SCCACHE_CACHE_SIZE \
+    -u JERYU_RUNNER_CLASS \
+    JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash -lc '
+    set -euo pipefail
+    cd "$(git rev-parse --show-toplevel)"
+    source ops/ci/ci-env.sh
+    test "${JERYU_CI_PROFILE}" = "github"
+    test "${JERYU_RUNNER_CLASS}" = "native-rust-clean"
+    test "${JERYU_RUNNER_EXECUTOR}" = "native"
+    test "${JERYU_CI_DOCKER}" = "0"
+    test "${RUSTC_WRAPPER:-}" = ""
+    jeryu_ci_profile_summary
+  '
+}
+
+run_manifest_full_lanes() {
+  local lane_file="target/ci-fast/full-lanes.tsv"
+  jeryu_gate jeryu-repogate ci-lanes-list --full > "$lane_file" || return 1
+  while IFS=$'\t' read -r lane_id lane_command; do
+    [ -n "$lane_id" ] || continue
+    if [ "$lane_id" = "ci-fast" ]; then
+      RESULTS+=("PASS  workflow lane ci-fast (current ci-fast-push.sh)")
+      continue
+    fi
+    run_step "workflow lane ${lane_id}" bash -lc "$lane_command"
+  done < "$lane_file"
+}
+
 run_step "ci profile" jeryu_ci_profile_summary
 run_step "jeryu environment" bash ops/ci/verify-jeryu-env.sh --build-local
 run_step "jankurai bootstrap" bash ops/ci/ensure-jankurai.sh
+run_step "ci lane drift guard" jeryu_gate jeryu-repogate ci-lanes-check
 run_step "affected-plan" \
   jeryu_gate jeryu-repogate affected-plan --base "$BASE_REF" --out "$PLAN" --workers "$JOBS"
 run_step "affected changed-list" write_changed_list
@@ -102,12 +135,20 @@ run_step "untracked parity guard" fail_untracked_for_remote_parity
 run_step "fmt" cargo fmt --all -- --check
 
 if is_full_ci; then
+  if [ "$FORCE_FULL" = "1" ]; then
+    RESULTS+=("PASS  full mode forced")
+    run_step "github fallback profile proof" github_fallback_profile_proof
+    run_step "security toolchain" bash ops/ci/security-tools.sh
+  fi
   run_step "clippy workspace" \
     cargo clippy --workspace --all-targets --all-features --jobs "$JOBS" -- -D warnings
   run_step "tests workspace" run_tests --workspace
   run_step "zero-evidence" jeryu_gate jeryu-evidence .
   run_step "docs-markers" jeryu_gate jeryu-mapcheck docs
   run_step "phase-gates" bash scripts/ci-phases.sh
+  if [ "$FORCE_FULL" = "1" ]; then
+    run_manifest_full_lanes
+  fi
 else
   mapfile -t PACKAGES < <(jq -r '.packages[]' "$PLAN")
   if [ "${#PACKAGES[@]}" -gt 0 ]; then
