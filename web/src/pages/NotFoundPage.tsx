@@ -16,7 +16,7 @@ export function NotFoundPage(): JSX.Element {
       <EmptyState
         icon={MapPinOff}
         title="Page not found"
-        description={`We couldn't find ${location.pathname}. The link may be stale, or the resource may have been moved.`}
+        description={`We couldn't find ${location.pathname}. The link may be outdated, or the resource may have been moved.`}
         action={
           <ActionButton variant="primary" onClick={() => navigate('/')}>
             Back to dashboard

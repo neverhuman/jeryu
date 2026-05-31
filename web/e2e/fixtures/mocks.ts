@@ -284,7 +284,7 @@ export async function forceStaleSha(
               expected_sha: oldSha,
               current_sha: newSha,
             },
-            request_id: 'mock-stale-sha',
+            request_id: 'mock-sha-drift',
           },
         }),
       });
