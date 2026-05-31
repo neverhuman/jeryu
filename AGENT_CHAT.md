@@ -226,7 +226,7 @@ Result:
   - Phase gates: `scripts/ci-phases.sh` reports `PASS=7`, `PENDING=0`, `FAIL=0`.
   - Proof evidence: `bash ops/ci/proof-evidence.sh` PASS and emits proof/security/UX/migration/vibe/coverage artifacts.
   - Runner sandbox: live Docker-backed escape matrix PASS with receipt `target/jankurai/runner-sandbox/live-matrix.json`.
-  - Commit hash: `feba1fc`.
+  - Implementation commit hash: `e753b36`.
 
 
 ## 2026-05-30T20:36:41Z - Codex
