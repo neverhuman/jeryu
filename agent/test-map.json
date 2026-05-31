@@ -41,6 +41,11 @@
       "purpose": "verify release notes remain routed",
       "lane": "docs"
     },
+    "LICENSE": {
+      "command": "cargo run -q -p jeryu-mapcheck -- docs",
+      "purpose": "verify the project license remains routed",
+      "lane": "docs"
+    },
     "README.md": {
       "command": "cargo run -q -p jeryu-mapcheck -- docs",
       "purpose": "verify public docs remain routed",

@@ -9,6 +9,7 @@
     ".github/": "ops",
     "AGENTS.md": "docs",
     "CHANGELOG.md": "docs",
+    "LICENSE": "docs",
     "README.md": "docs",
     "Justfile": "workspace",
     "package.json": "workspace",
