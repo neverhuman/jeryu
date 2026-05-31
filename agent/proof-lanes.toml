@@ -21,3 +21,15 @@ blocks_merge = true
 [lanes.policy-config]
 required = ["./scripts/ci-doctor.sh"]
 blocks_merge = true
+
+[lanes.agent]
+required = ["./scripts/check-agent-maps.sh"]
+blocks_merge = true
+
+[lanes.workspace]
+required = ["cargo test --workspace --jobs 40"]
+blocks_merge = true
+
+[lanes.api]
+required = ["cargo test -p jeryu-api --features web --jobs 40"]
+blocks_merge = true

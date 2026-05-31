@@ -1,23 +1,26 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
+mod markdown;
+mod permissions;
+
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{StatusCode, header};
 use axum::response::{Html, IntoResponse, Response as AxumResponse};
 use axum::routing::{get, post};
 use axum::{Json, Router as AxumRouter};
 use futures_util::StreamExt;
 use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState, Repository};
 use jeryu_readmodel::contracts::{
-    AvailableAction, BlobEncoding, BlobResponse, EntityHandle, MarkdownHeading, MarkdownLink,
-    RefKind, RefSelectorItem, RenderedMarkdown, RepositoryFacets, RepositoryId,
-    RepositoryListResponse, RepositorySummary, RepositoryVisibility, ServerWsMessage, TreeEntry,
-    Viewer, WebBootstrap, WebFeatureFlags,
+    AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
+    RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
+    RepositoryVisibility, ServerWsMessage, TreeEntry, Viewer, WebBootstrap, WebFeatureFlags,
 };
 use jeryu_readmodel::{TuiReadModel, sample_read_model};
 use serde::Deserialize;
@@ -25,7 +28,9 @@ use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
-use crate::GithubRouter;
+use crate::{GithubRouter, Method, Response as GithubResponse};
+use markdown::render_markdown;
+use permissions::permissions;
 
 const WS_PROTOCOL: &str = "jeryu.ws.v1";
 
@@ -76,6 +81,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/readme", get(repo_readme))
         .route("/api/v1/markdown/render", post(markdown_render))
         .route("/api/v1/ws", get(ws))
+        .route("/graphql", post(graphql))
         .fallback_service(spa)
         .with_state(Arc::new(state))
 }
@@ -191,6 +197,11 @@ struct MarkdownRequest {
 
 async fn markdown_render(Json(request): Json<MarkdownRequest>) -> Json<RenderedMarkdown> {
     Json(render_markdown(&request.markdown))
+}
+
+async fn graphql(State(state): State<Arc<WebState>>, body: Bytes) -> AxumResponse {
+    let body = std::str::from_utf8(&body).unwrap_or_default();
+    github_response(state.github.handle(Method::Post, "/graphql", body))
 }
 
 async fn ws(ws: WebSocketUpgrade) -> impl IntoResponse {
@@ -397,96 +408,7 @@ fn find_repo(state: &WebState, id: &str) -> Option<Repository> {
         .find(|repo| repo.id.to_string() == id || repo.full_name == id)
 }
 
-fn render_markdown(markdown: &str) -> RenderedMarkdown {
-    let mut html = String::new();
-    let mut toc = Vec::new();
-    for line in markdown.lines() {
-        if let Some(title) = line.strip_prefix("# ") {
-            let id = slug(title);
-            html.push_str(&format!("<h1 id=\"{id}\">{}</h1>", escape(title)));
-            toc.push(MarkdownHeading {
-                depth: 1,
-                id,
-                text: title.to_string(),
-            });
-        } else if line.trim().is_empty() {
-            continue;
-        } else {
-            html.push_str(&format!("<p>{}</p>", escape(line)));
-        }
-    }
-    RenderedMarkdown {
-        html,
-        toc,
-        links: Vec::<MarkdownLink>::new(),
-        renderer_version: "jeryu-md-renderer.v1".to_string(),
-        sanitizer_version: Some("jeryu-md-sanitizer.v1".to_string()),
-        rendered_at: server_time(),
-    }
-}
-
-fn slug(value: &str) -> String {
-    let slug = value
-        .to_ascii_lowercase()
-        .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
-        .collect::<String>()
-        .split('-')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join("-");
-    if slug.is_empty() {
-        "section".to_string()
-    } else {
-        slug
-    }
-}
-
-fn escape(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
-
-fn permissions() -> Vec<String> {
-    [
-        "admin.audit",
-        "agents.grant",
-        "agents.read",
-        "agents.write",
-        "audit.read",
-        "branch.create",
-        "branch.delete",
-        "ci.read",
-        "ci.write",
-        "code.read",
-        "code.write",
-        "issue.read",
-        "issue.write",
-        "pr.approve",
-        "pr.comment",
-        "pr.merge",
-        "pr.read",
-        "pr.review",
-        "pr.write",
-        "repo.admin",
-        "repo.create",
-        "repo.delete",
-        "repo.read",
-        "repo.write",
-        "secrets.read_metadata",
-        "secrets.write",
-        "settings.read",
-        "settings.write",
-    ]
-    .into_iter()
-    .map(str::to_string)
-    .collect()
-}
-
-fn server_time() -> String {
+pub(super) fn server_time() -> String {
     chrono_like_now()
 }
 
@@ -498,6 +420,16 @@ fn chrono_like_now() -> String {
 
 fn api_error(status: StatusCode, code: &str, message: &str) -> AxumResponse {
     (status, Json(json!({ "code": code, "message": message }))).into_response()
+}
+
+fn github_response(response: GithubResponse) -> AxumResponse {
+    let status = StatusCode::from_u16(response.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    (
+        status,
+        [(header::CONTENT_TYPE, "application/json")],
+        response.body,
+    )
+        .into_response()
 }
 
 #[cfg(test)]

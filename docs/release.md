@@ -19,6 +19,17 @@ be signed from hosted CI state alone.
 - `just audit`
 - `bash ops/ci/proof-evidence.sh`
 
+## Release Process
+
+1. Run the required gates locally and keep the emitted artifacts under
+   `target/jankurai/` until the release receipt is signed.
+2. Verify the SQLite migration and restore receipts for the candidate commit.
+3. Build release artifacts from the signed commit only, then record checksums,
+   SBOM digests, provenance paths, and the rollback target in the release
+   receipt.
+4. Tag only after the release receipt names the exact commit, prior rollback
+   artifact, and gate evidence paths.
+
 ## Integrity And Provenance
 
 The security lane writes SBOM, vulnerability scan, provenance, and signing

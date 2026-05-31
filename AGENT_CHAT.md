@@ -1101,3 +1101,47 @@ Result:
   on `JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8792` (22 passed).
 - `git diff --check` PASS.
 - Preservation commit: `bef1e59`.
+
+## 2026-05-31T05:34Z - Codex
+
+CLAIM: guided GitHub GraphQL compatibility tranche on clean `origin/main`
+`cfcffe3`.
+
+Scope:
+- Add a narrow `/graphql` route to the GitHub-compatible router.
+- Unsupported GraphQL requests should return a GitHub-shaped 501 body with
+  `jeryu_repair_hint`, matching MCP/API tool ids, and docs links.
+- Keep the endpoint guided; do not implement broad GraphQL execution.
+
+Touched paths expected:
+- `crates/jeryu-api/src/github/**`
+- `crates/jeryu-api/{AGENTS.md,API_SURFACE.md,src/web.rs,src/web/**}`
+- `agent/{proof-lanes.toml,test-map.json}`, `crates/domain/**`, docs guidance
+- `AGENT_CHAT.md`
+
+Expected gates:
+- `cargo test -p jeryu-api --features web graphql --jobs 40`
+- `cargo fmt --all --check`
+- `git diff --check`
+
+Result:
+- Implemented `POST /graphql` in `GithubRouter` and the Axum web edge.
+- Supported read-only probes: `__typename`, `viewer { login ... }`, and simple
+  `repository(owner, name)` reads from the live `ForgeCore`.
+- Unsupported GraphQL operations return `501` with GitHub-shaped error fields,
+  `jeryu_repair_hint`, Jeryu MCP tool ids, REST route alternatives, and docs
+  links.
+- Split web markdown and permission helpers out of `web.rs` and added
+  `crates/jeryu-api/AGENTS.md` plus `docs/AGENTS.md` so changed-fast audit has
+  local owner/proof guidance.
+- Added named `agent`, `workspace`, and `api` proof lanes and a narrow
+  `crates/jeryu-api/` test-map route.
+- Targeted gates PASS: `cargo test -p jeryu-api --features web graphql --jobs
+  40`; `cargo test -p jeryu-domain -p jeryu-api --features jeryu-api/web --jobs
+  40`; package clippy for `jeryu-domain` and `jeryu-api`; `cargo fmt
+  --all --check`; `git diff --check`.
+- Live HTTP smoke PASS on `127.0.0.1:8793` for supported viewer query and
+  expected guided 501 response.
+- `bash ci-fast-push.sh --no-push` PASS end-to-end: workspace clippy/tests,
+  zero-evidence, docs-markers, phase gates (7 PASS), Jankurai diff audit
+  (`score=88`, `hard=0`, `caps=0`), and Jankurai audit (`score=92`, `caps=0`).

@@ -308,3 +308,60 @@ fn duplicate_repository_is_a_validation_error() {
     assert_eq!(response.status, 422, "{}", response.body);
     assert!(body(&response).get("message").is_some());
 }
+
+#[test]
+fn graphql_viewer_login_probe_is_supported() {
+    let router = GithubRouter::new();
+    let response = router.post("/graphql", r#"{"query":"query { viewer { login name } }"}"#);
+    assert_eq!(response.status, 200, "{}", response.body);
+    let parsed = body(&response);
+    assert_eq!(parsed["data"]["viewer"]["login"], "jeryu");
+    assert_eq!(parsed["data"]["viewer"]["name"], "Jeryu Local Operator");
+}
+
+#[test]
+fn graphql_repository_read_probe_is_supported() {
+    let router = router_with_repo();
+    let response = router.post(
+        "/graphql",
+        r#"{"query":"query Repo($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { nameWithOwner defaultBranchRef { name } isPrivate } }","variables":{"owner":"alice","name":"jeryu"}}"#,
+    );
+    assert_eq!(response.status, 200, "{}", response.body);
+    let repo = &body(&response)["data"]["repository"];
+    assert_eq!(repo["name"], "jeryu");
+    assert_eq!(repo["nameWithOwner"], "alice/jeryu");
+    assert_eq!(repo["defaultBranchRef"]["name"], "main");
+    assert_eq!(repo["isPrivate"], false);
+}
+
+#[test]
+fn unsupported_graphql_returns_guided_repair_hint() {
+    let router = GithubRouter::new();
+    let response = router.post(
+        "/graphql",
+        r#"{"query":"mutation { addStar(input: { starrableId: \"R_1\" }) { starrable { id } } }","operation_name":"StarRepo"}"#,
+    );
+    assert_eq!(response.status, 501, "{}", response.body);
+    let parsed = body(&response);
+    assert_eq!(
+        parsed["message"],
+        "GraphQL query requires a guided Jeryu route"
+    );
+    assert!(
+        parsed["documentation_url"]
+            .as_str()
+            .unwrap()
+            .contains("graphql")
+    );
+    assert_eq!(
+        parsed["jeryu_repair_hint"]["purpose"],
+        "route unsupported GitHub GraphQL request"
+    );
+    assert!(parsed["jeryu_mcp_tools"].as_array().unwrap().len() >= 4);
+    assert!(
+        parsed["jeryu_api_routes"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("GET /repos")
+    );
+}

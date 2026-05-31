@@ -19,6 +19,7 @@
 mod branch_protection;
 mod check_runs;
 mod commit_status;
+mod graphql;
 mod hooks;
 mod issues;
 mod pulls;
@@ -108,6 +109,7 @@ impl GithubRouter {
                 200,
                 &json!({ "version": JERYU_API_VERSION, "name": "jeryu-api" }),
             )),
+            (Post, ["graphql"]) => Ok(self.graphql(body)),
 
             // Repositories ---------------------------------------------------
             (Get, ["repos"]) => Ok(self.list_repos()),

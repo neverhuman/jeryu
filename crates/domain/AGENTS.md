@@ -12,6 +12,9 @@ Forbidden:
 Proof lane:
 - `cargo test -p jeryu-domain --jobs 40`
 - `cargo test -p jeryu-core --jobs 40`
+- Named lane: `agent/proof-lanes.toml` entry `api` covers API boundary
+  callers; this crate's own repair contract remains verified by
+  `jeryu-domain`.
 
 Live-readiness note:
 - When the typed repair surface changes, include this guidance file in the

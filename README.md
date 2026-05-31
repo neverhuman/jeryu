@@ -27,6 +27,8 @@ Read these files before editing:
 - `docs/generated-zones.md`
 - `docs/audit-rubric.md`
 - `docs/agent-native-standard.md`
+- Local `AGENTS.md` files under changed paths, for example `docs/AGENTS.md`
+  and `crates/jeryu-api/AGENTS.md`
 - `CI_TRACKER.md`
 
 Public and agent-facing review objects are PRs. Do not add aliases, flags,

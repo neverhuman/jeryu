@@ -34,11 +34,16 @@ Jeryu's own parity assertions, not vendored from any external spec. The
 - `GET|PUT /repos/{o}/{r}/branches/{branch}/protection`
 - `GET|POST /repos/{o}/{r}/releases`
 - `GET|POST /repos/{o}/{r}/hooks`
+- `POST /graphql` for guided compatibility: read-only `viewer`, `__typename`,
+  and simple `repository(owner, name)` probes are supported. All other GraphQL
+  operations return `501` with `jeryu_repair_hint`, Jeryu MCP tool ids, and REST
+  route alternatives.
 
 Status contract: `200` reads, `201` creates, `404` for unknown repos / PRs and
 unmatched routes, `422` for invalid bodies / paths / conflicts, `405` when a
-pull request is blocked by branch protection. Requests outside this table
-return a GitHub-shaped `404` error object.
+pull request is blocked by branch protection, and `501` for unsupported
+GraphQL operations. Requests outside this table return a GitHub-shaped `404`
+error object.
 
 ## Local live web feature
 
@@ -61,6 +66,7 @@ Implemented HTTP/WebSocket routes:
 - `GET /api/v1/repos/{id}/readme`
 - `POST /api/v1/markdown/render`
 - `GET /api/v1/ws`
+- `POST /graphql`
 
 The WebSocket sends a `jeryu.ws.v1` hello, responds to JSON
 `{"type":"ping","nonce":"..."}` with `pong`, accepts `ack`, `subscribe`, and

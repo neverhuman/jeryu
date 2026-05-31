@@ -54,11 +54,16 @@ pub fn agent_friendly_exception_pattern() -> AgentFriendlyExceptionPattern {
     exception_pattern()
 }
 
+/// Return the docs URL for the agent-friendly exception contract.
+pub fn agent_friendly_exception_docs_url() -> &'static str {
+    exception_pattern().docs_url
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        AGENT_FRIENDLY_EXCEPTION_REQUIRED_FIELDS, JeryuError, agent_friendly_exception_pattern,
-        exception_pattern, repair_hint,
+        AGENT_FRIENDLY_EXCEPTION_REQUIRED_FIELDS, JeryuError, agent_friendly_exception_docs_url,
+        agent_friendly_exception_pattern, exception_pattern, repair_hint,
     };
 
     #[test]
@@ -93,5 +98,6 @@ mod tests {
             ]
         );
         assert_eq!(agent_friendly_exception_pattern(), exception_pattern());
+        assert_eq!(agent_friendly_exception_docs_url(), "docs/errors.md");
     }
 }
