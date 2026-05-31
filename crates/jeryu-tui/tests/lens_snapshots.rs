@@ -7,8 +7,8 @@
 //! composes them with the header/status-strip chrome without any backend I/O.
 
 use jeryu_readmodel::{
-    EntityKind, EntityRef, RepoSummary, ReposSnapshot, TuiReadModel, TuiReadModelBuilder,
-    sample_read_model,
+    EntityKind, EntityRef, PoolActivity, PoolRollup, RepoActivity, RepoSummary, ReposSnapshot,
+    TagDemand, TuiReadModel, TuiReadModelBuilder, sample_read_model,
 };
 use jeryu_tui::{ActiveTab, App, StreamMode, render_once};
 
@@ -17,6 +17,13 @@ fn snapshot(model: TuiReadModel, tab: ActiveTab) -> String {
     let mut app = App::new_render_only(model);
     app.set_tab(tab);
     render_once(&app, 120, 40, StreamMode::Fixture)
+}
+
+/// Render a frame at an explicit terminal size.
+fn snapshot_sized(model: TuiReadModel, tab: ActiveTab, width: u16, height: u16) -> String {
+    let mut app = App::new_render_only(model);
+    app.set_tab(tab);
+    render_once(&app, width, height, StreamMode::Fixture)
 }
 
 // ── Mission lens ─────────────────────────────────────────────────────────
@@ -192,6 +199,124 @@ fn workflow_lens_renders_delivery_posture_from_read_model() {
     // GitHub PR shape: pipelines keyed by PR number.
     assert!(ink.contains("#101"), "driving PR number not projected");
     assert!(ink.contains("BLOCKED"), "blocked posture not projected");
+}
+
+// ── Pools/Health (Runners) lens ──────────────────────────────────────────────
+
+/// A degraded pool fabric: a saturated `trusted` pool with a stuck runner plus
+/// tag-starved (`gpu`) queued work that no pool serves.
+fn degraded_pool_model() -> TuiReadModel {
+    let mut saturated = PoolRollup::new("trusted");
+    saturated.tags = vec!["oci".into()];
+    saturated.active_slots = 2;
+    saturated.running_jobs = 2;
+    saturated.queued_jobs = 5;
+    saturated.failed_jobs = 1;
+    saturated.online_runners = 2;
+    saturated.stuck_runners = 1;
+
+    TuiReadModel {
+        event_cursor: 91,
+        pool_activity: PoolActivity {
+            repos: vec![RepoActivity {
+                repo: "neverhuman/jeryu".into(),
+                queued_jobs: 5,
+                running_jobs: 2,
+                ..RepoActivity::default()
+            }],
+            pools: vec![saturated],
+            unplaceable: vec![TagDemand {
+                tags: vec!["gpu".into()],
+                count: 3,
+            }],
+            freshness: None,
+        },
+        ..Default::default()
+    }
+}
+
+/// A healthy pool fabric: one clean `trusted` pool with idle headroom.
+fn healthy_pool_model() -> TuiReadModel {
+    let mut clean = PoolRollup::new("trusted");
+    clean.active_slots = 4;
+    clean.running_jobs = 1;
+    clean.online_runners = 4;
+
+    TuiReadModel {
+        pool_activity: PoolActivity {
+            pools: vec![clean],
+            repos: vec![RepoActivity {
+                repo: "neverhuman/jeryu".into(),
+                running_jobs: 1,
+                ..RepoActivity::default()
+            }],
+            ..PoolActivity::default()
+        },
+        ..Default::default()
+    }
+}
+
+#[test]
+fn pools_health_lens_renders_degraded_fabric_at_80x24() {
+    let ink = snapshot_sized(degraded_pool_model(), ActiveTab::Runners, 80, 24);
+    // Chrome present; the Runners tab routes to the Pools/Health lens (its body
+    // title proves the routing — the header tab strip itself clips at 80 cols).
+    assert!(ink.contains("jeryu"), "header brand missing");
+    // Fleet totals header + per-pool grid.
+    assert!(ink.contains("Pools/Health"), "fleet header missing");
+    assert!(ink.contains("trusted"), "pool row not projected");
+    // Health banner: tag-starvation is Critical and ranks first.
+    assert!(ink.contains("CRITICAL"), "critical health not projected");
+}
+
+#[test]
+fn pools_health_lens_renders_degraded_fabric_at_120x40() {
+    let ink = snapshot_sized(degraded_pool_model(), ActiveTab::Runners, 120, 40);
+    assert!(ink.contains("Pools/Health"), "fleet header missing");
+    assert!(ink.contains("trusted"), "pool row not projected");
+    assert!(ink.contains("SATURATED"), "saturated state not projected");
+    assert!(ink.contains("CRITICAL"), "critical health not projected");
+    // Ranked bottleneck describe(): tag-starvation banner.
+    assert!(
+        ink.contains("no pool serves it"),
+        "tag-starvation banner not projected"
+    );
+    // Stuck runner surfaced in totals/footer.
+    assert!(ink.contains("STUCK"), "stuck-runner alert not projected");
+    assert!(ink.contains("cursor=91"), "event cursor not projected");
+}
+
+#[test]
+fn pools_health_lens_renders_healthy_fabric_at_80x24() {
+    let ink = snapshot_sized(healthy_pool_model(), ActiveTab::Runners, 80, 24);
+    assert!(ink.contains("Pools/Health"), "fleet header missing");
+    assert!(ink.contains("trusted"), "pool row not projected");
+    assert!(ink.contains("HEALTHY"), "healthy health not projected");
+    assert!(
+        ink.contains("Fleet healthy"),
+        "healthy banner not projected"
+    );
+}
+
+#[test]
+fn pools_health_lens_renders_healthy_fabric_at_120x40() {
+    let ink = snapshot_sized(healthy_pool_model(), ActiveTab::Runners, 120, 40);
+    assert!(ink.contains("Pools/Health"), "fleet header missing");
+    assert!(ink.contains("HEALTHY"), "healthy health not projected");
+    assert!(ink.contains("active"), "active pool state not projected");
+    assert!(
+        ink.contains("fleet healthy"),
+        "healthy footer not projected"
+    );
+    // No bottleneck alerts on a clean fabric.
+    assert!(
+        !ink.contains("CRITICAL"),
+        "false critical on healthy fabric"
+    );
+    assert!(
+        !ink.contains("SATURATED"),
+        "false saturation on healthy fabric"
+    );
 }
 
 // ── Chrome / routing invariants ───────────────────────────────────────────

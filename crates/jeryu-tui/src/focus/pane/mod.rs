@@ -42,6 +42,8 @@ pub enum PaneId {
     TestsHistory,
     PoolsList,
     PoolsDetail,
+    RunnersPools,
+    RunnersDetail,
     CacheDisk,
     CacheStorage,
     CacheGateway,
@@ -114,6 +116,7 @@ impl PaneId {
             | PaneId::AgentsActions => ActiveTab::Agents,
             PaneId::TestsBottlenecks | PaneId::TestsHistory => ActiveTab::Tests,
             PaneId::PoolsList | PaneId::PoolsDetail => ActiveTab::Pools,
+            PaneId::RunnersPools | PaneId::RunnersDetail => ActiveTab::Runners,
             PaneId::CacheDisk
             | PaneId::CacheStorage
             | PaneId::CacheGateway
@@ -168,6 +171,8 @@ impl PaneId {
             PaneId::TestsHistory => "History".into(),
             PaneId::PoolsList => "Pools".into(),
             PaneId::PoolsDetail => "Detail".into(),
+            PaneId::RunnersPools => "Pools/Health".into(),
+            PaneId::RunnersDetail => "Pool Detail".into(),
             PaneId::CacheDisk => "Disk".into(),
             PaneId::CacheStorage => "Storage".into(),
             PaneId::CacheGateway => "Gateway".into(),
@@ -203,6 +208,7 @@ impl PaneId {
             ActiveTab::Agents => PaneId::AgentsSessions,
             ActiveTab::Tests => PaneId::TestsBottlenecks,
             ActiveTab::Pools => PaneId::PoolsList,
+            ActiveTab::Runners => PaneId::RunnersPools,
             ActiveTab::Cache => PaneId::CacheDisk,
             ActiveTab::Evidence => PaneId::EvidenceList,
             ActiveTab::Repos => PaneId::ReposLens,
@@ -270,6 +276,11 @@ impl PaneId {
                 PaneId::PoolsList,
                 PaneId::PoolsDetail,
                 PaneId::ActivityLog(Pools),
+            ],
+            Runners => &[
+                PaneId::RunnersPools,
+                PaneId::RunnersDetail,
+                PaneId::ActivityLog(Runners),
             ],
             Cache => &[
                 PaneId::CacheDisk,

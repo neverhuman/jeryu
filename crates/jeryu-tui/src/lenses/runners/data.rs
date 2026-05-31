@@ -5,7 +5,9 @@
 //! items; live per-node telemetry (storage probes etc.) belongs to the daemon /
 //! assembler, so the standalone lens reads only the contract.
 
-use jeryu_readmodel::{HealthLevel, RunnersItem, RunnersSummary, TuiReadModel};
+use jeryu_readmodel::{
+    ActivityTotals, Bottleneck, HealthLevel, PoolRollup, RunnersItem, RunnersSummary, TuiReadModel,
+};
 
 /// One runner-node row in the fleet grid.
 #[derive(Debug, Clone, PartialEq)]
@@ -103,6 +105,124 @@ impl RunnersLensInput {
     }
 }
 
+/// One per-pool row in the operator Pools/Health grid.
+///
+/// Pure projection of a [`PoolRollup`]; the derived slot/utilization math is read
+/// straight from the contract's selectors so the TUI and the web `/fleet` page
+/// cannot disagree.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PoolHealthRow {
+    pub pool: String,
+    pub tags: Vec<String>,
+    pub trust_tier: String,
+    pub paused: bool,
+    pub queued_jobs: u32,
+    pub running_jobs: u32,
+    pub failed_jobs: u32,
+    pub active_slots: u32,
+    pub idle_slots: u32,
+    pub configured_max_slots: u32,
+    pub online_runners: u32,
+    pub stuck_runners: u32,
+    /// Whole-percent utilization (`running / active_slots`).
+    pub utilization_pct: u32,
+    pub saturated: bool,
+}
+
+impl PoolHealthRow {
+    fn from_rollup(p: &PoolRollup) -> Self {
+        Self {
+            pool: p.pool.clone(),
+            tags: p.tags.clone(),
+            trust_tier: p.trust_tier.clone(),
+            paused: p.paused,
+            queued_jobs: p.queued_jobs,
+            running_jobs: p.running_jobs,
+            failed_jobs: p.failed_jobs,
+            active_slots: p.active_slots,
+            idle_slots: p.idle_slots(),
+            configured_max_slots: p.configured_max_slots,
+            online_runners: p.online_runners,
+            stuck_runners: p.stuck_runners,
+            utilization_pct: (p.utilization() * 100.0).round() as u32,
+            saturated: p.is_saturated(),
+        }
+    }
+}
+
+/// Operator Pools/Health projection: a pure read of [`PoolActivity`] for the
+/// runner-pool fleet tab. Mirrors [`RunnersLensInput::from_read_model`] — fleet
+/// totals via `totals()`, a per-pool table, and the ranked bottleneck/health
+/// banner from the contract's pure selectors.
+///
+/// [`PoolActivity`]: jeryu_readmodel::PoolActivity
+#[derive(Debug, Clone)]
+pub struct PoolHealthInput {
+    pub totals: ActivityTotals,
+    pub health: HealthLevel,
+    pub pools: Vec<PoolHealthRow>,
+    /// Ranked operator bottlenecks (most severe first), pre-described.
+    pub bottlenecks: Vec<Bottleneck>,
+    pub event_cursor: u64,
+}
+
+impl Default for PoolHealthInput {
+    fn default() -> Self {
+        // Mirrors `PoolActivity::default()`: an empty rollup is Unknown, never
+        // falsely green.
+        Self {
+            totals: ActivityTotals::default(),
+            health: HealthLevel::Unknown,
+            pools: Vec::new(),
+            bottlenecks: Vec::new(),
+            event_cursor: 0,
+        }
+    }
+}
+
+impl PoolHealthInput {
+    pub fn from_read_model(model: &TuiReadModel) -> Self {
+        let activity = &model.pool_activity;
+        Self {
+            totals: activity.totals(),
+            health: activity.health(),
+            pools: activity
+                .pools
+                .iter()
+                .map(PoolHealthRow::from_rollup)
+                .collect(),
+            bottlenecks: activity.bottlenecks(),
+            event_cursor: model.event_cursor,
+        }
+    }
+
+    /// Fleet-wide whole-percent utilization (running jobs over online slots).
+    pub fn fleet_utilization_pct(&self) -> u32 {
+        let online: u32 = self.pools.iter().map(|p| p.active_slots).sum();
+        if online == 0 {
+            0
+        } else {
+            (self.totals.running_jobs as f64 / online as f64 * 100.0).round() as u32
+        }
+    }
+
+    /// True when the operator has at least one signal to react to.
+    pub fn has_bottlenecks(&self) -> bool {
+        !self.bottlenecks.is_empty()
+    }
+
+    /// The single highest-severity banner line, or a healthy/idle summary.
+    pub fn banner_line(&self) -> String {
+        match self.bottlenecks.first() {
+            Some(top) => top.describe(),
+            None if self.pools.is_empty() && self.totals.repos == 0 => {
+                "No pool telemetry yet — awaiting scheduler/registry read.".to_string()
+            }
+            None => "Fleet healthy — no pool bottlenecks.".to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,5 +310,105 @@ mod tests {
         ];
         let input = RunnersLensInput::from_read_model(&model);
         assert_eq!(input.stuck_nodes(), 1);
+    }
+
+    // ── Pools/Health projection (PoolActivity) ──────────────────────────────
+
+    use jeryu_readmodel::{PoolActivity, RepoActivity, TagDemand};
+
+    #[test]
+    fn pool_health_default_is_unknown_and_empty() {
+        let input = PoolHealthInput::from_read_model(&TuiReadModel::default());
+        assert_eq!(input.health, HealthLevel::Unknown);
+        assert!(input.pools.is_empty());
+        assert!(input.bottlenecks.is_empty());
+        assert!(!input.has_bottlenecks());
+        assert_eq!(input.fleet_utilization_pct(), 0);
+        assert!(input.banner_line().contains("No pool telemetry"));
+    }
+
+    #[test]
+    fn pool_health_projects_rollup_and_ranked_bottlenecks() {
+        let mut saturated = PoolRollup::new("trusted");
+        saturated.tags = vec!["oci".into()];
+        saturated.active_slots = 2;
+        saturated.running_jobs = 2;
+        saturated.queued_jobs = 5;
+        saturated.failed_jobs = 1;
+        saturated.online_runners = 2;
+        saturated.stuck_runners = 1;
+
+        let model = TuiReadModel {
+            event_cursor: 91,
+            pool_activity: PoolActivity {
+                repos: vec![RepoActivity {
+                    repo: "neverhuman/jeryu".into(),
+                    queued_jobs: 5,
+                    running_jobs: 2,
+                    ..RepoActivity::default()
+                }],
+                pools: vec![saturated],
+                unplaceable: vec![TagDemand {
+                    tags: vec!["gpu".into()],
+                    count: 3,
+                }],
+                freshness: None,
+            },
+            ..Default::default()
+        };
+
+        let input = PoolHealthInput::from_read_model(&model);
+        // Totals roll up from the contract selectors.
+        assert_eq!(input.totals.pools, 1);
+        assert_eq!(input.totals.repos, 1);
+        assert_eq!(input.totals.queued_jobs, 5);
+        assert_eq!(input.totals.running_jobs, 2);
+        assert_eq!(input.totals.stuck_runners, 1);
+        assert_eq!(input.event_cursor, 91);
+
+        // Per-pool row math mirrors PoolRollup selectors.
+        assert_eq!(input.pools.len(), 1);
+        let row = &input.pools[0];
+        assert_eq!(row.pool, "trusted");
+        assert_eq!(row.utilization_pct, 100);
+        assert_eq!(row.idle_slots, 0);
+        assert!(row.saturated);
+
+        // Tag-starvation (Critical) ranks first, then stuck (Degraded), then
+        // saturation (Warning).
+        assert_eq!(input.health, HealthLevel::Critical);
+        assert!(input.has_bottlenecks());
+        assert!(matches!(
+            input.bottlenecks[0],
+            jeryu_readmodel::Bottleneck::TagStarved { count: 3, .. }
+        ));
+        assert!(input.banner_line().contains("no pool serves it"));
+        // Fleet utilization: 2 running / 2 active slots = 100%.
+        assert_eq!(input.fleet_utilization_pct(), 100);
+    }
+
+    #[test]
+    fn pool_health_healthy_pool_has_no_bottlenecks() {
+        let mut clean = PoolRollup::new("trusted");
+        clean.active_slots = 4;
+        clean.running_jobs = 1;
+        clean.online_runners = 4;
+        let model = TuiReadModel {
+            pool_activity: PoolActivity {
+                pools: vec![clean],
+                repos: vec![RepoActivity {
+                    repo: "neverhuman/jeryu".into(),
+                    running_jobs: 1,
+                    ..RepoActivity::default()
+                }],
+                ..PoolActivity::default()
+            },
+            ..Default::default()
+        };
+        let input = PoolHealthInput::from_read_model(&model);
+        assert_eq!(input.health, HealthLevel::Healthy);
+        assert!(!input.has_bottlenecks());
+        assert!(input.banner_line().contains("Fleet healthy"));
+        assert_eq!(input.fleet_utilization_pct(), 25);
     }
 }

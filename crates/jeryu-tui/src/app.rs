@@ -26,6 +26,9 @@ pub enum ActiveTab {
     Agents,
     Tests,
     Pools,
+    /// Operator Pools/Health (runner-pool fleet) tab. Routes to the Runners
+    /// lens, which projects [`PoolActivity`](jeryu_readmodel::PoolActivity).
+    Runners,
     Cache,
     Evidence,
     Repos,
@@ -49,6 +52,7 @@ impl ActiveTab {
         Self::Agents,
         Self::Tests,
         Self::Pools,
+        Self::Runners,
         Self::Cache,
         Self::Evidence,
         Self::Repos,
@@ -87,6 +91,7 @@ impl ActiveTab {
             Self::Agents => "Agents",
             Self::Tests => "Tests",
             Self::Pools => "Pools",
+            Self::Runners => "Runners",
             Self::Cache => "Cache",
             Self::Evidence => "Evidence",
             Self::Repos => "Repos",

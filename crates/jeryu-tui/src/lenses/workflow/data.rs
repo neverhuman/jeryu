@@ -2,9 +2,9 @@
 //!
 //! Invariants: pure projection from [`TuiReadModel`] to [`WorkflowLensInput`].
 //! No I/O. The Workflow Atlas projects delivery posture per repo from the read
-//! model's workflow dashboard: per-pipeline rows (repo, driving PR number,
+//! model's workflow dashboard: per-workflow rows (repo, driving PR number,
 //! posture, critical-path node) plus the fleet rollup from the dashboard
-//! summary. GitHub PR shape: pipelines are keyed by PR number.
+//! summary. GitHub PR shape: workflows are keyed by PR number.
 
 use jeryu_readmodel::{DeliveryPosture, TuiReadModel, WorkflowItem};
 

@@ -1,7 +1,7 @@
 //! Workflow lens view.
 //!
 //! Invariants: pure draw. Reads [`WorkflowLensInput`]; no backend I/O. Renders
-//! the Workflow Atlas: a fleet header, a per-pipeline delivery table (REPO/PR/
+//! the Workflow Atlas: a fleet header, a per-workflow delivery table (REPO/PR/
 //! POSTURE/CRITICAL PATH, posture colored), and a keys footer.
 
 use ratatui::Frame;
@@ -41,7 +41,7 @@ fn posture_style(posture: DeliveryPosture) -> Style {
 
 fn draw_header(f: &mut Frame, input: &WorkflowLensInput, area: Rect) {
     let text = format!(
-        "Workflow Atlas — {} pipelines · {} running · {} blocked · longest {}s",
+        "Workflow Atlas — {} workflows · {} running · {} blocked · longest {}s",
         input.pipeline_count(),
         input.running_count,
         input.blocked_count,
@@ -149,7 +149,7 @@ mod tests {
     }
 
     #[test]
-    fn renders_pipelines_at_120x36() {
+    fn renders_workflows_at_120x36() {
         let input = WorkflowLensInput::from_read_model(&sample_read_model());
         let out = ink(120, 36, &input);
         assert!(out.contains("core/web"));
@@ -159,6 +159,9 @@ mod tests {
         assert!(out.contains("BLOCKED"));
         assert!(out.contains("1 running"));
         assert!(out.contains("ci:build-web"));
+        // User-facing vocab: header counts "workflows", not "pipelines".
+        assert!(out.contains("2 workflows"));
+        assert!(!out.contains("pipelines"));
     }
 
     #[test]

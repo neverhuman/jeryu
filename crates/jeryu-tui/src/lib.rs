@@ -56,7 +56,8 @@ pub fn parse_capture_tab(tab: &str) -> Option<ActiveTab> {
         "jobs" => ActiveTab::Jobs,
         "agents" => ActiveTab::Agents,
         "tests" | "vti" => ActiveTab::Tests,
-        "pools" | "queue" => ActiveTab::Pools,
+        "queue" => ActiveTab::Pools,
+        "pools" | "runners" => ActiveTab::Runners,
         "cache" => ActiveTab::Cache,
         "evidence" => ActiveTab::Evidence,
         "repos" => ActiveTab::Repos,
@@ -65,7 +66,7 @@ pub fn parse_capture_tab(tab: &str) -> Option<ActiveTab> {
         "git" => ActiveTab::Git,
         "secrets" => ActiveTab::Secrets,
         "jankurai" => ActiveTab::Jankurai,
-        "source-doctor" | "source_doctor" | "runners" => ActiveTab::Pools,
+        "source-doctor" | "source_doctor" => ActiveTab::Runners,
         _ => return None,
     };
     Some(resolved)
@@ -102,6 +103,8 @@ mod tests {
         assert_eq!(parse_capture_tab("mission"), Some(ActiveTab::Mission));
         assert_eq!(parse_capture_tab("REPOS"), Some(ActiveTab::Repos));
         assert_eq!(parse_capture_tab("queue"), Some(ActiveTab::Pools));
+        assert_eq!(parse_capture_tab("pools"), Some(ActiveTab::Runners));
+        assert_eq!(parse_capture_tab("runners"), Some(ActiveTab::Runners));
         assert_eq!(parse_capture_tab(""), Some(ActiveTab::Jobs));
         assert_eq!(parse_capture_tab("does-not-exist"), None);
     }

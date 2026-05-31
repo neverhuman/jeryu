@@ -130,6 +130,7 @@ impl LensId {
         match tab {
             ActiveTab::Mission => Self::Mission,
             ActiveTab::Pools | ActiveTab::Jobs => Self::Queue,
+            ActiveTab::Runners => Self::Runners,
             ActiveTab::Repos => Self::Repos,
             ActiveTab::Workflow => Self::Workflow,
             ActiveTab::Release => Self::Release,
@@ -155,9 +156,7 @@ pub fn draw_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
         }
         LensId::Queue => queue::view::draw(f, &queue::QueueLensInput::from_read_model(model), area),
         LensId::Repos => repos::view::draw(f, &repos::ReposLensInput::from_read_model(model), area),
-        LensId::Runners => {
-            runners::view::draw(f, &runners::RunnersLensInput::from_read_model(model), area)
-        }
+        LensId::Runners => runners::view::draw_from_model(f, model, area),
         LensId::Approvals => approvals::view::draw(
             f,
             &approvals::ApprovalsLensInput::from_read_model(model),
