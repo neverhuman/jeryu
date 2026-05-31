@@ -26,6 +26,20 @@ fn snapshot_sized(model: TuiReadModel, tab: ActiveTab, width: u16, height: u16) 
     render_once(&app, width, height, StreamMode::Fixture)
 }
 
+/// Render a frame at an explicit size with an explicit transport badge — used by
+/// the degraded-fixture sweep (StreamMode::Degraded + stale freshness).
+fn snapshot_sized_mode(
+    model: TuiReadModel,
+    tab: ActiveTab,
+    width: u16,
+    height: u16,
+    stream: StreamMode,
+) -> String {
+    let mut app = App::new_render_only(model);
+    app.set_tab(tab);
+    render_once(&app, width, height, stream)
+}
+
 // ── Mission lens ─────────────────────────────────────────────────────────
 
 #[test]
@@ -362,5 +376,119 @@ fn every_tab_renders_at_compact_and_wide_sizes() {
                 "placeholder rendered for {tab:?} {width}x{height}"
             );
         }
+    }
+}
+
+// ── Degraded-fixture sweep ────────────────────────────────────────────────
+
+/// A fully degraded fixture: the sample model with the freshness watermark
+/// flipped stale and the runner fabric swapped for the saturated/tag-starved/
+/// stuck rollup. Rendering this with [`StreamMode::Degraded`] exercises the
+/// degraded path of the chrome (EXPIRED freshness chip + DEGRADED transport
+/// badge) and every lens against a non-healthy snapshot.
+fn degraded_fixture_model() -> TuiReadModel {
+    let mut model = sample_read_model();
+    model.freshness.overall_stale = true;
+    model.pool_activity = degraded_pool_model().pool_activity;
+    model
+}
+
+#[test]
+fn degraded_fixture_chrome_shows_expired_and_degraded_badges() {
+    // The degraded chrome path: stale freshness → EXPIRED chip, and the
+    // DEGRADED transport badge. Asserted once on Mission so the per-tab sweep
+    // below can focus on "renders without placeholder".
+    for (width, height) in [(80, 24), (120, 40)] {
+        let ink = snapshot_sized_mode(
+            degraded_fixture_model(),
+            ActiveTab::Mission,
+            width,
+            height,
+            StreamMode::Degraded,
+        );
+        assert!(
+            ink.contains("DEGRADED"),
+            "degraded transport badge missing at {width}x{height}"
+        );
+        assert!(
+            ink.contains("EXPIRED"),
+            "stale freshness chip missing at {width}x{height}"
+        );
+    }
+}
+
+#[test]
+fn every_tab_renders_in_degraded_fixture_at_compact_and_wide_sizes() {
+    for tab in ActiveTab::ALL {
+        for (width, height) in [(80, 24), (120, 40)] {
+            let ink = snapshot_sized_mode(
+                degraded_fixture_model(),
+                *tab,
+                width,
+                height,
+                StreamMode::Degraded,
+            );
+            assert!(
+                ink.contains("jeryu"),
+                "brand missing for degraded {tab:?} {width}x{height}"
+            );
+            assert!(
+                !ink.contains("not yet ported"),
+                "placeholder rendered for degraded {tab:?} {width}x{height}"
+            );
+            // The degraded transport badge is part of the chrome on every tab.
+            assert!(
+                ink.contains("DEGRADED"),
+                "degraded badge missing for {tab:?} {width}x{height}"
+            );
+        }
+    }
+}
+
+#[test]
+fn degraded_fixture_runners_tab_surfaces_saturation_at_both_sizes() {
+    // The Runners/Pools tab over the degraded fabric: the saturated pool, the
+    // critical tag-starvation, and the stuck-runner alert all surface, at both
+    // the compact and wide sizes, under the degraded transport.
+    for (width, height) in [(80, 24), (120, 40)] {
+        let ink = snapshot_sized_mode(
+            degraded_fixture_model(),
+            ActiveTab::Runners,
+            width,
+            height,
+            StreamMode::Degraded,
+        );
+        assert!(
+            ink.contains("Pools/Health"),
+            "fleet header missing at {width}x{height}"
+        );
+        assert!(
+            ink.contains("trusted"),
+            "saturated pool row missing at {width}x{height}"
+        );
+        assert!(
+            ink.contains("CRITICAL"),
+            "tag-starvation criticality missing at {width}x{height}"
+        );
+        assert!(
+            ink.contains("STUCK"),
+            "stuck-runner alert missing at {width}x{height}"
+        );
+    }
+}
+
+#[test]
+fn healthy_and_degraded_fixtures_differ_per_tab() {
+    // Guard against a degenerate fixture: for the lenses that project the
+    // freshness/pool fabric, the healthy and degraded snapshots must not be
+    // byte-identical, proving the degraded inputs actually flow through.
+    for tab in [ActiveTab::Mission, ActiveTab::Runners] {
+        let healthy = snapshot_sized_mode(sample_read_model(), tab, 120, 40, StreamMode::Fixture);
+        let degraded =
+            snapshot_sized_mode(degraded_fixture_model(), tab, 120, 40, StreamMode::Degraded);
+        assert_ne!(
+            healthy, degraded,
+            "{tab:?}: degraded snapshot is identical to healthy"
+        );
     }
 }
