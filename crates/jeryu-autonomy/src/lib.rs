@@ -32,6 +32,7 @@ pub mod conditions;
 pub mod escalation;
 pub mod evidence;
 pub mod freeze;
+pub mod full_auto;
 pub mod judge;
 pub mod kill_bell;
 pub mod ledger;
@@ -58,6 +59,9 @@ pub use evidence::{
     EvidenceInputs, build_evidence_pack, make_gate_receipt, verify_evidence_digest,
 };
 pub use freeze::{FreezeWindow, FreezeWindows};
+pub use full_auto::{
+    FULL_AUTO_MAX_AUTO_TIER, FULL_AUTO_SCHEMA, FullAutoDescriptor, FullAutoError, FullAutoProfile,
+};
 pub use judge::{JudgeInputs, JudgeOutcome, judge};
 pub use kill_bell::{BreakGlassReceipt, KillBell, KillBellState};
 pub use ledger::{
