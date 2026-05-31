@@ -6,7 +6,7 @@ mod permissions;
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -20,9 +20,10 @@ use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState, Repository};
 use jeryu_readmodel::contracts::{
     AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
     RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
-    RepositoryVisibility, ServerWsMessage, TreeEntry, Viewer, WebBootstrap, WebFeatureFlags,
+    RepositoryVisibility, ServerWsMessage, TreeEntry, Viewer, WebBootstrap, WebEvent,
+    WebFeatureFlags,
 };
-use jeryu_readmodel::{TuiReadModel, sample_read_model};
+use jeryu_readmodel::{Bottleneck, TuiReadModel, sample_read_model};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
@@ -45,6 +46,9 @@ pub struct WebServerConfig {
 struct WebState {
     github: GithubRouter,
     tui: TuiReadModel,
+    /// Live-stream fan-out hub: hands out monotonic sequence numbers and keeps
+    /// a subscriber registry so the WS edge can push snapshots/deltas per scope.
+    ws: WsHub,
 }
 
 impl WebState {
@@ -52,7 +56,90 @@ impl WebState {
         Self {
             github: GithubRouter::with_core(core),
             tui: sample_read_model(),
+            ws: WsHub::new(),
         }
+    }
+}
+
+/// Live-stream fan-out hub for the WebSocket event spine.
+///
+/// The tokio `sync` feature is intentionally NOT enabled in this crate, so this
+/// is a deliberately minimal `Arc<Mutex<_>>` registry rather than a
+/// `tokio::sync::broadcast`. It hands out the server-wide monotonic event
+/// sequence and tracks which scopes each live connection is subscribed to, so a
+/// future producer can fan deltas out to exactly the interested connections.
+/// The snapshot-on-subscribe path below works entirely through this hub today.
+#[derive(Clone, Default)]
+struct WsHub {
+    inner: Arc<Mutex<WsHubInner>>,
+}
+
+#[derive(Default)]
+struct WsHubInner {
+    /// Server-wide monotonic event sequence; never reused, never decreases.
+    next_seq: u64,
+    /// Live connections, in registration order. Each tracks its own scopes.
+    connections: Vec<WsConnection>,
+}
+
+/// A single live WebSocket connection's subscription state inside the hub.
+struct WsConnection {
+    id: u64,
+    scopes: BTreeSet<String>,
+}
+
+impl WsHub {
+    fn new() -> Self {
+        Self::default()
+    }
+
+    /// Allocate the next monotonic event sequence number.
+    fn next_seq(&self) -> u64 {
+        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
+        inner.next_seq = inner.next_seq.saturating_add(1);
+        inner.next_seq
+    }
+
+    /// The highest sequence handed out so far (0 before any event).
+    fn current_seq(&self) -> u64 {
+        self.inner.lock().expect("ws hub mutex poisoned").next_seq
+    }
+
+    /// Register a fresh connection and return its hub-unique id.
+    fn register(&self) -> u64 {
+        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
+        let id = inner
+            .next_seq
+            .wrapping_add(inner.connections.len() as u64 + 1);
+        inner.connections.push(WsConnection {
+            id,
+            scopes: BTreeSet::new(),
+        });
+        id
+    }
+
+    /// Replace the scope set a connection is subscribed to.
+    fn set_scopes(&self, id: u64, scopes: &BTreeSet<String>) {
+        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
+        if let Some(conn) = inner.connections.iter_mut().find(|c| c.id == id) {
+            conn.scopes = scopes.clone();
+        }
+    }
+
+    /// Drop scopes from a connection's subscription set.
+    fn remove_scopes(&self, id: u64, scopes: &[String]) {
+        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
+        if let Some(conn) = inner.connections.iter_mut().find(|c| c.id == id) {
+            for scope in scopes {
+                conn.scopes.remove(scope);
+            }
+        }
+    }
+
+    /// Forget a connection entirely (on socket close).
+    fn unregister(&self, id: u64) {
+        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
+        inner.connections.retain(|c| c.id != id);
     }
 }
 
@@ -269,12 +356,15 @@ fn map_method(method: &HttpMethod) -> Option<Method> {
     }
 }
 
-async fn ws(ws: WebSocketUpgrade) -> impl IntoResponse {
-    ws.on_upgrade(handle_ws)
+async fn ws(ws: WebSocketUpgrade, State(state): State<Arc<WebState>>) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_ws(socket, state))
 }
 
-async fn handle_ws(mut socket: WebSocket) {
-    let _ = send_server_message(&mut socket, hello_message()).await;
+async fn handle_ws(mut socket: WebSocket, state: Arc<WebState>) {
+    let conn_id = state.ws.register();
+    let _ = send_server_message(&mut socket, hello_message(&state)).await;
+    // Per-connection scope subscription set, mirrored into the hub registry.
+    let mut scopes: BTreeSet<String> = BTreeSet::new();
     while let Some(message) = socket.next().await {
         match message {
             Ok(Message::Text(text)) => {
@@ -296,9 +386,34 @@ async fn handle_ws(mut socket: WebSocket) {
                             .await;
                         }
                         Some("hello") => {
-                            let _ = send_server_message(&mut socket, hello_message()).await;
+                            // A `hello` may carry an initial subscription set.
+                            for scope in requested_scopes(&value) {
+                                scopes.insert(scope);
+                            }
+                            state.ws.set_scopes(conn_id, &scopes);
+                            let _ = send_server_message(&mut socket, hello_message(&state)).await;
+                            send_scope_snapshots(&mut socket, &state, &scopes).await;
                         }
-                        Some("ack" | "subscribe" | "unsubscribe") => {}
+                        Some("subscribe") => {
+                            // Track the newly requested scopes and immediately push
+                            // a snapshot Event frame for each, so the client paints
+                            // from live read-model data without waiting for a delta.
+                            let added: Vec<String> = requested_scopes(&value);
+                            for scope in &added {
+                                scopes.insert(scope.clone());
+                            }
+                            state.ws.set_scopes(conn_id, &scopes);
+                            let snapshot_scopes: BTreeSet<String> = added.into_iter().collect();
+                            send_scope_snapshots(&mut socket, &state, &snapshot_scopes).await;
+                        }
+                        Some("unsubscribe") => {
+                            let dropped = unsubscribe_scopes(&value);
+                            for scope in &dropped {
+                                scopes.remove(scope);
+                            }
+                            state.ws.remove_scopes(conn_id, &dropped);
+                        }
+                        Some("ack") => {}
                         _ => {
                             let _ = send_server_message(
                                 &mut socket,
@@ -319,6 +434,114 @@ async fn handle_ws(mut socket: WebSocket) {
             _ => {}
         }
     }
+    state.ws.unregister(conn_id);
+}
+
+/// Extract subscription scopes from a `hello`/`subscribe` frame. Both carry
+/// `subscriptions: [{ scope, filters }]` per the [`ClientWsMessage`] contract.
+fn requested_scopes(value: &Value) -> Vec<String> {
+    value
+        .get("subscriptions")
+        .and_then(Value::as_array)
+        .map(|specs| {
+            specs
+                .iter()
+                .filter_map(|spec| spec.get("scope").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Extract the scope list from an `unsubscribe` frame (`scopes: [..]`).
+fn unsubscribe_scopes(value: &Value) -> Vec<String> {
+    value
+        .get("scopes")
+        .and_then(Value::as_array)
+        .map(|scopes| {
+            scopes
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Push one snapshot [`ServerWsMessage::Event`] frame per subscribed scope, each
+/// stamped with a fresh monotonic sequence from the hub.
+async fn send_scope_snapshots(socket: &mut WebSocket, state: &WebState, scopes: &BTreeSet<String>) {
+    for scope in scopes {
+        if let Some(event) = snapshot_event(state, scope) {
+            let _ = send_server_message(socket, ServerWsMessage::Event { event }).await;
+        }
+    }
+}
+
+/// Build a snapshot [`WebEvent`] for a subscribed scope from the read model.
+///
+/// Supported scopes: `global.activity` (server-wide pool totals + bottlenecks),
+/// `pool.{name}` (one pool's rollup), and `system.health` (component health).
+/// Unknown scopes yield `None` and are silently ignored (no spurious frame).
+fn snapshot_event(state: &WebState, scope: &str) -> Option<WebEvent> {
+    let activity = &state.tui.pool_activity;
+    let seq = state.ws.next_seq();
+    let timestamp = server_time();
+    if scope == "global.activity" {
+        let totals = activity.totals();
+        let bottlenecks: Vec<String> = activity
+            .bottlenecks()
+            .iter()
+            .map(Bottleneck::describe)
+            .collect();
+        return Some(WebEvent {
+            seq,
+            timestamp,
+            scope: scope.to_string(),
+            kind: "activity.snapshot".to_string(),
+            entity: "global".to_string(),
+            summary: format!(
+                "{} queued / {} running / {} failed across {} pool(s)",
+                totals.queued_jobs, totals.running_jobs, totals.failed_jobs, totals.pools
+            ),
+            payload: json!({
+                "health": activity.health(),
+                "totals": totals,
+                "bottlenecks": bottlenecks,
+            }),
+        });
+    }
+    if let Some(pool_name) = scope.strip_prefix("pool.") {
+        let pool = activity.pools.iter().find(|p| p.pool == pool_name)?;
+        return Some(WebEvent {
+            seq,
+            timestamp,
+            scope: scope.to_string(),
+            kind: "pool.snapshot".to_string(),
+            entity: pool.pool.clone(),
+            summary: format!(
+                "pool '{}': {} queued / {} running, {:.0}% utilized",
+                pool.pool,
+                pool.queued_jobs,
+                pool.running_jobs,
+                pool.utilization() * 100.0
+            ),
+            payload: serde_json::to_value(pool).unwrap_or_else(|_| json!({})),
+        });
+    }
+    if scope == "system.health" {
+        let system = &state.tui.system;
+        return Some(WebEvent {
+            seq,
+            timestamp,
+            scope: scope.to_string(),
+            kind: "system.snapshot".to_string(),
+            entity: "system".to_string(),
+            summary: "system component health snapshot".to_string(),
+            payload: serde_json::to_value(system).unwrap_or_else(|_| json!({})),
+        });
+    }
+    None
 }
 
 async fn send_server_message(socket: &mut WebSocket, message: ServerWsMessage) -> Result<(), ()> {
@@ -326,10 +549,10 @@ async fn send_server_message(socket: &mut WebSocket, message: ServerWsMessage) -
     socket.send(Message::Text(encoded)).await.map_err(|_| ())
 }
 
-fn hello_message() -> ServerWsMessage {
+fn hello_message(state: &WebState) -> ServerWsMessage {
     ServerWsMessage::Hello {
         server_time: server_time(),
-        current_seq: 0,
+        current_seq: state.ws.current_seq(),
         protocol: WS_PROTOCOL.to_string(),
     }
 }
@@ -580,5 +803,122 @@ mod tests {
             WebState::new(ForgeCore::new()),
             std::path::Path::new("/tmp"),
         );
+    }
+
+    /// A `WebState` whose read model has one saturated pool, so the activity
+    /// and pool scopes produce non-trivial snapshot frames.
+    fn ws_state_with_pool() -> WebState {
+        use jeryu_readmodel::{PoolActivity, PoolRollup, RepoActivity};
+        let mut state = WebState::new(ForgeCore::new());
+        let mut pool = PoolRollup::new("trusted");
+        pool.active_slots = 2;
+        pool.running_jobs = 2;
+        pool.queued_jobs = 3; // saturated
+        pool.online_runners = 2;
+        state.tui.pool_activity = PoolActivity {
+            repos: vec![RepoActivity {
+                repo: "alice/jeryu".into(),
+                queued_jobs: 3,
+                running_jobs: 2,
+                ..RepoActivity::default()
+            }],
+            pools: vec![pool],
+            ..PoolActivity::default()
+        };
+        state
+    }
+
+    #[test]
+    fn subscribe_frame_yields_scopes_and_snapshot_events() {
+        let state = ws_state_with_pool();
+        // A real client `subscribe` frame per the ClientWsMessage contract.
+        let frame = json!({
+            "type": "subscribe",
+            "subscriptions": [
+                { "scope": "global.activity", "filters": {} },
+                { "scope": "pool.trusted", "filters": {} },
+                { "scope": "system.health", "filters": {} },
+            ],
+        });
+        // It deserializes into the typed wire contract (format is genuine).
+        let parsed: jeryu_readmodel::contracts::ClientWsMessage =
+            serde_json::from_value(frame.clone()).expect("subscribe frame parses");
+        assert!(matches!(
+            parsed,
+            jeryu_readmodel::contracts::ClientWsMessage::Subscribe { .. }
+        ));
+
+        // The handler's scope extractor pulls every requested scope.
+        let scopes = requested_scopes(&frame);
+        assert_eq!(scopes.len(), 3);
+
+        // Each subscribed scope yields a monotonic Event snapshot frame.
+        let mut last_seq = 0u64;
+        for scope in &scopes {
+            let event = snapshot_event(&state, scope)
+                .unwrap_or_else(|| panic!("scope {scope} should produce a snapshot"));
+            assert_eq!(&event.scope, scope);
+            assert!(event.seq > last_seq, "seq must be strictly monotonic");
+            last_seq = event.seq;
+            // The frame round-trips as a ServerWsMessage::Event on the wire.
+            let msg = ServerWsMessage::Event { event };
+            let encoded = serde_json::to_string(&msg).unwrap();
+            assert!(encoded.contains("\"type\":\"event\""));
+            assert!(encoded.contains(scope.as_str()));
+        }
+
+        // The activity snapshot reports the saturated pool's bottleneck.
+        let activity = snapshot_event(&state, "global.activity").unwrap();
+        let bottlenecks = activity.payload.get("bottlenecks").unwrap();
+        assert!(
+            bottlenecks.as_array().is_some_and(|b| !b.is_empty()),
+            "saturated pool must surface a bottleneck"
+        );
+    }
+
+    #[test]
+    fn unknown_scope_produces_no_snapshot() {
+        let state = ws_state_with_pool();
+        assert!(snapshot_event(&state, "pool.does-not-exist").is_none());
+        assert!(snapshot_event(&state, "totally.unknown").is_none());
+    }
+
+    #[test]
+    fn ws_hub_seq_is_monotonic_and_tracks_subscribers() {
+        let hub = WsHub::new();
+        assert_eq!(hub.current_seq(), 0);
+        let a = hub.next_seq();
+        let b = hub.next_seq();
+        assert!(b > a);
+        assert_eq!(hub.current_seq(), b);
+
+        let conn = hub.register();
+        let mut scopes = BTreeSet::new();
+        scopes.insert("global.activity".to_string());
+        scopes.insert("pool.trusted".to_string());
+        hub.set_scopes(conn, &scopes);
+        hub.remove_scopes(conn, &["pool.trusted".to_string()]);
+        // Unregister must not panic and leaves the hub usable.
+        hub.unregister(conn);
+        assert!(hub.next_seq() > b);
+    }
+
+    #[test]
+    fn hello_frame_reports_current_seq() {
+        let state = ws_state_with_pool();
+        // Hand out two sequences, then the hello frame must echo current_seq.
+        let _ = state.ws.next_seq();
+        let _ = state.ws.next_seq();
+        match hello_message(&state) {
+            ServerWsMessage::Hello { current_seq, .. } => assert_eq!(current_seq, 2),
+            other => panic!("expected hello, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unsubscribe_frame_extracts_scopes() {
+        let frame = json!({ "type": "unsubscribe", "scopes": ["pool.trusted", "system.health"] });
+        let dropped = unsubscribe_scopes(&frame);
+        assert_eq!(dropped, vec!["pool.trusted", "system.health"]);
     }
 }

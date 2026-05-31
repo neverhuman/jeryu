@@ -1,4 +1,4 @@
-//! Pull requests, reviews, and merge requests/results.
+//! Pull requests, reviews, and merge results.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

@@ -162,7 +162,7 @@ pub struct SettingsFieldChange {
 
 /// Preview output: what would change if the patch were applied, plus a
 /// bounded blast-radius summary for the currently supported patch surface.
-/// The preview includes the affected branches/MRs and other downstream side
+/// The preview includes the affected branches/PRs and other downstream side
 /// effects already known to this service.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]

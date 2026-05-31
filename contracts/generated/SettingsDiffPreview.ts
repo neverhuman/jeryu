@@ -5,7 +5,7 @@ import type { SettingsFieldChange } from "./SettingsFieldChange";
 /**
  * Preview output: what would change if the patch were applied, plus a
  * bounded blast-radius summary for the currently supported patch surface.
- * The preview includes the affected branches/MRs and other downstream side
+ * The preview includes the affected branches/PRs and other downstream side
  * effects already known to this service.
  */
 export type SettingsDiffPreview = { repo: RepositoryId, current_hash: string, diffs: Array<SettingsFieldChange>, side_effects: Array<string>, warnings: Array<string>, reversible: boolean, };
