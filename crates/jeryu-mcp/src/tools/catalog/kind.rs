@@ -1,0 +1,131 @@
+//! Tool kinds, the per-tool definition record, and argument normalization.
+
+use serde_json::Value;
+
+use crate::TOOL_PREFIX;
+use crate::backend::ToolDescriptor;
+use crate::tools::schema::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ToolKind {
+    FetchCapsule,
+    GetSystemSnapshot,
+    GetCiRunJobs,
+    GetCiBottlenecks,
+    ExplainBlockers,
+    PlanValidation,
+    RunTests,
+    ProposePatch,
+    RacePatches,
+    RequestMerge,
+    BugSubmit,
+    BugList,
+    BugShow,
+    BugReady,
+    BugUpdate,
+    BugRecordAttempt,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ToolDefinition {
+    pub(super) title: &'static str,
+    pub(super) description: &'static str,
+    pub(super) annotations: Value,
+    pub(super) input_schema: Value,
+    pub(super) output_schema: Value,
+    pub(super) kind: ToolKind,
+}
+
+impl ToolDefinition {
+    pub(crate) fn descriptor(&self, action_id: &str) -> ToolDescriptor {
+        ToolDescriptor {
+            name: format!("{TOOL_PREFIX}{action_id}"),
+            title: self.title.to_string(),
+            description: self.description.to_string(),
+            input_schema: self.input_schema.clone(),
+            output_schema: self.output_schema.clone(),
+            annotations: self.annotations.clone(),
+        }
+    }
+
+    /// Validate raw MCP arguments and produce a normalized argument object for the
+    /// backend. Returns `None` when required args are missing/ill-typed (-> -32602).
+    /// This is the structural equivalent of the source `build_intent`.
+    pub(crate) fn normalize_args(&self, args: Value) -> Option<Value> {
+        let s = |k: &str| args.get(k).and_then(Value::as_str).map(ToString::to_string);
+        let i = |k: &str| args.get(k).and_then(Value::as_i64);
+        let opt_s = |k: &str| args.get(k).and_then(Value::as_str).map(ToString::to_string);
+
+        let out = match self.kind {
+            ToolKind::FetchCapsule => serde_json::json!({ "job_id": i("job_id")? }),
+            ToolKind::GetSystemSnapshot => serde_json::json!({}),
+            ToolKind::GetCiRunJobs => serde_json::json!({
+                "repo": i("repo")?,
+                "ci_run_id": i("ci_run_id")?,
+            }),
+            ToolKind::GetCiBottlenecks => serde_json::json!({
+                "repo": i("repo")?,
+                "ref_name": opt_s("ref_name"),
+                "limit": args.get("limit").and_then(Value::as_i64),
+            }),
+            ToolKind::ExplainBlockers => serde_json::json!({
+                "entity_type": s("entity_type")?,
+                "entity_id": i("entity_id")?,
+            }),
+            ToolKind::PlanValidation => serde_json::json!({
+                "repo": i("repo")?,
+                "test_ids": parse_string_array(args.get("test_ids")?)?,
+                "ref_name": s("ref_name")?,
+            }),
+            ToolKind::RunTests => serde_json::json!({
+                "repo": i("repo")?,
+                "target_ref": s("target_ref")?,
+                "test_scope": s("test_scope")?,
+            }),
+            ToolKind::ProposePatch => serde_json::json!({
+                "repo": i("repo")?,
+                "branch_name": s("branch_name")?,
+                "base_ref": s("base_ref")?,
+                "commit_message": s("commit_message")?,
+                "modifications": parse_modifications(args.get("modifications")?)?,
+                "pr_title": opt_s("pr_title"),
+            }),
+            ToolKind::RacePatches => serde_json::json!({
+                "repo": i("repo")?,
+                "base_branch": s("base_branch")?,
+                "commit_message": s("commit_message")?,
+                "hypotheses": parse_hypotheses(args.get("hypotheses")?)?,
+            }),
+            ToolKind::RequestMerge => serde_json::json!({
+                "repo": i("repo")?,
+                "pr_number": i("pr_number")?,
+                "source_branch": s("source_branch")?,
+                "target_branch": s("target_branch")?,
+            }),
+            ToolKind::BugSubmit => serde_json::json!({
+                "report": args.get("report")?.clone(),
+                "idempotency_key": opt_s("idempotency_key"),
+            }),
+            ToolKind::BugList => serde_json::json!({
+                "project": opt_s("project"),
+                "status": opt_s("status"),
+                "sort": opt_s("sort"),
+            }),
+            ToolKind::BugShow => serde_json::json!({ "bug_id": s("bug_id")? }),
+            ToolKind::BugReady => serde_json::json!({ "project": opt_s("project") }),
+            ToolKind::BugUpdate => serde_json::json!({
+                "bug_id": s("bug_id")?,
+                "status": opt_s("status"),
+                "severity": opt_s("severity"),
+                "priority": opt_s("priority"),
+                "component": opt_s("component"),
+                "owner": opt_s("owner"),
+            }),
+            ToolKind::BugRecordAttempt => serde_json::json!({
+                "bug_id": s("bug_id")?,
+                "attempt": args.get("attempt")?.clone(),
+            }),
+        };
+        Some(out)
+    }
+}

@@ -16,17 +16,13 @@
 // in-memory copy of `RepositorySettings` and stage to the patch via the
 // `pendingPatch` state so they're ready when the backend adds those fields.
 
-import { Check, RefreshCcw, ShieldAlert } from 'lucide-react';
+import { RefreshCcw, ShieldAlert } from 'lucide-react';
 import { useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { ApiError } from '../api/client';
 import { ActionButton } from '../components/action/ActionButton';
-import {
-  SettingsDiffPreview,
-  SettingsLayout,
-  SettingsSection,
-} from '../components/settings';
+import { SettingsLayout, SettingsSection } from '../components/settings';
 import {
   ErrorState,
   LoadingState,
@@ -52,6 +48,10 @@ import {
   RetentionSectionView,
   SecuritySectionView,
 } from './repositorySettingsSections';
+import {
+  PendingChangesPanel,
+  sectionTitleFor,
+} from './repositorySettingsPanels';
 
 import './page.css';
 
@@ -155,30 +155,7 @@ export function RepositorySettingsPage(): JSX.Element {
   }
 
   // Build the section view.
-  const sectionTitle =
-    activeSection === 'general'
-      ? 'General'
-      : activeSection === 'merge-policy'
-      ? 'Merge policy'
-      : activeSection === 'branch-protection'
-      ? 'Branch protection'
-      : activeSection === 'features'
-      ? 'Features'
-      : activeSection === 'ci'
-      ? 'CI / Workflows'
-      : activeSection === 'agents'
-      ? 'Agents'
-      : activeSection === 'access'
-      ? 'Access'
-      : activeSection === 'security'
-      ? 'Security'
-      : activeSection === 'notifications'
-      ? 'Notifications'
-      : activeSection === 'retention'
-      ? 'Retention'
-      : activeSection === 'danger-zone'
-      ? 'Danger zone'
-      : 'General';
+  const sectionTitle = sectionTitleFor(activeSection);
 
   return (
     <div className="page page--full">
@@ -315,81 +292,23 @@ export function RepositorySettingsPage(): JSX.Element {
         )}
 
         {/* Pending changes panel — always visible while a section is open. */}
-        <SettingsSection
-          title="Pending changes"
-          description="Preview the diff and apply when you're confident in the blast radius."
-          actions={
-            <>
-              <ActionButton
-                variant="default"
-                onClick={handleDiscard}
-                disabled={
-                  applyMutation.isPending ||
-                  previewMutation.isPending ||
-                  !hasPendingPatch
-                }
-              >
-                Discard
-              </ActionButton>
-              <ActionButton
-                variant="primary"
-                onClick={handlePreview}
-                disabled={!hasPendingPatch || previewMutation.isPending}
-              >
-                {previewMutation.isPending ? 'Previewing…' : 'Preview changes'}
-              </ActionButton>
-            </>
-          }
-        >
-          <SettingsDiffPreview
-            preview={previewMutation.data ?? null}
-            isLoading={previewMutation.isPending}
-          />
-          {previewMutation.error ? (
-            <ErrorState
-              title="Preview failed"
-              error={previewMutation.error}
-            />
-          ) : null}
-          {previewMutation.data && previewMutation.data.diffs.length > 0 ? (
-            <div className="settings-section__actions">
-              <ActionButton
-                variant="primary"
-                icon={<Check aria-hidden="true" size={12} />}
-                onClick={handleApply}
-                disabled={applyMutation.isPending}
-              >
-                {applyMutation.isPending ? 'Applying…' : 'Apply changes'}
-              </ActionButton>
-            </div>
-          ) : null}
-          {applyMutation.isSuccess ? (
-            <p className="settings-section__description">
-              Changes applied — audit entry recorded.
-            </p>
-          ) : null}
-          {applyMutation.error && !staleHash ? (
-            <ErrorState
-              title="Apply failed"
-              error={applyMutation.error}
-            />
-          ) : null}
-          {applyMutation.isSuccess ? (
-            <ActionButton
-              variant="default"
-              onClick={() => {
-                applyMutation.reset();
-                previewMutation.reset();
-                navigate(
-                  `/repos/${encodeURIComponent(provider)}/${fullName}/settings/${activeSection}`,
-                  { replace: true }
-                );
-              }}
-            >
-              Done
-            </ActionButton>
-          ) : null}
-        </SettingsSection>
+        <PendingChangesPanel
+          hasPendingPatch={hasPendingPatch}
+          staleHash={Boolean(staleHash)}
+          previewMutation={previewMutation}
+          applyMutation={applyMutation}
+          onPreview={handlePreview}
+          onApply={handleApply}
+          onDiscard={handleDiscard}
+          onDone={() => {
+            applyMutation.reset();
+            previewMutation.reset();
+            navigate(
+              `/repos/${encodeURIComponent(provider)}/${fullName}/settings/${activeSection}`,
+              { replace: true }
+            );
+          }}
+        />
       </SettingsLayout>
     </div>
   );
