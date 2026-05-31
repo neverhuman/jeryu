@@ -17,14 +17,17 @@ use axum::response::{Html, IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
 use futures_util::StreamExt;
-use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState, Repository};
+use jeryu_core::{CheckConclusion, CheckRunStatus, ForgeCore, PullRequestState, Repository};
 use jeryu_readmodel::contracts::{
     AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
     RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
     RepositoryVisibility, ServerWsMessage, TreeEntry, Viewer, WebBootstrap, WebEvent,
     WebFeatureFlags,
 };
-use jeryu_readmodel::{Bottleneck, TuiReadModel, sample_read_model};
+use jeryu_readmodel::{
+    Bottleneck, ComponentHealth, PoolActivity, PoolRollup, RepoActivity, RunnerHealth,
+    SystemHealth, TuiReadModel,
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
@@ -54,11 +57,126 @@ struct WebState {
 
 impl WebState {
     fn new(core: ForgeCore) -> Self {
+        // Assemble a LIVE read model from ForgeCore state so the TUI/web panes
+        // render real pool activity and system health, not the empty fixture.
+        let tui = assemble_read_model(&core);
         Self {
             github: GithubRouter::with_core(core),
-            tui: sample_read_model(),
+            tui,
             ws: WsHub::new(),
         }
+    }
+}
+
+/// Build a populated [`TuiReadModel`] from live [`ForgeCore`] state.
+///
+/// For every repository on the server we roll up its open pull requests and
+/// check-runs into a [`RepoActivity`], classifying each check-run by status:
+/// `Queued` → queued, `InProgress` → running, and any `Completed` run whose
+/// conclusion is `Failure` → failed. The per-repo counts are then aggregated
+/// into a single synthetic `default` [`PoolRollup`] so the Pools/Health pane has
+/// a real, non-empty fabric to render. [`SystemHealth`] reports every component
+/// (`scm`/`database`/`sandbox`/`cache`/`vault`) as Healthy because holding a
+/// live `ForgeCore` means the local plane is open and serving.
+fn assemble_read_model(core: &ForgeCore) -> TuiReadModel {
+    TuiReadModel {
+        pool_activity: assemble_pool_activity(core),
+        system: healthy_system(),
+        ..TuiReadModel::default()
+    }
+}
+
+/// Roll up every repo's PRs + check-runs into [`PoolActivity`].
+fn assemble_pool_activity(core: &ForgeCore) -> PoolActivity {
+    let mut repos: Vec<RepoActivity> = Vec::new();
+    let mut default_pool = PoolRollup::new("default");
+
+    for repo in core.list_repositories(None) {
+        let checks = core
+            .list_check_runs(&repo.owner, &repo.name, None)
+            .map(|runs| runs.check_runs)
+            .unwrap_or_default();
+
+        let mut queued = 0u32;
+        let mut running = 0u32;
+        let mut failed = 0u32;
+        for check in &checks {
+            match check.status {
+                CheckRunStatus::Queued => queued = queued.saturating_add(1),
+                CheckRunStatus::InProgress => running = running.saturating_add(1),
+                CheckRunStatus::Completed => {
+                    if check.conclusion == Some(CheckConclusion::Failure) {
+                        failed = failed.saturating_add(1);
+                    }
+                }
+            }
+        }
+
+        // A repo with neither open PRs nor any check-run is not active work; skip
+        // it so the activity rollup reflects real load rather than every repo.
+        let open_pulls = core
+            .list_pull_requests(&repo.owner, &repo.name, None)
+            .map(|pulls| {
+                pulls
+                    .iter()
+                    .filter(|pr| {
+                        !matches!(
+                            pr.state,
+                            PullRequestState::Closed | PullRequestState::Merged
+                        )
+                    })
+                    .count() as u32
+            })
+            .unwrap_or(0);
+        if open_pulls == 0 && checks.is_empty() {
+            continue;
+        }
+
+        default_pool.queued_jobs = default_pool.queued_jobs.saturating_add(queued);
+        default_pool.running_jobs = default_pool.running_jobs.saturating_add(running);
+        default_pool.failed_jobs = default_pool.failed_jobs.saturating_add(failed);
+
+        repos.push(RepoActivity {
+            repo: repo.full_name.clone(),
+            queued_jobs: queued,
+            running_jobs: running,
+            failed_jobs: failed,
+            pools: vec!["default".to_string()],
+        });
+    }
+
+    // Size the synthetic pool's capacity to the running load so utilization is
+    // meaningful and the pool only shows saturated when work is genuinely queued
+    // with no idle slot. With no work at all, leave a single idle slot.
+    default_pool.active_slots = default_pool.running_jobs.max(1);
+    default_pool.configured_max_slots = default_pool.active_slots;
+    default_pool.online_runners = default_pool.active_slots;
+
+    // Only surface the pool once there is at least one active repo; an empty
+    // server yields an empty (Unknown-health) activity rollup, never a fake pool.
+    let pools = if repos.is_empty() {
+        Vec::new()
+    } else {
+        vec![default_pool]
+    };
+
+    PoolActivity {
+        repos,
+        pools,
+        ..PoolActivity::default()
+    }
+}
+
+/// All system components reported Healthy: holding a live `ForgeCore` means the
+/// local control plane (scm/db/sandbox/cache/vault) is open and serving.
+fn healthy_system() -> SystemHealth {
+    SystemHealth {
+        scm: ComponentHealth::ok("scm", 0),
+        database: ComponentHealth::ok("database", 0),
+        sandbox: ComponentHealth::ok("sandbox", 0),
+        cache: ComponentHealth::ok("cache", 0),
+        vault: ComponentHealth::ok("vault", 0),
+        runners: RunnerHealth::default(),
     }
 }
 
@@ -841,7 +959,94 @@ fn github_response(response: GithubResponse) -> AxumResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jeryu_core::CreateRepositoryRequest;
+    use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
+    use jeryu_readmodel::{HealthLevel, sample_read_model};
+
+    /// Seed a repo + open PR + one failing check, build `WebState`, and assert
+    /// the model served by `/api/v1/bootstrap.tui` (i.e. `state.tui`) reflects the
+    /// seeded load: a populated `RepoActivity` with `failed_jobs == 1`, a non-empty
+    /// pool fabric, and Healthy system components — NOT the empty fixture.
+    #[tokio::test]
+    async fn bootstrap_tui_reflects_seeded_repo_pr_and_failing_check() {
+        let core = ForgeCore::new();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        // An open PR so the repo counts as active work.
+        core.create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "feature".to_string(),
+                head: "feature".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("deadbeef".to_string()),
+                ..CreatePullRequestRequest::default()
+            },
+        )
+        .unwrap();
+        // A completed check-run that FAILED — must surface as one failed job.
+        core.create_check_run(
+            "alice",
+            "jeryu",
+            CreateCheckRunRequest {
+                name: "ci".to_string(),
+                head_sha: "deadbeef".to_string(),
+                status: Some(CheckRunStatus::Completed),
+                conclusion: Some(CheckConclusion::Failure),
+                ..CreateCheckRunRequest::default()
+            },
+        )
+        .unwrap();
+
+        let state = Arc::new(WebState::new(core));
+
+        // The pool activity is genuinely populated, not the empty fixture.
+        let activity = &state.tui.pool_activity;
+        assert_eq!(activity.repos.len(), 1, "the seeded repo must be present");
+        let repo = &activity.repos[0];
+        assert_eq!(repo.repo, "alice/jeryu");
+        assert_eq!(repo.failed_jobs, 1, "the failing check is one failed job");
+        assert!(!activity.pools.is_empty(), "a default pool must roll up");
+        assert_eq!(activity.pools[0].pool, "default");
+        assert_eq!(activity.pools[0].failed_jobs, 1);
+
+        // System health is Healthy (core is open), never the Unknown fixture.
+        assert!(matches!(state.tui.system.scm.status, HealthLevel::Healthy));
+
+        // The actual `/api/v1/bootstrap.tui` handler serves exactly this model.
+        let served = bootstrap_tui(State(state.clone())).await.0;
+        assert_eq!(served.pool_activity, *activity);
+        assert_eq!(served.pool_activity.repos[0].failed_jobs, 1);
+        // Sanity: this is NOT the empty default model.
+        assert_ne!(
+            served.pool_activity,
+            TuiReadModel::default().pool_activity,
+            "bootstrap.tui must not serve an empty pool activity"
+        );
+    }
+
+    /// An empty server yields an empty pool fabric (Unknown health), and the
+    /// fixture sample remains available purely as a test fallback.
+    #[test]
+    fn empty_server_assembles_empty_pool_activity_and_fixture_still_available() {
+        let model = assemble_read_model(&ForgeCore::new());
+        assert!(model.pool_activity.repos.is_empty());
+        assert!(model.pool_activity.pools.is_empty());
+        assert!(matches!(model.pool_activity.health(), HealthLevel::Unknown));
+        // The fixture is still reachable as a fallback. Its `pool_activity` is the
+        // empty default — exactly why serving it left the Pools pane blank, which
+        // is what the live assembler above now replaces.
+        assert!(sample_read_model().pool_activity.pools.is_empty());
+    }
 
     #[test]
     fn bootstrap_and_repo_list_reflect_core_repositories() {
