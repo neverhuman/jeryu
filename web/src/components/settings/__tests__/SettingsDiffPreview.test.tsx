@@ -79,7 +79,7 @@ describe('SettingsDiffPreview', () => {
       ],
       side_effects: [
         '3 protected branches affected',
-        '12 open MRs would be re-evaluated',
+        '12 open PRs would be re-evaluated',
       ],
       warnings: [
         'Tightening visibility may cut off external collaborators.',
@@ -91,7 +91,7 @@ describe('SettingsDiffPreview', () => {
       screen.getByText('3 protected branches affected')
     ).toBeInTheDocument();
     expect(
-      screen.getByText('12 open MRs would be re-evaluated')
+      screen.getByText('12 open PRs would be re-evaluated')
     ).toBeInTheDocument();
     expect(screen.getByText(/Warnings/)).toBeInTheDocument();
     expect(

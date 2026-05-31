@@ -18,7 +18,7 @@ import type { RepositoryListResponse } from '../api/types';
 export type RepoSort =
   | 'recent_activity'
   | 'name'
-  | 'open_mrs'
+  | 'open_prs'
   | 'failing_checks';
 
 export interface RepositoriesQuery {

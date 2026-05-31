@@ -1,7 +1,7 @@
 // SettingsDiffPreview.tsx — preview blast radius + per-field diff (W-FE-12).
 //
 // Renders the response of `POST /api/v1/repos/{id}/settings/preview`:
-//   * Side effects ("affected entities") — which branches / MRs would be
+//   * Side effects ("affected entities") — which branches / PRs would be
 //     touched by the patch.
 //   * Per-field diff (before → after).
 //   * Warnings (e.g. visibility tightening).

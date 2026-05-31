@@ -246,7 +246,7 @@ Built-in shortcuts:
 | `?` | global | Show the keyboard shortcut overlay. |
 | `Esc` | global | Close the topmost modal / palette / overlay. |
 | `g r` | global | Go to Repositories. |
-| `g m` | global | Go to Merge Room (own MRs needing attention). |
+| `g m` | global | Go to Merge Room (own PRs needing attention). |
 | `g s` | global | Go to Settings. |
 | `g d` | global | Go to Dashboard. |
 | `g n` | global | Go to Notifications. |

@@ -192,7 +192,7 @@ export function RepositoriesPage({
           >
             <option value="recent_activity">Recent activity</option>
             <option value="name">Name</option>
-            <option value="open_mrs">Open MRs</option>
+            <option value="open_prs">Open PRs</option>
             <option value="failing_checks">Failing checks</option>
           </select>
 

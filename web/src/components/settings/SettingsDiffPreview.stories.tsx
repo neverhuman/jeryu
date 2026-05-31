@@ -71,7 +71,7 @@ export const Irreversible: Story = {
       diffs: [
         { field: 'default_branch', before: 'main', after: 'master' },
       ],
-      side_effects: ['12 open MRs will be retargeted.'],
+      side_effects: ['12 open PRs will be retargeted.'],
       warnings: [
         'Default branch swap rewrites CI references; reverting requires a separate change.',
       ],
