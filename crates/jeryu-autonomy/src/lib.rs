@@ -46,6 +46,9 @@ pub mod signing;
 pub mod types;
 pub mod verdict_store;
 
+#[cfg(test)]
+mod test_support;
+
 // --- Curated re-exports (the public Evidence-Gate surface) -----------------
 
 pub use auto_rejudge::{AutoRejudgeService, RejudgeOutcome};

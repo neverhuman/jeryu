@@ -6,7 +6,6 @@
 
 use super::*;
 use crate::conditions::HardStop;
-use crate::evidence::{EvidenceInputs, build_evidence_pack};
 use crate::judge::{JudgeInputs, judge};
 use crate::kill_bell::KillBell;
 use crate::ledger::MemoryLedger;
@@ -17,9 +16,7 @@ use crate::types::*;
 use chrono::Utc;
 use std::sync::Arc;
 
-fn bundle() -> PolicyBundle {
-    fixtures::default_bundle()
-}
+use crate::test_support::{bundle, pack_at_tier};
 
 /// All seven reviewer roles passing, so quorum is satisfiable at any tier that
 /// requires agent reviewers (R3 needs 4). Distinct agent identities; none the
@@ -34,54 +31,6 @@ fn full_passing_receipts(pack: &EvidencePack) -> Vec<AgentApprovalReceipt> {
     .into_iter()
     .map(|(role, agent)| receipt(role, agent, ReviewDecision::Pass, pack))
     .collect()
-}
-
-fn pack_at_tier(tier: RiskTier, signed: bool, secret_failed: bool) -> EvidencePack {
-    let (h, b, c) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
-    let mut p = build_evidence_pack(EvidenceInputs {
-        repo: "org/p",
-        source_branch: "agent/x",
-        target_branch: "main",
-        head_sha: &h,
-        base_sha: &b,
-        policy_sha: &c,
-        author_agent: Some("builder.x"),
-        intent_id: None,
-        risk: tier,
-        changed_files: vec![],
-        claims: vec![],
-        tests: TestsSection {
-            targeted: vec![],
-            full_required: false,
-            skipped: vec![],
-            coverage_delta: None,
-        },
-        security: SecuritySection {
-            sast: ScanOutcome::Passed,
-            dependency_scan: ScanOutcome::Passed,
-            secret_scan: if secret_failed {
-                ScanOutcome::Failed
-            } else {
-                ScanOutcome::Passed
-            },
-        },
-        supply_chain: SupplyChainSection::default(),
-        rollback: RollbackSection {
-            strategy: RollbackStrategy::RevertCommit,
-            feature_flag: None,
-            data_migration_reversible: Some(true),
-        },
-        gate_receipts: vec![],
-        ci_status: vec![],
-    });
-    if signed {
-        p.signature = Some(Signature {
-            key_id: "evidence-builder.v1".into(),
-            algo: "ed25519".into(),
-            value: "0".repeat(128),
-        });
-    }
-    p
 }
 
 fn receipt(
