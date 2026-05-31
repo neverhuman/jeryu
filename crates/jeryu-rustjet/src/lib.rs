@@ -26,7 +26,7 @@ pub use explain::{ExplainFormat, ExplainOutput};
 pub use features::FeatureSelection;
 pub use graph::WorkspaceGraph;
 pub use manifest::{PackageId, WorkspaceManifest, WorkspacePackage};
-pub use nextest::{NextestCommand, NextestPlanner};
+pub use nextest::{NextestCommand, NextestPlanner, count_partition_for, partition_membership};
 pub use public_api::{PublicApiChange, PublicApiDetector};
 pub use sccache::{SccacheDecision, SccacheMode, SccachePolicy, TrustTier};
 pub use sharding::{Shard, ShardPlan};

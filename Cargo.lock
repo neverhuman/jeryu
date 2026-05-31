@@ -1787,6 +1787,9 @@ dependencies = [
 [[package]]
 name = "jeryu-rustjet"
 version = "0.5.0"
+dependencies = [
+ "proptest",
+]
 
 [[package]]
 name = "jeryu-rustjet-cli"
