@@ -46,6 +46,7 @@ fn pack_at_tier(tier: RiskTier, signed: bool, secret_failed: bool) -> EvidencePa
             data_migration_reversible: Some(true),
         },
         gate_receipts: vec![],
+        ci_status: vec![],
     });
     if signed {
         p.signature = Some(Signature {

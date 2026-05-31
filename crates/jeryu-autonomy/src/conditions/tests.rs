@@ -36,6 +36,7 @@ fn pack_with_security(sast: ScanOutcome, dep: ScanOutcome, sec: ScanOutcome) -> 
             data_migration_reversible: Some(true),
         },
         gate_receipts: vec![],
+        ci_status: vec![],
         evidence_digest: format!("sha256:{}", "0".repeat(64)),
         created_at: Utc::now(),
         signature: None,
@@ -370,4 +371,106 @@ fn registry_has_at_least_40_named_conditions() {
         "expected the full named-condition registry; got {}",
         reg.names().len()
     );
+}
+
+// --- CI gate (required-check lanes) -------------------------------------
+
+#[test]
+fn ci_conditions_are_registered() {
+    let reg = ConditionRegistry::default();
+    for name in ["missing_required_ci_check", "failed_required_ci_check"] {
+        assert!(
+            reg.lookup(name).is_some(),
+            "CI condition `{name}` must be registered"
+        );
+    }
+}
+
+#[test]
+fn ci_conditions_are_no_ops_in_the_registry_walk() {
+    // The registry functions are placeholders; the real hit is computed by the
+    // judge via `ci_hard_stops`. A registry walk over the names alone fires
+    // nothing.
+    let reg = ConditionRegistry::default();
+    let p = pack_with_security(
+        ScanOutcome::Passed,
+        ScanOutcome::Passed,
+        ScanOutcome::Passed,
+    );
+    let hits = reg.evaluate(
+        &[
+            "missing_required_ci_check".into(),
+            "failed_required_ci_check".into(),
+        ],
+        &p,
+        &[],
+    );
+    assert!(hits.is_empty(), "registry placeholders must not fire");
+}
+
+fn pack_with_ci(checks: &[(&str, CiConclusion)]) -> EvidencePack {
+    let mut p = pack_with_security(
+        ScanOutcome::Passed,
+        ScanOutcome::Passed,
+        ScanOutcome::Passed,
+    );
+    p.ci_status = checks
+        .iter()
+        .map(|(name, conclusion)| CiCheck {
+            name: (*name).to_string(),
+            conclusion: *conclusion,
+        })
+        .collect();
+    p
+}
+
+#[test]
+fn ci_hard_stops_empty_required_is_no_gate() {
+    let p = pack_with_ci(&[("ci", CiConclusion::Failure)]);
+    assert!(super::ci_hard_stops(&p, &[]).is_empty());
+}
+
+#[test]
+fn ci_hard_stops_all_green_yields_no_hits() {
+    let p = pack_with_ci(&[
+        ("ci-fast", CiConclusion::Success),
+        ("ci-full", CiConclusion::Success),
+    ]);
+    let lanes = vec!["ci-fast".to_string(), "ci-full".to_string()];
+    assert!(super::ci_hard_stops(&p, &lanes).is_empty());
+}
+
+#[test]
+fn ci_hard_stops_missing_lane_fires_missing() {
+    let p = pack_with_ci(&[("ci-fast", CiConclusion::Success)]);
+    let lanes = vec!["ci-fast".to_string(), "ci-full".to_string()];
+    let hits = super::ci_hard_stops(&p, &lanes);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].name, "missing_required_ci_check");
+}
+
+#[test]
+fn ci_hard_stops_non_success_lane_fires_failed() {
+    for bad in [
+        CiConclusion::Failure,
+        CiConclusion::Cancelled,
+        CiConclusion::TimedOut,
+        CiConclusion::Pending,
+    ] {
+        let p = pack_with_ci(&[("ci-fast", bad)]);
+        let lanes = vec!["ci-fast".to_string()];
+        let hits = super::ci_hard_stops(&p, &lanes);
+        assert_eq!(hits.len(), 1, "{bad:?} must fire");
+        assert_eq!(hits[0].name, "failed_required_ci_check", "{bad:?}");
+    }
+}
+
+#[test]
+fn ci_hard_stops_reports_both_missing_and_failed() {
+    let p = pack_with_ci(&[("ci-full", CiConclusion::Failure)]);
+    let lanes = vec!["ci-fast".to_string(), "ci-full".to_string()];
+    let hits = super::ci_hard_stops(&p, &lanes);
+    assert_eq!(hits.len(), 2);
+    assert_eq!(hits[0].name, "missing_required_ci_check");
+    assert_eq!(hits[1].name, "failed_required_ci_check");
 }

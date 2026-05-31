@@ -26,6 +26,40 @@ pub enum ScanOutcome {
     Missing,
 }
 
+/// Conclusion of a single CI / required-check lane, mirroring the forge's
+/// check-run conclusion vocabulary. Only [`CiConclusion::Success`] is treated
+/// as green by the CI gate; everything else (including [`CiConclusion::Pending`]
+/// and the synthetic [`CiConclusion::Missing`]) blocks a required lane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CiConclusion {
+    Success,
+    Failure,
+    Cancelled,
+    TimedOut,
+    Pending,
+    /// The lane was declared required by policy but is absent from the pack's
+    /// reported `ci_status`. Synthesized by the gate; a pack should not normally
+    /// carry a `Missing` entry, but accepting it keeps the type total.
+    Missing,
+}
+
+impl CiConclusion {
+    /// `true` only for [`CiConclusion::Success`]. A required lane must be
+    /// `Success` to clear the CI gate; any other conclusion blocks.
+    pub fn is_green(self) -> bool {
+        matches!(self, CiConclusion::Success)
+    }
+}
+
+/// One CI / required-check lane and its reported conclusion. A passing
+/// jeryu-ci lane (or forge check-run) maps to one of these.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CiCheck {
+    pub name: String,
+    pub conclusion: CiConclusion,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TestsSection {
     #[serde(default)]
@@ -112,6 +146,12 @@ pub struct EvidencePack {
     pub rollback: RollbackSection,
     #[serde(default)]
     pub gate_receipts: Vec<GateReceipt>,
+    /// Required-check / CI-lane status reported for the PR head. Compared against
+    /// the approvals policy's `required_ci_lanes`: any required lane that is
+    /// absent here, or present with a non-`Success` conclusion, fires a CI
+    /// hard-stop (veto > approval). Defaults to empty for back-compat.
+    #[serde(default)]
+    pub ci_status: Vec<CiCheck>,
     pub evidence_digest: String,
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -14,6 +14,7 @@
 //! this module owns the registry plumbing that wires them up by name.
 
 mod anti_vibe;
+mod ci;
 mod external;
 mod paths;
 mod review;
@@ -27,6 +28,15 @@ use anti_vibe::{
     cond_changes_agent_prompts_or_judge_policy, cond_changes_release_or_deploy_policy,
     cond_coverage_threshold_lowered, cond_removes_or_weakens_tests, cond_snapshot_mass_replacement,
 };
+use ci::{
+    FAILED_REQUIRED_CI_CHECK, MISSING_REQUIRED_CI_CHECK, cond_failed_required_ci_check,
+    cond_missing_required_ci_check,
+};
+
+/// The required-check / CI hard-stop evaluator. Re-exported for the judge, which
+/// holds both the pack and the policy's `required_ci_lanes` and merges the
+/// computed hits into the hard-stop walk (veto > approval).
+pub use ci::ci_hard_stops;
 use external::cond_externally_supplied;
 use review::{
     cond_prompt_injection_suspected, cond_reviewer_abstained_required, cond_reviewer_blocked,
@@ -112,6 +122,19 @@ impl Default for ConditionRegistry {
             NamedCondition {
                 name: "prompt_injection_suspected",
                 func: cond_prompt_injection_suspected,
+            },
+            // Required-check / CI gate. Registered so policy may reference the
+            // names; the actual hit (which needs the policy's
+            // `required_ci_lanes`, not pack data) is computed by the judge via
+            // `ci::ci_hard_stops` and merged into the hard-stop walk. Locally
+            // these are no-ops, like the externally-supplied conditions.
+            NamedCondition {
+                name: MISSING_REQUIRED_CI_CHECK,
+                func: cond_missing_required_ci_check,
+            },
+            NamedCondition {
+                name: FAILED_REQUIRED_CI_CHECK,
+                func: cond_failed_required_ci_check,
             },
             // Deterministic detectors
             NamedCondition {

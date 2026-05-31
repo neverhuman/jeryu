@@ -79,11 +79,11 @@ pub use seam::{
 pub use sha_bind::{ShaBindError, verify_sha_binding};
 pub use signing::{EdSigningKey, EdVerifier, Signature, SigningKey, sha256_digest};
 pub use types::{
-    AgentApprovalReceipt, CapabilityLease, ChangedFile, EvidencePack, Finding, GateDecision,
-    GateReceipt, IntentCard, LaunchLedgerEntry, LeaseDenied, LeaseScope, LedgerKind, MergePassport,
-    ReleasePassport, ReviewDecision, ReviewerRole, RiskTier, RollbackSection, RollbackStrategy,
-    ScanOutcome, SchemaTag, SecuritySection, Severity, SupplyChainSection, TestsSection,
-    TokenCounts, VerdictReceiptRef, VibeGateVerdict,
+    AgentApprovalReceipt, CapabilityLease, ChangedFile, CiCheck, CiConclusion, EvidencePack,
+    Finding, GateDecision, GateReceipt, IntentCard, LaunchLedgerEntry, LeaseDenied, LeaseScope,
+    LedgerKind, MergePassport, ReleasePassport, ReviewDecision, ReviewerRole, RiskTier,
+    RollbackSection, RollbackStrategy, ScanOutcome, SchemaTag, SecuritySection, Severity,
+    SupplyChainSection, TestsSection, TokenCounts, VerdictReceiptRef, VibeGateVerdict,
 };
 pub use verdict_store::MemoryVerdictStore;
 

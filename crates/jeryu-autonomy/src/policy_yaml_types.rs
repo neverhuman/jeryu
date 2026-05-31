@@ -122,6 +122,14 @@ pub struct ApprovalsPolicy {
     pub invariants: ApprovalRules,
     #[serde(default)]
     pub hard_stops: Vec<HardStopEntry>,
+    /// CI / required-check lanes that MUST be green (conclusion `Success`) before
+    /// any merge. Each lane name is matched against the pack's `ci_status`; a
+    /// lane that is absent fires `missing_required_ci_check`, and a lane present
+    /// with a non-`Success` conclusion fires `failed_required_ci_check`. Empty
+    /// (the default) means no CI gate — back-compat for repos that haven't opted
+    /// in.
+    #[serde(default)]
+    pub required_ci_lanes: Vec<String>,
     /// Per-tier quorum, keyed by `R0..R5`.
     pub quorum: HashMap<RiskTier, QuorumEntry>,
     #[serde(default)]

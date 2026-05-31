@@ -72,6 +72,7 @@ fn pack_at_tier(tier: RiskTier, signed: bool, secret_failed: bool) -> EvidencePa
             data_migration_reversible: Some(true),
         },
         gate_receipts: vec![],
+        ci_status: vec![],
     });
     if signed {
         p.signature = Some(Signature {
@@ -529,4 +530,230 @@ fn unsigned_pack_still_rejects_under_full_auto() {
     let p = FullAutoProfile::new(bundle()).unwrap();
     let pack = pack_at_tier(RiskTier::R2, false, false);
     assert_eq!(judge_under(&p, &pack), GateDecision::Reject);
+}
+
+// --- pre-merge CI gate: required lanes must be green ---------------------
+//
+// These prove, through the *real* judge + registry + full-auto profile, that a
+// policy declaring `required_ci_lanes` blocks auto-merge whenever a required
+// lane is absent or not green — closing the hole where an R0-R4 PR could
+// auto-merge with RED or MISSING required checks.
+
+/// A bundle whose approvals policy declares `lanes` as required CI checks.
+fn bundle_requiring(lanes: &[&str]) -> PolicyBundle {
+    let mut b = bundle();
+    b.approvals.required_ci_lanes = lanes.iter().map(|s| s.to_string()).collect();
+    b
+}
+
+/// Attach a CI-status report to a pack.
+fn with_ci(mut pack: EvidencePack, checks: &[(&str, CiConclusion)]) -> EvidencePack {
+    pack.ci_status = checks
+        .iter()
+        .map(|(name, conclusion)| CiCheck {
+            name: (*name).to_string(),
+            conclusion: *conclusion,
+        })
+        .collect();
+    pack
+}
+
+/// Fuse a pack through the full-auto profile derived from `bundle`, returning
+/// the post-resolve decision. Mirrors [`judge_under`] but lets a test pick the
+/// CI-lane-aware bundle.
+fn judge_pack_under_bundle(bundle: PolicyBundle, pack: &EvidencePack) -> GateDecision {
+    let profile = FullAutoProfile::new(bundle).unwrap();
+    let derived = profile.apply();
+    let receipts = full_passing_receipts(pack);
+    let out = judge(JudgeInputs {
+        pack,
+        receipts: &receipts,
+        policy: &derived,
+        repo: "org/p",
+        target_branch: "main",
+        pull_request: None,
+        author_agent: Some("builder.x"),
+        external_hard_stops: &[],
+    });
+    profile.resolve(pack.risk, out.verdict.decision)
+}
+
+#[test]
+fn ci_gate_all_required_lanes_green_allows_merge_r0_through_r4() {
+    for t in [
+        RiskTier::R0,
+        RiskTier::R1,
+        RiskTier::R2,
+        RiskTier::R3,
+        RiskTier::R4,
+    ] {
+        let pack = with_ci(
+            pack_at_tier(t, true, false),
+            &[
+                ("ci-fast", CiConclusion::Success),
+                ("ci-full", CiConclusion::Success),
+            ],
+        );
+        let b = bundle_requiring(&["ci-fast", "ci-full"]);
+        assert_eq!(
+            judge_pack_under_bundle(b, &pack),
+            GateDecision::AllowMerge,
+            "all required lanes green must AllowMerge at {t:?} under full-auto"
+        );
+    }
+}
+
+#[test]
+fn ci_gate_failed_required_lane_blocks_via_hard_stop() {
+    for t in [
+        RiskTier::R0,
+        RiskTier::R1,
+        RiskTier::R2,
+        RiskTier::R3,
+        RiskTier::R4,
+    ] {
+        let pack = with_ci(
+            pack_at_tier(t, true, false),
+            &[
+                ("ci-fast", CiConclusion::Success),
+                ("ci-full", CiConclusion::Failure),
+            ],
+        );
+        let b = bundle_requiring(&["ci-fast", "ci-full"]);
+        assert_eq!(
+            judge_pack_under_bundle(b, &pack),
+            GateDecision::Reject,
+            "a failed required lane is a hard stop at {t:?} (veto > approval)"
+        );
+    }
+}
+
+#[test]
+fn ci_gate_missing_required_lane_blocks_via_hard_stop() {
+    for t in [
+        RiskTier::R0,
+        RiskTier::R1,
+        RiskTier::R2,
+        RiskTier::R3,
+        RiskTier::R4,
+    ] {
+        // ci-full is required but never reported.
+        let pack = with_ci(
+            pack_at_tier(t, true, false),
+            &[("ci-fast", CiConclusion::Success)],
+        );
+        let b = bundle_requiring(&["ci-fast", "ci-full"]);
+        assert_eq!(
+            judge_pack_under_bundle(b, &pack),
+            GateDecision::Reject,
+            "a missing required lane is a hard stop at {t:?} (fail-closed)"
+        );
+    }
+}
+
+#[test]
+fn ci_gate_pending_required_lane_is_not_green() {
+    // Pending is explicitly NOT green: a still-running required lane must block.
+    let pack = with_ci(
+        pack_at_tier(RiskTier::R2, true, false),
+        &[("ci-fast", CiConclusion::Pending)],
+    );
+    let b = bundle_requiring(&["ci-fast"]);
+    assert_eq!(judge_pack_under_bundle(b, &pack), GateDecision::Reject);
+}
+
+#[test]
+fn ci_gate_no_required_lanes_declared_is_back_compat() {
+    // No required_ci_lanes → no CI gate, even with a red lane present in the
+    // pack. Repos that haven't opted in keep merging as before.
+    let pack = with_ci(
+        pack_at_tier(RiskTier::R2, true, false),
+        &[("ci-fast", CiConclusion::Failure)],
+    );
+    let b = bundle(); // required_ci_lanes empty
+    assert_eq!(judge_pack_under_bundle(b, &pack), GateDecision::AllowMerge);
+}
+
+#[test]
+fn ci_gate_does_not_relax_r5_floor() {
+    // Even with every required lane green, R5 stays human-required.
+    let pack = with_ci(
+        pack_at_tier(RiskTier::R5, true, false),
+        &[("ci-fast", CiConclusion::Success)],
+    );
+    let b = bundle_requiring(&["ci-fast"]);
+    assert_eq!(
+        judge_pack_under_bundle(b, &pack),
+        GateDecision::RequireHuman
+    );
+}
+
+#[test]
+fn ci_gate_names_surface_in_verdict_hard_stops() {
+    // The verdict must name the specific CI hard stop so operators can see why.
+    let pack = with_ci(
+        pack_at_tier(RiskTier::R2, true, false),
+        &[("ci-full", CiConclusion::Failure)],
+    );
+    let b = bundle_requiring(&["ci-fast", "ci-full"]);
+    let profile = FullAutoProfile::new(b).unwrap();
+    let derived = profile.apply();
+    let receipts = full_passing_receipts(&pack);
+    let out = judge(JudgeInputs {
+        pack: &pack,
+        receipts: &receipts,
+        policy: &derived,
+        repo: "org/p",
+        target_branch: "main",
+        pull_request: None,
+        author_agent: Some("builder.x"),
+        external_hard_stops: &[],
+    });
+    assert_eq!(out.verdict.decision, GateDecision::Reject);
+    // ci-fast missing + ci-full failed → both names present.
+    assert!(
+        out.verdict
+            .hard_stops
+            .iter()
+            .any(|n| n == "missing_required_ci_check"),
+        "got {:?}",
+        out.verdict.hard_stops
+    );
+    assert!(
+        out.verdict
+            .hard_stops
+            .iter()
+            .any(|n| n == "failed_required_ci_check"),
+        "got {:?}",
+        out.verdict.hard_stops
+    );
+}
+
+#[tokio::test]
+async fn ci_gate_kill_bell_still_downgrades_when_lanes_green() {
+    // With all required lanes green full-auto AllowMerges; the kill bell must
+    // still downgrade that AllowMerge to RequireHuman.
+    let pack = with_ci(
+        pack_at_tier(RiskTier::R4, true, false),
+        &[("ci-fast", CiConclusion::Success)],
+    );
+    let b = bundle_requiring(&["ci-fast"]);
+    assert_eq!(
+        judge_pack_under_bundle(b, &pack),
+        GateDecision::AllowMerge,
+        "pre-bell, green CI lets full-auto AllowMerge at R4"
+    );
+
+    let ledger: Arc<dyn VerdictLedger> = Arc::new(MemoryLedger::new());
+    let bell = KillBell::new(ledger);
+    let key = EdSigningKey::generate("operator.alice");
+    let now = Utc::now();
+    bell.pause("incident", "alice", 3600, &key, now)
+        .await
+        .unwrap();
+    let (decision, _why) = bell
+        .downgrade_if_paused(GateDecision::AllowMerge, now)
+        .await
+        .unwrap();
+    assert_eq!(decision, GateDecision::RequireHuman);
 }

@@ -22,7 +22,7 @@ mod verdict_id;
 pub use inputs::{JudgeInputs, JudgeOutcome};
 use verdict_id::mint_verdict_id;
 
-use crate::conditions::ConditionRegistry;
+use crate::conditions::{ConditionRegistry, ci_hard_stops};
 use crate::quorum::{QuorumDecision, evaluate_quorum};
 use crate::sha_bind::verify_sha_binding;
 use crate::signing::Signature;
@@ -54,6 +54,14 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
         .map(|h| h.name.clone())
         .collect();
     let mut hits = registry.evaluate(&requested, inputs.pack, &bound_owned);
+    // Pre-merge CI gate: any policy-required lane that is missing from the pack's
+    // ci_status, or present but not green, is a hard stop (veto > approval). The
+    // judge holds both the pack and the policy's required_ci_lanes, so it
+    // computes these here and merges them like the externally-supplied stops.
+    hits.extend(ci_hard_stops(
+        inputs.pack,
+        &inputs.policy.approvals.required_ci_lanes,
+    ));
     hits.extend(inputs.external_hard_stops.iter().cloned());
 
     let receipt_refs: Vec<VerdictReceiptRef> = bound

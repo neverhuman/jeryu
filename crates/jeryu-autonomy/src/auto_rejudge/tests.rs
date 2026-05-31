@@ -40,6 +40,7 @@ fn signed_pack(repo: &str) -> EvidencePack {
             data_migration_reversible: Some(true),
         },
         gate_receipts: vec![],
+        ci_status: vec![],
     });
     p.signature = Some(Signature {
         key_id: "evidence-builder.v1".into(),

@@ -211,6 +211,35 @@ mod tests {
     }
 
     #[test]
+    fn default_bundle_has_no_required_ci_lanes() {
+        // Back-compat: the canonical fixture declares no required CI lanes, so
+        // the CI gate is off by default until a repo opts in.
+        let b = fixtures::default_bundle();
+        assert!(b.approvals.required_ci_lanes.is_empty());
+    }
+
+    #[test]
+    fn required_ci_lanes_parse_from_approvals_yaml() {
+        let approvals = r#"
+schema: vibegate.approvals.v1
+invariants: { no_self_approval: true }
+required_ci_lanes: [ci-fast, ci-full]
+quorum:
+  R5: { approvals_needed: 0, roles: [], human_required: true, fail_closed: true }
+hard_stops: []
+"#;
+        let b = PolicyBundle::from_yaml_strs(
+            fixtures::RISK_YML,
+            approvals,
+            fixtures::RELEASE_YML,
+            fixtures::PROTECTED_PATHS_YML,
+            None,
+        )
+        .expect("parses with required_ci_lanes");
+        assert_eq!(b.approvals.required_ci_lanes, vec!["ci-fast", "ci-full"]);
+    }
+
+    #[test]
     fn unknown_field_fails_closed() {
         let bad = "schema: vibegate.approvals.v1\ninvariants: {}\nquorum: {}\nbogus_key: true\n";
         let err = PolicyBundle::from_yaml_strs(

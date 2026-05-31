@@ -6,8 +6,8 @@
 
 use crate::signing::sha256_digest;
 use crate::types::{
-    ChangedFile, EvidencePack, GateReceipt, RiskTier, RollbackSection, SchemaTag, SecuritySection,
-    SupplyChainSection, TestsSection,
+    ChangedFile, CiCheck, EvidencePack, GateReceipt, RiskTier, RollbackSection, SchemaTag,
+    SecuritySection, SupplyChainSection, TestsSection,
 };
 use chrono::{DateTime, Utc};
 
@@ -28,6 +28,10 @@ pub struct EvidenceInputs<'a> {
     pub supply_chain: SupplyChainSection,
     pub rollback: RollbackSection,
     pub gate_receipts: Vec<GateReceipt>,
+    /// Required-check / CI-lane status for the PR head. Defaults to empty via
+    /// [`Default`]; gate-relevant only when the approvals policy declares
+    /// `required_ci_lanes`.
+    pub ci_status: Vec<CiCheck>,
 }
 
 pub fn build_evidence_pack(inp: EvidenceInputs<'_>) -> EvidencePack {
@@ -57,6 +61,7 @@ pub fn build_evidence_pack(inp: EvidenceInputs<'_>) -> EvidencePack {
         supply_chain: inp.supply_chain,
         rollback: inp.rollback,
         gate_receipts: inp.gate_receipts,
+        ci_status: inp.ci_status,
         evidence_digest: String::new(),
         created_at: now,
         signature: None,
@@ -163,6 +168,7 @@ mod tests {
                 data_migration_reversible: Some(true),
             },
             gate_receipts: vec![],
+            ci_status: vec![],
         }
     }
 

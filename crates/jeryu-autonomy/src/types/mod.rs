@@ -22,8 +22,8 @@ mod verdict;
 
 pub use common::{GateDecision, ReviewDecision, ReviewerRole, RiskTier, Severity};
 pub use evidence::{
-    ChangedFile, EvidencePack, GateReceipt, RollbackSection, RollbackStrategy, ScanOutcome,
-    SecuritySection, SupplyChainSection, TestsSection,
+    ChangedFile, CiCheck, CiConclusion, EvidencePack, GateReceipt, RollbackSection,
+    RollbackStrategy, ScanOutcome, SecuritySection, SupplyChainSection, TestsSection,
 };
 pub use intent::IntentCard;
 pub use lease::{CapabilityLease, LeaseDenied, LeaseScope};
@@ -126,6 +126,7 @@ mod tests {
                 data_migration_reversible: Some(true),
             },
             gate_receipts: vec![],
+            ci_status: vec![],
             evidence_digest: format!("sha256:00{}", "0".repeat(62)),
             created_at: now(),
             signature: None,

@@ -87,6 +87,7 @@ mod tests {
                 data_migration_reversible: Some(true),
             },
             gate_receipts: vec![],
+            ci_status: vec![],
         })
     }
 
