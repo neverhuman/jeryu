@@ -9,11 +9,13 @@ use clap::{Parser, Subcommand};
 
 mod ci;
 mod forge;
+mod operator;
 mod proof;
 mod runner;
 
 pub use ci::{CiCommands, CiKindArg};
 pub use forge::{ForgeCommands, IssueCommands, PrCommands, RepoCommands};
+pub use operator::{AutonomyCommands, AutonomyInitArgs, AutonomyProfile, GhSetupArgs, OnboardArgs};
 pub use proof::ProofCommands;
 pub use runner::{RunnerCommands, RunnerExecutorArg};
 
@@ -69,6 +71,17 @@ pub enum Commands {
     /// Cache: integrity and content-addressed store operations.
     #[command(subcommand)]
     Cache(CacheCommands),
+
+    /// gh-setup: point the GitHub CLI at a jeryu server base URL.
+    #[command(name = "gh-setup")]
+    GhSetup(GhSetupArgs),
+
+    /// Autonomy: lay down the canonical autonomy policy bundle.
+    #[command(subcommand)]
+    Autonomy(AutonomyCommands),
+
+    /// Onboard: rehearse onboarding an existing checkout onto a jeryu forge.
+    Onboard(OnboardArgs),
 }
 
 /// Cache command group.

@@ -7,7 +7,7 @@
 
 use std::io::Write;
 
-use crate::cli::{Cli, Commands};
+use crate::cli::{AutonomyCommands, Cli, Commands};
 use crate::client::{ClientError, ForgeClient};
 use crate::commands;
 
@@ -28,6 +28,11 @@ pub fn dispatch(
         Commands::Proof(cmd) => commands::proof::run(client, json, cmd, out),
         Commands::Release { version } => commands::release::run(client, json, &version, out),
         Commands::Cache(cmd) => commands::cache::run(client, json, cmd, out),
+        Commands::GhSetup(args) => commands::gh_setup::run(json, args, out),
+        Commands::Autonomy(AutonomyCommands::Init(args)) => {
+            commands::autonomy::run(json, args, out)
+        }
+        Commands::Onboard(args) => commands::onboard::run(json, args, out),
     };
 
     match result {

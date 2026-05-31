@@ -145,12 +145,23 @@ fn top_level_excludes_removed_commands() {
 #[test]
 fn top_level_includes_renamed_commands() {
     let names = top_level_names();
-    for required in ["forge", "ci", "runner", "proof", "release", "cache"] {
+    for required in [
+        "forge", "ci", "runner", "proof", "release", "cache", "gh-setup", "autonomy", "onboard",
+    ] {
         assert!(
             names.iter().any(|n| n == required),
             "required top-level command {required:?} missing from {names:?}"
         );
     }
+}
+
+#[test]
+fn autonomy_group_has_init() {
+    let subs = group_subnames("autonomy");
+    assert!(
+        subs.iter().any(|n| n == "init"),
+        "autonomy missing init; has {subs:?}"
+    );
 }
 
 #[test]
@@ -595,6 +606,236 @@ fn dispatch_issue_create_success_and_missing_repo_maps_to_exit_code_2_and_names_
         1,
         "failed create must not perturb the existing repo's issues"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Operator / onboarding dispatch tests (gh-setup, autonomy init, onboard)
+// ---------------------------------------------------------------------------
+
+/// A unique, process-scoped scratch directory for tests that write files. No
+/// `tempfile` dependency is available, so we synthesize a unique path under the
+/// system temp dir and clean it up at the end of the test.
+fn scratch_dir(tag: &str) -> std::path::PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let n = SEQ.fetch_add(1, Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!(
+        "jeryu-cli-test-{}-{tag}-{}-{n}",
+        std::process::id(),
+        // Nanosecond clock keeps reruns from colliding with a stale dir.
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::create_dir_all(&dir).expect("create scratch dir");
+    dir
+}
+
+#[test]
+fn dispatch_gh_setup_print_does_not_write_and_dumps_entry() {
+    let client = InMemoryClient::new();
+    let (code, out, err) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "gh-setup",
+            "--host",
+            "https://forge.example:9000",
+            "--token",
+            "tok",
+            "--print",
+            "--path",
+            "/definitely/not/written.yml",
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(err.is_empty(), "stderr was {err:?}");
+    // The host key is the authority (no scheme, no port-stripping surprises).
+    assert!(out.contains("forge.example:9000:"), "stdout was {out:?}");
+    assert!(out.contains("oauth_token: tok"), "stdout was {out:?}");
+    // --print must not create the file.
+    assert!(
+        !std::path::Path::new("/definitely/not/written.yml").exists(),
+        "--print must not write the hosts file"
+    );
+}
+
+#[test]
+fn dispatch_gh_setup_writes_idempotent_hosts_file() {
+    let client = InMemoryClient::new();
+    let dir = scratch_dir("gh");
+    let path = dir.join("hosts.yml");
+    let path_str = path.to_str().unwrap().to_string();
+
+    let argv = [
+        "jeryu",
+        "gh-setup",
+        "--host",
+        "http://localhost:8080",
+        "--token",
+        "T",
+        "--path",
+        &path_str,
+    ];
+
+    let (code, out, _) = run_cli(&client, &argv);
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("wrote gh host localhost:8080"),
+        "stdout {out:?}"
+    );
+    let first = std::fs::read_to_string(&path).expect("hosts.yml written");
+    assert!(first.contains("oauth_token: T"));
+
+    // Re-running with identical inputs is idempotent (byte-identical file).
+    let (code, _, _) = run_cli(&client, &argv);
+    assert_eq!(code, 0);
+    let second = std::fs::read_to_string(&path).expect("hosts.yml rewritten");
+    assert_eq!(first, second, "gh-setup must be idempotent");
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn dispatch_autonomy_init_print_json_keeps_safety_floor() {
+    let client = InMemoryClient::new();
+    let (code, out, _) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "--json",
+            "autonomy",
+            "init",
+            "--profile",
+            "full-auto",
+            "--print",
+        ],
+    );
+    assert_eq!(code, 0);
+    let value: serde_json::Value = serde_json::from_str(out.trim()).expect("valid json");
+    assert_eq!(value["profile"], "full-auto");
+    assert_eq!(value["written"], false);
+    let files = value["files"].as_array().expect("files array");
+    assert_eq!(files.len(), 7, "full canonical bundle is 7 files");
+
+    // The risk policy lifts R0-R4 to auto but R5 stays fail-closed.
+    let risk = files
+        .iter()
+        .find(|f| f["path"] == "autonomy/policies/risk.yml")
+        .expect("risk.yml emitted")["contents"]
+        .as_str()
+        .unwrap();
+    assert!(risk.contains("fail_closed: true"), "R5 fail-closed intact");
+
+    // The protected-paths floor still hard-gates the autonomy tree itself.
+    let protected = files
+        .iter()
+        .find(|f| f["path"] == "autonomy/policies/protected-paths.yml")
+        .expect("protected-paths emitted")["contents"]
+        .as_str()
+        .unwrap();
+    assert!(protected.contains(".jeryu/autonomy/**"));
+}
+
+#[test]
+fn dispatch_autonomy_init_writes_canonical_tree() {
+    let client = InMemoryClient::new();
+    let dir = scratch_dir("autonomy");
+    let dir_str = dir.to_str().unwrap().to_string();
+
+    let (code, out, _) = run_cli(&client, &["jeryu", "autonomy", "init", "--path", &dir_str]);
+    assert_eq!(code, 0);
+    assert!(out.contains("autonomy init (full-auto)"), "stdout {out:?}");
+
+    for rel in [
+        "autonomy/policies/risk.yml",
+        "autonomy/policies/approvals.yml",
+        "autonomy/policies/release.yml",
+        "autonomy/policies/protected-paths.yml",
+        "autonomy/policies/freeze.yml",
+        "ci.toml",
+        "policy.toml",
+    ] {
+        assert!(dir.join(rel).exists(), "{rel} must be written");
+    }
+
+    // The control files encode the required keys verbatim.
+    let ci = std::fs::read_to_string(dir.join("ci.toml")).unwrap();
+    assert!(ci.contains("github_actions_required = true"));
+    assert!(ci.contains("local_gitlab_required = false"));
+    let policy = std::fs::read_to_string(dir.join("policy.toml")).unwrap();
+    assert!(policy.contains("require_admission_receipt = false"));
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn dispatch_onboard_dry_run_prints_ordered_plan() {
+    let client = InMemoryClient::new();
+    let (code, out, err) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "onboard",
+            "/home/u/projects/alpha",
+            "--host",
+            "http://localhost:8080",
+            "--owner",
+            "acme",
+            "--dry-run",
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(err.is_empty(), "stderr was {err:?}");
+    // Plan derives the repo name from the path's final component.
+    assert!(out.contains("acme/alpha"), "stdout was {out:?}");
+    // The five ordered steps are present in order.
+    for needle in [
+        "1. create:",
+        "2. materialize:",
+        "3. repoint-remote:",
+        "4. register:",
+        "5. set-autonomy:",
+    ] {
+        assert!(out.contains(needle), "plan missing {needle:?}: {out:?}");
+    }
+    assert!(out.contains("origin -> http://localhost:8080/acme/alpha.git"));
+    assert!(out.contains("dry-run"), "must flag dry-run: {out:?}");
+}
+
+#[test]
+fn dispatch_onboard_without_dry_run_is_not_wired_exit_5() {
+    let client = InMemoryClient::new();
+    let (code, out, err) = run_cli(&client, &["jeryu", "onboard", "/tmp/alpha"]);
+    // NotWired maps to exit code 5 (the live transport is not yet available).
+    assert_eq!(
+        code, 5,
+        "non-dry-run onboard must be NotWired (5), got {code}"
+    );
+    assert!(out.is_empty(), "no stdout on error, got {out:?}");
+    assert!(err.contains("not yet wired"), "stderr was {err:?}");
+}
+
+#[test]
+fn dispatch_onboard_json_emits_machine_plan() {
+    let client = InMemoryClient::new();
+    let (code, out, _) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "--json",
+            "onboard",
+            "/srv/code/beta.git",
+            "--dry-run",
+        ],
+    );
+    assert_eq!(code, 0);
+    let value: serde_json::Value = serde_json::from_str(out.trim()).expect("valid json");
+    // The .git suffix is stripped from the derived repo name.
+    assert_eq!(value["repo"], "beta");
+    assert_eq!(value["dry_run"], true);
+    assert_eq!(value["steps"].as_array().unwrap().len(), 5);
 }
 
 #[test]
