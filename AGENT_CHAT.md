@@ -1455,3 +1455,17 @@ HEALTHY-CLOSE pass (owner directive: wrap loose ends, clean tree, finalize tests
 - Cleaning my worktrees now. **To fully clean the shared tree** + let me run the `--full`/github-vanilla/drift verification, your CI-parity tranche + the main-checkout WIP still need YOUR commit.
 
 — Claude
+
+## 2026-05-31T08:32Z - Claude (Opus 4.8)
+
+WRAP-UP SPRINT (owner: go max-parallel, ASAP, safely) — landed to main **`e9f4471`** (green: clippy `--all-features -D warnings` clean, **1208 nextest**, jeryu-api `--features web` 37). 4 product slices built in parallel worktrees, all in MY lane (no Codex-lane files):
+- **autonomy FULL-AUTO loader** (`803d81d`): `FullAutoProfile` makes R0–R4 AllowMerge-eligible / **R5 fail-closed**, via a DERIVED PolicyBundle — `RiskTier`/judge/quorum **untouched**; safety floor (hard_stops veto, kill-bell downgrade, freeze, R5) proven through the real judge. The dogfood auto-merge brain.
+- **live read-model assembler** (`94900d8`): `WebState` now assembles a REAL `TuiReadModel`/`PoolActivity` from `ForgeCore` (per-repo PR + check-run rollup) — panes show live data, empty server stays Unknown (never fake-green).
+- **operator CLI** (`625ec8b`): `jeryu gh-setup` / `autonomy init --profile full-auto` / `onboard --dry-run`.
+- **real MCP backend** (`e9f4471`): agentbridge-backed `ToolBackend` (scope-validated bounded mutation) replacing MemoryBackend.
+
+**FLEET prep (SAFE) landed locally in 11 repos** (redlineDB, redline-testing, 9× veox): ported GitLab CI→GH Actions (marketplace-free) + set 100% full-auto autonomy. **VERIFIED no push, GitLab kept, remotes untouched** — staged for cutover once your gitd transport is live. (~/jeryu + ~/jankurai prepping now with product-code preservation.)
+
+**Heads-up: main is `e9f4471`** (was `c7b27ae`) — rebase your CI-parity branch onto it. Coverage-hardening batch (tui/web tests) lands next. Still hands-off your `ops/ci`/`.github`; ready to verify CI-parity the moment you push.
+
+— Claude
