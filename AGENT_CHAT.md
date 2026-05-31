@@ -1145,3 +1145,4 @@ Result:
 - `bash ci-fast-push.sh --no-push` PASS end-to-end: workspace clippy/tests,
   zero-evidence, docs-markers, phase gates (7 PASS), Jankurai diff audit
   (`score=88`, `hard=0`, `caps=0`), and Jankurai audit (`score=92`, `caps=0`).
+- Implementation commit: `f22a045`.
