@@ -10,10 +10,10 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path as AxumPath, State};
-use axum::http::{StatusCode, header};
+use axum::extract::{OriginalUri, Path as AxumPath, State};
+use axum::http::{Method as HttpMethod, StatusCode, header};
 use axum::response::{Html, IntoResponse, Response as AxumResponse};
-use axum::routing::{get, post};
+use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
 use futures_util::StreamExt;
 use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState, Repository};
@@ -82,6 +82,37 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/markdown/render", post(markdown_render))
         .route("/api/v1/ws", get(ws))
         .route("/graphql", post(graphql))
+        // GitHub-compatible REST edge — every request is forwarded to the
+        // in-process `GithubRouter`, so the real `gh` CLI and any GitHub client
+        // work against this live server (was built but never mounted).
+        .route("/user", any(github_forward))
+        .route("/users/:login", any(github_forward))
+        .route("/api/v1/version", any(github_forward))
+        .route("/repos", any(github_forward))
+        .route("/repos/:owner/:repo", any(github_forward))
+        .route("/repos/:owner/:repo/pulls", any(github_forward))
+        .route("/repos/:owner/:repo/pulls/:number", any(github_forward))
+        .route(
+            "/repos/:owner/:repo/pulls/:number/merge",
+            any(github_forward),
+        )
+        .route("/repos/:owner/:repo/issues", any(github_forward))
+        .route(
+            "/repos/:owner/:repo/issues/:number/comments",
+            any(github_forward),
+        )
+        .route(
+            "/repos/:owner/:repo/commits/:ref/status",
+            any(github_forward),
+        )
+        .route("/repos/:owner/:repo/statuses/:sha", any(github_forward))
+        .route("/repos/:owner/:repo/check-runs", any(github_forward))
+        .route(
+            "/repos/:owner/:repo/branches/:branch/protection",
+            any(github_forward),
+        )
+        .route("/repos/:owner/:repo/releases", any(github_forward))
+        .route("/repos/:owner/:repo/hooks", any(github_forward))
         .fallback_service(spa)
         .with_state(Arc::new(state))
 }
@@ -202,6 +233,40 @@ async fn markdown_render(Json(request): Json<MarkdownRequest>) -> Json<RenderedM
 async fn graphql(State(state): State<Arc<WebState>>, body: Bytes) -> AxumResponse {
     let body = std::str::from_utf8(&body).unwrap_or_default();
     github_response(state.github.handle(Method::Post, "/graphql", body))
+}
+
+/// Forwards a GitHub-compatible REST request to the in-process [`GithubRouter`],
+/// which routes by `(method, path)` and renders GitHub-shaped JSON. The original
+/// request path is forwarded verbatim so the dispatcher's segment matching works
+/// unchanged; an unsupported HTTP verb returns a GitHub-shaped `405`.
+async fn github_forward(
+    State(state): State<Arc<WebState>>,
+    method: HttpMethod,
+    OriginalUri(uri): OriginalUri,
+    body: Bytes,
+) -> AxumResponse {
+    let Some(method) = map_method(&method) else {
+        return (
+            StatusCode::METHOD_NOT_ALLOWED,
+            Json(json!({
+                "message": "Method Not Allowed",
+                "documentation_url": "https://docs.github.com/rest"
+            })),
+        )
+            .into_response();
+    };
+    let body = std::str::from_utf8(&body).unwrap_or_default();
+    github_response(state.github.handle(method, uri.path(), body))
+}
+
+/// Maps the HTTP verbs the GitHub edge supports to the dispatcher's [`Method`].
+fn map_method(method: &HttpMethod) -> Option<Method> {
+    match *method {
+        HttpMethod::GET => Some(Method::Get),
+        HttpMethod::POST => Some(Method::Post),
+        HttpMethod::PUT => Some(Method::Put),
+        _ => None,
+    }
 }
 
 async fn ws(ws: WebSocketUpgrade) -> impl IntoResponse {
@@ -464,5 +529,56 @@ mod tests {
         let rendered = render_markdown("# Hello <world>\n\nbody");
         assert!(rendered.html.contains("&lt;world&gt;"));
         assert_eq!(rendered.toc[0].id, "hello-world");
+    }
+
+    #[test]
+    fn map_method_covers_supported_verbs_only() {
+        assert!(matches!(map_method(&HttpMethod::GET), Some(Method::Get)));
+        assert!(matches!(map_method(&HttpMethod::POST), Some(Method::Post)));
+        assert!(matches!(map_method(&HttpMethod::PUT), Some(Method::Put)));
+        assert!(map_method(&HttpMethod::DELETE).is_none());
+        assert!(map_method(&HttpMethod::PATCH).is_none());
+    }
+
+    #[test]
+    fn github_rest_edge_dispatches_repos_user_and_404() {
+        let core = ForgeCore::new();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let state = WebState::new(core);
+        // The forwarder targets `state.github.handle(method, path, body)`; the
+        // mounted `GET /repos` must return a GitHub-shaped 200 listing the repo.
+        let repos = state.github.handle(Method::Get, "/repos", "");
+        assert_eq!(repos.status, 200);
+        assert!(repos.body.contains("alice"));
+        assert!(repos.body.contains("jeryu"));
+        // `GET /user` is mounted so `gh auth status` resolves a principal.
+        assert_eq!(state.github.handle(Method::Get, "/user", "").status, 200);
+        // An unknown route returns a clean GitHub-shaped 404, never a panic/500.
+        assert_eq!(
+            state
+                .github
+                .handle(Method::Get, "/repos/x/y/nope", "")
+                .status,
+            404
+        );
+    }
+
+    #[test]
+    fn app_router_builds_without_route_conflicts() {
+        // Axum panics during construction on overlapping/ambiguous routes, so
+        // building the full router is the regression guard for the REST mount.
+        let _app = app(
+            WebState::new(ForgeCore::new()),
+            std::path::Path::new("/tmp"),
+        );
     }
 }
