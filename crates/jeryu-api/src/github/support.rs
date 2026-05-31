@@ -22,6 +22,122 @@ pub(super) const MCP_GUIDANCE_TOOLS: &[&str] = &[
     "jeryu.bug_list",
 ];
 
+/// The fast-path pointer surfaced on every error body so a confused agent is
+/// always handed the capability manifest instead of being left to guess.
+pub(super) const FASTER_PATH: &str = "/.jeryu/capabilities";
+
+/// RFC 5988 list pagination parsed off the request query string. GitHub's
+/// defaults (`per_page=30`, `page=1`) and ceiling (`per_page<=100`) are
+/// mirrored so `gh ... --paginate` and naive `?page=N` walks behave.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Pagination {
+    pub(super) per_page: usize,
+    pub(super) page: usize,
+}
+
+impl Pagination {
+    pub(super) const DEFAULT_PER_PAGE: usize = 30;
+    pub(super) const MAX_PER_PAGE: usize = 100;
+
+    /// Parses `?per_page=&page=` from a raw query string (the part after `?`).
+    /// Out-of-range or unparseable values fall back to the GitHub defaults so a
+    /// malformed page hint never errors a list route.
+    pub(super) fn from_query(query: &str) -> Self {
+        let mut per_page = Self::DEFAULT_PER_PAGE;
+        let mut page = 1usize;
+        for pair in query.split('&').filter(|pair| !pair.is_empty()) {
+            let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+            match key {
+                "per_page" => {
+                    if let Ok(parsed) = value.parse::<usize>() {
+                        per_page = parsed.clamp(1, Self::MAX_PER_PAGE);
+                    }
+                }
+                "page" => {
+                    if let Ok(parsed) = value.parse::<usize>()
+                        && parsed >= 1
+                    {
+                        page = parsed;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Self { per_page, page }
+    }
+}
+
+/// Slices `items` to the requested page and renders a GitHub-shaped 200 list
+/// response carrying an RFC 5988 `Link` header (`next`/`last`/`prev`/`first`)
+/// when more than one page exists. `render` shapes the JSON body from the page
+/// slice (a bare array for most lists; a wrapped object for check-runs/actions).
+pub(super) fn paginate<T, F>(
+    base_path: &str,
+    page_args: Pagination,
+    items: &[T],
+    render: F,
+) -> Response
+where
+    F: FnOnce(&[T], usize) -> Value,
+{
+    let total = items.len();
+    let per_page = page_args.per_page;
+    let last_page = total.div_ceil(per_page).max(1);
+    let page = page_args.page;
+    let start = page.saturating_sub(1).saturating_mul(per_page);
+    let slice: &[T] = if start >= total {
+        &[]
+    } else {
+        let end = (start + per_page).min(total);
+        &items[start..end]
+    };
+    let body = render(slice, total);
+    let mut headers = Vec::new();
+    if let Some(link) = link_header(base_path, per_page, page, last_page) {
+        headers.push(("Link".to_owned(), link));
+    }
+    Response {
+        status: 200,
+        body: body.to_string(),
+        headers,
+    }
+}
+
+/// Builds the RFC 5988 `Link` header value. Emits `next`/`last` while more
+/// pages remain and `prev`/`first` once past page 1; returns `None` for a
+/// single-page result (GitHub omits the header entirely in that case).
+fn link_header(base_path: &str, per_page: usize, page: usize, last_page: usize) -> Option<String> {
+    if last_page <= 1 {
+        return None;
+    }
+    let url = |target: usize| format!("{base_path}?per_page={per_page}&page={target}");
+    let mut parts: Vec<String> = Vec::new();
+    if page < last_page {
+        parts.push(format!("<{}>; rel=\"next\"", url(page + 1)));
+        parts.push(format!("<{}>; rel=\"last\"", url(last_page)));
+    }
+    if page > 1 {
+        parts.push(format!("<{}>; rel=\"prev\"", url(page - 1)));
+        parts.push(format!("<{}>; rel=\"first\"", url(1)));
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(", "))
+    }
+}
+
+/// The jeryu steering block stamped onto every error body: a faster path, the
+/// MCP tool that would have served the intent, and a one-line hint. Errors
+/// teach instead of dead-ending the agent.
+pub(super) fn steering(mcp_tool: &str, hint: &str) -> Value {
+    json!({
+        "faster_path": FASTER_PATH,
+        "mcp_tool": mcp_tool,
+        "hint": hint,
+    })
+}
+
 pub(super) fn parse_body<T: serde::de::DeserializeOwned>(
     body: &str,
 ) -> std::result::Result<T, Response> {
@@ -34,6 +150,10 @@ pub(super) fn parse_body<T: serde::de::DeserializeOwned>(
                 "message": "Validation Failed",
                 "errors": [{ "code": "invalid", "detail": err.to_string() }],
                 "documentation_url": docs_url(),
+                "jeryu_steering": steering(
+                    "jeryu.propose_patch",
+                    "the JSON body did not validate; the typed jeryu MCP tools build a valid request for you",
+                ),
             }),
         )
     })
@@ -47,6 +167,10 @@ pub(super) fn parse_number(raw: &str) -> std::result::Result<u64, Response> {
                 "message": "Validation Failed",
                 "errors": [{ "field": "number", "code": "invalid" }],
                 "documentation_url": docs_url(),
+                "jeryu_steering": steering(
+                    "jeryu.explain_blockers",
+                    "the path expected a numeric id; list the resource first to get a valid number",
+                ),
             }),
         )
     })
@@ -111,16 +235,40 @@ pub(super) fn json_response_with_headers(
 }
 
 pub(super) fn error_response(err: ForgeError) -> Response {
-    let status = match err {
-        ForgeError::NotFound(_) => 404,
-        ForgeError::Conflict(_) => 422,
-        ForgeError::Validation(_) => 422,
-        ForgeError::BranchProtection(_) => 405,
-        ForgeError::Storage(_) => 500,
+    let (status, mcp_tool, hint) = match err {
+        ForgeError::NotFound(_) => (
+            404,
+            "jeryu.get_system_snapshot",
+            "the resource was not found; snapshot the system to find live owners/repos/numbers",
+        ),
+        ForgeError::Conflict(_) => (
+            422,
+            "jeryu.propose_patch",
+            "the request conflicts with current state; let the typed MCP tool reconcile it",
+        ),
+        ForgeError::Validation(_) => (
+            422,
+            "jeryu.propose_patch",
+            "the request failed validation; the typed MCP tool builds a valid request for you",
+        ),
+        ForgeError::BranchProtection(_) => (
+            405,
+            "jeryu.explain_blockers",
+            "branch protection blocks this; ask jeryu to explain the blockers and required checks",
+        ),
+        ForgeError::Storage(_) => (
+            500,
+            "jeryu.get_system_snapshot",
+            "an internal store error occurred; snapshot the system and retry",
+        ),
     };
     json_response(
         status,
-        &json!({ "message": err.to_string(), "documentation_url": docs_url() }),
+        &json!({
+            "message": err.to_string(),
+            "documentation_url": docs_url(),
+            "jeryu_steering": steering(mcp_tool, hint),
+        }),
     )
 }
 
@@ -142,6 +290,10 @@ pub(super) fn not_found(status: u16) -> Response {
                 "repair_hint": "map the command to the closest listed Jeryu route or MCP tool, then rerun cargo test -p jeryu-api --features web"
             },
             "jeryu_mcp_tools": MCP_GUIDANCE_TOOLS,
+            "jeryu_steering": steering(
+                "jeryu.get_system_snapshot",
+                "this path is outside the guided subset; GET /.jeryu/capabilities and prefer the MCP tools",
+            ),
             "jeryu_api_routes": [
                 "GET /user",
                 "GET /repos",
@@ -150,6 +302,7 @@ pub(super) fn not_found(status: u16) -> Response {
                 "GET /repos/{owner}/{repo}/issues",
                 "GET /repos/{owner}/{repo}/commits/{ref}/status",
                 "GET /repos/{owner}/{repo}/commits/{ref}/check-runs",
+                "GET /repos/{owner}/{repo}/actions/runs",
                 "POST /graphql"
             ]
         }),
@@ -158,4 +311,24 @@ pub(super) fn not_found(status: u16) -> Response {
 
 pub(super) fn docs_url() -> String {
     "/docs/rest".to_owned()
+}
+
+/// First-contact doc for a confused agent that landed on the REST edge. Points
+/// it at the capability manifest and the typed MCP tools instead of letting it
+/// brute-force bespoke `gh` invocations.
+pub(super) fn first_contact_response() -> Response {
+    json_response(
+        200,
+        &json!({
+            "message": "Welcome — you are talking to the Jeryu GitHub-compatible edge.",
+            "start_here": FASTER_PATH,
+            "advice": [
+                "GET /.jeryu/capabilities for the live endpoint + gh-command map.",
+                "Prefer the typed jeryu.* MCP tools over bespoke gh REST calls; they are faster and never dead-end.",
+                "Every error reply carries a jeryu_steering block naming the MCP tool that serves your intent.",
+            ],
+            "mcp_tools": MCP_GUIDANCE_TOOLS,
+            "documentation_url": docs_url(),
+        }),
+    )
 }

@@ -11,8 +11,8 @@ use crate::routes::Response;
 
 use super::GithubRouter;
 use super::support::{
-    actor, docs_url, error_response, json_response, json_response_with_headers, owner_json,
-    parse_body, parse_number,
+    Pagination, actor, docs_url, error_response, json_response, json_response_with_headers,
+    owner_json, paginate, parse_body, parse_number,
 };
 
 /// Response header stamped when a create-PR request is hot-fixed onto an
@@ -25,11 +25,19 @@ const HDR_REUSED_PR: &str = "X-Jeryu-Reused-PR";
 const DEFAULT_BASE_SHA: &str = "base";
 
 impl GithubRouter {
-    pub(super) fn list_pulls(&self, owner: &str, repo: &str) -> Response {
+    pub(super) fn list_pulls(
+        &self,
+        owner: &str,
+        repo: &str,
+        path: &str,
+        page: Pagination,
+    ) -> Response {
         match self.core.list_pull_requests(owner, repo, None) {
             Ok(pulls) => {
                 let body: Vec<Value> = pulls.iter().map(pull_request_json).collect();
-                json_response(200, &Value::Array(body))
+                paginate(path, page, &body, |slice, _total| {
+                    Value::Array(slice.to_vec())
+                })
             }
             Err(err) => error_response(err),
         }

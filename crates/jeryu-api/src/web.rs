@@ -343,6 +343,17 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route("/repos/:owner/:repo/releases", any(github_forward))
         .route("/repos/:owner/:repo/hooks", any(github_forward))
+        // GitHub Actions edge (sourced from check-runs as a CI proxy) so
+        // `gh run list` / `gh workflow list` work against this server.
+        .route("/repos/:owner/:repo/actions/runs", any(github_forward))
+        .route("/repos/:owner/:repo/actions/runs/:id", any(github_forward))
+        .route(
+            "/repos/:owner/:repo/actions/runs/:id/jobs",
+            any(github_forward),
+        )
+        .route("/repos/:owner/:repo/actions/workflows", any(github_forward))
+        // Steering: first-contact doc for a confused agent on the REST edge.
+        .route("/.jeryu/agents/first-contact", any(github_forward))
         .route("/repos/:owner/:repo/*rest", any(github_forward))
         .fallback_service(spa)
         // Response middleware that stamps every reply with advisory steering
@@ -609,19 +620,14 @@ async fn github_forward(
             uri.path(),
         );
     };
-    if let Some(query) = uri.query()
-        && !query.is_empty()
-    {
-        return guided_github_edge_response(
-            StatusCode::NOT_IMPLEMENTED,
-            "Query parameters require a guided Jeryu route",
-            "route unsupported GitHub-compatible REST query parameters",
-            "Jeryu would rather return a guided block than silently ignore GitHub query filters or pagination",
-            uri.path(),
-        );
-    }
+    // Forward the path *and* query verbatim. The dispatcher splits the query
+    // off for RFC5988 list pagination (`?per_page=&page=`); unrecognized query
+    // keys are ignored rather than rejected, so `gh --paginate` works.
+    let path_and_query = uri
+        .path_and_query()
+        .map_or_else(|| uri.path().to_string(), ToString::to_string);
     let body = std::str::from_utf8(&body).unwrap_or_default();
-    github_response(state.github.handle(method, uri.path(), body))
+    github_response(state.github.handle(method, &path_and_query, body))
 }
 
 fn guided_github_edge_response(
@@ -1037,12 +1043,25 @@ fn api_error(status: StatusCode, code: &str, message: &str) -> AxumResponse {
 
 fn github_response(response: GithubResponse) -> AxumResponse {
     let status = StatusCode::from_u16(response.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    (
+    let mut axum_response = (
         status,
         [(header::CONTENT_TYPE, "application/json")],
         response.body,
     )
-        .into_response()
+        .into_response();
+    // Surface the router's advisory headers on the wire: the overlap engine's
+    // `X-Jeryu-Reused-PR` and the RFC5988 `Link` pagination header are carried
+    // on `GithubResponse.headers`; without this passthrough they were dropped.
+    let headers = axum_response.headers_mut();
+    for (name, value) in response.headers {
+        if let (Ok(name), Ok(value)) = (
+            HeaderName::from_bytes(name.as_bytes()),
+            HeaderValue::from_str(&value),
+        ) {
+            headers.insert(name, value);
+        }
+    }
+    axum_response
 }
 
 #[cfg(test)]
@@ -1372,7 +1391,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/repos/alice/jeryu/actions/runs")
+                    .uri("/repos/alice/jeryu/unknown-thing")
                     .header(header::USER_AGENT, "GitHub CLI 2.40.0")
                     .body(Body::empty())
                     .unwrap(),
@@ -1389,7 +1408,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn live_unsupported_verb_and_query_return_guided_json() {
+    async fn live_unsupported_verb_returns_guided_json() {
         use axum::body::Body;
         use axum::http::Request;
         use tower::ServiceExt;
@@ -1399,7 +1418,6 @@ mod tests {
             std::path::Path::new("/tmp/jeryu-no-spa"),
         );
         let patch = app
-            .clone()
             .oneshot(
                 Request::builder()
                     .method(HttpMethod::PATCH)
@@ -1416,22 +1434,135 @@ mod tests {
             parsed["jeryu_repair_hint"]["purpose"],
             "route unsupported GitHub-compatible REST method"
         );
+    }
 
-        let query = app
+    /// A list request with `?per_page`/`?page` now passes through (no longer a
+    /// guided 501) and the RFC5988 `Link` header is surfaced on the wire via
+    /// `github_response`'s header passthrough.
+    #[tokio::test]
+    async fn live_list_query_paginates_and_surfaces_link_header() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let core = ForgeCore::new();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        // Two open PRs so a per_page=1 page leaves a `next`/`last` link.
+        for (head, sha) in [("feat-a", "sha-a"), ("feat-b", "sha-b")] {
+            core.create_pull_request(
+                "alice",
+                "jeryu",
+                "alice",
+                CreatePullRequestRequest {
+                    title: head.to_string(),
+                    head: head.to_string(),
+                    base: "main".to_string(),
+                    head_sha: Some(sha.to_string()),
+                    ..CreatePullRequestRequest::default()
+                },
+            )
+            .unwrap();
+        }
+
+        let response = app(
+            WebState::new(core),
+            std::path::Path::new("/tmp/jeryu-no-spa"),
+        )
+        .oneshot(
+            Request::builder()
+                .uri("/repos/alice/jeryu/pulls?per_page=1&page=1")
+                .header(header::USER_AGENT, "go-gh/2.0")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let link = response
+            .headers()
+            .get("Link")
+            .expect("Link header present")
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(link.contains("rel=\"next\""), "Link has next: {link}");
+        assert!(link.contains("rel=\"last\""), "Link has last: {link}");
+        let parsed = response_json(response).await;
+        assert_eq!(
+            parsed.as_array().expect("pulls array").len(),
+            1,
+            "per_page=1 returns a single PR"
+        );
+    }
+
+    /// The overlap engine's `X-Jeryu-Reused-PR` header reaches the wire through
+    /// `github_response`'s passthrough when a create-PR request coalesces.
+    #[tokio::test]
+    async fn live_overlap_routing_surfaces_reused_pr_header() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let core = ForgeCore::new();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        // An existing mergeable PR touching one file.
+        core.create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "existing".to_string(),
+                head: "feat-a".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("sha-a".to_string()),
+                changed_files: vec!["src/a.rs".to_string()],
+                ..CreatePullRequestRequest::default()
+            },
+        )
+        .unwrap();
+
+        let response = app(WebState::new(core), std::path::Path::new("/tmp/jeryu-no-spa"))
             .oneshot(
                 Request::builder()
-                    .uri("/repos/alice/jeryu/pulls?state=closed")
+                    .method(HttpMethod::POST)
+                    .uri("/repos/alice/jeryu/pulls")
                     .header(header::USER_AGENT, "go-gh/2.0")
-                    .body(Body::empty())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"title":"hot-fix","head":"feat-a2","base":"main","changed_files":["src/a.rs"]}"#,
+                    ))
                     .unwrap(),
             )
             .await
             .unwrap();
-        assert_eq!(query.status(), StatusCode::NOT_IMPLEMENTED);
-        let parsed = response_json(query).await;
+        assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
-            parsed["jeryu_repair_hint"]["purpose"],
-            "route unsupported GitHub-compatible REST query parameters"
+            response
+                .headers()
+                .get("X-Jeryu-Reused-PR")
+                .expect("reused-pr header present")
+                .to_str()
+                .unwrap(),
+            "1",
+            "the header points at the reused PR number"
         );
     }
 

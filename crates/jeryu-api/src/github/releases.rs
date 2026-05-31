@@ -12,12 +12,23 @@ use serde_json::{Value, json};
 use crate::routes::Response;
 
 use super::GithubRouter;
-use super::support::{error_response, json_response, parse_body};
+use super::support::{Pagination, error_response, json_response, paginate, parse_body};
 
 impl GithubRouter {
-    pub(super) fn list_releases(&self, owner: &str, repo: &str) -> Response {
+    pub(super) fn list_releases(
+        &self,
+        owner: &str,
+        repo: &str,
+        path: &str,
+        page: Pagination,
+    ) -> Response {
         match self.core.get_repository(owner, repo) {
-            Ok(_) => json_response(200, &Value::Array(Vec::new())),
+            // Releases are not stored in the forge domain yet, so the list is
+            // always empty; still paginate so the route honors ?per_page/?page
+            // and stays shape-consistent with the other list routes.
+            Ok(_) => paginate(path, page, &Vec::<Value>::new(), |slice, _total| {
+                Value::Array(slice.to_vec())
+            }),
             Err(err) => error_response(err),
         }
     }

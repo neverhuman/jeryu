@@ -1352,7 +1352,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jeryu-agentbridge"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-ci-scheduler",
  "jeryu-core",
@@ -1381,7 +1381,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-artifact-metadata"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-ci-ir",
 ]
@@ -1459,7 +1459,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-cache-policy"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-ci-ir",
 ]
@@ -1477,7 +1477,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-ci-bin"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-artifact-metadata",
  "jeryu-cache-policy",
@@ -1489,18 +1489,18 @@ dependencies = [
 
 [[package]]
 name = "jeryu-ci-compiler"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-ci-ir",
 ]
 
 [[package]]
 name = "jeryu-ci-ir"
-version = "0.12.0"
+version = "4.0.0"
 
 [[package]]
 name = "jeryu-ci-scheduler"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-ci-ir",
  "jeryu-core",
@@ -1510,7 +1510,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-cli"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1520,7 +1520,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-compliance-export"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-phase11-audit",
  "jeryu-phase11-core",
@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-domain"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-core",
 ]
@@ -1556,7 +1556,7 @@ version = "0.10.0"
 
 [[package]]
 name = "jeryu-evidence"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "clap",
  "hex",
@@ -1573,7 +1573,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-kernel"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-compliance-export",
  "jeryu-lifecycle",
@@ -1586,7 +1586,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-lifecycle"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-phase11-audit",
  "jeryu-phase11-core",
@@ -1594,7 +1594,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-mapcheck"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1653,7 +1653,7 @@ version = "0.10.0"
 
 [[package]]
 name = "jeryu-ops"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-phase11-audit",
  "jeryu-phase11-core",
@@ -1661,14 +1661,14 @@ dependencies = [
 
 [[package]]
 name = "jeryu-phase11-audit"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-phase11-core",
 ]
 
 [[package]]
 name = "jeryu-phase11-bin"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-kernel",
  "jeryu-phase11-core",
@@ -1676,18 +1676,18 @@ dependencies = [
 
 [[package]]
 name = "jeryu-phase11-core"
-version = "0.12.0"
+version = "4.0.0"
 
 [[package]]
 name = "jeryu-phase7-cli"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-ci-scheduler",
 ]
 
 [[package]]
 name = "jeryu-proof"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-core",
 ]
@@ -1704,7 +1704,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-replay-verifier"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-phase11-audit",
  "jeryu-phase11-core",
@@ -1767,7 +1767,7 @@ dependencies = [
 
 [[package]]
 name = "jeryu-runner-protocol"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-ci-ir",
 ]
@@ -1813,7 +1813,7 @@ version = "0.8.0"
 
 [[package]]
 name = "jeryu-tenant"
-version = "0.12.0"
+version = "4.0.0"
 dependencies = [
  "jeryu-phase11-audit",
  "jeryu-phase11-core",
