@@ -57,7 +57,7 @@ fn run() -> Result<ExitCode, String> {
 fn status_to_exit(status: ReceiptStatus) -> ExitCode {
     match status {
         ReceiptStatus::Planned | ReceiptStatus::Passed => ExitCode::SUCCESS,
-        ReceiptStatus::Failed => ExitCode::from(1),
+        ReceiptStatus::Failed | ReceiptStatus::TimedOut => ExitCode::from(1),
         ReceiptStatus::Denied => ExitCode::from(3),
     }
 }

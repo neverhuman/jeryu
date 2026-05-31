@@ -14,6 +14,8 @@ pub enum ReceiptStatus {
     Passed,
     /// Job failed.
     Failed,
+    /// Job exceeded its wall-clock budget and was killed by the watchdog.
+    TimedOut,
     /// Job was denied by policy.
     Denied,
 }
@@ -25,6 +27,7 @@ impl ReceiptStatus {
             Self::Planned => "planned",
             Self::Passed => "passed",
             Self::Failed => "failed",
+            Self::TimedOut => "timed_out",
             Self::Denied => "denied",
         }
     }
