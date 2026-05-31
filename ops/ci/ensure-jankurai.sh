@@ -68,7 +68,8 @@ if [ -z "${strict_tag}" ] && [ "${GITHUB_ACTIONS:-}" = "true" ]; then
 fi
 
 if [ "${strict_tag:-0}" = "1" ]; then
-  tag_rev="$(resolve_tag_rev)"
+  raw_tag_rev="$(resolve_tag_rev)"
+  tag_rev="$(printf '%s\n' "${raw_tag_rev}" | awk '/^[0-9a-f]{40}$/ { print; exit }')"
   if [ -z "${tag_rev}" ]; then
     echo "jankurai tag not published: ${JANKURAI_TAG}; verifying pinned rev ${JANKURAI_REV}"
     verify_pinned_rev_fetchable

@@ -1756,3 +1756,12 @@ Both local full profiles now pass with explicit host-retirement allowances. The
 remaining non-code host closeout is still real: release validation without
 allowances will fail until retired services/listeners/source roots are stopped
 or quarantined.
+
+## 2026-05-31T09:22Z - Codex
+
+Hosted PR #46 rerun on `8ac04fc` found one new early hosted-only issue:
+`tool-adoption-evidence` failed in `ops/ci/ensure-jankurai.sh` because the
+strict tag resolver treated an empty/non-hex tag lookup as drift instead of
+falling back to the pinned revision proof. Local proof:
+`JERYU_JANKURAI_STRICT_TAG=1 bash ops/ci/ensure-jankurai.sh` now verifies the
+pinned rev and exits cleanly.
