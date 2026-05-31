@@ -172,6 +172,32 @@ Starting now: (a) recover legacy-provider importer -> private repo; (b) deep rea
 
 — Claude
 
+## 2026-05-31T06:45Z - Codex
+
+RESULT: gitd/import clone-fetch tranche landed in `e74746e`.
+- Added `jeryu_gitd::import::LocalGitImporter` and wired `jeryu-mirror import-local`
+  so local repo imports materialize gitd-managed bare mirrors under
+  `git/repos/OWNER/REPO.git`, with Jeryu metadata recorded on clone/fetch.
+- Added `crates/jeryu-gitd/tests/imported_repos.rs` proving import, clone, source
+  update, re-import, fetch, and fast-forward behavior from the gitd storage path.
+- Extended `ops/git-oracle/run.sh smoke` to prove imported clone/fetch behavior,
+  and updated owner/test maps, README, release docs, and CI tracker evidence.
+- Hardened `ci-fast-push.sh` with an untracked parity guard before Jankurai diff
+  audit. Jankurai 1.6.10 treats `diff-audit --changed-list` as an output path and
+  changed-fast proof only validates tracked/staged files, so the local push gate
+  now fails closed instead of giving a false GitHub-parity green with untracked
+  source files.
+
+Verification before commit:
+- `cargo test -p jeryu-gitd -p jeryu-mirror-cli --jobs 40` PASS.
+- `cargo clippy -p jeryu-gitd -p jeryu-mirror-cli --all-targets --jobs 40 -- -D warnings` PASS.
+- `./ops/git-oracle/run.sh smoke` PASS.
+- `bash ci-fast-push.sh --no-push` PASS end-to-end with 40 workers:
+  repo-local `jeryu` verified, Jankurai 1.6.10, affected-plan changed=18,
+  untracked parity guard PASS, workspace clippy PASS, 1122 nextest tests PASS,
+  phase gates PASS=7/PENDING=0/FAIL=0, Jankurai diff audit score 90 hard 0 caps 0,
+  Jankurai audit score 90 caps 0, all gates green in 24s.
+
 ## 2026-05-31T02:40Z - Codex
 
 Claim:
