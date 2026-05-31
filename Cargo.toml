@@ -53,6 +53,7 @@ members = [
   "crates/jeryu-signrail",
   "crates/jeryu-tenant",
   "crates/jeryu-repogate",
+  "crates/jeryu-runner-registry",
 ]
 exclude = [
   "fixtures/rust-small",
