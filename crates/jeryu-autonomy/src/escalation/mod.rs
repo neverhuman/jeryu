@@ -11,226 +11,20 @@
 //! The live HTTP transport is a thin [`crate::seam::EscalationSink`] the fused
 //! product implements; this crate ships a recording sink for tests. The fan-out
 //! logic, payload shaping, and `on_events` filtering are fully ported.
+//!
+//! The surface is split by responsibility: [`config`] (YAML schema), [`event`]
+//! (the events), [`payload`] (per-transport shaping), and [`dispatch`]
+//! (fan-out). Everything is re-exported here so the public paths are unchanged.
 
-use crate::seam::EscalationSink;
-use crate::types::VibeGateVerdict;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+mod config;
+mod dispatch;
+mod event;
+mod payload;
 
-// ---------------------------------------------------------------------------
-// Schema (deserialized from `.jeryu/autonomy/autonomy.yml::escalation`)
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EscalationKind {
-    Slack,
-    /// Deserializes from both `pagerduty` and `pager_duty`; serializes as `pagerduty`.
-    #[serde(rename = "pagerduty", alias = "pager_duty")]
-    PagerDuty,
-    GenericJson,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct WebhookConfig {
-    pub kind: EscalationKind,
-    /// Name of the env / secret variable holding the actual webhook URL.
-    /// Resolved at dispatch time by the [`EscalationSink`] implementation.
-    pub url_secret_name: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub channel: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub severity: Option<String>,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub headers: HashMap<String, String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
-pub struct EscalationConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
-    pub on_events: Vec<String>,
-    #[serde(default)]
-    pub webhooks: Vec<WebhookConfig>,
-}
-
-impl EscalationConfig {
-    /// True if this event name is in the `on_events` allowlist AND the config is
-    /// enabled. An empty `on_events` means "nothing fires" (fail-closed).
-    pub fn permits(&self, event_name: &str) -> bool {
-        self.enabled && self.on_events.iter().any(|e| e == event_name)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Events
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone)]
-pub enum EscalationEvent {
-    RequireHuman { verdict: Box<VibeGateVerdict> },
-    KillBellEngaged { reason: String, paused_by: String },
-}
-
-impl EscalationEvent {
-    /// Stable string used in `on_events` allowlists.
-    pub fn name(&self) -> &'static str {
-        match self {
-            EscalationEvent::RequireHuman { .. } => "require_human",
-            EscalationEvent::KillBellEngaged { .. } => "kill_bell_engaged",
-        }
-    }
-
-    /// Short human-readable summary used in webhook message bodies.
-    pub fn summary(&self) -> String {
-        match self {
-            EscalationEvent::RequireHuman { verdict } => format!(
-                "[jeryu] RequireHuman on {repo} @ {head} (risk={risk:?}, verdict={vid})",
-                repo = verdict.repo,
-                head = short_sha(&verdict.head_sha),
-                risk = verdict.risk,
-                vid = verdict.id,
-            ),
-            EscalationEvent::KillBellEngaged { reason, paused_by } => {
-                format!("[jeryu] KillBellEngaged by {paused_by}: {reason}")
-            }
-        }
-    }
-
-    /// Self-describing JSON form.
-    pub fn as_json(&self) -> serde_json::Value {
-        match self {
-            EscalationEvent::RequireHuman { verdict } => serde_json::json!({
-                "event": "require_human",
-                "verdict": verdict,
-            }),
-            EscalationEvent::KillBellEngaged { reason, paused_by } => serde_json::json!({
-                "event": "kill_bell_engaged",
-                "reason": reason,
-                "paused_by": paused_by,
-            }),
-        }
-    }
-}
-
-fn short_sha(sha: &str) -> &str {
-    if sha.len() >= 7 { &sha[..7] } else { sha }
-}
-
-// ---------------------------------------------------------------------------
-// Payload shaping
-// ---------------------------------------------------------------------------
-
-pub fn build_payload(event: &EscalationEvent, kind: EscalationKind) -> serde_json::Value {
-    match kind {
-        EscalationKind::Slack => serde_json::json!({ "text": event.summary() }),
-        EscalationKind::PagerDuty => {
-            let severity = match event {
-                EscalationEvent::KillBellEngaged { .. } => "critical",
-                EscalationEvent::RequireHuman { .. } => "warning",
-            };
-            serde_json::json!({
-                "event_action": "trigger",
-                "payload": {
-                    "summary": event.summary(),
-                    "source": "jeryu",
-                    "severity": severity,
-                    "custom_details": event.as_json(),
-                },
-            })
-        }
-        EscalationKind::GenericJson => serde_json::json!({
-            "event_name": event.name(),
-            "summary": event.summary(),
-            "event": event.as_json(),
-        }),
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Dispatch
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct DispatchResult {
-    pub webhook_kind: EscalationKind,
-    /// HTTP-like status code if a request fired. `None` on secret-resolution
-    /// failure or transport-level error.
-    pub status: Option<u16>,
-    /// Human-readable error string. `None` on success.
-    pub error: Option<String>,
-}
-
-impl DispatchResult {
-    pub fn ok(kind: EscalationKind, status: u16) -> Self {
-        Self {
-            webhook_kind: kind,
-            status: Some(status),
-            error: None,
-        }
-    }
-    pub fn err(kind: EscalationKind, status: Option<u16>, error: impl Into<String>) -> Self {
-        Self {
-            webhook_kind: kind,
-            status,
-            error: Some(error.into()),
-        }
-    }
-}
-
-/// Error type so we can distinguish "couldn't even start" from "started but
-/// non-2xx".
-#[derive(Debug, Clone, PartialEq)]
-pub enum EscalationError {
-    SecretMissing(String),
-    Transport(String),
-    HttpStatus { code: u16, body: String },
-}
-
-impl std::fmt::Display for EscalationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EscalationError::SecretMissing(name) => write!(f, "secret not resolvable: {name}"),
-            EscalationError::Transport(s) => write!(f, "transport error: {s}"),
-            EscalationError::HttpStatus { code, body } => {
-                write!(f, "non-2xx status {code}: {body}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for EscalationError {}
-
-/// Fan out the event to every configured webhook whose `on_events` allowlist
-/// matches. Failures in one webhook do not abort the others.
-pub async fn dispatch_all(
-    config: &EscalationConfig,
-    event: &EscalationEvent,
-    sink: &dyn EscalationSink,
-) -> Vec<DispatchResult> {
-    if !config.permits(event.name()) {
-        return Vec::new();
-    }
-    let mut out = Vec::with_capacity(config.webhooks.len());
-    for wh in &config.webhooks {
-        let payload = build_payload(event, wh.kind);
-        let result = match sink.deliver(wh, payload).await {
-            Ok(status) => DispatchResult::ok(wh.kind, status),
-            Err(EscalationError::SecretMissing(name)) => {
-                DispatchResult::err(wh.kind, None, format!("secret not resolvable: {name}"))
-            }
-            Err(EscalationError::Transport(msg)) => {
-                DispatchResult::err(wh.kind, None, format!("transport error: {msg}"))
-            }
-            Err(EscalationError::HttpStatus { code, body }) => {
-                DispatchResult::err(wh.kind, Some(code), format!("http {code}: {body}"))
-            }
-        };
-        out.push(result);
-    }
-    out
-}
+pub use config::{EscalationConfig, EscalationKind, WebhookConfig};
+pub use dispatch::{DispatchResult, EscalationError, dispatch_all};
+pub use event::EscalationEvent;
+pub use payload::build_payload;
 
 #[cfg(test)]
 mod tests {
@@ -239,6 +33,7 @@ mod tests {
     use crate::types::{GateDecision, RiskTier, SchemaTag, VerdictReceiptRef, VibeGateVerdict};
     use async_trait::async_trait;
     use chrono::{TimeZone, Utc};
+    use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
     struct RecordingSink {
@@ -268,7 +63,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl EscalationSink for RecordingSink {
+    impl crate::seam::EscalationSink for RecordingSink {
         async fn deliver(
             &self,
             webhook: &WebhookConfig,

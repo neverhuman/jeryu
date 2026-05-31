@@ -11,60 +11,25 @@
 //!      ANY hit → `Reject` (veto > approval count).
 //!   3. Evaluate quorum for the pack's risk tier.
 //!   4. `HumanRequired`/`Insufficient` → `RequireHuman`; `Met` → `AllowMerge`.
+//!
+//! The borrowed input/output bundle lives in [`inputs`] and the verdict-id
+//! minting in [`verdict_id`]; both are re-exported / used here so the public
+//! `crate::judge` surface is unchanged.
 
-use crate::conditions::{ConditionRegistry, HardStop};
-use crate::policy_yaml::PolicyBundle;
+mod inputs;
+mod verdict_id;
+
+pub use inputs::{JudgeInputs, JudgeOutcome};
+use verdict_id::mint_verdict_id;
+
+use crate::conditions::ConditionRegistry;
 use crate::quorum::{QuorumDecision, evaluate_quorum};
 use crate::sha_bind::verify_sha_binding;
 use crate::signing::Signature;
 use crate::types::{
-    AgentApprovalReceipt, EvidencePack, GateDecision, SchemaTag, VerdictReceiptRef, VibeGateVerdict,
+    AgentApprovalReceipt, GateDecision, SchemaTag, VerdictReceiptRef, VibeGateVerdict,
 };
 use chrono::{Duration, Utc};
-
-pub struct JudgeInputs<'a> {
-    pub pack: &'a EvidencePack,
-    pub receipts: &'a [AgentApprovalReceipt],
-    pub policy: &'a PolicyBundle,
-    pub repo: &'a str,
-    pub target_branch: &'a str,
-    /// Pull request identifier bound to the evidence pack.
-    pub pull_request: Option<&'a str>,
-    pub author_agent: Option<&'a str>,
-    /// Hard stops the orchestrator pre-computed (e.g. `codeowners_not_satisfied`,
-    /// `freeze_window_active`, `budget_exceeded`). Merged with registry-computed
-    /// hits; ANY hit → Reject (veto > approval).
-    pub external_hard_stops: &'a [HardStop],
-}
-
-impl<'a> JudgeInputs<'a> {
-    /// Convenience constructor with no externally-injected hard stops.
-    pub fn new(
-        pack: &'a EvidencePack,
-        receipts: &'a [AgentApprovalReceipt],
-        policy: &'a PolicyBundle,
-        repo: &'a str,
-        target_branch: &'a str,
-    ) -> Self {
-        Self {
-            pack,
-            receipts,
-            policy,
-            repo,
-            target_branch,
-            pull_request: None,
-            author_agent: None,
-            external_hard_stops: &[],
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct JudgeOutcome {
-    pub verdict: VibeGateVerdict,
-    /// Receipts that failed SHA binding; not included in the verdict.
-    pub dropped_receipts: Vec<String>,
-}
 
 pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
     // 1. SHA-bind filter.
@@ -185,26 +150,10 @@ pub fn judge(inputs: JudgeInputs<'_>) -> JudgeOutcome {
     }
 }
 
-fn mint_verdict_id(now: chrono::DateTime<Utc>, head_sha: &str) -> String {
-    let ts_hex = format!("{:013X}", now.timestamp_millis() as u64);
-    let tail: String = head_sha
-        .chars()
-        .rev()
-        .filter(|c| c.is_ascii_alphanumeric())
-        .take(13)
-        .map(|c| c.to_ascii_uppercase())
-        .collect();
-    let mut s = format!("vgv_{ts_hex}{tail}");
-    while s.len() < 30 {
-        s.push('0');
-    }
-    s.truncate(30);
-    s
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::conditions::HardStop;
     use crate::evidence::{EvidenceInputs, build_evidence_pack};
     use crate::policy_yaml::{PolicyBundle, fixtures};
     use crate::signing::Signature;
