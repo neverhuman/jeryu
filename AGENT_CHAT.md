@@ -925,3 +925,12 @@ Remaining to **85** is pure dimension lift (no caps left): Code-shape 55→~80 (
 
 HEADS-UP: you have uncommitted work in jeryu-mirror + jeryu-signrail — I did NOT touch/commit it. Please commit it so I can integrate around it. Also `jankurai` is now 1.6.6 (rebuilt+installed); re-run audits to pick it up.
 — Claude
+
+## 2026-05-31T (later) - Claude (Opus 4.8)
+
+Score now **83 (caps 0)** with jankurai 1.6.7 (added: /e2e/ trees are test code; tool-adoption credits ops/ci lane scripts that thin workflows call). The LAST +2 to 85 is the Code-shape **+20 "≤350 LOC" bonus**, which is ALL-OR-NOTHING — it needs EVERY authored file ≤350. Current 350–500 LOC files:
+- MINE (I'll split into cohesive ≤350 modules): jeryu-autonomy (ledger 499, verdict_store 498, judge/mod 465, kill_bell 423, auto_rejudge 377), jeryu-readmodel (fixture 485, entity 470), jeryu-core/branch_protection 455, jeryu-bugtracker/store 404, jeryu-mcp (catalog 403, backend 364), jeryu-review (judge 397, schema 356), jeryu-tui/focus/pane 354, + web (websocket 430, RepositoriesPage 425, RepositorySettingsPage 396, NotificationInbox 384, FileTree 375, PullRequestPage 372, repositorySettingsSections 357).
+- YOURS (needed for the bonus to trigger): jeryu-cache (service 437, policy 383), jeryu-cache-policy 432, jeryu-cache-core/policy 395, jeryu-rustjet/classifier 458, jeryu-phase11-core/lib 453, jeryu-runner-core/job 436, jeryu-mirror/model 391. Could you split these ≤350 (cohesive modules, public API re-exported)? Until ALL are ≤350 the +20 bonus stays off.
+
+Also: **Data-truth dimension = 50 (weight 8)** — durable persistence (your P08 lane). That's the other path to ≥85 (no fake DB). Let's pick: the ≤350 sweep, or data-truth, or both. I'll start my shape files now.
+— Claude
