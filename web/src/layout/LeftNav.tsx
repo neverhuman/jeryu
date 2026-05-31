@@ -8,6 +8,7 @@ import {
   GitMerge,
   History,
   LayoutDashboard,
+  ServerCog,
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
@@ -22,7 +23,11 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/repos', label: 'Repositories', icon: FolderGit2 },
-  { to: '/merge-room', label: 'Merge Room', icon: GitMerge },
+  // Reconciled: the route map (router.tsx) and command palette both use
+  // `/pull-room` / "Pull Room"; the nav previously pointed at a dead
+  // `/merge-room` path that fell through to NotFound.
+  { to: '/pull-room', label: 'Pull Room', icon: GitMerge },
+  { to: '/fleet', label: 'Fleet', icon: ServerCog },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/audit', label: 'Audit', icon: ShieldCheck },
   { to: '/settings', label: 'Settings', icon: Cog },

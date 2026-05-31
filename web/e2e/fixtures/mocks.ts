@@ -76,6 +76,85 @@ export async function mockBootstrap(
   });
 }
 
+/** A `PoolRollup`-shaped object as it serializes onto the bootstrap `tui`. */
+export interface MockPoolRollup {
+  pool: string;
+  tags?: string[];
+  trust_tier?: string;
+  paused?: boolean;
+  queued_jobs?: number;
+  running_jobs?: number;
+  failed_jobs?: number;
+  active_slots?: number;
+  configured_max_slots?: number;
+  online_runners?: number;
+  stuck_runners?: number;
+}
+
+/**
+ * Mock `GET /api/v1/bootstrap` with a populated `tui.pool_activity` +
+ * `tui.system` snapshot so the /fleet page paints pool cards + the
+ * system-health strip on first paint (the WS spine layers live deltas on top,
+ * but Playwright cannot inject raw WS frames — see 08-ws-reconnect.spec.ts —
+ * so the bootstrap snapshot is the deterministic e2e surface for /fleet).
+ */
+export async function mockFleetBootstrap(
+  page: Page,
+  pools: MockPoolRollup[]
+): Promise<void> {
+  await page.route('**/api/v1/bootstrap', async (route: Route) => {
+    const body = JSON.parse(JSON.stringify(bootstrapJson)) as Record<
+      string,
+      unknown
+    > & { tui?: Record<string, unknown> };
+    const normalizedPools = pools.map((p) => ({
+      pool: p.pool,
+      tags: p.tags ?? [],
+      trust_tier: p.trust_tier ?? 'trusted',
+      paused: p.paused ?? false,
+      queued_jobs: p.queued_jobs ?? 0,
+      running_jobs: p.running_jobs ?? 0,
+      failed_jobs: p.failed_jobs ?? 0,
+      active_slots: p.active_slots ?? 0,
+      configured_max_slots: p.configured_max_slots ?? p.active_slots ?? 0,
+      online_runners: p.online_runners ?? 0,
+      stuck_runners: p.stuck_runners ?? 0,
+    }));
+    body.tui = {
+      generated_at: new Date().toISOString(),
+      pool_activity: {
+        repos: [{ repo: 'veox/redline', pools: pools.map((p) => p.pool) }],
+        pools: normalizedPools,
+        unplaceable: [],
+        freshness: null,
+      },
+      system: {
+        scm: { name: 'scm', status: 'healthy', latency_ms: 8, detail: null },
+        database: {
+          name: 'database',
+          status: 'healthy',
+          latency_ms: 2,
+          detail: null,
+        },
+        sandbox: {
+          name: 'sandbox',
+          status: 'degraded',
+          latency_ms: null,
+          detail: 'slow',
+        },
+        cache: { name: 'cache', status: 'healthy', latency_ms: 1, detail: null },
+        vault: { name: 'vault', status: 'warning', latency_ms: null, detail: null },
+        runners: { online: 4, busy: 1, idle: 3, degraded: 0 },
+      },
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(body),
+    });
+  });
+}
+
 export interface MockRepoSummary {
   id: { host: string; owner: string; name: string };
   default_branch?: string;

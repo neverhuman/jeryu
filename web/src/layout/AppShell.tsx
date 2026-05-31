@@ -60,8 +60,8 @@ export function AppShell(): JSX.Element {
     label: 'Go to Repositories',
     group: 'Navigation',
   });
-  useKeyboardShortcut('g m', () => navigate('/merge-room'), {
-    label: 'Go to Merge Room',
+  useKeyboardShortcut('g m', () => navigate('/pull-room'), {
+    label: 'Go to Pull Room',
     group: 'Navigation',
   });
   useKeyboardShortcut('g s', () => navigate('/settings'), {

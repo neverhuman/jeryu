@@ -1,0 +1,218 @@
+/* FleetPage.css — operator runner-pool + system-health dashboard. */
+
+.fleet__header-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.fleet__util {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.fleet__util-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-mono);
+  color: var(--color-fg-primary);
+  letter-spacing: -0.02em;
+}
+
+.fleet__util-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Health dot — colour by level. */
+.fleet__dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-fg-muted);
+}
+
+.fleet__dot--healthy {
+  background-color: var(--color-accent-success);
+}
+.fleet__dot--warning {
+  background-color: var(--color-accent-warning);
+}
+.fleet__dot--degraded {
+  background-color: var(--color-accent-warning);
+}
+.fleet__dot--critical {
+  background-color: var(--color-accent-danger);
+}
+.fleet__dot--unknown {
+  background-color: var(--color-fg-muted);
+}
+
+/* Alert banner above the pool grid. */
+.fleet__banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: var(--font-size-sm);
+}
+
+.fleet__banner--healthy {
+  background-color: var(--color-accent-success-bg);
+  color: var(--color-accent-success);
+}
+.fleet__banner--warning,
+.fleet__banner--degraded {
+  background-color: var(--color-accent-warning-bg);
+  color: var(--color-accent-warning);
+}
+.fleet__banner--critical {
+  background-color: var(--color-accent-danger-bg);
+  color: var(--color-accent-danger);
+}
+.fleet__banner--unknown {
+  background-color: var(--color-bg-2);
+  color: var(--color-fg-secondary);
+}
+
+.fleet__banner-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+.fleet__banner-list {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Pool card grid. */
+.fleet__pool-card {
+  background-color: var(--color-bg-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-shadow: var(--shadow-1);
+}
+
+.fleet__pool-card.is-saturated {
+  border-color: var(--color-accent-warning);
+}
+.fleet__pool-card.is-stuck {
+  border-color: var(--color-accent-danger);
+}
+
+.fleet__pool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.fleet__pool-name {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-mono);
+}
+
+/* Utilization bar. */
+.fleet__bar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-3);
+  overflow: hidden;
+}
+
+.fleet__bar-fill {
+  height: 100%;
+  background-color: var(--color-accent-primary);
+}
+.fleet__bar-fill--warning {
+  background-color: var(--color-accent-warning);
+}
+.fleet__bar-fill--danger {
+  background-color: var(--color-accent-danger);
+}
+
+.fleet__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.fleet__stat {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.fleet__stat dt {
+  color: var(--color-fg-muted);
+}
+
+.fleet__stat dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--color-fg-primary);
+}
+
+.fleet__pool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* System-health strip. */
+.fleet__health-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.fleet__health-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background-color: var(--color-bg-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.fleet__health-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fleet__health-name {
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--font-size-xs);
+}
+
+.fleet__health-detail {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
