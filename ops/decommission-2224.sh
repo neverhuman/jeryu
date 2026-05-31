@@ -99,6 +99,21 @@ if [ -n "${remaining}" ]; then
   warn "a stray process may hold the port; inspect with: ss -ltnp | grep -E ':(2224|8929)'"
   exit 1
 fi
+
+# The OS-level gitlab-runner service is a SEPARATE retired-provider process that
+# the release-guard (verify-jeryu-env.sh) also flags. Stop + disable it so the
+# authentic gate's "jeryu environment" lane passes.
+note "stopping the retired gitlab-runner service + processes"
+systemctl stop gitlab-runner 2>/dev/null || true
+systemctl disable gitlab-runner 2>/dev/null || true
+pkill -f 'gitlab-runner run' 2>/dev/null || true
+sleep 1
+if pgrep -f 'gitlab-runner run' >/dev/null 2>&1; then
+  warn "gitlab-runner processes still present; inspect: pgrep -af gitlab-runner"
+else
+  ok "retired gitlab-runner service stopped."
+fi
+
 ok "retired forge stopped — no listeners on ${PORTS[*]}."
 ok "fleet cutover + the authentic v4.0.0 release gate are now unblocked."
 [ "${PURGE}" -eq 0 ] && echo "    (volumes kept; restore anytime with: ${down_cmd[*]} up -d)"
