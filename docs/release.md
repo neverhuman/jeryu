@@ -68,3 +68,20 @@ Git fetch/clone before reopening write traffic.
 The current live runtime is bound to `127.0.0.1`. LAN or public exposure waits
 for auth, TLS, token rotation, backup restore evidence, and abuse-control
 receipts.
+
+## Production Readiness
+
+Production launch is gated behind the local-only boundary above. When the
+server moves off `127.0.0.1`, the launch checklist is:
+
+- **Launch / production rollout:** promote only a signed, gate-green commit;
+  deploy behind the unified `jeryu serve` listener; canary one node, widen on
+  green, and keep the prior signed artifact staged for rollback.
+- **Rate limiting:** the GitHub-shaped edge emits `X-RateLimit-*` headers
+  already; enforce per-token rate limits and abuse-control 429s before any
+  public exposure.
+- **Monitoring:** scrape the `system.health` WS channel plus the runner-pool /
+  queue read-model for liveness, queue depth, stuck nodes, and tag starvation;
+  alert on `safe_to_merge=false` and sustained failed-job ratios.
+- **Backup / restore:** snapshot the SQLite forge store and the gitd bare-repo
+  root on a schedule; the rollback receipt above names the exact restore target.
