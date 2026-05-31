@@ -14,6 +14,7 @@ path = "src/main.rs"
 anyhow.workspace = true
 clap.workspace = true
 jeryu-core = { path = "../jeryu-core" }
+jeryu-gitd = { path = "../jeryu-gitd" }
 jeryu-mirror = { path = "../jeryu-mirror" }
 serde.workspace = true
 serde_json.workspace = true

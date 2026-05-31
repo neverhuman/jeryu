@@ -12,6 +12,7 @@ NO_PUSH="${JERYU_CI_NO_PUSH:-0}"
 BASE_REF="${JERYU_CI_BASE_REF:-origin/main}"
 PLAN="target/ci-fast/affected-plan.json"
 CHANGED_LIST="target/ci-fast/changed.lst"
+UNTRACKED_LIST="target/ci-fast/untracked.lst"
 START=$(date +%s)
 fail=0
 declare -a RESULTS
@@ -65,7 +66,29 @@ run_tests() {
 }
 
 write_changed_list() {
-  jq -r '.changed_files[]' "$PLAN" > "$CHANGED_LIST"
+  local plan_files
+  if ! plan_files="$(jq -r '.changed_files[]?' "$PLAN")"; then
+    return 1
+  fi
+
+  {
+    printf '%s\n' "$plan_files"
+    git diff --name-only --diff-filter=ACMRTUXB "${BASE_REF}...HEAD" 2>/dev/null || true
+    git diff --name-only --diff-filter=ACMRTUXB --cached
+    git diff --name-only --diff-filter=ACMRTUXB
+    git ls-files --others --exclude-standard
+  } | sed '/^[[:space:]]*$/d' | sort -u > "$CHANGED_LIST"
+}
+
+fail_untracked_for_remote_parity() {
+  git ls-files --others --exclude-standard | sort -u > "$UNTRACKED_LIST"
+  if [ ! -s "$UNTRACKED_LIST" ]; then
+    return 0
+  fi
+
+  echo "untracked files are present; stage or commit them before ci-fast-push can provide GitHub-parity proof:" >&2
+  sed 's/^/  /' "$UNTRACKED_LIST" >&2
+  return 1
 }
 
 run_step "ci profile" jeryu_ci_profile_summary
@@ -74,6 +97,7 @@ run_step "jankurai bootstrap" bash ops/ci/ensure-jankurai.sh
 run_step "affected-plan" \
   jeryu_gate jeryu-repogate affected-plan --base "$BASE_REF" --out "$PLAN" --workers "$JOBS"
 run_step "affected changed-list" write_changed_list
+run_step "untracked parity guard" fail_untracked_for_remote_parity
 
 run_step "fmt" cargo fmt --all -- --check
 

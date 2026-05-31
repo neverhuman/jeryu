@@ -3,6 +3,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use jeryu_core::{CreateRepositoryRequest, ForgeCore, ForgeError};
+use jeryu_gitd::import::{
+    GitDirKind, LocalGitImporter, classify_git_dir, inferred_owner, repo_name,
+};
+use jeryu_gitd::{GitdConfig, RepoId, RepoManager};
 use jeryu_mirror::{
     InMemoryRestoreTarget, MirrorMode, MirrorSpec, RestoreOptions, archive_from_github_value,
     compare_archives, plan_git_mirror, plan_restore, read_bundle, verify_bundle, write_bundle,
@@ -173,6 +177,7 @@ fn main() -> Result<()> {
 #[derive(Debug, Serialize)]
 struct LocalImportManifest {
     data_dir: String,
+    gitd_storage_root: String,
     dry_run: bool,
     imported: Vec<LocalImportEntry>,
     skipped: Vec<LocalImportEntry>,
@@ -184,6 +189,8 @@ struct LocalImportEntry {
     owner: String,
     name: String,
     bare: bool,
+    gitd_path: Option<String>,
+    gitd_action: Option<String>,
     reason: Option<String>,
 }
 
@@ -195,13 +202,22 @@ fn import_local_git_dirs(
 ) -> Result<LocalImportManifest> {
     std::fs::create_dir_all(data_dir)
         .with_context(|| format!("create data dir {}", data_dir.display()))?;
+    let gitd_storage_root = data_dir.join("git").join("repos");
     let core = if dry_run {
         None
     } else {
         Some(ForgeCore::open_sqlite(data_dir.join("forge.sqlite"))?)
     };
+    let gitd = if dry_run {
+        None
+    } else {
+        Some(LocalGitImporter::new(RepoManager::new(GitdConfig::new(
+            &gitd_storage_root,
+        ))))
+    };
     let mut manifest = LocalImportManifest {
         data_dir: data_dir.display().to_string(),
+        gitd_storage_root: gitd_storage_root.display().to_string(),
         dry_run,
         imported: Vec::new(),
         skipped: Vec::new(),
@@ -217,6 +233,8 @@ fn import_local_git_dirs(
                 owner: owner.unwrap_or("local").to_string(),
                 name: repo_name(&canonical),
                 bare: false,
+                gitd_path: None,
+                gitd_action: None,
                 reason: Some("not a Git directory".to_string()),
             });
             continue;
@@ -225,6 +243,13 @@ fn import_local_git_dirs(
             .map(str::to_string)
             .unwrap_or_else(|| inferred_owner(&canonical));
         let name = repo_name(&canonical);
+        let mut gitd_path = None;
+        let mut gitd_action = None;
+        if let Some(gitd) = &gitd {
+            let entry = gitd.import_repo(&canonical, &RepoId::new(&repo_owner, &name)?)?;
+            gitd_path = Some(entry.repo_path);
+            gitd_action = Some(entry.action.as_str().to_string());
+        }
         if let Some(core) = &core {
             match core.create_repository(
                 &repo_owner,
@@ -245,6 +270,8 @@ fn import_local_git_dirs(
             owner: repo_owner,
             name,
             bare: kind == GitDirKind::Bare,
+            gitd_path,
+            gitd_action,
             reason: None,
         });
     }
@@ -253,39 +280,6 @@ fn import_local_git_dirs(
     std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest)?)
         .with_context(|| format!("write {}", manifest_path.display()))?;
     Ok(manifest)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum GitDirKind {
-    Worktree,
-    Bare,
-}
-
-fn classify_git_dir(path: &Path) -> Option<GitDirKind> {
-    if path.join(".git").is_dir() {
-        return Some(GitDirKind::Worktree);
-    }
-    if path.join("HEAD").is_file() && path.join("objects").is_dir() && path.join("refs").is_dir() {
-        return Some(GitDirKind::Bare);
-    }
-    None
-}
-
-fn repo_name(path: &Path) -> String {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("repo")
-        .trim_end_matches(".git")
-        .to_string()
-}
-
-fn inferred_owner(path: &Path) -> String {
-    path.parent()
-        .and_then(|parent| parent.file_name())
-        .and_then(|name| name.to_str())
-        .filter(|name| !name.starts_with('.'))
-        .unwrap_or("local")
-        .to_string()
 }
 
 fn expand_tilde(path: PathBuf) -> PathBuf {

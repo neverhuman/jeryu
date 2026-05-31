@@ -38,6 +38,7 @@
     "crates/jeryu-ci-scheduler/": "ci-runtime",
     "crates/jeryu-core/": "forge-api",
     "crates/jeryu-gitd/": "git",
+    "crates/jeryu-mirror-cli/": "git",
     "crates/jeryu-proof/": "jankurai",
     "crates/jeryu-runner-core/": "ci-runtime",
     "crates/jeryu-runner-microvm/": "ci-runtime",

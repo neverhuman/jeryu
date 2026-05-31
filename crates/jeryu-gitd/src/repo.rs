@@ -125,6 +125,19 @@ impl RepoManager {
         Ok(repo)
     }
 
+    /// Attach Jeryu metadata to an existing bare repository in this manager.
+    pub fn record_existing_bare(&self, id: &RepoId) -> Result<Repository> {
+        let repo = self.open(id)?;
+        if !repo.path.join("objects").is_dir() || !repo.path.join("refs").is_dir() {
+            return Err(GitdError::InvalidInput(format!(
+                "repository is not a complete bare Git repo: {}",
+                repo.path.display()
+            )));
+        }
+        self.write_metadata(&repo)?;
+        Ok(repo)
+    }
+
     fn write_metadata(&self, repo: &Repository) -> Result<()> {
         let jf = repo.path.join("jeryu");
         std::fs::create_dir_all(&jf)?;

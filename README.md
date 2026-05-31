@@ -26,6 +26,7 @@ Read these files before editing:
 - `docs/boundaries.md`
 - `docs/generated-zones.md`
 - `docs/release.md`
+- `docs/release-process.md`
 - `docs/audit-rubric.md`
 - `docs/agent-native-standard.md`
 - Local `AGENTS.md` files under changed paths, for example `docs/AGENTS.md`
@@ -41,11 +42,11 @@ request terminology.
 `origin/main` contains the local v+1.0.0 platform baseline: durable
 `ForgeCore::open_sqlite` storage, the local Axum API, API-backed TUI capture,
 local repository import, affected fast CI, and guided GitHub-compatible
-REST/GraphQL repair responses. The latest full local fast lane passed with
-1113 workspace tests after the local/GitHub CI parity tranche, with Jankurai
-diff/audit gates at `88/88` and zero caps. Earlier GraphQL and REST
-compatibility follow-ups passed focused affected fast lanes, including Jankurai
-diff/audit gates at `88/92` and `90/90`.
+REST/GraphQL repair responses, and gitd-backed local import materialization.
+The latest full local fast lane passed with 1122 workspace tests after the gitd
+import validation tranche, with Jankurai diff/audit gates at `90/90` and zero
+caps. Earlier GraphQL and REST compatibility follow-ups passed focused affected
+fast lanes, including Jankurai diff/audit gates at `88/92` and `90/90`.
 
 This checkpoint is local-first. The default operator path binds loopback and
 uses `~/.local/share/jeryu`; public/LAN access, token rotation, production
@@ -94,7 +95,9 @@ cargo run -p jeryu-tui -- --once --source api \
 ```
 
 Local Git directories can be registered into the SQLite forge store and a
-host-local manifest under the data dir:
+host-local manifest under the data dir. The same import also materializes a
+gitd-managed bare mirror at `~/.local/share/jeryu/git/repos/OWNER/REPO.git` so
+local clone/fetch smoke tests use the Jeryu Git storage path, not only metadata:
 
 ```bash
 cargo run -p jeryu-mirror-cli -- import-local \
@@ -131,9 +134,13 @@ Local CI is the source of truth. The default worker count is 40, and
 `ci-fast-push.sh` is the local push gate: it builds an affected plan from
 tracked and untracked changes, escalates shared roots to full CI, runs mapped
 Rust/web/API/TUI/db lanes, then runs Jankurai diff and repository audits before
-any push. `ops/ci/ci-env.sh` detects the local or GitHub profile, keeps
-dockerless native Rust as the default executor, uses `sccache` when it is
-available, and falls back to ordinary Cargo on GitHub-hosted runners.
+any push. The Jankurai changed-list is regenerated from the affected plan plus
+committed, staged, unstaged, and untracked Git files; the gate then fails closed
+if source files remain untracked because GitHub and Jankurai changed-fast proof
+can only validate staged or tracked paths. `ops/ci/ci-env.sh` detects the local
+or GitHub profile, keeps dockerless native Rust as the default executor, uses
+`sccache` when it is available, and falls back to ordinary Cargo on
+GitHub-hosted runners.
 
 The fast gate also verifies this repository before testing: it builds and
 checks the repo-local `jeryu` binary, ignores any legacy `~/.jeryu/bin/jeryu`

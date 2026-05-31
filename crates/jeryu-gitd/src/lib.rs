@@ -12,6 +12,7 @@ pub mod config;
 pub mod error;
 pub mod hash;
 pub mod hooks;
+pub mod import;
 pub mod lfs;
 pub mod mirror;
 pub mod object_fsck;

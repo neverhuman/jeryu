@@ -1565,6 +1565,9 @@ dependencies = [
 [[package]]
 name = "jeryu-gitd"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "jeryu-kernel"
@@ -1633,6 +1636,7 @@ dependencies = [
  "anyhow",
  "clap",
  "jeryu-core",
+ "jeryu-gitd",
  "jeryu-mirror",
  "serde",
  "serde_json",

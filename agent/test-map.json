@@ -131,6 +131,11 @@
       "purpose": "verify git oracle behavior and local git smoke",
       "lane": "git-oracle"
     },
+    "crates/jeryu-mirror-cli/": {
+      "command": "cargo test -p jeryu-mirror-cli --jobs 40 && ./ops/git-oracle/run.sh smoke",
+      "purpose": "verify local import materializes cloneable gitd storage",
+      "lane": "git-oracle"
+    },
     "crates/jeryu-runner-core/": {
       "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
       "purpose": "verify runner sandbox contracts and static escape matrix",

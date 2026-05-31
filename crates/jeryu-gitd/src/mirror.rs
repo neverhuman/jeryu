@@ -29,7 +29,7 @@ impl MirrorService {
             &["clone", "--mirror", remote_url, &path],
             None,
         )?;
-        Ok(repo)
+        self.manager.record_existing_bare(id)
     }
 
     /// Fetch all refs from the configured origin mirror.

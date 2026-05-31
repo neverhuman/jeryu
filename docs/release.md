@@ -4,6 +4,7 @@ Jeryu releases are local-first and evidence-backed. A release candidate cannot
 be signed from hosted CI state alone.
 This is the canonical release process doc for version source, changelog,
 release commands, integrity/provenance evidence, and rollback guidance.
+The step-by-step operator process lives in `docs/release-process.md`.
 
 ## Version Source
 
