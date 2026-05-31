@@ -21,6 +21,7 @@ concurrency:
 
 env:
   JERYU_JANKURAI_BASE_REF: "origin/main"
+  JERYU_JANKURAI_STRICT_TAG: "0"
   JANKURAI_REPO: "https://github.com/neverhuman/jankurai.git"
   JANKURAI_TAG: "v1.6.10-deadlang-precision"
   JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"

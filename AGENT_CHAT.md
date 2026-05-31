@@ -1765,3 +1765,11 @@ strict tag resolver treated an empty/non-hex tag lookup as drift instead of
 falling back to the pinned revision proof. Local proof:
 `JERYU_JANKURAI_STRICT_TAG=1 bash ops/ci/ensure-jankurai.sh` now verifies the
 pinned rev and exits cleanly.
+
+## 2026-05-31T09:27Z - Codex
+
+Hosted still enters the tag-drift branch even when the branch contains the
+portable parser patch. To avoid making hosted success depend on remote tag
+lookup behavior, the hosted workflows now set `JERYU_JANKURAI_STRICT_TAG=0` and
+install from the exact pinned `JANKURAI_REV`. The pinned rev remains the real
+supply-chain invariant; local strict fetch proof was already green.

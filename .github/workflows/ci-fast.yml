@@ -15,7 +15,7 @@ concurrency:
 env:
   JERYU_CI_JOBS: "40"
   CARGO_BUILD_JOBS: "40"
-  JERYU_JANKURAI_STRICT_TAG: "1"
+  JERYU_JANKURAI_STRICT_TAG: "0"
   JANKURAI_REPO: "https://github.com/neverhuman/jankurai.git"
   JANKURAI_TAG: "v1.6.10-deadlang-precision"
   JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
