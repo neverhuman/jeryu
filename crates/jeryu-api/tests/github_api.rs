@@ -291,7 +291,7 @@ fn stale_base_candidate_refuses_to_coalesce() {
     assert_eq!(open_pr_count(&router), 1);
 
     // The change overlaps PR `stale` at Jaccard 1.0 but is on a newer base; the
-    // engine refuses to coalesce onto a stale base -> 409.
+    // engine refuses to coalesce onto a diverged base -> 409.
     let refused = router.post(
         "/repos/alice/jeryu/pulls",
         r#"{"title":"hot-fix","head":"feat-new","base":"main","base_sha":"new-base","changed_files":["src/a.rs","src/b.rs"]}"#,
@@ -303,8 +303,8 @@ fn stale_base_candidate_refuses_to_coalesce() {
         parsed["message"]
             .as_str()
             .expect("message")
-            .contains("stale base"),
-        "409 message explains the stale-base refusal: {}",
+            .contains("diverged base"),
+        "409 message explains the diverged-base refusal: {}",
         refused.body
     );
     // Refusal must not silently open a new PR either.

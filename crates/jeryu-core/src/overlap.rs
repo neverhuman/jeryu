@@ -9,7 +9,7 @@
 //! The engine is intentionally conservative: it never silently hijacks an
 //! existing PR. Below the overlap threshold it always prefers a new PR, and even
 //! above the threshold it refuses to coalesce onto a PR whose base SHA differs
-//! (stale-base clobber) or whose head proof is not green (missing proof).
+//! (diverged-base clobber) or whose head proof is not green (missing proof).
 
 use serde::{Deserialize, Serialize};
 
@@ -118,7 +118,7 @@ pub enum OverlapDecision {
         reason: String,
     },
     /// The best candidate overlaps enough to route, but coalescing is unsafe
-    /// (stale base or missing head proof), so we refuse rather than clobber.
+    /// (diverged base or missing head proof), so we refuse rather than clobber.
     RefuseCoalesce {
         /// PR number that would have been routed onto.
         pr: u64,
@@ -253,7 +253,7 @@ fn decide_from_scores(
         };
     };
 
-    // Safety gate: never coalesce onto a stale base or an unproven head.
+    // Safety gate: never coalesce onto a diverged base or an unproven head.
     if !best.base_matches {
         let pr_base = open
             .iter()
@@ -264,7 +264,7 @@ fn decide_from_scores(
             pr: best.pr,
             reason: format!(
                 "PR #{} overlaps at {:.2} but its base {} differs from the change base {}; \
-                 refusing to coalesce onto a stale base",
+                 refusing to coalesce onto a diverged base",
                 best.pr, best.jaccard, pr_base, change.base_sha
             ),
         };
@@ -473,13 +473,13 @@ mod tests {
 
     #[test]
     fn stale_base_is_evaluated_only_for_best_candidate() {
-        // The highest-overlap PR is safe; a lower-overlap PR has a stale base.
+        // The highest-overlap PR is safe; a lower-overlap PR has a diverged base.
         // We must route to the safe best, not refuse on the worse candidate.
         let change = ChangeSet::new(["a", "b", "c", "d"], "base", None);
         let open = vec![
             // overlap 1.0, safe
             OpenPr::new(1, ["a", "b", "c", "d"], "base", true),
-            // overlap 0.5, stale base — should be ignored
+            // overlap 0.5, diverged base — should be ignored
             OpenPr::new(2, ["a", "b"], "stale", true),
         ];
         let decision = decide(&change, &open, OverlapConfig::with_threshold(0.5));
