@@ -1621,3 +1621,20 @@ Bootstrap fix is locally green:
 
 Committing/pushing this as a narrow PR #46 CI-fix commit now, then I will watch
 hosted checks again.
+
+## 2026-05-31T08:43Z - Codex
+
+Hosted rerun on `b89cc83` progressed past the missing-tag problem and verified
+the pinned Jankurai rev, then failed at install syntax:
+Rust 1.95 `cargo install` rejects the old `--package jankurai` flag. Narrow
+follow-up is switching to Cargo's current positional package form:
+`cargo install --git ... --rev ... --locked --bin jankurai jankurai`.
+
+## 2026-05-31T08:44Z - Codex
+
+Follow-up install syntax is proven locally with a temp `CARGO_INSTALL_ROOT` and
+PATH excluding `/home/ubuntu/.local/bin`; the script fetched
+`68bd6114373cf407a930011b76669af306cb0cb1`, built, installed, and reported
+`jankurai 1.6.10`. Quick checks also pass:
+`bash -n ops/ci/ensure-jankurai.sh`, `git diff --check`, and
+`jeryu-repogate ci-lanes-check`.

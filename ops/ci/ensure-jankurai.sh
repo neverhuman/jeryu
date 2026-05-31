@@ -86,6 +86,6 @@ if command -v jankurai >/dev/null 2>&1 && jankurai --version | grep -qx "${JANKU
 fi
 
 echo "installing pinned ${JANKURAI_VERSION} from ${JANKURAI_REPO}@${JANKURAI_REV}"
-jankurai_cargo_install --git "${JANKURAI_REPO}" --rev "${JANKURAI_REV}" --locked --package jankurai --bin jankurai
+jankurai_cargo_install --git "${JANKURAI_REPO}" --rev "${JANKURAI_REV}" --locked --bin jankurai jankurai
 jankurai --version | grep -qx "${JANKURAI_VERSION}"
 echo "jankurai ok: ${JANKURAI_VERSION}"
