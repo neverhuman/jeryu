@@ -22,7 +22,12 @@ pub fn generate_bug_id(report: &CanonicalBugReport, now: DateTime<Utc>) -> Strin
     hasher.update(b"\0");
     hasher.update(report.title.as_bytes());
     hasher.update(b"\0");
-    hasher.update(now.timestamp_nanos_opt().unwrap_or_default().to_string());
+    // `timestamp_nanos_opt` only returns None when the submit timestamp falls
+    // outside the range representable as nanoseconds since the epoch
+    // (year < 1677 or > 2262). Use an explicit 0 sentinel so id generation
+    // stays deterministic for such clocks, which cannot occur in practice.
+    let submit_nanos = now.timestamp_nanos_opt().unwrap_or(0);
+    hasher.update(submit_nanos.to_string());
     let digest = hasher.finalize();
     format!("bug-{}", hex::encode(&digest[..5]))
 }
