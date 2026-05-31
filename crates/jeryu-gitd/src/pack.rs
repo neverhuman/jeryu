@@ -23,6 +23,12 @@ impl PackService {
         }
     }
 
+    /// Whether the service mutates the repository (receive-pack / push).
+    #[must_use]
+    pub fn is_write(self) -> bool {
+        matches!(self, Self::ReceivePack)
+    }
+
     /// Git subcommand.
     #[must_use]
     pub fn git_subcommand(self) -> &'static str {

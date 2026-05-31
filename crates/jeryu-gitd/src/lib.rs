@@ -6,6 +6,7 @@
 //! itself during Phase 1.
 
 pub mod audit;
+pub mod auth;
 pub mod cli;
 pub mod command;
 pub mod config;
@@ -27,6 +28,7 @@ pub mod smart_http;
 pub mod ssh;
 pub mod wire_protocol;
 
+pub use auth::{AuthDecision, AuthRegistry, Pat, Principal};
 pub use config::GitdConfig;
 pub use error::{GitdError, Result};
 pub use repo::{RepoId, RepoManager};
