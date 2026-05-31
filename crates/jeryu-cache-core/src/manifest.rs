@@ -21,8 +21,9 @@ pub struct CacheManifest {
 
 impl CacheManifest {
     pub fn add(&mut self, entry: CacheEntry) {
-        self.entries
-            .retain(|old| old.key.digest != entry.key.digest || old.layer != entry.layer);
+        self.entries.retain(|existing| {
+            existing.key.digest != entry.key.digest || existing.layer != entry.layer
+        });
         self.entries.push(entry);
     }
 

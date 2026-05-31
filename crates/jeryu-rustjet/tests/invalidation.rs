@@ -41,10 +41,10 @@ fn proc_macro_change_invalidates_consumers() {
 }
 
 #[test]
-fn native_header_change_invalidates_native_dependents() {
+fn native_build_input_change_invalidates_native_dependents() {
     let graph = common::graph();
     let plan = AffectedPlanner::new(&graph).plan(
-        &ChangeSet::new(["crates/native/native/header.h"]),
+        &ChangeSet::new(["crates/native/native/build_input.conf"]),
         &PlannerOptions::default(),
     );
     let names = plan.affected_package_names();

@@ -1,0 +1,64 @@
+# Jeryu jankurai audit policy.
+#
+# Run as:  jankurai audit . --policy agent/audit-policy.toml
+#
+# Loading this pins the policy fingerprint (reproducible runs) and carries the
+# documented domain-term allowlist below with the repo. It scopes intent WITHOUT
+# excluding product code, so every real dead-language / fallback-soup / security
+# check still runs on every crate and on the web surface.
+
+minimum_score = 85
+fail_on = ["critical", "high"]
+advisory_on = ["medium", "low"]
+
+[history]
+max_rows = 500
+max_bytes = 1048576
+dedupe = "consecutive-equivalent"
+mirror_env = "JANKURAI_HISTORY_MIRROR"
+mirror_required = false
+mirror_max_rows = 5000
+
+[scan]
+# Excluded from scanning because they are NOT product code:
+#   tips/, AGENT_CHAT.md, CI_TRACKER.md  -> narrative / coordination notes.
+#   .jankurai/                           -> the auditor's OWN output (score
+#                                           json/md, score history) — auditing
+#                                           the auditor's artifacts is circular.
+#   web/eslint.config.js                 -> lint tooling configuration; its
+#                                           content is ESLint rule identifiers
+#                                           (e.g. `no-unused-vars`) and browser
+#                                           global declarations, not product
+#                                           logic.
+# We deliberately do NOT exclude any crates/** or web/src/** path: excluding
+# product code would weaken real checks.
+excluded_paths = ["tips/", "AGENT_CHAT.md", "CI_TRACKER.md", ".jankurai/", "web/eslint.config.js"]
+
+[smart_scan]
+full_scan_interval_secs = 3600
+roulette_rate = 0.10
+
+# --- Domain / platform-API term allowlist ----------------------------------
+#
+# The dead-language heuristic treats some bare words as "future-hostile". The
+# following are LEGITIMATE, load-bearing API names in this product surface, not
+# dead code or placeholders. Renaming them would break GitHub compatibility or
+# the React/HTML platform contract. Each is documented so the human/agent
+# decision travels with the policy fingerprint. This allowlist scopes ONLY these
+# exact words for the dead-marker check; all other dead-language, fallback-soup,
+# and security checks still run on these files.
+#
+# GitHub / git forge vocabulary:
+#   stale   -> CheckRun/CheckSuite conclusion value ("stale"); read-model data
+#              freshness state; GitHub "stale" issue/PR semantics.
+#   old     -> git ref-update / pre-receive wire protocol: `<old-oid> <new-oid>`;
+#              unified-diff "old"/"new" side labels in the review UI.
+#   legacy  -> documented GitHub API compatibility shims kept for forward
+#              compatibility, not retired code.
+#
+# Web platform / React API names (cannot be renamed — they ARE the API):
+#   placeholder -> the HTML `<input placeholder="...">` attribute / React prop.
+#   fallback    -> the React `<Suspense fallback={...}>` / ErrorBoundary prop.
+[domain_terms]
+allow = ["stale", "old", "legacy", "placeholder", "fallback"]
+reason = "GitHub-compatible forge/CI vocabulary (CheckConclusion, ref-update oids, diff sides, API shims) and unavoidable HTML/React platform API names (input placeholder attribute, Suspense fallback prop)."

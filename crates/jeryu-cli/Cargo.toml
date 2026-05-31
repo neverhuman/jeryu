@@ -1,0 +1,25 @@
+[package]
+name = "jeryu-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "jeryu"
+path = "src/main.rs"
+
+[lib]
+name = "jeryu_cli"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+
+[lints]
+workspace = true

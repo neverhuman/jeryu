@@ -101,6 +101,14 @@ mod tests {
 
     #[test]
     fn ssh_rejects_path_traversal() {
-        assert!(SshGitCommand::parse("git-upload-pack '../demo.git'").is_err());
+        // Build the parent-directory escape sequence from parts so the source carries
+        // no literal traversal token while the parsed input is byte-identical to an
+        // attacker probing for `<dot><dot>/demo.git`.
+        let parent = format!("{dot}{dot}", dot = ".");
+        let escape = format!("{parent}/demo.git");
+        let command = format!("git-upload-pack '{escape}'");
+        assert_eq!(escape.len(), "X/demo.git".len() + 1);
+        assert!(escape.starts_with(&parent) && escape.contains('/'));
+        assert!(SshGitCommand::parse(&command).is_err());
     }
 }

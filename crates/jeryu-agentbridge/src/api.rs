@@ -43,7 +43,8 @@ pub struct Mergeability {
 pub struct FilePatch {
     /// Path to mutate.
     pub path: String,
-    /// Patch body. Phase 7 stores metadata only; real patch application is later.
+    /// Patch body. The dry-run path records this as metadata and scopes it
+    /// against the agent's write policy; it is never committed to the tree.
     pub patch: String,
 }
 
@@ -139,12 +140,20 @@ impl AgentBridge {
         self.state.upsert_pr(pr);
     }
 
+    /// Resolve a PR by id or fail with a single, explicit `NotFound`.
+    ///
+    /// Every typed endpoint that needs the PR routes through here so the
+    /// missing-PR error is produced in exactly one place rather than repeated as
+    /// an inline `ok_or_else` at each call site.
+    fn require_pr(&self, pr: &PullRequestId) -> JeryuResult<&PullRequest> {
+        self.state
+            .pr(pr)
+            .ok_or_else(|| JeryuError::NotFound(format!("PR {pr}")))
+    }
+
     /// `GET /api/agent/context?repo=&pr=`.
     pub fn context(&self, repo: &RepoId, pr: &PullRequestId) -> JeryuResult<AgentContext> {
-        let pr_obj = self
-            .state
-            .pr(pr)
-            .ok_or_else(|| JeryuError::NotFound(format!("PR {pr}")))?;
+        let pr_obj = self.require_pr(pr)?;
         if &pr_obj.repo != repo {
             return Err(JeryuError::NotFound(format!(
                 "PR {pr} not found in repo {repo}"
@@ -165,10 +174,7 @@ impl AgentBridge {
 
     /// `GET /api/agent/mergeability?pr=`.
     pub fn mergeability(&self, pr: &PullRequestId) -> JeryuResult<Mergeability> {
-        let pr_obj = self
-            .state
-            .pr(pr)
-            .ok_or_else(|| JeryuError::NotFound(format!("PR {pr}")))?;
+        let pr_obj = self.require_pr(pr)?;
         let plan = self.proof_engine.plan(&ChangeSet {
             repo: pr_obj.repo.clone(),
             pr: pr_obj.id.clone(),
@@ -193,10 +199,7 @@ impl AgentBridge {
         &mut self,
         request: DryRunPatchRequest,
     ) -> JeryuResult<DryRunPatchResponse> {
-        let pr_obj = self
-            .state
-            .pr(&request.pr)
-            .ok_or_else(|| JeryuError::NotFound(format!("PR {}", request.pr)))?;
+        let pr_obj = self.require_pr(&request.pr)?;
         if request.base_sha != pr_obj.head_sha && request.base_sha != pr_obj.base_sha {
             return Err(JeryuError::Invalid(format!(
                 "dry-run base SHA {} does not match PR base/head",
@@ -274,10 +277,7 @@ impl AgentBridge {
 
     /// `POST /api/agent/propose-fix`.
     pub fn propose_fix(&mut self, request: ProposedFixRequest) -> JeryuResult<ReceiptId> {
-        let pr_obj = self
-            .state
-            .pr(&request.pr)
-            .ok_or_else(|| JeryuError::NotFound(format!("PR {}", request.pr)))?;
+        let pr_obj = self.require_pr(&request.pr)?;
         let Some(dry_run_receipt) = self.state.receipt(&request.dry_run_receipt_id) else {
             return Err(JeryuError::MissingReceipt(format!(
                 "agent patch requires receipt {}",

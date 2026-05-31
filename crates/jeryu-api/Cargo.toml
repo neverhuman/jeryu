@@ -9,6 +9,9 @@ rust-version.workspace = true
 jeryu-bench = { path = "../jeryu-bench" }
 jeryu-obs = { path = "../jeryu-obs" }
 jeryu-enterprise = { path = "../jeryu-enterprise" }
+jeryu-core = { path = "../jeryu-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

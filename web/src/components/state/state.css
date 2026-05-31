@@ -1,0 +1,84 @@
+/* state.css — shared styles for state primitives (W-CC-02). */
+
+.state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-6);
+  text-align: center;
+  color: var(--color-fg-secondary);
+  min-height: 220px;
+}
+
+.state-block__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-2);
+  color: var(--color-fg-muted);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.state-block__icon--info {
+  color: var(--color-accent-info);
+  background-color: var(--color-accent-info-bg);
+}
+.state-block__icon--danger {
+  color: var(--color-accent-danger);
+  background-color: var(--color-accent-danger-bg);
+}
+.state-block__icon--warning {
+  color: var(--color-accent-warning);
+  background-color: var(--color-accent-warning-bg);
+}
+
+.state-block__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-fg-primary);
+  line-height: var(--line-height-tight);
+}
+
+.state-block__description {
+  margin: 0;
+  max-width: 52ch;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+}
+
+.state-block__action {
+  margin-top: var(--space-2);
+}
+
+.state-block__details {
+  margin-top: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+  white-space: pre-wrap;
+}
+
+.state-skeleton {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}
+
+.state-skeleton__row {
+  height: 16px;
+  width: 60%;
+}
+
+.state-skeleton__row--wide {
+  width: 90%;
+}
+
+.state-skeleton__row--narrow {
+  width: 30%;
+}

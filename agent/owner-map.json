@@ -5,6 +5,7 @@
     "CI_TRACKER.md": "ops",
     "ci-fast-push.sh": "ops",
     ".gitignore": "workspace",
+    ".cargo/": "workspace",
     ".github/": "ops",
     "AGENTS.md": "docs",
     "CHANGELOG.md": "docs",
@@ -16,6 +17,7 @@
     "agent/": "agent",
     "agent/boundaries.toml": "agent",
     "agent/tool-adoption.toml": "agent",
+    "bench/": "bench-obs",
     "bins/": "devtools",
     "config/": "platform-security",
     "configs/": "platform-security",
@@ -54,6 +56,9 @@
     "policies/": "platform-security",
     "scripts/": "devex",
     "tests/": "quality",
+    "ux-qa/": "quality",
+    "contracts/": "forge-api",
+    "crates/jeryu-cli/": "forge-api",
     "web/": "forge-api"
   }
 }

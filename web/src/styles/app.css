@@ -1,0 +1,374 @@
+/*
+ * JeRyu base styles (W-F-08)
+ *
+ * Layered on top of tokens.css. Provides:
+ *   - light CSS reset (border-box, margin 0, line-height, smoothing)
+ *   - body typography wired to design tokens
+ *   - selection + focus-visible styling
+ *   - utility classes: .sr-only, .font-mono, .text-muted
+ *   - .markdown-body skeleton consumed by W-B-08 sanitized HTML output
+ *   - .skeleton pulse helper for loading states
+ *
+ * No component styles live here. Components own their CSS and may only
+ * reference tokens declared in tokens.css.
+ */
+
+/* -------------------------------------------------------------------------
+ * Reset
+ * --------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure,
+blockquote,
+dl,
+dd,
+ol,
+ul,
+fieldset,
+legend {
+  margin: 0;
+  padding: 0;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+img,
+picture,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--color-accent-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: var(--space-4) 0;
+}
+
+/* -------------------------------------------------------------------------
+ * Document
+ * --------------------------------------------------------------------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  font-weight: var(--font-weight-regular);
+  background-color: var(--color-bg-0);
+  color: var(--color-fg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: var(--color-accent-primary-bg);
+  color: var(--color-fg-primary);
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* -------------------------------------------------------------------------
+ * Utilities
+ * --------------------------------------------------------------------- */
+
+/* Visually hidden but accessible to assistive tech. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.text-muted {
+  color: var(--color-fg-muted);
+}
+
+/* -------------------------------------------------------------------------
+ * Markdown body skeleton
+ *
+ * Production renderer (W-B-08) pumps sanitized HTML into elements with
+ * this class. Selectors target the canonical HTML produced by
+ * pulldown-cmark + ammonia. Code blocks intentionally use monospace +
+ * inset surface for legibility, table styling is GitHub-ish, blockquote
+ * uses a left rule.
+ * --------------------------------------------------------------------- */
+
+.markdown-body {
+  color: var(--color-fg-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+  word-wrap: break-word;
+}
+
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: var(--space-7);
+  margin-bottom: var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-fg-primary);
+}
+
+.markdown-body h1 {
+  font-size: var(--font-size-3xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.markdown-body h2 {
+  font-size: var(--font-size-2xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.markdown-body h3 {
+  font-size: var(--font-size-xl);
+}
+
+.markdown-body h4 {
+  font-size: var(--font-size-lg);
+}
+
+.markdown-body h5 {
+  font-size: var(--font-size-md);
+}
+
+.markdown-body h6 {
+  font-size: var(--font-size-base);
+  color: var(--color-fg-secondary);
+}
+
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body dl,
+.markdown-body table,
+.markdown-body blockquote,
+.markdown-body pre {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: var(--space-6);
+  list-style: revert;
+}
+
+.markdown-body li + li {
+  margin-top: var(--space-1);
+}
+
+.markdown-body blockquote {
+  padding: 0 var(--space-4);
+  color: var(--color-fg-secondary);
+  border-left: 3px solid var(--color-border-strong);
+}
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.15em 0.35em;
+  background-color: var(--color-bg-3);
+  color: var(--color-fg-primary);
+  border-radius: var(--radius-sm);
+}
+
+.markdown-body pre {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  padding: var(--space-4);
+  background-color: var(--color-bg-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.markdown-body table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  text-align: left;
+}
+
+.markdown-body th {
+  background-color: var(--color-bg-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+.markdown-body tr:nth-child(even) td {
+  background-color: var(--color-bg-2);
+}
+
+.markdown-body a {
+  color: var(--color-accent-primary);
+  text-decoration: underline;
+  text-decoration-skip-ink: auto;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-1);
+}
+
+.markdown-body hr {
+  height: 1px;
+  margin: var(--space-6) 0;
+  background-color: var(--color-border-subtle);
+  border: 0;
+}
+
+.markdown-body kbd {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.15em 0.5em;
+  color: var(--color-fg-primary);
+  background-color: var(--color-bg-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-1);
+}
+
+/* -------------------------------------------------------------------------
+ * Loading skeleton
+ *
+ * Subtle animated pulse for skeleton shapes. Apply .skeleton to a
+ * block that has explicit width/height (or sizing from the surrounding
+ * layout). Respects prefers-reduced-motion.
+ * --------------------------------------------------------------------- */
+
+.skeleton {
+  display: block;
+  background-color: var(--color-bg-2);
+  background-image: linear-gradient(
+    90deg,
+    var(--color-bg-2) 0%,
+    var(--color-bg-3) 50%,
+    var(--color-bg-2) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-md);
+  animation: jeryu-skeleton-pulse 1.4s var(--ease-standard) infinite;
+}
+
+@keyframes jeryu-skeleton-pulse {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background-image: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

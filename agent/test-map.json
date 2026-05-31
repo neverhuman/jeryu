@@ -21,23 +21,28 @@
       "purpose": "verify ignore policy does not hide canonical source or CI artifacts",
       "lane": "fast"
     },
+    ".cargo/": {
+      "command": "cargo metadata --format-version 1 --no-deps",
+      "purpose": "verify cargo build-acceleration config keeps the workspace metadata parseable",
+      "lane": "workspace"
+    },
     ".github/": {
       "command": "just fast && just security && just audit",
       "purpose": "verify hosted mirrors call real local CI lanes without marketplace action dependencies",
       "lane": "ops"
     },
     "AGENTS.md": {
-      "command": "./scripts/check-docs.py",
+      "command": "cargo run -q -p jeryu-mapcheck -- docs",
       "purpose": "verify root agent guidance stays reachable and concise",
       "lane": "docs"
     },
     "CHANGELOG.md": {
-      "command": "./scripts/check-docs.py",
+      "command": "cargo run -q -p jeryu-mapcheck -- docs",
       "purpose": "verify release notes remain routed",
       "lane": "docs"
     },
     "README.md": {
-      "command": "./scripts/check-docs.py",
+      "command": "cargo run -q -p jeryu-mapcheck -- docs",
       "purpose": "verify public docs remain routed",
       "lane": "docs"
     },
@@ -62,12 +67,12 @@
       "lane": "workspace"
     },
     "agent/": {
-      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && ./scripts/check-generated-zones.py",
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones",
       "purpose": "verify agent ownership, proof routing, and generated-zone maps",
       "lane": "jankurai-proof"
     },
     "agent/boundaries.toml": {
-      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && ./scripts/check-generated-zones.py",
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones",
       "purpose": "verify typed boundary ownership and proof routing metadata",
       "lane": "contract"
     },
@@ -75,6 +80,11 @@
       "command": "./ops/ci/jankurai.sh",
       "purpose": "verify Jankurai tool adoption evidence remains wired into local audit",
       "lane": "audit"
+    },
+    "bench/": {
+      "command": "./bench/startup-native.sh 1",
+      "purpose": "verify the runner startup self-test path used by the native startup benchmark stays runnable",
+      "lane": "bench-obs"
     },
     "bins/": {
       "command": "cargo test -p jeryu-ci-bin -p jeryu-phase11-bin --jobs 40",
@@ -152,7 +162,7 @@
       "lane": "security"
     },
     "docs/": {
-      "command": "./scripts/check-docs.py",
+      "command": "cargo run -q -p jeryu-mapcheck -- docs",
       "purpose": "verify docs stay complete enough for agents",
       "lane": "docs"
     },
@@ -162,7 +172,7 @@
       "lane": "examples"
     },
     "fixtures/": {
-      "command": "./scripts/check-fixtures.py",
+      "command": "cargo run -q -p jeryu-mapcheck -- fixtures --dir fixtures",
       "purpose": "verify fixtures stay provider-clean",
       "lane": "fixtures"
     },
@@ -195,6 +205,21 @@
       "command": "npm run typecheck && npm run test && npm run build",
       "purpose": "verify web surface when present",
       "lane": "web"
+    },
+    "contracts/": {
+      "command": "cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck",
+      "purpose": "verify generated TS contract bindings match their Rust source and stay consumable by the web surface",
+      "lane": "contract"
+    },
+    "ux-qa/": {
+      "command": "cd ux-qa && npm run build",
+      "purpose": "verify the rendered UX-QA harness builds",
+      "lane": "ux-qa"
+    },
+    "crates/jeryu-cli/": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify the jeryu CLI command surface and snapshots",
+      "lane": "cli"
     }
   }
 }

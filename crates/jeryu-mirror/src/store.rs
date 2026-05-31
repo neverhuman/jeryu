@@ -60,7 +60,8 @@ impl BundleCatalog {
             archive_digest: archive.canonical_digest(),
             registered_at: Utc::now(),
         };
-        self.entries.retain(|old| old.bundle_id != entry.bundle_id);
+        self.entries
+            .retain(|existing| existing.bundle_id != entry.bundle_id);
         self.entries.push(entry.clone());
         self.entries.sort_by_key(|entry| entry.registered_at);
         Ok(entry)
