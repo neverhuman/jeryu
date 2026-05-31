@@ -32,11 +32,15 @@ pub mod focus;
 pub mod lenses;
 pub mod runtime;
 pub mod theme;
+pub mod tuiwright;
 pub mod widgets;
 
 pub use app::{ActiveTab, App};
 pub use lenses::LensId;
 pub use runtime::render::{draw, render_once};
+pub use tuiwright::{
+    FrameRecord, TuiwrightReceipt, certify_frame, receipt_stamp, sweep_fixture, write_receipt,
+};
 pub use widgets::header::StreamMode;
 
 use jeryu_readmodel::TuiReadModel;

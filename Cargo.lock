@@ -1832,6 +1832,8 @@ dependencies = [
  "jeryu-readmodel",
  "ratatui",
  "reqwest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
