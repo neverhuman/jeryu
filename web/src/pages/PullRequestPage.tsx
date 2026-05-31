@@ -21,15 +21,7 @@ import { useParams } from 'react-router-dom';
 
 import { ApiError } from '../api/client';
 import { ActionButton } from '../components/action/ActionButton';
-import {
-  ChecksPanel,
-  DiffFileTree,
-  DiffViewer,
-  MergeGatePanel,
-  ReviewSidebar,
-  ThreadList,
-  type DiffViewerMode,
-} from '../components/merge';
+import type { DiffViewerMode } from '../components/merge';
 import {
   ErrorState,
   LoadingState,
@@ -45,42 +37,16 @@ import { useRealtime } from '../hooks/useRealtime';
 import { useResolveRepo } from '../hooks/useResolveRepo';
 import { usePreferencesStore } from '../stores/preferencesStore';
 import { useSelectionStore } from '../stores/selectionStore';
+import { PullRequestCockpit } from './PullRequestCockpit';
+import {
+  extractStale,
+  type StaleHeadInfo,
+} from './pullRequestStale';
 
 import './page.css';
 
 function fullNameFromParams(params: Record<string, string | undefined>): string {
   return params.fullName ?? '';
-}
-
-interface StaleHeadInfo {
-  /** SHA the user saw when they pressed the action. */
-  expected: string;
-  /** SHA the backend reported is current. */
-  current: string;
-  /** Last error code so we can word the banner accurately. */
-  code: 'merge_sha_stale' | 'merge_passport_stale' | 'concurrency_conflict';
-}
-
-function extractStale(error: ApiError): StaleHeadInfo | null {
-  const code = error.code;
-  if (
-    code !== 'merge_sha_stale' &&
-    code !== 'merge_passport_stale' &&
-    code !== 'concurrency_conflict'
-  ) {
-    return null;
-  }
-  const details = error.details ?? {};
-  const expected =
-    (details.expected_head_sha as string | undefined) ??
-    (details.expected_sha as string | undefined) ??
-    '';
-  const current =
-    (details.current_head_sha as string | undefined) ??
-    (details.current_sha as string | undefined) ??
-    (details.head_sha as string | undefined) ??
-    '';
-  return { expected, current, code };
 }
 
 export function PullRequestPage(): JSX.Element {
@@ -255,9 +221,8 @@ export function PullRequestPage(): JSX.Element {
 
   const data = detail.data;
   const summary = data.summary;
-  const passport = data.merge_passport;
   const passportTone: 'pass' | 'blocked' | 'pending' =
-    passport?.status ?? 'pending';
+    data.merge_passport?.status ?? 'pending';
 
   return (
     <div className="page page--full">
@@ -313,60 +278,22 @@ export function PullRequestPage(): JSX.Element {
         </div>
       ) : null}
 
-      <div className="pr-cockpit">
-        <aside className="pr-cockpit__pane pr-cockpit__pane--files">
-          <h2 className="pr-cockpit__pane-title">Files</h2>
-          {diff.isPending ? (
-            <LoadingState title="Loading diff…" variant="skeleton" rows={6} />
-          ) : diff.error ? (
-            <ErrorState title="Diff failed" error={diff.error} />
-          ) : (
-            <DiffFileTree
-              files={diff.data?.files ?? []}
-              activePath={activeFilePath}
-              viewedPaths={viewedPaths}
-              onSelect={setActiveFilePath}
-              onToggleViewed={handleToggleViewed}
-            />
-          )}
-        </aside>
-
-        <main className="pr-cockpit__pane pr-cockpit__pane--diff">
-          <h2 className="pr-cockpit__pane-title">Diff</h2>
-          {!activeFile ? (
-            <LoadingState
-              title={
-                diff.isPending
-                  ? 'Loading diff…'
-                  : 'No file selected. Choose a file from the left.'
-              }
-              variant="message"
-            />
-          ) : (
-            <DiffViewer
-              file={activeFile}
-              mode={diffMode as DiffViewerMode}
-              onModeChange={(m) => setDiffMode(m)}
-            />
-          )}
-        </main>
-
-        <aside className="pr-cockpit__pane pr-cockpit__pane--review">
-          <h2 className="pr-cockpit__pane-title">Review</h2>
-          <ReviewSidebar
-            detail={data}
-            onApprove={handleApprove}
-            onMerge={handleMerge}
-            isBusy={approve.isPending || mergeMutation.isPending}
-          />
-          <MergeGatePanel passport={passport} />
-          <ChecksPanel
-            checks={checks.data ?? null}
-            isLoading={checks.isPending}
-          />
-          <ThreadList threads={threads.data?.threads ?? []} />
-        </aside>
-      </div>
+      <PullRequestCockpit
+        data={data}
+        diff={diff}
+        checks={checks}
+        threads={threads}
+        activeFilePath={activeFilePath}
+        activeFile={activeFile}
+        viewedPaths={viewedPaths}
+        diffMode={diffMode}
+        isBusy={approve.isPending || mergeMutation.isPending}
+        onSelectFile={setActiveFilePath}
+        onToggleViewed={handleToggleViewed}
+        onDiffModeChange={(m: DiffViewerMode) => setDiffMode(m)}
+        onApprove={handleApprove}
+        onMerge={handleMerge}
+      />
     </div>
   );
 }

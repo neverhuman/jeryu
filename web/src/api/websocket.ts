@@ -23,10 +23,15 @@
 
 import type {
   ClientWsMessage,
-  ServerWsMessage,
   SubscriptionSpec,
   WebEvent,
 } from './types';
+import {
+  WS_PROTOCOL,
+  bigintReplacer,
+  cryptoRandomNonce,
+  parseServerFrame,
+} from './websocketProtocol';
 
 export type RealtimeStatus =
   | 'idle'
@@ -65,82 +70,6 @@ const HEARTBEAT_INTERVAL_MS = 15_000;
 const READ_TIMEOUT_MS = 30_000;
 const MAX_BACKOFF_MS = 30_000;
 const BASE_BACKOFF_MS = 500;
-
-/**
- * Wire protocol identifier negotiated in the server `hello` frame
- * (`crate::api::websocket`). The server stamps this into
- * `ServerWsMessage::Hello.protocol`; a mismatch means the runtime is talking
- * a different protocol revision than this client was built against, so we
- * surface it as an error and refuse to resume against a stale cursor.
- */
-const WS_PROTOCOL = 'jeryu.ws.v1';
-
-/**
- * Runtime guard for inbound server frames. `JSON.parse` yields `unknown`;
- * we prove the discriminated-union shape (`type` plus the fields the matching
- * branch reads) before handing the frame to the switch, so no field is read
- * off an unvalidated value. Unknown / malformed frames are dropped.
- */
-function parseServerFrame(raw: unknown): ServerWsMessage | null {
-  if (typeof raw !== 'object' || raw === null) return null;
-  const f = raw as Record<string, unknown>;
-  switch (f.type) {
-    case 'hello':
-      return typeof f.protocol === 'string' &&
-        typeof f.server_time === 'string' &&
-        isSeq(f.current_seq)
-        ? {
-            type: 'hello',
-            server_time: f.server_time,
-            current_seq: toSeq(f.current_seq),
-            protocol: f.protocol,
-          }
-        : null;
-    case 'snapshot_required':
-      return typeof f.reason === 'string' && isSeq(f.current_seq)
-        ? {
-            type: 'snapshot_required',
-            reason: f.reason,
-            current_seq: toSeq(f.current_seq),
-          }
-        : null;
-    case 'event':
-      return isWebEvent(f.event)
-        ? { type: 'event', event: { ...f.event, seq: toSeq(f.event.seq) } }
-        : null;
-    case 'pong':
-      return typeof f.nonce === 'string' && typeof f.server_time === 'string'
-        ? { type: 'pong', nonce: f.nonce, server_time: f.server_time }
-        : null;
-    case 'error':
-      return typeof f.code === 'string' && typeof f.message === 'string'
-        ? { type: 'error', code: f.code, message: f.message }
-        : null;
-    default:
-      return null;
-  }
-}
-
-/** Accept the `seq` field as either a JSON number or a bigint (the server
- *  clamps u64 cursors to Number range on the wire; see `bigintReplacer`). */
-function isSeq(value: unknown): value is number | bigint {
-  return typeof value === 'number' || typeof value === 'bigint';
-}
-
-function toSeq(value: number | bigint): bigint {
-  return typeof value === 'bigint' ? value : BigInt(Math.trunc(value));
-}
-
-function isWebEvent(value: unknown): value is WebEvent {
-  if (typeof value !== 'object' || value === null) return false;
-  const e = value as Record<string, unknown>;
-  return (
-    isSeq(e.seq) &&
-    typeof e.scope === 'string' &&
-    typeof e.kind === 'string' &&
-    typeof e.entity === 'string'
-  );
-}
 
 export class JeRyuWsClient {
   private socket: WebSocket | null = null;
@@ -409,22 +338,4 @@ export class JeRyuWsClient {
     const path = input.startsWith('/') ? input : `/${input}`;
     return `${proto}//${host}${path}`;
   }
-}
-
-function cryptoRandomNonce(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-}
-
-/** Serialize `bigint` cursors as JSON numbers (the server accepts both). */
-function bigintReplacer(_key: string, value: unknown): unknown {
-  if (typeof value === 'bigint') {
-    // The wire protocol carries u64 seq numbers; clamp to Number range so
-    // legacy clients without BigInt JSON support can still decode. The
-    // server treats both equivalently.
-    return Number(value);
-  }
-  return value;
 }
