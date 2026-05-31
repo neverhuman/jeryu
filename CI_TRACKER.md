@@ -12,7 +12,7 @@ Run locally: `bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh`
 Identity law: jeryu reads as a self-hosted GitHub-compatible forge. CI is GitHub-Actions +
 native only; zero retired-provider evidence (enforced by the zero-evidence gate).
 
-_Last updated: 2026-05-31 · Latest full `bash ci-fast-push.sh --no-push` after the gitd import validation tranche reports **all gates green in 24s** with 40 workers: CI profile, repo-local `jeryu` binary verification, pinned Jankurai bootstrap, affected-plan, affected changed-list, untracked parity guard, fmt, workspace clippy, **1122 nextest tests**, zero-evidence, docs markers, phase gates, Jankurai diff audit, and Jankurai audit. Jankurai reported diff audit **score 90, hard 0, caps 0** and audit **score 90, caps 0**. First-wave local import registered **28 repos/mirrors** under `~/.local/share/jeryu`, `/api/v1/repos` lists them, and the git oracle now proves imported repos materialize under `git/repos/OWNER/REPO.git` for clone/fetch. · `scripts/ci-phases.sh` reports **PASS=7 · PENDING=0 · FAIL=0**. · Remote is canonical GitHub only (`git@github.com:neverhuman/jeryu.git`; no local `:2224` forge remote)._
+_Last updated: 2026-05-31 · Latest push-mode `bash ci-fast-push.sh` after the gitd import validation tranche reports **all gates green** with 40 workers: CI profile, repo-local `jeryu` binary verification, pinned Jankurai bootstrap, affected-plan, affected changed-list, untracked parity guard, fmt, workspace clippy, **1122 nextest tests**, zero-evidence, docs markers, phase gates, Jankurai diff audit, Jankurai audit, and push to `origin/main`. Jankurai reported diff audit **score 90, hard 0, caps 0** and audit **score 92, caps 0**. First-wave local import registered **28 repos/mirrors** under `~/.local/share/jeryu`, `/api/v1/repos` lists them, and the git oracle now proves imported repos materialize under `git/repos/OWNER/REPO.git` for clone/fetch. · `scripts/ci-phases.sh` reports **PASS=7 · PENDING=0 · FAIL=0**. · Remote is canonical GitHub only (`git@github.com:neverhuman/jeryu.git`; no local `:2224` forge remote)._
 
 ## Per-phase gate status (`scripts/ci-phases.sh`)
 
@@ -102,7 +102,7 @@ _Last updated: 2026-05-31 · Latest full `bash ci-fast-push.sh --no-push` after 
 - [x] github-conformance · ir-determinism · proof-gate · git-oracle · cache-safety · runner-sandbox PASS.
 - [ ] Build daemon/network transport hardening beyond the local git/cache PASS gates.
 - [x] GitHub-correctness defects FIXED + tested: PR `Closed`/`Merged` stickiness; **enforced** branch protection (CODEOWNERS, linear history, signed commits, force-push/delete, enforce_admins); CI-IR multi-node cycle detection (Kahn's).
-- [x] **Jankurai audit score target ≥85**: latest full fast lane reports smart audit score 90 with caps 0; diff audit is score 90 with hard 0 and caps 0.
+- [x] **Jankurai audit score target ≥85**: latest full fast lane reports audit score 92 with caps 0; diff audit is score 90 with hard 0 and caps 0.
 - [ ] Consolidate duplicated decision core (conditions/quorum/sha-bind/judge) into `jeryu-proof`.
 - [x] Durable SQLite forge truth for core forge resources with reopen and rollback tests.
 - [x] Local-only live API/TUI path on `127.0.0.1` with `~/.local/share/jeryu` as the Rust data dir.

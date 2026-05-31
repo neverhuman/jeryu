@@ -44,7 +44,7 @@ request terminology.
 local repository import, affected fast CI, and guided GitHub-compatible
 REST/GraphQL repair responses, and gitd-backed local import materialization.
 The latest full local fast lane passed with 1122 workspace tests after the gitd
-import validation tranche, with Jankurai diff/audit gates at `90/90` and zero
+import validation tranche, with Jankurai diff/audit gates at `90/92` and zero
 caps. Earlier GraphQL and REST compatibility follow-ups passed focused affected
 fast lanes, including Jankurai diff/audit gates at `88/92` and `90/90`.
 

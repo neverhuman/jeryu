@@ -33,6 +33,14 @@ Required evidence paths:
 - `.jankurai/repo-score.md`
 - SQLite backup or restore dry-run receipt when migrations changed.
 
+## Latest Local Validation
+
+The gitd import validation tranche was pushed with `bash ci-fast-push.sh` on
+40 workers after the repo-local `jeryu` binary and Jankurai 1.6.10 were
+verified. The push-mode gate passed 1122 nextest tests, phase gates
+PASS=7/PENDING=0/FAIL=0, Jankurai diff audit score 90 with hard 0 and caps 0,
+and Jankurai repository audit score 92 with caps 0.
+
 ## Build And Sign
 
 1. Verify the candidate SHA matches the checked-out tree.

@@ -24,6 +24,11 @@ The step-by-step operator process lives in `docs/release-process.md`.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
 
+Latest local validation for the gitd import tranche used push-mode
+`bash ci-fast-push.sh` with 40 workers: 1122 nextest tests, phase gates
+PASS=7/PENDING=0/FAIL=0, Jankurai diff audit score 90 hard 0 caps 0, and
+Jankurai repository audit score 92 caps 0.
+
 ## Release Process
 
 1. Run the required gates locally and keep the emitted artifacts under
