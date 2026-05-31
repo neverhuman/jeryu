@@ -120,6 +120,14 @@ fn check_conclusion_is_snake_case() {
     );
     assert_eq!(to_json_str(&CheckConclusion::TimedOut), "\"timed_out\"");
     assert_eq!(to_json_str(&CheckConclusion::Neutral), "\"neutral\"");
+    // GitHub-only conclusion: the Rust variant is named `Superseded`, but its
+    // wire value must remain GitHub's documented `"stale"` string. Assert both
+    // serialize and deserialize directions so the serde rename never drifts.
+    assert_eq!(to_json_str(&CheckConclusion::Superseded), "\"stale\"");
+    assert_eq!(
+        serde_json::from_str::<CheckConclusion>("\"stale\"").unwrap(),
+        CheckConclusion::Superseded
+    );
 }
 
 #[test]

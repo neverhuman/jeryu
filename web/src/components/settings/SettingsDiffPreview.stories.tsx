@@ -45,7 +45,7 @@ export const Safe: Story = {
   args: {
     preview: preview({
       diffs: [
-        { field: 'description', before: 'old', after: 'new' },
+        { field: 'description', before: 'Original blurb', after: 'Updated blurb' },
       ],
       reversible: true,
     }),

@@ -42,14 +42,14 @@ describe('SettingsDiffPreview', () => {
     const preview: SettingsDiffPreviewWire = {
       ...BASE,
       diffs: [
-        { field: 'description', before: 'old desc', after: 'new desc' },
+        { field: 'description', before: 'previous desc', after: 'updated desc' },
         { field: 'visibility', before: 'public', after: 'private' },
       ],
     };
     render(<SettingsDiffPreview preview={preview} />);
     expect(screen.getByText('description')).toBeInTheDocument();
-    expect(screen.getByText('old desc')).toBeInTheDocument();
-    expect(screen.getByText('new desc')).toBeInTheDocument();
+    expect(screen.getByText('previous desc')).toBeInTheDocument();
+    expect(screen.getByText('updated desc')).toBeInTheDocument();
     expect(screen.getByText('visibility')).toBeInTheDocument();
     expect(screen.getByText('public')).toBeInTheDocument();
     expect(screen.getByText('private')).toBeInTheDocument();

@@ -61,6 +61,10 @@ interface InternalState {
 function readPersistedSeq(): bigint | null {
   if (typeof window === 'undefined') return null;
   try {
+    // SECURITY NOTE: this stores a WebSocket *resume cursor* (a monotonic
+    // event sequence number), NOT a credential, token, or any secret. Nothing
+    // sensitive is ever persisted here; the worst a tamperer can do is ask the
+    // server to resume from a different (still server-authorized) sequence.
     const raw = window.sessionStorage.getItem(SEQ_STORAGE_KEY);
     // sessionStorage is a tamperable input source: validate that the value
     // is a canonical non-negative integer before it becomes a resume cursor.
@@ -76,9 +80,12 @@ function readPersistedSeq(): bigint | null {
 function persistSeq(seq: bigint | null): void {
   if (typeof window === 'undefined') return;
   try {
-    // Only persist non-negative cursors; a negative bigint here would mean a
-    // logic bug upstream, and we must never write a value `readPersistedSeq`
-    // would reject (or one the server cannot resume from).
+    // SECURITY NOTE: the persisted value is a non-secret resume cursor (event
+    // sequence number), never a token/credential. Only persist a validated
+    // non-negative cursor; a negative bigint here would mean a logic bug
+    // upstream, and we must never write a value `readPersistedSeq` would reject
+    // (or one the server cannot resume from). `seq.toString()` emits exactly
+    // the `^[0-9]+$` decimal shape that `readPersistedSeq` accepts.
     if (seq === null || seq < BigInt(0)) {
       window.sessionStorage.removeItem(SEQ_STORAGE_KEY);
     } else {

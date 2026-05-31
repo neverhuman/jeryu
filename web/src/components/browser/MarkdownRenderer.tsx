@@ -46,6 +46,11 @@ export function MarkdownRenderer({
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  // `safeHtml` is the sole value handed to `dangerouslySetInnerHTML` below and
+  // is *always* the output of `DOMPurify.sanitize(html, PURIFY_CONFIG)` (see
+  // `sanitizeMarkdownHtml`). Memoized on `html` so we sanitize once per input
+  // rather than on every render; the sanitized string is the only thing that
+  // reaches the DOM sink.
   const safeHtml = useMemo(() => sanitizeMarkdownHtml(html), [html]);
 
   useEffect(() => {
@@ -99,8 +104,12 @@ export function MarkdownRenderer({
     <div
       ref={containerRef}
       className={`markdown-body ${className ?? ''}`.trim()}
-      // Server output is already sanitized by ammonia (§35.1.4); the
-      // DOMPurify pass above adds defense-in-depth.
+      // PROVENANCE: `safeHtml` === `DOMPurify.sanitize(html, PURIFY_CONFIG)`
+      // (computed in the `useMemo` above). The server already sanitized the
+      // Markdown through ammonia (§35.1.4); the DOMPurify pass is a second,
+      // browser-side layer. The only string that can reach this sink is the
+      // DOMPurify output — there is no other way to render sanitized Markdown
+      // HTML in React, so this `dangerouslySetInnerHTML` is intentional.
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );

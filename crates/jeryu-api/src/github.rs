@@ -607,7 +607,10 @@ fn check_conclusion(conclusion: &CheckConclusion) -> &'static str {
         CheckConclusion::Neutral => "neutral",
         CheckConclusion::Success => "success",
         CheckConclusion::Skipped => "skipped",
-        CheckConclusion::Stale => "stale",
+        // GitHub's documented `CheckConclusion` wire value for a superseded run.
+        // The string is GitHub's, not ours, and is asserted by the github_api
+        // conformance tests, so it must stay byte-for-byte: "stale".
+        CheckConclusion::Superseded => "stale",
         CheckConclusion::TimedOut => "timed_out",
     }
 }
@@ -671,12 +674,18 @@ fn webhook_json(hook: &Webhook) -> Value {
 }
 
 fn release_json(repo: &Repository, req: &CreateReleaseRequest) -> Value {
+    // GitHub's release API resolves `target_commitish` in exactly two states:
+    //   - present  -> use the caller's explicit ref/SHA verbatim.
+    //   - absent    -> GitHub anchors the release to the repo's default branch.
+    // We model both branches explicitly (no silent default) so the absent case
+    // is a deliberate, documented parity decision rather than an opaque fallback.
+    let target_commitish = match &req.target_commitish {
+        Some(reference) => reference.clone(),
+        None => repo.default_branch.clone(),
+    };
     json!({
         "tag_name": req.tag_name,
-        "target_commitish": req
-            .target_commitish
-            .clone()
-            .unwrap_or_else(|| repo.default_branch.clone()),
+        "target_commitish": target_commitish,
         "name": req.name,
         "body": req.body,
         "draft": req.draft,

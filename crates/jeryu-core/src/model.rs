@@ -442,7 +442,12 @@ pub enum CheckConclusion {
     Neutral,
     Success,
     Skipped,
-    Stale,
+    // GitHub-only conclusion: GitHub itself (never a client) marks a check run's
+    // result no longer current after a newer run supersedes it. The Rust name
+    // states that real outcome; the wire value below is GitHub's documented
+    // `CheckConclusion` string and must stay byte-for-byte for API parity.
+    #[serde(rename = "stale")]
+    Superseded,
     TimedOut,
 }
 
