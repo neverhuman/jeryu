@@ -11,6 +11,7 @@ mod error;
 mod errors;
 mod ids;
 mod model;
+mod overlap;
 pub mod phase7;
 mod receipt;
 mod webhooks;
@@ -24,5 +25,9 @@ pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};
 pub use crate::ids::{AgentId, PullRequestId, QueueEntryId, ReceiptId, RepoId};
 pub use crate::model::*;
+pub use crate::overlap::{
+    ChangeSet, OpenPr, OverlapConfig, OverlapDecision, OverlapRouting, OverlapScore, decide,
+    jaccard, route,
+};
 pub use crate::receipt::{Receipt, ReceiptKind};
 pub use crate::webhooks::{WebhookEventEnvelope, sign_webhook_payload};
