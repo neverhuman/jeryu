@@ -139,7 +139,7 @@ _Last updated: 2026-05-31 · Latest full parity gates are green with 40 workers 
 - [ ] **DEFERRED** Fleet CUTOVER: gated on the Spine engine half + `:2224` Docker-stack teardown (owner action).
 - [ ] Build daemon/network transport hardening beyond the local git/cache PASS gates.
 - [x] GitHub-correctness defects FIXED + tested: PR `Closed`/`Merged` stickiness; **enforced** branch protection (CODEOWNERS, linear history, signed commits, force-push/delete, enforce_admins); CI-IR multi-node cycle detection (Kahn's).
-- [x] **Jankurai audit score target ≥85**: proof-evidence full scan reports score 92 with caps 0; final diff audit is score 83 with hard 0 and caps 0.
+- [ ] **Jankurai audit score target ≥85 — NOT met in strict mode** (pre-v4 follow-up). The strict `jankurai audit .` (standard) gate is **pre-existingly red at score 70** on `main`: raw is 89–91, but a known **false-positive dead-language cap** pins the headline regardless of raw (confirmed identical 70 on `9ae1ebd` baseline and on the v4 wrap-up `b26c873`). The v4 wrap-up's repeated pagination helpers also added duplication findings (`hard` 1→4) without moving the capped headline. `--mode advisory`/`ratchet` report the more lenient 92 (caps 0) and the diff audit 83 (hard 0). Fix belongs in jankurai (the cap), optionally consolidate the pagination application — and this strict-mode red is one reason **v4.0.0 is staged-but-untagged**.
 - [ ] Consolidate duplicated decision core (conditions/quorum/sha-bind/judge) into `jeryu-proof`.
 - [x] Durable SQLite forge truth for core forge resources with reopen and rollback tests.
 - [x] Local-only live API/TUI path on `127.0.0.1` with `~/.local/share/jeryu` as the Rust data dir.
