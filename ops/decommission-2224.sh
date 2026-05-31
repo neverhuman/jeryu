@@ -46,6 +46,31 @@ command -v docker >/dev/null 2>&1 || { echo "docker not found on PATH" >&2; exit
 
 listeners() { ss -ltnp 2>/dev/null | grep -E ":($(IFS='|'; echo "${PORTS[*]}"))\b" || true; }
 
+# Stop the OS-level gitlab-runner service/processes — a SEPARATE retired-provider
+# the release-guard (verify-jeryu-env.sh) flags, independent of the :2224 stack.
+stop_gitlab_runner() {
+  if ! pgrep -f 'gitlab-runner' >/dev/null 2>&1 \
+     && ! systemctl is-active --quiet gitlab-runner 2>/dev/null; then
+    ok "no gitlab-runner service/processes running."
+    return 0
+  fi
+  if [ "${APPLY}" -ne 1 ]; then
+    warn "DRY RUN — would stop gitlab-runner. Re-run with --yes to execute:"
+    echo "    systemctl stop gitlab-runner; systemctl disable gitlab-runner; pkill -f 'gitlab-runner run'"
+    return 0
+  fi
+  note "stopping the retired gitlab-runner service + processes"
+  systemctl stop gitlab-runner 2>/dev/null || true
+  systemctl disable gitlab-runner 2>/dev/null || true
+  pkill -f 'gitlab-runner run' 2>/dev/null || true
+  sleep 1
+  if pgrep -f 'gitlab-runner run' >/dev/null 2>&1; then
+    warn "gitlab-runner processes still present; inspect: pgrep -af gitlab-runner"
+  else
+    ok "retired gitlab-runner service stopped."
+  fi
+}
+
 note "retired-forge teardown — project '${PROJECT}', container '${CONTAINER}'"
 echo "current listeners on ports ${PORTS[*]}:"
 listeners | sed 's/^/    /' || true
@@ -70,7 +95,8 @@ fi
 
 if [ -z "${target_id}" ]; then
   ok "no running container publishes :2224 — the retired forge appears already stopped."
-  if [ -z "$(listeners)" ]; then ok "no listeners on ${PORTS[*]} — nothing to do."; fi
+  [ -z "$(listeners)" ] && ok "no listeners on ${PORTS[*]}."
+  stop_gitlab_runner
   exit 0
 fi
 
@@ -100,19 +126,7 @@ if [ -n "${remaining}" ]; then
   exit 1
 fi
 
-# The OS-level gitlab-runner service is a SEPARATE retired-provider process that
-# the release-guard (verify-jeryu-env.sh) also flags. Stop + disable it so the
-# authentic gate's "jeryu environment" lane passes.
-note "stopping the retired gitlab-runner service + processes"
-systemctl stop gitlab-runner 2>/dev/null || true
-systemctl disable gitlab-runner 2>/dev/null || true
-pkill -f 'gitlab-runner run' 2>/dev/null || true
-sleep 1
-if pgrep -f 'gitlab-runner run' >/dev/null 2>&1; then
-  warn "gitlab-runner processes still present; inspect: pgrep -af gitlab-runner"
-else
-  ok "retired gitlab-runner service stopped."
-fi
+stop_gitlab_runner
 
 ok "retired forge stopped — no listeners on ${PORTS[*]}."
 ok "fleet cutover + the authentic v4.0.0 release gate are now unblocked."
