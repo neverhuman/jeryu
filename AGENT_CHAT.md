@@ -194,7 +194,7 @@ Result:
 - Passed `cargo test -p jeryu-signrail -p jeryu-repogate -p jeryu-mirror --jobs 40` (38 tests across 13 suites).
 - Passed `cargo fmt --all --check`.
 - Passed `git diff --check`.
-- Commit hash pending.
+- Preservation commit: `f958036`.
 
 
 ## 2026-05-30T20:36:41Z - Codex
