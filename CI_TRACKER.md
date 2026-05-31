@@ -16,6 +16,28 @@ native only; zero retired-provider evidence (enforced by the zero-evidence gate)
 
 _Last updated: 2026-05-31 · Latest full parity gates are green with 40 workers in both profiles: local-native `JERYU_CI_ALLOW_RETIRED_PROCESSES=1 JERYU_CI_ALLOW_RETIRED_LISTENERS=1 bash ci-fast-push.sh --full --no-push` passed in **91s**, and GitHub-clean `JERYU_CI_ALLOW_RETIRED_PROCESSES=1 JERYU_CI_ALLOW_RETIRED_LISTENERS=1 JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push` passed in **87s**. The explicit retired-state bypass is only for this host because root-owned retired-provider services and the Docker-backed `:2224` listener remain active; authentic `ops/ci/verify-jeryu-env.sh --build-local --release-guard` fails closed until an operator stops them. The full gate verifies the repo-local `jeryu` binary, pins Jankurai 1.6.10, proves the GitHub vanilla profile, installs the pinned open security toolchain, runs workspace clippy and **1175 nextest tests**, phase gates, and every manifest lane in `agent/ci-lanes.toml` (`ci-fast`, `jankurai`, `security`, `proof-evidence`). Latest evidence: phase gates **PASS=7 · PENDING=0 · FAIL=0**, manifest proof-evidence Jankurai full scan **score 92, caps 0**, final Jankurai diff audit **score 83, hard 0, caps 0**, and final changed-file audit **score 83, caps 0**. First-wave local import registered **28 repos/mirrors** under `~/.local/share/jeryu`, `/api/v1/repos` lists them, and the git oracle proves imported repos materialize under `git/repos/OWNER/REPO.git` for clone/fetch. Remote is canonical GitHub only (`git@github.com:neverhuman/jeryu.git`; no local `:2224` forge remote)._
 
+## v4.0.0 closeout — DONE vs DEFERRED (honest ledger)
+
+**DONE (landed on main, green locally):**
+
+- GitHub REST edge mounted on `jeryu-api` (`github_forward` + `github/mod.rs` `handle()` dispatch + `github/pulls.rs`), in-process `routes::Response.headers` with `json_response_with_headers`, returning `route_to_existing` and `X-Jeryu-Reused-PR` on PR reuse.
+- `X-Jeryu` steering middleware and `GET /.jeryu/capabilities`.
+- WebSocket event spine; live assembler projecting pool/health state.
+- Operator surfaces: TUI Pools/Health views and the Web `/fleet` page from the live read-model.
+- Autonomy FULL-AUTO loader (`FullAutoProfile`: R0-R4 auto, R5 fail-closed) plus pre-merge CI-check gating (`EvidencePack.ci_status`, `required_ci_lanes`, `missing_/failed_required_ci_check` hard-stops in `conditions/ci.rs`) in the judge veto walk.
+- PR-overlap engine (`crates/jeryu-core/src/overlap.rs`) with route-to-existing reuse wiring.
+- Real MCP backend.
+- GitLab/MR vocabulary purge (GitHub-native PR vocabulary only).
+- Codex CI-parity: `--full` and `github-vanilla` lanes, the drift guard, and the `ops/ci` manifest.
+- 18-repo fleet prep: ownership/test maps extended, workspace versioned at 4.0.0, root Apache-2.0 LICENSE.
+
+**DEFERRED (never green — do not claim as done):**
+
+- **Phase A** — native sandbox, multi-node scheduling, and the `runnerd` daemon path (in-process runner contracts pass; the daemonized native/multi-node path is not green).
+- **Phase B** — crate-cache-in-runner (cache-law gates pass; in-runner crate cache reuse is not wired/green).
+- **Spine engine half** — gitd auth, create-repo-to-disk, and the push→CI bridge are not landed; the live forge is read/import-capable but cannot author-and-build a repo end to end from a push.
+- **Fleet CUTOVER** — gated on the Spine engine half above **and** teardown of the `:2224` Docker-stack listener (root-owned, retired-state). This is an **owner action**: authentic `ops/ci/verify-jeryu-env.sh --build-local --release-guard` fails closed until those services are stopped.
+
 ## Per-phase gate status (`scripts/ci-phases.sh`)
 
 | Gate | Spec phase | Status | Notes |
@@ -106,6 +128,15 @@ _Last updated: 2026-05-31 · Latest full parity gates are green with 40 workers 
 - [x] Workspace compiles (edition 2024); latest full workspace fast lane was green at 1175 nextest tests.
 - [x] foundation gate green (fmt/clippy/zero-evidence/docs/security-scan).
 - [x] github-conformance · ir-determinism · proof-gate · git-oracle · cache-safety · runner-sandbox PASS.
+- [x] GitHub REST edge mounted on `jeryu-api` with `X-Jeryu` steering, `/.jeryu/capabilities`, WS event spine, live assembler, and TUI Pools/Health + Web `/fleet` surfaces.
+- [x] Autonomy FULL-AUTO loader (R0-R4 auto / R5 fail-closed) with pre-merge CI-check gating in the judge veto walk.
+- [x] PR-overlap engine with route-to-existing reuse and `X-Jeryu-Reused-PR` header.
+- [x] Real MCP backend; GitLab/MR vocabulary purged.
+- [x] Workspace versioned at 4.0.0; root Apache-2.0 LICENSE added; ownership/test maps extended for the new modules.
+- [ ] **DEFERRED** Phase A: native sandbox, multi-node scheduling, and the `runnerd` daemon path (in-process runner contracts pass; daemonized path not green).
+- [ ] **DEFERRED** Phase B: crate-cache-in-runner reuse.
+- [ ] **DEFERRED** Spine engine half: gitd auth, create-repo-to-disk, push→CI bridge.
+- [ ] **DEFERRED** Fleet CUTOVER: gated on the Spine engine half + `:2224` Docker-stack teardown (owner action).
 - [ ] Build daemon/network transport hardening beyond the local git/cache PASS gates.
 - [x] GitHub-correctness defects FIXED + tested: PR `Closed`/`Merged` stickiness; **enforced** branch protection (CODEOWNERS, linear history, signed commits, force-push/delete, enforce_admins); CI-IR multi-node cycle detection (Kahn's).
 - [x] **Jankurai audit score target ≥85**: proof-evidence full scan reports score 92 with caps 0; final diff audit is score 83 with hard 0 and caps 0.

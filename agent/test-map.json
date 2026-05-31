@@ -265,6 +265,46 @@
       "command": "cargo test -p jeryu-cli --jobs 40",
       "purpose": "verify the jeryu CLI command surface and snapshots",
       "lane": "cli"
+    },
+    "crates/jeryu-core/src/overlap.rs": {
+      "command": "cargo test -p jeryu-core --lib overlap --jobs 40",
+      "purpose": "verify PR-overlap detection and route-to-existing reuse decisions",
+      "lane": "api"
+    },
+    "crates/jeryu-readmodel/src/pool_activity.rs": {
+      "command": "cargo test -p jeryu-readmodel --lib pool_activity --jobs 40",
+      "purpose": "verify live pool-activity read-model projection feeding the assembler and fleet surfaces",
+      "lane": "contract"
+    },
+    "crates/jeryu-autonomy/src/full_auto.rs": {
+      "command": "cargo test -p jeryu-autonomy --lib full_auto --jobs 40",
+      "purpose": "verify the FULL-AUTO profile loader (R0-R4 auto, R5 fail-closed)",
+      "lane": "autonomy"
+    },
+    "crates/jeryu-autonomy/src/conditions/ci.rs": {
+      "command": "cargo test -p jeryu-autonomy --lib conditions::ci --jobs 40",
+      "purpose": "verify pre-merge CI-check gating (required lanes, missing/failed required-check hard-stops in the judge veto walk)",
+      "lane": "autonomy"
+    },
+    "crates/jeryu-cli/src/commands/gh_setup.rs": {
+      "command": "cargo test -p jeryu-cli --lib commands::gh_setup --jobs 40",
+      "purpose": "verify the GitHub steering setup command surface",
+      "lane": "cli"
+    },
+    "crates/jeryu-cli/src/commands/onboard.rs": {
+      "command": "cargo test -p jeryu-cli --lib commands::onboard --jobs 40",
+      "purpose": "verify the repo onboarding command surface",
+      "lane": "cli"
+    },
+    "crates/jeryu-cli/src/commands/autonomy.rs": {
+      "command": "cargo test -p jeryu-cli --lib commands::autonomy --jobs 40",
+      "purpose": "verify the autonomy command surface driving the FULL-AUTO profile",
+      "lane": "cli"
+    },
+    "web/src/pages/FleetPage.tsx": {
+      "command": "cd web && npm run typecheck && npm run test",
+      "purpose": "verify the web /fleet page renders live pool/health state from the WS spine",
+      "lane": "web"
     }
   }
 }
