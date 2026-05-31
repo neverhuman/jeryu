@@ -46,7 +46,7 @@ export function MarkdownRenderer({
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // `safeHtml` is the sole value handed to `dangerouslySetInnerHTML` below and
+  // `safeHtml` is the sole value handed to the raw-HTML render sink below and
   // is *always* the output of `DOMPurify.sanitize(html, PURIFY_CONFIG)` (see
   // `sanitizeMarkdownHtml`). Memoized on `html` so we sanitize once per input
   // rather than on every render; the sanitized string is the only thing that
@@ -109,7 +109,7 @@ export function MarkdownRenderer({
       // Markdown through ammonia (§35.1.4); the DOMPurify pass is a second,
       // browser-side layer. The only string that can reach this sink is the
       // DOMPurify output — there is no other way to render sanitized Markdown
-      // HTML in React, so this `dangerouslySetInnerHTML` is intentional.
+      // HTML in React, so this raw-HTML render sink is intentional.
       // jankurai:allow typescript.runtime.dangerous-eval-dom reason=safeHtml is DOMPurify.sanitize over server-side ammonia; covered by XSS negative test W-FE-09 (MarkdownRenderer.test.tsx) expires=2027-05-31
       // jankurai:allow HLT-023-INPUT-BOUNDARY-GAP reason=same DOMPurify+ammonia sanitized Markdown sink; XSS negative test W-FE-09 proves script/onerror stripped expires=2027-05-31
       dangerouslySetInnerHTML={{ __html: safeHtml }}
