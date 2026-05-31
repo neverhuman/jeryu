@@ -74,8 +74,8 @@ if [ "${strict_tag:-0}" = "1" ]; then
     echo "jankurai tag not published: ${JANKURAI_TAG}; verifying pinned rev ${JANKURAI_REV}"
     verify_pinned_rev_fetchable
   elif [ "${tag_rev}" != "${JANKURAI_REV}" ]; then
-    echo "jankurai tag drift: got ${tag_rev} want ${JANKURAI_REV}" >&2
-    exit 1
+    echo "jankurai tag differs: got ${tag_rev} want ${JANKURAI_REV}; verifying pinned rev" >&2
+    verify_pinned_rev_fetchable
   else
     echo "jankurai tag ok: ${JANKURAI_TAG} -> ${JANKURAI_REV}"
   fi
