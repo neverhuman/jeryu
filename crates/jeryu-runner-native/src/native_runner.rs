@@ -1,13 +1,24 @@
 #![doc = "Native runner process supervisor."]
 
-use crate::guards::{sanitized_native_env, validate_native_plan};
+use crate::guards::{sanitized_native_env, validate_native_plan, verify_enforcement};
 use jeryu_runner_core::error::{RunnerError, RunnerResult};
 use jeryu_runner_core::job::JobRequest;
 use jeryu_runner_core::policy::PolicyDecision;
 use jeryu_runner_core::receipt::{Receipt, ReceiptStatus, now_ms};
 use jeryu_runner_core::sandbox::SandboxPlan;
+use jeryu_sandbox_linux::capability::SandboxCapabilities;
+use jeryu_sandbox_linux::launch::spawn_sandboxed;
+use jeryu_sandbox_linux::watchdog::run_with_watchdog;
 use std::fs;
-use std::process::{Command, Stdio};
+use std::sync::OnceLock;
+use std::time::Duration;
+
+/// Probe the host sandbox capabilities exactly once and cache the result; the
+/// throwaway-child probes are cheap but pointless to repeat per job.
+fn cached_capabilities() -> &'static SandboxCapabilities {
+    static CAPS: OnceLock<SandboxCapabilities> = OnceLock::new();
+    CAPS.get_or_init(SandboxCapabilities::probe)
+}
 
 /// Native runner supervisor.
 #[derive(Debug, Default, Clone)]
@@ -19,13 +30,20 @@ impl NativeRunner {
         Self
     }
 
-    /// Execute a job under the native runner guard model.
+    /// Execute a job under the REAL native syscall sandbox.
     ///
-    /// The Phase 4 code models namespace, seccomp, Landlock, and cgroups in the
-    /// plan and enforces the portable safety-critical pieces directly: clean env,
-    /// workspace cwd, denied host sockets/agents, no ambient secrets, and receipt
-    /// generation. Production deployments should wire the plan into the host
-    /// namespace/seccomp/Landlock launcher before enabling multi-tenant native use.
+    /// The pipeline is: probe host capabilities once (cached) -> validate the
+    /// plan -> resolve the enforcement level -> `spawn_sandboxed` (applies
+    /// `PR_SET_NO_NEW_PRIVS`, cgroups, Landlock, seccomp, namespaces via
+    /// `pre_exec`, FAIL-CLOSED) -> `run_with_watchdog` (group-kill on timeout)
+    /// -> `verify_enforcement` (prove enforcement from `/proc/<pid>/status`).
+    ///
+    /// Enforcement state is first-class and honest: when the host degrades a
+    /// primitive (e.g. unprivileged user namespaces are blocked, or cgroup
+    /// delegation is unusable), the receipt message records exactly what was
+    /// applied vs. skipped. The runner refuses to run at all when the sandbox is
+    /// `Unavailable` (cannot fail closed). All unsafe lives in
+    /// `jeryu-sandbox-linux`; this crate stays SAFE.
     pub fn execute(
         &self,
         job: &JobRequest,
@@ -36,41 +54,82 @@ impl NativeRunner {
         validate_native_plan(job, plan)?;
         fs::create_dir_all(&job.workspace)?;
 
-        let started = now_ms();
+        let caps = cached_capabilities();
+        let level = caps.enforcement_level(plan);
         let env = sanitized_native_env(job, plan);
-        let output = Command::new(&job.command)
-            .args(&job.args)
-            .current_dir(&job.workspace)
-            .env_clear()
-            .envs(env)
-            .stdin(Stdio::null())
-            .output();
-        let finished = now_ms();
 
-        match output {
-            Ok(output) => {
-                let exit_code = output.status.code();
-                let status = if output.status.success() {
-                    ReceiptStatus::Passed
-                } else {
-                    ReceiptStatus::Failed
-                };
-                let message = summarize_output(&output.stdout, &output.stderr);
-                Ok(Receipt::new(
-                    job, decision, plan, status, exit_code, started, finished, message,
-                ))
+        let started = now_ms();
+        let child = match spawn_sandboxed(job, plan, caps, &env) {
+            Ok(child) => child,
+            Err(err) => {
+                let finished = now_ms();
+                // Unavailable / setup failures are fail-closed: the job did not
+                // run, and the receipt explains why.
+                return Ok(Receipt::new(
+                    job,
+                    decision,
+                    plan,
+                    ReceiptStatus::Failed,
+                    None,
+                    started,
+                    finished,
+                    format!("sandbox_launch_failed[{}]: {}", err.code(), err.message()),
+                ));
             }
-            Err(err) => Ok(Receipt::new(
-                job,
-                decision,
-                plan,
-                ReceiptStatus::Failed,
-                None,
-                started,
-                finished,
-                format!("process_start_failed: {err}"),
-            )),
+        };
+
+        // Prove enforcement from /proc/<pid>/status while the child is live.
+        let report = verify_enforcement(child.id(), &level);
+
+        let timeout = Duration::from_millis(job.timeout_ms.max(1));
+        let finished;
+        let result = match run_with_watchdog(child, timeout) {
+            Ok(outcome) => {
+                finished = now_ms();
+                outcome
+            }
+            Err(err) => {
+                let finished = now_ms();
+                return Ok(Receipt::new(
+                    job,
+                    decision,
+                    plan,
+                    ReceiptStatus::Failed,
+                    None,
+                    started,
+                    finished,
+                    format!("watchdog_failed: {err}"),
+                ));
+            }
+        };
+
+        let status = if result.timed_out {
+            ReceiptStatus::TimedOut
+        } else if result.exit_code == Some(0) {
+            ReceiptStatus::Passed
+        } else {
+            ReceiptStatus::Failed
+        };
+
+        let mut message = summarize_output(&result.stdout, &result.stderr);
+        message.push_str(&format!(" enforcement={}", enforcement_summary(&report)));
+        if result.timed_out {
+            message.push_str(&format!(
+                " timed_out_after_ms={}",
+                result.elapsed.as_millis()
+            ));
         }
+
+        Ok(Receipt::new(
+            job,
+            decision,
+            plan,
+            status,
+            result.exit_code,
+            started,
+            finished,
+            message,
+        ))
     }
 
     /// Build a plan-only receipt for explain mode.
@@ -94,6 +153,24 @@ impl NativeRunner {
             "native runner plan created",
         ))
     }
+}
+
+/// Compact, receipt-friendly summary of the proven enforcement state.
+fn enforcement_summary(report: &jeryu_sandbox_linux::launch::EnforcementReport) -> String {
+    format!(
+        "level={} applied=[{}] skipped=[{}] proc_no_new_privs={} proc_seccomp={}",
+        report.level,
+        report.applied.join(","),
+        report.skipped.join(","),
+        report
+            .proc_no_new_privs
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "?".to_string()),
+        report
+            .proc_seccomp
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "?".to_string()),
+    )
 }
 
 fn summarize_output(stdout: &[u8], stderr: &[u8]) -> String {
@@ -181,6 +258,44 @@ mod tests {
             .unwrap_or_else(|err| panic!("{err}"));
         assert_eq!(receipt.status, ReceiptStatus::Passed);
         assert_eq!(receipt.exit_code, Some(0));
+        // The receipt must carry the PROVEN enforcement state, not a claim.
+        assert!(
+            receipt.message.contains("enforcement=level="),
+            "receipt must record enforcement state: {}",
+            receipt.message
+        );
+    }
+
+    #[test]
+    fn watchdog_timeout_maps_to_timed_out_status() {
+        let workspace = temp_dir();
+        let job = JobRequest {
+            job_id: "job".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace,
+            command: "/bin/sleep".to_string(),
+            args: vec!["30".to_string()],
+            env: Default::default(),
+            trust_tier: TrustTier::T1ProtectedInternal,
+            requested_runner: None,
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::Default,
+            token_policy: TokenPolicy::ReadOnly,
+            timeout_ms: 250,
+            fork: false,
+        };
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        let receipt = NativeRunner::new()
+            .execute(&job, &decision, &plan)
+            .unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(
+            receipt.status,
+            ReceiptStatus::TimedOut,
+            "a runaway must be killed by the watchdog and recorded as TimedOut"
+        );
+        assert!(receipt.message.contains("timed_out_after_ms="));
     }
 
     #[test]

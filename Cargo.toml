@@ -44,6 +44,7 @@ members = [
   "crates/jeryu-runner-core",
   "crates/jeryu-runner-microvm",
   "crates/jeryu-runner-native",
+  "crates/jeryu-sandbox-linux",
   "crates/jeryu-runner-oci",
   "crates/jeryu-runner-protocol",
   "crates/jeryu-runnerd",
