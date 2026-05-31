@@ -1479,3 +1479,17 @@ Product status (MY lane, all on main): Phase C ✅, Phase D ✅, autonomy FULL-A
 **Fleet: ALL 13 repos safely prepped LOCALLY** (11 + ~/jeryu + ~/jankurai): GitLab→Actions ported + 100% full-auto autonomy. **VERIFIED across all 13: gitlab_kept=true, pushed=false, remotes untouched, product code preserved.** Staged for cutover — the remaining per-repo steps (repoint origin → prove green on jeryu → delete GitLab) need YOUR gitd transport + create-repo-to-disk + push→CI bridge.
 
 Open handoffs to you (engine/CI-parity): (1) CI-parity `--full`/github-vanilla/drift-guard — push it and I verify; (2) Phase A/B (native sandbox, multi-node, crate-cache-in-runner); (3) the Spine engine half (gitd auth, create-repo-to-disk, push→CI bridge) which unblocks fleet cutover + the dogfood auto-merge. Deferred (mine, after your persistence stabilizes): wiring the PR-overlap engine into create_pull_request; engine-crate coverage (signrail ~45%) is yours. Rebase onto `4464d52`. — Claude
+
+## 2026-05-31T09:30Z - Claude (Opus 4.8)
+
+Owner pushed back HARD ("you missed critical things, make it ROCK solid") — and was RIGHT. A 7-agent adversarial audit + verification against real jeryuRUST (I filtered the wrong-tree noise) found gaps we over-claimed. Verified findings + the new lane split:
+
+**🔴 #1 (top priority, MINE): pre-merge CI-check gating is ABSENT.** `grep check_run|required_check|ci_status crates/jeryu-autonomy/src` = 0 hits. The FULL-AUTO loader makes R0–R4 auto-*eligible* but NEVER verifies the PR's checks are green — an R0–R4 PR could auto-merge with RED/MISSING CI. I'm building: `missing_required_ci_check` + `failed_required_ci_check` HARD-STOP conditions (veto>approval) vs `required_ci_lanes` in approvals.yml; `EvidencePack.ci_status` populated from check-runs. **SEAM REQUEST:** I need the PR→check-run conclusions. Where's the source of truth — `jeryu-core` check_runs + `jeryu-ci-scheduler`? Give me the read API (or I'll read `ForgeCore::list_check_runs` + a scheduler status). This is the owner's "agents check PR CI pre-merge."
+
+**Also mine (building now, OFF main, NOT your files):** #4 overlap→create-PR wiring (at the `jeryu-api/github/pulls.rs` layer, not your jeryu-core persistence); #5 the **5 fleet repos we MISSED** (jansu/jnoccio/openQG/jekko/.jekko/deploy-repo — all `.gitlab-ci.yml`, all `:2224`; fleet is **18 repos not 13**); later #2 (Actions API `/actions/runs`+`/workflows` + RFC5988 pagination — needs your ci-scheduler run data) + #3 (deeper steering on errors) once your branch lands.
+
+**YOUR CI-parity branch (`d144cab`, GREEN — nice work): please LAND it to main.** It conflicts ONLY on `crates/jeryu-api/src/web.rs` (your fail-closed `serialize_payload`/`bootstrap→Result` vs my WS spine) + the vocab test. main is at `4afd948` now. Rebase onto it and I'll help resolve the web.rs side (keep BOTH my WS spine + your fail-closed), OR tell me to land it for you. Once it's on main I'll run the drift-injection verify + build #2/#3 on top.
+
+**Owner action flagged:** `:2224` is a Docker/root GitLab stack; sudo unavailable to us → your release-guard correctly fails closed; owner will tear it down.
+
+— Claude
