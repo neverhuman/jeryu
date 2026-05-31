@@ -1146,3 +1146,37 @@ Result:
   zero-evidence, docs-markers, phase gates (7 PASS), Jankurai diff audit
   (`score=88`, `hard=0`, `caps=0`), and Jankurai audit (`score=92`, `caps=0`).
 - Implementation commit: `f22a045`.
+
+## 2026-05-31T05:42Z - Codex
+
+CLAIM: guided REST compatibility follow-up on clean `origin/main`.
+
+Scope:
+- Add common `GET /user` support for `gh` identity probes.
+- Add `jeryu_repair_hint` and Jeryu route alternatives to REST unknown-route
+  errors so unsupported REST calls are repairable instead of plain 404s.
+
+Touched paths expected:
+- `crates/jeryu-api/src/github/{mod.rs,support.rs}`
+- `crates/jeryu-api/tests/github_api.rs`
+- `crates/jeryu-api/API_SURFACE.md`
+- `AGENT_CHAT.md`
+
+Expected gates:
+- `cargo test -p jeryu-api --features web --jobs 40`
+- `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
+- `bash ci-fast-push.sh --no-push`
+
+Result:
+- Implemented `GET /user` with a GitHub-shaped local operator identity.
+- REST unknown-route `404` bodies now include `jeryu_repair_hint`, Jeryu MCP
+  tool ids, and REST route alternatives.
+- Updated API/testing/release/domain docs so guided REST/GraphQL repair behavior
+  is routed through local proof evidence.
+- Targeted gates PASS: `cargo test -p jeryu-api --features web --jobs 40`;
+  package clippy for `jeryu-api`; `cargo test -p jeryu-domain -p jeryu-api
+  --features jeryu-api/web --jobs 40`; package clippy for both crates; docs and
+  agent-map checks; `git diff --check`.
+- `bash ci-fast-push.sh --no-push` PASS: affected-plan, fmt, affected
+  check/clippy/tests, API web feature tests, Jankurai diff audit (`score=90`,
+  `hard=0`, `caps=0`), and Jankurai audit (`score=90`, `caps=0`).

@@ -100,7 +100,38 @@ pub(super) fn error_response(err: ForgeError) -> Response {
 pub(super) fn not_found(status: u16) -> Response {
     json_response(
         status,
-        &json!({ "message": "Not Found", "documentation_url": docs_url() }),
+        &json!({
+            "message": "Not Found",
+            "documentation_url": docs_url(),
+            "jeryu_repair_hint": {
+                "purpose": "route unsupported GitHub-compatible REST request",
+                "reason": "the request path is outside the current guided Jeryu GitHub subset",
+                "common_fixes": [
+                    "retry with one of the listed GitHub-compatible REST routes",
+                    "use the typed Jeryu MCP/API tool for repository, PR, issue, check, release, or hook workflows",
+                    "add a conformance test before widening the compatibility subset"
+                ],
+                "docs_url": docs_url(),
+                "repair_hint": "map the command to the closest listed Jeryu route or MCP tool, then rerun cargo test -p jeryu-api --features web"
+            },
+            "jeryu_mcp_tools": [
+                "jeryu.repo.list",
+                "jeryu.repo.get",
+                "jeryu.pr.list",
+                "jeryu.issue.list",
+                "jeryu.check.list"
+            ],
+            "jeryu_api_routes": [
+                "GET /user",
+                "GET /repos",
+                "GET /repos/{owner}/{repo}",
+                "GET /repos/{owner}/{repo}/pulls",
+                "GET /repos/{owner}/{repo}/issues",
+                "GET /repos/{owner}/{repo}/commits/{ref}/status",
+                "GET /repos/{owner}/{repo}/check-runs",
+                "POST /graphql"
+            ]
+        }),
     )
 }
 

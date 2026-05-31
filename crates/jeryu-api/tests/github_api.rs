@@ -36,6 +36,12 @@ fn version_and_health_are_github_shaped() {
     let parsed = body(&version);
     assert_eq!(parsed["version"], jeryu_api::JERYU_API_VERSION);
     assert_eq!(parsed["name"], "jeryu-api");
+
+    let user = router.get("/user");
+    assert_eq!(user.status, 200);
+    let parsed_user = body(&user);
+    assert_eq!(parsed_user["login"], "jeryu");
+    assert_eq!(parsed_user["type"], "User");
 }
 
 #[test]
@@ -278,7 +284,13 @@ fn unmatched_route_returns_404_not_found_body() {
     let router = GithubRouter::new();
     let response = router.handle(Method::Get, "/repos/alice/jeryu/unknown-thing", "");
     assert_eq!(response.status, 404);
-    assert_eq!(body(&response)["message"], "Not Found");
+    let parsed = body(&response);
+    assert_eq!(parsed["message"], "Not Found");
+    assert_eq!(
+        parsed["jeryu_repair_hint"]["purpose"],
+        "route unsupported GitHub-compatible REST request"
+    );
+    assert!(parsed["jeryu_api_routes"].as_array().unwrap().len() >= 6);
 }
 
 #[test]

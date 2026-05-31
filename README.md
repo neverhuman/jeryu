@@ -64,7 +64,8 @@ cargo run -p jeryu-api --features web -- web serve \
 ```
 
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
-`/api/v1/repos`, basic source/README/markdown routes, and `/api/v1/ws`.
+`/api/v1/repos`, basic source/README/markdown routes, `/api/v1/ws`, and the
+guided GitHub-compatible `/user` and `/graphql` routes.
 `~/.local/share/jeryu` is intentionally separate from the legacy
 `~/.jeryu` config/secrets tree.
 

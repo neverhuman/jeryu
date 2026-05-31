@@ -109,6 +109,17 @@ impl GithubRouter {
                 200,
                 &json!({ "version": JERYU_API_VERSION, "name": "jeryu-api" }),
             )),
+            (Get, ["user"]) => Ok(json_response(
+                200,
+                &json!({
+                    "login": "jeryu",
+                    "id": 1,
+                    "node_id": "U_jeryu",
+                    "type": "User",
+                    "name": "Jeryu Local Operator",
+                    "url": "/user",
+                }),
+            )),
             (Post, ["graphql"]) => Ok(self.graphql(body)),
 
             // Repositories ---------------------------------------------------

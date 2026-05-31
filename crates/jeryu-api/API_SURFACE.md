@@ -23,7 +23,7 @@ Jeryu's own parity assertions, not vendored from any external spec. The
 `GithubRouter::handle(method, path, body)` dispatcher keeps the in-process
 `Response` contract used by conformance tests and embedding callers.
 
-- `GET /health`, `GET /api/v1/version`
+- `GET /health`, `GET /api/v1/version`, `GET /user`
 - `GET /repos`, `POST /repos`, `GET /repos/{owner}/{repo}`
 - `GET /repos/{o}/{r}/pulls`, `POST /repos/{o}/{r}/pulls`,
   `GET /repos/{o}/{r}/pulls/{number}`, `PUT /repos/{o}/{r}/pulls/{number}/merge`
@@ -43,7 +43,8 @@ Status contract: `200` reads, `201` creates, `404` for unknown repos / PRs and
 unmatched routes, `422` for invalid bodies / paths / conflicts, `405` when a
 pull request is blocked by branch protection, and `501` for unsupported
 GraphQL operations. Requests outside this table return a GitHub-shaped `404`
-error object.
+error object with `jeryu_repair_hint`, MCP tool ids, and REST route
+alternatives.
 
 ## Local live web feature
 

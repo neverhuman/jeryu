@@ -59,10 +59,16 @@ pub fn agent_friendly_exception_docs_url() -> &'static str {
     exception_pattern().docs_url
 }
 
+/// Return the common local fixes for the agent-friendly exception contract.
+pub fn agent_friendly_exception_common_fixes() -> &'static [&'static str] {
+    exception_pattern().common_fixes
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        AGENT_FRIENDLY_EXCEPTION_REQUIRED_FIELDS, JeryuError, agent_friendly_exception_docs_url,
+        AGENT_FRIENDLY_EXCEPTION_REQUIRED_FIELDS, JeryuError,
+        agent_friendly_exception_common_fixes, agent_friendly_exception_docs_url,
         agent_friendly_exception_pattern, exception_pattern, repair_hint,
     };
 
@@ -99,5 +105,10 @@ mod tests {
         );
         assert_eq!(agent_friendly_exception_pattern(), exception_pattern());
         assert_eq!(agent_friendly_exception_docs_url(), "docs/errors.md");
+        assert!(
+            agent_friendly_exception_common_fixes()
+                .iter()
+                .any(|fix| fix.contains("proof lane"))
+        );
     }
 }

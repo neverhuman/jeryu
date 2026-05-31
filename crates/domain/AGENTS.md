@@ -8,6 +8,8 @@ Forbidden:
 - Host-provider compatibility aliases.
 - String-scraped error handling.
 - Mutation paths without proof, receipt, or policy reason evidence.
+- API compatibility errors that omit the typed repair fields exposed by this
+  crate.
 
 Proof lane:
 - `cargo test -p jeryu-domain --jobs 40`

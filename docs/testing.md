@@ -17,6 +17,9 @@ Repair evidence:
 - Every failed lane must print the exact rerun command and the local artifact path when one exists.
 - Common fixes are routed through `agent/test-map.json`; use the narrowest lane for the changed path before running `just full`.
 - Repair hint: if a Jankurai finding names a path, first run `jankurai diff-audit --base-ref origin/main .`, then the mapped proof command for that path.
+- Unsupported GitHub-compatible REST or GraphQL requests must return a
+  `jeryu_repair_hint` with route/tool alternatives and a local rerun command;
+  widen the subset only with `jeryu-api` conformance tests.
 
 Budget and stop conditions:
 - Default local CI uses 40 workers and should finish quickly on this workspace; if a lane exceeds 20 minutes, stop and split it into a narrower proof lane.

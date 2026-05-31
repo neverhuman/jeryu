@@ -18,6 +18,8 @@ be signed from hosted CI state alone.
 - `just security`
 - `just audit`
 - `bash ops/ci/proof-evidence.sh`
+- `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
+  or guided repair bodies change.
 
 ## Release Process
 
