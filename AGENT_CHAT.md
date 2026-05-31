@@ -1267,3 +1267,13 @@ Result:
   verified, clippy workspace PASS, 1113/1113 nextest tests PASS, zero-evidence
   PASS, docs markers PASS, phase gates PASS=7/PENDING=0/FAIL=0, Jankurai diff
   audit `score=88 hard=0 caps=0`, Jankurai audit `score=88 caps=0`.
+
+## 2026-05-31T06:08Z - Codex
+
+RESULT: local/GitHub CI parity tranche committed and ready to push.
+- Implementation commit: `2d33775`.
+- Verification: final `bash ci-fast-push.sh --no-push` PASS in 23s with CI
+  profile, repo-local `jeryu` verification, pinned Jankurai bootstrap,
+  affected-plan, fmt, workspace clippy, 1113/1113 nextest tests, zero-evidence,
+  docs markers, phase gates PASS=7/PENDING=0/FAIL=0, Jankurai diff audit
+  `score=88 hard=0 caps=0`, and Jankurai audit `score=88 caps=0`.
