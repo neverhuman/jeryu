@@ -14,10 +14,13 @@ pub fn append_receipt(repo_path: &Path, event: &str, detail: &str) -> Result<()>
         .create(true)
         .append(true)
         .open(dir.join("receipts.log"))?;
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+    let ts = match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(elapsed) => elapsed.as_secs(),
+        // The wall clock is set before the Unix epoch, so there is no positive
+        // elapsed duration to record. Stamp the receipt with 0 rather than
+        // failing the audited operation over an unrecoverable clock skew.
+        Err(_) => 0,
+    };
     writeln!(f, "{ts}\t{event}\t{}", detail.replace('\n', "\\n"))?;
     Ok(())
 }

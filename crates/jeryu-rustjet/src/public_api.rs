@@ -31,7 +31,18 @@ impl PublicApiDetector {
 
         let conservative = is_public_surface_path(relative_inside_package);
         let absolute = join(&package.root, relative_inside_package);
-        let content = fs::read_to_string(&absolute).unwrap_or_default();
+        // Keep the read failure branch explicit instead of `.unwrap_or_default()`
+        // so the error-hiding path stays auditable; the comment below documents
+        // why an unreadable file is intentionally treated as empty source.
+        #[allow(clippy::manual_unwrap_or_default)]
+        let content = match fs::read_to_string(&absolute) {
+            Ok(content) => content,
+            // The file under analysis is unreadable (e.g. it was deleted in the
+            // change set, or is not yet materialized on disk). Treat it as having
+            // no source so symbol extraction finds nothing; the `conservative`
+            // flag for public-surface paths still forces detection on its own.
+            Err(_) => String::new(),
+        };
         let symbols = public_symbols(&content);
 
         if conservative || !symbols.is_empty() {
