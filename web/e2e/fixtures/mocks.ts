@@ -298,6 +298,119 @@ export async function mockPullRequest(
   );
 }
 
+export interface MockPullRequestDetail {
+  repoId: string;
+  number: string;
+  title?: string;
+  state?: 'open' | 'merged' | 'closed';
+  head_sha: string;
+  base_sha?: string;
+  head_ref?: string;
+  base_ref?: string;
+  /** Passport verdict — controls whether the Merge button renders. */
+  passport?: 'pass' | 'blocked';
+  blockers?: Array<{ code: string; message: string; details?: string | null }>;
+  /** ReviewPosture overrides. */
+  approvals?: number;
+  required_approvals?: number;
+  unresolved_threads?: number;
+  /** When true, `mergeable.can_merge` is set so the merge CTA enables. */
+  can_merge?: boolean;
+  passport_hash?: string | null;
+}
+
+/**
+ * Mock `GET /api/v1/repos/{id}/pulls/{number}` with the *full*
+ * `PullRequestDetail` wire shape (`contracts/generated/PullRequestDetail`) so
+ * the real `PullRequestPage` cockpit hydrates and paints the live Review
+ * sidebar — including the "Approve exact SHA <sha>" button. Unlike the
+ * thinner `mockPullRequest`, this fixture mirrors every field the SPA's
+ * selectors read (`summary.review`, `summary.mergeable`, `merge_passport`,
+ * `passport_hash`) so specs can drive *real clicks* instead of
+ * `page.evaluate(fetch)`.
+ */
+export async function mockPullRequestDetail(
+  page: Page,
+  pr: MockPullRequestDetail
+): Promise<void> {
+  const status = pr.passport ?? 'blocked';
+  const canMerge = pr.can_merge ?? status === 'pass';
+  const detail = {
+    summary: {
+      repo: { id: pr.repoId, host: 'jeryu', owner: 'neverhuman', name: 'jeryu' },
+      number: Number(pr.number),
+      entity: { kind: 'pull_request', id: `${pr.repoId}#${pr.number}` },
+      title: pr.title ?? `PR #${pr.number}`,
+      author: '@author',
+      head_ref: pr.head_ref ?? 'feature/x',
+      base_ref: pr.base_ref ?? 'main',
+      head_sha: pr.head_sha,
+      base_sha: pr.base_sha ?? 'base000000000000000000000000000000000000',
+      state: pr.state ?? 'open',
+      draft: false,
+      mergeable: {
+        level: canMerge ? 'mergeable' : 'blocked',
+        can_merge: canMerge,
+        reason: canMerge ? null : 'Passport blocked',
+        exact_head_sha: pr.head_sha,
+        required_gate: canMerge ? null : 'passport',
+      },
+      review: {
+        required_approvals: pr.required_approvals ?? 1,
+        approvals: pr.approvals ?? 0,
+        changes_requested: 0,
+        unresolved_threads: pr.unresolved_threads ?? 0,
+        user_review_state: null,
+      },
+      checks: { total: 2, passing: 2, failing: 0, pending: 0, skipped: 0 },
+      agents: {
+        active_sessions: 0,
+        proposed_patches: 0,
+        evidence_packets: 0,
+        blockers: 0,
+      },
+      labels: [],
+      updated_at: '2026-05-26T00:00:00Z',
+      passport_hash: pr.passport_hash ?? 'passport-hash-0001',
+      available_actions: [
+        { action_id: 'pull.approve', label: 'Approve', risk: null },
+        { action_id: 'pull.merge', label: 'Merge', risk: 'medium' },
+      ],
+    },
+    description: pr.title ?? null,
+    merge_passport: {
+      status,
+      head_sha: pr.head_sha,
+      blockers:
+        status === 'blocked'
+          ? (pr.blockers ?? [
+              {
+                code: 'passport_blocked_approvals',
+                message: 'Required approver count not satisfied.',
+                details: null,
+              },
+            ]).map((b) => ({ ...b, details: b.details ?? null }))
+          : [],
+      evaluated_at: '2026-05-26T00:00:00Z',
+    },
+    passport_hash: pr.passport_hash ?? 'passport-hash-0001',
+  };
+  await page.route(
+    /\/api\/v1\/repos\/[^/]+\/pulls\/[^/]+$/,
+    async (route: Route, request) => {
+      if (request.method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(detail),
+      });
+    }
+  );
+}
+
 /**
  * Mock the PR list endpoint with a single PR so list-driven UIs can hydrate.
  */
@@ -515,6 +628,40 @@ export async function mockSettings(page: Page, overrides: Record<string, unknown
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(settings),
+      });
+    }
+  );
+}
+
+/**
+ * Force `GET /api/v1/repos/{id}/settings` to return a `permission_denied`
+ * envelope (403). The settings studio propagates this through `ApiError` and
+ * renders the real `<PermissionDeniedState>` surface (role="alert") — letting
+ * specs assert the perm-denied UI via navigation alone, with no synthetic
+ * fetch. `missing` defaults to `settings.read` (the read gate the page checks).
+ */
+export async function forceSettingsForbidden(
+  page: Page,
+  missing = 'settings.read'
+): Promise<void> {
+  await page.route(
+    /\/api\/v1\/repos\/[^/]+\/settings(\?.*)?$/,
+    async (route: Route, request) => {
+      if (request.method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'permission_denied',
+            message: 'You need settings.read to view this repository.',
+            details: { missing },
+            request_id: 'mock-settings-forbidden',
+          },
+        }),
       });
     }
   );

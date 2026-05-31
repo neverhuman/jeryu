@@ -20,7 +20,13 @@ import {
   persistAxeResult,
   runAxe,
 } from './fixtures/accessibility';
-import { mockBootstrap, mockRepoLookup } from './fixtures/mocks';
+import {
+  mockBootstrap,
+  mockFleetBootstrap,
+  mockPullRequestDetail,
+  mockRepoList,
+  mockRepoLookup,
+} from './fixtures/mocks';
 
 test.describe.configure({ retries: 1 });
 
@@ -95,4 +101,75 @@ test.describe('Accessibility scans (W-T-18)', () => {
       ).toBeLessThanOrEqual(25);
     });
   }
+});
+
+/**
+ * Shared scan + persist + budget assertion so the extra-surface scans below
+ * apply the same Phase-3-tolerant gate (≤ 25 serious/critical rule
+ * violations) and write the same `target/jankurai/ux-qa/<scope>.axe.json`
+ * artifact the parametrized scans do.
+ */
+async function scanAndAssert(
+  page: import('@playwright/test').Page,
+  scope: string
+): Promise<void> {
+  const result = await runAxe(page, { disableRules: ['color-contrast'] });
+  await persistAxeResult(scope, result);
+  const blockers = blockingViolations(result);
+  if (blockers.length > 0) {
+    const summary = blockers
+      .map((v) => `${v.impact ?? '?'} ${v.id} (${v.nodes.length} node(s)) — ${v.help}`)
+      .join('\n');
+    console.warn(`axe findings on ${scope}:\n${summary}`);
+  }
+  expect(
+    blockers.length,
+    `axe blocker budget exceeded on ${scope}: ` +
+      blockers.map((v) => v.id).join(', ')
+  ).toBeLessThanOrEqual(25);
+}
+
+test.describe('Accessibility scans — operator + cockpit surfaces (W-T-18)', () => {
+  test('axe scan: Fleet operator dashboard', async ({ page }) => {
+    // /fleet hydrates from the bootstrap `tui` snapshot; a saturated pool
+    // forces the alert banner so the scan covers the populated state.
+    await mockFleetBootstrap(page, [
+      { pool: 'trusted', running_jobs: 1, active_slots: 4, online_runners: 4 },
+      {
+        pool: 'isolated',
+        running_jobs: 2,
+        active_slots: 2,
+        queued_jobs: 5,
+        online_runners: 2,
+      },
+    ]);
+
+    await page.goto('/fleet');
+    await expect(page.getByTestId('fleet-page')).toBeVisible({ timeout: 15_000 });
+    await scanAndAssert(page, 'fleet');
+  });
+
+  test('axe scan: PR review cockpit', async ({ page }) => {
+    // The PR cockpit's three-pane layout (files / diff / review sidebar +
+    // recovery banner roles) is the densest interactive surface; scan it in
+    // its hydrated, Passport-blocked state.
+    const repo = { host: 'jeryu', owner: 'neverhuman', name: 'jeryu' } as const;
+    const repoId = `${repo.host}:${repo.owner}/${repo.name}`;
+    await mockBootstrap(page);
+    await mockRepoList(page, [{ id: repo, default_branch: 'main' }]);
+    await mockPullRequestDetail(page, {
+      repoId,
+      number: '99',
+      title: 'A11y cockpit scan',
+      head_sha: '1111111111111111111111111111111111111111',
+      passport: 'blocked',
+      unresolved_threads: 2,
+    });
+
+    await page.goto(`/repos/${repo.host}/${repo.owner}%2F${repo.name}/pulls/99`);
+    await expect(
+      page.getByRole('heading', { name: /PR #99: A11y cockpit scan/i })
+    ).toBeVisible({ timeout: 15_000 });
+    await scanAndAssert(page, 'pr-cockpit');
+  });
 });

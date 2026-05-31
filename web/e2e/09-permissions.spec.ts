@@ -1,28 +1,26 @@
 // 09-permissions.spec.ts — permission-denied UI state (W-T-17).
 //
 // The SPA renders one of three permission-related surfaces based on the
-// viewer's global_permissions:
+// viewer's perms + the backend verdict:
 //   * Full surface — viewer has every relevant perm.
-//   * `PermissionDeniedState` — viewer lacks a perm (e.g. only `repo.read`,
-//     missing `pr.approve` / `settings.write`).
-//   * `ErrorState` — backend 403 propagated through `ApiError`.
+//   * `PermissionDeniedState` — a read-gated query returns 403 (the canonical
+//     §35.1.5 perm-denied surface; `role="alert"`, "Permission denied" + the
+//     missing key).
+//   * `ErrorState` — a non-403 backend failure.
 //
-// Phase-3 status: the SPA does not yet gate every action button on the
-// viewer's permissions (W-FE-13 outstanding). This spec asserts the
-// surfaces we CAN test today:
-//   1. The SPA boots cleanly with a restricted viewer (no Error Boundary).
-//   2. A mutating endpoint called on behalf of the restricted viewer
-//      surfaces a permission_denied envelope when the backend rejects
-//      it — proving the perm-gate runs server-side (the canonical
-//      enforcement point per §35.1.5).
-//   3. Pages still render their primary surface (heading or error state)
-//      so navigation remains accessible.
+// This spec drives the REAL UI (no synthetic `page.evaluate(fetch)` for the
+// primary assertion): a restricted viewer navigating to a settings page whose
+// read-gated GET returns 403 sees the real `PermissionDeniedState` rendered.
+// A second test pins the canonical server-side gate by asserting a mutating
+// PATCH is rejected with `permission_denied`, proving enforcement is
+// server-authoritative per §35.1.5.
 
 import { expect, test } from '@playwright/test';
 
 import {
+  forceSettingsForbidden,
   mockBootstrap,
-  mockRepoLookup,
+  mockRepoList,
   mockSettings,
 } from './fixtures/mocks';
 
@@ -30,21 +28,49 @@ test.describe.configure({ retries: 1 });
 
 const REPO = { host: 'jeryu', owner: 'neverhuman', name: 'jeryu' } as const;
 const REPO_ID = `${REPO.host}:${REPO.owner}/${REPO.name}`;
+const SETTINGS_URL = `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/settings/general`;
 
 test.describe('Permission-denied UI state (W-T-17)', () => {
-  test('restricted viewer boots SPA and is rejected on mutating call', async ({ page }) => {
+  test('restricted viewer navigating to settings sees the real PermissionDeniedState', async ({
+    page,
+  }) => {
     await mockBootstrap(page, {
       login: '@reader',
       display_name: 'Read-only Reader',
       global_permissions: ['repo.read'],
     });
-    await mockRepoLookup(page, { id: REPO, default_branch: 'main' });
+    // Resolve the repo from the list, then force the read-gated settings GET
+    // to 403 so the page renders the real permission-denied surface.
+    await mockRepoList(page, [{ id: REPO, default_branch: 'main' }]);
+    await forceSettingsForbidden(page, 'settings.read');
+
+    await page.goto(SETTINGS_URL);
+
+    // The real `PermissionDeniedState` component renders (no Error Boundary,
+    // no synthetic fetch): role="alert", "Permission denied" heading, and the
+    // missing-permission detail line.
+    const denied = page
+      .getByRole('alert')
+      .filter({ hasText: /Permission denied/i });
+    await expect(denied).toBeVisible({ timeout: 15_000 });
+    await expect(denied).toContainText(/missing:\s*settings\.read/i);
+  });
+
+  test('mutating PATCH is rejected server-side with permission_denied', async ({
+    page,
+  }) => {
+    await mockBootstrap(page, {
+      login: '@reader',
+      display_name: 'Read-only Reader',
+      global_permissions: ['repo.read'],
+    });
+    await mockRepoList(page, [{ id: REPO, default_branch: 'main' }]);
     await mockSettings(page);
 
-    // Force the BFF settings PATCH to return permission_denied so the
-    // server-side gate is exercised even when the SPA would otherwise
-    // let the click through. This is the canonical §35.1.5 surface for
-    // perm-denied actions.
+    // Force the settings PATCH to return permission_denied so the canonical
+    // §35.1.5 server-side gate is exercised. (The SPA does not yet gate every
+    // mutating button on the viewer's perms — W-FE-13 — so the server gate is
+    // the authoritative enforcement point we assert here.)
     await page.route(
       /\/api\/v1\/repos\/[^/]+\/settings$/,
       async (route, request) => {
@@ -67,28 +93,16 @@ test.describe('Permission-denied UI state (W-T-17)', () => {
       }
     );
 
-    // Repositories page boots without crashing.
-    await page.goto('/repos');
+    // The settings page boots (its read GET is mocked 200) without crashing.
+    await page.goto(SETTINGS_URL);
     await expect(
-      page
-        .locator('h1', { hasText: /Repositories|Repos/i })
-        .or(page.locator('[role="alert"]'))
-    ).toBeVisible({ timeout: 15_000 });
-
-    // Settings page boots without crashing.
-    await page.goto(
-      `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/settings/general`
-    );
-    await expect(
-      page
-        .locator('h1')
-        .first()
-        .or(page.locator('[role="alert"]'))
+      page.locator('h1').first().or(page.getByRole('alert'))
     ).toBeVisible({ timeout: 15_000 });
 
     // Drive the mutating call from the page's network stack so the
     // `page.route(...)` mock fires (page.request.* uses an isolated
-    // APIRequestContext that bypasses interception).
+    // APIRequestContext that bypasses interception). This proves the
+    // server-side perm gate runs even when the SPA lets the click through.
     const patchRes = await page.evaluate(async (url) => {
       const r = await fetch(url, {
         method: 'PATCH',
@@ -112,11 +126,15 @@ test.describe('Permission-denied UI state (W-T-17)', () => {
     const body = patchRes.body as {
       error?: { code?: string; details?: { missing?: string } };
     };
+    // This is exactly the surface a mutation hook branches on
+    // (`err.code === 'permission_denied'`).
     expect(body.error?.code).toBe('permission_denied');
     expect(body.error?.details?.missing).toBe('settings.write');
   });
 
-  test('bootstrap reflects restricted viewer global_permissions', async ({ page }) => {
+  test('bootstrap reflects restricted viewer global_permissions', async ({
+    page,
+  }) => {
     await mockBootstrap(page, {
       login: '@reader',
       global_permissions: ['repo.read'],
@@ -134,5 +152,4 @@ test.describe('Permission-denied UI state (W-T-17)', () => {
     expect(body.viewer?.login).toBe('@reader');
     expect(body.viewer?.global_permissions).toEqual(['repo.read']);
   });
-
 });

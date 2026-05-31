@@ -1,85 +1,65 @@
 // 06-approve-sha.spec.ts — exact-SHA approval flow + stale conflict (W-T-14).
 //
-// Two-tier smoke around the §35.1.7 "approve at exact SHA" contract:
+// Drives the §35.1.7 "approve at exact SHA" contract through the REAL PR
+// cockpit UI (no `page.evaluate(fetch)`): we hydrate the page with the full
+// `PullRequestDetail` wire shape, click the "Approve exact SHA <sha>" button
+// in the Review sidebar, and assert the SPA's resulting surface.
 //
-//   1. The API accepts `POST /api/v1/repos/{id}/pulls/{number}/approve`
-//      with the head SHA in the body and returns `204` on success — we
-//      mock the success case and assert the SPA receives 204.
+//   1. Success path — the approve endpoint returns the updated detail (200);
+//      the SPA swaps in the new copy and shows NO recovery banner.
 //
-//   2. When the head moves between page load and the approve click, the
-//      API returns `409 merge_sha_stale` with both `expected_sha` and
-//      `current_sha`. We force that case via `forceStaleSha` and assert
-//      the SPA surfaces the conflict envelope.
+//   2. Stale path — when the head moved since page load, the approve endpoint
+//      returns `409 merge_sha_stale` with `expected_sha` / `current_sha`. The
+//      cockpit must surface its recovery banner (role="alert") naming the SHA
+//      drift (old → new) with a Refresh button.
 //
-// Implementation note: `page.request.*` runs on an isolated
-// `APIRequestContext` that does NOT respect `page.route(...)` mocks. We
-// drive the calls from inside the page (`page.evaluate(fetch)`) so the
-// route interceptors fire. The live API is only consulted by the route
-// fallthrough — the spec works in fully-mocked mode regardless of
-// Phase 3 backend state.
+// The Approve button always carries the head SHA the reviewer saw
+// (`ReviewSidebar` reads `detail.summary.head_sha`), so clicking it is the
+// real driver of the exact-SHA body the backend gates on.
 
 import { expect, test } from '@playwright/test';
 
 import {
   forceStaleSha,
   mockBootstrap,
-  mockPullRequest,
-  mockRepoLookup,
+  mockPullRequestDetail,
+  mockRepoList,
 } from './fixtures/mocks';
 
 test.describe.configure({ retries: 1 });
 
 const REPO = { host: 'jeryu', owner: 'neverhuman', name: 'jeryu' } as const;
+const REPO_ID = `${REPO.host}:${REPO.owner}/${REPO.name}`;
 const PR_NUMBER = '99';
 const OLD_SHA = '1111111111111111111111111111111111111111';
 const NEW_SHA = '2222222222222222222222222222222222222222';
-const REPO_ID = `${REPO.host}:${REPO.owner}/${REPO.name}`;
+const PR_URL = `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/pulls/${PR_NUMBER}`;
 
-interface ApproveResult {
-  status: number;
-  body: unknown;
-}
-
-async function approveFromPage(
-  page: import('@playwright/test').Page,
-  url: string,
-  headSha: string
-): Promise<ApproveResult> {
-  return page.evaluate(
-    async ([approveUrl, sha]) => {
-      const res = await fetch(approveUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': 'e2e-csrf',
-        },
-        body: JSON.stringify({ head_sha: sha }),
-      });
-      const text = await res.text();
-      let parsed: unknown = text;
-      try {
-        parsed = text.length > 0 ? JSON.parse(text) : null;
-      } catch {
-        parsed = text;
-      }
-      return { status: res.status, body: parsed };
-    },
-    [url, headSha] as const
-  );
+/** Locate the Approve button by its exact-SHA label (`head_sha.slice(0,7)`). */
+function approveButton(page: import('@playwright/test').Page) {
+  return page.getByRole('button', {
+    name: new RegExp(`Approve exact SHA ${OLD_SHA.slice(0, 7)}`, 'i'),
+  });
 }
 
 test.describe('Approve at exact SHA (W-T-14)', () => {
-  test('success path returns 204 (mocked happy path)', async ({ page }) => {
+  test('clicking Approve on the cockpit succeeds and shows no recovery banner', async ({
+    page,
+  }) => {
     await mockBootstrap(page);
-    await mockRepoLookup(page, { id: REPO, default_branch: 'main' });
-    await mockPullRequest(page, {
+    // The list mock lets `useResolveRepo` map the URL to the backend repo id.
+    await mockRepoList(page, [{ id: REPO, default_branch: 'main' }]);
+    await mockPullRequestDetail(page, {
+      repoId: REPO_ID,
       number: PR_NUMBER,
       title: 'Approve happy path',
-      state: 'open',
       head_sha: OLD_SHA,
+      passport: 'blocked',
     });
 
-    // Mock the approve endpoint to return 204 (per §35.1.7 contract).
+    // Approve endpoint accepts the exact head SHA and returns the (now
+    // approved) detail. We echo back a 1-approval posture so the success
+    // path is observable in the sidebar.
     await page.route(
       /\/api\/v1\/repos\/[^/]+\/pulls\/[^/]+\/approve$/,
       async (route, req) => {
@@ -87,70 +67,133 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
           await route.continue();
           return;
         }
-        const body = JSON.parse(req.postData() ?? '{}') as { head_sha?: string };
-        if (body.head_sha !== OLD_SHA) {
-          await route.fulfill({
-            status: 409,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              error: {
-                code: 'merge_sha_stale',
-                message: 'head moved',
-                details: { expected_sha: OLD_SHA, current_sha: NEW_SHA },
+        const body = JSON.parse(req.postData() ?? '{}') as {
+          expected_head_sha?: string;
+        };
+        // The body must carry the exact SHA the reviewer saw.
+        expect(body.expected_head_sha).toBe(OLD_SHA);
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            summary: {
+              repo: {
+                id: REPO_ID,
+                host: 'jeryu',
+                owner: 'neverhuman',
+                name: 'jeryu',
               },
-            }),
-          });
-          return;
-        }
-        await route.fulfill({ status: 204, body: '' });
+              number: Number(PR_NUMBER),
+              entity: { kind: 'pull_request', id: `${REPO_ID}#${PR_NUMBER}` },
+              title: 'Approve happy path',
+              author: '@author',
+              head_ref: 'feature/x',
+              base_ref: 'main',
+              head_sha: OLD_SHA,
+              base_sha: 'base000000000000000000000000000000000000',
+              state: 'open',
+              draft: false,
+              mergeable: {
+                level: 'blocked',
+                can_merge: false,
+                reason: 'Passport blocked',
+                exact_head_sha: OLD_SHA,
+                required_gate: 'passport',
+              },
+              review: {
+                required_approvals: 1,
+                approvals: 1,
+                changes_requested: 0,
+                unresolved_threads: 0,
+                user_review_state: 'approved',
+              },
+              checks: {
+                total: 2,
+                passing: 2,
+                failing: 0,
+                pending: 0,
+                skipped: 0,
+              },
+              agents: {
+                active_sessions: 0,
+                proposed_patches: 0,
+                evidence_packets: 0,
+                blockers: 0,
+              },
+              labels: [],
+              updated_at: '2026-05-26T00:00:00Z',
+              passport_hash: 'passport-hash-0001',
+              available_actions: [],
+            },
+            description: null,
+            merge_passport: {
+              status: 'blocked',
+              head_sha: OLD_SHA,
+              blockers: [
+                {
+                  code: 'passport_blocked_checks',
+                  message: 'Required checks failing.',
+                  details: null,
+                },
+              ],
+              evaluated_at: '2026-05-26T00:00:00Z',
+            },
+            passport_hash: 'passport-hash-0001',
+          }),
+        });
       }
     );
 
-    // Navigate so page.route registrations are active, then drive the
-    // approve endpoint via the page's network stack (which respects
-    // route interceptors).
-    await page.goto(
-      `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/pulls/${PR_NUMBER}`
-    );
+    await page.goto(PR_URL);
 
-    const res = await approveFromPage(
-      page,
-      `/api/v1/repos/${encodeURIComponent(REPO_ID)}/pulls/${PR_NUMBER}/approve`,
-      OLD_SHA
-    );
+    // The cockpit hydrates: the PR title heading + the exact-SHA approve CTA.
+    await expect(
+      page.getByRole('heading', { name: /PR #99: Approve happy path/i })
+    ).toBeVisible({ timeout: 15_000 });
+    const approve = approveButton(page);
+    await expect(approve).toBeVisible();
 
-    expect(
-      res.status,
-      `approve returned ${res.status}`
-    ).toBe(204);
+    await approve.click();
+
+    // Success: the sidebar reflects the new approval posture and NO recovery
+    // banner appears (the banner only renders on a 409 drift).
+    await expect(page.locator('.review-sidebar__approvals')).toHaveText(
+      /1\/1 approvals/,
+      { timeout: 10_000 }
+    );
+    await expect(page.locator('.pr-cockpit__recovery')).toHaveCount(0);
   });
 
-  test('stale SHA path surfaces 409 + sha details', async ({ page }) => {
+  test('clicking Approve on a stale head surfaces the SHA-drift recovery banner', async ({
+    page,
+  }) => {
     await mockBootstrap(page);
-    await mockRepoLookup(page, { id: REPO, default_branch: 'main' });
-    await mockPullRequest(page, {
+    await mockRepoList(page, [{ id: REPO, default_branch: 'main' }]);
+    await mockPullRequestDetail(page, {
+      repoId: REPO_ID,
       number: PR_NUMBER,
       title: 'Approve stale path',
-      state: 'open',
       head_sha: OLD_SHA,
+      passport: 'blocked',
     });
+    // The approve POST returns 409 merge_sha_stale with expected/current SHA.
     await forceStaleSha(page, OLD_SHA, NEW_SHA);
 
-    await page.goto(
-      `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/pulls/${PR_NUMBER}`
-    );
+    await page.goto(PR_URL);
+    await expect(
+      page.getByRole('heading', { name: /PR #99: Approve stale path/i })
+    ).toBeVisible({ timeout: 15_000 });
 
-    const res = await approveFromPage(
-      page,
-      `/api/v1/repos/${encodeURIComponent(REPO_ID)}/pulls/${PR_NUMBER}/approve`,
-      OLD_SHA
-    );
-    expect(res.status).toBe(409);
-    const body = res.body as {
-      error?: { code?: string; details?: Record<string, unknown> };
-    };
-    expect(body.error?.code).toBe('merge_sha_stale');
-    expect(body.error?.details?.expected_sha).toBe(OLD_SHA);
-    expect(body.error?.details?.current_sha).toBe(NEW_SHA);
+    await approveButton(page).click();
+
+    // The cockpit recovery banner appears (role="alert"), names the SHA
+    // drift, and renders both the old + new short SHAs with a Refresh CTA.
+    const banner = page.locator('.pr-cockpit__recovery');
+    await expect(banner).toBeVisible({ timeout: 10_000 });
+    await expect(banner).toHaveAttribute('role', 'alert');
+    await expect(banner).toContainText(/Head SHA changed/i);
+    await expect(banner.locator('code').first()).toHaveText(OLD_SHA.slice(0, 7));
+    await expect(banner.locator('code').nth(1)).toHaveText(NEW_SHA.slice(0, 7));
+    await expect(banner.getByRole('button', { name: /Refresh/i })).toBeVisible();
   });
 });
