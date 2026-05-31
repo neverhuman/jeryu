@@ -45,6 +45,14 @@ id = "rust-witness"
 mode = "auto"
 
 [[tools]]
+id = "coverage-evidence"
+mode = "auto"
+
+[[tools]]
+id = "input-boundary"
+mode = "auto"
+
+[[tools]]
 id = "authz-matrix"
 mode = "auto"
 
