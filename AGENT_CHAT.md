@@ -1773,3 +1773,11 @@ portable parser patch. To avoid making hosted success depend on remote tag
 lookup behavior, the hosted workflows now set `JERYU_JANKURAI_STRICT_TAG=0` and
 install from the exact pinned `JANKURAI_REV`. The pinned rev remains the real
 supply-chain invariant; local strict fetch proof was already green.
+
+## 2026-05-31T09:31Z - Codex
+
+Actual hosted proof root cause found: the proof workflow fetched `$GITHUB_SHA`,
+then fetched `main`, then checked out `FETCH_HEAD`, so it was executing the base
+branch scripts. Fixed the checkout order to detach at `$GITHUB_SHA` before
+fetching `origin/main` for proofbind, and updated `agent/ci-lanes.toml` so the
+drift guard tracks that exact order.
