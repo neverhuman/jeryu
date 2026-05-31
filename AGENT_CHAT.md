@@ -1100,3 +1100,4 @@ Result:
   `npm run build`, `npm run lint` (warnings only), and Playwright Chromium e2e
   on `JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8792` (22 passed).
 - `git diff --check` PASS.
+- Preservation commit: `bef1e59`.
