@@ -6,6 +6,7 @@
     "ci-fast-push.sh": "ops",
     ".gitignore": "workspace",
     ".cargo/": "workspace",
+    ".config/nextest.toml": "ops",
     ".github/": "ops",
     "AGENTS.md": "docs",
     "CHANGELOG.md": "docs",

@@ -14,31 +14,12 @@
 
 use jeryu_sandbox_linux::capability::SandboxCapabilities;
 use jeryu_sandbox_linux::seccomp_rules;
-use nix::sys::wait::{WaitStatus, waitpid};
+use nix::sys::wait::waitpid;
 use nix::unistd::{ForkResult, fork};
 use seccompiler::TargetArch;
 use std::path::{Path, PathBuf};
 
-/// Verdict for one escape attempt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Verdict {
-    /// The escape was blocked by the kernel primitive (the desired outcome).
-    Blocked,
-    /// The escape SUCCEEDED — a true sandbox breach. Always a test failure.
-    Escaped,
-    /// The primitive is genuinely unavailable on this host; skipped honestly.
-    Skipped,
-}
-
-impl Verdict {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Blocked => "blocked",
-            Self::Escaped => "escaped",
-            Self::Skipped => "skipped",
-        }
-    }
-}
+use jeryu_sandbox_linux::{EscapeVerdict as Verdict, run_in_forked_child as run_child};
 
 struct EscapeResult {
     name: &'static str,
@@ -62,26 +43,6 @@ fn target_arch() -> TargetArch {
         "aarch64" => TargetArch::aarch64,
         "riscv64" => TargetArch::riscv64,
         _ => TargetArch::x86_64,
-    }
-}
-
-/// Run `body` in a forked child and interpret its exit code.
-/// Exit 0 => Blocked, 1 => Escaped, 2 => Skipped (child decided), other => Escaped.
-fn run_child<F: FnOnce() -> u8>(body: F) -> Verdict {
-    match unsafe { fork() } {
-        Ok(ForkResult::Child) => {
-            let code = body();
-            unsafe { libc::_exit(code as i32) };
-        }
-        Ok(ForkResult::Parent { child }) => match waitpid(child, None) {
-            Ok(WaitStatus::Exited(_, 0)) => Verdict::Blocked,
-            Ok(WaitStatus::Exited(_, 2)) => Verdict::Skipped,
-            // Killed by a signal => treat as blocked (e.g. cgroup OOM/kill,
-            // seccomp KillProcess). The escape did not complete.
-            Ok(WaitStatus::Signaled(_, _, _)) => Verdict::Blocked,
-            _ => Verdict::Escaped,
-        },
-        Err(_) => Verdict::Skipped,
     }
 }
 
@@ -239,9 +200,7 @@ fn escape_fork_bomb(caps: &SandboxCapabilities) -> EscapeResult {
                         for _ in 0..200 {
                             match unsafe { fork() } {
                                 Ok(ForkResult::Child) => {
-                                    // grandchild: just sleep briefly then exit
-                                    unsafe { libc::usleep(50_000) };
-                                    unsafe { libc::_exit(0) };
+                                    jeryu_sandbox_linux::escape::run_busy_grandchild()
                                 }
                                 Ok(ForkResult::Parent { child }) => kids.push(child),
                                 Err(_) => {

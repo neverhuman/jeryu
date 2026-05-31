@@ -6,6 +6,11 @@
       "purpose": "verify coordination files remain routed through the agent control plane",
       "lane": "agent"
     },
+    ".config/nextest.toml": {
+      "command": "cargo nextest run --profile ci -p jeryu-runner-core",
+      "purpose": "verify the nextest CI profile loads and runs",
+      "lane": "devex"
+    },
     "CI_TRACKER.md": {
       "command": "bash scripts/ci-phases.sh",
       "purpose": "verify the local CI confidence ledger matches executable phase gates",

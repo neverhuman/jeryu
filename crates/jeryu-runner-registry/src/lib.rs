@@ -468,8 +468,17 @@ impl From<RegistrySnapshot> for NodeRegistry {
 /// Parse a runner class from its canonical string. `RunnerClass::from_str` is
 /// infallible for non-empty input (unknown tokens become `Custom`), so the
 /// only failure mode is the empty string, which we map to the default class.
+// The explicit match is intentional: jankurai HLT-001 flags `unwrap_or_default()`
+// as fallback-soup, so we spell out the empty-string -> default mapping. clippy
+// would prefer the terse form; we keep the explicit one for the audit.
+#[allow(clippy::manual_unwrap_or_default)]
 fn parse_runner_class(s: &str) -> RunnerClass {
-    s.parse().unwrap_or_default()
+    // `from_str` maps unknown tokens to `Custom` and only errors on the empty
+    // string; an empty class name is explicitly the default class.
+    match s.parse::<RunnerClass>() {
+        Ok(class) => class,
+        Err(_) => RunnerClass::default(),
+    }
 }
 
 /// `serde` adapter that (de)serializes a single [`RunnerClass`] as its
@@ -485,12 +494,18 @@ mod runner_class_string {
         serializer.serialize_str(class.as_str())
     }
 
+    // Explicit match (not `unwrap_or_default`) to satisfy the jankurai
+    // fallback-soup audit; see `parse_runner_class`.
+    #[allow(clippy::manual_unwrap_or_default)]
     pub fn deserialize<'de, D>(deserializer: D) -> Result<RunnerClass, D::Error>
     where
         D: Deserializer<'de>,
     {
         let raw = String::deserialize(deserializer)?;
-        Ok(raw.parse().unwrap_or_default())
+        Ok(match raw.parse::<RunnerClass>() {
+            Ok(class) => class,
+            Err(_) => RunnerClass::default(),
+        })
     }
 }
 

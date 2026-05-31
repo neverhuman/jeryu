@@ -273,6 +273,7 @@ fn probe_seccomp() -> bool {
                 }
                 Err(_) => 3,
             };
+            // SAFETY: _exit is async-signal-safe and ends the child immediately.
             unsafe { libc::_exit(code) };
         }
         Ok(ForkResult::Parent { child }) => {
@@ -380,6 +381,7 @@ fn cgroup_subtree_is_enforceable(dir: &std::path::Path) -> bool {
     let joined = match unsafe { fork() } {
         Ok(ForkResult::Child) => {
             let ok = std::fs::write(&procs, std::process::id().to_string()).is_ok();
+            // SAFETY: _exit is async-signal-safe and ends the child immediately.
             unsafe { libc::_exit(if ok { 0 } else { 1 }) };
         }
         Ok(ForkResult::Parent { child }) => {
@@ -402,6 +404,7 @@ fn probe_no_new_privs() -> bool {
     // SAFETY: the child only calls prctl + _exit, both async-signal-safe.
     match unsafe { fork() } {
         Ok(ForkResult::Child) => {
+            // SAFETY: prctl(PR_SET_NO_NEW_PRIVS) and _exit are async-signal-safe.
             let rc = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
             unsafe { libc::_exit(if rc == 0 { 0 } else { 1 }) };
         }

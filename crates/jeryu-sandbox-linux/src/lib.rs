@@ -20,11 +20,13 @@
 //! enforcement level degrades honestly and the escape suite emits skip-with-receipt.
 
 pub mod capability;
+pub mod escape;
 pub mod launch;
 pub mod seccomp_rules;
 pub mod watchdog;
 
 pub use capability::{EnforcementLevel, SandboxCapabilities};
+pub use escape::{EscapeVerdict, run_in_forked_child};
 pub use launch::{
     EnforcementReport, SandboxError, SandboxResult, spawn_sandboxed, verify_enforcement,
 };

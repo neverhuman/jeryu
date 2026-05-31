@@ -165,6 +165,7 @@ pub fn spawn_sandboxed(
     // crates. No parent allocator state is mutated, and any failure is returned
     // as an Err which makes the spawn fail closed (the job is never exec'd with
     // a partial sandbox).
+    // SAFETY: pre_exec runs the fail-closed child setup above; no shared state.
     unsafe {
         cmd.pre_exec(move || apply_in_child(&payload));
     }
@@ -284,6 +285,8 @@ fn compile_seccomp(
 /// returned here aborts the spawn before exec.
 fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
     // 1. Own process group for the watchdog's group-kill.
+    // SAFETY: setpgid(0, 0) only moves the calling process into a new process
+    // group; it touches no shared state and is async-signal-safe.
     if unsafe { libc::setpgid(0, 0) } != 0 {
         return Err(IoError::last_os_error());
     }
@@ -297,6 +300,8 @@ fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
     }
 
     // 3. PR_SET_NO_NEW_PRIVS — always, non-negotiable.
+    // SAFETY: prctl(PR_SET_NO_NEW_PRIVS, 1, ...) sets a per-thread flag with no
+    // pointer args; always safe and async-signal-safe.
     if unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) } != 0 {
         return Err(IoError::last_os_error());
     }
@@ -312,6 +317,8 @@ fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
     if payload.apply_pid_ns {
         clone_flags |= libc::CLONE_NEWPID;
     }
+    // SAFETY: unshare() only detaches the calling thread's namespaces for the
+    // requested (capability-gated) flags; no pointer args, no shared state.
     if clone_flags != 0 && unsafe { libc::unshare(clone_flags) } != 0 {
         return Err(IoError::last_os_error());
     }
