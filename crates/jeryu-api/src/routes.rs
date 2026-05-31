@@ -5,10 +5,17 @@ use jeryu_enterprise::{Action, RbacPolicy, Resource, Role, TenantId};
 use jeryu_obs::{AuditLog, ReliabilitySoak, phase10_grafana_dashboard};
 
 /// API response used by tests and CLI.
-#[derive(Clone, Debug, Eq, PartialEq)]
+///
+/// `headers` carries advisory response headers (e.g. the overlap engine's
+/// `X-Jeryu-Reused-PR` signal) for in-process consumers and conformance tests.
+/// It defaults to empty; the GitHub edge only needs `status`/`body` for the
+/// majority of routes.
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct Response {
     pub status: u16,
     pub body: String,
+    #[allow(clippy::struct_field_names)]
+    pub headers: Vec<(String, String)>,
 }
 
 /// API state.
@@ -50,6 +57,7 @@ impl Router {
             _ => Response {
                 status: 404,
                 body: "not found".to_owned(),
+                headers: Vec::new(),
             },
         }
     }
@@ -61,6 +69,7 @@ impl Router {
         Response {
             status: 200,
             body: "phase10 ready".to_owned(),
+            headers: Vec::new(),
         }
     }
 
@@ -78,6 +87,7 @@ impl Router {
         Response {
             status,
             body: scorecard.to_markdown(),
+            headers: Vec::new(),
         }
     }
 
@@ -89,6 +99,7 @@ impl Router {
                 return Response {
                     status: 500,
                     body: format!("invalid receipt: {error:?}"),
+                    headers: Vec::new(),
                 };
             }
         }
@@ -108,6 +119,7 @@ impl Router {
                 verdict.checked,
                 verdict.failures.len()
             ),
+            headers: Vec::new(),
         }
     }
 
@@ -118,6 +130,7 @@ impl Router {
         Response {
             status: 200,
             body: phase10_grafana_dashboard(),
+            headers: Vec::new(),
         }
     }
 
@@ -134,6 +147,7 @@ impl Router {
         Response {
             status: if passed { 200 } else { 503 },
             body: format!("runs={} passing={}", soak.runs.len(), soak.passing_runs()),
+            headers: Vec::new(),
         }
     }
 
@@ -157,6 +171,7 @@ impl Router {
         Response {
             status: if decision.allowed { 200 } else { 403 },
             body: decision.reason,
+            headers: Vec::new(),
         }
     }
 }

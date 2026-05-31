@@ -174,6 +174,163 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     assert_eq!(after_body["merged"], true);
 }
 
+/// Returns the number of pull requests currently open on the repo.
+fn open_pr_count(router: &GithubRouter) -> usize {
+    let listed = router.get("/repos/alice/jeryu/pulls");
+    assert_eq!(listed.status, 200, "list pulls: {}", listed.body);
+    body(&listed).as_array().expect("pulls array").len()
+}
+
+/// Reads an advisory response header by name (case-sensitive), if present.
+fn header<'a>(response: &'a jeryu_api::Response, name: &str) -> Option<&'a str> {
+    response
+        .headers
+        .iter()
+        .find(|(key, _)| key == name)
+        .map(|(_, value)| value.as_str())
+}
+
+#[test]
+fn overlapping_change_routes_to_existing_pr_without_creating_a_new_one() {
+    let router = router_with_repo();
+
+    // Two existing OPEN PRs touching disjoint files (no protection -> mergeable).
+    let a = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"a","head":"feat-a","base":"main","head_sha":"sha-a","changed_files":["src/a.rs"]}"#,
+    );
+    assert_eq!(a.status, 201, "open pr a: {}", a.body);
+    let b = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"b","head":"feat-b","base":"main","head_sha":"sha-b","changed_files":["src/b.rs","src/c.rs"]}"#,
+    );
+    assert_eq!(b.status, 201, "open pr b: {}", b.body);
+    let target = body(&b)["number"].as_u64().expect("pr b number");
+
+    // Sanity: both PRs are mergeable (green head proof) under no protection.
+    assert_eq!(body(&a)["mergeable"], true);
+    assert_eq!(body(&b)["mergeable"], true);
+
+    assert_eq!(open_pr_count(&router), 2);
+
+    // A change overlapping PR b above threshold (identical file set, Jaccard 1.0)
+    // routes onto it instead of opening a third PR.
+    let routed = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"hot-fix b","head":"feat-b2","base":"main","changed_files":["src/b.rs","src/c.rs"]}"#,
+    );
+    assert_eq!(routed.status, 200, "route response: {}", routed.body);
+    let parsed = body(&routed);
+    assert_eq!(
+        parsed["route_to_existing"]["pr"].as_u64().expect("pr"),
+        target
+    );
+    assert!(
+        parsed["route_to_existing"]["reason"]
+            .as_str()
+            .expect("reason")
+            .contains(&format!("#{target}")),
+        "reason names the reused PR: {}",
+        routed.body
+    );
+    // The X-Jeryu-Reused-PR header points at the reused PR.
+    assert_eq!(
+        header(&routed, "X-Jeryu-Reused-PR"),
+        Some(target.to_string().as_str())
+    );
+
+    // Crucially, no new PR row was created.
+    assert_eq!(open_pr_count(&router), 2, "routing must not open a new PR");
+}
+
+#[test]
+fn below_threshold_overlap_creates_a_new_pr() {
+    let router = router_with_repo();
+
+    let existing = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"existing","head":"feat-x","base":"main","head_sha":"sha-x","changed_files":["src/a.rs","src/b.rs","src/c.rs","src/d.rs"]}"#,
+    );
+    assert_eq!(existing.status, 201, "open existing: {}", existing.body);
+    assert_eq!(open_pr_count(&router), 1);
+
+    // Overlap is 1/4 = 0.25, below the default 0.5 threshold -> create new.
+    let created = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"new work","head":"feat-y","base":"main","head_sha":"sha-y","changed_files":["src/a.rs","src/e.rs","src/f.rs"]}"#,
+    );
+    assert_eq!(created.status, 201, "should create new: {}", created.body);
+    assert!(
+        body(&created).get("route_to_existing").is_none(),
+        "below-threshold create must not be a routing payload"
+    );
+    assert!(
+        header(&created, "X-Jeryu-Reused-PR").is_none(),
+        "no reuse header on a fresh create"
+    );
+    assert_eq!(open_pr_count(&router), 2, "a fresh PR row was created");
+}
+
+#[test]
+fn stale_base_candidate_refuses_to_coalesce() {
+    let router = router_with_repo();
+
+    // An existing PR that overlaps strongly but is built on a different base.
+    let existing = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"existing","head":"feat-old","base":"main","head_sha":"sha-old","base_sha":"old-base","changed_files":["src/a.rs","src/b.rs"]}"#,
+    );
+    assert_eq!(existing.status, 201, "open existing: {}", existing.body);
+    let stale = body(&existing)["number"].as_u64().expect("pr number");
+    assert_eq!(open_pr_count(&router), 1);
+
+    // The change overlaps PR `stale` at Jaccard 1.0 but is on a newer base; the
+    // engine refuses to coalesce onto a stale base -> 409.
+    let refused = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"hot-fix","head":"feat-new","base":"main","base_sha":"new-base","changed_files":["src/a.rs","src/b.rs"]}"#,
+    );
+    assert_eq!(refused.status, 409, "refuse response: {}", refused.body);
+    let parsed = body(&refused);
+    assert_eq!(parsed["refuse_coalesce"]["pr"].as_u64().expect("pr"), stale);
+    assert!(
+        parsed["message"]
+            .as_str()
+            .expect("message")
+            .contains("stale base"),
+        "409 message explains the stale-base refusal: {}",
+        refused.body
+    );
+    // Refusal must not silently open a new PR either.
+    assert_eq!(open_pr_count(&router), 1, "refusal must not open a new PR");
+}
+
+#[test]
+fn create_without_changed_files_skips_overlap_and_creates() {
+    let router = router_with_repo();
+
+    // An existing PR that WOULD overlap, but the new request carries no
+    // `changed_files`, so overlap is skipped and the create proceeds.
+    let existing = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"existing","head":"feat-a","base":"main","head_sha":"sha-a","changed_files":["src/a.rs"]}"#,
+    );
+    assert_eq!(existing.status, 201, "open existing: {}", existing.body);
+    assert_eq!(open_pr_count(&router), 1);
+
+    let created = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"no files","head":"feat-b","base":"main","head_sha":"sha-b"}"#,
+    );
+    assert_eq!(
+        created.status, 201,
+        "missing changed_files must still create: {}",
+        created.body
+    );
+    assert!(header(&created, "X-Jeryu-Reused-PR").is_none());
+    assert_eq!(open_pr_count(&router), 2);
+}
+
 #[test]
 fn issues_and_comments_roundtrip() {
     let router = router_with_repo();
