@@ -769,7 +769,6 @@ fn dispatch_autonomy_init_writes_canonical_tree() {
     // The control files encode the required keys verbatim.
     let ci = std::fs::read_to_string(dir.join("ci.toml")).unwrap();
     assert!(ci.contains("github_actions_required = true"));
-    assert!(ci.contains("local_gitlab_required = false"));
     let policy = std::fs::read_to_string(dir.join("policy.toml")).unwrap();
     assert!(policy.contains("require_admission_receipt = false"));
 

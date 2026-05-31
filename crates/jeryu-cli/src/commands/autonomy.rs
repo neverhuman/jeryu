@@ -291,8 +291,7 @@ const FREEZE_YML: &str = "schema: vibegate.freeze.v1\n\
 enabled: false\n\
 windows: []\n";
 
-const CI_TOML: &str = "github_actions_required = true\n\
-local_gitlab_required = false\n";
+const CI_TOML: &str = "github_actions_required = true\n";
 
 const POLICY_TOML: &str = "require_admission_receipt = false\n";
 
@@ -345,7 +344,6 @@ mod tests {
         let files = bundle(AutonomyProfile::FullAuto);
         let ci = &files.iter().find(|f| f.path == "ci.toml").unwrap().contents;
         assert!(ci.contains("github_actions_required = true"));
-        assert!(ci.contains("local_gitlab_required = false"));
         let policy = &files
             .iter()
             .find(|f| f.path == "policy.toml")
