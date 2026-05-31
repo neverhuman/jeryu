@@ -1773,6 +1773,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jeryu-runner-registry"
+version = "4.0.0"
+dependencies = [
+ "jeryu-ci-ir",
+ "jeryu-runner-protocol",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jeryu-runnerd"
 version = "0.4.0"
 dependencies = [
