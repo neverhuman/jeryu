@@ -52,6 +52,13 @@ jankurai security run . \
   --script ./ops/ci/security.sh \
   --out target/jankurai/security/evidence.json \
   --profile local
+raw_policy="target/jankurai/raw-audit-policy.toml"
+jeryu_raw_policy "${raw_policy}"
+jankurai audit . \
+  --policy "${raw_policy}" \
+  --json target/jankurai/raw-repo-score.json \
+  --md target/jankurai/raw-repo-score.md \
+  --no-score-history
 if [[ "${JERYU_JANKURAI_FULL:-0}" == "1" ]]; then
   jankurai . \
     --json .jankurai/repo-score.json \

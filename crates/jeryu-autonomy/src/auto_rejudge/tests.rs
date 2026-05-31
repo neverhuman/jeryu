@@ -106,18 +106,18 @@ impl EvidenceSource for FakeEvidence {
     }
 }
 
-fn old_verdict(repo: &str) -> VibeGateVerdict {
+fn prior_verdict(repo: &str) -> VibeGateVerdict {
     let now = Utc::now();
     VibeGateVerdict {
         schema: SchemaTag::new(),
-        id: "vgv_old".into(),
-        evidence_pack_id: "ep_old".into(),
+        id: "vgv_prior".into(),
+        evidence_pack_id: "ep_prior".into(),
         pull_request: Some("1".into()),
         repo: repo.into(),
         target_branch: "main".into(),
         head_sha: "0".repeat(40),
         policy_sha: "c".repeat(40),
-        evidence_pack_digest: "sha256:old".into(),
+        evidence_pack_digest: "sha256:prior".into(),
         risk: RiskTier::R2,
         hard_stops: vec![],
         required_reviews: vec![],
@@ -158,10 +158,10 @@ async fn one_cycle_produces_one_verdict_one_ledger_entry_and_saves() {
         reviews_fail: false,
     };
     let (svc, ledger, store) = service(evidence);
-    let old = old_verdict("owner/repo");
-    store.save(&old).await.unwrap();
+    let prior = prior_verdict("owner/repo");
+    store.save(&prior).await.unwrap();
 
-    let out = svc.rejudge("owner/repo", "1", &old).await.unwrap();
+    let out = svc.rejudge("owner/repo", "1", &prior).await.unwrap();
     assert_eq!(
         out.new_decision,
         GateDecision::AllowMerge,
@@ -181,14 +181,14 @@ async fn one_cycle_produces_one_verdict_one_ledger_entry_and_saves() {
     assert_eq!(entries[0].signature.algo, "ed25519");
     assert_eq!(entries[0].payload["wave_scope"], "auto_rejudge");
 
-    // The new verdict superseded the old one for (repo, pr).
+    // The new verdict superseded the prior one for (repo, pr).
     let latest = store
         .load_latest("owner/repo", Some("1"))
         .await
         .unwrap()
         .unwrap();
     assert_eq!(latest.id, out.new_verdict_id);
-    assert_ne!(latest.id, old.id);
+    assert_ne!(latest.id, prior.id);
 }
 
 #[tokio::test]
@@ -199,8 +199,8 @@ async fn orchestrator_failure_degrades_to_require_human_not_abort() {
         reviews_fail: true, // reviewer outage
     };
     let (svc, ledger, _store) = service(evidence);
-    let old = old_verdict("owner/repo");
-    let out = svc.rejudge("owner/repo", "1", &old).await.unwrap();
+    let prior = prior_verdict("owner/repo");
+    let out = svc.rejudge("owner/repo", "1", &prior).await.unwrap();
     // No receipts → insufficient quorum at R2 → RequireHuman (not an abort).
     assert_eq!(out.new_decision, GateDecision::RequireHuman);
     assert_eq!(out.receipts_count, 0);
@@ -216,7 +216,7 @@ async fn pack_builder_failure_bubbles_up() {
         reviews_fail: false,
     };
     let (svc, _ledger, _store) = service(evidence);
-    let old = old_verdict("owner/repo");
-    let err = svc.rejudge("owner/repo", "1", &old).await.unwrap_err();
+    let prior = prior_verdict("owner/repo");
+    let err = svc.rejudge("owner/repo", "1", &prior).await.unwrap_err();
     assert_eq!(err.source, "forge");
 }

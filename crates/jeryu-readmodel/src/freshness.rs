@@ -35,7 +35,6 @@ pub enum FreshnessState {
     Live,
     Fresh,
     Aged,
-    Stale,
     LastKnown,
     Inferred,
     Partial,
@@ -49,7 +48,6 @@ impl FreshnessState {
             Self::Live => "LIVE",
             Self::Fresh => "FRESH",
             Self::Aged => "AGED",
-            Self::Stale => "STALE",
             Self::LastKnown => "LAST KNOWN",
             Self::Inferred => "INFERRED",
             Self::Partial => "PARTIAL",
@@ -61,12 +59,7 @@ impl FreshnessState {
     pub fn blocks_risky_action(self) -> bool {
         matches!(
             self,
-            Self::Aged
-                | Self::Stale
-                | Self::LastKnown
-                | Self::Inferred
-                | Self::Partial
-                | Self::SourceDown
+            Self::Aged | Self::LastKnown | Self::Inferred | Self::Partial | Self::SourceDown
         )
     }
 }

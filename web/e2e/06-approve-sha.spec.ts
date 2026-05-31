@@ -1,4 +1,4 @@
-// 06-approve-sha.spec.ts — exact-SHA approval flow + stale conflict (W-T-14).
+// 06-approve-sha.spec.ts — exact-SHA approval flow + SHA drift conflict (W-T-14).
 //
 // Drives the §35.1.7 "approve at exact SHA" contract through the REAL PR
 // cockpit UI (no `page.evaluate(fetch)`): we hydrate the page with the full
@@ -20,7 +20,7 @@
 import { expect, test } from '@playwright/test';
 
 import {
-  forceStaleSha,
+  forceDriftSha,
   mockBootstrap,
   mockPullRequestDetail,
   mockRepoList,
@@ -177,7 +177,7 @@ test.describe('Approve at exact SHA (W-T-14)', () => {
       passport: 'blocked',
     });
     // The approve POST returns 409 merge_sha_stale with expected/current SHA.
-    await forceStaleSha(page, OLD_SHA, NEW_SHA);
+    await forceDriftSha(page, OLD_SHA, NEW_SHA);
 
     await page.goto(PR_URL);
     await expect(

@@ -40,7 +40,7 @@ type ApplyMutation = ReturnType<typeof useApplySettingsPatch>;
 
 export interface PendingChangesPanelProps {
   hasPendingPatch: boolean;
-  staleHash: boolean;
+  hashDrift: boolean;
   previewMutation: PreviewMutation;
   applyMutation: ApplyMutation;
   onPreview: () => void;
@@ -51,7 +51,7 @@ export interface PendingChangesPanelProps {
 
 export function PendingChangesPanel({
   hasPendingPatch,
-  staleHash,
+  hashDrift,
   previewMutation,
   applyMutation,
   onPreview,
@@ -110,7 +110,7 @@ export function PendingChangesPanel({
           Changes applied — audit entry recorded.
         </p>
       ) : null}
-      {applyMutation.error && !staleHash ? (
+      {applyMutation.error && !hashDrift ? (
         <ErrorState title="Apply failed" error={applyMutation.error} />
       ) : null}
       {applyMutation.isSuccess ? (

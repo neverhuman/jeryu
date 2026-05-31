@@ -11,9 +11,9 @@
 //   └──────────────┴──────────────────────────────────┴──────────────────┘
 //
 // On approve mutation 409 with `merge_sha_stale`, the page shows a recovery
-// banner with the old/new SHA and a Refresh button that re-runs the detail
-// query. The banner also appears for `merge_passport_stale` / `concurrency
-// _conflict` so reviewers see all known drift cases.
+// banner with the previous/current SHA and a Refresh button that re-runs the
+// detail query. The banner also appears for `merge_passport_stale` /
+// `concurrency_conflict` so reviewers see all known drift cases.
 
 import { GitBranch, GitMerge, RefreshCcw, ShieldAlert } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -39,9 +39,9 @@ import { usePreferencesStore } from '../stores/preferencesStore';
 import { useSelectionStore } from '../stores/selectionStore';
 import { PullRequestCockpit } from './PullRequestCockpit';
 import {
-  extractStale,
-  type StaleHeadInfo,
-} from './pullRequestStale';
+  extractDrift,
+  type HeadDriftInfo,
+} from './pullRequestDrift';
 
 import './page.css';
 
@@ -132,16 +132,16 @@ export function PullRequestPage(): JSX.Element {
     [mergeMutation]
   );
 
-  // Aggregate the stale-head signal from either mutation.
-  const staleHead = useMemo<StaleHeadInfo | null>(() => {
+  // Aggregate the head-drift signal from either mutation.
+  const headDrift = useMemo<HeadDriftInfo | null>(() => {
     const approveErr = approve.error;
     const mergeErr = mergeMutation.error;
     if (approveErr instanceof ApiError) {
-      const info = extractStale(approveErr);
+      const info = extractDrift(approveErr);
       if (info) return info;
     }
     if (mergeErr instanceof ApiError) {
-      const info = extractStale(mergeErr);
+      const info = extractDrift(mergeErr);
       if (info) return info;
     }
     return null;
@@ -247,20 +247,20 @@ export function PullRequestPage(): JSX.Element {
         </span>
       </div>
 
-      {staleHead ? (
+      {headDrift ? (
         <div className="pr-cockpit__recovery" role="alert">
           <div className="pr-cockpit__recovery-title">
             <ShieldAlert aria-hidden="true" size={14} />
-            {staleHead.code === 'merge_passport_stale'
+            {headDrift.code === 'merge_passport_stale'
               ? 'Merge Passport recomputed since you opened this view.'
-              : staleHead.code === 'concurrency_conflict'
+              : headDrift.code === 'concurrency_conflict'
               ? 'Another reviewer touched this pull request.'
               : 'Head SHA changed since you opened this view.'}
           </div>
-          {staleHead.expected && staleHead.current ? (
+          {headDrift.expected && headDrift.current ? (
             <div className="pr-cockpit__recovery-shas">
-              Head changed from <code>{staleHead.expected.slice(0, 7)}</code>
-              {' '}→ <code>{staleHead.current.slice(0, 7)}</code>. Refresh to
+              Head changed from <code>{headDrift.expected.slice(0, 7)}</code>
+              {' '}→ <code>{headDrift.current.slice(0, 7)}</code>. Refresh to
               re-review.
             </div>
           ) : (

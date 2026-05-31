@@ -20,6 +20,10 @@ script prints that state explicitly.
 Avoid stale compatibility wording, placeholder labels, and comments that teach
 agents to model Jeryu as anything other than a local GitHub-compatible forge.
 
+The audit scripts also emit a raw no-allowlist report under
+`target/jankurai/raw-repo-score.{json,md}` so the allowlisted gate can stay
+explicit without hiding the underlying delta.
+
 ## Known Vibe-Coding Insults
 
 Reject fake-green tests, tautological assertions, silent fallbacks, broad

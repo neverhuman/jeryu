@@ -2,8 +2,8 @@
 // (W-FE-10).
 //
 // Monaco is heavy (~1 MB minified) so we lazy-load it via React.lazy + a
-// dynamic import. The Suspense fallback renders the existing skeleton while
-// the chunk streams. For .md files, the viewer offers a second tab that
+// dynamic import. The Suspense loading boundary renders the existing skeleton
+// while the chunk streams. For .md files, the viewer offers a second tab that
 // renders the server-provided HTML via MarkdownRenderer; the default tab is
 // "Rendered" when HTML is available so the README experience matches a
 // GitHub-style blob view.

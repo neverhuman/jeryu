@@ -24,7 +24,7 @@ pub fn evaluate_branch_protection_with(
     let mut blockers = Vec::new();
 
     // Intrinsic gates apply regardless of any protection rule (and even to
-    // admins): a stale SHA and a draft PR are never mergeable on GitHub.
+    // admins): a drifted SHA and a draft PR are never mergeable on GitHub.
     if let Some(requested_sha) = requested_sha
         && requested_sha != pr.head.sha
     {

@@ -7,3 +7,8 @@ manual_edits = false
 path = "receipts/generated/**"
 generator = "jeryu-cache-service"
 manual_edits = false
+
+[[zones]]
+path = "contracts/generated/**"
+generator = "cargo run -p jeryu-readmodel --bin export_contracts"
+manual_edits = false

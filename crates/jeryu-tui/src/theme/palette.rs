@@ -43,8 +43,8 @@ impl Palette {
         }
     }
 
-    /// 16-color fallback for terminals without truecolor or 256 support.
-    pub const fn fallback_16() -> Self {
+    /// 16-color basic palette for terminals without truecolor or 256 support.
+    pub const fn basic_16() -> Self {
         Self {
             ok: Color::Green,
             queued: Color::Yellow,
@@ -102,8 +102,8 @@ mod tests {
 
     /// 16-color fallback maps every semantic to a basic terminal color.
     #[test]
-    fn fallback_16_uses_basic_colors() {
-        let p = Palette::fallback_16();
+    fn basic_16_uses_basic_colors() {
+        let p = Palette::basic_16();
         assert_eq!(p.ok, Color::Green);
         assert_eq!(p.crit, Color::Red);
         assert_eq!(p.muted, Color::DarkGray);
@@ -113,7 +113,7 @@ mod tests {
         ] {
             assert!(
                 !matches!(c, Color::Rgb(_, _, _)),
-                "fallback must not use Rgb"
+                "basic palette must not use Rgb"
             );
         }
     }

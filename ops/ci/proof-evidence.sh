@@ -14,6 +14,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${ROOT}"
+source "${ROOT}/ops/ci/common.sh"
 
 BASE_REF="${JERYU_JANKURAI_BASE_REF:-origin/main}"
 
@@ -74,6 +75,16 @@ jankurai audit . --mode advisory \
   --json .jankurai/repo-score.json \
   --md .jankurai/repo-score.md \
   --repair-queue-jsonl target/jankurai/repair-queue.jsonl \
+  --full \
+  --no-score-history
+
+# Publish a raw no-allowlist report beside the gate so the delta is visible.
+raw_policy="target/jankurai/raw-audit-policy.toml"
+jeryu_raw_policy "${raw_policy}"
+jankurai audit . --mode advisory \
+  --policy "${raw_policy}" \
+  --json target/jankurai/raw-repo-score.json \
+  --md target/jankurai/raw-repo-score.md \
   --full \
   --no-score-history
 

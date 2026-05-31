@@ -14,9 +14,9 @@ pub struct TerminalCaps {
 }
 
 impl TerminalCaps {
-    /// Conservative ASCII / no-color fallback used when nothing is detectable.
+    /// Conservative ASCII / no-color default used when nothing is detectable.
     #[rustfmt::skip]
-    pub const fn ascii_no_color() -> Self {
+    pub const fn ascii_only() -> Self {
         Self { supports_truecolor: false, supports_256: false, supports_color: false, supports_unicode: false }
     }
 
@@ -63,7 +63,7 @@ impl TerminalCaps {
 
 impl Default for TerminalCaps {
     fn default() -> Self {
-        Self::ascii_no_color()
+        Self::ascii_only()
     }
 }
 

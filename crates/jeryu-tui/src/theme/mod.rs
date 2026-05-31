@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn bundle_glyph_respects_unicode_capability() {
         let unicode = ThemeBundle::dark(TerminalCaps::truecolor_unicode());
-        let ascii = ThemeBundle::dark(TerminalCaps::ascii_no_color());
+        let ascii = ThemeBundle::dark(TerminalCaps::ascii_only());
         assert_eq!(unicode.glyph(Glyph::Passed), "✓");
         assert_eq!(ascii.glyph(Glyph::Passed), "v");
     }

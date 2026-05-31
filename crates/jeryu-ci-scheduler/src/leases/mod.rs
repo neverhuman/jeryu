@@ -84,19 +84,19 @@ mod tests {
     }
 
     #[test]
-    fn stale_worker_result_after_takeover_is_rejected() {
+    fn superseded_worker_result_after_takeover_is_rejected() {
         let pipeline = pipeline(1);
         let schedule = deterministic_schedule(&pipeline).expect("schedule");
         let mut leases = LeaseBook::new("run-1", &pipeline, &schedule).expect("lease book");
-        let stale = leases
+        let original = leases
             .acquire("test", "worker-a", 100, 30)
             .expect("first lease");
         let takeover = leases
             .acquire("test", "worker-b", 131, 30)
             .expect("takeover lease");
-        assert_ne!(stale.id, takeover.id);
+        assert_ne!(original.id, takeover.id);
         assert!(matches!(
-            leases.complete(&stale),
+            leases.complete(&original),
             Err(LeaseError::LeaseMismatch(_))
         ));
     }

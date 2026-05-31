@@ -4,7 +4,7 @@
 // Owns the in-memory `DraftSettings` (the backend `SettingsPatch` plus
 // in-memory copies of the nested editors), keeps it synced with the current
 // snapshot until the user edits, and wires the preview / apply / discard /
-// stale-hash recovery flow against the supplied mutations. The page module
+// hash-drift recovery flow against the supplied mutations. The page module
 // renders the result; this hook keeps the orchestration logic testable and
 // off the component body.
 
@@ -70,8 +70,8 @@ export interface UseSettingsDraftResult {
   handlePreview: () => void;
   handleApply: () => void;
   handleDiscard: () => void;
-  handleRecoverFromStaleHash: () => void;
-  staleHash: boolean;
+  handleRecoverFromHashDrift: () => void;
+  hashDrift: boolean;
 }
 
 export function useSettingsDraft({
@@ -125,7 +125,7 @@ export function useSettingsDraft({
     if (current) setDraft(deriveDraft(current));
   }, [current, previewMutation, applyMutation]);
 
-  const handleRecoverFromStaleHash = useCallback(() => {
+  const handleRecoverFromHashDrift = useCallback(() => {
     applyMutation.reset();
     previewMutation.reset();
     void settings.refetch();
@@ -133,7 +133,7 @@ export function useSettingsDraft({
     // and re-preview against the refreshed snapshot.
   }, [applyMutation, previewMutation, settings]);
 
-  const staleHash =
+  const hashDrift =
     applyMutation.error instanceof ApiError &&
     applyMutation.error.code === 'settings_hash_stale';
 
@@ -145,7 +145,7 @@ export function useSettingsDraft({
     handlePreview,
     handleApply,
     handleDiscard,
-    handleRecoverFromStaleHash,
-    staleHash,
+    handleRecoverFromHashDrift,
+    hashDrift,
   };
 }

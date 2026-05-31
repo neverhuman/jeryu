@@ -28,7 +28,7 @@ pub struct JobLease {
 pub enum JobLeaseState {
     /// Job has not completed and has no active lease.
     Pending,
-    /// Job currently has an active or stale lease.
+    /// Job currently has an active or expired lease.
     Leased(JobLease),
     /// Job completed successfully.
     Succeeded,

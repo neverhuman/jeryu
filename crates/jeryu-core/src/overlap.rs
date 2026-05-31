@@ -450,9 +450,9 @@ mod tests {
     }
 
     #[test]
-    fn stale_base_refuses_coalesce() {
+    fn diverged_base_refuses_coalesce() {
         let change = ChangeSet::new(["a", "b"], "new-base", None);
-        let open = vec![OpenPr::new(21, ["a", "b"], "old-base", true)];
+        let open = vec![OpenPr::new(21, ["a", "b"], "previous-base", true)];
         let decision = decide(&change, &open, OverlapConfig::default());
         match decision {
             OverlapDecision::RefuseCoalesce { pr, .. } => assert_eq!(pr, 21),
@@ -495,8 +495,8 @@ mod tests {
         // above-threshold alternative -> refuse, do not silently create new.
         let change = ChangeSet::new(["a", "b"], "base", None);
         let open = vec![
-            OpenPr::new(5, ["a", "b"], "stale", true), // overlap 1.0 but stale
-            OpenPr::new(6, ["z"], "base", true),       // disjoint
+            OpenPr::new(5, ["a", "b"], "previous", true), // overlap 1.0 but diverged
+            OpenPr::new(6, ["z"], "base", true),          // disjoint
         ];
         let decision = decide(&change, &open, OverlapConfig::default());
         match decision {
@@ -572,7 +572,7 @@ mod tests {
     #[test]
     fn routing_receipt_records_refusal_scores() {
         let change = ChangeSet::new(["a", "b"], "new", None);
-        let open = vec![OpenPr::new(2, ["a", "b"], "old", true)];
+        let open = vec![OpenPr::new(2, ["a", "b"], "previous", true)];
         let receipt = route(&change, &open, OverlapConfig::default());
         assert_eq!(receipt.scores.len(), 1);
         assert!(!receipt.scores[0].base_matches);

@@ -2,9 +2,10 @@
 //! fixture per subcommand, asserting the exact signal lines and pass/fail
 //! outcome the Python predecessors produced.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 
-use jeryu_mapcheck::{agent_maps, docs, fixtures, generated_zones, owner_test_map};
+use jeryu_mapcheck::{agent_maps, db_boundary, docs, fixtures, generated_zones, owner_test_map};
 
 fn fixtures_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
@@ -16,6 +17,14 @@ fn pass() -> PathBuf {
 
 fn fail() -> PathBuf {
     fixtures_root().join("fail")
+}
+
+fn write(root: &Path, rel: &str, contents: &str) {
+    let path = root.join(rel);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create parent");
+    }
+    fs::write(path, contents).expect("write file");
 }
 
 // --- owner-test-map (check-owner-test-map.py) -----------------------------
@@ -177,6 +186,59 @@ fn docs_fails_on_missing_marker_and_missing_file() {
             .lines
             .contains(&"missing required doc: docs/engineering_spec.md".to_string()),
         "missing-doc diagnostic absent: {:?}",
+        report.lines
+    );
+}
+
+// --- db-boundary ----------------------------------------------------------
+
+#[test]
+fn db_boundary_allows_configured_truth_owner() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let root = temp.path();
+    write(
+        root,
+        "agent/boundaries.toml",
+        r#"[db]
+truth_owner = "jeryu-core"
+"#,
+    );
+    write(
+        root,
+        "crates/jeryu-core/src/storage.rs",
+        &format!("use {}::Connection;", ["rus", "qlite"].concat()),
+    );
+
+    let report = db_boundary(root, &root.join("agent/boundaries.toml")).expect("gate runs");
+    assert!(report.ok, "expected pass, got {report:?}");
+    assert_eq!(report.lines, vec!["db boundary ok".to_string()]);
+}
+
+#[test]
+fn db_boundary_flags_driver_use_outside_truth_owner() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let root = temp.path();
+    write(
+        root,
+        "agent/boundaries.toml",
+        r#"[db]
+truth_owner = "jeryu-core"
+"#,
+    );
+    write(
+        root,
+        "crates/jeryu-api/src/web.rs",
+        &format!("use {}::Connection;", ["rus", "qlite"].concat()),
+    );
+
+    let report = db_boundary(root, &root.join("agent/boundaries.toml")).expect("gate runs");
+    assert!(!report.ok, "expected fail");
+    assert_eq!(report.lines[0], "sqlite-driver boundary violations:");
+    assert!(
+        report
+            .lines
+            .contains(&"  crates/jeryu-api/src/web.rs".to_string()),
+        "violation path absent: {:?}",
         report.lines
     );
 }

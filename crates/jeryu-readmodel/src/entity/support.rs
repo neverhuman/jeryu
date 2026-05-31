@@ -87,7 +87,7 @@ pub struct DataFreshness {
     pub sandbox_ms: Option<u64>,
     pub cache_ms: Option<u64>,
     pub vault_ms: Option<u64>,
-    pub overall_stale: bool,
+    pub overall_outdated: bool,
 }
 
 // ── Entity Detail (Inspector contract) ──────────────────────────────────

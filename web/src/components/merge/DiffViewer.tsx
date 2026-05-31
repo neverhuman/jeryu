@@ -31,10 +31,10 @@ interface DiffRow {
   key: string;
   /** Hunk header (purely informational) or a normal diff line. */
   kind: 'hunk' | 'context' | 'add' | 'del';
-  /** Old (left) line number. */
-  oldLine: number | null;
-  /** New (right) line number. */
-  newLine: number | null;
+  /** Base (left) line number. */
+  baseLine: number | null;
+  /** Head (right) line number. */
+  headLine: number | null;
   /** Raw line text without the leading prefix. */
   text: string;
 }
@@ -46,44 +46,44 @@ function flatten(hunks: PullRequestDiffHunk[]): DiffRow[] {
     rows.push({
       key: `h${h}:${hunk.header}`,
       kind: 'hunk',
-      oldLine: null,
-      newLine: null,
+      baseLine: null,
+      headLine: null,
       text: hunk.header,
     });
-    let oldLine = hunk.old_start;
-    let newLine = hunk.new_start;
+    let baseLine = hunk.old_start;
+    let headLine = hunk.new_start;
     for (let i = 0; i < hunk.lines.length; i += 1) {
       const line = hunk.lines[i]!;
       const prefix = line[0] ?? ' ';
       const text = line.slice(1);
       if (prefix === '+') {
         rows.push({
-          key: `${h}:+${newLine}:${i}`,
+          key: `${h}:+${headLine}:${i}`,
           kind: 'add',
-          oldLine: null,
-          newLine,
+          baseLine: null,
+          headLine,
           text,
         });
-        newLine += 1;
+        headLine += 1;
       } else if (prefix === '-') {
         rows.push({
-          key: `${h}:-${oldLine}:${i}`,
+          key: `${h}:-${baseLine}:${i}`,
           kind: 'del',
-          oldLine,
-          newLine: null,
+          baseLine,
+          headLine: null,
           text,
         });
-        oldLine += 1;
+        baseLine += 1;
       } else {
         rows.push({
-          key: `${h}: ${newLine}:${i}`,
+          key: `${h}: ${headLine}:${i}`,
           kind: 'context',
-          oldLine,
-          newLine,
+          baseLine,
+          headLine,
           text,
         });
-        oldLine += 1;
-        newLine += 1;
+        baseLine += 1;
+        headLine += 1;
       }
     }
   }
@@ -194,7 +194,7 @@ export function DiffViewer({
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const row = rows[virtualRow.index];
             if (!row) return null;
-            const line = row.newLine ?? row.oldLine;
+            const line = row.headLine ?? row.baseLine;
             return (
               <div
                 key={row.key}
@@ -212,11 +212,11 @@ export function DiffViewer({
                   <span className="diff-viewer__hunk-header">{row.text}</span>
                 ) : (
                   <>
-                    <span className="diff-viewer__gutter diff-viewer__gutter--old">
-                      {row.oldLine ?? ''}
+                    <span className="diff-viewer__gutter diff-viewer__gutter--base">
+                      {row.baseLine ?? ''}
                     </span>
-                    <span className="diff-viewer__gutter diff-viewer__gutter--new">
-                      {row.newLine ?? ''}
+                    <span className="diff-viewer__gutter diff-viewer__gutter--head">
+                      {row.headLine ?? ''}
                     </span>
                     <span className="diff-viewer__prefix">
                       {row.kind === 'add' ? '+' : row.kind === 'del' ? '−' : ' '}
@@ -257,7 +257,7 @@ export function DiffViewer({
         <ActionButton
           variant="ghost"
           icon={<MessageSquarePlus aria-hidden="true" size={12} />}
-          onClick={() => setComposerLine(rows.find((r) => r.newLine)?.newLine ?? 1)}
+          onClick={() => setComposerLine(rows.find((r) => r.headLine)?.headLine ?? 1)}
           className="diff-viewer__add-button"
         >
           Add comment

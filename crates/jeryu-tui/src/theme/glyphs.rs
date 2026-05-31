@@ -1,10 +1,10 @@
 //! Semantic glyph inventory (ported from the source TUI theme).
 //!
 //! Invariants: every `Glyph` variant returns a non-empty unicode string AND a
-//! non-empty ASCII fallback.
+//! non-empty ASCII alternate.
 
 /// Semantic glyph inventory. Each variant has a unicode rendering and an ASCII
-/// fallback for terminals without unicode support.
+/// alternate for terminals without unicode support.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[rustfmt::skip]
 pub enum Glyph {
@@ -26,9 +26,9 @@ impl Glyph {
         }
     }
 
-    /// ASCII fallback for no-unicode terminals. Must never be empty.
+    /// ASCII alternate for no-unicode terminals. Must never be empty.
     #[rustfmt::skip]
-    pub fn ascii_fallback(self) -> &'static str {
+    pub fn ascii_alternate(self) -> &'static str {
         match self {
             Self::Running => "*", Self::Active  => ">", Self::Queued  => "o", Self::Waiting => "...",
             Self::Passed  => "v", Self::Failed  => "x", Self::Blocked => "X", Self::Skipped => "/",
@@ -37,12 +37,12 @@ impl Glyph {
         }
     }
 
-    /// Returns the unicode glyph if `unicode_ok`, otherwise the ASCII fallback.
+    /// Returns the unicode glyph if `unicode_ok`, otherwise the ASCII alternate.
     pub fn render(self, unicode_ok: bool) -> &'static str {
         if unicode_ok {
             self.unicode()
         } else {
-            self.ascii_fallback()
+            self.ascii_alternate()
         }
     }
 
@@ -61,12 +61,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_glyph_has_ascii_fallback() {
+    fn every_glyph_has_ascii_alternate() {
         for g in Glyph::ALL {
-            let a = g.ascii_fallback();
+            let a = g.ascii_alternate();
             assert!(
                 !a.is_empty() && a.is_ascii(),
-                "{g:?} fallback non-empty ASCII"
+                "{g:?} alternate non-empty ASCII"
             );
             assert!(!g.unicode().is_empty(), "{g:?} unicode non-empty");
         }

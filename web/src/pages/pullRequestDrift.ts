@@ -1,13 +1,13 @@
-// pullRequestStale.ts — drift detection for the PR review cockpit (W-FE-11).
+// pullRequestDrift.ts — drift detection for the PR review cockpit (W-FE-11).
 //
 // When an approve/merge mutation returns 409, the page surfaces a recovery
-// banner. This module owns the shape of that signal (`StaleHeadInfo`) and
-// the extraction of the old/new SHA from the known drift error codes
+// banner. This module owns the shape of that signal (`HeadDriftInfo`) and
+// the extraction of the previous/current SHA from the known drift error codes
 // (`merge_sha_stale` / `merge_passport_stale` / `concurrency_conflict`).
 
 import { ApiError } from '../api/client';
 
-export interface StaleHeadInfo {
+export interface HeadDriftInfo {
   /** SHA the user saw when they pressed the action. */
   expected: string;
   /** SHA the backend reported is current. */
@@ -16,7 +16,7 @@ export interface StaleHeadInfo {
   code: 'merge_sha_stale' | 'merge_passport_stale' | 'concurrency_conflict';
 }
 
-export function extractStale(error: ApiError): StaleHeadInfo | null {
+export function extractDrift(error: ApiError): HeadDriftInfo | null {
   const code = error.code;
   if (
     code !== 'merge_sha_stale' &&

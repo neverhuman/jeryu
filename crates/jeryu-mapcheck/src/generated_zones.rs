@@ -26,9 +26,13 @@ struct GeneratedZones {
 
 /// Required generated zones and their expected generators, in the order the
 /// Python dict declared them.
-const REQUIRED_ZONES: [(&str, &str); 2] = [
+const REQUIRED_ZONES: [(&str, &str); 3] = [
     ("docs/generated/**", "scripts/render-policy-docs.sh"),
     ("receipts/generated/**", "jeryu-cache-service"),
+    (
+        "contracts/generated/**",
+        "cargo run -p jeryu-readmodel --bin export_contracts",
+    ),
 ];
 
 /// Port of `scripts/check-generated-zones.py`.

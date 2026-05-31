@@ -238,7 +238,7 @@
   font-size: var(--font-size-xs);
 }
 
-.diff-file-tree__old-path {
+.diff-file-tree__prior-path {
   color: var(--color-fg-muted);
   text-decoration: line-through;
 }

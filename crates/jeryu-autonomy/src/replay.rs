@@ -3,7 +3,7 @@
 //! Walks the launch-ledger read-only (recorded_at ASC) to reconstruct the
 //! decision timeline for one subject (intent → lease → reviews → verdict →
 //! passport → rollback). Counts non-ed25519 signatures so a clean trail can be
-//! distinguished from one carrying placeholder receipts.
+//! distinguished from one carrying draft receipts.
 
 use crate::ledger::kind_to_str;
 use crate::seam::{LedgerFilter, SeamResult, VerdictLedger};

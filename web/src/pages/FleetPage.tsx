@@ -7,7 +7,7 @@
 // existing realtime socket for `global.activity` + `system.health` (and reads
 // the structured first-paint snapshot from the bootstrap so it is never
 // empty), then folds the rolling event buffer through the pure projection in
-// `fleetModel.ts`. A "stale" badge appears when no fresh frame has arrived
+// `fleetModel.ts`. A freshness badge appears when no recent frame has arrived
 // within the TTL.
 
 import { useMemo } from 'react';
@@ -20,7 +20,7 @@ import type { WebEvent } from '../api/types';
 import {
   applyFleetEvents,
   fleetStateFromBootstrap,
-  isStale,
+  isOutOfDate,
   type FleetComponent,
   type FleetHealth,
   type FleetPool,
@@ -30,8 +30,8 @@ import {
 import './page.css';
 import './FleetPage.css';
 
-/** Frames older than this are surfaced as "stale" to the operator. */
-export const FLEET_STALE_TTL_MS = 30_000;
+/** Frames older than this are surfaced as out of date to the operator. */
+export const FLEET_FRESHNESS_TTL_MS = 30_000;
 
 /** Scopes the page subscribes to and folds (also accepts `pool.*` frames). */
 const FLEET_SCOPES = ['global.activity', 'system.health'];
@@ -57,7 +57,7 @@ export function FleetPage(): JSX.Element {
     [tui, events]
   );
 
-  const stale = isStale(state.lastUpdated, FLEET_STALE_TTL_MS);
+  const outOfDate = isOutOfDate(state.lastUpdated, FLEET_FRESHNESS_TTL_MS);
 
   return (
     <div className="page" data-testid="fleet-page">
@@ -65,17 +65,17 @@ export function FleetPage(): JSX.Element {
         <div className="fleet__header-bar">
           <h1 className="page__title">Fleet</h1>
           <HealthBadge health={state.health} />
-          {stale ? (
+          {outOfDate ? (
             <span
               className="page__pill page__pill--warning"
-              data-testid="fleet-stale-badge"
+              data-testid="fleet-freshness-badge"
               title={
                 state.lastUpdated
                   ? `Last update ${state.lastUpdated}`
                   : 'No data received yet'
               }
             >
-              stale
+              out of date
             </span>
           ) : null}
           <RealtimePill status={realtimeStatus} />

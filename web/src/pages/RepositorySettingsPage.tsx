@@ -90,8 +90,8 @@ export function RepositorySettingsPage(): JSX.Element {
     handlePreview,
     handleApply,
     handleDiscard,
-    handleRecoverFromStaleHash,
-    staleHash,
+    handleRecoverFromHashDrift,
+    hashDrift,
   } = useSettingsDraft({ current, settings, previewMutation, applyMutation });
 
   // ── Guards ─────────────────────────────────────────────────────────
@@ -164,7 +164,7 @@ export function RepositorySettingsPage(): JSX.Element {
         <p className="page__subtitle">{sectionTitle}</p>
       </header>
 
-      {staleHash ? (
+      {hashDrift ? (
         <div className="pr-cockpit__recovery" role="alert">
           <div className="pr-cockpit__recovery-title">
             <ShieldAlert aria-hidden="true" size={14} />
@@ -176,7 +176,7 @@ export function RepositorySettingsPage(): JSX.Element {
           <ActionButton
             variant="primary"
             icon={<RefreshCcw aria-hidden="true" size={12} />}
-            onClick={handleRecoverFromStaleHash}
+            onClick={handleRecoverFromHashDrift}
           >
             Refresh
           </ActionButton>
@@ -294,7 +294,7 @@ export function RepositorySettingsPage(): JSX.Element {
         {/* Pending changes panel — always visible while a section is open. */}
         <PendingChangesPanel
           hasPendingPatch={hasPendingPatch}
-          staleHash={Boolean(staleHash)}
+          hashDrift={Boolean(hashDrift)}
           previewMutation={previewMutation}
           applyMutation={applyMutation}
           onPreview={handlePreview}

@@ -10,7 +10,7 @@ import './settings.css';
 export interface SecretMetadata {
   name: string;
   scope: string;
-  /** RFC3339 timestamp; rendered as "x ago" by the toLocaleString fallback. */
+  /** RFC3339 timestamp; rendered as "x ago" by the locale-sensitive formatter. */
   rotated_at: string | null;
   fingerprint: string | null;
 }

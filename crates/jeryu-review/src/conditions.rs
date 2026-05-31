@@ -247,7 +247,7 @@ fn cond_lockfile_only_change(p: &EvidencePack, _r: &[AgentApprovalReceipt]) -> O
     })
 }
 
-/// Placeholder for conditions whose context lives outside `(pack, receipts)`.
+/// Stand-in for conditions whose context lives outside `(pack, receipts)`.
 /// Always `None`; the orchestrator injects the real hit via external hard stops.
 fn cond_externally_supplied(_p: &EvidencePack, _r: &[AgentApprovalReceipt]) -> Option<HardStop> {
     None

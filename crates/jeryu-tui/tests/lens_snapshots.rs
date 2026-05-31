@@ -389,7 +389,7 @@ fn every_tab_renders_at_compact_and_wide_sizes() {
 /// badge) and every lens against a non-healthy snapshot.
 fn degraded_fixture_model() -> TuiReadModel {
     let mut model = sample_read_model();
-    model.freshness.overall_stale = true;
+    model.freshness.overall_outdated = true;
     model.pool_activity = degraded_pool_model().pool_activity;
     model
 }

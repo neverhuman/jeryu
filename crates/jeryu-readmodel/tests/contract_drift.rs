@@ -6,7 +6,7 @@
 //! the `export_contracts` binary uses) into a clean temp dir and asserts the
 //! freshly generated TypeScript is BYTE-IDENTICAL to the committed files.
 //!
-//! If a committed `*.ts` file drifts from its Rust source (hand edit, stale
+//! If a committed `*.ts` file drifts from its Rust source (hand edit, outdated
 //! regen, renamed field, …), this test fails — `cargo test -p jeryu-readmodel`
 //! is the proof the contracts are genuinely generated, not hand-stamped.
 

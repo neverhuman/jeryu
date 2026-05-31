@@ -7,8 +7,8 @@
 //! hard-stop [`ConditionRegistry`](conditions::ConditionRegistry) can veto any
 //! verdict (veto > approval). Every decision is recorded append-only in the
 //! signed launch ledger; a [`KillBell`](kill_bell::KillBell) can globally
-//! downgrade verdicts to RequireHuman; drift detection re-judges stale verdicts;
-//! escalation fans out RequireHuman / KillBellEngaged events.
+//! downgrade verdicts to RequireHuman; drift detection re-judges outdated
+//! verdicts; escalation fans out RequireHuman / KillBellEngaged events.
 //!
 //! ## Layering
 //!

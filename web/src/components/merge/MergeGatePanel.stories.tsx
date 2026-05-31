@@ -1,7 +1,7 @@
 // MergeGatePanel.stories.tsx — Merge Passport verdict surface (W-T-07).
 //
 // Covers the five archetypes the plan calls out: pass / blocked /
-// stale-SHA / approval-required / agent-evidence.
+// drifted-SHA / approval-required / agent-evidence.
 
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
@@ -55,8 +55,8 @@ export const Blocked: Story = {
   },
 };
 
-export const StaleSha: Story = {
-  name: 'Stale SHA',
+export const DriftedSha: Story = {
+  name: 'Drifted SHA',
   args: {
     passport: passport({
       status: 'blocked',

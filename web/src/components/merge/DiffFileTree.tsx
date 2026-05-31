@@ -111,7 +111,7 @@ export function DiffFileTree({
                   <span className="diff-file-tree__path">
                     {file.status === 'renamed' && file.old_path ? (
                       <>
-                        <span className="diff-file-tree__old-path">
+                        <span className="diff-file-tree__prior-path">
                           {file.old_path}
                         </span>
                         <span aria-hidden="true"> → </span>

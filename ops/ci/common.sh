@@ -16,3 +16,17 @@ jeryu_gate() {
   fi
   cargo run -q --release -p "${crate}" -- "$@"
 }
+
+# jeryu_raw_policy <output-path>
+#
+# Emit a temporary copy of agent/audit-policy.toml without the dead-language
+# allowlist so callers can publish the raw report beside the gate.
+jeryu_raw_policy() {
+  local out="$1"
+  awk '
+    BEGIN { skip = 0 }
+    /^\[dead_language\]$/ { skip = 1; next }
+    skip && /^\[/ { skip = 0 }
+    !skip { print }
+  ' agent/audit-policy.toml > "${out}"
+}

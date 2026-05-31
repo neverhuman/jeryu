@@ -92,7 +92,7 @@ pub fn draw(f: &mut Frame, app: &App, stream_mode: StreamMode) {
 
 /// Map the read model's overall freshness to a header chip.
 fn freshness_badge(app: &App) -> FreshnessBadge {
-    if app.model.freshness.overall_stale {
+    if app.model.freshness.overall_outdated {
         FreshnessBadge::Expired
     } else {
         FreshnessBadge::Fresh
@@ -165,7 +165,7 @@ mod tests {
         // A degraded read-model freshness watermark maps to the EXPIRED
         // freshness chip in the header; a current watermark shows FRESH.
         let mut model = TuiReadModel::default();
-        model.freshness.overall_stale = true;
+        model.freshness.overall_outdated = true;
         let degraded = app_for(ActiveTab::Mission, model);
         assert_eq!(freshness_badge(&degraded), FreshnessBadge::Expired);
         let degraded_ink = render_once(&degraded, 120, 40, StreamMode::Fixture);

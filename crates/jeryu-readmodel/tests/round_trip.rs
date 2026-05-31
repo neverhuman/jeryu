@@ -60,7 +60,7 @@ fn unknown_optional_dashboards_default_in() {
         "schema_version": "tui.v1.0",
         "generated_at": "2026-05-30T12:00:00Z",
         "event_cursor": 0,
-        "freshness": {"overall_stale": false},
+        "freshness": {"overall_outdated": false},
         "mission": {
             "overall": "healthy",
             "safe_to_code": true,

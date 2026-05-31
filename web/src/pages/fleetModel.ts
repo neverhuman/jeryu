@@ -384,11 +384,11 @@ export function applyFleetEvents(
 }
 
 /**
- * Staleness check: true when `lastUpdated` is older than `ttlMs` relative to
- * `now`. A null/unparseable timestamp is treated as stale (we have no proof of
- * freshness). Used to drive the "stale data" badge on the page.
+ * Freshness-gap check: true when `lastUpdated` is older than `ttlMs` relative
+ * to `now`. A null/unparseable timestamp is treated as out of date (we have no
+ * proof of freshness). Used to drive the freshness badge on the page.
  */
-export function isStale(
+export function isOutOfDate(
   lastUpdated: string | null,
   ttlMs: number,
   now: number = Date.now()

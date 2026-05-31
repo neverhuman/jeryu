@@ -2,22 +2,22 @@
 //
 // Two tiers:
 //   1. Pure projection (`fleetModel`): bootstrap snapshot folding, WS-event
-//      overlay, stale-TTL math, and the saturation/stuck/tag-starved
+//      overlay, freshness-window math, and the saturation/stuck/tag-starved
 //      bottleneck derivation — all clock-independent.
 //   2. Component render: drive `FleetPage` with a seeded bootstrap query +
 //      a mocked `Event` payload in the realtime store and assert the page
-//      paints pool cards, the stuck-runner banner, and the stale badge.
+//      paints pool cards, the stuck-runner banner, and the freshness badge.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { FleetPage, FLEET_STALE_TTL_MS } from '../FleetPage';
+import { FleetPage, FLEET_FRESHNESS_TTL_MS } from '../FleetPage';
 import {
   applyFleetEvents,
   fleetStateFromBootstrap,
-  isStale,
+  isOutOfDate,
   poolFromRollup,
 } from '../fleetModel';
 import { BOOTSTRAP_QUERY_KEY } from '../../hooks/useBootstrap';
@@ -143,11 +143,15 @@ describe('fleetModel projection', () => {
     expect(next.bottlenecks).toContain("2 runner(s) STUCK on pool 'trusted'");
   });
 
-  it('treats missing/old timestamps as stale', () => {
-    expect(isStale(null, FLEET_STALE_TTL_MS, 1000)).toBe(true);
+  it('treats missing or outdated timestamps as out of date', () => {
+    expect(isOutOfDate(null, FLEET_FRESHNESS_TTL_MS, 1000)).toBe(true);
     const fresh = new Date(1_000_000).toISOString();
-    expect(isStale(fresh, FLEET_STALE_TTL_MS, 1_000_000 + 1_000)).toBe(false);
-    expect(isStale(fresh, FLEET_STALE_TTL_MS, 1_000_000 + 60_000)).toBe(true);
+    expect(isOutOfDate(fresh, FLEET_FRESHNESS_TTL_MS, 1_000_000 + 1_000)).toBe(
+      false
+    );
+    expect(isOutOfDate(fresh, FLEET_FRESHNESS_TTL_MS, 1_000_000 + 60_000)).toBe(
+      true
+    );
   });
 
   it('returns the empty/unknown state when the bootstrap tui is absent', () => {
@@ -277,9 +281,9 @@ describe('FleetPage render', () => {
     useRealtimeStore.setState({ events: [], status: 'idle' });
   });
 
-  it('renders pool cards + system-health strip from bootstrap, with a stale badge', () => {
+  it('renders pool cards + system-health strip from bootstrap, with a freshness badge', () => {
     // No live event arrives in this test, and the bootstrap timestamp is far
-    // in the past, so the stale badge must appear.
+    // in the past, so the freshness badge must appear.
     useRealtimeStore.setState({ events: [], status: 'open' });
     renderFleet({
       generated_at: '2020-01-01T00:00:00Z',
@@ -295,8 +299,8 @@ describe('FleetPage render', () => {
     expect(screen.getByTestId('fleet-pool-trusted')).toBeInTheDocument();
     expect(screen.getByTestId('fleet-health-strip')).toBeInTheDocument();
     expect(screen.getByTestId('fleet-health-sandbox')).toBeInTheDocument();
-    // Stale because the only data is a 2020 bootstrap timestamp.
-    expect(screen.getByTestId('fleet-stale-badge')).toBeInTheDocument();
+    // Out of date because the only data is a 2020 bootstrap timestamp.
+    expect(screen.getByTestId('fleet-freshness-badge')).toBeInTheDocument();
   });
 
   it('surfaces a stuck-runner banner from a live Event payload', () => {
@@ -332,8 +336,8 @@ describe('FleetPage render', () => {
     expect(banner).toHaveTextContent(/stuck runners/);
     // The pool card from the `pool.trusted` event renders with the stuck class.
     expect(screen.getByTestId('fleet-pool-trusted')).toHaveClass('is-stuck');
-    // A fresh event timestamp means no stale badge.
-    expect(screen.queryByTestId('fleet-stale-badge')).not.toBeInTheDocument();
+    // A fresh event timestamp means no freshness badge.
+    expect(screen.queryByTestId('fleet-freshness-badge')).not.toBeInTheDocument();
   });
 
   it('renders the empty-pools roadmap note when no pools report', () => {

@@ -12,6 +12,7 @@
 //! paths keep resolving unchanged.
 
 mod agent_maps;
+mod db_boundary;
 mod docs;
 mod fixtures;
 mod generated_zones;
@@ -20,6 +21,7 @@ mod render;
 mod report;
 
 pub use agent_maps::agent_maps;
+pub use db_boundary::db_boundary;
 pub use docs::{REQUIRED_DOCS, docs};
 pub use fixtures::fixtures;
 pub use generated_zones::generated_zones;

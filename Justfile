@@ -66,6 +66,7 @@ prove-maps:
   ./scripts/check-owner-test-map.sh
   ./scripts/check-agent-maps.sh
   cargo run -q -p jeryu-mapcheck -- generated-zones
+  cargo run -q -p jeryu-mapcheck -- db-boundary
 
 phase12-tree:
   find . -type f | sort

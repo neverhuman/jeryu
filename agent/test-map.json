@@ -77,7 +77,7 @@
       "lane": "workspace"
     },
     "agent/": {
-      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones",
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones && cargo run -q -p jeryu-mapcheck -- db-boundary",
       "purpose": "verify agent ownership, proof routing, and generated-zone maps",
       "lane": "jankurai-proof"
     },
@@ -87,7 +87,7 @@
       "lane": "local-ci-parity"
     },
     "agent/boundaries.toml": {
-      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones",
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-mapcheck -- generated-zones && cargo run -q -p jeryu-mapcheck -- db-boundary",
       "purpose": "verify typed boundary ownership and proof routing metadata",
       "lane": "contract"
     },
@@ -187,7 +187,7 @@
       "lane": "benchmark-receipts"
     },
     "db/": {
-      "command": "jankurai migrate . --analyze --out target/jankurai/migration-report.json",
+      "command": "jankurai migrate . --analyze --out target/jankurai/migration-report.json && cargo run -q -p jeryu-mapcheck -- db-boundary",
       "purpose": "verify SQLite migrations, constraints, rollback notes, and DB ownership boundaries",
       "lane": "db-migration-analyze"
     },

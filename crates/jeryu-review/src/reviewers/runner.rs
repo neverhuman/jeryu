@@ -4,7 +4,7 @@
 //!   3. Dispatch through the LLM router for the role's chain key.
 //!   4. Parse the strict-schema JSON receipt; emit `abstain` on parse failure
 //!      rather than guessing.
-//!   5. Sign the receipt (unsigned placeholder or real ed25519, caller's
+//!   5. Sign the receipt (unsigned draft or real ed25519, caller's
 //!      choice).
 //!
 //! Per-role files are thin wrappers that supply a [`ReviewerRoleId`] and

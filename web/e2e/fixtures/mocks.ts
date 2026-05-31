@@ -450,10 +450,10 @@ export async function mockPullRequestList(
 /**
  * Force `POST /api/v1/repos/{id}/pulls/{number}/approve` to return
  * the `merge_sha_stale` error envelope so specs can drive the "your view is
- * stale" UI branch. The server includes both `expected_sha` (what the
+ * out of date" UI branch. The server includes both `expected_sha` (what the
  * client sent) and `current_sha` (latest head); we mirror those keys.
  */
-export async function forceStaleSha(
+export async function forceDriftSha(
   page: Page,
   oldSha: string,
   newSha: string

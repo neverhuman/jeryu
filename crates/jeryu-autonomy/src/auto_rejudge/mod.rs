@@ -4,7 +4,7 @@
 //!   - One rejudge run = one fresh `EvidencePack` build, one orchestrated
 //!     reviewer pass, one pure `judge()` fusion, one signed `VerdictIssued`
 //!     ledger entry, and one verdict save+supersede pair.
-//!   - The new verdict supersedes the old one for the same (repo, pull_request)
+//!   - The new verdict supersedes the prior one for the same (repo, pull_request)
 //!     pair (enforced by the `VerdictStore::save` contract).
 //!   - Orchestrator failures degrade to "no receipts" rather than aborting: a
 //!     missing reviewer is itself signal for `judge()` (insufficient quorum →
@@ -38,7 +38,7 @@ pub struct AutoRejudgeService {
 pub struct RejudgeOutcome {
     pub repo: String,
     pub pr_id: String,
-    pub old_verdict_id: String,
+    pub prior_verdict_id: String,
     pub new_verdict_id: String,
     pub new_decision: GateDecision,
     pub hard_stops: Vec<String>,
@@ -67,7 +67,7 @@ impl AutoRejudgeService {
         &self,
         repo: &str,
         pr_id: &str,
-        old_verdict: &VibeGateVerdict,
+        prior_verdict: &VibeGateVerdict,
     ) -> SeamResult<RejudgeOutcome> {
         // 1. Fresh signed evidence pack. A failure here is structural — bubble up.
         let pack = self.evidence.build_pack(repo, pr_id).await?;
@@ -99,7 +99,7 @@ impl AutoRejudgeService {
             receipts: &receipts,
             policy: &self.policy,
             repo,
-            target_branch: &old_verdict.target_branch,
+            target_branch: &prior_verdict.target_branch,
             pull_request: Some(pr_id),
             author_agent: None,
             external_hard_stops: &[],
@@ -112,7 +112,7 @@ impl AutoRejudgeService {
 
         // 6. Sign + append a VerdictIssued ledger entry stamped
         //    wave_scope="auto_rejudge" so replay tooling can tell it apart.
-        let mut entry = build_auto_rejudge_entry(&new_verdict, &old_verdict.id);
+        let mut entry = build_auto_rejudge_entry(&new_verdict, &prior_verdict.id);
         sign_entry(&mut entry, &self.signing_key);
         self.ledger
             .append(&entry)
@@ -122,7 +122,7 @@ impl AutoRejudgeService {
         Ok(RejudgeOutcome {
             repo: repo.to_string(),
             pr_id: pr_id.to_string(),
-            old_verdict_id: old_verdict.id.clone(),
+            prior_verdict_id: prior_verdict.id.clone(),
             new_verdict_id: new_verdict.id.clone(),
             new_decision: new_verdict.decision,
             hard_stops: new_verdict.hard_stops.clone(),
@@ -131,12 +131,15 @@ impl AutoRejudgeService {
     }
 }
 
-fn build_auto_rejudge_entry(verdict: &VibeGateVerdict, old_verdict_id: &str) -> LaunchLedgerEntry {
+fn build_auto_rejudge_entry(
+    verdict: &VibeGateVerdict,
+    prior_verdict_id: &str,
+) -> LaunchLedgerEntry {
     let mut payload =
         serde_json::to_value(verdict).expect("VibeGateVerdict serializes to JSON value");
     if let serde_json::Value::Object(map) = &mut payload {
         map.insert("wave_scope".into(), json!("auto_rejudge"));
-        map.insert("supersedes".into(), json!(old_verdict_id));
+        map.insert("supersedes".into(), json!(prior_verdict_id));
     }
     LaunchLedgerEntry {
         schema: SchemaTag::default(),

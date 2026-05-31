@@ -10,7 +10,9 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 
-use jeryu_mapcheck::{GateReport, agent_maps, docs, fixtures, generated_zones, owner_test_map};
+use jeryu_mapcheck::{
+    GateReport, agent_maps, db_boundary, docs, fixtures, generated_zones, owner_test_map,
+};
 
 #[derive(Parser)]
 #[command(
@@ -35,6 +37,8 @@ enum Command {
     Fixtures(FixturesArgs),
     /// Port of scripts/check-docs.py: required docs exist and contain required markers.
     Docs(DocsArgs),
+    /// Enforce that direct DB driver use stays in the configured truth owner.
+    DbBoundary(DbBoundaryArgs),
 }
 
 #[derive(Args)]
@@ -68,6 +72,16 @@ struct DocsArgs {
     base: PathBuf,
 }
 
+#[derive(Args)]
+struct DbBoundaryArgs {
+    /// Repo root to scan (default: current dir).
+    #[arg(long, default_value = ".")]
+    root: PathBuf,
+    /// Path to the boundary manifest (default: agent/boundaries.toml).
+    #[arg(long, default_value = "agent/boundaries.toml")]
+    boundaries: PathBuf,
+}
+
 fn main() -> ExitCode {
     match run() {
         Ok(report) => emit(&report),
@@ -89,6 +103,7 @@ fn run() -> Result<GateReport> {
         Command::GeneratedZones(a) => generated_zones(&a.zones),
         Command::Fixtures(a) => fixtures(&a.dir),
         Command::Docs(a) => docs(&a.base),
+        Command::DbBoundary(a) => db_boundary(&a.root, &a.boundaries),
     }
 }
 

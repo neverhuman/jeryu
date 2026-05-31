@@ -17,7 +17,7 @@ use crate::theme::palette::Palette;
 
 /// Stream status indicator shown in the right slot of the header.
 ///
-/// The SSE→poll→degraded fallback ladder; the fixture transport surfaces as
+/// The SSE→poll→degraded recovery ladder; the fixture transport surfaces as
 /// `FIXTURE`. Labels are pinned (snapshot-stable).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StreamMode {
