@@ -40,6 +40,7 @@ the not-yet-buildable live portion is held at `PENDING`. The live portion is
 | `git-oracle.sh` | gitd as a stock-git-compatible oracle | `cargo test -p jeryu-gitd` plus a local differential oracle comparing a gitd-managed repo with stock bare Git for refs, object types/content, clone, fetch, and push behavior. | none for the local gate; daemon HTTP/SSH transport oracle remains future hardening |
 | `runner-sandbox.sh` | Isolated job runners (native + OCI) | `cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-oci -p jeryu-runnerd`. | Live seccomp / Landlock / cgroups escape suite — needs the **native sandbox runtime**. |
 | `cache-safety.sh` | Content-addressed poisoning-resistant cache | `cargo test -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache` (+ `jeryu-cache-adversary` when present) plus `tests/cache_poisoning_matrix.sh` local poisoning/false-hit harness. | none for the local gate; networked adversarial service remains future hardening |
+| `coverage.sh` | Coverage + mutation evidence for the jankurai coverage audit | Delegates to `ops/ci/coverage.sh`: `cargo llvm-cov` over the five critical engine crates -> `target/llvm-cov/lcov.info`, `cargo-mutants` scoped to one critical crate with a `--timeout` -> `target/mutants/mutants.out/outcomes.json`, then `jankurai coverage audit` asserting `hard=0`. | `PENDING` (not `FAIL`) when `cargo-llvm-cov` / `cargo-mutants` genuinely cannot be installed on the host (coverage.sh exits 3 + writes `target/coverage/skip-receipt.txt`). |
 
 ## Conventions
 
