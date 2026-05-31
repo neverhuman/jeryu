@@ -7,8 +7,32 @@ use jeryu_runner_core::fscheck::{
 use jeryu_runner_core::job::JobRequest;
 use jeryu_runner_core::sandbox::SandboxPlan;
 use jeryu_runner_core::trust::RunnerClass;
+use jeryu_sandbox_linux::capability::{EnforcementLevel, SandboxCapabilities};
+use jeryu_sandbox_linux::launch::EnforcementReport;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+/// Prove (post-spawn) that the kernel actually enforced the sandbox by reading
+/// the live child's `/proc/<pid>/status`. This is the SAFE re-export the native
+/// runner consumes; all unsafe lives in `jeryu-sandbox-linux`.
+pub fn verify_enforcement(pid: u32, level: &EnforcementLevel) -> EnforcementReport {
+    jeryu_sandbox_linux::launch::verify_enforcement(pid, level)
+}
+
+/// Pre-flight enforcement gate: resolve the level for the plan against the
+/// probed host capabilities and REFUSE to run when the sandbox cannot fail
+/// closed (`Unavailable`). `Degraded` is allowed but the missing primitives are
+/// returned so the caller can record them honestly in the receipt.
+pub fn preflight_enforcement(
+    plan: &SandboxPlan,
+    caps: &SandboxCapabilities,
+) -> RunnerResult<EnforcementLevel> {
+    let level = caps.enforcement_level(plan);
+    if let EnforcementLevel::Unavailable { reason } = &level {
+        return Err(RunnerError::new("sandbox_unavailable", reason.clone()));
+    }
+    Ok(level)
+}
 
 /// Validate that the sandbox plan is safe for native execution.
 pub fn validate_native_plan(job: &JobRequest, plan: &SandboxPlan) -> RunnerResult<()> {
