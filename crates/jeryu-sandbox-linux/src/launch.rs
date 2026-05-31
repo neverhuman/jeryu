@@ -177,7 +177,7 @@ pub fn spawn_sandboxed(
                 let _ = std::fs::remove_dir(dir);
             }
             Err(SandboxError::new(
-                "spawn_failed",
+                "process_start_failed",
                 format!("{err} (sandbox setup may have failed closed)"),
             ))
         }
