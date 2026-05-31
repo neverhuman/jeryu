@@ -18,9 +18,9 @@
 //! - **Focus state machine**: [`PaneId`](focus::PaneId) /
 //!   [`FocusState`](focus::FocusState) + pane chrome helpers.
 //! - **Reusable widgets**: header strip, bottom status strip, virtualized table.
-//! - **3 lenses** wired end-to-end against the read model: `mission`, `queue`,
-//!   `repos`. The remaining 15 lenses are enumerated in [`LensId`](lenses::LensId)
-//!   and draw a stable placeholder until ported.
+//! - **18 lenses** wired end-to-end against the read model. Nine lenses have
+//!   dedicated dashboards; the remaining operational tabs render deterministic
+//!   live summaries from the same [`TuiReadModel`] snapshot.
 //!
 //! ## Testing surface
 //! [`run_tui_once`] renders a single deterministic frame for a tab into an
@@ -75,10 +75,21 @@ pub fn parse_capture_tab(tab: &str) -> Option<ActiveTab> {
 /// flattened cell text. The standalone analogue of the product's
 /// `run_tui_once`/`smoke_render_once` (which shelled a real terminal).
 pub fn run_tui_once(model: TuiReadModel, tab: &str) -> Result<String, String> {
+    run_tui_once_sized(model, tab, 120, 40, StreamMode::Fixture)
+}
+
+/// `--once` smoke render with explicit terminal dimensions and stream badge.
+pub fn run_tui_once_sized(
+    model: TuiReadModel,
+    tab: &str,
+    width: u16,
+    height: u16,
+    stream_mode: StreamMode,
+) -> Result<String, String> {
     let active_tab = parse_capture_tab(tab).ok_or_else(|| format!("unknown tui tab: {tab:?}"))?;
     let mut app = App::new_render_only(model);
     app.set_tab(active_tab);
-    Ok(render_once(&app, 120, 40, StreamMode::Fixture))
+    Ok(render_once(&app, width, height, stream_mode))
 }
 
 #[cfg(test)]

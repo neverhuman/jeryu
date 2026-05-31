@@ -12,3 +12,8 @@ Forbidden:
 Proof lane:
 - `cargo test -p jeryu-domain --jobs 40`
 - `cargo test -p jeryu-core --jobs 40`
+
+Live-readiness note:
+- When the typed repair surface changes, include this guidance file in the
+  changed-fast audit so Jankurai can detect the local domain owner and proof
+  lane.

@@ -36,6 +36,7 @@ impl ForgeCore {
             updated_at: now,
         };
         let mut state = self.state.write();
+        let previous = state.clone();
         state
             .statuses
             .entry((owner.to_string(), repo.to_string(), sha.to_string()))
@@ -49,6 +50,7 @@ impl ForgeCore {
             "status",
             event_payload("created", "status", json!(status.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(status)
     }
 

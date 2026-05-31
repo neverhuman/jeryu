@@ -204,10 +204,9 @@ fn builder_fixture_round_trips_into_a_renderable_frame() {
 }
 
 #[test]
-fn unported_tab_renders_placeholder_not_a_panic() {
-    // Cache routes to a still-unported lens, so the placeholder shows.
+fn cache_tab_renders_live_summary_not_a_placeholder() {
     let ink = snapshot(sample_read_model(), ActiveTab::Cache);
-    assert!(ink.contains("not yet ported"));
+    assert!(ink.contains("Hit ratio"));
     // Chrome still present.
     assert!(ink.contains("jeryu"));
     assert!(ink.contains("Cache"));
@@ -220,4 +219,23 @@ fn stream_mode_badge_reflects_transport() {
     assert!(render_once(&app, 120, 40, StreamMode::Live).contains("LIVE"));
     assert!(render_once(&app, 120, 40, StreamMode::Poll).contains("[poll]"));
     assert!(render_once(&app, 120, 40, StreamMode::Degraded).contains("DEGRADED"));
+}
+
+#[test]
+fn every_tab_renders_at_compact_and_wide_sizes() {
+    for tab in ActiveTab::ALL {
+        for (width, height) in [(80, 24), (120, 40)] {
+            let mut app = App::new_render_only(sample_read_model());
+            app.set_tab(*tab);
+            let ink = render_once(&app, width, height, StreamMode::Fixture);
+            assert!(
+                ink.contains("jeryu"),
+                "brand missing for {tab:?} {width}x{height}"
+            );
+            assert!(
+                !ink.contains("not yet ported"),
+                "placeholder rendered for {tab:?} {width}x{height}"
+            );
+        }
+    }
 }

@@ -1,37 +1,40 @@
-# Release
+# Release Control Surface
+
+Jeryu releases are local-first and evidence-backed. A release candidate cannot
+be signed from hosted CI state alone.
 
 ## Version Source
 
-Release versions come from workspace crate metadata, `CHANGELOG.md`, and signed
-release receipts produced by `ops/ci/release.sh`.
+- Rust crate versions live in workspace manifests and `Cargo.lock`.
+- User-facing changes are summarized in `CHANGELOG.md`.
+- Release candidates record the Git commit SHA, artifact checksums, SBOM
+  digests, and rollback target.
 
-## Changelog
+## Required Gates
 
-Every release updates `CHANGELOG.md` before any artifact is published. The
-changelog entry names the exact commit, the local CI receipt, and any migration
-or rollback note required by the release witness.
+- `bash ci-fast-push.sh --no-push`
+- `bash scripts/ci-phases.sh`
+- `./ops/ci/full.sh`
+- `just security`
+- `just audit`
+- `bash ops/ci/proof-evidence.sh`
 
-## Release Process Doc
+## Integrity And Provenance
 
-This file is the release process doc for local operators and agents:
-- Run `just ci`, `just full`, `just security`, and `just release` locally with the default 40-worker CI configuration.
-- Update `CHANGELOG.md` before cutting a release.
-- Verify zero-evidence, provenance, release witness, and SignRail checks before publishing any artifact.
-- Emit release receipt metadata with `scripts/emit-release-receipt.sh`.
+The security lane writes SBOM, vulnerability scan, provenance, and signing
+artifacts under `target/jankurai/security/sbom`. Release receipts must include
+the SPDX SBOM checksum, CycloneDX checksum when generated, provenance checksum,
+and cosign transcript path.
 
-## CI And Script Evidence
+## Rollback
 
-`just release` delegates to `ops/ci/release.sh`; `just ci` delegates to
-`scripts/ci-phases.sh`. Both are local gates and must pass from a clean tree
-before an artifact can be signed.
+Every release receipt names the previous signed artifact and checksum. Rollback
+means restoring the previous signed artifact, restoring the pre-migration SQLite
+copy when schema changed, and re-running the smoke commands for API, TUI, and
+Git fetch/clone before reopening write traffic.
 
-## Integrity Evidence
+## Local-Only Boundary
 
-- `jeryu-signrail` tests validate release witnesses, provenance, signatures, checksums, and rollback metadata.
-- Release artifacts must be tied to an exact commit SHA and must not depend on mutable cache hits.
-
-## Rollback Guidance
-
-- Preserve the previous signed release receipt and artifact checksums.
-- Use lifecycle rollback plans from `jeryu-lifecycle` before changing deployed state.
-- If signer, SBOM, checksum, or witness verification fails, stop the release and keep the previous version active.
+The current live runtime is bound to `127.0.0.1`. LAN or public exposure waits
+for auth, TLS, token rotation, backup restore evidence, and abuse-control
+receipts.

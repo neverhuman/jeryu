@@ -39,7 +39,7 @@ if ! command -v syft >/dev/null 2>&1; then
 fi
 log "generating SPDX SBOM from Cargo.lock with syft"
 syft scan "file:Cargo.lock" -o "spdx-json=${SPDX}"
-SPDX_PKGS="$(python3 -c "import json,sys;print(len(json.load(open('${SPDX}')).get('packages',[])))")"
+SPDX_PKGS="$(jq '.packages | length' "${SPDX}")"
 log "SPDX SBOM: ${SPDX_PKGS} packages -> ${SPDX}"
 
 # --- 2. CycloneDX SBOM via syft (kept inside the output dir) ----------------
@@ -70,38 +70,40 @@ CDX_SHA="$( [ -f "${CDX}" ] && sha256sum "${CDX}" | awk '{print $1}' || echo "" 
 GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-python3 - "$PROVENANCE" "$SPDX" "$SPDX_SHA" "$CDX_SHA" "$GIT_SHA" "$NOW" "$CDX_STATUS" "$GRYPE_STATUS" <<'PY'
-import json, sys
-out, spdx, spdx_sha, cdx_sha, git_sha, now, cdx_status, grype_status = sys.argv[1:9]
-subjects = [{"name": "sbom.spdx.json", "digest": {"sha256": spdx_sha}}]
-if cdx_sha:
-    subjects.append({"name": "sbom.cdx.json", "digest": {"sha256": cdx_sha}})
-# in-toto / SLSA provenance v1 predicate shape.
-doc = {
+jq -n \
+  --arg spdx_sha "${SPDX_SHA}" \
+  --arg cdx_sha "${CDX_SHA}" \
+  --arg git_sha "${GIT_SHA}" \
+  --arg now "${NOW}" \
+  --arg cdx_status "${CDX_STATUS}" \
+  --arg grype_status "${GRYPE_STATUS}" \
+  '
+  {
     "_type": "https://in-toto.io/Statement/v1",
     "predicateType": "https://slsa.dev/provenance/v1",
-    "subject": subjects,
+    "subject": (
+      [{name: "sbom.spdx.json", digest: {sha256: $spdx_sha}}]
+      + (if $cdx_sha == "" then [] else [{name: "sbom.cdx.json", digest: {sha256: $cdx_sha}}] end)
+    ),
     "predicate": {
-        "buildDefinition": {
-            "buildType": "https://jankurai.dev/jeryu/sbom-provenance/v1",
-            "externalParameters": {"sourceCommit": git_sha},
-            "resolvedDependencies": [{"uri": "git+self", "digest": {"sha1": git_sha}}],
-        },
-        "runDetails": {
-            "builder": {"id": "https://jankurai.dev/jeryu/ci/security-lane"},
-            "metadata": {"finishedOn": now},
-        },
-        "tooling": {
-            "sbom_spdx": "syft",
-            "sbom_cyclonedx": cdx_status,
-            "vuln_scan_grype": grype_status,
-            "signing_cosign": "see cosign.txt",
-        },
-    },
-}
-json.dump(doc, open(out, "w"), indent=2)
-print(f"[sbom-provenance] wrote SLSA provenance attestation -> {out}")
-PY
+      "buildDefinition": {
+        "buildType": "https://jankurai.dev/jeryu/sbom-provenance/v1",
+        "externalParameters": {"sourceCommit": $git_sha},
+        "resolvedDependencies": [{"uri": "git+self", "digest": {"sha1": $git_sha}}]
+      },
+      "runDetails": {
+        "builder": {"id": "https://jankurai.dev/jeryu/ci/security-lane"},
+        "metadata": {"finishedOn": $now}
+      },
+      "tooling": {
+        "sbom_spdx": "syft",
+        "sbom_cyclonedx": $cdx_status,
+        "vuln_scan_grype": $grype_status,
+        "signing_cosign": "see cosign.txt"
+      }
+    }
+  }' >"${PROVENANCE}"
+log "wrote SLSA provenance attestation -> ${PROVENANCE}"
 
 # --- 5. cosign signature over the provenance (real when present) ------------
 if command -v cosign >/dev/null 2>&1; then

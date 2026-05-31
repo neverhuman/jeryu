@@ -14,6 +14,7 @@ impl ForgeCore {
         if state.users.contains_key(&request.login) {
             return Err(ForgeError::Conflict(format!("user {}", request.login)));
         }
+        let previous = state.clone();
         let user = User {
             id: Uuid::new_v4(),
             login: request.login.clone(),
@@ -22,6 +23,7 @@ impl ForgeCore {
             created_at: Utc::now(),
         };
         state.users.insert(request.login, user.clone());
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(user)
     }
 
@@ -55,6 +57,7 @@ impl ForgeCore {
                 request.login
             )));
         }
+        let previous = state.clone();
         let organization = Organization {
             id: Uuid::new_v4(),
             login: request.login.clone(),
@@ -64,6 +67,7 @@ impl ForgeCore {
         state
             .organizations
             .insert(request.login, organization.clone());
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(organization)
     }
 
@@ -91,6 +95,7 @@ impl ForgeCore {
         if state.teams.contains_key(&key) {
             return Err(ForgeError::Conflict(format!("team {org}/{slug}")));
         }
+        let previous = state.clone();
         let team = Team {
             id: Uuid::new_v4(),
             organization: org.to_string(),
@@ -100,6 +105,7 @@ impl ForgeCore {
             created_at: Utc::now(),
         };
         state.teams.insert(key, team.clone());
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(team)
     }
 

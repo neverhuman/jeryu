@@ -28,12 +28,14 @@ impl ForgeCore {
             created_at: now,
             updated_at: now,
         };
-        self.state
-            .write()
+        let mut state = self.state.write();
+        let previous = state.clone();
+        state
             .webhooks
             .entry((owner.to_string(), repo.to_string()))
             .or_default()
             .push(hook.clone());
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(hook)
     }
 

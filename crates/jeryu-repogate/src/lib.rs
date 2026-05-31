@@ -9,12 +9,14 @@
 //! public item is re-exported here so the original `jeryu_repogate::Thing`
 //! import paths keep resolving unchanged.
 
+mod affected;
 mod fixture;
 mod outcome;
 mod release;
 mod score;
 mod security;
 
+pub use affected::{AffectedPlan, build_affected_plan, run_affected_plan};
 pub use fixture::{FIXTURE_JOB_COUNT, FIXTURE_RELATIVE_PATH, build_fixture, run_gen_fixture};
 pub use outcome::GateOutcome;
 pub use release::{RELEASE_REQUIRED_PATHS, run_release_gate};

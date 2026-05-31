@@ -25,3 +25,23 @@ Rollback/backfill:
 - Long-running backfills should acquire the application migration lock before
   writes and release it only after constraints validate.
 
+## 0002 Core Forge Auxiliary Tables
+
+The second migration adds auxiliary rows for users, organizations, teams,
+labels, issue comments, review comments, commit statuses, CODEOWNERS contents,
+and webhook names. These tables preserve the typed `ForgeCore` resources that
+do not need first-class relational columns in 0001.
+
+Constraint policy:
+- Users and organizations are unique by login.
+- Teams are unique per `(organization, slug)` and cascade with their
+  organization.
+- Labels, issue comments, review comments, commit statuses, CODEOWNERS, and
+  webhook metadata cascade with their repository-owned parent rows.
+- JSON payload columns must pass `json_valid`.
+
+Rollback/backfill:
+- 0002 is additive. A rollback before production use can drop these auxiliary
+  tables after taking a `VACUUM INTO` copy.
+- In a populated store, restore from the pre-migration database copy instead of
+  deleting auxiliary rows in place.

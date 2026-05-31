@@ -7,10 +7,11 @@
 //! single `core.rs`.
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use chrono::Utc;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockWriteGuard};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -27,18 +28,19 @@ mod issues;
 mod pull_requests;
 mod repositories;
 mod reviews;
+mod storage;
 mod webhooks;
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct Counters {
     issue: u64,
     pull: u64,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct State {
     users: HashMap<String, User>,
     organizations: HashMap<String, Organization>,
@@ -62,6 +64,7 @@ struct State {
 #[derive(Debug, Clone, Default)]
 pub struct ForgeCore {
     state: Arc<RwLock<State>>,
+    storage: Option<Arc<storage::SqliteStore>>,
 }
 
 impl ForgeCore {
@@ -69,8 +72,31 @@ impl ForgeCore {
         Self::default()
     }
 
+    pub fn open_sqlite(path: impl AsRef<Path>) -> Result<Self> {
+        let (storage, state) = storage::SqliteStore::open(path)?;
+        Ok(Self {
+            state: Arc::new(RwLock::new(state)),
+            storage: Some(Arc::new(storage)),
+        })
+    }
+
     fn ensure_repo_exists(&self, owner: &str, repo: &str) -> Result<()> {
         self.get_repository(owner, repo).map(|_| ())
+    }
+
+    fn persist_after_mutation(
+        &self,
+        state: &mut RwLockWriteGuard<'_, State>,
+        previous: State,
+    ) -> Result<()> {
+        let Some(storage) = &self.storage else {
+            return Ok(());
+        };
+        if let Err(error) = storage.persist(state) {
+            **state = previous;
+            return Err(error);
+        }
+        Ok(())
     }
 }
 

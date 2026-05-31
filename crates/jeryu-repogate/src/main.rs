@@ -16,8 +16,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 use jeryu_repogate::{
-    FIXTURE_RELATIVE_PATH, GateOutcome, run_gen_fixture, run_release_gate, run_score,
-    run_security_scan,
+    FIXTURE_RELATIVE_PATH, GateOutcome, run_affected_plan, run_gen_fixture, run_release_gate,
+    run_score, run_security_scan,
 };
 
 #[derive(Debug, Parser)]
@@ -52,6 +52,18 @@ enum Command {
         #[arg(long, default_value = FIXTURE_RELATIVE_PATH)]
         out: String,
     },
+    /// Emit the fast-lane affected-test plan.
+    AffectedPlan {
+        /// Base ref for committed changes.
+        #[arg(long, default_value = "origin/main")]
+        base: String,
+        /// Output JSON path, relative to --root.
+        #[arg(long, default_value = "target/ci-fast/affected-plan.json")]
+        out: PathBuf,
+        /// Worker count recorded in the plan.
+        #[arg(long, default_value_t = 40)]
+        workers: u32,
+    },
 }
 
 fn main() -> Result<ExitCode> {
@@ -63,6 +75,9 @@ fn main() -> Result<ExitCode> {
         Command::SecurityScan => run_security_scan(root)?,
         Command::ReleaseGate => run_release_gate(root),
         Command::GenFixture { out } => run_gen_fixture(root, &out)?,
+        Command::AffectedPlan { base, out, workers } => {
+            run_affected_plan(root, &base, &out, workers)?
+        }
     };
 
     for line in &outcome.stdout {

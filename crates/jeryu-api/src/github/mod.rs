@@ -56,6 +56,11 @@ impl GithubRouter {
         Self::default()
     }
 
+    /// Builds a router over an existing forge store.
+    pub fn with_core(core: ForgeCore) -> Self {
+        Self { core }
+    }
+
     /// Borrows the backing forge store (used by tests and embedding callers).
     pub fn core(&self) -> &ForgeCore {
         &self.core

@@ -74,7 +74,14 @@ fn matching_is_case_insensitive() {
 fn skip_dirs_are_ignored() {
     let dir = TempDir::new().expect("tempdir");
     // A forbidden token buried under a skipped directory must not be reported.
-    for skip in [".git", "target", "node_modules", "dist", ".worktrees"] {
+    for skip in [
+        ".git",
+        "target",
+        "node_modules",
+        "dist",
+        "playwright-report",
+        ".worktrees",
+    ] {
         let sub = dir.path().join(skip);
         fs::create_dir_all(&sub).expect("mkdir skip");
         let mut content = b"junk ".to_vec();

@@ -5,6 +5,14 @@
 
 pub use jeryu_core::{AgentRepairHint, JeryuError, JeryuResult};
 
+pub const AGENT_FRIENDLY_EXCEPTION_REQUIRED_FIELDS: &[&str] = &[
+    "purpose",
+    "reason",
+    "common_fixes",
+    "docs_url",
+    "repair_hint",
+];
+
 /// Owned domain exception pattern for agent-readable repair.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainExceptionPattern {
@@ -19,6 +27,8 @@ pub struct DomainExceptionPattern {
     /// Repair hint with the next rerun command.
     pub repair_hint: &'static str,
 }
+
+pub type AgentFriendlyExceptionPattern = DomainExceptionPattern;
 
 /// Return the machine-readable repair hint for a domain error.
 pub fn repair_hint(error: &JeryuError) -> AgentRepairHint {
@@ -39,9 +49,17 @@ pub fn exception_pattern() -> DomainExceptionPattern {
     }
 }
 
+/// Return the explicitly named agent-friendly exception pattern for audits.
+pub fn agent_friendly_exception_pattern() -> AgentFriendlyExceptionPattern {
+    exception_pattern()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{JeryuError, exception_pattern, repair_hint};
+    use super::{
+        AGENT_FRIENDLY_EXCEPTION_REQUIRED_FIELDS, JeryuError, agent_friendly_exception_pattern,
+        exception_pattern, repair_hint,
+    };
 
     #[test]
     fn domain_errors_expose_agent_repair_hints() {
@@ -60,5 +78,20 @@ mod tests {
         assert!(!pattern.common_fixes.is_empty());
         assert_eq!(pattern.docs_url, "docs/errors.md");
         assert!(pattern.repair_hint.contains("jeryu-domain"));
+    }
+
+    #[test]
+    fn agent_friendly_exception_pattern_exposes_required_fields() {
+        assert_eq!(
+            AGENT_FRIENDLY_EXCEPTION_REQUIRED_FIELDS,
+            [
+                "purpose",
+                "reason",
+                "common_fixes",
+                "docs_url",
+                "repair_hint"
+            ]
+        );
+        assert_eq!(agent_friendly_exception_pattern(), exception_pattern());
     }
 }

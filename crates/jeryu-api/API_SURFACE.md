@@ -1,9 +1,8 @@
 # API Surface Implemented In This Bundle
 
-This bundle currently exposes the typed Phase 10 API facade in `crates/jeryu-api`.
-It is intentionally not an Axum/HTTP server yet; the checked-in tests exercise the
-in-process `Router` contract that the future REST edge can wrap without changing
-product-truth behavior.
+This bundle exposes the typed Phase 10 API facade, the in-process
+GitHub-compatible dispatcher, and the first local live Axum server under the
+`web` feature.
 
 Implemented typed Phase 10 routes (`Router`):
 
@@ -22,7 +21,7 @@ The field shapes (PR `number`, `head`/`base` refs, check-run `conclusion`,
 combined commit `state`, branch-protection booleans) are authored against
 Jeryu's own parity assertions, not vendored from any external spec. The
 `GithubRouter::handle(method, path, body)` dispatcher keeps the in-process
-`Response` contract so a future Axum/HTTP edge can wrap it unchanged.
+`Response` contract used by conformance tests and embedding callers.
 
 - `GET /health`, `GET /api/v1/version`
 - `GET /repos`, `POST /repos`, `GET /repos/{owner}/{repo}`
@@ -40,3 +39,30 @@ Status contract: `200` reads, `201` creates, `404` for unknown repos / PRs and
 unmatched routes, `422` for invalid bodies / paths / conflicts, `405` when a
 pull request is blocked by branch protection. Requests outside this table
 return a GitHub-shaped `404` error object.
+
+## Local live web feature
+
+Build with `cargo run -p jeryu-api --features web -- web serve`. The default
+bind is `127.0.0.1:8787`, the default SPA directory is `web/dist`, and the
+default Rust data directory is `~/.local/share/jeryu`. The server opens
+`forge.sqlite` under that data dir through `ForgeCore::open_sqlite`; it does not
+reuse legacy `~/.jeryu` secrets or config.
+
+Implemented HTTP/WebSocket routes:
+
+- `GET /health`
+- `GET /api/v1/bootstrap`
+- `GET /api/v1/bootstrap.tui`
+- `GET /api/v1/repos`, `GET /api/v1/repos/{id}`
+- `GET /api/v1/repos/{id}/refs`
+- `GET /api/v1/repos/{id}/tree`
+- `GET /api/v1/repos/{id}/blob`
+- `GET /api/v1/repos/{id}/raw`
+- `GET /api/v1/repos/{id}/readme`
+- `POST /api/v1/markdown/render`
+- `GET /api/v1/ws`
+
+The WebSocket sends a `jeryu.ws.v1` hello, responds to JSON
+`{"type":"ping","nonce":"..."}` with `pong`, accepts `ack`, `subscribe`, and
+`unsubscribe` as no-ops, and can be reconnected without server-side session
+state.

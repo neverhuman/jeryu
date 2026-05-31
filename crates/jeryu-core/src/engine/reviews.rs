@@ -20,6 +20,7 @@ impl ForgeCore {
     ) -> Result<Review> {
         self.ensure_user(author);
         let mut state = self.state.write();
+        let previous = state.clone();
         if !state
             .pulls
             .contains_key(&(owner.to_string(), repo.to_string(), number))
@@ -84,6 +85,7 @@ impl ForgeCore {
             "pull_request_review",
             event_payload("submitted", "review", json!(review.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(review)
     }
 

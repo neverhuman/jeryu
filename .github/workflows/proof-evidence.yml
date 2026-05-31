@@ -21,6 +21,9 @@ concurrency:
 
 env:
   JERYU_JANKURAI_BASE_REF: "origin/main"
+  JANKURAI_REPO: "https://github.com/neverhuman/jankurai.git"
+  JANKURAI_TAG: "v1.6.10-deadlang-precision"
+  JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
 
 jobs:
   tool-adoption-evidence:
@@ -37,12 +40,18 @@ jobs:
       - name: Toolchain
         run: rustup toolchain install 1.95.0 --profile minimal
 
-      - name: Ensure jankurai on PATH
+      - name: Ensure pinned jankurai on PATH
         run: |
-          if ! command -v jankurai >/dev/null 2>&1; then
-            cargo install jankurai --version 1.6.1 --locked
+          set -euo pipefail
+          tag_rev="$(git ls-remote --tags "$JANKURAI_REPO" "refs/tags/$JANKURAI_TAG" | awk '{print $1}')"
+          if [ "$tag_rev" != "$JANKURAI_REV" ]; then
+            echo "jankurai tag drift: got $tag_rev want $JANKURAI_REV" >&2
+            exit 1
           fi
-          jankurai --version
+          if ! command -v jankurai >/dev/null 2>&1 || ! jankurai --version | grep -qx 'jankurai 1.6.10'; then
+            cargo install --git "$JANKURAI_REPO" --rev "$JANKURAI_REV" --locked --package jankurai --bin jankurai
+          fi
+          jankurai --version | grep -qx 'jankurai 1.6.10'
 
       - name: Tool-adoption evidence lane (local/CI parity)
         run: bash ops/ci/proof-evidence.sh

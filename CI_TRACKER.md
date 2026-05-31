@@ -12,7 +12,7 @@ Run locally: `bash scripts/ci-phases.sh` (per-phase gates) · `./ops/ci/full.sh`
 Identity law: jeryu reads as a self-hosted GitHub-compatible forge. CI is GitHub-Actions +
 native only; zero retired-provider evidence (enforced by the zero-evidence gate).
 
-_Last updated: 2026-05-31 · **jankurai score 98, caps 0, findings 0** on 1.6.7 with tool adoption **applicable=20, configured=20, CI evidence=20, artifact verified=20**. · `scripts/ci-phases.sh` reports **PASS=7 · PENDING=0 · FAIL=0**. · `bash ops/ci/proof-evidence.sh` produces proofbind/proofmark/copy-code/security/rust-witness/UX/migration/vibe/coverage artifacts. · Runner sandbox has a live Docker-backed namespace/seccomp/no-new-privs/cgroup/read-only-root escape matrix with receipt `target/jankurai/runner-sandbox/live-matrix.json`. · Remote is canonical GitHub only (`git@github.com:neverhuman/jeryu.git`; no local `:2224` forge remote)._
+_Last updated: 2026-05-31 · `bash ci-fast-push.sh --no-push` reports **all gates green** with 40 workers: affected-plan, fmt, workspace clippy, **1108 nextest tests**, zero-evidence, docs markers, phase gates, Jankurai diff audit, and Jankurai audit. Jankurai 1.6.10 reports smart audit **score 87, caps 0, findings 2** and diff audit **score 93, hard 0, caps 0**. First-wave local import registered **28 repos/mirrors** under `~/.local/share/jeryu` and `/api/v1/repos` lists them. · `scripts/ci-phases.sh` reports **PASS=7 · PENDING=0 · FAIL=0**. · Remote is canonical GitHub only (`git@github.com:neverhuman/jeryu.git`; no local `:2224` forge remote)._
 
 ## Per-phase gate status (`scripts/ci-phases.sh`)
 
@@ -33,7 +33,7 @@ _Last updated: 2026-05-31 · **jankurai score 98, caps 0, findings 0** on 1.6.7 
 | Check | Status |
 |---|---|
 | `cargo metadata` (workspace shape, 42 pkgs, one root) | PASS |
-| `cargo fmt --all -- --check` | PASS _(rechecked by Codex 2026-05-30T21:36Z)_ |
+| `cargo fmt --all -- --check` | PASS _(rechecked by Codex 2026-05-31)_ |
 | `cargo check --workspace --all-targets` | PASS |
 | `cargo test --workspace` | PASS |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | PASS |
@@ -61,6 +61,8 @@ _Last updated: 2026-05-31 · **jankurai score 98, caps 0, findings 0** on 1.6.7 
 | 0-Python + core/CI growth (`589c765`) | 10 scripts→Rust crates, lanes rewired, accumulated core/scheduler/runner coverage | 991 |
 | Plan-forward + cap-sweep (`866056e`) | P10 `jeryu-api` REST + 11 GitHub conformance tests, P20 `jeryu-cli` snapshots, genuine ts-rs `jeryu-readmodel` contracts + byte-identity drift test; cap-sweep (tui/shell/engine/repo) merges | **1094** |
 | Web SPA (P23, `web/`) | typecheck + **28 vitest** + build + lint green (JS/TS, outside the Rust nextest total) | 28 (web) |
+| Codex local-live slice | SQLite-backed `ForgeCore`, `jeryu-api` web feature, `jeryu-tui` API-source capture, affected-plan fast lane, and local Git import smoke | 316 focused |
+| Codex live-readiness fast lane | Full `ci-fast-push.sh --no-push`: affected manifest includes untracked files, workspace clippy, phase gates, and Jankurai diff/audit lanes green | **1108** |
 
 ## Test coverage by crate (passing)
 
@@ -82,14 +84,18 @@ _Last updated: 2026-05-31 · **jankurai score 98, caps 0, findings 0** on 1.6.7 
 | 2026-05-30 | Codex | enforced PR-only product language by removing retired request/provider vocabulary from mirror archives, docs, tests, comments, and conformance gate text; repo-wide scan clean |
 | 2026-05-30 | Codex | cleared Jankurai docs cap, added boundary/tool-adoption manifests, expanded budget controls, and made the local Jankurai lane produce proof/security/rust-witness evidence before diff-audit |
 | 2026-05-31 | Codex | cleared Jankurai findings to 0, added DB migration evidence, maxed tool adoption to 20/20/20/20, and lifted runner-sandbox to PASS with a live escape matrix |
+| 2026-05-31 | Codex | added durable SQLite local-live forge store, Axum live API, API-backed TUI captures, local Git import, untracked-aware affected CI, and green `ci-fast-push.sh --no-push` evidence |
 
 ## Toward 100% healthy / done
 
-- [x] Workspace compiles (edition 2024) + `cargo test --workspace` green (957).
+- [x] Workspace compiles (edition 2024) + `cargo nextest run --workspace` green (1108).
 - [x] foundation gate green (fmt/clippy/zero-evidence/docs/security-scan).
 - [x] github-conformance · ir-determinism · proof-gate · git-oracle · cache-safety · runner-sandbox PASS.
 - [ ] Build daemon/network transport hardening beyond the local git/cache PASS gates.
 - [x] GitHub-correctness defects FIXED + tested: PR `Closed`/`Merged` stickiness; **enforced** branch protection (CODEOWNERS, linear history, signed commits, force-push/delete, enforce_admins); CI-IR multi-node cycle detection (Kahn's). Workspace 876 green.
-- [x] **Jankurai audit score target ≥85**: current full audit is 98 with caps 0 and findings 0.
+- [x] **Jankurai audit score target ≥85**: current smart audit is 87 with caps 0 and findings 2; diff audit is hard 0 and caps 0.
 - [ ] Consolidate duplicated decision core (conditions/quorum/sha-bind/judge) into `jeryu-proof`.
-- [ ] Deepen the thin engine crates; remaining TUI lenses + live backend wiring.
+- [x] Durable SQLite forge truth for core forge resources with reopen and rollback tests.
+- [x] Local-only live API/TUI path on `127.0.0.1` with `~/.local/share/jeryu` as the Rust data dir.
+- [x] TUI has a `jeryu-tui --once` binary, API-source mode, and all 18 tabs rendering from the read model.
+- [ ] Deepen the thin engine crates and complete authenticated LAN/public deployment hardening.

@@ -10,8 +10,18 @@ jeryu-bench = { path = "../jeryu-bench" }
 jeryu-obs = { path = "../jeryu-obs" }
 jeryu-enterprise = { path = "../jeryu-enterprise" }
 jeryu-core = { path = "../jeryu-core" }
+jeryu-readmodel = { path = "../jeryu-readmodel" }
+axum = { version = "0.7", features = ["ws"], optional = true }
+clap = { workspace = true }
+futures-util = { version = "0.3", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread"], optional = true }
+tower-http = { version = "0.6", features = ["fs"], optional = true }
+
+[features]
+default = []
+web = ["dep:axum", "dep:futures-util", "dep:tokio", "dep:tower-http"]
 
 [lints]
 workspace = true

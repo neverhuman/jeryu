@@ -33,6 +33,9 @@ env:
   SYFT_VERSION: "1.40.0"
   GRYPE_VERSION: "0.99.0"
   COSIGN_VERSION: "2.4.3"
+  JANKURAI_REPO: "https://github.com/neverhuman/jankurai.git"
+  JANKURAI_TAG: "v1.6.10-deadlang-precision"
+  JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
 
 jobs:
   # --- Dependency review: cargo audit + cargo deny ---------------------------
@@ -73,9 +76,9 @@ jobs:
       - name: Install syft, grype and cosign (pinned + checksum-verified)
         env:
           # Pinned release checksums (sha256). Update alongside the *_VERSION env vars.
-          SYFT_SHA256: "0000000000000000000000000000000000000000000000000000000000000000"
-          GRYPE_SHA256: "0000000000000000000000000000000000000000000000000000000000000000"
-          COSIGN_SHA256: "0000000000000000000000000000000000000000000000000000000000000000"
+          SYFT_SHA256: "f551cd16da3a5456f5245bb8045b98594263a678a9d2a07b462a05be0357b795"
+          GRYPE_SHA256: "62f91dfd7d72c16754a99693cf67f58d0cf6f8b71313c450c2585c7b28891d0c"
+          COSIGN_SHA256: "caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708"
         run: |
           set -euo pipefail
           bindir="$HOME/.local/bin"
@@ -122,14 +125,14 @@ jobs:
       - name: Install actionlint (pinned + checksum-verified) and zizmor
         env:
           ACTIONLINT_VERSION: "1.7.8"
-          ACTIONLINT_SHA256: "0000000000000000000000000000000000000000000000000000000000000000"
+          ACTIONLINT_SHA256: "be92c2652ab7b6d08425428797ceabeb16e31a781c07bc388456b4e592f3e36a"
         run: |
           set -euo pipefail
           bindir="$HOME/.local/bin"
           mkdir -p "$bindir"
           curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -o /tmp/actionlint.tgz
           got="$(sha256sum /tmp/actionlint.tgz | awk '{print $1}')"
-          if [ "$ACTIONLINT_SHA256" != "0000000000000000000000000000000000000000000000000000000000000000" ] && [ "$got" != "$ACTIONLINT_SHA256" ]; then
+          if [ "$got" != "$ACTIONLINT_SHA256" ]; then
             echo "actionlint checksum mismatch: got $got" >&2; exit 1
           fi
           tar -xzf /tmp/actionlint.tgz -C "$bindir" actionlint
@@ -153,6 +156,18 @@ jobs:
           git checkout --detach FETCH_HEAD
       - name: Toolchain
         run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Ensure pinned jankurai on PATH
+        run: |
+          set -euo pipefail
+          tag_rev="$(git ls-remote --tags "$JANKURAI_REPO" "refs/tags/$JANKURAI_TAG" | awk '{print $1}')"
+          if [ "$tag_rev" != "$JANKURAI_REV" ]; then
+            echo "jankurai tag drift: got $tag_rev want $JANKURAI_REV" >&2
+            exit 1
+          fi
+          if ! command -v jankurai >/dev/null 2>&1 || ! jankurai --version | grep -qx 'jankurai 1.6.10'; then
+            cargo install --git "$JANKURAI_REPO" --rev "$JANKURAI_REV" --locked --package jankurai --bin jankurai
+          fi
+          jankurai --version | grep -qx 'jankurai 1.6.10'
       - name: jankurai audit (standard gate, fail under 85)
         run: |
           mkdir -p .jankurai

@@ -34,10 +34,13 @@ impl ForgeCore {
             require_jankurai_proof: request.require_jankurai_proof,
             updated_at: Utc::now(),
         };
-        self.state.write().branch_protections.insert(
+        let mut state = self.state.write();
+        let previous = state.clone();
+        state.branch_protections.insert(
             (owner.to_string(), repo.to_string(), branch.to_string()),
             rule.clone(),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(rule)
     }
 
@@ -61,10 +64,12 @@ impl ForgeCore {
     /// protection to require code-owner approval of changed paths.
     pub fn set_codeowners(&self, owner: &str, repo: &str, contents: &str) -> Result<()> {
         self.ensure_repo_exists(owner, repo)?;
-        self.state
-            .write()
+        let mut state = self.state.write();
+        let previous = state.clone();
+        state
             .codeowners
             .insert((owner.to_string(), repo.to_string()), contents.to_string());
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(())
     }
 

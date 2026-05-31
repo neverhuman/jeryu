@@ -89,6 +89,7 @@ pub(super) fn error_response(err: ForgeError) -> Response {
         ForgeError::Conflict(_) => 422,
         ForgeError::Validation(_) => 422,
         ForgeError::BranchProtection(_) => 405,
+        ForgeError::Storage(_) => 500,
     };
     json_response(
         status,

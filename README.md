@@ -49,6 +49,38 @@ request terminology.
 | Benchmark and observability | `jeryu-bench`, `jeryu-obs` |
 | Enterprise/operations layer | `jeryu-enterprise`, `phase11-*`, `jeryu-kernel`, `jeryu-tenant`, `jeryu-replay-verifier`, `jeryu-phase11-bin` |
 
+## Local Live Runtime
+
+The first live target is local-only. `jeryu-api` can run an Axum server backed
+by durable SQLite under the Rust data dir:
+
+```bash
+cargo run -p jeryu-api --features web -- web serve \
+  --bind 127.0.0.1:8787 \
+  --spa-dir web/dist \
+  --data-dir ~/.local/share/jeryu
+```
+
+The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
+`/api/v1/repos`, basic source/README/markdown routes, and `/api/v1/ws`.
+`~/.local/share/jeryu` is intentionally separate from the legacy
+`~/.jeryu` config/secrets tree.
+
+`jeryu-tui` has a deterministic capture path for fixture or live API data:
+
+```bash
+cargo run -p jeryu-tui -- --once --source api \
+  --api-url http://127.0.0.1:8787 --tab mission --width 120 --height 40
+```
+
+Local Git directories can be registered into the SQLite forge store and a
+host-local manifest under the data dir:
+
+```bash
+cargo run -p jeryu-mirror-cli -- import-local \
+  --data-dir ~/.local/share/jeryu /path/to/repo-or-bare.git
+```
+
 ## Local CI
 
 Local CI is the source of truth. The default worker count is 40.

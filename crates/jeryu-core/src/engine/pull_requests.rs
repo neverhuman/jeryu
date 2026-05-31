@@ -26,6 +26,7 @@ impl ForgeCore {
         self.ensure_repo_exists(owner, repo)?;
         self.ensure_user(author);
         let mut state = self.state.write();
+        let previous = state.clone();
         let issue_number = next_issue_number(&mut state, owner, repo);
         let pull_number = next_pull_number(&mut state, owner, repo);
         let now = Utc::now();
@@ -101,6 +102,7 @@ impl ForgeCore {
             "pull_request",
             event_payload("opened", "pull_request", json!(pr.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(pr)
     }
 
@@ -152,6 +154,7 @@ impl ForgeCore {
         request: UpdatePullRequestRequest,
     ) -> Result<PullRequest> {
         let mut state = self.state.write();
+        let previous = state.clone();
         let key = (owner.to_string(), repo.to_string(), number);
         let pr = state
             .pulls
@@ -194,6 +197,7 @@ impl ForgeCore {
             "pull_request",
             event_payload("edited", "pull_request", json!(updated.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(updated)
     }
 
@@ -205,6 +209,7 @@ impl ForgeCore {
         request: MergePullRequestRequest,
     ) -> Result<MergeResult> {
         let mut state = self.state.write();
+        let previous = state.clone();
         let key = (owner.to_string(), repo.to_string(), number);
         let pr_snapshot =
             state.pulls.get(&key).cloned().ok_or_else(|| {
@@ -261,6 +266,7 @@ impl ForgeCore {
             "pull_request",
             event_payload("closed", "pull_request", json!(pr)),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(MergeResult {
             sha: merge_sha,
             merged: true,

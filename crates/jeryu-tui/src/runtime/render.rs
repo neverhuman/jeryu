@@ -146,11 +146,10 @@ mod tests {
     }
 
     #[test]
-    fn once_renders_placeholder_for_unported_tab() {
-        // Cache routes to a still-unported lens, so the placeholder shows.
+    fn once_renders_live_summary_for_cache_tab() {
         let app = app_for(ActiveTab::Cache, TuiReadModel::default());
         let ink = render_once(&app, 120, 40, StreamMode::Poll);
-        assert!(ink.contains("not yet ported"));
+        assert!(ink.contains("Hit ratio"));
     }
 
     #[test]

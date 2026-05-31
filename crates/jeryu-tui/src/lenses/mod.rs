@@ -5,10 +5,9 @@
 //! I/O. Each lens follows the canonical shape: `data` (pure projector) + `view`
 //! (pure renderer).
 //!
-//! This crate ships 9 of the 18 lenses wired end-to-end against the read-model
-//! contract (mission/queue/repos + runners/approvals/evidence/agents/release/
-//! workflow); [`LensId`] enumerates the full set so the routing surface is
-//! stable while the remaining lenses are ported.
+//! This crate ships all 18 lenses wired end-to-end against the read-model
+//! contract. Dedicated dashboards own the highest-traffic lenses; the remaining
+//! operational lenses render live summary panels from the same snapshot.
 
 pub mod agents;
 pub mod approvals;
@@ -23,6 +22,8 @@ pub mod workflow;
 use jeryu_readmodel::TuiReadModel;
 use ratatui::Frame;
 use ratatui::layout::Rect;
+use ratatui::text::Line;
+use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::ActiveTab;
 
@@ -117,17 +118,7 @@ impl LensId {
     ];
 
     /// The lenses fully wired to the read model in this crate.
-    pub const IMPLEMENTED: &'static [Self] = &[
-        Self::Mission,
-        Self::Queue,
-        Self::Repos,
-        Self::Runners,
-        Self::Approvals,
-        Self::Evidence,
-        Self::Agents,
-        Self::Release,
-        Self::Workflow,
-    ];
+    pub const IMPLEMENTED: &'static [Self] = Self::CORE;
 
     /// Is this lens implemented end-to-end (data + view) in this crate?
     pub fn is_implemented(self) -> bool {
@@ -156,9 +147,7 @@ impl LensId {
     }
 }
 
-/// Draw the lens for `id` from the read model into `area`. Implemented lenses
-/// project and render; the remaining lenses draw a stable "not yet ported"
-/// placeholder so the cockpit never panics on an unported tab.
+/// Draw the lens for `id` from the read model into `area`.
 pub fn draw_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
     match id {
         LensId::Mission => {
@@ -190,21 +179,106 @@ pub fn draw_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
             &workflow::WorkflowLensInput::from_read_model(model),
             area,
         ),
-        other => draw_placeholder(f, other, area),
+        other => draw_summary_lens(f, other, model, area),
     }
 }
 
-fn draw_placeholder(f: &mut Frame, id: LensId, area: Rect) {
-    use ratatui::widgets::{Block, Borders, Paragraph};
-    let text = format!("{} lens — not yet ported in this crate", id.label());
+fn draw_summary_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
+    let lines = match id {
+        LensId::SourceDoctor => {
+            let summary = model.source_doctor.summary.clone().unwrap_or_default();
+            vec![
+                Line::from(format!("Sources total: {}", summary.sources_total)),
+                Line::from(format!("Healthy: {}", summary.sources_healthy)),
+                Line::from(format!("Degraded: {}", summary.sources_degraded)),
+                Line::from(format!("Schema drift: {}", summary.schema_drift_count)),
+            ]
+        }
+        LensId::Bugs => vec![
+            Line::from(format!("Attention items: {}", model.attention.len())),
+            Line::from(format!("Failed jobs: {}", model.mission.failed_jobs)),
+            Line::from(format!("Top blocker: {}", blocker_label(model))),
+        ],
+        LensId::Cache => vec![
+            Line::from(format!(
+                "Hit ratio: {:.1}%",
+                model.mission.cache_hit_ratio * 100.0
+            )),
+            Line::from(format!(
+                "Selector misses 24h: {}",
+                model.mission.selector_misses_24h
+            )),
+            Line::from(format!("Active taints: {}", model.mission.active_taints)),
+        ],
+        LensId::Vti => vec![
+            Line::from(format!("Running jobs: {}", model.mission.running_jobs)),
+            Line::from(format!("Failed jobs: {}", model.mission.failed_jobs)),
+            Line::from(format!("Queued jobs: {}", model.mission.queued_jobs)),
+        ],
+        LensId::Autonomy => vec![
+            Line::from(format!("Active agents: {}", model.mission.active_agents)),
+            Line::from(format!("Blocked agents: {}", model.mission.blocked_agents)),
+            Line::from(format!(
+                "Agents can code: {}",
+                yes_no(model.mission.agents_can_code)
+            )),
+        ],
+        LensId::Llms => vec![
+            Line::from(format!("Active agents: {}", model.mission.active_agents)),
+            Line::from(format!("Open capsules: {}", model.mission.open_capsules)),
+            Line::from(format!("Active grants: {}", model.mission.active_grants)),
+        ],
+        LensId::Git => vec![
+            Line::from(format!("Repositories: {}", model.repos.repos.len())),
+            Line::from(format!("Families: {}", model.repos.families.len())),
+            Line::from(format!(
+                "Registry: {}",
+                empty_dash(&model.repos.registry_path)
+            )),
+        ],
+        LensId::Jankurai => vec![
+            Line::from(format!("Evidence count: {}", model.mission.evidence_count)),
+            Line::from(format!("Open capsules: {}", model.mission.open_capsules)),
+            Line::from(format!(
+                "Safe to merge: {}",
+                yes_no(model.mission.safe_to_merge)
+            )),
+        ],
+        LensId::Secrets => vec![
+            Line::from(format!("Active grants: {}", model.mission.active_grants)),
+            Line::from(format!("Active taints: {}", model.mission.active_taints)),
+            Line::from(format!(
+                "Vault health: {}",
+                model.system.vault.status_label()
+            )),
+        ],
+        _ => vec![Line::from("Live summary")],
+    };
     f.render_widget(
-        Paragraph::new(text).block(
+        Paragraph::new(lines).block(
             Block::default()
                 .borders(Borders::ALL)
                 .title(format!(" {} ", id.label())),
         ),
         area,
     );
+}
+
+fn blocker_label(model: &TuiReadModel) -> String {
+    model
+        .mission
+        .top_blocker
+        .as_ref()
+        .map(|blocker| blocker.summary.clone())
+        .unwrap_or_else(|| "none".to_string())
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "yes" } else { "no" }
+}
+
+fn empty_dash(value: &str) -> &str {
+    if value.is_empty() { "-" } else { value }
 }
 
 #[cfg(test)]
@@ -232,24 +306,11 @@ mod tests {
     }
 
     #[test]
-    fn nine_lenses_are_implemented() {
-        assert_eq!(LensId::IMPLEMENTED.len(), 9);
-        for lens in [
-            LensId::Mission,
-            LensId::Queue,
-            LensId::Repos,
-            LensId::Runners,
-            LensId::Approvals,
-            LensId::Evidence,
-            LensId::Agents,
-            LensId::Release,
-            LensId::Workflow,
-        ] {
+    fn eighteen_lenses_are_implemented() {
+        assert_eq!(LensId::IMPLEMENTED.len(), 18);
+        for lens in LensId::CORE {
             assert!(lens.is_implemented(), "{lens:?} should be implemented");
         }
-        // Not-yet-ported lenses remain placeholders.
-        assert!(!LensId::Bugs.is_implemented());
-        assert!(!LensId::Cache.is_implemented());
     }
 
     #[test]

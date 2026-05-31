@@ -16,3 +16,6 @@ Forbidden edits:
 Proof lane:
 - `jankurai migrate . --analyze --out target/jankurai/migration-report.json`
 
+Live-readiness note:
+- When migrations or constraints change, include this guidance file in the
+  changed-fast audit so Jankurai can detect the local DB owner and proof lane.

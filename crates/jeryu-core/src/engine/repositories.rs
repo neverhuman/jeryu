@@ -22,6 +22,7 @@ impl ForgeCore {
                 request.name
             )));
         }
+        let previous = state.clone();
         let now = Utc::now();
         let repo = Repository {
             id: Uuid::new_v4(),
@@ -38,6 +39,7 @@ impl ForgeCore {
         };
         state.counters.insert(key.clone(), Counters::default());
         state.repos.insert(key, repo.clone());
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(repo)
     }
 
@@ -79,6 +81,7 @@ impl ForgeCore {
                 request.name
             )));
         }
+        let previous = state.clone();
         let label = Label {
             id: Uuid::new_v4(),
             name: request.name,
@@ -86,6 +89,7 @@ impl ForgeCore {
             description: request.description,
         };
         state.labels.insert(key, label.clone());
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(label)
     }
 

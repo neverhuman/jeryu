@@ -41,6 +41,7 @@ impl ForgeCore {
             completed_at: if completed { Some(Utc::now()) } else { None },
         };
         let mut state = self.state.write();
+        let previous = state.clone();
         state
             .check_runs
             .entry((owner.to_string(), repo.to_string()))
@@ -54,6 +55,7 @@ impl ForgeCore {
             "check_run",
             event_payload("created", "check_run", json!(check_run.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(check_run)
     }
 

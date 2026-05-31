@@ -7,6 +7,8 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 jeryu-readmodel = { path = "../jeryu-readmodel" }
+clap = { workspace = true }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
 ratatui = { version = "0.30.0", default-features = false, features = ["crossterm_0_29", "underline-color", "all-widgets", "macros", "layout-cache"] }
 crossterm = "0.29.0"
 

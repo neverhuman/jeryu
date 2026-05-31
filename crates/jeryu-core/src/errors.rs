@@ -12,4 +12,6 @@ pub enum ForgeError {
     Validation(String),
     #[error("branch protection blocked the operation: {0}")]
     BranchProtection(String),
+    #[error("storage failed: {0}")]
+    Storage(String),
 }

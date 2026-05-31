@@ -21,6 +21,7 @@ impl ForgeCore {
         self.ensure_repo_exists(owner, repo)?;
         self.ensure_user(author);
         let mut state = self.state.write();
+        let previous = state.clone();
         let number = next_issue_number(&mut state, owner, repo);
         let now = Utc::now();
         let issue = Issue {
@@ -51,6 +52,7 @@ impl ForgeCore {
             "issues",
             event_payload("opened", "issue", json!(issue.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(issue)
     }
 
@@ -95,6 +97,7 @@ impl ForgeCore {
         request: UpdateIssueRequest,
     ) -> Result<Issue> {
         let mut state = self.state.write();
+        let previous = state.clone();
         let key = (owner.to_string(), repo.to_string(), number);
         let issue = state
             .issues
@@ -139,6 +142,7 @@ impl ForgeCore {
             "issues",
             event_payload(action, "issue", json!(updated.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(updated)
     }
 
@@ -153,6 +157,7 @@ impl ForgeCore {
         require_name("comment body", &request.body)?;
         self.ensure_user(author);
         let mut state = self.state.write();
+        let previous = state.clone();
         let issue_key = (owner.to_string(), repo.to_string(), number);
         let issue = state
             .issues
@@ -182,6 +187,7 @@ impl ForgeCore {
             "issue_comment",
             event_payload("created", "comment", json!(comment.clone())),
         );
+        self.persist_after_mutation(&mut state, previous)?;
         Ok(comment)
     }
 
