@@ -518,8 +518,38 @@ fn dispatch_release_and_cache_self_test() {
 }
 
 #[test]
-fn dispatch_missing_repo_maps_to_exit_code_2_and_names_repo() {
-    let client = InMemoryClient::new();
+fn dispatch_issue_create_success_and_missing_repo_maps_to_exit_code_2_and_names_repo() {
+    // This test pins the *full* contract of one command shape
+    // (`forge issue create`): the positive path (repo exists) AND the
+    // missing-repo negative path, using the SAME argv shape for both. Proving
+    // both halves makes the negative assertions trustworthy: they cannot pass
+    // for the trivial reason that the command always fails / never produces
+    // output — the positive half proves the success path is live, the negative
+    // half proves the error path is wired and specific.
+    let client = InMemoryClient::with_seed_repo("jeryu", "real");
+
+    // --- Positive path: the same command shape succeeds when the repo EXISTS.
+    let (code, out, err) = run_cli(
+        &client,
+        &[
+            "jeryu", "forge", "issue", "create", "--repo", "real", "--title", "x",
+        ],
+    );
+    assert_eq!(
+        code, 0,
+        "create on an existing repo must exit 0, got {code}"
+    );
+    assert!(
+        out.contains("issue #1: x"),
+        "success must render the created issue on stdout, was {out:?}"
+    );
+    assert!(err.is_empty(), "no stderr on success, got {err:?}");
+    // The issue actually landed in the backing store (rendered != persisted).
+    let issues = client.list_issues("jeryu", "real").unwrap();
+    assert_eq!(issues.len(), 1, "exactly one issue must persist");
+    assert_eq!(issues[0].state, IssueState::Open);
+
+    // --- Negative path: the same shape against a missing repo fails precisely.
     let (code, out, err) = run_cli(
         &client,
         &[
@@ -527,7 +557,8 @@ fn dispatch_missing_repo_maps_to_exit_code_2_and_names_repo() {
         ],
     );
     // NotFound maps to exit code 2 (the contract dispatch.rs encodes); this is
-    // strictly stronger than a bare non-zero check.
+    // strictly stronger than a bare non-zero check and distinguishes NotFound
+    // (2) from Conflict (3) / Invalid (4) / NotWired (5).
     assert_eq!(code, 2, "NotFound must map to exit code 2, got {code}");
     // Failures write nothing to stdout, so a caller piping `--json` never sees a
     // half-formed record.
@@ -539,10 +570,16 @@ fn dispatch_missing_repo_maps_to_exit_code_2_and_names_repo() {
         err.contains("not found") && err.contains("jeryu/ghost"),
         "stderr must name the missing repo jeryu/ghost, was {err:?}"
     );
-    // No issue must have leaked into the backing store on the failed create.
+    // No issue must have leaked into the missing repo's (absent) backing store,
+    // and the seeded repo's issue count must be unchanged by the failed create.
     assert!(
         client.list_issues("jeryu", "ghost").unwrap().is_empty(),
-        "failed create must not persist an issue"
+        "failed create must not persist an issue under the missing repo"
+    );
+    assert_eq!(
+        client.list_issues("jeryu", "real").unwrap().len(),
+        1,
+        "failed create must not perturb the existing repo's issues"
     );
 }
 
