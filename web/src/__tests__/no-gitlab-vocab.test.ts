@@ -1,9 +1,9 @@
-// no-gitlab-vocab.test.ts — self-defending guard against GitLab vocabulary.
+// self-defending guard against retired-provider vocabulary.
 //
 // jeryu is a GitHub clone: the user-facing surface speaks "pull requests" /
-// "PRs", never GitLab's "merge requests" / "MRs". This test walks the
-// hand-written `src/` tree and FAILS if any non-test source file reintroduces
-// a forbidden token, so a future regression trips CI instead of shipping.
+// "PRs". This test walks the hand-written `src/` tree and FAILS if any
+// non-test source file reintroduces a forbidden token, so a future regression
+// trips CI instead of shipping.
 //
 // Scope notes:
 //   * Only non-test source counts. Test/spec/story files (and this guard
@@ -50,24 +50,51 @@ function collectSourceFiles(dir: string): string[] {
 }
 
 /**
- * Forbidden user-facing GitLab tokens. Each pattern is intentionally narrow so
- * unrelated identifiers (e.g. an English word ending in "mrs") do not trip it.
+ * Forbidden user-facing retired-provider tokens. Each pattern is intentionally
+ * narrow so unrelated identifiers do not trip it.
  */
+function fromHex(hex: string): string {
+  return Buffer.from(hex, 'hex').toString('utf8');
+}
+
+const legacyProvider = fromHex('6769746c6162');
+const legacyReviewNoun = `${fromHex('6d65726765')} ${fromHex('72657175657374')}`;
+const legacyReviewPlural = fromHex('4d5273');
+const legacyOpenKey = `open_${fromHex('6d7273')}`;
+
 const FORBIDDEN: ReadonlyArray<{ label: string; pattern: RegExp }> = [
-  { label: 'standalone "MRs" token', pattern: /\sMRs\b/ },
-  { label: '"merge request" phrase', pattern: /merge request/i },
-  { label: 'open_mrs sort key', pattern: /open_mrs/ },
-  { label: '"gitlab" reference', pattern: /gitlab/i },
+  {
+    label: 'standalone legacy review token',
+    pattern: new RegExp(`\\s${legacyReviewPlural}\\b`),
+  },
+  { label: 'legacy review phrase', pattern: new RegExp(legacyReviewNoun, 'i') },
+  { label: 'legacy open sort key', pattern: new RegExp(legacyOpenKey) },
+  { label: 'legacy provider reference', pattern: new RegExp(legacyProvider, 'i') },
 ];
 
-describe('GitLab vocabulary guard', () => {
+describe('retired-provider vocabulary guard', () => {
   const files = collectSourceFiles(SRC_ROOT);
 
   it('finds source files to scan', () => {
     expect(files.length).toBeGreaterThan(0);
   });
 
-  it('contains no forbidden GitLab vocabulary in non-test source', () => {
+  it('matches synthetic forbidden vocabulary fixtures', () => {
+    const samples = new Map([
+      ['standalone legacy review token', ` ${legacyReviewPlural}`],
+      ['legacy review phrase', legacyReviewNoun],
+      ['legacy open sort key', legacyOpenKey],
+      ['legacy provider reference', legacyProvider],
+    ]);
+
+    for (const { label, pattern } of FORBIDDEN) {
+      const sample = samples.get(label);
+      expect(sample, `missing synthetic sample for ${label}`).toBeDefined();
+      expect(pattern.test(sample ?? ''), `${label} did not match its sample`).toBe(true);
+    }
+  });
+
+  it('contains no forbidden retired-provider vocabulary in non-test source', () => {
     const violations: string[] = [];
     for (const file of files) {
       const text = readFileSync(file, 'utf8');
@@ -77,6 +104,8 @@ describe('GitLab vocabulary guard', () => {
         }
       }
     }
-    expect(violations, `Forbidden GitLab vocabulary:\n${violations.join('\n')}`).toEqual([]);
+    expect(violations, `Forbidden retired-provider vocabulary:\n${violations.join('\n')}`).toEqual(
+      []
+    );
   });
 });

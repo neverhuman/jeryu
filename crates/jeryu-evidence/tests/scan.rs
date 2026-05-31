@@ -77,6 +77,7 @@ fn skip_dirs_are_ignored() {
     for skip in [
         ".git",
         "target",
+        ".jankurai",
         "node_modules",
         "dist",
         "playwright-report",
@@ -93,6 +94,20 @@ fn skip_dirs_are_ignored() {
     assert!(
         findings.is_empty(),
         "forbidden tokens in skip dirs leaked: {findings:?}"
+    );
+}
+
+#[test]
+fn generated_typescript_build_info_is_ignored() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut content = b"compiler cache ".to_vec();
+    content.extend_from_slice(&marker("6769746c6162"));
+    fs::write(dir.path().join("tsconfig.tsbuildinfo"), &content).expect("write buildinfo");
+
+    let findings = scan(dir.path()).expect("scan ok");
+    assert!(
+        findings.is_empty(),
+        "generated build info leaked into scan: {findings:?}"
     );
 }
 

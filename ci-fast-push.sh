@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Affected fast lane for local pushes. Builds target/ci-fast/affected-plan.json,
 # runs only mapped lanes when possible, escalates shared roots to full CI, and
-# pushes HEAD to origin/main only after every local gate passes.
+# publishes the current branch through a PR path only after every local gate
+# passes. Direct pushes to origin/main require --push-main.
 set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
@@ -9,6 +10,12 @@ source "$(pwd)/ops/ci/ci-env.sh"
 
 JOBS="${JERYU_CI_JOBS:-40}"
 NO_PUSH="${JERYU_CI_NO_PUSH:-0}"
+FORCE_FULL="${JERYU_CI_FULL:-0}"
+PUSH_MAIN="${JERYU_CI_PUSH_MAIN:-0}"
+OPEN_PR="${JERYU_CI_OPEN_PR:-1}"
+PR_DRAFT="${JERYU_CI_PR_DRAFT:-1}"
+PR_BASE="${JERYU_CI_PR_BASE:-main}"
+PR_TITLE="${JERYU_CI_PR_TITLE:-}"
 BASE_REF="${JERYU_CI_BASE_REF:-origin/main}"
 PLAN="target/ci-fast/affected-plan.json"
 CHANGED_LIST="target/ci-fast/changed.lst"
@@ -20,6 +27,11 @@ declare -a RESULTS
 for arg in "$@"; do
   case "$arg" in
     --no-push) NO_PUSH=1 ;;
+    --full) FORCE_FULL=1 ;;
+    --push-main) PUSH_MAIN=1 ;;
+    --no-pr) OPEN_PR=0 ;;
+    --pr-base=*) PR_BASE="${arg#--pr-base=}" ;;
+    --pr-title=*) PR_TITLE="${arg#--pr-title=}" ;;
     --base=*) BASE_REF="${arg#--base=}" ;;
     *) echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
@@ -41,12 +53,7 @@ jeryu_gate() {
     cargo run -q --release -p "${crate}" -- "$@"
     return
   fi
-  local bin="target/release/${crate}"
-  if [ -x "${bin}" ]; then
-    "${bin}" "$@"
-  else
-    cargo run -q --release -p "${crate}" -- "$@"
-  fi
+  cargo run -q --release -p "${crate}" -- "$@"
 }
 
 has_lane() {
@@ -54,6 +61,7 @@ has_lane() {
 }
 
 is_full_ci() {
+  [ "$FORCE_FULL" = "1" ] && return 0
   jq -e '.full_ci == true' "$PLAN" >/dev/null
 }
 
@@ -91,9 +99,78 @@ fail_untracked_for_remote_parity() {
   return 1
 }
 
+github_fallback_profile_proof() {
+  env -u RUSTC_WRAPPER -u SCCACHE_DIR -u SCCACHE_CACHE_SIZE \
+    -u JERYU_RUNNER_CLASS \
+    JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash -lc '
+    set -euo pipefail
+    cd "$(git rev-parse --show-toplevel)"
+    source ops/ci/ci-env.sh
+    test "${JERYU_CI_PROFILE}" = "github"
+    test "${JERYU_RUNNER_CLASS}" = "native-rust-clean"
+    test "${JERYU_RUNNER_EXECUTOR}" = "native"
+    test "${JERYU_CI_DOCKER}" = "0"
+    test "${RUSTC_WRAPPER:-}" = ""
+    jeryu_ci_profile_summary
+  '
+}
+
+run_manifest_full_lanes() {
+  local lane_file="target/ci-fast/full-lanes.tsv"
+  jeryu_gate jeryu-repogate ci-lanes-list --full > "$lane_file" || return 1
+  while IFS=$'\t' read -r lane_id lane_command; do
+    [ -n "$lane_id" ] || continue
+    if [ "$lane_id" = "ci-fast" ]; then
+      RESULTS+=("PASS  workflow lane ci-fast (current ci-fast-push.sh)")
+      continue
+    fi
+    run_step "workflow lane ${lane_id}" bash -lc "$lane_command"
+  done < "$lane_file"
+}
+
+open_or_report_pr() {
+  local branch="$1"
+  if [ "$OPEN_PR" != "1" ]; then
+    echo "PR creation disabled; branch is pushed. Create a PR against ${PR_BASE} before merging."
+    return 0
+  fi
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "gh is required to open the default PR path; install/authenticate gh or rerun with --no-pr after pushing." >&2
+    return 1
+  fi
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "gh is not authenticated; run gh auth login or rerun with --no-pr after pushing." >&2
+    return 1
+  fi
+
+  local existing
+  existing="$(gh pr view "$branch" --json url --jq .url 2>/dev/null || true)"
+  if [ -n "$existing" ]; then
+    echo "PR already open: $existing"
+    return 0
+  fi
+
+  local args=(--base "$PR_BASE" --head "$branch")
+  if [ "$PR_DRAFT" = "1" ]; then
+    args+=(--draft)
+  fi
+  if [ -n "$PR_TITLE" ]; then
+    args+=(--title "$PR_TITLE" --body "Local gates passed via ci-fast-push.sh.")
+  else
+    args+=(--fill)
+  fi
+  gh pr create "${args[@]}"
+}
+
 run_step "ci profile" jeryu_ci_profile_summary
-run_step "jeryu environment" bash ops/ci/verify-jeryu-env.sh --build-local
+env_args=(--build-local)
+if [ "$FORCE_FULL" = "1" ]; then
+  env_args+=(--release-guard)
+fi
+run_step "jeryu environment" bash ops/ci/verify-jeryu-env.sh "${env_args[@]}"
 run_step "jankurai bootstrap" bash ops/ci/ensure-jankurai.sh
+run_step "ci lane drift guard" jeryu_gate jeryu-repogate ci-lanes-check
 run_step "affected-plan" \
   jeryu_gate jeryu-repogate affected-plan --base "$BASE_REF" --out "$PLAN" --workers "$JOBS"
 run_step "affected changed-list" write_changed_list
@@ -102,12 +179,20 @@ run_step "untracked parity guard" fail_untracked_for_remote_parity
 run_step "fmt" cargo fmt --all -- --check
 
 if is_full_ci; then
+  if [ "$FORCE_FULL" = "1" ]; then
+    RESULTS+=("PASS  full mode forced")
+    run_step "github fallback profile proof" github_fallback_profile_proof
+    run_step "security toolchain" bash ops/ci/security-tools.sh
+  fi
   run_step "clippy workspace" \
     cargo clippy --workspace --all-targets --all-features --jobs "$JOBS" -- -D warnings
   run_step "tests workspace" run_tests --workspace
   run_step "zero-evidence" jeryu_gate jeryu-evidence .
   run_step "docs-markers" jeryu_gate jeryu-mapcheck docs
   run_step "phase-gates" bash scripts/ci-phases.sh
+  if [ "$FORCE_FULL" = "1" ]; then
+    run_manifest_full_lanes
+  fi
 else
   mapfile -t PACKAGES < <(jq -r '.packages[]' "$PLAN")
   if [ "${#PACKAGES[@]}" -gt 0 ]; then
@@ -172,10 +257,31 @@ if [ "$NO_PUSH" = "1" ]; then
 fi
 
 branch=$(git rev-parse --abbrev-ref HEAD)
-printf '\033[1;36m▶ pushing %s -> origin main\033[0m\n' "$branch"
-if git push origin HEAD:main; then
-  printf '\033[32m✓ pushed to origin main\033[0m\n'
+if [ "$PUSH_MAIN" = "1" ]; then
+  printf '\033[1;36m▶ pushing %s -> origin main (--push-main)\033[0m\n' "$branch"
+  if git push origin HEAD:main; then
+    printf '\033[32m✓ pushed to origin main\033[0m\n'
+  else
+    printf '\033[31m✗ push rejected — integrate latest main and retry\033[0m\n'
+    exit 1
+  fi
+  exit 0
+fi
+
+case "$branch" in
+  main|master|HEAD)
+    echo "direct main publishing is disabled by default; switch to a PR branch or rerun with --push-main" >&2
+    exit 1
+    ;;
+esac
+
+printf '\033[1;36m▶ pushing %s -> origin %s\033[0m\n' "$branch" "$branch"
+if git push -u origin "$branch"; then
+  printf '\033[32m✓ pushed branch %s\033[0m\n' "$branch"
 else
-  printf '\033[31m✗ push rejected — integrate latest main and retry\033[0m\n'
+  printf '\033[31m✗ branch push rejected — integrate latest main and retry\033[0m\n'
   exit 1
 fi
+
+printf '\033[1;36m▶ opening PR %s -> %s\033[0m\n' "$branch" "$PR_BASE"
+open_or_report_pr "$branch"

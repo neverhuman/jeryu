@@ -25,7 +25,7 @@ use jeryu_readmodel::contracts::{
     WebFeatureFlags,
 };
 use jeryu_readmodel::{Bottleneck, TuiReadModel, sample_read_model};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
@@ -326,8 +326,15 @@ fn capabilities_payload() -> Value {
     })
 }
 
-async fn bootstrap(State(state): State<Arc<WebState>>) -> Json<WebBootstrap> {
-    Json(bootstrap_payload(&state))
+async fn bootstrap(State(state): State<Arc<WebState>>) -> AxumResponse {
+    match bootstrap_payload(&state) {
+        Ok(payload) => Json(payload).into_response(),
+        Err(err) => api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "serialization_failed",
+            &format!("bootstrap payload serialization failed: {err}"),
+        ),
+    }
 }
 
 async fn bootstrap_tui(State(state): State<Arc<WebState>>) -> Json<TuiReadModel> {
@@ -631,6 +638,7 @@ fn snapshot_event(state: &WebState, scope: &str) -> Option<WebEvent> {
     }
     if let Some(pool_name) = scope.strip_prefix("pool.") {
         let pool = activity.pools.iter().find(|p| p.pool == pool_name)?;
+        let payload = serialize_payload(pool).ok()?;
         return Some(WebEvent {
             seq,
             timestamp,
@@ -644,11 +652,12 @@ fn snapshot_event(state: &WebState, scope: &str) -> Option<WebEvent> {
                 pool.running_jobs,
                 pool.utilization() * 100.0
             ),
-            payload: serde_json::to_value(pool).unwrap_or_else(|_| json!({})),
+            payload,
         });
     }
     if scope == "system.health" {
         let system = &state.tui.system;
+        let payload = serialize_payload(system).ok()?;
         return Some(WebEvent {
             seq,
             timestamp,
@@ -656,7 +665,7 @@ fn snapshot_event(state: &WebState, scope: &str) -> Option<WebEvent> {
             kind: "system.snapshot".to_string(),
             entity: "system".to_string(),
             summary: "system component health snapshot".to_string(),
-            payload: serde_json::to_value(system).unwrap_or_else(|_| json!({})),
+            payload,
         });
     }
     None
@@ -675,9 +684,10 @@ fn hello_message(state: &WebState) -> ServerWsMessage {
     }
 }
 
-fn bootstrap_payload(state: &WebState) -> WebBootstrap {
+fn bootstrap_payload(state: &WebState) -> Result<WebBootstrap, serde_json::Error> {
     let repos = repo_summaries(state);
-    WebBootstrap {
+    let tui = serialize_payload(&state.tui)?;
+    Ok(WebBootstrap {
         generated_at: state.tui.generated_at.to_rfc3339(),
         schema_version: "0.1.0-alpha".to_string(),
         viewer: Viewer {
@@ -687,7 +697,7 @@ fn bootstrap_payload(state: &WebState) -> WebBootstrap {
             avatar_url: None,
             global_permissions: permissions(),
         },
-        tui: serde_json::to_value(&state.tui).unwrap_or_else(|_| json!({})),
+        tui,
         recent_repositories: repos.into_iter().take(10).collect(),
         websocket_url: "/api/v1/ws".to_string(),
         feature_flags: WebFeatureFlags {
@@ -698,7 +708,11 @@ fn bootstrap_payload(state: &WebState) -> WebBootstrap {
             agents: false,
             mcp: false,
         },
-    }
+    })
+}
+
+fn serialize_payload<T: Serialize>(value: &T) -> Result<Value, serde_json::Error> {
+    serde_json::to_value(value)
 }
 
 fn repo_list_response(state: &WebState) -> RepositoryListResponse {
@@ -857,7 +871,7 @@ mod tests {
         )
         .unwrap();
         let state = WebState::new(core);
-        let bootstrap = bootstrap_payload(&state);
+        let bootstrap = bootstrap_payload(&state).expect("bootstrap serializes");
         assert_eq!(bootstrap.websocket_url, "/api/v1/ws");
         assert_eq!(bootstrap.recent_repositories.len(), 1);
         let repos = repo_list_response(&state);
@@ -1057,6 +1071,22 @@ mod tests {
         assert_eq!(map["gh pr create"], "jeryu.mcp.propose_patch");
         assert_eq!(map["gh pr merge"], "jeryu.mcp.request_merge");
         assert_eq!(map["gh repo create"], "POST /repos");
+    }
+
+    #[test]
+    fn payload_serialization_errors_are_not_silently_replaced() {
+        struct FailingSerialize;
+
+        impl serde::Serialize for FailingSerialize {
+            fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                Err(<S::Error as serde::ser::Error>::custom("synthetic failure"))
+            }
+        }
+
+        assert!(serialize_payload(&FailingSerialize).is_err());
     }
 
     /// A `WebState` whose read model has one saturated pool, so the activity

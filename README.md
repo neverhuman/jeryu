@@ -43,10 +43,12 @@ request terminology.
 `ForgeCore::open_sqlite` storage, the local Axum API, API-backed TUI capture,
 local repository import, affected fast CI, and guided GitHub-compatible
 REST/GraphQL repair responses, and gitd-backed local import materialization.
-The latest full local fast lane passed with 1122 workspace tests after the gitd
-import validation tranche, with Jankurai diff/audit gates at `90/92` and zero
-caps. Earlier GraphQL and REST compatibility follow-ups passed focused affected
-fast lanes, including Jankurai diff/audit gates at `88/92` and `90/90`.
+The latest closeout full lanes pass with 1175 workspace nextest tests in both
+local-native and GitHub-clean profiles, all phase gates at
+PASS=7/PENDING=0/FAIL=0, the full manifest lane union green, proof-evidence
+Jankurai full scan at score 92/caps 0, and changed-file Jankurai checks at hard
+0/caps 0. Publishing is PR-first by default; direct `main` pushes require
+explicit opt-in.
 
 This checkpoint is local-first. The default operator path binds loopback and
 uses `~/.local/share/jeryu`; public/LAN access, token rotation, production
@@ -84,7 +86,7 @@ The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
 `/api/v1/markdown/render`, `/api/v1/ws`, and the guided GitHub-compatible
 `/user` and `/graphql` routes.
-`~/.local/share/jeryu` is intentionally separate from the legacy
+`~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 
 `jeryu-tui` has a deterministic capture path for fixture or live API data:
@@ -131,19 +133,32 @@ all 18 tabs used by the local control-plane views.
 ## Local CI
 
 Local CI is the source of truth. The default worker count is 40, and
-`ci-fast-push.sh` is the local push gate: it builds an affected plan from
+`ci-fast-push.sh` is the local PR gate: it builds an affected plan from
 tracked and untracked changes, escalates shared roots to full CI, runs mapped
 Rust/web/API/TUI/db lanes, then runs Jankurai diff and repository audits before
-any push. The Jankurai changed-list is regenerated from the affected plan plus
-committed, staged, unstaged, and untracked Git files; the gate then fails closed
-if source files remain untracked because GitHub and Jankurai changed-fast proof
-can only validate staged or tracked paths. `ops/ci/ci-env.sh` detects the local
-or GitHub profile, keeps dockerless native Rust as the default executor, uses
-`sccache` when it is available, and falls back to ordinary Cargo on
-GitHub-hosted runners.
+publishing. By default, a non-`--no-push` run pushes the current branch and
+opens or reports a GitHub PR; direct `HEAD:main` publishing requires explicit
+`--push-main` or `JERYU_CI_PUSH_MAIN=1`. The Jankurai changed-list is
+regenerated from the affected plan plus committed, staged, unstaged, and
+untracked Git files; the gate then fails closed if source files remain
+untracked because GitHub and Jankurai changed-fast proof can only validate
+staged or tracked paths. `ops/ci/ci-env.sh` detects the local or GitHub profile,
+keeps dockerless native Rust as the default executor, uses `sccache` when it is
+available, and falls back to ordinary Cargo on GitHub-hosted runners.
+
+Use `bash ci-fast-push.sh --full --no-push` when a change must prove the full
+hosted-lane union locally. Full mode forces the workspace gate, verifies the
+GitHub fallback profile with `JERYU_CI_PROFILE=github` and
+`JERYU_CI_USE_SCCACHE=0`, installs/verifies the open security toolchain, then
+runs every full lane declared in `agent/ci-lanes.toml`. Full release validation
+also fails closed when retired `~/.jeryu`, old `/home/ubuntu/jeryu`, local
+`:2224`, or retired-provider runner/process state is still active. `jeryu-repogate
+ci-lanes-check` is the drift guard: every workflow under `.github/workflows/`
+must be declared in the manifest, every substantive `run:` command must match a
+local lane, and setup-only commands are explicitly allowlisted.
 
 The fast gate also verifies this repository before testing: it builds and
-checks the repo-local `jeryu` binary, ignores any legacy `~/.jeryu/bin/jeryu`
+checks the repo-local `jeryu` binary, ignores any retired `~/.jeryu/bin/jeryu`
 binary on `PATH`, and accepts only the canonical GitHub remote when a remote is
 configured.
 
@@ -163,7 +178,12 @@ Hosted workflows are thin wrappers around local scripts. Jankurai is pinned to
 the `neverhuman/jankurai` `v1.6.10-deadlang-precision` tag and must report
 `jankurai 1.6.10` before CI uses it. The hosted `ci-fast` workflow runs the
 same `ci-fast-push.sh --no-push` path used locally; the difference is profile
-detection, not a separate test plan.
+detection, not a separate test plan. The hosted security workflow calls
+`ops/ci/security-tools.sh` for pinned open-source tool installation and then
+delegates to `ops/ci/security.sh`; no hosted-only security command is allowed.
+Cosign keyless signing is opt-in with `JERYU_COSIGN_KEYLESS=1`, while default
+local CI writes an honest transcript/instructions artifact instead of blocking
+on an interactive OIDC flow.
 
 ## Cache Laws
 

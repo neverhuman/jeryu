@@ -105,14 +105,23 @@ jq -n \
   }' >"${PROVENANCE}"
 log "wrote SLSA provenance attestation -> ${PROVENANCE}"
 
-# --- 5. cosign signature over the provenance (real when present) ------------
-if command -v cosign >/dev/null 2>&1; then
+# --- 5. cosign signature over the provenance (opt-in keyless signing) -------
+if command -v cosign >/dev/null 2>&1 && [ "${JERYU_COSIGN_KEYLESS:-0}" = "1" ]; then
   log "signing provenance attestation with cosign (keyless)"
-  if COSIGN_EXPERIMENTAL=1 cosign sign-blob --yes "${PROVENANCE}" >"${COSIGN_OUT}" 2>&1; then
+  if timeout "${JERYU_COSIGN_TIMEOUT_SECONDS:-60}" \
+    env COSIGN_EXPERIMENTAL=1 cosign sign-blob --yes "${PROVENANCE}" >"${COSIGN_OUT}" 2>&1; then
     log "cosign signature recorded -> ${COSIGN_OUT}"
   else
-    log "cosign present but signing failed; transcript -> ${COSIGN_OUT}"
+    log "cosign present but signing failed or timed out; transcript -> ${COSIGN_OUT}"
   fi
+elif command -v cosign >/dev/null 2>&1; then
+  {
+    echo "cosign: installed; keyless signing skipped because JERYU_COSIGN_KEYLESS=1 is not set"
+    echo "provenance subject sha256: ${SPDX_SHA}  (sbom.spdx.json)"
+    echo "to sign in an OIDC/keyless environment, run:"
+    echo "  JERYU_COSIGN_KEYLESS=1 COSIGN_EXPERIMENTAL=1 cosign sign-blob --yes ${PROVENANCE}"
+  } >"${COSIGN_OUT}"
+  log "cosign present; keyless signing is opt-in for local CI -> ${COSIGN_OUT}"
 else
   {
     echo "cosign: tool not installed in this environment"

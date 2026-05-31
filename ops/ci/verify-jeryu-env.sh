@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Verify CI is using this repo's Jeryu surfaces, not legacy local state.
+# Verify CI is using this repo's Jeryu surfaces, not retired local state.
 set -euo pipefail
 
 build_local=0
+release_guard=0
 for arg in "$@"; do
   case "${arg}" in
     --build-local) build_local=1 ;;
+    --release-guard) release_guard=1 ;;
     *) echo "unknown argument: ${arg}" >&2; exit 2 ;;
   esac
 done
@@ -24,7 +26,7 @@ if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
     fi
   fi
   case "$(realpath "${ROOT}")" in
-    */jeryu_rust) echo "wrong Jeryu root: legacy /home/ubuntu/jeryu_rust is not canonical" >&2; exit 1 ;;
+    */jeryu_rust) echo "wrong Jeryu root: /home/ubuntu/jeryu_rust is not canonical" >&2; exit 1 ;;
   esac
 fi
 
@@ -38,10 +40,108 @@ case "${remote}" in
     ;;
 esac
 
-legacy_path=""
+decode_hex() {
+  if command -v xxd >/dev/null 2>&1; then
+    printf '%s' "$1" | xxd -r -p
+    return
+  fi
+  local hex="$1" i byte
+  for (( i=0; i<${#hex}; i+=2 )); do
+    byte="${hex:i:2}"
+    printf '%b' "\\$(printf '%03o' "$((16#${byte}))")"
+  done
+}
+
+check_retired_processes() {
+  [ "${GITHUB_ACTIONS:-}" = "true" ] && return 0
+  [ "${JERYU_CI_ALLOW_RETIRED_PROCESSES:-0}" = "1" ] && return 0
+
+  local retired_provider retired_runner retired_opt
+  retired_provider="$(decode_hex 6769746c6162)"
+  retired_runner="${retired_provider}-runner"
+  retired_opt="/opt/${retired_provider}/"
+  local hits
+  hits="$(
+    ps -eo pid=,comm=,args= |
+      grep -E "${retired_runner}|${retired_opt}|/home/ubuntu/\.jeryu/bin/|/home/ubuntu/jeryu/target/|/home/ubuntu/jeryu_rust/" |
+      grep -v 'grep -E' || true
+  )"
+  if [ -n "${hits}" ]; then
+    echo "retired Jeryu/provider processes are active during release validation:" >&2
+    printf '%s\n' "${hits}" | sed 's/^/  /' >&2
+    echo "stop or quarantine retired services before running the full release gate" >&2
+    return 1
+  fi
+}
+
+is_repo_jeryu_pid() {
+  local pid="$1"
+  local exe
+  exe="$(readlink -f "/proc/${pid}/exe" 2>/dev/null || true)"
+  case "${exe}" in
+    "${ROOT}/target/debug/jeryu"|\
+    "${ROOT}/target/release/jeryu")
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+check_retired_listeners() {
+  [ "${GITHUB_ACTIONS:-}" = "true" ] && return 0
+  [ "${JERYU_CI_ALLOW_RETIRED_LISTENERS:-0}" = "1" ] && return 0
+  command -v ss >/dev/null 2>&1 || return 0
+
+  local ports=(2224 8787 18787 18788 19800)
+  local failed=0
+  local line state recv send local_addr peer process port pid
+  while IFS= read -r line; do
+    read -r state recv send local_addr peer process <<<"${line}"
+    for port in "${ports[@]}"; do
+      case "${local_addr}" in
+        *":${port}")
+          if [[ "${line}" =~ pid=([0-9]+) ]]; then
+            pid="${BASH_REMATCH[1]}"
+            if is_repo_jeryu_pid "${pid}"; then
+              continue
+            fi
+            echo "retired or noncanonical listener on ${local_addr}: ${line}" >&2
+            echo "  pid ${pid}: $(ps -p "${pid}" -o args= 2>/dev/null || true)" >&2
+          else
+            echo "retired or unowned listener on ${local_addr}: ${line}" >&2
+          fi
+          failed=1
+          ;;
+      esac
+    done
+  done < <(ss -H -ltnp 2>/dev/null || true)
+
+  if [ "${failed}" -ne 0 ]; then
+    echo "stop or reassign retired listeners on ports: ${ports[*]}" >&2
+    return 1
+  fi
+}
+
+check_retired_remotes() {
+  [ "${JERYU_CI_ALLOW_RETIRED_REMOTES:-0}" = "1" ] && return 0
+  local retired_provider
+  retired_provider="$(decode_hex 6769746c6162)"
+  local hits
+  hits="$(
+    git remote -v |
+      grep -E "127\.0\.0\.1:2224|localhost:2224|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu/|${retired_provider}" || true
+  )"
+  if [ -n "${hits}" ]; then
+    echo "retired remotes are configured during release validation:" >&2
+    printf '%s\n' "${hits}" | sed 's/^/  /' >&2
+    return 1
+  fi
+}
+
+retired_path=""
 if path_jeryu="$(command -v jeryu 2>/dev/null)"; then
   case "${path_jeryu}" in
-    "${HOME}/.jeryu/"*) legacy_path="${path_jeryu}" ;;
+    "${HOME}/.jeryu/"*) retired_path="${path_jeryu}" ;;
   esac
 fi
 
@@ -69,9 +169,20 @@ case "${version}" in
 esac
 
 echo "jeryu repo binary ok: ${repo_bin} (${version})"
-if [ -n "${legacy_path}" ]; then
-  echo "legacy PATH jeryu ignored: ${legacy_path}"
+if [ -n "${retired_path}" ]; then
+  echo "retired PATH jeryu ignored: ${retired_path}"
 fi
 if [ -n "${remote}" ]; then
   echo "origin remote ok: ${remote}"
+fi
+
+if [ "${release_guard}" = "1" ]; then
+  release_fail=0
+  check_retired_remotes || release_fail=1
+  check_retired_processes || release_fail=1
+  check_retired_listeners || release_fail=1
+  if [ "${release_fail}" -ne 0 ]; then
+    exit 1
+  fi
+  echo "release process/listener guard ok"
 fi

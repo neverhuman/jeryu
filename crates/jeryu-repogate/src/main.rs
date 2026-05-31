@@ -1,7 +1,7 @@
 //! `jeryu-repogate` — governance/CI repo gates ported from `scripts/*.py`.
 //!
 //! Subcommands preserve the exact behavior, exit codes, and stdout signal
-//! lines of the legacy Python scripts so existing CI lanes and downstream
+//! lines of the retired Python scripts so existing CI lanes and downstream
 //! tooling continue to parse them unchanged:
 //!
 //! * `score`          <- scripts/score-repo.py
@@ -64,6 +64,17 @@ enum Command {
         #[arg(long, default_value_t = 40)]
         workers: u32,
     },
+    /// Verify hosted workflows remain thin wrappers around agent/ci-lanes.toml.
+    CiLanesCheck,
+    /// List commands from agent/ci-lanes.toml for shell wrappers.
+    CiLanesList {
+        /// Only include lanes marked full=true.
+        #[arg(long)]
+        full: bool,
+        /// Emit JSON instead of tab-separated lines.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() -> Result<ExitCode> {
@@ -78,6 +89,8 @@ fn main() -> Result<ExitCode> {
         Command::AffectedPlan { base, out, workers } => {
             run_affected_plan(root, &base, &out, workers)?
         }
+        Command::CiLanesCheck => jeryu_repogate::run_ci_lanes_check(root)?,
+        Command::CiLanesList { full, json } => jeryu_repogate::run_ci_lanes_list(root, full, json)?,
     };
 
     for line in &outcome.stdout {

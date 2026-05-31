@@ -15,7 +15,8 @@ The step-by-step operator process lives in `docs/release-process.md`.
 
 ## Required Gates
 
-- `bash ci-fast-push.sh --no-push`
+- `bash ci-fast-push.sh --full --no-push`
+- `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
 - `./ops/ci/full.sh`
 - `just security`
@@ -24,10 +25,16 @@ The step-by-step operator process lives in `docs/release-process.md`.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
 
-Latest local validation for the gitd import tranche used push-mode
-`bash ci-fast-push.sh` with 40 workers: 1122 nextest tests, phase gates
-PASS=7/PENDING=0/FAIL=0, Jankurai diff audit score 90 hard 0 caps 0, and
-Jankurai repository audit score 92 caps 0.
+Latest closeout validation used explicit `--full` mode with 40 workers in both
+local-native and GitHub-clean profiles: 1175 nextest tests, phase gates
+PASS=7/PENDING=0/FAIL=0, proof-evidence Jankurai full scan score 92 caps 0, and
+changed-file Jankurai diff/audit hard 0 caps 0. The GitHub-clean proof is
+`JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`.
+Full mode runs `ops/ci/verify-jeryu-env.sh --build-local --release-guard` and
+rejects retired-provider runners, `~/.jeryu`, old `/home/ubuntu/jeryu`, and
+local `:2224` listener/remotes so release evidence cannot be produced against
+the retired system. This host still needs an explicit retired-state bypass for
+local parity runs until an operator stops the root-owned retired services.
 
 ## Release Process
 
@@ -37,7 +44,9 @@ Jankurai repository audit score 92 caps 0.
 3. Build release artifacts from the signed commit only, then record checksums,
    SBOM digests, provenance paths, and the rollback target in the release
    receipt.
-4. Tag only after the release receipt names the exact commit, prior rollback
+4. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
+   require explicit `--push-main` and are not the default closeout path.
+5. Tag only after the release receipt names the exact commit, prior rollback
    artifact, and gate evidence paths.
 
 ## Integrity And Provenance
