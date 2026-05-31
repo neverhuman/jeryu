@@ -7,16 +7,24 @@ use serde_json::{Value, json};
 use crate::routes::Response;
 
 use super::GithubRouter;
-use super::support::{error_response, json_response, parse_body};
+use super::support::{Pagination, error_response, json_response, paginate, parse_body};
 
 impl GithubRouter {
-    pub(super) fn list_check_runs(&self, owner: &str, repo: &str) -> Response {
+    pub(super) fn list_check_runs(
+        &self,
+        owner: &str,
+        repo: &str,
+        path: &str,
+        page: Pagination,
+    ) -> Response {
         match self.core.list_check_runs(owner, repo, None) {
             Ok(list) => {
                 let runs: Vec<Value> = list.check_runs.iter().map(check_run_json).collect();
-                json_response(
-                    200,
-                    &json!({ "total_count": list.total_count, "check_runs": runs }),
+                paginate(
+                    path,
+                    page,
+                    &runs,
+                    |slice, total| json!({ "total_count": total, "check_runs": slice }),
                 )
             }
             Err(err) => error_response(err),

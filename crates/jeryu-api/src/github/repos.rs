@@ -7,13 +7,17 @@ use serde_json::{Value, json};
 use crate::routes::Response;
 
 use super::GithubRouter;
-use super::support::{error_response, json_response, owner_for_create, owner_json, parse_body};
+use super::support::{
+    Pagination, error_response, json_response, owner_for_create, owner_json, paginate, parse_body,
+};
 
 impl GithubRouter {
-    pub(super) fn list_repos(&self) -> Response {
+    pub(super) fn list_repos(&self, path: &str, page: Pagination) -> Response {
         let repos = self.core.list_repositories(None);
         let body: Vec<Value> = repos.iter().map(repository_json).collect();
-        json_response(200, &Value::Array(body))
+        paginate(path, page, &body, |slice, _total| {
+            Value::Array(slice.to_vec())
+        })
     }
 
     pub(super) fn create_repo(&self, body: &str) -> Response {

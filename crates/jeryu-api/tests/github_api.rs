@@ -515,6 +515,189 @@ fn graphql_repository_read_probe_is_supported() {
 }
 
 #[test]
+fn actions_runs_empty_repo_returns_valid_empty_object() {
+    let router = router_with_repo();
+
+    // No check-runs yet -> a valid, EMPTY GitHub-shaped object so `gh run list`
+    // works without erroring.
+    let runs = router.get("/repos/alice/jeryu/actions/runs");
+    assert_eq!(runs.status, 200, "{}", runs.body);
+    let parsed = body(&runs);
+    assert_eq!(parsed["total_count"], 0);
+    assert_eq!(parsed["workflow_runs"].as_array().expect("array").len(), 0);
+
+    let workflows = router.get("/repos/alice/jeryu/actions/workflows");
+    assert_eq!(workflows.status, 200, "{}", workflows.body);
+    let parsed = body(&workflows);
+    assert_eq!(parsed["total_count"], 0);
+    assert_eq!(parsed["workflows"].as_array().expect("array").len(), 0);
+}
+
+#[test]
+fn actions_runs_are_sourced_from_check_runs() {
+    let router = router_with_repo();
+
+    // A check-run projects to one workflow run, one workflow, and one job.
+    let check = router.post(
+        "/repos/alice/jeryu/check-runs",
+        r#"{"name":"ci/fast","head_sha":"deadbeef","status":"completed","conclusion":"success"}"#,
+    );
+    assert_eq!(check.status, 201, "{}", check.body);
+
+    let runs = router.get("/repos/alice/jeryu/actions/runs");
+    assert_eq!(runs.status, 200, "{}", runs.body);
+    let parsed = body(&runs);
+    assert_eq!(parsed["total_count"], 1);
+    let run = &parsed["workflow_runs"][0];
+    let run_id = run["id"].as_u64().expect("run id");
+    assert_eq!(run_id, 1);
+    assert_eq!(run["name"], "ci/fast");
+    assert_eq!(run["head_sha"], "deadbeef");
+    assert_eq!(run["status"], "completed");
+    assert_eq!(run["conclusion"], "success");
+
+    // GET a single run resolves by its synthesized id.
+    let single = router.get("/repos/alice/jeryu/actions/runs/1");
+    assert_eq!(single.status, 200, "{}", single.body);
+    assert_eq!(body(&single)["name"], "ci/fast");
+
+    // Jobs for the run.
+    let jobs = router.get("/repos/alice/jeryu/actions/runs/1/jobs");
+    assert_eq!(jobs.status, 200, "{}", jobs.body);
+    let parsed = body(&jobs);
+    assert_eq!(parsed["total_count"], 1);
+    assert_eq!(parsed["jobs"][0]["name"], "ci/fast");
+    assert_eq!(parsed["jobs"][0]["steps"][0]["number"], 1);
+
+    // Workflows dedup by check name.
+    let workflows = router.get("/repos/alice/jeryu/actions/workflows");
+    assert_eq!(workflows.status, 200, "{}", workflows.body);
+    let parsed = body(&workflows);
+    assert_eq!(parsed["total_count"], 1);
+    assert_eq!(parsed["workflows"][0]["name"], "ci/fast");
+
+    // An unknown run id is a GitHub-shaped 404.
+    let missing = router.get("/repos/alice/jeryu/actions/runs/999");
+    assert_eq!(missing.status, 404, "{}", missing.body);
+    assert!(body(&missing).get("message").is_some());
+}
+
+#[test]
+fn actions_runs_on_unknown_repo_returns_404() {
+    let router = GithubRouter::new();
+    let runs = router.get("/repos/alice/missing/actions/runs");
+    assert_eq!(runs.status, 404, "{}", runs.body);
+    assert!(body(&runs).get("message").is_some());
+}
+
+#[test]
+fn list_routes_emit_rfc5988_link_header_for_pagination() {
+    let router = router_with_repo();
+
+    // Open three PRs so a per_page=1 page yields next/last links.
+    for (head, sha) in [
+        ("feat-a", "sha-a"),
+        ("feat-b", "sha-b"),
+        ("feat-c", "sha-c"),
+    ] {
+        let opened = router.post(
+            "/repos/alice/jeryu/pulls",
+            &format!(r#"{{"title":"{head}","head":"{head}","base":"main","head_sha":"{sha}"}}"#),
+        );
+        assert_eq!(opened.status, 201, "open {head}: {}", opened.body);
+    }
+
+    // Page 1 of 3: a single PR plus a Link header pointing to next + last.
+    let page1 = router.get("/repos/alice/jeryu/pulls?per_page=1&page=1");
+    assert_eq!(page1.status, 200, "{}", page1.body);
+    assert_eq!(body(&page1).as_array().expect("array").len(), 1);
+    let link = header(&page1, "Link").expect("Link header on page 1");
+    assert!(link.contains("rel=\"next\""), "next link present: {link}");
+    assert!(link.contains("rel=\"last\""), "last link present: {link}");
+    assert!(link.contains("page=2"), "next points at page 2: {link}");
+    assert!(link.contains("page=3"), "last points at page 3: {link}");
+    assert!(
+        !link.contains("rel=\"prev\""),
+        "no prev on first page: {link}"
+    );
+
+    // Middle page carries all four relations.
+    let page2 = router.get("/repos/alice/jeryu/pulls?per_page=1&page=2");
+    let link = header(&page2, "Link").expect("Link header on page 2");
+    assert!(link.contains("rel=\"next\""));
+    assert!(link.contains("rel=\"prev\""));
+    assert!(link.contains("rel=\"first\""));
+    assert!(link.contains("rel=\"last\""));
+
+    // A single-page result omits the Link header entirely (GitHub parity).
+    let single = router.get("/repos/alice/jeryu/pulls?per_page=100");
+    assert!(
+        header(&single, "Link").is_none(),
+        "single page has no Link header"
+    );
+    assert_eq!(body(&single).as_array().expect("array").len(), 3);
+}
+
+#[test]
+fn error_bodies_carry_jeryu_steering_fields() {
+    let router = router_with_repo();
+
+    // 404 from an unknown repo.
+    let not_found = router.get("/repos/alice/missing");
+    assert_eq!(not_found.status, 404);
+    let steering = &body(&not_found)["jeryu_steering"];
+    assert_eq!(steering["faster_path"], "/.jeryu/capabilities");
+    assert!(
+        steering["mcp_tool"]
+            .as_str()
+            .expect("mcp_tool")
+            .starts_with("jeryu.")
+    );
+    assert!(steering["hint"].as_str().expect("hint").len() > 5);
+
+    // 422 from an invalid body.
+    let invalid = router.post("/repos/alice/jeryu/issues", "{ not json");
+    assert_eq!(invalid.status, 422);
+    assert_eq!(
+        body(&invalid)["jeryu_steering"]["faster_path"],
+        "/.jeryu/capabilities"
+    );
+
+    // 422 from a non-numeric path id.
+    let bad_id = router.get("/repos/alice/jeryu/pulls/not-a-number");
+    assert_eq!(bad_id.status, 422);
+    assert!(body(&bad_id)["jeryu_steering"]["mcp_tool"].is_string());
+
+    // The catch-all 404 (unmatched route) also teaches.
+    let unmatched = router.get("/repos/alice/jeryu/unknown-thing");
+    assert_eq!(unmatched.status, 404);
+    assert_eq!(
+        body(&unmatched)["jeryu_steering"]["faster_path"],
+        "/.jeryu/capabilities"
+    );
+}
+
+#[test]
+fn first_contact_returns_a_steering_doc() {
+    let router = GithubRouter::new();
+    let doc = router.get("/.jeryu/agents/first-contact");
+    assert_eq!(doc.status, 200, "{}", doc.body);
+    let parsed = body(&doc);
+    assert_eq!(parsed["start_here"], "/.jeryu/capabilities");
+    let advice = parsed["advice"].as_array().expect("advice array");
+    assert!(!advice.is_empty(), "first-contact carries advice");
+    assert!(
+        advice
+            .iter()
+            .any(|line| line.as_str().unwrap_or("").contains("/.jeryu/capabilities")),
+        "advice points at the capability manifest"
+    );
+    for tool in parsed["mcp_tools"].as_array().expect("mcp_tools array") {
+        assert!(tool.as_str().unwrap().starts_with("jeryu."));
+    }
+}
+
+#[test]
 fn unsupported_graphql_returns_guided_repair_hint() {
     let router = GithubRouter::new();
     let response = router.post(

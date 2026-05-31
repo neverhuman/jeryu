@@ -16,6 +16,7 @@
 //! [`check_runs`], [`branch_protection`], [`releases`], [`hooks`]). Shared
 //! request parsing and response helpers live in [`support`].
 
+mod actions;
 mod branch_protection;
 mod check_runs;
 mod commit_status;
@@ -32,7 +33,7 @@ use serde_json::json;
 
 use crate::routes::Response;
 
-use support::{json_response, not_found};
+use support::{Pagination, first_contact_response, json_response, not_found};
 
 /// Semantic version reported by `GET /api/v1/version`.
 pub const JERYU_API_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -71,8 +72,13 @@ impl GithubRouter {
     /// bodiless GETs). The actor is the authenticated principal; the in-memory
     /// edge defaults it where GitHub would take it from the token.
     pub fn handle(&self, method: Method, path: &str, body: &str) -> Response {
-        let segments: Vec<&str> = path.trim_matches('/').split('/').collect();
-        self.route(method, &segments, body)
+        // Split a `path?query` so callers (tests, the future HTTP edge) can pass
+        // RFC5988 list pagination as `?per_page=&page=` without the query
+        // leaking into segment matching.
+        let (route_path, query) = path.split_once('?').unwrap_or((path, ""));
+        let page = Pagination::from_query(query);
+        let segments: Vec<&str> = route_path.trim_matches('/').split('/').collect();
+        self.route(method, &segments, body, route_path, page)
             .unwrap_or_else(not_found)
     }
 
@@ -98,6 +104,8 @@ impl GithubRouter {
         method: Method,
         segments: &[&str],
         body: &str,
+        path: &str,
+        page: Pagination,
     ) -> std::result::Result<Response, u16> {
         use Method::{Get, Post, Put};
         match (method, segments) {
@@ -105,6 +113,8 @@ impl GithubRouter {
                 200,
                 &json!({ "status": "ok", "service": "jeryu-api" }),
             )),
+            // Steering: first-contact doc for a confused agent on the REST edge.
+            (Get, [".jeryu", "agents", "first-contact"]) => Ok(first_contact_response()),
             (Get, ["api", "v1", "version"]) => Ok(json_response(
                 200,
                 &json!({ "version": JERYU_API_VERSION, "name": "jeryu-api" }),
@@ -123,12 +133,12 @@ impl GithubRouter {
             (Post, ["graphql"]) => Ok(self.graphql(body)),
 
             // Repositories ---------------------------------------------------
-            (Get, ["repos"]) => Ok(self.list_repos()),
+            (Get, ["repos"]) => Ok(self.list_repos(path, page)),
             (Post, ["repos"]) => Ok(self.create_repo(body)),
             (Get, ["repos", owner, repo]) => Ok(self.get_repo(owner, repo)),
 
             // Pull requests --------------------------------------------------
-            (Get, ["repos", owner, repo, "pulls"]) => Ok(self.list_pulls(owner, repo)),
+            (Get, ["repos", owner, repo, "pulls"]) => Ok(self.list_pulls(owner, repo, path, page)),
             (Post, ["repos", owner, repo, "pulls"]) => Ok(self.create_pull(owner, repo, body)),
             (Get, ["repos", owner, repo, "pulls", number]) => {
                 Ok(self.get_pull(owner, repo, number))
@@ -138,7 +148,9 @@ impl GithubRouter {
             }
 
             // Issues ---------------------------------------------------------
-            (Get, ["repos", owner, repo, "issues"]) => Ok(self.list_issues(owner, repo)),
+            (Get, ["repos", owner, repo, "issues"]) => {
+                Ok(self.list_issues(owner, repo, path, page))
+            }
             (Post, ["repos", owner, repo, "issues"]) => Ok(self.create_issue(owner, repo, body)),
             (Get, ["repos", owner, repo, "issues", number, "comments"]) => {
                 Ok(self.list_comments(owner, repo, number))
@@ -156,9 +168,11 @@ impl GithubRouter {
             }
 
             // Check runs -----------------------------------------------------
-            (Get, ["repos", owner, repo, "check-runs"]) => Ok(self.list_check_runs(owner, repo)),
+            (Get, ["repos", owner, repo, "check-runs"]) => {
+                Ok(self.list_check_runs(owner, repo, path, page))
+            }
             (Get, ["repos", owner, repo, "commits", _reference, "check-runs"]) => {
-                Ok(self.list_check_runs(owner, repo))
+                Ok(self.list_check_runs(owner, repo, path, page))
             }
             (Post, ["repos", owner, repo, "check-runs"]) => {
                 Ok(self.create_check_run(owner, repo, body))
@@ -173,9 +187,25 @@ impl GithubRouter {
             }
 
             // Releases -------------------------------------------------------
-            (Get, ["repos", owner, repo, "releases"]) => Ok(self.list_releases(owner, repo)),
+            (Get, ["repos", owner, repo, "releases"]) => {
+                Ok(self.list_releases(owner, repo, path, page))
+            }
             (Post, ["repos", owner, repo, "releases"]) => {
                 Ok(self.create_release(owner, repo, body))
+            }
+
+            // Actions (sourced from check-runs as a CI proxy) ----------------
+            (Get, ["repos", owner, repo, "actions", "runs"]) => {
+                Ok(self.list_action_runs(owner, repo, path, page))
+            }
+            (Get, ["repos", owner, repo, "actions", "runs", id]) => {
+                Ok(self.get_action_run(owner, repo, id))
+            }
+            (Get, ["repos", owner, repo, "actions", "runs", id, "jobs"]) => {
+                Ok(self.list_action_run_jobs(owner, repo, id))
+            }
+            (Get, ["repos", owner, repo, "actions", "workflows"]) => {
+                Ok(self.list_action_workflows(owner, repo, path, page))
             }
 
             // Webhooks -------------------------------------------------------
