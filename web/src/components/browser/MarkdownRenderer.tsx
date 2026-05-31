@@ -110,6 +110,8 @@ export function MarkdownRenderer({
       // browser-side layer. The only string that can reach this sink is the
       // DOMPurify output — there is no other way to render sanitized Markdown
       // HTML in React, so this `dangerouslySetInnerHTML` is intentional.
+      // jankurai:allow typescript.runtime.dangerous-eval-dom reason=safeHtml is DOMPurify.sanitize over server-side ammonia; covered by XSS negative test W-FE-09 (MarkdownRenderer.test.tsx) expires=2027-05-31
+      // jankurai:allow HLT-023-INPUT-BOUNDARY-GAP reason=same DOMPurify+ammonia sanitized Markdown sink; XSS negative test W-FE-09 proves script/onerror stripped expires=2027-05-31
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );

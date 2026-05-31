@@ -65,6 +65,7 @@ function readPersistedSeq(): bigint | null {
     // event sequence number), NOT a credential, token, or any secret. Nothing
     // sensitive is ever persisted here; the worst a tamperer can do is ask the
     // server to resume from a different (still server-authorized) sequence.
+    // jankurai:allow websec.storage.token reason=non-secret WebSocket resume cursor (monotonic event sequence), validated as decimal before use; never a credential or token expires=2027-05-31
     const raw = window.sessionStorage.getItem(SEQ_STORAGE_KEY);
     // sessionStorage is a tamperable input source: validate that the value
     // is a canonical non-negative integer before it becomes a resume cursor.
@@ -89,6 +90,7 @@ function persistSeq(seq: bigint | null): void {
     if (seq === null || seq < BigInt(0)) {
       window.sessionStorage.removeItem(SEQ_STORAGE_KEY);
     } else {
+      // jankurai:allow websec.storage.token reason=persists only a validated non-secret resume cursor (event sequence), never a token or credential expires=2027-05-31
       window.sessionStorage.setItem(SEQ_STORAGE_KEY, seq.toString());
     }
   } catch {
