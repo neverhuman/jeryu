@@ -11,12 +11,12 @@ use axum::http::StatusCode;
 use serde_json::json;
 
 use jeryu_mcp::{
-    MCP_PROTOCOL_VERSION, McpCore, McpHttpState, McpSessionState, StubBackend, mcp_router,
+    MCP_PROTOCOL_VERSION, McpCore, McpHttpState, McpSessionState, MemoryBackend, mcp_router,
     tool_manifest,
 };
 
-fn backend() -> Arc<StubBackend> {
-    Arc::new(StubBackend::new())
+fn backend() -> Arc<MemoryBackend> {
+    Arc::new(MemoryBackend::new())
 }
 
 async fn spawn_http_server() -> (String, tokio::task::JoinHandle<()>) {

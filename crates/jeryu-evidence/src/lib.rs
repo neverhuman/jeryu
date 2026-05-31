@@ -29,10 +29,17 @@ const BLOCKED_MARKER_HEX: &[&str] = &[
 /// Directory names whose entire subtree is skipped during a scan.
 ///
 /// `.git`, `.worktrees`, and `target` hold VCS internals and build output that
-/// are never product source. `node_modules` and `dist` cover the web build
-/// artifacts. External worktree roots live outside the repo, so a default `.`
-/// scan never reaches them.
-const SKIP_DIRS: &[&str] = &[".git", ".worktrees", "target", "node_modules", "dist"];
+/// are never product source. `node_modules`, `dist`, and `storybook-static`
+/// cover the web build artifacts. External worktree roots live outside the
+/// repo, so a default `.` scan never reaches them.
+const SKIP_DIRS: &[&str] = &[
+    ".git",
+    ".worktrees",
+    "target",
+    "node_modules",
+    "dist",
+    "storybook-static",
+];
 
 /// Errors that can occur while scanning a workspace.
 #[derive(Debug, thiserror::Error)]

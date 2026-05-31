@@ -61,9 +61,9 @@ just security
 just audit
 ```
 
-The tracker in `CI_TRACKER.md` records the latest passing counts and which
-phase gates are PASS or honestly PENDING. Do not make a missing capability look
-green; keep it PENDING with evidence until the runtime exists.
+The tracker in `CI_TRACKER.md` records the latest passing counts, Jankurai
+score, and phase-gate status. Do not make a missing capability look green; keep
+it PENDING with evidence until the runtime exists.
 
 ## Cache Laws
 
@@ -95,8 +95,10 @@ AppleDouble `._*` files are present from tar extraction.
 
 ## Implementation Boundary
 
-The engineering plan remains broader than this workspace checkpoint. The full
-GitHub-compatible HTTP REST edge, complete Git protocol parity matrix,
-production signer adapters, and full benchmark lab execution adapters are still
-future work. Checked-in tests and local gates must reflect what is actually
-present, not aspirational behavior.
+The engineering plan remains broader than this workspace checkpoint. The
+GitHub-compatible REST edge, React web surface, CLI, proof lanes, tool-adoption
+evidence, DB migration evidence, and live runner escape matrix are present.
+Complete Git protocol parity, production signer adapters, benchmark lab
+execution adapters, and deeper daemon hardening remain post-v1 work. Checked-in
+tests and local gates must reflect what is actually present, not aspirational
+behavior.

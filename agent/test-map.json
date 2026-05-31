@@ -51,6 +51,11 @@
       "purpose": "verify the deterministic fast lane runs locally",
       "lane": "fast"
     },
+    "package.json": {
+      "command": "npm --workspace @jankurai/ux-qa run build && npm --workspace @jankurai/ux-qa run test",
+      "purpose": "verify root npm workspace wiring for UX-QA evidence lanes",
+      "lane": "ux-qa"
+    },
     "Cargo.toml": {
       "command": "cargo metadata --format-version 1 --no-deps",
       "purpose": "verify workspace manifest shape",
@@ -156,6 +161,11 @@
       "purpose": "verify observability and benchmark receipts",
       "lane": "benchmark-receipts"
     },
+    "db/": {
+      "command": "jankurai migrate . --analyze --out target/jankurai/migration-report.json",
+      "purpose": "verify SQLite migrations, constraints, rollback notes, and DB ownership boundaries",
+      "lane": "db-migration-analyze"
+    },
     "deny.toml": {
       "command": "cargo deny check licenses sources bans advisories",
       "purpose": "verify dependency license and source policy",
@@ -191,6 +201,11 @@
       "purpose": "verify policy docs and config",
       "lane": "policy-docs"
     },
+    "packages/ux-qa/": {
+      "command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
+      "purpose": "verify the Jankurai UX-QA compatibility CLI emits the catalog artifact",
+      "lane": "ux-qa"
+    },
     "scripts/": {
       "command": "./scripts/ci-doctor.sh && ./scripts/check-owner-test-map.sh",
       "purpose": "verify support scripts and proof map coverage",
@@ -200,6 +215,16 @@
       "command": "bash scripts/ci-phases.sh",
       "purpose": "verify local test harnesses remain executable",
       "lane": "tests"
+    },
+    "tips/": {
+      "command": "jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md",
+      "purpose": "verify vibe-coverage source guidance remains parseable and evidence-backed",
+      "lane": "vibe-coverage"
+    },
+    "tools/security-lane.sh": {
+      "command": "bash tools/security-lane.sh",
+      "purpose": "verify the canonical security-lane wrapper delegates to the real local security lane",
+      "lane": "security"
     },
     "web/": {
       "command": "npm run typecheck && npm run test && npm run build",

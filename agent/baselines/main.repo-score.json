@@ -1,8 +1,3608 @@
 {
-  "repo": "jeryu",
-  "phase": 12,
-  "score": 100,
-  "required_exit_score": 95,
-  "hard_blocks": [],
-  "advisories": []
+  "report_fingerprint": "sha256:61c866fa2814dfafd63143622d17f5eec16f4ead8b226bd6a79a86ddf91f12be",
+  "input_fingerprint": "sha256:c29916bfdb2a44d8393c47579624d32b4f44dddaa2f269bbfa2e9c7a490dcfcc",
+  "policy_fingerprint": "sha256:6be56f582e2d7fd6e4137ad1c73be156dcb28c85af81148bba1ad3999db4c562",
+  "manifest_fingerprints": {
+    "owner_map": "sha256:ba0dffd2adb7693cdb9284bf4dc695d9ba1688dcf1bf518a8da0442d6a0d5704",
+    "test_map": "sha256:3b18e3fec7b1731dad52b32fd5ea59925af5ad888d59468dfa391e036ae35ab4",
+    "generated_zones": "sha256:523e0cc440397b388e0d4be30b4f4a5c37491b1fd498210e4cd0052cfbb6e841",
+    "boundaries": "sha256:893278582f686b9dc33d17439803e270beba2be2b17f07531028f57483d299ae",
+    "proof_lanes": "sha256:07040ef52be5d71e8df78f481097fe5a6b53f987df5b061ba5f325a990433ce7",
+    "standard_version": "sha256:a5ca3bca5dcc5c48e79f8f66a3ba3dfff64706c90f9e30a352b17fe5950411c0"
+  },
+  "dirty_worktree": true,
+  "generated_at": "1780197470",
+  "schema_url": "schemas/repo-score.schema.json",
+  "standard": "jankurai",
+  "standard_version": "0.9.0",
+  "auditor_version": "1.6.7",
+  "schema_version": "1.9.0",
+  "paper_edition": "2026.05-ed8",
+  "target_stack_id": "rust-ts-vite-react-postgres-bounded-python",
+  "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
+  "claimed_conformance_level": "HL3",
+  "observed_conformance_level": "HL3",
+  "conformance_decision": "pass",
+  "conformance_blockers": [],
+  "repo": ".",
+  "run_id": "1780197470",
+  "started_at": "1780197470",
+  "elapsed_ms": 6014,
+  "scope": {
+    "mode": "full",
+    "paths": []
+  },
+  "score": 98,
+  "raw_score": 98,
+  "decision": {
+    "status": "pass",
+    "minimum_score": 85,
+    "passed": true,
+    "hard_findings": 0,
+    "soft_findings": 0,
+    "ratchet": {
+      "baseline_score": 98,
+      "allowed_drop": 0,
+      "passed": true,
+      "score_delta": 0,
+      "baseline_report_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "baseline_input_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "baseline_policy_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "new_caps": [],
+      "new_hard_findings": [],
+      "policy_changed": false
+    }
+  },
+  "git": {
+    "head": "450c23b",
+    "base": null,
+    "changed_files": 0,
+    "mode": "full",
+    "dirty_worktree": true
+  },
+  "policy": {
+    "path": "./agent/audit-policy.toml",
+    "minimum_score": 85,
+    "fail_on": [
+      "critical",
+      "high"
+    ],
+    "advisory_on": [
+      "medium",
+      "low"
+    ],
+    "mode": "standard",
+    "standard_version": "0.9.0",
+    "auditor_version": "1.6.7",
+    "schema_version": "1.9.0",
+    "paper_edition": "2026.05-ed8",
+    "target_stack": "rust-ts-vite-react-postgres-bounded-python"
+  },
+  "caps_applied": [],
+  "hard_rules": [
+    {
+      "id": "no-root-agent-instructions",
+      "max_score": 75
+    },
+    {
+      "id": "no-one-command-setup-or-validation",
+      "max_score": 70
+    },
+    {
+      "id": "no-deterministic-fast-lane",
+      "max_score": 65
+    },
+    {
+      "id": "no-security-lane-on-high-risk-repo",
+      "max_score": 60
+    },
+    {
+      "id": "generated-contracts-or-public-api-drift-untested",
+      "max_score": 80
+    },
+    {
+      "id": "python-direct-product-truth-or-db-ownership",
+      "max_score": 72
+    },
+    {
+      "id": "no-secret-or-dependency-scanning-in-ci",
+      "max_score": 78
+    },
+    {
+      "id": "no-jankurai-audit-lane-in-ci",
+      "max_score": 82
+    },
+    {
+      "id": "jankurai-required-tool-ci-evidence-gap",
+      "max_score": 88
+    },
+    {
+      "id": "non-optimal-product-language-found",
+      "max_score": 74
+    },
+    {
+      "id": "too-much-python-in-product-surface",
+      "max_score": 72
+    },
+    {
+      "id": "boundary-reclassification-evidence-gap",
+      "max_score": 72
+    },
+    {
+      "id": "vibe-placeholders-in-product-code",
+      "max_score": 68
+    },
+    {
+      "id": "fallback-soup-in-product-code",
+      "max_score": 70
+    },
+    {
+      "id": "future-hostile-dead-language-in-product-code",
+      "max_score": 64
+    },
+    {
+      "id": "severe-duplication-in-product-code",
+      "max_score": 70
+    },
+    {
+      "id": "generated-zone-mutation-risk",
+      "max_score": 76
+    },
+    {
+      "id": "direct-db-access-from-wrong-layer",
+      "max_score": 66
+    },
+    {
+      "id": "missing-web-e2e-lane",
+      "max_score": 82
+    },
+    {
+      "id": "missing-rendered-ux-qa-lane",
+      "max_score": 84
+    },
+    {
+      "id": "prompt-injection-risk",
+      "max_score": 78
+    },
+    {
+      "id": "overbroad-agent-agency",
+      "max_score": 65
+    },
+    {
+      "id": "secret-like-content-detected",
+      "max_score": 60
+    },
+    {
+      "id": "false-green-test-risk",
+      "max_score": 76
+    },
+    {
+      "id": "destructive-migration-risk",
+      "max_score": 70
+    },
+    {
+      "id": "authz-or-data-isolation-gap",
+      "max_score": 78
+    },
+    {
+      "id": "input-boundary-gap",
+      "max_score": 78
+    },
+    {
+      "id": "agent-tool-supply-chain-gap",
+      "max_score": 78
+    },
+    {
+      "id": "release-readiness-gap",
+      "max_score": 80
+    },
+    {
+      "id": "missing-rust-property-or-integration-tests",
+      "max_score": 82
+    },
+    {
+      "id": "no-agent-friendly-exception-pattern",
+      "max_score": 76
+    },
+    {
+      "id": "missing-agent-readable-docs",
+      "max_score": 80
+    },
+    {
+      "id": "streaming-runtime-drift",
+      "max_score": 78
+    },
+    {
+      "id": "rust-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "sql-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "typescript-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "docker-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "python-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "ci-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "git-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "gittools-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "release-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "web-security-bad-behavior",
+      "max_score": 68
+    },
+    {
+      "id": "repo-rot-bad-behavior",
+      "max_score": 88
+    },
+    {
+      "id": "comment-hygiene-dangerous-residue",
+      "max_score": 72
+    },
+    {
+      "id": "ci-local-parity",
+      "max_score": 70
+    }
+  ],
+  "dimensions": [
+    {
+      "name": "Ownership and navigation surface",
+      "weight": 13,
+      "score": 100,
+      "weighted_points": 13.0,
+      "evidence": [
+        "root `AGENTS.md` present",
+        "owner map present",
+        "test/proof routing map present",
+        "local `AGENTS.md` file(s)",
+        "reference-profile cell `domain` is canonical",
+        "reference-profile cell `domain` has local AGENTS.md guidance",
+        "reference-profile cell `contracts` is canonical",
+        "reference-profile cell `contracts` has local AGENTS.md guidance",
+        "reference-profile cell `db` is canonical",
+        "reference-profile cell `db` has local AGENTS.md guidance",
+        "reference-profile cell `ops` is canonical",
+        "reference-profile cell `ops` has local AGENTS.md guidance",
+        "root `README.md` routes to workspace layout",
+        "owner map covers audited paths",
+        "test map covers audited paths"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Contract and boundary integrity",
+      "weight": 13,
+      "score": 98,
+      "weighted_points": 12.74,
+      "evidence": [
+        "contract surface found",
+        "generated contract artifacts found",
+        "polyglot boundary layout present",
+        "boundary manifest present",
+        "Rust typed boundary helpers found",
+        "all contract sources have generated zone entries"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Proof lanes and test routing",
+      "weight": 12,
+      "score": 100,
+      "weighted_points": 12.0,
+      "evidence": [
+        "one-command setup/validation lane found",
+        "deterministic fast lane found",
+        "test runner present in automation surface",
+        "GitHub workflow files present",
+        "test/proof routing map present",
+        "jankurai audit lane found in CI",
+        "web e2e lane present or no web surface",
+        "rendered UX QA lane present or no web surface",
+        "DOM geometry UX QA runtime found",
+        "Rust property/integration tests present or no Rust surface",
+        "proofbind artifact found: surfaces=360 missing=360 high_or_critical_missing=48 verdict=review"
+      ],
+      "notes": [
+        "proofbind reports 360 unresolved obligation(s)",
+        "proofbind reports 48 missing high/critical semantic proof obligation(s)"
+      ]
+    },
+    {
+      "name": "Security and supply-chain posture",
+      "weight": 12,
+      "score": 100,
+      "weighted_points": 12.0,
+      "evidence": [
+        "lockfile present",
+        "secret or dependency scan tooling found",
+        "provenance/SBOM tooling found",
+        "workflow linting tooling found",
+        "security lane present",
+        "canonical security lane wrapper present",
+        "agent-readiness audit gate found in CI",
+        "rust bad-behavior advisory signals: 1210",
+        "typescript bad-behavior advisory signals: 18",
+        "ci bad-behavior advisory signals: 1",
+        "git bad-behavior advisory signals: 1",
+        "gittools bad-behavior advisory signals: 1",
+        "release bad-behavior advisory signals: 1",
+        "web security bad-behavior advisory signals: 1",
+        "Rust and npm dependency audits are operational commands",
+        "secret scanning command is operational",
+        "complete operational security command posture with zero hard language findings"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Code shape and semantic surface",
+      "weight": 12,
+      "score": 100,
+      "weighted_points": 12.0,
+      "evidence": [
+        "largest authored code file: web/src/pages/SearchResultsPage.tsx (349 LOC)",
+        "most code files stay under 300 LOC",
+        "copy-code advisory classes found: 67 (advisory only, no score impact)",
+        "authored code stays below hard LOC limits with no shape markers",
+        "rust bad-behavior advisory signals: 1210",
+        "typescript bad-behavior advisory signals: 18",
+        "ci bad-behavior advisory signals: 1",
+        "git bad-behavior advisory signals: 1",
+        "gittools bad-behavior advisory signals: 1",
+        "release bad-behavior advisory signals: 1",
+        "no hard bad-behavior findings across detector-backed language families"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Data truth and workflow safety",
+      "weight": 8,
+      "score": 100,
+      "weighted_points": 8.0,
+      "evidence": [
+        "database surface present",
+        "structured db boundary manifest present",
+        "db boundary routes roots, migrations, and constraints",
+        "migration directory present",
+        "constraint or RLS language found",
+        "db policy docs describe constraints and rollback safety"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Observability and repair evidence",
+      "weight": 8,
+      "score": 98,
+      "weighted_points": 7.84,
+      "evidence": [
+        "observability libraries or patterns found",
+        "diagnostic shaping hints found",
+        "ops/observability directory present",
+        "repair receipts or raw artifact language found",
+        "agent-friendly exception pattern found",
+        "repair-hint and receipt convention are documented",
+        "repair receipt guidance is documented"
+      ],
+      "notes": [
+        "free-form logging appears in scope"
+      ]
+    },
+    {
+      "name": "Context economy and agent instructions",
+      "weight": 7,
+      "score": 93,
+      "weighted_points": 6.51,
+      "evidence": [
+        "root `AGENTS.md` present",
+        "root `AGENTS.md` stays short",
+        "machine-readable routing artifacts present",
+        "local instruction files present",
+        "root README routes to the right docs",
+        "core agent-readable docs present"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Jankurai tool adoption and CI replacement",
+      "weight": 7,
+      "score": 100,
+      "weighted_points": 7.0,
+      "evidence": [
+        "control-plane files present",
+        "applicable=20",
+        "configured=20",
+        "ci_evidence=20",
+        "artifact_verified=20"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Python containment and polyglot hygiene",
+      "weight": 4,
+      "score": 100,
+      "weighted_points": 4.0,
+      "evidence": [
+        "no Python files in scope"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Build speed signals",
+      "weight": 4,
+      "score": 85,
+      "weighted_points": 3.4,
+      "evidence": [
+        "build acceleration markers found",
+        "targeted test/build commands found",
+        "locked dependency graph present",
+        "focused Rust and UX QA build/test lanes are available",
+        "explicit cache marker plus narrow per-package target found"
+      ],
+      "notes": []
+    }
+  ],
+  "ux_qa": {
+    "web_surface": true,
+    "has_rendered_ux_lane": true,
+    "missing_categories": [],
+    "evidence": {
+      "accessibility": [
+        "agent/baselines/main.repo-score.json",
+        "ux-qa/ux-qa.ts",
+        "web/.storybook/main.ts",
+        "web/.storybook/preview.tsx",
+        "web/e2e/10-a11y.spec.ts"
+      ],
+      "api_mocks": [
+        "ux-qa/ux-qa.ts",
+        "web/package-lock.json",
+        "web/package.json",
+        "web/src/test/mocks.ts",
+        "web/src/test/server.ts"
+      ],
+      "artifact_backed_proof": [
+        "agent/ux-qa.toml",
+        "crates/jeryu-artifact-metadata/src/lib.rs",
+        "crates/jeryu-ci-compiler/src/attributes.rs",
+        "crates/jeryu-ci-compiler/src/native.rs",
+        "crates/jeryu-ci-ir/src/job.rs"
+      ],
+      "design_tokens": [
+        "ux-qa/ux-qa.ts",
+        "web/.storybook/preview.tsx",
+        "web/src/components/browser/browser.css",
+        "web/src/components/merge/merge.css",
+        "web/src/components/repo/repo.css"
+      ],
+      "geometry_runtime": [
+        "Justfile",
+        "agent/test-map.json",
+        "agent/ux-qa.toml",
+        "package.json",
+        "ux-qa/AGENTS.md"
+      ],
+      "layout_stability": [
+        "ux-qa/ux-qa-check.mjs",
+        "ux-qa/ux-qa.ts",
+        "web/.gitignore",
+        "web/package-lock.json",
+        "web/package.json"
+      ],
+      "playwright_visual": [
+        "ux-qa/ux-qa.ts",
+        "web/e2e/01-bootstrap.spec.ts",
+        "web/e2e/02-repos.spec.ts"
+      ],
+      "storybook": [
+        "agent/baselines/main.repo-score.json",
+        "crates/jeryu-evidence/src/lib.rs",
+        "ux-qa/ux-qa-check.mjs",
+        "ux-qa/ux-qa.ts",
+        "web/.gitignore"
+      ],
+      "visual_review": [
+        "ux-qa/ux-qa.ts"
+      ]
+    },
+    "artifact": {
+      "path": "target/jankurai/ux-qa.json",
+      "report_count": 1,
+      "worst_decision": "pass",
+      "total_violations": 0,
+      "summary_errors": 0,
+      "summary_warnings": 0,
+      "reports_missing_required_states": 0,
+      "missing_state_names": [],
+      "artifact_counts_by_kind": {
+        "accessibility": 1
+      },
+      "reports_missing_required_artifacts": 0,
+      "missing_artifact_kinds": [],
+      "reports_missing_required_accessibility_artifact": 0,
+      "accessibility_violation_total": 0,
+      "accessibility_incomplete_total": 0,
+      "accessibility_pass_total": 1,
+      "artifact_fingerprint_count": 1,
+      "visual_baseline_missing": 0,
+      "visual_baseline_changed": 0,
+      "visual_baseline_review": 0,
+      "visual_baseline_block": 0
+    }
+  },
+  "tool_adoption": {
+    "control_plane_present": true,
+    "applicable_count": 20,
+    "configured_count": 20,
+    "ci_evidence_count": 20,
+    "artifact_verified_count": 20,
+    "replaced_count": 20,
+    "items": [
+      {
+        "id": "audit-ci",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual repo scoring",
+          "ad hoc score gates"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json .jankurai/repo-score.json --md .jankurai/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md"
+        ]
+      },
+      {
+        "id": "proof-routing",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "ad hoc proof lane selection",
+          "manual proof receipts"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md, target/jankurai/repair-queue.jsonl"
+        ],
+        "missing": [],
+        "local_command": "jankurai proof . --changed-from origin/main --out target/jankurai/proof-plan.json --md target/jankurai/proof-plan.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md",
+          "target/jankurai/repair-queue.jsonl"
+        ]
+      },
+      {
+        "id": "proofbind",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual changed-surface routing",
+          "ad hoc proof obligation lists"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/proofbind/surface-witness.json, target/jankurai/proofbind/obligations.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai proofbind verify . --changed-from origin/main",
+        "ci_command": "jankurai proofbind verify . --changed-from origin/main",
+        "artifact_paths": [
+          "target/jankurai/proofbind/surface-witness.json",
+          "target/jankurai/proofbind/obligations.json"
+        ]
+      },
+      {
+        "id": "proofmark-rust",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "line-only coverage review",
+          "manual in-diff mutation review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/proofmark/proofmark-receipt.json, target/jankurai/proofmark/proof-receipt.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json",
+        "ci_command": "jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json",
+        "artifact_paths": [
+          "target/jankurai/proofmark/proofmark-receipt.json",
+          "target/jankurai/proofmark/proof-receipt.json"
+        ]
+      },
+      {
+        "id": "copy-code",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "ad hoc copy-code review",
+          "manual duplication triage"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/copy-code.json, target/jankurai/copy-code.md"
+        ],
+        "missing": [],
+        "local_command": "cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md",
+        "ci_command": "cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md",
+        "artifact_paths": [
+          "target/jankurai/copy-code.json",
+          "target/jankurai/copy-code.md"
+        ]
+      },
+      {
+        "id": "security",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "gitleaks",
+          "dependency review",
+          "SBOM/provenance"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/security/evidence.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai security run . --out target/jankurai/security/evidence.json",
+        "ci_command": "jankurai security run . --out target/jankurai/security/evidence.json",
+        "artifact_paths": [
+          "target/jankurai/security/evidence.json"
+        ]
+      },
+      {
+        "id": "ci-bad-behavior",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "mutable workflow refs",
+          "secret echo/debug workflow checks",
+          "non-blocking security scans"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/language-bad-behavior.log"
+        ],
+        "missing": [],
+        "local_command": "cargo test -p jankurai --test language_bad_behavior",
+        "ci_command": "cargo test -p jankurai --test language_bad_behavior",
+        "artifact_paths": [
+          "target/jankurai/language-bad-behavior.log"
+        ]
+      },
+      {
+        "id": "git-bad-behavior",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "destructive git automation",
+          "force-push release scripts",
+          "hidden stash-based state"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/language-bad-behavior.log"
+        ],
+        "missing": [],
+        "local_command": "cargo test -p jankurai --test language_bad_behavior",
+        "ci_command": "cargo test -p jankurai --test language_bad_behavior",
+        "artifact_paths": [
+          "target/jankurai/language-bad-behavior.log"
+        ]
+      },
+      {
+        "id": "release-bad-behavior",
+        "category": "release",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual release checklist",
+          "ad hoc tag and artifact review",
+          "manual provenance review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/language-bad-behavior.log"
+        ],
+        "missing": [],
+        "local_command": "cargo test -p jankurai --test language_bad_behavior",
+        "ci_command": "cargo test -p jankurai --test language_bad_behavior",
+        "artifact_paths": [
+          "target/jankurai/language-bad-behavior.log"
+        ]
+      },
+      {
+        "id": "ux-qa",
+        "category": "ux",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "playwright",
+          "axe-core",
+          "visual baselines"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/ux-qa.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
+        "ci_command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
+        "artifact_paths": [
+          "target/jankurai/ux-qa.json"
+        ]
+      },
+      {
+        "id": "db-migration-analyze",
+        "category": "db",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual migration review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/migration-report.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai migrate . --analyze --json target/jankurai/migration-report.json",
+        "ci_command": "jankurai migrate . --analyze --json target/jankurai/migration-report.json",
+        "artifact_paths": [
+          "target/jankurai/migration-report.json"
+        ]
+      },
+      {
+        "id": "contract-drift",
+        "category": "contract",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "handwritten contract drift checks",
+          "openapi diff"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json .jankurai/repo-score.json --md .jankurai/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md"
+        ]
+      },
+      {
+        "id": "rust-witness",
+        "category": "rust",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual witness graphing"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/rust/witness-graph.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai rust witness build .",
+        "ci_command": "jankurai rust witness build .",
+        "artifact_paths": [
+          "target/jankurai/rust/witness-graph.json"
+        ]
+      },
+      {
+        "id": "vibe-coverage",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual vibe-coding coverage spreadsheet"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/vibe-coverage.json, target/jankurai/vibe-coverage.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md",
+        "ci_command": "jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md",
+        "artifact_paths": [
+          "target/jankurai/vibe-coverage.json",
+          "target/jankurai/vibe-coverage.md"
+        ]
+      },
+      {
+        "id": "coverage-evidence",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual coverage report review",
+          "ad hoc mutation survivor review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/coverage/coverage-audit.json, target/jankurai/coverage/coverage-audit.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md",
+        "ci_command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md",
+        "artifact_paths": [
+          "target/jankurai/coverage/coverage-audit.json",
+          "target/jankurai/coverage/coverage-audit.md"
+        ]
+      },
+      {
+        "id": "authz-matrix",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual authz matrix review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json .jankurai/repo-score.json --md .jankurai/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md"
+        ]
+      },
+      {
+        "id": "input-boundary",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual unsafe sink review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json .jankurai/repo-score.json --md .jankurai/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md"
+        ]
+      },
+      {
+        "id": "agent-tool-supply",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual MCP/tool trust review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json .jankurai/repo-score.json --md .jankurai/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md"
+        ]
+      },
+      {
+        "id": "release-readiness",
+        "category": "release",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual launch checklist"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json .jankurai/repo-score.json --md .jankurai/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md"
+        ]
+      },
+      {
+        "id": "cost-budget",
+        "category": "release",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual spend review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: .jankurai/repo-score.json, .jankurai/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json .jankurai/repo-score.json --md .jankurai/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          ".jankurai/repo-score.json",
+          ".jankurai/repo-score.md"
+        ]
+      }
+    ],
+    "evidence": {
+      "applicable_count": 20,
+      "applicable_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "copy-code",
+        "security",
+        "ci-bad-behavior",
+        "git-bad-behavior",
+        "release-bad-behavior",
+        "ux-qa",
+        "db-migration-analyze",
+        "contract-drift",
+        "rust-witness",
+        "vibe-coverage",
+        "coverage-evidence",
+        "authz-matrix",
+        "input-boundary",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "artifact_verified_count": 20,
+      "artifact_verified_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "copy-code",
+        "security",
+        "ci-bad-behavior",
+        "git-bad-behavior",
+        "release-bad-behavior",
+        "ux-qa",
+        "db-migration-analyze",
+        "contract-drift",
+        "rust-witness",
+        "vibe-coverage",
+        "coverage-evidence",
+        "authz-matrix",
+        "input-boundary",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "ci_evidence_count": 20,
+      "ci_evidence_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "copy-code",
+        "security",
+        "ci-bad-behavior",
+        "git-bad-behavior",
+        "release-bad-behavior",
+        "ux-qa",
+        "db-migration-analyze",
+        "contract-drift",
+        "rust-witness",
+        "vibe-coverage",
+        "coverage-evidence",
+        "authz-matrix",
+        "input-boundary",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "config_present": true,
+      "configured_count": 20,
+      "configured_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "copy-code",
+        "security",
+        "ci-bad-behavior",
+        "git-bad-behavior",
+        "release-bad-behavior",
+        "ux-qa",
+        "db-migration-analyze",
+        "contract-drift",
+        "rust-witness",
+        "vibe-coverage",
+        "coverage-evidence",
+        "authz-matrix",
+        "input-boundary",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "control_plane_present": true
+    },
+    "missing": []
+  },
+  "security_evidence": {
+    "artifact": {
+      "path": "target/jankurai/security/evidence.json",
+      "envelope_exit_code": 0,
+      "elapsed_ms": 10661,
+      "wrapper_strict": true,
+      "profile": "ci",
+      "commands_ran": 1,
+      "commands_skipped": 0,
+      "commands_failed": 0,
+      "required_commands_skipped": 0,
+      "required_commands_failed": 0,
+      "blocking_commands": [],
+      "generated_at": "1780197009",
+      "git_head": "450c23b29e0eed0cc713d9a909a2a45152529c15"
+    }
+  },
+  "boundaries": {
+    "artifact": {
+      "path": "agent/boundaries.toml",
+      "content_fingerprint": "sha256:893278582f686b9dc33d17439803e270beba2be2b17f07531028f57483d299ae",
+      "stack_id": "rust-web-local-forge",
+      "stack_version": "1.0.0",
+      "adapter_path_count": 2,
+      "event_contract_path_count": 2,
+      "generated_type_path_count": 1,
+      "client_marker_count": 0,
+      "streaming_exception_count": 0
+    },
+    "reclassifications": []
+  },
+  "copy_code": {
+    "schema_version": "1.1.0",
+    "generated_by": "jankurai copy-code",
+    "generated_at": "2026-05-31T03:17:44.750404201+00:00",
+    "repo": ".",
+    "auditor_version": "1.6.7",
+    "status": "review",
+    "policy": {
+      "active_source_only": true,
+      "include_tests": false,
+      "min_lines": 10,
+      "min_tokens": 100,
+      "max_findings": 50,
+      "strict": false,
+      "excluded_roots": [
+        "build/",
+        "cache/",
+        "dist/",
+        "docs/",
+        "generated/",
+        "node_modules/",
+        "paper/",
+        "reference/",
+        "target/",
+        "tips/",
+        "vendor/"
+      ],
+      "warning_only_roots": [
+        "config/",
+        "docker/",
+        "fixtures/",
+        "migrations/",
+        "ops/scripts/",
+        "python_runtime/",
+        "stories/",
+        "runtime_payload/",
+        "seed_data/",
+        "tests/"
+      ]
+    },
+    "summary": {
+      "files_scanned": 1103,
+      "files_considered": 666,
+      "active_files": 666,
+      "exact_file_classes": 0,
+      "hard_classes": 0,
+      "warning_classes": 67,
+      "hard_instances": 0,
+      "warning_instances": 181,
+      "duplicate_lines": 192,
+      "duplicate_tokens": 438,
+      "duplicate_bytes": 5171,
+      "total_redundant_lines": 248,
+      "total_redundant_tokens": 561,
+      "total_redundant_bytes": 6348
+    },
+    "classes": [
+      {
+        "id": "copy-code-unit-rust-d0ddf8996a84fd91",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "verify_sha_binding",
+        "duplicate_lines": 23,
+        "duplicate_tokens": 58,
+        "duplicate_bytes": 742,
+        "instance_count": 2,
+        "total_redundant_lines": 23,
+        "total_redundant_tokens": 58,
+        "total_redundant_bytes": 742,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "5d1f5189fee55e23",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/sha_bind.rs",
+            "language": "rust",
+            "start_line": 25,
+            "end_line": 48,
+            "unit_name": "verify_sha_binding"
+          },
+          {
+            "path": "crates/jeryu-review/src/approval/sha_bind.rs",
+            "language": "rust",
+            "start_line": 25,
+            "end_line": 48,
+            "unit_name": "verify_sha_binding"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-6a8b369254be179a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "evaluate",
+        "duplicate_lines": 22,
+        "duplicate_tokens": 60,
+        "duplicate_bytes": 739,
+        "instance_count": 2,
+        "total_redundant_lines": 22,
+        "total_redundant_tokens": 60,
+        "total_redundant_bytes": 739,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6b705f089d3bb67d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/conditions/mod.rs",
+            "language": "rust",
+            "start_line": 238,
+            "end_line": 260,
+            "unit_name": "evaluate"
+          },
+          {
+            "path": "crates/jeryu-review/src/conditions.rs",
+            "language": "rust",
+            "start_line": 111,
+            "end_line": 133,
+            "unit_name": "evaluate"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-d059912a9693358a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "new",
+        "duplicate_lines": 17,
+        "duplicate_tokens": 27,
+        "duplicate_bytes": 420,
+        "instance_count": 2,
+        "total_redundant_lines": 17,
+        "total_redundant_tokens": 27,
+        "total_redundant_bytes": 420,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "b363a174093dd11f",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/judge/inputs.rs",
+            "language": "rust",
+            "start_line": 26,
+            "end_line": 43,
+            "unit_name": "new"
+          },
+          {
+            "path": "crates/jeryu-review/src/judge/mod.rs",
+            "language": "rust",
+            "start_line": 43,
+            "end_line": 60,
+            "unit_name": "new"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-0a76d27a920f262f",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 17,
+        "total_redundant_lines": 16,
+        "total_redundant_tokens": 32,
+        "total_redundant_bytes": 320,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "61434fa9c081e8cb",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-bugtracker/src/domain/enums.rs",
+            "language": "rust",
+            "start_line": 99,
+            "end_line": 100,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-bugtracker/src/domain/enums.rs",
+            "language": "rust",
+            "start_line": 186,
+            "end_line": 187,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-cache/src/cache.rs",
+            "language": "rust",
+            "start_line": 128,
+            "end_line": 129,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "crates/jeryu-ci-ir/src/enums.rs",
+            "language": "rust",
+            "start_line": 169,
+            "end_line": 170,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-ci-ir/src/enums.rs",
+            "language": "rust",
+            "start_line": 186,
+            "end_line": 187,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-phase11-core/src/ids.rs",
+            "language": "rust",
+            "start_line": 117,
+            "end_line": 118,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-phase11-core/src/ids.rs",
+            "language": "rust",
+            "start_line": 138,
+            "end_line": 139,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-phase11-core/src/severity.rs",
+            "language": "rust",
+            "start_line": 58,
+            "end_line": 59,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/dashboards/release.rs",
+            "language": "rust",
+            "start_line": 121,
+            "end_line": 122,
+            "unit_name": "label"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/entity/kind.rs",
+            "language": "rust",
+            "start_line": 191,
+            "end_line": 192,
+            "unit_name": "badge"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/entity/refs.rs",
+            "language": "rust",
+            "start_line": 76,
+            "end_line": 77,
+            "unit_name": "label"
+          },
+          {
+            "path": "crates/jeryu-review/src/reviewers/runner.rs",
+            "language": "rust",
+            "start_line": 70,
+            "end_line": 71,
+            "unit_name": "prompt_path"
+          },
+          {
+            "path": "crates/jeryu-runner-core/src/job/policy.rs",
+            "language": "rust",
+            "start_line": 94,
+            "end_line": 95,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-runner-core/src/trust.rs",
+            "language": "rust",
+            "start_line": 107,
+            "end_line": 108,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-tui/src/theme/badges.rs",
+            "language": "rust",
+            "start_line": 97,
+            "end_line": 98,
+            "unit_name": "label"
+          },
+          {
+            "path": "crates/jeryu-tui/src/theme/badges.rs",
+            "language": "rust",
+            "start_line": 106,
+            "end_line": 107,
+            "unit_name": "glyph"
+          },
+          {
+            "path": "crates/jeryu-tui/src/theme/badges.rs",
+            "language": "rust",
+            "start_line": 113,
+            "end_line": 114,
+            "unit_name": "style"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-46cda2197120ab3c",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 32,
+        "instance_count": 14,
+        "total_redundant_lines": 13,
+        "total_redundant_tokens": 39,
+        "total_redundant_bytes": 416,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c1b952a2bc5a3b45",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 144,
+            "end_line": 145,
+            "unit_name": "fresh_verdict_no_triggers"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 157,
+            "end_line": 158,
+            "unit_name": "head_sha_drift_triggers_new_commit_on_pr"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 171,
+            "end_line": 172,
+            "unit_name": "policy_drift_triggers_rejudge"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 184,
+            "end_line": 185,
+            "unit_name": "ttl_expiry_triggers_rejudge"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 197,
+            "end_line": 198,
+            "unit_name": "multiple_triggers_all_reported"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 217,
+            "end_line": 218,
+            "unit_name": "missing_live_fields_do_not_trigger"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 240,
+            "end_line": 241,
+            "unit_name": "multiple_triggers_returned_in_documented_order"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 146,
+            "end_line": 147,
+            "unit_name": "fresh_verdict_no_triggers"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 159,
+            "end_line": 160,
+            "unit_name": "head_sha_drift_triggers_new_commit_on_pr"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 173,
+            "end_line": 174,
+            "unit_name": "policy_drift_triggers_rejudge"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 186,
+            "end_line": 187,
+            "unit_name": "ttl_expiry_triggers_rejudge"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 199,
+            "end_line": 200,
+            "unit_name": "multiple_triggers_all_reported"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 219,
+            "end_line": 220,
+            "unit_name": "missing_live_fields_do_not_trigger"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 237,
+            "end_line": 238,
+            "unit_name": "multiple_triggers_returned_in_documented_order"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-58415f42a8774aa5",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 10,
+        "duplicate_tokens": 13,
+        "duplicate_bytes": 308,
+        "instance_count": 2,
+        "total_redundant_lines": 10,
+        "total_redundant_tokens": 13,
+        "total_redundant_bytes": 308,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "fb4162baf2054ba9",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/policy_yaml_types.rs",
+            "language": "rust",
+            "start_line": 82,
+            "end_line": 92,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-review/src/policy.rs",
+            "language": "rust",
+            "start_line": 29,
+            "end_line": 39,
+            "unit_name": "default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-a38c7998908cf6b7",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 27,
+        "instance_count": 4,
+        "total_redundant_lines": 9,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 81,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "dc1bea511da2a431",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-mcp/src/backend/memory.rs",
+            "language": "rust",
+            "start_line": 19,
+            "end_line": 22,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-mcp/src/core/mod.rs",
+            "language": "rust",
+            "start_line": 31,
+            "end_line": 34,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/fixture/builder.rs",
+            "language": "rust",
+            "start_line": 114,
+            "end_line": 117,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-review/src/orchestrator/fake.rs",
+            "language": "rust",
+            "start_line": 23,
+            "end_line": 26,
+            "unit_name": "default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-292e97ca3c1379b2",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 10,
+        "instance_count": 5,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "9b43b33dd978081d",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/policy_yaml_types.rs",
+            "language": "rust",
+            "start_line": 223,
+            "end_line": 225,
+            "unit_name": "true_default"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/types/mod.rs",
+            "language": "rust",
+            "start_line": 43,
+            "end_line": 45,
+            "unit_name": "true_default"
+          },
+          {
+            "path": "crates/jeryu-core/src/model/webhooks.rs",
+            "language": "rust",
+            "start_line": 53,
+            "end_line": 55,
+            "unit_name": "default_true"
+          },
+          {
+            "path": "crates/jeryu-review/src/policy.rs",
+            "language": "rust",
+            "start_line": 186,
+            "end_line": 188,
+            "unit_name": "true_default"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/mod.rs",
+            "language": "rust",
+            "start_line": 243,
+            "end_line": 245,
+            "unit_name": "true_default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-typescript-f28752e1d48adc76",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "typescript",
+        "unit_name": "fullNameFromParams",
+        "duplicate_lines": 7,
+        "duplicate_tokens": 18,
+        "duplicate_bytes": 156,
+        "instance_count": 2,
+        "total_redundant_lines": 7,
+        "total_redundant_tokens": 18,
+        "total_redundant_bytes": 156,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a4871489bb6747a5",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "web/src/pages/RepositoryCodePage.tsx",
+            "language": "typescript",
+            "start_line": 35,
+            "end_line": 42,
+            "unit_name": "fullNameFromParams"
+          },
+          {
+            "path": "web/src/pages/RepositoryOverviewPage.tsx",
+            "language": "typescript",
+            "start_line": 38,
+            "end_line": 45,
+            "unit_name": "fullNameFromParams"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-7a42c3531fbb6e40",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "lookup",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 24,
+        "duplicate_bytes": 171,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 24,
+        "total_redundant_bytes": 171,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "d888764bd73f8b98",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/conditions/mod.rs",
+            "language": "rust",
+            "start_line": 227,
+            "end_line": 233,
+            "unit_name": "lookup"
+          },
+          {
+            "path": "crates/jeryu-review/src/conditions.rs",
+            "language": "rust",
+            "start_line": 100,
+            "end_line": 106,
+            "unit_name": "lookup"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-1b874548c074987d",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "auto_merge_eligible",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 21,
+        "duplicate_bytes": 189,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 21,
+        "total_redundant_bytes": 189,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "ed144c0b6e936a46",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/common.rs",
+            "language": "rust",
+            "start_line": 18,
+            "end_line": 24,
+            "unit_name": "auto_merge_eligible"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/mod.rs",
+            "language": "rust",
+            "start_line": 32,
+            "end_line": 38,
+            "unit_name": "auto_merge_eligible"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-20bc5cbe6e238360",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "short_name",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 14,
+        "duplicate_bytes": 346,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 14,
+        "total_redundant_bytes": 346,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "988cbb7ed49e0ea8",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 45,
+            "end_line": 51,
+            "unit_name": "short_name"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 45,
+            "end_line": 51,
+            "unit_name": "short_name"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-1ea761005cc65f3e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "as_str",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 7,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 120,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "9bdf746ad1f79a5a",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-bugtracker/src/domain/enums.rs",
+            "language": "rust",
+            "start_line": 99,
+            "end_line": 100,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-bugtracker/src/domain/enums.rs",
+            "language": "rust",
+            "start_line": 186,
+            "end_line": 187,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-phase11-core/src/ids.rs",
+            "language": "rust",
+            "start_line": 117,
+            "end_line": 118,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-phase11-core/src/ids.rs",
+            "language": "rust",
+            "start_line": 138,
+            "end_line": 139,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-phase11-core/src/severity.rs",
+            "language": "rust",
+            "start_line": 58,
+            "end_line": 59,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-runner-core/src/job/policy.rs",
+            "language": "rust",
+            "start_line": 94,
+            "end_line": 95,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/jeryu-runner-core/src/trust.rs",
+            "language": "rust",
+            "start_line": 107,
+            "end_line": 108,
+            "unit_name": "as_str"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-07229d8664a502c1",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 149,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 149,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "581640d7e2f7318e",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-gitd/src/hash.rs",
+            "language": "rust",
+            "start_line": 104,
+            "end_line": 110,
+            "unit_name": "sha256_known_vector"
+          },
+          {
+            "path": "crates/jeryu-signrail/src/checksum.rs",
+            "language": "rust",
+            "start_line": 127,
+            "end_line": 133,
+            "unit_name": "checksum_known_vector"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e21735c77b230e24",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 9,
+        "duplicate_bytes": 112,
+        "instance_count": 2,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 9,
+        "total_redundant_bytes": 112,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "08d3ee41a3243d3a",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-review/src/orchestrator/receipt.rs",
+            "language": "rust",
+            "start_line": 97,
+            "end_line": 102,
+            "unit_name": "default_pass_receipt"
+          },
+          {
+            "path": "crates/jeryu-review/src/orchestrator/receipt.rs",
+            "language": "rust",
+            "start_line": 128,
+            "end_line": 133,
+            "unit_name": "default_abstain_receipt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-e1a526d611485cb0",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "new",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 85,
+        "instance_count": 2,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 85,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "d0981db42964b083",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/seam.rs",
+            "language": "rust",
+            "start_line": 23,
+            "end_line": 28,
+            "unit_name": "new"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/seam.rs",
+            "language": "rust",
+            "start_line": 27,
+            "end_line": 32,
+            "unit_name": "new"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-typescript-e22b8b87cb47c00b",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "typescript",
+        "unit_name": "fullNameFromParams",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 33,
+        "instance_count": 3,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 66,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c1d06a2b387b4c43",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "web/src/pages/PullRequestPage.tsx",
+            "language": "typescript",
+            "start_line": 48,
+            "end_line": 50,
+            "unit_name": "fullNameFromParams"
+          },
+          {
+            "path": "web/src/pages/RepositoryFilePage.tsx",
+            "language": "typescript",
+            "start_line": 34,
+            "end_line": 36,
+            "unit_name": "fullNameFromParams"
+          },
+          {
+            "path": "web/src/pages/RepositorySettingsPage.tsx",
+            "language": "typescript",
+            "start_line": 58,
+            "end_line": 60,
+            "unit_name": "fullNameFromParams"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-735239b6e65fa8b5",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "true_default",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 10,
+        "instance_count": 3,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 20,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "7c217529585892a7",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/policy_yaml_types.rs",
+            "language": "rust",
+            "start_line": 223,
+            "end_line": 225,
+            "unit_name": "true_default"
+          },
+          {
+            "path": "crates/jeryu-review/src/policy.rs",
+            "language": "rust",
+            "start_line": 186,
+            "end_line": 188,
+            "unit_name": "true_default"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/mod.rs",
+            "language": "rust",
+            "start_line": 243,
+            "end_line": 245,
+            "unit_name": "true_default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-6ba2795b9c1253bd",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 55,
+        "instance_count": 2,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 55,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "4bdba4b654e2ae6b",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-readmodel/src/dashboards/workflow.rs",
+            "language": "rust",
+            "start_line": 57,
+            "end_line": 60,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/repos.rs",
+            "language": "rust",
+            "start_line": 130,
+            "end_line": 133,
+            "unit_name": "default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-5f663ebb350e8c54",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 46,
+        "instance_count": 2,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 46,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "dc759f34d84b90ee",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 57,
+            "end_line": 60,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 32,
+            "end_line": 35,
+            "unit_name": "default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-952dbaa1861d3bae",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 36,
+        "instance_count": 2,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 3,
+        "total_redundant_bytes": 36,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c5a7569160f64875",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-readmodel/src/queue.rs",
+            "language": "rust",
+            "start_line": 83,
+            "end_line": 86,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/repos.rs",
+            "language": "rust",
+            "start_line": 73,
+            "end_line": 76,
+            "unit_name": "default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-9f7070d5543ad869",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 28,
+        "instance_count": 2,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 28,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "378857a526cc35e6",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-tui/src/theme/mod.rs",
+            "language": "rust",
+            "start_line": 60,
+            "end_line": 63,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/jeryu-tui/src/theme/palette.rs",
+            "language": "rust",
+            "start_line": 66,
+            "end_line": 69,
+            "unit_name": "default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-70a851caf83626b7",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "clone",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 21,
+        "instance_count": 2,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 21,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "dc759f34d84b90ee",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 62,
+            "end_line": 65,
+            "unit_name": "clone"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 37,
+            "end_line": 40,
+            "unit_name": "clone"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-85aa9ce0fdd3cb2b",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 13,
+        "duplicate_bytes": 73,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 26,
+        "total_redundant_bytes": 146,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "3a34b5729c5acd5a",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/evidence.rs",
+            "language": "rust",
+            "start_line": 170,
+            "end_line": 171,
+            "unit_name": "pack_digest_is_stable_under_file_order"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/evidence.rs",
+            "language": "rust",
+            "start_line": 190,
+            "end_line": 191,
+            "unit_name": "verify_evidence_digest_round_trips"
+          },
+          {
+            "path": "crates/jeryu-autonomy/src/evidence.rs",
+            "language": "rust",
+            "start_line": 211,
+            "end_line": 212,
+            "unit_name": "changed_files_sorted_in_pack"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-1ca9ba42f8726c5a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "renders_at_120x36",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 6,
+        "duplicate_bytes": 48,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 96,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "cdeb23cc0aaa06e5",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-tui/src/widgets/header.rs",
+            "language": "rust",
+            "start_line": 150,
+            "end_line": 151,
+            "unit_name": "renders_at_120x36"
+          },
+          {
+            "path": "crates/jeryu-tui/src/widgets/status_strip.rs",
+            "language": "rust",
+            "start_line": 134,
+            "end_line": 135,
+            "unit_name": "renders_at_120x36"
+          },
+          {
+            "path": "crates/jeryu-tui/src/widgets/virtual_table.rs",
+            "language": "rust",
+            "start_line": 185,
+            "end_line": 186,
+            "unit_name": "renders_at_120x36"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-baf5c4bb390e362e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "renders_at_80x24",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 6,
+        "duplicate_bytes": 47,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 94,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "cdeb23cc0aaa06e5",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-tui/src/widgets/header.rs",
+            "language": "rust",
+            "start_line": 137,
+            "end_line": 138,
+            "unit_name": "renders_at_80x24"
+          },
+          {
+            "path": "crates/jeryu-tui/src/widgets/status_strip.rs",
+            "language": "rust",
+            "start_line": 116,
+            "end_line": 117,
+            "unit_name": "renders_at_80x24"
+          },
+          {
+            "path": "crates/jeryu-tui/src/widgets/virtual_table.rs",
+            "language": "rust",
+            "start_line": 149,
+            "end_line": 150,
+            "unit_name": "renders_at_80x24"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-31f07bc4929cc862",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 29,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 10,
+        "total_redundant_bytes": 58,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a8ca6fff1c0cc93f",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 68,
+            "end_line": 69,
+            "unit_name": "check"
+          },
+          {
+            "path": "crates/jeryu-evidence/src/lib.rs",
+            "language": "rust",
+            "start_line": 99,
+            "end_line": 100,
+            "unit_name": "iter_files"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 68,
+            "end_line": 69,
+            "unit_name": "check"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-fcb2781ca70208fa",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 49,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 49,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa9bdab2a7cf035c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 68,
+            "end_line": 70,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 43,
+            "end_line": 45,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-0b724771cee9ba16",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "new",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 44,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 44,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa9bdab2a7cf035c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 85,
+            "end_line": 87,
+            "unit_name": "new"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 59,
+            "end_line": 61,
+            "unit_name": "new"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-4f4ba7fd7ea0cf5e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "parse",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 21,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 42,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "ac579f011d62f0d7",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-bugtracker/src/domain/enums.rs",
+            "language": "rust",
+            "start_line": 125,
+            "end_line": 126,
+            "unit_name": "parse"
+          },
+          {
+            "path": "crates/jeryu-bugtracker/src/domain/enums.rs",
+            "language": "rust",
+            "start_line": 160,
+            "end_line": 161,
+            "unit_name": "parse"
+          },
+          {
+            "path": "crates/jeryu-bugtracker/src/domain/enums.rs",
+            "language": "rust",
+            "start_line": 197,
+            "end_line": 198,
+            "unit_name": "parse"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-5c97e73af8e01f30",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "label",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c286efc16a6588f3",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-readmodel/src/dashboards/release.rs",
+            "language": "rust",
+            "start_line": 121,
+            "end_line": 122,
+            "unit_name": "label"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/entity/refs.rs",
+            "language": "rust",
+            "start_line": 76,
+            "end_line": 77,
+            "unit_name": "label"
+          },
+          {
+            "path": "crates/jeryu-tui/src/theme/badges.rs",
+            "language": "rust",
+            "start_line": 97,
+            "end_line": 98,
+            "unit_name": "label"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-562c517639dad33e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 40,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c7786fd87dc12574",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-cache-core/src/digest.rs",
+            "language": "rust",
+            "start_line": 36,
+            "end_line": 38,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "crates/jeryu-ci-ir/src/enums.rs",
+            "language": "rust",
+            "start_line": 39,
+            "end_line": 41,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-e23f505ae182ffb4",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "serialize",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 38,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 38,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa9bdab2a7cf035c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 91,
+            "end_line": 93,
+            "unit_name": "serialize"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 64,
+            "end_line": 66,
+            "unit_name": "serialize"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-521eec856f21a1b7",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "hash",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 34,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 34,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa9bdab2a7cf035c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 79,
+            "end_line": 81,
+            "unit_name": "hash"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 54,
+            "end_line": 56,
+            "unit_name": "hash"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e84266e9b6b27597",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 19,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 38,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "24bf54b33075e363",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-readmodel/src/dashboards/release.rs",
+            "language": "rust",
+            "start_line": 162,
+            "end_line": 163,
+            "unit_name": "enums_round_trip"
+          },
+          {
+            "path": "crates/jeryu-review/src/reviewers/runner.rs",
+            "language": "rust",
+            "start_line": 299,
+            "end_line": 300,
+            "unit_name": "role_to_receipt_role_round_trips"
+          },
+          {
+            "path": "crates/jeryu-tui/src/theme/badges.rs",
+            "language": "rust",
+            "start_line": 192,
+            "end_line": 193,
+            "unit_name": "read_model_risk_tier_maps_to_badge"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-89d357336679f396",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "new",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 29,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 29,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "729f53648140631b",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-cli/src/client/mod.rs",
+            "language": "rust",
+            "start_line": 184,
+            "end_line": 186,
+            "unit_name": "new"
+          },
+          {
+            "path": "crates/jeryu-review/src/llm/router.rs",
+            "language": "rust",
+            "start_line": 38,
+            "end_line": 40,
+            "unit_name": "new"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-ab80b0029566ed53",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 9,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 18,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "bfe7c439d248c74e",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-cache/src/receipt.rs",
+            "language": "rust",
+            "start_line": 178,
+            "end_line": 179,
+            "unit_name": "escape"
+          },
+          {
+            "path": "crates/jeryu-mirror/src/github/value.rs",
+            "language": "rust",
+            "start_line": 23,
+            "end_line": 24,
+            "unit_name": "string"
+          },
+          {
+            "path": "crates/jeryu-rustjet/src/manifest.rs",
+            "language": "rust",
+            "start_line": 226,
+            "end_line": 227,
+            "unit_name": "unquote"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-75f359b8cd412970",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "ledger_kind",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 42,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 42,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6fa6a949db986afe",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 41,
+            "end_line": 43,
+            "unit_name": "ledger_kind"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 41,
+            "end_line": 43,
+            "unit_name": "ledger_kind"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-bd6192b643da2542",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "eq",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 1,
+        "duplicate_bytes": 18,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 1,
+        "total_redundant_bytes": 18,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa9bdab2a7cf035c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 73,
+            "end_line": 75,
+            "unit_name": "eq"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 48,
+            "end_line": 50,
+            "unit_name": "eq"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-45be3a76b9d47433",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 8,
+        "duplicate_bytes": 67,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 8,
+        "total_redundant_bytes": 67,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "1ad4d8a8fb38d5db",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/evidence.rs",
+            "language": "rust",
+            "start_line": 84,
+            "end_line": 85,
+            "unit_name": "mint_evp_id"
+          },
+          {
+            "path": "crates/jeryu-review/src/judge/mod.rs",
+            "language": "rust",
+            "start_line": 198,
+            "end_line": 199,
+            "unit_name": "mint_verdict_id"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-ab04328e9357aeb1",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 6,
+        "duplicate_bytes": 53,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 53,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "af870b99ebb6254d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/seam.rs",
+            "language": "rust",
+            "start_line": 32,
+            "end_line": 33,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "crates/jeryu-readmodel/src/seam.rs",
+            "language": "rust",
+            "start_line": 36,
+            "end_line": 37,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-2b98115eae72a4e4",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 44,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 44,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "3ea670d9c8ffa568",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-tenant/src/lib.rs",
+            "language": "rust",
+            "start_line": 209,
+            "end_line": 210,
+            "unit_name": "viewer_cannot_update_quota"
+          },
+          {
+            "path": "crates/jeryu-tenant/src/lib.rs",
+            "language": "rust",
+            "start_line": 224,
+            "end_line": 225,
+            "unit_name": "auditor_can_export_with_receipt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-9de0ff1c4757e2af",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "deserialize",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 40,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "470c72a5fad62103",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/types/schema_tag.rs",
+            "language": "rust",
+            "start_line": 97,
+            "end_line": 98,
+            "unit_name": "deserialize"
+          },
+          {
+            "path": "crates/jeryu-review/src/schema/tag.rs",
+            "language": "rust",
+            "start_line": 69,
+            "end_line": 70,
+            "unit_name": "deserialize"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-8ce553727d3d4d0a",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 30,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 30,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "d6b7f1d87be6d4cb",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-review/src/orchestrator/receipt.rs",
+            "language": "rust",
+            "start_line": 88,
+            "end_line": 89,
+            "unit_name": "sign_canonical"
+          },
+          {
+            "path": "crates/jeryu-review/src/reviewers/runner.rs",
+            "language": "rust",
+            "start_line": 143,
+            "end_line": 144,
+            "unit_name": "sign_receipt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-82a3a6ca0f828580",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "check",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 29,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 29,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "db2245c5b77f3a9e",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 68,
+            "end_line": 69,
+            "unit_name": "check"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 68,
+            "end_line": 69,
+            "unit_name": "check"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-57bdd8620dd6736d",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "target_advance_skipped_when_rebind_on_train_false",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 36,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 36,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "db2245c5b77f3a9e",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 224,
+            "end_line": 225,
+            "unit_name": "target_advance_skipped_when_rebind_on_train_false"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 225,
+            "end_line": 226,
+            "unit_name": "target_advance_skipped_when_rebind_on_train_false"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-e9c7443fb85c49c6",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "must_rejudge",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 36,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 36,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "db2245c5b77f3a9e",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-autonomy/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 107,
+            "end_line": 108,
+            "unit_name": "must_rejudge"
+          },
+          {
+            "path": "crates/jeryu-review/src/rejudge.rs",
+            "language": "rust",
+            "start_line": 109,
+            "end_line": 110,
+            "unit_name": "must_rejudge"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-55ad9b7a72048b94",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 35,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 35,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "0711710596339009",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/jeryu-ci-scheduler/src/leases/types.rs",
+            "language": "rust",
+            "start_line": 139,
+            "end_line": 140,
+            "unit_name": "push_field"
+          },
+          {
+            "path": "crates/jeryu-runner-protocol/src/lib.rs",
+            "language": "rust",
+            "start_line": 231,
+            "end_line": 232,
+            "unit_name": "field"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-534a415818217aae",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 34,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 34,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "565fad79b6c3268f",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-runner-core/src/trust.rs",
+            "language": "rust",
+            "start_line": 63,
+            "end_line": 64,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "crates/jeryu-runner-core/src/trust.rs",
+            "language": "rust",
+            "start_line": 128,
+            "end_line": 129,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-ee253753212839cf",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 32,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 32,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa303703a750d02a",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/jeryu-bench/src/models.rs",
+            "language": "rust",
+            "start_line": 31,
+            "end_line": 32,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "crates/jeryu-bench/src/models.rs",
+            "language": "rust",
+            "start_line": 60,
+            "end_line": 61,
+            "unit_name": "fmt"
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "hard classes are limited to exact active-source file matches and substantial exact same-name units",
+      "warning classes include same-body different-name units and token/block duplication",
+      "tests, fixtures, stories, config, Docker, and migrations are omitted unless --include-tests is set",
+      "showing the top 50 classes and omitting 17 lower-ranked classes"
+    ]
+  },
+  "profile_structure": {
+    "applicable_count": 4,
+    "canonical_count": 4,
+    "noncanonical_count": 0,
+    "guidance_missing_count": 0,
+    "cells": [
+      {
+        "id": "web",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "apps/web/",
+        "detected_paths": [],
+        "aliases": [
+          "frontend/",
+          "ui/",
+          "packages/web/",
+          "packages/ui/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "apps/web",
+        "proof_lane": "rendered UX / Playwright",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "api",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "apps/api/",
+        "detected_paths": [],
+        "aliases": [
+          "api/",
+          "server/",
+          "backend/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "apps/api",
+        "proof_lane": "edge handler / contract tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "domain",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "crates/domain/",
+        "detected_paths": [
+          "crates/domain"
+        ],
+        "aliases": [
+          "domain/",
+          "core/"
+        ],
+        "guidance_status": "present",
+        "owner": "crates/domain",
+        "proof_lane": "unit / property tests",
+        "agent_fix": "keep `crates/domain/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      },
+      {
+        "id": "application",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "crates/application/",
+        "detected_paths": [],
+        "aliases": [
+          "application/",
+          "usecases/",
+          "use-cases/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "crates/application",
+        "proof_lane": "use-case / authz tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "adapters",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "crates/adapters/",
+        "detected_paths": [],
+        "aliases": [
+          "adapters/",
+          "infra/",
+          "integrations/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "crates/adapters",
+        "proof_lane": "adapter integration tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "workers",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "crates/workers/",
+        "detected_paths": [],
+        "aliases": [
+          "workers/",
+          "jobs/",
+          "scheduler/",
+          "queue/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "crates/workers",
+        "proof_lane": "workflow / replay tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "contracts",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "contracts/",
+        "detected_paths": [
+          "contracts"
+        ],
+        "aliases": [
+          "openapi/",
+          "protobuf/",
+          "json-schema/",
+          "generated/"
+        ],
+        "guidance_status": "present",
+        "owner": "contracts",
+        "proof_lane": "generation / drift checks",
+        "agent_fix": "keep `contracts/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      },
+      {
+        "id": "db",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "db/",
+        "detected_paths": [
+          "db"
+        ],
+        "aliases": [
+          "migrations/",
+          "constraints/",
+          "sql/"
+        ],
+        "guidance_status": "present",
+        "owner": "db",
+        "proof_lane": "migration / constraint tests",
+        "agent_fix": "keep `db/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      },
+      {
+        "id": "python-ai",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "python/ai-service/",
+        "detected_paths": [],
+        "aliases": [
+          "python/",
+          "ai-service/",
+          "evals/",
+          "embeddings/",
+          "model/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "python/ai-service",
+        "proof_lane": "eval / contract tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "ops",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "ops/",
+        "detected_paths": [
+          ".github",
+          ".github/workflows",
+          "ops"
+        ],
+        "aliases": [
+          ".github/",
+          ".github/workflows/",
+          "ci/",
+          "release/",
+          "observability/",
+          "security/"
+        ],
+        "guidance_status": "present",
+        "owner": "ops",
+        "proof_lane": "security lane / workflow lint",
+        "agent_fix": "keep `ops/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      }
+    ],
+    "evidence": {
+      "applicable_count": 4,
+      "canonical_count": 4,
+      "detected_cells": [
+        {
+          "canonical_path": "crates/domain/",
+          "detected_paths": [
+            "crates/domain"
+          ],
+          "guidance_status": "present",
+          "id": "domain",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "contracts/",
+          "detected_paths": [
+            "contracts"
+          ],
+          "guidance_status": "present",
+          "id": "contracts",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "db/",
+          "detected_paths": [
+            "db"
+          ],
+          "guidance_status": "present",
+          "id": "db",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "ops/",
+          "detected_paths": [
+            ".github",
+            ".github/workflows",
+            "ops"
+          ],
+          "guidance_status": "present",
+          "id": "ops",
+          "status": "canonical"
+        }
+      ],
+      "guidance_missing_count": 0,
+      "noncanonical_count": 0
+    }
+  },
+  "vibe_coverage": {
+    "source_path": "agent/vibe-coverage.toml",
+    "issue_count": 1,
+    "source_ref_count": 1,
+    "unmapped_source_rows": 0,
+    "coverage_counts": {
+      "partial": 1
+    },
+    "tlr_counts": {
+      "Verification": 1
+    },
+    "priority_counts": {
+      "P0": 1
+    },
+    "top_gaps": [
+      {
+        "id": "VCOV-TIP1-R001",
+        "name": "False Green Evidence",
+        "coverage": "partial",
+        "priority": "P0",
+        "gap": "attach issue-specific audit artifact evidence before claiming detector-backed coverage",
+        "next_action": "keep coverage and audit receipts current in proof-evidence"
+      }
+    ]
+  },
+  "coverage_evidence": {
+    "artifact": "target/jankurai/coverage/coverage-audit.json",
+    "status": "missing",
+    "sources_total": 2,
+    "sources_present": 0,
+    "hard_findings": 0,
+    "soft_findings": 0
+  },
+  "findings": [],
+  "agent_fix_queue": []
 }

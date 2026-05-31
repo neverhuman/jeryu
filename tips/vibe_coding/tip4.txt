@@ -1,0 +1,3 @@
+1. Keep rendered UX evidence tied to browser artifacts, accessibility scans,
+   and route-state receipts.
+

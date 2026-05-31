@@ -216,19 +216,13 @@ function checkMarkdownXss() {
       };
     }
   }
-  // Mint the fixture from the existing Rust test. We invoke `cargo
-  // nextest` because it is the canonical runner the rest of the repo
-  // uses; fall back to `cargo test` if nextest is unavailable.
-  const useNextest = spawnSync('cargo', ['nextest', '--version'], {
-    cwd: repoRoot,
-    stdio: 'ignore',
-  }).status === 0;
-  const args = useNextest
-    ? ['nextest', 'run', '-p', 'jeryu', '--test', 'web_markdown_tests', '--no-fail-fast']
-    : ['test', '-p', 'jeryu', '--test', 'web_markdown_tests', '--no-fail-fast'];
+  // Mint the fixture from the real web Markdown renderer test. The XSS guard
+  // lives in the React package, so the UX-QA collector calls that package's
+  // Vitest target directly instead of a stale Rust package name.
+  const args = ['run', 'test', '--', 'MarkdownRenderer'];
   const start = Date.now();
-  const result = spawnSync('cargo', args, {
-    cwd: repoRoot,
+  const result = spawnSync('npm', args, {
+    cwd: webDir,
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
   });
@@ -238,7 +232,7 @@ function checkMarkdownXss() {
   const passed = result.status === 0;
   const receipt = {
     pass: passed,
-    runner: useNextest ? 'cargo nextest' : 'cargo test',
+    runner: 'npm vitest',
     args,
     elapsed_ms: elapsedMs,
     exit_code: result.status,

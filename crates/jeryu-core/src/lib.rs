@@ -5,6 +5,7 @@
 //! statuses, check runs, and webhook outbox receipts.
 
 mod branch_protection;
+#[path = "engine/mod.rs"]
 mod core;
 mod error;
 mod errors;

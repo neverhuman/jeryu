@@ -7,8 +7,8 @@
 # runs, CI, and `jankurai security run` all execute the identical command surface.
 #
 # Command surface (all real and runnable):
-#   * secret scanning            -> scripts/secret-scan.sh
-#   * dependency review          -> cargo audit + cargo deny (advisories/bans/licenses/sources)
+#   * secret scanning            -> scripts/secret-scan.sh and gitleaks detect --no-git
+#   * dependency review          -> cargo audit --deny warnings, cargo deny, npm audit --prefix web
 #   * SBOM + provenance/SLSA      -> ops/ci/sbom-provenance.sh (syft SBOM, grype, cosign)
 #   * workflow linting           -> ops/ci/workflow-lint.sh (actionlint, zizmor)
 set -euo pipefail

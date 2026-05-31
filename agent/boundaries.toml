@@ -44,10 +44,10 @@ forbidden_direct_data_imports = [
 
 [db]
 truth_owner = "jeryu-core"
-root_paths = []
-migration_paths = []
-constraint_paths = []
-status = "planned"
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints.md", "db/migrations"]
+status = "active"
 
 [queues]
 adapter_paths = ["crates/jeryu-ci-scheduler", "crates/jeryu-runnerd"]

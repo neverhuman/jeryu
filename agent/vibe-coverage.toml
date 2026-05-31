@@ -1,0 +1,29 @@
+schema_version = "1.9.0"
+release = "0.8.0"
+paper_edition = "2026.05-ed8"
+source_count = 1
+
+[[issues]]
+id = "VCOV-TIP1-R001"
+name = "False Green Evidence"
+aliases = ["False green", "Evidence gap"]
+tlr = "Verification"
+category = "test-verification"
+canonical_group = "test-verification"
+source_issue_kind = "false-green-evidence"
+detector_status = "control-family"
+evidence_status = "partial-evidence"
+reviewed = true
+description = "A lane can claim success without replayable evidence or produced artifacts."
+recommended_control = "Require every proof lane to emit a receipt and verify it with Jankurai audit, coverage, and proof evidence."
+source_refs = ["tip1:1"]
+coverage = "partial"
+coverage_reason = "Jeryu routes proof lanes through owner/test maps and Jankurai evidence; issue-specific detector coverage remains tracked by the audit lane."
+rule_ids = ["HLT-008-FALSE-GREEN-RISK"]
+tool_ids = ["audit-ci", "proof-routing", "vibe-coverage"]
+proof_lanes = ["audit", "fast"]
+artifacts = ["target/jankurai/coverage/coverage-audit.json", "target/jankurai/vibe-coverage.json"]
+gap = "attach issue-specific audit artifact evidence before claiming detector-backed coverage"
+next_action = "keep coverage and audit receipts current in proof-evidence"
+owner = "agent"
+priority = "P0"

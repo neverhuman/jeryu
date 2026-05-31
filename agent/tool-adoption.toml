@@ -37,6 +37,14 @@ id = "release-bad-behavior"
 mode = "auto"
 
 [[tools]]
+id = "ux-qa"
+mode = "auto"
+
+[[tools]]
+id = "db-migration-analyze"
+mode = "auto"
+
+[[tools]]
 id = "contract-drift"
 mode = "auto"
 
@@ -46,6 +54,10 @@ mode = "auto"
 
 [[tools]]
 id = "coverage-evidence"
+mode = "auto"
+
+[[tools]]
+id = "vibe-coverage"
 mode = "auto"
 
 [[tools]]

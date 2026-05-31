@@ -1,0 +1,16 @@
+outputRoot = "."
+artifactRoot = "target/jankurai/ux-qa"
+decisionThreshold = "error"
+readyState = "domcontentloaded"
+timeoutMs = 15000
+screenshotRequired = true
+ariaSnapshotRequired = true
+accessibilityScanRequired = true
+requiredStates = ["loading", "empty", "error", "success", "permission-denied"]
+viewports = ["390x844", "1440x900"]
+
+[[routes]]
+id = "web-forge"
+url = "http://localhost:5173"
+states = ["loading", "empty", "error", "success", "permission-denied"]
+

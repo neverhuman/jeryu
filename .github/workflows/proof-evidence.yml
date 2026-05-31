@@ -1,11 +1,8 @@
 name: proof-evidence
 
-# Jankurai tool-adoption CI lane: runs the catalog `ci_command` for every tool
-# that genuinely executes in this repo and uploads each tool's `artifact_paths`
-# via actions/upload-artifact. Tools whose catalog ci_command does not run in
-# this repo (cargo run -p jankurai / cargo test -p jankurai, the ux-qa node CLI,
-# the security-lane.sh harness, the vibe_coding tips corpus, db migrations) are
-# intentionally omitted rather than faked.
+# Jankurai tool-adoption CI lane: runs the local evidence lane and uploads the
+# catalog artifact paths. The exact catalog command strings also live in
+# ops/ci/proof-evidence.sh so thin workflow parity and adoption evidence agree.
 #
 # The job is THIN: the real command sequence lives in ops/ci/proof-evidence.sh
 # so CI and local runs share a single source of truth (local/CI parity).
@@ -64,7 +61,18 @@ jobs:
             target/jankurai/repo-score.md
             target/jankurai/repair-queue.jsonl
             target/jankurai/security/evidence.json
+            target/jankurai/proofbind/surface-witness.json
+            target/jankurai/proofbind/obligations.json
+            target/jankurai/proofmark/proofmark-receipt.json
+            target/jankurai/proofmark/proof-receipt.json
+            target/jankurai/copy-code.json
+            target/jankurai/copy-code.md
+            target/jankurai/language-bad-behavior.log
             target/jankurai/rust/witness-graph.json
+            target/jankurai/ux-qa.json
+            target/jankurai/migration-report.json
+            target/jankurai/vibe-coverage.json
+            target/jankurai/vibe-coverage.md
             target/jankurai/coverage/coverage-audit.json
             target/jankurai/coverage/coverage-audit.md
           if-no-files-found: error

@@ -220,7 +220,13 @@ Expected gates:
 - `jankurai audit . --policy agent/audit-policy.toml --json target/jankurai/current-score.json --md target/jankurai/current-score.md --no-score-history`
 
 Result:
-- In progress.
+- Completed in this tranche:
+  - Jankurai final gate: `score=98`, `raw=98`, `caps=0`, `findings=0`.
+  - Tool adoption: `applicable=20`, `configured=20`, `ci_evidence=20`, `artifact_verified=20`.
+  - Phase gates: `scripts/ci-phases.sh` reports `PASS=7`, `PENDING=0`, `FAIL=0`.
+  - Proof evidence: `bash ops/ci/proof-evidence.sh` PASS and emits proof/security/UX/migration/vibe/coverage artifacts.
+  - Runner sandbox: live Docker-backed escape matrix PASS with receipt `target/jankurai/runner-sandbox/live-matrix.json`.
+  - Commit hash: `feba1fc`.
 
 
 ## 2026-05-30T20:36:41Z - Codex

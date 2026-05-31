@@ -8,15 +8,15 @@
 //! - stdio and HTTP route every tool call through the same `ToolBackend::call` path.
 //!
 //! This crate is SELF-CONTAINED: the `ToolBackend`/`BugStore` traits stand in for the
-//! future jeryu-* core (agentbridge/proof/ci-scheduler). A real impl wires those later;
-//! a deterministic in-memory `StubBackend` ships here for tests.
+//! future jeryu-* core (agentbridge/proof/ci-scheduler). A deterministic
+//! in-memory `MemoryBackend` ships here for tests.
 
 pub mod backend;
 pub mod core;
 pub mod http;
 pub mod tools;
 
-pub use backend::{BugStore, StubBackend, ToolBackend, ToolResponse};
+pub use backend::{BugStore, MemoryBackend, ToolBackend, ToolResponse};
 pub use core::{McpCore, McpSessionState, start_mcp_stdio};
 pub use http::{McpHttpState, mcp_router, start_mcp_http};
 pub use tools::{ToolDescriptor, tool_manifest};

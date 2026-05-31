@@ -10,3 +10,5 @@
 **/target
 node_modules
 dist
+!/packages/ux-qa/dist/
+!/packages/ux-qa/dist/cli.js

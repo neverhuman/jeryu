@@ -11,17 +11,17 @@ use super::{BugStore, McpCallContext, ToolBackend, ToolDescriptor, ToolResponse}
 
 /// Deterministic in-memory backend for tests. Validates argument shape via the catalog
 /// parsers and returns a predictable `ToolResponse` per tool. Holds an in-memory bug store.
-pub struct StubBackend {
+pub struct MemoryBackend {
     bugs: Mutex<Vec<Value>>,
 }
 
-impl Default for StubBackend {
+impl Default for MemoryBackend {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl StubBackend {
+impl MemoryBackend {
     pub fn new() -> Self {
         Self {
             bugs: Mutex::new(Vec::new()),
@@ -29,7 +29,7 @@ impl StubBackend {
     }
 }
 
-impl BugStore for StubBackend {
+impl BugStore for MemoryBackend {
     fn submit(&self, report: Value, idempotency_key: Option<String>) -> anyhow::Result<Value> {
         let mut bugs = self.bugs.lock().expect("bug store lock");
         let id = format!("BUG-{}", bugs.len() + 1);
@@ -110,7 +110,7 @@ impl BugStore for StubBackend {
     }
 }
 
-impl ToolBackend for StubBackend {
+impl ToolBackend for MemoryBackend {
     fn call(&self, tool: &str, args: Value, _ctx: &McpCallContext) -> anyhow::Result<ToolResponse> {
         // The transport already validated the tool exists in the catalog and parsed
         // arguments via `tool_definition(...).build_intent(...)`. Here we produce a

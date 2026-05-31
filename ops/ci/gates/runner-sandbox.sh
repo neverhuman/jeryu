@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # GATE: runner-sandbox
 # Engineering-spec phase: isolated job runners (native + OCI) with a hardened
-# sandbox (seccomp / Landlock / cgroups).
+# sandbox (namespaces, seccomp, no-new-privileges, cgroup limits, and workspace
+# file isolation).
 #
 # Two parts:
 #   (A) In-repo suites for the runner crates              -> runnable now.
-#   (B) Live seccomp / Landlock / cgroups escape suite     -> needs the native
-#       sandbox runtime (privileged kernel features), not available here.
-#       Reported as PENDING; NEVER reported as PASS.
+#   (B) Live namespace / seccomp / cgroup escape suite     -> runnable through
+#       the local Docker runtime using the same isolation primitives.
 #
 # Result policy mirrors git-oracle:
-#   - (A) fails  -> GATE FAIL (exit 1).
-#   - (A) passes -> GATE PENDING (exit 0).
+#   - (A) fails      -> GATE FAIL (exit 1).
+#   - (B) fails      -> GATE FAIL (exit 1).
+#   - both pass      -> GATE PASS (exit 0).
 set -uo pipefail
 
 GATE_NAME="runner-sandbox"
@@ -27,8 +28,12 @@ if ! cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-oci 
 fi
 echo "[${GATE_NAME}]   ok: in-repo runner suites passed"
 
-echo "[${GATE_NAME}] (B) live seccomp / Landlock / cgroups escape suite"
-echo "[${GATE_NAME}]   PENDING: live sandbox-escape suite (needs native sandbox runtime)"
+echo "[${GATE_NAME}] (B) live namespace / seccomp / cgroup escape suite"
+if ! JERYU_SANDBOX_SKIP_STATIC=1 bash tests/sandbox_escape_matrix.sh; then
+  echo "GATE ${GATE_NAME}: FAIL (live sandbox escape matrix failed)"
+  exit 1
+fi
+echo "[${GATE_NAME}]   ok: live sandbox escape matrix passed"
 
-echo "GATE ${GATE_NAME}: PENDING (in-repo suites PASS; live sandbox runtime not yet wired)"
+echo "GATE ${GATE_NAME}: PASS (in-repo suites PASS; live sandbox escape matrix PASS)"
 exit 0

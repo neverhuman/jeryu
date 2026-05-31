@@ -41,6 +41,13 @@ check:
 test crate:
   cargo nextest run -p {{crate}} --jobs {{jobs}}
 
+# Rendered UX proof lanes.
+ux-qa-build:
+  npm --workspace @jankurai/ux-qa run build
+
+ux-qa-test:
+  npm --workspace @jankurai/ux-qa run test
+
 # Cache-law proof lane.
 prove-cache:
   cargo nextest run -p jeryu-cache-core -p jeryu-cache-service -p jeryu-cache-adversary --jobs {{jobs}}

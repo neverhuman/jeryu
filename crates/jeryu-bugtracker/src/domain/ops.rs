@@ -158,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn terminal_status_blocks_reopen() {
+    fn terminal_status_blocks_ready_transition() {
         assert!(validate_transition(BugStatus::Done, BugStatus::Ready).is_err());
         assert!(validate_transition(BugStatus::Ready, BugStatus::Done).is_ok());
     }

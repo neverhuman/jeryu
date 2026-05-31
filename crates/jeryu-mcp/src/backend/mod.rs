@@ -1,16 +1,16 @@
-//! Backend trait seam + in-memory stub.
+//! Backend trait seam + in-memory implementation.
 //!
 //! The MCP transport is a thin adapter. All tool DISPATCH goes behind the
 //! [`ToolBackend`] trait so the transport stays free of any engine dependency.
-//! The real impl (wiring jeryu-agentbridge / jeryu-proof / jeryu-ci-scheduler) lands
-//! later; [`StubBackend`] is a deterministic in-memory impl used by the tests here.
+//! [`MemoryBackend`] is a deterministic in-memory implementation used by the
+//! tests here.
 //!
 //! Bug tracking (the `bug_*` tools) is split out behind [`BugStore`] so the KEPT
 //! RedlineDB persistence layer can be supplied independently of the agent backend.
 
-mod stub;
+mod memory;
 
-pub use stub::StubBackend;
+pub use memory::MemoryBackend;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

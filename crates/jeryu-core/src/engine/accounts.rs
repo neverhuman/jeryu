@@ -78,7 +78,10 @@ impl ForgeCore {
 
     pub fn create_team(&self, org: &str, request: CreateTeamRequest) -> Result<Team> {
         require_name("team name", &request.name)?;
-        let slug = request.slug.unwrap_or_else(|| slugify(&request.name));
+        let slug = match request.slug {
+            Some(slug) => slug,
+            None => slugify(&request.name),
+        };
         require_name("team slug", &slug)?;
         let mut state = self.state.write();
         if !state.organizations.contains_key(org) {

@@ -1,0 +1,3 @@
+1. Keep security evidence artifact-backed: secret scanning, dependency audits,
+   and SBOM/provenance receipts must be replayable.
+

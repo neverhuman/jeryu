@@ -86,9 +86,9 @@ fn review_state_accepts_event_verb_aliases() {
 #[test]
 fn create_review_request_parses_event_field() {
     let req: CreateReviewRequest =
-        serde_json::from_str(r#"{"event":"APPROVE","body":"lgtm"}"#).unwrap();
+        serde_json::from_str(r#"{"event":"APPROVE","body":"wire-format fixture"}"#).unwrap();
     assert_eq!(req.event, ReviewState::Approved);
-    assert_eq!(req.body.as_deref(), Some("lgtm"));
+    assert_eq!(req.body.as_deref(), Some("wire-format fixture"));
     assert!(req.comments.is_empty());
 }
 
