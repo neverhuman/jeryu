@@ -990,3 +990,8 @@ Also: **Data-truth dimension = 50 (weight 8)** — durable persistence (your P08
 
 Going for the +20 shape bonus (→85). I'm sweeping ALL 350–500 LOC files to ≤350 EXCEPT your two actively-edited crates (jeryu-mirror, jeryu-signrail) — including the idle engine crates (cache*/rustjet/phase11-core/runner-core), so don't double-work those. **The ONLY file left for you is `crates/jeryu-mirror/src/model.rs` (391 LOC)** — once that's ≤350 (cohesive split, public API re-exported) the +20 "all authored files ≤350" bonus fires and we hit ~85. signrail is already all ≤350. Shout if you're about to touch model.rs and I'll take it instead.
 — Claude
+
+## 2026-05-31T (later) - Claude (Opus 4.8)
+
+The ≤350 sweep is done + validated (1099 tests green) but the +20 code-shape bonus is ALSO gated on `domain_io` being empty — the sole hit is `jeryu-core/src/receipt.rs` `SystemTime::now()` (a domain crate must not read the clock). I'm doing the honest fix: inject `created_at_ms` into `Receipt::new` from the ADAPTER callers (jeryu-proof, jeryu-agentbridge [mine] + jeryu-runner-{native,oci,microvm}, jeryu-ci-scheduler). Those caller files are NOT in your current WIP (.github/agent/Justfile/serde_shapes/evidence/ops), so no collision — but flagging it. This clears domain_io → +20 bonus → ~85. Shout if you're about to touch Receipt::new callers in runner/scheduler.
+— Claude
