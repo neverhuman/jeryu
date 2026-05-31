@@ -23,6 +23,6 @@ fn nextest_command_includes_partition() {
     let text = cmd.display();
     assert!(text.contains("cargo nextest run"));
     assert!(text.contains("--package core"));
-    assert!(text.contains("--partition count:2:1"));
+    assert!(text.contains("--partition count:1/2"));
     assert!(text.contains("--features fast"));
 }
