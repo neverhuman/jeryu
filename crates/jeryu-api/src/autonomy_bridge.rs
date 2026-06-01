@@ -5,12 +5,23 @@
 //! forge state — the required-CI-lane gate ([`EvidencePack::ci_status`] vs the
 //! policy's `required_ci_lanes`), a conservative changed-path risk tier
 //! (anything touching the system's own trust surface is `R5`, which stays
-//! fail-closed to a human), and the agent-reviewer quorum — then records a
-//! `jeryu/autonomy` verdict check-run and, on [`GateDecision::AllowMerge`],
-//! merges the PR. R5 / red-CI / hard-stops never auto-merge.
+//! fail-closed to a human), and the agent-reviewer quorum — then records an
+//! advisory `jeryu/autonomy` verdict check-run.
 //!
-//! The pure decision ([`decide`]) is unit-tested here; the live wiring that
-//! reads PRs + check-runs and performs the merge is driven from `on_push`.
+//! **RECORD-ONLY: this bridge does NOT autonomously merge.** A 7-probe
+//! adversarial review (see `AGENT_CHAT.md` 2026-06-01) proved the merge path
+//! unsafe — a vacuous CI gate (empty/skipped lanes), a synthetic always-Pass
+//! reviewer quorum + forged signature, dead path-based hard-stops
+//! (`changed_files` empty), a risk classifier that defaults code to an
+//! auto-tier and omits the merge-engine crates (so the gate could merge edits
+//! to itself), a single-commit risk diff that hides earlier R5 commits, and no
+//! author/fork trust gate. Until that rework lands (real `EdVerifier`-checked
+//! reviewers, target-branch-policy required lanes, populated `changed_files`,
+//! an inverted human-default risk tier + merge-engine markers, `base..head`
+//! diff, author/fork gating, and a head-pinned merge), the bridge only emits
+//! the advisory verdict and never calls `merge_pull_request`.
+//!
+//! The pure decision ([`decide`]) is unit-tested here.
 
 use jeryu_autonomy::{
     AgentApprovalReceipt, CiCheck, CiConclusion, EvidenceInputs, EvidencePack, FullAutoProfile,
@@ -18,7 +29,7 @@ use jeryu_autonomy::{
     RollbackSection, RollbackStrategy, ScanOutcome, SchemaTag, SecuritySection, Signature,
     SupplyChainSection, TestsSection, TokenCounts, build_evidence_pack, judge, policy_yaml,
 };
-use jeryu_core::{CheckConclusion, ForgeCore, MergePullRequestRequest, PullRequestState};
+use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState};
 
 /// Map a forge check-run conclusion to the autonomy CI vocabulary. Only
 /// `Success` is green; a missing/in-flight conclusion is `Pending` (blocks a
@@ -259,27 +270,22 @@ pub(crate) fn evaluate_pushed_head(
             changed_paths,
             ci_status: ci_status.clone(),
         });
+        // RECORD-ONLY — no autonomous merge (see the module-level note). An
+        // AllowMerge verdict is recorded as `Neutral` (advisory, not acted on);
+        // it deliberately does NOT call `core.merge_pull_request`. The real
+        // auto-merge is gated behind the safety rework.
         let (conclusion, summary) = match decision {
-            GateDecision::AllowMerge => (CheckConclusion::Success, "auto-merge: AllowMerge"),
-            GateDecision::RequireHuman => {
-                (CheckConclusion::ActionRequired, "auto-merge: RequireHuman")
-            }
-            GateDecision::Reject => (CheckConclusion::Failure, "auto-merge: Reject"),
+            GateDecision::AllowMerge => (
+                CheckConclusion::Neutral,
+                "advisory: CI+risk eligible — merge gated on safety rework (record-only)",
+            ),
+            GateDecision::RequireHuman => (
+                CheckConclusion::ActionRequired,
+                "advisory: human review required",
+            ),
+            GateDecision::Reject => (CheckConclusion::Failure, "advisory: blocked"),
         };
         record_verdict(core, owner, repo, head_sha, conclusion, summary);
-        if decision == GateDecision::AllowMerge {
-            let _ = core.merge_pull_request(
-                owner,
-                repo,
-                pr.number,
-                MergePullRequestRequest {
-                    commit_title: Some(format!("Auto-merge #{} (jeryu/autonomy)", pr.number)),
-                    commit_message: Some(summary.to_string()),
-                    sha: None,
-                    merge_method: "merge".to_string(),
-                },
-            );
-        }
     }
 }
 
