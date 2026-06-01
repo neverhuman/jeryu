@@ -18,7 +18,7 @@ use jeryu_runner_core::JobRequest as CoreJobRequest;
 use jeryu_runner_core::job::{NetworkPolicy, SecretPolicy, TokenPolicy};
 use jeryu_runner_core::receipt::ReceiptStatus;
 use jeryu_runner_core::trust::{RunnerClass, TrustTier};
-use jeryu_runnerd::{DispatchEngine, DispatchMode};
+use jeryu_runnerd::submit as submit_runner_job;
 
 /// All-zero oid: a ref delete, which carries no commit to build.
 const ZERO_OID: &str = "0000000000000000000000000000000000000000";
@@ -62,7 +62,6 @@ pub(crate) fn on_push(
         return;
     };
     let git_bin = manager.config().git_bin.clone();
-    let engine = DispatchEngine::new();
     for update in updates {
         // Accumulate this head's recorded check-runs so the autonomy bridge can
         // run the evidence-gate judge over the live CI state once they all land.
@@ -73,15 +72,8 @@ pub(crate) fn on_push(
                 continue;
             };
             for job in &pipeline.jobs {
-                let conclusion = run_job(
-                    &engine,
-                    &git_bin,
-                    &resolved.path,
-                    &update.new_oid,
-                    job,
-                    owner,
-                    repo,
-                );
+                let conclusion =
+                    run_job(&git_bin, &resolved.path, &update.new_oid, job, owner, repo);
                 let name = format!("{}/{}", workflow_stem(&file), job.name);
                 let _ = core.create_check_run(
                     owner,
@@ -142,7 +134,6 @@ fn changed_paths(git_bin: &str, bare: &Path, oid: &str) -> Vec<String> {
 /// Execute a compiled job's `run` steps in the sandboxed runner and map the
 /// receipt to a check-run conclusion.
 fn run_job(
-    engine: &DispatchEngine,
     git_bin: &str,
     bare: &Path,
     oid: &str,
@@ -179,7 +170,7 @@ fn run_job(
         timeout_ms: 600_000,
         fork: false,
     };
-    let receipt = engine.dispatch(&request, DispatchMode::Run);
+    let receipt = submit_runner_job(request);
     let _ = std::fs::remove_dir_all(&workspace);
     match receipt.status {
         ReceiptStatus::Passed => CheckConclusion::Success,
