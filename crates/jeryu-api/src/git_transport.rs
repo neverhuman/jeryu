@@ -150,11 +150,8 @@ pub(crate) async fn git_receive_pack(
 /// Snapshot a repo's refs. A repo that cannot be resolved or listed yields an
 /// empty snapshot, so the post-push diff simply finds no updates.
 fn snapshot_refs(manager: &RepoManager, owner: &str, repo: &str) -> Vec<jeryu_gitd::refs::GitRef> {
-    let Ok(resolved) = manager.resolve_parts(owner, repo) else {
-        return Vec::new();
-    };
-    match jeryu_gitd::refs::RefService::new(manager.clone()).list_refs(&resolved) {
-        Ok(refs) => refs,
-        Err(_) => Vec::new(),
-    }
+    manager
+        .resolve_parts(owner, repo)
+        .and_then(|resolved| jeryu_gitd::refs::RefService::new(manager.clone()).list_refs(&resolved))
+        .unwrap_or_default()
 }

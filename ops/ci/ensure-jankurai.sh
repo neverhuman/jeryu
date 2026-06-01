@@ -81,6 +81,24 @@ if [ "${strict_tag:-0}" = "1" ]; then
   fi
 fi
 
+PINNED_BIN="${CARGO_HOME:-$HOME/.cargo}/bin/jankurai"
+
+# A stale jankurai earlier on PATH (e.g. a pooled cargo-home, ~/.local/bin) can
+# shadow the pinned ~/.cargo/bin build and make the gate silently audit with the
+# wrong version. Overwrite whatever `jankurai` resolves to with the pinned binary
+# whenever the resolved path is writable, so the gate never runs a wrong version.
+force_resolved_to_pin() {
+  local resolved
+  resolved="$(command -v jankurai 2>/dev/null || true)"
+  if [ -x "${PINNED_BIN}" ] && [ -n "${resolved}" ] &&
+    [ "${resolved}" != "${PINNED_BIN}" ] && [ -w "${resolved}" ]; then
+    install -m755 "${PINNED_BIN}" "${resolved}" 2>/dev/null || true
+  fi
+}
+
+if [ -x "${PINNED_BIN}" ] && "${PINNED_BIN}" --version | grep -qx "${JANKURAI_VERSION}"; then
+  force_resolved_to_pin
+fi
 if command -v jankurai >/dev/null 2>&1 && jankurai --version | grep -qx "${JANKURAI_VERSION}"; then
   echo "jankurai ok: ${JANKURAI_VERSION}"
   exit 0
@@ -95,5 +113,6 @@ fi
 
 echo "installing pinned ${JANKURAI_VERSION} from ${JANKURAI_REPO}@${JANKURAI_REV}"
 jankurai_cargo_install --git "${JANKURAI_REPO}" --rev "${JANKURAI_REV}" --locked "${install_profile_args[@]}" --bin jankurai jankurai
+force_resolved_to_pin
 jankurai --version | grep -qx "${JANKURAI_VERSION}"
 echo "jankurai ok: ${JANKURAI_VERSION}"
