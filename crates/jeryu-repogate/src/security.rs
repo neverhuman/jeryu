@@ -24,6 +24,12 @@ pub fn security_blocked() -> Vec<String> {
 /// Roots under which the security scan walks for `*.rs` files.
 pub const SECURITY_SCAN_ROOTS: &[&str] = &["crates", "bins"];
 
+/// Paths exempt from the no-`unsafe`/no-shell source scan: the workspace's sole
+/// sanctioned `#![allow(unsafe_code)]` island. Every other crate is
+/// `unsafe_code = "forbid"`, so accidental unsafe is still caught everywhere else;
+/// this island's syscall blocks are reviewed and carry `// SAFETY:` comments.
+pub const SECURITY_SCAN_EXEMPT: &[&str] = &["crates/jeryu-sandbox-linux/"];
+
 /// Recursively collect `*.rs` files under `dir`, skipping AppleDouble (`._`)
 /// files and any path containing a `._`-prefixed component, matching the
 /// filtering in `security-scan.py`.
@@ -73,8 +79,14 @@ pub fn run_security_scan(root: &Path) -> std::io::Result<GateOutcome> {
         let mut sources = Vec::new();
         collect_rust_sources(&dir, false, &mut sources)?;
         for path in sources {
-            let text = std::fs::read_to_string(&path)?;
             let display = relative_display(root, &path);
+            if SECURITY_SCAN_EXEMPT
+                .iter()
+                .any(|prefix| display.starts_with(prefix))
+            {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path)?;
             for needle in &needles {
                 if text.contains(needle.as_str()) {
                     violations.push((display.clone(), needle.clone()));
@@ -116,6 +128,23 @@ mod tests {
         .unwrap();
         let outcome = run_security_scan(dir.path()).unwrap();
         assert_eq!(outcome.exit_code, 0);
+        assert_eq!(outcome.stdout, vec!["security scan ok".to_string()]);
+    }
+
+    #[test]
+    fn security_scan_exempts_sandbox_linux_island() {
+        // The sanctioned `#![allow(unsafe_code)]` island is exempt: an unsafe
+        // block under crates/jeryu-sandbox-linux/ must NOT be flagged.
+        let unsafe_needle = format!("{}{}", "unsafe", " {");
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("crates/jeryu-sandbox-linux/src")).unwrap();
+        fs::write(
+            dir.path().join("crates/jeryu-sandbox-linux/src/launch.rs"),
+            format!("fn f() {{ {unsafe_needle} }} }}\n"),
+        )
+        .unwrap();
+        let outcome = run_security_scan(dir.path()).unwrap();
+        assert_eq!(outcome.exit_code, 0, "sandbox-linux unsafe must be exempt");
         assert_eq!(outcome.stdout, vec!["security scan ok".to_string()]);
     }
 

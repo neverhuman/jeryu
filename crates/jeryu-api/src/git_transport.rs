@@ -152,6 +152,8 @@ pub(crate) async fn git_receive_pack(
 fn snapshot_refs(manager: &RepoManager, owner: &str, repo: &str) -> Vec<jeryu_gitd::refs::GitRef> {
     manager
         .resolve_parts(owner, repo)
-        .and_then(|resolved| jeryu_gitd::refs::RefService::new(manager.clone()).list_refs(&resolved))
+        .and_then(|resolved| {
+            jeryu_gitd::refs::RefService::new(manager.clone()).list_refs(&resolved)
+        })
         .unwrap_or_default()
 }
