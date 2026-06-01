@@ -143,6 +143,8 @@ jeryu_jankurai audit . --mode ratchet \
 jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.json
 
 # --- UX-QA catalog artifact -------------------------------------------------
+npm --workspace @jeryu/web run test:e2e
+npm --workspace @jeryu/web run ux-qa
 jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
 
 # --- DB migration and vibe coverage catalog artifacts -----------------------
