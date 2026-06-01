@@ -51,6 +51,14 @@ local parity runs until an operator stops the root-owned retired services.
 5. Tag only after the release receipt names the exact commit, prior rollback
    artifact, and gate evidence paths.
 
+## Autonomy Gate
+
+`jeryu/autonomy` check-runs are release evidence only. They record whether a PR
+head is CI/risk eligible, human-required, or blocked, but they do not merge.
+Release receipts must treat `Neutral` autonomy verdicts as advisory until the
+auto-merge safety rework has explicit author/fork trust, signed reviewer
+verification, populated changed-file evidence, and head-pinned merge tests.
+
 ## Integrity And Provenance
 
 The security lane writes SBOM, vulnerability scan, provenance, and signing

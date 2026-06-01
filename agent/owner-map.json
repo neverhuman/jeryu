@@ -57,6 +57,7 @@
     "crates/jeryu-runner-native/": "ci-runtime",
     "crates/jeryu-runner-oci/": "ci-runtime",
     "crates/jeryu-runner-protocol/": "ci-runtime",
+    "crates/jeryu-runner-registry/": "ci-runtime",
     "crates/jeryu-runnerd/": "ci-runtime",
     "crates/jeryu-rustjet/": "rust-ci",
     "crates/jeryu-signrail/": "release-security",

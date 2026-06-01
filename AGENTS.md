@@ -18,9 +18,11 @@ Before editing code, inspect:
 11. `docs/errors.md`
 12. `docs/boundaries.md`
 13. `docs/generated-zones.md`
-14. `docs/audit-rubric.md`
-15. `docs/agent-native-standard.md`
-16. Local `AGENTS.md` files under changed paths, such as `docs/AGENTS.md`
+14. `docs/release.md`
+15. `docs/release-process.md`
+16. `docs/audit-rubric.md`
+17. `docs/agent-native-standard.md`
+18. Local `AGENTS.md` files under changed paths, such as `docs/AGENTS.md`
     and `crates/jeryu-api/AGENTS.md`.
 
 Hard rules:

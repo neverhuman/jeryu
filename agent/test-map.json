@@ -166,6 +166,11 @@
       "purpose": "verify OCI runner guard contracts",
       "lane": "runner-sandbox"
     },
+    "crates/jeryu-runner-registry/": {
+      "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runner-registry -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
+      "purpose": "verify runner registry fencing and runner sandbox contracts",
+      "lane": "runner-sandbox"
+    },
     "crates/jeryu-ci-ir/": {
       "command": "cargo test -p jeryu-ci-ir -p jeryu-ci-compiler -p jeryu-ci-scheduler --jobs 40",
       "purpose": "verify deterministic CI IR and scheduler behavior",
