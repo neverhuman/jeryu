@@ -20,7 +20,7 @@ pub use crate::branch_protection::{
     BranchProtectionEvaluation, EvaluationContext, MergeBlocker, RefOperation, RefOperationBlocker,
     RefOperationEvaluation,
 };
-pub use crate::core::ForgeCore;
+pub use crate::core::{ForgeCore, RepoMaterializer};
 pub use crate::error::{AgentRepairHint, JeryuError, JeryuResult};
 pub use crate::errors::{ForgeError, Result};
 pub use crate::ids::{AgentId, PullRequestId, QueueEntryId, ReceiptId, RepoId};

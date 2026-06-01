@@ -61,10 +61,25 @@ struct State {
     counters: HashMap<(String, String), Counters>,
 }
 
+/// Materializes a newly created repository's bare git directory on disk.
+///
+/// Defined in the pure forge core so `create_repository` can trigger on-disk
+/// creation without `jeryu-core` depending on the git-daemon crate: the unified
+/// `jeryu serve` injects a `jeryu-gitd`-backed implementation via
+/// [`ForgeCore::with_repo_materializer`]. With no materializer set (the default,
+/// e.g. in unit tests) repository creation stays metadata-only.
+pub trait RepoMaterializer: std::fmt::Debug + Send + Sync {
+    /// Create the bare repository for `owner/name` with `default_branch` as its
+    /// initial `HEAD`. Implementations MUST be idempotent: an already-present
+    /// repository is success, not an error.
+    fn materialize(&self, owner: &str, name: &str, default_branch: &str) -> Result<()>;
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ForgeCore {
     state: Arc<RwLock<State>>,
     storage: Option<Arc<storage::SqliteStore>>,
+    repo_materializer: Option<Arc<dyn RepoMaterializer>>,
 }
 
 impl ForgeCore {
@@ -72,11 +87,20 @@ impl ForgeCore {
         Self::default()
     }
 
+    /// Inject a [`RepoMaterializer`] so repository creation also writes a bare
+    /// git repository to disk (used by the unified `jeryu serve`).
+    #[must_use]
+    pub fn with_repo_materializer(mut self, materializer: Arc<dyn RepoMaterializer>) -> Self {
+        self.repo_materializer = Some(materializer);
+        self
+    }
+
     pub fn open_sqlite(path: impl AsRef<Path>) -> Result<Self> {
         let (storage, state) = storage::SqliteStore::open(path)?;
         Ok(Self {
             state: Arc::new(RwLock::new(state)),
             storage: Some(Arc::new(storage)),
+            repo_materializer: None,
         })
     }
 
