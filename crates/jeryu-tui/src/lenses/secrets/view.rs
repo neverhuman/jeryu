@@ -180,7 +180,7 @@ mod tests {
             id: Some(1),
             repo_name: repo.into(),
             version: "v3.0.1".into(),
-            target: "GITLAB_TOKEN".into(),
+            target: "FORGE_TOKEN".into(),
             action: action.into(),
             status: status.into(),
             detail: "TOP-SECRET-VALUE-MUST-NOT-RENDER".into(),
@@ -252,7 +252,7 @@ mod tests {
                 "secret detail value must never reach the screen"
             );
             assert!(
-                !s.contains("GITLAB_TOKEN"),
+                !s.contains("FORGE_TOKEN"),
                 "rotation target must never reach the screen"
             );
         }

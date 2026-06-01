@@ -1,6 +1,6 @@
 //! Owner: Interactive TUI subsystem - Bugs lens view
 //! Proof: `cargo test -p jeryu-tui --lib tui::lenses::bugs::view`
-//! Invariants: Pure draw. Reads `BugsLensInput`; never touches DB, GitLab,
+//! Invariants: Pure draw. Reads `BugsLensInput`; never touches DB, forge,
 //!             Docker, Vault, filesystem, MCP, or network during render.
 //!             Renders the bug/blocker triage queue: a header summarizing the
 //!             top blocker and failing-job pressure, a severity-colored table

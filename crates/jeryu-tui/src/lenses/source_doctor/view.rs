@@ -1,7 +1,7 @@
 //! Owner: Interactive TUI subsystem - Source Doctor lens view
 //! Proof: `cargo test -p jeryu-tui --lib lenses::source_doctor::view`
 //! Invariants: Pure draw. Reads `SourceDoctorLensInput`; never touches DB,
-//!             GitLab, Docker, Vault, filesystem, MCP, or network during
+//!             forge, Docker, Vault, filesystem, MCP, or network during
 //!             render. Renders one diagnostic row per infra/config component
 //!             (plus a runners fleet row) with HealthLevel-colored status.
 

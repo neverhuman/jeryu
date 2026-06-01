@@ -1,6 +1,6 @@
 //! Owner: Interactive TUI subsystem - VTI lens view
 //! Proof: `cargo test -p jeryu-tui --lib lenses::vti::view`
-//! Invariants: Pure draw. Reads `VtiLensInput`; never touches DB, GitLab,
+//! Invariants: Pure draw. Reads `VtiLensInput`; never touches DB, forge,
 //!             Docker, Vault, filesystem, MCP, or network during render.
 
 use ratatui::Frame;

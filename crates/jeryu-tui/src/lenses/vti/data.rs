@@ -8,7 +8,7 @@ use jeryu_readmodel::TuiReadModel;
 
 /// Projection feeding the VTI (test-impact / test-selection) cockpit.
 /// All fields are derived from `model.mission`; the lens never reads raw
-/// DB/GitLab state.
+/// DB/forge state.
 #[derive(Debug, Clone)]
 pub struct VtiLensInput {
     /// Selector misses observed in the last 24h — test-impact signal quality.

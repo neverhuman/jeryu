@@ -1,6 +1,6 @@
 //! Owner: Interactive TUI subsystem - Autonomy lens view
 //! Proof: `cargo test -p jeryu-tui --lib tui::lenses::autonomy::view`
-//! Invariants: Pure draw. Reads `AutonomyLensInput`; never touches DB, GitLab,
+//! Invariants: Pure draw. Reads `AutonomyLensInput`; never touches DB, forge,
 //!             Docker, Vault, filesystem, MCP, or network during render.
 //!             Renders the guardrail posture for autonomous agents: a header
 //!             summary, a Table of safety toggles colored by state, and a
