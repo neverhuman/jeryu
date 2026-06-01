@@ -1384,7 +1384,6 @@ name = "jeryu-api"
 version = "0.10.0"
 dependencies = [
  "axum",
- "chrono",
  "clap",
  "futures-util",
  "hex",

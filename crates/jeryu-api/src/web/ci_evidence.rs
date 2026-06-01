@@ -9,10 +9,11 @@
 //!   `conclusion`, `output`).
 //! * `uri`    — a stable `jeryu://ci/run/{id}/<facet>` locator.
 //! * `digest` — `sha256:<hex>` over the canonical JSON of the item's stable
-//!   fields (kind + uri + capturedAt + payload), so a client can verify the
-//!   item was not altered in transit.
+//!   fields (kind + uri + capturedAt + payload), all of which are returned so a
+//!   client can verify the item was not altered in transit.
 //! * `capturedAt` — the RFC3339 timestamp the underlying datum was recorded
 //!   (`started_at` for run/commit facets, `completed_at` for the conclusion).
+//! * `payload` — the live source fields backing this evidence facet.
 //!
 //! Lookup failure is surfaced structurally as `None`; the handler maps it to a
 //! 404 rather than silently returning an empty list for a non-existent run.
@@ -31,6 +32,7 @@ pub(super) struct EvidenceItem {
     pub uri: String,
     pub digest: String,
     pub captured_at: String,
+    pub payload: Value,
 }
 
 /// Assemble the evidence list for a CI run id, or `None` when no run with that
@@ -116,6 +118,7 @@ fn build_item(run_id: &str, kind: &str, captured_at: &str, payload: Value) -> Ev
         uri,
         digest,
         captured_at: captured_at.to_string(),
+        payload,
     }
 }
 
@@ -215,6 +218,17 @@ mod tests {
             assert!(item.uri.starts_with(&format!("jeryu://ci/run/{id}/")));
             assert!(item.digest.starts_with("sha256:"));
             assert!(!item.captured_at.is_empty());
+            let returned_fields = json!({
+                "kind": item.kind,
+                "uri": item.uri,
+                "capturedAt": item.captured_at,
+                "payload": item.payload,
+            });
+            assert_eq!(
+                item.digest,
+                digest_of(&returned_fields),
+                "client can recompute digest from returned fields"
+            );
         }
     }
 
@@ -264,7 +278,7 @@ mod tests {
         );
         let json = serde_json::to_value(&item).unwrap();
         let obj = json.as_object().unwrap();
-        for key in ["kind", "uri", "digest", "capturedAt"] {
+        for key in ["kind", "uri", "digest", "capturedAt", "payload"] {
             assert!(obj.contains_key(key), "missing contract key: {key}");
         }
     }

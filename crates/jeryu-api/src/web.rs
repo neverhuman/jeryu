@@ -550,7 +550,7 @@ async fn ci_run_evidence(
 ) -> AxumResponse {
     match ci_evidence::run_evidence(state.github.core(), &id) {
         Some(evidence) => Json(evidence).into_response(),
-        None => api_error(StatusCode::NOT_FOUND, "not_found", "ci run not found"),
+        None => ci_evidence_not_found_error(),
     }
 }
 
@@ -1007,6 +1007,26 @@ fn chrono_like_now() -> String {
 
 fn api_error(status: StatusCode, code: &str, message: &str) -> AxumResponse {
     (status, Json(json!({ "code": code, "message": message }))).into_response()
+}
+
+fn ci_evidence_not_found_error() -> AxumResponse {
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({
+            "code": "not_found",
+            "message": "ci run not found",
+            "purpose": "retrieve evidence for one live CI run",
+            "reason": "the supplied run id is malformed or does not match any check-run in the live forge",
+            "common_fixes": [
+                "request a run id returned by GET /repos/{owner}/{repo}/actions/runs",
+                "request a check-run id from GET /repos/{owner}/{repo}/commits/{sha}/check-runs",
+                "retry after the push-to-CI bridge has registered check-runs for the commit"
+            ],
+            "docs_url": "/docs/api/ci-run-evidence",
+            "repair_hint": "use a live check-run UUID, then retry GET /api/v1/ci/runs/{id}/evidence",
+        })),
+    )
+        .into_response()
 }
 
 fn github_response(response: GithubResponse) -> AxumResponse {
@@ -1679,6 +1699,13 @@ mod tests {
         assert_eq!(missing.status(), StatusCode::NOT_FOUND);
         let err = response_json(missing).await;
         assert_eq!(err["code"], "not_found");
+        assert_eq!(
+            err["purpose"], "retrieve evidence for one live CI run",
+            "repairable failures must carry typed guidance"
+        );
+        for key in ["reason", "common_fixes", "docs_url", "repair_hint"] {
+            assert!(err.get(key).is_some(), "missing repair field: {key}");
+        }
     }
 
     #[test]

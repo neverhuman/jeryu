@@ -90,8 +90,12 @@ cargo run -p jeryu-api --features web -- web serve \
 
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
+`/api/v1/ecosystem`, `/api/v1/ci/runs/{id}/evidence`,
 `/api/v1/markdown/render`, `/api/v1/ws`, and the guided GitHub-compatible
-`/user` and `/graphql` routes.
+`/user` and `/graphql` routes. The ecosystem and CI-run evidence routes are
+read-only: they expose live MCP tool graph metadata, forge health, queue
+identity, and digest-verifiable CI evidence for clients that need agent-readable
+state before choosing a mutation path.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 

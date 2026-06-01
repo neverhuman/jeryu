@@ -26,6 +26,9 @@ Release process doc: [docs/release-process.md](release-process.md).
 - `bash ops/ci/proof-evidence.sh`
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
+- `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
+  when public API response contracts, `/api/v1/ecosystem`, or
+  `/api/v1/ci/runs/{id}/evidence` change.
 
 Latest closeout validation used explicit `--full` mode with 40 workers in both
 local-native and GitHub-clean profiles: 1175 nextest tests, phase gates
@@ -43,12 +46,15 @@ local parity runs until an operator stops the root-owned retired services.
 1. Run the required gates locally and keep the emitted artifacts under
    `target/jankurai/` until the release receipt is signed.
 2. Verify the SQLite migration and restore receipts for the candidate commit.
-3. Build release artifacts from the signed commit only, then record checksums,
+3. For public API additions, attach the route-level test commands and response
+   contract evidence, including typed repair fields and any digest-verifiable
+   payload contract.
+4. Build release artifacts from the signed commit only, then record checksums,
    SBOM digests, provenance paths, and the rollback target in the release
    receipt.
-4. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
+5. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
    require explicit `--push-main` and are not the default closeout path.
-5. Tag only after the release receipt names the exact commit, prior rollback
+6. Tag only after the release receipt names the exact commit, prior rollback
    artifact, and gate evidence paths.
 
 ## Autonomy Gate
