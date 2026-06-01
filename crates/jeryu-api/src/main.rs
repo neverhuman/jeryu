@@ -50,10 +50,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 },
         }) => {
             let data_dir = expand_tilde(data_dir);
+            let git_storage_root = data_dir.join("git");
             jeryu_api::web::serve(jeryu_api::web::WebServerConfig {
                 bind,
                 spa_dir,
                 data_dir,
+                git_storage_root,
             })
             .await
         }

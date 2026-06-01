@@ -10,6 +10,7 @@ jeryu-bench = { path = "../jeryu-bench" }
 jeryu-obs = { path = "../jeryu-obs" }
 jeryu-enterprise = { path = "../jeryu-enterprise" }
 jeryu-core = { path = "../jeryu-core" }
+jeryu-gitd = { path = "../jeryu-gitd", optional = true }
 jeryu-mcp = { path = "../jeryu-mcp", optional = true }
 jeryu-readmodel = { path = "../jeryu-readmodel" }
 axum = { version = "0.7", features = ["ws"], optional = true }
@@ -21,11 +22,12 @@ tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread"], 
 tower-http = { version = "0.6", features = ["fs"], optional = true }
 
 [dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
 tower = "0.5"
 
 [features]
 default = []
-web = ["dep:axum", "dep:futures-util", "dep:jeryu-mcp", "dep:tokio", "dep:tower-http"]
+web = ["dep:axum", "dep:futures-util", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:tokio", "dep:tower-http"]
 
 [lints]
 workspace = true

@@ -363,6 +363,18 @@ impl HttpResponse {
         &self.body
     }
 
+    /// The response `Content-Type`.
+    #[must_use]
+    pub fn content_type(&self) -> &str {
+        &self.content_type
+    }
+
+    /// Extra response headers (name, value) to emit verbatim.
+    #[must_use]
+    pub fn extra_headers(&self) -> &[(String, String)] {
+        &self.extra_headers
+    }
+
     fn write(&self, stream: &mut TcpStream) -> Result<()> {
         let status_text = match self.status {
             200 => "OK",

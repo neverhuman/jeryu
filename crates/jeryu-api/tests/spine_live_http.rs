@@ -1,0 +1,128 @@
+#![cfg(feature = "web")]
+//! S4 live-HTTP e2e: boot `serve()` on a real loopback socket, create a repo
+//! over HTTP (which materializes a bare repo on disk), then clone, commit, and
+//! push over the mounted smart-HTTP transport and assert the pushed commit
+//! landed in the on-disk bare repo. This exercises create-repo-to-disk (S3) and
+//! the git transport on the unified `jeryu serve` (S4) end to end.
+
+use std::net::{SocketAddr, TcpStream};
+use std::path::Path;
+use std::process::Command;
+use std::time::{Duration, Instant};
+
+use jeryu_api::web::{WebServerConfig, serve};
+
+fn git_available() -> bool {
+    Command::new("git")
+        .arg("--version")
+        .output()
+        .map(|out| out.status.success())
+        .unwrap_or(false)
+}
+
+fn run_git(dir: &Path, args: &[&str]) {
+    let status = Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .status()
+        .unwrap_or_else(|err| panic!("git {args:?}: {err}"));
+    assert!(status.success(), "git {args:?} failed in {}", dir.display());
+}
+
+/// Git http config that aborts a stalled transfer instead of hanging.
+const GIT_HTTP_GUARD: &[&str] = &["-c", "http.lowSpeedLimit=100", "-c", "http.lowSpeedTime=20"];
+
+async fn wait_until_listening(addr: SocketAddr) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        if TcpStream::connect(addr).is_ok() {
+            return;
+        }
+        assert!(Instant::now() < deadline, "server never listened on {addr}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn s4_create_repo_to_disk_and_git_push_over_http() {
+    if !git_available() {
+        eprintln!("git unavailable; skipping s4 live-HTTP e2e");
+        return;
+    }
+
+    let base = std::env::temp_dir().join(format!("jeryu-s4-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let data_dir = base.join("data");
+    let git_root = base.join("git");
+    let spa_dir = base.join("spa");
+    let work = base.join("work");
+    std::fs::create_dir_all(&spa_dir).unwrap();
+    std::fs::create_dir_all(&work).unwrap();
+
+    // Reserve a free loopback port, then release it for serve() to bind.
+    let probe = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = probe.local_addr().unwrap();
+    drop(probe);
+
+    let config = WebServerConfig {
+        bind: addr,
+        spa_dir,
+        data_dir,
+        git_storage_root: git_root.clone(),
+    };
+    let server = tokio::spawn(async move { serve(config).await.unwrap() });
+    wait_until_listening(addr).await;
+
+    // 1. Create the repo over HTTP -> materializes a bare repo on disk.
+    eprintln!("[s4] POST /repos ...");
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("http://{addr}/repos"))
+        .json(&serde_json::json!({ "name": "demo" }))
+        .send()
+        .await
+        .expect("POST /repos");
+    let status = resp.status().as_u16();
+    eprintln!("[s4] POST /repos -> {status}");
+    assert_eq!(status, 201, "POST /repos should return 201");
+    let bare = git_root.join("jeryu").join("demo.git");
+    assert!(
+        bare.join("HEAD").is_file(),
+        "bare repo must exist on disk after create"
+    );
+    eprintln!("[s4] bare repo materialized on disk");
+
+    // 2. Clone over HTTP (loopback-permissive: no credentials required).
+    let clone_url = format!("http://{addr}/git/jeryu/demo.git");
+    eprintln!("[s4] git clone {clone_url}");
+    run_git(&work, &[GIT_HTTP_GUARD, &["clone", clone_url.as_str(), "clone"]].concat());
+    let clone_dir = work.join("clone");
+    eprintln!("[s4] cloned");
+
+    // 3. Commit and push back over the same transport.
+    run_git(&clone_dir, &["config", "user.email", "tester@jeryu.invalid"]);
+    run_git(&clone_dir, &["config", "user.name", "Tester"]);
+    std::fs::write(clone_dir.join("hello.txt"), "hello jeryu\n").unwrap();
+    run_git(&clone_dir, &["add", "."]);
+    run_git(&clone_dir, &["commit", "-m", "first commit"]);
+    eprintln!("[s4] git push");
+    run_git(
+        &clone_dir,
+        &[GIT_HTTP_GUARD, &["push", "origin", "HEAD:refs/heads/main"]].concat(),
+    );
+    eprintln!("[s4] pushed");
+
+    // 4. Assert the pushed commit is in the on-disk bare repo.
+    let out = Command::new("git")
+        .args(["--git-dir", bare.to_str().unwrap(), "rev-parse", "refs/heads/main"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "refs/heads/main must exist in the bare repo after push: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    server.abort();
+    let _ = std::fs::remove_dir_all(&base);
+}

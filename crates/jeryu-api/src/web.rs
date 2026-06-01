@@ -17,23 +17,22 @@ use axum::response::{Html, IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
 use futures_util::StreamExt;
-use jeryu_core::{CheckConclusion, CheckRunStatus, ForgeCore, PullRequestState, Repository};
+use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState, Repository};
 use jeryu_readmodel::contracts::{
     AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
     RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
     RepositoryVisibility, ServerWsMessage, TreeEntry, Viewer, WebBootstrap, WebEvent,
     WebFeatureFlags,
 };
-use jeryu_readmodel::{
-    Bottleneck, ComponentHealth, PoolActivity, PoolRollup, RepoActivity, RunnerHealth,
-    SystemHealth, TuiReadModel,
-};
+use jeryu_readmodel::{Bottleneck, TuiReadModel};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
+use crate::git_materializer::GitMaterializer;
 use crate::{GithubRouter, Method, Response as GithubResponse};
+use jeryu_gitd::{GitdConfig, RepoManager};
 use markdown::render_markdown;
 use permissions::permissions;
 
@@ -58,139 +57,44 @@ pub struct WebServerConfig {
     pub bind: SocketAddr,
     pub spa_dir: PathBuf,
     pub data_dir: PathBuf,
+    /// Storage root for bare git repositories served over smart-HTTP.
+    pub git_storage_root: PathBuf,
 }
 
 #[derive(Clone)]
-struct WebState {
+pub(crate) struct WebState {
     github: GithubRouter,
     tui: TuiReadModel,
     /// Live-stream fan-out hub: hands out monotonic sequence numbers and keeps
     /// a subscriber registry so the WS edge can push snapshots/deltas per scope.
     ws: WsHub,
+    /// Shared git-daemon repository manager backing the smart-HTTP transport.
+    pub(crate) repo_manager: Arc<RepoManager>,
 }
 
 impl WebState {
-    fn new(core: ForgeCore) -> Self {
+    fn with_repo_manager(core: ForgeCore, repo_manager: Arc<RepoManager>) -> Self {
         // Assemble a LIVE read model from ForgeCore state so the TUI/web panes
         // render real pool activity and system health, not the empty fixture.
-        let tui = assemble_read_model(&core);
+        let tui = crate::read_model::assemble_read_model(&core);
         Self {
             github: GithubRouter::with_core(core),
             tui,
             ws: WsHub::new(),
+            repo_manager,
         }
     }
-}
 
-/// Build a populated [`TuiReadModel`] from live [`ForgeCore`] state.
-///
-/// For every repository on the server we roll up its open pull requests and
-/// check-runs into a [`RepoActivity`], classifying each check-run by status:
-/// `Queued` → queued, `InProgress` → running, and any `Completed` run whose
-/// conclusion is `Failure` → failed. The per-repo counts are then aggregated
-/// into a single synthetic `default` [`PoolRollup`] so the Pools/Health pane has
-/// a real, non-empty fabric to render. [`SystemHealth`] reports every component
-/// (`scm`/`database`/`sandbox`/`cache`/`vault`) as Healthy because holding a
-/// live `ForgeCore` means the local plane is open and serving.
-fn assemble_read_model(core: &ForgeCore) -> TuiReadModel {
-    TuiReadModel {
-        pool_activity: assemble_pool_activity(core),
-        system: healthy_system(),
-        ..TuiReadModel::default()
-    }
-}
-
-/// Roll up every repo's PRs + check-runs into [`PoolActivity`].
-fn assemble_pool_activity(core: &ForgeCore) -> PoolActivity {
-    let mut repos: Vec<RepoActivity> = Vec::new();
-    let mut default_pool = PoolRollup::new("default");
-
-    for repo in core.list_repositories(None) {
-        let checks = core
-            .list_check_runs(&repo.owner, &repo.name, None)
-            .map(|runs| runs.check_runs)
-            .unwrap_or_default();
-
-        let mut queued = 0u32;
-        let mut running = 0u32;
-        let mut failed = 0u32;
-        for check in &checks {
-            match check.status {
-                CheckRunStatus::Queued => queued = queued.saturating_add(1),
-                CheckRunStatus::InProgress => running = running.saturating_add(1),
-                CheckRunStatus::Completed => {
-                    if check.conclusion == Some(CheckConclusion::Failure) {
-                        failed = failed.saturating_add(1);
-                    }
-                }
-            }
-        }
-
-        // A repo with neither open PRs nor any check-run is not active work; skip
-        // it so the activity rollup reflects real load rather than every repo.
-        let open_pulls = core
-            .list_pull_requests(&repo.owner, &repo.name, None)
-            .map(|pulls| {
-                pulls
-                    .iter()
-                    .filter(|pr| {
-                        !matches!(
-                            pr.state,
-                            PullRequestState::Closed | PullRequestState::Merged
-                        )
-                    })
-                    .count() as u32
-            })
-            .unwrap_or(0);
-        if open_pulls == 0 && checks.is_empty() {
-            continue;
-        }
-
-        default_pool.queued_jobs = default_pool.queued_jobs.saturating_add(queued);
-        default_pool.running_jobs = default_pool.running_jobs.saturating_add(running);
-        default_pool.failed_jobs = default_pool.failed_jobs.saturating_add(failed);
-
-        repos.push(RepoActivity {
-            repo: repo.full_name.clone(),
-            queued_jobs: queued,
-            running_jobs: running,
-            failed_jobs: failed,
-            pools: vec!["default".to_string()],
-        });
-    }
-
-    // Size the synthetic pool's capacity to the running load so utilization is
-    // meaningful and the pool only shows saturated when work is genuinely queued
-    // with no idle slot. With no work at all, leave a single idle slot.
-    default_pool.active_slots = default_pool.running_jobs.max(1);
-    default_pool.configured_max_slots = default_pool.active_slots;
-    default_pool.online_runners = default_pool.active_slots;
-
-    // Only surface the pool once there is at least one active repo; an empty
-    // server yields an empty (Unknown-health) activity rollup, never a fake pool.
-    let pools = if repos.is_empty() {
-        Vec::new()
-    } else {
-        vec![default_pool]
-    };
-
-    PoolActivity {
-        repos,
-        pools,
-        ..PoolActivity::default()
-    }
-}
-
-/// All system components reported Healthy: holding a live `ForgeCore` means the
-/// local control plane (scm/db/sandbox/cache/vault) is open and serving.
-fn healthy_system() -> SystemHealth {
-    SystemHealth {
-        scm: ComponentHealth::ok("scm", 0),
-        database: ComponentHealth::ok("database", 0),
-        sandbox: ComponentHealth::ok("sandbox", 0),
-        cache: ComponentHealth::ok("cache", 0),
-        vault: ComponentHealth::ok("vault", 0),
-        runners: RunnerHealth::default(),
+    /// Test-only constructor with a throwaway git storage root; the in-process
+    /// router tests never exercise the smart-HTTP transport.
+    #[cfg(test)]
+    fn new(core: ForgeCore) -> Self {
+        Self::with_repo_manager(
+            core,
+            Arc::new(RepoManager::new(GitdConfig::new(
+                std::env::temp_dir().join("jeryu-web-test-git"),
+            ))),
+        )
     }
 }
 
@@ -278,11 +182,25 @@ impl WsHub {
 
 pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&config.data_dir)?;
+    std::fs::create_dir_all(&config.git_storage_root)?;
     let db_path = config.data_dir.join("forge.sqlite");
-    let core = ForgeCore::open_sqlite(db_path)?;
-    let app = app(WebState::new(core), &config.spa_dir);
+    // Share one RepoManager between the create-repo materializer (so a created
+    // repo gets a bare repo on disk) and the smart-HTTP transport (so it can be
+    // cloned/pushed) — both rooted at the same git storage root.
+    let repo_manager = Arc::new(RepoManager::new(GitdConfig::new(
+        config.git_storage_root.clone(),
+    )));
+    let core = ForgeCore::open_sqlite(db_path)?
+        .with_repo_materializer(Arc::new(GitMaterializer::new(repo_manager.clone())));
+    let app = app(WebState::with_repo_manager(core, repo_manager), &config.spa_dir);
     let listener = TcpListener::bind(config.bind).await?;
-    axum::serve(listener, app).await?;
+    // ConnectInfo gives the git handlers the peer address so the gitd auth layer
+    // can apply its loopback-permissive policy.
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }
 
@@ -355,6 +273,22 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         // Steering: first-contact doc for a confused agent on the REST edge.
         .route("/.jeryu/agents/first-contact", any(github_forward))
         .route("/repos/:owner/:repo/*rest", any(github_forward))
+        // Git smart-HTTP transport on the unified listener so `git clone`/`push`
+        // work against this server. Mounted under `/git/` to stay clear of the
+        // GitHub-shaped REST routes above: a root-level `:owner` param would
+        // conflict with the literal `/repos`, `/users`, ... routes in the matcher.
+        .route(
+            "/git/:owner/:repo/info/refs",
+            get(crate::git_transport::git_info_refs),
+        )
+        .route(
+            "/git/:owner/:repo/git-upload-pack",
+            post(crate::git_transport::git_upload_pack),
+        )
+        .route(
+            "/git/:owner/:repo/git-receive-pack",
+            post(crate::git_transport::git_receive_pack),
+        )
         .fallback_service(spa)
         // Response middleware that stamps every reply with advisory steering
         // headers (and a per-route MCP tool hint for gh/automation UAs).
@@ -1108,7 +1042,7 @@ mod tests {
             CreateCheckRunRequest {
                 name: "ci".to_string(),
                 head_sha: "deadbeef".to_string(),
-                status: Some(CheckRunStatus::Completed),
+                status: Some(jeryu_core::CheckRunStatus::Completed),
                 conclusion: Some(CheckConclusion::Failure),
                 ..CreateCheckRunRequest::default()
             },
@@ -1146,7 +1080,7 @@ mod tests {
     /// fixture sample remains available purely as a test fallback.
     #[test]
     fn empty_server_assembles_empty_pool_activity_and_fixture_still_available() {
-        let model = assemble_read_model(&ForgeCore::new());
+        let model = crate::read_model::assemble_read_model(&ForgeCore::new());
         assert!(model.pool_activity.repos.is_empty());
         assert!(model.pool_activity.pools.is_empty());
         assert!(matches!(model.pool_activity.health(), HealthLevel::Unknown));
