@@ -6,12 +6,17 @@ on:
       - main
   pull_request:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout without marketplace actions
         run: |

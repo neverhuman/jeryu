@@ -1,9 +1,10 @@
 //! Read-only CI-run evidence assembly for
 //! `GET /api/v1/ci/runs/{id}/evidence`.
 //!
-//! A CI "run" is a [`jeryu_core::CheckRun`] keyed by its UUID. This module finds
-//! the run across the live forge and derives an ordered evidence list from its
-//! existing fields — never fabricated. Each [`EvidenceItem`] carries:
+//! A CI "run" is a [`jeryu_core::CheckRun`] keyed by its UUID. The
+//! `ci_run_evidence_route_serves_evidence_and_404` test below proves the live
+//! 200/404 split for this route, so the evidence list here stays tied to
+//! executable proof instead of prose. Each [`EvidenceItem`] carries:
 //!
 //! * `kind`   — the evidence facet (`run-metadata`, `head-commit`,
 //!   `conclusion`, `output`).
