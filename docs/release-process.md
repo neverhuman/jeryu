@@ -12,6 +12,9 @@ Run these from the canonical repository root before creating a release receipt:
 - `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
 - `bash ops/ci/proof-evidence.sh`
+- `cargo test -p jeryu-api --features web --jobs 40`
+- `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
+  when public API routes or repair bodies change.
 - `just security`
 - `just audit`
 
@@ -30,6 +33,8 @@ Each release receipt records:
 - SPDX and CycloneDX SBOM digests;
 - provenance checksum and cosign transcript path;
 - migration, restore, and rollback evidence;
+- public API route evidence for changed endpoints, including response-contract
+  tests, typed repair guidance, and digest-verifiable CI evidence payloads;
 - previous signed artifact checksum.
 
 ## Tagging

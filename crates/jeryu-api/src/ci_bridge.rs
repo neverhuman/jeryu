@@ -89,9 +89,9 @@ pub(crate) fn on_push(
                 ci_checks.push((name, Some(conclusion)));
             }
         }
-        // Agent-reviewed auto-merge: with the head's CI state recorded, let the
-        // autonomy bridge judge it and merge an open PR on AllowMerge (R5 /
-        // red-CI / hard-stops stay human). Best-effort; never fails the push.
+        // Record-only autonomy verdict: with the head's CI state recorded, let
+        // the autonomy bridge judge it and write an advisory check-run. The
+        // bridge never merges; best-effort, so it never fails the push.
         let changed = changed_paths(&git_bin, &resolved.path, &update.new_oid);
         crate::autonomy_bridge::evaluate_pushed_head(
             core,

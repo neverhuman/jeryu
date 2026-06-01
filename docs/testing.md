@@ -57,6 +57,12 @@ Repair evidence:
 - Common fixes are routed through `agent/test-map.json`; use the narrowest lane for the changed path before running `just full`.
 - Typed repair surfaces must name `purpose`, `reason`, common fixes, `docs_url`,
   and `repair_hint` so the next rerun is local and agent-readable.
+- Public read-only API additions, including `/api/v1/ecosystem` and
+  `/api/v1/ci/runs/{id}/evidence`, require route tests that prove live data
+  sourcing, camelCase response contracts, digest-verifiable payloads, and typed
+  404 repair guidance. Rerun
+  `cargo test -p jeryu-api --features web --jobs 40` plus the matching clippy
+  lane before release evidence is recorded.
 - Repair hint: if a Jankurai finding names a path, first run `jankurai diff-audit --base-ref origin/main .`, then the mapped proof command for that path.
 - Unsupported GitHub-compatible REST or GraphQL requests must return a
   `jeryu_repair_hint` with route/tool alternatives and a local rerun command;

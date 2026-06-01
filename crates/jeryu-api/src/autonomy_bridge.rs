@@ -240,10 +240,10 @@ fn full_auto_bundle_requiring(ci_status: &[CiCheck]) -> PolicyBundle {
     bundle
 }
 
-/// Evaluate every open PR whose head is `head_sha`: record a `jeryu/autonomy`
-/// verdict check-run and, on `AllowMerge`, merge it. Called from `on_push`
-/// after the head's CI check-runs are recorded. Best-effort: forge errors are
-/// swallowed so a CI push is never failed by the merge attempt.
+/// Evaluate every nonterminal PR whose head is `head_sha` and record a
+/// `jeryu/autonomy` verdict check-run. Called from `on_push` after the head's
+/// CI check-runs are recorded. Best-effort: forge errors are swallowed so a CI
+/// push is never failed by the advisory verdict.
 pub(crate) fn evaluate_pushed_head(
     core: &ForgeCore,
     owner: &str,
@@ -252,12 +252,18 @@ pub(crate) fn evaluate_pushed_head(
     ci_checks: &[(String, Option<CheckConclusion>)],
     changed_paths: &[String],
 ) {
-    let Ok(prs) = core.list_pull_requests(owner, repo, Some(PullRequestState::Open)) else {
+    let Ok(prs) = core.list_pull_requests(owner, repo, None) else {
         return;
     };
     let ci_status = collect_ci_status(ci_checks);
     for pr in prs.into_iter() {
-        if pr.merged || pr.head.sha != head_sha {
+        if pr.merged
+            || matches!(
+                pr.state,
+                PullRequestState::Closed | PullRequestState::Merged
+            )
+            || pr.head.sha != head_sha
+        {
             continue;
         }
         let decision = decide(&DecisionInputs {
@@ -314,6 +320,7 @@ fn record_verdict(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jeryu_core::{CheckRunStatus, CreatePullRequestRequest, CreateRepositoryRequest};
 
     fn checks(pairs: &[(&str, CheckConclusion)]) -> Vec<(String, Option<CheckConclusion>)> {
         pairs
@@ -382,6 +389,60 @@ mod tests {
         }
     }
 
+    fn core_with_pr() -> (ForgeCore, u64) {
+        let core = ForgeCore::new();
+        core.create_repository(
+            "neverhuman",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let pr = core
+            .create_pull_request(
+                "neverhuman",
+                "jeryu",
+                "autonomy.agent",
+                CreatePullRequestRequest {
+                    title: "record only".to_string(),
+                    body: None,
+                    head: "feature".to_string(),
+                    base: "main".to_string(),
+                    head_sha: Some(HEAD.to_string()),
+                    base_sha: Some(BASE.to_string()),
+                    draft: false,
+                    commits: Vec::new(),
+                    changed_files: Vec::new(),
+                },
+            )
+            .unwrap();
+        (core, pr.number)
+    }
+
+    fn assert_record_only_verdict(core: &ForgeCore, pr_number: u64, expected: CheckConclusion) {
+        let after = core
+            .get_pull_request("neverhuman", "jeryu", pr_number)
+            .unwrap();
+        assert!(!after.merged);
+        assert!(after.merged_at.is_none());
+        assert!(after.merge_commit_sha.is_none());
+        assert_ne!(after.state, PullRequestState::Merged);
+
+        let checks = core
+            .list_check_runs("neverhuman", "jeryu", Some(HEAD))
+            .unwrap()
+            .check_runs;
+        let verdict = checks
+            .iter()
+            .find(|run| run.name == "jeryu/autonomy")
+            .expect("autonomy verdict check-run");
+        assert_eq!(verdict.status, CheckRunStatus::Completed);
+        assert_eq!(verdict.conclusion, Some(expected));
+    }
+
     #[test]
     fn green_low_risk_pr_allows_merge() {
         let changed = vec!["crates/jeryu-web/src/page.rs".to_string()];
@@ -411,5 +472,36 @@ mod tests {
         let changed = vec!["crates/jeryu-autonomy/src/full_auto.rs".to_string()];
         let d = decide(&inputs(&changed, green(&["ci-fast/build", "ci-fast/test"])));
         assert_eq!(d, GateDecision::RequireHuman);
+    }
+
+    #[test]
+    fn evaluate_pushed_head_records_verdict_without_merging() {
+        let (core, pr_number) = core_with_pr();
+        evaluate_pushed_head(
+            &core,
+            "neverhuman",
+            "jeryu",
+            HEAD,
+            &checks(&[
+                ("ci-fast/build", CheckConclusion::Success),
+                ("ci-fast/test", CheckConclusion::Success),
+            ]),
+            &["crates/jeryu-web/src/page.rs".to_string()],
+        );
+        assert_record_only_verdict(&core, pr_number, CheckConclusion::Neutral);
+
+        let (core, pr_number) = core_with_pr();
+        evaluate_pushed_head(
+            &core,
+            "neverhuman",
+            "jeryu",
+            HEAD,
+            &checks(&[
+                ("ci-fast/build", CheckConclusion::Success),
+                ("ci-fast/test", CheckConclusion::Success),
+            ]),
+            &["crates/jeryu-autonomy/src/full_auto.rs".to_string()],
+        );
+        assert_record_only_verdict(&core, pr_number, CheckConclusion::ActionRequired);
     }
 }

@@ -39,7 +39,7 @@ Public and agent-facing review objects are PRs. Do not add aliases, flags,
 fixtures, fields, docs, screenshots, or compatibility layers for retired review
 request terminology.
 
-## Current State (2026-05-31)
+## Current State (2026-06-01)
 
 `origin/main` contains the local v+1.0.0 platform baseline: durable
 `ForgeCore::open_sqlite` storage, the local Axum API, API-backed TUI capture,
@@ -55,6 +55,10 @@ explicit opt-in.
 This checkpoint is local-first. The default operator path binds loopback and
 uses `~/.local/share/jeryu`; public/LAN access, token rotation, production
 signer adapters, and deeper daemon hardening remain explicit follow-up work.
+The runner fabric now includes an epoch-fenced registry plus the deterministic
+`xbabe0..xbabe3` 40-slot dogfood fleet. The autonomy bridge records
+`jeryu/autonomy` verdict check-runs as advisory release evidence only; it does
+not merge PRs until the safety rework is proven and re-enabled.
 
 ## Implemented Surfaces
 
@@ -64,7 +68,7 @@ signer adapters, and deeper daemon hardening remain explicit follow-up work.
 | Forge/domain/API facade | `jeryu-core`, `jeryu-domain`, `jeryu-api`, `jeryu-cli` |
 | Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
-| Runner fabric | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runnerd` |
+| Runner fabric | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd` |
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
@@ -86,8 +90,12 @@ cargo run -p jeryu-api --features web -- web serve \
 
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
+`/api/v1/ecosystem`, `/api/v1/ci/runs/{id}/evidence`,
 `/api/v1/markdown/render`, `/api/v1/ws`, and the guided GitHub-compatible
-`/user` and `/graphql` routes.
+`/user` and `/graphql` routes. The ecosystem and CI-run evidence routes are
+read-only: they expose live MCP tool graph metadata, forge health, queue
+identity, and digest-verifiable CI evidence for clients that need agent-readable
+state before choosing a mutation path.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 

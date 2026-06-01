@@ -21,8 +21,11 @@ jeryu-runnerd = { path = "../jeryu-runnerd", optional = true }
 axum = { version = "0.7", features = ["ws"], optional = true }
 clap = { workspace = true }
 futures-util = { version = "0.3", optional = true }
+hex = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
 tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread"], optional = true }
 tower-http = { version = "0.6", features = ["fs"], optional = true }
 
@@ -32,7 +35,7 @@ tower = "0.5"
 
 [features]
 default = []
-web = ["dep:axum", "dep:futures-util", "dep:jeryu-autonomy", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:jeryu-runner-core", "dep:jeryu-runnerd", "dep:tokio", "dep:tower-http"]
+web = ["dep:axum", "dep:futures-util", "dep:hex", "dep:jeryu-autonomy", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:jeryu-runner-core", "dep:jeryu-runnerd", "dep:sha2", "dep:tokio", "dep:tower-http", "dep:uuid"]
 
 [lints]
 workspace = true

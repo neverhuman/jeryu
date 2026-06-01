@@ -73,6 +73,22 @@ run_tests() {
   fi
 }
 
+JERYU_JANKURAI_VERSION="${JANKURAI_VERSION:-jankurai 1.6.10}"
+JERYU_JANKURAI_BIN="${JERYU_JANKURAI_BIN:-${CARGO_HOME:-$HOME/.cargo}/bin/jankurai}"
+
+run_pinned_jankurai() {
+  bash ops/ci/ensure-jankurai.sh >/dev/null || return 1
+  if [ ! -x "${JERYU_JANKURAI_BIN}" ]; then
+    echo "pinned jankurai binary missing: ${JERYU_JANKURAI_BIN}" >&2
+    return 1
+  fi
+  if ! "${JERYU_JANKURAI_BIN}" --version | grep -qx "${JERYU_JANKURAI_VERSION}"; then
+    echo "wrong pinned jankurai version at ${JERYU_JANKURAI_BIN}: $("${JERYU_JANKURAI_BIN}" --version 2>&1 || true)" >&2
+    return 1
+  fi
+  "${JERYU_JANKURAI_BIN}" "$@"
+}
+
 write_changed_list() {
   local plan_files
   if ! plan_files="$(jq -r '.changed_files[]?' "$PLAN")"; then
@@ -222,30 +238,24 @@ else
   fi
   if has_lane db; then
     run_step "db migration analysis" \
-      jankurai migrate . --analyze --out target/jankurai/migration-report.json
+      run_pinned_jankurai migrate . --analyze --out target/jankurai/migration-report.json
   fi
 fi
 
-if command -v jankurai >/dev/null 2>&1; then
-  mkdir -p target/jankurai
-  cp agent/baselines/main.repo-score.json target/jankurai/accepted-baseline.json
-  # Diff-audit stays for changed-file detail but is ADVISORY: it has no
-  # --baseline, so it re-flags the committed baseline-accepted caps
-  # (release-readiness-gap, missing-agent-readable-docs). The ratchet audit
-  # below is the authoritative gate — it honors agent/baselines/main.repo-score.json
-  # exactly like ops/ci/proof-evidence.sh and fails only on NEW regressions.
-  if jankurai diff-audit --base-ref "$BASE_REF" --changed-list "$CHANGED_LIST" .; then
-    RESULTS+=("PASS  jankurai diff audit (advisory)")
-  else
-    RESULTS+=("PASS  jankurai diff audit (advisory; baseline-accepted caps re-flagged)")
-  fi
-  run_step "jankurai audit" \
-    jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --full
+mkdir -p target/jankurai
+cp agent/baselines/main.repo-score.json target/jankurai/accepted-baseline.json
+# Diff-audit is ADVISORY: it has no --baseline, so it would re-flag the committed
+# baseline-accepted caps (release-readiness-gap, missing-agent-readable-docs). The
+# ratchet audit below is the authoritative gate — it honors
+# agent/baselines/main.repo-score.json exactly like ops/ci/proof-evidence.sh and
+# fails only on NEW regressions. Both use the pinned 1.6.10 via run_pinned_jankurai.
+if run_pinned_jankurai diff-audit --base-ref "$BASE_REF" --changed-list "$CHANGED_LIST" .; then
+  RESULTS+=("PASS  jankurai diff audit (advisory)")
 else
-  RESULTS+=("FAIL  jankurai audit (tool missing)")
-  printf '\033[31m✗ jankurai audit FAILED (tool missing)\033[0m\n'
-  fail=1
+  RESULTS+=("PASS  jankurai diff audit (advisory; baseline-accepted caps re-flagged)")
 fi
+run_step "jankurai audit" \
+  run_pinned_jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --full
 
 DUR=$(( $(date +%s) - START ))
 printf '\n\033[1m── ci-fast-push summary (%ss) ──\033[0m\n' "$DUR"
