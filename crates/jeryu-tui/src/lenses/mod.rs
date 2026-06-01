@@ -11,19 +11,26 @@
 
 pub mod agents;
 pub mod approvals;
+pub mod autonomy;
+pub mod bugs;
+pub mod cache;
 pub mod evidence;
+pub mod git;
+pub mod jankurai;
+pub mod llms;
 pub mod mission;
 pub mod queue;
 pub mod release;
 pub mod repos;
 pub mod runners;
+pub mod secrets;
+pub mod source_doctor;
+pub mod vti;
 pub mod workflow;
 
 use jeryu_readmodel::TuiReadModel;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::ActiveTab;
 
@@ -178,106 +185,30 @@ pub fn draw_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
             &workflow::WorkflowLensInput::from_read_model(model),
             area,
         ),
-        other => draw_summary_lens(f, other, model, area),
-    }
-}
-
-fn draw_summary_lens(f: &mut Frame, id: LensId, model: &TuiReadModel, area: Rect) {
-    let lines = match id {
-        LensId::SourceDoctor => {
-            let summary = model.source_doctor.summary.clone().unwrap_or_default();
-            vec![
-                Line::from(format!("Sources total: {}", summary.sources_total)),
-                Line::from(format!("Healthy: {}", summary.sources_healthy)),
-                Line::from(format!("Degraded: {}", summary.sources_degraded)),
-                Line::from(format!("Schema drift: {}", summary.schema_drift_count)),
-            ]
-        }
-        LensId::Bugs => vec![
-            Line::from(format!("Attention items: {}", model.attention.len())),
-            Line::from(format!("Failed jobs: {}", model.mission.failed_jobs)),
-            Line::from(format!("Top blocker: {}", blocker_label(model))),
-        ],
-        LensId::Cache => vec![
-            Line::from(format!(
-                "Hit ratio: {:.1}%",
-                model.mission.cache_hit_ratio * 100.0
-            )),
-            Line::from(format!(
-                "Selector misses 24h: {}",
-                model.mission.selector_misses_24h
-            )),
-            Line::from(format!("Active taints: {}", model.mission.active_taints)),
-        ],
-        LensId::Vti => vec![
-            Line::from(format!("Running jobs: {}", model.mission.running_jobs)),
-            Line::from(format!("Failed jobs: {}", model.mission.failed_jobs)),
-            Line::from(format!("Queued jobs: {}", model.mission.queued_jobs)),
-        ],
-        LensId::Autonomy => vec![
-            Line::from(format!("Active agents: {}", model.mission.active_agents)),
-            Line::from(format!("Blocked agents: {}", model.mission.blocked_agents)),
-            Line::from(format!(
-                "Agents can code: {}",
-                yes_no(model.mission.agents_can_code)
-            )),
-        ],
-        LensId::Llms => vec![
-            Line::from(format!("Active agents: {}", model.mission.active_agents)),
-            Line::from(format!("Open capsules: {}", model.mission.open_capsules)),
-            Line::from(format!("Active grants: {}", model.mission.active_grants)),
-        ],
-        LensId::Git => vec![
-            Line::from(format!("Repositories: {}", model.repos.repos.len())),
-            Line::from(format!("Families: {}", model.repos.families.len())),
-            Line::from(format!(
-                "Registry: {}",
-                empty_dash(&model.repos.registry_path)
-            )),
-        ],
-        LensId::Jankurai => vec![
-            Line::from(format!("Evidence count: {}", model.mission.evidence_count)),
-            Line::from(format!("Open capsules: {}", model.mission.open_capsules)),
-            Line::from(format!(
-                "Safe to merge: {}",
-                yes_no(model.mission.safe_to_merge)
-            )),
-        ],
-        LensId::Secrets => vec![
-            Line::from(format!("Active grants: {}", model.mission.active_grants)),
-            Line::from(format!("Active taints: {}", model.mission.active_taints)),
-            Line::from(format!(
-                "Vault health: {}",
-                model.system.vault.status_label()
-            )),
-        ],
-        _ => vec![Line::from("Live summary")],
-    };
-    f.render_widget(
-        Paragraph::new(lines).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(format!(" {} ", id.label())),
+        LensId::Cache => cache::view::draw(f, &cache::CacheLensInput::from_read_model(model), area),
+        LensId::Vti => vti::view::draw(f, &vti::VtiLensInput::from_read_model(model), area),
+        LensId::SourceDoctor => source_doctor::view::draw(
+            f,
+            &source_doctor::SourceDoctorLensInput::from_read_model(model),
+            area,
         ),
-        area,
-    );
-}
-
-fn blocker_label(model: &TuiReadModel) -> String {
-    model
-        .mission
-        .top_blocker
-        .as_ref()
-        .map(|blocker| blocker.summary.clone())
-        .unwrap_or_else(|| "none".to_string())
-}
-
-fn yes_no(value: bool) -> &'static str {
-    if value { "yes" } else { "no" }
-}
-
-fn empty_dash(value: &str) -> &str {
-    if value.is_empty() { "-" } else { value }
+        LensId::Bugs => bugs::view::draw(f, &bugs::BugsLensInput::from_read_model(model), area),
+        LensId::Autonomy => autonomy::view::draw(
+            f,
+            &autonomy::AutonomyLensInput::from_read_model(model),
+            area,
+        ),
+        LensId::Llms => llms::view::draw(f, &llms::LlmsLensInput::from_read_model(model), area),
+        LensId::Git => git::view::draw(f, &git::GitLensInput::from_read_model(model), area),
+        LensId::Jankurai => jankurai::view::draw(
+            f,
+            &jankurai::JankuraiLensInput::from_read_model(model),
+            area,
+        ),
+        LensId::Secrets => {
+            secrets::view::draw(f, &secrets::SecretsLensInput::from_read_model(model), area)
+        }
+    }
 }
 
 #[cfg(test)]

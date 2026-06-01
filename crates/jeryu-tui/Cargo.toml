@@ -15,6 +15,7 @@ crossterm = "0.29.0"
 # per-{tab,size,fixture} frame ledger into a deterministic JSON receipt.
 serde = { workspace = true }
 serde_json = { workspace = true }
+chrono = { version = "0.4" }
 
 [dev-dependencies]
 # (tests render through ratatui's TestBackend; no extra deps required)

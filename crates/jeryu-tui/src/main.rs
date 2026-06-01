@@ -1,6 +1,17 @@
+use std::io;
+use std::time::Duration;
+
 use clap::{Parser, ValueEnum};
+use crossterm::event::{self, Event, KeyEventKind};
+use crossterm::execute;
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 use jeryu_readmodel::{TuiReadModel, sample_read_model};
-use jeryu_tui::{App, StreamMode, parse_capture_tab, render_once};
+use jeryu_tui::runtime::{Flow, handle_key};
+use jeryu_tui::{App, StreamMode, draw, parse_capture_tab, render_once};
+use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 
 #[derive(Debug, Parser)]
 #[command(name = "jeryu-tui")]
@@ -27,9 +38,6 @@ enum Source {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-    if !cli.once {
-        return Err("interactive mode is not wired yet; use --once".into());
-    }
     let tab =
         parse_capture_tab(&cli.tab).ok_or_else(|| format!("unknown tui tab: {:?}", cli.tab))?;
     let model = load_model(cli.source, &cli.api_url)?;
@@ -39,8 +47,59 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Source::Fixture => StreamMode::Fixture,
         Source::Api => StreamMode::Live,
     };
-    println!("{}", render_once(&app, cli.width, cli.height, stream));
+
+    if cli.once {
+        println!("{}", render_once(&app, cli.width, cli.height, stream));
+    } else {
+        run_interactive(&mut app, stream)?;
+    }
     Ok(())
+}
+
+/// Enter the full interactive crossterm event loop.
+fn run_interactive(
+    app: &mut App,
+    stream_mode: StreamMode,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Set up terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        crossterm::event::EnableMouseCapture
+    )?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    // Main event loop
+    let tick_rate = Duration::from_millis(250);
+    let result = loop {
+        terminal.draw(|f| draw(f, app, stream_mode))?;
+
+        if event::poll(tick_rate)? {
+            match event::read()? {
+                // crossterm 0.29 fires Press + Release; only act on Press.
+                Event::Key(key)
+                    if key.kind == KeyEventKind::Press && handle_key(app, key) == Flow::Quit =>
+                {
+                    break Ok(());
+                }
+                _ => {}
+            }
+        }
+    };
+
+    // Restore terminal
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        crossterm::event::DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    result
 }
 
 fn load_model(source: Source, api_url: &str) -> Result<TuiReadModel, Box<dyn std::error::Error>> {
