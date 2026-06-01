@@ -47,9 +47,10 @@ async fn route_git(
     // The gitd router shells out to `git` (blocking) and does file IO; run it on
     // the blocking pool so it never stalls an async worker.
     let manager = (*state.repo_manager).clone();
-    let response = tokio::task::spawn_blocking(move || SmartHttpServer::new(manager).route(request))
-        .await
-        .expect("git smart-http task panicked");
+    let response =
+        tokio::task::spawn_blocking(move || SmartHttpServer::new(manager).route(request))
+            .await
+            .expect("git smart-http task panicked");
     gitd_to_axum_response(&response)
 }
 

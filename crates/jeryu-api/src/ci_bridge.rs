@@ -70,8 +70,15 @@ pub(crate) fn on_push(
                 continue;
             };
             for job in &pipeline.jobs {
-                let conclusion =
-                    run_job(&engine, &git_bin, &resolved.path, &update.new_oid, job, owner, repo);
+                let conclusion = run_job(
+                    &engine,
+                    &git_bin,
+                    &resolved.path,
+                    &update.new_oid,
+                    job,
+                    owner,
+                    repo,
+                );
                 let _ = core.create_check_run(
                     owner,
                     repo,

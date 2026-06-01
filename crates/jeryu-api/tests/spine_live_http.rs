@@ -95,12 +95,18 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
     // 2. Clone over HTTP (loopback-permissive: no credentials required).
     let clone_url = format!("http://{addr}/git/jeryu/demo.git");
     eprintln!("[s4] git clone {clone_url}");
-    run_git(&work, &[GIT_HTTP_GUARD, &["clone", clone_url.as_str(), "clone"]].concat());
+    run_git(
+        &work,
+        &[GIT_HTTP_GUARD, &["clone", clone_url.as_str(), "clone"]].concat(),
+    );
     let clone_dir = work.join("clone");
     eprintln!("[s4] cloned");
 
     // 3. Commit and push back over the same transport.
-    run_git(&clone_dir, &["config", "user.email", "tester@jeryu.invalid"]);
+    run_git(
+        &clone_dir,
+        &["config", "user.email", "tester@jeryu.invalid"],
+    );
     run_git(&clone_dir, &["config", "user.name", "Tester"]);
     std::fs::write(clone_dir.join("hello.txt"), "hello jeryu\n").unwrap();
     // A GitHub-Actions workflow so the push->CI bridge has something to compile.
@@ -121,7 +127,12 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
 
     // 4. Assert the pushed commit is in the on-disk bare repo.
     let out = Command::new("git")
-        .args(["--git-dir", bare.to_str().unwrap(), "rev-parse", "refs/heads/main"])
+        .args([
+            "--git-dir",
+            bare.to_str().unwrap(),
+            "rev-parse",
+            "refs/heads/main",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -143,15 +154,23 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
     .trim()
     .to_string();
     let runs: serde_json::Value = client
-        .get(format!("http://{addr}/repos/jeryu/demo/commits/{sha}/check-runs"))
+        .get(format!(
+            "http://{addr}/repos/jeryu/demo/commits/{sha}/check-runs"
+        ))
         .send()
         .await
         .unwrap()
         .json()
         .await
         .unwrap();
-    let total = runs.get("total_count").and_then(|v| v.as_u64()).unwrap_or(0);
-    assert!(total >= 1, "push->CI bridge should register >=1 check-run, got {total}: {runs}");
+    let total = runs
+        .get("total_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert!(
+        total >= 1,
+        "push->CI bridge should register >=1 check-run, got {total}: {runs}"
+    );
     let conclusion = runs["check_runs"][0]["conclusion"].as_str().unwrap_or("");
     assert_eq!(
         conclusion, "success",

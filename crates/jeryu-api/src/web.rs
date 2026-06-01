@@ -197,7 +197,10 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
     )));
     let core = ForgeCore::open_sqlite(db_path)?
         .with_repo_materializer(Arc::new(GitMaterializer::new(repo_manager.clone())));
-    let app = app(WebState::with_repo_manager(core, repo_manager), &config.spa_dir);
+    let app = app(
+        WebState::with_repo_manager(core, repo_manager),
+        &config.spa_dir,
+    );
     let listener = TcpListener::bind(config.bind).await?;
     // ConnectInfo gives the git handlers the peer address so the gitd auth layer
     // can apply its loopback-permissive policy.
