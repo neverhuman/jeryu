@@ -34,10 +34,12 @@ cp "${BIN}" "${BUNDLE}/jeryu"
 for f in sbom.spdx.json sbom.cdx.json provenance.json cosign.txt grype-scan.json; do
   [ -f "${SBOM_DIR}/${f}" ] && cp "${SBOM_DIR}/${f}" "${BUNDLE}/" || true
 done
-( cd "${BUNDLE}" && sha256sum * > SHA256SUMS 2>/dev/null || true )
-bash ./scripts/emit-release-receipt.sh > "${BUNDLE}/release-receipt.json" 2>/dev/null \
-  || cp target/release-receipt.json "${BUNDLE}/release-receipt.json" 2>/dev/null \
-  || log "release receipt emitter produced no stdout file (non-fatal)"
+# Release evidence: rollback.json (into the bundle) + the full receipt (stdout).
+# Names the commit + per-artifact digests + cosign transcript + gate evidence +
+# the previous signed release as the rollback target (see docs/release.md). The
+# SHA256SUMS manifest is produced AFTER signing (step 4b) so it covers these.
+bash ./scripts/emit-release-receipt.sh "${BUNDLE}" > "${BUNDLE}/release-receipt.json" \
+  || log "release receipt emitter failed (non-fatal)"
 
 # --- 4. cosign-sign the binary (keyless OIDC when available) ----------------
 if command -v cosign >/dev/null 2>&1; then
@@ -56,6 +58,11 @@ else
   log "cosign absent — recorded honestly; install via ops/ci/security-tools.sh"
   printf 'cosign absent in this environment; no binary signature produced here.\n' > "${BUNDLE}/jeryu.sig.note"
 fi
+
+# --- 4b. checksum manifest over the COMPLETE signed bundle ------------------
+# Covers binary + SBOMs + provenance + receipt + rollback.json + signatures;
+# excludes only SHA256SUMS itself so the manifest stays self-consistent.
+( cd "${BUNDLE}" && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort | xargs -r sha256sum > SHA256SUMS )
 
 log "release bundle ready at ${BUNDLE}:"
 ls -la "${BUNDLE}" || true
