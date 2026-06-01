@@ -1395,6 +1395,8 @@ dependencies = [
  "jeryu-mcp",
  "jeryu-obs",
  "jeryu-readmodel",
+ "jeryu-runner-core",
+ "jeryu-runnerd",
  "reqwest",
  "serde",
  "serde_json",

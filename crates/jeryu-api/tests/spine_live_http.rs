@@ -152,7 +152,12 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
         .unwrap();
     let total = runs.get("total_count").and_then(|v| v.as_u64()).unwrap_or(0);
     assert!(total >= 1, "push->CI bridge should register >=1 check-run, got {total}: {runs}");
-    eprintln!("[s4] check-runs registered for pushed commit: {total}");
+    let conclusion = runs["check_runs"][0]["conclusion"].as_str().unwrap_or("");
+    assert_eq!(
+        conclusion, "success",
+        "the bridge executed the workflow job in the sandbox; it should be green: {runs}"
+    );
+    eprintln!("[s4] push->CI executed job in sandbox -> {conclusion} ({total} check-run)");
 
     server.abort();
     let _ = std::fs::remove_dir_all(&base);

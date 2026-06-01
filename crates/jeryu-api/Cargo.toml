@@ -15,6 +15,8 @@ jeryu-core = { path = "../jeryu-core" }
 jeryu-gitd = { path = "../jeryu-gitd", optional = true }
 jeryu-mcp = { path = "../jeryu-mcp", optional = true }
 jeryu-readmodel = { path = "../jeryu-readmodel" }
+jeryu-runner-core = { path = "../jeryu-runner-core", optional = true }
+jeryu-runnerd = { path = "../jeryu-runnerd", optional = true }
 axum = { version = "0.7", features = ["ws"], optional = true }
 clap = { workspace = true }
 futures-util = { version = "0.3", optional = true }
@@ -29,7 +31,7 @@ tower = "0.5"
 
 [features]
 default = []
-web = ["dep:axum", "dep:futures-util", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:tokio", "dep:tower-http"]
+web = ["dep:axum", "dep:futures-util", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:jeryu-runner-core", "dep:jeryu-runnerd", "dep:tokio", "dep:tower-http"]
 
 [lints]
 workspace = true
