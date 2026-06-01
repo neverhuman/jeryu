@@ -56,4 +56,7 @@ pub use dashboards::release::{
 };
 pub use dashboards::runners::{RunnersDashboard, RunnersItem, RunnersSummary};
 pub use dashboards::source_doctor::{SourceDoctorDashboard, SourceDoctorItem, SourceDoctorSummary};
+pub use dashboards::workcells::{
+    WorkcellItem, WorkcellState, WorkcellsDashboard, WorkcellsSummary,
+};
 pub use dashboards::workflow::{DeliveryPosture, WorkflowItem, WorkflowSnapshot, WorkflowSummary};

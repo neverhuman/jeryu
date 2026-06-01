@@ -13,6 +13,7 @@ use crate::dashboards::evidence::EvidenceSnapshot;
 use crate::dashboards::release::ReleaseSnapshot;
 use crate::dashboards::runners::RunnersDashboard;
 use crate::dashboards::source_doctor::SourceDoctorDashboard;
+use crate::dashboards::workcells::WorkcellsDashboard;
 use crate::dashboards::workflow::WorkflowSnapshot;
 use crate::entity::{ActionRef, BlockerSummary, DataFreshness, EntityRef, HealthLevel, Severity};
 use crate::health::{ComponentHealth, RunnerHealth};
@@ -56,6 +57,8 @@ pub struct TuiReadModel {
     #[serde(default)]
     pub release: ReleaseSnapshot,
     #[serde(default)]
+    pub workcells: WorkcellsDashboard,
+    #[serde(default)]
     pub workflow: WorkflowSnapshot,
     pub attention: Vec<AttentionItem>,
     pub next_action: Option<NextActionRecommendation>,
@@ -79,6 +82,7 @@ impl Default for TuiReadModel {
             evidence: EvidenceSnapshot::default(),
             agents: AgentsSnapshot::default(),
             release: ReleaseSnapshot::default(),
+            workcells: WorkcellsDashboard::default(),
             workflow: WorkflowSnapshot::default(),
             attention: Vec::new(),
             next_action: None,
@@ -260,6 +264,7 @@ mod tests {
     fn default_read_model_has_empty_repos_snapshot() {
         let model = TuiReadModel::default();
         assert_eq!(model.repos, ReposSnapshot::default());
+        assert_eq!(model.workcells, WorkcellsDashboard::default());
     }
 
     #[test]

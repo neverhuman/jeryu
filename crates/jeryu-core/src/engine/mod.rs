@@ -26,6 +26,7 @@ mod check_runs;
 mod commit_status;
 mod issues;
 mod pull_requests;
+mod readmes;
 mod repositories;
 mod reviews;
 mod storage;
@@ -54,6 +55,7 @@ struct State {
     review_comments: HashMap<(String, String, u64), Vec<ReviewComment>>,
     branch_protections: HashMap<(String, String, String), BranchProtectionRule>,
     codeowners: HashMap<(String, String), String>,
+    readmes: HashMap<(String, String), String>,
     statuses: HashMap<(String, String, String), Vec<CommitStatus>>,
     check_runs: HashMap<(String, String), Vec<CheckRun>>,
     webhooks: HashMap<(String, String), Vec<Webhook>>,

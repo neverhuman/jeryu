@@ -1,6 +1,12 @@
 use super::*;
 use crate::web::ws::{hello_message, requested_scopes, snapshot_event, unsubscribe_scopes};
+use crate::Method;
 use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
+use jeryu_core::CheckConclusion;
+use crate::web::markdown::render_markdown;
+use crate::web::repositories::repo_list_response;
+use crate::web::surface::{bootstrap_payload, map_method};
+use crate::web::surface::serialize_payload;
 use jeryu_readmodel::contracts::ServerWsMessage;
 use jeryu_readmodel::{HealthLevel, sample_read_model};
 
@@ -68,6 +74,7 @@ async fn bootstrap_tui_reflects_seeded_repo_pr_and_failing_check() {
     let served = bootstrap_tui(State(state.clone())).await.0;
     assert_eq!(served.pool_activity, *activity);
     assert_eq!(served.pool_activity.repos[0].failed_jobs, 1);
+    assert!(served.workcells.items.is_empty());
     // Sanity: this is NOT the empty default model.
     assert_ne!(
         served.pool_activity,
@@ -107,9 +114,56 @@ fn bootstrap_and_repo_list_reflect_core_repositories() {
     let bootstrap = bootstrap_payload(&state).expect("bootstrap serializes");
     assert_eq!(bootstrap.websocket_url, "/api/v1/ws");
     assert_eq!(bootstrap.recent_repositories.len(), 1);
+    assert!(bootstrap.feature_flags.workcells);
     let repos = repo_list_response(&state);
     assert_eq!(repos.total, 1);
     assert_eq!(repos.repositories[0].id.owner, "alice");
+}
+
+#[tokio::test]
+async fn readme_update_round_trips_through_the_local_api() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: Some("forge".to_string()),
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let state = Arc::new(WebState::new(core));
+    let markdown = "# Managed README\n\n- score: 92\n".to_string();
+    let payload = serde_json::json!({ "markdown": markdown.clone() });
+    let updated = response_json(
+        repo_readme_update(
+            State(state.clone()),
+            AxumPath(repo.id.to_string()),
+            axum::body::Bytes::from(serde_json::to_vec(&payload).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(updated["markdown"], markdown);
+    assert!(updated["html"].as_str().unwrap().contains("Managed README"));
+
+    let readme = response_json(repo_readme(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
+    assert_eq!(readme["markdown"], markdown);
+    assert!(readme["html"].as_str().unwrap().contains("Managed README"));
+
+    let blob = response_json(repo_blob(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
+    assert_eq!(blob["text"], markdown);
+    assert!(blob["rendered_markdown"]["html"].as_str().unwrap().contains("Managed README"));
+
+    let raw = repo_raw(State(state), AxumPath(repo.id.to_string())).await;
+    let raw_bytes = axum::body::to_bytes(raw.into_body(), usize::MAX)
+        .await
+        .expect("raw response bytes");
+    assert!(std::str::from_utf8(&raw_bytes)
+        .unwrap()
+        .contains("Managed README"));
 }
 
 #[test]

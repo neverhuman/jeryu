@@ -126,6 +126,11 @@
       "purpose": "verify GitHub-compatible REST, guided GraphQL, and local web API behavior",
       "lane": "api"
     },
+    "crates/jeryu-readmodel/": {
+      "command": "cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck",
+      "purpose": "verify the typed TUI/web read-model and contract bindings stay in sync",
+      "lane": "contract"
+    },
     "crates/": {
       "command": "cargo test --workspace --jobs 40",
       "purpose": "verify Rust workspace behavior",
@@ -154,6 +159,11 @@
     "crates/jeryu-runner-core/": {
       "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
       "purpose": "verify runner sandbox contracts and static escape matrix",
+      "lane": "runner-sandbox"
+    },
+    "crates/jeryu-runnerd/": {
+      "command": "cargo test -p jeryu-runnerd workcell --jobs 40",
+      "purpose": "verify workcell lifecycle, tar safety, and frozen CI repair helpers",
       "lane": "runner-sandbox"
     },
     "crates/jeryu-runner-native/": {
@@ -225,6 +235,16 @@
       "command": "bash ops/ci/verify-jeryu-env.sh --build-local && cargo run -q -p jeryu-repogate -- ci-lanes-check && ./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
       "purpose": "verify local CI gates, ops scripts, and hosted/local parity wiring",
       "lane": "local-ci-parity"
+    },
+    "ops/ci/publish-readme-score.sh": {
+      "command": "bash ops/ci/publish-readme-score.sh --dry-run --verify",
+      "purpose": "verify the managed README score block can be rendered from the fresh audit artifacts without mutating the worktree",
+      "lane": "release-provenance"
+    },
+    "ops/ci/gates/workcells.sh": {
+      "command": "bash ops/ci/gates/workcells.sh",
+      "purpose": "verify the shared workcell control plane lifecycle, read-model, and bootstrap contract",
+      "lane": "runner-sandbox"
     },
     "ops/git-hooks/": {
       "command": "bash ops/git-hooks/pre-push",

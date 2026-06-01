@@ -263,6 +263,7 @@ function renderFleet(tui: unknown): void {
       markdown_html: true,
       agents: false,
       mcp: false,
+      workcells: false,
     },
   };
   client.setQueryData(BOOTSTRAP_QUERY_KEY, bootstrap);

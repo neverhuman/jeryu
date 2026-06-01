@@ -233,3 +233,44 @@ fn webhook_outbox_records_matching_events() {
     assert_eq!(deliveries[0].event, "issues");
     assert!(deliveries[0].signature_256.is_some());
 }
+
+#[test]
+fn readme_round_trips_through_sqlite_storage() {
+    let tempdir = tempfile::tempdir().unwrap();
+    let db_path = tempdir.path().join("forge.sqlite");
+    let core = ForgeCore::open_sqlite(&db_path).unwrap();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: Some("forge".to_string()),
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+
+    let markdown = "# Managed README\n\n- score: 92\n".to_string();
+    assert!(
+        core.get_repository_readme("alice", "jeryu")
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        core.set_repository_readme("alice", "jeryu", markdown.clone())
+            .unwrap(),
+        markdown
+    );
+    assert_eq!(
+        core.get_repository_readme("alice", "jeryu").unwrap(),
+        Some(markdown.clone())
+    );
+
+    drop(core);
+
+    let reopened = ForgeCore::open_sqlite(&db_path).unwrap();
+    assert_eq!(
+        reopened.get_repository_readme("alice", "jeryu").unwrap(),
+        Some(markdown)
+    );
+}

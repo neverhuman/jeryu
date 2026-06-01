@@ -34,8 +34,14 @@ Primary lanes:
 - `just security`: cache adversary, poisoning matrix, zero-evidence, and secret scan.
 - `just audit`: Jankurai audit plus dependency-audit integration when the tool is installed.
 
+## Workcells
+
+- `cargo test -p jeryu-runnerd workcell --jobs 40`: workcell lifecycle, epoch fencing, tar safety, and frozen CI repair helper proof lane.
+- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck`: read-model dashboard and generated contract proof lane for the workcells snapshot.
+- `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
+
 PENDING is only allowed for a capability that is not built yet and must be
-printed as PENDING, not PASS. The current phase gates report PASS=7,
+printed as PENDING, not PASS. The current phase gates report PASS=9,
 PENDING=0, FAIL=0; if a future live capability is missing, mark only that gate
 PENDING with evidence.
 

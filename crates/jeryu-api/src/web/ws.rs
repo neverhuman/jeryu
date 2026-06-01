@@ -9,7 +9,8 @@ use jeryu_readmodel::Bottleneck;
 use jeryu_readmodel::contracts::{ServerWsMessage, WebEvent};
 use serde_json::{Value, json};
 
-use super::{WebState, serialize_payload, server_time};
+use super::surface::serialize_payload;
+use super::{WebState, server_time};
 
 pub(super) async fn ws(
     ws: WebSocketUpgrade,

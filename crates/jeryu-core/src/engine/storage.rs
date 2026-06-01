@@ -13,6 +13,7 @@ use crate::model::*;
 
 const MIGRATION_0001: &str = include_str!("../../../../db/migrations/0001_core_forge.sql");
 const MIGRATION_0002: &str = include_str!("../../../../db/migrations/0002_core_forge_aux.sql");
+const MIGRATION_0003: &str = include_str!("../../../../db/migrations/0003_core_forge_readmes.sql");
 
 #[derive(Debug, Clone)]
 pub(super) struct SqliteStore {
@@ -54,6 +55,7 @@ impl SqliteStore {
 fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(MIGRATION_0001).map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0002).map_err(storage_error)?;
+    conn.execute_batch(MIGRATION_0003).map_err(storage_error)?;
     Ok(())
 }
 
@@ -64,6 +66,7 @@ fn delete_all(conn: &Connection) -> Result<()> {
         DELETE FROM issue_comments;
         DELETE FROM commit_statuses;
         DELETE FROM codeowners;
+        DELETE FROM repository_readmes;
         DELETE FROM labels;
         DELETE FROM webhook_deliveries;
         DELETE FROM webhook_metadata;
@@ -284,6 +287,15 @@ fn persist_state(conn: &Connection, state: &State) -> Result<()> {
         .map_err(storage_error)?;
     }
 
+    for ((owner, repo), contents) in &state.readmes {
+        let repo_id = repo_id(&repo_ids, owner, repo)?;
+        conn.execute(
+            "INSERT INTO repository_readmes (repo_id, contents) VALUES (?1, ?2)",
+            params![repo_id, contents],
+        )
+        .map_err(storage_error)?;
+    }
+
     for statuses in state.statuses.values() {
         for status in statuses {
             let repo_id = repo_id(&repo_ids, &status.owner, &status.repo)?;
@@ -417,6 +429,7 @@ fn load_state(conn: &Connection) -> Result<State> {
     load_review_comments(conn, &mut state)?;
     load_branch_protection(conn, &mut state)?;
     load_codeowners(conn, &mut state)?;
+    load_readmes(conn, &mut state)?;
     load_commit_statuses(conn, &mut state)?;
     load_check_runs(conn, &mut state)?;
     load_webhooks(conn, &mut state)?;
@@ -732,6 +745,26 @@ fn load_codeowners(conn: &Connection, state: &mut State) -> Result<()> {
         let repo: String = row.get(1).map_err(storage_error)?;
         let contents: String = row.get(2).map_err(storage_error)?;
         state.codeowners.insert((owner, repo), contents);
+    }
+    Ok(())
+}
+
+fn load_readmes(conn: &Connection, state: &mut State) -> Result<()> {
+    let mut stmt = conn
+        .prepare(
+            r#"
+            SELECT r.owner, r.name, rr.contents
+            FROM repository_readmes rr
+            JOIN repositories r ON r.id = rr.repo_id
+            "#,
+        )
+        .map_err(storage_error)?;
+    let mut rows = stmt.query([]).map_err(storage_error)?;
+    while let Some(row) = rows.next().map_err(storage_error)? {
+        let owner: String = row.get(0).map_err(storage_error)?;
+        let repo: String = row.get(1).map_err(storage_error)?;
+        let contents: String = row.get(2).map_err(storage_error)?;
+        state.readmes.insert((owner, repo), contents);
     }
     Ok(())
 }

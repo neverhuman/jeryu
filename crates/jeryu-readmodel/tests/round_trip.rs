@@ -20,6 +20,8 @@ fn sample_read_model_round_trips_json() {
     assert_eq!(decoded.attention.len(), 1);
     assert!(decoded.next_action.is_some());
     assert_eq!(decoded.system.scm.name, "scm");
+    assert_eq!(decoded.workcells.items.len(), 2);
+    assert_eq!(decoded.workcells.blocked(), 1);
 }
 
 #[test]
@@ -98,5 +100,6 @@ fn unknown_optional_dashboards_default_in() {
     assert!(decoded.queue.pools.is_empty());
     assert!(decoded.runners.items.is_empty());
     assert!(decoded.source_doctor.items.is_empty());
+    assert!(decoded.workcells.items.is_empty());
     assert_eq!(decoded.repos.registry_path, "");
 }

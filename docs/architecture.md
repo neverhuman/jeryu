@@ -9,4 +9,6 @@ Core boundaries:
 - `crates/jeryu-cache*` owns cache/CAS policy and poisoning resistance.
 - `crates/jeryu-proof` and `crates/jeryu-agentbridge` own proof routing and bounded agent mutation.
 
+The shared workcell control plane is part of the runner/CI stack, not a separate subsystem. `jeryu-runnerd` owns warm-pool claims, epoch-fenced release/heartbeat handling, startup rebase enforcement, and quarantine-first tar validation on top of the existing runner fabric.
+
 Operational truth is local-first. The canonical validation surfaces are `Justfile`, `ops/ci/*.sh`, `ops/ci/gates/*.sh`, and `agent/test-map.json`.

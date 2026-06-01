@@ -12,4 +12,5 @@ pub mod evidence;
 pub mod release;
 pub mod runners;
 pub mod source_doctor;
+pub mod workcells;
 pub mod workflow;

@@ -13,8 +13,8 @@ Run these from the canonical repository root before creating a release receipt:
 - `bash scripts/ci-phases.sh`
 - `bash ops/ci/release.sh`
 - `bash ops/ci/proof-evidence.sh`
-- `bash ops/ci/publish-readme-score.sh --verify` after proof-evidence has
-  produced fresh `target/jankurai/repo-score.{json,md}` artifacts.
+- `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or frozen CI repair helpers change.
+- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the workcells dashboard or bootstrap feature flags change.
 - `cargo test -p jeryu-api --features web --jobs 40`
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API routes or repair bodies change.
@@ -33,8 +33,6 @@ Each release receipt records:
 - source commit SHA and tag name;
 - workspace version and changelog entry;
 - `target/jankurai/` proof artifacts;
-- `target/jankurai/readme-publish-receipt.json` when the managed README score
-  block was synchronized through the local API;
 - SPDX and CycloneDX SBOM digests;
 - provenance checksum and cosign transcript path;
 - migration, restore, and rollback evidence;
@@ -54,6 +52,3 @@ path. Do not tag from an uncommitted worktree or from hosted-only state.
 Rollback restores the previous signed artifact, restores the pre-migration
 SQLite copy when schema changed, reruns API/TUI/git smoke checks, and keeps
 write traffic closed until the rollback receipt is attached.
-If the managed README block needs to be reverted, restore the prior signed
-`README.md`, regenerate the proof artifacts, and rerun
-`bash ops/ci/publish-readme-score.sh --verify` before republishing.

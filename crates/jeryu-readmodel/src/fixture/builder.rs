@@ -8,6 +8,7 @@ use crate::dashboards::evidence::EvidenceSnapshot;
 use crate::dashboards::release::ReleaseSnapshot;
 use crate::dashboards::runners::RunnersDashboard;
 use crate::dashboards::source_doctor::SourceDoctorDashboard;
+use crate::dashboards::workcells::WorkcellsDashboard;
 use crate::dashboards::workflow::WorkflowSnapshot;
 use crate::queue::QueueSnapshot;
 use crate::read_model::{
@@ -82,6 +83,11 @@ impl TuiReadModelBuilder {
 
     pub fn release(mut self, release: ReleaseSnapshot) -> Self {
         self.model.release = release;
+        self
+    }
+
+    pub fn workcells(mut self, workcells: WorkcellsDashboard) -> Self {
+        self.model.workcells = workcells;
         self
     }
 

@@ -3,6 +3,7 @@
 // Surface:
 //   - `apiGet<T>(url)`             — GET, JSON.
 //   - `apiSend<T>(url, body, opts)` — POST, JSON, optional `Idempotency-Key`.
+//   - `apiPut<T>(url, body, opts)`  — PUT, JSON, optional `Idempotency-Key`.
 //   - `apiPatch<T>(url, body, opts)` — PATCH with the same headers.
 //   - `apiDelete(url, opts)`        — DELETE; returns void on 204.
 //
@@ -184,6 +185,14 @@ export function apiSend<T>(
   opts?: ApiRequestOptions
 ): Promise<T> {
   return send<T>('POST', url, body, opts);
+}
+
+export function apiPut<T>(
+  url: string,
+  body?: unknown,
+  opts?: ApiRequestOptions
+): Promise<T> {
+  return send<T>('PUT', url, body, opts);
 }
 
 export function apiPatch<T>(

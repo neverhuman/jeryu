@@ -36,7 +36,7 @@ full = true
 id = "jankurai"
 workflow = ".github/workflows/jankurai.yml"
 job = "jankurai-audit"
-command = '''export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"; bash ops/ci/ensure-jankurai.sh; jankurai audit . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85'''
+command = "bash ops/ci/jankurai.sh"
 full = true
 
 [[lanes]]

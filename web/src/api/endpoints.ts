@@ -33,6 +33,8 @@ export const endpoints = {
     const base = `/api/v1/repos/${encodeURIComponent(id)}/readme`;
     return ref ? `${base}?ref=${encodeURIComponent(ref)}` : base;
   },
+  readmeUpdate: (id: string): string =>
+    `/api/v1/repos/${encodeURIComponent(id)}/readme`,
   compare: (id: string, base: string, head: string): string => {
     const qs = new URLSearchParams({ base, head });
     return `/api/v1/repos/${encodeURIComponent(id)}/compare?${qs.toString()}`;

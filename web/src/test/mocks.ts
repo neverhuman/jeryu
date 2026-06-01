@@ -31,6 +31,7 @@ export function makeBootstrapFixture(
       markdown_html: true,
       agents: false,
       mcp: false,
+      workcells: false,
     },
   };
   return { ...base, ...override };

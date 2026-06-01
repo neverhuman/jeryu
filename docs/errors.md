@@ -37,3 +37,20 @@ lane.
 
 The merge path needs proof for the exact head commit and owned paths. Run the
 owner/test-map proof lane and regenerate the witness before retrying merge.
+
+## Workcell Control Plane
+
+Workcell claims, heartbeats, startup rebases, tar quarantine checks, and
+branch-budget enforcement are repairable failures, not silent fallbacks. The
+runnerd helpers return a typed `WorkcellError` with the same five-field repair
+shape used elsewhere in the product:
+
+- `purpose`
+- `reason`
+- `common_fixes`
+- `docs_url`
+- `repair_hint`
+
+Use the docs-linked sections in `docs/testing.md#workcells` and
+`docs/boundaries.md#workcells` to repair claim, epoch, path, or merge/delete
+denials.

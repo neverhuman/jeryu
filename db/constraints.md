@@ -45,3 +45,26 @@ Rollback/backfill:
   tables after taking a `VACUUM INTO` copy.
 - In a populated store, restore from the pre-migration database copy instead of
   deleting auxiliary rows in place.
+
+## 0003 Core Forge README Rows
+
+The third migration persists one canonical README markdown row per repository
+so the local publish flow can round-trip README updates through the typed
+`ForgeCore` boundary instead of mutating the tracked file directly.
+
+Constraint policy:
+- `repository_readmes.repo_id` is the primary key and cascades with the owning
+  repository row.
+- `repository_readmes.contents` stores the canonical markdown source text and
+  must remain as raw UTF-8 text.
+- Repositories without a stored README continue to synthesize the local
+  fallback README at read time until a publish helper writes the managed block.
+
+Rollback/backfill:
+- 0003 is additive. Before applying it to a populated store, take a `VACUUM
+  INTO` copy and keep that pre-migration database as the rollback target.
+- No backfill is required because existing repositories keep their synthesized
+  README until the first local publish writes a persisted row.
+- If a rollback is needed after content has been published, restore the
+  pre-migration database copy rather than deleting `repository_readmes` rows in
+  place.

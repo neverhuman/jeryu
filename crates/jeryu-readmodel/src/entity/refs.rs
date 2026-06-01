@@ -82,4 +82,38 @@ impl HealthLevel {
             Self::Unknown => "UNKNOWN",
         }
     }
+
+    /// Compact render glyph for TUI surfaces.
+    pub fn glyph(self) -> &'static str {
+        match self {
+            Self::Healthy => "✓",
+            Self::Warning => "!",
+            Self::Degraded => "▴",
+            Self::Critical => "✗",
+            Self::Unknown => "?",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::HealthLevel;
+
+    #[test]
+    fn health_level_labels_are_pinned() {
+        assert_eq!(HealthLevel::Healthy.label(), "HEALTHY");
+        assert_eq!(HealthLevel::Warning.label(), "WARNING");
+        assert_eq!(HealthLevel::Degraded.label(), "DEGRADED");
+        assert_eq!(HealthLevel::Critical.label(), "CRITICAL");
+        assert_eq!(HealthLevel::Unknown.label(), "UNKNOWN");
+    }
+
+    #[test]
+    fn health_level_glyphs_are_pinned() {
+        assert_eq!(HealthLevel::Healthy.glyph(), "✓");
+        assert_eq!(HealthLevel::Warning.glyph(), "!");
+        assert_eq!(HealthLevel::Degraded.glyph(), "▴");
+        assert_eq!(HealthLevel::Critical.glyph(), "✗");
+        assert_eq!(HealthLevel::Unknown.glyph(), "?");
+    }
 }

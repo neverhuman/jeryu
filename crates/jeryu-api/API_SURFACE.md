@@ -65,6 +65,7 @@ Implemented HTTP/WebSocket routes:
 - `GET /api/v1/repos/{id}/blob`
 - `GET /api/v1/repos/{id}/raw`
 - `GET /api/v1/repos/{id}/readme`
+- `PUT /api/v1/repos/{id}/readme`
 - `POST /api/v1/markdown/render`
 - `GET /api/v1/ws`
 - `POST /graphql`

@@ -46,6 +46,7 @@
     "merge_write": false,
     "markdown_html": true,
     "agents": false,
-    "mcp": false
+    "mcp": false,
+    "workcells": false
   }
 }

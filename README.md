@@ -47,10 +47,16 @@ local repository import, affected fast CI, and guided GitHub-compatible
 REST/GraphQL repair responses, and gitd-backed local import materialization.
 The latest closeout full lanes pass with 1175 workspace nextest tests in both
 local-native and GitHub-clean profiles, all phase gates at
-PASS=7/PENDING=0/FAIL=0, the full manifest lane union green, proof-evidence
-Jankurai full scan at score 92/caps 0, and changed-file Jankurai checks at hard
-0/caps 0. Publishing is PR-first by default; direct `main` pushes require
-explicit opt-in.
+PASS=9/PENDING=0/FAIL=0, and the full manifest lane union green.
+
+<!-- jeryu:managed-score:start -->
+- Managed score block: updated by `bash ops/ci/publish-readme-score.sh`.
+- Source artifacts: `target/jankurai/repo-score.json`, `target/jankurai/repo-score.md`.
+- Publish receipt: `target/jankurai/readme-publish-receipt.json`.
+<!-- jeryu:managed-score:end -->
+
+Publishing is PR-first by default; direct `main` pushes require explicit
+opt-in.
 
 This checkpoint is local-first. The default operator path binds loopback and
 uses `~/.local/share/jeryu`; public/LAN access, token rotation, production
@@ -68,7 +74,7 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Forge/domain/API facade | `jeryu-core`, `jeryu-domain`, `jeryu-api`, `jeryu-cli` |
 | Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
-| Runner fabric | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd` |
+| Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd` |
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
@@ -95,7 +101,9 @@ The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/user` and `/graphql` routes. The ecosystem and CI-run evidence routes are
 read-only: they expose live MCP tool graph metadata, forge health, queue
 identity, and digest-verifiable CI evidence for clients that need agent-readable
-state before choosing a mutation path.
+state before choosing a mutation path. The bootstrap payload also carries the
+`workcells` feature flag and the live workcell dashboard snapshot inside the
+typed TUI model.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 

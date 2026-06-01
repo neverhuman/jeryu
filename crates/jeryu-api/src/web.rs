@@ -4,6 +4,8 @@ mod ci_evidence;
 mod ecosystem;
 mod markdown;
 mod permissions;
+mod repositories;
+mod surface;
 mod ws;
 
 use std::collections::BTreeSet;
@@ -11,30 +13,27 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::body::Bytes;
-use axum::extract::{OriginalUri, Path as AxumPath, Request, State};
+use axum::extract::{Path as AxumPath, Request, State};
 use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
 use axum::middleware::{Next, from_fn};
-use axum::response::{Html, IntoResponse, Response as AxumResponse};
+use axum::response::{IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
-use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState, Repository};
+use jeryu_core::ForgeCore;
 use jeryu_readmodel::TuiReadModel;
-use jeryu_readmodel::contracts::{
-    AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
-    RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
-    RepositoryVisibility, TreeEntry, Viewer, WebBootstrap, WebFeatureFlags,
-};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::git_materializer::GitMaterializer;
-use crate::{GithubRouter, Method, Response as GithubResponse};
+use crate::GithubRouter;
 use jeryu_gitd::{GitdConfig, RepoManager};
 use markdown::render_markdown;
-use permissions::permissions;
+use repositories::{
+    repo_blob, repo_detail, repo_list_response, repo_raw, repo_readme, repo_readme_update,
+    repo_refs, repo_tree, repos,
+};
+use surface::{bootstrap_payload, github_forward, graphql, markdown_render};
 
 const WS_PROTOCOL: &str = "jeryu.ws.v1";
 const MCP_READ_TOOL: &str = "jeryu.get_system_snapshot";
@@ -230,7 +229,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
-        .route("/api/v1/repos/:id/readme", get(repo_readme))
+        .route("/api/v1/repos/:id/readme", get(repo_readme).put(repo_readme_update))
         // Read-only ecosystem surface for generic external clients: the live
         // tool-graph and per-CI-run evidence. Additive, never mutating.
         .route("/api/v1/ecosystem", get(ecosystem))
@@ -441,97 +440,6 @@ async fn bootstrap_tui(State(state): State<Arc<WebState>>) -> Json<TuiReadModel>
     Json(state.tui.clone())
 }
 
-async fn repos(State(state): State<Arc<WebState>>) -> Json<RepositoryListResponse> {
-    Json(repo_list_response(&state))
-}
-
-async fn repo_detail(
-    State(state): State<Arc<WebState>>,
-    AxumPath(id): AxumPath<String>,
-) -> AxumResponse {
-    match find_repo(&state, &id) {
-        Some(repo) => Json(repo_summary(&state, &repo)).into_response(),
-        None => api_error(StatusCode::NOT_FOUND, "not_found", "repository not found"),
-    }
-}
-
-async fn repo_refs(
-    State(state): State<Arc<WebState>>,
-    AxumPath(id): AxumPath<String>,
-) -> AxumResponse {
-    let Some(repo) = find_repo(&state, &id) else {
-        return api_error(StatusCode::NOT_FOUND, "not_found", "repository not found");
-    };
-    Json(vec![RefSelectorItem {
-        name: repo.default_branch,
-        sha: "unknown".to_string(),
-        kind: RefKind::Branch,
-        protected: state
-            .github
-            .core()
-            .get_branch_protection(&repo.owner, &repo.name, "main")
-            .is_ok(),
-    }])
-    .into_response()
-}
-
-async fn repo_tree(
-    State(state): State<Arc<WebState>>,
-    AxumPath(id): AxumPath<String>,
-) -> AxumResponse {
-    if find_repo(&state, &id).is_none() {
-        return api_error(StatusCode::NOT_FOUND, "not_found", "repository not found");
-    }
-    Json(Vec::<TreeEntry>::new()).into_response()
-}
-
-async fn repo_blob(
-    State(state): State<Arc<WebState>>,
-    AxumPath(id): AxumPath<String>,
-) -> AxumResponse {
-    let Some(repo) = find_repo(&state, &id) else {
-        return api_error(StatusCode::NOT_FOUND, "not_found", "repository not found");
-    };
-    Json(BlobResponse {
-        repo: repo_id(&repo),
-        path: "README.md".to_string(),
-        ref_name: repo.default_branch,
-        sha: "unknown".to_string(),
-        size_bytes: 0,
-        mime: "text/markdown".to_string(),
-        encoding: BlobEncoding::Utf8,
-        text: Some(String::new()),
-        base64: None,
-        rendered_markdown: Some(render_markdown(&format!("# {}\n", repo.full_name))),
-        is_binary: false,
-    })
-    .into_response()
-}
-
-async fn repo_raw(
-    State(state): State<Arc<WebState>>,
-    AxumPath(id): AxumPath<String>,
-) -> AxumResponse {
-    let Some(repo) = find_repo(&state, &id) else {
-        return api_error(StatusCode::NOT_FOUND, "not_found", "repository not found");
-    };
-    Html(format!("# {}\n", repo.full_name)).into_response()
-}
-
-async fn repo_readme(
-    State(state): State<Arc<WebState>>,
-    AxumPath(id): AxumPath<String>,
-) -> AxumResponse {
-    let Some(repo) = find_repo(&state, &id) else {
-        return api_error(StatusCode::NOT_FOUND, "not_found", "repository not found");
-    };
-    Json(render_markdown(&format!(
-        "# {}\n\nRepository metadata is live. Source import has not attached a README yet.\n",
-        repo.full_name
-    )))
-    .into_response()
-}
-
 /// `GET /api/v1/ecosystem` — the live ecosystem tool-graph for generic external
 /// clients. Sources real data from the MCP catalog, the forge, and the live
 /// read-model; read-only, never mutates state.
@@ -550,244 +458,6 @@ async fn ci_run_evidence(
         Some(evidence) => Json(evidence).into_response(),
         None => ci_evidence_not_found_error(),
     }
-}
-
-#[derive(Debug, Deserialize)]
-struct MarkdownRequest {
-    #[serde(default)]
-    markdown: String,
-}
-
-async fn markdown_render(Json(request): Json<MarkdownRequest>) -> Json<RenderedMarkdown> {
-    Json(render_markdown(&request.markdown))
-}
-
-async fn graphql(State(state): State<Arc<WebState>>, body: Bytes) -> AxumResponse {
-    let body = std::str::from_utf8(&body).unwrap_or_default();
-    github_response(state.github.handle(Method::Post, "/graphql", body))
-}
-
-/// Forwards a GitHub-compatible REST request to the in-process [`GithubRouter`],
-/// which routes by `(method, path)` and renders GitHub-shaped JSON. The original
-/// request path is forwarded verbatim so the dispatcher's segment matching works
-/// unchanged; an unsupported HTTP verb returns a GitHub-shaped `405`.
-async fn github_forward(
-    State(state): State<Arc<WebState>>,
-    method: HttpMethod,
-    OriginalUri(uri): OriginalUri,
-    body: Bytes,
-) -> AxumResponse {
-    let Some(method) = map_method(&method) else {
-        return guided_github_edge_response(
-            StatusCode::METHOD_NOT_ALLOWED,
-            "Method Not Allowed",
-            "route unsupported GitHub-compatible REST method",
-            "the Jeryu GitHub edge accepts GET, POST, and PUT for the guided compatibility subset",
-            uri.path(),
-        );
-    };
-    // Forward the path *and* query verbatim. The dispatcher splits the query
-    // off for RFC5988 list pagination (`?per_page=&page=`); unrecognized query
-    // keys are ignored rather than rejected, so `gh --paginate` works.
-    let path_and_query = uri
-        .path_and_query()
-        .map_or_else(|| uri.path().to_string(), ToString::to_string);
-    let body = std::str::from_utf8(&body).unwrap_or_default();
-    github_response(state.github.handle(method, &path_and_query, body))
-}
-
-fn guided_github_edge_response(
-    status: StatusCode,
-    message: &str,
-    purpose: &str,
-    reason: &str,
-    path: &str,
-) -> AxumResponse {
-    (
-        status,
-        Json(json!({
-            "message": message,
-            "documentation_url": "/docs/rest",
-            "jeryu_repair_hint": {
-                "purpose": purpose,
-                "reason": reason,
-                "common_fixes": [
-                    "retry with one of the listed GitHub-compatible REST routes",
-                    "use /.jeryu/capabilities to choose a typed jeryu.* MCP tool",
-                    "add a conformance test before widening the compatibility subset"
-                ],
-                "docs_url": "/docs/rest",
-                "repair_hint": "prefer the listed Jeryu MCP/API alternatives, then rerun cargo test -p jeryu-api --features web"
-            },
-            "jeryu_mcp_tools": MCP_GUIDANCE_TOOLS,
-            "jeryu_api_routes": [
-                "GET /user",
-                "GET /repos",
-                "GET /repos/{owner}/{repo}",
-                "GET /repos/{owner}/{repo}/pulls",
-                "GET /repos/{owner}/{repo}/issues",
-                "GET /repos/{owner}/{repo}/commits/{ref}/status",
-                "GET /repos/{owner}/{repo}/commits/{ref}/check-runs",
-                "POST /graphql"
-            ],
-            "path": path,
-        })),
-    )
-        .into_response()
-}
-
-/// Maps the HTTP verbs the GitHub edge supports to the dispatcher's [`Method`].
-fn map_method(method: &HttpMethod) -> Option<Method> {
-    match *method {
-        HttpMethod::GET => Some(Method::Get),
-        HttpMethod::POST => Some(Method::Post),
-        HttpMethod::PUT => Some(Method::Put),
-        _ => None,
-    }
-}
-
-fn bootstrap_payload(state: &WebState) -> Result<WebBootstrap, serde_json::Error> {
-    let repos = repo_summaries(state);
-    let tui = serialize_payload(&state.tui)?;
-    Ok(WebBootstrap {
-        generated_at: state.tui.generated_at.to_rfc3339(),
-        schema_version: "0.1.0-alpha".to_string(),
-        viewer: Viewer {
-            id: "local-operator".to_string(),
-            login: "local".to_string(),
-            display_name: Some("Local Operator".to_string()),
-            avatar_url: None,
-            global_permissions: permissions(),
-        },
-        tui,
-        recent_repositories: repos.into_iter().take(10).collect(),
-        websocket_url: "/api/v1/ws".to_string(),
-        feature_flags: WebFeatureFlags {
-            repo_create: false,
-            settings_write: false,
-            merge_write: false,
-            markdown_html: true,
-            agents: false,
-            mcp: true,
-        },
-    })
-}
-
-fn serialize_payload<T: Serialize>(value: &T) -> Result<Value, serde_json::Error> {
-    serde_json::to_value(value)
-}
-
-fn repo_list_response(state: &WebState) -> RepositoryListResponse {
-    let repositories = repo_summaries(state);
-    let mut owners = BTreeSet::new();
-    for repo in &repositories {
-        owners.insert(repo.id.owner.clone());
-    }
-    RepositoryListResponse {
-        generated_at: state.tui.generated_at.to_rfc3339(),
-        total: repositories.len() as u64,
-        repositories,
-        facets: RepositoryFacets {
-            hosts: vec!["jeryu".to_string()],
-            owners: owners.into_iter().collect(),
-            families: Vec::new(),
-            languages: Vec::new(),
-        },
-    }
-}
-
-fn repo_summaries(state: &WebState) -> Vec<RepositorySummary> {
-    state
-        .github
-        .core()
-        .list_repositories(None)
-        .into_iter()
-        .map(|repo| repo_summary(state, &repo))
-        .collect()
-}
-
-fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySummary {
-    let pulls = state
-        .github
-        .core()
-        .list_pull_requests(&repo.owner, &repo.name, None)
-        .unwrap_or_default();
-    let checks = state
-        .github
-        .core()
-        .list_check_runs(&repo.owner, &repo.name, None)
-        .map(|runs| runs.check_runs)
-        .unwrap_or_default();
-    RepositorySummary {
-        id: repo_id(repo),
-        entity: EntityHandle {
-            kind: "repo".to_string(),
-            id: repo.id.to_string(),
-        },
-        description: repo.description.clone(),
-        visibility: if repo.private {
-            RepositoryVisibility::Private
-        } else {
-            RepositoryVisibility::Public
-        },
-        default_branch: repo.default_branch.clone(),
-        family: None,
-        topics: Vec::new(),
-        language: None,
-        health: if checks
-            .iter()
-            .any(|check| check.conclusion == Some(CheckConclusion::Failure))
-        {
-            "warning".to_string()
-        } else {
-            "healthy".to_string()
-        },
-        open_pull_requests: pulls
-            .iter()
-            .filter(|pr| {
-                !matches!(
-                    pr.state,
-                    PullRequestState::Closed | PullRequestState::Merged
-                )
-            })
-            .count() as u32,
-        failing_checks: checks
-            .iter()
-            .filter(|check| check.conclusion == Some(CheckConclusion::Failure))
-            .count() as u32,
-        running_jobs: checks
-            .iter()
-            .filter(|check| check.status == jeryu_core::CheckRunStatus::InProgress)
-            .count() as u32,
-        active_agents: 0,
-        blocked_agents: 0,
-        updated_at: repo.updated_at.to_rfc3339(),
-        clone_http_url: Some(format!("/repos/{}.git", repo.full_name)),
-        clone_ssh_url: None,
-        available_actions: vec![AvailableAction {
-            action_id: "repo.open".to_string(),
-            label: "Open".to_string(),
-            risk: None,
-        }],
-    }
-}
-
-fn repo_id(repo: &Repository) -> RepositoryId {
-    RepositoryId {
-        id: repo.id.to_string(),
-        host: "jeryu".to_string(),
-        owner: repo.owner.clone(),
-        name: repo.name.clone(),
-    }
-}
-
-fn find_repo(state: &WebState, id: &str) -> Option<Repository> {
-    state
-        .github
-        .core()
-        .list_repositories(None)
-        .into_iter()
-        .find(|repo| repo.id.to_string() == id || repo.full_name == id)
 }
 
 pub(super) fn server_time() -> String {
@@ -822,29 +492,6 @@ fn ci_evidence_not_found_error() -> AxumResponse {
         })),
     )
         .into_response()
-}
-
-fn github_response(response: GithubResponse) -> AxumResponse {
-    let status = StatusCode::from_u16(response.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    let mut axum_response = (
-        status,
-        [(header::CONTENT_TYPE, "application/json")],
-        response.body,
-    )
-        .into_response();
-    // Surface the router's advisory headers on the wire: the overlap engine's
-    // `X-Jeryu-Reused-PR` and the RFC5988 `Link` pagination header are carried
-    // on `GithubResponse.headers`; without this passthrough they were dropped.
-    let headers = axum_response.headers_mut();
-    for (name, value) in response.headers {
-        if let (Ok(name), Ok(value)) = (
-            HeaderName::from_bytes(name.as_bytes()),
-            HeaderValue::from_str(&value),
-        ) {
-            headers.insert(name, value);
-        }
-    }
-    axum_response
 }
 
 #[cfg(test)]
