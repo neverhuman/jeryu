@@ -66,6 +66,11 @@ Repair evidence:
 - Common fixes are routed through `agent/test-map.json`; use the narrowest lane for the changed path before running `just full`.
 - Typed repair surfaces must name `purpose`, `reason`, common fixes, `docs_url`,
   and `repair_hint` so the next rerun is local and agent-readable.
+- Structured repair receipts should point at the lane transcript, the local
+  artifact path, and the owning doc or proof lane for the rerun. For release
+  and provenance failures, link back to `docs/release.md` and
+  `docs/release-process.md` so the commit, rollback target, and gate evidence
+  stay explicit.
 - Public read-only API additions, including `/api/v1/ecosystem` and
   `/api/v1/ci/runs/{id}/evidence`, require route tests that prove live data
   sourcing, camelCase response contracts, digest-verifiable payloads, and typed

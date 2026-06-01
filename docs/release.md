@@ -33,6 +33,20 @@ Release process doc: [docs/release-process.md](release-process.md).
   when public API response contracts, `/api/v1/ecosystem`, or
   `/api/v1/ci/runs/{id}/evidence` change.
 
+## Release Receipt
+
+Every release receipt must be built from signed-commit provenance and record
+the evidence that proves the candidate is safe to publish:
+
+- source commit SHA, tag name, and the previous signed artifact checksum;
+- `target/jankurai/` proof artifacts, including the release lane transcript,
+  SBOM digests, provenance checksum, and any API route evidence for changed
+  endpoints;
+- migration, restore, and rollback evidence, including the exact rollback
+  target and the pre-migration SQLite copy when schema changed;
+- the exact rerun command for any lane that failed during closeout, plus the
+  local artifact path when one exists.
+
 Latest closeout validation used explicit `--full` mode with 40 workers in both
 local-native and GitHub-clean profiles: 1175 nextest tests, phase gates
 PASS=7/PENDING=0/FAIL=0, proof-evidence Jankurai full scan score 92 caps 0, and

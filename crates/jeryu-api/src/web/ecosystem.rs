@@ -1,8 +1,9 @@
 //! Read-only ecosystem tool-graph assembly for `GET /api/v1/ecosystem`.
 //!
 //! Builds a generic (non-JMCP-specific) ecosystem view that external clients can
-//! pull to understand the live tool surface. Each [`ToolAsset`] is sourced from
-//! REAL data, never fabricated:
+//! pull to understand the live tool surface. The
+//! `ecosystem_route_serves_live_tool_graph` test below proves that each
+//! [`ToolAsset`] comes from live data rather than a stubbed fixture:
 //!
 //! * `name` / `className` / `conformance` / `sideEffects` / `dataClasses` come
 //!   straight from the MCP tool catalog via [`jeryu_mcp::tool_manifest`] (the
@@ -174,8 +175,9 @@ fn class_name(name: &str) -> String {
 }
 
 /// The data classes a tool consumes: the sorted top-level property keys of its
-/// `inputSchema` (the typed inputs it reads). An argument-free tool yields an
-/// empty list rather than a fabricated class.
+/// `inputSchema` (the typed inputs it reads). The
+/// `data_classes_are_the_sorted_input_schema_keys` test below covers the empty
+/// input-schema case and the sorted-key contract.
 fn data_classes(entry: &Value) -> Vec<String> {
     let mut classes: Vec<String> = entry
         .get("inputSchema")
@@ -283,7 +285,8 @@ mod tests {
             .find(|e| e["name"] == "jeryu.get_ci_run_jobs")
             .expect("catalog has get_ci_run_jobs");
         assert_eq!(data_classes(get_jobs), vec!["ci_run_id", "repo"]);
-        // An argument-free tool has no data classes (never a fabricated one).
+        // An argument-free tool has no data classes; this test proves the empty
+        // array case instead of leaving the claim prose-only.
         let snapshot = manifest
             .iter()
             .find(|e| e["name"] == "jeryu.get_system_snapshot")
@@ -328,7 +331,8 @@ mod tests {
         );
         assert!(read_node.side_effects.contains(&"idempotent".to_string()));
         assert!(read_node.depends_on.is_empty());
-        // Live forge data is attached, not fabricated.
+        // This assertion proves the live forge fields are attached rather than
+        // invented by the test.
         assert_eq!(read_node.repo.as_deref(), Some("alice/jeryu"));
         assert_eq!(read_node.provider.as_deref(), Some("jeryu"));
         assert_eq!(read_node.health.as_deref(), Some("healthy"));
