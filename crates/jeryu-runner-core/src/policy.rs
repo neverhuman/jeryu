@@ -215,9 +215,8 @@ fn effective_token(job: &JobRequest, reasons: &mut Vec<String>) -> TokenPolicy {
 
 fn effective_jeryu_cache_policy(tier: TrustTier, reasons: &mut Vec<String>) -> CacheWritePolicy {
     let policy = match tier {
-        TrustTier::T0ReleaseHermetic | TrustTier::T1ProtectedInternal => {
-            CacheWritePolicy::TrustedAfterGreen
-        }
+        TrustTier::T0ReleaseHermetic => CacheWritePolicy::Deny,
+        TrustTier::T1ProtectedInternal => CacheWritePolicy::TrustedAfterGreen,
         TrustTier::T2InternalBranch | TrustTier::T3AgentAuthored => CacheWritePolicy::Quarantine,
         TrustTier::T4ForkPr | TrustTier::T5PublicUntrusted => CacheWritePolicy::Deny,
     };
@@ -281,10 +280,7 @@ mod tests {
         let mut request = job(TrustTier::T0ReleaseHermetic);
         let decision = select_runner(&request).unwrap_or_else(|err| panic!("{err}"));
         assert_eq!(decision.runner_class, RunnerClass::ReleaseHermetic);
-        assert_eq!(
-            decision.cache_write_policy,
-            CacheWritePolicy::TrustedAfterGreen
-        );
+        assert_eq!(decision.cache_write_policy, CacheWritePolicy::Deny);
 
         request.network_policy = NetworkPolicy::EgressOnly;
         let err = select_runner(&request)

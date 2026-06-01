@@ -88,10 +88,14 @@ fn validate_protocol_identity(request: &ProtocolJobRequest) -> RunnerResult<()> 
         ("run_id", request.run_id.as_str()),
         ("lease_id", request.lease_id.as_str()),
         ("job_id", request.job_id.as_str()),
+        ("runner_id", request.runner_id.as_str()),
     ] {
         if value.trim().is_empty() {
             return adapter_error(format!("protocol field '{field}' cannot be blank"));
         }
+    }
+    if request.runner_epoch == 0 {
+        return adapter_error("protocol field 'runner_epoch' must be positive");
     }
 
     let expected_request_id = jeryu_ci_ir::deterministic_hash(&format!(

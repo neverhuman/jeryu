@@ -70,6 +70,18 @@ impl LeaseBook {
         now_epoch: u64,
         ttl_seconds: u64,
     ) -> Result<JobLease, LeaseError> {
+        self.acquire_with_epoch(job_id, worker_id, 0, now_epoch, ttl_seconds)
+    }
+
+    /// Acquires a job lease for a specific fenced runner epoch.
+    pub fn acquire_with_epoch(
+        &mut self,
+        job_id: &str,
+        worker_id: impl Into<String>,
+        node_epoch: u64,
+        now_epoch: u64,
+        ttl_seconds: u64,
+    ) -> Result<JobLease, LeaseError> {
         let worker_id = worker_id.into();
         let run_id = self.run_id.clone();
         let schedule_hash = self.schedule_hash.clone();
@@ -102,15 +114,16 @@ impl LeaseBook {
         if record.attempt == 0 {
             record.attempt = 1;
         }
-        let lease = build_lease(
-            &run_id,
-            &schedule_hash,
+        let lease = build_lease(LeaseBuild {
+            run_id: &run_id,
+            schedule_hash: &schedule_hash,
             job_id,
             worker_id,
-            record.attempt,
+            node_epoch,
+            attempt: record.attempt,
             now_epoch,
             ttl_seconds,
-        );
+        });
         record.state = JobLeaseState::Leased(lease.clone());
         Ok(lease)
     }
@@ -125,10 +138,25 @@ impl LeaseBook {
         now_epoch: u64,
         ttl_seconds: u64,
     ) -> Result<LeasedJobRequest, LeaseError> {
+        self.acquire_request_with_epoch(pipeline, job_id, worker_id, 0, now_epoch, ttl_seconds)
+    }
+
+    /// Acquires a lease for a fenced runner epoch and builds its protocol
+    /// request in one idempotent scheduler action.
+    pub fn acquire_request_with_epoch(
+        &mut self,
+        pipeline: &Pipeline,
+        job_id: &str,
+        worker_id: impl Into<String>,
+        node_epoch: u64,
+        now_epoch: u64,
+        ttl_seconds: u64,
+    ) -> Result<LeasedJobRequest, LeaseError> {
         if !pipeline.jobs.iter().any(|job| job.id == job_id) {
             return Err(LeaseError::UnknownJob(job_id.to_string()));
         }
-        let lease = self.acquire(job_id, worker_id, now_epoch, ttl_seconds)?;
+        let lease =
+            self.acquire_with_epoch(job_id, worker_id, node_epoch, now_epoch, ttl_seconds)?;
         let request = self.runner_request(pipeline, &lease)?;
         let receipt = self.lease_receipt(
             LeaseEventKind::Acquired,
@@ -197,6 +225,15 @@ impl LeaseBook {
             Some(JobLeaseState::Leased(active))
                 if active.id == result.lease_id && active.job_id == result.job_id =>
             {
+                if active.worker_id != result.runner_id || active.node_epoch != result.runner_epoch
+                {
+                    return Err(LeaseError::FencedOut {
+                        job_id: result.job_id.clone(),
+                        worker_id: result.runner_id.clone(),
+                        node_epoch: result.runner_epoch,
+                        active_node_epoch: active.node_epoch,
+                    });
+                }
                 active.clone()
             }
             Some(_) => return Err(LeaseError::ResultMismatch(result.job_id.clone())),
@@ -274,12 +311,13 @@ impl LeaseBook {
         result_hash: Option<String>,
     ) -> LeaseReceipt {
         let seed = format!(
-            "lease-receipt|{}|{}|{}|{}|{}|{}|{}",
+            "lease-receipt|{}|{}|{}|{}|{}|{}|{}|{}",
             self.run_id,
             self.schedule_hash,
             lease.job_id,
             lease.id,
             lease.attempt,
+            lease.node_epoch,
             kind.as_str(),
             at_epoch
         );
@@ -292,6 +330,7 @@ impl LeaseBook {
             lease_id: lease.id.clone(),
             attempt: lease.attempt,
             worker_id: lease.worker_id.clone(),
+            node_epoch: lease.node_epoch,
             at_epoch,
             reason: reason.into(),
             request_hash,
@@ -313,6 +352,7 @@ fn runner_request_from_job(
         &job.id,
         job.runner_class.clone(),
     );
+    request.assign_runner(&lease.worker_id, lease.node_epoch);
     request.steps = job.steps.clone();
     request.cache_mounts = job.cache_mounts.clone();
     request.artifact_paths = job.artifact_paths.clone();
@@ -320,24 +360,35 @@ fn runner_request_from_job(
     request
 }
 
-fn build_lease(
-    run_id: &str,
-    schedule_hash: &str,
-    job_id: &str,
+struct LeaseBuild<'a> {
+    run_id: &'a str,
+    schedule_hash: &'a str,
+    job_id: &'a str,
     worker_id: String,
+    node_epoch: u64,
     attempt: u32,
     now_epoch: u64,
     ttl_seconds: u64,
-) -> JobLease {
+}
+
+fn build_lease(input: LeaseBuild<'_>) -> JobLease {
     let id = deterministic_hash(&format!(
-        "lease|{run_id}|{schedule_hash}|{job_id}|{attempt}|{worker_id}|{now_epoch}"
+        "lease|{}|{}|{}|{}|{}|{}|{}",
+        input.run_id,
+        input.schedule_hash,
+        input.job_id,
+        input.attempt,
+        input.worker_id,
+        input.node_epoch,
+        input.now_epoch
     ));
     JobLease {
         id,
-        job_id: job_id.to_string(),
-        worker_id,
-        attempt,
-        acquired_at_epoch: now_epoch,
-        expires_at_epoch: now_epoch.saturating_add(ttl_seconds),
+        job_id: input.job_id.to_string(),
+        worker_id: input.worker_id,
+        node_epoch: input.node_epoch,
+        attempt: input.attempt,
+        acquired_at_epoch: input.now_epoch,
+        expires_at_epoch: input.now_epoch.saturating_add(input.ttl_seconds),
     }
 }

@@ -244,9 +244,7 @@ impl NodeRegistry {
     /// with `still_owner = false` and does **not** refresh liveness — this is
     /// the fencing guarantee for a node that has been reaped or superseded.
     ///
-    /// The protocol [`Heartbeat`] does not carry an epoch field, so the caller
-    /// must supply the epoch the runner believes it holds.
-    pub fn heartbeat(&mut self, beat: &Heartbeat, claimed_epoch: u64, now: u64) -> HeartbeatAck {
+    pub fn heartbeat(&mut self, beat: &Heartbeat, now: u64) -> HeartbeatAck {
         let Some(node) = self.nodes.get_mut(&beat.runner_id) else {
             return HeartbeatAck {
                 still_owner: false,
@@ -256,7 +254,7 @@ impl NodeRegistry {
 
         // Fencing: a dead node, or a heartbeat with a stale/forged epoch, is
         // never the legitimate owner and never refreshes liveness.
-        if node.state == NodeState::Dead || claimed_epoch != node.epoch {
+        if node.state == NodeState::Dead || beat.runner_epoch != node.epoch {
             return HeartbeatAck {
                 still_owner: false,
                 drain: node.state == NodeState::Draining,
@@ -524,6 +522,7 @@ mod tests {
     fn beat(id: &str) -> Heartbeat {
         Heartbeat {
             runner_id: id.to_string(),
+            runner_epoch: 1,
             run_id: "run".to_string(),
             lease_id: "lease".to_string(),
             job_id: "job".to_string(),
@@ -558,11 +557,15 @@ mod tests {
             0,
         );
         // Current epoch is accepted.
-        assert!(reg.heartbeat(&beat("n1"), ack.epoch, 3).still_owner);
+        let mut current = beat("n1");
+        current.runner_epoch = ack.epoch;
+        assert!(reg.heartbeat(&current, 3).still_owner);
         // A stale epoch is rejected.
-        assert!(!reg.heartbeat(&beat("n1"), ack.epoch - 1, 4).still_owner);
+        let mut stale = beat("n1");
+        stale.runner_epoch = ack.epoch - 1;
+        assert!(!reg.heartbeat(&stale, 4).still_owner);
         // An unknown node is rejected.
-        assert!(!reg.heartbeat(&beat("ghost"), 1, 4).still_owner);
+        assert!(!reg.heartbeat(&beat("ghost"), 4).still_owner);
     }
 
     #[test]
@@ -577,7 +580,7 @@ mod tests {
         // Draining again is a no-op (already draining).
         assert!(!reg.drain("n1"));
         // Heartbeat surfaces the drain intent but stays a valid owner.
-        let ack = reg.heartbeat(&beat("n1"), 1, 2);
+        let ack = reg.heartbeat(&beat("n1"), 2);
         assert!(ack.still_owner);
         assert!(ack.drain);
         // No assignment ever lands on a draining node.

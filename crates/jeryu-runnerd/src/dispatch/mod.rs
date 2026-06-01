@@ -51,6 +51,7 @@ mod tests {
 
     fn protocol_request(class: jeryu_ci_ir::RunnerClass) -> ProtocolJobRequest {
         let mut request = ProtocolJobRequest::new("pipeline", "run", "lease", "job", class);
+        request.assign_runner("runner-a", 1);
         request.steps.push(Step::run("s1", "test", "cargo test"));
         request
             .env
@@ -124,6 +125,19 @@ mod tests {
 
         assert_eq!(err.code(), "protocol_adapter_denied");
         assert!(err.message().contains("request_id"));
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_missing_runner_epoch() {
+        let mut request = protocol_request(jeryu_ci_ir::RunnerClass::NativeRustClean);
+        request.runner_epoch = 0;
+
+        let err = protocol_to_core_job(&request, &context(TrustTier::T2InternalBranch))
+            .err()
+            .unwrap_or_else(|| panic!("expected adapter denial"));
+
+        assert_eq!(err.code(), "protocol_adapter_denied");
+        assert!(err.message().contains("runner_epoch"));
     }
 
     #[test]

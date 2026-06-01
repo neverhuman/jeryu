@@ -12,6 +12,7 @@ jeryu-runner-native = { path = "../jeryu-runner-native" }
 jeryu-runner-microvm = { path = "../jeryu-runner-microvm" }
 jeryu-runner-oci = { path = "../jeryu-runner-oci" }
 jeryu-runner-protocol = { path = "../jeryu-runner-protocol" }
+jeryu-runner-registry = { path = "../jeryu-runner-registry" }
 
 [lints]
 workspace = true

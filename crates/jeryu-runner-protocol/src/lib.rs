@@ -38,6 +38,8 @@ pub struct JobRequest {
     pub run_id: String,
     pub lease_id: String,
     pub job_id: String,
+    pub runner_id: String,
+    pub runner_epoch: u64,
     pub runner_class: RunnerClass,
     pub steps: Vec<Step>,
     pub cache_mounts: Vec<CacheMount>,
@@ -67,6 +69,8 @@ impl JobRequest {
             run_id,
             lease_id,
             job_id,
+            runner_id: String::new(),
+            runner_epoch: 0,
             runner_class,
             steps: Vec::new(),
             cache_mounts: Vec::new(),
@@ -74,6 +78,11 @@ impl JobRequest {
             env: BTreeMap::new(),
             timeout_seconds: 3600,
         }
+    }
+
+    pub fn assign_runner(&mut self, runner_id: impl Into<String>, runner_epoch: u64) {
+        self.runner_id = runner_id.into();
+        self.runner_epoch = runner_epoch;
     }
 
     pub fn canonical(&self) -> String {
@@ -84,6 +93,8 @@ impl JobRequest {
         field(&mut out, "run_id", &self.run_id);
         field(&mut out, "lease_id", &self.lease_id);
         field(&mut out, "job_id", &self.job_id);
+        field(&mut out, "runner_id", &self.runner_id);
+        field(&mut out, "runner_epoch", self.runner_epoch);
         field(&mut out, "runner_class", self.runner_class.as_str());
         field(&mut out, "timeout_seconds", self.timeout_seconds);
         for (key, value) in &self.env {
@@ -124,6 +135,7 @@ impl JobRequest {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Heartbeat {
     pub runner_id: String,
+    pub runner_epoch: u64,
     pub run_id: String,
     pub lease_id: String,
     pub job_id: String,
@@ -154,6 +166,8 @@ impl JobOutcome {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JobResult {
+    pub runner_id: String,
+    pub runner_epoch: u64,
     pub run_id: String,
     pub lease_id: String,
     pub job_id: String,
@@ -174,7 +188,9 @@ impl JobResult {
 
     pub fn receipt_hash(&self) -> String {
         deterministic_hash(&format!(
-            "result|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
+            "result|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}|{}",
+            self.runner_id,
+            self.runner_epoch,
             self.run_id,
             self.lease_id,
             self.job_id,
@@ -254,14 +270,20 @@ mod tests {
     fn job_request_wire_hash_is_stable() {
         let mut request = JobRequest::new("p", "r", "l", "j", RunnerClass::NativeRustClean);
         request.steps.push(Step::run("s", "test", "cargo test"));
+        request.assign_runner("runner-a", 2);
         let a = request.wire_hash();
         let b = request.wire_hash();
         assert_eq!(a, b);
+
+        request.assign_runner("runner-a", 3);
+        assert_ne!(a, request.wire_hash());
     }
 
     #[test]
     fn result_receipt_hash_includes_artifacts() {
         let mut result = JobResult {
+            runner_id: "runner-a".to_string(),
+            runner_epoch: 1,
             run_id: "r".to_string(),
             lease_id: "l".to_string(),
             job_id: "j".to_string(),
@@ -282,6 +304,8 @@ mod tests {
     #[test]
     fn result_receipt_hash_includes_log_digest() {
         let mut result = JobResult {
+            runner_id: "runner-a".to_string(),
+            runner_epoch: 1,
             run_id: "r".to_string(),
             lease_id: "l".to_string(),
             job_id: "j".to_string(),

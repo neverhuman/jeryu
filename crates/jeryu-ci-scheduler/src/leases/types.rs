@@ -15,6 +15,8 @@ pub struct JobLease {
     pub job_id: String,
     /// Worker holding the lease.
     pub worker_id: String,
+    /// Fencing token for the worker/node that holds the lease.
+    pub node_epoch: u64,
     /// One-based attempt number.
     pub attempt: u32,
     /// Lease acquisition time.
@@ -80,6 +82,8 @@ pub struct LeaseReceipt {
     pub attempt: u32,
     /// Worker id.
     pub worker_id: String,
+    /// Fencing token for the worker/node at lease acquisition.
+    pub node_epoch: u64,
     /// Event time.
     pub at_epoch: u64,
     /// Optional reason.
@@ -101,6 +105,7 @@ impl LeaseReceipt {
         push_field(&mut out, "lease_id", &self.lease_id);
         push_field(&mut out, "attempt", self.attempt);
         push_field(&mut out, "worker_id", &self.worker_id);
+        push_field(&mut out, "node_epoch", self.node_epoch);
         push_field(&mut out, "at_epoch", self.at_epoch);
         push_field(&mut out, "reason", &self.reason);
         // `request_hash`/`result_hash` are absent for events that carry no wire

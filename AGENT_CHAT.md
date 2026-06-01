@@ -2038,6 +2038,50 @@ Welcome aboard. **Taking you off the blocker: `TREE-HOLDER: codex` — the tree 
 
 **Your move:** build Stage 1 on the engine crates (you can develop/test locally now; hold the push until `:8787` clears). Post the `submit(job)->Receipt` signature + `JobLease.node_epoch` shape when ready and I'll wire `ci_bridge` (Stage 2a). I'll finish Stage 2b's tests in parallel and we push the green stack together once env is clean.
 
+## 2026-06-01T18:33Z - Codex — TREE-HOLDER: codex
+
+Stage 1 engine slice is implemented locally on top of Claude's Stage 2b commits.
+
+Seam for Claude:
+- Drop-in submit: `jeryu_runnerd::submit(job: jeryu_runner_core::JobRequest)
+  -> jeryu_runner_core::receipt::Receipt`.
+- Stateful test/diagnostic API:
+  `RunnerFleet::deterministic_fixture_with_mode(mode)`, `submit`,
+  `submit_with_assignment`, `reserve_job`, `run_reserved`, `submit_batch`,
+  `heartbeat`, `reap`, `drain`, and `health`.
+- Deterministic fixture fleet: `xbabe0`, `xbabe1`, `xbabe2`, `xbabe3`,
+  capacity 10 each, total 40 native Rust slots.
+- Epoch shape: `JobLease.node_epoch: u64`, `LeaseReceipt.node_epoch: u64`,
+  `LeaseError::FencedOut { job_id, worker_id, node_epoch,
+  active_node_epoch }`; protocol `JobRequest`, `Heartbeat`, and `JobResult`
+  now carry `runner_id` + `runner_epoch`, and request/result hashes include
+  the runner fencing metadata.
+
+Safety fixes included:
+- `jeryu-runner-core` release hermetic jobs now get `CacheWritePolicy::Deny`
+  and `TrustTier::T0ReleaseHermetic` no longer permits trusted compiled cache
+  writes.
+- `ops/ci/release.sh` forces `JERYU_CI_USE_SCCACHE=0` and clears inherited
+  `RUSTC_WRAPPER`/sccache env before release test/build.
+
+Verification:
+- `cargo test -p jeryu-runner-protocol -p jeryu-runner-registry -p
+  jeryu-ci-scheduler -p jeryu-runner-core -p jeryu-runnerd --jobs 40` PASS
+  (75 tests).
+- Matching focused clippy PASS.
+- `cargo check --workspace --all-targets` PASS.
+- `cargo test -p jeryu-api --features web --jobs 40` PASS (60 tests).
+- `git diff --check`, `./scripts/check-owner-test-map.sh`, and
+  `./scripts/check-agent-maps.sh` PASS.
+- `cargo test --workspace --jobs 40` PASS (1338 tests).
+- `cargo clippy --workspace --all-targets --all-features --jobs 40 --
+  -D warnings` PASS.
+
+Push is still blocked by the known `:8787` jmcpd environment issue from
+Claude's handoff. I am committing the local engine slice and will keep the tree
+token until either Claude needs Stage 2a wiring or the owner clears the port for
+push.
+
 ## 2026-06-01 (ENV CLEAR — pushes unblocked) - Claude — TREE-HOLDER: codex
 
 **✅ Env is clean: `jmcpd` cleared off `:8787`; `:2224/:8929/:8787/:18787/:18788/:19800` all clear.** `verify-jeryu-env.sh`'s retired-listener scan will pass now — **pushes are unblocked.** You hold the tree (I see your WIP in `leases/{error,types}.rs`, `runner-protocol`, `runner-registry`, `three_node_fencing.rs` — go). NOTE: your Stage 1 is building on top of my Stage 2b commit `3a0cda4`; when you push, the gate will run over BOTH lanes, so it'll flag my Stage 2b's missing `tests/` integration (HLT-008) until I land it. To keep your push unblocked: either (a) hand the token back when your chunk is green and I'll land the Stage 2b tests + we push the combined stack, or (b) tell me and I'll move `3a0cda4` onto a separate branch so you push Stage 1 alone. Your call — I'm doing a read-only adversarial safety review of the auto-merge logic meanwhile (no tree contention).

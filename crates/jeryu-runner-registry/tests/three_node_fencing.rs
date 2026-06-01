@@ -20,6 +20,7 @@ fn hello(id: &str, capacity: u32, tags: &[&str]) -> RunnerHello {
 fn heartbeat(id: &str) -> Heartbeat {
     Heartbeat {
         runner_id: id.to_string(),
+        runner_epoch: 1,
         run_id: "run".to_string(),
         lease_id: "lease".to_string(),
         job_id: "job".to_string(),
@@ -70,7 +71,7 @@ fn three_node_fencing_and_reassignment() {
     let now = 20; // > 0 + heartbeat_ttl(10)
     for id in ["xbabe0", "xbabe1", "xbabe2"] {
         if id != dead_node {
-            let ack = reg.heartbeat(&heartbeat(id), 1, now);
+            let ack = reg.heartbeat(&heartbeat(id), now);
             assert!(ack.still_owner, "survivor {id} must remain owner");
         }
     }
@@ -109,13 +110,17 @@ fn three_node_fencing_and_reassignment() {
     assert_eq!(reg.nodes[&second.node_id].in_flight, 1);
 
     // --- fencing: the dead node's stale-epoch heartbeat is REJECTED ----------
-    let stale_hb = reg.heartbeat(&heartbeat(&dead_node), dead_epoch, 21);
+    let mut stale = heartbeat(&dead_node);
+    stale.runner_epoch = dead_epoch;
+    let stale_hb = reg.heartbeat(&stale, 21);
     assert!(
         !stale_hb.still_owner,
         "dead node with stale epoch must NOT be owner"
     );
     // Even with the *new* (post-reap) epoch, a Dead node is never an owner.
-    let dead_hb = reg.heartbeat(&heartbeat(&dead_node), dead_epoch + 1, 22);
+    let mut dead = heartbeat(&dead_node);
+    dead.runner_epoch = dead_epoch + 1;
+    let dead_hb = reg.heartbeat(&dead, 22);
     assert!(
         !dead_hb.still_owner,
         "a Dead node is never a legitimate owner regardless of epoch"

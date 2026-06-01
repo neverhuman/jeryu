@@ -142,13 +142,15 @@ mod tests {
         let schedule = deterministic_schedule(&pipeline).expect("schedule");
         let mut leases = LeaseBook::new("run-1", &pipeline, &schedule).expect("lease book");
         let leased = leases
-            .acquire_request(&pipeline, "test", "worker-a", 100, 30)
+            .acquire_request_with_epoch(&pipeline, "test", "worker-a", 11, 100, 30)
             .expect("leased request");
 
         assert_eq!(leased.request.pipeline_id, pipeline.id);
         assert_eq!(leased.request.run_id, "run-1");
         assert_eq!(leased.request.lease_id, leased.lease.id);
         assert_eq!(leased.request.job_id, "test");
+        assert_eq!(leased.request.runner_id, "worker-a");
+        assert_eq!(leased.request.runner_epoch, 11);
         assert_eq!(leased.request.steps[0].name, "test");
         assert_eq!(leased.request.cache_mounts[0].path, "target/");
         assert_eq!(leased.receipt.kind, LeaseEventKind::Acquired);
@@ -229,6 +231,32 @@ mod tests {
     }
 
     #[test]
+    fn stale_epoch_runner_result_is_fenced_out() {
+        let pipeline = pipeline(1);
+        let schedule = deterministic_schedule(&pipeline).expect("schedule");
+        let mut leases = LeaseBook::new("run-1", &pipeline, &schedule).expect("lease book");
+        let leased = leases
+            .acquire_request_with_epoch(&pipeline, "test", "worker-a", 7, 100, 30)
+            .expect("leased request");
+        let mut result = result_for(&leased.lease, JobOutcome::Success);
+        result.runner_epoch = 6;
+
+        assert!(matches!(
+            leases.apply_result(&result, 120),
+            Err(LeaseError::FencedOut {
+                job_id,
+                worker_id,
+                node_epoch: 6,
+                active_node_epoch: 7,
+            }) if job_id == "test" && worker_id == "worker-a"
+        ));
+        assert!(matches!(
+            leases.state("test"),
+            Some(JobLeaseState::Leased(active)) if active.id == leased.lease.id
+        ));
+    }
+
+    #[test]
     fn acquire_request_failure_does_not_leave_orphaned_lease() {
         let pipeline = pipeline(1);
         let schedule = deterministic_schedule(&pipeline).expect("schedule");
@@ -245,6 +273,8 @@ mod tests {
 
     fn result_for(lease: &super::JobLease, outcome: JobOutcome) -> JobResult {
         JobResult {
+            runner_id: lease.worker_id.clone(),
+            runner_epoch: lease.node_epoch,
             run_id: "run-1".to_string(),
             lease_id: lease.id.clone(),
             job_id: lease.job_id.clone(),

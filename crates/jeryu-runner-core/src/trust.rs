@@ -55,7 +55,7 @@ impl TrustTier {
 
     /// True when trusted compiled cache writes are possible after a green policy.
     pub fn permits_trusted_cache_write(self) -> bool {
-        matches!(self, Self::T0ReleaseHermetic | Self::T1ProtectedInternal)
+        matches!(self, Self::T1ProtectedInternal)
     }
 }
 

@@ -24,6 +24,17 @@ pub enum LeaseError {
     LeaseMismatch(String),
     /// Runner result does not match the active lease.
     ResultMismatch(String),
+    /// Runner/node epoch is stale and cannot complete the active lease.
+    FencedOut {
+        /// Job id.
+        job_id: String,
+        /// Runner that attempted the operation.
+        worker_id: String,
+        /// Epoch carried by the runner.
+        node_epoch: u64,
+        /// Epoch currently accepted for the active lease.
+        active_node_epoch: u64,
+    },
 }
 
 impl fmt::Display for LeaseError {
@@ -42,6 +53,15 @@ impl fmt::Display for LeaseError {
             ),
             Self::LeaseMismatch(job) => write!(f, "lease does not match job: {job}"),
             Self::ResultMismatch(job) => write!(f, "runner result does not match job: {job}"),
+            Self::FencedOut {
+                job_id,
+                worker_id,
+                node_epoch,
+                active_node_epoch,
+            } => write!(
+                f,
+                "runner {worker_id} is fenced out for job {job_id}: epoch {node_epoch} != active epoch {active_node_epoch}"
+            ),
         }
     }
 }
