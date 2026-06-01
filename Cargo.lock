@@ -1387,6 +1387,8 @@ dependencies = [
  "clap",
  "futures-util",
  "jeryu-bench",
+ "jeryu-ci-compiler",
+ "jeryu-ci-ir",
  "jeryu-core",
  "jeryu-enterprise",
  "jeryu-gitd",

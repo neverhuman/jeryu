@@ -9,6 +9,8 @@ rust-version.workspace = true
 jeryu-bench = { path = "../jeryu-bench" }
 jeryu-obs = { path = "../jeryu-obs" }
 jeryu-enterprise = { path = "../jeryu-enterprise" }
+jeryu-ci-compiler = { path = "../jeryu-ci-compiler", optional = true }
+jeryu-ci-ir = { path = "../jeryu-ci-ir", optional = true }
 jeryu-core = { path = "../jeryu-core" }
 jeryu-gitd = { path = "../jeryu-gitd", optional = true }
 jeryu-mcp = { path = "../jeryu-mcp", optional = true }
@@ -27,7 +29,7 @@ tower = "0.5"
 
 [features]
 default = []
-web = ["dep:axum", "dep:futures-util", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:tokio", "dep:tower-http"]
+web = ["dep:axum", "dep:futures-util", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:tokio", "dep:tower-http"]
 
 [lints]
 workspace = true

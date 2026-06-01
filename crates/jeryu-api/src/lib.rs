@@ -10,6 +10,8 @@ mod git_materializer;
 mod git_transport;
 #[cfg(feature = "web")]
 mod read_model;
+#[cfg(feature = "web")]
+mod ci_bridge;
 
 pub use github::{GithubRouter, JERYU_API_VERSION, Method};
 pub use routes::{ApiState, Response, Router};

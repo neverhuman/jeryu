@@ -103,6 +103,13 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
     run_git(&clone_dir, &["config", "user.email", "tester@jeryu.invalid"]);
     run_git(&clone_dir, &["config", "user.name", "Tester"]);
     std::fs::write(clone_dir.join("hello.txt"), "hello jeryu\n").unwrap();
+    // A GitHub-Actions workflow so the push->CI bridge has something to compile.
+    std::fs::create_dir_all(clone_dir.join(".github/workflows")).unwrap();
+    std::fs::write(
+        clone_dir.join(".github/workflows/ci.yml"),
+        "name: ci\non: [push]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n",
+    )
+    .unwrap();
     run_git(&clone_dir, &["add", "."]);
     run_git(&clone_dir, &["commit", "-m", "first commit"]);
     eprintln!("[s4] git push");
@@ -122,6 +129,30 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
         "refs/heads/main must exist in the bare repo after push: {}",
         String::from_utf8_lossy(&out.stderr)
     );
+
+    // 5. The push->CI bridge compiled the workflow and registered check-runs for
+    //    the pushed commit (the receive-pack response is held until it finishes).
+    let sha = String::from_utf8(
+        Command::new("git")
+            .args(["-C", clone_dir.to_str().unwrap(), "rev-parse", "HEAD"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+    let runs: serde_json::Value = client
+        .get(format!("http://{addr}/repos/jeryu/demo/commits/{sha}/check-runs"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let total = runs.get("total_count").and_then(|v| v.as_u64()).unwrap_or(0);
+    assert!(total >= 1, "push->CI bridge should register >=1 check-run, got {total}: {runs}");
+    eprintln!("[s4] check-runs registered for pushed commit: {total}");
 
     server.abort();
     let _ = std::fs::remove_dir_all(&base);

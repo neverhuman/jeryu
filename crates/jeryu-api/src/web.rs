@@ -70,6 +70,8 @@ pub(crate) struct WebState {
     ws: WsHub,
     /// Shared git-daemon repository manager backing the smart-HTTP transport.
     pub(crate) repo_manager: Arc<RepoManager>,
+    /// Forge handle for the push->CI bridge (shares state with `github`).
+    pub(crate) core: ForgeCore,
 }
 
 impl WebState {
@@ -77,11 +79,14 @@ impl WebState {
         // Assemble a LIVE read model from ForgeCore state so the TUI/web panes
         // render real pool activity and system health, not the empty fixture.
         let tui = crate::read_model::assemble_read_model(&core);
+        // ForgeCore is Arc-backed, so this handle shares state with `github`.
+        let core_handle = core.clone();
         Self {
             github: GithubRouter::with_core(core),
             tui,
             ws: WsHub::new(),
             repo_manager,
+            core: core_handle,
         }
     }
 

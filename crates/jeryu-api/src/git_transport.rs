@@ -13,6 +13,7 @@ use axum::body::Bytes;
 use axum::extract::{ConnectInfo, Path as AxumPath, Query as AxumQuery, State};
 use axum::http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response as AxumResponse};
+use jeryu_gitd::RepoManager;
 use jeryu_gitd::smart_http::{
     HttpRequest as GitHttpRequest, HttpResponse as GitHttpResponse, SmartHttpServer,
 };
@@ -118,7 +119,9 @@ pub(crate) async fn git_receive_pack(
     headers: HeaderMap,
     body: Bytes,
 ) -> AxumResponse {
-    route_git(
+    let manager = (*state.repo_manager).clone();
+    let before = snapshot_refs(&manager, &owner, &repo);
+    let response = route_git(
         &state,
         peer,
         "POST",
@@ -127,5 +130,28 @@ pub(crate) async fn git_receive_pack(
         &headers,
         body.to_vec(),
     )
-    .await
+    .await;
+    // After a successful push, fire the push->CI bridge for any moved branch.
+    if response.status().is_success() {
+        let core = state.core.clone();
+        let owner = owner.clone();
+        let repo = repo.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            let after = snapshot_refs(&manager, &owner, &repo);
+            let updates = crate::ci_bridge::ref_updates(&before, &after);
+            crate::ci_bridge::on_push(&core, &manager, &owner, &repo, &updates);
+        })
+        .await;
+    }
+    response
+}
+
+/// Snapshot a repo's refs (empty if it cannot be resolved or listed).
+fn snapshot_refs(manager: &RepoManager, owner: &str, repo: &str) -> Vec<jeryu_gitd::refs::GitRef> {
+    manager
+        .resolve_parts(owner, repo)
+        .and_then(|resolved| {
+            jeryu_gitd::refs::RefService::new(manager.clone()).list_refs(&resolved)
+        })
+        .unwrap_or_default()
 }
