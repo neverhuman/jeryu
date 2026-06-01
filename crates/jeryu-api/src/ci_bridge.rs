@@ -64,6 +64,9 @@ pub(crate) fn on_push(
     let git_bin = manager.config().git_bin.clone();
     let engine = DispatchEngine::new();
     for update in updates {
+        // Accumulate this head's recorded check-runs so the autonomy bridge can
+        // run the evidence-gate judge over the live CI state once they all land.
+        let mut ci_checks: Vec<(String, Option<CheckConclusion>)> = Vec::new();
         for (file, content) in read_workflows(&git_bin, &resolved.path, &update.new_oid) {
             let context = CompileContext::new(format!("{owner}/{repo}"), update.new_oid.clone());
             let Ok(pipeline) = Compiler::compile(&content, CiKind::GitHubActions, context) else {
@@ -79,20 +82,61 @@ pub(crate) fn on_push(
                     owner,
                     repo,
                 );
+                let name = format!("{}/{}", workflow_stem(&file), job.name);
                 let _ = core.create_check_run(
                     owner,
                     repo,
                     CreateCheckRunRequest {
-                        name: format!("{}/{}", workflow_stem(&file), job.name),
+                        name: name.clone(),
                         head_sha: update.new_oid.clone(),
                         status: Some(CheckRunStatus::Completed),
-                        conclusion: Some(conclusion),
+                        conclusion: Some(conclusion.clone()),
                         ..Default::default()
                     },
                 );
+                ci_checks.push((name, Some(conclusion)));
             }
         }
+        // Agent-reviewed auto-merge: with the head's CI state recorded, let the
+        // autonomy bridge judge it and merge an open PR on AllowMerge (R5 /
+        // red-CI / hard-stops stay human). Best-effort; never fails the push.
+        let changed = changed_paths(&git_bin, &resolved.path, &update.new_oid);
+        crate::autonomy_bridge::evaluate_pushed_head(
+            core,
+            owner,
+            repo,
+            &update.new_oid,
+            &ci_checks,
+            &changed,
+        );
     }
+}
+
+/// Files changed by `oid` relative to its first parent (root commit → all
+/// files in its tree). Feeds the autonomy bridge's risk classifier.
+fn changed_paths(git_bin: &str, bare: &Path, oid: &str) -> Vec<String> {
+    let bare = bare.to_string_lossy().to_string();
+    let parent = format!("{oid}^");
+    // `git diff --name-only <oid>^ <oid>` for a normal commit; fall back to the
+    // full tree listing for a root commit (no parent).
+    let out = std::process::Command::new(git_bin)
+        .args(["-C", &bare, "diff", "--name-only", &parent, oid])
+        .output();
+    let listing = match out {
+        Ok(o) if o.status.success() => o.stdout,
+        _ => match std::process::Command::new(git_bin)
+            .args(["-C", &bare, "ls-tree", "-r", "--name-only", oid])
+            .output()
+        {
+            Ok(o) if o.status.success() => o.stdout,
+            _ => return Vec::new(),
+        },
+    };
+    String::from_utf8_lossy(&listing)
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.to_string())
+        .collect()
 }
 
 /// Execute a compiled job's `run` steps in the sandboxed runner and map the

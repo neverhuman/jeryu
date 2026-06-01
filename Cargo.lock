@@ -1386,6 +1386,7 @@ dependencies = [
  "axum",
  "clap",
  "futures-util",
+ "jeryu-autonomy",
  "jeryu-bench",
  "jeryu-ci-compiler",
  "jeryu-ci-ir",
