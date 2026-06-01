@@ -23,6 +23,11 @@ Primary lanes:
 - `bash ci-fast-push.sh`: local publish path after gates pass; it pushes the
   current branch and opens or reports a PR. Direct `HEAD:main` push requires
   explicit `--push-main` or `JERYU_CI_PUSH_MAIN=1`.
+- `bash ops/ci/publish-readme-score.sh --verify`: local README publish helper
+  that reads `target/jankurai/repo-score.{json,md}`, posts the managed score
+  block through the local API, and writes
+  `target/jankurai/readme-publish-receipt.json`. Use `--dry-run --verify` to
+  validate the block render without mutating the worktree.
 - `just fast`: deterministic fast lane for agent iteration.
 - `just ci`: per-phase gate aggregator with explicit PASS, FAIL, and PENDING states.
 - `just full`: workspace foundation gate with fmt, check, tests, clippy, zero-evidence, docs, release, score, and doctor checks.
@@ -67,6 +72,10 @@ Repair evidence:
   404 repair guidance. Rerun
   `cargo test -p jeryu-api --features web --jobs 40` plus the matching clippy
   lane before release evidence is recorded.
+- README publish failures should rerun
+  `bash ops/ci/publish-readme-score.sh --verify` after regenerating
+  `target/jankurai/repo-score.json` and `target/jankurai/repo-score.md` from
+  `bash ops/ci/proof-evidence.sh`.
 - Repair hint: if a Jankurai finding names a path, first run `jankurai diff-audit --base-ref origin/main .`, then the mapped proof command for that path.
 - Unsupported GitHub-compatible REST or GraphQL requests must return a
   `jeryu_repair_hint` with route/tool alternatives and a local rerun command;

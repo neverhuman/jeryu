@@ -262,8 +262,8 @@
       "lane": "security"
     },
     "web/": {
-      "command": "npm run typecheck && npm run test && npm run build",
-      "purpose": "verify web surface when present",
+      "command": "bash ops/ci/web.sh",
+      "purpose": "verify web surface when present, including rendered UX and Playwright coverage",
       "lane": "web"
     },
     "contracts/": {

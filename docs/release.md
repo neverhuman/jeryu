@@ -24,6 +24,8 @@ Release process doc: [docs/release-process.md](release-process.md).
 - `just security`
 - `just audit`
 - `bash ops/ci/proof-evidence.sh`
+- `bash ops/ci/publish-readme-score.sh --verify` after proof-evidence has
+  produced fresh `target/jankurai/repo-score.{json,md}` artifacts.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
@@ -71,6 +73,8 @@ The security lane writes SBOM, vulnerability scan, provenance, and signing
 artifacts under `target/jankurai/security/sbom`. Release receipts must include
 the SPDX SBOM checksum, CycloneDX checksum when generated, provenance checksum,
 and cosign transcript path.
+When the managed README block is republished, the receipt also records
+`target/jankurai/readme-publish-receipt.json`.
 
 ## Rollback
 
@@ -78,6 +82,9 @@ Every release receipt names the previous signed artifact and checksum. Rollback
 means restoring the previous signed artifact, restoring the pre-migration SQLite
 copy when schema changed, and re-running the smoke commands for API, TUI, and
 Git fetch/clone before reopening write traffic.
+If the managed README block needs to be reverted, restore the prior signed
+`README.md`, regenerate the proof artifacts, and rerun
+`bash ops/ci/publish-readme-score.sh --verify` before republishing.
 
 ## Local-Only Boundary
 
