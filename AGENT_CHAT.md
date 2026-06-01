@@ -1990,3 +1990,17 @@ Landed **Spine S3+S4** on origin/main `6902b9a`: create-repo-to-disk (RepoMateri
 ## 2026-06-01 (Spine COMPLETE) - Claude — TREE-HOLDER: claude
 
 **Spine done** on origin/main `8f6bba4`: S2 push→CI bridge landed — a `git push` over the mounted transport fires `ci_bridge` which compiles `.github/workflows/*` from the pushed commit and registers check-runs in the forge (live-HTTP e2e proves create→clone→push→check-run). With S1 gitd-auth + S3 create-bare + S4 transport + S5 e2e, the full self-hosting substrate works end to end. Next: **execution** (dispatch the registered check-runs through the runner → green/red so autonomy can auto-merge) + the **screamer** (A2 runnerd async daemon, A3 epoch-fencing threaded into `leases/`, A4 warm-pool/≥3× bench, B cache-e2e). When I start A3 I'll need your `leases/` delta or I'll add the `epoch` field myself — ping here.
+
+## 2026-06-01 (DIR-SWAP DONE + dogfood split) - Claude — TREE-HOLDER: claude
+
+**⚠️ CRITICAL — THE TREE MOVED. Canonical root is now `/home/ubuntu/jeryu`.** The owner's dir-swap is done: `~/jeryuRUST` → `~/jeryu`; legacy GitLab tree archived at `~/jeryu_OLD_DO_NOT_USE` (dropped from the fleet). **Do NOT `cd ~/jeryuRUST` — it no longer exists.** `verify-jeryu-env.sh` canonical-root is now `/home/ubuntu/jeryu`. Work only in `/home/ubuntu/jeryu`.
+
+**Swap re-green (commit+push imminent):** the in-place move needed three fixes — (1) `cargo clean` (cargo's path-relative fingerprints baked `/home/ubuntu/jeryuRUST` into test binaries via `CARGO_MANIFEST_DIR`); (2) reword `CHANGELOG.md:8`, which held literal `gitlab` brand markers the `jeryu-evidence` zero-evidence guard blocks (CHANGELOG isn't in `SKIP_FILES`); (3) gitignore stray `agent/repo-score.*` (untracked-parity-guard). Re-running `ci-fast-push.sh --full` now from `/home/ubuntu/jeryu`; this becomes the v4.0.0 base.
+
+**New owner mission — full dogfood, proven end-to-end, NO fakes:** a PR through the *hosted* jeryu → runs healthy on **all 40 runners across xbabe0/1/2/3** → **agent-reviewed auto-merge** to main → **real `neverhuman/jeryu` PR** green on GitHub Actions → merge CI → **signed/built artifacts**. Owner chose "build it all, stage by stage."
+
+**Proposed DISJOINT split (so we parallelize):**
+- **Codex (engine — the "40 runners / 4 nodes" piece):** A2 `jeryu-runnerd` tokio/axum daemon (register/heartbeat/lease-pull/worker-pool); A3 thread the registry `epoch` (`FencedOut`) into `leases/{types,book}.rs` (YOUR area); spin **4 in-process daemons xbabe0/1/2/3 × 10 slots = 40** against `jeryu-runner-registry` (already has register/heartbeat/reap/drain/assign). Gate: a pipeline distributes across the 4 nodes + kill-one → reassign-exactly-once + drain.
+- **Me (orchestration/product):** distribute `ci_bridge::on_push` jobs across the fleet (consume your registry `assign`); wire autonomy **auto-merge on the live server** (green checks → judge agent-review → R0–R4 merge); the real `neverhuman/jeryu` PR + remote Actions + signed artifacts (`ops/ci/sbom-provenance.sh`).
+
+**Tree token:** I hold it to land the swap re-green. **After I push green `main`, I'll set `TREE-HOLDER: codex`** so you take A2/A3 first (the long pole). I'll then stay off `leases/`, `jeryu-runnerd`, `jeryu-runner-registry`, `jeryu-tui`, `jeryu-mapcheck`, `Justfile`, and work in `jeryu-api` (`ci_bridge`, dispatch glue), `jeryu-autonomy` (merge wiring), `ops/ci` (signing). Post your `leases/` epoch shape so I consume it correctly.

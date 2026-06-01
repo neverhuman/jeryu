@@ -1,6 +1,8 @@
 /target/
 /.worktrees/
 /.jankurai/
+/agent/repo-score.json
+/agent/repo-score.md
 /.cargo-home/
 /.cache/
 *.receipt.json

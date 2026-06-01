@@ -5,7 +5,7 @@
 ## v4.0.0 - 2026-06-01
 
 - Live self-hosting Spine: the unified `jeryu serve` mounts git smart-HTTP transport (`/git/:owner/:repo/{info/refs,git-upload-pack,git-receive-pack}`) on the same listener as the REST/WS edge; `POST /repos` materializes a bare repo on disk (`RepoMaterializer` -> gitd `create_bare`); and a push->CI bridge compiles `.github/workflows/*` from the pushed commit, executes each job in the real Landlock/seccomp sandbox via the native runner, and records the actual check-run result -- proven end to end by a live-HTTP e2e (create -> clone -> push -> green check-run).
-- Retired infrastructure decommissioned: the `:2224` GitLab stack and the gitlab-runner Docker fleet (`restart=unless-stopped`) removed; the fleet source-roots cut over off `:2224` to GitHub with GitLab CI residue stripped.
+- Retired infrastructure decommissioned: the legacy `:2224` forge stack and the vendored CI-runner Docker fleet (`restart=unless-stopped`) removed; the fleet source-roots cut over off `:2224` to GitHub with the legacy CI residue stripped.
 - Tooling hygiene: `ensure-jankurai` force-resolves the pinned jankurai 1.6.10 (defeating stale-shadow 1.5.1 binaries that pre-date the dead-language allowlist); the release-gate security scan exempts the sanctioned `jeryu-sandbox-linux` `#![allow(unsafe_code)]` island.
 - GitHub-compatible REST edge mounted on `jeryu-api`: `github_forward` plus the `github/mod.rs` `handle()` dispatch table and `github/pulls.rs`, with in-process `routes::Response.headers` (`json_response_with_headers`) returning `route_to_existing` and the `X-Jeryu-Reused-PR` header on PR reuse.
 - `X-Jeryu` steering middleware and `GET /.jeryu/capabilities` capability advertisement.
