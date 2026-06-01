@@ -52,3 +52,10 @@ workflow = ".github/workflows/proof-evidence.yml"
 job = "tool-adoption-evidence"
 command = "bash ops/ci/proof-evidence.sh"
 full = true
+
+[[lanes]]
+id = "release"
+workflow = ".github/workflows/release.yml"
+job = "release"
+command = "bash ops/ci/release.sh"
+full = false
