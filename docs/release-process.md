@@ -11,6 +11,7 @@ Run these from the canonical repository root before creating a release receipt:
 - `bash ci-fast-push.sh --full --no-push`
 - `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
+- `bash ops/ci/release.sh`
 - `bash ops/ci/proof-evidence.sh`
 - `cargo test -p jeryu-api --features web --jobs 40`
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`

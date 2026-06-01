@@ -21,6 +21,7 @@ Release process doc: [docs/release-process.md](release-process.md).
 - `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
 - `./ops/ci/full.sh`
+- `bash ops/ci/release.sh`
 - `just security`
 - `just audit`
 - `bash ops/ci/proof-evidence.sh`
@@ -54,7 +55,9 @@ local parity runs until an operator stops the root-owned retired services.
    receipt.
 5. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
    require explicit `--push-main` and are not the default closeout path.
-6. Tag only after the release receipt names the exact commit, prior rollback
+6. Run `bash ops/ci/release.sh` before signing the receipt so the release lane
+   produces the build and receipt artifacts.
+7. Tag only after the release receipt names the exact commit, prior rollback
    artifact, and gate evidence paths.
 
 ## Autonomy Gate
