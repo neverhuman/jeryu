@@ -1,5 +1,7 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
+mod ci_evidence;
+mod ecosystem;
 mod markdown;
 mod permissions;
 
@@ -231,6 +233,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
         .route("/api/v1/repos/:id/readme", get(repo_readme))
+        // Read-only ecosystem surface for generic external clients: the live
+        // tool-graph and per-CI-run evidence. Additive, never mutating.
+        .route("/api/v1/ecosystem", get(ecosystem))
+        .route("/api/v1/ci/runs/:id/evidence", get(ci_run_evidence))
         .route("/api/v1/markdown/render", post(markdown_render))
         .route("/api/v1/ws", get(ws))
         .route("/graphql", post(graphql))
@@ -526,6 +532,26 @@ async fn repo_readme(
         repo.full_name
     )))
     .into_response()
+}
+
+/// `GET /api/v1/ecosystem` — the live ecosystem tool-graph for generic external
+/// clients. Sources real data from the MCP catalog, the forge, and the live
+/// read-model; read-only, never mutates state.
+async fn ecosystem(State(state): State<Arc<WebState>>) -> AxumResponse {
+    Json(ecosystem::ecosystem_response(state.github.core())).into_response()
+}
+
+/// `GET /api/v1/ci/runs/{id}/evidence` — the derived evidence list for a CI run
+/// (a check-run keyed by UUID). Returns a structured 404 when the run id does
+/// not resolve to a live run, never a silent empty list.
+async fn ci_run_evidence(
+    State(state): State<Arc<WebState>>,
+    AxumPath(id): AxumPath<String>,
+) -> AxumResponse {
+    match ci_evidence::run_evidence(state.github.core(), &id) {
+        Some(evidence) => Json(evidence).into_response(),
+        None => api_error(StatusCode::NOT_FOUND, "not_found", "ci run not found"),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1522,6 +1548,137 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+    }
+
+    /// The live `/api/v1/ecosystem` route returns the camelCase tool-graph with
+    /// real catalog data through the mounted router.
+    #[tokio::test]
+    async fn ecosystem_route_serves_live_tool_graph() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let core = ForgeCore::new();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let response = app(
+            WebState::new(core),
+            std::path::Path::new("/tmp/jeryu-no-spa"),
+        )
+        .oneshot(
+            Request::builder()
+                .uri("/api/v1/ecosystem")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let parsed = response_json(response).await;
+        assert_eq!(parsed["live"], true);
+        assert_eq!(parsed["degradedReason"], "");
+        let tools = parsed["tools"].as_array().expect("tools array");
+        assert_eq!(tools.len(), jeryu_mcp::tool_manifest().len());
+        // The first node carries the exact camelCase contract keys + live repo.
+        let node = &tools[0];
+        for key in [
+            "name",
+            "className",
+            "conformance",
+            "sideEffects",
+            "dataClasses",
+            "dependsOn",
+        ] {
+            assert!(node.get(key).is_some(), "missing contract key: {key}");
+        }
+        assert_eq!(node["provider"], "jeryu");
+        assert_eq!(node["repo"], "alice/jeryu");
+    }
+
+    /// The live `/api/v1/ci/runs/{id}/evidence` route returns derived evidence
+    /// for a real run and a structured 404 for an unknown run id.
+    #[tokio::test]
+    async fn ci_run_evidence_route_serves_evidence_and_404() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let core = ForgeCore::new();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let run = core
+            .create_check_run(
+                "alice",
+                "jeryu",
+                CreateCheckRunRequest {
+                    name: "ci".to_string(),
+                    head_sha: "deadbeef".to_string(),
+                    status: Some(jeryu_core::CheckRunStatus::Completed),
+                    conclusion: Some(CheckConclusion::Success),
+                    ..CreateCheckRunRequest::default()
+                },
+            )
+            .unwrap();
+        let router = || {
+            app(
+                WebState::new(core.clone()),
+                std::path::Path::new("/tmp/jeryu-no-spa"),
+            )
+        };
+
+        let ok = router()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/ci/runs/{}/evidence", run.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ok.status(), StatusCode::OK);
+        let parsed = response_json(ok).await;
+        let items = parsed.as_array().expect("evidence array");
+        assert!(!items.is_empty(), "a completed run yields evidence");
+        for item in items {
+            assert!(
+                item["uri"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with(&format!("jeryu://ci/run/{}/", run.id))
+            );
+            assert!(item["digest"].as_str().unwrap().starts_with("sha256:"));
+            assert!(item.get("capturedAt").is_some());
+        }
+
+        // An unknown run id is a structured 404, not a silent empty list.
+        let missing = router()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/ci/runs/00000000-0000-0000-0000-000000000000/evidence")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+        let err = response_json(missing).await;
+        assert_eq!(err["code"], "not_found");
     }
 
     #[test]
