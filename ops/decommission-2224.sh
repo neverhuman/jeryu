@@ -46,28 +46,46 @@ command -v docker >/dev/null 2>&1 || { echo "docker not found on PATH" >&2; exit
 
 listeners() { ss -ltnp 2>/dev/null | grep -E ":($(IFS='|'; echo "${PORTS[*]}"))\b" || true; }
 
-# Stop the OS-level gitlab-runner service/processes — a SEPARATE retired-provider
-# the release-guard (verify-jeryu-env.sh) flags, independent of the :2224 stack.
+# Remove the retired GitLab CI runners — a SEPARATE retired-provider the
+# release-guard (verify-jeryu-env.sh) flags, independent of the :2224 stack.
+#
+# IMPORTANT: the runners are Docker containers (gitlab/gitlab-runner) created with
+# `restart=unless-stopped`, NOT host processes. `pkill`/`systemctl stop` never
+# stick — Docker respawns the container with a new PID. `docker rm -f` removes the
+# container AND its restart policy, which is the only durable fix. The host apt
+# package is dormant (no listener, no jobs once :2224 is gone); purge it
+# separately for full eradication:
+#   sudo apt-get purge -y gitlab-runner gitlab-runner-helper-images
+#   sudo rm -f /etc/apt/sources.list.d/runner_gitlab-runner.list
 stop_gitlab_runner() {
-  if ! pgrep -f 'gitlab-runner' >/dev/null 2>&1 \
-     && ! systemctl is-active --quiet gitlab-runner 2>/dev/null; then
-    ok "no gitlab-runner service/processes running."
+  local cids
+  cids="$(docker ps -aq --filter 'ancestor=gitlab/gitlab-runner' 2>/dev/null || true)"
+  local service=0
+  pgrep -f 'gitlab-runner' >/dev/null 2>&1 && service=1
+  systemctl is-active --quiet gitlab-runner 2>/dev/null && service=1
+  if [ -z "${cids}" ] && [ "${service}" -eq 0 ]; then
+    ok "no gitlab-runner containers or host service present."
     return 0
   fi
   if [ "${APPLY}" -ne 1 ]; then
-    warn "DRY RUN — would stop gitlab-runner. Re-run with --yes to execute:"
-    echo "    systemctl stop gitlab-runner; systemctl disable gitlab-runner; pkill -f 'gitlab-runner run'"
+    warn "DRY RUN — would remove the retired gitlab-runner Docker fleet + host service:"
+    echo "    docker rm -f \$(docker ps -aq --filter ancestor=gitlab/gitlab-runner)"
+    echo "    systemctl disable --now gitlab-runner"
     return 0
   fi
-  note "stopping the retired gitlab-runner service + processes"
+  if [ -n "${cids}" ]; then
+    note "removing retired gitlab-runner Docker containers (restart=unless-stopped)"
+    # shellcheck disable=SC2086
+    docker rm -f ${cids} >/dev/null 2>&1 || true
+  fi
   systemctl stop gitlab-runner 2>/dev/null || true
   systemctl disable gitlab-runner 2>/dev/null || true
-  pkill -f 'gitlab-runner run' 2>/dev/null || true
-  sleep 1
-  if pgrep -f 'gitlab-runner run' >/dev/null 2>&1; then
-    warn "gitlab-runner processes still present; inspect: pgrep -af gitlab-runner"
+  sleep 2
+  if [ -n "$(docker ps -aq --filter 'ancestor=gitlab/gitlab-runner' 2>/dev/null || true)" ] \
+     || pgrep -f 'gitlab-runner run' >/dev/null 2>&1; then
+    warn "gitlab-runner remnants persist; inspect: docker ps -a | grep gitlab-runner"
   else
-    ok "retired gitlab-runner service stopped."
+    ok "retired gitlab-runner fleet removed (containers + host service)."
   fi
 }
 
