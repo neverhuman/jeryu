@@ -15,6 +15,28 @@ SCORE_MD="${JERYU_README_PUBLISH_SCORE_MD:-target/jankurai/repo-score.md}"
 RECEIPT_PATH="${JERYU_README_PUBLISH_RECEIPT:-target/jankurai/readme-publish-receipt.json}"
 DRY_RUN=0
 VERIFY=1
+repo_name="$(basename "$(git rev-parse --show-toplevel)")"
+repo_list=""
+managed_block=""
+canonical_readme=""
+rendered_readme=""
+verified_readme=""
+request_json=""
+response_json=""
+get_json=""
+
+cleanup() {
+  rm -f \
+    "${repo_list:-}" \
+    "${managed_block:-}" \
+    "${canonical_readme:-}" \
+    "${rendered_readme:-}" \
+    "${verified_readme:-}" \
+    "${request_json:-}" \
+    "${response_json:-}" \
+    "${get_json:-}"
+}
+trap cleanup EXIT
 
 for arg in "$@"; do
   case "$arg" in
@@ -37,15 +59,28 @@ if [ ! -f "$SCORE_JSON" ] || [ ! -f "$SCORE_MD" ]; then
 fi
 
 if [ -z "$REPO_ID" ]; then
-  remote_url="$(git remote get-url origin 2>/dev/null || true)"
-  if [ -z "$remote_url" ]; then
-    echo "cannot infer repository id: origin remote is missing" >&2
-    exit 1
+  repo_list="$(mktemp)"
+  if curl --fail --silent --show-error \
+    -H 'Accept: application/json' \
+    "$API_URL/api/v1/repos" > "$repo_list"; then
+    resolved_repo="$(jq -r --arg name "$repo_name" '.repositories[] | select(.id.name == $name) | .id.owner + "/" + .id.name' "$repo_list" | head -n1)"
+    if [ -n "$resolved_repo" ]; then
+      REPO_ID="$resolved_repo"
+    fi
   fi
-  REPO_ID="$(printf '%s\n' "$remote_url" | sed -E 's#.*[:/]([^/]+/[^/]+?)(\.git)?$#\1#')"
-  if [ -z "$REPO_ID" ] || [ "$REPO_ID" = "$remote_url" ]; then
-    echo "cannot infer repository id from origin remote: $remote_url" >&2
-    exit 1
+  if [ -z "$REPO_ID" ]; then
+    remote_url="$(git remote get-url origin 2>/dev/null || true)"
+    if [ -n "$remote_url" ]; then
+      REPO_ID="$(printf '%s\n' "$remote_url" | sed -E 's#.*[:/]([^/]+/[^/]+)(\.git)?$#\1#; s#\.git$##')"
+      if [ -n "$REPO_ID" ] && [ "$REPO_ID" != "$remote_url" ]; then
+        :
+      else
+        REPO_ID=""
+      fi
+    fi
+  fi
+  if [ -z "$REPO_ID" ]; then
+    REPO_ID="local/$repo_name"
   fi
 fi
 
@@ -65,10 +100,6 @@ verified_readme="$(mktemp)"
 request_json="$(mktemp)"
 response_json="$(mktemp)"
 get_json="$(mktemp)"
-cleanup() {
-  rm -f "$managed_block" "$canonical_readme" "$rendered_readme" "$verified_readme" "$request_json" "$response_json" "$get_json"
-}
-trap cleanup EXIT
 
 cat >"$managed_block" <<EOF
 - Final score: \`$score\`

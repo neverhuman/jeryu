@@ -136,7 +136,7 @@ async function readJsonOrNull<T>(response: Response): Promise<T> {
 }
 
 async function send<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   url: string,
   body: unknown,
   opts: ApiRequestOptions | undefined

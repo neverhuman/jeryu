@@ -25,13 +25,11 @@ use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
-use crate::git_materializer::GitMaterializer;
 use crate::GithubRouter;
+use crate::git_materializer::GitMaterializer;
 use jeryu_gitd::{GitdConfig, RepoManager};
-use markdown::render_markdown;
 use repositories::{
-    repo_blob, repo_detail, repo_list_response, repo_raw, repo_readme, repo_readme_update,
-    repo_refs, repo_tree, repos,
+    repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
 };
 use surface::{bootstrap_payload, github_forward, graphql, markdown_render};
 
@@ -229,7 +227,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
-        .route("/api/v1/repos/:id/readme", get(repo_readme).put(repo_readme_update))
+        .route(
+            "/api/v1/repos/:id/readme",
+            get(repo_readme).put(repo_readme_update),
+        )
         // Read-only ecosystem surface for generic external clients: the live
         // tool-graph and per-CI-run evidence. Additive, never mutating.
         .route("/api/v1/ecosystem", get(ecosystem))

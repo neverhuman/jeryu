@@ -1,18 +1,18 @@
 //! General local-web helpers that are not repository-specific.
 
+use axum::Json;
 use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
 use axum::response::{IntoResponse, Response as AxumResponse};
-use axum::Json;
 use jeryu_readmodel::contracts::{RenderedMarkdown, Viewer, WebBootstrap, WebFeatureFlags};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::{Method, Response as GithubResponse};
 use super::markdown::render_markdown;
 use super::permissions::permissions;
 use super::repositories::repo_summaries;
+use crate::{Method, Response as GithubResponse};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct MarkdownRequest {
@@ -20,11 +20,16 @@ pub(super) struct MarkdownRequest {
     markdown: String,
 }
 
-pub(super) async fn markdown_render(Json(request): Json<MarkdownRequest>) -> Json<RenderedMarkdown> {
+pub(super) async fn markdown_render(
+    Json(request): Json<MarkdownRequest>,
+) -> Json<RenderedMarkdown> {
     Json(render_markdown(&request.markdown))
 }
 
-pub(super) async fn graphql(State(state): State<std::sync::Arc<super::WebState>>, body: Bytes) -> AxumResponse {
+pub(super) async fn graphql(
+    State(state): State<std::sync::Arc<super::WebState>>,
+    body: Bytes,
+) -> AxumResponse {
     let body = std::str::from_utf8(&body).unwrap_or_default();
     github_response(state.github.handle(Method::Post, "/graphql", body))
 }
@@ -55,7 +60,9 @@ pub(super) async fn github_forward(
     github_response(state.github.handle(method, &path_and_query, body))
 }
 
-pub(super) fn bootstrap_payload(state: &super::WebState) -> Result<WebBootstrap, serde_json::Error> {
+pub(super) fn bootstrap_payload(
+    state: &super::WebState,
+) -> Result<WebBootstrap, serde_json::Error> {
     let repos = repo_summaries(state);
     let tui = serialize_payload(&state.tui)?;
     Ok(WebBootstrap {

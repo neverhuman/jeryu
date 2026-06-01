@@ -50,9 +50,14 @@ local-native and GitHub-clean profiles, all phase gates at
 PASS=9/PENDING=0/FAIL=0, and the full manifest lane union green.
 
 <!-- jeryu:managed-score:start -->
-- Managed score block: updated by `bash ops/ci/publish-readme-score.sh`.
-- Source artifacts: `target/jankurai/repo-score.json`, `target/jankurai/repo-score.md`.
-- Publish receipt: `target/jankurai/readme-publish-receipt.json`.
+- Final score: `70`
+- Raw score: `89`
+- Hard findings: `4`
+- Soft findings: `2`
+- Caps applied: `ci-bad-behavior`
+- Report fingerprint: `sha256:43fe61e04abd611471e6bfb9797866d62e5ea35a3e54a14f0c746ac9c7e59f38`
+- Source artifacts: `target/jankurai/repo-score.json`, `target/jankurai/repo-score.md`
+- Publish receipt: `target/jankurai/readme-publish-receipt.json`
 <!-- jeryu:managed-score:end -->
 
 Publishing is PR-first by default; direct `main` pushes require explicit

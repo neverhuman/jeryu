@@ -46,14 +46,16 @@ pub(super) async fn repo_detail(
             axum::http::StatusCode::NOT_FOUND,
             "not_found",
             "repository not found",
-            "load repository metadata",
-            "not_found",
-            &[
-                "verify the repository id or owner/name pair",
-                "refresh the local forge import before retrying",
-            ],
-            "docs/errors.md#not-found",
-            "rerun cargo test -p jeryu-api --features web --jobs 40",
+            ApiErrorHint {
+                purpose: "load repository metadata",
+                reason: "not_found",
+                common_fixes: &[
+                    "verify the repository id or owner/name pair",
+                    "refresh the local forge import before retrying",
+                ],
+                docs_url: "docs/errors.md#not-found",
+                repair_hint: "rerun cargo test -p jeryu-api --features web --jobs 40",
+            },
         ),
     }
 }
@@ -164,16 +166,18 @@ pub(super) async fn repo_readme_update(
                 axum::http::StatusCode::UNPROCESSABLE_ENTITY,
                 "invalid_input",
                 "readme update body failed validation",
-                "update repository README",
-                "invalid_input",
-                &[
-                    "send JSON with a markdown string field",
-                    "regenerate the managed README block from the fresh Jankurai artifact",
-                ],
-                "docs/release-process.md#required-local-gates",
-                &format!(
-                    "rerun bash ops/ci/publish-readme-score.sh --verify (body parse error: {error})"
-                ),
+                ApiErrorHint {
+                    purpose: "update repository README",
+                    reason: "invalid_input",
+                    common_fixes: &[
+                        "send JSON with a markdown string field",
+                        "regenerate the managed README block from the fresh Jankurai artifact",
+                    ],
+                    docs_url: "docs/release-process.md#required-local-gates",
+                    repair_hint: &format!(
+                        "rerun bash ops/ci/publish-readme-score.sh --verify (body parse error: {error})"
+                    ),
+                },
             );
         }
     };
@@ -190,53 +194,69 @@ pub(super) async fn repo_readme_update(
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             "storage_failed",
             "repository README could not be persisted",
-            "persist repository README",
-            "storage_failed",
-            &[
-                "check the SQLite database path and write permissions",
-                "reopen the local forge store and rerun the publish helper",
-            ],
-            "docs/release-process.md#required-local-gates",
-            &format!("rerun bash ops/ci/publish-readme-score.sh --verify (storage error: {err})"),
+            ApiErrorHint {
+                purpose: "persist repository README",
+                reason: "storage_failed",
+                common_fixes: &[
+                    "check the SQLite database path and write permissions",
+                    "reopen the local forge store and rerun the publish helper",
+                ],
+                docs_url: "docs/release-process.md#required-local-gates",
+                repair_hint: &format!(
+                    "rerun bash ops/ci/publish-readme-score.sh --verify (storage error: {err})"
+                ),
+            },
         ),
         Err(ForgeError::Conflict(err)) => api_error_with_hint(
             axum::http::StatusCode::CONFLICT,
             "conflict",
             "repository README update conflicted",
-            "persist repository README",
-            "conflict",
-            &[
-                "refresh the local repo state before retrying the publish helper",
-                "replay the update against the latest README content",
-            ],
-            "docs/release-process.md#required-local-gates",
-            &format!("rerun bash ops/ci/publish-readme-score.sh --verify (conflict: {err})"),
+            ApiErrorHint {
+                purpose: "persist repository README",
+                reason: "conflict",
+                common_fixes: &[
+                    "refresh the local repo state before retrying the publish helper",
+                    "replay the update against the latest README content",
+                ],
+                docs_url: "docs/release-process.md#required-local-gates",
+                repair_hint: &format!(
+                    "rerun bash ops/ci/publish-readme-score.sh --verify (conflict: {err})"
+                ),
+            },
         ),
         Err(ForgeError::Validation(err)) => api_error_with_hint(
             axum::http::StatusCode::UNPROCESSABLE_ENTITY,
             "invalid_input",
             "repository README update failed validation",
-            "persist repository README",
-            "invalid_input",
-            &[
-                "send a JSON body with a markdown string field",
-                "regenerate the managed score block from target/jankurai/repo-score.json",
-            ],
-            "docs/release-process.md#required-local-gates",
-            &format!("rerun bash ops/ci/publish-readme-score.sh --verify (validation error: {err})"),
+            ApiErrorHint {
+                purpose: "persist repository README",
+                reason: "invalid_input",
+                common_fixes: &[
+                    "send a JSON body with a markdown string field",
+                    "regenerate the managed score block from target/jankurai/repo-score.json",
+                ],
+                docs_url: "docs/release-process.md#required-local-gates",
+                repair_hint: &format!(
+                    "rerun bash ops/ci/publish-readme-score.sh --verify (validation error: {err})"
+                ),
+            },
         ),
         Err(ForgeError::BranchProtection(err)) => api_error_with_hint(
             axum::http::StatusCode::FORBIDDEN,
             "policy_denied",
             "repository README update was blocked by policy",
-            "persist repository README",
-            "policy_denied",
-            &[
-                "inspect the repository policy reason instead of bypassing the guard",
-                "supply the required proof or trust evidence",
-            ],
-            "docs/errors.md#policy-denied",
-            &format!("rerun bash ops/ci/publish-readme-score.sh --verify (policy error: {err})"),
+            ApiErrorHint {
+                purpose: "persist repository README",
+                reason: "policy_denied",
+                common_fixes: &[
+                    "inspect the repository policy reason instead of bypassing the guard",
+                    "supply the required proof or trust evidence",
+                ],
+                docs_url: "docs/errors.md#policy-denied",
+                repair_hint: &format!(
+                    "rerun bash ops/ci/publish-readme-score.sh --verify (policy error: {err})"
+                ),
+            },
         ),
     }
 }
@@ -390,26 +410,32 @@ fn readme_not_found_error() -> AxumResponse {
         axum::http::StatusCode::NOT_FOUND,
         "not_found",
         "repository not found",
-        "load repository README",
-        "not_found",
-        &[
-            "verify the repository id or owner/name pair",
-            "refresh the local forge import before retrying",
-        ],
-        "docs/errors.md#not-found",
-        "rerun cargo test -p jeryu-api --features web --jobs 40",
+        ApiErrorHint {
+            purpose: "load repository README",
+            reason: "not_found",
+            common_fixes: &[
+                "verify the repository id or owner/name pair",
+                "refresh the local forge import before retrying",
+            ],
+            docs_url: "docs/errors.md#not-found",
+            repair_hint: "rerun cargo test -p jeryu-api --features web --jobs 40",
+        },
     )
+}
+
+struct ApiErrorHint<'a> {
+    purpose: &'a str,
+    reason: &'a str,
+    common_fixes: &'a [&'a str],
+    docs_url: &'a str,
+    repair_hint: &'a str,
 }
 
 fn api_error_with_hint(
     status: axum::http::StatusCode,
     code: &str,
     message: &str,
-    purpose: &str,
-    reason: &str,
-    common_fixes: &[&str],
-    docs_url: &str,
-    repair_hint: &str,
+    hint: ApiErrorHint<'_>,
 ) -> AxumResponse {
     (
         status,
@@ -417,11 +443,11 @@ fn api_error_with_hint(
             "code": code,
             "message": message,
             "jeryu_repair_hint": {
-                "purpose": purpose,
-                "reason": reason,
-                "common_fixes": common_fixes,
-                "docs_url": docs_url,
-                "repair_hint": repair_hint,
+                "purpose": hint.purpose,
+                "reason": hint.reason,
+                "common_fixes": hint.common_fixes,
+                "docs_url": hint.docs_url,
+                "repair_hint": hint.repair_hint,
             }
         })),
     )

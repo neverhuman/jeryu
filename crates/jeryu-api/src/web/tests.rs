@@ -1,12 +1,12 @@
 use super::*;
-use crate::web::ws::{hello_message, requested_scopes, snapshot_event, unsubscribe_scopes};
 use crate::Method;
-use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
-use jeryu_core::CheckConclusion;
 use crate::web::markdown::render_markdown;
 use crate::web::repositories::repo_list_response;
-use crate::web::surface::{bootstrap_payload, map_method};
 use crate::web::surface::serialize_payload;
+use crate::web::surface::{bootstrap_payload, map_method};
+use crate::web::ws::{hello_message, requested_scopes, snapshot_event, unsubscribe_scopes};
+use jeryu_core::CheckConclusion;
+use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
 use jeryu_readmodel::contracts::ServerWsMessage;
 use jeryu_readmodel::{HealthLevel, sample_read_model};
 
@@ -149,21 +149,30 @@ async fn readme_update_round_trips_through_the_local_api() {
     assert_eq!(updated["markdown"], markdown);
     assert!(updated["html"].as_str().unwrap().contains("Managed README"));
 
-    let readme = response_json(repo_readme(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
+    let readme =
+        response_json(repo_readme(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
     assert_eq!(readme["markdown"], markdown);
     assert!(readme["html"].as_str().unwrap().contains("Managed README"));
 
-    let blob = response_json(repo_blob(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
+    let blob =
+        response_json(repo_blob(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
     assert_eq!(blob["text"], markdown);
-    assert!(blob["rendered_markdown"]["html"].as_str().unwrap().contains("Managed README"));
+    assert!(
+        blob["rendered_markdown"]["html"]
+            .as_str()
+            .unwrap()
+            .contains("Managed README")
+    );
 
     let raw = repo_raw(State(state), AxumPath(repo.id.to_string())).await;
     let raw_bytes = axum::body::to_bytes(raw.into_body(), usize::MAX)
         .await
         .expect("raw response bytes");
-    assert!(std::str::from_utf8(&raw_bytes)
-        .unwrap()
-        .contains("Managed README"));
+    assert!(
+        std::str::from_utf8(&raw_bytes)
+            .unwrap()
+            .contains("Managed README")
+    );
 }
 
 #[test]
