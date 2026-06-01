@@ -16,6 +16,10 @@ cd "${ROOT}"
 
 log() { printf '[release] %s\n' "$*"; }
 
+# --- 0. self-check the release-evidence emitter (fail fast if broken) -------
+log "self-testing the release-receipt emitter"
+bash "${ROOT}/scripts/test-emit-release-receipt.sh"
+
 # --- 1. validate + build the release binary --------------------------------
 cargo test --workspace --jobs "${JERYU_CI_JOBS}"
 cargo build --release -p jeryu-cli --bin jeryu --jobs "${JERYU_CI_JOBS}"
