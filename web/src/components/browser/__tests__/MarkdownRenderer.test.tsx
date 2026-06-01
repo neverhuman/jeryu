@@ -5,8 +5,8 @@
 // contract: any `<script>` injected into the HTML is stripped before it
 // reaches the DOM.
 
-import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -15,6 +15,11 @@ import {
 } from '../MarkdownRenderer';
 
 describe('MarkdownRenderer', () => {
+  function LocationProbe(): JSX.Element {
+    const location = useLocation();
+    return <div data-testid="location">{location.pathname}</div>;
+  }
+
   it('strips <script> payloads from rendered HTML', () => {
     const xss = `<p>hello</p><script>alert(1)</script>`;
     const sanitized = sanitizeMarkdownHtml(xss);
@@ -41,5 +46,32 @@ describe('MarkdownRenderer', () => {
       `<a href="javascript:alert(1)">click</a>`
     );
     expect(sanitized).not.toMatch(/javascript:/i);
+  });
+
+  it('keeps internal links local and hardens external links on click', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/repos/jeryu/root']}>
+        <LocationProbe />
+        <MarkdownRenderer
+          html="<p><a href='/repos/jeryu/demo'>Repo</a> <a href='https://example.com'>External</a></p>"
+        />
+      </MemoryRouter>
+    );
+
+    const links = container.querySelectorAll('a');
+    expect(links).toHaveLength(2);
+
+    const [internalLink, externalLink] = Array.from(links);
+    expect(internalLink.getAttribute('href')).toBe('/repos/jeryu/demo');
+    expect(externalLink.getAttribute('href')).toBe('https://example.com');
+    expect(externalLink.getAttribute('target')).toBe('_blank');
+    expect(externalLink.getAttribute('rel')).toBe('noopener noreferrer');
+
+    fireEvent.click(externalLink);
+
+    fireEvent.click(internalLink);
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/repos/jeryu/demo'
+    );
   });
 });
