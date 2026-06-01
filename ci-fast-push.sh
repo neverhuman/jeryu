@@ -115,7 +115,7 @@ fail_untracked_for_remote_parity() {
   return 1
 }
 
-github_fallback_profile_proof() {
+github_clean_profile_proof() {
   env -u RUSTC_WRAPPER -u SCCACHE_DIR -u SCCACHE_CACHE_SIZE \
     -u JERYU_RUNNER_CLASS \
     JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash -lc '
@@ -197,7 +197,7 @@ run_step "fmt" cargo fmt --all -- --check
 if is_full_ci; then
   if [ "$FORCE_FULL" = "1" ]; then
     RESULTS+=("PASS  full mode forced")
-    run_step "github fallback profile proof" github_fallback_profile_proof
+    run_step "github clean profile proof" github_clean_profile_proof
     run_step "security toolchain" bash ops/ci/security-tools.sh
   fi
   run_step "clippy workspace" \

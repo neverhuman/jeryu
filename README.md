@@ -154,11 +154,11 @@ untracked Git files; the gate then fails closed if source files remain
 untracked because GitHub and Jankurai changed-fast proof can only validate
 staged or tracked paths. `ops/ci/ci-env.sh` detects the local or GitHub profile,
 keeps dockerless native Rust as the default executor, uses `sccache` when it is
-available, and falls back to ordinary Cargo on GitHub-hosted runners.
+available, and switches to ordinary Cargo on GitHub-hosted runners.
 
 Use `bash ci-fast-push.sh --full --no-push` when a change must prove the full
 hosted-lane union locally. Full mode forces the workspace gate, verifies the
-GitHub fallback profile with `JERYU_CI_PROFILE=github` and
+GitHub clean profile with `JERYU_CI_PROFILE=github` and
 `JERYU_CI_USE_SCCACHE=0`, installs/verifies the open security toolchain, then
 runs every full lane declared in `agent/ci-lanes.toml`. Full release validation
 also fails closed when retired `~/.jeryu`, old `/home/ubuntu/jeryu`, local
