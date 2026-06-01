@@ -6,16 +6,20 @@ not replace them or make a local gate silently green.
 Default worker count is 40. CI scripts source `ops/ci/common.sh` or
 `ops/ci/ci-env.sh`, which set `JERYU_CI_JOBS=40` and `CARGO_BUILD_JOBS=40`
 unless the caller explicitly overrides them. Local Jeryu runners default to
-`native-rust-hot`; GitHub-hosted fallback runs `native-rust-clean` on ordinary
+`native-rust-hot`; GitHub-hosted clean-profile runs `native-rust-clean` on ordinary
 Ubuntu runners. Docker/OCI is opt-in for jobs that require container isolation.
 
 Primary lanes:
 - `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for branch
   and PR checks.
 - `bash ci-fast-push.sh --full --no-push`: local proof of the full hosted-lane
-  union from `agent/ci-lanes.toml`, including GitHub fallback-profile proof,
+  union from `agent/ci-lanes.toml`, including GitHub clean profile proof,
   security toolchain verification, retired-listener/process rejection, and all
   full workflow lanes.
+- `npm --workspace @jeryu/web run test:e2e`: Playwright lane for critical web
+  flows, including the rendered README and repository browsing paths.
+- `npm --workspace @jeryu/web run ux-qa`: rendered UX QA lane for screenshots,
+  accessibility checks, and the visual contract for the web surface.
 - `bash ci-fast-push.sh`: local publish path after gates pass; it pushes the
   current branch and opens or reports a PR. Direct `HEAD:main` push requires
   explicit `--push-main` or `JERYU_CI_PUSH_MAIN=1`.
