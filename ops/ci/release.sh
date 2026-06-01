@@ -65,14 +65,16 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ] && [[ "${GITHUB_REF:-}" == refs/tags/* ]];
   TAG="${GITHUB_REF_NAME:-${GITHUB_REF#refs/tags/}}"
   log "publishing GitHub Release ${TAG}"
   if gh release view "${TAG}" >/dev/null 2>&1; then
-    gh release upload "${TAG}" "${BUNDLE}"/* --clobber
+    # Releases are immutable: never overwrite published assets. A re-release
+    # publishes a NEW version with fresh checksums and notes.
+    log "release ${TAG} already exists — immutable, not overwriting; publish a new version to re-release"
   else
     gh release create "${TAG}" "${BUNDLE}"/* \
       --title "jeryu ${TAG}" \
       --notes "jeryu ${TAG} — signed build + SBOM + SLSA provenance. See CHANGELOG.md." \
       --verify-tag
+    log "released ${TAG}"
   fi
-  log "released ${TAG}"
 else
   log "not a tag inside GitHub Actions — bundle built + signed locally; publish skipped (this is the single-source local path)"
 fi
