@@ -36,4 +36,4 @@ jobs:
       - name: Ensure pinned jankurai on PATH
         run: bash ops/ci/ensure-jankurai.sh
       - name: Jankurai audit lane
-        run: jankurai audit . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85
+        run: export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"; bash ops/ci/ensure-jankurai.sh; jankurai audit . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85

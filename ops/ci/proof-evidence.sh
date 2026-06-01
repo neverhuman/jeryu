@@ -59,8 +59,8 @@ ensure_base_ref
 # --- Security evidence (must run BEFORE the audit gate) --------------------
 # Produce the security evidence under the `ci` profile in strict mode so the
 # downstream audit scores against a real, freshly-generated security run.
-jankurai security run . --out target/jankurai/security/evidence.json
-jankurai security run . \
+jeryu_jankurai security run . --out target/jankurai/security/evidence.json
+jeryu_jankurai security run . \
   --strict \
   --profile ci \
   --out target/jankurai/security/evidence.json
@@ -71,7 +71,7 @@ jankurai security run . \
 # ci_command in the catalog. The advisory pass produces the .jankurai/*
 # artifacts (the catalog artifact_paths); it is NOT used as the ratchet
 # baseline.
-jankurai audit . --mode advisory \
+jeryu_jankurai audit . --mode advisory \
   --json .jankurai/repo-score.json \
   --md .jankurai/repo-score.md \
   --repair-queue-jsonl target/jankurai/repair-queue.jsonl \
@@ -81,7 +81,7 @@ jankurai audit . --mode advisory \
 # Publish a raw no-allowlist report beside the gate so the delta is visible.
 raw_policy="target/jankurai/raw-audit-policy.toml"
 jeryu_raw_policy "${raw_policy}"
-jankurai audit . --mode advisory \
+jeryu_jankurai audit . --mode advisory \
   --policy "${raw_policy}" \
   --json target/jankurai/raw-repo-score.json \
   --md target/jankurai/raw-repo-score.md \
@@ -107,12 +107,12 @@ done
 # Catalog ci_command retained for tool-adoption detection; the live command
 # supplies the same changed surface explicitly so deleted files are not read.
 # jankurai proofbind verify . --changed-from origin/main
-jankurai proofbind verify . "${PROOFBIND_ARGS[@]}"
-jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json
+jeryu_jankurai proofbind verify . "${PROOFBIND_ARGS[@]}"
+jeryu_jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json
 
 # copy-code catalog command:
 # cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md
-jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md
+jeryu_jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md
 
 # Bad-behavior catalog command (covered by the installed auditor in adopter repos):
 # cargo test -p jankurai --test language_bad_behavior
@@ -132,7 +132,7 @@ cp "${ACCEPTED_BASELINE_SRC}" target/jankurai/accepted-baseline.json
 # --- Audit ratchet gate (catalog ci_command) -------------------------------
 # Catalog ci_command:
 # jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
-jankurai audit . --mode ratchet \
+jeryu_jankurai audit . --mode ratchet \
   --baseline target/jankurai/accepted-baseline.json \
   --json target/jankurai/repo-score.json \
   --md target/jankurai/repo-score.md \
@@ -140,18 +140,18 @@ jankurai audit . --mode ratchet \
   --no-score-history
 
 # --- rust-witness catalog ci_command ---------------------------------------
-jankurai rust witness build . --out target/jankurai/rust/witness-graph.json
+jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.json
 
 # --- UX-QA catalog artifact -------------------------------------------------
-jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
+jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
 
 # --- DB migration and vibe coverage catalog artifacts -----------------------
-jankurai migrate . --analyze --out target/jankurai/migration-report.json --md target/jankurai/migration-report.md
+jeryu_jankurai migrate . --analyze --out target/jankurai/migration-report.json --md target/jankurai/migration-report.md
 # Catalog spelling retained for audit detection; local CLI uses --out.
 # jankurai migrate . --analyze --json target/jankurai/migration-report.json
-jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md
+jeryu_jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md
 
 # --- coverage-evidence catalog ci_command ----------------------------------
 # Parses coverage/proof artifacts; does not run tests. Reports missing sources
 # in advisory mode.
-jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md
+jeryu_jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md

@@ -73,6 +73,22 @@ run_tests() {
   fi
 }
 
+JERYU_JANKURAI_VERSION="${JANKURAI_VERSION:-jankurai 1.6.10}"
+JERYU_JANKURAI_BIN="${JERYU_JANKURAI_BIN:-${CARGO_HOME:-$HOME/.cargo}/bin/jankurai}"
+
+run_pinned_jankurai() {
+  bash ops/ci/ensure-jankurai.sh >/dev/null || return 1
+  if [ ! -x "${JERYU_JANKURAI_BIN}" ]; then
+    echo "pinned jankurai binary missing: ${JERYU_JANKURAI_BIN}" >&2
+    return 1
+  fi
+  if ! "${JERYU_JANKURAI_BIN}" --version | grep -qx "${JERYU_JANKURAI_VERSION}"; then
+    echo "wrong pinned jankurai version at ${JERYU_JANKURAI_BIN}: $("${JERYU_JANKURAI_BIN}" --version 2>&1 || true)" >&2
+    return 1
+  fi
+  "${JERYU_JANKURAI_BIN}" "$@"
+}
+
 write_changed_list() {
   local plan_files
   if ! plan_files="$(jq -r '.changed_files[]?' "$PLAN")"; then
@@ -222,19 +238,13 @@ else
   fi
   if has_lane db; then
     run_step "db migration analysis" \
-      jankurai migrate . --analyze --out target/jankurai/migration-report.json
+      run_pinned_jankurai migrate . --analyze --out target/jankurai/migration-report.json
   fi
 fi
 
-if command -v jankurai >/dev/null 2>&1; then
-  run_step "jankurai diff audit" \
-    jankurai diff-audit --base-ref "$BASE_REF" --changed-list "$CHANGED_LIST" .
-  run_step "jankurai audit" jankurai audit .
-else
-  RESULTS+=("FAIL  jankurai audit (tool missing)")
-  printf '\033[31m✗ jankurai audit FAILED (tool missing)\033[0m\n'
-  fail=1
-fi
+run_step "jankurai diff audit" \
+  run_pinned_jankurai diff-audit --base-ref "$BASE_REF" --changed-list "$CHANGED_LIST" .
+run_step "jankurai audit" run_pinned_jankurai audit .
 
 DUR=$(( $(date +%s) - START ))
 printf '\n\033[1m── ci-fast-push summary (%ss) ──\033[0m\n' "$DUR"
