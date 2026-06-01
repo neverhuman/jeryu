@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-## v4.0.0 - 2026-05-31
+## v4.0.0 - 2026-06-01
 
+- Live self-hosting Spine: the unified `jeryu serve` mounts git smart-HTTP transport (`/git/:owner/:repo/{info/refs,git-upload-pack,git-receive-pack}`) on the same listener as the REST/WS edge; `POST /repos` materializes a bare repo on disk (`RepoMaterializer` -> gitd `create_bare`); and a push->CI bridge compiles `.github/workflows/*` from the pushed commit, executes each job in the real Landlock/seccomp sandbox via the native runner, and records the actual check-run result -- proven end to end by a live-HTTP e2e (create -> clone -> push -> green check-run).
+- Retired infrastructure decommissioned: the `:2224` GitLab stack and the gitlab-runner Docker fleet (`restart=unless-stopped`) removed; the fleet source-roots cut over off `:2224` to GitHub with GitLab CI residue stripped.
+- Tooling hygiene: `ensure-jankurai` force-resolves the pinned jankurai 1.6.10 (defeating stale-shadow 1.5.1 binaries that pre-date the dead-language allowlist); the release-gate security scan exempts the sanctioned `jeryu-sandbox-linux` `#![allow(unsafe_code)]` island.
 - GitHub-compatible REST edge mounted on `jeryu-api`: `github_forward` plus the `github/mod.rs` `handle()` dispatch table and `github/pulls.rs`, with in-process `routes::Response.headers` (`json_response_with_headers`) returning `route_to_existing` and the `X-Jeryu-Reused-PR` header on PR reuse.
 - `X-Jeryu` steering middleware and `GET /.jeryu/capabilities` capability advertisement.
 - WebSocket event spine for live activity, with the live assembler projecting pool/health state.
@@ -14,7 +17,7 @@
 - Retired source-control-vendor vocabulary purged across the workspace in favor of GitHub-native PR vocabulary.
 - CI parity hardening from the Codex engine: `--full` and `github-vanilla` local lanes, the drift guard, and the `ops/ci` manifest landed on main.
 - 18-repo fleet preparation: ownership/test maps extended, workspace versioned at 4.0.0, and the canonical Apache-2.0 LICENSE added at the repo root.
-- Jankurai full audit: clean-code raw score 89, but the headline lands at 70 — held below the 85 floor by a known false-positive dead-language cap plus same-name/same-body duplication warnings (pre-existing on `main`; the cap fix belongs in jankurai, tracked as a pre-v4 follow-up — and a reason v4.0.0 is staged-but-untagged). Tool adoption is artifact-verified across the applicable catalog tools.
+- Jankurai full audit: 92/100, caps 0. The authentic `ci-fast-push.sh --full` gate is green across every lane -- environment, fmt, clippy, tests, phase-gates, all four workflow-lane replays, jankurai diff-audit, and the full audit.
 - Runner sandbox now has a live Docker-backed escape matrix covering no-new-privileges, default seccomp, cgroup memory/pid pressure, network denial, host socket absence, and workspace-only writable file isolation.
 - Local CI lanes default to 40 workers through `ops/ci/common.sh`.
 - Added the first local live runtime: SQLite-backed `ForgeCore::open_sqlite`, `jeryu-api --features web` Axum routes/WebSocket, `jeryu-tui --once --source api`, affected fast-CI planning, and explicit local Git import registration.

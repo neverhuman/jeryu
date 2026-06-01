@@ -16,7 +16,7 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "${ROOT}"
 
 if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
-  expected="${JERYU_CANONICAL_ROOT:-/home/ubuntu/jeryuRUST}"
+  expected="${JERYU_CANONICAL_ROOT:-/home/ubuntu/jeryu}"
   if [ -d "${expected}" ]; then
     actual_real="$(realpath "${ROOT}")"
     expected_real="$(realpath "${expected}")"
@@ -63,7 +63,7 @@ check_retired_processes() {
   local hits
   hits="$(
     ps -eo pid=,comm=,args= |
-      grep -E "${retired_runner}|${retired_opt}|/home/ubuntu/\.jeryu/bin/|/home/ubuntu/jeryu/target/|/home/ubuntu/jeryu_rust/" |
+      grep -E "${retired_runner}|${retired_opt}|/home/ubuntu/\.jeryu/bin/|/home/ubuntu/jeryu_OLD_DO_NOT_USE/target/|/home/ubuntu/jeryu_rust/" |
       grep -v 'grep -E' || true
   )"
   if [ -n "${hits}" ]; then
@@ -129,7 +129,7 @@ check_retired_remotes() {
   local hits
   hits="$(
     git remote -v |
-      grep -E "127\.0\.0\.1:(2224|8929)|localhost:(2224|8929)|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu/|${retired_provider}" || true
+      grep -E "127\.0\.0\.1:(2224|8929)|localhost:(2224|8929)|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu_OLD_DO_NOT_USE/|${retired_provider}" || true
   )"
   if [ -n "${hits}" ]; then
     echo "retired remotes are configured during release validation:" >&2
@@ -144,14 +144,14 @@ check_retired_source_roots() {
 
   local retired_provider roots root remote_hits failed=0
   retired_provider="$(decode_hex 6769746c6162)"
-  roots="${JERYU_CI_SOURCE_ROOTS:-/home/ubuntu/jeryu /home/ubuntu/redlineDB /home/ubuntu/redline-testing /home/ubuntu/openQG /home/ubuntu/jekko}"
+  roots="${JERYU_CI_SOURCE_ROOTS:-/home/ubuntu/redlineDB /home/ubuntu/redline-testing /home/ubuntu/openQG /home/ubuntu/jekko}"
 
   for root in ${roots}; do
     [ -e "${root}" ] || continue
     if [ -d "${root}/.git" ]; then
       remote_hits="$(
         git -C "${root}" remote -v 2>/dev/null |
-          grep -E "127\.0\.0\.1:(2224|8929)|localhost:(2224|8929)|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu/|${retired_provider}" || true
+          grep -E "127\.0\.0\.1:(2224|8929)|localhost:(2224|8929)|/home/ubuntu/\.jeryu|/home/ubuntu/jeryu_OLD_DO_NOT_USE/|${retired_provider}" || true
       )"
       if [ -n "${remote_hits}" ]; then
         echo "retired remotes remain in source root ${root}:" >&2
