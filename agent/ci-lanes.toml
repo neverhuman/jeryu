@@ -59,3 +59,10 @@ workflow = ".github/workflows/release.yml"
 job = "release"
 command = "bash ops/ci/release.sh"
 full = false
+
+[[lanes]]
+id = "web"
+workflow = ".github/workflows/web.yml"
+job = "web"
+command = "bash ops/ci/web.sh"
+full = false
