@@ -1,0 +1,45 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  JERYU_CI_JOBS: "40"
+  CARGO_BUILD_JOBS: "40"
+  JERYU_CI_USE_SCCACHE: "0"
+  JERYU_JANKURAI_STRICT_TAG: "0"
+  JANKURAI_REPO: "https://github.com/neverhuman/jankurai.git"
+  JANKURAI_TAG: "v1.6.10-deadlang-precision"
+  JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout without marketplace actions
+        run: |
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git fetch --depth 1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Pinned Jankurai bootstrap
+        run: bash ops/ci/ensure-jankurai.sh
+      - name: Security toolchain (syft/grype/cosign)
+        run: bash ops/ci/security-tools.sh
+      - name: Release build + SBOM + cosign sign + publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ops/ci/release.sh
