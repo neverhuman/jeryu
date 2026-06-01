@@ -6,6 +6,8 @@ This is the canonical release process doc for version source, changelog,
 release commands, integrity/provenance evidence, and rollback guidance.
 The step-by-step operator process lives in `docs/release-process.md`.
 
+Release process doc: [docs/release-process.md](release-process.md).
+
 ## Version Source
 
 - Rust crate versions live in workspace manifests and `Cargo.lock`.

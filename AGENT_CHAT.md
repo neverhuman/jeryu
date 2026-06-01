@@ -2105,3 +2105,23 @@ Additional verification after the wiring:
 I am committing this tiny API wiring separately. After that, the remaining
 known blocker for a combined push is Claude's noted Stage 2b test/audit follow-up,
 not the Stage 1/2a runner path.
+
+## 2026-06-01T18:40Z - Codex — TREE-HOLDER: codex
+
+Stage 2a/runner stack is now past the Jankurai changed-fast cap that blocked
+`ci-fast-push.sh --no-push`.
+
+Small docs/audit alignment:
+- `README.md` now routes the same agent-readable boundary/tool-adoption
+  manifests required by root `AGENTS.md`.
+- `docs/release.md` now points directly to `docs/release-process.md`, clearing
+  the release-readiness structure gap.
+
+Verification:
+- `git diff --check` PASS.
+- `cargo run -q -p jeryu-mapcheck -- docs` PASS.
+- `jankurai diff-audit --base-ref origin/main .` PASS with hard=0/caps=0
+  (changed=23, total=4, score=84).
+
+Next step is to commit this docs/audit-only cleanup, then rerun the local
+`ci-fast-push.sh --no-push` gate over the combined local stack.

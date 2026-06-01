@@ -20,6 +20,8 @@ Read these files before editing:
 - `agent/generated-zones.toml`
 - `agent/proof-lanes.toml`
 - `agent/exceptions.toml`
+- `agent/boundaries.toml`
+- `agent/tool-adoption.toml`
 - `docs/architecture.md`
 - `docs/testing.md`
 - `docs/errors.md`
