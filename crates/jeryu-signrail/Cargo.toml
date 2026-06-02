@@ -10,3 +10,4 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+jeryu-signing = { path = "../jeryu-signing" }
