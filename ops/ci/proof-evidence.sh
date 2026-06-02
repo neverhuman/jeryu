@@ -162,12 +162,13 @@ cat > "${TEMP_DIR}/npm" <<'EOF'
 set -euo pipefail
 
 REAL_NPM="${REAL_NPM:?missing REAL_NPM}"
+WEB_PREFIX_PATH="${WEB_PREFIX_PATH:?missing WEB_PREFIX_PATH}"
 args=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --prefix)
       if [ "${2:-}" = "web" ]; then
-        args+=("--prefix" "apps/web")
+        args+=("--prefix" "${WEB_PREFIX_PATH}")
         shift 2
         continue
       fi
@@ -179,7 +180,7 @@ while [ "$#" -gt 0 ]; do
       continue
       ;;
     --prefix=web)
-      args+=("--prefix=apps/web")
+      args+=("--prefix=${WEB_PREFIX_PATH}")
       shift
       continue
       ;;
@@ -194,7 +195,9 @@ done
 exec "${REAL_NPM}" "${args[@]}"
 EOF
 chmod +x "${TEMP_DIR}/npm"
-PATH="${TEMP_DIR}:$PATH" REAL_NPM="$(command -v npm)" jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
+REAL_NPM="$(command -v npm)"
+PATH="${TEMP_DIR}:$PATH" REAL_NPM="${REAL_NPM}" WEB_PREFIX_PATH="${ROOT}/apps/web" \
+  jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
 
 # --- DB migration and vibe coverage catalog artifacts -----------------------
 jeryu_jankurai migrate . --analyze --out target/jankurai/migration-report.json --md target/jankurai/migration-report.md
