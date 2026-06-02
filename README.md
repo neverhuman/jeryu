@@ -178,13 +178,18 @@ staged or tracked paths. `ops/ci/ci-env.sh` detects the local or GitHub profile,
 keeps dockerless native Rust as the default executor, uses `sccache` when it is
 available, and switches to ordinary Cargo on GitHub-hosted runners.
 
-Use `bash ci-fast-push.sh --full --no-push` when a change must prove the full
-hosted-lane union locally. Full mode forces the workspace gate, verifies the
-GitHub clean profile with `JERYU_CI_PROFILE=github` and
+Use `just closeout` for local closeout. It runs the no-push full gate, repairs
+only allowlisted repo-owned Jeryu API dev/test processes on guarded local
+ports, then writes `target/ci-fast/closeout-summary.json`. The underlying
+`bash ci-fast-push.sh --full --no-push` path still forces the workspace gate,
+verifies the GitHub clean profile with `JERYU_CI_PROFILE=github` and
 `JERYU_CI_USE_SCCACHE=0`, installs/verifies the open security toolchain, then
 runs every full lane declared in `agent/ci-lanes.toml`. Full release validation
-also fails closed when retired `~/.jeryu`, old `/home/ubuntu/jeryu`, local
-`:2224`, or retired-provider runner/process state is still active. `jeryu-repogate
+fails closed on unsafe or unknown local state, retired `~/.jeryu` data dirs,
+retired remotes/source roots, and non-repo listeners on guarded ports. Missing
+live `jeryu-runnerd` or zero live workcells is not a blocker; the receipt
+records `live_runner_required=false` and ties release proof to
+`cargo test -p jeryu-runnerd workcell --jobs 40`. `jeryu-repogate
 ci-lanes-check` is the drift guard: every workflow under `.github/workflows/`
 must be declared in the manifest, every substantive `run:` command must match a
 local lane, and setup-only commands are explicitly allowlisted.
@@ -198,6 +203,7 @@ configured.
 just fast
 just ci
 just full
+just closeout
 just security
 just audit
 ```

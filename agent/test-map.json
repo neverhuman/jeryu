@@ -246,6 +246,16 @@
       "purpose": "verify local CI gates, ops scripts, and hosted/local parity wiring",
       "lane": "local-ci-parity"
     },
+    "ops/ci/closeout.sh": {
+      "command": "just closeout",
+      "purpose": "verify the canonical local closeout workflow repairs safe local state, runs the no-push full gate, and writes the closeout receipt",
+      "lane": "local-ci-parity"
+    },
+    "ops/ci/local-state.sh": {
+      "command": "bash tests/local_state.sh && bash ops/ci/verify-jeryu-env.sh --build-local --release-guard",
+      "purpose": "verify local-state classification, safe repair receipting, and release-guard fail-closed behavior",
+      "lane": "local-ci-parity"
+    },
     "ops/ci/publish-readme-score.sh": {
       "command": "bash ops/ci/publish-readme-score.sh --dry-run --verify",
       "purpose": "verify the managed README score block can be rendered from the fresh audit artifacts without mutating the worktree",
@@ -280,6 +290,16 @@
       "command": "bash scripts/ci-phases.sh",
       "purpose": "verify local test harnesses remain executable",
       "lane": "tests"
+    },
+    "tests/fixtures/local-state/": {
+      "command": "bash tests/local_state.sh",
+      "purpose": "verify captured ss/ps local-state fixtures still exercise the closeout classifier",
+      "lane": "local-ci-parity"
+    },
+    "tests/local_state.sh": {
+      "command": "bash tests/local_state.sh",
+      "purpose": "verify local-state fixture classification for safe repo API listeners, unsafe external listeners, retired data dirs, and absent runnerd",
+      "lane": "local-ci-parity"
     },
     "tips/": {
       "command": "jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md",

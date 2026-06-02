@@ -8,7 +8,7 @@ does not replace local release proof.
 
 Run these from the canonical repository root before creating a release receipt:
 
-- `bash ci-fast-push.sh --full --no-push`
+- `just closeout`
 - `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
 - `bash ops/ci/release.sh`
@@ -21,10 +21,11 @@ Run these from the canonical repository root before creating a release receipt:
 - `just security`
 - `just audit`
 
-Full mode runs `ops/ci/verify-jeryu-env.sh --build-local --release-guard`.
-Stop or quarantine retired-provider runners, `~/.jeryu`, old
-`/home/ubuntu/jeryu`, local `:2224`, and monitored retired listeners before
-recording release evidence.
+Full closeout runs local-state repair before
+`ops/ci/verify-jeryu-env.sh --build-local --release-guard`, then verifies local
+state again before writing the closeout receipt. The repair step stops only
+allowlisted repo-owned Jeryu API dev/test processes; retired state, retired
+remotes/source roots, and unknown or non-repo listeners remain hard blockers.
 
 ## Receipt Contents
 
