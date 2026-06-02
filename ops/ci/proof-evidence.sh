@@ -155,6 +155,7 @@ jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.jso
 
 # --- UX-QA catalog artifact -------------------------------------------------
 npm --prefix apps/web ci --include=dev --workspaces=false
+npm --prefix apps/web run build
 npm --prefix apps/web exec playwright install chromium
 npm --prefix apps/web run test:e2e
 npm --prefix apps/web run ux-qa
