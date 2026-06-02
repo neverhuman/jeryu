@@ -63,6 +63,47 @@ struct State {
     counters: HashMap<(String, String), Counters>,
 }
 
+fn default_branch_protection_rule(owner: &str, repo: &str, branch: &str) -> BranchProtectionRule {
+    BranchProtectionRule {
+        owner: owner.to_string(),
+        repo: repo.to_string(),
+        branch: branch.to_string(),
+        required_status_checks: Vec::new(),
+        required_approving_review_count: 0,
+        enforce_admins: false,
+        required_linear_history: true,
+        allow_force_pushes: false,
+        allow_deletions: false,
+        require_signed_commits: false,
+        require_jankurai_proof: false,
+        updated_at: Utc::now(),
+    }
+}
+
+fn ensure_default_branch_protection(state: &mut State, repo: &Repository) -> bool {
+    let key = (
+        repo.owner.clone(),
+        repo.name.clone(),
+        repo.default_branch.clone(),
+    );
+    if state.branch_protections.contains_key(&key) {
+        return false;
+    }
+    state.branch_protections.insert(
+        key,
+        default_branch_protection_rule(&repo.owner, &repo.name, &repo.default_branch),
+    );
+    true
+}
+
+fn backfill_default_branch_protections(state: &mut State) -> usize {
+    let repos: Vec<_> = state.repos.values().cloned().collect();
+    repos
+        .into_iter()
+        .filter(|repo| ensure_default_branch_protection(state, repo))
+        .count()
+}
+
 /// Materializes a newly created repository's bare git directory on disk.
 ///
 /// Defined in the pure forge core so `create_repository` can trigger on-disk

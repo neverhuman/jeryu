@@ -71,14 +71,15 @@ pub(super) async fn repo_refs(
             "repository not found",
         );
     };
+    let default_branch = repo.default_branch.clone();
     Json(vec![RefSelectorItem {
-        name: repo.default_branch,
+        name: default_branch.clone(),
         sha: "unknown".to_string(),
         kind: RefKind::Branch,
         protected: state
             .github
             .core()
-            .get_branch_protection(&repo.owner, &repo.name, "main")
+            .get_branch_protection(&repo.owner, &repo.name, &default_branch)
             .is_ok(),
     }])
     .into_response()

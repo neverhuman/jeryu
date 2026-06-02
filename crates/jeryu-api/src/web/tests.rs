@@ -121,6 +121,28 @@ fn bootstrap_and_repo_list_reflect_core_repositories() {
 }
 
 #[tokio::test]
+async fn repo_refs_use_the_repository_default_branch_for_protection() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "trunk-repo".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("trunk".to_string()),
+            },
+        )
+        .unwrap();
+    let state = Arc::new(WebState::new(core));
+
+    let response = repo_refs(State(state), AxumPath(repo.id.to_string())).await;
+    let refs = response_json(response).await;
+    assert_eq!(refs.as_array().expect("refs array")[0]["name"], "trunk");
+    assert_eq!(refs[0]["protected"], true);
+}
+
+#[tokio::test]
 async fn readme_update_round_trips_through_the_local_api() {
     let core = ForgeCore::new();
     let repo = core

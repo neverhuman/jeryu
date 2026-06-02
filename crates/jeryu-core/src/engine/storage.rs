@@ -31,7 +31,13 @@ impl SqliteStore {
         let store = Self { path };
         let conn = store.connect()?;
         apply_migrations(&conn)?;
-        let state = load_state(&conn)?;
+        let mut state = load_state(&conn)?;
+        let mut backfilled = backfill_missing_counters(&mut state);
+        backfilled += super::backfill_default_branch_protections(&mut state);
+        drop(conn);
+        if backfilled > 0 {
+            store.persist(&state)?;
+        }
         Ok((store, state))
     }
 
@@ -435,7 +441,6 @@ fn load_state(conn: &Connection) -> Result<State> {
     load_webhooks(conn, &mut state)?;
     load_webhook_deliveries(conn, &mut state)?;
     load_counters(conn, &mut state)?;
-    backfill_missing_counters(&mut state);
     Ok(state)
 }
 
@@ -921,17 +926,21 @@ fn load_counters(conn: &Connection, state: &mut State) -> Result<()> {
     Ok(())
 }
 
-fn backfill_missing_counters(state: &mut State) {
+fn backfill_missing_counters(state: &mut State) -> usize {
     let repos: Vec<_> = state
         .repos
         .values()
         .map(|repo| (repo.owner.clone(), repo.name.clone()))
         .collect();
+    let mut inserted = 0;
     for (owner, repo) in repos {
-        state
-            .counters
-            .entry((owner.clone(), repo.clone()))
-            .or_insert_with(|| Counters {
+        let key = (owner.clone(), repo.clone());
+        if state.counters.contains_key(&key) {
+            continue;
+        }
+        state.counters.insert(
+            key,
+            Counters {
                 issue: state
                     .issues
                     .keys()
@@ -948,8 +957,11 @@ fn backfill_missing_counters(state: &mut State) {
                     .map(|(_, _, number)| *number)
                     .max()
                     .unwrap_or(0),
-            });
+            },
+        );
+        inserted += 1;
     }
+    inserted
 }
 
 fn repo_id(

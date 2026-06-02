@@ -67,6 +67,22 @@ fn create_and_get_repository_returns_github_shaped_json() {
 }
 
 #[test]
+fn new_repository_exposes_linear_history_branch_protection() {
+    let router = GithubRouter::new();
+    let created = router.post(
+        "/repos",
+        r#"{"owner":"alice","name":"trunk-repo","private":false,"default_branch":"trunk"}"#,
+    );
+    assert_eq!(created.status, 201, "create repo: {}", created.body);
+
+    let protection = router.get("/repos/alice/trunk-repo/branches/trunk/protection");
+    assert_eq!(protection.status, 200, "protection: {}", protection.body);
+    let rule = body(&protection);
+    assert_eq!(rule["required_linear_history"]["enabled"], true);
+    assert_eq!(rule["required_status_checks"]["strict"], true);
+}
+
+#[test]
 fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     let router = router_with_repo();
 
