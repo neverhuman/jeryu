@@ -39,6 +39,11 @@ SignRail artifact-support signing details:
 - `cargo test -p jeryu-signrail --test release_witness` and
   `cargo clippy -p jeryu-signrail --all-targets -- -D warnings` when release
   signing, artifact provenance, witness, or stage-receipt behavior changes.
+- `cargo run -p jeryu-sandbox-linux --example jail_demo` and
+  `cargo test -p jeryu-runnerd jailgun` when the workcell cell jail (the
+  `jeryu-sandbox-linux` launch path) or the jailgun tar validators change.
+  Workcell- and jailed-agent-authored changes flow through these same release
+  gates and CI evidence with no privileged path; see `docs/workcell.md`.
 
 ## Release Receipt
 

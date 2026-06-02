@@ -80,7 +80,7 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Forge/domain/API facade | `jeryu-core`, `jeryu-domain`, `jeryu-api`, `jeryu-cli` |
 | Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
-| Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd` |
+| Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd`, `jeryu-sandbox-linux` |
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
@@ -92,6 +92,13 @@ SignRail release signing for artifact-support bundles is documented in
 `docs/signrail-release-signing.md`; it records stage receipts for `local`,
 `dev-canary`, and `prod` after release provenance reaches 100% signature
 coverage.
+
+Workcells let any code-editing actor work **folder-jailed** in a ready-to-go
+cell and leave only as a PR. The cell jail is the native, unprivileged
+`jeryu-sandbox-linux` launch path (Landlock + seccomp + `no_new_privs`, no
+Docker or `sudo`); a jailed process cannot read or write outside its checkout
+or open the network, and `jailgun` moves code in and out as a quarantine-first
+tar. The capability and its proof commands are documented in `docs/workcell.md`.
 
 ## Local Live Runtime
 
