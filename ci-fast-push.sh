@@ -290,9 +290,9 @@ else
     run_step "tui captures" cargo test -p jeryu-tui --jobs "$JOBS"
   fi
   if has_lane web; then
-    run_step "web typecheck" bash -lc 'cd web && npm run typecheck'
-    run_step "web test" bash -lc 'cd web && npm run test'
-    run_step "web build" bash -lc 'cd web && npm run build'
+    run_step "web typecheck" bash -lc 'cd apps/web && npm run typecheck'
+    run_step "web test" bash -lc 'cd apps/web && npm run test'
+    run_step "web build" bash -lc 'cd apps/web && npm run build'
   fi
   if has_lane db; then
     run_step "db migration analysis" \

@@ -52,7 +52,7 @@ full = true
 id = "security"
 workflow = ".github/workflows/security.yml"
 job = "security"
-command = "JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh"
+command = "JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix apps/web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh"
 full = true
 
 [[lanes]]

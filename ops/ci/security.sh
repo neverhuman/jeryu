@@ -25,7 +25,7 @@ fi
 # Dependency review: cargo audit + cargo deny policy (advisories, bans, licenses, sources).
 cargo audit --deny warnings
 cargo deny check advisories bans licenses sources
-npm audit --prefix web --audit-level=high --omit=dev
+npm audit --prefix apps/web --audit-level=high --omit=dev
 
 # Workflow linting (actionlint + zizmor) over .github/workflows/*.
 bash ops/ci/workflow-lint.sh

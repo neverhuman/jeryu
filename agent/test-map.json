@@ -132,7 +132,7 @@
       "lane": "api"
     },
     "crates/jeryu-readmodel/": {
-      "command": "cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck",
+      "command": "cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck",
       "purpose": "verify the typed TUI/web read-model and contract bindings stay in sync",
       "lane": "contract"
     },
@@ -297,7 +297,7 @@
       "lane": "web"
     },
     "contracts/": {
-      "command": "cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck",
+      "command": "cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck",
       "purpose": "verify generated TS contract bindings match their Rust source and stay consumable by the web surface",
       "lane": "contract"
     },
@@ -347,7 +347,7 @@
       "lane": "cli"
     },
     "apps/web/src/pages/FleetPage.tsx": {
-      "command": "cd web && npm run typecheck && npm run test",
+      "command": "cd apps/web && npm run typecheck && npm run test",
       "purpose": "verify the web /fleet page renders live pool/health state from the WS spine",
       "lane": "web"
     }
