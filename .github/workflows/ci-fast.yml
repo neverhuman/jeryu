@@ -105,6 +105,6 @@ jobs:
         run: rustup toolchain install 1.95.0 --profile minimal
       - name: Install cargo-nextest
         run: |
-          curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+          curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C "${CARGO_HOME:-$HOME/.cargo}"/bin
       - name: Rust nextest shard
         run: bash ops/ci/shard.sh "$JERYU_CI_SHARD_INDEX" "$JERYU_CI_SHARD_TOTAL"

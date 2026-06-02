@@ -23,6 +23,8 @@ git fetch --depth 128 origin main:refs/remotes/origin/main''',
   "rustup toolchain install 1.95.0 --profile minimal",
   "bash ops/ci/ensure-jankurai.sh",
   "bash ops/ci/security-tools.sh",
+  "curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin",
+  "npx playwright install chromium",
 ]
 
 [[lanes]]

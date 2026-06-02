@@ -7,6 +7,7 @@ unset RUSTC_WRAPPER SCCACHE_DIR SCCACHE_CACHE_SIZE
 cd "$(git rev-parse --show-toplevel)/apps/web"
 rm -rf dist storybook-static playwright-report test-results
 npm ci --include=dev --workspaces=false
+npx playwright install chromium
 npm run typecheck
 npm run test
 npm run test:contracts
