@@ -4,7 +4,7 @@
 //   * `Idempotency-Key`: per-attempt UUID (§35.1.3).
 //   * `If-Match: "<base_settings_hash>"`: optimistic concurrency token
 //     from the preview response (§35.1.14). The backend rejects with
-//     `settings_hash_stale` if a concurrent update changed the snapshot.
+//     `settings_hash_stale` if a concurrent write changed the snapshot.
 //
 // On success the cached `RepositorySettings` is replaced with the server's
 // reply so the studio stays in sync without an extra round trip.

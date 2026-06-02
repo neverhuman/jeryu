@@ -17,3 +17,13 @@ manual_edits = false
 path = "apps/web/playwright-report/**"
 generator = "npm --workspace @jeryu/web run ux-qa"
 manual_edits = false
+
+[[zones]]
+path = "apps/web/dist/**"
+generator = "npm --workspace @jeryu/web run build"
+manual_edits = false
+
+[[zones]]
+path = "apps/web/storybook-static/**"
+generator = "npm --workspace @jeryu/web run build-storybook"
+manual_edits = false

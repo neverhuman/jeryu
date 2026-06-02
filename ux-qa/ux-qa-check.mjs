@@ -49,7 +49,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const workspaceDir = dirname(fileURLToPath(import.meta.url));
-// `ux-qa/` and `web/` are top-level siblings under the repo root.
+// `ux-qa/` lives at the repo root; the product SPA is `apps/web/` in this
+// workspace, with a fallback to `web/` for older sibling layouts.
 const repoRoot = resolve(workspaceDir, '..');
 const mode = process.argv[2] ?? 'build';
 if (!['build', 'test'].includes(mode)) {
@@ -57,7 +58,9 @@ if (!['build', 'test'].includes(mode)) {
   process.exit(2);
 }
 
-const webDir = join(repoRoot, 'web');
+const webDir = existsSync(join(repoRoot, 'apps', 'web'))
+  ? join(repoRoot, 'apps', 'web')
+  : join(repoRoot, 'web');
 const uxArtifactDir = join(repoRoot, 'target', 'jankurai', 'ux-qa');
 mkdirSync(uxArtifactDir, { recursive: true });
 
@@ -110,13 +113,13 @@ function checkViteBuild() {
   if (!existsSync(indexHtml)) {
     return {
       pass: false,
-      details: { reason: 'missing web/dist/index.html' },
+      details: { reason: 'missing apps/web/dist/index.html' },
     };
   }
   if (!existsSync(assetsDir)) {
     return {
       pass: false,
-      details: { reason: 'missing web/dist/assets/' },
+      details: { reason: 'missing apps/web/dist/assets/' },
     };
   }
   const entries = readdirSync(assetsDir);
@@ -134,7 +137,7 @@ function checkStorybookBuild() {
   if (!existsSync(indexHtml)) {
     return {
       pass: false,
-      details: { reason: 'missing web/storybook-static/index.html' },
+      details: { reason: 'missing apps/web/storybook-static/index.html' },
     };
   }
   return { pass: true, details: { index_html: indexHtml } };
@@ -146,7 +149,7 @@ function checkPlaywrightReport() {
     return {
       pass: false,
       details: {
-        reason: 'missing web/playwright-report/index.html',
+        reason: 'missing apps/web/playwright-report/index.html',
         hint: 'Run `npm --workspace @jeryu/web run test:e2e`',
       },
     };
@@ -258,7 +261,7 @@ function checkWsReplay() {
   if (!existsSync(reportDir)) {
     return {
       pass: false,
-      details: { reason: 'missing web/playwright-report/' },
+      details: { reason: 'missing apps/web/playwright-report/' },
     };
   }
   const junitXml = join(reportDir, 'junit.xml');
@@ -272,7 +275,7 @@ function checkWsReplay() {
   if (!existsSync(indexHtml)) {
     return {
       pass: false,
-      details: { reason: 'missing web/playwright-report/index.html' },
+      details: { reason: 'missing apps/web/playwright-report/index.html' },
     };
   }
   const html = readFileSync(indexHtml, 'utf8');
@@ -293,7 +296,7 @@ async function checkBundleSize() {
   if (!existsSync(assetsDir)) {
     return {
       pass: false,
-      details: { reason: 'missing web/dist/assets/' },
+      details: { reason: 'missing apps/web/dist/assets/' },
     };
   }
   const jsFiles = readdirSync(assetsDir).filter((f) => f.endsWith('.js'));
@@ -354,7 +357,7 @@ function checkLighthouse() {
       join(repoRoot, 'node_modules', '@lhci', 'cli', 'src', 'cli.js'),
     );
     const hint = lhciInstalled
-      ? 'Run `JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir web/dist &` then `npm --workspace @jeryu/web run perf`'
+      ? 'Run `JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist &` then `npm --workspace @jeryu/web run perf`'
       : 'Install with `npm install --workspace @jeryu/web @lhci/cli@latest` then run `npm --workspace @jeryu/web run perf`';
     return {
       pass: true,

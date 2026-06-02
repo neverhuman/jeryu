@@ -66,6 +66,11 @@
       "purpose": "verify root npm workspace wiring for UX-QA evidence lanes",
       "lane": "ux-qa"
     },
+    "tsconfig.json": {
+      "command": "npm --workspace @jeryu/web run typecheck",
+      "purpose": "verify the shared TypeScript base compiles the web cell under strict mode (apps/web extends it)",
+      "lane": "web"
+    },
     "Cargo.toml": {
       "command": "cargo metadata --format-version 1 --no-deps",
       "purpose": "verify workspace manifest shape",

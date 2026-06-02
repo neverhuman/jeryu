@@ -22,7 +22,7 @@ export function RepoSwitcher(): JSX.Element {
     >
       <FolderGit2 size={14} aria-hidden="true" />
       <span className="repo-switcher__label">
-        {currentRepoId ?? 'Select repository'}
+        {currentRepoId ?? 'Choose repository'}
       </span>
       <span className="repo-switcher__hint" aria-hidden="true">
         ↕

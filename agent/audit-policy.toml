@@ -39,6 +39,11 @@ excluded_paths = [
   ".jankurai/",
   "apps/web/eslint.config.js",
   "apps/web/playwright-report/",
+  # Generated/local build + test artifacts (gitignored; never authored). Same
+  # rationale as playwright-report/ above — minified vendor/build output, not
+  # product code.
+  "apps/web/storybook-static/",
+  "apps/web/test-results/",
 ]
 
 [smart_scan]

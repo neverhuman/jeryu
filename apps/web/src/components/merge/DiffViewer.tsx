@@ -182,6 +182,7 @@ export function DiffViewer({
         className="diff-viewer__scroll"
         // Bounded height so the virtualizer has a scrolling parent.
         style={{ maxHeight: '70vh', overflow: 'auto' }}
+        tabIndex={0}
         data-testid="diff-viewer-scroll"
       >
         <div

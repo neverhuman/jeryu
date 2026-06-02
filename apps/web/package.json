@@ -2,6 +2,10 @@
   "name": "@jeryu/web",
   "private": true,
   "type": "module",
+  "types": "src/api/types.ts",
+  "tsd": {
+    "directory": "typetests"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "tsc -b && vite build",
@@ -9,12 +13,13 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:contracts": "tsd",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "ux-qa": "node ../ux-qa/ux-qa-check.mjs build && node ../ux-qa/ux-qa-check.mjs test",
+    "ux-qa": "node ../../ux-qa/ux-qa-check.mjs build && node ../../ux-qa/ux-qa-check.mjs test",
     "perf": "lhci autorun --config=./perf/lighthouse.config.cjs"
   },
   "dependencies": {
@@ -62,6 +67,7 @@
     "jsdom": "29.1.1",
     "msw": "2.14.6",
     "storybook": "10.4.1",
+    "tsd": "^0.33.0",
     "typescript": "5.9.3",
     "vite": "6.4.2",
     "vitest": "4.1.7"

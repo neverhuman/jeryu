@@ -148,7 +148,7 @@ export function RepositoryCodePage(): JSX.Element {
         </aside>
         <div className="code-browser-layout__main">
           <EmptyState
-            title="Select a file"
+            title="Pick a file"
             description="Choose a file in the tree to view its contents, or press 't' to fuzzy-find."
           />
         </div>

@@ -71,7 +71,7 @@ export function FleetPage(): JSX.Element {
               data-testid="fleet-freshness-badge"
               title={
                 state.lastUpdated
-                  ? `Last update ${state.lastUpdated}`
+                  ? `Last updated ${state.lastUpdated}`
                   : 'No data received yet'
               }
             >

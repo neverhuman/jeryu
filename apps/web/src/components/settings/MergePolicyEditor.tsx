@@ -126,7 +126,7 @@ export function MergePolicyEditor({
             checked={value.delete_branch_on_merge}
             onChange={(e) => set({ delete_branch_on_merge: e.target.checked })}
           />
-          Delete branch on merge
+          Branch deletion on merge
         </label>
         <label className="merge-policy__checkbox">
           <input

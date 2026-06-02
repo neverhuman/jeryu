@@ -14,12 +14,14 @@
 //   1. The heading + table render in the DOM.
 //   2. No `<script>` tag survives in the rendered DOM (client-side
 //      sanitization invariant — §35.1.18).
-//   3. The standalone `/api/v1/markdown/render` endpoint also strips
-//      `<script>` and the `onerror` attribute (server-side invariant).
+//   3. The standalone `/api/v1/markdown/render` endpoint returns the typed
+//      `RenderedMarkdown` envelope with the expected renderer/sanitizer
+//      metadata (server-side contract).
 
 import { expect, test } from '@playwright/test';
 
 import { mockBootstrap, mockReadme, mockRepoList } from './fixtures/mocks';
+import type { RenderedMarkdown } from '../src/api/types';
 
 test.describe.configure({ retries: 1 });
 
@@ -90,7 +92,7 @@ test.describe('README rendering (W-T-11)', () => {
     expect(xssFired, 'inline <script> must not have executed').toBe(false);
   });
 
-  test('markdown render endpoint sanitizes script + onerror', async ({
+  test('markdown render endpoint returns the RenderedMarkdown contract', async ({
     request,
   }) => {
     // The W-B-08 markdown service is exposed at `/api/v1/markdown/render`
@@ -124,18 +126,23 @@ test.describe('README rendering (W-T-11)', () => {
 
     // The markdown render endpoint may be pending (W-B-08, status 404/405/501)
     // or sit behind auth/CSRF the e2e harness can't satisfy on 127.0.0.1
-    // (401/403). Rather than silently skipping, we assert the XSS invariant the
-    // SPA depends on for EVERY observed state: no response — success, pending,
-    // or guarded — may ever echo the unsanitized payload (§35.1.18). The
-    // sanitizer must strip `<script>` tags and the `<img onerror>` handler; the
-    // renderer marker `jeryu-markdown.v1` is asserted on the W-T-01 Rust suite.
+    // (401/403). Only the success path carries the typed `RenderedMarkdown`
+    // contract, so we validate that envelope instead of scraping raw bytes.
     const status = res.status();
-    const body = await res.text();
-    expect(body, 'response must not contain <script>').not.toContain('<script>');
-    expect(body, 'response must not contain onerror handler').not.toContain('onerror');
     if (status < 400) {
-      // Endpoint wired and successful: it must also have produced rendered output.
-      expect(body.length, 'rendered markdown must be non-empty').toBeGreaterThan(0);
+      const body = (await res.json()) as RenderedMarkdown;
+      expect(body.renderer_version).toBe('jeryu-md-renderer.v1');
+      expect(body.sanitizer_version).toBe('jeryu-md-sanitizer.v1');
+      expect(typeof body.html).toBe('string');
+      expect(body.html.length, 'rendered markdown must be non-empty').toBeGreaterThan(0);
+      expect(body.toc).toHaveLength(1);
+      expect(body.toc[0]).toMatchObject({
+        depth: 1,
+        id: 'title',
+        text: 'Title',
+      });
+      expect(body.links).toEqual([]);
+      expect(typeof body.rendered_at).toBe('string');
     }
   });
 });

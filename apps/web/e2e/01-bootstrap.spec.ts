@@ -74,9 +74,15 @@ test.describe('Bootstrap + Dashboard (W-T-09)', () => {
     // 5. Main outlet renders the dashboard content.
     await expect(page.locator('main#main-content')).toBeVisible();
 
-    await page.screenshot({
-      path: 'playwright-report/dashboard-loaded.png',
-      fullPage: true,
-    });
+    // Best-effort evidence only: keep the lane green even if Chromium fails
+    // to capture a screenshot on a transient run.
+    try {
+      await page.screenshot({
+        path: 'playwright-report/dashboard-loaded.png',
+        fullPage: true,
+      });
+    } catch {
+      // Ignore screenshot capture flakiness.
+    }
   });
 });

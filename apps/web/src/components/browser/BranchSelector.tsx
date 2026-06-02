@@ -29,7 +29,7 @@ export function BranchSelector({
   ariaLabel = 'Switch branches/tags',
 }: BranchSelectorProps): JSX.Element {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [filterText, setFilterText] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const refs = useRefs(repoId);
 
@@ -68,7 +68,7 @@ export function BranchSelector({
       >
         <span className="branch-selector__trigger-label">
           <GitBranch size={14} aria-hidden="true" />
-          {value || 'select ref'}
+          {value || 'choose a ref'}
         </span>
         <ChevronDown size={14} aria-hidden="true" />
       </button>
@@ -81,8 +81,8 @@ export function BranchSelector({
           <Command.Input
             className="branch-selector__input"
             placeholder="Filter refs…"
-            value={query}
-            onValueChange={setQuery}
+            value={filterText}
+            onValueChange={setFilterText}
             autoFocus
           />
           <Command.List className="branch-selector__list">

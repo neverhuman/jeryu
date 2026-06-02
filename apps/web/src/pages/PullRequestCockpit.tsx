@@ -61,7 +61,7 @@ export function PullRequestCockpit({
 }: PullRequestCockpitProps): JSX.Element {
   return (
     <div className="pr-cockpit">
-      <aside className="pr-cockpit__pane pr-cockpit__pane--files">
+      <aside className="pr-cockpit__pane pr-cockpit__pane--files" tabIndex={0}>
         <h2 className="pr-cockpit__pane-title">Files</h2>
         {diff.isPending ? (
           <LoadingState title="Loading diff…" variant="skeleton" rows={6} />
@@ -98,7 +98,7 @@ export function PullRequestCockpit({
         )}
       </main>
 
-      <aside className="pr-cockpit__pane pr-cockpit__pane--review">
+      <aside className="pr-cockpit__pane pr-cockpit__pane--review" tabIndex={0}>
         <h2 className="pr-cockpit__pane-title">Review</h2>
         <ReviewSidebar
           detail={data}
