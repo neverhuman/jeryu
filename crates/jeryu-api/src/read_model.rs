@@ -2,7 +2,7 @@
 //! the TUI/web panes render. Kept out of `web.rs` so the HTTP/WS edge stays
 //! focused on routing rather than rollup logic.
 
-use jeryu_core::{CheckConclusion, CheckRunStatus, ForgeCore, PullRequestState};
+use jeryu_core::{CheckConclusion, CheckRunStatus, ForgeCore};
 use jeryu_readmodel::{
     ComponentHealth, PoolActivity, PoolRollup, RepoActivity, RunnerHealth, SystemHealth,
     TuiReadModel,
@@ -14,10 +14,12 @@ use jeryu_readmodel::{
 /// check-runs into a [`RepoActivity`], classifying each check-run by status:
 /// `Queued` → queued, `InProgress` → running, and any `Completed` run whose
 /// conclusion is `Failure` → failed. The per-repo counts are then aggregated
-/// into a single synthetic `default` [`PoolRollup`] so the Pools/Health pane has
-/// a real, non-empty fabric to render. [`SystemHealth`] reports every component
-/// (`scm`/`database`/`sandbox`/`cache`/`vault`) as Healthy because holding a
-/// live `ForgeCore` means the local plane is open and serving.
+/// into a `default` [`PoolRollup`] whose runner capacity (online/slots/stuck)
+/// comes from the live [`jeryu_runnerd`] dogfood fleet — so the Pools/Health
+/// pane renders real numbers, not a synthetic single slot. [`SystemHealth`]
+/// reports every component (`scm`/`database`/`sandbox`/`cache`/`vault`) as
+/// Healthy because holding a live `ForgeCore` means the local plane is open and
+/// serving, and `runners` reflects the live fleet snapshot.
 pub(crate) fn assemble_read_model(core: &ForgeCore) -> TuiReadModel {
     TuiReadModel {
         pool_activity: assemble_pool_activity(core),
@@ -52,30 +54,12 @@ fn assemble_pool_activity(core: &ForgeCore) -> PoolActivity {
             }
         }
 
-        // A repo with neither open PRs nor any check-run is not active work; skip
-        // it so the activity rollup reflects real load rather than every repo.
-        let open_pulls = core
-            .list_pull_requests(&repo.owner, &repo.name, None)
-            .map(|pulls| {
-                pulls
-                    .iter()
-                    .filter(|pr| {
-                        !matches!(
-                            pr.state,
-                            PullRequestState::Closed | PullRequestState::Merged
-                        )
-                    })
-                    .count() as u32
-            })
-            .unwrap_or(0);
-        if open_pulls == 0 && checks.is_empty() {
-            continue;
-        }
-
         default_pool.queued_jobs = default_pool.queued_jobs.saturating_add(queued);
         default_pool.running_jobs = default_pool.running_jobs.saturating_add(running);
         default_pool.failed_jobs = default_pool.failed_jobs.saturating_add(failed);
 
+        // Every tracked repo is surfaced (with its live job counts) so the Repos
+        // pane reflects the real roster, not only repos with in-flight work.
         repos.push(RepoActivity {
             repo: repo.full_name.clone(),
             queued_jobs: queued,
@@ -85,15 +69,18 @@ fn assemble_pool_activity(core: &ForgeCore) -> PoolActivity {
         });
     }
 
-    // Size the synthetic pool's capacity to the running load so utilization is
-    // meaningful and the pool only shows saturated when work is genuinely queued
-    // with no idle slot. With no work at all, leave a single idle slot.
-    default_pool.active_slots = default_pool.running_jobs.max(1);
-    default_pool.configured_max_slots = default_pool.active_slots;
-    default_pool.online_runners = default_pool.active_slots;
+    // Pool runner capacity comes from the REAL dogfood runner fleet (4 nodes ×
+    // 10 slots), not a synthetic single slot — so online/slots/utilization on the
+    // Pools/Health pane reflect the live fabric instead of reading zero.
+    let fleet = jeryu_runnerd::fleet_snapshot();
+    default_pool.online_runners = fleet.online_runners;
+    default_pool.active_slots = fleet.active_slots;
+    default_pool.configured_max_slots = fleet.total_slots;
+    default_pool.stuck_runners = fleet.stuck_runners;
 
-    // Only surface the pool once there is at least one active repo; an empty
-    // server yields an empty (Unknown-health) activity rollup, never a fake pool.
+    // Surface the pool once there is at least one tracked repo, preserving the
+    // empty-server "no fabric" contract; when shown, the pool carries the REAL
+    // fleet capacity set above instead of a synthetic single slot.
     let pools = if repos.is_empty() {
         Vec::new()
     } else {
@@ -110,12 +97,70 @@ fn assemble_pool_activity(core: &ForgeCore) -> PoolActivity {
 /// All system components reported Healthy: holding a live `ForgeCore` means the
 /// local control plane (scm/db/sandbox/cache/vault) is open and serving.
 fn healthy_system() -> SystemHealth {
+    let fleet = jeryu_runnerd::fleet_snapshot();
     SystemHealth {
         scm: ComponentHealth::ok("scm", 0),
         database: ComponentHealth::ok("database", 0),
         sandbox: ComponentHealth::ok("sandbox", 0),
         cache: ComponentHealth::ok("cache", 0),
         vault: ComponentHealth::ok("vault", 0),
-        runners: RunnerHealth::default(),
+        // Real runner health from the live fleet, not all-zero defaults.
+        runners: RunnerHealth {
+            online: fleet.online_runners,
+            busy: fleet.busy_runners,
+            idle: fleet.idle_runners,
+            degraded: fleet.stuck_runners,
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fleet_snapshot_reflects_the_dogfood_fleet() {
+        // The default fleet is the deterministic dogfood fixture: 4 nodes × 10.
+        let fleet = jeryu_runnerd::fleet_snapshot();
+        assert_eq!(fleet.nodes, 4, "dogfood fixture has 4 nodes (xbabe0..3)");
+        assert_eq!(fleet.total_slots, 40, "4 nodes × 10 slots = 40");
+        assert!(fleet.online_runners >= 1, "fixture nodes are online, not zero");
+        assert_eq!(fleet.online_runners + fleet.stuck_runners, fleet.nodes);
+    }
+
+    #[test]
+    fn healthy_system_reports_real_runner_health_not_zeros() {
+        let system = healthy_system();
+        assert!(
+            system.runners.online >= 1,
+            "system.runners must reflect the live fleet, not RunnerHealth::default() zeros"
+        );
+    }
+
+    #[test]
+    fn pool_carries_real_fleet_capacity_not_a_synthetic_slot() {
+        // A server with a tracked repo surfaces a pool whose runner capacity is
+        // the REAL dogfood fleet (4 nodes × 10 = 40 slots, 4 online) — not the
+        // old synthetic single idle slot that read as near-zero on the Pools pane.
+        let core = ForgeCore::new();
+        core.create_repository(
+            "alice",
+            jeryu_core::CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let activity = assemble_pool_activity(&core);
+        assert_eq!(activity.repos.len(), 1, "the tracked repo is surfaced");
+        assert!(!activity.pools.is_empty(), "a tracked repo surfaces a pool");
+        let pool = &activity.pools[0];
+        assert_eq!(
+            pool.configured_max_slots, 40,
+            "configured slots must be the real fleet capacity (40), not a synthetic 1"
+        );
+        assert_eq!(pool.online_runners, 4, "the 4 dogfood nodes are online");
     }
 }

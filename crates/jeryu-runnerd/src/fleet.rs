@@ -33,6 +33,14 @@ pub fn submit(job: CoreJobRequest) -> Receipt {
     }
 }
 
+/// Read-only health snapshot of the default dogfood fleet for the TUI
+/// read-model. The default fleet is the deterministic dogfood fixture (4 nodes ×
+/// 10 slots); a fresh fixture reports that same configured capacity without a
+/// shared mutable global.
+pub fn snapshot() -> RunnerFleetSnapshot {
+    RunnerFleet::deterministic_fixture().snapshot()
+}
+
 /// Runner-fleet operation error.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FleetError {
@@ -194,6 +202,26 @@ pub struct FleetNodeHealth {
     pub capacity: u32,
     /// Current in-flight leases.
     pub in_flight: u32,
+}
+
+/// Read-only health snapshot of a fleet, for the TUI read-model. A node counts
+/// as online unless its lifecycle state is explicitly drained/fenced/offline.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RunnerFleetSnapshot {
+    /// Registered nodes.
+    pub nodes: u32,
+    /// Nodes currently online.
+    pub online_runners: u32,
+    /// In-flight leases across online nodes.
+    pub busy_runners: u32,
+    /// Free slots across online nodes.
+    pub idle_runners: u32,
+    /// Nodes in a drained/fenced/offline state.
+    pub stuck_runners: u32,
+    /// Total configured slots across all nodes.
+    pub total_slots: u32,
+    /// Slots on online nodes only.
+    pub active_slots: u32,
 }
 
 /// In-process runner fleet.
@@ -362,6 +390,39 @@ impl RunnerFleet {
                 in_flight: node.in_flight,
             })
             .collect()
+    }
+
+    /// Read-only health snapshot for the TUI read-model. A node counts as
+    /// online unless its state is explicitly drained/fenced/offline; its
+    /// capacity contributes to total slots and, when online, to active slots.
+    pub fn snapshot(&self) -> RunnerFleetSnapshot {
+        let mut snap = RunnerFleetSnapshot::default();
+        for node in self.health() {
+            snap.nodes = snap.nodes.saturating_add(1);
+            snap.total_slots = snap.total_slots.saturating_add(node.capacity);
+            let down = matches!(
+                node.state.as_str(),
+                "drained"
+                    | "draining"
+                    | "fenced"
+                    | "fenced_out"
+                    | "offline"
+                    | "down"
+                    | "dead"
+                    | "quarantined"
+            );
+            if down {
+                snap.stuck_runners = snap.stuck_runners.saturating_add(1);
+            } else {
+                snap.online_runners = snap.online_runners.saturating_add(1);
+                snap.active_slots = snap.active_slots.saturating_add(node.capacity);
+                snap.busy_runners = snap.busy_runners.saturating_add(node.in_flight);
+                snap.idle_runners = snap
+                    .idle_runners
+                    .saturating_add(node.capacity.saturating_sub(node.in_flight));
+            }
+        }
+        snap
     }
 
     fn current_epoch(&self, runner_id: &str) -> u64 {
