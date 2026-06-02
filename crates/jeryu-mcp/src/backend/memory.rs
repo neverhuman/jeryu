@@ -161,6 +161,63 @@ impl ToolBackend for MemoryBackend {
                 "enqueued to merge queue",
                 serde_json::json!({ "pr_number": arg("pr_number"), "enqueued": true }),
             ),
+            "workcell.claim" => ToolResponse::ok(
+                "workcell claimed",
+                serde_json::json!({
+                    "workcell_id": format!("wc-{}", arg("agent_id")),
+                    "state": "claimed",
+                    "agent_id": arg("agent_id"),
+                    "workspace_root": arg("workspace_root"),
+                    "repo_roots": arg("repo_roots"),
+                    "branch_budget": arg("branch_budget"),
+                    "runner_id": arg("runner_id"),
+                    "runner_epoch": arg("runner_epoch"),
+                    "git_status_summary": arg("git_status_summary"),
+                    "startup": arg("startup"),
+                }),
+            ),
+            "workcell.status" => ToolResponse::ok(
+                "workcell status",
+                serde_json::json!({
+                    "workcell_id": arg("workcell_id"),
+                    "state": "ready",
+                }),
+            ),
+            "workcell.repair_live" => ToolResponse::ok(
+                "live repair started",
+                serde_json::json!({
+                    "held": {
+                        "workcell_id": format!("wc-{}", arg("agent_id")),
+                        "state": "held",
+                        "failed_run_id": arg("failed_run_id"),
+                    },
+                    "repairing": {
+                        "workcell_id": format!("wc-{}", arg("agent_id")),
+                        "state": "repairing",
+                        "failure_log_digest": arg("failure_log_digest"),
+                    }
+                }),
+            ),
+            "workcell.export_pr" => ToolResponse::ok(
+                "repair exported",
+                serde_json::json!({
+                    "branch": format!(
+                        "agents/{}/workcells/{}/{}",
+                        arg("author"),
+                        arg("workcell_id"),
+                        arg("branch_suffix")
+                    ),
+                    "pull_request_number": 1,
+                    "pull_request_url": format!("/repos/{}/{}/pulls/1", arg("owner"), arg("repo")),
+                }),
+            ),
+            "workcell.release" => ToolResponse::ok(
+                "workcell released",
+                serde_json::json!({
+                    "workcell_id": arg("workcell_id"),
+                    "released": true,
+                }),
+            ),
             "bug_submit" => {
                 let record = self.submit(
                     arg("report"),

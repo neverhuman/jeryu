@@ -66,6 +66,36 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(false, true, false, true),
             ToolKind::RequestMerge,
         ),
+        "workcell.claim" => (
+            "Claim workcell",
+            "Claim a ready workcell for an agent and workspace root.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellClaim,
+        ),
+        "workcell.status" => (
+            "Workcell status",
+            "Read the current workcell lease or held-failure state.",
+            tool_annotations(true, false, true, false),
+            ToolKind::WorkcellStatus,
+        ),
+        "workcell.repair_live" => (
+            "Start live repair",
+            "Hold a failed tree and start live repair inside the workcell jail.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellRepairLive,
+        ),
+        "workcell.export_pr" => (
+            "Export repair PR",
+            "Export the held repair branch into a namespaced pull request.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellExportPr,
+        ),
+        "workcell.release" => (
+            "Release workcell",
+            "Release a claimed or repairing workcell back to the warm pool.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellRelease,
+        ),
         "bug_submit" => (
             "Submit bug",
             "Submit a canonical bug report to the local RedlineDB tracker.",

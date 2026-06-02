@@ -18,6 +18,11 @@ pub(crate) enum ToolKind {
     ProposePatch,
     RacePatches,
     RequestMerge,
+    WorkcellClaim,
+    WorkcellStatus,
+    WorkcellRepairLive,
+    WorkcellExportPr,
+    WorkcellRelease,
     BugSubmit,
     BugList,
     BugShow,
@@ -55,6 +60,23 @@ impl ToolDefinition {
         let s = |k: &str| args.get(k).and_then(Value::as_str).map(ToString::to_string);
         let i = |k: &str| args.get(k).and_then(Value::as_i64);
         let opt_s = |k: &str| args.get(k).and_then(Value::as_str).map(ToString::to_string);
+        let startup = |value: &Value| {
+            let startup = value.as_object()?;
+            let state = startup.get("state").and_then(Value::as_str)?;
+            let main_ref = startup.get("main_ref").and_then(Value::as_str)?;
+            let base_sha = startup.get("base_sha").and_then(Value::as_str)?;
+            let head_sha = startup.get("head_sha").and_then(Value::as_str)?;
+            let mut out = serde_json::json!({
+                "state": state,
+                "main_ref": main_ref,
+                "base_sha": base_sha,
+                "head_sha": head_sha,
+            });
+            if let Some(reason) = startup.get("reason").and_then(Value::as_str) {
+                out.as_object_mut()?.insert("reason".to_string(), serde_json::json!(reason));
+            }
+            Some(out)
+        };
 
         let out = match self.kind {
             ToolKind::FetchCapsule => serde_json::json!({ "job_id": i("job_id")? }),
@@ -101,6 +123,49 @@ impl ToolDefinition {
                 "pr_number": i("pr_number")?,
                 "source_branch": s("source_branch")?,
                 "target_branch": s("target_branch")?,
+            }),
+            ToolKind::WorkcellClaim => serde_json::json!({
+                "agent_id": s("agent_id")?,
+                "workspace_root": s("workspace_root")?,
+                "repo_roots": parse_string_array(args.get("repo_roots")?)?,
+                "branch_budget": i("branch_budget")?,
+                "runner_id": s("runner_id")?,
+                "runner_epoch": i("runner_epoch")?,
+                "git_status_summary": s("git_status_summary")?,
+                "ci_snapshot_age_ms": args.get("ci_snapshot_age_ms").and_then(Value::as_i64),
+                "startup": startup(args.get("startup")?)?,
+            }),
+            ToolKind::WorkcellStatus => serde_json::json!({
+                "workcell_id": s("workcell_id")?,
+            }),
+            ToolKind::WorkcellRepairLive => serde_json::json!({
+                "agent_id": s("agent_id")?,
+                "workspace_root": s("workspace_root")?,
+                "repo_roots": parse_string_array(args.get("repo_roots")?)?,
+                "branch_budget": i("branch_budget")?,
+                "runner_id": s("runner_id")?,
+                "runner_epoch": i("runner_epoch")?,
+                "git_status_summary": s("git_status_summary")?,
+                "ci_snapshot_age_ms": args.get("ci_snapshot_age_ms").and_then(Value::as_i64),
+                "startup": startup(args.get("startup")?)?,
+                "failed_run_id": s("failed_run_id")?,
+                "failed_receipt_id": s("failed_receipt_id")?,
+                "failure_log_digest": s("failure_log_digest")?,
+            }),
+            ToolKind::WorkcellExportPr => serde_json::json!({
+                "workcell_id": s("workcell_id")?,
+                "runner_epoch": i("runner_epoch")?,
+                "branch_suffix": s("branch_suffix")?,
+                "owner": s("owner")?,
+                "repo": s("repo")?,
+                "author": s("author")?,
+                "target_branch": opt_s("target_branch"),
+                "title": opt_s("title"),
+                "body": opt_s("body"),
+            }),
+            ToolKind::WorkcellRelease => serde_json::json!({
+                "workcell_id": s("workcell_id")?,
+                "runner_epoch": i("runner_epoch")?,
             }),
             ToolKind::BugSubmit => serde_json::json!({
                 "report": args.get("report")?.clone(),
