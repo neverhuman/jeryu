@@ -6,10 +6,22 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[[bin]]
+name = "jeryu-editbot"
+path = "src/bin/jeryu-editbot.rs"
+
 [dependencies]
 jeryu-core = { path = "../jeryu-core" }
 jeryu-proof = { path = "../jeryu-proof" }
 jeryu-ci-scheduler = { path = "../jeryu-ci-scheduler" }
+# The in-cell agent driver reuses the runner-core policy/sandbox model and the
+# real kernel sandbox launch path. All unsafe stays in jeryu-sandbox-linux; this
+# crate inherits the workspace `forbid(unsafe_code)` lint below.
+jeryu-runner-core = { path = "../jeryu-runner-core" }
+jeryu-sandbox-linux = { path = "../jeryu-sandbox-linux" }
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

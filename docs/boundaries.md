@@ -33,3 +33,11 @@ manager may claim a warm cell, fence stale heartbeats by epoch, freeze failed
 CI runs into immutable snapshots, and mark a cell blocked if the startup
 rebase fails. It may not merge, delete branches, or unpack tarball contents
 outside approved repo roots.
+
+Inside a cell, the in-cell agent driver (`jeryu-agentbridge`) spawns the
+code-writing process through the native jail (`spawn_sandboxed`), so its reads
+and writes are confined to the cell checkout. A jailed process has **no network
+egress except through the `jeryu-egress` allowlist proxy**: only vetted hosts
+(LLM APIs, `crates.io`, the forge git hosts) are reachable, matched on exact
+host or a DNS-suffix on a dot boundary (never substring), and a tripped token
+budget revokes egress entirely (`DenyBudget`). See `docs/workcell.md`.
