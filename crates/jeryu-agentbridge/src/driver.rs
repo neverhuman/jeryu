@@ -213,6 +213,13 @@ pub struct AgentDriver {
     /// Cap on total captured stdout+stderr bytes. A real token budget wraps this
     /// byte budget for now.
     output_budget_bytes: usize,
+    /// Require ENFORCED cgroup-v2 limits for the agent job. Defaults to `true`:
+    /// an LLM-driven code generator must never run without real memory/pids
+    /// confinement, so on a host lacking a delegated cgroup subtree the launch
+    /// FAILS CLOSED (`DriverError::SandboxUnavailable`) instead of degrading.
+    /// Callers that knowingly run on a cgroup-less host (e.g. the Landlock/seccomp
+    /// jail tests) opt out via [`AgentDriver::with_require_cgroup`].
+    require_cgroup: bool,
 }
 
 impl Default for AgentDriver {
@@ -230,10 +237,14 @@ fn cached_capabilities() -> &'static SandboxCapabilities {
 
 impl AgentDriver {
     /// Create a driver with an explicit timeout and output budget.
+    ///
+    /// Defaults `require_cgroup` to `true` (the safe agent-job posture): the run
+    /// fails closed on any host without a delegated cgroup-v2 subtree.
     pub fn new(timeout: Duration, output_budget_bytes: usize) -> Self {
         Self {
             timeout,
             output_budget_bytes,
+            require_cgroup: true,
         }
     }
 
@@ -249,6 +260,24 @@ impl AgentDriver {
     pub fn with_output_budget(mut self, bytes: usize) -> Self {
         self.output_budget_bytes = bytes;
         self
+    }
+
+    /// Builder: require (or not) enforced cgroup-v2 limits for the agent job.
+    ///
+    /// `true` (the default) fails the launch closed when the host has no
+    /// delegated cgroup subtree. Pass `false` ONLY when the run is exercising the
+    /// Landlock/seccomp jail rather than cgroups and must proceed on a host
+    /// without cgroup delegation.
+    #[must_use]
+    pub fn with_require_cgroup(mut self, require: bool) -> Self {
+        self.require_cgroup = require;
+        self
+    }
+
+    /// Whether this driver requires enforced cgroup-v2 limits.
+    #[must_use]
+    pub fn require_cgroup(&self) -> bool {
+        self.require_cgroup
     }
 
     /// Build the confined [`JobRequest`] for an in-cell agent run.
@@ -300,7 +329,11 @@ impl AgentDriver {
 
         let job = self.build_job(workspace, spec);
         let decision = select_runner(&job).map_err(|e| DriverError::Policy(e.to_string()))?;
-        let plan = SandboxPlan::from_decision(workspace, &decision);
+        // Agent jobs default to require_cgroup=true: without a delegated cgroup
+        // subtree this resolves to Unavailable and spawn_sandboxed refuses to
+        // launch (fail-closed), surfaced below as DriverError::SandboxUnavailable.
+        let plan = SandboxPlan::from_decision(workspace, &decision)
+            .with_require_cgroup(self.require_cgroup);
 
         let caps = cached_capabilities();
         let level = caps.enforcement_level(&plan);
@@ -637,6 +670,19 @@ mod tests {
         assert_eq!(events[0], AgentEvent::Started { pid: 7 });
         assert!(matches!(events[1], AgentEvent::Stdout(_)));
         assert!(matches!(events[2], AgentEvent::Finished { .. }));
+    }
+
+    #[test]
+    fn driver_defaults_to_require_cgroup_and_builder_opts_out() {
+        // Agent jobs are confined by default: require_cgroup is ON.
+        assert!(AgentDriver::default().require_cgroup());
+        assert!(AgentDriver::new(Duration::from_secs(1), 1024).require_cgroup());
+        // Tests that exercise only the Landlock/seccomp jail opt out.
+        assert!(
+            !AgentDriver::default()
+                .with_require_cgroup(false)
+                .require_cgroup()
+        );
     }
 
     #[test]

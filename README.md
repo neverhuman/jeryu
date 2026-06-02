@@ -99,8 +99,9 @@ spawns the code-writing process through the native, unprivileged
 `jeryu-sandbox-linux` jail (Landlock + seccomp + `no_new_privs`, no Docker or
 `sudo`) with a watchdog + output/token budget; `jeryu-egress` gives the cell
 network access only to an allowlist of vetted hosts and revokes it when the
-budget trips. The capability and its proof commands are documented in
-`docs/workcell.md`.
+budget trips. Agent jobs are **fail-closed on resource limits** — they refuse to
+run without enforced cgroup-v2 CPU/memory/PID caps. The capability and its proof
+commands are documented in `docs/workcell.md`.
 
 ## Local Live Runtime
 

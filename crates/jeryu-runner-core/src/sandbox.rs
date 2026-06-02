@@ -133,6 +133,11 @@ pub struct SandboxPlan {
     pub allow_secrets: bool,
     /// Cache write policy.
     pub cache_write_policy: CacheWritePolicy,
+    /// When `true`, the job MUST run under enforced cgroup-v2 limits: if no
+    /// delegated cgroup-v2 subtree is available, the sandbox resolves to
+    /// `Unavailable` and refuses to launch (fail-closed). Defaults to `false`
+    /// so existing CI/build jobs and the escape suite degrade exactly as before.
+    pub require_cgroup: bool,
 }
 
 impl SandboxPlan {
@@ -184,7 +189,24 @@ impl SandboxPlan {
             mounts,
             allow_secrets: decision.allow_secrets,
             cache_write_policy: decision.cache_write_policy,
+            // Default OFF: a plain build/CI job degrades (does not fail closed)
+            // when cgroups cannot be enforced. Agent jobs opt IN explicitly via
+            // [`SandboxPlan::with_require_cgroup`].
+            require_cgroup: false,
         }
+    }
+
+    /// Builder: require enforced cgroup-v2 limits for this job.
+    ///
+    /// When set to `true`, [`crate::sandbox::SandboxPlan`] callers that go
+    /// through the capability resolver get `EnforcementLevel::Unavailable` (and
+    /// thus a refused launch) on any host lacking a delegated cgroup-v2 subtree,
+    /// rather than the default degraded-skip. Agent drivers set this so a code
+    /// generator can never run without real memory/pids confinement.
+    #[must_use]
+    pub fn with_require_cgroup(mut self, require: bool) -> Self {
+        self.require_cgroup = require;
+        self
     }
 
     /// Render a compact explain string for receipts and logs.
@@ -244,6 +266,20 @@ mod tests {
         assert!(plan.cgroup_limits.cpu_weight > 0);
         assert!(plan.cgroup_limits.pids_max > 0);
         assert!(plan.cgroup_limits.io_weight > 0);
+    }
+
+    #[test]
+    fn require_cgroup_defaults_off_and_builder_sets_it() {
+        let workspace = PathBuf::from("/tmp/jeryu-work");
+        let plan = SandboxPlan::from_decision(&workspace, &decision(RunnerClass::NativeRustClean));
+        // Default OFF so existing CI/build jobs + the escape suite are unchanged.
+        assert!(!plan.require_cgroup);
+
+        let strict = plan.clone().with_require_cgroup(true);
+        assert!(strict.require_cgroup);
+        // The builder flips only this flag; the rest of the plan is untouched.
+        assert_eq!(strict.runner_class, plan.runner_class);
+        assert_eq!(strict.landlock_rules, plan.landlock_rules);
     }
 
     #[test]
