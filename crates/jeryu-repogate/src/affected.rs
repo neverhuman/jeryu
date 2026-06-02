@@ -280,7 +280,7 @@ fn affected_lanes(changed_files: &[String], full_ci: bool) -> Vec<String> {
         lanes.insert("full".to_string());
     }
     for path in changed_files {
-        if path.starts_with("web/") || path == "package.json" {
+        if path.starts_with("apps/web/") || path == "package.json" {
             lanes.insert("web".to_string());
         }
         if path.starts_with("crates/jeryu-tui/") {

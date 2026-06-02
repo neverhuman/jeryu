@@ -12,3 +12,18 @@ manual_edits = false
 path = "contracts/generated/**"
 generator = "cargo run -p jeryu-readmodel --bin export_contracts"
 manual_edits = false
+
+[[zones]]
+path = "apps/web/playwright-report/**"
+generator = "npm --workspace @jeryu/web run ux-qa"
+manual_edits = false
+
+[[zones]]
+path = "apps/web/dist/**"
+generator = "npm --workspace @jeryu/web run build"
+manual_edits = false
+
+[[zones]]
+path = "apps/web/storybook-static/**"
+generator = "npm --workspace @jeryu/web run build-storybook"
+manual_edits = false

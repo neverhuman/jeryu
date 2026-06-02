@@ -4,14 +4,22 @@ use jeryu_runner_core::receipt::ReceiptStatus;
 use jeryu_runner_core::trust::{RunnerClass, TrustTier};
 use jeryu_runnerd::{DispatchEngine, DispatchMode};
 use std::path::PathBuf;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+static EXECUTION_GUARD: Mutex<()> = Mutex::new(());
+
 fn workspace() -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
-    std::env::temp_dir().join(format!("jeryu-phase4-gate-{stamp}"))
+    let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("jeryu-phase4-gate-{stamp}-{unique}"))
 }
 
 fn job(tier: TrustTier) -> JobRequest {
@@ -72,6 +80,7 @@ fn fork_pr_egress_request_is_denied() {
 
 #[test]
 fn runner_crash_or_missing_command_produces_failed_receipt() {
+    let _guard = EXECUTION_GUARD.lock().unwrap();
     let mut request = job(TrustTier::T1ProtectedInternal);
     request.command = "/definitely/not/a/command".to_string();
     let receipt = DispatchEngine::new().dispatch(&request, DispatchMode::Run);
@@ -90,6 +99,7 @@ fn policy_denial_still_produces_receipt() {
 
 #[test]
 fn trusted_native_runner_executes_smoke_command() {
+    let _guard = EXECUTION_GUARD.lock().unwrap();
     let request = job(TrustTier::T1ProtectedInternal);
     let receipt = DispatchEngine::new().dispatch(&request, DispatchMode::Run);
     assert_eq!(receipt.status, ReceiptStatus::Passed);

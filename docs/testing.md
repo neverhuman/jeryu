@@ -6,27 +6,57 @@ not replace them or make a local gate silently green.
 Default worker count is 40. CI scripts source `ops/ci/common.sh` or
 `ops/ci/ci-env.sh`, which set `JERYU_CI_JOBS=40` and `CARGO_BUILD_JOBS=40`
 unless the caller explicitly overrides them. Local Jeryu runners default to
-`native-rust-hot`; GitHub-hosted fallback runs `native-rust-clean` on ordinary
+`native-rust-hot`; GitHub-hosted clean-profile runs `native-rust-clean` on ordinary
 Ubuntu runners. Docker/OCI is opt-in for jobs that require container isolation.
+
+Local fast CI keeps Rust tests inline by default. `just fast` and
+`bash ci-fast-push.sh --no-push` use `JERYU_CI_RUST_TEST_MODE=inline` unless the
+caller explicitly overrides it. Hosted `ops/ci/ci-fast.sh` selects
+`JERYU_CI_RUST_TEST_MODE=sharded`, so the aggregate affected lane still runs
+format, environment, drift, check, clippy, web, DB, audit, and proof steps while
+recording the generic Rust test step as covered by the external shard matrix.
+The `rust-test-shards` job in `.github/workflows/ci-fast.yml` fans out shards
+`0..39`; each shard runs
+`bash ops/ci/shard.sh "$JERYU_CI_SHARD_INDEX" "$JERYU_CI_SHARD_TOTAL"` with
+`JERYU_CI_SHARD_TOTAL=40`, `JERYU_CI_SHARD_JOBS=2`,
+`JERYU_RUNNER_EXECUTOR=native`, `JERYU_RUNNER_CLASS=native-rust-clean`, and
+`JERYU_CI_DOCKER=0`. The shard driver also accepts
+`bash ops/ci/shard.sh <index> <total>` locally for targeted reproduction and
+fails closed if the runner is Docker-backed or not a native Rust runner class.
 
 Primary lanes:
 - `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for branch
   and PR checks.
 - `bash ci-fast-push.sh --full --no-push`: local proof of the full hosted-lane
-  union from `agent/ci-lanes.toml`, including GitHub fallback-profile proof,
+  union from `agent/ci-lanes.toml`, including GitHub clean profile proof,
   security toolchain verification, retired-listener/process rejection, and all
   full workflow lanes.
+- `npm --workspace @jeryu/web run test:e2e`: Playwright lane for critical web
+  flows, including the rendered README and repository browsing paths.
+- `npm --workspace @jeryu/web run ux-qa`: rendered UX QA lane for screenshots,
+  accessibility checks, and the visual contract for the web surface.
 - `bash ci-fast-push.sh`: local publish path after gates pass; it pushes the
   current branch and opens or reports a PR. Direct `HEAD:main` push requires
   explicit `--push-main` or `JERYU_CI_PUSH_MAIN=1`.
+- `bash ops/ci/publish-readme-score.sh --verify`: local README publish helper
+  that reads `target/jankurai/repo-score.{json,md}`, posts the managed score
+  block through the local API, and writes
+  `target/jankurai/readme-publish-receipt.json`. Use `--dry-run --verify` to
+  validate the block render without mutating the worktree.
 - `just fast`: deterministic fast lane for agent iteration.
 - `just ci`: per-phase gate aggregator with explicit PASS, FAIL, and PENDING states.
 - `just full`: workspace foundation gate with fmt, check, tests, clippy, zero-evidence, docs, release, score, and doctor checks.
 - `just security`: cache adversary, poisoning matrix, zero-evidence, and secret scan.
 - `just audit`: Jankurai audit plus dependency-audit integration when the tool is installed.
 
+## Workcells
+
+- `cargo test -p jeryu-runnerd workcell --jobs 40`: workcell lifecycle, epoch fencing, tar safety, and frozen CI repair helper proof lane.
+- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck`: read-model dashboard and generated contract proof lane for the workcells snapshot.
+- `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
+
 PENDING is only allowed for a capability that is not built yet and must be
-printed as PENDING, not PASS. The current phase gates report PASS=7,
+printed as PENDING, not PASS. The current phase gates report PASS=9,
 PENDING=0, FAIL=0; if a future live capability is missing, mark only that gate
 PENDING with evidence.
 
@@ -57,12 +87,21 @@ Repair evidence:
 - Common fixes are routed through `agent/test-map.json`; use the narrowest lane for the changed path before running `just full`.
 - Typed repair surfaces must name `purpose`, `reason`, common fixes, `docs_url`,
   and `repair_hint` so the next rerun is local and agent-readable.
+- Structured repair receipts should point at the lane transcript, the local
+  artifact path, and the owning doc or proof lane for the rerun. For release
+  and provenance failures, link back to `docs/release.md` and
+  `docs/release-process.md` so the commit, rollback target, and gate evidence
+  stay explicit.
 - Public read-only API additions, including `/api/v1/ecosystem` and
   `/api/v1/ci/runs/{id}/evidence`, require route tests that prove live data
   sourcing, camelCase response contracts, digest-verifiable payloads, and typed
   404 repair guidance. Rerun
   `cargo test -p jeryu-api --features web --jobs 40` plus the matching clippy
   lane before release evidence is recorded.
+- README publish failures should rerun
+  `bash ops/ci/publish-readme-score.sh --verify` after regenerating
+  `target/jankurai/repo-score.json` and `target/jankurai/repo-score.md` from
+  `bash ops/ci/proof-evidence.sh`.
 - Repair hint: if a Jankurai finding names a path, first run `jankurai diff-audit --base-ref origin/main .`, then the mapped proof command for that path.
 - Unsupported GitHub-compatible REST or GraphQL requests must return a
   `jeryu_repair_hint` with route/tool alternatives and a local rerun command;

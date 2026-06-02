@@ -39,6 +39,7 @@ impl ForgeCore {
         };
         state.counters.insert(key.clone(), Counters::default());
         state.repos.insert(key, repo.clone());
+        super::ensure_default_branch_protection(&mut state, &repo);
         self.persist_after_mutation(&mut state, previous)?;
         drop(state);
         if let Some(materializer) = &self.repo_materializer {

@@ -26,6 +26,7 @@ pub struct WebFeatureFlags {
     pub markdown_html: bool,
     pub agents: bool,
     pub mcp: bool,
+    pub workcells: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

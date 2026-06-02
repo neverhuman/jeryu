@@ -47,10 +47,21 @@ local repository import, affected fast CI, and guided GitHub-compatible
 REST/GraphQL repair responses, and gitd-backed local import materialization.
 The latest closeout full lanes pass with 1175 workspace nextest tests in both
 local-native and GitHub-clean profiles, all phase gates at
-PASS=7/PENDING=0/FAIL=0, the full manifest lane union green, proof-evidence
-Jankurai full scan at score 92/caps 0, and changed-file Jankurai checks at hard
-0/caps 0. Publishing is PR-first by default; direct `main` pushes require
-explicit opt-in.
+PASS=9/PENDING=0/FAIL=0, and the full manifest lane union green.
+
+<!-- jeryu:managed-score:start -->
+- Final score: `70`
+- Raw score: `89`
+- Hard findings: `4`
+- Soft findings: `2`
+- Caps applied: `ci-bad-behavior`
+- Report fingerprint: `sha256:43fe61e04abd611471e6bfb9797866d62e5ea35a3e54a14f0c746ac9c7e59f38`
+- Source artifacts: `target/jankurai/repo-score.json`, `target/jankurai/repo-score.md`
+- Publish receipt: `target/jankurai/readme-publish-receipt.json`
+<!-- jeryu:managed-score:end -->
+
+Publishing is PR-first by default; direct `main` pushes require explicit
+opt-in.
 
 This checkpoint is local-first. The default operator path binds loopback and
 uses `~/.local/share/jeryu`; public/LAN access, token rotation, production
@@ -68,7 +79,7 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Forge/domain/API facade | `jeryu-core`, `jeryu-domain`, `jeryu-api`, `jeryu-cli` |
 | Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
-| Runner fabric | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd` |
+| Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd` |
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
@@ -95,7 +106,9 @@ The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/user` and `/graphql` routes. The ecosystem and CI-run evidence routes are
 read-only: they expose live MCP tool graph metadata, forge health, queue
 identity, and digest-verifiable CI evidence for clients that need agent-readable
-state before choosing a mutation path.
+state before choosing a mutation path. The bootstrap payload also carries the
+`workcells` feature flag and the live workcell dashboard snapshot inside the
+typed TUI model.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 
@@ -108,7 +121,7 @@ cargo run -p jeryu-tui -- --once --source api \
 
 Local Git directories can be registered into the SQLite forge store and a
 host-local manifest under the data dir. The same import also materializes a
-gitd-managed bare mirror at `~/.local/share/jeryu/git/repos/OWNER/REPO.git` so
+gitd-managed bare mirror at `~/.local/share/jeryu/git/OWNER/REPO.git` so
 local clone/fetch smoke tests use the Jeryu Git storage path, not only metadata:
 
 ```bash
@@ -121,9 +134,18 @@ cargo run -p jeryu-mirror-cli -- import-local \
 The REST edge is a guided GitHub subset for common local `gh` and agent flows:
 `/user`, repository list/view/create, pull request list/view/create/merge,
 issues and issue comments, statuses, check runs, branch protection, releases,
-hooks, and `/api/v1/version`. Unknown REST routes return GitHub-shaped `404`
-objects with `jeryu_repair_hint`, MCP tool ids, and closest Jeryu REST route
-alternatives.
+hooks, Actions read surfaces for workflow/run inspection, and
+`/api/v1/version`. The supported Actions reads include
+`GET /repos/{owner}/{repo}/actions/runs`,
+`GET /repos/{owner}/{repo}/actions/runs/{id}`,
+`GET /repos/{owner}/{repo}/actions/runs/{id}/jobs`,
+`GET /repos/{owner}/{repo}/actions/workflows`,
+`GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}`, and
+`GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs`. Unsupported
+Actions writes stay on the guided `501` path with `jeryu_repair_hint`,
+`jeryu_connection`, and `jeryu_steering` pointing to the local MCP/CI path.
+Unknown REST routes return GitHub-shaped `404` objects with `jeryu_repair_hint`,
+MCP tool ids, and closest Jeryu REST route alternatives.
 
 `POST /graphql` is intentionally narrow. It supports read-only `__typename`,
 `viewer`, and simple `repository(owner, name)` probes; other GraphQL operations
@@ -154,11 +176,11 @@ untracked Git files; the gate then fails closed if source files remain
 untracked because GitHub and Jankurai changed-fast proof can only validate
 staged or tracked paths. `ops/ci/ci-env.sh` detects the local or GitHub profile,
 keeps dockerless native Rust as the default executor, uses `sccache` when it is
-available, and falls back to ordinary Cargo on GitHub-hosted runners.
+available, and switches to ordinary Cargo on GitHub-hosted runners.
 
 Use `bash ci-fast-push.sh --full --no-push` when a change must prove the full
 hosted-lane union locally. Full mode forces the workspace gate, verifies the
-GitHub fallback profile with `JERYU_CI_PROFILE=github` and
+GitHub clean profile with `JERYU_CI_PROFILE=github` and
 `JERYU_CI_USE_SCCACHE=0`, installs/verifies the open security toolchain, then
 runs every full lane declared in `agent/ci-lanes.toml`. Full release validation
 also fails closed when retired `~/.jeryu`, old `/home/ubuntu/jeryu`, local

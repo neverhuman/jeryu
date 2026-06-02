@@ -44,15 +44,11 @@ const SKIP_DIRS: &[&str] = &[
     "storybook-static",
 ];
 
+/// Exact file names skipped even when they appear outside skipped dirs.
+const SKIP_FILES: &[&str] = &["AGENT_CHAT.md"];
+
 /// Generated file suffixes skipped even when they appear outside skipped dirs.
 const SKIP_FILE_SUFFIXES: &[&str] = &[".tsbuildinfo"];
-
-/// Repo-root narrative/coordination/ops files excluded from the brand scan.
-/// These document or operate the migration *away from* the retired provider, so
-/// referencing it by name is unavoidable and is not a product- or wire-surface
-/// leak (e.g. `ops/decommission-2224.sh` exists to STOP the retired forge).
-/// Mirrors the jankurai `agent/audit-policy.toml` `excluded_paths` philosophy.
-const SKIP_FILES: &[&str] = &["AGENT_CHAT.md", "CI_TRACKER.md", "ops/decommission-2224.sh"];
 
 /// Errors that can occur while scanning a workspace.
 #[derive(Debug, thiserror::Error)]
@@ -106,6 +102,11 @@ fn blocked_markers() -> Result<Vec<Vec<u8>>, ScanError> {
         .collect()
 }
 
+/// Return true when `rel` is one of the exact file exemptions.
+fn skip_file(rel: &Path) -> bool {
+    SKIP_FILES.iter().any(|skip| rel == Path::new(skip))
+}
+
 /// Recursively collect scannable files under `root`, skipping [`SKIP_DIRS`].
 ///
 /// Returns `(relative_path, absolute_path)` pairs for regular files only.
@@ -144,14 +145,14 @@ fn iter_files(root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ScanError> {
             if file_type.is_dir() {
                 stack.push(path);
             } else if file_type.is_file() {
+                if skip_file(rel) {
+                    continue;
+                }
                 let rel_text = rel.to_string_lossy();
                 if SKIP_FILE_SUFFIXES
                     .iter()
                     .any(|suffix| rel_text.ends_with(suffix))
                 {
-                    continue;
-                }
-                if SKIP_FILES.iter().any(|skip| rel_text == *skip) {
                     continue;
                 }
                 out.push((rel.to_path_buf(), path));

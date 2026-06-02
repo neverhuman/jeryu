@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-05-27T00:00:00Z",
+  "schema_version": "0.1.0-alpha",
+  "viewer": {
+    "id": "usr_e2e",
+    "login": "@e2e",
+    "display_name": "E2E Tester",
+    "avatar_url": null,
+    "global_permissions": [
+      "admin.audit",
+      "agents.grant",
+      "agents.read",
+      "agents.write",
+      "audit.read",
+      "branch.create",
+      "branch.delete",
+      "ci.read",
+      "ci.write",
+      "code.read",
+      "code.write",
+      "issue.read",
+      "issue.write",
+      "pr.approve",
+      "pr.comment",
+      "pr.merge",
+      "pr.read",
+      "pr.review",
+      "pr.write",
+      "repo.admin",
+      "repo.create",
+      "repo.delete",
+      "repo.read",
+      "repo.write",
+      "secrets.read_metadata",
+      "secrets.write",
+      "settings.read",
+      "settings.write"
+    ]
+  },
+  "tui": {},
+  "recent_repositories": [],
+  "websocket_url": "/api/v1/ws",
+  "feature_flags": {
+    "repo_create": false,
+    "settings_write": false,
+    "merge_write": false,
+    "markdown_html": true,
+    "agents": false,
+    "mcp": false,
+    "workcells": false
+  }
+}

@@ -33,6 +33,8 @@ use serde_json::json;
 
 use crate::routes::Response;
 
+#[allow(unused_imports)]
+pub(crate) use support::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use support::{Pagination, first_contact_response, json_response, not_found};
 
 /// Semantic version reported by `GET /api/v1/version`.
@@ -206,6 +208,24 @@ impl GithubRouter {
             }
             (Get, ["repos", owner, repo, "actions", "workflows"]) => {
                 Ok(self.list_action_workflows(owner, repo, path, page))
+            }
+            (Get, ["repos", owner, repo, "actions", "workflows", workflow_id]) => {
+                Ok(self.get_action_workflow(owner, repo, workflow_id))
+            }
+            (
+                Get,
+                [
+                    "repos",
+                    owner,
+                    repo,
+                    "actions",
+                    "workflows",
+                    workflow_id,
+                    "runs",
+                ],
+            ) => Ok(self.list_action_workflow_runs(owner, repo, workflow_id, path, page)),
+            (Post, ["repos", owner, repo, "actions", ..]) => {
+                Ok(self.unsupported_action_write(owner, repo))
             }
 
             // Webhooks -------------------------------------------------------

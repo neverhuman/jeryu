@@ -49,6 +49,7 @@ jeryu_jankurai copy-code . \
 jeryu_jankurai rust map . --out-dir target/jankurai/rust
 jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.json
 jeryu_jankurai rust diagnose . --out target/jankurai/rust/compile-packets.json
+bash ops/ci/security-tools.sh
 jeryu_jankurai security run . \
   --script ./ops/ci/security.sh \
   --out target/jankurai/security/evidence.json \
@@ -60,6 +61,12 @@ jeryu_jankurai audit . \
   --json target/jankurai/raw-repo-score.json \
   --md target/jankurai/raw-repo-score.md \
   --no-score-history
+
+# Catalog ci_command:
+# jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md
+# The full-repo audit is the FULL-mode quality bar (it carries pre-existing
+# main-branch caps like release.yml's ci-bad-behavior). PR/CI runs gate on the
+# scoped diff-audit so a PR is judged on the files it actually changed.
 if [[ "${JERYU_JANKURAI_FULL:-0}" == "1" ]]; then
   jeryu_jankurai . \
     --json .jankurai/repo-score.json \

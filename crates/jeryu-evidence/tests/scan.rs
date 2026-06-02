@@ -53,6 +53,26 @@ fn injected_forbidden_token_fails() {
 }
 
 #[test]
+fn agent_chat_is_ignored_but_ci_tracker_still_reports() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut ignored = b"coordination log\n".to_vec();
+    ignored.extend_from_slice(&marker("6769746c6162"));
+    ignored.extend_from_slice(b" preserved\n");
+    fs::write(dir.path().join("AGENT_CHAT.md"), &ignored).expect("write agent chat");
+
+    let mut tracked = b"confidence ledger\n".to_vec();
+    tracked.extend_from_slice(&marker("6769746c6162"));
+    tracked.extend_from_slice(b" remains strict\n");
+    fs::write(dir.path().join("CI_TRACKER.md"), &tracked).expect("write ci tracker");
+
+    let findings = scan(dir.path()).expect("scan ok");
+    assert_eq!(findings.len(), 1, "only CI_TRACKER.md should report");
+    assert_eq!(findings[0].rel, Path::new("CI_TRACKER.md"));
+    assert_eq!(findings[0].line, 2);
+    assert_eq!(findings[0].to_string(), "CI_TRACKER.md:2: blocked marker");
+}
+
+#[test]
 fn matching_is_case_insensitive() {
     let dir = TempDir::new().expect("tempdir");
     // Uppercase the decoded literal; the scanner lowercases content before

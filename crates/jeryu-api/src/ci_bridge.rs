@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use jeryu_ci_compiler::{CiKind, CompileContext, Compiler};
 use jeryu_core::{CheckConclusion, CheckRunStatus, CreateCheckRunRequest, ForgeCore};
@@ -55,6 +56,7 @@ pub(crate) fn on_push(
     owner: &str,
     repo: &str,
     updates: &[RefUpdate],
+    origin_base_url: &str,
 ) {
     // The smart-HTTP URL carries the `.git` suffix; the forge repo name does not.
     let repo = repo.trim_end_matches(".git");
@@ -62,6 +64,7 @@ pub(crate) fn on_push(
         return;
     };
     let git_bin = manager.config().git_bin.clone();
+    let origin_url = repo_origin_url(origin_base_url, owner, repo);
     for update in updates {
         // Accumulate this head's recorded check-runs so the autonomy bridge can
         // run the evidence-gate judge over the live CI state once they all land.
@@ -72,8 +75,15 @@ pub(crate) fn on_push(
                 continue;
             };
             for job in &pipeline.jobs {
-                let conclusion =
-                    run_job(&git_bin, &resolved.path, &update.new_oid, job, owner, repo);
+                let conclusion = run_job(
+                    &git_bin,
+                    &resolved.path,
+                    &update.new_oid,
+                    &origin_url,
+                    job,
+                    owner,
+                    repo,
+                );
                 let name = format!("{}/{}", workflow_stem(&file), job.name);
                 let _ = core.create_check_run(
                     owner,
@@ -137,6 +147,7 @@ fn run_job(
     git_bin: &str,
     bare: &Path,
     oid: &str,
+    origin_url: &str,
     job: &jeryu_ci_ir::Job,
     owner: &str,
     repo: &str,
@@ -151,7 +162,7 @@ fn run_job(
         // Action-only job with no executable shell step.
         return CheckConclusion::Skipped;
     }
-    let Ok(workspace) = checkout_commit(git_bin, bare, oid) else {
+    let Ok(workspace) = checkout_commit(git_bin, bare, oid, origin_url) else {
         return CheckConclusion::Failure;
     };
     let request = CoreJobRequest {
@@ -164,7 +175,7 @@ fn run_job(
         env: BTreeMap::new(),
         trust_tier: TrustTier::T2InternalBranch,
         requested_runner: Some(RunnerClass::NativeRustClean),
-        network_policy: NetworkPolicy::Deny,
+        network_policy: NetworkPolicy::EgressOnly,
         secret_policy: SecretPolicy::None,
         token_policy: TokenPolicy::None,
         timeout_ms: 600_000,
@@ -178,26 +189,82 @@ fn run_job(
     }
 }
 
-/// Extract a commit's tree into a fresh workspace via `git archive | tar -x`.
-fn checkout_commit(git_bin: &str, bare: &Path, oid: &str) -> std::io::Result<PathBuf> {
-    use std::io::Write;
-    let workspace = std::env::temp_dir().join(format!("jeryu-ci-{oid}-{}", std::process::id()));
+/// Materialize a pushed commit as a real Git checkout.
+///
+/// Split-repo CI expects `.git`, an HTTP `origin`, and a fetchable
+/// `origin/main`, so this deliberately uses clone/fetch rather than a tar
+/// archive.
+fn checkout_commit(
+    git_bin: &str,
+    bare: &Path,
+    oid: &str,
+    origin_url: &str,
+) -> std::io::Result<PathBuf> {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let workspace =
+        std::env::temp_dir().join(format!("jeryu-ci-{oid}-{}-{unique}", std::process::id()));
     let _ = std::fs::remove_dir_all(&workspace);
-    std::fs::create_dir_all(&workspace)?;
-    let archive = std::process::Command::new(git_bin)
-        .args(["-C", &bare.to_string_lossy(), "archive", oid])
-        .output()?;
-    if archive.status.success() && !archive.stdout.is_empty() {
-        let mut tar = std::process::Command::new("tar")
-            .args(["-x", "-C", &workspace.to_string_lossy()])
-            .stdin(std::process::Stdio::piped())
-            .spawn()?;
-        if let Some(mut stdin) = tar.stdin.take() {
-            stdin.write_all(&archive.stdout)?;
-        }
-        let _ = tar.wait();
-    }
+    run_git(
+        git_bin,
+        &[
+            "clone",
+            "--no-checkout",
+            &bare.to_string_lossy(),
+            &workspace.to_string_lossy(),
+        ],
+    )?;
+    run_git(
+        git_bin,
+        &[
+            "-C",
+            &workspace.to_string_lossy(),
+            "remote",
+            "set-url",
+            "origin",
+            origin_url,
+        ],
+    )?;
+    run_git(
+        git_bin,
+        &[
+            "-C",
+            &workspace.to_string_lossy(),
+            "fetch",
+            "--force",
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+        ],
+    )?;
+    run_git(
+        git_bin,
+        &[
+            "-C",
+            &workspace.to_string_lossy(),
+            "checkout",
+            "--detach",
+            oid,
+        ],
+    )?;
     Ok(workspace)
+}
+
+fn run_git(git_bin: &str, args: &[&str]) -> std::io::Result<()> {
+    let output = std::process::Command::new(git_bin).args(args).output()?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(std::io::Error::other(format!(
+        "git {} failed: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stderr)
+    )))
+}
+
+fn repo_origin_url(base_url: &str, owner: &str, repo: &str) -> String {
+    format!("{}/git/{owner}/{repo}.git", base_url.trim_end_matches('/'))
 }
 
 fn workflow_stem(file: &str) -> &str {

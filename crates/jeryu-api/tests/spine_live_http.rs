@@ -113,7 +113,9 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
     std::fs::create_dir_all(clone_dir.join(".github/workflows")).unwrap();
     std::fs::write(
         clone_dir.join(".github/workflows/ci.yml"),
-        "name: ci\non: [push]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n",
+        format!(
+            "name: ci\non: [push]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - run: |\n          test -d .git\n          test \"$(git remote get-url origin)\" = \"{clone_url}\"\n          git rev-parse --verify origin/main\n          test \"$(git rev-parse HEAD)\" = \"$JERYU_COMMIT_SHA\"\n          test \"$(git rev-parse origin/main)\" = \"$JERYU_COMMIT_SHA\"\n          test \"$JERYU_NETWORK_POLICY\" = \"egress-only\"\n          test \"$JERYU_SECRETS\" = \"disabled\"\n          test -z \"${{GITHUB_TOKEN:-}}\"\n",
+        ),
     )
     .unwrap();
     run_git(&clone_dir, &["add", "."]);

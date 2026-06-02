@@ -14,7 +14,7 @@ jeryu_gate jeryu-evidence .
 # Secret scanning.
 ./scripts/secret-scan.sh
 if command -v gitleaks >/dev/null 2>&1; then
-  for source in crates web/src ops/ci tools agent db contracts; do
+  for source in crates apps/web/src ops/ci tools agent db contracts; do
     [ -e "${source}" ] || continue
     gitleaks detect --no-git --source "${source}" --redact --exit-code 1 --verbose=false
   done
@@ -25,7 +25,7 @@ fi
 # Dependency review: cargo audit + cargo deny policy (advisories, bans, licenses, sources).
 cargo audit --deny warnings
 cargo deny check advisories bans licenses sources
-npm audit --prefix web --audit-level=high --omit=dev
+npm audit --prefix apps/web --audit-level=high --omit=dev
 
 # Workflow linting (actionlint + zizmor) over .github/workflows/*.
 bash ops/ci/workflow-lint.sh

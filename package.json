@@ -4,9 +4,10 @@
   "type": "module",
   "workspaces": [
     "ux-qa",
-    "web"
+    "apps/web"
   ],
   "scripts": {
+    "ux-qa": "npm --workspace @jeryu/web run ux-qa",
     "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",
     "ux-qa:test": "npm --workspace @jankurai/ux-qa run test"
   }

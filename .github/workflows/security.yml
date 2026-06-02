@@ -54,4 +54,4 @@ jobs:
       - name: Install open security tools
         run: bash ops/ci/security-tools.sh
       - name: Security and supply-chain lane
-        run: JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh
+        run: JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix apps/web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh

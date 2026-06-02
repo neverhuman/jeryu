@@ -9,7 +9,8 @@ mod model;
 
 pub use builder::TuiReadModelBuilder;
 pub use dashboards::{
-    sample_agents, sample_approvals, sample_evidence, sample_release, sample_workflow,
+    sample_agents, sample_approvals, sample_evidence, sample_release, sample_workcells,
+    sample_workflow,
 };
 pub use model::sample_read_model;
 
@@ -32,6 +33,8 @@ mod tests {
         assert_eq!(m.evidence.denied(), 1);
         assert_eq!(m.agents.blocked(), 1);
         assert_eq!(m.release.blocked(), 1);
+        assert_eq!(m.workcells.blocked(), 1);
+        assert_eq!(m.workcells.claimed(), 1);
         assert_eq!(m.workflow.blocked(), 1);
     }
 

@@ -11,7 +11,10 @@ Run these from the canonical repository root before creating a release receipt:
 - `bash ci-fast-push.sh --full --no-push`
 - `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
+- `bash ops/ci/release.sh`
 - `bash ops/ci/proof-evidence.sh`
+- `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or frozen CI repair helpers change.
+- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the workcells dashboard or bootstrap feature flags change.
 - `cargo test -p jeryu-api --features web --jobs 40`
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API routes or repair bodies change.

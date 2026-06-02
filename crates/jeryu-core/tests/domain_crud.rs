@@ -274,6 +274,35 @@ fn repository_custom_default_branch_is_respected() {
 }
 
 #[test]
+fn repository_creation_seeds_linear_history_protection_on_the_default_branch() {
+    let core = core();
+    core.create_user(CreateUserRequest {
+        login: "alice".to_string(),
+        ..Default::default()
+    })
+    .unwrap();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "linear".to_string(),
+            default_branch: Some("trunk".to_string()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    let rule = core
+        .get_branch_protection("alice", "linear", "trunk")
+        .unwrap();
+    assert!(rule.required_linear_history);
+    assert!(rule.required_status_checks.is_empty());
+    assert_eq!(rule.required_approving_review_count, 0);
+    assert!(!rule.allow_force_pushes);
+    assert!(!rule.allow_deletions);
+    assert_eq!(rule.branch, "trunk");
+}
+
+#[test]
 fn duplicate_repository_conflicts_but_other_owner_is_fine() {
     let core = core_with_repo("alice", "jeryu");
     let err = core

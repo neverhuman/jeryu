@@ -1,0 +1,30 @@
+name: web
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout without marketplace actions
+        run: |
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git fetch --depth 1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Run web lane
+        run: bash ops/ci/web.sh
+      - name: Rendered UX QA lane
+        run: npm run ux-qa

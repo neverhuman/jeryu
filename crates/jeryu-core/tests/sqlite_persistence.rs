@@ -9,6 +9,7 @@ use jeryu_core::{
     ForgeError, PullRequestCommit, ReviewCommentInput, ReviewState, SetBranchProtectionRequest,
     WebhookConfig,
 };
+use rusqlite::Connection;
 
 #[test]
 fn sqlite_store_round_trips_core_forge_resources() {
@@ -325,4 +326,44 @@ fn failed_sqlite_write_rolls_back_memory_state() {
         ForgeError::NotFound(_)
     ));
     fs::set_permissions(&db, fs::Permissions::from_mode(0o600)).unwrap();
+}
+
+#[test]
+fn sqlite_open_backfills_missing_default_branch_protection() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "trunky".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("trunk".to_string()),
+            },
+        )
+        .unwrap();
+    }
+
+    let raw = Connection::open(&db).unwrap();
+    raw.execute("DELETE FROM branch_protection_rules", [])
+        .unwrap();
+    drop(raw);
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    let rule = reopened
+        .get_branch_protection("alice", "trunky", "trunk")
+        .unwrap();
+    assert!(rule.required_linear_history);
+    assert_eq!(rule.branch, "trunk");
+
+    let raw = Connection::open(&db).unwrap();
+    let persisted: i64 = raw
+        .query_row("SELECT COUNT(*) FROM branch_protection_rules", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(persisted, 1);
 }

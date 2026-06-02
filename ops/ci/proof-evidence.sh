@@ -51,6 +51,14 @@ mkdir -p \
   target/jankurai/ux-qa \
   target/jankurai/security
 
+TEMP_DIR=""
+cleanup_temp_dir() {
+  if [ -n "${TEMP_DIR}" ] && [ -d "${TEMP_DIR}" ]; then
+    rm -rf "${TEMP_DIR}"
+  fi
+}
+trap cleanup_temp_dir EXIT
+
 # The security evidence commands below execute the real security lane, so this
 # proof lane must bootstrap the same tools the hosted security workflow uses.
 bash ops/ci/security-tools.sh
@@ -71,6 +79,9 @@ jeryu_jankurai security run . \
 # ci_command in the catalog. The advisory pass produces the .jankurai/*
 # artifacts (the catalog artifact_paths); it is NOT used as the ratchet
 # baseline.
+jeryu_jankurai . \
+  --json .jankurai/repo-score.json \
+  --md .jankurai/repo-score.md
 jeryu_jankurai audit . --mode advisory \
   --json .jankurai/repo-score.json \
   --md .jankurai/repo-score.md \
@@ -143,7 +154,61 @@ jeryu_jankurai audit . --mode ratchet \
 jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.json
 
 # --- UX-QA catalog artifact -------------------------------------------------
-jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
+# Run web e2e in a subshell so `cd` does not affect the rest of the script.
+# `npm --prefix` silently fails to resolve workspace bins (tsc, vite,
+# playwright) on GitHub runners, so we cd into the package dir instead
+# -- matching the working pattern in ops/ci/web.sh.
+(
+  cd apps/web
+  npm ci --include=dev --workspaces=false
+  npx playwright install chromium
+  npm run build
+  npm run test:e2e
+  npm run build-storybook
+  npm run ux-qa
+)
+TEMP_DIR="$(mktemp -d target/jankurai/ux-audit.XXXXXX)"
+cat > "${TEMP_DIR}/npm" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+REAL_NPM="${REAL_NPM:?missing REAL_NPM}"
+WEB_PREFIX_PATH="${WEB_PREFIX_PATH:?missing WEB_PREFIX_PATH}"
+args=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --prefix)
+      if [ "${2:-}" = "web" ]; then
+        args+=("--prefix" "${WEB_PREFIX_PATH}")
+        shift 2
+        continue
+      fi
+      args+=("$1")
+      if [ "$#" -gt 1 ]; then
+        args+=("$2")
+      fi
+      shift 2
+      continue
+      ;;
+    --prefix=web)
+      args+=("--prefix=${WEB_PREFIX_PATH}")
+      shift
+      continue
+      ;;
+    *)
+      args+=("$1")
+      shift
+      continue
+      ;;
+  esac
+done
+
+exec "${REAL_NPM}" "${args[@]}"
+EOF
+chmod +x "${TEMP_DIR}/npm"
+REAL_NPM="$(command -v npm)"
+PATH="${TEMP_DIR}:$PATH" REAL_NPM="${REAL_NPM}" WEB_PREFIX_PATH="${ROOT}/apps/web" \
+  jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
 
 # --- DB migration and vibe coverage catalog artifacts -----------------------
 jeryu_jankurai migrate . --analyze --out target/jankurai/migration-report.json --md target/jankurai/migration-report.md

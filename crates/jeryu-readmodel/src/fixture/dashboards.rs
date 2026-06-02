@@ -10,6 +10,9 @@ use crate::dashboards::evidence::{EvidenceItem, EvidenceSnapshot, EvidenceSummar
 use crate::dashboards::release::{
     PromotionStage, ReleaseGate, ReleaseItem, ReleaseSnapshot, ReleaseSummary, SbomStatus,
 };
+use crate::dashboards::workcells::{
+    WorkcellItem, WorkcellState, WorkcellsDashboard, WorkcellsSummary,
+};
 use crate::dashboards::workflow::{
     DeliveryPosture, WorkflowItem, WorkflowSnapshot, WorkflowSummary,
 };
@@ -143,6 +146,52 @@ pub fn sample_release() -> ReleaseSnapshot {
             canary_passing: true,
             production_health: HealthLevel::Healthy,
             blocked_count: 1,
+        }),
+    }
+}
+
+/// A populated workcells snapshot: one claimed workcell and one blocked repair
+/// cell. This covers claim state, repo roots, branch budget, git status, CI
+/// snapshot age, runner epoch, and heartbeat health.
+pub fn sample_workcells() -> WorkcellsDashboard {
+    let at = sample_at();
+    let mut claimed = WorkcellItem::new("wc-17", "agent-wrath-17 / core/web");
+    claimed.claim_state = WorkcellState::Claimed;
+    claimed.agent_id = "agent-wrath-17".into();
+    claimed.repo_roots = vec!["/workspace/core/web".into()];
+    claimed.branch_budget = 1;
+    claimed.branches_open = 1;
+    claimed.git_status_summary = "1 modified, 0 untracked".into();
+    claimed.ci_snapshot_age_ms = Some(120_000);
+    claimed.runner_id = "xbabe0".into();
+    claimed.runner_epoch = 7;
+    claimed.heartbeat_healthy = true;
+    claimed.startup_rebased = true;
+
+    let mut blocked = WorkcellItem::new("wc-18", "agent-storm-04 / core/api");
+    blocked.claim_state = WorkcellState::Blocked;
+    blocked.agent_id = "agent-storm-04".into();
+    blocked.repo_roots = vec!["/workspace/core/api".into()];
+    blocked.branch_budget = 5;
+    blocked.branches_open = 2;
+    blocked.git_status_summary = "rebase failed after main advanced".into();
+    blocked.ci_snapshot_age_ms = Some(4_200_000);
+    blocked.runner_id = "xbabe1".into();
+    blocked.runner_epoch = 8;
+    blocked.heartbeat_healthy = false;
+    blocked.startup_rebased = false;
+
+    WorkcellsDashboard {
+        items: vec![claimed, blocked],
+        freshness: Some(SourceFreshness::live(SourceKind::Autonomy, at, "cursor-1")),
+        summary: Some(WorkcellsSummary {
+            total_workcells: 2,
+            warming_workcells: 0,
+            ready_workcells: 0,
+            claimed_workcells: 1,
+            repairing_workcells: 0,
+            blocked_workcells: 1,
+            heartbeat_healthy: 1,
         }),
     }
 }

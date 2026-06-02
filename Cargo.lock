@@ -1403,6 +1403,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
  "tokio",
  "tower",
  "tower-http",
@@ -1881,6 +1882,7 @@ dependencies = [
 name = "jeryu-tui"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "clap",
  "crossterm",
  "jeryu-readmodel",

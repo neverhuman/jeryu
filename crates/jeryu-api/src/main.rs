@@ -29,7 +29,7 @@ enum WebCommand {
     Serve {
         #[arg(long, default_value = "127.0.0.1:8787")]
         bind: SocketAddr,
-        #[arg(long, default_value = "web/dist")]
+        #[arg(long, default_value = "apps/web/dist")]
         spa_dir: PathBuf,
         #[arg(long, default_value = "~/.local/share/jeryu")]
         data_dir: PathBuf,

@@ -30,9 +30,21 @@ mirror_max_rows = 5000
 #                                           (e.g. `no-unused-vars`) and browser
 #                                           global declarations, not product
 #                                           logic.
-# We deliberately do NOT exclude any crates/** or web/src/** path: excluding
+# We deliberately do NOT exclude any crates/** or apps/web/src/** path: excluding
 # product code would weaken real checks.
-excluded_paths = ["tips/", "AGENT_CHAT.md", "CI_TRACKER.md", ".jankurai/", "web/eslint.config.js"]
+excluded_paths = [
+  "tips/",
+  "AGENT_CHAT.md",
+  "CI_TRACKER.md",
+  ".jankurai/",
+  "apps/web/eslint.config.js",
+  "apps/web/playwright-report/",
+  # Generated/local build + test artifacts (gitignored; never authored). Same
+  # rationale as playwright-report/ above — minified vendor/build output, not
+  # product code.
+  "apps/web/storybook-static/",
+  "apps/web/test-results/",
+]
 
 [smart_scan]
 full_scan_interval_secs = 3600

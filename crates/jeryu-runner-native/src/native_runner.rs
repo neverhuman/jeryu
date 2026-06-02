@@ -222,18 +222,27 @@ mod tests {
     use jeryu_runner_core::sandbox::SandboxPlan;
     use jeryu_runner_core::trust::TrustTier;
     use std::path::PathBuf;
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicU64, Ordering},
+    };
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    static EXECUTION_GUARD: Mutex<()> = Mutex::new(());
+
     fn temp_dir() -> PathBuf {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_nanos())
             .unwrap_or(0);
-        std::env::temp_dir().join(format!("jeryu-native-test-{stamp}"))
+        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!("jeryu-native-test-{stamp}-{unique}"))
     }
 
     #[test]
     fn executes_echo_and_receipts_pass() {
+        let _guard = EXECUTION_GUARD.lock().unwrap();
         let workspace = temp_dir();
         let job = JobRequest {
             job_id: "job".to_string(),
@@ -268,6 +277,7 @@ mod tests {
 
     #[test]
     fn watchdog_timeout_maps_to_timed_out_status() {
+        let _guard = EXECUTION_GUARD.lock().unwrap();
         let workspace = temp_dir();
         let job = JobRequest {
             job_id: "job".to_string(),
@@ -300,6 +310,7 @@ mod tests {
 
     #[test]
     fn native_runner_sanitizes_process_environment() {
+        let _guard = EXECUTION_GUARD.lock().unwrap();
         let workspace = temp_dir();
         let mut env = std::collections::BTreeMap::new();
         env.insert("SSH_AUTH_SOCK".to_string(), "/tmp/leaked-agent".to_string());

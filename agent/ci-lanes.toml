@@ -23,6 +23,8 @@ git fetch --depth 128 origin main:refs/remotes/origin/main''',
   "rustup toolchain install 1.95.0 --profile minimal",
   "bash ops/ci/ensure-jankurai.sh",
   "bash ops/ci/security-tools.sh",
+  'curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C "${CARGO_HOME:-$HOME/.cargo}"/bin',
+  "npx playwright install chromium",
 ]
 
 [[lanes]]
@@ -33,17 +35,26 @@ command = "bash ops/ci/ci-fast.sh"
 full = true
 
 [[lanes]]
+id = "rust-shards"
+workflow = ".github/workflows/ci-fast.yml"
+job = "rust-test-shards"
+command = '''bash ops/ci/shard.sh "$JERYU_CI_SHARD_INDEX" "$JERYU_CI_SHARD_TOTAL"'''
+full = false
+
+[[lanes]]
 id = "jankurai"
 workflow = ".github/workflows/jankurai.yml"
 job = "jankurai-audit"
-command = '''export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"; bash ops/ci/ensure-jankurai.sh; jankurai audit . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under 85'''
+command = """
+jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
+"""
 full = true
 
 [[lanes]]
 id = "security"
 workflow = ".github/workflows/security.yml"
 job = "security"
-command = "JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh"
+command = "JERYU_SECURITY_MARKERS='scripts/secret-scan.sh cargo audit --deny warnings cargo deny check advisories bans licenses sources npm audit --prefix apps/web --audit-level=high --omit=dev syft grype cosign actionlint zizmor' bash ops/ci/security.sh"
 full = true
 
 [[lanes]]
@@ -58,4 +69,18 @@ id = "release"
 workflow = ".github/workflows/release.yml"
 job = "release"
 command = "bash ops/ci/release.sh"
+full = false
+
+[[lanes]]
+id = "web"
+workflow = ".github/workflows/web.yml"
+job = "web"
+command = "bash ops/ci/web.sh"
+full = false
+
+[[lanes]]
+id = "ux-qa"
+workflow = ".github/workflows/web.yml"
+job = "web"
+command = "npm run ux-qa"
 full = false

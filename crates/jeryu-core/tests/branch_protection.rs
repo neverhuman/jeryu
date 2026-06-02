@@ -164,7 +164,7 @@ fn set_and_get_branch_protection_roundtrips() {
 fn get_branch_protection_missing_is_not_found() {
     let core = core_with_repo();
     let err = core
-        .get_branch_protection("alice", "jeryu", "main")
+        .get_branch_protection("alice", "jeryu", "feature")
         .unwrap_err();
     assert!(matches!(err, ForgeError::NotFound(_)));
 }
@@ -767,8 +767,8 @@ fn deletion_allowed_when_enabled() {
 #[test]
 fn ref_ops_on_unprotected_branch_are_allowed() {
     let core = core_with_repo();
-    assert!(core.force_push("alice", "jeryu", "main", false).is_ok());
-    assert!(core.delete_ref("alice", "jeryu", "main", false).is_ok());
+    assert!(core.force_push("alice", "jeryu", "feature", false).is_ok());
+    assert!(core.delete_ref("alice", "jeryu", "feature", false).is_ok());
 }
 
 // ---------------------------------------------------------------------------

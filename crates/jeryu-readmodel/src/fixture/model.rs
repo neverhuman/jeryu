@@ -19,7 +19,8 @@ use crate::risk::RiskTier;
 
 use super::builder::TuiReadModelBuilder;
 use super::dashboards::{
-    sample_agents, sample_approvals, sample_at, sample_evidence, sample_release, sample_workflow,
+    sample_agents, sample_approvals, sample_at, sample_evidence, sample_release, sample_workcells,
+    sample_workflow,
 };
 
 /// A fully-populated, deterministic sample read model exercising every nested
@@ -133,6 +134,8 @@ pub fn sample_read_model() -> TuiReadModel {
         }),
     };
 
+    let workcells = sample_workcells();
+
     let attention = vec![AttentionItem {
         id: "att-1".into(),
         severity: Severity::Error,
@@ -181,6 +184,7 @@ pub fn sample_read_model() -> TuiReadModel {
         .evidence(sample_evidence())
         .agents(sample_agents())
         .release(sample_release())
+        .workcells(workcells)
         .workflow(sample_workflow())
         .attention(attention)
         .next_action(next_action)
