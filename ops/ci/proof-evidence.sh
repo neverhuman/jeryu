@@ -154,11 +154,18 @@ jeryu_jankurai audit . --mode ratchet \
 jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.json
 
 # --- UX-QA catalog artifact -------------------------------------------------
-npm --prefix apps/web ci --include=dev --workspaces=false
-npm --prefix apps/web run build
-npm --prefix apps/web exec playwright install chromium
-npm --prefix apps/web run test:e2e
-npm --prefix apps/web run ux-qa
+# Run web e2e in a subshell so `cd` does not affect the rest of the script.
+# `npm --prefix` silently fails to resolve workspace bins (tsc, vite,
+# playwright) on GitHub runners, so we cd into the package dir instead
+# -- matching the working pattern in ops/ci/web.sh.
+(
+  cd apps/web
+  npm ci --include=dev --workspaces=false
+  npx playwright install chromium
+  npm run build
+  npm run test:e2e
+  npm run ux-qa
+)
 TEMP_DIR="$(mktemp -d target/jankurai/ux-audit.XXXXXX)"
 cat > "${TEMP_DIR}/npm" <<'EOF'
 #!/usr/bin/env bash
