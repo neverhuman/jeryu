@@ -20,9 +20,10 @@ Before editing code, inspect:
 13. `docs/generated-zones.md`
 14. `docs/release.md`
 15. `docs/release-process.md`
-16. `docs/audit-rubric.md`
-17. `docs/agent-native-standard.md`
-18. Local `AGENTS.md` files under changed paths, such as `docs/AGENTS.md`
+16. `docs/signrail-release-signing.md`
+17. `docs/audit-rubric.md`
+18. `docs/agent-native-standard.md`
+19. Local `AGENTS.md` files under changed paths, such as `docs/AGENTS.md`
     and `crates/jeryu-api/AGENTS.md`.
 
 Hard rules:

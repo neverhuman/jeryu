@@ -7,6 +7,8 @@ release commands, integrity/provenance evidence, and rollback guidance.
 The step-by-step operator process lives in `docs/release-process.md`.
 
 Release process doc: [docs/release-process.md](release-process.md).
+SignRail artifact-support signing details:
+[docs/signrail-release-signing.md](signrail-release-signing.md).
 
 ## Version Source
 
@@ -14,6 +16,8 @@ Release process doc: [docs/release-process.md](release-process.md).
 - User-facing changes are summarized in `CHANGELOG.md`.
 - Release candidates record the Git commit SHA, artifact checksums, SBOM
   digests, and rollback target.
+- SignRail artifact-support evidence uses the Git commit SHA as its release
+  version unless the caller sets `SIGNRAIL_RELEASE_VERSION`.
 
 ## Required Gates
 
@@ -32,6 +36,9 @@ Release process doc: [docs/release-process.md](release-process.md).
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API response contracts, `/api/v1/ecosystem`, or
   `/api/v1/ci/runs/{id}/evidence` change.
+- `cargo test -p jeryu-signrail --test release_witness` and
+  `cargo clippy -p jeryu-signrail --all-targets -- -D warnings` when release
+  signing, artifact provenance, witness, or stage-receipt behavior changes.
 
 ## Release Receipt
 
@@ -42,6 +49,8 @@ the evidence that proves the candidate is safe to publish:
 - `target/jankurai/` proof artifacts, including the release lane transcript,
   SBOM digests, provenance checksum, and any API route evidence for changed
   endpoints;
+- SignRail `release.json`, `sbom.json`, `provenance.json`, `witness.json`, and
+  `stage-receipts/{local,dev-canary,prod}.json` for artifact-support bundles;
 - migration, restore, and rollback evidence, including the exact rollback
   target and the pre-migration SQLite copy when schema changed;
 - the exact rerun command for any lane that failed during closeout, plus the
@@ -69,11 +78,14 @@ local parity runs until an operator stops the root-owned retired services.
 4. Build release artifacts from the signed commit only, then record checksums,
    SBOM digests, provenance paths, and the rollback target in the release
    receipt.
-5. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
+5. Sign artifact-support evidence with `jeryu-signrail sign-release`; local
+   runs require `JERYU_SIGNRAIL_ED25519_SEED`, and GitHub Actions requires
+   `SIGNRAIL_ED25519_SEED`.
+6. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
    require explicit `--push-main` and are not the default closeout path.
-6. Run `bash ops/ci/release.sh` before signing the receipt so the release lane
+7. Run `bash ops/ci/release.sh` before signing the receipt so the release lane
    produces the build and receipt artifacts.
-7. Tag only after the release receipt names the exact commit, prior rollback
+8. Tag only after the release receipt names the exact commit, prior rollback
    artifact, and gate evidence paths.
 
 ## Autonomy Gate
@@ -97,6 +109,9 @@ Every release receipt names the previous signed artifact and checksum. Rollback
 means restoring the previous signed artifact, restoring the pre-migration SQLite
 copy when schema changed, and re-running the smoke commands for API, TUI, and
 Git fetch/clone before reopening write traffic.
+For SignRail artifact-support evidence, rollback also requires the prior
+stage-receipt set and matching artifact digest so `prod` receipts never point
+at an unsigned or unverifiable bundle.
 
 ## Local-Only Boundary
 

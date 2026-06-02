@@ -18,8 +18,10 @@ must check before a cross-boundary change is merged.
 - `jeryu-runnerd` owns the workcell warm pool, claim/release epoch fencing,
   startup rebase enforcement, branch-budget metadata, and quarantine-first
   tar import/export validation.
-- `jeryu-signrail` owns release witnesses, signatures, checksums, and rollback
-  metadata.
+- `jeryu-signrail` owns release witnesses, signatures, checksums, rollback
+  metadata, and artifact-support stage receipts. Local signing consumes
+  `JERYU_SIGNRAIL_ED25519_SEED`; hosted artifact-support signing consumes only
+  the `SIGNRAIL_ED25519_SEED` GitHub Actions secret.
 
 Cross-boundary calls must use typed ids, receipts, or explicit policy decisions;
 direct state mutation from another layer is a bug.
