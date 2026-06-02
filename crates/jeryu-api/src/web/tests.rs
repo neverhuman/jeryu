@@ -249,8 +249,8 @@ fn github_rest_edge_dispatches_repos_user_and_404() {
 async fn browser_repo_routes_serve_the_spa_shell() {
     use axum::body::Body;
     use axum::http::Request;
-    use tower::ServiceExt;
     use tempfile::tempdir;
+    use tower::ServiceExt;
 
     let core = ForgeCore::new();
     core.create_repository(

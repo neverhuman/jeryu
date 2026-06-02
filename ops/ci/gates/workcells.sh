@@ -34,8 +34,8 @@ if ! cargo test -p jeryu-api --features web --jobs "${JERYU_CI_JOBS}"; then
   exit 1
 fi
 
-echo "[${GATE_NAME}] cd apps/web && npm run typecheck"
-if ! (cd apps/web && npm run typecheck); then
+echo "[${GATE_NAME}] cd apps/web && npm ci && npm run typecheck"
+if ! (cd apps/web && npm ci --include=dev --workspaces=false 2>/dev/null && npm run typecheck); then
   echo "GATE ${GATE_NAME}: FAIL (web typecheck did not pass)"
   exit 1
 fi
