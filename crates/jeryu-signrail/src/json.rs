@@ -22,6 +22,11 @@ pub fn field(name: &str, value: &str) -> String {
     format!("\"{}\":\"{}\"", escape(name), escape(value))
 }
 
+/// Render a JSON string value.
+pub fn quote(value: &str) -> String {
+    format!("\"{}\"", escape(value))
+}
+
 /// Render a JSON numeric field.
 pub fn number_field(name: &str, value: u64) -> String {
     format!("\"{}\":{}", escape(name), value)

@@ -349,3 +349,111 @@ fn provenance_statement_json_escapes_fields() {
     assert!(json.contains("\"signer_identity\":\"signer\\\"quoted\""));
     assert!(json.contains("\"created_at_epoch\":7"));
 }
+
+#[test]
+fn cli_sign_release_requires_local_ed25519_seed() {
+    let root = temp_store_root("missing-seed");
+    let artifact = temp_artifact("missing-seed-bundle.tar.gz", b"bundle");
+    let err = jeryu_signrail::cli::run_from_with_env(
+        vec![
+            "sign-release".to_string(),
+            "--artifact".to_string(),
+            artifact.display().to_string(),
+            "--repo".to_string(),
+            "neverhuman/veox-shared".to_string(),
+            "--sha".to_string(),
+            "abc123".to_string(),
+            "--version".to_string(),
+            "abc123".to_string(),
+            "--rollback-target".to_string(),
+            "abc122".to_string(),
+            "--store-root".to_string(),
+            root.display().to_string(),
+        ],
+        |_| None,
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("JERYU_SIGNRAIL_ED25519_SEED is required")
+    );
+}
+
+#[test]
+fn cli_sign_release_writes_signed_outputs_and_stage_receipts() {
+    let root = temp_store_root("signed-cli");
+    let out_dir = root.join("out");
+    let artifact = temp_artifact("signed-bundle.tar.gz", b"signed bundle bytes");
+    let seed = "42".repeat(32);
+    let output = jeryu_signrail::cli::run_from_with_env(
+        vec![
+            "sign-release".to_string(),
+            "--artifact".to_string(),
+            artifact.display().to_string(),
+            "--repo".to_string(),
+            "neverhuman/veox-shared".to_string(),
+            "--sha".to_string(),
+            "abc123".to_string(),
+            "--tree-sha".to_string(),
+            "tree123".to_string(),
+            "--version".to_string(),
+            "abc123".to_string(),
+            "--rollback-target".to_string(),
+            "abc122".to_string(),
+            "--test-status".to_string(),
+            "ci-and-artifact-support-passed".to_string(),
+            "--store-root".to_string(),
+            root.display().to_string(),
+            "--out-dir".to_string(),
+            out_dir.display().to_string(),
+            "--created-at-epoch".to_string(),
+            "100".to_string(),
+            "--ci-ir-hash".to_string(),
+            "sha256:manifest".to_string(),
+            "--runner-rootfs-digest".to_string(),
+            "sha256:runner".to_string(),
+            "--toolchain-digest".to_string(),
+            "sha256:toolchain".to_string(),
+            "--cargo-lock-digest".to_string(),
+            "sha256:cargo-lock".to_string(),
+        ],
+        |key| match key {
+            "JERYU_SIGNRAIL_ED25519_SEED" => Some(seed.clone()),
+            _ => None,
+        },
+    )
+    .unwrap_or_else(|err| panic!("sign-release failed: {err}"));
+
+    assert!(output.contains("\"signature_coverage_percent\":100"));
+    assert!(output.contains("\"signer_key_id\":\"signrail-ed25519:"));
+    for file in [
+        "release.json",
+        "sbom.json",
+        "provenance.json",
+        "witness.json",
+    ] {
+        assert!(
+            out_dir.join(file).is_file(),
+            "expected {} to exist",
+            out_dir.join(file).display()
+        );
+    }
+    for stage in ["local", "dev-canary", "prod"] {
+        let receipt_path = out_dir.join("stage-receipts").join(format!("{stage}.json"));
+        let receipt = fs::read_to_string(&receipt_path)
+            .unwrap_or_else(|err| panic!("read {} failed: {err}", receipt_path.display()));
+        assert!(receipt.contains(&format!("\"stage\":\"{stage}\"")));
+        assert!(receipt.contains("\"sha\":\"abc123\""));
+        assert!(receipt.contains("\"rollback_target\":\"abc122\""));
+        assert!(receipt.contains("\"signature_coverage_percent\":100"));
+        assert!(receipt.contains("\"test_status\":\"ci-and-artifact-support-passed\""));
+    }
+
+    let release = fs::read_to_string(out_dir.join("release.json"))
+        .unwrap_or_else(|err| panic!("read release failed: {err}"));
+    assert!(release.contains("\"algorithm\":\"JFSIG-ED25519\""));
+    assert!(release.contains("\"rollback\":{"));
+    assert!(root.join("artifacts").is_dir());
+    assert!(root.join("releases").is_dir());
+    assert!(root.join("witnesses").is_dir());
+}

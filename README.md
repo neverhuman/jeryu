@@ -29,6 +29,7 @@ Read these files before editing:
 - `docs/generated-zones.md`
 - `docs/release.md`
 - `docs/release-process.md`
+- `docs/signrail-release-signing.md`
 - `docs/audit-rubric.md`
 - `docs/agent-native-standard.md`
 - Local `AGENTS.md` files under changed paths, for example `docs/AGENTS.md`
@@ -86,6 +87,11 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Release provenance and compliance | `jeryu-signrail`, `jeryu-signing`, `jeryu-compliance-export`, `jeryu-lifecycle` |
 | Benchmark, observability, and operations | `jeryu-bench`, `jeryu-obs`, `jeryu-ops`, `jeryu-phase7-cli` |
 | Enterprise/operations layer | `jeryu-enterprise`, `phase11-*`, `jeryu-kernel`, `jeryu-tenant`, `jeryu-replay-verifier`, `jeryu-phase11-bin` |
+
+SignRail release signing for artifact-support bundles is documented in
+`docs/signrail-release-signing.md`; it records stage receipts for `local`,
+`dev-canary`, and `prod` after release provenance reaches 100% signature
+coverage.
 
 ## Local Live Runtime
 

@@ -48,6 +48,9 @@ Primary lanes:
 - `just full`: workspace foundation gate with fmt, check, tests, clippy, zero-evidence, docs, release, score, and doctor checks.
 - `just security`: cache adversary, poisoning matrix, zero-evidence, and secret scan.
 - `just audit`: Jankurai audit plus dependency-audit integration when the tool is installed.
+- `cargo test -p jeryu-signrail --test release_witness` and
+  `cargo clippy -p jeryu-signrail --all-targets -- -D warnings`: SignRail
+  release signing, provenance, witness, and stage-receipt proof lane.
 
 ## Workcells
 
@@ -92,6 +95,9 @@ Repair evidence:
   and provenance failures, link back to `docs/release.md` and
   `docs/release-process.md` so the commit, rollback target, and gate evidence
   stay explicit.
+- SignRail artifact-support failures also link
+  `docs/signrail-release-signing.md` and preserve generated
+  `target/artifact-support/signrail` receipt paths.
 - Public read-only API additions, including `/api/v1/ecosystem` and
   `/api/v1/ci/runs/{id}/evidence`, require route tests that prove live data
   sourcing, camelCase response contracts, digest-verifiable payloads, and typed
