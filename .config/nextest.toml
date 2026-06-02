@@ -4,14 +4,13 @@
 # (see ops/ci/shard.sh). It is tuned for deterministic, non-flaky, fully
 # reported runs and JUnit emission for downstream dashboards.
 #
-# Run thread count: by default nextest uses all logical CPUs. CI lanes that want
-# to honor JERYU_CI_JOBS pass `--test-threads "$JERYU_CI_JOBS"` (clamped to
-# min(40, nproc) by ops/ci/shard.sh) or set NEXTEST_TEST_THREADS, both of which
-# override the value below.
+# Run thread count: by default nextest uses all logical CPUs. CI shard lanes pass
+# `--test-threads "$JERYU_CI_SHARD_JOBS"` through ops/ci/shard.sh, defaulting to
+# 2 and clamping by JERYU_CI_JOBS, nproc, and the 40-worker ceiling.
 
 [profile.ci]
 # Use every available core by default; ops/ci/shard.sh narrows this via
-# --test-threads when JERYU_CI_JOBS is set.
+# --test-threads for hosted fanout shards.
 test-threads = "num-cpus"
 
 # CI must report every failure rather than stopping at the first one, so that a

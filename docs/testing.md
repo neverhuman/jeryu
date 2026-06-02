@@ -9,6 +9,21 @@ unless the caller explicitly overrides them. Local Jeryu runners default to
 `native-rust-hot`; GitHub-hosted clean-profile runs `native-rust-clean` on ordinary
 Ubuntu runners. Docker/OCI is opt-in for jobs that require container isolation.
 
+Local fast CI keeps Rust tests inline by default. `just fast` and
+`bash ci-fast-push.sh --no-push` use `JERYU_CI_RUST_TEST_MODE=inline` unless the
+caller explicitly overrides it. Hosted `ops/ci/ci-fast.sh` selects
+`JERYU_CI_RUST_TEST_MODE=sharded`, so the aggregate affected lane still runs
+format, environment, drift, check, clippy, web, DB, audit, and proof steps while
+recording the generic Rust test step as covered by the external shard matrix.
+The `rust-test-shards` job in `.github/workflows/ci-fast.yml` fans out shards
+`0..39`; each shard runs
+`bash ops/ci/shard.sh "$JERYU_CI_SHARD_INDEX" "$JERYU_CI_SHARD_TOTAL"` with
+`JERYU_CI_SHARD_TOTAL=40`, `JERYU_CI_SHARD_JOBS=2`,
+`JERYU_RUNNER_EXECUTOR=native`, `JERYU_RUNNER_CLASS=native-rust-clean`, and
+`JERYU_CI_DOCKER=0`. The shard driver also accepts
+`bash ops/ci/shard.sh <index> <total>` locally for targeted reproduction and
+fails closed if the runner is Docker-backed or not a native Rust runner class.
+
 Primary lanes:
 - `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for branch
   and PR checks.

@@ -9,6 +9,7 @@ cd "$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
 source "$(pwd)/ops/ci/ci-env.sh"
 
 JOBS="${JERYU_CI_JOBS:-40}"
+RUST_TEST_MODE="${JERYU_CI_RUST_TEST_MODE:-inline}"
 NO_PUSH="${JERYU_CI_NO_PUSH:-0}"
 FORCE_FULL="${JERYU_CI_FULL:-0}"
 PUSH_MAIN="${JERYU_CI_PUSH_MAIN:-0}"
@@ -71,6 +72,46 @@ run_tests() {
   else
     cargo test "$@" --jobs "$JOBS" -- --test-threads="$JOBS"
   fi
+}
+
+rust_tests_sharded() {
+  [ "$RUST_TEST_MODE" = "sharded" ]
+}
+
+validate_rust_test_mode() {
+  case "$RUST_TEST_MODE" in
+    inline)
+      echo "rust test mode: inline"
+      ;;
+    sharded)
+      echo "rust test mode: sharded"
+      if [ "${JERYU_CI_DOCKER}" != "0" ]; then
+        echo "sharded Rust tests require JERYU_CI_DOCKER=0, got '${JERYU_CI_DOCKER}'" >&2
+        return 1
+      fi
+      if [ "${JERYU_RUNNER_EXECUTOR}" != "native" ]; then
+        echo "sharded Rust tests require JERYU_RUNNER_EXECUTOR=native, got '${JERYU_RUNNER_EXECUTOR}'" >&2
+        return 1
+      fi
+      case "${JERYU_RUNNER_CLASS}" in
+        native-rust-clean|native-rust-hot) ;;
+        *)
+          echo "sharded Rust tests require a native Rust runner class, got '${JERYU_RUNNER_CLASS}'" >&2
+          return 1
+          ;;
+      esac
+      ;;
+    *)
+      echo "JERYU_CI_RUST_TEST_MODE must be inline or sharded, got '${RUST_TEST_MODE}'" >&2
+      return 1
+      ;;
+  esac
+}
+
+record_sharded_rust_tests() {
+  local name="$1"
+  RESULTS+=("PASS  ${name} (external rust-test-shards matrix)")
+  printf '\033[33m↷ %s covered by external rust-test-shards matrix\033[0m\n' "$name"
 }
 
 JERYU_JANKURAI_VERSION="${JANKURAI_VERSION:-jankurai 1.6.10}"
@@ -140,6 +181,14 @@ run_manifest_full_lanes() {
       RESULTS+=("PASS  workflow lane ci-fast (current ci-fast-push.sh)")
       continue
     fi
+    if [ "$lane_id" = "rust-shards" ]; then
+      if rust_tests_sharded; then
+        RESULTS+=("PASS  workflow lane rust-shards (external rust-test-shards matrix)")
+      else
+        RESULTS+=("PASS  workflow lane rust-shards (covered by inline tests workspace)")
+      fi
+      continue
+    fi
     run_step "workflow lane ${lane_id}" bash -lc "$lane_command"
   done < "$lane_file"
 }
@@ -180,6 +229,7 @@ open_or_report_pr() {
 }
 
 run_step "ci profile" jeryu_ci_profile_summary
+run_step "rust test mode" validate_rust_test_mode
 env_args=(--build-local)
 if [ "$FORCE_FULL" = "1" ]; then
   env_args+=(--release-guard)
@@ -202,7 +252,11 @@ if is_full_ci; then
   fi
   run_step "clippy workspace" \
     cargo clippy --workspace --all-targets --all-features --jobs "$JOBS" -- -D warnings
-  run_step "tests workspace" run_tests --workspace
+  if rust_tests_sharded; then
+    record_sharded_rust_tests "tests workspace"
+  else
+    run_step "tests workspace" run_tests --workspace
+  fi
   run_step "zero-evidence" jeryu_gate jeryu-evidence .
   run_step "docs-markers" jeryu_gate jeryu-mapcheck docs
   run_step "phase-gates" bash scripts/ci-phases.sh
@@ -220,7 +274,11 @@ else
       cargo check "${package_flags[@]}" --all-targets --all-features --jobs "$JOBS"
     run_step "clippy affected Rust packages" \
       cargo clippy "${package_flags[@]}" --all-targets --all-features --jobs "$JOBS" -- -D warnings
-    run_step "tests affected Rust packages" run_tests "${package_flags[@]}"
+    if rust_tests_sharded; then
+      record_sharded_rust_tests "tests affected Rust packages"
+    else
+      run_step "tests affected Rust packages" run_tests "${package_flags[@]}"
+    fi
   else
     RESULTS+=("PASS  rust packages (none affected)")
   fi
@@ -242,7 +300,9 @@ else
   fi
 fi
 
-run_step "publish managed README score" bash ops/ci/publish-readme-score.sh --verify
+if [ -n "${JERYU_README_PUBLISH_API_URL:-}" ]; then
+  run_step "publish managed README score" bash ops/ci/publish-readme-score.sh --verify
+fi
 run_step "affected changed-list (post-readme)" write_changed_list
 run_step "jankurai diff audit" \
   run_pinned_jankurai diff-audit --base-ref "$BASE_REF" --changed-list "$CHANGED_LIST" .

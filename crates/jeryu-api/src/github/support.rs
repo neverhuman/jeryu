@@ -11,16 +11,19 @@ use serde_json::{Value, json};
 
 use crate::routes::Response;
 
-pub(super) const MCP_GUIDANCE_TOOLS: &[&str] = &[
+pub(crate) const MCP_GUIDANCE_TOOLS: &[&str] = &[
     "jeryu.get_system_snapshot",
     "jeryu.get_ci_run_jobs",
     "jeryu.explain_blockers",
+    "jeryu.run_tests",
     "jeryu.plan_validation",
     "jeryu.propose_patch",
     "jeryu.request_merge",
     "jeryu.bug_submit",
     "jeryu.bug_list",
 ];
+
+pub(crate) const MCP_RUN_TESTS_TOOL: &str = "jeryu.run_tests";
 
 /// The fast-path pointer surfaced on every error body so a confused agent is
 /// always handed the capability manifest instead of being left to guess.
@@ -135,6 +138,15 @@ pub(super) fn steering(mcp_tool: &str, hint: &str) -> Value {
         "faster_path": FASTER_PATH,
         "mcp_tool": mcp_tool,
         "hint": hint,
+    })
+}
+
+pub(super) fn actions_write_steering() -> Value {
+    json!({
+        "faster_path": FASTER_PATH,
+        "mcp_tool": MCP_RUN_TESTS_TOOL,
+        "mcp_tools": [MCP_RUN_TESTS_TOOL, "jeryu.get_ci_run_jobs"],
+        "hint": "use jeryu.run_tests for the local CI action and jeryu.get_ci_run_jobs to inspect existing runs and workflows",
     })
 }
 
@@ -272,6 +284,40 @@ pub(super) fn error_response(err: ForgeError) -> Response {
     )
 }
 
+pub(super) fn actions_write_response(owner: &str, repo: &str) -> Response {
+    json_response(
+        501,
+        &json!({
+            "message": "Hosted GitHub Actions writes are not supported on Jeryu; CI is local and MCP-driven.",
+            "documentation_url": docs_url(),
+            "jeryu_repair_hint": {
+                "purpose": "route unsupported GitHub Actions write request",
+                "reason": "Jeryu intentionally supports local MCP-driven CI and guided read surfaces instead of hosted Actions dispatch, rerun, or cancel writes.",
+                "common_fixes": [
+                    "use /.jeryu/capabilities to choose the local MCP path for the CI action",
+                    "use jeryu.run_tests instead of hosted Actions writes to run the local CI flow",
+                    "use GET /repos/{owner}/{repo}/actions/runs, GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}, or jeryu.get_ci_run_jobs to inspect existing runs before retrying"
+                ],
+                "docs_url": docs_url(),
+                "repair_hint": "use jeryu.run_tests for the CI action, then rerun cargo test -p jeryu-api --features web --jobs 40",
+            },
+            "jeryu_connection": {
+                "capabilities": FASTER_PATH,
+                "first_contact": "/.jeryu/agents/first-contact",
+                "mcp": "/mcp",
+                "actions_runs": format!("GET /repos/{owner}/{repo}/actions/runs"),
+                "actions_run": format!("GET /repos/{owner}/{repo}/actions/runs/{{id}}"),
+                "actions_run_jobs": format!("GET /repos/{owner}/{repo}/actions/runs/{{id}}/jobs"),
+                "actions_workflows": format!("GET /repos/{owner}/{repo}/actions/workflows"),
+                "actions_workflow": format!("GET /repos/{owner}/{repo}/actions/workflows/{{workflow_id}}"),
+                "actions_workflow_runs": format!("GET /repos/{owner}/{repo}/actions/workflows/{{workflow_id}}/runs"),
+            },
+            "jeryu_mcp_tools": MCP_GUIDANCE_TOOLS,
+            "jeryu_steering": actions_write_steering(),
+        }),
+    )
+}
+
 pub(super) fn not_found(status: u16) -> Response {
     json_response(
         status,
@@ -303,6 +349,11 @@ pub(super) fn not_found(status: u16) -> Response {
                 "GET /repos/{owner}/{repo}/commits/{ref}/status",
                 "GET /repos/{owner}/{repo}/commits/{ref}/check-runs",
                 "GET /repos/{owner}/{repo}/actions/runs",
+                "GET /repos/{owner}/{repo}/actions/runs/{id}",
+                "GET /repos/{owner}/{repo}/actions/runs/{id}/jobs",
+                "GET /repos/{owner}/{repo}/actions/workflows",
+                "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}",
+                "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
                 "POST /graphql"
             ]
         }),

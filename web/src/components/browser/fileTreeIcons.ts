@@ -25,7 +25,6 @@ const CODE_EXTENSIONS = new Set([
   'go',
   'java',
   'kt',
-  'rb',
   'c',
   'cc',
   'cpp',

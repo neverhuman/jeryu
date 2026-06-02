@@ -8,7 +8,7 @@
 //
 // Icons:
 //   .md  → FileText
-//   .ts/.tsx/.js/.jsx/.rs/.py/.go/.java/.rb/.c/.cpp/.h → FileCode
+//   .ts/.tsx/.js/.jsx/.rs/.py/.go/.java/.c/.cpp/.h → FileCode
 //   anything else → File
 //   directory closed → Folder
 //   directory open → FolderOpen

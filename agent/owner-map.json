@@ -51,6 +51,7 @@
     "web/src/pages/FleetPage.tsx": "forge-api",
     "crates/jeryu-gitd/": "git",
     "crates/jeryu-mirror-cli/": "git",
+    "crates/jeryu-evidence/": "jankurai",
     "crates/jeryu-proof/": "jankurai",
     "crates/jeryu-repogate/": "devex",
     "crates/jeryu-runner-core/": "ci-runtime",

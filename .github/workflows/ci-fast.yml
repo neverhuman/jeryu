@@ -38,3 +38,70 @@ jobs:
         run: bash ops/ci/ensure-jankurai.sh
       - name: Fast affected lane
         run: bash ops/ci/ci-fast.sh
+
+  rust-test-shards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          - 9
+          - 10
+          - 11
+          - 12
+          - 13
+          - 14
+          - 15
+          - 16
+          - 17
+          - 18
+          - 19
+          - 20
+          - 21
+          - 22
+          - 23
+          - 24
+          - 25
+          - 26
+          - 27
+          - 28
+          - 29
+          - 30
+          - 31
+          - 32
+          - 33
+          - 34
+          - 35
+          - 36
+          - 37
+          - 38
+          - 39
+    env:
+      JERYU_CI_SHARD_INDEX: ${{ matrix.shard }}
+      JERYU_CI_SHARD_TOTAL: "40"
+      JERYU_CI_SHARD_JOBS: "2"
+      JERYU_RUNNER_EXECUTOR: native
+      JERYU_RUNNER_CLASS: native-rust-clean
+      JERYU_CI_DOCKER: "0"
+    steps:
+      - name: Checkout without marketplace actions
+        run: |
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git fetch --no-tags --depth 64 origin "$GITHUB_REF"
+          git checkout --detach FETCH_HEAD
+          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main
+      - name: Toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Rust nextest shard
+        run: bash ops/ci/shard.sh "$JERYU_CI_SHARD_INDEX" "$JERYU_CI_SHARD_TOTAL"

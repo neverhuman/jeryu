@@ -27,11 +27,12 @@ use tower_http::services::{ServeDir, ServeFile};
 
 use crate::GithubRouter;
 use crate::git_materializer::GitMaterializer;
+use crate::github::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use jeryu_gitd::{GitdConfig, RepoManager};
 use repositories::{
     repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
 };
-use surface::{bootstrap_payload, github_forward, graphql, markdown_render};
+use surface::{bootstrap_payload, github_forward, graphql, markdown_render, repo_entry};
 
 const WS_PROTOCOL: &str = "jeryu.ws.v1";
 const MCP_READ_TOOL: &str = "jeryu.get_system_snapshot";
@@ -40,14 +41,6 @@ const MCP_BLOCKERS_TOOL: &str = "jeryu.explain_blockers";
 const MCP_PATCH_TOOL: &str = "jeryu.propose_patch";
 const MCP_MERGE_TOOL: &str = "jeryu.request_merge";
 const MCP_ISSUE_TOOL: &str = "jeryu.bug_submit";
-const MCP_GUIDANCE_TOOLS: &[&str] = &[
-    MCP_READ_TOOL,
-    MCP_CHECKS_TOOL,
-    MCP_BLOCKERS_TOOL,
-    MCP_PATCH_TOOL,
-    MCP_MERGE_TOOL,
-    MCP_ISSUE_TOOL,
-];
 
 #[derive(Clone, Debug)]
 pub struct WebServerConfig {
@@ -62,6 +55,7 @@ pub struct WebServerConfig {
 pub(crate) struct WebState {
     github: GithubRouter,
     tui: TuiReadModel,
+    pub(crate) spa_dir: PathBuf,
     /// Live-stream fan-out hub: hands out monotonic sequence numbers and keeps
     /// a subscriber registry so the WS edge can push snapshots/deltas per scope.
     ws: WsHub,
@@ -72,7 +66,11 @@ pub(crate) struct WebState {
 }
 
 impl WebState {
-    fn with_repo_manager(core: ForgeCore, repo_manager: Arc<RepoManager>) -> Self {
+    fn with_repo_manager(
+        core: ForgeCore,
+        repo_manager: Arc<RepoManager>,
+        spa_dir: PathBuf,
+    ) -> Self {
         // Assemble a LIVE read model from ForgeCore state so the TUI/web panes
         // render real pool activity and system health, not the empty fixture.
         let tui = crate::read_model::assemble_read_model(&core);
@@ -81,6 +79,7 @@ impl WebState {
         Self {
             github: GithubRouter::with_core(core),
             tui,
+            spa_dir,
             ws: WsHub::new(),
             repo_manager,
             core: core_handle,
@@ -96,6 +95,7 @@ impl WebState {
             Arc::new(RepoManager::new(GitdConfig::new(
                 std::env::temp_dir().join("jeryu-web-test-git"),
             ))),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/dist"),
         )
     }
 }
@@ -195,7 +195,7 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
     let core = ForgeCore::open_sqlite(db_path)?
         .with_repo_materializer(Arc::new(GitMaterializer::new(repo_manager.clone())));
     let app = app(
-        WebState::with_repo_manager(core, repo_manager),
+        WebState::with_repo_manager(core, repo_manager, config.spa_dir.clone()),
         &config.spa_dir,
     );
     let listener = TcpListener::bind(config.bind).await?;
@@ -210,6 +210,8 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
 }
 
 fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
+    let mut state = state;
+    state.spa_dir = spa_dir.to_path_buf();
     let spa = ServeDir::new(spa_dir).fallback(ServeFile::new(spa_dir.join("index.html")));
     let mcp_state = Arc::new(jeryu_mcp::McpHttpState::new(Arc::new(
         jeryu_mcp::MemoryBackend::new(),
@@ -244,47 +246,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/user", any(github_forward))
         .route("/users/:login", any(github_forward))
         .route("/api/v1/version", any(github_forward))
-        .route("/repos", any(github_forward))
-        .route("/repos/:owner/:repo", any(github_forward))
-        .route("/repos/:owner/:repo/pulls", any(github_forward))
-        .route("/repos/:owner/:repo/pulls/:number", any(github_forward))
-        .route(
-            "/repos/:owner/:repo/pulls/:number/merge",
-            any(github_forward),
-        )
-        .route("/repos/:owner/:repo/issues", any(github_forward))
-        .route(
-            "/repos/:owner/:repo/issues/:number/comments",
-            any(github_forward),
-        )
-        .route(
-            "/repos/:owner/:repo/commits/:ref/status",
-            any(github_forward),
-        )
-        .route(
-            "/repos/:owner/:repo/commits/:ref/check-runs",
-            any(github_forward),
-        )
-        .route("/repos/:owner/:repo/statuses/:sha", any(github_forward))
-        .route("/repos/:owner/:repo/check-runs", any(github_forward))
-        .route(
-            "/repos/:owner/:repo/branches/:branch/protection",
-            any(github_forward),
-        )
-        .route("/repos/:owner/:repo/releases", any(github_forward))
-        .route("/repos/:owner/:repo/hooks", any(github_forward))
-        // GitHub Actions edge (sourced from check-runs as a CI proxy) so
-        // `gh run list` / `gh workflow list` work against this server.
-        .route("/repos/:owner/:repo/actions/runs", any(github_forward))
-        .route("/repos/:owner/:repo/actions/runs/:id", any(github_forward))
-        .route(
-            "/repos/:owner/:repo/actions/runs/:id/jobs",
-            any(github_forward),
-        )
-        .route("/repos/:owner/:repo/actions/workflows", any(github_forward))
+        .route("/repos", any(repo_entry))
+        .route("/repos/*rest", any(repo_entry))
         // Steering: first-contact doc for a confused agent on the REST edge.
         .route("/.jeryu/agents/first-contact", any(github_forward))
-        .route("/repos/:owner/:repo/*rest", any(github_forward))
         // Git smart-HTTP transport on the unified listener so `git clone`/`push`
         // work against this server. Mounted under `/git/` to stay clear of the
         // GitHub-shaped REST routes above: a root-level `:owner` param would
@@ -389,8 +354,10 @@ fn suggested_tool(method: &HttpMethod, path: &str) -> Option<&'static str> {
     let trimmed = path.trim_end_matches('/');
     match *method {
         HttpMethod::POST if trimmed.ends_with("/pulls") => Some(MCP_PATCH_TOOL),
+        HttpMethod::POST if trimmed.contains("/actions/") => Some(MCP_RUN_TESTS_TOOL),
         HttpMethod::PUT if trimmed.ends_with("/merge") => Some(MCP_MERGE_TOOL),
         HttpMethod::POST if trimmed.ends_with("/issues") => Some(MCP_ISSUE_TOOL),
+        HttpMethod::GET if trimmed.contains("/actions/") => Some(MCP_CHECKS_TOOL),
         HttpMethod::GET if trimmed.contains("/check-runs") => Some(MCP_CHECKS_TOOL),
         HttpMethod::GET if trimmed.contains("/pulls") => Some(MCP_BLOCKERS_TOOL),
         HttpMethod::GET => Some(MCP_READ_TOOL),
@@ -417,6 +384,13 @@ fn capabilities_payload() -> Value {
             "gh pr create": MCP_PATCH_TOOL,
             "gh pr merge": MCP_MERGE_TOOL,
             "gh pr list": "GET /repos/{owner}/{repo}/pulls",
+            "gh workflow list": "GET /repos/{owner}/{repo}/actions/workflows",
+            "gh workflow view": "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}",
+            "gh run list": "GET /repos/{owner}/{repo}/actions/runs",
+            "gh run view": "GET /repos/{owner}/{repo}/actions/runs/{id}",
+            "gh workflow run": MCP_RUN_TESTS_TOOL,
+            "gh run rerun": MCP_RUN_TESTS_TOOL,
+            "gh run cancel": MCP_RUN_TESTS_TOOL,
             "gh issue create": MCP_ISSUE_TOOL,
             "gh api": "Use /.jeryu/capabilities and the listed jeryu.* MCP tools; unsupported REST returns guided JSON.",
             "gh repo create": "POST /repos",

@@ -34,6 +34,19 @@ Jeryu's own parity assertions, not vendored from any external spec. The
 - `GET|PUT /repos/{o}/{r}/branches/{branch}/protection`
 - `GET|POST /repos/{o}/{r}/releases`
 - `GET|POST /repos/{o}/{r}/hooks`
+- `GET /repos/{o}/{r}/actions/runs`, `GET /repos/{o}/{r}/actions/runs/{id}`,
+  `GET /repos/{o}/{r}/actions/runs/{id}/jobs`,
+  `GET /repos/{o}/{r}/actions/workflows`,
+  `GET /repos/{o}/{r}/actions/workflows/{workflow_id}`,
+  `GET /repos/{o}/{r}/actions/workflows/{workflow_id}/runs`
+  - These read routes are GitHub-shaped and are projected from local check-runs.
+  - The workflow detail and workflow-run list routes accept either a numeric
+    workflow id or the workflow file name, matching common `gh workflow view`
+    and `gh run view` inspection flows.
+  - `POST /repos/{o}/{r}/actions/...` write routes intentionally return a
+    guided `501` JSON body with `jeryu_repair_hint`, `jeryu_connection`, and
+    `jeryu_steering` pointing to the local MCP/CI path and the supported read
+    inspection routes.
 - `POST /graphql` for guided compatibility: read-only `viewer`, `__typename`,
   and simple `repository(owner, name)` probes are supported. All other GraphQL
   operations return `501` with `jeryu_repair_hint`, Jeryu MCP tool ids, and REST
@@ -42,9 +55,9 @@ Jeryu's own parity assertions, not vendored from any external spec. The
 Status contract: `200` reads, `201` creates, `404` for unknown repos / PRs and
 unmatched routes, `422` for invalid bodies / paths / conflicts, `405` when a
 pull request is blocked by branch protection, and `501` for unsupported
-GraphQL operations. Requests outside this table return a GitHub-shaped `404`
-error object with `jeryu_repair_hint`, MCP tool ids, and REST route
-alternatives.
+GraphQL operations and unsupported GitHub Actions writes. Requests outside
+this table return a GitHub-shaped `404` error object with `jeryu_repair_hint`,
+MCP tool ids, and REST route alternatives.
 
 ## Local live web feature
 

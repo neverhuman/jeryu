@@ -35,9 +35,9 @@ jobs:
         run: |
           git init .
           git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          git fetch --depth 1 origin "$GITHUB_SHA"
+          git fetch --no-tags --depth 64 origin "$GITHUB_REF"
           git checkout --detach FETCH_HEAD
-          git fetch --depth 128 origin main:refs/remotes/origin/main
+          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main
 
       - name: Toolchain
         run: rustup toolchain install 1.95.0 --profile minimal

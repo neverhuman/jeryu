@@ -553,13 +553,66 @@ fn actions_runs_are_sourced_from_check_runs() {
     assert_eq!(run_id, 1);
     assert_eq!(run["name"], "ci/fast");
     assert_eq!(run["head_sha"], "deadbeef");
+    assert_eq!(run["head_branch"], "main");
+    assert_eq!(run["path"], ".github/workflows/ci-fast.yml@main");
     assert_eq!(run["status"], "completed");
     assert_eq!(run["conclusion"], "success");
+    assert_eq!(run["workflow_id"], 1);
+    assert_eq!(run["workflow_name"], "ci/fast");
+    assert_eq!(
+        run["workflow_url"],
+        "/repos/alice/jeryu/actions/workflows/1"
+    );
+    assert_eq!(run["jobs_url"], "/repos/alice/jeryu/actions/runs/1/jobs");
+    assert_eq!(run["run_started_at"], run["created_at"]);
 
     // GET a single run resolves by its synthesized id.
     let single = router.get("/repos/alice/jeryu/actions/runs/1");
     assert_eq!(single.status, 200, "{}", single.body);
-    assert_eq!(body(&single)["name"], "ci/fast");
+    let single_body = body(&single);
+    assert_eq!(single_body["name"], "ci/fast");
+    assert_eq!(single_body["workflow_name"], "ci/fast");
+    assert_eq!(single_body["path"], ".github/workflows/ci-fast.yml@main");
+
+    let workflow = router.get("/repos/alice/jeryu/actions/workflows/1");
+    assert_eq!(workflow.status, 200, "{}", workflow.body);
+    let workflow_body = body(&workflow);
+    assert_eq!(workflow_body["id"], 1);
+    assert_eq!(workflow_body["name"], "ci/fast");
+    assert_eq!(workflow_body["path"], ".github/workflows/ci-fast.yml");
+    assert_eq!(workflow_body["state"], "active");
+    assert_eq!(
+        workflow_body["url"],
+        "/repos/alice/jeryu/actions/workflows/1"
+    );
+    assert_eq!(
+        workflow_body["html_url"],
+        "/alice/jeryu/blob/main/.github/workflows/ci-fast.yml"
+    );
+    assert!(
+        workflow_body["badge_url"]
+            .as_str()
+            .expect("badge url")
+            .ends_with("/alice/jeryu/workflows/ci-fast/badge.svg")
+    );
+
+    let workflow_by_file = router.get("/repos/alice/jeryu/actions/workflows/ci-fast.yml");
+    assert_eq!(workflow_by_file.status, 200, "{}", workflow_by_file.body);
+    assert_eq!(body(&workflow_by_file)["id"], 1);
+
+    let workflow_runs = router.get("/repos/alice/jeryu/actions/workflows/1/runs");
+    assert_eq!(workflow_runs.status, 200, "{}", workflow_runs.body);
+    let workflow_runs_body = body(&workflow_runs);
+    assert_eq!(workflow_runs_body["total_count"], 1);
+    assert_eq!(workflow_runs_body["workflow_runs"][0]["workflow_id"], 1);
+    assert_eq!(
+        workflow_runs_body["workflow_runs"][0]["workflow_name"],
+        "ci/fast"
+    );
+    assert_eq!(
+        workflow_runs_body["workflow_runs"][0]["path"],
+        ".github/workflows/ci-fast.yml@main"
+    );
 
     // Jobs for the run.
     let jobs = router.get("/repos/alice/jeryu/actions/runs/1/jobs");
@@ -567,6 +620,12 @@ fn actions_runs_are_sourced_from_check_runs() {
     let parsed = body(&jobs);
     assert_eq!(parsed["total_count"], 1);
     assert_eq!(parsed["jobs"][0]["name"], "ci/fast");
+    assert_eq!(
+        parsed["jobs"][0]["run_url"],
+        "/repos/alice/jeryu/actions/runs/1"
+    );
+    assert_eq!(parsed["jobs"][0]["workflow_name"], "ci/fast");
+    assert_eq!(parsed["jobs"][0]["head_branch"], "main");
     assert_eq!(parsed["jobs"][0]["steps"][0]["number"], 1);
 
     // Workflows dedup by check name.
@@ -575,6 +634,10 @@ fn actions_runs_are_sourced_from_check_runs() {
     let parsed = body(&workflows);
     assert_eq!(parsed["total_count"], 1);
     assert_eq!(parsed["workflows"][0]["name"], "ci/fast");
+    assert_eq!(
+        parsed["workflows"][0]["path"],
+        ".github/workflows/ci-fast.yml"
+    );
 
     // An unknown run id is a GitHub-shaped 404.
     let missing = router.get("/repos/alice/jeryu/actions/runs/999");
@@ -583,11 +646,109 @@ fn actions_runs_are_sourced_from_check_runs() {
 }
 
 #[test]
+fn actions_workflow_detail_and_runs_accept_id_or_file_name() {
+    let router = router_with_repo();
+
+    let created = router.post(
+        "/repos/alice/jeryu/check-runs",
+        r#"{"name":"ci/fast","head_sha":"deadbeef","status":"completed","conclusion":"success"}"#,
+    );
+    assert_eq!(created.status, 201, "{}", created.body);
+
+    let detail = router.get("/repos/alice/jeryu/actions/workflows/ci-fast.yml");
+    assert_eq!(detail.status, 200, "{}", detail.body);
+    let detail_body = body(&detail);
+    assert_eq!(detail_body["id"], 1);
+    assert_eq!(detail_body["name"], "ci/fast");
+
+    let runs = router.get("/repos/alice/jeryu/actions/workflows/ci-fast.yml/runs");
+    assert_eq!(runs.status, 200, "{}", runs.body);
+    let runs_body = body(&runs);
+    assert_eq!(runs_body["total_count"], 1);
+    assert_eq!(runs_body["workflow_runs"][0]["workflow_id"], 1);
+}
+
+#[test]
 fn actions_runs_on_unknown_repo_returns_404() {
     let router = GithubRouter::new();
     let runs = router.get("/repos/alice/missing/actions/runs");
     assert_eq!(runs.status, 404, "{}", runs.body);
     assert!(body(&runs).get("message").is_some());
+}
+
+#[test]
+fn unsupported_actions_writes_return_guided_local_ci_errors() {
+    let router = router_with_repo();
+
+    for path in [
+        "/repos/alice/jeryu/actions/workflows/ci-fast.yml/dispatches",
+        "/repos/alice/jeryu/actions/runs/1/rerun",
+        "/repos/alice/jeryu/actions/runs/1/cancel",
+    ] {
+        let response = router.post(path, r#"{"ref":"main"}"#);
+        assert_eq!(response.status, 501, "{path}: {}", response.body);
+        let parsed = body(&response);
+        assert_eq!(
+            parsed["message"],
+            "Hosted GitHub Actions writes are not supported on Jeryu; CI is local and MCP-driven."
+        );
+        assert!(parsed["documentation_url"].is_string());
+        assert_eq!(
+            parsed["jeryu_repair_hint"]["purpose"],
+            "route unsupported GitHub Actions write request"
+        );
+        assert_eq!(
+            parsed["jeryu_connection"]["capabilities"],
+            "/.jeryu/capabilities"
+        );
+        assert_eq!(
+            parsed["jeryu_connection"]["first_contact"],
+            "/.jeryu/agents/first-contact"
+        );
+        assert_eq!(parsed["jeryu_connection"]["mcp"], "/mcp");
+        assert_eq!(
+            parsed["jeryu_connection"]["actions_runs"],
+            "GET /repos/alice/jeryu/actions/runs"
+        );
+        assert_eq!(
+            parsed["jeryu_connection"]["actions_run"],
+            "GET /repos/alice/jeryu/actions/runs/{id}"
+        );
+        assert_eq!(
+            parsed["jeryu_connection"]["actions_run_jobs"],
+            "GET /repos/alice/jeryu/actions/runs/{id}/jobs"
+        );
+        assert_eq!(
+            parsed["jeryu_connection"]["actions_workflows"],
+            "GET /repos/alice/jeryu/actions/workflows"
+        );
+        assert_eq!(
+            parsed["jeryu_connection"]["actions_workflow"],
+            "GET /repos/alice/jeryu/actions/workflows/{workflow_id}"
+        );
+        assert_eq!(
+            parsed["jeryu_connection"]["actions_workflow_runs"],
+            "GET /repos/alice/jeryu/actions/workflows/{workflow_id}/runs"
+        );
+        assert_eq!(parsed["jeryu_steering"]["mcp_tool"], "jeryu.run_tests");
+        assert_eq!(
+            parsed["jeryu_steering"]["mcp_tools"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(parsed["jeryu_steering"]["mcp_tools"][0], "jeryu.run_tests");
+        assert_eq!(
+            parsed["jeryu_steering"]["mcp_tools"][1],
+            "jeryu.get_ci_run_jobs"
+        );
+    }
+
+    let runs = router.get("/repos/alice/jeryu/actions/runs");
+    assert_eq!(runs.status, 200, "{}", runs.body);
+    let workflows = router.get("/repos/alice/jeryu/actions/workflows");
+    assert_eq!(workflows.status, 200, "{}", workflows.body);
 }
 
 #[test]

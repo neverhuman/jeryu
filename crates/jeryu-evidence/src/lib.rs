@@ -44,6 +44,9 @@ const SKIP_DIRS: &[&str] = &[
     "storybook-static",
 ];
 
+/// Exact file names skipped even when they appear outside skipped dirs.
+const SKIP_FILES: &[&str] = &["AGENT_CHAT.md"];
+
 /// Generated file suffixes skipped even when they appear outside skipped dirs.
 const SKIP_FILE_SUFFIXES: &[&str] = &[".tsbuildinfo"];
 
@@ -99,6 +102,11 @@ fn blocked_markers() -> Result<Vec<Vec<u8>>, ScanError> {
         .collect()
 }
 
+/// Return true when `rel` is one of the exact file exemptions.
+fn skip_file(rel: &Path) -> bool {
+    SKIP_FILES.iter().any(|skip| rel == Path::new(skip))
+}
+
 /// Recursively collect scannable files under `root`, skipping [`SKIP_DIRS`].
 ///
 /// Returns `(relative_path, absolute_path)` pairs for regular files only.
@@ -137,6 +145,9 @@ fn iter_files(root: &Path) -> Result<Vec<(PathBuf, PathBuf)>, ScanError> {
             if file_type.is_dir() {
                 stack.push(path);
             } else if file_type.is_file() {
+                if skip_file(rel) {
+                    continue;
+                }
                 let rel_text = rel.to_string_lossy();
                 if SKIP_FILE_SUFFIXES
                     .iter()

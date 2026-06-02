@@ -223,6 +223,91 @@ fn github_rest_edge_dispatches_repos_user_and_404() {
     );
 }
 
+#[tokio::test]
+async fn browser_repo_routes_serve_the_spa_shell() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    let spa_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/dist");
+    let app = app(WebState::new(core), spa_dir.as_path());
+
+    let api = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/repos")
+                .header(header::ACCEPT, "application/json")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(api.status(), StatusCode::OK);
+    assert_eq!(
+        api.headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+    let api_body = response_json(api).await;
+    assert!(
+        api_body.to_string().contains("alice"),
+        "JSON clients must still reach the REST edge"
+    );
+
+    for path in [
+        "/repos",
+        "/repos/alice/jeryu",
+        "/repos/alice/jeryu/pulls/99",
+        "/repos/alice/jeryu/settings/merge",
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header(
+                        header::ACCEPT,
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    )
+                    .header(header::USER_AGENT, "Mozilla/5.0 (browser)")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "path {path}");
+        assert!(
+            response
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.starts_with("text/html")),
+            "path {path} must serve the SPA shell"
+        );
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("browser shell body");
+        let body = std::str::from_utf8(&bytes).expect("browser shell is utf-8");
+        assert!(
+            body.contains(r#"<div id="root"></div>"#),
+            "path {path} must serve the SPA shell"
+        );
+    }
+}
+
 #[test]
 fn app_router_builds_without_route_conflicts() {
     // Axum panics during construction on overlapping/ambiguous routes, so
@@ -310,6 +395,19 @@ fn advisory_headers_steer_gh_like_agents_to_mcp_tools() {
             HDR_TOOL
         ),
         Some(MCP_ISSUE_TOOL)
+    );
+
+    // Actions writes steer to the local CI runner entrypoint.
+    assert_eq!(
+        header_value(
+            &advisory_headers(
+                "GitHub CLI 2.40.0 go-gh/2.0",
+                &HttpMethod::POST,
+                "/repos/alice/jeryu/actions/workflows/ci-fast.yml/dispatches"
+            ),
+            HDR_TOOL
+        ),
+        Some("jeryu.run_tests")
     );
 }
 
@@ -402,6 +500,152 @@ async fn live_unknown_github_route_returns_guided_json_not_spa() {
         "route unsupported GitHub-compatible REST request"
     );
     assert!(parsed["jeryu_mcp_tools"].as_array().unwrap().len() >= 4);
+}
+
+#[tokio::test]
+async fn live_actions_write_returns_guided_json_and_steering_headers() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let app = app(
+        WebState::new(ForgeCore::new()),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(HttpMethod::POST)
+                .uri("/repos/alice/jeryu/actions/workflows/ci-fast.yml/dispatches")
+                .header(header::USER_AGENT, "GitHub CLI 2.40.0 go-gh/2.0")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"ref":"main"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get("x-jeryu-api")
+            .and_then(|value| value.to_str().ok()),
+        Some("v4")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get("x-jeryu-fast-path")
+            .and_then(|value| value.to_str().ok()),
+        Some("/.jeryu/capabilities")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get("x-jeryu-tool")
+            .and_then(|value| value.to_str().ok()),
+        Some("jeryu.run_tests")
+    );
+    let parsed = response_json(response).await;
+    assert_eq!(
+        parsed["jeryu_repair_hint"]["purpose"],
+        "route unsupported GitHub Actions write request"
+    );
+    assert_eq!(parsed["jeryu_connection"]["mcp"], "/mcp");
+    assert_eq!(parsed["jeryu_steering"]["mcp_tool"], "jeryu.run_tests");
+}
+
+#[tokio::test]
+async fn live_actions_workflow_routes_return_json_and_steering_headers() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "ci/fast".to_string(),
+            head_sha: "deadbeef".to_string(),
+            status: Some(jeryu_core::CheckRunStatus::Completed),
+            conclusion: Some(CheckConclusion::Success),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+
+    let app = app(
+        WebState::new(core),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+
+    let detail = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/repos/alice/jeryu/actions/workflows/1")
+                .header(header::USER_AGENT, "GitHub CLI 2.40.0 go-gh/2.0")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(detail.status(), StatusCode::OK);
+    assert_eq!(
+        detail
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+    assert_eq!(
+        detail
+            .headers()
+            .get("x-jeryu-tool")
+            .and_then(|value| value.to_str().ok()),
+        Some("jeryu.get_ci_run_jobs")
+    );
+    let detail_body = response_json(detail).await;
+    assert_eq!(detail_body["name"], "ci/fast");
+
+    let runs = app
+        .oneshot(
+            Request::builder()
+                .uri("/repos/alice/jeryu/actions/workflows/ci-fast.yml/runs")
+                .header(header::USER_AGENT, "GitHub CLI 2.40.0 go-gh/2.0")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(runs.status(), StatusCode::OK);
+    assert_eq!(
+        runs.headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+    let runs_body = response_json(runs).await;
+    assert_eq!(runs_body["total_count"], 1);
+    assert_eq!(runs_body["workflow_runs"][0]["workflow_id"], 1);
 }
 
 #[tokio::test]

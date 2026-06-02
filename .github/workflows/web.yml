@@ -26,3 +26,5 @@ jobs:
           git checkout --detach FETCH_HEAD
       - name: Run web lane
         run: bash ops/ci/web.sh
+      - name: Rendered UX QA lane
+        run: npm run ux-qa

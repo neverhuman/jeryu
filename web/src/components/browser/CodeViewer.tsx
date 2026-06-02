@@ -51,7 +51,6 @@ function languageForPath(path: string): string {
     go: 'go',
     java: 'java',
     kt: 'kotlin',
-    rb: 'ruby',
     c: 'c',
     cc: 'cpp',
     cpp: 'cpp',

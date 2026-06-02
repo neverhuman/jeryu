@@ -134,9 +134,18 @@ cargo run -p jeryu-mirror-cli -- import-local \
 The REST edge is a guided GitHub subset for common local `gh` and agent flows:
 `/user`, repository list/view/create, pull request list/view/create/merge,
 issues and issue comments, statuses, check runs, branch protection, releases,
-hooks, and `/api/v1/version`. Unknown REST routes return GitHub-shaped `404`
-objects with `jeryu_repair_hint`, MCP tool ids, and closest Jeryu REST route
-alternatives.
+hooks, Actions read surfaces for workflow/run inspection, and
+`/api/v1/version`. The supported Actions reads include
+`GET /repos/{owner}/{repo}/actions/runs`,
+`GET /repos/{owner}/{repo}/actions/runs/{id}`,
+`GET /repos/{owner}/{repo}/actions/runs/{id}/jobs`,
+`GET /repos/{owner}/{repo}/actions/workflows`,
+`GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}`, and
+`GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs`. Unsupported
+Actions writes stay on the guided `501` path with `jeryu_repair_hint`,
+`jeryu_connection`, and `jeryu_steering` pointing to the local MCP/CI path.
+Unknown REST routes return GitHub-shaped `404` objects with `jeryu_repair_hint`,
+MCP tool ids, and closest Jeryu REST route alternatives.
 
 `POST /graphql` is intentionally narrow. It supports read-only `__typename`,
 `viewer`, and simple `repository(owner, name)` probes; other GraphQL operations

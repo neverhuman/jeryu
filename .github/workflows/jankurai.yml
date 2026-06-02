@@ -29,11 +29,21 @@ jobs:
         run: |
           git init .
           git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
-          git fetch --depth 1 origin "$GITHUB_SHA"
+          git fetch --no-tags --depth 64 origin "$GITHUB_REF"
           git checkout --detach FETCH_HEAD
+          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main
       - name: Toolchain
         run: rustup toolchain install 1.95.0 --profile minimal
       - name: Ensure pinned jankurai on PATH
         run: bash ops/ci/ensure-jankurai.sh
       - name: Jankurai audit lane
-        run: bash ops/ci/jankurai.sh
+        run: jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
+      - name: Upload Jankurai audit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jankurai-audit-evidence
+          path: |
+            .jankurai/repo-score.json
+            .jankurai/repo-score.md
+          if-no-files-found: error

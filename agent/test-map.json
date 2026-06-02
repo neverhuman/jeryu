@@ -156,6 +156,11 @@
       "purpose": "verify local import materializes cloneable gitd storage",
       "lane": "git-oracle"
     },
+    "crates/jeryu-evidence/": {
+      "command": "cargo test -p jeryu-evidence --jobs 40 && cargo run -q -p jeryu-evidence -- .",
+      "purpose": "verify the zero-evidence guard and exact AGENT_CHAT.md exemption",
+      "lane": "jankurai-proof"
+    },
     "crates/jeryu-runner-core/": {
       "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
       "purpose": "verify runner sandbox contracts and static escape matrix",

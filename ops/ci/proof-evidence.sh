@@ -71,6 +71,9 @@ jeryu_jankurai security run . \
 # ci_command in the catalog. The advisory pass produces the .jankurai/*
 # artifacts (the catalog artifact_paths); it is NOT used as the ratchet
 # baseline.
+jeryu_jankurai . \
+  --json .jankurai/repo-score.json \
+  --md .jankurai/repo-score.md
 jeryu_jankurai audit . --mode advisory \
   --json .jankurai/repo-score.json \
   --md .jankurai/repo-score.md \

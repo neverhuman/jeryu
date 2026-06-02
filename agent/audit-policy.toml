@@ -32,7 +32,14 @@ mirror_max_rows = 5000
 #                                           logic.
 # We deliberately do NOT exclude any crates/** or web/src/** path: excluding
 # product code would weaken real checks.
-excluded_paths = ["tips/", "AGENT_CHAT.md", "CI_TRACKER.md", ".jankurai/", "web/eslint.config.js"]
+excluded_paths = [
+  "tips/",
+  "AGENT_CHAT.md",
+  "CI_TRACKER.md",
+  ".jankurai/",
+  "web/eslint.config.js",
+  "web/playwright-report/",
+]
 
 [smart_scan]
 full_scan_interval_secs = 3600
