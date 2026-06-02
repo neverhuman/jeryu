@@ -40,6 +40,7 @@
     "crates/jeryu-ci-compiler/": "ci-runtime",
     "crates/jeryu-ci-ir/": "ci-runtime",
     "crates/jeryu-ci-scheduler/": "ci-runtime",
+    "crates/jeryu-egress/": "ci-runtime",
     "crates/jeryu-core/": "forge-api",
     "crates/jeryu-core/src/overlap.rs": "forge-api",
     "crates/jeryu-readmodel/": "forge-api",
