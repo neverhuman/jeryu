@@ -155,9 +155,9 @@ jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.jso
 
 # --- UX-QA catalog artifact -------------------------------------------------
 npm --prefix apps/web ci --include=dev --workspaces=false
-npx playwright install chromium
-npm --workspace @jeryu/web run test:e2e
-npm --workspace @jeryu/web run ux-qa
+npm --prefix apps/web exec playwright install chromium
+npm --prefix apps/web run test:e2e
+npm --prefix apps/web run ux-qa
 TEMP_DIR="$(mktemp -d target/jankurai/ux-audit.XXXXXX)"
 cat > "${TEMP_DIR}/npm" <<'EOF'
 #!/usr/bin/env bash
