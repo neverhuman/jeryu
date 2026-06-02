@@ -51,13 +51,13 @@ mkdir -p \
   target/jankurai/ux-qa \
   target/jankurai/security
 
-WEB_MIRROR_CREATED=0
-cleanup_web_mirror() {
-  if [ "${WEB_MIRROR_CREATED}" -eq 1 ] && [ -d web ]; then
-    rm -rf web
+TEMP_DIR=""
+cleanup_temp_dir() {
+  if [ -n "${TEMP_DIR}" ] && [ -d "${TEMP_DIR}" ]; then
+    rm -rf "${TEMP_DIR}"
   fi
 }
-trap cleanup_web_mirror EXIT
+trap cleanup_temp_dir EXIT
 
 # The security evidence commands below execute the real security lane, so this
 # proof lane must bootstrap the same tools the hosted security workflow uses.
@@ -156,11 +156,45 @@ jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.jso
 # --- UX-QA catalog artifact -------------------------------------------------
 npm --workspace @jeryu/web run test:e2e
 npm --workspace @jeryu/web run ux-qa
-if [ ! -e web ] && [ -d apps/web ]; then
-  rsync -a --delete --exclude node_modules apps/web/ web/
-  WEB_MIRROR_CREATED=1
-fi
-jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
+TEMP_DIR="$(mktemp -d target/jankurai/ux-audit.XXXXXX)"
+cat > "${TEMP_DIR}/npm" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+REAL_NPM="${REAL_NPM:?missing REAL_NPM}"
+args=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --prefix)
+      if [ "${2:-}" = "web" ]; then
+        args+=("--prefix" "apps/web")
+        shift 2
+        continue
+      fi
+      args+=("$1")
+      if [ "$#" -gt 1 ]; then
+        args+=("$2")
+      fi
+      shift 2
+      continue
+      ;;
+    --prefix=web)
+      args+=("--prefix=apps/web")
+      shift
+      continue
+      ;;
+    *)
+      args+=("$1")
+      shift
+      continue
+      ;;
+  esac
+done
+
+exec "${REAL_NPM}" "${args[@]}"
+EOF
+chmod +x "${TEMP_DIR}/npm"
+PATH="${TEMP_DIR}:$PATH" REAL_NPM="$(command -v npm)" jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
 
 # --- DB migration and vibe coverage catalog artifacts -----------------------
 jeryu_jankurai migrate . --analyze --out target/jankurai/migration-report.json --md target/jankurai/migration-report.md
