@@ -21,6 +21,12 @@ BASE_REF="${JERYU_CI_BASE_REF:-origin/main}"
 PLAN="target/ci-fast/affected-plan.json"
 CHANGED_LIST="target/ci-fast/changed.lst"
 UNTRACKED_LIST="target/ci-fast/untracked.lst"
+LOCAL_STATE_REPAIR_SUMMARY="target/ci-fast/local-state-repair.json"
+LOCAL_STATE_VERIFY_SUMMARY="target/ci-fast/local-state-verify.json"
+CLOSEOUT_SUMMARY="${JERYU_CLOSEOUT_SUMMARY:-}"
+if [ "${JERYU_CLOSEOUT:-0}" = "1" ] && [ -z "${CLOSEOUT_SUMMARY}" ]; then
+  CLOSEOUT_SUMMARY="target/ci-fast/closeout-summary.json"
+fi
 START=$(date +%s)
 fail=0
 declare -a RESULTS
@@ -112,6 +118,83 @@ record_sharded_rust_tests() {
   local name="$1"
   RESULTS+=("PASS  ${name} (external rust-test-shards matrix)")
   printf '\033[33m↷ %s covered by external rust-test-shards matrix\033[0m\n' "$name"
+}
+
+first_failed_step() {
+  local result
+  for result in "${RESULTS[@]}"; do
+    case "${result}" in
+      FAIL*) printf '%s\n' "${result#FAIL  }"; return 0 ;;
+    esac
+  done
+  printf '%s\n' "unknown"
+}
+
+results_json() {
+  if [ "${#RESULTS[@]}" -eq 0 ]; then
+    printf '[]'
+    return
+  fi
+  printf '%s\n' "${RESULTS[@]}" |
+    jq -R 'capture("(?<status>PASS|FAIL)[[:space:]]+(?<name>.*)")' |
+    jq -s .
+}
+
+json_or_null() {
+  local path="$1"
+  if [ -f "${path}" ]; then
+    jq . "${path}"
+  else
+    printf 'null'
+  fi
+}
+
+write_closeout_summary() {
+  local status="$1" duration="$2"
+  [ -n "${CLOSEOUT_SUMMARY}" ] || return 0
+
+  local first_name first_rerun
+  first_name=""
+  first_rerun="just closeout"
+  if [ "${status}" = "fail" ]; then
+    if [ -f "${LOCAL_STATE_VERIFY_SUMMARY}" ] && jq -e '.blockers | length > 0' "${LOCAL_STATE_VERIFY_SUMMARY}" >/dev/null; then
+      first_name="local state: $(jq -r '.blockers[0].kind' "${LOCAL_STATE_VERIFY_SUMMARY}")"
+      first_rerun="$(jq -r '.blockers[0].repair_command // .blockers[0].rerun_command' "${LOCAL_STATE_VERIFY_SUMMARY}")"
+    elif [ -f "${LOCAL_STATE_VERIFY_SUMMARY}" ] && jq -e '.repairable | length > 0' "${LOCAL_STATE_VERIFY_SUMMARY}" >/dev/null; then
+      first_name="local state: $(jq -r '.repairable[0].reason' "${LOCAL_STATE_VERIFY_SUMMARY}")"
+      first_rerun="$(jq -r '.repairable[0].repair_command' "${LOCAL_STATE_VERIFY_SUMMARY}")"
+    else
+      first_name="$(first_failed_step)"
+    fi
+  fi
+
+  mkdir -p "$(dirname "${CLOSEOUT_SUMMARY}")"
+  jq -n \
+    --arg schema "jeryu.closeout-summary.v1" \
+    --arg status "${status}" \
+    --arg duration_seconds "${duration}" \
+    --arg first_name "${first_name}" \
+    --arg first_rerun "${first_rerun}" \
+    --argjson results "$(results_json)" \
+    --argjson local_state_repair "$(json_or_null "${LOCAL_STATE_REPAIR_SUMMARY}")" \
+    --argjson local_state_verify "$(json_or_null "${LOCAL_STATE_VERIFY_SUMMARY}")" \
+    '{
+      schema: $schema,
+      status: $status,
+      duration_seconds: ($duration_seconds | tonumber),
+      results: $results,
+      local_state: {
+        repair: $local_state_repair,
+        verify: $local_state_verify
+      },
+      first_blocker: (
+        if $status == "fail" then
+          {name: $first_name, rerun_command: $first_rerun}
+        else
+          null
+        end
+      )
+    }' > "${CLOSEOUT_SUMMARY}"
 }
 
 JERYU_JANKURAI_VERSION="${JANKURAI_VERSION:-jankurai 1.6.10}"
@@ -233,8 +316,9 @@ run_step "rust test mode" validate_rust_test_mode
 env_args=(--build-local)
 if [ "$FORCE_FULL" = "1" ]; then
   env_args+=(--release-guard)
+  run_step "local state repair" bash ops/ci/local-state.sh --repair --summary "${LOCAL_STATE_REPAIR_SUMMARY}"
 fi
-run_step "jeryu environment" bash ops/ci/verify-jeryu-env.sh "${env_args[@]}"
+run_step "jeryu environment" env JERYU_LOCAL_STATE_VERIFY_SUMMARY="${LOCAL_STATE_VERIFY_SUMMARY}" bash ops/ci/verify-jeryu-env.sh "${env_args[@]}"
 run_step "jankurai bootstrap" bash ops/ci/ensure-jankurai.sh
 run_step "ci lane drift guard" jeryu_gate jeryu-repogate ci-lanes-check
 run_step "affected-plan" \
@@ -318,10 +402,22 @@ for r in "${RESULTS[@]}"; do
 done
 
 if [ "$fail" -ne 0 ]; then
-  printf '\033[31mCI FAILED — not pushing.\033[0m\n'
+  write_closeout_summary "fail" "$DUR"
+  if [ "${JERYU_CLOSEOUT:-0}" = "1" ]; then
+    blocker="$(jq -r '.first_blocker.name' "${CLOSEOUT_SUMMARY}")"
+    rerun="$(jq -r '.first_blocker.rerun_command' "${CLOSEOUT_SUMMARY}")"
+    printf '\033[31mCLOSEOUT BLOCKER: %s; rerun after repair: %s\033[0m\n' "$blocker" "$rerun"
+  else
+    printf '\033[31mCI FAILED — not pushing.\033[0m\n'
+  fi
   exit 1
 fi
-printf '\033[32mALL GATES GREEN in %ss.\033[0m\n' "$DUR"
+write_closeout_summary "pass" "$DUR"
+if [ "${JERYU_CLOSEOUT:-0}" = "1" ]; then
+  printf '\033[32mALL CLOSEOUT GATES GREEN\033[0m\n'
+else
+  printf '\033[32mALL GATES GREEN in %ss.\033[0m\n' "$DUR"
+fi
 
 if [ "$NO_PUSH" = "1" ]; then
   echo "--no-push/JERYU_CI_NO_PUSH=1 — skipping push."

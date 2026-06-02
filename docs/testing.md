@@ -27,10 +27,13 @@ fails closed if the runner is Docker-backed or not a native Rust runner class.
 Primary lanes:
 - `bash ci-fast-push.sh --no-push`: canonical local/hosted fast gate for branch
   and PR checks.
+- `just closeout`: canonical local closeout. It runs the no-push full gate,
+  repairs only allowlisted repo-owned Jeryu API dev/test listeners, and writes
+  `target/ci-fast/closeout-summary.json`.
 - `bash ci-fast-push.sh --full --no-push`: local proof of the full hosted-lane
   union from `agent/ci-lanes.toml`, including GitHub clean profile proof,
-  security toolchain verification, retired-listener/process rejection, and all
-  full workflow lanes.
+  security toolchain verification, local-state repair/verification, and all full
+  workflow lanes.
 - `npm --workspace @jeryu/web run test:e2e`: Playwright lane for critical web
   flows, including the rendered README and repository browsing paths.
 - `npm --workspace @jeryu/web run ux-qa`: rendered UX QA lane for screenshots,
@@ -65,9 +68,15 @@ CI parity checks:
   binary, rejects noncanonical remotes, and ensures CI does not select the
   retired `~/.jeryu/bin/jeryu` binary.
 - `ops/ci/verify-jeryu-env.sh --build-local --release-guard` is wired into
-  full release validation and fails while retired-provider runners, `~/.jeryu`,
-  old `/home/ubuntu/jeryu`, local `:2224`, or other monitored listeners are
-  still active.
+  full release validation after `ops/ci/local-state.sh --repair`. It fails on
+  unknown guarded-port listeners, retired-provider runners, retired remotes,
+  retired source roots, and repairable local API state that was not already
+  stopped. Its output names one exact repair or rerun command instead of raw
+  process/listener state.
+- `ops/ci/local-state.sh --repair --summary target/ci-fast/local-state-repair.json`
+  is the local-state classifier and safe repair surface. Auto-stopped processes
+  are recorded with pid, executable path, bind address, reason, and command-line
+  digest; absent `jeryu-runnerd` and zero workcells are recorded as non-blocking.
 - `ops/ci/ensure-jankurai.sh` is the single local/hosted bootstrap for pinned
   Jankurai 1.6.10.
 - `agent/ci-lanes.toml` is the committed CI lane manifest. `cargo run -q -p
