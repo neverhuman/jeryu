@@ -95,7 +95,7 @@ impl WebState {
             Arc::new(RepoManager::new(GitdConfig::new(
                 std::env::temp_dir().join("jeryu-web-test-git"),
             ))),
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/dist"),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist"),
         )
     }
 }

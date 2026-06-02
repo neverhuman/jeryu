@@ -8,7 +8,7 @@
 // NOTE: the `cargo run` command below brings up the jeryu-api web edge that
 // serves the REST routes (`/api/v1/repos/{id}/pulls*`) AND the realtime
 // transport at `/api/v1/ws`. That WS endpoint speaks the `jeryu.ws.v1`
-// protocol consumed by the SPA's `JeRyuWsClient` (`web/src/api/websocket.ts`);
+// protocol consumed by the SPA's `JeRyuWsClient` (`apps/web/src/api/websocket.ts`);
 // the reconnect spec (`e2e/08-ws-reconnect.spec.ts`) exercises it against this
 // same edge. The edge is owned by the backend (Task A) and must be live for
 // the e2e suite; the specs themselves are mock-driven via `page.route(...)`

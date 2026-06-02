@@ -4,7 +4,7 @@
   "type": "module",
   "workspaces": [
     "ux-qa",
-    "web"
+    "apps/web"
   ],
   "scripts": {
     "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",

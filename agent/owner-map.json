@@ -48,7 +48,7 @@
     "crates/jeryu-cli/src/commands/gh_setup.rs": "forge-api",
     "crates/jeryu-cli/src/commands/onboard.rs": "forge-api",
     "crates/jeryu-cli/src/commands/autonomy.rs": "forge-api",
-    "web/src/pages/FleetPage.tsx": "forge-api",
+    "apps/web/src/pages/FleetPage.tsx": "forge-api",
     "crates/jeryu-gitd/": "git",
     "crates/jeryu-mirror-cli/": "git",
     "crates/jeryu-evidence/": "jankurai",
@@ -81,6 +81,6 @@
     "ux-qa/": "quality",
     "contracts/": "forge-api",
     "crates/jeryu-cli/": "forge-api",
-    "web/": "forge-api"
+    "apps/web/": "forge-api"
   }
 }

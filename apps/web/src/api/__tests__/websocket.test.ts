@@ -1,6 +1,6 @@
 // websocket.test.ts — JeRyuWsClient frame-validation + protocol-guard tests.
 //
-// These pin the HLT-019 / HLT-031 hardening on `web/src/api/websocket.ts`:
+// These pin the HLT-019 / HLT-031 hardening on `apps/web/src/api/websocket.ts`:
 //   * Inbound frames are validated at runtime before any field is read, so
 //     malformed / unknown JSON is dropped rather than cast blindly.
 //   * The server `hello` frame's `protocol` is checked against `jeryu.ws.v1`;

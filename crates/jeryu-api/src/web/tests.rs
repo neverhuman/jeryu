@@ -240,7 +240,7 @@ async fn browser_repo_routes_serve_the_spa_shell() {
         },
     )
     .unwrap();
-    let spa_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/dist");
+    let spa_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist");
     let app = app(WebState::new(core), spa_dir.as_path());
 
     let api = app

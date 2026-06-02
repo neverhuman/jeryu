@@ -24,7 +24,7 @@ export function FeaturesSectionView({
       <ul className="settings-section__body">
         {Object.entries(f).map(([key, value]) => (
           <li key={key} className="settings-section__checkbox">
-            <input type="checkbox" checked={value} disabled readOnly />
+            <input type="checkbox" checked={Boolean(value)} disabled readOnly />
             <span>{key.replaceAll('_', ' ')}</span>
           </li>
         ))}

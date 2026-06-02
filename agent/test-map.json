@@ -286,7 +286,7 @@
       "purpose": "verify the canonical security-lane wrapper delegates to the real local security lane",
       "lane": "security"
     },
-    "web/": {
+    "apps/web/": {
       "command": "bash ops/ci/web.sh",
       "purpose": "verify web surface when present, including rendered UX and Playwright coverage",
       "lane": "web"
@@ -341,7 +341,7 @@
       "purpose": "verify the autonomy command surface driving the FULL-AUTO profile",
       "lane": "cli"
     },
-    "web/src/pages/FleetPage.tsx": {
+    "apps/web/src/pages/FleetPage.tsx": {
       "command": "cd web && npm run typecheck && npm run test",
       "purpose": "verify the web /fleet page renders live pool/health state from the WS spine",
       "lane": "web"
