@@ -250,6 +250,7 @@ async fn browser_repo_routes_serve_the_spa_shell() {
     use axum::body::Body;
     use axum::http::Request;
     use tower::ServiceExt;
+    use tempfile::tempdir;
 
     let core = ForgeCore::new();
     core.create_repository(
@@ -262,8 +263,13 @@ async fn browser_repo_routes_serve_the_spa_shell() {
         },
     )
     .unwrap();
-    let spa_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist");
-    let app = app(WebState::new(core), spa_dir.as_path());
+    let spa_dir = tempdir().expect("temp SPA dir");
+    std::fs::write(
+        spa_dir.path().join("index.html"),
+        r#"<!doctype html><html><body><div id="root"></div></body></html>"#,
+    )
+    .expect("write SPA stub");
+    let app = app(WebState::new(core), spa_dir.path());
 
     let api = app
         .clone()

@@ -31,6 +31,7 @@ tower-http = { version = "0.6", features = ["fs"], optional = true }
 
 [dev-dependencies]
 reqwest = { version = "0.12", features = ["json"] }
+tempfile = { workspace = true }
 tower = "0.5"
 
 [features]
