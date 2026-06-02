@@ -202,7 +202,7 @@ fn import_local_git_dirs(
 ) -> Result<LocalImportManifest> {
     std::fs::create_dir_all(data_dir)
         .with_context(|| format!("create data dir {}", data_dir.display()))?;
-    let gitd_storage_root = data_dir.join("git").join("repos");
+    let gitd_storage_root = data_dir.join("git");
     let core = if dry_run {
         None
     } else {

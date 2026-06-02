@@ -24,7 +24,7 @@ git clone --branch main "$repo_root/repos/oracle/demo.git" "$repo_root/clone" >/
 cmp "$work/README.md" "$repo_root/clone/README.md"
 git -C "$repo_root/repos/oracle/demo.git" fsck --strict >/dev/null
 cargo run -q -p jeryu-mirror-cli -- import-local --data-dir "$repo_root/data" --owner local "$work" > "$repo_root/import.json"
-imported_repo="$repo_root/data/git/repos/local/work.git"
+imported_repo="$repo_root/data/git/local/work.git"
 test -f "$imported_repo/jeryu/repo-id"
 git clone --branch main "$imported_repo" "$repo_root/import-clone" >/dev/null
 cmp "$work/README.md" "$repo_root/import-clone/README.md"

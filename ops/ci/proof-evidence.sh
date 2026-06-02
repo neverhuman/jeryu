@@ -51,6 +51,14 @@ mkdir -p \
   target/jankurai/ux-qa \
   target/jankurai/security
 
+WEB_MIRROR_CREATED=0
+cleanup_web_mirror() {
+  if [ "${WEB_MIRROR_CREATED}" -eq 1 ] && [ -d web ]; then
+    rm -rf web
+  fi
+}
+trap cleanup_web_mirror EXIT
+
 # The security evidence commands below execute the real security lane, so this
 # proof lane must bootstrap the same tools the hosted security workflow uses.
 bash ops/ci/security-tools.sh
@@ -148,6 +156,10 @@ jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.jso
 # --- UX-QA catalog artifact -------------------------------------------------
 npm --workspace @jeryu/web run test:e2e
 npm --workspace @jeryu/web run ux-qa
+if [ ! -e web ] && [ -d apps/web ]; then
+  rsync -a --delete --exclude node_modules apps/web/ web/
+  WEB_MIRROR_CREATED=1
+fi
 jeryu_jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
 
 # --- DB migration and vibe coverage catalog artifacts -----------------------

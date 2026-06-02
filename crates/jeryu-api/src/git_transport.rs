@@ -122,6 +122,7 @@ pub(crate) async fn git_receive_pack(
 ) -> AxumResponse {
     let manager = (*state.repo_manager).clone();
     let before = snapshot_refs(&manager, &owner, &repo);
+    let origin_base_url = origin_base_url(&headers);
     let response = route_git(
         &state,
         peer,
@@ -140,11 +141,21 @@ pub(crate) async fn git_receive_pack(
         let _ = tokio::task::spawn_blocking(move || {
             let after = snapshot_refs(&manager, &owner, &repo);
             let updates = crate::ci_bridge::ref_updates(&before, &after);
-            crate::ci_bridge::on_push(&core, &manager, &owner, &repo, &updates);
+            crate::ci_bridge::on_push(&core, &manager, &owner, &repo, &updates, &origin_base_url);
         })
         .await;
     }
     response
+}
+
+fn origin_base_url(headers: &HeaderMap) -> String {
+    headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .filter(|host| !host.trim().is_empty())
+        .map(|host| format!("http://{host}"))
+        .or_else(|| std::env::var("JERYU_BASE").ok())
+        .unwrap_or_else(|| "http://127.0.0.1:8787".to_string())
 }
 
 /// Snapshot a repo's refs. A repo that cannot be resolved or listed yields an

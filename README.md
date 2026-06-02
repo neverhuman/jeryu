@@ -121,7 +121,7 @@ cargo run -p jeryu-tui -- --once --source api \
 
 Local Git directories can be registered into the SQLite forge store and a
 host-local manifest under the data dir. The same import also materializes a
-gitd-managed bare mirror at `~/.local/share/jeryu/git/repos/OWNER/REPO.git` so
+gitd-managed bare mirror at `~/.local/share/jeryu/git/OWNER/REPO.git` so
 local clone/fetch smoke tests use the Jeryu Git storage path, not only metadata:
 
 ```bash
