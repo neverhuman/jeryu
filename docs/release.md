@@ -17,7 +17,7 @@ Release process doc: [docs/release-process.md](release-process.md).
 
 ## Required Gates
 
-- `bash ci-fast-push.sh --full --no-push`
+- `just closeout`
 - `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
 - `bash scripts/ci-phases.sh`
 - `./ops/ci/full.sh`
@@ -50,13 +50,15 @@ the evidence that proves the candidate is safe to publish:
 Latest closeout validation used explicit `--full` mode with 40 workers in both
 local-native and GitHub-clean profiles: 1175 nextest tests, phase gates
 PASS=9/PENDING=0/FAIL=0, proof-evidence Jankurai full scan score 92 caps 0, and
-changed-file Jankurai diff/audit hard 0 caps 0. The GitHub-clean proof is
+changed-file Jankurai diff/audit hard 0 caps 0. The default local closeout
+command is now `just closeout`, which runs the no-push full gate and writes
+`target/ci-fast/closeout-summary.json`. Full mode runs
+`ops/ci/local-state.sh --repair` before
+`ops/ci/verify-jeryu-env.sh --build-local --release-guard`, rejects unknown or
+retired local state, and records `release_validation_idle` plus
+`live_runner_required=false` when no live API or runner daemon is required for
+release validation. The GitHub-clean proof remains
 `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`.
-Full mode runs `ops/ci/verify-jeryu-env.sh --build-local --release-guard` and
-rejects retired-provider runners, `~/.jeryu`, old `/home/ubuntu/jeryu`, and
-local `:2224` listener/remotes so release evidence cannot be produced against
-the retired system. This host still needs an explicit retired-state bypass for
-local parity runs until an operator stops the root-owned retired services.
 
 ## Release Process
 

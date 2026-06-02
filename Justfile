@@ -24,6 +24,9 @@ security:
 release:
   ./ops/ci/release.sh
 
+closeout:
+  ./ops/ci/closeout.sh
+
 score:
   ./scripts/ci-doctor.sh
 
