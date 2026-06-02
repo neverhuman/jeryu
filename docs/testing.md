@@ -57,6 +57,8 @@ Primary lanes:
 - `cargo test -p jeryu-runnerd workcell --jobs 40`: workcell lifecycle, epoch fencing, tar safety, and frozen CI repair helper proof lane.
 - `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck`: read-model dashboard and generated contract proof lane for the workcells snapshot.
 - `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
+- `cargo run -p jeryu-sandbox-linux --example jail_demo`: the live folder-jail demo (Rung 1, see `docs/workcell.md`). Drives the production launch path against a throwaway checkout and exits non-zero unless write-inside is ALLOWED and write-outside, `/etc/shadow` read, and an `AF_INET` socket are each DENIED (or a host-absent primitive is honestly skipped). Run it on a fleet node where Landlock + seccomp are present.
+- `cargo test -p jeryu-runnerd jailgun`: the jailgun tar round-trip (Rung 2). A clean subtree imports/exports while adversarial tar entries (parent traversal, absolute path, symlink, character device, a smuggled traversal, and an out-of-root export) are each rejected with `workcell_tar_path_denied`.
 
 PENDING is only allowed for a capability that is not built yet and must be
 printed as PENDING, not PASS. The current phase gates report PASS=9,

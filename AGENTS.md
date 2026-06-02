@@ -14,16 +14,17 @@ Before editing code, inspect:
 7. `agent/boundaries.toml`
 8. `agent/tool-adoption.toml`
 9. `docs/architecture.md`
-10. `docs/testing.md`
-11. `docs/errors.md`
-12. `docs/boundaries.md`
-13. `docs/generated-zones.md`
-14. `docs/release.md`
-15. `docs/release-process.md`
-16. `docs/signrail-release-signing.md`
-17. `docs/audit-rubric.md`
-18. `docs/agent-native-standard.md`
-19. Local `AGENTS.md` files under changed paths, such as `docs/AGENTS.md`
+10. `docs/workcell.md`
+11. `docs/testing.md`
+12. `docs/errors.md`
+13. `docs/boundaries.md`
+14. `docs/generated-zones.md`
+15. `docs/release.md`
+16. `docs/release-process.md`
+17. `docs/signrail-release-signing.md`
+18. `docs/audit-rubric.md`
+19. `docs/agent-native-standard.md`
+20. Local `AGENTS.md` files under changed paths, such as `docs/AGENTS.md`
     and `crates/jeryu-api/AGENTS.md`.
 
 Hard rules:

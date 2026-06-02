@@ -25,3 +25,7 @@ seccompiler = "0.5"
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[[example]]
+name = "jail_demo"
+path = "examples/jail_demo.rs"
