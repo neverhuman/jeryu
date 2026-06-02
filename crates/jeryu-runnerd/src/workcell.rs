@@ -527,6 +527,57 @@ impl WorkcellManager {
         Ok(lease)
     }
 
+    pub fn hold_failed_tree(
+        &mut self,
+        request: WorkcellClaimRequest,
+        failed_run_id: impl Into<String>,
+        failed_receipt_id: impl Into<String>,
+        failure_log_digest: impl Into<String>,
+    ) -> WorkcellResult<WorkcellLease> {
+        let failed_run_id = failed_run_id.into();
+        let failed_receipt_id = failed_receipt_id.into();
+        let failure_log_digest = failure_log_digest.into();
+        let mut lease = self.claim(request)?;
+        let workcell_id = lease.workcell_id.clone();
+        let cell = self
+            .cells
+            .get_mut(&workcell_id)
+            .expect("claimed workcell must stay live");
+        cell.state = WorkcellState::Held;
+        cell.failed_run_id = Some(failed_run_id);
+        cell.failed_receipt_id = Some(failed_receipt_id);
+        cell.failure_log_digest = Some(failure_log_digest.clone());
+        cell.allowed_paths = cell
+            .repo_roots
+            .iter()
+            .cloned()
+            .chain(std::iter::once(cell.workspace_root.clone()))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        cell.frozen_snapshot = Some(FrozenCiSnapshot {
+            ci_run_id: cell.failed_run_id.clone().unwrap_or_default(),
+            failed_run_id: cell.failed_run_id.clone().unwrap_or_default(),
+            failed_receipt_id: cell.failed_receipt_id.clone().unwrap_or_default(),
+            workcell_id: cell.workcell_id.clone(),
+            runner_id: cell.runner_id.clone(),
+            runner_epoch: cell.runner_epoch,
+            workspace_root: cell.workspace_root.clone(),
+            repo_roots: cell.repo_roots.clone(),
+            allowed_paths: cell.allowed_paths.clone(),
+            git_status_summary: cell.git_status_summary.clone(),
+            branch_policy: cell.branch_policy.clone(),
+            main_ref: cell.startup_main_ref.clone().unwrap_or_default(),
+            base_sha: cell.startup_base_sha.clone().unwrap_or_default(),
+            head_sha: cell.startup_head_sha.clone().unwrap_or_default(),
+            failure_log_digest: failure_log_digest.clone(),
+            snapshot_age_ms: cell.ci_snapshot_age_ms.unwrap_or_default(),
+            heartbeat_healthy: cell.heartbeat_healthy,
+        });
+        lease = cell.clone();
+        Ok(lease)
+    }
+
     pub fn heartbeat(
         &mut self,
         workcell_id: &str,

@@ -35,6 +35,7 @@ mod tests {
         assert_eq!(m.release.blocked(), 1);
         assert_eq!(m.workcells.blocked(), 1);
         assert_eq!(m.workcells.claimed(), 1);
+        assert_eq!(m.workcells.held(), 1);
         assert_eq!(m.workflow.blocked(), 1);
     }
 

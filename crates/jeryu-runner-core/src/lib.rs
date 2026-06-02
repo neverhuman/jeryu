@@ -11,6 +11,6 @@ pub mod trust;
 pub use error::{RunnerError, RunnerResult};
 pub use job::{JobRequest, NetworkPolicy, SecretPolicy, TokenPolicy};
 pub use policy::{CacheWritePolicy, PolicyDecision, select_runner};
-pub use receipt::{Receipt, ReceiptStatus};
+pub use receipt::{ExecutionHandle, Receipt, ReceiptStatus};
 pub use sandbox::{CgroupLimits, LandlockRule, MountSpec, SandboxPlan, SeccompProfile};
 pub use trust::{RunnerClass, TrustTier};
