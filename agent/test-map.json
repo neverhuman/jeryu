@@ -347,9 +347,9 @@
       "lane": "cli"
     },
     "apps/web/src/pages/FleetPage.tsx": {
-      "command": "cd apps/web && npm run typecheck && npm run test",
-      "purpose": "verify the web /fleet page renders live pool/health state from the WS spine",
-      "lane": "web"
+      "command": "bash ops/ci/web.sh",
+      "purpose": "verify the web /fleet page renders live pool/health state with layered UX QA",
+      "lane": "ux-qa"
     }
   }
 }
