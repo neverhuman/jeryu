@@ -164,6 +164,7 @@ jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.jso
   npx playwright install chromium
   npm run build
   npm run test:e2e
+  npm run build-storybook
   npm run ux-qa
 )
 TEMP_DIR="$(mktemp -d target/jankurai/ux-audit.XXXXXX)"
