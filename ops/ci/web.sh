@@ -13,4 +13,8 @@ npm run test:contracts
 npm run build
 npm run test:e2e
 npm run build-storybook
+# ux-qa runs the @jankurai/ux-qa rendered-UX lane (ux-qa/ux-qa-check.mjs) over the
+# built SPA + Storybook: Playwright screenshot / visual review baselines, axe
+# accessibility receipts, and the analyzePage geometry runtime (getBoundingClientRect
+# edge clearance + WCAG 2.5.5 target size). Receipts land in target/jankurai/ux-qa/.
 npm run ux-qa
