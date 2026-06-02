@@ -124,7 +124,10 @@ mod tests {
         let fleet = jeryu_runnerd::fleet_snapshot();
         assert_eq!(fleet.nodes, 4, "dogfood fixture has 4 nodes (xbabe0..3)");
         assert_eq!(fleet.total_slots, 40, "4 nodes × 10 slots = 40");
-        assert!(fleet.online_runners >= 1, "fixture nodes are online, not zero");
+        assert!(
+            fleet.online_runners >= 1,
+            "fixture nodes are online, not zero"
+        );
         assert_eq!(fleet.online_runners + fleet.stuck_runners, fleet.nodes);
     }
 
