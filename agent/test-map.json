@@ -347,8 +347,13 @@
       "lane": "cli"
     },
     "apps/web/src/pages/FleetPage.tsx": {
-      "command": "bash ops/ci/web.sh",
+      "command": "npm --workspace @jeryu/web run ux-qa",
       "purpose": "verify the web /fleet page renders live pool/health state with layered UX QA",
+      "lane": "ux-qa"
+    },
+    "apps/web/src/pages/FleetPage.stories.tsx": {
+      "command": "npm --workspace @jeryu/web run ux-qa",
+      "purpose": "verify the fleet page Storybook states provide rendered UX proof for the web surface",
       "lane": "ux-qa"
     }
   }
