@@ -154,6 +154,7 @@ jeryu_jankurai audit . --mode ratchet \
 jeryu_jankurai rust witness build . --out target/jankurai/rust/witness-graph.json
 
 # --- UX-QA catalog artifact -------------------------------------------------
+npm --prefix apps/web ci --include=dev --workspaces=false
 npm --workspace @jeryu/web run test:e2e
 npm --workspace @jeryu/web run ux-qa
 TEMP_DIR="$(mktemp -d target/jankurai/ux-audit.XXXXXX)"
