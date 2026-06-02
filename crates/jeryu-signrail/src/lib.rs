@@ -27,6 +27,6 @@ pub use provenance::{ProvenanceStatement, RELEASE_WITNESS_MARKER, SignedProvenan
 pub use release::Release;
 pub use rollback::RollbackMetadata;
 pub use sbom::SbomDocument;
-pub use signature::{HmacSha256Signer, Signature, Signer, UnavailableSigner};
+pub use signature::{Ed25519Signer, HmacSha256Signer, Signature, Signer, UnavailableSigner};
 pub use store::ArtifactStore;
 pub use witness::ReleaseWitness;
