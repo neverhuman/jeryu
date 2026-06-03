@@ -414,6 +414,16 @@ pub struct WorkcellClaimRequest {
     pub startup: StartupSync,
 }
 
+/// Request to freeze failed CI evidence before starting live repair.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FreezeFailedCiRunRequest {
+    pub ci_run_id: String,
+    pub failed_run_id: String,
+    pub failed_receipt_id: String,
+    pub failure_log_digest: String,
+    pub snapshot_age_ms: u64,
+}
+
 /// One live workcell lease.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkcellLease {
@@ -764,23 +774,19 @@ impl WorkcellManager {
         &self,
         workcell_id: &str,
         runner_epoch: u64,
-        ci_run_id: impl Into<String>,
-        failed_run_id: impl Into<String>,
-        failed_receipt_id: impl Into<String>,
-        failure_log_digest: impl Into<String>,
-        snapshot_age_ms: u64,
+        request: FreezeFailedCiRunRequest,
     ) -> WorkcellResult<FrozenCiSnapshot> {
         let cell = self.cells.get(workcell_id).ok_or_else(|| {
             WorkcellError::epoch_fenced(format!("unknown workcell {workcell_id}"))
         })?;
         Self::require_epoch(cell, runner_epoch)?;
         Ok(FrozenCiSnapshot::from_workcell(
-            ci_run_id,
-            failed_run_id,
-            failed_receipt_id,
+            request.ci_run_id,
+            request.failed_run_id,
+            request.failed_receipt_id,
             cell,
-            failure_log_digest,
-            snapshot_age_ms,
+            request.failure_log_digest,
+            request.snapshot_age_ms,
         ))
     }
 
@@ -1046,11 +1052,13 @@ mod tests {
             .freeze_failed_ci_run(
                 &lease.workcell_id,
                 lease.runner_epoch,
-                "ci-17",
-                "run-17",
-                "receipt-17",
-                "sha256:deadbeef",
-                1_200,
+                FreezeFailedCiRunRequest {
+                    ci_run_id: "ci-17".into(),
+                    failed_run_id: "run-17".into(),
+                    failed_receipt_id: "receipt-17".into(),
+                    failure_log_digest: "sha256:deadbeef".into(),
+                    snapshot_age_ms: 1_200,
+                },
             )
             .expect("freeze succeeds");
         let frozen_before = frozen.clone();

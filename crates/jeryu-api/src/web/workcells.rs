@@ -20,6 +20,19 @@ use serde_json::json;
 use super::WebState;
 use super::surface::serialize_payload;
 
+type WorkcellParseResult<T> = Result<T, Box<AxumResponse>>;
+
+struct TypedError<'a> {
+    status: StatusCode,
+    code: &'a str,
+    purpose: &'a str,
+    reason: &'a str,
+    common_fixes: &'a [&'a str],
+    docs_url: &'a str,
+    repair_hint: &'a str,
+    message: &'a str,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct WorkcellHeartbeatRequest {
     pub runner_epoch: u64,
@@ -100,7 +113,7 @@ pub(super) async fn claim(State(state): State<Arc<WebState>>, body: Bytes) -> Ax
         "rerun cargo test -p jeryu-runnerd workcell --jobs 40",
     ) {
         Ok(request) => request,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let outcome = manager(&state).claim(request);
     match outcome {
@@ -116,7 +129,7 @@ pub(super) async fn repair_live(State(state): State<Arc<WebState>>, body: Bytes)
         "rerun cargo test -p jeryu-runnerd workcell --jobs 40",
     ) {
         Ok(request) => request,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let claim = WorkcellClaimRequest {
         agent_id: request.agent_id,
@@ -157,7 +170,7 @@ pub(super) async fn heartbeat(
         "rerun cargo test -p jeryu-runnerd workcell --jobs 40",
     ) {
         Ok(request) => request,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let mut manager = manager(&state);
     match manager.heartbeat(
@@ -184,7 +197,7 @@ pub(super) async fn release(
         "rerun cargo test -p jeryu-runnerd workcell --jobs 40",
     ) {
         Ok(request) => request,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let mut manager = manager(&state);
     match manager.release(&workcell_id, request.runner_epoch) {
@@ -207,22 +220,22 @@ pub(super) async fn export_pr(
         "rerun cargo test -p jeryu-api --features web --jobs 40",
     ) {
         Ok(request) => request,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     if request.workcell_id != workcell_id {
-        return typed_error(
-            StatusCode::BAD_REQUEST,
-            "workcell_id_mismatch",
-            "export a repair branch into a pull request",
-            "request path and body disagreed on the workcell id",
-            &[
+        return typed_error(TypedError {
+            status: StatusCode::BAD_REQUEST,
+            code: "workcell_id_mismatch",
+            purpose: "export a repair branch into a pull request",
+            reason: "request path and body disagreed on the workcell id",
+            common_fixes: &[
                 "send the same workcell id in the path and request body",
                 "reload the workcell status before retrying the export",
             ],
-            "docs/testing.md#workcells",
-            "rerun cargo test -p jeryu-api --features web --jobs 40",
-            "the request body did not match the selected workcell",
-        );
+            docs_url: "docs/testing.md#workcells",
+            repair_hint: "rerun cargo test -p jeryu-api --features web --jobs 40",
+            message: "the request body did not match the selected workcell",
+        });
     }
 
     let mut manager = manager(&state);
@@ -424,16 +437,16 @@ fn workcell_error(err: WorkcellError) -> AxumResponse {
         "workcell_delete_denied" => StatusCode::FORBIDDEN,
         _ => StatusCode::BAD_REQUEST,
     };
-    typed_error(
+    typed_error(TypedError {
         status,
-        err.reason,
-        err.purpose,
-        err.message(),
-        err.common_fixes,
-        err.docs_url,
-        err.repair_hint,
-        err.message(),
-    )
+        code: err.reason,
+        purpose: err.purpose,
+        reason: err.message(),
+        common_fixes: err.common_fixes,
+        docs_url: err.docs_url,
+        repair_hint: err.repair_hint,
+        message: err.message(),
+    })
 }
 
 fn forge_error(err: ForgeError) -> AxumResponse {
@@ -484,79 +497,73 @@ fn forge_error(err: ForgeError) -> AxumResponse {
             "rerun after the forge storage backend is healthy",
         ),
     };
-    typed_error(
+    let message = err.to_string();
+    typed_error(TypedError {
         status,
-        reason,
-        "export a repair pull request",
-        &err.to_string(),
+        code: reason,
+        purpose: "export a repair pull request",
+        reason: &message,
         common_fixes,
-        "docs/testing.md#workcells",
+        docs_url: "docs/testing.md#workcells",
         repair_hint,
-        &err.to_string(),
-    )
+        message: &message,
+    })
 }
 
 fn parse_json_body<T: DeserializeOwned>(
     body: &Bytes,
     purpose: &'static str,
     repair_hint: &'static str,
-) -> Result<T, AxumResponse> {
+) -> WorkcellParseResult<T> {
     serde_json::from_slice(body).map_err(|err| {
-        typed_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "workcell_invalid_request",
+        let message = err.to_string();
+        Box::new(typed_error(TypedError {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            code: "workcell_invalid_request",
             purpose,
-            &err.to_string(),
-            &[
+            reason: &message,
+            common_fixes: &[
                 "send a JSON body that matches the route schema",
                 "use the typed MCP/API surface to build the request",
             ],
-            "docs/testing.md#workcells",
+            docs_url: "docs/testing.md#workcells",
             repair_hint,
-            &err.to_string(),
-        )
+            message: &message,
+        }))
     })
 }
 
-fn typed_error(
-    status: StatusCode,
-    code: &str,
-    purpose: &str,
-    reason: &str,
-    common_fixes: &[&str],
-    docs_url: &str,
-    repair_hint: &str,
-    message: &str,
-) -> AxumResponse {
+fn typed_error(error: TypedError<'_>) -> AxumResponse {
     (
-        status,
+        error.status,
         Json(json!({
-            "code": code,
-            "message": message,
-            "purpose": purpose,
-            "reason": reason,
-            "common_fixes": common_fixes,
-            "docs_url": docs_url,
-            "repair_hint": repair_hint,
+            "code": error.code,
+            "message": error.message,
+            "purpose": error.purpose,
+            "reason": error.reason,
+            "common_fixes": error.common_fixes,
+            "docs_url": error.docs_url,
+            "repair_hint": error.repair_hint,
         })),
     )
         .into_response()
 }
 
 fn workcell_not_found(workcell_id: &str) -> AxumResponse {
-    typed_error(
-        StatusCode::NOT_FOUND,
-        "not_found",
-        "inspect a workcell",
-        &format!("workcell {workcell_id} was not found"),
-        &[
+    let message = format!("workcell {workcell_id} was not found");
+    typed_error(TypedError {
+        status: StatusCode::NOT_FOUND,
+        code: "not_found",
+        purpose: "inspect a workcell",
+        reason: &message,
+        common_fixes: &[
             "claim a workcell before asking for its status",
             "reload the workcells list and retry with a live id",
         ],
-        "docs/testing.md#workcells",
-        "rerun cargo test -p jeryu-api --features web --jobs 40",
-        &format!("workcell {workcell_id} was not found"),
-    )
+        docs_url: "docs/testing.md#workcells",
+        repair_hint: "rerun cargo test -p jeryu-api --features web --jobs 40",
+        message: &message,
+    })
 }
 
 fn manager(state: &WebState) -> std::sync::MutexGuard<'_, WorkcellManager> {
