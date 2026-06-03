@@ -59,6 +59,8 @@ Primary lanes:
 - `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
 - `cargo run -p jeryu-sandbox-linux --example jail_demo`: the live folder-jail demo (Rung 1, see `docs/workcell.md`). Drives the production launch path against a throwaway checkout and exits non-zero unless write-inside is ALLOWED and write-outside, `/etc/shadow` read, and an `AF_INET` socket are each DENIED (or a host-absent primitive is honestly skipped). Run it on a fleet node where Landlock + seccomp are present.
 - `cargo test -p jeryu-runnerd jailgun`: the jailgun tar round-trip (Rung 2). A clean subtree imports/exports while adversarial tar entries (parent traversal, absolute path, symlink, character device, a smuggled traversal, and an out-of-root export) are each rejected with `workcell_tar_path_denied`.
+- `cargo test -p jeryu-agentbridge`: the in-cell agent driver (Rung 4, see `docs/workcell.md`). The `driver_in_cell` integration tests prove a jailed edit-bot writes only inside the cell, an out-of-cell write is DENIED by Landlock (honestly skipped if the host lacks Landlock), the watchdog kills a runaway, and an exceeded output/token budget kills the child.
+- `cargo test -p jeryu-egress`: the allowlist egress proxy. Unit tests cover `egress_decision` (allowed host/suffix, non-allowlisted denial, budget-kill denies even allowlisted hosts, case-insensitive match, and the `crates.io.attacker.com` substring-attack denial); the integration tests prove a non-allowlisted CONNECT returns 403 before any upstream connect.
 
 PENDING is only allowed for a capability that is not built yet and must be
 printed as PENDING, not PASS. The current phase gates report PASS=9,

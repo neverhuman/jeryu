@@ -42,6 +42,8 @@ SignRail artifact-support signing details:
 - `cargo run -p jeryu-sandbox-linux --example jail_demo` and
   `cargo test -p jeryu-runnerd jailgun` when the workcell cell jail (the
   `jeryu-sandbox-linux` launch path) or the jailgun tar validators change.
+- `cargo test -p jeryu-agentbridge` and `cargo test -p jeryu-egress` when the
+  in-cell agent driver or the allowlist egress proxy changes.
   Workcell- and jailed-agent-authored changes flow through these same release
   gates and CI evidence with no privileged path; see `docs/workcell.md`.
 
