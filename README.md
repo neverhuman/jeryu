@@ -104,7 +104,14 @@ path, limited to vetted hosts and revoked when the budget trips. `jailgun` moves
 code in and out as a quarantine-first tar. The capability and its proof commands
 are documented in `docs/workcell.md`.
 
-The integrated R5 proof lane is `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`; it proves the full claim -> rebase -> jailed edit -> namespaced branch export -> PR -> CI evidence loop and keeps changed-file ownership attached to the exported pull request.
+The integrated R5 proof lane is
+`cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`; it proves the
+full claim -> rebase -> jailed edit -> namespaced branch export -> PR -> CI
+evidence loop and keeps changed-file ownership attached to the exported pull
+request. Workcell export now derives changed files from the frozen git diff
+before PR creation; `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
+proves an out-of-slice diff returns `workcell_export_slice_denied` and creates
+no PR.
 
 ## Local Live Runtime
 

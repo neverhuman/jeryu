@@ -120,6 +120,23 @@ fleet:
 | **R4** | **in-cell agent driver + allowlist egress proxy (this doc)** |
 | R5 | jailed agent: rebase -> edit -> namespaced branch (`agents/{id}/workcells/{wc}/<branch>`) -> jailgun-export -> PR -> green CI, host FS provably untouched; proof lane: `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` |
 
+## Export Slice Gate
+
+Workcell export no longer trusts caller-supplied `changed_files`. The API derives
+the PR changed-file evidence from the frozen `base_sha..head_sha` diff in the
+managed bare repository, then checks it against the lease's allowed repo roots
+before any pull request is created.
+
+A whole-repo lease strips to an empty prefix and permits the diff. A restrictive
+lease drops that empty workspace-root prefix and keeps only the specific repo
+root prefixes, so a commit outside the slice is denied with
+`workcell_export_slice_denied` and leaves the PR list unchanged.
+
+Proof lanes:
+
+- `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
+- `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`
+
 ## Repair
 
 - Jail demo verdict `FAIL` (an attempt did not match its expected kernel verdict):
@@ -135,3 +152,8 @@ fleet:
   `escape_suite`. Rerun: `cargo test -p jeryu-agentbridge`.
 - Egress denial of an expected host: extend the `Allowlist`; a denial of a
   non-allowlisted host is correct. Rerun: `cargo test -p jeryu-egress`.
+- Export slice denial: confirm the failed diff path is intended to be outside
+  the workcell's allowed repo roots. To widen the slice, reclaim the workcell
+  with the required `repo_roots`; to keep the slice narrow, move the edit back
+  under an allowed root. Rerun:
+  `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`.

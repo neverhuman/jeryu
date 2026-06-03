@@ -104,6 +104,18 @@ impl WebState {
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist"),
         )
     }
+
+    /// Test-only constructor that roots the git `RepoManager` at `storage_root`
+    /// so the workcell export slice gate can run a real `git diff` against a
+    /// fixture bare repository.
+    #[cfg(test)]
+    fn new_with_git_storage(core: ForgeCore, storage_root: PathBuf) -> Self {
+        Self::with_repo_manager(
+            core,
+            Arc::new(RepoManager::new(GitdConfig::new(storage_root))),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist"),
+        )
+    }
 }
 
 /// Live-stream fan-out hub for the WebSocket event spine.
