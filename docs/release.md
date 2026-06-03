@@ -91,8 +91,11 @@ local parity runs until an operator stops the root-owned retired services.
 5. Sign artifact-support evidence with `jeryu-signrail sign-release`; local
    runs require `JERYU_SIGNRAIL_ED25519_SEED`, and GitHub Actions requires
    `SIGNRAIL_ED25519_SEED`.
-6. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
-   require explicit `--push-main` and are not the default closeout path.
+6. Publish through a PR branch in local Jeryu first; local Jeryu mergeability
+   plus green gates are authoritative, and GitHub is updated only as an
+   explicit mirror after local `main` has the merge. Direct `main` pushes from
+   `ci-fast-push.sh` require explicit `--push-main` and are not the default
+   closeout path.
 7. Run `bash ops/ci/release.sh` before signing the receipt so the release lane
    produces the build and receipt artifacts.
 8. Tag only after the release receipt names the exact commit, prior rollback
