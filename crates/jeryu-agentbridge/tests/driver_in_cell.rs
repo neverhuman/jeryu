@@ -63,7 +63,12 @@ fn editbot_writes_inside_the_cell() {
     let bot = stage_editbot(&ws, &editbot_src()).expect("stage editbot into cell");
     assert!(bot.starts_with(&ws), "staged bot must live under the cell");
 
-    let driver = AgentDriver::default().with_timeout(Duration::from_secs(10));
+    // This proves the Landlock/seccomp JAIL, not cgroups; opt OUT of the
+    // require_cgroup fail-closed gate so it keeps running on this no-delegation
+    // host (it is not a cgroup test).
+    let driver = AgentDriver::default()
+        .with_require_cgroup(false)
+        .with_timeout(Duration::from_secs(10));
     // Relative target resolves against the sandbox cwd, which IS the cell.
     let spec = CommandSpec::new(bot.to_string_lossy().to_string())
         .env("EDITBOT_TARGET", "EDIT.txt")
@@ -128,7 +133,11 @@ fn editbot_writing_outside_the_cell_is_denied_by_landlock() {
         return;
     }
 
-    let driver = AgentDriver::default().with_timeout(Duration::from_secs(10));
+    // Landlock jail test, not a cgroup test: opt out of require_cgroup so it
+    // runs on this no-delegation host.
+    let driver = AgentDriver::default()
+        .with_require_cgroup(false)
+        .with_timeout(Duration::from_secs(10));
     let spec = CommandSpec::new(bot.to_string_lossy().to_string())
         .env("EDITBOT_TARGET", outside.to_string_lossy().to_string())
         .env("EDITBOT_CONTENT", "escaped");
@@ -167,7 +176,9 @@ fn watchdog_kills_a_runaway_editbot() {
     let bot = stage_editbot(&ws, &editbot_src()).expect("stage editbot into cell");
 
     // 300ms wall-clock budget; the bot spins forever, so it must be killed.
+    // Watchdog test, not a cgroup test: opt out of require_cgroup.
     let driver = AgentDriver::default()
+        .with_require_cgroup(false)
         .with_timeout(Duration::from_millis(300))
         .with_output_budget(1024 * 1024); // large, so timeout (not budget) wins
     let spec = CommandSpec::new(bot.to_string_lossy().to_string()).env("EDITBOT_SPIN", "1");
@@ -212,7 +223,9 @@ fn output_budget_exceeded_kills_the_child() {
     // kill it well before it finishes. Generous timeout so budget (not timeout)
     // is the cause.
     let budget = 4 * 1024;
+    // Output-budget test, not a cgroup test: opt out of require_cgroup.
     let driver = AgentDriver::default()
+        .with_require_cgroup(false)
         .with_timeout(Duration::from_secs(30))
         .with_output_budget(budget);
     let spec = CommandSpec::new(bot.to_string_lossy().to_string()).env("EDITBOT_SPEW", "4096"); // KiB

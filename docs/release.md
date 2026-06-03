@@ -46,6 +46,9 @@ SignRail artifact-support signing details:
   in-cell agent driver or the allowlist egress proxy changes.
   Workcell- and jailed-agent-authored changes flow through these same release
   gates and CI evidence with no privileged path; see `docs/workcell.md`.
+- `cargo test -p jeryu-sandbox-linux` (escape_suite + cgroup_confinement) when
+  the sandbox cgroup/Landlock enforcement or `ops/security/jeryu-runnerd.service`
+  delegation unit changes — agent jobs must stay fail-closed on resource caps.
 
 ## Release Receipt
 

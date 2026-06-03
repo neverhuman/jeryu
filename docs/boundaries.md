@@ -45,3 +45,8 @@ the approved roots. Network egress is deny-by-default except through the
 `jeryu-egress` allowlist proxy: only vetted hosts are reachable, matched on
 exact host or a DNS-suffix on a dot boundary (never substring), and a tripped
 token budget revokes egress entirely (`DenyBudget`). See `docs/workcell.md`.
+
+Agent jobs are also **fail-closed on resource limits**: the sandbox refuses to
+launch (`EnforcementLevel::Unavailable`) unless a delegated cgroup-v2 subtree is
+available to enforce the memory/PID caps, so a runaway agent can never run
+uncontained. Ordinary CI/build jobs keep the older degrade-don't-refuse posture.
