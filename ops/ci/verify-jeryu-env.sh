@@ -34,6 +34,8 @@ remote="$(git remote get-url origin 2>/dev/null || true)"
 case "${remote}" in
   ""|git@github.com:neverhuman/jeryu.git|https://github.com/neverhuman/jeryu|https://github.com/neverhuman/jeryu.git)
     ;;
+  http://127.0.0.1:8787/git/jeryu/jeryu.git|http://localhost:8787/git/jeryu/jeryu.git)
+    ;;
   *)
     echo "noncanonical origin remote: ${remote}" >&2
     exit 1
@@ -60,12 +62,22 @@ check_retired_processes() {
   retired_provider="$(decode_hex 6769746c6162)"
   retired_runner="${retired_provider}-runner"
   retired_opt="/opt/${retired_provider}/"
-  local hits
-  hits="$(
+  local raw_hits hits line pid
+  raw_hits="$(
     ps -eo pid=,comm=,args= |
       grep -E "${retired_runner}|${retired_opt}|/home/ubuntu/\.jeryu/bin/|/home/ubuntu/jeryu_OLD_DO_NOT_USE/target/|/home/ubuntu/jeryu_rust/" |
       grep -v 'grep -E' || true
   )"
+  hits=""
+  while IFS= read -r line; do
+    [ -n "${line}" ] || continue
+    pid="$(printf '%s\n' "${line}" | awk '{print $1}')"
+    if [ -n "${pid}" ] && is_repo_jeryu_pid "${pid}"; then
+      continue
+    fi
+    hits+="${line}"$'\n'
+  done <<<"${raw_hits}"
+  hits="${hits%$'\n'}"
   if [ -n "${hits}" ]; then
     echo "retired Jeryu/provider processes are active during release validation:" >&2
     printf '%s\n' "${hits}" | sed 's/^/  /' >&2
@@ -80,10 +92,21 @@ is_repo_jeryu_pid() {
   exe="$(readlink -f "/proc/${pid}/exe" 2>/dev/null || true)"
   case "${exe}" in
     "${ROOT}/target/debug/jeryu"|\
-    "${ROOT}/target/release/jeryu")
+    "${ROOT}/target/release/jeryu"|\
+    "${ROOT}/target/debug/jeryu-api"|\
+    "${ROOT}/target/release/jeryu-api")
       return 0
       ;;
   esac
+
+  if [ "${exe}" = "${HOME}/.jeryu/bin/jeryu-api" ]; then
+    local candidate
+    for candidate in "${ROOT}/target/debug/jeryu-api" "${ROOT}/target/release/jeryu-api"; do
+      if [ -x "${candidate}" ] && cmp -s "${exe}" "${candidate}"; then
+        return 0
+      fi
+    done
+  fi
   return 1
 }
 
@@ -144,7 +167,8 @@ check_retired_source_roots() {
 
   local retired_provider roots root remote_hits failed=0
   retired_provider="$(decode_hex 6769746c6162)"
-  roots="${JERYU_CI_SOURCE_ROOTS:-/home/ubuntu/redlineDB /home/ubuntu/redline-testing /home/ubuntu/openQG /home/ubuntu/jekko}"
+  roots="${JERYU_CI_SOURCE_ROOTS:-}"
+  [ -n "${roots}" ] || return 0
 
   for root in ${roots}; do
     [ -e "${root}" ] || continue

@@ -72,10 +72,13 @@ PASS=9/PENDING=0/FAIL=0, proof-evidence Jankurai full scan score 92 caps 0, and
 changed-file Jankurai diff/audit hard 0 caps 0. The GitHub-clean proof is
 `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`.
 Full mode runs `ops/ci/verify-jeryu-env.sh --build-local --release-guard` and
-rejects retired-provider runners, `~/.jeryu`, old `/home/ubuntu/jeryu`, and
-local `:2224` listener/remotes so release evidence cannot be produced against
-the retired system. This host still needs an explicit retired-state bypass for
-local parity runs until an operator stops the root-owned retired services.
+accepts either the canonical GitHub remote or the loopback local Jeryu remote
+on `127.0.0.1:8787`. It rejects retired-provider runners, stale `~/.jeryu`
+binaries, old `/home/ubuntu/jeryu`, and local `:2224` listener/remotes so
+release evidence cannot be produced against the retired system. The local API
+install under `~/.jeryu/bin/jeryu-api` is accepted only when it byte-matches the
+repo-built API binary. Retired-CI sweeps of additional source roots run only
+when `JERYU_CI_SOURCE_ROOTS` is set.
 
 ## Release Process
 
