@@ -50,6 +50,7 @@ members = [
   "crates/jeryu-runnerd",
   "crates/jeryu-rustjet",
   "crates/jeryu-rustjet-cli",
+  "crates/jeryu-codegraph",
   "crates/jeryu-signing",
   "crates/jeryu-signrail",
   "crates/jeryu-tenant",

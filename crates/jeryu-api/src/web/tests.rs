@@ -5,10 +5,14 @@ use crate::web::repositories::repo_list_response;
 use crate::web::surface::serialize_payload;
 use crate::web::surface::{bootstrap_payload, map_method};
 use crate::web::ws::{hello_message, requested_scopes, snapshot_event, unsubscribe_scopes};
+use jeryu_agentbridge::driver::{AgentDriver, CollectingSink, CommandSpec, stage_editbot};
 use jeryu_core::CheckConclusion;
 use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
 use jeryu_readmodel::contracts::ServerWsMessage;
 use jeryu_readmodel::{HealthLevel, sample_read_model};
+use std::os::unix::fs::PermissionsExt;
+use std::time::Duration;
+use tempfile::tempdir;
 
 /// Seed a repo + open PR + one failing check, build `WebState`, and assert
 /// the model served by `/api/v1/bootstrap.tui` (i.e. `state.tui`) reflects the
@@ -145,6 +149,7 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         "workcell_id": workcell_id,
         "runner_epoch": 7,
         "branch_suffix": "repair-17",
+        "changed_files": ["src/r5.rs"],
         "owner": "alice",
         "repo": "jeryu",
         "author": "agent-wrath-17",
@@ -169,6 +174,18 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
     assert!(export["pull_request_number"].as_u64().unwrap() > 0);
     assert_eq!(export["target_branch"], "main");
 
+    let pr = state
+        .core
+        .get_pull_request(
+            "alice",
+            "jeryu",
+            export["pull_request_number"].as_u64().unwrap(),
+        )
+        .expect("pull request exists");
+    assert_eq!(pr.head.ref_name, export["branch"]);
+    assert_eq!(pr.base.ref_name, "main");
+    assert_eq!(pr.changed_files, vec!["src/r5.rs"]);
+
     let release = response_json(
         super::workcells::release(
             State(state.clone()),
@@ -184,6 +201,224 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
     )
     .await;
     assert_eq!(release["state"], "released");
+}
+
+fn write_exec_script(label: &str, contents: &str) -> std::path::PathBuf {
+    let path = std::env::temp_dir().join(format!(
+        "jeryu-r5-{label}-{}-{}.sh",
+        std::process::id(),
+        jeryu_runner_core::receipt::now_ms()
+    ));
+    std::fs::write(&path, contents).expect("write staging script");
+    #[cfg(unix)]
+    {
+        let mut perms = std::fs::metadata(&path)
+            .expect("read script metadata")
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&path, perms).expect("mark script executable");
+    }
+    path
+}
+
+fn run_or_skip(
+    driver: &AgentDriver,
+    workspace: &std::path::Path,
+    spec: &CommandSpec,
+    sink: &CollectingSink,
+) -> Option<jeryu_agentbridge::driver::AgentRunResult> {
+    match driver.run(workspace, spec, sink) {
+        Ok(result) => Some(result),
+        Err(jeryu_agentbridge::driver::DriverError::SandboxUnavailable(reason)) => {
+            eprintln!("SKIP: sandbox unavailable (cannot fail closed): {reason}");
+            None
+        }
+        Err(other) => panic!("driver run failed unexpectedly: {other}"),
+    }
+}
+
+#[tokio::test]
+async fn r5_jail_loop_exports_namespaced_branch_and_ci_evidence() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+
+    let workspace = tempdir().expect("create throwaway workspace");
+    let state = Arc::new(WebState::new(core.clone()));
+    let repair_body = serde_json::json!({
+        "agent_id": "agent-wrath-17",
+        "workspace_root": workspace.path(),
+        "repo_roots": [workspace.path()],
+        "branch_budget": 2,
+        "runner_id": "xbabe0",
+        "runner_epoch": 17,
+        "git_status_summary": "rebase clean",
+        "ci_snapshot_age_ms": 0,
+        "startup": {
+            "state": "rebased",
+            "main_ref": "origin/main",
+            "base_sha": "abc123",
+            "head_sha": "def456"
+        },
+        "ci_run_id": "ci-r5-17",
+        "failed_run_id": "run-r5-17",
+        "failed_receipt_id": "receipt-r5-17",
+        "failure_log_digest": "sha256:feedface"
+    });
+
+    let response = response_json(
+        super::workcells::repair_live(
+            State(state.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&repair_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    let workcell_id = response["held"]["workcell_id"]
+        .as_str()
+        .expect("held workcell id")
+        .to_string();
+    assert_eq!(response["held"]["state"], "held");
+    assert_eq!(response["repairing"]["state"], "repairing");
+    assert_eq!(response["held"]["startup_main_ref"], "origin/main");
+
+    let script_src = write_exec_script(
+        "editbot",
+        r#"#!/bin/sh
+set -eu
+target_dir=${EDIT_TARGET%/*}
+mkdir -p "$target_dir"
+printf '%s' "$EDIT_CONTENT" > "$EDIT_TARGET"
+"#,
+    );
+    let staged = stage_editbot(workspace.path(), &script_src).expect("stage edit script");
+    let driver = AgentDriver::default()
+        .with_require_cgroup(false)
+        .with_timeout(Duration::from_secs(10));
+    let spec = CommandSpec::new(staged.to_string_lossy().to_string())
+        .env("EDIT_TARGET", "src/r5.rs")
+        .env(
+            "EDIT_CONTENT",
+            "pub fn repaired() -> &'static str { \"r5\" }\n",
+        );
+    let sink = CollectingSink::new();
+    let Some(result) = run_or_skip(&driver, workspace.path(), &spec, &sink) else {
+        let _ = std::fs::remove_file(&script_src);
+        let _ = workspace.close();
+        return;
+    };
+    assert!(result.succeeded(), "edit inside the jail must succeed");
+    assert!(
+        workspace.path().join("src/r5.rs").is_file(),
+        "the jailed edit must land inside the workspace"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workspace.path().join("src/r5.rs")).expect("read repaired file"),
+        "pub fn repaired() -> &'static str { \"r5\" }\n"
+    );
+
+    let export_body = serde_json::json!({
+        "workcell_id": workcell_id,
+        "runner_epoch": 17,
+        "branch_suffix": "repair-17",
+        "changed_files": ["src/r5.rs"],
+        "owner": "alice",
+        "repo": "jeryu",
+        "author": "agent-wrath-17",
+        "title": "Repair failed tree",
+        "body": "Repaired from failed tree"
+    });
+    let export = response_json(
+        super::workcells::export_pr(
+            State(state.clone()),
+            AxumPath(workcell_id.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&export_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    let branch = export["branch"].as_str().expect("branch");
+    assert!(branch.starts_with("agents/agent-wrath-17/workcells/"));
+    assert_eq!(export["target_branch"], "main");
+    assert!(export["pull_request_number"].as_u64().unwrap() > 0);
+
+    let pr_number = export["pull_request_number"].as_u64().unwrap();
+    let pr = state
+        .core
+        .get_pull_request("alice", "jeryu", pr_number)
+        .expect("pull request exists");
+    assert_eq!(pr.head.ref_name, branch);
+    assert_eq!(pr.base.ref_name, "main");
+    assert_eq!(pr.changed_files, vec!["src/r5.rs"]);
+
+    let run = core
+        .create_check_run(
+            "alice",
+            "jeryu",
+            CreateCheckRunRequest {
+                name: "r5-loop".to_string(),
+                head_sha: pr.head.sha.clone(),
+                status: Some(jeryu_core::CheckRunStatus::Completed),
+                conclusion: Some(CheckConclusion::Success),
+                output: Some(jeryu_core::CheckRunOutput {
+                    title: "R5 lane green".to_string(),
+                    summary: "claim -> rebase -> jailed edit -> PR -> CI evidence".to_string(),
+                    text: None,
+                }),
+                ..CreateCheckRunRequest::default()
+            },
+        )
+        .unwrap();
+
+    let router = || {
+        app(
+            WebState::new(core.clone()),
+            std::path::Path::new("/tmp/jeryu-no-spa"),
+        )
+    };
+    let evidence = response_json(
+        router()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/v1/ci/runs/{}/evidence", run.id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap(),
+    )
+    .await;
+    let items = evidence.as_array().expect("evidence array");
+    assert!(
+        items.len() >= 3,
+        "completed CI run must produce a receipt with evidence facets"
+    );
+    assert_eq!(items[0]["kind"], "run-metadata");
+    assert_eq!(items[1]["kind"], "head-commit");
+    assert_eq!(
+        items[1]["payload"]["headSha"].as_str(),
+        Some(pr.head.sha.as_str())
+    );
+    assert!(
+        items
+            .iter()
+            .any(|item| item["kind"] == "conclusion" && item["payload"]["conclusion"] == "success")
+    );
+
+    let _ = std::fs::remove_file(&script_src);
+    let _ = workspace.close();
 }
 
 #[tokio::test]

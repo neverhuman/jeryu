@@ -1390,6 +1390,7 @@ dependencies = [
  "clap",
  "futures-util",
  "hex",
+ "jeryu-agentbridge",
  "jeryu-autonomy",
  "jeryu-bench",
  "jeryu-ci-compiler",
@@ -1550,6 +1551,19 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "jeryu-codegraph"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "jeryu-rustjet",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

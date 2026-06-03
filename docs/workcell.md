@@ -118,7 +118,7 @@ fleet:
 | **R2** | **jailgun tar round-trip (this doc)** |
 | R3 | cell lifecycle surface — `claim`/`heartbeat`/`release` over HTTP + `workcell.{id}`/`agent.{id}` WS scopes + startup rebase on `origin/main` |
 | **R4** | **in-cell agent driver + allowlist egress proxy (this doc)** |
-| R5 | jailed agent: rebase -> edit -> namespaced branch (`agents/{id}/workcells/{wc}/<branch>`) -> jailgun-export -> PR -> green CI, host FS provably untouched |
+| R5 | jailed agent: rebase -> edit -> namespaced branch (`agents/{id}/workcells/{wc}/<branch>`) -> jailgun-export -> PR -> green CI, host FS provably untouched; proof lane: `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` |
 
 ## Repair
 

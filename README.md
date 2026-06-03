@@ -104,6 +104,8 @@ path, limited to vetted hosts and revoked when the budget trips. `jailgun` moves
 code in and out as a quarantine-first tar. The capability and its proof commands
 are documented in `docs/workcell.md`.
 
+The integrated R5 proof lane is `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`; it proves the full claim -> rebase -> jailed edit -> namespaced branch export -> PR -> CI evidence loop and keeps changed-file ownership attached to the exported pull request.
+
 ## Local Live Runtime
 
 The first live target is local-only. `jeryu-api` can run an Axum server backed
