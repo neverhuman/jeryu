@@ -64,7 +64,7 @@ Primary lanes:
 - `cargo test -p jeryu-sandbox-linux` (`cgroup_confinement`) and `cargo test -p jeryu-agentbridge` (`cgroup_fail_closed`): resource confinement, fail-closed. They prove a `require_cgroup` plan refuses to launch without a delegated cgroup-v2 subtree, that the `LandlockRule.execute` bit permits/denies exec correctly on ABI ≥ 2, and (honest-skip on hosts without cgroup-v2 delegation) that a runaway is contained under an enforced cgroup.
 
 PENDING is only allowed for a capability that is not built yet and must be
-printed as PENDING, not PASS. The current phase gates report PASS=9,
+printed as PENDING, not PASS. The current phase gates report PASS=10,
 PENDING=0, FAIL=0; if a future live capability is missing, mark only that gate
 PENDING with evidence.
 

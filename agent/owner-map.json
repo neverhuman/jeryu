@@ -72,6 +72,7 @@
     "examples/": "devtools",
     "fixtures/": "test-fixtures",
     "ops/": "devex",
+    "ops/ci/gates/agent-substrate.sh": "devex",
     "ops/ci/gates/workcells.sh": "devex",
     "ops/git-hooks/": "devex",
     "policies/": "platform-security",

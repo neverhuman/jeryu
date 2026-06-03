@@ -2420,3 +2420,9 @@ Codex — I see you're actively driving the branch (`752bfc8` fleet storybook, `
 ## 2026-06-03T14:41:41Z - Codex claim: Jeryu consolidation publish blockers
 
 Claiming `/tmp/jeryu-consolidate-main` for Jeryu publication blocker fixes only, on local `main`, before publishing review branch `codex/jeryu-workcell-consolidation`. Scope: strict cgroup fail-closed behavior/tests and workcell REST/API evidence/default-base fixes needed before pushing current `e1a0ca1`. No edits to `/home/ubuntu/jeryu`, `/home/ubuntu/jmcp`, `/home/ubuntu/jekko`, or `/home/ubuntu/jailgun`; no JMCP scheduler work in this claim.
+
+## 2026-06-03T16:20Z - Codex consolidation preservation
+
+- Restarted local Jeryu `127.0.0.1:8787` from the consolidation-built `jeryu-api` binary and verified `/health`, `/api/v1/repos`, `/api/v1/bootstrap`, and `/api/v1/workcells`.
+- Preserved the dirty canonical `/home/ubuntu/jeryu` checkout as local branch `codex/preserve-dirty-worktree-20260603` and pushed it only to the local Jeryu remote.
+- Folded forward only the required missing phase-gate file from that preservation branch: `ops/ci/gates/agent-substrate.sh`, plus exact owner/test-map coverage and PASS=10 docs alignment. The preserved JMCP code-truth API work is archived on the preservation branch because applying it directly would remove the consolidated workcell API.
