@@ -19,8 +19,6 @@ use super::workcells_support::{
     workcell_error, workcell_not_found,
 };
 
-type WorkcellParseResult<T> = Result<T, Box<AxumResponse>>;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct WorkcellHeartbeatRequest {
     pub runner_epoch: u64,

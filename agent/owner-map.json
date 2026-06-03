@@ -64,6 +64,7 @@
     "crates/jeryu-runner-registry/": "ci-runtime",
     "crates/jeryu-runnerd/": "ci-runtime",
     "crates/jeryu-rustjet/": "rust-ci",
+    "crates/jeryu-codegraph/": "rust-ci",
     "crates/jeryu-signrail/": "release-security",
     "dashboards/": "bench-obs",
     "db/": "forge-api",
