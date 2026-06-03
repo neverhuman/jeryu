@@ -11,23 +11,23 @@
 //! **RECORD-ONLY: this bridge does NOT autonomously merge.** A 7-probe
 //! adversarial review (see `AGENT_CHAT.md` 2026-06-01) proved the merge path
 //! unsafe — a vacuous CI gate (empty/skipped lanes), a synthetic always-Pass
-//! reviewer quorum + forged signature, dead path-based hard-stops
-//! (`changed_files` empty), a risk classifier that defaults code to an
-//! auto-tier and omits the merge-engine crates (so the gate could merge edits
-//! to itself), a single-commit risk diff that hides earlier R5 commits, and no
-//! author/fork trust gate. Until that rework lands (real `EdVerifier`-checked
-//! reviewers, target-branch-policy required lanes, populated `changed_files`,
-//! an inverted human-default risk tier + merge-engine markers, `base..head`
-//! diff, author/fork gating, and a head-pinned merge), the bridge only emits
-//! the advisory verdict and never calls `merge_pull_request`.
+//! reviewer quorum + forged signature, a risk classifier that defaults code to
+//! an auto-tier and omits the merge-engine crates (so the gate could merge
+//! edits to itself), a single-commit risk diff that hides earlier R5 commits,
+//! and no author/fork trust gate. Until that rework lands (real `EdVerifier`-
+//! checked reviewers, target-branch-policy required lanes, an inverted human-
+//! default risk tier + merge-engine markers, `base..head` diff, author/fork
+//! gating, and a head-pinned merge), the bridge only emits the advisory
+//! verdict and never calls `merge_pull_request`.
 //!
 //! The pure decision ([`decide`]) is unit-tested here.
 
 use jeryu_autonomy::{
-    AgentApprovalReceipt, CiCheck, CiConclusion, EvidenceInputs, EvidencePack, FullAutoProfile,
-    GateDecision, JudgeInputs, PolicyBundle, ReviewDecision, ReviewerRole, RiskTier,
-    RollbackSection, RollbackStrategy, ScanOutcome, SchemaTag, SecuritySection, Signature,
-    SupplyChainSection, TestsSection, TokenCounts, build_evidence_pack, judge, policy_yaml,
+    AgentApprovalReceipt, ChangedFile, CiCheck, CiConclusion, EvidenceInputs, EvidencePack,
+    FullAutoProfile, GateDecision, JudgeInputs, PolicyBundle, ReviewDecision, ReviewerRole,
+    RiskTier, RollbackSection, RollbackStrategy, ScanOutcome, SchemaTag, SecuritySection,
+    Signature, SupplyChainSection, TestsSection, TokenCounts, build_evidence_pack, judge,
+    policy_yaml,
 };
 use jeryu_core::{CheckConclusion, ForgeCore, PullRequestState};
 
@@ -166,11 +166,20 @@ pub(crate) struct DecisionInputs<'a> {
     pub ci_status: Vec<CiCheck>,
 }
 
-/// Run the full evidence-gate judge over assembled inputs and return the
-/// verdict. Pure: builds the pack (risk from `changed_paths`), arms the CI gate
-/// on exactly the reported lanes, runs the agent-reviewer quorum, and lets the
-/// judge's hard-stop walk + R5 floor decide. No side effects.
-pub(crate) fn decide(inp: &DecisionInputs<'_>) -> GateDecision {
+fn evidence_changed_files(changed_paths: &[String]) -> Vec<ChangedFile> {
+    changed_paths
+        .iter()
+        .cloned()
+        .map(|path| ChangedFile {
+            path,
+            risk_tags: vec![],
+            lines_added: 0,
+            lines_removed: 0,
+        })
+        .collect()
+}
+
+fn evidence_pack(inp: &DecisionInputs<'_>) -> EvidencePack {
     let risk = classify_risk(inp.changed_paths);
     let policy_sha = "0".repeat(40);
     let mut pack = build_evidence_pack(EvidenceInputs {
@@ -183,7 +192,7 @@ pub(crate) fn decide(inp: &DecisionInputs<'_>) -> GateDecision {
         author_agent: inp.author_agent,
         intent_id: None,
         risk,
-        changed_files: vec![],
+        changed_files: evidence_changed_files(inp.changed_paths),
         claims: vec![],
         tests: TestsSection {
             targeted: vec![],
@@ -213,6 +222,15 @@ pub(crate) fn decide(inp: &DecisionInputs<'_>) -> GateDecision {
         algo: "ed25519".into(),
         value: "0".repeat(128),
     });
+    pack
+}
+
+/// Run the full evidence-gate judge over assembled inputs and return the
+/// verdict. Pure: builds the pack (risk from `changed_paths`), arms the CI gate
+/// on exactly the reported lanes, runs the agent-reviewer quorum, and lets the
+/// judge's hard-stop walk + R5 floor decide. No side effects.
+pub(crate) fn decide(inp: &DecisionInputs<'_>) -> GateDecision {
+    let pack = evidence_pack(inp);
     let receipts = agent_review(&pack);
     let bundle = full_auto_bundle_requiring(&inp.ci_status);
     // Fail closed if the full-auto profile can't be derived from the bundle.
@@ -448,6 +466,22 @@ mod tests {
         let changed = vec!["crates/jeryu-web/src/page.rs".to_string()];
         let d = decide(&inputs(&changed, green(&["ci-fast/build", "ci-fast/test"])));
         assert_eq!(d, GateDecision::AllowMerge);
+    }
+
+    #[test]
+    fn evidence_pack_carries_changed_files() {
+        let changed = vec![
+            "docs/usage.md".to_string(),
+            "crates/jeryu-web/src/page.rs".to_string(),
+        ];
+        let pack = evidence_pack(&inputs(&changed, green(&["ci-fast/build", "ci-fast/test"])));
+        let paths: Vec<&str> = pack.changed_files.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["crates/jeryu-web/src/page.rs", "docs/usage.md"]);
+        assert!(
+            pack.changed_files
+                .iter()
+                .all(|f| f.lines_added == 0 && f.lines_removed == 0)
+        );
     }
 
     #[test]
