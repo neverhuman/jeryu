@@ -8,6 +8,7 @@ Core boundaries:
 - `crates/jeryu-ci-*`, `crates/jeryu-runner-*`, and `crates/jeryu-runnerd` own CI IR, scheduling, and execution.
 - `crates/jeryu-cache*` owns cache/CAS policy and poisoning resistance.
 - `crates/jeryu-proof` and `crates/jeryu-agentbridge` own proof routing and bounded agent mutation.
+- `crates/jeryu-egress` owns the opt-in live-agent egress contract. The deterministic edit-bot path in `jeryu-agentbridge` stays network-denied; live agent execution must explicitly choose `egress-only`, named secret handling, and a budget gate before launch.
 
 The shared workcell control plane is part of the runner/CI stack, not a separate subsystem. `jeryu-runnerd` owns warm-pool claims, epoch-fenced release/heartbeat handling, startup rebase enforcement, and quarantine-first tar validation on top of the existing runner fabric.
 

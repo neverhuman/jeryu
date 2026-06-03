@@ -1,0 +1,13 @@
+[package]
+name = "jeryu-egress"
+description = "Opt-in egress contract for live Jeryu agent runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-runner-core = { path = "../jeryu-runner-core" }
+
+[lints]
+workspace = true

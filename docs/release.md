@@ -31,6 +31,8 @@ SignRail artifact-support signing details:
 - `bash ops/ci/proof-evidence.sh`
 - `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or CI repair snapshot helpers change.
 - `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the workcells dashboard or generated web bootstrap contract changes.
+- `cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40` when the in-cell
+  agent driver, deterministic edit-bot staging, or live egress contract changes.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
@@ -57,9 +59,11 @@ the evidence that proves the candidate is safe to publish:
   local artifact path when one exists.
 
 Latest closeout validation used explicit `--full` mode with 40 workers in both
-local-native and GitHub-clean profiles: 1175 nextest tests, phase gates
-PASS=9/PENDING=0/FAIL=0, proof-evidence Jankurai full scan score 92 caps 0, and
-changed-file Jankurai diff/audit hard 0 caps 0. The GitHub-clean proof is
+local-native and GitHub-clean profiles: 1175 nextest tests, the then-current
+phase gates, proof-evidence Jankurai full scan score 92 caps 0, and changed-file
+Jankurai diff/audit hard 0 caps 0. The current phase-gate set includes
+`agent-substrate` and reports PASS=10/PENDING=0/FAIL=0 via
+`bash scripts/ci-phases.sh`. The GitHub-clean proof is
 `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`.
 Full mode runs `ops/ci/verify-jeryu-env.sh --build-local --release-guard` and
 rejects retired-provider runners, `~/.jeryu`, old `/home/ubuntu/jeryu`, and

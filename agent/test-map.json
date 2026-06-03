@@ -131,6 +131,16 @@
       "purpose": "verify GitHub-compatible REST, guided GraphQL, and local web API behavior",
       "lane": "api"
     },
+    "crates/jeryu-agentbridge/": {
+      "command": "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
+      "purpose": "verify the in-cell agent driver, deterministic edit-bot staging, and opt-in live egress contract",
+      "lane": "agent-substrate"
+    },
+    "crates/jeryu-egress/": {
+      "command": "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
+      "purpose": "verify live-agent egress-only runtime contract, explicit secret handling, and budget stop gates",
+      "lane": "agent-substrate"
+    },
     "crates/jeryu-readmodel/": {
       "command": "cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck",
       "purpose": "verify the typed TUI/web read-model and contract bindings stay in sync",

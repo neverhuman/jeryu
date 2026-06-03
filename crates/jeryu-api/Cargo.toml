@@ -6,6 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+anyhow = { workspace = true }
 jeryu-bench = { path = "../jeryu-bench" }
 jeryu-obs = { path = "../jeryu-obs" }
 jeryu-enterprise = { path = "../jeryu-enterprise" }

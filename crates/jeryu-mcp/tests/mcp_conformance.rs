@@ -94,6 +94,11 @@ fn manifest_includes_capability_tools() {
     assert!(
         manifest
             .iter()
+            .any(|tool| tool["name"] == "jeryu.repo_list")
+    );
+    assert!(
+        manifest
+            .iter()
             .any(|tool| tool["name"] == "jeryu.run_tests")
     );
     assert!(
@@ -121,8 +126,13 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 16-tool catalog (replaces the source's action_registry guardrail).
+    // The catalog replaces the source's action_registry guardrail.
     let expected = [
+        "repo_list",
+        "repo_tree",
+        "repo_blob",
+        "repo_search",
+        "ecosystem_graph",
         "fetch_capsule",
         "get_system_snapshot",
         "get_ci_run_jobs",
@@ -142,8 +152,9 @@ fn manifest_covers_all_catalog_actions() {
     ];
     assert_eq!(
         names.len(),
-        16,
-        "expected exactly 16 tools, got {}",
+        expected.len(),
+        "expected exactly {} tools, got {}",
+        expected.len(),
         names.len()
     );
     for id in expected {
@@ -221,7 +232,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 16);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 21);
 }
 
 #[tokio::test]

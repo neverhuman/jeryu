@@ -6,6 +6,44 @@ use crate::tools::schema::*;
 
 pub(super) fn tool_input_schema(action_id: &str) -> Option<Value> {
     let schema = match action_id {
+        "repo_list" => object_schema(&[], &[]),
+        "repo_tree" => object_schema(
+            &["repo_id"],
+            &[
+                ("repo_id", string_schema()),
+                ("repoId", string_schema()),
+                ("repo", string_schema()),
+                ("ref", string_schema()),
+                ("refName", string_schema()),
+                ("path", string_schema()),
+            ],
+        ),
+        "repo_blob" => object_schema(
+            &["repo_id", "path"],
+            &[
+                ("repo_id", string_schema()),
+                ("repoId", string_schema()),
+                ("repo", string_schema()),
+                ("ref", string_schema()),
+                ("refName", string_schema()),
+                ("path", string_schema()),
+            ],
+        ),
+        "repo_search" => object_schema(
+            &["repo_id", "q"],
+            &[
+                ("repo_id", string_schema()),
+                ("repoId", string_schema()),
+                ("repo", string_schema()),
+                ("q", string_schema()),
+                ("query", string_schema()),
+                ("ref", string_schema()),
+                ("refName", string_schema()),
+                ("path", string_schema()),
+                ("limit", integer_schema()),
+            ],
+        ),
+        "ecosystem_graph" => object_schema(&[], &[]),
         "fetch_capsule" => object_schema(&["job_id"], &[("job_id", integer_schema())]),
         "get_system_snapshot" => object_schema(&[], &[]),
         "get_ci_run_jobs" => object_schema(

@@ -47,8 +47,9 @@ request terminology.
 local repository import, affected fast CI, and guided GitHub-compatible
 REST/GraphQL repair responses, and gitd-backed local import materialization.
 The latest closeout full lanes pass with 1175 workspace nextest tests in both
-local-native and GitHub-clean profiles, all phase gates at
-PASS=9/PENDING=0/FAIL=0, and the full manifest lane union green.
+local-native and GitHub-clean profiles, and the full manifest lane union green.
+This branch's current phase-gate set includes `agent-substrate` and reports
+PASS=10/PENDING=0/FAIL=0 via `bash scripts/ci-phases.sh`.
 
 <!-- jeryu:managed-score:start -->
 - Final score: `70`
@@ -80,7 +81,7 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Forge/domain/API facade | `jeryu-core`, `jeryu-domain`, `jeryu-api`, `jeryu-cli` |
 | Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
-| Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd` |
+| Runner fabric, workcells, and egress | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd`, `jeryu-egress` |
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
@@ -167,6 +168,21 @@ lint, and Playwright end-to-end coverage against the local BFF/API contract.
 The TUI exposes `jeryu-tui --once` for deterministic tests and captures. It can
 render fixture data or the live `/api/v1/bootstrap.tui` read model, including
 all 18 tabs used by the local control-plane views.
+
+## In-Cell Agent Substrate
+
+`jeryu-agentbridge` now owns the deterministic edit-bot driver seam used by
+in-cell agent tests. Edit-bot executables are staged in unique tempdirs and
+published through an atomic ready-directory rename, and the deterministic
+profile stays `NetworkPolicy::Deny` with no secrets. Live agent execution is a
+separate opt-in runtime path: callers must use `jeryu-egress` to choose
+`egress-only`, declare allowlisted hosts, name secret environment variables
+without storing values, and pass the existing budget stop gates before launch.
+
+```bash
+cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40
+bash ops/ci/gates/agent-substrate.sh
+```
 
 ## Local CI
 

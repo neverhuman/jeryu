@@ -58,8 +58,19 @@ Primary lanes:
 - `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck`: read-model dashboard and generated contract proof lane for the workcells snapshot.
 - `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
 
+## Agent Egress
+
+- `cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40`: in-cell agent substrate lane covering deterministic edit-bot staging, the adversarial parallel staging test, and the live-agent egress contract.
+- `bash ops/ci/gates/agent-substrate.sh`: direct phase gate for the same lane; `bash scripts/ci-phases.sh` discovers it automatically.
+
+Deterministic edit-bot tests use `NetworkPolicy::Deny` and `SecretPolicy::None`.
+The live agent path is opt-in only: callers must use `jeryu-egress` to request
+`egress-only`, provide host allowlist rules, name secret environment variables
+without values or explicitly choose no secrets, and attach a budget receipt that
+stops before the configured threshold.
+
 PENDING is only allowed for a capability that is not built yet and must be
-printed as PENDING, not PASS. The current phase gates report PASS=9,
+printed as PENDING, not PASS. The current phase gates report PASS=10,
 PENDING=0, FAIL=0; if a future live capability is missing, mark only that gate
 PENDING with evidence.
 

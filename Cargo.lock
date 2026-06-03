@@ -1376,13 +1376,17 @@ version = "4.0.0"
 dependencies = [
  "jeryu-ci-scheduler",
  "jeryu-core",
+ "jeryu-egress",
  "jeryu-proof",
+ "jeryu-runner-core",
+ "tempfile",
 ]
 
 [[package]]
 name = "jeryu-api"
 version = "0.10.0"
 dependencies = [
+ "anyhow",
  "axum",
  "clap",
  "futures-util",
@@ -1579,6 +1583,13 @@ name = "jeryu-domain"
 version = "4.0.0"
 dependencies = [
  "jeryu-core",
+]
+
+[[package]]
+name = "jeryu-egress"
+version = "4.0.0"
+dependencies = [
+ "jeryu-runner-core",
 ]
 
 [[package]]

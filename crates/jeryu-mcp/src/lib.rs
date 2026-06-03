@@ -17,7 +17,9 @@ pub mod core;
 pub mod http;
 pub mod tools;
 
-pub use backend::{BridgeBackend, BugStore, MemoryBackend, ToolBackend, ToolResponse};
+pub use backend::{
+    BridgeBackend, BugStore, McpCallContext, MemoryBackend, ToolBackend, ToolResponse,
+};
 pub use core::{McpCore, McpSessionState, start_mcp_stdio};
 pub use http::{McpHttpState, mcp_router, start_mcp_http};
 pub use tools::{ToolDescriptor, tool_manifest};

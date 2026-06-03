@@ -117,6 +117,26 @@ impl ToolBackend for MemoryBackend {
         // deterministic, brandless response per tool family.
         let arg = |k: &str| args.get(k).cloned().unwrap_or(Value::Null);
         let resp = match tool {
+            "repo_list" => ToolResponse::ok(
+                "repos",
+                serde_json::json!({ "repositories": [], "total": 0 }),
+            ),
+            "repo_tree" => ToolResponse::ok(
+                "repo tree",
+                serde_json::json!({ "repo_id": arg("repo_id"), "ref": arg("ref"), "path": arg("path"), "entries": [] }),
+            ),
+            "repo_blob" => ToolResponse::ok(
+                "repo blob",
+                serde_json::json!({ "repo_id": arg("repo_id"), "ref": arg("ref"), "path": arg("path"), "text": Value::Null }),
+            ),
+            "repo_search" => ToolResponse::ok(
+                "repo search",
+                serde_json::json!({ "repo_id": arg("repo_id"), "q": arg("q"), "results": [] }),
+            ),
+            "ecosystem_graph" => ToolResponse::ok(
+                "ecosystem graph",
+                serde_json::json!({ "tools": [], "repos": [], "relationships": [], "live": false, "degradedReason": "memory backend has no live forge" }),
+            ),
             "fetch_capsule" => ToolResponse::ok(
                 "fetched capsule",
                 serde_json::json!({ "job_id": arg("job_id"), "capsule": Value::Null }),

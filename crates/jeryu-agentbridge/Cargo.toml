@@ -8,8 +8,11 @@ rust-version.workspace = true
 
 [dependencies]
 jeryu-core = { path = "../jeryu-core" }
+jeryu-egress = { path = "../jeryu-egress" }
 jeryu-proof = { path = "../jeryu-proof" }
 jeryu-ci-scheduler = { path = "../jeryu-ci-scheduler" }
+jeryu-runner-core = { path = "../jeryu-runner-core" }
+tempfile.workspace = true
 
 [lints]
 workspace = true

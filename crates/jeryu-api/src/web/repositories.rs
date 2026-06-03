@@ -4,17 +4,17 @@ use std::collections::BTreeSet;
 
 use axum::Json;
 use axum::body::Bytes;
-use axum::extract::{Path as AxumPath, State};
-use axum::response::{Html, IntoResponse, Response as AxumResponse};
+use axum::extract::{Path as AxumPath, Query, State};
+use axum::response::{IntoResponse, Response as AxumResponse};
 use jeryu_core::{CheckConclusion, ForgeError, PullRequestState, Repository};
 use jeryu_readmodel::contracts::{
-    AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
-    RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
-    RepositoryVisibility, TreeEntry,
+    AvailableAction, EntityHandle, RefKind, RefSelectorItem, RenderedMarkdown, RepositoryFacets,
+    RepositoryId, RepositoryListResponse, RepositorySummary, RepositoryVisibility,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use super::code::{self, CodeReadQuery, CodeSearchQuery};
 use super::markdown::render_markdown;
 use super::{WebState, api_error};
 
@@ -88,20 +88,25 @@ pub(super) async fn repo_refs(
 pub(super) async fn repo_tree(
     State(state): State<std::sync::Arc<WebState>>,
     AxumPath(id): AxumPath<String>,
+    Query(query): Query<CodeReadQuery>,
 ) -> AxumResponse {
-    if find_repo(&state, &id).is_none() {
+    let Some(repo) = find_repo(&state, &id) else {
         return api_error(
             axum::http::StatusCode::NOT_FOUND,
             "not_found",
             "repository not found",
         );
+    };
+    match code::tree_response(&state, &repo, query) {
+        Ok(tree) => Json(tree).into_response(),
+        Err(err) => err.into_response(),
     }
-    Json(Vec::<TreeEntry>::new()).into_response()
 }
 
 pub(super) async fn repo_blob(
     State(state): State<std::sync::Arc<WebState>>,
     AxumPath(id): AxumPath<String>,
+    Query(query): Query<CodeReadQuery>,
 ) -> AxumResponse {
     let Some(repo) = find_repo(&state, &id) else {
         return api_error(
@@ -110,27 +115,16 @@ pub(super) async fn repo_blob(
             "repository not found",
         );
     };
-    let readme = readme_markdown(&state, &repo);
-    let rendered = render_markdown(&readme);
-    Json(BlobResponse {
-        repo: repo_id(&repo),
-        path: "README.md".to_string(),
-        ref_name: repo.default_branch,
-        sha: "unknown".to_string(),
-        size_bytes: readme.len() as u64,
-        mime: "text/markdown".to_string(),
-        encoding: BlobEncoding::Utf8,
-        text: Some(readme),
-        base64: None,
-        rendered_markdown: Some(rendered),
-        is_binary: false,
-    })
-    .into_response()
+    match code::blob_response(&state, &repo, query) {
+        Ok(blob) => Json(blob).into_response(),
+        Err(err) => err.into_response(),
+    }
 }
 
 pub(super) async fn repo_raw(
     State(state): State<std::sync::Arc<WebState>>,
     AxumPath(id): AxumPath<String>,
+    Query(query): Query<CodeReadQuery>,
 ) -> AxumResponse {
     let Some(repo) = find_repo(&state, &id) else {
         return api_error(
@@ -139,7 +133,28 @@ pub(super) async fn repo_raw(
             "repository not found",
         );
     };
-    Html(readme_markdown(&state, &repo)).into_response()
+    match code::raw_response(&state, &repo, query) {
+        Ok(raw) => raw,
+        Err(err) => err.into_response(),
+    }
+}
+
+pub(super) async fn repo_search(
+    State(state): State<std::sync::Arc<WebState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(query): Query<CodeSearchQuery>,
+) -> AxumResponse {
+    let Some(repo) = find_repo(&state, &id) else {
+        return api_error(
+            axum::http::StatusCode::NOT_FOUND,
+            "not_found",
+            "repository not found",
+        );
+    };
+    match code::search_response(&state, &repo, query) {
+        Ok(results) => Json(results).into_response(),
+        Err(err) => err.into_response(),
+    }
 }
 
 pub(super) async fn repo_readme(

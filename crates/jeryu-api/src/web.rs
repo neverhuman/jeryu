@@ -1,8 +1,10 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
 mod ci_evidence;
+mod code;
 mod ecosystem;
 mod markdown;
+mod mcp_backend;
 mod permissions;
 mod repositories;
 mod surface;
@@ -30,7 +32,8 @@ use crate::git_materializer::GitMaterializer;
 use crate::github::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use jeryu_gitd::{GitdConfig, RepoManager};
 use repositories::{
-    repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
+    repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_search,
+    repo_tree, repos,
 };
 use surface::{bootstrap_payload, github_forward, graphql, markdown_render, repo_entry};
 
@@ -213,8 +216,9 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
     let mut state = state;
     state.spa_dir = spa_dir.to_path_buf();
     let spa = ServeDir::new(spa_dir).fallback(ServeFile::new(spa_dir.join("index.html")));
+    let state = Arc::new(state);
     let mcp_state = Arc::new(jeryu_mcp::McpHttpState::new(Arc::new(
-        jeryu_mcp::MemoryBackend::new(),
+        mcp_backend::WebMcpBackend::new(state.clone()),
     )));
     AxumRouter::new()
         .route("/health", get(health))
@@ -229,6 +233,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
+        .route("/api/v1/repos/:id/search", get(repo_search))
         .route(
             "/api/v1/repos/:id/readme",
             get(repo_readme).put(repo_readme_update),
@@ -270,7 +275,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         // Response middleware that stamps every reply with advisory steering
         // headers (and a per-route MCP tool hint for gh/automation UAs).
         .layer(from_fn(steer_headers))
-        .with_state(Arc::new(state))
+        .with_state(state)
         .merge(jeryu_mcp::mcp_router(mcp_state))
 }
 
@@ -419,7 +424,7 @@ async fn bootstrap_tui(State(state): State<Arc<WebState>>) -> Json<TuiReadModel>
 /// clients. Sources real data from the MCP catalog, the forge, and the live
 /// read-model; read-only, never mutates state.
 async fn ecosystem(State(state): State<Arc<WebState>>) -> AxumResponse {
-    Json(ecosystem::ecosystem_response(state.github.core())).into_response()
+    Json(ecosystem::ecosystem_response(&state)).into_response()
 }
 
 /// `GET /api/v1/ci/runs/{id}/evidence` — the derived evidence list for a CI run

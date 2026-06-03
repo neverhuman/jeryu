@@ -8,6 +8,11 @@ use crate::tools::schema::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ToolKind {
+    RepoList,
+    RepoTree,
+    RepoBlob,
+    RepoSearch,
+    EcosystemGraph,
     FetchCapsule,
     GetSystemSnapshot,
     GetCiRunJobs,
@@ -57,6 +62,25 @@ impl ToolDefinition {
         let opt_s = |k: &str| args.get(k).and_then(Value::as_str).map(ToString::to_string);
 
         let out = match self.kind {
+            ToolKind::RepoList => serde_json::json!({}),
+            ToolKind::RepoTree => serde_json::json!({
+                "repo_id": s("repo_id").or_else(|| s("repoId")).or_else(|| s("repo"))?,
+                "ref": opt_s("ref").or_else(|| opt_s("refName")),
+                "path": opt_s("path"),
+            }),
+            ToolKind::RepoBlob => serde_json::json!({
+                "repo_id": s("repo_id").or_else(|| s("repoId")).or_else(|| s("repo"))?,
+                "ref": opt_s("ref").or_else(|| opt_s("refName")),
+                "path": s("path")?,
+            }),
+            ToolKind::RepoSearch => serde_json::json!({
+                "repo_id": s("repo_id").or_else(|| s("repoId")).or_else(|| s("repo"))?,
+                "q": s("q").or_else(|| s("query"))?,
+                "ref": opt_s("ref").or_else(|| opt_s("refName")),
+                "path": opt_s("path"),
+                "limit": args.get("limit").and_then(Value::as_i64),
+            }),
+            ToolKind::EcosystemGraph => serde_json::json!({}),
             ToolKind::FetchCapsule => serde_json::json!({ "job_id": i("job_id")? }),
             ToolKind::GetSystemSnapshot => serde_json::json!({}),
             ToolKind::GetCiRunJobs => serde_json::json!({

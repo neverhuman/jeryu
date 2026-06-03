@@ -5,8 +5,11 @@ use crate::web::repositories::repo_list_response;
 use crate::web::surface::serialize_payload;
 use crate::web::surface::{bootstrap_payload, map_method};
 use crate::web::ws::{hello_message, requested_scopes, snapshot_event, unsubscribe_scopes};
-use jeryu_core::CheckConclusion;
+use axum::extract::Query;
+use jeryu_core::{CheckConclusion, Repository};
 use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
+use jeryu_gitd::mirror::MirrorService;
+use jeryu_gitd::{GitdConfig, RepoId, RepoManager};
 use jeryu_readmodel::contracts::ServerWsMessage;
 use jeryu_readmodel::{HealthLevel, sample_read_model};
 
@@ -175,26 +178,85 @@ async fn readme_update_round_trips_through_the_local_api() {
         response_json(repo_readme(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
     assert_eq!(readme["markdown"], markdown);
     assert!(readme["html"].as_str().unwrap().contains("Managed README"));
+}
 
-    let blob =
-        response_json(repo_blob(State(state.clone()), AxumPath(repo.id.to_string())).await).await;
-    assert_eq!(blob["text"], markdown);
+#[tokio::test]
+async fn repo_code_routes_read_from_gitd_mirror() {
+    let (state, repo, _source, _storage) = git_backed_state();
+
+    let tree = response_json(
+        repo_tree(
+            State(state.clone()),
+            AxumPath(repo.id.to_string()),
+            Query(code::CodeReadQuery {
+                ref_name: Some("main".to_string()),
+                path: None,
+            }),
+        )
+        .await,
+    )
+    .await;
     assert!(
-        blob["rendered_markdown"]["html"]
-            .as_str()
+        tree.as_array()
             .unwrap()
-            .contains("Managed README")
+            .iter()
+            .any(|entry| entry["path"] == "README.md")
+    );
+    assert!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["path"] == "src")
     );
 
-    let raw = repo_raw(State(state), AxumPath(repo.id.to_string())).await;
+    let blob = response_json(
+        repo_blob(
+            State(state.clone()),
+            AxumPath(repo.id.to_string()),
+            Query(code::CodeReadQuery {
+                ref_name: Some("main".to_string()),
+                path: Some("src/lib.rs".to_string()),
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(blob["path"], "src/lib.rs");
+    assert!(blob["text"].as_str().unwrap().contains("pub fn answer"));
+
+    let raw = repo_raw(
+        State(state.clone()),
+        AxumPath(repo.id.to_string()),
+        Query(code::CodeReadQuery {
+            ref_name: Some("main".to_string()),
+            path: Some("README.md".to_string()),
+        }),
+    )
+    .await;
     let raw_bytes = axum::body::to_bytes(raw.into_body(), usize::MAX)
         .await
         .expect("raw response bytes");
     assert!(
         std::str::from_utf8(&raw_bytes)
             .unwrap()
-            .contains("Managed README")
+            .contains("Mirror README")
     );
+
+    let search = response_json(
+        repo_search(
+            State(state),
+            AxumPath(repo.id.to_string()),
+            Query(code::CodeSearchQuery {
+                ref_name: Some("main".to_string()),
+                path: Some("src".to_string()),
+                q: "answer".to_string(),
+                limit: Some(5),
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(search.as_array().unwrap()[0]["path"], "src/lib.rs");
 }
 
 #[test]
@@ -359,6 +421,68 @@ fn known_mcp_tools() -> BTreeSet<String> {
         .into_iter()
         .filter_map(|tool| tool["name"].as_str().map(str::to_string))
         .collect()
+}
+
+fn git_backed_state() -> (
+    Arc<WebState>,
+    Repository,
+    tempfile::TempDir,
+    tempfile::TempDir,
+) {
+    let source = tempfile::tempdir().expect("source tempdir");
+    run_git(source.path(), &["init", "-b", "main"]);
+    run_git(source.path(), &["config", "user.email", "test@example.com"]);
+    run_git(source.path(), &["config", "user.name", "Jeryu Test"]);
+    std::fs::create_dir_all(source.path().join("src")).expect("src dir");
+    std::fs::write(source.path().join("README.md"), "# Mirror README\n").expect("write readme");
+    std::fs::write(
+        source.path().join("src/lib.rs"),
+        "pub fn answer() -> u32 { 42 }\n",
+    )
+    .expect("write source");
+    run_git(source.path(), &["add", "."]);
+    run_git(source.path(), &["commit", "-m", "initial source"]);
+
+    let storage = tempfile::tempdir().expect("storage tempdir");
+    let manager = Arc::new(RepoManager::new(GitdConfig::new(
+        storage.path().to_path_buf(),
+    )));
+    let id = RepoId::new("alice", "jeryu").expect("repo id");
+    MirrorService::new((*manager).clone())
+        .mirror_clone(source.path().to_str().expect("utf-8 path"), &id)
+        .expect("mirror clone");
+
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: Some("git backed".to_string()),
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let state = Arc::new(WebState::with_repo_manager(
+        core,
+        manager,
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist"),
+    ));
+    (state, repo, source, storage)
+}
+
+fn run_git(cwd: &std::path::Path, args: &[&str]) {
+    let output = std::process::Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .unwrap_or_else(|err| panic!("git {args:?} failed to start: {err}"));
+    assert!(
+        output.status.success(),
+        "git {args:?} failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 async fn response_json(response: AxumResponse) -> Value {
@@ -885,10 +1009,20 @@ async fn ecosystem_route_serves_live_tool_graph() {
     assert_eq!(response.status(), StatusCode::OK);
     let parsed = response_json(response).await;
     assert_eq!(parsed["live"], true);
-    assert_eq!(parsed["degradedReason"], "");
+    assert!(
+        parsed["degradedReason"]
+            .as_str()
+            .unwrap()
+            .contains("missing CI evidence")
+    );
+    let repos = parsed["repos"].as_array().expect("repos array");
+    assert_eq!(repos.len(), 1);
+    assert_eq!(repos[0]["fullName"], "alice/jeryu");
+    assert_eq!(repos[0]["ci"]["status"], "pending");
     let tools = parsed["tools"].as_array().expect("tools array");
     assert_eq!(tools.len(), jeryu_mcp::tool_manifest().len());
-    // The first node carries the exact camelCase contract keys + live repo.
+    // The first node carries the exact camelCase contract keys. Repo inventory
+    // lives in repos[], not on a fake representative tool tag.
     let node = &tools[0];
     for key in [
         "name",
@@ -901,7 +1035,7 @@ async fn ecosystem_route_serves_live_tool_graph() {
         assert!(node.get(key).is_some(), "missing contract key: {key}");
     }
     assert_eq!(node["provider"], "jeryu");
-    assert_eq!(node["repo"], "alice/jeryu");
+    assert!(node.get("repo").is_none());
 }
 
 /// The live `/api/v1/ci/runs/{id}/evidence` route returns derived evidence

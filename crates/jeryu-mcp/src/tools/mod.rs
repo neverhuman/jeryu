@@ -12,8 +12,13 @@ pub(crate) fn catalog() -> Vec<ToolDescriptor> {
 }
 
 /// Static source-of-truth for the catalog (replaces the source's `action_registry::REGISTRY`
-/// filtered by `Surface::Capability`). Exactly the 16 tool ids, in manifest order.
+/// filtered by `Surface::Capability`). Tool ids are listed in manifest order.
 pub(crate) const CATALOG: &[&str] = &[
+    "repo_list",
+    "repo_tree",
+    "repo_blob",
+    "repo_search",
+    "ecosystem_graph",
     "fetch_capsule",
     "get_system_snapshot",
     "get_ci_run_jobs",

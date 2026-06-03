@@ -42,6 +42,7 @@
     "crates/jeryu-ci-scheduler/": "ci-runtime",
     "crates/jeryu-core/": "forge-api",
     "crates/jeryu-core/src/overlap.rs": "forge-api",
+    "crates/jeryu-egress/": "ci-runtime",
     "crates/jeryu-readmodel/": "forge-api",
     "crates/jeryu-readmodel/src/pool_activity.rs": "forge-api",
     "crates/jeryu-autonomy/src/full_auto.rs": "core",

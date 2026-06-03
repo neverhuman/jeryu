@@ -6,6 +6,36 @@ use crate::tools::schema::tool_annotations;
 
 pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
     let (title, description, annotations, kind) = match action_id {
+        "repo_list" => (
+            "Repository list",
+            "List live Jeryu-managed repositories.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RepoList,
+        ),
+        "repo_tree" => (
+            "Repository tree",
+            "Read a directory tree from a Jeryu-managed gitd mirror.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RepoTree,
+        ),
+        "repo_blob" => (
+            "Repository blob",
+            "Read a file blob from a Jeryu-managed gitd mirror.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RepoBlob,
+        ),
+        "repo_search" => (
+            "Repository search",
+            "Search file contents in a Jeryu-managed gitd mirror.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RepoSearch,
+        ),
+        "ecosystem_graph" => (
+            "Ecosystem graph",
+            "Read the live Jeryu ecosystem repos, tools, and relationships graph.",
+            tool_annotations(true, false, true, false),
+            ToolKind::EcosystemGraph,
+        ),
         "fetch_capsule" => (
             "Fetch capsule",
             "Fetch the latest structured failure capsule for a job.",
