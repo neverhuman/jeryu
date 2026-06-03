@@ -175,11 +175,13 @@ set -euo pipefail
 REAL_NPM="${REAL_NPM:?missing REAL_NPM}"
 WEB_PREFIX_PATH="${WEB_PREFIX_PATH:?missing WEB_PREFIX_PATH}"
 args=()
+mapped_web_prefix=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --prefix)
       if [ "${2:-}" = "web" ]; then
         args+=("--prefix" "${WEB_PREFIX_PATH}")
+        mapped_web_prefix=1
         shift 2
         continue
       fi
@@ -192,6 +194,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     --prefix=web)
       args+=("--prefix=${WEB_PREFIX_PATH}")
+      mapped_web_prefix=1
       shift
       continue
       ;;
@@ -202,6 +205,14 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [ "${mapped_web_prefix}" = "1" ] && [ -d "${WEB_PREFIX_PATH}/node_modules" ]; then
+  case "${args[*]}" in
+    "--prefix ${WEB_PREFIX_PATH} ci"|"--prefix=${WEB_PREFIX_PATH} ci")
+      exit 0
+      ;;
+  esac
+fi
 
 exec "${REAL_NPM}" "${args[@]}"
 EOF

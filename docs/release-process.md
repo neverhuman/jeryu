@@ -26,6 +26,14 @@ Stop or quarantine retired-provider runners, `~/.jeryu`, old
 `/home/ubuntu/jeryu`, local `:2224`, and monitored retired listeners before
 recording release evidence.
 
+## Local Merge Authority
+
+Open the release or consolidation PR against local Jeryu first. Local Jeryu
+mergeability plus the gates above are the release authority; hosted GitHub
+Actions are mirror evidence only. After the local PR merges to `main`, push
+`main` to the local Jeryu remote, then mirror the same commit to the explicit
+`github` remote.
+
 ## Receipt Contents
 
 Each release receipt records:
