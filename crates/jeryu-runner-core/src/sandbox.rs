@@ -163,6 +163,12 @@ impl SandboxPlan {
             write: false,
             execute: true,
         });
+        landlock_rules.push(LandlockRule {
+            path: PathBuf::from("/dev/null"),
+            read: true,
+            write: true,
+            execute: false,
+        });
 
         let mounts = vec![
             MountSpec {
@@ -306,6 +312,15 @@ mod tests {
             assert!(!rule.write);
             assert!(rule.execute);
         }
+
+        let dev_null_rule = plan
+            .landlock_rules
+            .iter()
+            .find(|rule| rule.path == Path::new("/dev/null"))
+            .unwrap_or_else(|| panic!("expected /dev/null Landlock rule"));
+        assert!(dev_null_rule.read);
+        assert!(dev_null_rule.write);
+        assert!(!dev_null_rule.execute);
 
         let usr_mount = plan
             .mounts

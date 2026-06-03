@@ -276,6 +276,43 @@ mod tests {
     }
 
     #[test]
+    fn ci_shell_steps_can_fork_when_cgroups_degrade() {
+        let _guard = EXECUTION_GUARD.lock().unwrap();
+        let workspace = temp_dir();
+        let job = JobRequest {
+            job_id: "ci-shell".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace,
+            command: "/bin/sh".to_string(),
+            args: vec!["-lc".to_string(), "/bin/echo ok >/dev/null".to_string()],
+            env: Default::default(),
+            trust_tier: TrustTier::T2InternalBranch,
+            requested_runner: Some(jeryu_runner_core::trust::RunnerClass::NativeRustClean),
+            network_policy: NetworkPolicy::EgressOnly,
+            secret_policy: SecretPolicy::None,
+            token_policy: TokenPolicy::None,
+            timeout_ms: 1000,
+            fork: false,
+        };
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        assert!(
+            !plan.require_cgroup,
+            "ordinary CI jobs must not use the agent fail-closed cgroup gate"
+        );
+        let receipt = NativeRunner::new()
+            .execute(&job, &decision, &plan)
+            .unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(
+            receipt.status,
+            ReceiptStatus::Passed,
+            "normal CI shell steps must be able to fork under degraded cgroups: {}",
+            receipt.message
+        );
+    }
+
+    #[test]
     fn watchdog_timeout_maps_to_timed_out_status() {
         let _guard = EXECUTION_GUARD.lock().unwrap();
         let workspace = temp_dir();

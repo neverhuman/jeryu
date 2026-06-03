@@ -122,9 +122,9 @@ struct SandboxPayload {
     apply_pid_ns: bool,
     landlock: Option<LandlockPayload>,
     seccomp_bpf: Option<seccompiler::BpfProgram>,
-    /// Best-effort `setrlimit` fallback values (RLIMIT_AS / RLIMIT_NPROC). These
-    /// are a backstop only: the real protection for agent jobs is the
-    /// fail-closed cgroup gate in [`crate::capability`].
+    /// Best-effort `setrlimit` fallback values. These are a backstop only: the
+    /// real protection for agent jobs is the fail-closed cgroup gate in
+    /// [`crate::capability`].
     rlimits: RlimitFallback,
 }
 
@@ -133,7 +133,6 @@ struct SandboxPayload {
 #[derive(Clone, Copy)]
 struct RlimitFallback {
     memory_max_bytes: u64,
-    pids_max: u32,
 }
 
 struct LandlockPayload {
@@ -231,7 +230,6 @@ fn build_payload(plan: &SandboxPlan, caps: &SandboxCapabilities) -> SandboxResul
         seccomp_bpf,
         rlimits: RlimitFallback {
             memory_max_bytes: plan.cgroup_limits.memory_max_bytes,
-            pids_max: plan.cgroup_limits.pids_max,
         },
     })
 }
@@ -367,16 +365,21 @@ fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
 /// agent jobs is the fail-closed gate in [`crate::capability::SandboxCapabilities::enforcement_level`],
 /// which refuses to launch a `require_cgroup` job on a host without a delegated
 /// cgroup-v2 subtree. Where a job is allowed to run degraded (cgroups missing
-/// but not required), these per-process rlimits still cap the most egregious
-/// runaways. Failures are swallowed: a too-tight limit must never break a
-/// degraded-but-legitimate job, and these syscalls (`prlimit64`) are already in
-/// the seccomp baseline.
+/// but not required), the address-space rlimit still caps the most egregious
+/// memory balloons. Failures are swallowed: a too-tight limit must never break a
+/// degraded-but-legitimate job, and this syscall (`prlimit64`) is already in the
+/// seccomp baseline.
 ///
 /// `RLIMIT_AS` (address-space) is notoriously hostile to V8/Node and JIT runtimes
 /// that reserve huge virtual ranges they never fault in, so we apply a GENEROUS
 /// multiple of the cgroup memory ceiling rather than the ceiling itself — the
 /// goal is to stop an unbounded balloon, not to mirror the exact RSS cap. We also
 /// skip `RLIMIT_AS` entirely if the multiple would overflow.
+///
+/// Do NOT mirror `pids.max` with `RLIMIT_NPROC`: that limit is per real Unix
+/// user, not per sandbox. On a busy shared runner account it can make `/bin/sh`
+/// unable to fork before the job starts. PID containment is enforced by cgroups
+/// when the job requires it; non-agent degraded CI must remain runnable.
 fn apply_rlimit_fallback(limits: &RlimitFallback) {
     // Address space: 4x the cgroup memory ceiling, clamped to avoid overflow and
     // to stay clear of breaking JIT/V8 virtual reservations. Skipped if zero or
@@ -385,12 +388,6 @@ fn apply_rlimit_fallback(limits: &RlimitFallback) {
         && as_limit > 0
     {
         set_one_rlimit(libc::RLIMIT_AS, as_limit);
-    }
-    // Process/thread count: mirror pids.max directly. RLIMIT_NPROC is per-user,
-    // so it is a coarser backstop than cgroup pids.max, but still bounds a fork
-    // bomb on hosts without cgroup delegation.
-    if limits.pids_max > 0 {
-        set_one_rlimit(libc::RLIMIT_NPROC, u64::from(limits.pids_max));
     }
 }
 

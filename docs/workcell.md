@@ -20,7 +20,7 @@ Docker and no `sudo`**: it composes unprivileged Linux kernel primitives.
 | **Landlock** (filesystem LSM) | reads/writes are allowed only under the cell checkout (+ read-only system roots for the loader/libc); everything else is `EACCES` |
 | **seccomp-bpf** | syscall allowlist; `AF_INET`/`AF_INET6` sockets are denied (`EPERM`) while `AF_UNIX`/`AF_NETLINK` are permitted |
 | **`no_new_privs`** | a jailed process can never gain privileges via `exec` |
-| **cgroups v2** | CPU / memory / PID pressure caps; **agent jobs are fail-closed** — they refuse to launch unless a delegated cgroup-v2 subtree is available to enforce the caps (a `setrlimit` fallback applies `RLIMIT_AS`/`RLIMIT_NPROC` as defence-in-depth) |
+| **cgroups v2** | CPU / memory / PID pressure caps; **agent jobs are fail-closed** — they refuse to launch unless a delegated cgroup-v2 subtree is available to enforce the caps (a `setrlimit` fallback applies `RLIMIT_AS` as memory defence-in-depth) |
 
 Resource confinement is **fail-closed for agent jobs**: `SandboxPlan.require_cgroup` makes `enforcement_level` return `Unavailable` (refusing the launch) when no delegated cgroup-v2 subtree exists, so a runaway in-cell agent can never run uncontained. Ordinary CI/build jobs keep `require_cgroup = false` (degrade, don't refuse). Deploy `ops/security/jeryu-runnerd.service` (`Delegate=memory pids cpu`) so the runner owns a writable subtree.
 
