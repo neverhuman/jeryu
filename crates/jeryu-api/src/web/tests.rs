@@ -276,7 +276,10 @@ async fn r5_jail_loop_exports_namespaced_branch_and_ci_evidence() {
         storage.path(),
         "alice",
         "jeryu",
-        &[("src/r5.rs", "pub fn repaired() -> &'static str { \"r5\" }\n")],
+        &[(
+            "src/r5.rs",
+            "pub fn repaired() -> &'static str { \"r5\" }\n",
+        )],
     );
     let state = Arc::new(WebState::new_with_git_storage(
         core.clone(),

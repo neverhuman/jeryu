@@ -114,6 +114,11 @@ Repair evidence:
   404 repair guidance. Rerun
   `cargo test -p jeryu-api --features web --jobs 40` plus the matching clippy
   lane before release evidence is recorded.
+- Workcell export changes must prove changed-file evidence is derived from the
+  frozen git diff, not caller input, before a PR is created. Rerun
+  `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice` and
+  attach the typed `workcell_export_slice_denied` no-PR evidence for restrictive
+  leases.
 - README publish failures should rerun
   `bash ops/ci/publish-readme-score.sh --verify` after regenerating
   `target/jankurai/repo-score.json` and `target/jankurai/repo-score.md` from

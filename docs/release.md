@@ -36,6 +36,10 @@ SignRail artifact-support signing details:
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the
   jailed workcell edit, namespaced branch export, PR creation, or CI evidence
   flow changes.
+- `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
+  when workcell export gating, `jeryu-codegraph`, or the export PR changed-file
+  derivation changes. The release receipt must include the typed denial evidence
+  proving an out-of-slice diff creates no pull request.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API response contracts, `/api/v1/ecosystem`, or
   `/api/v1/ci/runs/{id}/evidence` change.
