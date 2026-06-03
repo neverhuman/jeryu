@@ -10,8 +10,8 @@ use jeryu_core::{CreatePullRequestRequest, ForgeError};
 use jeryu_readmodel::contracts::WebEvent;
 use jeryu_readmodel::{TuiReadModel, WorkcellsDashboard, WorkcellsSummary};
 use jeryu_runnerd::{
-    StartupSync, WorkcellClaimRequest, WorkcellError, WorkcellLease, WorkcellManager,
-    WorkcellState as RunnerWorkcellState,
+    HoldFailedTreeRequest, StartupSync, WorkcellClaimRequest, WorkcellError, WorkcellLease,
+    WorkcellManager, WorkcellState as RunnerWorkcellState,
 };
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,8 @@ pub(super) struct RepairLiveRequest {
     #[serde(default)]
     pub ci_snapshot_age_ms: Option<u64>,
     pub startup: StartupSync,
+    #[serde(default)]
+    pub ci_run_id: Option<String>,
     pub failed_run_id: String,
     pub failed_receipt_id: String,
     pub failure_log_digest: String,
@@ -142,13 +144,16 @@ pub(super) async fn repair_live(State(state): State<Arc<WebState>>, body: Bytes)
         ci_snapshot_age_ms: request.ci_snapshot_age_ms,
         startup: request.startup,
     };
+    let failed_run_id = request.failed_run_id;
+    let ci_run_id = request.ci_run_id.unwrap_or_else(|| failed_run_id.clone());
     let mut manager = manager(&state);
-    let held = match manager.hold_failed_tree(
+    let held = match manager.hold_failed_tree(HoldFailedTreeRequest {
         claim,
-        request.failed_run_id,
-        request.failed_receipt_id,
-        request.failure_log_digest,
-    ) {
+        ci_run_id,
+        failed_run_id,
+        failed_receipt_id: request.failed_receipt_id,
+        failure_log_digest: request.failure_log_digest,
+    }) {
         Ok(lease) => lease,
         Err(err) => return workcell_error(err),
     };
@@ -255,6 +260,7 @@ pub(super) async fn export_pr(
     let target_branch = request
         .target_branch
         .or_else(|| lease.startup_main_ref.clone())
+        .map(normalize_pr_base)
         .unwrap_or_else(|| "main".to_string());
     let title = request
         .title
@@ -313,6 +319,16 @@ pub(super) async fn export_pr(
         }),
     )
         .into_response()
+}
+
+fn normalize_pr_base(ref_name: String) -> String {
+    let without_heads = ref_name
+        .strip_prefix("refs/heads/")
+        .unwrap_or(ref_name.as_str());
+    without_heads
+        .strip_prefix("origin/")
+        .unwrap_or(without_heads)
+        .to_string()
 }
 
 pub(super) fn live_tui(state: &WebState) -> TuiReadModel {
@@ -572,4 +588,23 @@ fn manager(state: &WebState) -> std::sync::MutexGuard<'_, WorkcellManager> {
 
 fn default_true() -> bool {
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_pr_base;
+
+    #[test]
+    fn normalize_pr_base_strips_heads_and_origin_only() {
+        assert_eq!(normalize_pr_base("refs/heads/main".into()), "main");
+        assert_eq!(normalize_pr_base("origin/main".into()), "main");
+        assert_eq!(
+            normalize_pr_base("origin/release/2026".into()),
+            "release/2026"
+        );
+        assert_eq!(
+            normalize_pr_base("feature/workcell".into()),
+            "feature/workcell"
+        );
+    }
 }

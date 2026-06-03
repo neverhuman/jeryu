@@ -424,6 +424,16 @@ pub struct FreezeFailedCiRunRequest {
     pub snapshot_age_ms: u64,
 }
 
+/// Request to hold a failed tree for live repair.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoldFailedTreeRequest {
+    pub claim: WorkcellClaimRequest,
+    pub ci_run_id: String,
+    pub failed_run_id: String,
+    pub failed_receipt_id: String,
+    pub failure_log_digest: String,
+}
+
 /// One live workcell lease.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkcellLease {
@@ -649,15 +659,16 @@ impl WorkcellManager {
 
     pub fn hold_failed_tree(
         &mut self,
-        request: WorkcellClaimRequest,
-        failed_run_id: impl Into<String>,
-        failed_receipt_id: impl Into<String>,
-        failure_log_digest: impl Into<String>,
+        request: HoldFailedTreeRequest,
     ) -> WorkcellResult<WorkcellLease> {
-        let failed_run_id = failed_run_id.into();
-        let failed_receipt_id = failed_receipt_id.into();
-        let failure_log_digest = failure_log_digest.into();
-        let mut lease = self.claim(request)?;
+        let HoldFailedTreeRequest {
+            claim,
+            ci_run_id,
+            failed_run_id,
+            failed_receipt_id,
+            failure_log_digest,
+        } = request;
+        let mut lease = self.claim(claim)?;
         let workcell_id = lease.workcell_id.clone();
         let cell = self
             .cells
@@ -677,7 +688,7 @@ impl WorkcellManager {
             .collect();
         let snapshot_source = cell.clone();
         cell.frozen_snapshot = Some(FrozenCiSnapshot::from_workcell(
-            failed_run_id.clone(),
+            ci_run_id,
             failed_run_id,
             failed_receipt_id,
             &snapshot_source,
@@ -1082,6 +1093,39 @@ mod tests {
             .begin_live_repair(&repair.workcell_id, repair.runner_epoch)
             .expect("repair may start after hold");
         assert_eq!(repairing.state, WorkcellState::Repairing);
+    }
+
+    #[test]
+    fn hold_failed_tree_preserves_distinct_ci_run_identity() {
+        let mut manager = WorkcellManager::with_warm_pool(1);
+        let held = manager
+            .hold_failed_tree(HoldFailedTreeRequest {
+                claim: WorkcellClaimRequest {
+                    agent_id: "agent-wrath-17".into(),
+                    workspace_root: root(),
+                    repo_roots: vec![root()],
+                    branch_budget: 1,
+                    runner_id: "xbabe0".into(),
+                    runner_epoch: 7,
+                    git_status_summary: "failed run tree".into(),
+                    ci_snapshot_age_ms: Some(100),
+                    startup: StartupSync::Rebased {
+                        main_ref: "origin/main".into(),
+                        base_sha: "abc123".into(),
+                        head_sha: "def456".into(),
+                    },
+                },
+                ci_run_id: "ci-parent-17".into(),
+                failed_run_id: "run-attempt-17".into(),
+                failed_receipt_id: "receipt-17".into(),
+                failure_log_digest: "sha256:deadbeef".into(),
+            })
+            .expect("hold failed tree succeeds");
+
+        let snapshot = held.frozen_snapshot.as_ref().expect("snapshot stored");
+        assert_eq!(snapshot.ci_run_id, "ci-parent-17");
+        assert_eq!(snapshot.failed_run_id, "run-attempt-17");
+        assert_ne!(snapshot.ci_run_id, snapshot.failed_run_id);
     }
 
     #[test]
