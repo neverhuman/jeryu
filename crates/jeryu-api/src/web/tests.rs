@@ -112,7 +112,8 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
             "base_sha": "abc123",
             "head_sha": "def456",
         },
-        "failed_run_id": "ci-17",
+        "ci_run_id": "ci-parent-17",
+        "failed_run_id": "run-17",
         "failed_receipt_id": "receipt-17",
         "failure_log_digest": "sha256:deadbeef"
     });
@@ -131,6 +132,14 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         .expect("held workcell id");
     assert_eq!(response["held"]["state"], "held");
     assert_eq!(response["repairing"]["state"], "repairing");
+    assert_eq!(
+        response["held"]["frozen_snapshot"]["ci_run_id"],
+        "ci-parent-17"
+    );
+    assert_eq!(
+        response["held"]["frozen_snapshot"]["failed_run_id"],
+        "run-17"
+    );
 
     let export_body = serde_json::json!({
         "workcell_id": workcell_id,
@@ -139,7 +148,6 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         "owner": "alice",
         "repo": "jeryu",
         "author": "agent-wrath-17",
-        "target_branch": "main",
         "title": "Repair failed tree",
         "body": "Repaired from failed tree"
     });
@@ -159,6 +167,7 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
             .starts_with("agents/agent-wrath-17/workcells/")
     );
     assert!(export["pull_request_number"].as_u64().unwrap() > 0);
+    assert_eq!(export["target_branch"], "main");
 
     let release = response_json(
         super::workcells::release(
@@ -175,6 +184,47 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
     )
     .await;
     assert_eq!(release["state"], "released");
+}
+
+#[tokio::test]
+async fn workcell_repair_live_legacy_request_uses_failed_run_as_ci_run() {
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    let repair_body = serde_json::json!({
+        "agent_id": "agent-wrath-17",
+        "workspace_root": "/workspace/core/web",
+        "repo_roots": ["/workspace/core/web"],
+        "branch_budget": 1,
+        "runner_id": "xbabe0",
+        "runner_epoch": 7,
+        "git_status_summary": "rebase failed",
+        "startup": {
+            "state": "rebased",
+            "main_ref": "origin/main",
+            "base_sha": "abc123",
+            "head_sha": "def456",
+        },
+        "failed_run_id": "legacy-run-17",
+        "failed_receipt_id": "receipt-17",
+        "failure_log_digest": "sha256:deadbeef"
+    });
+
+    let response = response_json(
+        super::workcells::repair_live(
+            State(state),
+            axum::body::Bytes::from(serde_json::to_vec(&repair_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(
+        response["held"]["frozen_snapshot"]["ci_run_id"],
+        "legacy-run-17"
+    );
+    assert_eq!(
+        response["held"]["frozen_snapshot"]["failed_run_id"],
+        "legacy-run-17"
+    );
 }
 
 /// An empty server yields an empty pool fabric (Unknown health), and the

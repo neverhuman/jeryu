@@ -13,6 +13,7 @@ pub use fleet::{
 };
 pub use job_file::load_job_file;
 pub use workcell::{
-    ArchiveEntry, ArchiveEntryKind, BranchPolicy, FrozenCiSnapshot, StartupSync,
-    WorkcellClaimRequest, WorkcellError, WorkcellLease, WorkcellManager, WorkcellState,
+    ArchiveEntry, ArchiveEntryKind, BranchPolicy, FrozenCiSnapshot, HoldFailedTreeRequest,
+    StartupSync, WorkcellClaimRequest, WorkcellError, WorkcellLease, WorkcellManager,
+    WorkcellState,
 };

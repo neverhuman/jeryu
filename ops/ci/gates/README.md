@@ -13,6 +13,7 @@ A gate never reports green for a capability that has not been built yet.
 Run all gates and get a summary table:
 
 ```bash
+bash ops/ci/gates/agent-substrate.sh  # direct in-cell agent substrate gate
 bash scripts/ci-phases.sh          # run every gate, print summary, exit 1 on any FAIL
 bash scripts/ci-phases.sh --list   # just list the discovered gates
 ```
@@ -33,6 +34,7 @@ the not-yet-buildable live portion is held at `PENDING`. The live portion is
 
 | Gate (`ops/ci/gates/*.sh`) | Engineering-spec phase | What runs now | PENDING portion (live capability still to build) |
 | --- | --- | --- | --- |
+| `agent-substrate.sh` | In-cell agent execution substrate | `cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40`, including adversarial parallel edit-bot staging and the live egress contract. | none; live LLM/network calls stay opt-in through `jeryu-egress` budget and secret gates. |
 | `foundation.sh` | Cross-cutting baseline | Delegates to `ops/ci/full.sh`: fmt, check, clippy, workspace test, zero-evidence guard, docs, release receipt, repo score. | none |
 | `github-conformance.sh` | GitHub-compatible forge surface | `cargo test -p jeryu-api --test github_api` (REST shape) **and** domain-vocabulary assertions over `crates/jeryu-core/src` + `crates/jeryu-api/src`: GitHub terms present, and zero retired domain identifiers / legacy-provider / legacy-CI tokens. | none |
 | `ir-determinism.sh` | CI compile -> deterministic IR | `cargo test -p jeryu-ci-ir` (deterministic IR-hash + DAG invariants). | none |

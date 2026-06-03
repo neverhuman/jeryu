@@ -48,7 +48,7 @@ local repository import, affected fast CI, and guided GitHub-compatible
 REST/GraphQL repair responses, and gitd-backed local import materialization.
 The latest closeout full lanes pass with 1175 workspace nextest tests in both
 local-native and GitHub-clean profiles, all phase gates at
-PASS=9/PENDING=0/FAIL=0, and the full manifest lane union green.
+PASS=10/PENDING=0/FAIL=0, and the full manifest lane union green.
 
 <!-- jeryu:managed-score:start -->
 - Final score: `70`

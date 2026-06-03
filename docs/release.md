@@ -72,10 +72,13 @@ PASS=9/PENDING=0/FAIL=0, proof-evidence Jankurai full scan score 92 caps 0, and
 changed-file Jankurai diff/audit hard 0 caps 0. The GitHub-clean proof is
 `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`.
 Full mode runs `ops/ci/verify-jeryu-env.sh --build-local --release-guard` and
-rejects retired-provider runners, `~/.jeryu`, old `/home/ubuntu/jeryu`, and
-local `:2224` listener/remotes so release evidence cannot be produced against
-the retired system. This host still needs an explicit retired-state bypass for
-local parity runs until an operator stops the root-owned retired services.
+accepts either the canonical GitHub remote or the loopback local Jeryu remote
+on `127.0.0.1:8787`. It rejects retired-provider runners, stale `~/.jeryu`
+binaries, old `/home/ubuntu/jeryu`, and local `:2224` listener/remotes so
+release evidence cannot be produced against the retired system. The local API
+install under `~/.jeryu/bin/jeryu-api` is accepted only when it byte-matches the
+repo-built API binary. Retired-CI sweeps of additional source roots run only
+when `JERYU_CI_SOURCE_ROOTS` is set.
 
 ## Release Process
 
@@ -91,8 +94,11 @@ local parity runs until an operator stops the root-owned retired services.
 5. Sign artifact-support evidence with `jeryu-signrail sign-release`; local
    runs require `JERYU_SIGNRAIL_ED25519_SEED`, and GitHub Actions requires
    `SIGNRAIL_ED25519_SEED`.
-6. Publish through a PR branch; direct `main` pushes from `ci-fast-push.sh`
-   require explicit `--push-main` and are not the default closeout path.
+6. Publish through a PR branch in local Jeryu first; local Jeryu mergeability
+   plus green gates are authoritative, and GitHub is updated only as an
+   explicit mirror after local `main` has the merge. Direct `main` pushes from
+   `ci-fast-push.sh` require explicit `--push-main` and are not the default
+   closeout path.
 7. Run `bash ops/ci/release.sh` before signing the receipt so the release lane
    produces the build and receipt artifacts.
 8. Tag only after the release receipt names the exact commit, prior rollback

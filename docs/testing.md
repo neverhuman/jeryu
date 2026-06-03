@@ -64,18 +64,22 @@ Primary lanes:
 - `cargo test -p jeryu-sandbox-linux` (`cgroup_confinement`) and `cargo test -p jeryu-agentbridge` (`cgroup_fail_closed`): resource confinement, fail-closed. They prove a `require_cgroup` plan refuses to launch without a delegated cgroup-v2 subtree, that the `LandlockRule.execute` bit permits/denies exec correctly on ABI ≥ 2, and (honest-skip on hosts without cgroup-v2 delegation) that a runaway is contained under an enforced cgroup.
 
 PENDING is only allowed for a capability that is not built yet and must be
-printed as PENDING, not PASS. The current phase gates report PASS=9,
+printed as PENDING, not PASS. The current phase gates report PASS=10,
 PENDING=0, FAIL=0; if a future live capability is missing, mark only that gate
 PENDING with evidence.
 
 CI parity checks:
 - `ops/ci/verify-jeryu-env.sh --build-local` builds the repo-local `jeryu`
-  binary, rejects noncanonical remotes, and ensures CI does not select the
-  retired `~/.jeryu/bin/jeryu` binary.
+  binary, accepts the canonical GitHub remote or the loopback local Jeryu
+  remote on `127.0.0.1:8787`, and ensures CI does not select the retired
+  `~/.jeryu/bin/jeryu` binary.
 - `ops/ci/verify-jeryu-env.sh --build-local --release-guard` is wired into
-  full release validation and fails while retired-provider runners, `~/.jeryu`,
-  old `/home/ubuntu/jeryu`, local `:2224`, or other monitored listeners are
-  still active.
+  full release validation and fails while retired-provider runners, stale
+  `~/.jeryu` binaries, old `/home/ubuntu/jeryu`, local `:2224`, or other
+  monitored listeners are still active. A local `~/.jeryu/bin/jeryu-api`
+  process is accepted only when it matches the repo-built API binary.
+  Additional source-root retired-CI sweeps run only when
+  `JERYU_CI_SOURCE_ROOTS` is set.
 - `ops/ci/ensure-jankurai.sh` is the single local/hosted bootstrap for pinned
   Jankurai 1.6.10.
 - `agent/ci-lanes.toml` is the committed CI lane manifest. `cargo run -q -p

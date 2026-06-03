@@ -261,6 +261,11 @@
       "purpose": "verify the managed README score block can be rendered from the fresh audit artifacts without mutating the worktree",
       "lane": "release-provenance"
     },
+    "ops/ci/gates/agent-substrate.sh": {
+      "command": "bash ops/ci/gates/agent-substrate.sh",
+      "purpose": "verify the in-cell agent substrate phase gate runs the mapped agentbridge and egress proof lane",
+      "lane": "agent-substrate"
+    },
     "ops/ci/gates/workcells.sh": {
       "command": "bash ops/ci/gates/workcells.sh",
       "purpose": "verify the shared workcell control plane lifecycle, read-model, and bootstrap contract",
