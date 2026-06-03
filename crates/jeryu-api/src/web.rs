@@ -6,6 +6,7 @@ mod markdown;
 mod permissions;
 mod repositories;
 mod surface;
+mod workcells;
 mod ws;
 
 use std::collections::BTreeSet;
@@ -29,6 +30,7 @@ use crate::GithubRouter;
 use crate::git_materializer::GitMaterializer;
 use crate::github::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use jeryu_gitd::{GitdConfig, RepoManager};
+use jeryu_runnerd::WorkcellManager;
 use repositories::{
     repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
 };
@@ -59,6 +61,8 @@ pub(crate) struct WebState {
     /// Live-stream fan-out hub: hands out monotonic sequence numbers and keeps
     /// a subscriber registry so the WS edge can push snapshots/deltas per scope.
     ws: WsHub,
+    /// In-memory workcell controller for claim/repair/export/release flows.
+    pub(crate) workcells: Arc<Mutex<WorkcellManager>>,
     /// Shared git-daemon repository manager backing the smart-HTTP transport.
     pub(crate) repo_manager: Arc<RepoManager>,
     /// Forge handle for the push->CI bridge (shares state with `github`).
@@ -81,6 +85,7 @@ impl WebState {
             tui,
             spa_dir,
             ws: WsHub::new(),
+            workcells: Arc::new(Mutex::new(WorkcellManager::new())),
             repo_manager,
             core: core_handle,
         }
@@ -223,6 +228,24 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/.jeryu/capabilities", get(capabilities))
         .route("/api/v1/bootstrap", get(bootstrap))
         .route("/api/v1/bootstrap.tui", get(bootstrap_tui))
+        .route(
+            "/api/v1/workcells",
+            get(workcells::list).post(workcells::claim),
+        )
+        .route(
+            "/api/v1/workcells/repair_live",
+            post(workcells::repair_live),
+        )
+        .route("/api/v1/workcells/:id", get(workcells::status))
+        .route(
+            "/api/v1/workcells/:id/heartbeat",
+            post(workcells::heartbeat),
+        )
+        .route("/api/v1/workcells/:id/release", post(workcells::release))
+        .route(
+            "/api/v1/workcells/:id/export_pr",
+            post(workcells::export_pr),
+        )
         .route("/api/v1/repos", get(repos))
         .route("/api/v1/repos/:id", get(repo_detail))
         .route("/api/v1/repos/:id/refs", get(repo_refs))
@@ -412,7 +435,7 @@ async fn bootstrap(State(state): State<Arc<WebState>>) -> AxumResponse {
 }
 
 async fn bootstrap_tui(State(state): State<Arc<WebState>>) -> Json<TuiReadModel> {
-    Json(state.tui.clone())
+    Json(workcells::live_tui(&state))
 }
 
 /// `GET /api/v1/ecosystem` — the live ecosystem tool-graph for generic external

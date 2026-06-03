@@ -1838,6 +1838,7 @@ dependencies = [
  "jeryu-runner-oci",
  "jeryu-runner-protocol",
  "jeryu-runner-registry",
+ "serde",
 ]
 
 [[package]]

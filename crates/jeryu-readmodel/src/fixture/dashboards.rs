@@ -150,15 +150,16 @@ pub fn sample_release() -> ReleaseSnapshot {
     }
 }
 
-/// A populated workcells snapshot: one claimed workcell and one blocked repair
-/// cell. This covers claim state, repo roots, branch budget, git status, CI
-/// snapshot age, runner epoch, and heartbeat health.
+/// A populated workcells snapshot: one claimed workcell, one held repair cell,
+/// and one blocked workcell. This covers claim state, repo roots, branch
+/// budget, git status, CI snapshot age, runner epoch, and heartbeat health.
 pub fn sample_workcells() -> WorkcellsDashboard {
     let at = sample_at();
     let mut claimed = WorkcellItem::new("wc-17", "agent-wrath-17 / core/web");
     claimed.claim_state = WorkcellState::Claimed;
     claimed.agent_id = "agent-wrath-17".into();
     claimed.repo_roots = vec!["/workspace/core/web".into()];
+    claimed.workspace_root = "/workspace/core/web".into();
     claimed.branch_budget = 1;
     claimed.branches_open = 1;
     claimed.git_status_summary = "1 modified, 0 untracked".into();
@@ -167,31 +168,60 @@ pub fn sample_workcells() -> WorkcellsDashboard {
     claimed.runner_epoch = 7;
     claimed.heartbeat_healthy = true;
     claimed.startup_rebased = true;
+    claimed.startup_main_ref = Some("origin/main".into());
+    claimed.startup_base_sha = Some("abc123".into());
+    claimed.startup_head_sha = Some("def456".into());
 
-    let mut blocked = WorkcellItem::new("wc-18", "agent-storm-04 / core/api");
+    let mut held = WorkcellItem::new("wc-18", "agent-storm-04 / core/api");
+    held.claim_state = WorkcellState::Held;
+    held.agent_id = "agent-storm-04".into();
+    held.repo_roots = vec!["/workspace/core/api".into()];
+    held.workspace_root = "/workspace/core/api".into();
+    held.branch_budget = 5;
+    held.branches_open = 0;
+    held.git_status_summary = "held after failed tree capture".into();
+    held.ci_snapshot_age_ms = Some(4_200_000);
+    held.runner_id = "xbabe1".into();
+    held.runner_epoch = 8;
+    held.heartbeat_healthy = true;
+    held.startup_rebased = false;
+    held.startup_main_ref = Some("origin/main".into());
+    held.startup_base_sha = Some("abc123".into());
+    held.startup_head_sha = Some("def456".into());
+    held.failed_run_id = Some("ci-18".into());
+    held.failed_receipt_id = Some("receipt-18".into());
+    held.allowed_paths = vec!["/workspace/core/api".into()];
+    held.failure_log_digest = Some("sha256:deadbeef".into());
+
+    let mut blocked = WorkcellItem::new("wc-19", "agent-frost-01 / core/docs");
     blocked.claim_state = WorkcellState::Blocked;
-    blocked.agent_id = "agent-storm-04".into();
-    blocked.repo_roots = vec!["/workspace/core/api".into()];
-    blocked.branch_budget = 5;
-    blocked.branches_open = 2;
+    blocked.agent_id = "agent-frost-01".into();
+    blocked.repo_roots = vec!["/workspace/core/docs".into()];
+    blocked.workspace_root = "/workspace/core/docs".into();
+    blocked.branch_budget = 2;
+    blocked.branches_open = 1;
     blocked.git_status_summary = "rebase failed after main advanced".into();
     blocked.ci_snapshot_age_ms = Some(4_200_000);
-    blocked.runner_id = "xbabe1".into();
-    blocked.runner_epoch = 8;
+    blocked.runner_id = "xbabe2".into();
+    blocked.runner_epoch = 9;
     blocked.heartbeat_healthy = false;
     blocked.startup_rebased = false;
+    blocked.startup_main_ref = Some("origin/main".into());
+    blocked.startup_base_sha = Some("abc123".into());
+    blocked.startup_head_sha = Some("def456".into());
 
     WorkcellsDashboard {
-        items: vec![claimed, blocked],
+        items: vec![claimed, held, blocked],
         freshness: Some(SourceFreshness::live(SourceKind::Autonomy, at, "cursor-1")),
         summary: Some(WorkcellsSummary {
-            total_workcells: 2,
+            total_workcells: 3,
             warming_workcells: 0,
             ready_workcells: 0,
             claimed_workcells: 1,
+            held_workcells: 1,
             repairing_workcells: 0,
             blocked_workcells: 1,
-            heartbeat_healthy: 1,
+            heartbeat_healthy: 2,
         }),
     }
 }

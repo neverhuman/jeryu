@@ -121,7 +121,7 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 16-tool catalog (replaces the source's action_registry guardrail).
+    // The 21-tool catalog (replaces the source's action_registry guardrail).
     let expected = [
         "fetch_capsule",
         "get_system_snapshot",
@@ -139,11 +139,16 @@ fn manifest_covers_all_catalog_actions() {
         "bug_ready",
         "bug_update",
         "bug_record_attempt",
+        "workcell.claim",
+        "workcell.status",
+        "workcell.repair_live",
+        "workcell.export_pr",
+        "workcell.release",
     ];
     assert_eq!(
         names.len(),
-        16,
-        "expected exactly 16 tools, got {}",
+        21,
+        "expected exactly 21 tools, got {}",
         names.len()
     );
     for id in expected {
@@ -221,7 +226,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 16);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 21);
 }
 
 #[tokio::test]
@@ -257,6 +262,28 @@ async fn stdio_tools_call_round_trip() {
     assert!(call[0]["result"]["content"].is_array());
     assert_eq!(call[0]["result"]["isError"], false);
     assert_eq!(call[0]["result"]["structuredContent"]["success"], true);
+
+    let workcell = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.workcell.status",
+                    "arguments": { "workcell_id": "wc-17" }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(workcell.len(), 1);
+    assert_eq!(workcell[0]["result"]["structuredContent"]["success"], true);
+    assert_eq!(
+        workcell[0]["result"]["structuredContent"]["data"]["state"],
+        "ready"
+    );
 }
 
 #[tokio::test]
