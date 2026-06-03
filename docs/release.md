@@ -54,9 +54,16 @@ SignRail artifact-support signing details:
   in-cell agent driver or the allowlist egress proxy changes.
   Workcell- and jailed-agent-authored changes flow through these same release
   gates and CI evidence with no privileged path; see `docs/workcell.md`.
-- `cargo test -p jeryu-sandbox-linux` (escape_suite + cgroup_confinement) when
-  the sandbox cgroup/Landlock enforcement or `ops/security/jeryu-runnerd.service`
-  delegation unit changes — agent jobs must stay fail-closed on resource caps.
+- `cargo test -p jeryu-sandbox-linux` (escape_suite + cgroup_confinement +
+  secret_paths_denied + memory_oom_kill) when the sandbox cgroup/Landlock
+  enforcement or `ops/security/jeryu-runnerd.service` delegation unit changes —
+  agent jobs must stay fail-closed on resource caps and the jail must keep
+  denying secret/other-repo reads.
+- `bash ops/ci/coverage.sh` when workcell crate tests change: it enforces the
+  per-crate src-coverage ratchet (`ops/ci/coverage-baseline.tsv`) over
+  `jeryu-api`, `jeryu-egress`, and `jeryu-codegraph`. Coverage may not drop below
+  the recorded floor; raise it deliberately with
+  `JERYU_COVERAGE_UPDATE_BASELINE=1` and commit the updated baseline.
 
 ## Release Receipt
 
