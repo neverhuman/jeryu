@@ -24,7 +24,7 @@ use jeryu_runner_core::sandbox::{LandlockRule, SandboxPlan};
 use std::collections::BTreeMap;
 use std::io::{Error as IoError, ErrorKind};
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
 /// Error raised when the sandbox cannot be applied or the process cannot start.
@@ -200,7 +200,11 @@ pub fn spawn_sandboxed(
 /// seccomp BPF program, and capture Landlock rules + ABI.
 fn build_payload(plan: &SandboxPlan, caps: &SandboxCapabilities) -> SandboxResult<SandboxPayload> {
     let cgroup_procs = match &caps.cgroup_v2_subtree {
-        Some(parent) => Some(create_cgroup(parent, &plan.cgroup_limits)?),
+        Some(parent) => Some(create_cgroup(
+            parent,
+            &plan.cgroup_limits,
+            plan.require_cgroup,
+        )?),
         None => None,
     };
 
@@ -238,29 +242,121 @@ fn build_payload(plan: &SandboxPlan, caps: &SandboxCapabilities) -> SandboxResul
 /// and write the limits. Returns the path to its `cgroup.procs` (where the child
 /// writes its own pid in `pre_exec`).
 fn create_cgroup(
-    parent: &std::path::Path,
+    parent: &Path,
     limits: &jeryu_runner_core::sandbox::CgroupLimits,
+    require_cgroup: bool,
 ) -> SandboxResult<PathBuf> {
-    // Ensure the parent delegates the controllers we need to children.
-    let _ = std::fs::write(parent.join("cgroup.subtree_control"), b"+memory +pids +cpu");
+    create_cgroup_with_writer(parent, limits, require_cgroup, |path, data| {
+        std::fs::write(path, data)
+    })
+}
+
+fn create_cgroup_with_writer(
+    parent: &Path,
+    limits: &jeryu_runner_core::sandbox::CgroupLimits,
+    require_cgroup: bool,
+    write_file: impl Fn(&Path, &[u8]) -> std::io::Result<()>,
+) -> SandboxResult<PathBuf> {
+    // Ensure the parent delegates the load-bearing controllers we need to
+    // children. Strict agent plans fail closed if memory or pids delegation
+    // cannot be enabled; ordinary CI jobs keep the older best-effort posture.
+    enable_cgroup_controller(
+        parent,
+        "memory",
+        require_cgroup,
+        "cgroup_memory_controller_enable_failed",
+        &write_file,
+    )?;
+    enable_cgroup_controller(
+        parent,
+        "pids",
+        require_cgroup,
+        "cgroup_pids_controller_enable_failed",
+        &write_file,
+    )?;
+    // CPU weight remains a tuning hint; do not refuse a strict memory/pids jail
+    // merely because CPU delegation is absent.
+    let _ = write_file(&parent.join("cgroup.subtree_control"), b"+cpu");
 
     let name = format!("jeryu-job-{}.scope", jeryu_runner_core::receipt::now_ms());
     let dir = parent.join(name);
     std::fs::create_dir(&dir)
         .map_err(|err| SandboxError::new("cgroup_create_failed", err.to_string()))?;
 
-    // Best-effort limit writes: a missing controller (e.g. no `cpu` delegation)
-    // must not abort the whole sandbox, but memory+pids are the load-bearing
-    // ones for the escape suite and are written first.
-    let _ = std::fs::write(dir.join("memory.max"), limits.memory_max_bytes.to_string());
-    let _ = std::fs::write(dir.join("pids.max"), limits.pids_max.to_string());
+    // Best-effort for ordinary CI; mandatory for strict agent workcells.
+    if let Err(err) = write_cgroup_limit(
+        &dir,
+        "memory.max",
+        limits.memory_max_bytes.to_string().as_bytes(),
+        require_cgroup,
+        "cgroup_memory_max_write_failed",
+        &write_file,
+    ) {
+        let _ = std::fs::remove_dir(&dir);
+        return Err(err);
+    }
+    if let Err(err) = write_cgroup_limit(
+        &dir,
+        "pids.max",
+        limits.pids_max.to_string().as_bytes(),
+        require_cgroup,
+        "cgroup_pids_max_write_failed",
+        &write_file,
+    ) {
+        let _ = std::fs::remove_dir(&dir);
+        return Err(err);
+    }
     // cpu.weight in cgroup-v2 is 1..=10000; the plan uses the same scale band.
-    let _ = std::fs::write(
-        dir.join("cpu.weight"),
-        limits.cpu_weight.clamp(1, 10_000).to_string(),
+    let _ = write_file(
+        &dir.join("cpu.weight"),
+        limits.cpu_weight.clamp(1, 10_000).to_string().as_bytes(),
     );
 
     Ok(dir.join("cgroup.procs"))
+}
+
+fn enable_cgroup_controller(
+    parent: &Path,
+    controller: &'static str,
+    require_cgroup: bool,
+    strict_error_code: &'static str,
+    write_file: &impl Fn(&Path, &[u8]) -> std::io::Result<()>,
+) -> SandboxResult<()> {
+    let path = parent.join("cgroup.subtree_control");
+    let token = format!("+{controller}");
+    match write_file(&path, token.as_bytes()) {
+        Ok(()) => Ok(()),
+        Err(err) if require_cgroup => Err(SandboxError::new(
+            strict_error_code,
+            format!(
+                "failed to enable cgroup controller {controller} at {}: {err}",
+                path.display()
+            ),
+        )),
+        Err(_) => Ok(()),
+    }
+}
+
+fn write_cgroup_limit(
+    dir: &Path,
+    filename: &'static str,
+    data: &[u8],
+    require_cgroup: bool,
+    strict_error_code: &'static str,
+    write_file: &impl Fn(&Path, &[u8]) -> std::io::Result<()>,
+) -> SandboxResult<()> {
+    let path = dir.join(filename);
+    match write_file(&path, data) {
+        Ok(()) => Ok(()),
+        Err(err) if require_cgroup => Err(SandboxError::new(
+            strict_error_code,
+            format!(
+                "failed to write cgroup limit {filename} at {}: {err}",
+                path.display()
+            ),
+        )),
+        Err(_) => Ok(()),
+    }
 }
 
 /// Compile the seccomp allowlist into a BPF program in the parent (allocates),
@@ -317,8 +413,7 @@ fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
     //     process count when cgroups are unavailable or only partially applied.
     //     This is NOT a substitute for cgroups — the fail-closed gate in
     //     capability.rs is the real protection for agent jobs — so a failed
-    //     setrlimit never aborts the spawn (mirrors the best-effort cgroup
-    //     writes in create_cgroup).
+    //     setrlimit never aborts the spawn.
     apply_rlimit_fallback(&payload.rlimits);
 
     // 3. PR_SET_NO_NEW_PRIVS — always, non-negotiable.
@@ -536,6 +631,22 @@ fn classify(level: &EnforcementLevel) -> (Vec<String>, Vec<String>) {
 mod tests {
     use super::*;
 
+    fn test_limits() -> jeryu_runner_core::sandbox::CgroupLimits {
+        jeryu_runner_core::sandbox::CgroupLimits {
+            memory_max_bytes: 64 * 1024 * 1024,
+            cpu_weight: 100,
+            pids_max: 32,
+            io_weight: 100,
+        }
+    }
+
+    fn forced_write_failure() -> std::io::Error {
+        std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "forced cgroup write failure",
+        )
+    }
+
     #[test]
     fn enforcement_report_json_is_stable() {
         let report = EnforcementReport {
@@ -569,5 +680,85 @@ mod tests {
         assert!(skipped.contains(&"user_namespace".to_string()));
         assert!(applied.contains(&"seccomp".to_string()));
         assert!(!applied.contains(&"user_namespace".to_string()));
+    }
+
+    #[test]
+    fn strict_cgroup_requires_memory_controller_enable() {
+        let parent = tempfile::tempdir().expect("temp cgroup parent");
+        let err = create_cgroup_with_writer(parent.path(), &test_limits(), true, |path, data| {
+            if path.file_name().and_then(|name| name.to_str()) == Some("cgroup.subtree_control")
+                && data == b"+memory"
+            {
+                Err(forced_write_failure())
+            } else {
+                Ok(())
+            }
+        })
+        .expect_err("strict cgroup must fail closed when memory controller enable fails");
+
+        assert_eq!(err.code(), "cgroup_memory_controller_enable_failed");
+        assert!(err.message().contains("memory"));
+    }
+
+    #[test]
+    fn strict_cgroup_requires_pids_controller_enable() {
+        let parent = tempfile::tempdir().expect("temp cgroup parent");
+        let err = create_cgroup_with_writer(parent.path(), &test_limits(), true, |path, data| {
+            if path.file_name().and_then(|name| name.to_str()) == Some("cgroup.subtree_control")
+                && data == b"+pids"
+            {
+                Err(forced_write_failure())
+            } else {
+                Ok(())
+            }
+        })
+        .expect_err("strict cgroup must fail closed when pids controller enable fails");
+
+        assert_eq!(err.code(), "cgroup_pids_controller_enable_failed");
+        assert!(err.message().contains("pids"));
+    }
+
+    #[test]
+    fn strict_cgroup_requires_memory_and_pids_limit_writes() {
+        for (filename, expected_code) in [
+            ("memory.max", "cgroup_memory_max_write_failed"),
+            ("pids.max", "cgroup_pids_max_write_failed"),
+        ] {
+            let parent = tempfile::tempdir().expect("temp cgroup parent");
+            let err =
+                create_cgroup_with_writer(parent.path(), &test_limits(), true, |path, _data| {
+                    if path.file_name().and_then(|name| name.to_str()) == Some(filename) {
+                        Err(forced_write_failure())
+                    } else {
+                        Ok(())
+                    }
+                })
+                .expect_err("strict cgroup must fail closed when load-bearing limit writes fail");
+
+            assert_eq!(err.code(), expected_code);
+            assert!(err.message().contains(filename));
+            assert!(
+                std::fs::read_dir(parent.path())
+                    .expect("read temp parent")
+                    .next()
+                    .is_none(),
+                "failed strict cgroup setup should clean up its empty child directory"
+            );
+        }
+    }
+
+    #[test]
+    fn non_strict_cgroup_limit_writes_remain_best_effort() {
+        let parent = tempfile::tempdir().expect("temp cgroup parent");
+        let procs =
+            create_cgroup_with_writer(parent.path(), &test_limits(), false, |_path, _data| {
+                Err(forced_write_failure())
+            })
+            .expect("non-strict cgroup setup keeps best-effort write behavior");
+
+        assert_eq!(
+            procs.file_name().and_then(|name| name.to_str()),
+            Some("cgroup.procs")
+        );
     }
 }
