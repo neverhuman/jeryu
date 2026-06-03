@@ -32,7 +32,10 @@ Workcell claims can only flow through the runnerd control plane. The workcell
 manager may claim a warm cell, fence stale heartbeats by epoch, freeze failed
 CI runs into immutable snapshots, and mark a cell blocked if the startup
 rebase fails. It may not merge, delete branches, or unpack tarball contents
-outside approved repo roots.
+outside approved repo roots. Exported repair PRs are namespaced under
+`agents/{id}/workcells/{wc}/<branch>` and carry the changed-file list so the
+review path can inspect the actual edit surface instead of flattening agent
+ownership into an anonymous branch.
 
 Inside a cell, the in-cell agent driver (`jeryu-agentbridge`) spawns the
 code-writing process through the native `jeryu-sandbox-linux` jail

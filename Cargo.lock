@@ -1390,6 +1390,7 @@ dependencies = [
  "clap",
  "futures-util",
  "hex",
+ "jeryu-agentbridge",
  "jeryu-autonomy",
  "jeryu-bench",
  "jeryu-ci-compiler",

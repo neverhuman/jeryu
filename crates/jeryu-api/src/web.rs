@@ -7,6 +7,7 @@ mod permissions;
 mod repositories;
 mod surface;
 mod workcells;
+mod workcells_support;
 mod ws;
 
 use std::collections::BTreeSet;

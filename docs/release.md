@@ -33,6 +33,9 @@ SignRail artifact-support signing details:
 - `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the workcells dashboard or generated web bootstrap contract changes.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
+- `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the
+  jailed workcell edit, namespaced branch export, PR creation, or CI evidence
+  flow changes.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API response contracts, `/api/v1/ecosystem`, or
   `/api/v1/ci/runs/{id}/evidence` change.
