@@ -167,6 +167,7 @@ pub fn sanitized_native_env(job: &JobRequest, plan: &SandboxPlan) -> BTreeMap<St
     );
     env.insert("HOME".to_string(), "/tmp/jeryu-home".to_string());
     env.insert("TMPDIR".to_string(), "/tmp".to_string());
+    env.insert("GIT_CONFIG_NOSYSTEM".to_string(), "1".to_string());
     env.insert(
         "PATH".to_string(),
         "/usr/local/bin:/usr/bin:/bin".to_string(),
@@ -334,5 +335,6 @@ mod tests {
         }
         assert_eq!(env.get("RUST_LOG"), Some(&"debug".to_string()));
         assert_eq!(env.get("JERYU_SECRETS"), Some(&"disabled".to_string()));
+        assert_eq!(env.get("GIT_CONFIG_NOSYSTEM"), Some(&"1".to_string()));
     }
 }

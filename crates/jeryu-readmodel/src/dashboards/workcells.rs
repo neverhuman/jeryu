@@ -31,6 +31,13 @@ impl WorkcellsDashboard {
             .count() as u32
     }
 
+    pub fn held(&self) -> u32 {
+        self.items
+            .iter()
+            .filter(|item| item.claim_state == WorkcellState::Held)
+            .count() as u32
+    }
+
     pub fn heartbeat_healthy(&self) -> u32 {
         self.items
             .iter()
@@ -46,6 +53,7 @@ pub struct WorkcellItem {
     pub claim_state: WorkcellState,
     pub agent_id: String,
     pub repo_roots: Vec<String>,
+    pub workspace_root: String,
     pub branch_budget: u32,
     pub branches_open: u32,
     pub git_status_summary: String,
@@ -54,6 +62,13 @@ pub struct WorkcellItem {
     pub runner_epoch: u64,
     pub heartbeat_healthy: bool,
     pub startup_rebased: bool,
+    pub startup_main_ref: Option<String>,
+    pub startup_base_sha: Option<String>,
+    pub startup_head_sha: Option<String>,
+    pub failed_run_id: Option<String>,
+    pub failed_receipt_id: Option<String>,
+    pub allowed_paths: Vec<String>,
+    pub failure_log_digest: Option<String>,
 }
 
 impl WorkcellItem {
@@ -65,6 +80,7 @@ impl WorkcellItem {
             claim_state: WorkcellState::Ready,
             agent_id: String::new(),
             repo_roots: Vec::new(),
+            workspace_root: String::new(),
             branch_budget: 1,
             branches_open: 0,
             git_status_summary: String::new(),
@@ -73,6 +89,13 @@ impl WorkcellItem {
             runner_epoch: 0,
             heartbeat_healthy: false,
             startup_rebased: false,
+            startup_main_ref: None,
+            startup_base_sha: None,
+            startup_head_sha: None,
+            failed_run_id: None,
+            failed_receipt_id: None,
+            allowed_paths: Vec::new(),
+            failure_log_digest: None,
         }
     }
 }
@@ -89,6 +112,7 @@ pub enum WorkcellState {
     Warming,
     Ready,
     Claimed,
+    Held,
     Repairing,
     Blocked,
     Released,
@@ -100,6 +124,7 @@ impl WorkcellState {
             Self::Warming => "warming",
             Self::Ready => "ready",
             Self::Claimed => "claimed",
+            Self::Held => "held",
             Self::Repairing => "repairing",
             Self::Blocked => "BLOCKED",
             Self::Released => "released",
@@ -113,6 +138,7 @@ pub struct WorkcellsSummary {
     pub warming_workcells: u32,
     pub ready_workcells: u32,
     pub claimed_workcells: u32,
+    pub held_workcells: u32,
     pub repairing_workcells: u32,
     pub blocked_workcells: u32,
     pub heartbeat_healthy: u32,
@@ -145,11 +171,15 @@ mod tests {
         let mut claimed = WorkcellItem::new("wc-1", "agent-a");
         claimed.claim_state = WorkcellState::Claimed;
         claimed.heartbeat_healthy = true;
-        let mut blocked = WorkcellItem::new("wc-2", "agent-b");
+        claimed.workspace_root = "/workspace/core/web".into();
+        let mut held = WorkcellItem::new("wc-2", "agent-b");
+        held.claim_state = WorkcellState::Held;
+        held.failed_run_id = Some("ci-18".into());
+        let mut blocked = WorkcellItem::new("wc-3", "agent-c");
         blocked.claim_state = WorkcellState::Blocked;
 
         let d = WorkcellsDashboard {
-            items: vec![claimed, blocked],
+            items: vec![claimed, held, blocked],
             freshness: Some(SourceFreshness {
                 source: SourceKind::Autonomy,
                 state: FreshnessState::Live,
@@ -162,10 +192,11 @@ mod tests {
                 degraded_reason: None,
             }),
             summary: Some(WorkcellsSummary {
-                total_workcells: 2,
+                total_workcells: 3,
                 warming_workcells: 0,
                 ready_workcells: 0,
                 claimed_workcells: 1,
+                held_workcells: 1,
                 repairing_workcells: 0,
                 blocked_workcells: 1,
                 heartbeat_healthy: 1,
@@ -173,6 +204,7 @@ mod tests {
         };
 
         assert_eq!(d.claimed(), 1);
+        assert_eq!(d.held(), 1);
         assert_eq!(d.blocked(), 1);
         assert_eq!(d.heartbeat_healthy(), 1);
     }

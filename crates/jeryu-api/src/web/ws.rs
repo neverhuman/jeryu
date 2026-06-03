@@ -10,7 +10,7 @@ use jeryu_readmodel::contracts::{ServerWsMessage, WebEvent};
 use serde_json::{Value, json};
 
 use super::surface::serialize_payload;
-use super::{WebState, server_time};
+use super::{WebState, server_time, workcells};
 
 pub(super) async fn ws(
     ws: WebSocketUpgrade,
@@ -201,6 +201,9 @@ pub(super) fn snapshot_event(state: &WebState, scope: &str) -> Option<WebEvent> 
             summary: "system component health snapshot".to_string(),
             payload,
         });
+    }
+    if let Some(workcell_id) = scope.strip_prefix("workcell.") {
+        return workcells::snapshot_event(state, workcell_id);
     }
     None
 }

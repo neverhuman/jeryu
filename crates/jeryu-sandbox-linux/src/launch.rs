@@ -122,6 +122,17 @@ struct SandboxPayload {
     apply_pid_ns: bool,
     landlock: Option<LandlockPayload>,
     seccomp_bpf: Option<seccompiler::BpfProgram>,
+    /// Best-effort `setrlimit` fallback values. These are a backstop only: the
+    /// real protection for agent jobs is the fail-closed cgroup gate in
+    /// [`crate::capability`].
+    rlimits: RlimitFallback,
+}
+
+/// Plain limits copied out of the plan for the `setrlimit` fallback inside the
+/// forked child (which must not touch the allocating `CgroupLimits` type).
+#[derive(Clone, Copy)]
+struct RlimitFallback {
+    memory_max_bytes: u64,
 }
 
 struct LandlockPayload {
@@ -217,6 +228,9 @@ fn build_payload(plan: &SandboxPlan, caps: &SandboxCapabilities) -> SandboxResul
         apply_pid_ns: plan.pid_namespace && caps.pid_namespace,
         landlock,
         seccomp_bpf,
+        rlimits: RlimitFallback {
+            memory_max_bytes: plan.cgroup_limits.memory_max_bytes,
+        },
     })
 }
 
@@ -299,6 +313,14 @@ fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
         write_proc_file(procs, pid.as_bytes())?;
     }
 
+    // 2b. setrlimit fallback (best-effort, NON-fatal): a backstop for memory and
+    //     process count when cgroups are unavailable or only partially applied.
+    //     This is NOT a substitute for cgroups — the fail-closed gate in
+    //     capability.rs is the real protection for agent jobs — so a failed
+    //     setrlimit never aborts the spawn (mirrors the best-effort cgroup
+    //     writes in create_cgroup).
+    apply_rlimit_fallback(&payload.rlimits);
+
     // 3. PR_SET_NO_NEW_PRIVS — always, non-negotiable.
     // SAFETY: prctl(PR_SET_NO_NEW_PRIVS, 1, ...) sets a per-thread flag with no
     // pointer args; always safe and async-signal-safe.
@@ -337,12 +359,60 @@ fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Best-effort `setrlimit` backstop applied inside the forked child.
+///
+/// This is a *fallback*, not a replacement for cgroups: the real protection for
+/// agent jobs is the fail-closed gate in [`crate::capability::SandboxCapabilities::enforcement_level`],
+/// which refuses to launch a `require_cgroup` job on a host without a delegated
+/// cgroup-v2 subtree. Where a job is allowed to run degraded (cgroups missing
+/// but not required), the address-space rlimit still caps the most egregious
+/// memory balloons. Failures are swallowed: a too-tight limit must never break a
+/// degraded-but-legitimate job, and this syscall (`prlimit64`) is already in the
+/// seccomp baseline.
+///
+/// `RLIMIT_AS` (address-space) is notoriously hostile to V8/Node and JIT runtimes
+/// that reserve huge virtual ranges they never fault in, so we apply a GENEROUS
+/// multiple of the cgroup memory ceiling rather than the ceiling itself — the
+/// goal is to stop an unbounded balloon, not to mirror the exact RSS cap. We also
+/// skip `RLIMIT_AS` entirely if the multiple would overflow.
+///
+/// Do NOT mirror `pids.max` with `RLIMIT_NPROC`: that limit is per real Unix
+/// user, not per sandbox. On a busy shared runner account it can make `/bin/sh`
+/// unable to fork before the job starts. PID containment is enforced by cgroups
+/// when the job requires it; non-agent degraded CI must remain runnable.
+fn apply_rlimit_fallback(limits: &RlimitFallback) {
+    // Address space: 4x the cgroup memory ceiling, clamped to avoid overflow and
+    // to stay clear of breaking JIT/V8 virtual reservations. Skipped if zero or
+    // if the headroom math overflows.
+    if let Some(as_limit) = limits.memory_max_bytes.checked_mul(4)
+        && as_limit > 0
+    {
+        set_one_rlimit(libc::RLIMIT_AS, as_limit);
+    }
+}
+
+/// Set a single soft+hard rlimit, ignoring failure (best-effort).
+fn set_one_rlimit(resource: libc::__rlimit_resource_t, value: u64) {
+    // Clamp to rlim_t to avoid truncation surprises where rlim_t is narrower
+    // than u64; `unwrap_or(MAX)` saturates instead of overflowing.
+    let v = libc::rlim_t::try_from(value).unwrap_or(libc::rlim_t::MAX);
+    let limit = libc::rlimit {
+        rlim_cur: v,
+        rlim_max: v,
+    };
+    // SAFETY: `setrlimit` reads a pointer to the fully-initialized stack-local
+    // `limit`, mutates only this process's resource limits, and is async-signal-safe
+    // for the fork/exec window; the result is intentionally ignored (best-effort).
+    unsafe { libc::setrlimit(resource, &limit) };
+}
+
 /// Apply the Landlock ruleset inside the child. Opening the path FDs here is a
 /// pure syscall; the landlock crate allocates internally, but the child is
 /// single-threaded between fork and exec so this is the established safe pattern.
 fn apply_landlock(payload: &LandlockPayload) -> Result<(), String> {
     use landlock::{
-        ABI, Access, AccessFs, PathBeneath, PathFd, Ruleset, RulesetAttr, RulesetCreatedAttr,
+        ABI, Access, AccessFs, BitFlags, PathBeneath, PathFd, Ruleset, RulesetAttr,
+        RulesetCreatedAttr,
     };
 
     let abi = match payload.abi {
@@ -361,12 +431,36 @@ fn apply_landlock(payload: &LandlockPayload) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     for rule in &payload.rules {
-        // Compute the access bits this rule grants.
-        let mut access = AccessFs::from_read(abi);
+        // Compute the access bits this rule grants, honoring read/write/execute
+        // independently so an exec-only or read-only-NO-exec rule is expressed
+        // faithfully.
+        //
+        // LATENT-BUG FIX: the previous code derived access from read/write only
+        // and NEVER consulted `rule.execute`. On Landlock ABI >= 2 `Execute` is a
+        // distinct access right; worse, this landlock crate's `from_read` bundles
+        // `Execute` into the read set, so a `read: true, execute: false` rule
+        // would WRONGLY permit exec, and an exec-only rule was silently dropped by
+        // the old `!read && !write` skip. We now build the set explicitly and mask
+        // `Execute` out unless the rule grants it.
+        let mut access: BitFlags<AccessFs> = BitFlags::empty();
+        if rule.read {
+            access |= AccessFs::from_read(abi);
+        }
         if rule.write {
             access |= AccessFs::from_write(abi);
         }
-        if !rule.read && !rule.write {
+        // `Execute` is part of `from_read` in this crate, so reconcile it against
+        // the rule's explicit execute bit: add it for exec-granting rules (gated
+        // on the ABI that defines a separate execute right) and remove it from a
+        // read rule that does not grant exec.
+        if rule.execute && abi as i32 >= ABI::V2 as i32 {
+            access |= AccessFs::Execute;
+        } else if !rule.execute {
+            access &= !BitFlags::from(AccessFs::Execute);
+        }
+        // A rule that grants no access at all yields no rule rather than an
+        // empty PathBeneath the kernel would reject.
+        if access.is_empty() {
             continue;
         }
         // A non-existent path simply yields no rule rather than failing the

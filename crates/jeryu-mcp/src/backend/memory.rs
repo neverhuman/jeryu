@@ -227,6 +227,75 @@ impl ToolBackend for MemoryBackend {
                     Err(e) => ToolResponse::error(e.to_string()),
                 }
             }
+            "workcell.claim" => ToolResponse::ok(
+                "workcell claimed",
+                serde_json::json!({
+                    "workcell_id": format!("wc-{}", arg("agent_id").as_str().unwrap_or("agent")),
+                    "state": "claimed",
+                    "agent_id": arg("agent_id"),
+                    "workspace_root": arg("workspace_root"),
+                    "repo_roots": arg("repo_roots"),
+                    "branch_budget": arg("branch_budget"),
+                    "runner_id": arg("runner_id"),
+                    "runner_epoch": arg("runner_epoch"),
+                    "git_status_summary": arg("git_status_summary"),
+                    "ci_snapshot_age_ms": arg("ci_snapshot_age_ms"),
+                    "startup": arg("startup"),
+                }),
+            ),
+            "workcell.status" => ToolResponse::ok(
+                "workcell status",
+                serde_json::json!({
+                    "workcell_id": arg("workcell_id"),
+                    "state": "ready",
+                }),
+            ),
+            "workcell.repair_live" => ToolResponse::ok(
+                "workcell repair started",
+                serde_json::json!({
+                    "held": {
+                        "workcell_id": format!("wc-{}", arg("agent_id").as_str().unwrap_or("agent")),
+                        "state": "held",
+                        "agent_id": arg("agent_id"),
+                        "workspace_root": arg("workspace_root"),
+                        "repo_roots": arg("repo_roots"),
+                        "branch_budget": arg("branch_budget"),
+                        "runner_id": arg("runner_id"),
+                        "runner_epoch": arg("runner_epoch"),
+                        "git_status_summary": arg("git_status_summary"),
+                        "ci_snapshot_age_ms": arg("ci_snapshot_age_ms"),
+                        "startup": arg("startup"),
+                        "failed_run_id": arg("failed_run_id"),
+                        "failed_receipt_id": arg("failed_receipt_id"),
+                        "failure_log_digest": arg("failure_log_digest"),
+                    },
+                    "repairing": {
+                        "workcell_id": format!("wc-{}", arg("agent_id").as_str().unwrap_or("agent")),
+                        "state": "repairing",
+                    }
+                }),
+            ),
+            "workcell.export_pr" => ToolResponse::ok(
+                "repair branch exported",
+                serde_json::json!({
+                    "workcell_id": arg("workcell_id"),
+                    "branch": format!(
+                        "agents/{}/workcells/{}/{}",
+                        arg("author").as_str().unwrap_or("agent"),
+                        arg("workcell_id").as_str().unwrap_or("wc"),
+                        arg("branch_suffix").as_str().unwrap_or("repair"),
+                    ),
+                    "target_branch": arg("target_branch"),
+                    "pull_request_number": 1,
+                }),
+            ),
+            "workcell.release" => ToolResponse::ok(
+                "workcell released",
+                serde_json::json!({
+                    "workcell_id": arg("workcell_id"),
+                    "released": true,
+                }),
+            ),
             other => ToolResponse::error(format!("unknown tool: {other}")),
         };
         Ok(resp)

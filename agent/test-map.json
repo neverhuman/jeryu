@@ -196,6 +196,16 @@
       "purpose": "verify deterministic CI IR and scheduler behavior",
       "lane": "jeryu-ci-ir"
     },
+    "crates/jeryu-agentbridge/": {
+      "command": "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
+      "purpose": "verify the Rung 4 in-cell agent driver and allowlist egress proxy contracts",
+      "lane": "agent-substrate"
+    },
+    "crates/jeryu-egress/": {
+      "command": "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
+      "purpose": "verify the Rung 4 allowlist egress proxy and in-cell agent driver contracts",
+      "lane": "agent-substrate"
+    },
     "crates/jeryu-proof/": {
       "command": "cargo test -p jeryu-proof -p jeryu-agentbridge --jobs 40",
       "purpose": "verify proof and agent bridge contracts",

@@ -9,6 +9,8 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::path::{Component, Path, PathBuf};
 
+use serde::{Deserialize, Serialize};
+
 const WORKCELL_MAX_BRANCH_BUDGET: u32 = 5;
 
 const CLAIM_FIXES: &[&str] = &[
@@ -39,6 +41,11 @@ const EPOCH_FENCE_FIXES: &[&str] = &[
 const MERGE_DELETE_FIXES: &[&str] = &[
     "keep merge control in the existing review and queue path",
     "do not route delete requests through the workcell control plane",
+];
+
+const REPAIR_STATE_FIXES: &[&str] = &[
+    "hold the failed tree before live repair",
+    "start live repair only after the workcell is in the held state",
 ];
 
 /// Structured repair guidance for workcell failures.
@@ -147,6 +154,21 @@ impl WorkcellError {
             message,
         )
     }
+
+    fn repair_state_denied(message: impl Into<String>) -> Self {
+        Self::new(
+            "hold a failed workcell before live repair",
+            "workcell_repair_state_denied",
+            REPAIR_STATE_FIXES,
+            "docs/boundaries.md#workcells",
+            "rerun cargo test -p jeryu-runnerd workcell --jobs 40",
+            message,
+        )
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
 }
 
 impl Display for WorkcellError {
@@ -208,10 +230,20 @@ impl ArchiveEntry {
 }
 
 /// Startup sync required before a workcell is handed to the agent.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
 pub enum StartupSync {
-    Rebased { main_ref: String, base_sha: String },
-    Failed { main_ref: String, reason: String },
+    Rebased {
+        main_ref: String,
+        base_sha: String,
+        head_sha: String,
+    },
+    Failed {
+        main_ref: String,
+        base_sha: String,
+        head_sha: String,
+        reason: String,
+    },
 }
 
 impl StartupSync {
@@ -221,7 +253,7 @@ impl StartupSync {
 }
 
 /// Branch budget and namespace policy for one workcell.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BranchPolicy {
     pub agent_id: String,
     pub workcell_id: String,
@@ -286,17 +318,23 @@ impl BranchPolicy {
 }
 
 /// Immutable frozen snapshot of a failed CI run.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FrozenCiSnapshot {
     pub ci_run_id: String,
+    pub failed_run_id: String,
+    pub failed_receipt_id: String,
     pub workcell_id: String,
     pub runner_id: String,
     pub runner_epoch: u64,
+    pub workspace_root: PathBuf,
     pub repo_roots: Vec<PathBuf>,
+    pub allowed_paths: Vec<PathBuf>,
     pub git_status_summary: String,
     pub branch_policy: BranchPolicy,
     pub main_ref: String,
     pub base_sha: String,
+    pub head_sha: String,
+    pub failure_log_digest: String,
     pub snapshot_age_ms: u64,
     pub heartbeat_healthy: bool,
 }
@@ -304,15 +342,30 @@ pub struct FrozenCiSnapshot {
 impl FrozenCiSnapshot {
     pub fn from_workcell(
         ci_run_id: impl Into<String>,
+        failed_run_id: impl Into<String>,
+        failed_receipt_id: impl Into<String>,
         workcell: &WorkcellLease,
+        failure_log_digest: impl Into<String>,
         snapshot_age_ms: u64,
     ) -> Self {
+        let allowed_paths = workcell
+            .repo_roots
+            .iter()
+            .cloned()
+            .chain(std::iter::once(workcell.workspace_root.clone()))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         Self {
             ci_run_id: ci_run_id.into(),
+            failed_run_id: failed_run_id.into(),
+            failed_receipt_id: failed_receipt_id.into(),
             workcell_id: workcell.workcell_id.clone(),
             runner_id: workcell.runner_id.clone(),
             runner_epoch: workcell.runner_epoch,
+            workspace_root: workcell.workspace_root.clone(),
             repo_roots: workcell.repo_roots.clone(),
+            allowed_paths,
             git_status_summary: workcell.git_status_summary.clone(),
             branch_policy: workcell.branch_policy.clone(),
             main_ref: workcell
@@ -323,6 +376,11 @@ impl FrozenCiSnapshot {
                 .startup_base_sha
                 .clone()
                 .unwrap_or_else(|| "unknown".to_string()),
+            head_sha: workcell
+                .startup_head_sha
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string()),
+            failure_log_digest: failure_log_digest.into(),
             snapshot_age_ms,
             heartbeat_healthy: workcell.heartbeat_healthy,
         }
@@ -330,20 +388,23 @@ impl FrozenCiSnapshot {
 }
 
 /// Current lifecycle state of a workcell lease.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WorkcellState {
     Warming,
     Ready,
     Claimed,
+    Held,
     Repairing,
     Blocked,
     Released,
 }
 
 /// Claim request for a workcell.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkcellClaimRequest {
     pub agent_id: String,
+    pub workspace_root: PathBuf,
     pub repo_roots: Vec<PathBuf>,
     pub branch_budget: u32,
     pub runner_id: String,
@@ -353,13 +414,25 @@ pub struct WorkcellClaimRequest {
     pub startup: StartupSync,
 }
 
+/// Request to freeze failed CI evidence before starting live repair.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FreezeFailedCiRunRequest {
+    pub ci_run_id: String,
+    pub failed_run_id: String,
+    pub failed_receipt_id: String,
+    pub failure_log_digest: String,
+    pub snapshot_age_ms: u64,
+}
+
 /// One live workcell lease.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkcellLease {
     pub workcell_id: String,
     pub state: WorkcellState,
     pub agent_id: String,
+    pub workspace_root: PathBuf,
     pub repo_roots: Vec<PathBuf>,
+    pub startup_head_sha: Option<String>,
     pub branch_policy: BranchPolicy,
     pub git_status_summary: String,
     pub ci_snapshot_age_ms: Option<u64>,
@@ -369,6 +442,10 @@ pub struct WorkcellLease {
     pub startup_rebased: bool,
     pub startup_main_ref: Option<String>,
     pub startup_base_sha: Option<String>,
+    pub failed_run_id: Option<String>,
+    pub failed_receipt_id: Option<String>,
+    pub allowed_paths: Vec<PathBuf>,
+    pub failure_log_digest: Option<String>,
     pub frozen_snapshot: Option<FrozenCiSnapshot>,
     pub blocked_reason: Option<String>,
 }
@@ -380,7 +457,9 @@ impl WorkcellLease {
             workcell_id: workcell_id.clone(),
             state: WorkcellState::Ready,
             agent_id: String::new(),
+            workspace_root: PathBuf::new(),
             repo_roots: Vec::new(),
+            startup_head_sha: None,
             branch_policy: BranchPolicy::new("", workcell_id, 1),
             git_status_summary: String::new(),
             ci_snapshot_age_ms: None,
@@ -390,6 +469,10 @@ impl WorkcellLease {
             startup_rebased: false,
             startup_main_ref: None,
             startup_base_sha: None,
+            failed_run_id: None,
+            failed_receipt_id: None,
+            allowed_paths: Vec::new(),
+            failure_log_digest: None,
             frozen_snapshot: None,
             blocked_reason: None,
         }
@@ -398,6 +481,7 @@ impl WorkcellLease {
     fn apply_claim(&mut self, request: &WorkcellClaimRequest) {
         self.state = WorkcellState::Claimed;
         self.agent_id = request.agent_id.clone();
+        self.workspace_root = request.workspace_root.clone();
         self.repo_roots = request.repo_roots.clone();
         self.branch_policy = BranchPolicy::new(
             request.agent_id.clone(),
@@ -412,8 +496,39 @@ impl WorkcellLease {
         self.startup_rebased = false;
         self.startup_main_ref = None;
         self.startup_base_sha = None;
+        self.startup_head_sha = None;
+        self.failed_run_id = None;
+        self.failed_receipt_id = None;
+        self.allowed_paths.clear();
+        self.failure_log_digest = None;
         self.frozen_snapshot = None;
         self.blocked_reason = None;
+    }
+
+    fn apply_startup(&mut self, startup: &StartupSync) {
+        match startup {
+            StartupSync::Rebased {
+                main_ref,
+                base_sha,
+                head_sha,
+            } => {
+                self.startup_rebased = true;
+                self.startup_main_ref = Some(main_ref.clone());
+                self.startup_base_sha = Some(base_sha.clone());
+                self.startup_head_sha = Some(head_sha.clone());
+            }
+            StartupSync::Failed {
+                main_ref,
+                base_sha,
+                head_sha,
+                reason,
+            } => {
+                self.startup_main_ref = Some(main_ref.clone());
+                self.startup_base_sha = Some(base_sha.clone());
+                self.startup_head_sha = Some(head_sha.clone());
+                self.mark_blocked(format!("startup rebase failed: {reason}"));
+            }
+        }
     }
 
     fn mark_blocked(&mut self, reason: impl Into<String>) {
@@ -452,6 +567,12 @@ impl WorkcellManager {
         self.cells.get(workcell_id)
     }
 
+    pub fn workcells(&self) -> Vec<WorkcellLease> {
+        let mut leases: Vec<_> = self.cells.values().cloned().collect();
+        leases.sort_by(|a, b| a.workcell_id.cmp(&b.workcell_id));
+        leases
+    }
+
     pub fn claim(&mut self, request: WorkcellClaimRequest) -> WorkcellResult<WorkcellLease> {
         let workcell_id = self
             .ready_queue
@@ -463,21 +584,15 @@ impl WorkcellManager {
                 .get_mut(&workcell_id)
                 .expect("ready queue and lease table stay in sync");
             lease.apply_claim(&request);
+            lease.apply_startup(&request.startup);
             match &request.startup {
-                StartupSync::Rebased { main_ref, base_sha } => {
-                    lease.startup_rebased = true;
-                    lease.startup_main_ref = Some(main_ref.clone());
-                    lease.startup_base_sha = Some(base_sha.clone());
-                    Ok(())
-                }
-                StartupSync::Failed { main_ref, reason } => {
-                    lease.startup_main_ref = Some(main_ref.clone());
-                    lease.mark_blocked(format!("startup rebase failed: {reason}"));
-                    Err(WorkcellError::startup_rebase_failed(format!(
-                        "workcell {} could not rebase onto {}: {}",
-                        lease.workcell_id, main_ref, reason
-                    )))
-                }
+                StartupSync::Rebased { .. } => Ok(()),
+                StartupSync::Failed {
+                    main_ref, reason, ..
+                } => Err(WorkcellError::startup_rebase_failed(format!(
+                    "workcell {} could not rebase onto {}: {}",
+                    lease.workcell_id, main_ref, reason
+                ))),
             }
         };
 
@@ -503,6 +618,7 @@ impl WorkcellManager {
     ) -> WorkcellResult<WorkcellLease> {
         let request = WorkcellClaimRequest {
             agent_id: snapshot.branch_policy.agent_id.clone(),
+            workspace_root: snapshot.workspace_root.clone(),
             repo_roots: snapshot.repo_roots.clone(),
             branch_budget: snapshot.branch_policy.max_branches,
             runner_id: snapshot.runner_id.clone(),
@@ -517,14 +633,95 @@ impl WorkcellManager {
             .cells
             .get_mut(&workcell_id)
             .expect("claimed workcell must stay live");
-        cell.state = WorkcellState::Repairing;
+        cell.state = WorkcellState::Held;
         cell.frozen_snapshot = Some(snapshot.clone());
         cell.branch_policy = snapshot.branch_policy.clone();
         cell.git_status_summary = snapshot.git_status_summary.clone();
         cell.ci_snapshot_age_ms = Some(snapshot.snapshot_age_ms);
         cell.heartbeat_healthy = snapshot.heartbeat_healthy;
+        cell.failed_run_id = Some(snapshot.failed_run_id.clone());
+        cell.failed_receipt_id = Some(snapshot.failed_receipt_id.clone());
+        cell.allowed_paths = snapshot.allowed_paths.clone();
+        cell.failure_log_digest = Some(snapshot.failure_log_digest.clone());
         lease = cell.clone();
         Ok(lease)
+    }
+
+    pub fn hold_failed_tree(
+        &mut self,
+        request: WorkcellClaimRequest,
+        failed_run_id: impl Into<String>,
+        failed_receipt_id: impl Into<String>,
+        failure_log_digest: impl Into<String>,
+    ) -> WorkcellResult<WorkcellLease> {
+        let failed_run_id = failed_run_id.into();
+        let failed_receipt_id = failed_receipt_id.into();
+        let failure_log_digest = failure_log_digest.into();
+        let mut lease = self.claim(request)?;
+        let workcell_id = lease.workcell_id.clone();
+        let cell = self
+            .cells
+            .get_mut(&workcell_id)
+            .expect("claimed workcell must stay live");
+        cell.state = WorkcellState::Held;
+        cell.failed_run_id = Some(failed_run_id.clone());
+        cell.failed_receipt_id = Some(failed_receipt_id.clone());
+        cell.failure_log_digest = Some(failure_log_digest.clone());
+        cell.allowed_paths = cell
+            .repo_roots
+            .iter()
+            .cloned()
+            .chain(std::iter::once(cell.workspace_root.clone()))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let snapshot_source = cell.clone();
+        cell.frozen_snapshot = Some(FrozenCiSnapshot::from_workcell(
+            failed_run_id.clone(),
+            failed_run_id,
+            failed_receipt_id,
+            &snapshot_source,
+            failure_log_digest,
+            snapshot_source.ci_snapshot_age_ms.unwrap_or_default(),
+        ));
+        lease = cell.clone();
+        Ok(lease)
+    }
+
+    pub fn begin_live_repair(
+        &mut self,
+        workcell_id: &str,
+        runner_epoch: u64,
+    ) -> WorkcellResult<WorkcellLease> {
+        let cell = self.cells.get_mut(workcell_id).ok_or_else(|| {
+            WorkcellError::epoch_fenced(format!("unknown workcell {workcell_id}"))
+        })?;
+        Self::require_epoch(cell, runner_epoch)?;
+        if !matches!(cell.state, WorkcellState::Held) {
+            return Err(WorkcellError::repair_state_denied(format!(
+                "workcell {workcell_id} must be held before repair can start"
+            )));
+        }
+        cell.state = WorkcellState::Repairing;
+        Ok(cell.clone())
+    }
+
+    pub fn export_repair_branch(
+        &mut self,
+        workcell_id: &str,
+        runner_epoch: u64,
+        branch_suffix: impl Into<String>,
+    ) -> WorkcellResult<String> {
+        let cell = self.cells.get_mut(workcell_id).ok_or_else(|| {
+            WorkcellError::epoch_fenced(format!("unknown workcell {workcell_id}"))
+        })?;
+        Self::require_epoch(cell, runner_epoch)?;
+        if !matches!(cell.state, WorkcellState::Held | WorkcellState::Repairing) {
+            return Err(WorkcellError::repair_state_denied(format!(
+                "workcell {workcell_id} must be held or repairing before export"
+            )));
+        }
+        cell.branch_policy.open_branch(branch_suffix)
     }
 
     pub fn heartbeat(
@@ -539,7 +736,7 @@ impl WorkcellManager {
         Self::require_epoch(cell, runner_epoch)?;
         if !matches!(
             cell.state,
-            WorkcellState::Claimed | WorkcellState::Repairing
+            WorkcellState::Claimed | WorkcellState::Held | WorkcellState::Repairing
         ) {
             return Err(WorkcellError::claim_denied(format!(
                 "workcell {workcell_id} is not active"
@@ -577,17 +774,19 @@ impl WorkcellManager {
         &self,
         workcell_id: &str,
         runner_epoch: u64,
-        ci_run_id: impl Into<String>,
-        snapshot_age_ms: u64,
+        request: FreezeFailedCiRunRequest,
     ) -> WorkcellResult<FrozenCiSnapshot> {
         let cell = self.cells.get(workcell_id).ok_or_else(|| {
             WorkcellError::epoch_fenced(format!("unknown workcell {workcell_id}"))
         })?;
         Self::require_epoch(cell, runner_epoch)?;
         Ok(FrozenCiSnapshot::from_workcell(
-            ci_run_id,
+            request.ci_run_id,
+            request.failed_run_id,
+            request.failed_receipt_id,
             cell,
-            snapshot_age_ms,
+            request.failure_log_digest,
+            request.snapshot_age_ms,
         ))
     }
 
@@ -732,6 +931,7 @@ mod tests {
         let lease = manager
             .claim(WorkcellClaimRequest {
                 agent_id: "agent-wrath-17".into(),
+                workspace_root: root(),
                 repo_roots: vec![root()],
                 branch_budget: 1,
                 runner_id: "xbabe0".into(),
@@ -741,6 +941,7 @@ mod tests {
                 startup: StartupSync::Rebased {
                     main_ref: "origin/main".into(),
                     base_sha: "abc123".into(),
+                    head_sha: "def456".into(),
                 },
             })
             .expect("claim succeeds");
@@ -768,6 +969,7 @@ mod tests {
         let err = manager
             .claim(WorkcellClaimRequest {
                 agent_id: "agent-storm-04".into(),
+                workspace_root: root(),
                 repo_roots: vec![root()],
                 branch_budget: 5,
                 runner_id: "xbabe1".into(),
@@ -776,6 +978,8 @@ mod tests {
                 ci_snapshot_age_ms: Some(42),
                 startup: StartupSync::Failed {
                     main_ref: "origin/main".into(),
+                    base_sha: "abc123".into(),
+                    head_sha: "def456".into(),
                     reason: "rebase conflict".into(),
                 },
             })
@@ -791,6 +995,7 @@ mod tests {
         let lease = manager
             .claim(WorkcellClaimRequest {
                 agent_id: "agent-wrath-17".into(),
+                workspace_root: root(),
                 repo_roots: vec![root()],
                 branch_budget: 1,
                 runner_id: "xbabe0".into(),
@@ -800,6 +1005,7 @@ mod tests {
                 startup: StartupSync::Rebased {
                     main_ref: "origin/main".into(),
                     base_sha: "abc123".into(),
+                    head_sha: "def456".into(),
                 },
             })
             .expect("claim succeeds");
@@ -827,6 +1033,7 @@ mod tests {
         let lease = manager
             .claim(WorkcellClaimRequest {
                 agent_id: "agent-wrath-17".into(),
+                workspace_root: root(),
                 repo_roots: vec![root()],
                 branch_budget: 1,
                 runner_id: "xbabe0".into(),
@@ -836,12 +1043,23 @@ mod tests {
                 startup: StartupSync::Rebased {
                     main_ref: "origin/main".into(),
                     base_sha: "abc123".into(),
+                    head_sha: "def456".into(),
                 },
             })
             .expect("claim succeeds");
 
         let frozen = manager
-            .freeze_failed_ci_run(&lease.workcell_id, lease.runner_epoch, "ci-17", 1_200)
+            .freeze_failed_ci_run(
+                &lease.workcell_id,
+                lease.runner_epoch,
+                FreezeFailedCiRunRequest {
+                    ci_run_id: "ci-17".into(),
+                    failed_run_id: "run-17".into(),
+                    failed_receipt_id: "receipt-17".into(),
+                    failure_log_digest: "sha256:deadbeef".into(),
+                    snapshot_age_ms: 1_200,
+                },
+            )
             .expect("freeze succeeds");
         let frozen_before = frozen.clone();
         let repair = manager
@@ -850,14 +1068,20 @@ mod tests {
                 StartupSync::Rebased {
                     main_ref: "origin/main".into(),
                     base_sha: "def456".into(),
+                    head_sha: "fedcba".into(),
                 },
             )
             .expect("repair claim succeeds");
 
         assert_eq!(frozen, frozen_before, "frozen snapshot must stay immutable");
-        assert_eq!(repair.state, WorkcellState::Repairing);
+        assert_eq!(repair.state, WorkcellState::Held);
         assert!(repair.frozen_snapshot.is_some());
         assert_eq!(repair.frozen_snapshot.as_ref().unwrap().ci_run_id, "ci-17");
+
+        let repairing = manager
+            .begin_live_repair(&repair.workcell_id, repair.runner_epoch)
+            .expect("repair may start after hold");
+        assert_eq!(repairing.state, WorkcellState::Repairing);
     }
 
     #[test]
