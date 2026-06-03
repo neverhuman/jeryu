@@ -33,3 +33,11 @@ manager may claim a warm cell, fence stale heartbeats by epoch, freeze failed
 CI runs into immutable snapshots, and mark a cell blocked if the startup
 rebase fails. It may not merge, delete branches, or unpack tarball contents
 outside approved repo roots.
+
+Inside a cell, code-editing work is confined to a single file tree by the
+native `jeryu-sandbox-linux` jail (Landlock filesystem allowlist + seccomp
+syscall filter + `no_new_privs`, unprivileged — no Docker or `sudo`). A jailed
+process cannot read or write outside its checkout, cannot open `AF_INET`
+sockets, and cannot escalate privileges; the file-tree boundary is proven by
+the `jail_demo` example and the jailgun tar validators reject any path that
+resolves outside the approved roots. See `docs/workcell.md`.

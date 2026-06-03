@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Workcell (Rungs 1-2): a runnable folder-jail demo and a jailgun tar round-trip, documented in `docs/workcell.md`. `crates/jeryu-sandbox-linux/examples/jail_demo.rs` drives the production sandbox launch path (`SandboxPlan::from_decision` -> `spawn_sandboxed` -> `verify_enforcement`) and proves four kernel-enforced outcomes against a throwaway checkout: write-inside ALLOWED, write-outside DENIED (Landlock), read `/etc/shadow` DENIED (Landlock), and `AF_INET` socket DENIED (seccomp) -- printing the `/proc` enforcement proof and honestly reporting any primitive the host lacks as skipped rather than faking a denial. `crates/jeryu-runnerd/tests/jailgun_roundtrip.rs` round-trips the public `validate_import_archive` / `validate_export_paths` validators: a clean subtree imports and exports, while parent-traversal, absolute-path, symlink, character-device, smuggled-traversal, and out-of-root entries are each rejected with `workcell_tar_path_denied`.
+
 ## v4.0.0 - 2026-06-01
 
 - Live self-hosting Spine: the unified `jeryu serve` mounts git smart-HTTP transport (`/git/:owner/:repo/{info/refs,git-upload-pack,git-receive-pack}`) on the same listener as the REST/WS edge; `POST /repos` materializes a bare repo on disk (`RepoMaterializer` -> gitd `create_bare`); and a push->CI bridge compiles `.github/workflows/*` from the pushed commit, executes each job in the real Landlock/seccomp sandbox via the native runner, and records the actual check-run result -- proven end to end by a live-HTTP e2e (create -> clone -> push -> green check-run).
