@@ -20,8 +20,9 @@ fn sample_read_model_round_trips_json() {
     assert_eq!(decoded.attention.len(), 1);
     assert!(decoded.next_action.is_some());
     assert_eq!(decoded.system.scm.name, "scm");
-    assert_eq!(decoded.workcells.items.len(), 2);
+    assert_eq!(decoded.workcells.items.len(), 3);
     assert_eq!(decoded.workcells.blocked(), 1);
+    assert_eq!(decoded.workcells.held(), 1);
 }
 
 #[test]

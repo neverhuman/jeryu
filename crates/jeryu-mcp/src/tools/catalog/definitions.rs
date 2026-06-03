@@ -102,6 +102,36 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(false, false, false, true),
             ToolKind::BugRecordAttempt,
         ),
+        "workcell.claim" => (
+            "Claim workcell",
+            "Claim a ready workcell for an agent and startup sync.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellClaim,
+        ),
+        "workcell.status" => (
+            "Workcell status",
+            "Read the current state of a workcell lease.",
+            tool_annotations(true, false, true, false),
+            ToolKind::WorkcellStatus,
+        ),
+        "workcell.repair_live" => (
+            "Live workcell repair",
+            "Hold a failed workcell tree and start live repair.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellRepairLive,
+        ),
+        "workcell.export_pr" => (
+            "Export repair PR",
+            "Export the repair branch into a namespaced pull request.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellExportPr,
+        ),
+        "workcell.release" => (
+            "Release workcell",
+            "Release a claimed or repairing workcell lease.",
+            tool_annotations(false, false, false, true),
+            ToolKind::WorkcellRelease,
+        ),
         _ => return None,
     };
 

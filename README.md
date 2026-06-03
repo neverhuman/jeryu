@@ -80,7 +80,7 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Forge/domain/API facade | `jeryu-core`, `jeryu-domain`, `jeryu-api`, `jeryu-cli` |
 | Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
-| Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd`, `jeryu-sandbox-linux` |
+| Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd`, `jeryu-sandbox-linux`, `jeryu-agentbridge`, `jeryu-egress` |
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
@@ -94,11 +94,15 @@ SignRail release signing for artifact-support bundles is documented in
 coverage.
 
 Workcells let any code-editing actor work **folder-jailed** in a ready-to-go
-cell and leave only as a PR. The cell jail is the native, unprivileged
-`jeryu-sandbox-linux` launch path (Landlock + seccomp + `no_new_privs`, no
-Docker or `sudo`); a jailed process cannot read or write outside its checkout
-or open the network, and `jailgun` moves code in and out as a quarantine-first
-tar. The capability and its proof commands are documented in `docs/workcell.md`.
+cell and leave only as a PR. The in-cell agent driver (`jeryu-agentbridge`)
+spawns the code-writing process through the native, unprivileged
+`jeryu-sandbox-linux` jail (Landlock + seccomp + `no_new_privs`, no Docker or
+`sudo`) with a watchdog and output/token budget. A jailed process cannot read or
+write outside its checkout, cannot run without enforced cgroup-v2 CPU/memory/PID
+caps, and has no direct network; `jeryu-egress` is the only controlled egress
+path, limited to vetted hosts and revoked when the budget trips. `jailgun` moves
+code in and out as a quarantine-first tar. The capability and its proof commands
+are documented in `docs/workcell.md`.
 
 ## Local Live Runtime
 

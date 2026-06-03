@@ -34,6 +34,7 @@ Hard rules:
 - Do not allow release jobs to consume mutable compiled artifacts.
 - Do not remove `build_rs_digest`, `proc_macro_digest`, `runner_rootfs_digest`, or `sandbox_policy_digest` from key material.
 - Do not add silent fallback restore behavior. A miss is safe; an unexplained hit is a defect.
+- Do not run an agent job without enforced resource caps: agent sandboxes are fail-closed on cgroup-v2 (`require_cgroup`); a missing delegated subtree must refuse the launch, never silently degrade.
 - Keep compatibility tests self-authored; do not vendor external forge source,
   specs, fixtures, or generated assets.
 - Keep legacy-provider evidence out of code, docs, fixtures, tests, and ops.

@@ -1,0 +1,64 @@
+# jeryu-runnerd.service — per-user systemd unit for the Jeryu runner daemon.
+#
+# WHY THIS EXISTS
+# ---------------
+# The kernel sandbox (crates/jeryu-sandbox-linux) enforces cgroup-v2 memory/pids
+# limits by creating a leaf cgroup under a *delegated, writable* subtree and
+# migrating the job into it. On a bare login session the process lives in a
+# read-only `session-N.scope`, so SandboxCapabilities::probe() reports
+# cgroup_v2_subtree = None and any require_cgroup=true job (agent jobs) FAILS
+# CLOSED — the sandbox refuses to launch rather than run unconfined.
+#
+# Running runnerd as THIS systemd service with `Delegate=` makes systemd hand the
+# service its own writable cgroup-v2 subtree carrying the memory/pids/cpu
+# controllers. The probe then finds a real subtree, enforcement resolves to
+# `enforced`, and the fail-closed gate passes on the fleet. This unit is the
+# deployment artifact that turns the gate from "always refuse" into "enforce".
+#
+# ENABLING (per-user manager, no root needed once lingering is on)
+# ----------------------------------------------------------------
+#   # ensure the user manager carries the controllers we delegate (one-time, root):
+#   #   /etc/systemd/system/user@.service.d/delegate.conf:
+#   #     [Service]
+#   #     Delegate=memory pids cpu
+#   loginctl enable-linger "$USER"          # keep the user manager alive w/o a login
+#   mkdir -p ~/.config/systemd/user
+#   cp ops/security/jeryu-runnerd.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now jeryu-runnerd.service
+#
+# VERIFY the delegation actually landed:
+#   systemctl --user show jeryu-runnerd.service -p Delegate -p ControlGroup
+#   cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/\
+#       jeryu-runnerd.service/cgroup.controllers   # must list: memory pids cpu
+
+[Unit]
+Description=Jeryu native runner daemon (sandboxed, cgroup-delegated)
+Documentation=https://github.com/jeryu/jeryu/blob/main/crates/jeryu-sandbox-linux
+After=default.target
+
+[Service]
+Type=simple
+
+# Delegate a writable cgroup-v2 subtree carrying these controllers to the
+# service. This is the load-bearing line: without it the sandbox cannot ENFORCE
+# memory/pids limits and require_cgroup jobs fail closed.
+Delegate=memory pids cpu
+
+# ExecStart points at the repo-local jeryu binary. %h is the invoking user's
+# home; adjust the checkout path to wherever the fleet stages the repo. We launch
+# the runner control plane through the `jeryu` CLI so a single deployed binary
+# owns both dispatch and the delegated cgroup subtree. Swap to the dedicated
+# `jeryu-runnerd` binary (…/target/release/jeryu-runnerd run <job-file>) if you
+# drive one-shot jobs instead of the long-lived control plane.
+ExecStart=%h/jeryu/target/release/jeryu serve
+
+# Hardening: the daemon never needs new privileges (matches the in-child
+# PR_SET_NO_NEW_PRIVS the sandbox sets) and gets a private /tmp.
+NoNewPrivileges=true
+PrivateTmp=true
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

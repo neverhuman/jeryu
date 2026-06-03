@@ -24,6 +24,11 @@ pub(crate) enum ToolKind {
     BugReady,
     BugUpdate,
     BugRecordAttempt,
+    WorkcellClaim,
+    WorkcellStatus,
+    WorkcellRepairLive,
+    WorkcellExportPr,
+    WorkcellRelease,
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +129,49 @@ impl ToolDefinition {
             ToolKind::BugRecordAttempt => serde_json::json!({
                 "bug_id": s("bug_id")?,
                 "attempt": args.get("attempt")?.clone(),
+            }),
+            ToolKind::WorkcellClaim => serde_json::json!({
+                "agent_id": s("agent_id")?,
+                "workspace_root": s("workspace_root")?,
+                "repo_roots": args.get("repo_roots")?.clone(),
+                "branch_budget": i("branch_budget")?,
+                "runner_id": s("runner_id")?,
+                "runner_epoch": i("runner_epoch")?,
+                "git_status_summary": s("git_status_summary")?,
+                "ci_snapshot_age_ms": args.get("ci_snapshot_age_ms").and_then(Value::as_i64),
+                "startup": args.get("startup")?.clone(),
+            }),
+            ToolKind::WorkcellStatus => serde_json::json!({
+                "workcell_id": s("workcell_id")?,
+            }),
+            ToolKind::WorkcellRepairLive => serde_json::json!({
+                "agent_id": s("agent_id")?,
+                "workspace_root": s("workspace_root")?,
+                "repo_roots": args.get("repo_roots")?.clone(),
+                "branch_budget": i("branch_budget")?,
+                "runner_id": s("runner_id")?,
+                "runner_epoch": i("runner_epoch")?,
+                "git_status_summary": s("git_status_summary")?,
+                "ci_snapshot_age_ms": args.get("ci_snapshot_age_ms").and_then(Value::as_i64),
+                "startup": args.get("startup")?.clone(),
+                "failed_run_id": s("failed_run_id")?,
+                "failed_receipt_id": s("failed_receipt_id")?,
+                "failure_log_digest": s("failure_log_digest")?,
+            }),
+            ToolKind::WorkcellExportPr => serde_json::json!({
+                "workcell_id": s("workcell_id")?,
+                "runner_epoch": i("runner_epoch")?,
+                "branch_suffix": s("branch_suffix")?,
+                "owner": s("owner")?,
+                "repo": s("repo")?,
+                "author": s("author")?,
+                "target_branch": opt_s("target_branch"),
+                "title": opt_s("title"),
+                "body": opt_s("body"),
+            }),
+            ToolKind::WorkcellRelease => serde_json::json!({
+                "workcell_id": s("workcell_id")?,
+                "runner_epoch": i("runner_epoch")?,
             }),
         };
         Some(out)

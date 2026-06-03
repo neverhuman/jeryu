@@ -83,6 +83,100 @@ async fn bootstrap_tui_reflects_seeded_repo_pr_and_failing_check() {
     );
 }
 
+#[tokio::test]
+async fn workcell_repair_flow_holds_exports_and_releases() {
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    let state = Arc::new(WebState::new(core));
+    let repair_body = serde_json::json!({
+        "agent_id": "agent-wrath-17",
+        "workspace_root": "/workspace/core/web",
+        "repo_roots": ["/workspace/core/web"],
+        "branch_budget": 2,
+        "runner_id": "xbabe0",
+        "runner_epoch": 7,
+        "git_status_summary": "rebase failed",
+        "ci_snapshot_age_ms": 1200,
+        "startup": {
+            "state": "rebased",
+            "main_ref": "origin/main",
+            "base_sha": "abc123",
+            "head_sha": "def456",
+        },
+        "failed_run_id": "ci-17",
+        "failed_receipt_id": "receipt-17",
+        "failure_log_digest": "sha256:deadbeef"
+    });
+
+    let response = response_json(
+        super::workcells::repair_live(
+            State(state.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&repair_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+
+    let workcell_id = response["held"]["workcell_id"]
+        .as_str()
+        .expect("held workcell id");
+    assert_eq!(response["held"]["state"], "held");
+    assert_eq!(response["repairing"]["state"], "repairing");
+
+    let export_body = serde_json::json!({
+        "workcell_id": workcell_id,
+        "runner_epoch": 7,
+        "branch_suffix": "repair-17",
+        "owner": "alice",
+        "repo": "jeryu",
+        "author": "agent-wrath-17",
+        "target_branch": "main",
+        "title": "Repair failed tree",
+        "body": "Repaired from failed tree"
+    });
+    let export = response_json(
+        super::workcells::export_pr(
+            State(state.clone()),
+            AxumPath(workcell_id.to_string()),
+            axum::body::Bytes::from(serde_json::to_vec(&export_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        export["branch"]
+            .as_str()
+            .expect("branch")
+            .starts_with("agents/agent-wrath-17/workcells/")
+    );
+    assert!(export["pull_request_number"].as_u64().unwrap() > 0);
+
+    let release = response_json(
+        super::workcells::release(
+            State(state.clone()),
+            AxumPath(workcell_id.to_string()),
+            axum::body::Bytes::from(
+                serde_json::to_vec(&serde_json::json!({
+                    "runner_epoch": 7
+                }))
+                .unwrap(),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(release["state"], "released");
+}
+
 /// An empty server yields an empty pool fabric (Unknown health), and the
 /// fixture sample remains available purely as a test fallback.
 #[test]

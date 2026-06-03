@@ -21,6 +21,11 @@ pub(crate) const MCP_GUIDANCE_TOOLS: &[&str] = &[
     "jeryu.request_merge",
     "jeryu.bug_submit",
     "jeryu.bug_list",
+    "jeryu.workcell.claim",
+    "jeryu.workcell.status",
+    "jeryu.workcell.repair_live",
+    "jeryu.workcell.export_pr",
+    "jeryu.workcell.release",
 ];
 
 pub(crate) const MCP_RUN_TESTS_TOOL: &str = "jeryu.run_tests";

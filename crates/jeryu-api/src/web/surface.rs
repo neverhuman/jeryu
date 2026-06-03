@@ -155,7 +155,7 @@ pub(super) fn bootstrap_payload(
     state: &super::WebState,
 ) -> Result<WebBootstrap, serde_json::Error> {
     let repos = repo_summaries(state);
-    let tui = serialize_payload(&state.tui)?;
+    let tui = serialize_payload(&super::workcells::live_tui(state))?;
     Ok(WebBootstrap {
         generated_at: state.tui.generated_at.to_rfc3339(),
         schema_version: "0.1.0-alpha".to_string(),

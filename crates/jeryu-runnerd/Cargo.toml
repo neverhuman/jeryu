@@ -13,6 +13,7 @@ jeryu-runner-microvm = { path = "../jeryu-runner-microvm" }
 jeryu-runner-oci = { path = "../jeryu-runner-oci" }
 jeryu-runner-protocol = { path = "../jeryu-runner-protocol" }
 jeryu-runner-registry = { path = "../jeryu-runner-registry" }
+serde = { workspace = true }
 
 [lints]
 workspace = true

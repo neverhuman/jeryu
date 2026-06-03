@@ -92,6 +92,17 @@ impl SandboxCapabilities {
             };
         }
 
+        // cgroups: the plan always carries nonzero limits. If the plan REQUIRES
+        // enforced cgroups (agent jobs) and no delegated subtree exists, we fail
+        // CLOSED — the resolver returns Unavailable and `spawn_sandboxed` refuses
+        // to launch, with no launch-path change. Plain build/CI jobs keep the
+        // historical degraded-skip below.
+        if plan.require_cgroup && self.cgroup_v2_subtree.is_none() {
+            return EnforcementLevel::Unavailable {
+                reason: "cgroup limits required for this job but no delegated cgroup-v2 subtree is available".into(),
+            };
+        }
+
         let mut missing = Vec::new();
 
         // cgroups: the plan always carries nonzero limits; if no delegated
@@ -479,6 +490,11 @@ mod tests {
         SandboxPlan::from_decision("/tmp/jeryu-cap-test", &decision)
     }
 
+    /// A plan that REQUIRES enforced cgroups (agent-job posture).
+    fn strict_plan() -> SandboxPlan {
+        plan().with_require_cgroup(true)
+    }
+
     #[test]
     fn probe_is_self_consistent() {
         let caps = SandboxCapabilities::probe();
@@ -521,6 +537,57 @@ mod tests {
             no_new_privs: true,
         };
         assert_eq!(caps.enforcement_level(&plan()), EnforcementLevel::Enforced);
+    }
+
+    #[test]
+    fn require_cgroup_without_subtree_is_unavailable_fail_closed() {
+        // THIS host's posture: no delegated cgroup subtree, but landlock/seccomp
+        // present and no_new_privs available. A require_cgroup plan MUST fail
+        // closed (Unavailable), never degrade.
+        let caps = SandboxCapabilities {
+            user_namespace: false,
+            mount_namespace: false,
+            pid_namespace: false,
+            landlock_abi: Some(4),
+            seccomp_bpf: true,
+            cgroup_v2_subtree: None,
+            no_new_privs: true,
+        };
+        match caps.enforcement_level(&strict_plan()) {
+            EnforcementLevel::Unavailable { reason } => {
+                assert!(
+                    reason.contains("cgroup"),
+                    "reason should name cgroups, got {reason:?}"
+                );
+            }
+            other => panic!("require_cgroup must fail closed, got {other:?}"),
+        }
+        // A non-require_cgroup plan on the SAME caps must only DEGRADE (cgroup_v2
+        // named missing), proving the gate is opt-in and does not break CI jobs.
+        match caps.enforcement_level(&plan()) {
+            EnforcementLevel::Degraded { missing } => {
+                assert!(missing.contains(&"cgroup_v2".to_string()));
+            }
+            other => panic!("non-require plan must degrade, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn require_cgroup_with_subtree_is_enforced() {
+        // When a delegated subtree DOES exist, a require_cgroup plan enforces.
+        let caps = SandboxCapabilities {
+            user_namespace: true,
+            mount_namespace: true,
+            pid_namespace: true,
+            landlock_abi: Some(4),
+            seccomp_bpf: true,
+            cgroup_v2_subtree: Some(PathBuf::from("/sys/fs/cgroup/x")),
+            no_new_privs: true,
+        };
+        assert_eq!(
+            caps.enforcement_level(&strict_plan()),
+            EnforcementLevel::Enforced
+        );
     }
 
     #[test]
