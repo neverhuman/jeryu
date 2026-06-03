@@ -96,11 +96,26 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         },
     )
     .unwrap();
-    let state = Arc::new(WebState::new(core));
+    // The export slice gate runs a real `git diff base..head`, so back the API
+    // with a real bare repo. The head commit changes one in-slice file; the
+    // lease is a whole-repo lease (workspace_root == repo_roots[0]), so the
+    // slice permits it.
+    let storage = tempfile::tempdir().expect("git storage dir");
+    let workspace_root = storage.path().join("workspace").join("core").join("web");
+    let (base_sha, head_sha) = build_bare_repo_with_diff(
+        storage.path(),
+        "alice",
+        "jeryu",
+        &[("crates/jeryu-core/repaired.rs", "// repaired\n")],
+    );
+    let state = Arc::new(WebState::new_with_git_storage(
+        core,
+        storage.path().to_path_buf(),
+    ));
     let repair_body = serde_json::json!({
         "agent_id": "agent-wrath-17",
-        "workspace_root": "/workspace/core/web",
-        "repo_roots": ["/workspace/core/web"],
+        "workspace_root": workspace_root,
+        "repo_roots": [workspace_root],
         "branch_budget": 2,
         "runner_id": "xbabe0",
         "runner_epoch": 7,
@@ -109,8 +124,8 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         "startup": {
             "state": "rebased",
             "main_ref": "origin/main",
-            "base_sha": "abc123",
-            "head_sha": "def456",
+            "base_sha": base_sha,
+            "head_sha": head_sha,
         },
         "ci_run_id": "ci-parent-17",
         "failed_run_id": "run-17",
@@ -184,6 +199,116 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
     )
     .await;
     assert_eq!(release["state"], "released");
+}
+
+/// WC-6: a workcell whose lease only permits `crates/jeryu-api`, exporting a
+/// head commit that touches `crates/jeryu-core/x.rs`, must be slice-denied AND
+/// must NOT create a pull request. This is the adversarial proof that the gate
+/// is wired (the prior `let changed_files = Vec::new();` bypass would have
+/// happily created the PR with no slice check).
+#[tokio::test]
+async fn workcell_export_slice_denies_out_of_slice_head_and_creates_no_pr() {
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    let storage = tempfile::tempdir().expect("git storage dir");
+    // Repo root = workspace_root; the lease only allows the api crate, but the
+    // head commit changes a file in the core crate (out of slice).
+    let repo_root = storage.path().join("work").join("repo");
+    let allowed_subdir = repo_root.join("crates").join("jeryu-api");
+    let (base_sha, head_sha) = build_bare_repo_with_diff(
+        storage.path(),
+        "alice",
+        "jeryu",
+        &[("crates/jeryu-core/x.rs", "// out of slice\n")],
+    );
+    let state = Arc::new(WebState::new_with_git_storage(
+        core,
+        storage.path().to_path_buf(),
+    ));
+
+    // repo_roots is the in-slice subdir only; the runner unions in the
+    // workspace_root, so the derived prefixes are ["crates/jeryu-api"].
+    let repair_body = serde_json::json!({
+        "agent_id": "agent-wrath-6",
+        "workspace_root": repo_root,
+        "repo_roots": [allowed_subdir],
+        "branch_budget": 2,
+        "runner_id": "xbabe6",
+        "runner_epoch": 6,
+        "git_status_summary": "rebase failed",
+        "ci_snapshot_age_ms": 1200,
+        "startup": {
+            "state": "rebased",
+            "main_ref": "origin/main",
+            "base_sha": base_sha,
+            "head_sha": head_sha,
+        },
+        "ci_run_id": "ci-parent-6",
+        "failed_run_id": "run-6",
+        "failed_receipt_id": "receipt-6",
+        "failure_log_digest": "sha256:cafebabe"
+    });
+    let response = response_json(
+        super::workcells::repair_live(
+            State(state.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&repair_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    let workcell_id = response["held"]["workcell_id"]
+        .as_str()
+        .expect("held workcell id")
+        .to_string();
+
+    let export_body = serde_json::json!({
+        "workcell_id": workcell_id,
+        "runner_epoch": 6,
+        "branch_suffix": "repair-6",
+        "owner": "alice",
+        "repo": "jeryu",
+        "author": "agent-wrath-6",
+        "title": "Repair failed tree",
+        "body": "Repaired from failed tree"
+    });
+    let export = response_json(
+        super::workcells::export_pr(
+            State(state.clone()),
+            AxumPath(workcell_id.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&export_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+
+    // The export is slice-denied, naming the out-of-slice path.
+    assert_eq!(export["code"], "workcell_export_slice_denied");
+    assert!(
+        export["message"]
+            .as_str()
+            .expect("denial message")
+            .contains("crates/jeryu-core/x.rs"),
+        "denial must name the out-of-slice path: {export:?}"
+    );
+
+    // And crucially, NO pull request was created (the bypass would have made one).
+    let pulls = state
+        .core
+        .list_pull_requests("alice", "jeryu", None)
+        .expect("list pull requests");
+    assert!(
+        pulls.is_empty(),
+        "a slice-denied export must not create a pull request, found: {pulls:?}"
+    );
 }
 
 #[tokio::test]
@@ -503,6 +628,75 @@ fn known_mcp_tools() -> BTreeSet<String> {
         .into_iter()
         .filter_map(|tool| tool["name"].as_str().map(str::to_string))
         .collect()
+}
+
+/// Builds a real bare repository at `<storage_root>/<owner>/<repo>.git` with a
+/// base commit and a head commit that adds `head_files` (repo-relative path +
+/// contents). Returns `(base_sha, head_sha)` so the workcell export slice gate
+/// can run a genuine `git diff base..head` against it.
+fn build_bare_repo_with_diff(
+    storage_root: &std::path::Path,
+    owner: &str,
+    repo: &str,
+    head_files: &[(&str, &str)],
+) -> (String, String) {
+    use std::process::Command;
+
+    let bare = storage_root.join(owner).join(format!("{repo}.git"));
+    std::fs::create_dir_all(bare.parent().expect("bare parent")).expect("create owner dir");
+
+    // Work tree to author commits, then mirror-push into the bare repo.
+    let work = storage_root.join(format!("{owner}-{repo}-work"));
+    std::fs::create_dir_all(&work).expect("create work dir");
+
+    let git = |args: &[&str], cwd: &std::path::Path| {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(cwd)
+            .env("GIT_AUTHOR_NAME", "jeryu-test")
+            .env("GIT_AUTHOR_EMAIL", "jeryu-test@example.com")
+            .env("GIT_COMMITTER_NAME", "jeryu-test")
+            .env("GIT_COMMITTER_EMAIL", "jeryu-test@example.com")
+            .output()
+            .unwrap_or_else(|e| panic!("git {args:?} failed to spawn: {e}"));
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    };
+
+    git(&["init", "--quiet", "-b", "main"], &work);
+    // Base commit: a single placeholder file unrelated to the diff under test.
+    std::fs::write(work.join("BASE.txt"), "base\n").expect("write base file");
+    git(&["add", "BASE.txt"], &work);
+    git(&["commit", "--quiet", "-m", "base"], &work);
+    let base_sha = git(&["rev-parse", "HEAD"], &work);
+
+    // Head commit: add the requested in-slice/out-of-slice files.
+    for (rel, contents) in head_files {
+        let path = work.join(rel);
+        std::fs::create_dir_all(path.parent().expect("file parent")).expect("create file dir");
+        std::fs::write(&path, contents).expect("write head file");
+        git(&["add", rel], &work);
+    }
+    git(&["commit", "--quiet", "-m", "head"], &work);
+    let head_sha = git(&["rev-parse", "HEAD"], &work);
+
+    // Mirror into the bare repo the API's RepoManager will resolve.
+    git(
+        &[
+            "clone",
+            "--quiet",
+            "--bare",
+            ".",
+            bare.to_str().expect("bare utf8"),
+        ],
+        &work,
+    );
+
+    (base_sha, head_sha)
 }
 
 async fn response_json(response: AxumResponse) -> Value {
