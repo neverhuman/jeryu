@@ -1203,4 +1203,156 @@ mod tests {
         .expect_err("export outside repo roots must be denied");
         assert_eq!(err.reason, "workcell_tar_path_denied");
     }
+
+    // A held cell with branch_budget 2 accepts two repair branches, then fences
+    // the third: agents cannot mint unbounded branches from a single cell.
+    #[test]
+    fn branch_budget_exhaustion_is_denied_through_export() {
+        let mut manager = WorkcellManager::with_warm_pool(1);
+        let held = manager
+            .hold_failed_tree(HoldFailedTreeRequest {
+                claim: WorkcellClaimRequest {
+                    agent_id: "agent-wrath-17".into(),
+                    workspace_root: root(),
+                    repo_roots: vec![root()],
+                    branch_budget: 2,
+                    runner_id: "xbabe0".into(),
+                    runner_epoch: 7,
+                    git_status_summary: "failed tree".into(),
+                    ci_snapshot_age_ms: Some(0),
+                    startup: StartupSync::Rebased {
+                        main_ref: "origin/main".into(),
+                        base_sha: "abc123".into(),
+                        head_sha: "def456".into(),
+                    },
+                },
+                ci_run_id: "ci-1".into(),
+                failed_run_id: "run-1".into(),
+                failed_receipt_id: "receipt-1".into(),
+                failure_log_digest: "sha256:dead".into(),
+            })
+            .expect("hold succeeds");
+        let id = held.workcell_id.clone();
+        let epoch = held.runner_epoch;
+
+        manager
+            .export_repair_branch(&id, epoch, "fix-1")
+            .expect("first branch within budget");
+        manager
+            .export_repair_branch(&id, epoch, "fix-2")
+            .expect("second branch within budget");
+        let err = manager
+            .export_repair_branch(&id, epoch, "fix-3")
+            .expect_err("third branch exhausts the budget");
+        assert_eq!(err.reason, "workcell_branch_budget_denied");
+    }
+
+    // WorkcellManager is a synchronous &mut-self struct, so two claims never
+    // collide on an id. The real "one writer wins" guarantee is epoch fencing:
+    // a stale-epoch op against the live cell is rejected while the live epoch
+    // still works.
+    #[test]
+    fn two_claims_get_distinct_cells_and_stale_epoch_loser_is_fenced() {
+        let mut manager = WorkcellManager::with_warm_pool(1);
+        let base = |agent: &str, epoch: u64| WorkcellClaimRequest {
+            agent_id: agent.into(),
+            workspace_root: root(),
+            repo_roots: vec![root()],
+            branch_budget: 1,
+            runner_id: "xbabe0".into(),
+            runner_epoch: epoch,
+            git_status_summary: "clean".into(),
+            ci_snapshot_age_ms: Some(0),
+            startup: StartupSync::Rebased {
+                main_ref: "origin/main".into(),
+                base_sha: "abc123".into(),
+                head_sha: "def456".into(),
+            },
+        };
+
+        let first = manager.claim(base("agent-a", 7)).expect("first claim");
+        let second = manager.claim(base("agent-b", 9)).expect("second claim");
+        assert_ne!(
+            first.workcell_id, second.workcell_id,
+            "two claims must not collide on a workcell id"
+        );
+
+        let fenced = manager
+            .heartbeat(&first.workcell_id, first.runner_epoch + 1, true)
+            .expect_err("a stale epoch loses the race");
+        assert_eq!(fenced.reason, "workcell_epoch_fenced");
+        manager
+            .heartbeat(&first.workcell_id, first.runner_epoch, true)
+            .expect("the live epoch still wins");
+    }
+
+    // A release carrying the wrong runner epoch is fenced AND leaves the cell
+    // un-transitioned; the live epoch then releases for real.
+    #[test]
+    fn release_with_stale_epoch_is_fenced() {
+        let mut manager = WorkcellManager::with_warm_pool(1);
+        let lease = manager
+            .claim(WorkcellClaimRequest {
+                agent_id: "agent-wrath-17".into(),
+                workspace_root: root(),
+                repo_roots: vec![root()],
+                branch_budget: 1,
+                runner_id: "xbabe0".into(),
+                runner_epoch: 7,
+                git_status_summary: "clean".into(),
+                ci_snapshot_age_ms: Some(0),
+                startup: StartupSync::Rebased {
+                    main_ref: "origin/main".into(),
+                    base_sha: "abc123".into(),
+                    head_sha: "def456".into(),
+                },
+            })
+            .expect("claim succeeds");
+
+        let err = manager
+            .release(&lease.workcell_id, lease.runner_epoch + 1)
+            .expect_err("stale-epoch release must be fenced");
+        assert_eq!(err.reason, "workcell_epoch_fenced");
+        assert_ne!(
+            manager.workcell(&lease.workcell_id).unwrap().state,
+            WorkcellState::Released,
+            "a fenced release must NOT transition the cell"
+        );
+
+        manager
+            .release(&lease.workcell_id, lease.runner_epoch)
+            .expect("the live epoch releases for real");
+        assert_eq!(
+            manager.workcell(&lease.workcell_id).unwrap().state,
+            WorkcellState::Released
+        );
+    }
+
+    // Special tar entry kinds (hardlink/fifo/socket) are rejected by KIND on
+    // import, independent of path — they can never smuggle past the validator.
+    #[test]
+    fn tar_import_rejects_hardlink_fifo_and_socket_entries() {
+        let allowed_roots = vec![root()];
+        let destination = root();
+        for (label, entry) in [
+            (
+                "hardlink",
+                ArchiveEntry::new("src/hard", ArchiveEntryKind::Hardlink),
+            ),
+            (
+                "fifo",
+                ArchiveEntry::new("tmp/fifo", ArchiveEntryKind::Fifo),
+            ),
+            (
+                "socket",
+                ArchiveEntry::new("tmp/socket", ArchiveEntryKind::Socket),
+            ),
+        ] {
+            let err = validate_import_archive(&[entry], &destination, &allowed_roots).unwrap_err();
+            assert_eq!(
+                err.reason, "workcell_tar_path_denied",
+                "{label} entry must be denied by kind"
+            );
+        }
+    }
 }

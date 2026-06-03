@@ -208,7 +208,10 @@ Use `bash ci-fast-push.sh --full --no-push` when a change must prove the full
 hosted-lane union locally. Full mode forces the workspace gate, verifies the
 GitHub clean profile with `JERYU_CI_PROFILE=github` and
 `JERYU_CI_USE_SCCACHE=0`, installs/verifies the open security toolchain, then
-runs every full lane declared in `agent/ci-lanes.toml`. Full release validation
+runs every full lane declared in `agent/ci-lanes.toml`. The `coverage` lane adds
+a per-crate src-coverage ratchet (`ops/ci/coverage-baseline.json`) over the
+workcell crates (`jeryu-api`, `jeryu-egress`, `jeryu-codegraph`) so their
+coverage can only hold or rise. Full release validation
 also fails closed when retired `~/.jeryu`, old `/home/ubuntu/jeryu`, local
 `:2224`, or retired-provider runner/process state is still active. `jeryu-repogate
 ci-lanes-check` is the drift guard: every workflow under `.github/workflows/`
