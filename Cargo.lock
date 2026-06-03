@@ -1395,6 +1395,7 @@ dependencies = [
  "jeryu-bench",
  "jeryu-ci-compiler",
  "jeryu-ci-ir",
+ "jeryu-codegraph",
  "jeryu-core",
  "jeryu-enterprise",
  "jeryu-gitd",

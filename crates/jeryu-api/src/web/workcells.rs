@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use axum::Json;
@@ -6,7 +6,7 @@ use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response as AxumResponse};
-use jeryu_core::CreatePullRequestRequest;
+use jeryu_core::{CreatePullRequestRequest, ForgeError};
 use jeryu_readmodel::contracts::WebEvent;
 use jeryu_readmodel::{TuiReadModel, WorkcellsDashboard, WorkcellsSummary};
 use jeryu_runnerd::{HoldFailedTreeRequest, StartupSync, WorkcellClaimRequest, WorkcellLease};
@@ -235,7 +235,7 @@ pub(super) async fn export_pr(
         workcell_id: _,
         runner_epoch,
         branch_suffix,
-        changed_files,
+        changed_files: _,
         owner,
         repo,
         author,
@@ -282,6 +282,60 @@ pub(super) async fn export_pr(
         .map(|snapshot| snapshot.base_sha.clone())
         .or_else(|| lease.startup_base_sha.clone())
         .unwrap_or_else(|| "unknown".to_string());
+    // Slice gate: the export may only carry files inside the lease's allowed
+    // paths. Derive REPO-RELATIVE prefixes by stripping the lease workspace
+    // root (the repo checkout root) from each absolute allowed path. Paths
+    // outside the workspace root are skipped.
+    //
+    // The runner always unions the workspace root itself into `allowed_paths`,
+    // which strips to "" (allow-all). That "" is the genuine whole-repo lease
+    // ONLY when it is the sole allowed path; when more specific repo-root
+    // prefixes are also present the lease is restrictive, so the bare "" is
+    // dropped and the specific prefixes form the slice. An empty prefix set
+    // (no allowed paths at all) is fail-closed: the slice crate denies all.
+    let allowed_prefixes = derive_allowed_prefixes(&lease.allowed_paths, &lease.workspace_root);
+    // Resolve the BARE repo + git binary the daemon already manages; the gate
+    // runs `git diff --name-only base..head` against it (no checkout).
+    let bare_repo = match state.repo_manager.resolve_parts(&owner, &repo) {
+        Ok(repository) => repository.path,
+        Err(err) => {
+            return forge_error(ForgeError::Storage(err.to_string()));
+        }
+    };
+    let git_bin = state.repo_manager.config().git_bin.clone();
+    let changed_files = match jeryu_codegraph::enforce_export_slice(
+        &base_sha,
+        &head_sha,
+        &git_bin,
+        &bare_repo,
+        &allowed_prefixes,
+    ) {
+        Ok(files) => files,
+        Err(denied) => {
+            let message = match denied.git_error {
+                Some(git_error) => {
+                    format!("the export slice gate could not verify the diff: {git_error}")
+                }
+                None => format!(
+                    "the export changed files outside the workcell slice: {}",
+                    denied.out_of_slice_paths.join(", ")
+                ),
+            };
+            return typed_error(TypedError {
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                code: "workcell_export_slice_denied",
+                purpose: "export a repair branch into a pull request",
+                reason: &message,
+                common_fixes: &[
+                    "restrict the repair to files inside the workcell's allowed paths",
+                    "reclaim the workcell with a lease that covers the changed files",
+                ],
+                docs_url: "docs/testing.md#workcells",
+                repair_hint: "rerun cargo test -p jeryu-api --features web --jobs 40",
+                message: &message,
+            });
+        }
+    };
     let pr = match state.github.core().create_pull_request(
         &owner,
         &repo,
@@ -312,6 +366,32 @@ pub(super) async fn export_pr(
         }),
     )
         .into_response()
+}
+
+/// Derives the repo-relative export-slice prefixes from a lease's absolute
+/// `allowed_paths`, anchored at the `workspace_root` (the repo checkout root).
+///
+/// Each allowed path is stripped of the workspace root to yield a repo-relative
+/// prefix; paths outside the workspace root are skipped. The workspace root
+/// itself strips to `""` (allow-all). That bare `""` is kept ONLY when it is the
+/// sole prefix (a genuine whole-repo lease); when more specific prefixes exist
+/// the lease is restrictive, so the `""` is dropped and the specific prefixes
+/// form the slice. An empty result is fail-closed (the slice crate denies all).
+fn derive_allowed_prefixes(allowed_paths: &[PathBuf], workspace_root: &Path) -> Vec<String> {
+    let prefixes: Vec<String> = allowed_paths
+        .iter()
+        .filter_map(|path| path.strip_prefix(workspace_root).ok())
+        .map(|relative| relative.to_string_lossy().to_string())
+        .collect();
+    let has_specific = prefixes.iter().any(|prefix| !prefix.is_empty());
+    if has_specific {
+        prefixes
+            .into_iter()
+            .filter(|prefix| !prefix.is_empty())
+            .collect()
+    } else {
+        prefixes
+    }
 }
 
 fn normalize_pr_base(ref_name: String) -> String {
