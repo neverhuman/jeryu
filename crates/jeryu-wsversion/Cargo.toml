@@ -1,0 +1,31 @@
+[package]
+name = "jeryu-wsversion"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Auto-versioning engine: conventional-commit -> workspace version bump + CHANGELOG, decided with zero human edits"
+
+[[bin]]
+name = "jeryu-wsversion"
+path = "src/main.rs"
+
+[lib]
+name = "jeryu_wsversion"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+jeryu-repogate = { path = "../jeryu-repogate" }
+jeryu-rustjet = { path = "../jeryu-rustjet" }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

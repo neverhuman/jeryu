@@ -55,6 +55,7 @@ members = [
   "crates/jeryu-signrail",
   "crates/jeryu-tenant",
   "crates/jeryu-repogate",
+  "crates/jeryu-wsversion",
   "crates/jeryu-runner-registry",
   "crates/jeryu-egress",
 ]

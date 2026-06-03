@@ -37,6 +37,8 @@ blocks_merge = true
 required = [
   "cargo test -p jeryu-repogate --jobs 40",
   "cargo run -q -p jeryu-repogate -- ci-lanes-check",
+  "cargo test -p jeryu-wsversion --jobs 40",
+  "cargo run -q -p jeryu-wsversion -- inherit-guard",
   "bash scripts/ci-phases.sh"
 ]
 blocks_merge = true

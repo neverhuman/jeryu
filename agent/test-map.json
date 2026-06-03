@@ -216,6 +216,11 @@
       "purpose": "verify governance repo gates and the CI parity drift guard",
       "lane": "local-ci-parity"
     },
+    "crates/jeryu-wsversion/": {
+      "command": "cargo test -p jeryu-wsversion --jobs 40 && cargo run -q -p jeryu-wsversion -- inherit-guard",
+      "purpose": "verify the auto-versioning engine: commit parsing, classify, cargo_edit round-trip, changelog roll, decide floor=patch, and the version-inheritance guard",
+      "lane": "local-ci-parity"
+    },
     "crates/jeryu-signrail/": {
       "command": "cargo test -p jeryu-signrail --jobs 40",
       "purpose": "verify release provenance and signing gates",

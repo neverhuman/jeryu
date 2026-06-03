@@ -1924,6 +1924,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "jeryu-wsversion"
+version = "4.0.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "jeryu-repogate",
+ "jeryu-rustjet",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"

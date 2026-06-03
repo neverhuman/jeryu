@@ -56,6 +56,7 @@
     "crates/jeryu-evidence/": "jankurai",
     "crates/jeryu-proof/": "jankurai",
     "crates/jeryu-repogate/": "devex",
+    "crates/jeryu-wsversion/": "devex",
     "crates/jeryu-runner-core/": "ci-runtime",
     "crates/jeryu-runner-microvm/": "ci-runtime",
     "crates/jeryu-runner-native/": "ci-runtime",
