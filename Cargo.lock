@@ -1553,6 +1553,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jeryu-codegraph"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "jeryu-rustjet",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "jeryu-compliance-export"
 version = "4.0.0"
 dependencies = [
