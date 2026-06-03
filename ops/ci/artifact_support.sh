@@ -35,10 +35,10 @@ just_has() {
 }
 
 pick_ci_entrypoint() {
-  if [[ -x ./ci-fast-push.sh ]]; then
-    printf './ci-fast-push.sh --no-push --ci'
-  elif [[ -f ops/ci/pr-ci.sh ]]; then
+  if [[ -f ops/ci/pr-ci.sh ]]; then
     printf 'bash ops/ci/pr-ci.sh'
+  elif [[ -x ./ci-fast-push.sh ]]; then
+    printf './ci-fast-push.sh --no-push --ci'
   elif [[ -f scripts/ci-local.sh ]]; then
     printf 'bash scripts/ci-local.sh'
   elif just_has fast; then
