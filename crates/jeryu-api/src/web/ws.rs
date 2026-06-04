@@ -205,6 +205,9 @@ pub(super) fn snapshot_event(state: &WebState, scope: &str) -> Option<WebEvent> 
     if let Some(workcell_id) = scope.strip_prefix("workcell.") {
         return workcells::snapshot_event(state, workcell_id);
     }
+    if let Some(agent_run_id) = scope.strip_prefix("agent_run.") {
+        return super::agent_runs::snapshot_event(state, agent_run_id);
+    }
     None
 }
 

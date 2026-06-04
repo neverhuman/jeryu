@@ -56,6 +56,11 @@ event_contract_paths = ["crates/jeryu-ci-ir", "crates/jeryu-runner-protocol"]
 generated_type_paths = ["crates/jeryu-readmodel"]
 
 [agent]
-tool_paths = ["crates/jeryu-mcp", "crates/jeryu-agentbridge"]
+tool_paths = [
+  "crates/jeryu-mcp",
+  "crates/jeryu-agentbridge",
+  "crates/jeryu-agent-auth",
+  "crates/jeryu-agent-stream",
+]
 write_policy = "dry-run-before-mutation"
 receipt_policy = "all writes emit receipts"

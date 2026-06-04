@@ -132,6 +132,36 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(false, false, false, true),
             ToolKind::WorkcellRelease,
         ),
+        "agent_work.start" => (
+            "Start agent work",
+            "Start a high-level live agent run through the Jeryu API.",
+            tool_annotations(false, false, false, true),
+            ToolKind::AgentWorkStart,
+        ),
+        "agent_work.status" => (
+            "Agent work status",
+            "Read a high-level live agent-run snapshot.",
+            tool_annotations(true, false, true, false),
+            ToolKind::AgentWorkStatus,
+        ),
+        "agent_work.control" => (
+            "Control agent work",
+            "Send a live control command to a PTY-backed agent run.",
+            tool_annotations(false, false, false, true),
+            ToolKind::AgentWorkControl,
+        ),
+        "agent_work.events" => (
+            "Agent work events",
+            "Read cursor-safe agent-run events after a sequence number.",
+            tool_annotations(true, false, true, false),
+            ToolKind::AgentWorkEvents,
+        ),
+        "agent_work.export_pr" => (
+            "Export agent work PR",
+            "Export a finished workcell-backed agent run into a pull request.",
+            tool_annotations(false, false, false, true),
+            ToolKind::AgentWorkExportPr,
+        ),
         "code.symbols.search" => (
             "Search code symbols",
             "Search indexed workspace symbols by name, crate, or file.",
@@ -164,9 +194,27 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
         ),
         "codegraph.query" => (
             "Codegraph query",
-            "Compatibility facade returning an impact pack with provenance and repair hints.",
+            "Return a provenance-bearing codegraph impact pack for a repo/ref query.",
             tool_annotations(true, false, true, false),
             ToolKind::CodegraphQuery,
+        ),
+        "codegraph.tool_build.status" => (
+            "Tool-build status",
+            "Return status for the fast repeated-code cluster index.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodegraphToolBuildStatus,
+        ),
+        "codegraph.tool_build.clusters" => (
+            "Tool-build clusters",
+            "Return ranked repeated-code clusters for possible Jankurai tool building.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodegraphToolBuildClusters,
+        ),
+        "codegraph.tool_build.feedback" => (
+            "Tool-build feedback",
+            "Record auditable ignore feedback for a repeated-code cluster.",
+            tool_annotations(false, false, true, true),
+            ToolKind::CodegraphToolBuildFeedback,
         ),
         _ => return None,
     };

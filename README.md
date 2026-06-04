@@ -134,13 +134,31 @@ a live control channel for `send_input`, `inject_prompt`, `interrupt`,
 out-of-slice paths, and unsupported pipe-mode controls return typed repair
 bodies instead of no-ops. Proof lane:
 `cargo test -p jeryu-api --features web --jobs 40 agent_runs`.
+Start/status responses include `events_url`, `ws_scope`, `tty_topic`,
+`control_topic`, and `export_pr_url`. Cursor reads use
+`GET /api/v1/agent-runs/{id}/events?after_seq=N&limit=M`; finished
+workcell-backed runs can be exported with
+`POST /api/v1/agent-runs/{id}/export_pr`. The companion CLI/MCP contracts are
+`jeryu agent ...` and `jeryu.agent_work.start/status/control/events/export_pr`;
+`jeryu-agent-auth` owns portable native CLI auth receipts, while
+`jeryu-agent-stream` owns the TTY/control event schema for broker or subscriber
+adapters. Live CLI commands use `--api-url` or `JERYU_API_URL`; calls without a
+live URL keep deterministic fail-closed test behavior.
 
-The codegraph oracle exposes schema-v2 reference evidence through MCP tools
+The codegraph oracle exposes schema-v3 reference evidence through MCP tools
 (`code.symbols.search`, `code.definition`, `code.impact`,
 `code.crate.reverse_deps`, `code.references`, `codegraph.query`) and
 `POST /api/v1/repos/{id}/codegraph/query`. Rerun
 `bash ops/ci/codegraph-oracle.sh` when the schema, MCP contract, or API facade
 changes.
+
+The codegraph tool-build insight lane materializes repeated normalized-code
+clusters for frequent MCP polling by `~/jmcp`. It exposes
+`jeryu.codegraph.tool_build.status`, `jeryu.codegraph.tool_build.clusters`, and
+`jeryu.codegraph.tool_build.feedback`, plus
+`GET /api/v1/codegraph/tool-build/{status,clusters}` and feedback POSTs for
+ignored clusters. Rerun `bash ops/ci/codegraph-tool-build.sh` when the scanner,
+feedback store, MCP catalog, CLI, or API facade changes.
 
 ## Local Live Runtime
 

@@ -10,8 +10,10 @@ Owns:
   proof command for typed path denial and structured event evidence.
 - Agent-run control documentation in `docs/workcell.md`, including typed control
   denials, live PTY controls, failed-CI workcell source rules, and proof lane.
-- Codegraph oracle route/tool documentation, including schema-v2 MCP/API proof
+- Codegraph oracle route/tool documentation, including schema-v3 MCP/API proof
   commands.
+- Codegraph tool-build insight documentation, including fast cluster polling,
+  feedback suppression, and MCP/API/CLI proof commands.
 
 Forbidden:
 - Hosted-provider or retired review-request terminology.

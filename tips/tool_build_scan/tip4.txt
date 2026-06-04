@@ -1,0 +1,419 @@
+Hell yes. The system you’re describing should **not** be “AI scans code.” It should be a brutally fast **classical code-intelligence engine** that finds the biggest repeated *concepts*, then hands only the highest-leverage clusters to an AI reviewer.
+
+My strongest recommendation: build a **Rust-first, incremental, multi-stage clone + API-usage motif miner** using **Tree-sitter normalization, MinHash/LSH, SourcererCC-style inverted indexes, AST-path fingerprints, API-call sequence mining, graph clustering, and optional embedding reranking only at the end**.
+
+## The core insight
+
+There are two related but different problems:
+
+1. **Code clone detection**: “These functions/blocks are structurally similar, even after renaming variables or changing formatting.”
+2. **Wasteful/repetitive function-use discovery**: “These repos repeatedly implement the same API usage pattern, wrapper, retry loop, parser, validator, mapper, adapter, or glue logic.”
+
+You want both. Classical clone detection finds repeated structure; API/motif mining finds repeated *behavioral rituals*. The best system combines them.
+
+Research backs this hybrid approach. A 2023 systematic review found more than 10,000 initial papers, 136 primary studies, 80 tools, eight technique families, and noted that reliable datasets, empirical evaluations, hybrid methods, and broad language support remain major challenges. That basically screams: **do not bet on one detector**. Build a layered pipeline. ([arXiv][1])
+
+## Best architecture
+
+```text
+             Jeryu Mirror / Configured Forge / Local Repos
+                       │
+                       ▼
+          Incremental Git Ingestion Layer
+       commits, changed files, deleted files
+                       │
+                       ▼
+              Fast Parse + Normalize
+     Tree-sitter, language-specific extractors,
+   identifier/literal normalization, API-call traces
+                       │
+                       ▼
+          Multi-Signature Fingerprinting
+ exact hash │ token MinHash │ SimHash │ AST paths │ API motifs
+                       │
+                       ▼
+              Candidate Generation
+       LSH bands, inverted token index, trigram/text index,
+       API-call sequence buckets, structural buckets
+                       │
+                       ▼
+                 Verification Layer
+     Jaccard, LCS/edit distance, AST edit approximation,
+     call-sequence similarity, optional CPG/CodeQL/Joern checks
+                       │
+                       ▼
+              Similarity Graph + Clusters
+    union-find, Leiden/Louvain, connected components,
+    overlap cleanup, concept-level rollups
+                       │
+                       ▼
+               Waste Opportunity Ranking
+ duplicate LOC, repo spread, churn, call frequency,
+ complexity, customer impact, extraction feasibility
+                       │
+                       ▼
+              AI Review of Top Clusters
+  summarize concept, show variants, propose custom Rust tool,
+  estimate refactor/API/tool opportunity
+```
+
+## The detector stack I’d build
+
+| Layer               |                        What it catches | Best techniques                                                    |
+| ------------------- | -------------------------------------: | ------------------------------------------------------------------ |
+| Exact duplicate     |                       Same code copied | BLAKE3/SHA hash of normalized fragment                             |
+| Type-1 clone        |         Whitespace/comment differences | comment stripping, formatting-insensitive token hash               |
+| Type-2 clone        |         variable/literal/type renaming | identifier normalization, literal bucketing, token shingles        |
+| Type-3 clone        |           added/removed/reordered bits | MinHash/LSH, SourcererCC-style token overlap, LCS                  |
+| Structural clone    |            same shape, different names | AST-path shingles, tree hashes, Weisfeiler-Lehman-style relabeling |
+| API usage motif     |           same library/function ritual | call-sequence mining, frequent itemsets, partial-order patterns    |
+| Semantic-ish clone  | same purpose, different implementation | optional embeddings + CPG verification + AI review                 |
+| Realtime regression |               new duplicate introduced | incremental Git diff + changed-fragment reindex                    |
+
+SourcererCC is a key design reference: it uses a token-based approach with an optimized inverted index and filtering heuristics to reduce index size, candidate comparisons, and token comparisons; the paper reports scaling to a 250MLOC inter-project corpus on a standard workstation. ([arXiv][2])
+
+For incremental behavior, the older but very relevant “Index-Based Code Clone Detection” paper is directly aligned with your requirement: it argues batch clone detection is not enough for large evolving systems, then presents an index-based approach that is incremental, distributed, and scalable. The paper’s problem statement is basically your product spec. 
+
+## Technologies to use
+
+### Parsing and normalization
+
+Use **Tree-sitter** as the universal parser front door. It is incremental, fast enough for editor-style parsing, robust to syntax errors, embeddable, and has broad language coverage. ([GitHub][3])
+
+For Rust specifically, add deeper support through **rust-analyzer/syn/HIR-style extraction** later. Tree-sitter gives you speed and coverage; Rust-specific semantic extraction gives you better function/call/type resolution.
+
+Normalization should produce multiple views per fragment:
+
+```text
+raw_tokens
+normalized_tokens
+api_call_tokens
+control_flow_shape
+ast_node_kind_sequence
+ast_path_shingles
+literal_buckets
+identifier_role_sequence
+```
+
+Example normalization:
+
+```rust
+for user in users {
+    if user.email.is_some() {
+        send_email(user.email.unwrap());
+    }
+}
+```
+
+becomes something like:
+
+```text
+FOR VAR IN VAR IF FIELD_CALL IS_SOME CALL IDENT FIELD_CALL UNWRAP
+```
+
+That is what makes it variable-name resistant.
+
+### Fast search/indexing
+
+Use multiple indexes, not one:
+
+| Index                            | Purpose                                    |
+| -------------------------------- | ------------------------------------------ |
+| content-addressed fragment store | exact duplicate and cache reuse            |
+| MinHash LSH index                | near-duplicate candidate generation        |
+| inverted token index             | SourcererCC-style overlap filtering        |
+| AST-path index                   | structural clone discovery                 |
+| API-call sequence index          | repeated function-use motifs               |
+| Tantivy text index               | symbol/name/BM25 lookup and analyst search |
+| optional vector index            | semantic reranking, not primary detection  |
+
+GitHub’s new code search architecture is a good reference for the text-search side: it uses an n-gram/trigram-style inverted index, intersects postings, and lazily iterates sorted document IDs rather than loading whole posting lists into memory. ([The GitHub Blog][4])
+
+For the Rust search layer, **Tantivy** is the obvious embedded full-text engine: it is a Rust full-text search library, Lucene-like rather than a full server, supports configurable tokenizers, and is designed for very low startup latency. ([GitHub][5])
+
+For vector reranking, **LanceDB** is attractive because it supports persistent vector search, metadata filtering, full-text search, SQL, native Rust/Python/JS support, versioning, and GPU index-building support. I would use it only for hard semantic clusters, not the first-pass scan. ([Docs.rs][6])
+
+### Fingerprinting
+
+This is the heart of the system.
+
+Use:
+
+| Technique              | Use                                |
+| ---------------------- | ---------------------------------- |
+| BLAKE3 hash            | exact normalized duplicates        |
+| xxHash/AHash           | internal non-cryptographic hashing |
+| k-token shingles       | token-level similarity             |
+| MinHash                | scalable Jaccard approximation     |
+| LSH banding            | fast candidate lookup              |
+| SimHash                | near-duplicate Hamming lookup      |
+| AST Merkle hashes      | subtree equality                   |
+| AST-path shingles      | structure similarity               |
+| call-sequence shingles | repeated API usage                 |
+| TF-IDF/BM25            | rare-token weighting               |
+| rolling Rabin-Karp     | contiguous clone windows           |
+
+BigCode’s large-scale deduplication writeup is a useful practical reference for MinHash-style near-deduplication; it describes shingling and MinHash fingerprint computation as a way to make near-duplicate detection tractable at scale. ([Hugging Face][7])
+
+### Existing tools worth studying, not copying wholesale
+
+| Tool / system          | Why it matters                                                                                |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| **SourcererCC**        | best reference for scalable token-index clone detection                                       |
+| **SAGA**               | suffix-array + GPU acceleration; repo claims 100MLOC Type-1/2/3 clone detection in 11 minutes |
+| **NiCad**              | strong near-miss clone detection, language-aware normalization                                |
+| **Deckard**            | tree/vector-based clone detection                                                             |
+| **CCFinder/CCFinderX** | classic token-based clone detection, identifier renaming resistance                           |
+| **PMD CPD**            | pragmatic copy/paste detector across many languages                                           |
+| **jscpd**              | broad language coverage, Rabin-Karp, AI-friendly output                                       |
+| **Dolos/JPlag**        | plagiarism-oriented but useful for similarity visualization                                   |
+| **ast-grep**           | Rust + Tree-sitter structural search/rewrite                                                  |
+| **Comby**              | structural search/rewrite across many languages                                               |
+| **Semgrep**            | static-analysis pattern matching, rules, security workflows                                   |
+| **Joern/CPG**          | deeper semantic graph representation                                                          |
+| **CodeQL**             | query code as data; great for validation, not raw scanning                                    |
+
+The clone-detection literature index maintained by Chanchal Roy lists widely used tools such as SourcererCC, CloneWorks, iClones, NiCad, CCFinderX, Deckard, SimCad, ConQAT, Simian, CPD, JPlag, and others. ([Clones][8])
+
+SAGA is especially interesting if GPU acceleration becomes relevant; its repo describes it as a suffix-array-based GPU clone detector for Type-1/2/3 clones and claims 100MLOC in 11 minutes. ([GitHub][9])
+
+jscpd is useful as a product/design reference because it supports 223+ languages, uses Rabin-Karp, has CI/reporting workflows, and now exposes AI-oriented/MCP-style reporting. ([jscpd][10])
+
+PMD CPD is a solid baseline for duplicate-block reporting and works across Java, JSP, C/C++, C#, Go, Kotlin, Ruby, Swift, and other languages. ([PMD][11])
+
+ast-grep is especially relevant because it is Rust-written, Tree-sitter-based, and matches AST nodes rather than plain text. ([GitHub][12])
+
+Comby is relevant for the eventual “turn cluster into refactor/tool” loop, because it does structural search and replace, understands code blocks/strings/comments, and is designed for large-scale code changes. ([Comby][13])
+
+## The “waste in function use” part
+
+This is where your idea gets really interesting. Clone detectors find duplicate code. But you want to find repeated **customer pain patterns** that could become a custom Rust tool.
+
+So in addition to function/block clones, extract **usage motifs**:
+
+```text
+open_file → read_to_string → deserialize → validate → map_error
+http_request → retry_loop → backoff → parse_json → map_error
+db_query → collect_rows → convert_types → handle_none
+parse_cli_args → load_config → merge_env → validate
+spawn_command → capture_output → check_status → parse_stdout
+```
+
+For each function, store:
+
+```text
+called_functions
+called_methods
+receiver_types if known
+library/module path
+control-flow wrapper: if/loop/match/try/catch/await
+error-handling pattern
+resource lifecycle: open/close, lock/unlock, begin/commit
+```
+
+Then mine frequent motifs with:
+
+| Method                  | Why                                    |
+| ----------------------- | -------------------------------------- |
+| frequent itemset mining | common API sets                        |
+| PrefixSpan/SPADE        | ordered call sequences                 |
+| partial-order mining    | “A before B, C optional”               |
+| graph mining            | API usage graph motifs                 |
+| discriminative mining   | separate useful conventions from noise |
+
+The API-usage mining literature is directly relevant. Microsoft’s UP-Miner work argues that raw mined API patterns can be too numerous and redundant, then introduces succinctness and coverage metrics for practical mined usage patterns. ([Microsoft][14])
+
+For API misuse/waste detection, beware: frequency does **not** equal correctness. ALP’s API-misuse paper explicitly notes that many approaches confuse frequency with correctness and instead mines discriminative subgraphs with limited human supervision. That maps perfectly to your AI-review loop: the machine finds frequent motifs, humans/AI decide which are actually wasteful. ([arXiv][15])
+
+## Clustering and ranking
+
+Do not hand AI 100,000 clone pairs. Build a similarity graph.
+
+```text
+node = normalized fragment or motif
+edge = similarity above threshold
+edge weight = combined token/AST/API similarity
+cluster = connected component or Leiden/Louvain community
+```
+
+Rank clusters by:
+
+```text
+opportunity_score =
+    duplicated_loc_saved
+  × repo_spread
+  × customer_count
+  × churn_weight
+  × complexity_weight
+  × call_frequency
+  × confidence
+  × extraction_feasibility
+```
+
+The best clusters are not always the biggest by LOC. The best clusters are often:
+
+```text
+medium-sized repeated ugly workflow
++ across many repos/customers
++ high churn
++ subtle errors
++ obvious reusable abstraction/tool boundary
+```
+
+That is where a custom Rust CLI/library wins.
+
+## Incremental/realtime design
+
+Initial scan is expensive. After that, never rescan everything.
+
+Store every fragment as:
+
+```rust
+Fragment {
+    repo_id,
+    commit_sha,
+    path,
+    language,
+    byte_range,
+    line_range,
+    kind, // function, method, block, class, file-window
+    normalized_hash,
+    minhash_signature,
+    simhash,
+    ast_fingerprints,
+    api_motif_signature,
+    metrics,
+}
+```
+
+On every Git event:
+
+```text
+1. Receive webhook / poll remote / local fs event.
+2. Compute changed files from old commit → new commit.
+3. Delete old fragments for changed/deleted files.
+4. Parse only changed files.
+5. Recompute signatures only for new/changed fragments.
+6. Update LSH buckets, inverted token postings, motif indexes.
+7. Recompute affected cluster neighborhoods.
+8. Periodically run background global reclustering.
+```
+
+This matches the research direction: clone-management systems need continuously updated clone information as software evolves, and batch-only approaches become stale or too expensive for very large codebases. 
+
+For IDE-like immediacy, Tree-sitter’s incremental parsing is extremely useful; for repo-level updates, Git diffs are enough.
+
+## Rust implementation stack
+
+| Need                    | Rust choice                                                       |
+| ----------------------- | ----------------------------------------------------------------- |
+| parallel scan           | `rayon`                                                           |
+| async ingestion/API     | `tokio`                                                           |
+| Git plumbing            | `gix` or `git2`                                                   |
+| walking repos           | `ignore`, `walkdir`                                               |
+| parsing                 | `tree-sitter`, language grammar crates                            |
+| hashing                 | `blake3`, `xxhash-rust`, `ahash`                                  |
+| MinHash/LSH             | custom implementation; maybe use existing crate only as reference |
+| roaring bitmaps         | `roaring`                                                         |
+| text search             | `tantivy`                                                         |
+| local KV/index metadata | `redb`, `rocksdb`, `heed/lmdb`, or `fjall`                        |
+| serialization           | `rkyv`, `postcard`, `bincode`                                     |
+| graph clustering        | custom union-find first; later Leiden/Louvain                     |
+| vector optional         | `lancedb`, `hnsw_rs`, or external Qdrant                          |
+| API server              | `axum`                                                            |
+| CLI                     | `clap`                                                            |
+| output                  | JSONL, Parquet/Arrow, SQLite/DuckDB export                        |
+
+Rayon is a great fit for CPU-bound parsing/fingerprinting because it makes data-parallel workloads easy and data-race-safe. ([Docs.rs][16])
+
+## What I would not do
+
+Do **not** start with embeddings. BERT/CodeBERT-style clone search can work, and SSCD avoids pairwise neural comparisons by embedding fragments and using nearest-neighbor search; it reports finding clones across 320MLOC BigCloneBench in under three hours. But embeddings are expensive, opaque, harder to incrementally maintain, and can overfit benchmark artifacts. ([arXiv][17])
+
+Also be careful with BigCloneBench for semantic clone claims. A 2025 paper argues BigCloneBench remains useful for syntactic/textual Type-1/2/3 clone evaluation but is problematic as ground truth for semantic clone detection, reporting that 93% of sampled weak Type-3/Type-4 pairs did not actually have similar functionality. ([arXiv][18])
+
+Use embeddings as a **late-stage reranker** for hard clusters, not as the system’s foundation.
+
+## The product I’d build
+
+Name it something like **RustWasteMap** or **CloneForge**.
+
+Commands:
+
+```bash
+wastemap init ./repos
+wastemap scan --all --languages rust,ts,py,go,java
+wastemap watch --github-org veox-ai
+wastemap clusters --top 100 --rank opportunity
+wastemap explain cluster_4921 --format ai
+wastemap export cluster_4921 --examples 12 --json
+```
+
+Output for AI review:
+
+```json
+{
+  "cluster_id": "cluster_4921",
+  "title_guess": "HTTP retry + exponential backoff + JSON decode wrapper",
+  "occurrences": 184,
+  "repos": 37,
+  "customers": 12,
+  "duplicate_loc": 9120,
+  "median_similarity": 0.84,
+  "motif": ["request", "retry", "sleep/backoff", "parse_json", "map_error"],
+  "top_variants": [...],
+  "suggested_tool": {
+    "type": "Rust library or CLI",
+    "concept": "standardized resilient HTTP fetcher",
+    "risk": "medium",
+    "estimated_savings": "high"
+  }
+}
+```
+
+## Final recommendation
+
+Build this in three phases:
+
+**Phase 1: blazing-fast clone engine.**
+Tree-sitter parse, normalize identifiers/literals, extract functions/blocks, compute exact hashes + MinHash + AST-path fingerprints, index with LSH and inverted token postings, cluster with union-find. This gets you useful results fast.
+
+**Phase 2: API motif miner.**
+Extract function/method call traces, receiver/module names, error-handling/control-flow wrappers, and mine repeated API usage sequences. This is the part that surfaces “we keep writing the same glue code everywhere.”
+
+**Phase 3: AI opportunity reviewer.**
+Only feed the biggest/highest-scoring clusters to AI. The AI should not decide similarity; it should decide **productization/refactor opportunity**: “Can this cluster become a Rust crate, CLI, codegen rule, lint, codemod, or internal SDK function?”
+
+The magic formula is:
+
+```text
+Rust speed
++ Tree-sitter structure
++ MinHash/LSH scale
++ inverted-index precision
++ API motif mining
++ graph clustering
++ incremental Git updates
++ AI only at the decision layer
+```
+
+That is the system I’d bet on.
+
+[1]: https://arxiv.org/abs/2306.16171 "[2306.16171] A systematic literature review on source code similarity measurement and clone detection: techniques, applications, and challenges"
+[2]: https://arxiv.org/abs/1512.06448 "[1512.06448] SourcererCC: Scaling Code Clone Detection to Big Code"
+[3]: https://github.com/tree-sitter/tree-sitter "GitHub - tree-sitter/tree-sitter: An incremental parsing system for programming tools · GitHub"
+[4]: https://github.blog/engineering/architecture-optimization/the-technology-behind-githubs-new-code-search/ "The technology behind GitHub’s new code search - The GitHub Blog"
+[5]: https://github.com/quickwit-oss/tantivy "GitHub - quickwit-oss/tantivy: Tantivy is a full-text search engine library inspired by Apache Lucene and written in Rust · GitHub"
+[6]: https://docs.rs/lancedb "lancedb - Rust"
+[7]: https://huggingface.co/blog/dedup "Large-scale Near-deduplication Behind BigCode"
+[8]: https://clones.usask.ca/clones/tools/ "Tools | Code Clone Detection Literature"
+[9]: https://github.com/FudanSELab/SAGA "GitHub - FudanSELab/SAGA: SAGA: A Large-Scale Code Clone Detection Tool · GitHub"
+[10]: https://jscpd.dev/ "jscpd - Copy/Paste Detector for Source Code - jscpd"
+[11]: https://pmd.github.io/pmd/pmd_userdocs_cpd.html "Finding duplicated code with CPD | PMD Source Code Analyzer"
+[12]: https://github.com/ast-grep/ast-grep "GitHub - ast-grep/ast-grep: ⚡A CLI tool for code structural search, lint and rewriting. Written in Rust · GitHub"
+[13]: https://comby.dev/ "Comby · Structural code search and replace for ~every language."
+[14]: https://www.microsoft.com/en-us/research/publication/mining-succinct-and-high-coverage-api-usage-patterns-from-source-code/ "Mining Succinct and High-Coverage API Usage Patterns from Source Code - Microsoft Research"
+[15]: https://arxiv.org/abs/2204.09945 "[2204.09945] Active Learning of Discriminative Subgraph Patterns for API Misuse Detection"
+[16]: https://docs.rs/rayon "rayon - Rust"
+[17]: https://arxiv.org/abs/2309.02182 "[2309.02182] Using a Nearest-Neighbour, BERT-Based Approach for Scalable Clone Detection"
+[18]: https://arxiv.org/abs/2505.04311 "[2505.04311] How the Misuse of a Dataset Harmed Semantic Clone Detection"

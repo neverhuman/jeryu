@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::body::{Bytes, to_bytes};
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::response::Response as AxumResponse;
 use jeryu_core::ForgeCore;
 use jeryu_runnerd::{HoldFailedTreeRequest, StartupSync, WorkcellClaimRequest};
@@ -428,6 +428,42 @@ async fn agent_runs_pty_accepts_live_input_control() {
         "failed-CI context env should reach the agent: {final_status:?}"
     );
     assert_eq!(final_status["controls"][0]["command"], "send_input");
+
+    let first_page = response_json(
+        super::agent_runs::events(
+            State(state.clone()),
+            AxumPath(agent_run_id.clone()),
+            Query(super::agent_runs::AgentRunEventsQuery {
+                after_seq: Some(0),
+                limit: Some(1),
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(first_page["agent_run_id"], agent_run_id);
+    assert_eq!(first_page["after_seq"], 0);
+    assert_eq!(first_page["events"].as_array().unwrap().len(), 1);
+    let cursor = first_page["next_after_seq"].as_u64().unwrap();
+    let resumed = response_json(
+        super::agent_runs::events(
+            State(state),
+            AxumPath(agent_run_id),
+            Query(super::agent_runs::AgentRunEventsQuery {
+                after_seq: Some(cursor),
+                limit: Some(50),
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        resumed["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|event| event["seq"].as_u64().unwrap() > cursor)
+    );
 }
 
 #[tokio::test]
@@ -502,6 +538,25 @@ async fn agent_runs_control_denials_and_pipe_mode_are_typed() {
     )
     .await;
     let agent_run_id = start["agent_run_id"].as_str().expect("agent run id");
+
+    let unfinished_export = response_json(
+        super::agent_runs::export_pr(
+            State(state.clone()),
+            AxumPath(agent_run_id.to_string()),
+            Bytes::from(
+                json!({
+                    "owner": "alice",
+                    "repo": "demo",
+                    "author": "agent-repair",
+                    "title": "Export agent run"
+                })
+                .to_string(),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(unfinished_export["code"], "agent_run_not_finished");
 
     let unsupported = response_json(
         super::agent_runs::control(

@@ -5,9 +5,11 @@ mod ci_evidence;
 mod codegraph;
 mod ecosystem;
 mod markdown;
+mod mcp_backend;
 mod permissions;
 mod repositories;
 mod surface;
+mod tool_build;
 mod workcells;
 mod workcells_support;
 mod ws;
@@ -248,8 +250,9 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
     let mut state = state;
     state.spa_dir = spa_dir.to_path_buf();
     let spa = ServeDir::new(spa_dir).fallback(ServeFile::new(spa_dir.join("index.html")));
+    let state = Arc::new(state);
     let mcp_state = Arc::new(jeryu_mcp::McpHttpState::new(Arc::new(
-        jeryu_mcp::MemoryBackend::new(),
+        mcp_backend::WebMcpBackend::new(state.clone()),
     )));
     AxumRouter::new()
         .route("/health", get(health))
@@ -260,7 +263,12 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/bootstrap.tui", get(bootstrap_tui))
         .route("/api/v1/agent-runs", post(agent_runs::start))
         .route("/api/v1/agent-runs/:id", get(agent_runs::status))
+        .route("/api/v1/agent-runs/:id/events", get(agent_runs::events))
         .route("/api/v1/agent-runs/:id/control", post(agent_runs::control))
+        .route(
+            "/api/v1/agent-runs/:id/export_pr",
+            post(agent_runs::export_pr),
+        )
         .route(
             "/api/v1/workcells",
             get(workcells::list).post(workcells::claim),
@@ -290,6 +298,18 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
         .route("/api/v1/repos/:id/codegraph/query", post(codegraph::query))
+        .route(
+            "/api/v1/codegraph/tool-build/status",
+            get(tool_build::status),
+        )
+        .route(
+            "/api/v1/codegraph/tool-build/clusters",
+            get(tool_build::clusters),
+        )
+        .route(
+            "/api/v1/codegraph/tool-build/clusters/:id/feedback",
+            post(tool_build::feedback),
+        )
         .route(
             "/api/v1/repos/:id/readme",
             get(repo_readme).put(repo_readme_update),
@@ -331,7 +351,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         // Response middleware that stamps every reply with advisory steering
         // headers (and a per-route MCP tool hint for gh/automation UAs).
         .layer(from_fn(steer_headers))
-        .with_state(Arc::new(state))
+        .with_state(state)
         .merge(jeryu_mcp::mcp_router(mcp_state))
 }
 

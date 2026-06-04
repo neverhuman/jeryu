@@ -6,12 +6,17 @@
 
 use clap::{Parser, Subcommand};
 
+mod agent;
 mod ci;
 mod forge;
 mod operator;
 mod proof;
 mod runner;
 
+pub use agent::{
+    AgentAuthCommands, AgentCommands, AgentControlArgs, AgentExportPrArgs, AgentRunArgs,
+    AgentToolArg,
+};
 pub use ci::{CiCommands, CiKindArg};
 pub use forge::{ForgeCommands, IssueCommands, PrCommands, RepoCommands};
 pub use operator::{AutonomyCommands, AutonomyInitArgs, AutonomyProfile, GhSetupArgs, OnboardArgs};
@@ -36,6 +41,10 @@ pub struct Cli {
     #[arg(long, global = true, default_value_t = false)]
     pub json: bool,
 
+    /// Live Jeryu API base URL for agent commands. Defaults to JERYU_API_URL.
+    #[arg(long, global = true)]
+    pub api_url: Option<String>,
+
     /// The command to run.
     #[command(subcommand)]
     pub command: Commands,
@@ -55,6 +64,10 @@ pub enum Commands {
     /// Runners: list, enroll, drain, and rotate build runners.
     #[command(subcommand)]
     Runner(RunnerCommands),
+
+    /// Agent-edit: auth, run, control, follow, and PR export.
+    #[command(subcommand)]
+    Agent(AgentCommands),
 
     /// Proofs: verify a changeset and explain a blocker.
     #[command(subcommand)]

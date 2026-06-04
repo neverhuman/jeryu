@@ -116,6 +116,16 @@ fn manifest_includes_capability_tools() {
             .iter()
             .any(|tool| tool["name"] == "jeryu.codegraph.query")
     );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.agent_work.start")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.codegraph.tool_build.clusters")
+    );
 }
 
 #[test]
@@ -126,7 +136,7 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 27-tool catalog (replaces the source's action_registry guardrail).
+    // The 35-tool catalog (replaces the source's action_registry guardrail).
     let expected = [
         "fetch_capsule",
         "get_system_snapshot",
@@ -149,17 +159,25 @@ fn manifest_covers_all_catalog_actions() {
         "workcell.repair_live",
         "workcell.export_pr",
         "workcell.release",
+        "agent_work.start",
+        "agent_work.status",
+        "agent_work.control",
+        "agent_work.events",
+        "agent_work.export_pr",
         "code.symbols.search",
         "code.definition",
         "code.impact",
         "code.crate.reverse_deps",
         "code.references",
         "codegraph.query",
+        "codegraph.tool_build.status",
+        "codegraph.tool_build.clusters",
+        "codegraph.tool_build.feedback",
     ];
     assert_eq!(
         names.len(),
-        27,
-        "expected exactly 27 tools, got {}",
+        35,
+        "expected exactly 35 tools, got {}",
         names.len()
     );
     for id in expected {
@@ -237,7 +255,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 27);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 35);
 }
 
 #[tokio::test]
@@ -320,6 +338,81 @@ async fn stdio_tools_call_round_trip() {
     assert_eq!(structured["success"], true);
     assert_eq!(structured["data"]["schema_version"], "codegraph.query/v1");
     assert_eq!(structured["data"]["definition"]["symbol"], "CodeGraph");
+
+    let agent_events = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.agent_work.events",
+                    "arguments": {
+                        "agent_run_id": "ar-memory-000001",
+                        "after_seq": 0,
+                        "limit": 10
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(agent_events.len(), 1);
+    let structured = &agent_events[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(structured["data"]["agent_run_id"], "ar-memory-000001");
+    assert_eq!(structured["data"]["has_more"], false);
+
+    let tool_clusters = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.codegraph.tool_build.clusters",
+                    "arguments": {
+                        "repo": "memory",
+                        "limit": 5
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(tool_clusters.len(), 1);
+    let structured = &tool_clusters[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(
+        structured["data"]["clusters"][0]["cluster_id"],
+        "toolbuild-memory-0001"
+    );
+
+    let feedback = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 8,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.codegraph.tool_build.feedback",
+                    "arguments": {
+                        "cluster_id": "toolbuild-memory-0001",
+                        "reason": "fixture boilerplate",
+                        "ignored_by": "test"
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(feedback.len(), 1);
+    let structured = &feedback[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(structured["data"]["reason"], "fixture boilerplate");
 }
 
 #[tokio::test]

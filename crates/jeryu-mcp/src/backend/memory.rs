@@ -299,6 +299,61 @@ impl ToolBackend for MemoryBackend {
                     "released": true,
                 }),
             ),
+            "agent_work.start" => ToolResponse::ok(
+                "agent work started",
+                serde_json::json!({
+                    "agent_run_id": "ar-memory-000001",
+                    "status_url": "/api/v1/agent-runs/ar-memory-000001",
+                    "events_url": "/api/v1/agent-runs/ar-memory-000001/events",
+                    "control_url": "/api/v1/agent-runs/ar-memory-000001/control",
+                    "export_pr_url": "/api/v1/agent-runs/ar-memory-000001/export_pr",
+                    "ws_scope": "agent_run.ar-memory-000001",
+                    "tty_topic": "jeryu.agent.tty.v1",
+                    "control_topic": "jeryu.agent.control.v1",
+                    "io_mode": arg("io_mode"),
+                    "state": "running",
+                }),
+            ),
+            "agent_work.status" => ToolResponse::ok(
+                "agent work status",
+                serde_json::json!({
+                    "agent_run_id": arg("agent_run_id"),
+                    "state": "running",
+                    "events": [],
+                    "controls": [],
+                }),
+            ),
+            "agent_work.control" => ToolResponse::ok(
+                "agent work control accepted",
+                serde_json::json!({
+                    "agent_run_id": arg("agent_run_id"),
+                    "accepted": true,
+                    "control_seq": 1,
+                    "command": arg("command").get("kind").cloned().unwrap_or(Value::Null),
+                }),
+            ),
+            "agent_work.events" => ToolResponse::ok(
+                "agent work events",
+                serde_json::json!({
+                    "agent_run_id": arg("agent_run_id"),
+                    "after_seq": arg("after_seq"),
+                    "next_after_seq": arg("after_seq").as_u64().unwrap_or(0),
+                    "limit": arg("limit").as_u64().unwrap_or(100),
+                    "has_more": false,
+                    "events": [],
+                    "tty_events": [],
+                }),
+            ),
+            "agent_work.export_pr" => ToolResponse::ok(
+                "agent work exported",
+                serde_json::json!({
+                    "agent_run_id": arg("agent_run_id"),
+                    "branch": format!("agents/{}/agent-work", arg("author").as_str().unwrap_or("agent")),
+                    "target_branch": arg("target_branch").as_str().unwrap_or("main"),
+                    "pull_request_number": 1,
+                    "url": format!("/{}/{}/pull/1", arg("owner").as_str().unwrap_or("local"), arg("repo").as_str().unwrap_or("repo")),
+                }),
+            ),
             "code.symbols.search" => {
                 let graph = CodeGraph::from_snapshot(sample_codegraph_snapshot());
                 let limit = arg("limit").as_u64().unwrap_or(20) as usize;
@@ -355,8 +410,8 @@ impl ToolBackend for MemoryBackend {
             "codegraph.query" => {
                 let query = CodegraphQuery {
                     changed_paths: string_array(&arg("changed_paths")),
-                    symbol: arg("symbol").as_str().map(ToString::to_string),
-                    crate_name: arg("crate_name").as_str().map(ToString::to_string),
+                    symbol: optional_string(&arg("symbol")),
+                    crate_name: optional_string(&arg("crate_name")),
                     limit: arg("limit").as_u64().unwrap_or(20) as usize,
                 };
                 ToolResponse::ok(
@@ -365,10 +420,36 @@ impl ToolBackend for MemoryBackend {
                         sample_codegraph_snapshot(),
                         "2".to_string(),
                         &query,
-                    ))
-                    .unwrap(),
+                    ))?,
                 )
             }
+            "codegraph.tool_build.status" => ToolResponse::ok(
+                "tool-build status",
+                serde_json::json!({
+                    "repo": arg("repo"),
+                    "ready": true,
+                    "cluster_count": 1,
+                    "ignored_count": 0,
+                    "schema_version": "codegraph.tool_build/v1",
+                }),
+            ),
+            "codegraph.tool_build.clusters" => ToolResponse::ok(
+                "tool-build clusters",
+                serde_json::json!({
+                    "repo": arg("repo"),
+                    "include_ignored": arg("include_ignored").as_bool().unwrap_or(false),
+                    "clusters": [sample_tool_build_cluster()],
+                }),
+            ),
+            "codegraph.tool_build.feedback" => ToolResponse::ok(
+                "tool-build feedback recorded",
+                serde_json::json!({
+                    "cluster_id": arg("cluster_id"),
+                    "reason": arg("reason"),
+                    "ignored_by": arg("ignored_by"),
+                    "ignored_at": "0",
+                }),
+            ),
             other => ToolResponse::error(format!("unknown tool: {other}")),
         };
         Ok(resp)
@@ -390,6 +471,15 @@ fn string_array(value: &Value) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn optional_string(value: &Value) -> Option<String> {
+    value.as_str().map(ToString::to_string).or_else(|| {
+        value
+            .get("Some")
+            .and_then(Value::as_str)
+            .map(ToString::to_string)
+    })
 }
 
 fn sample_codegraph_snapshot() -> GraphSnapshot {
@@ -424,5 +514,34 @@ fn sample_codegraph_snapshot() -> GraphSnapshot {
             ref_line: 7,
             ref_kind: "type".to_string(),
         }],
+        ..Default::default()
     }
+}
+
+fn sample_tool_build_cluster() -> Value {
+    serde_json::json!({
+        "cluster_id": "toolbuild-memory-0001",
+        "repo_id": "memory",
+        "commit_sha": "memory",
+        "fingerprint": "memory",
+        "score": 1200,
+        "occurrence_count": 3,
+        "repo_count": 1,
+        "file_count": 2,
+        "total_lines": 24,
+        "language": "rust",
+        "insight": "rust normalized window repeats 3 times across 2 file(s), covering 24 lines; anchors: kw:if, call:unwrap.",
+        "normalized_preview": "kw:if id op:= call:some\ncall:unwrap",
+        "occurrences": [
+            {
+                "repo_id": "memory",
+                "commit_sha": "memory",
+                "path": "crates/jeryu-codegraph/src/tool_build.rs",
+                "start_line": 1,
+                "end_line": 8,
+                "language": "rust",
+                "normalized_token_count": 48
+            }
+        ]
+    })
 }

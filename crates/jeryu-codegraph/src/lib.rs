@@ -16,12 +16,23 @@ pub mod graph;
 pub mod oracle;
 pub mod slice;
 pub mod storage;
+pub mod tool_build;
 
 pub use error::{CodeGraphError, Result};
 pub use export_gate::{SliceDenied, enforce_export_slice, enforce_export_slice_from_diff};
 pub use graph::{CodeGraph, ImpactReport};
-pub use oracle::{CodegraphImpactPack, CodegraphQuery, query_snapshot, query_store};
+pub use oracle::{
+    CodeContextFile, CodeGraphImpactPack, CodeGraphMcpQuery, CodeGraphProvenance, CodeGraphQuery,
+    CodeGraphRepoIdentity, CodeGraphService, CodegraphImpactPack, CodegraphQuery, ExcludedFile,
+    GeneratedZoneHit, GraphStats, IndexReceipt, ProofLaneImpact, SymbolImpact, default_ref_name,
+    query_snapshot, query_store,
+};
 pub use slice::{OutOfSlice, Slice};
 pub use storage::{
-    CodeGraphStore, CrateDepRow, GraphSnapshot, SCHEMA, SymbolRefRow, SymbolRow, default_db_path,
+    CodeGraphStore, CrateDepRow, FileRow, GovernanceRow, GraphSnapshot, IndexRunRow, SCHEMA,
+    SymbolRefRow, SymbolRow, default_db_path,
+};
+pub use tool_build::{
+    ToolBuildCluster, ToolBuildIgnore, ToolBuildOccurrence, ToolBuildScanConfig,
+    ToolBuildScanReport, scan_tool_build_clusters,
 };

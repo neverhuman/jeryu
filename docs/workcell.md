@@ -135,6 +135,24 @@ PTY-capable commands to the live driver: `send_input`, `inject_prompt`,
 missing run ids, and pipe-mode controls return typed repair responses with
 `purpose`, `reason`, `common_fixes`, `docs_url`, and `repair_hint`.
 
+`GET /api/v1/agent-runs/{id}/events?after_seq=N&limit=M` returns cursor-safe
+run events and broker-shaped `AgentTtyEvent` entries for resume-capable
+subscribers. Start/status responses also include `events_url`, the live
+`agent_run.{id}` WebSocket scope, `tty_topic`, `control_topic`, and
+`export_pr_url`. `POST /api/v1/agent-runs/{id}/export_pr` exports finished
+workcell-backed runs through the frozen-diff slice gate; unfinished and
+non-workcell-backed runs fail with typed repair bodies.
+
+MCP and CLI subscribers use the same run ids. The MCP tools are
+`jeryu.agent_work.start`, `jeryu.agent_work.status`,
+`jeryu.agent_work.control`, `jeryu.agent_work.events`, and
+`jeryu.agent_work.export_pr`; the CLI grammar is
+`jeryu agent auth|run|status|control|follow|export-pr`. Live CLI commands use
+`--api-url` or `JERYU_API_URL`.
+`jeryu-agent-stream` defines the broker-compatible `jeryu.agent.tty.v1` and
+`jeryu.agent.control.v1` schemas, and `jeryu-agent-auth` imports only portable
+native CLI auth into Jeryu-owned per-run homes.
+
 Proof lane:
 
 ```sh

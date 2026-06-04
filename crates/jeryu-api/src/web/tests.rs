@@ -5,15 +5,28 @@ use crate::web::repositories::repo_list_response;
 use crate::web::surface::serialize_payload;
 use crate::web::surface::{bootstrap_payload, map_method};
 use crate::web::ws::{hello_message, requested_scopes, snapshot_event, unsubscribe_scopes};
+use axum::extract::Query;
 use jeryu_agentbridge::driver::{AgentDriver, CollectingSink, CommandSpec, stage_editbot};
-use jeryu_codegraph::{CrateDepRow, GraphSnapshot, SymbolRefRow, SymbolRow};
+use jeryu_codegraph::{
+    CrateDepRow, GraphSnapshot, SymbolRefRow, SymbolRow, ToolBuildScanConfig,
+    scan_tool_build_clusters,
+};
 use jeryu_core::CheckConclusion;
 use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
 use jeryu_readmodel::contracts::ServerWsMessage;
 use jeryu_readmodel::{HealthLevel, sample_read_model};
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 use std::time::Duration;
 use tempfile::tempdir;
+
+fn write_file(root: &Path, relative: &str, contents: &str) {
+    let path = root.join(relative);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).expect("create fixture parent");
+    }
+    std::fs::write(path, contents).expect("write fixture file");
+}
 
 /// Seed a repo + open PR + one failing check, build `WebState`, and assert
 /// the model served by `/api/v1/bootstrap.tui` (i.e. `state.tui`) reflects the
@@ -234,31 +247,30 @@ async fn codegraph_query_route_returns_impact_pack() {
         )
         .unwrap();
     let state = Arc::new(WebState::new(core));
-    state
-        .codegraph_store
-        .persist(&GraphSnapshot {
-            symbols: vec![SymbolRow {
-                crate_name: "jeryu-codegraph".to_string(),
-                file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
-                symbol: "CodeGraph".to_string(),
-                kind: "public".to_string(),
-                is_public: true,
-                line: 7,
-            }],
-            crate_deps: vec![CrateDepRow {
-                crate_name: "jeryu-mcp".to_string(),
-                depends_on: "jeryu-codegraph".to_string(),
-            }],
-            symbol_refs: vec![SymbolRefRow {
-                crate_name: "jeryu-codegraph".to_string(),
-                file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
-                symbol: "CodeGraph".to_string(),
-                ref_file: "crates/jeryu-mcp/src/backend/memory.rs".to_string(),
-                ref_line: 12,
-                ref_kind: "type".to_string(),
-            }],
-        })
-        .unwrap();
+    let snapshot = GraphSnapshot {
+        symbols: vec![SymbolRow {
+            crate_name: "jeryu-codegraph".to_string(),
+            file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
+            symbol: "CodeGraph".to_string(),
+            kind: "public".to_string(),
+            is_public: true,
+            line: 7,
+        }],
+        crate_deps: vec![CrateDepRow {
+            crate_name: "jeryu-mcp".to_string(),
+            depends_on: "jeryu-codegraph".to_string(),
+        }],
+        symbol_refs: vec![SymbolRefRow {
+            crate_name: "jeryu-codegraph".to_string(),
+            file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
+            symbol: "CodeGraph".to_string(),
+            ref_file: "crates/jeryu-mcp/src/backend/memory.rs".to_string(),
+            ref_line: 12,
+            ref_kind: "type".to_string(),
+        }],
+        ..Default::default()
+    };
+    state.codegraph_store.persist(&snapshot).unwrap();
 
     let response = super::codegraph::query(
         State(state),
@@ -275,7 +287,7 @@ async fn codegraph_query_route_returns_impact_pack() {
     .await;
     let pack = response_json(response).await;
     assert_eq!(pack["schema_version"], "codegraph.query/v1");
-    assert_eq!(pack["provenance"]["storage_schema"], "2");
+    assert_eq!(pack["provenance"]["storage_schema"], "3");
     assert_eq!(pack["definition"]["symbol"], "CodeGraph");
     assert_eq!(
         pack["references"][0]["ref_file"],
@@ -341,6 +353,134 @@ async fn codegraph_query_route_errors_are_typed() {
             .as_str()
             .expect("repair hint")
             .contains("codegraph API proof lane")
+    );
+}
+
+#[tokio::test]
+async fn tool_build_routes_return_clusters_and_record_feedback() {
+    let core = ForgeCore::new();
+    let state = Arc::new(WebState::new(core));
+    let root = tempdir().expect("tool-build fixture");
+    let repeated = r#"
+pub fn alpha(input: &str) -> Result<String, String> {
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        let response = call_remote(input);
+        if response.is_ok() {
+            return response;
+        }
+        if attempts > 3 {
+            return Err("failed".to_string());
+        }
+    }
+}
+"#;
+    write_file(root.path(), "crates/a/src/lib.rs", repeated);
+    write_file(
+        root.path(),
+        "crates/b/src/lib.rs",
+        &repeated.replace("alpha", "beta"),
+    );
+    let report = scan_tool_build_clusters(
+        root.path(),
+        "alice/jeryu",
+        "commit-a",
+        ToolBuildScanConfig {
+            window_lines: 5,
+            min_normalized_tokens: 12,
+            min_occurrences: 2,
+            max_file_bytes: 64 * 1024,
+            max_clusters: 10,
+        },
+    )
+    .unwrap();
+    assert!(!report.clusters.is_empty());
+    state
+        .codegraph_store
+        .persist_tool_build_report(&report)
+        .unwrap();
+
+    let status = response_json(
+        super::tool_build::status(
+            State(state.clone()),
+            Query(super::tool_build::ToolBuildQuery {
+                repo: Some("alice/jeryu".to_string()),
+                limit: None,
+                include_ignored: false,
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(status["schema_version"], "codegraph.tool_build/v1");
+    assert!(status["cluster_count"].as_u64().unwrap() > 0);
+
+    let clusters = response_json(
+        super::tool_build::clusters(
+            State(state.clone()),
+            Query(super::tool_build::ToolBuildQuery {
+                repo: Some("alice/jeryu".to_string()),
+                limit: Some(10),
+                include_ignored: false,
+            }),
+        )
+        .await,
+    )
+    .await;
+    let cluster_id = clusters["clusters"][0]["cluster_id"]
+        .as_str()
+        .expect("cluster id")
+        .to_string();
+    assert!(
+        clusters["clusters"][0]["insight"]
+            .as_str()
+            .unwrap()
+            .contains("normalized window")
+    );
+
+    let invalid = response_json(
+        super::tool_build::feedback(
+            State(state.clone()),
+            AxumPath(cluster_id.clone()),
+            axum::body::Bytes::from(r#"{"reason":""}"#),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(invalid["code"], "tool_build_feedback_reason_required");
+    assert_eq!(invalid["docs_url"], "docs/codegraph-tool-build.md");
+
+    let feedback = response_json(
+        super::tool_build::feedback(
+            State(state.clone()),
+            AxumPath(cluster_id.clone()),
+            axum::body::Bytes::from(r#"{"reason":"fixture boilerplate","ignored_by":"test"}"#),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(feedback["cluster_id"], cluster_id);
+    assert_eq!(feedback["reason"], "fixture boilerplate");
+
+    let suppressed = response_json(
+        super::tool_build::clusters(
+            State(state),
+            Query(super::tool_build::ToolBuildQuery {
+                repo: Some("alice/jeryu".to_string()),
+                limit: Some(10),
+                include_ignored: false,
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        suppressed["clusters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|cluster| cluster["cluster_id"] != cluster_id)
     );
 }
 

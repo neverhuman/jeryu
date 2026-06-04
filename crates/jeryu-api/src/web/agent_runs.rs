@@ -3,23 +3,29 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::Json;
 use axum::body::Bytes;
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response as AxumResponse};
+use jeryu_agent_stream::{
+    AgentEventBudget, AgentOutputStream, AgentRunStreamKey, AgentTtyEvent, CONTROL_TOPIC, TTY_TOPIC,
+};
 use jeryu_agentbridge::driver::{
     AgentDriver, AgentEvent, AgentEventSink, AgentRunResult, CommandSpec, DriverError,
 };
 use jeryu_agentbridge::pty_driver::{AgentControl, PtyAgentDriver};
+use jeryu_core::{CreatePullRequestRequest, ForgeError};
+use jeryu_readmodel::contracts::WebEvent;
 use jeryu_runnerd::{WorkcellLease, WorkcellState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::WebState;
-use super::workcells_support::{TypedError, manager, typed_error};
+use super::surface::serialize_payload;
+use super::workcells_support::{TypedError, forge_error, manager, typed_error};
 
 const AGENT_RUN_DOCS: &str = "docs/workcell.md#agent-run-control-surface";
 const AGENT_RUN_RERUN: &str = "rerun cargo test -p jeryu-api --features web --jobs 40 agent_runs";
@@ -36,7 +42,7 @@ struct AgentRunStoreInner {
     runs: BTreeMap<String, AgentRunRecord>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct AgentRunRecord {
     id: String,
     state: AgentRunState,
@@ -46,6 +52,7 @@ struct AgentRunRecord {
     program: String,
     args: Vec<String>,
     events: Vec<AgentRunEvent>,
+    tty_events: Vec<AgentTtyEvent>,
     controls: Vec<AgentRunControlRecord>,
     outcome: Option<AgentRunOutcome>,
     error_code: Option<String>,
@@ -59,6 +66,7 @@ enum AgentRunState {
     Running,
     Succeeded,
     Failed,
+    Exported,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -175,7 +183,12 @@ enum AgentControlCommand {
 struct AgentRunStartResponse {
     pub agent_run_id: String,
     pub status_url: String,
+    pub events_url: String,
     pub control_url: String,
+    pub export_pr_url: String,
+    pub ws_scope: String,
+    pub tty_topic: String,
+    pub control_topic: String,
     pub io_mode: AgentRunIoMode,
     pub state: AgentRunState,
 }
@@ -189,7 +202,14 @@ struct AgentRunStatusResponse {
     pub repo_root: PathBuf,
     pub program: String,
     pub args: Vec<String>,
+    pub events_url: String,
+    pub control_url: String,
+    pub export_pr_url: String,
+    pub ws_scope: String,
+    pub tty_topic: String,
+    pub control_topic: String,
     pub events: Vec<AgentRunEvent>,
+    pub tty_events: Vec<AgentTtyEvent>,
     pub controls: Vec<AgentRunControlRecord>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outcome: Option<AgentRunOutcome>,
@@ -205,6 +225,48 @@ struct AgentRunControlResponse {
     pub accepted: bool,
     pub control_seq: u64,
     pub command: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(super) struct AgentRunEventsQuery {
+    #[serde(default)]
+    pub(super) after_seq: Option<u64>,
+    #[serde(default)]
+    pub(super) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AgentRunEventsResponse {
+    pub agent_run_id: String,
+    pub after_seq: u64,
+    pub next_after_seq: u64,
+    pub limit: usize,
+    pub has_more: bool,
+    pub events: Vec<AgentRunEvent>,
+    pub tty_events: Vec<AgentTtyEvent>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct AgentRunExportPrRequest {
+    pub owner: String,
+    pub repo: String,
+    pub author: String,
+    #[serde(default)]
+    pub branch_suffix: Option<String>,
+    #[serde(default)]
+    pub target_branch: Option<String>,
+    pub title: String,
+    #[serde(default)]
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AgentRunExportPrResponse {
+    pub agent_run_id: String,
+    pub branch: String,
+    pub target_branch: String,
+    pub pull_request_number: u64,
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -258,10 +320,17 @@ pub(super) async fn start(State(state): State<Arc<WebState>>, body: Bytes) -> Ax
         Ok(request) => request,
         Err(response) => return *response,
     };
-    let resolved = match resolve_agent_run_source(&state, &request) {
-        Ok(resolved) => resolved,
-        Err(response) => return *response,
-    };
+    match start_request(state, request) {
+        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
+        Err(response) => *response,
+    }
+}
+
+fn start_request(
+    state: Arc<WebState>,
+    request: AgentRunStartRequest,
+) -> AgentRunResponseResult<AgentRunStartResponse> {
+    let resolved = resolve_agent_run_source(&state, &request)?;
 
     let agent_run_id = state.agent_runs.allocate_id();
     let (control_tx, control_rx) = mpsc::channel::<AgentControl>();
@@ -286,6 +355,7 @@ pub(super) async fn start(State(state): State<Arc<WebState>>, body: Bytes) -> Ax
         program: spec.program.clone(),
         args: spec.args.clone(),
         events: Vec::new(),
+        tty_events: Vec::new(),
         controls: Vec::new(),
         outcome: None,
         error_code: None,
@@ -323,17 +393,18 @@ pub(super) async fn start(State(state): State<Arc<WebState>>, body: Bytes) -> Ax
         store.complete(&run_id_for_thread, result);
     });
 
-    (
-        StatusCode::CREATED,
-        Json(AgentRunStartResponse {
-            agent_run_id: agent_run_id.clone(),
-            status_url: format!("/api/v1/agent-runs/{agent_run_id}"),
-            control_url: format!("/api/v1/agent-runs/{agent_run_id}/control"),
-            io_mode: request.io_mode,
-            state: AgentRunState::Running,
-        }),
-    )
-        .into_response()
+    Ok(AgentRunStartResponse {
+        agent_run_id: agent_run_id.clone(),
+        status_url: format!("/api/v1/agent-runs/{agent_run_id}"),
+        events_url: format!("/api/v1/agent-runs/{agent_run_id}/events"),
+        control_url: format!("/api/v1/agent-runs/{agent_run_id}/control"),
+        export_pr_url: format!("/api/v1/agent-runs/{agent_run_id}/export_pr"),
+        ws_scope: format!("agent_run.{agent_run_id}"),
+        tty_topic: TTY_TOPIC.to_string(),
+        control_topic: CONTROL_TOPIC.to_string(),
+        io_mode: request.io_mode,
+        state: AgentRunState::Running,
+    })
 }
 
 pub(super) async fn status(
@@ -359,6 +430,100 @@ pub(super) async fn control(
         Ok(response) => Json(response).into_response(),
         Err(response) => *response,
     }
+}
+
+pub(super) async fn events(
+    State(state): State<Arc<WebState>>,
+    AxumPath(agent_run_id): AxumPath<String>,
+    Query(query): Query<AgentRunEventsQuery>,
+) -> AxumResponse {
+    match state.agent_runs.events(&agent_run_id, query) {
+        Some(response) => Json(response).into_response(),
+        None => agent_run_not_found(&agent_run_id),
+    }
+}
+
+pub(super) async fn export_pr(
+    State(state): State<Arc<WebState>>,
+    AxumPath(agent_run_id): AxumPath<String>,
+    body: Bytes,
+) -> AxumResponse {
+    let request: AgentRunExportPrRequest =
+        match parse_agent_body(&body, "export an agent run into a pull request") {
+            Ok(request) => request,
+            Err(response) => return *response,
+        };
+    match export_workcell_agent_run(&state, &agent_run_id, request) {
+        Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
+        Err(response) => *response,
+    }
+}
+
+pub(super) fn mcp_start(state: Arc<WebState>, args: Value) -> Result<Value, String> {
+    let request: AgentRunStartRequest =
+        serde_json::from_value(args).map_err(|err| err.to_string())?;
+    let response = start_request(state, request).map_err(|_| {
+        "agent_work.start failed; use the REST route for typed repair details".to_string()
+    })?;
+    serde_json::to_value(response).map_err(|err| err.to_string())
+}
+
+pub(super) fn mcp_status(state: &Arc<WebState>, args: &Value) -> Result<Value, String> {
+    let run_id = required_run_id(args)?;
+    let response = state
+        .agent_runs
+        .status(&run_id)
+        .ok_or_else(|| format!("agent run {run_id} was not found"))?;
+    serde_json::to_value(response).map_err(|err| err.to_string())
+}
+
+pub(super) fn mcp_control(state: &Arc<WebState>, args: Value) -> Result<Value, String> {
+    let run_id = required_run_id(&args)?;
+    let command_value = args
+        .get("command")
+        .cloned()
+        .ok_or_else(|| "agent_work.control requires command".to_string())?;
+    let command: AgentControlCommand =
+        serde_json::from_value(command_value).map_err(|err| err.to_string())?;
+    let response = state
+        .agent_runs
+        .send_control(&run_id, command)
+        .map_err(|_| "agent_work.control failed; use REST for typed repair details".to_string())?;
+    serde_json::to_value(response).map_err(|err| err.to_string())
+}
+
+pub(super) fn mcp_events(state: &Arc<WebState>, args: &Value) -> Result<Value, String> {
+    let run_id = required_run_id(args)?;
+    let query = AgentRunEventsQuery {
+        after_seq: args.get("after_seq").and_then(Value::as_u64),
+        limit: args
+            .get("limit")
+            .and_then(Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok()),
+    };
+    let response = state
+        .agent_runs
+        .events(&run_id, query)
+        .ok_or_else(|| format!("agent run {run_id} was not found"))?;
+    serde_json::to_value(response).map_err(|err| err.to_string())
+}
+
+pub(super) fn mcp_export_pr(state: &Arc<WebState>, args: Value) -> Result<Value, String> {
+    let run_id = required_run_id(&args)?;
+    let request: AgentRunExportPrRequest =
+        serde_json::from_value(args).map_err(|err| err.to_string())?;
+    let response = export_workcell_agent_run(state, &run_id, request).map_err(|_| {
+        "agent_work.export_pr failed; use REST for typed repair details".to_string()
+    })?;
+    serde_json::to_value(response).map_err(|err| err.to_string())
+}
+
+fn required_run_id(args: &Value) -> Result<String, String> {
+    args.get("agent_run_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+        .ok_or_else(|| "agent_run_id is required".to_string())
 }
 
 fn resolve_agent_run_source(
@@ -569,11 +734,49 @@ impl AgentRunStore {
             repo_root: record.repo_root.clone(),
             program: record.program.clone(),
             args: record.args.clone(),
+            events_url: format!("/api/v1/agent-runs/{run_id}/events"),
+            control_url: format!("/api/v1/agent-runs/{run_id}/control"),
+            export_pr_url: format!("/api/v1/agent-runs/{run_id}/export_pr"),
+            ws_scope: format!("agent_run.{run_id}"),
+            tty_topic: TTY_TOPIC.to_string(),
+            control_topic: CONTROL_TOPIC.to_string(),
             events: record.events.clone(),
+            tty_events: record.tty_events.clone(),
             controls: record.controls.clone(),
             outcome: record.outcome.clone(),
             error_code: record.error_code.clone(),
             error_message: record.error_message.clone(),
+        })
+    }
+
+    fn events(&self, run_id: &str, query: AgentRunEventsQuery) -> Option<AgentRunEventsResponse> {
+        let after_seq = query.after_seq.unwrap_or(0);
+        let limit = query.limit.unwrap_or(100).clamp(1, 1_000);
+        let inner = self.inner.lock().expect("agent run store mutex");
+        let record = inner.runs.get(run_id)?;
+        let all_events: Vec<AgentRunEvent> = record
+            .events
+            .iter()
+            .filter(|event| event.seq > after_seq)
+            .cloned()
+            .collect();
+        let has_more = all_events.len() > limit;
+        let events: Vec<AgentRunEvent> = all_events.into_iter().take(limit).collect();
+        let next_after_seq = events.last().map(|event| event.seq).unwrap_or(after_seq);
+        let tty_events = record
+            .tty_events
+            .iter()
+            .filter(|event| event.seq > after_seq && event.seq <= next_after_seq)
+            .cloned()
+            .collect();
+        Some(AgentRunEventsResponse {
+            agent_run_id: record.id.clone(),
+            after_seq,
+            next_after_seq,
+            limit,
+            has_more,
+            events,
+            tty_events,
         })
     }
 
@@ -583,6 +786,18 @@ impl AgentRunStore {
             .runs
             .get(run_id)
             .and_then(|record| record.control_tx.clone())
+    }
+
+    fn record(&self, run_id: &str) -> Option<AgentRunRecord> {
+        let inner = self.inner.lock().expect("agent run store mutex");
+        inner.runs.get(run_id).cloned()
+    }
+
+    fn mark_exported(&self, run_id: &str) {
+        let mut inner = self.inner.lock().expect("agent run store mutex");
+        if let Some(record) = inner.runs.get_mut(run_id) {
+            record.state = AgentRunState::Exported;
+        }
     }
 
     fn send_control(
@@ -671,7 +886,10 @@ impl AgentRunStore {
             return;
         };
         let seq = (record.events.len() as u64).saturating_add(1);
-        record.events.push(event.into_event(seq));
+        let event = event.into_event(seq);
+        let tty_event = tty_event_for(record, &event);
+        record.events.push(event);
+        record.tty_events.push(tty_event);
     }
 
     fn complete(&self, run_id: &str, result: Result<AgentRunResult, DriverError>) {
@@ -698,6 +916,276 @@ impl AgentRunStore {
             }
         }
     }
+}
+
+fn tty_event_for(record: &AgentRunRecord, event: &AgentRunEvent) -> AgentTtyEvent {
+    let key = stream_key_for(record);
+    let stream = match event.stream.as_deref() {
+        Some("stdout") => AgentOutputStream::Stdout,
+        Some("stderr") => AgentOutputStream::Stderr,
+        Some("pty") => AgentOutputStream::Pty,
+        _ => AgentOutputStream::Event,
+    };
+    let mut tty = if event.kind == "finished" {
+        AgentTtyEvent::finished(
+            event.seq,
+            epoch_millis(),
+            &key,
+            event.exit_code,
+            record
+                .outcome
+                .as_ref()
+                .map(|outcome| outcome.enforcement_level.clone())
+                .unwrap_or_else(|| "pending".to_string()),
+        )
+    } else {
+        AgentTtyEvent::text(
+            event.seq,
+            epoch_millis(),
+            &key,
+            stream,
+            event.text.clone().unwrap_or_else(|| event.kind.clone()),
+        )
+    };
+    if let Some(limit) = event.limit {
+        tty.budget = Some(AgentEventBudget {
+            wall_secs: 0,
+            output_bytes: limit as u64,
+            used_output_bytes: event.used.unwrap_or(0) as u64,
+        });
+    }
+    tty
+}
+
+fn stream_key_for(record: &AgentRunRecord) -> AgentRunStreamKey {
+    let workcell_id = match &record.source {
+        AgentRunSourceSnapshot::Workcell { workcell_id, .. } => workcell_id.clone(),
+        AgentRunSourceSnapshot::Repo { repo } => repo.clone(),
+        AgentRunSourceSnapshot::LocalPath { local_path } => {
+            local_path.to_string_lossy().to_string()
+        }
+        AgentRunSourceSnapshot::Scratch { name } => {
+            name.clone().unwrap_or_else(|| "scratch".to_string())
+        }
+    };
+    let repo = match &record.source {
+        AgentRunSourceSnapshot::Repo { repo } => Some(repo.clone()),
+        AgentRunSourceSnapshot::Workcell { .. }
+        | AgentRunSourceSnapshot::LocalPath { .. }
+        | AgentRunSourceSnapshot::Scratch { .. } => None,
+    };
+    AgentRunStreamKey {
+        repo,
+        workcell_id,
+        agent_run_id: record.id.clone(),
+        agent: agent_label(&record.program),
+        model: "local".to_string(),
+    }
+}
+
+fn agent_label(program: &str) -> String {
+    Path::new(program)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("agent")
+        .to_string()
+}
+
+fn epoch_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| u64::try_from(duration.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
+}
+
+fn export_workcell_agent_run(
+    state: &Arc<WebState>,
+    agent_run_id: &str,
+    request: AgentRunExportPrRequest,
+) -> AgentRunResponseResult<AgentRunExportPrResponse> {
+    let record = state
+        .agent_runs
+        .record(agent_run_id)
+        .ok_or_else(|| Box::new(agent_run_not_found(agent_run_id)))?;
+    if record.state == AgentRunState::Running {
+        return Err(boxed_agent_run_typed_error(
+            StatusCode::CONFLICT,
+            "agent_run_not_finished",
+            "export an agent run into a pull request",
+            "the run must finish before export can freeze the diff",
+            &[
+                "wait for the run to exit before exporting",
+                "reload /api/v1/agent-runs/{id} and retry with a terminal run",
+            ],
+            "rerun cargo test -p jeryu-api --features web --jobs 40 agent_runs",
+        ));
+    }
+    let (workcell_id, runner_epoch) = match &record.source {
+        AgentRunSourceSnapshot::Workcell {
+            workcell_id,
+            runner_epoch,
+            ..
+        } => (workcell_id.clone(), *runner_epoch),
+        _ => {
+            return Err(boxed_agent_run_typed_error(
+                StatusCode::FAILED_DEPENDENCY,
+                "agent_run_export_source_unavailable",
+                "export an agent run into a pull request",
+                "only workcell-backed agent runs can be exported by the current route",
+                &[
+                    "start the run from a held or repairing workcell",
+                    "wire repository and scratch source materialization before exporting those sources",
+                ],
+                "rerun cargo test -p jeryu-api --features web --jobs 40 agent_runs",
+            ));
+        }
+    };
+
+    let (lease, branch) = {
+        let mut manager = manager(state);
+        let branch_suffix = request
+            .branch_suffix
+            .clone()
+            .unwrap_or_else(|| format!("agent-run-{agent_run_id}"));
+        let branch = match manager.export_repair_branch(&workcell_id, runner_epoch, branch_suffix) {
+            Ok(branch) => branch,
+            Err(err) => return Err(Box::new(super::workcells_support::workcell_error(err))),
+        };
+        let Some(lease) = manager.workcell(&workcell_id).cloned() else {
+            return Err(Box::new(super::workcells_support::workcell_not_found(
+                &workcell_id,
+            )));
+        };
+        (lease, branch)
+    };
+
+    let target_branch = request
+        .target_branch
+        .clone()
+        .or_else(|| lease.startup_main_ref.clone())
+        .map(normalize_pr_base)
+        .unwrap_or_else(|| "main".to_string());
+    let snapshot = lease.frozen_snapshot.as_ref();
+    let head_sha = snapshot
+        .map(|snapshot| snapshot.head_sha.clone())
+        .or_else(|| lease.startup_head_sha.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let base_sha = snapshot
+        .map(|snapshot| snapshot.base_sha.clone())
+        .or_else(|| lease.startup_base_sha.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let allowed_prefixes = derive_allowed_prefixes(&lease.allowed_paths, &lease.workspace_root);
+    let bare_repo = match state
+        .repo_manager
+        .resolve_parts(&request.owner, &request.repo)
+    {
+        Ok(repository) => repository.path,
+        Err(err) => return Err(Box::new(forge_error(ForgeError::Storage(err.to_string())))),
+    };
+    let git_bin = state.repo_manager.config().git_bin.clone();
+    let changed_files = match jeryu_codegraph::enforce_export_slice(
+        &base_sha,
+        &head_sha,
+        &git_bin,
+        &bare_repo,
+        &allowed_prefixes,
+    ) {
+        Ok(files) => files,
+        Err(denied) => {
+            let message = match denied.git_error {
+                Some(git_error) => {
+                    format!("the export slice gate could not verify the diff: {git_error}")
+                }
+                None => format!(
+                    "the export changed files outside the agent-run slice: {}",
+                    denied.out_of_slice_paths.join(", ")
+                ),
+            };
+            return Err(Box::new(typed_error(TypedError {
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                code: "agent_run_export_slice_denied",
+                purpose: "export an agent run into a pull request",
+                reason: &message,
+                common_fixes: &[
+                    "restrict the agent edits to files inside the workcell's allowed paths",
+                    "reclaim the workcell with a lease that covers the changed files",
+                ],
+                docs_url: "docs/testing.md#workcells",
+                repair_hint: "rerun cargo test -p jeryu-api --features web --jobs 40 agent_runs",
+                message: &message,
+            })));
+        }
+    };
+    let pr = match state.github.core().create_pull_request(
+        &request.owner,
+        &request.repo,
+        &request.author,
+        CreatePullRequestRequest {
+            title: request.title,
+            body: request.body,
+            head: branch.clone(),
+            base: target_branch.clone(),
+            head_sha: Some(head_sha),
+            base_sha: Some(base_sha),
+            source_repository: Some(format!("{}/{}", request.owner, request.repo)),
+            draft: false,
+            commits: Vec::new(),
+            changed_files,
+        },
+    ) {
+        Ok(pr) => pr,
+        Err(err) => return Err(Box::new(forge_error(err))),
+    };
+    state.agent_runs.mark_exported(agent_run_id);
+    Ok(AgentRunExportPrResponse {
+        agent_run_id: agent_run_id.to_string(),
+        branch,
+        target_branch,
+        pull_request_number: pr.number,
+        url: format!("/{}/{}/pull/{}", pr.owner, pr.repo, pr.number),
+    })
+}
+
+fn derive_allowed_prefixes(allowed_paths: &[PathBuf], workspace_root: &Path) -> Vec<String> {
+    let prefixes: Vec<String> = allowed_paths
+        .iter()
+        .filter_map(|path| path.strip_prefix(workspace_root).ok())
+        .map(|relative| relative.to_string_lossy().to_string())
+        .collect();
+    let has_specific = prefixes.iter().any(|prefix| !prefix.is_empty());
+    if has_specific {
+        prefixes
+            .into_iter()
+            .filter(|prefix| !prefix.is_empty())
+            .collect()
+    } else {
+        prefixes
+    }
+}
+
+fn normalize_pr_base(ref_name: String) -> String {
+    let without_heads = ref_name
+        .strip_prefix("refs/heads/")
+        .unwrap_or(ref_name.as_str());
+    without_heads
+        .strip_prefix("origin/")
+        .unwrap_or(without_heads)
+        .to_string()
+}
+
+pub(super) fn snapshot_event(state: &WebState, agent_run_id: &str) -> Option<WebEvent> {
+    let status = state.agent_runs.status(agent_run_id)?;
+    let payload = serialize_payload(&status).ok()?;
+    Some(WebEvent {
+        seq: state.ws.next_seq(),
+        timestamp: super::server_time(),
+        scope: format!("agent_run.{agent_run_id}"),
+        kind: "agent_run.snapshot".to_string(),
+        entity: agent_run_id.to_string(),
+        summary: format!("agent run '{}' is {:?}", agent_run_id, status.state),
+        payload,
+    })
 }
 
 struct RecordingSink {

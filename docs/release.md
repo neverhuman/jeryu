@@ -10,6 +10,18 @@ Release process doc: [docs/release-process.md](release-process.md).
 SignRail artifact-support signing details:
 [docs/signrail-release-signing.md](signrail-release-signing.md).
 
+## Release Structure
+
+The release structure is intentionally artifact-backed:
+
+- Version source: `Cargo.toml`, `Cargo.lock`, and `jeryu-wsversion`.
+- Changelog source: `CHANGELOG.md`.
+- Release process doc: `docs/release-process.md`.
+- Release control surface: `docs/release.md`.
+- CI or script evidence: `target/ci-fast/publish.json` and `target/jankurai/`.
+- Integrity and provenance evidence: `target/artifact-support/signrail/`.
+- Rollback guidance: `docs/release.md#rollback`.
+
 ## Version Source
 
 - `jeryu-wsversion` owns workspace version decisions. `decide` classifies the

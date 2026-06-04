@@ -29,12 +29,20 @@ pub(crate) enum ToolKind {
     WorkcellRepairLive,
     WorkcellExportPr,
     WorkcellRelease,
+    AgentWorkStart,
+    AgentWorkStatus,
+    AgentWorkControl,
+    AgentWorkEvents,
+    AgentWorkExportPr,
     CodeSymbolsSearch,
     CodeDefinition,
     CodeImpact,
     CodeCrateReverseDeps,
     CodeReferences,
     CodegraphQuery,
+    CodegraphToolBuildStatus,
+    CodegraphToolBuildClusters,
+    CodegraphToolBuildFeedback,
 }
 
 #[derive(Debug, Clone)]
@@ -179,30 +187,84 @@ impl ToolDefinition {
                 "workcell_id": s("workcell_id")?,
                 "runner_epoch": i("runner_epoch")?,
             }),
+            ToolKind::AgentWorkStart => {
+                if args.get("source").is_none() || args.get("program").is_none() {
+                    return None;
+                }
+                args.clone()
+            }
+            ToolKind::AgentWorkStatus => serde_json::json!({
+                "agent_run_id": s("agent_run_id")?,
+            }),
+            ToolKind::AgentWorkControl => serde_json::json!({
+                "agent_run_id": s("agent_run_id")?,
+                "command": args.get("command")?.clone(),
+            }),
+            ToolKind::AgentWorkEvents => serde_json::json!({
+                "agent_run_id": s("agent_run_id")?,
+                "after_seq": args.get("after_seq").and_then(Value::as_i64),
+                "limit": args.get("limit").and_then(Value::as_i64),
+            }),
+            ToolKind::AgentWorkExportPr => serde_json::json!({
+                "agent_run_id": s("agent_run_id")?,
+                "owner": s("owner")?,
+                "repo": s("repo")?,
+                "author": s("author")?,
+                "branch_suffix": opt_s("branch_suffix"),
+                "target_branch": opt_s("target_branch"),
+                "title": s("title")?,
+                "body": opt_s("body"),
+            }),
             ToolKind::CodeSymbolsSearch => serde_json::json!({
                 "query": s("query")?,
+                "repo": opt_s("repo"),
                 "limit": args.get("limit").and_then(Value::as_i64),
             }),
             ToolKind::CodeDefinition => serde_json::json!({
                 "symbol": s("symbol")?,
+                "repo": opt_s("repo"),
             }),
             ToolKind::CodeImpact => serde_json::json!({
                 "changed_paths": parse_string_array(args.get("changed_paths")?)?,
+                "repo": opt_s("repo"),
             }),
             ToolKind::CodeCrateReverseDeps => serde_json::json!({
                 "crate_name": s("crate_name")?,
+                "repo": opt_s("repo"),
             }),
             ToolKind::CodeReferences => serde_json::json!({
                 "symbol": s("symbol")?,
+                "repo": opt_s("repo"),
             }),
             ToolKind::CodegraphQuery => serde_json::json!({
+                "repo": opt_s("repo"),
+                "ref": opt_s("ref"),
                 "changed_paths": args
                     .get("changed_paths")
                     .and_then(parse_string_array)
                     .unwrap_or_default(),
+                "intent": opt_s("intent"),
+                "question": opt_s("question"),
                 "symbol": opt_s("symbol"),
                 "crate_name": opt_s("crate_name"),
                 "limit": args.get("limit").and_then(Value::as_i64),
+                "max_tokens": args.get("max_tokens").and_then(Value::as_i64),
+            }),
+            ToolKind::CodegraphToolBuildStatus => serde_json::json!({
+                "repo": opt_s("repo"),
+            }),
+            ToolKind::CodegraphToolBuildClusters => serde_json::json!({
+                "repo": opt_s("repo"),
+                "limit": args.get("limit").and_then(Value::as_i64),
+                "include_ignored": args
+                    .get("include_ignored")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+            }),
+            ToolKind::CodegraphToolBuildFeedback => serde_json::json!({
+                "cluster_id": s("cluster_id")?,
+                "reason": s("reason")?,
+                "ignored_by": opt_s("ignored_by").unwrap_or_else(|| "mcp".to_string()),
             }),
         };
         Some(out)

@@ -25,4 +25,13 @@ pub enum CodeGraphError {
         #[source]
         source: std::io::Error,
     },
+
+    /// Governance metadata parse failure.
+    #[error("governance error at {path}: {message}")]
+    Governance {
+        /// Path that triggered the failure.
+        path: String,
+        /// Parse or validation message.
+        message: String,
+    },
 }

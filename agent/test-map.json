@@ -91,6 +91,11 @@
       "purpose": "verify agent ownership, proof routing, and generated-zone maps",
       "lane": "jankurai-proof"
     },
+    "agent/native-cli-manifest.toml": {
+      "command": "cargo test -p jeryu-agent-auth -p jeryu-agent-stream -p jeryu-cli -p jeryu-mcp --jobs 40",
+      "purpose": "verify native CLI manifest digest pins, auth/stream contracts, CLI surfaces, and MCP agent-work/codegraph contracts",
+      "lane": "agent-substrate"
+    },
     "agent/ci-lanes.toml": {
       "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-repogate -- ci-lanes-check",
       "purpose": "verify the CI lane manifest matches hosted workflows and local CI entrypoints",
@@ -130,6 +135,16 @@
       "command": "cargo test -p jeryu-api --features web --jobs 40",
       "purpose": "verify GitHub-compatible REST, guided GraphQL, and local web API behavior",
       "lane": "api"
+    },
+    "crates/jeryu-agent-auth/": {
+      "command": "cargo test -p jeryu-agent-auth --jobs 40",
+      "purpose": "verify portable agent auth import, doctor, per-run materialization, and typed denial contracts",
+      "lane": "agent-substrate"
+    },
+    "crates/jeryu-agent-stream/": {
+      "command": "cargo test -p jeryu-agent-stream --jobs 40",
+      "purpose": "verify agent-run TTY/control event contracts and the in-memory stream bus",
+      "lane": "agent-substrate"
     },
     "crates/jeryu-readmodel/": {
       "command": "cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck",
@@ -211,6 +226,11 @@
       "purpose": "verify the repository codegraph oracle REST facade and typed repair guidance",
       "lane": "api"
     },
+    "crates/jeryu-api/src/web/tool_build.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 tool_build",
+      "purpose": "verify tool-build status, cluster listing, and typed feedback repair bodies",
+      "lane": "api"
+    },
     "crates/jeryu-egress/": {
       "command": "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
       "purpose": "verify the Rung 4 allowlist egress proxy and in-cell agent driver contracts",
@@ -237,8 +257,8 @@
       "lane": "release-provenance"
     },
     "crates/jeryu-codegraph/": {
-      "command": "cargo test -p jeryu-codegraph --jobs 40 && bash ops/ci/codegraph-oracle.sh",
-      "purpose": "verify schema v2 codegraph storage, references, impact analysis, MCP tools, and the API oracle facade",
+      "command": "cargo test -p jeryu-codegraph --jobs 40 && bash ops/ci/codegraph-oracle.sh && bash ops/ci/codegraph-tool-build.sh",
+      "purpose": "verify schema v3 codegraph storage, references, impact analysis, MCP tools, API oracle facade, and tool-build insight clusters",
       "lane": "rust-ci"
     },
     "crates/jeryu-mcp/": {
@@ -281,6 +301,16 @@
       "purpose": "verify docs stay complete enough for agents",
       "lane": "docs"
     },
+    "docs/codegraph-oracle.md": {
+      "command": "cargo run -q -p jeryu-mapcheck -- docs && cargo test -p jeryu-codegraph --jobs 40 oracle",
+      "purpose": "verify the codegraph oracle contract docs stay matched to the executable oracle proof",
+      "lane": "docs"
+    },
+    "docs/codegraph-tool-build.md": {
+      "command": "cargo run -q -p jeryu-mapcheck -- docs && bash ops/ci/codegraph-tool-build.sh",
+      "purpose": "verify tool-build insight docs stay matched to scanner/MCP/API proof",
+      "lane": "docs"
+    },
     "examples/": {
       "command": "./scripts/ci-doctor.sh",
       "purpose": "verify example fixtures remain local-only",
@@ -298,7 +328,12 @@
     },
     "ops/ci/codegraph-oracle.sh": {
       "command": "bash ops/ci/codegraph-oracle.sh",
-      "purpose": "verify the schema v2 codegraph oracle API/MCP contract lane",
+      "purpose": "verify the schema v3 codegraph oracle API/MCP contract lane",
+      "lane": "rust-ci"
+    },
+    "ops/ci/codegraph-tool-build.sh": {
+      "command": "bash ops/ci/codegraph-tool-build.sh",
+      "purpose": "verify the codegraph tool-build scanner, MCP catalog, API facade, and CLI smoke lane",
       "lane": "rust-ci"
     },
     "ops/ci/publish-readme-score.sh": {

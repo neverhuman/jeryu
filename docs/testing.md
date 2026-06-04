@@ -66,7 +66,10 @@ Primary lanes:
 - `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`: the integrated R5 proof lane. It claims a live workcell, rebases it onto `origin/main`, runs a jailed edit inside the checkout, exports a namespaced branch with `changed_files`, opens the pull request, and verifies CI evidence for the resulting head sha.
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`: route-level proof for `POST /api/v1/workcells/{id}/run_agent`. It claims a repo-root slice, proves an out-of-root program returns typed `workcell_run_path_denied`, then runs a staged in-root program and verifies structured stdout/stderr/finish events when the host sandbox is available.
-- `cargo test -p jeryu-api --features web --jobs 40 agent_runs`: high-level proof for `POST /api/v1/agent-runs`. It launches from a held or repairing failed-CI workcell, validates epoch and path fencing, verifies live PTY events/control recording, and proves unsupported/finished controls return typed repair bodies.
+- `cargo test -p jeryu-api --features web --jobs 40 agent_runs`: high-level proof for `POST /api/v1/agent-runs`. It launches from a held or repairing failed-CI workcell, validates epoch and path fencing, verifies live PTY events/control recording, proves cursor-safe `/events` resume reads, and proves unsupported/finished controls plus unfinished export attempts return typed repair bodies.
+- `cargo test -p jeryu-agent-auth -p jeryu-agent-stream --jobs 40`: portable native CLI auth receipts and broker-compatible TTY/control stream contracts.
+- `cargo test -p jeryu-mcp -p jeryu-cli --jobs 40`: `agent_work.start/status/control/events/export_pr` MCP catalog/memory fallback and `jeryu agent ...` CLI grammar/live URL dispatch.
+- `cargo test -p jeryu-agent-auth -p jeryu-agent-stream -p jeryu-cli -p jeryu-mcp --jobs 40`: companion proof for portable native CLI auth receipts, broker-compatible TTY/control event schemas, `jeryu agent ...`, and MCP `agent_work.*` subscription/control tools.
 - `cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40`: read-model/TUI proof for agent runs, live TTY status, held failed-CI workcells, repair/export state, and codegraph/oracle evidence.
 - `cargo test -p jeryu-sandbox-linux --jobs 40 pty` and `cargo test -p jeryu-agentbridge --test pty_driver --jobs 40`: PTY launch, TTY ioctl policy, process-group signaling, resize/control, and final-drain proof.
 - `cargo run -p jeryu-sandbox-linux --example jail_demo`: the live folder-jail demo (Rung 1, see `docs/workcell.md`). Drives the production launch path against a throwaway checkout and exits non-zero unless write-inside is ALLOWED and write-outside, `/etc/shadow` read, and an `AF_INET` socket are each DENIED (or a host-absent primitive is honestly skipped). Run it on a fleet node where Landlock + seccomp are present.
@@ -88,7 +91,7 @@ regressing — each test asserts a discriminating signal, not a tautology):
 
 ## Codegraph Oracle
 
-- `cargo test -p jeryu-codegraph --jobs 40`: schema-v2 storage, symbol
+- `cargo test -p jeryu-codegraph --jobs 40`: schema-v3 storage, symbol
   references, impact, reverse dependencies, and oracle pack construction.
 - `cargo test -p jeryu-mcp --test mcp_conformance --jobs 40`: MCP catalog
   proof for `code.symbols.search`, `code.definition`, `code.impact`,
@@ -96,8 +99,20 @@ regressing — each test asserts a discriminating signal, not a tautology):
 - `cargo test -p jeryu-api --features web --jobs 40 codegraph`: REST facade
   proof for `POST /api/v1/repos/{id}/codegraph/query` and typed repair
   guidance.
-- `bash ops/ci/codegraph-oracle.sh`: the composed schema-v2 API/MCP contract
+- `bash ops/ci/codegraph-oracle.sh`: the composed schema-v3 API/MCP contract
   lane.
+
+## Codegraph Tool-Build Insights
+
+- `cargo test -p jeryu-codegraph --jobs 40 tool_build`: fast normalized-window
+  cluster scan, persistence, and ignore feedback.
+- `cargo test -p jeryu-mcp --test mcp_conformance --jobs 40`: MCP catalog
+  proof for `codegraph.tool_build.status`, `codegraph.tool_build.clusters`, and
+  `codegraph.tool_build.feedback`.
+- `cargo test -p jeryu-api --features web --jobs 40 tool_build`: REST facade
+  proof for status, ranked clusters, and typed feedback repair bodies.
+- `bash ops/ci/codegraph-tool-build.sh`: composed scanner/MCP/API/CLI smoke
+  lane. It writes `target/jankurai/codegraph-tool-build-{scan,clusters}.json`.
 
 PENDING is only allowed for a capability that is not built yet and must be
 printed as PENDING, not PASS. The current phase gates report PASS=10,

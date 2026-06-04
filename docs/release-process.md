@@ -30,7 +30,7 @@ Run these from the canonical repository root before creating a release receipt:
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the jailed workcell edit, namespaced branch export, PR creation, or CI evidence flow changes.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API routes or repair bodies change.
-- `bash ops/ci/codegraph-oracle.sh` when the schema-v2 codegraph oracle API or
+- `bash ops/ci/codegraph-oracle.sh` when the schema-v3 codegraph oracle API or
   MCP contract changes.
 - `cargo test -p jeryu-signrail --jobs 40 verify_release` when SignRail release
   verification changes.

@@ -242,26 +242,104 @@ pub(super) fn tool_input_schema(action_id: &str) -> Option<Value> {
                 ("runner_epoch", integer_schema()),
             ],
         ),
+        "agent_work.start" => object_schema(
+            &["source", "program"],
+            &[
+                ("source", serde_json::json!({"type": "object"})),
+                ("io_mode", enum_schema(&["pty", "pipe"])),
+                ("repo_root", string_schema()),
+                ("program", string_schema()),
+                ("args", array_schema(string_schema())),
+                ("env", serde_json::json!({"type": "object"})),
+                ("prompt", string_schema()),
+                ("budget", serde_json::json!({"type": "object"})),
+                ("require_cgroup", serde_json::json!({"type": "boolean"})),
+            ],
+        ),
+        "agent_work.status" => {
+            object_schema(&["agent_run_id"], &[("agent_run_id", string_schema())])
+        }
+        "agent_work.control" => object_schema(
+            &["agent_run_id", "command"],
+            &[
+                ("agent_run_id", string_schema()),
+                ("command", serde_json::json!({"type": "object"})),
+            ],
+        ),
+        "agent_work.events" => object_schema(
+            &["agent_run_id"],
+            &[
+                ("agent_run_id", string_schema()),
+                ("after_seq", integer_schema()),
+                ("limit", integer_schema()),
+            ],
+        ),
+        "agent_work.export_pr" => object_schema(
+            &["agent_run_id", "owner", "repo", "author", "title"],
+            &[
+                ("agent_run_id", string_schema()),
+                ("owner", string_schema()),
+                ("repo", string_schema()),
+                ("author", string_schema()),
+                ("branch_suffix", string_schema()),
+                ("target_branch", string_schema()),
+                ("title", string_schema()),
+                ("body", string_schema()),
+            ],
+        ),
         "code.symbols.search" => object_schema(
             &["query"],
-            &[("query", string_schema()), ("limit", integer_schema())],
+            &[
+                ("query", string_schema()),
+                ("repo", string_schema()),
+                ("limit", integer_schema()),
+            ],
         ),
-        "code.definition" => object_schema(&["symbol"], &[("symbol", string_schema())]),
+        "code.definition" => object_schema(
+            &["symbol"],
+            &[("symbol", string_schema()), ("repo", string_schema())],
+        ),
         "code.impact" => object_schema(
             &["changed_paths"],
-            &[("changed_paths", array_schema(string_schema()))],
+            &[
+                ("changed_paths", array_schema(string_schema())),
+                ("repo", string_schema()),
+            ],
         ),
-        "code.crate.reverse_deps" => {
-            object_schema(&["crate_name"], &[("crate_name", string_schema())])
-        }
-        "code.references" => object_schema(&["symbol"], &[("symbol", string_schema())]),
+        "code.crate.reverse_deps" => object_schema(
+            &["crate_name"],
+            &[("crate_name", string_schema()), ("repo", string_schema())],
+        ),
+        "code.references" => object_schema(
+            &["symbol"],
+            &[("symbol", string_schema()), ("repo", string_schema())],
+        ),
         "codegraph.query" => object_schema(
             &[],
             &[
+                ("repo", string_schema()),
+                ("ref", string_schema()),
                 ("changed_paths", array_schema(string_schema())),
-                ("symbol", string_schema()),
-                ("crate_name", string_schema()),
+                ("intent", string_schema()),
+                ("question", string_schema()),
+                ("max_tokens", integer_schema()),
+            ],
+        ),
+        "codegraph.tool_build.status" => object_schema(&[], &[("repo", string_schema())]),
+        "codegraph.tool_build.clusters" => object_schema(
+            &[],
+            &[
+                ("repo", string_schema()),
                 ("limit", integer_schema()),
+                ("include_ignored", serde_json::json!({"type": "boolean"})),
+            ],
+        ),
+        "codegraph.tool_build.feedback" => object_schema(
+            &["cluster_id", "reason"],
+            &[
+                ("cluster_id", string_schema()),
+                ("reason", string_schema()),
+                ("ignored_by", string_schema()),
             ],
         ),
         _ => return None,
