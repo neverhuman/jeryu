@@ -28,6 +28,7 @@ pub mod watchdog;
 pub use capability::{EnforcementLevel, SandboxCapabilities};
 pub use escape::{EscapeVerdict, run_in_forked_child};
 pub use launch::{
-    EnforcementReport, SandboxError, SandboxResult, spawn_sandboxed, verify_enforcement,
+    ChildIo, EnforcementReport, SandboxError, SandboxResult, open_pty, spawn_sandboxed,
+    spawn_sandboxed_with_io, verify_enforcement,
 };
 pub use watchdog::{WatchdogOutcome, run_with_watchdog};
