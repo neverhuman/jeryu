@@ -81,7 +81,7 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Agent, review, MCP, and read models | `jeryu-mcp`, `jeryu-agentbridge`, `jeryu-autonomy`, `jeryu-review`, `jeryu-bugtracker`, `jeryu-readmodel`, `jeryu-tui` |
 | CI IR, scheduler, cache/artifact planning | `jeryu-ci-ir`, `jeryu-ci-compiler`, `jeryu-ci-scheduler`, `jeryu-cache-policy`, `jeryu-artifact-metadata`, `jeryu-ci-bin` |
 | Runner fabric and workcells | `jeryu-runner-core`, `jeryu-runner-native`, `jeryu-runner-microvm`, `jeryu-runner-oci`, `jeryu-runner-protocol`, `jeryu-runner-registry`, `jeryu-runnerd`, `jeryu-sandbox-linux`, `jeryu-agentbridge`, `jeryu-egress` |
-| Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
+| Rust CI acceleration and code context | `jeryu-rustjet`, `jeryu-rustjet-cli`, `jeryu-codegraph` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
 | Release provenance and compliance | `jeryu-wsversion`, `jeryu-signrail`, `jeryu-signing`, `jeryu-compliance-export`, `jeryu-lifecycle` |
@@ -193,6 +193,7 @@ cargo run -p jeryu-api --features web -- web serve \
 
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
+`/api/v1/repos/{id}/codegraph/query`,
 `/api/v1/ecosystem`, `/api/v1/ci/runs/{id}/evidence`,
 `/api/v1/workcells/{id}/run_agent`, `/api/v1/agent-runs`,
 `/api/v1/repos/{id}/codegraph/query`,
@@ -205,6 +206,8 @@ digest-verifiable CI evidence, ranked local priorities, and explicit mirror or
 artifact absence for clients that need agent-readable state before choosing a
 mutation path. The bootstrap payload also carries the `workcells` feature flag
 and the live workcell dashboard snapshot inside the typed TUI model.
+The codegraph query route and `jeryu.codegraph.query` MCP tool return the
+Rust/Cargo impact pack documented in `docs/codegraph-oracle.md`.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 

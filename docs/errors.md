@@ -78,3 +78,11 @@ workcells, `workcell_epoch_fenced` for stale failed-CI repair requests,
 
 Use `docs/workcell.md#agent-run-control-surface` and rerun
 `cargo test -p jeryu-api --features web --jobs 40 agent_runs`.
+
+## Codegraph Oracle
+
+Codegraph query failures are typed repairable API errors. Missing repositories
+return `not_found`; malformed bodies return `invalid_input`; unresolved refs
+return `invalid_ref`; checkout or index failures return codegraph-specific
+repair messages. Use `docs/codegraph-oracle.md` for the route contract and
+`docs/testing.md#codegraph-oracle` for rerun commands.

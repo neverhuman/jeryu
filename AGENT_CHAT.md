@@ -2614,3 +2614,9 @@ Claiming `/tmp/jeryu-consolidate-main` for Jeryu publication blocker fixes only,
 
 - Scope: adding local-first JMCP/control-plane read model, REST routes, MCP tools, CLI commands, and the web `/intelligence` surface. New public paths are being mapped in `agent/owner-map.json` and `agent/test-map.json`.
 - Invariants held: GitHub mirror data is read-only optional evidence, missing artifacts are explicit absence evidence, and agent-run/workcell sandbox guards are not relaxed.
+
+## 2026-06-04T08:33Z - Codex codegraph oracle branch
+
+- Created clean linked Jeryu worktree `/home/ubuntu/jeryu-codegraph-oracle` because canonical `/home/ubuntu/jeryu` had unrelated dirty workcell changes. Branch: `codex/jeryu-codegraph-oracle`.
+- Added `jeryu-codegraph` oracle contract/service/CLI query path with Rust/Cargo exact impact, governance ingestion, SQLite metadata/index receipts, provenance-bearing context files, and heuristic-only exclusions.
+- Added `POST /api/v1/repos/{id}/codegraph/query` plus live `/mcp` `jeryu.codegraph.query` routing over hosted repo/ref materialization. Focused proof run so far: `cargo test -p jeryu-codegraph --jobs 40`, `cargo test -p jeryu-api --features web --jobs 40 codegraph`, `cargo test -p jeryu-mcp --jobs 40`.
