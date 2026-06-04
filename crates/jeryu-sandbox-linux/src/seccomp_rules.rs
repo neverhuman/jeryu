@@ -24,6 +24,10 @@ use std::collections::BTreeMap;
 const AF_UNIX: u64 = libc::AF_UNIX as u64;
 const AF_NETLINK: u64 = libc::AF_NETLINK as u64;
 
+/// `TIOCSTI` ioctl request — terminal stdin injection. Denied under the `pty`
+/// group so a jailed agent cannot forge input into its controlling terminal.
+const TIOCSTI: u64 = libc::TIOCSTI;
+
 type RuleMap = BTreeMap<i64, Vec<SeccompRule>>;
 
 /// Build the rule map for the given allow-group names. Unknown group names are
@@ -58,6 +62,20 @@ pub fn build_rules(
                 // denied by falling through to the default EPERM.
                 add_local_socket_rule(&mut conditional)?;
             }
+            "pty" => {
+                // A jailed agent driven through a PTY (controlling terminal)
+                // needs `setsid` to lead its own session, and `ioctl` for tty
+                // setup (TIOCSCTTY/TIOCGWINSZ/TIOCSWINSZ/tc[gs]etattr). But it
+                // must NOT be able to `ioctl(TIOCSTI)` — terminal stdin injection
+                // forges input into the controlling tty's queue, the classic
+                // controlling-tty escape. So `ioctl` becomes CONDITIONAL: every
+                // request EXCEPT TIOCSTI is allowed; TIOCSTI falls through to the
+                // default EPERM. This conditional rule overrides the
+                // unconditional `ioctl` from `file-readwrite-workspace` (the
+                // conditional map is merged first; see `build_rules`).
+                push_all(&mut allowed, PTY_GROUP);
+                add_pty_ioctl_rule(&mut conditional)?;
+            }
             _ => { /* forward-compatible: ignore unknown groups */ }
         }
     }
@@ -87,6 +105,21 @@ fn add_local_socket_rule(rules: &mut RuleMap) -> Result<(), Box<dyn std::error::
         )?])?);
     }
     rules.insert(libc::SYS_socket, socket_rules);
+    Ok(())
+}
+
+/// Add a conditional `ioctl` rule that allows every request EXCEPT `TIOCSTI`
+/// (terminal stdin injection — the classic controlling-tty escape). A TIOCSTI
+/// request fails the `arg1 != TIOCSTI` condition, misses the rule, and hits the
+/// default `EPERM`; benign tty ioctls (window size, termios) still pass.
+fn add_pty_ioctl_rule(rules: &mut RuleMap) -> Result<(), Box<dyn std::error::Error>> {
+    let rule = SeccompRule::new(vec![SeccompCondition::new(
+        1, // arg1 == the ioctl request number
+        SeccompCmpArgLen::Dword,
+        SeccompCmpOp::Ne,
+        TIOCSTI,
+    )?])?;
+    rules.insert(libc::SYS_ioctl, vec![rule]);
     Ok(())
 }
 
@@ -216,6 +249,11 @@ const FILE_RW: &[i64] = &[
 
 /// Futex + thread parking.
 const FUTEX_GROUP: &[i64] = &[libc::SYS_futex, libc::SYS_futex_waitv];
+
+/// PTY / controlling-terminal support: `setsid` to lead a session. `ioctl` is
+/// added separately as a CONDITIONAL rule (`add_pty_ioctl_rule`) that allows
+/// every request except `TIOCSTI`.
+const PTY_GROUP: &[i64] = &[libc::SYS_setsid];
 
 /// Legacy / arch-specific syscalls present on x86_64 (and most CISC arches) but
 /// NOT on newer arch ABIs (aarch64/riscv64 dropped the bare `open`, `stat`,
@@ -352,5 +390,52 @@ mod tests {
         let rules = build_rules(&groups, arch()).unwrap_or_else(|e| panic!("{e}"));
         // Still has baseline, no panic.
         assert!(rules.contains_key(&libc::SYS_read));
+    }
+
+    #[test]
+    fn pty_group_makes_ioctl_conditional_to_block_tiocsti() {
+        let arch = arch();
+        // Without the pty group, file-readwrite-workspace allows ioctl
+        // UNCONDITIONALLY (empty rule vec) — the existing behaviour.
+        let no_pty = build_rules(&["file-readwrite-workspace".to_string()], arch)
+            .unwrap_or_else(|e| panic!("{e}"));
+        let io = no_pty.get(&libc::SYS_ioctl).expect("ioctl present");
+        assert!(
+            io.is_empty(),
+            "without the pty group, ioctl is unconditionally allowed"
+        );
+        // With the pty group, ioctl becomes CONDITIONAL (the TIOCSTI-blocking
+        // rule) and setsid is allowed. Flip-the-guard: remove the `pty` arm or
+        // the conditional rule and this assertion goes red.
+        let with_pty = build_rules(
+            &["file-readwrite-workspace".to_string(), "pty".to_string()],
+            arch,
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        let io = with_pty.get(&libc::SYS_ioctl).expect("ioctl present");
+        assert!(
+            !io.is_empty(),
+            "with the pty group, ioctl MUST be conditional (TIOCSTI denied), never blanket-allowed"
+        );
+        assert!(
+            with_pty.contains_key(&libc::SYS_setsid),
+            "the pty group must allow setsid"
+        );
+    }
+
+    #[test]
+    fn pty_profile_compiles_to_bpf() {
+        let groups = vec![
+            "process-basic".to_string(),
+            "file-readwrite-workspace".to_string(),
+            "futex".to_string(),
+            "time".to_string(),
+            "pty".to_string(),
+        ];
+        let prog = compile(&groups, arch()).unwrap_or_else(|e| panic!("{e}"));
+        assert!(
+            !prog.is_empty(),
+            "pty profile must compile to a non-empty BPF program"
+        );
     }
 }
