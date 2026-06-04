@@ -24,6 +24,22 @@ SignRail artifact-support signing details:
 - SignRail artifact-support evidence uses the Git commit SHA as its release
   version unless the caller sets `SIGNRAIL_RELEASE_VERSION`.
 
+### Main Push Version Bridge
+
+When local Jeryu receives a non-delete update to `refs/heads/main`, the API
+push bridge runs `jeryu-wsversion` in a temporary clone of the bare repo. It
+decides the bump from the pushed range, applies the root workspace version and
+changelog update, commits `chore(release): vX [skip-version]`, and pushes that
+commit back to local `main`. The `[skip-version]` marker is the recursion guard:
+the generated release commit is evidence for the next release receipt, but it
+does not trigger another version bump.
+
+This bridge does not tag, sign, publish artifacts, or bypass the PR-backed
+release process. It only keeps the workspace version source aligned after local
+`main` advances. Concurrent deliveries may race to write the same bump; the
+first push wins and rejected duplicate pushes leave the single release bump on
+`main`.
+
 ## Required Gates
 
 - `bash ci-fast-push.sh --full --no-push`

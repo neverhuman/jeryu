@@ -93,6 +93,11 @@ SignRail release signing for artifact-support bundles is documented in
 `dev-canary`, and `prod` after release provenance reaches 100% signature
 coverage.
 
+Workspace version decisions are owned by `jeryu-wsversion`. The local API push
+bridge invokes it after `refs/heads/main` advances, writes a single
+`[skip-version]` release bump commit, and leaves artifact signing, tagging, and
+rollback evidence to the normal `docs/release.md` process.
+
 Workcells let any code-editing actor work **folder-jailed** in a ready-to-go
 cell and leave only as a PR. The in-cell agent driver (`jeryu-agentbridge`)
 spawns the code-writing process through the native, unprivileged

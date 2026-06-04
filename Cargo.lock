@@ -1404,6 +1404,7 @@ dependencies = [
  "jeryu-readmodel",
  "jeryu-runner-core",
  "jeryu-runnerd",
+ "jeryu-wsversion",
  "reqwest",
  "serde",
  "serde_json",
