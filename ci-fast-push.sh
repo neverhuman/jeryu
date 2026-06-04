@@ -18,12 +18,14 @@ PR_DRAFT="${JERYU_CI_PR_DRAFT:-1}"
 PR_BASE="${JERYU_CI_PR_BASE:-main}"
 PR_TITLE="${JERYU_CI_PR_TITLE:-}"
 BASE_REF="${JERYU_CI_BASE_REF:-origin/main}"
+PUBLISH_FILE="${JERYU_CI_PUBLISH_FILE:-target/ci-fast/publish.json}"
 PLAN="target/ci-fast/affected-plan.json"
 CHANGED_LIST="target/ci-fast/changed.lst"
 UNTRACKED_LIST="target/ci-fast/untracked.lst"
 START=$(date +%s)
 fail=0
 declare -a RESULTS
+rm -f "$PUBLISH_FILE"
 
 for arg in "$@"; do
   case "$arg" in
@@ -48,6 +50,24 @@ run_step() {
   fi
 }
 
+write_publish_metadata() {
+  local mode="$1" branch="$2" base="$3" pr_url="${4:-}" pr_number="${5:-}" direct_escape="${6:-false}"
+  local commit; commit="$(git rev-parse HEAD)"
+  mkdir -p "$(dirname "$PUBLISH_FILE")"
+  jq -n \
+    --arg schema "jeryu.ci-fast-push.publish/v1" \
+    --arg mode "$mode" \
+    --arg branch "$branch" \
+    --arg base "$base" \
+    --arg commit "$commit" \
+    --arg pr_url "$pr_url" \
+    --arg pr_number "$pr_number" \
+    --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg direct_escape "$direct_escape" \
+    '{schema:$schema,mode:$mode,branch:$branch,base:$base,commit:$commit,generated_at:$generated_at,generated_by:"ci-fast-push.sh",direct_main_escape:($direct_escape=="true"),pr:{url:$pr_url,number:$pr_number}}' \
+    > "$PUBLISH_FILE"
+  echo "publication metadata: $PUBLISH_FILE"
+}
 jeryu_gate() {
   local crate="$1"; shift
   if [ "$crate" = "jeryu-repogate" ]; then
@@ -209,10 +229,13 @@ open_or_report_pr() {
     return 1
   fi
 
-  local existing
-  existing="$(gh pr view "$branch" --json url --jq .url 2>/dev/null || true)"
-  if [ -n "$existing" ]; then
-    echo "PR already open: $existing"
+  local existing_json existing_url existing_number
+  existing_json="$(gh pr view "$branch" --json number,url --jq '{number:.number,url:.url}' 2>/dev/null || true)"
+  if [ -n "$existing_json" ]; then
+    existing_url="$(jq -r '.url // ""' <<<"$existing_json")"
+    existing_number="$(jq -r '(.number // "") | tostring' <<<"$existing_json")"
+    echo "PR already open: $existing_url"
+    write_publish_metadata pr "$branch" "$PR_BASE" "$existing_url" "$existing_number"
     return 0
   fi
 
@@ -225,7 +248,23 @@ open_or_report_pr() {
   else
     args+=(--fill)
   fi
-  gh pr create "${args[@]}"
+  local created_output pr_json pr_url pr_number
+  if ! created_output="$(gh pr create "${args[@]}")"; then
+    return 1
+  fi
+  printf '%s\n' "$created_output"
+  pr_json="$(gh pr view "$branch" --json number,url --jq '{number:.number,url:.url}' 2>/dev/null || true)"
+  pr_url="$(jq -r '.url // ""' <<<"${pr_json:-{}}")"
+  pr_number="$(jq -r '(.number // "") | tostring' <<<"${pr_json:-{}}")"
+  if [ -z "$pr_url" ]; then
+    pr_url="$(printf '%s\n' "$created_output" | sed -nE 's#.*(https://[^[:space:]]+/pull/[0-9]+).*#\1#p' | head -1)"
+  fi
+  if [ -z "$pr_number" ] && [ -n "$pr_url" ]; then
+    pr_number="$(printf '%s\n' "$pr_url" | sed -nE 's#.*/pull/([0-9]+).*#\1#p' | head -1)"
+  fi
+  [ -n "$pr_url" ] || { echo "could not resolve PR URL for $branch" >&2; return 1; }
+  [ -n "$pr_number" ] || { echo "could not resolve PR number for $branch" >&2; return 1; }
+  write_publish_metadata pr "$branch" "$PR_BASE" "$pr_url" "$pr_number"
 }
 
 run_step "ci profile" jeryu_ci_profile_summary
@@ -333,6 +372,7 @@ if [ "$PUSH_MAIN" = "1" ]; then
   printf '\033[1;36m▶ pushing %s -> origin main (--push-main)\033[0m\n' "$branch"
   if git push origin HEAD:main; then
     printf '\033[32m✓ pushed to origin main\033[0m\n'
+    write_publish_metadata direct-main "$branch" main "" "" true
   else
     printf '\033[31m✗ push rejected — integrate latest main and retry\033[0m\n'
     exit 1

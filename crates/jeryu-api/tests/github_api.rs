@@ -89,7 +89,7 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     // Open a PR. GitHub-shaped: `number`, `head`/`base` refs, `state` = open.
     let opened = router.post(
         "/repos/alice/jeryu/pulls",
-        r#"{"title":"add feature","head":"feature","base":"main","head_sha":"deadbeef","actor":"alice"}"#,
+        r#"{"title":"add feature","head":"feature","base":"main","head_sha":"deadbeef","actor":"alice","source_repository":"fork-owner/jeryu"}"#,
     );
     assert_eq!(opened.status, 201, "open pr: {}", opened.body);
     let pr = body(&opened);
@@ -99,6 +99,7 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     assert_eq!(pr["head"]["ref"], "feature");
     assert_eq!(pr["head"]["sha"], "deadbeef");
     assert_eq!(pr["base"]["ref"], "main");
+    assert_eq!(pr["source_repository"], "fork-owner/jeryu");
     let legacy_id_key = ["i", "id"].concat();
     assert!(
         pr.get(&legacy_id_key).is_none(),
@@ -194,6 +195,42 @@ fn full_pull_request_lifecycle_create_check_status_protect_and_merge() {
     let after_body = body(&after);
     assert_eq!(after_body["state"], "closed");
     assert_eq!(after_body["merged"], true);
+}
+
+#[test]
+fn fork_source_repository_still_requires_signed_commits() {
+    let router = router_with_repo();
+
+    let protect = router.put(
+        "/repos/alice/jeryu/branches/main/protection",
+        r#"{"require_signed_commits":true,"allow_force_pushes":false,"allow_deletions":false}"#,
+    );
+    assert_eq!(protect.status, 200, "set protection: {}", protect.body);
+
+    let opened = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"forked change","head":"feature-2","base":"main","head_sha":"beadfeed","actor":"alice","source_repository":"fork-owner/jeryu","commits":[{"sha":"beadfeed","verified":false,"parents":1}]}"#,
+    );
+    assert_eq!(opened.status, 201, "open pr: {}", opened.body);
+    let pr = body(&opened);
+    let number = pr["number"].as_u64().expect("pr number");
+    assert_eq!(pr["source_repository"], "fork-owner/jeryu");
+
+    let blocked = router.put(&format!("/repos/alice/jeryu/pulls/{number}/merge"), "{}");
+    assert_eq!(
+        blocked.status, 405,
+        "merge should remain blocked: {}",
+        blocked.body
+    );
+    let blocked_body = body(&blocked);
+    let message = blocked_body["message"]
+        .as_str()
+        .expect("merge blocker message");
+    assert!(
+        message.contains("UnsignedCommits"),
+        "signed-commit enforcement should still reject fork provenance: {}",
+        blocked.body
+    );
 }
 
 /// Returns the number of pull requests currently open on the repo.

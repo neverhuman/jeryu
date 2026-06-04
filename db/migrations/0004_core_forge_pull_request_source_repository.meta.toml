@@ -1,0 +1,17 @@
+# jankurai:migration v1
+id = "0004_core_forge_pull_request_source_repository"
+owner = "forge-api"
+reviewer = "forge-api"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "old_app_new_db,new_app_old_db"
+rollback = "db/rollbacks/0004_core_forge_pull_request_source_repository.sql"
+backfill = "source_repository backfill to repository full name"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "sqlite_open_backfills_pull_request_source_repository"]

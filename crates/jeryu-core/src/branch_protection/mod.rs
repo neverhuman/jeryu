@@ -30,6 +30,7 @@ mod tests {
             state: PullRequestState::Open,
             draft: false,
             author: "dev".to_string(),
+            source_repository: "acme/jeryu".to_string(),
             head: GitBranchRef::new("feature", "abc"),
             base: GitBranchRef::new("main", "base"),
             mergeable: false,
