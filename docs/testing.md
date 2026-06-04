@@ -63,6 +63,7 @@ Primary lanes:
 - `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck`: read-model dashboard and generated contract proof lane for the workcells snapshot.
 - `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`: the integrated R5 proof lane. It claims a live workcell, rebases it onto `origin/main`, runs a jailed edit inside the checkout, exports a namespaced branch with `changed_files`, opens the pull request, and verifies CI evidence for the resulting head sha.
+- `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`: route-level proof for `POST /api/v1/workcells/{id}/run_agent`. It claims a repo-root slice, proves an out-of-root program returns typed `workcell_run_path_denied`, then runs a staged in-root program and verifies structured stdout/stderr/finish events when the host sandbox is available.
 - `cargo run -p jeryu-sandbox-linux --example jail_demo`: the live folder-jail demo (Rung 1, see `docs/workcell.md`). Drives the production launch path against a throwaway checkout and exits non-zero unless write-inside is ALLOWED and write-outside, `/etc/shadow` read, and an `AF_INET` socket are each DENIED (or a host-absent primitive is honestly skipped). Run it on a fleet node where Landlock + seccomp are present.
 - `cargo test -p jeryu-runnerd jailgun`: the jailgun tar round-trip (Rung 2). A clean subtree imports/exports while adversarial tar entries (parent traversal, absolute path, symlink, character device, a smuggled traversal, and an out-of-root export) are each rejected with `workcell_tar_path_denied`.
 - `cargo test -p jeryu-agentbridge`: the in-cell agent driver (Rung 4, see `docs/workcell.md`). The `driver_in_cell` integration tests prove a jailed edit-bot writes only inside the cell, an out-of-cell write is DENIED by Landlock (honestly skipped if the host lacks Landlock), the watchdog kills a runaway, and an exceeded output/token budget kills the child.
@@ -153,6 +154,12 @@ Repair evidence:
   `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice` and
   attach the typed `workcell_export_slice_denied` no-PR evidence for restrictive
   leases.
+- Workcell run-agent route changes must prove stale/out-of-root requests remain
+  typed repair failures and successful runs emit structured events. Rerun
+  `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent` and
+  attach either the stdout/stderr/finished event evidence or the honest
+  `workcell_run_sandbox_unavailable` skip evidence for hosts without the
+  required sandbox.
 - README publish failures should rerun
   `bash ops/ci/publish-readme-score.sh --verify` after regenerating
   `target/jankurai/repo-score.json` and `target/jankurai/repo-score.md` from

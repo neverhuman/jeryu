@@ -253,6 +253,110 @@ fn run_or_skip(
 }
 
 #[tokio::test]
+async fn workcell_run_agent_stays_in_claimed_repo_root_and_reports_events() {
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    let workspace = tempdir().expect("create workcell workspace");
+    let repo_root = workspace.path().join("repo-slice");
+    std::fs::create_dir_all(&repo_root).expect("create claimed repo root");
+    let claim_body = serde_json::json!({
+        "agent_id": "agent-wrath-run",
+        "workspace_root": workspace.path(),
+        "repo_roots": [repo_root],
+        "branch_budget": 1,
+        "runner_id": "xbabe-run",
+        "runner_epoch": 23,
+        "git_status_summary": "clean",
+        "ci_snapshot_age_ms": 0,
+        "startup": {
+            "state": "rebased",
+            "main_ref": "origin/main",
+            "base_sha": "base",
+            "head_sha": "head"
+        }
+    });
+    let lease = response_json(
+        super::workcells::claim(
+            State(state.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&claim_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    let workcell_id = lease["workcell_id"]
+        .as_str()
+        .expect("claimed workcell id")
+        .to_string();
+
+    let outside_script = write_exec_script(
+        "run-outside",
+        r#"#!/bin/sh
+echo outside
+"#,
+    );
+    let denied_body = serde_json::json!({
+        "workcell_id": workcell_id,
+        "runner_epoch": 23,
+        "program": outside_script,
+        "require_cgroup": false
+    });
+    let denied = response_json(
+        super::workcells::run_agent(
+            State(state.clone()),
+            AxumPath(workcell_id.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&denied_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(denied["code"], "workcell_run_path_denied");
+
+    let script_src = write_exec_script(
+        "run-agent",
+        r#"#!/bin/sh
+echo agent-out
+echo agent-err >&2
+"#,
+    );
+    let staged = stage_editbot(&repo_root, &script_src).expect("stage run script in repo root");
+    let run_body = serde_json::json!({
+        "workcell_id": workcell_id,
+        "runner_epoch": 23,
+        "program": staged,
+        "require_cgroup": false,
+        "timeout_ms": 10000,
+        "output_budget_bytes": 4096
+    });
+    let run = response_json(
+        super::workcells::run_agent(
+            State(state.clone()),
+            AxumPath(workcell_id.clone()),
+            axum::body::Bytes::from(serde_json::to_vec(&run_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    let _ = std::fs::remove_file(&outside_script);
+    let _ = std::fs::remove_file(&script_src);
+    let _ = workspace.close();
+    if run["code"] == "workcell_run_sandbox_unavailable" {
+        eprintln!("SKIP: sandbox unavailable for workcell run route");
+        return;
+    }
+
+    assert_eq!(run["workcell_id"], workcell_id);
+    assert_eq!(run["outcome"]["succeeded"], true);
+    let events = run["events"].as_array().expect("structured run events");
+    assert!(events.iter().any(|event| event["kind"] == "started"));
+    assert!(events.iter().any(|event| event["kind"] == "finished"));
+    assert!(events.iter().any(|event| {
+        event["stream"] == "stdout" && event["text"].as_str().unwrap_or("").contains("agent-out")
+    }));
+    assert!(events.iter().any(|event| {
+        event["stream"] == "stderr" && event["text"].as_str().unwrap_or("").contains("agent-err")
+    }));
+}
+
+#[tokio::test]
 async fn r5_jail_loop_exports_namespaced_branch_and_ci_evidence() {
     use axum::body::Body;
     use axum::http::Request;

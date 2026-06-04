@@ -58,6 +58,9 @@ first push wins and rejected duplicate pushes leave the single release bump on
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the
   jailed workcell edit, namespaced branch export, PR creation, or CI evidence
   flow changes.
+- `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent` when
+  the workcell run-agent route, typed path denial, structured event response, or
+  sandbox-unavailable repair evidence changes.
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
   when workcell export gating, `jeryu-codegraph`, or the export PR changed-file
   derivation changes. The release receipt must include the typed denial evidence
@@ -141,6 +144,8 @@ when `JERYU_CI_SOURCE_ROOTS` is set.
 3. For public API additions, attach the route-level test commands and response
    contract evidence, including typed repair fields and any digest-verifiable
    payload contract.
+   Workcell run-agent additions must include the typed path-denial evidence and
+   either structured event output or honest sandbox-unavailable evidence.
 4. Build only from a signed commit. `scripts/emit-release-receipt.sh` verifies
    the commit with `git verify-commit --raw <sha>` and writes the transcript to
    `signed-commit.txt`.

@@ -8,6 +8,8 @@ Owns:
   `jeryu-wsversion` for workspace version bump commits.
 - Workcell export PR gates, including frozen-diff changed-file evidence and
   typed no-PR denial for out-of-slice workcell repairs.
+- Workcell run-agent route behavior, including epoch fencing, claimed-repo-root
+  confinement, structured run events, and sandbox-unavailable repair guidance.
 
 Forbidden:
 - Broad GraphQL execution without a narrow conformance test.
@@ -18,5 +20,6 @@ Forbidden:
 Proof lane:
 - `cargo test -p jeryu-api --features web --jobs 40`
 - `cargo test -p jeryu-api --features web --jobs 40 ci_bridge`
+- `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
