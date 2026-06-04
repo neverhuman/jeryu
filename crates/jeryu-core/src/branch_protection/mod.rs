@@ -74,4 +74,61 @@ mod tests {
         assert!(!eval.mergeable);
         assert_eq!(eval.blockers.len(), 2);
     }
+
+    #[test]
+    fn branch_protection_applies_equally_to_owner_and_fork_prs_no_bypass() {
+        // Negative authorization proof for the enforce_admins boundary above:
+        // a fork / non-owner PR (source_repository != owner/repo) must NOT bypass
+        // branch protection. The review/status/admin gates apply identically to
+        // owner and fork PRs — source_repository confers no merge authority.
+        let rule = BranchProtectionRule {
+            owner: "acme".to_string(),
+            repo: "jeryu".to_string(),
+            branch: "main".to_string(),
+            required_status_checks: vec!["ci/fast".to_string()],
+            required_approving_review_count: 1,
+            enforce_admins: true,
+            required_linear_history: true,
+            allow_force_pushes: false,
+            allow_deletions: false,
+            require_signed_commits: false,
+            require_jankurai_proof: false,
+            updated_at: Utc::now(),
+        };
+
+        let owner_pr = pr(); // source_repository == "acme/jeryu" (an owner PR)
+        let mut fork_pr = pr();
+        fork_pr.author = "outside-contributor".to_string();
+        fork_pr.source_repository = "outside-contributor/jeryu-fork".to_string();
+
+        let owner_eval = evaluate_branch_protection_with(
+            &owner_pr,
+            Some(&rule),
+            &[],
+            &[],
+            &[],
+            None,
+            EvaluationContext::default(),
+        );
+        let fork_eval = evaluate_branch_protection_with(
+            &fork_pr,
+            Some(&rule),
+            &[],
+            &[],
+            &[],
+            None,
+            EvaluationContext::default(),
+        );
+
+        assert!(!owner_eval.mergeable);
+        assert!(
+            !fork_eval.mergeable,
+            "a fork / non-owner PR must not bypass branch protection"
+        );
+        assert_eq!(
+            fork_eval.blockers.len(),
+            owner_eval.blockers.len(),
+            "owner and fork PRs hit branch protection identically — source_repository grants no bypass"
+        );
+    }
 }
