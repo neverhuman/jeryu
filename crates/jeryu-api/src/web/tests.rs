@@ -252,8 +252,66 @@ fn run_or_skip(
     }
 }
 
+async fn claim_run_workcell(
+    state: Arc<WebState>,
+    workspace_root: &std::path::Path,
+    repo_roots: Vec<std::path::PathBuf>,
+    runner_epoch: u64,
+) -> String {
+    let claim_body = serde_json::json!({
+        "agent_id": format!("agent-wrath-run-{runner_epoch}"),
+        "workspace_root": workspace_root,
+        "repo_roots": repo_roots,
+        "branch_budget": 1,
+        "runner_id": format!("xbabe-run-{runner_epoch}"),
+        "runner_epoch": runner_epoch,
+        "git_status_summary": "clean",
+        "ci_snapshot_age_ms": 0,
+        "startup": {
+            "state": "rebased",
+            "main_ref": "origin/main",
+            "base_sha": "base",
+            "head_sha": "head"
+        }
+    });
+    let lease = response_json(
+        super::workcells::claim(
+            State(state),
+            axum::body::Bytes::from(serde_json::to_vec(&claim_body).unwrap()),
+        )
+        .await,
+    )
+    .await;
+    lease["workcell_id"]
+        .as_str()
+        .expect("claimed workcell id")
+        .to_string()
+}
+
+async fn run_agent_json(
+    state: Arc<WebState>,
+    path_workcell_id: &str,
+    body: serde_json::Value,
+) -> Value {
+    response_json(
+        super::workcells::run_agent(
+            State(state),
+            AxumPath(path_workcell_id.to_string()),
+            axum::body::Bytes::from(serde_json::to_vec(&body).unwrap()),
+        )
+        .await,
+    )
+    .await
+}
+
+fn run_agent_test_lock() -> &'static tokio::sync::Mutex<()> {
+    static LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
 #[tokio::test]
 async fn workcell_run_agent_stays_in_claimed_repo_root_and_reports_events() {
+    let _guard = run_agent_test_lock().lock().await;
     let state = Arc::new(WebState::new(ForgeCore::new()));
     let workspace = tempdir().expect("create workcell workspace");
     let repo_root = workspace.path().join("repo-slice");
@@ -354,6 +412,248 @@ echo agent-err >&2
     assert!(events.iter().any(|event| {
         event["stream"] == "stderr" && event["text"].as_str().unwrap_or("").contains("agent-err")
     }));
+}
+
+#[tokio::test]
+async fn workcell_run_agent_rejects_identity_epoch_and_inactive_cell() {
+    let _guard = run_agent_test_lock().lock().await;
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    let workspace = tempdir().expect("create workcell workspace");
+    let repo_root = workspace.path().join("repo-slice");
+    std::fs::create_dir_all(&repo_root).expect("create claimed repo root");
+    let workcell_id =
+        claim_run_workcell(state.clone(), workspace.path(), vec![repo_root], 31).await;
+
+    let invalid = response_json(
+        super::workcells::run_agent(
+            State(state.clone()),
+            AxumPath(workcell_id.clone()),
+            axum::body::Bytes::from_static(b"{ not json"),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(invalid["code"], "workcell_invalid_request");
+
+    let mismatch = run_agent_json(
+        state.clone(),
+        "different-cell",
+        serde_json::json!({
+            "workcell_id": workcell_id,
+            "runner_epoch": 31,
+            "program": "/bin/sh",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(mismatch["code"], "workcell_id_mismatch");
+
+    let missing = run_agent_json(
+        state.clone(),
+        "missing-cell",
+        serde_json::json!({
+            "workcell_id": "missing-cell",
+            "runner_epoch": 31,
+            "program": "/bin/sh",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(missing["code"], "not_found");
+
+    let fenced = run_agent_json(
+        state.clone(),
+        &workcell_id,
+        serde_json::json!({
+            "workcell_id": workcell_id,
+            "runner_epoch": 30,
+            "program": "/bin/sh",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(fenced["code"], "workcell_epoch_fenced");
+
+    let release = response_json(
+        super::workcells::release(
+            State(state.clone()),
+            AxumPath(workcell_id.clone()),
+            axum::body::Bytes::from(
+                serde_json::to_vec(&serde_json::json!({
+                    "runner_epoch": 31
+                }))
+                .unwrap(),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(release["state"], "released");
+
+    let inactive = run_agent_json(
+        state,
+        &workcell_id,
+        serde_json::json!({
+            "workcell_id": workcell_id,
+            "runner_epoch": 31,
+            "program": "/bin/sh",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(inactive["code"], "workcell_claim_denied");
+}
+
+#[tokio::test]
+async fn workcell_run_agent_rejects_unclaimed_roots_and_missing_programs() {
+    let _guard = run_agent_test_lock().lock().await;
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    let empty_workspace = tempdir().expect("create empty workcell workspace");
+    let empty_cell =
+        claim_run_workcell(state.clone(), empty_workspace.path(), Vec::new(), 41).await;
+    let no_roots = run_agent_json(
+        state.clone(),
+        &empty_cell,
+        serde_json::json!({
+            "workcell_id": empty_cell,
+            "runner_epoch": 41,
+            "program": "/bin/sh",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(no_roots["code"], "workcell_run_path_denied");
+    assert!(
+        no_roots["reason"]
+            .as_str()
+            .expect("reason")
+            .contains("no claimed repo roots")
+    );
+
+    let workspace = tempdir().expect("create workcell workspace");
+    let repo_root = workspace.path().join("repo-slice");
+    let outside_root = workspace.path().join("outside-slice");
+    std::fs::create_dir_all(&repo_root).expect("create claimed repo root");
+    std::fs::create_dir_all(&outside_root).expect("create outside repo root");
+    let workcell_id =
+        claim_run_workcell(state.clone(), workspace.path(), vec![repo_root.clone()], 43).await;
+
+    let outside = run_agent_json(
+        state.clone(),
+        &workcell_id,
+        serde_json::json!({
+            "workcell_id": workcell_id,
+            "runner_epoch": 43,
+            "repo_root": outside_root,
+            "program": "/bin/sh",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(outside["code"], "workcell_run_path_denied");
+    assert!(
+        outside["reason"]
+            .as_str()
+            .expect("reason")
+            .contains("outside the claimed workcell slice")
+    );
+
+    let missing_program = run_agent_json(
+        state.clone(),
+        &workcell_id,
+        serde_json::json!({
+            "workcell_id": workcell_id,
+            "runner_epoch": 43,
+            "repo_root": repo_root,
+            "program": "missing-agent",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(missing_program["code"], "workcell_run_path_denied");
+    assert!(
+        missing_program["reason"]
+            .as_str()
+            .expect("reason")
+            .contains("program does not exist")
+    );
+}
+
+#[tokio::test]
+async fn workcell_run_agent_handles_relative_programs_and_driver_failures() {
+    let _guard = run_agent_test_lock().lock().await;
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    let workspace = tempdir().expect("create workcell workspace");
+    let repo_root = workspace.path().join("repo-slice");
+    std::fs::create_dir_all(&repo_root).expect("create claimed repo root");
+    let workcell_id =
+        claim_run_workcell(state.clone(), workspace.path(), vec![repo_root.clone()], 53).await;
+
+    let script = repo_root.join("agent-relative.sh");
+    std::fs::write(
+        &script,
+        r#"#!/bin/sh
+i=0
+while [ "$i" -lt 200 ]; do
+  echo "relative-agent-$i"
+  i=$((i + 1))
+  sleep 0.005
+done
+"#,
+    )
+    .expect("write relative program");
+    #[cfg(unix)]
+    {
+        let mut perms = std::fs::metadata(&script)
+            .expect("read script metadata")
+            .permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&script, perms).expect("mark script executable");
+    }
+
+    let run = run_agent_json(
+        state.clone(),
+        &workcell_id,
+        serde_json::json!({
+            "workcell_id": workcell_id,
+            "runner_epoch": 53,
+            "repo_root": repo_root,
+            "program": "agent-relative.sh",
+            "require_cgroup": false,
+            "output_budget_bytes": 32
+        }),
+    )
+    .await;
+    if run["code"] == "workcell_run_sandbox_unavailable" {
+        eprintln!("SKIP: sandbox unavailable for relative workcell run route");
+        return;
+    }
+    assert_eq!(run["workcell_id"], workcell_id);
+    assert_eq!(run["outcome"]["budget_exceeded"], true);
+    assert!(
+        run["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|event| { event["kind"] == "budget" && event["limit"] == 32 })
+    );
+
+    let directory_program = run_agent_json(
+        state,
+        &workcell_id,
+        serde_json::json!({
+            "workcell_id": workcell_id,
+            "runner_epoch": 53,
+            "repo_root": repo_root,
+            "program": ".",
+            "require_cgroup": false
+        }),
+    )
+    .await;
+    assert_eq!(
+        directory_program["code"],
+        "workcell_run_sandbox_unavailable"
+    );
 }
 
 #[tokio::test]
