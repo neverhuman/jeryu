@@ -218,7 +218,7 @@ fn guided_github_edge_response(
                 "docs_url": "/docs/rest",
                 "repair_hint": "prefer the listed Jeryu MCP/API alternatives, then rerun cargo test -p jeryu-api --features web"
             },
-            "jeryu_mcp_tools": super::MCP_GUIDANCE_TOOLS,
+            "jeryu_mcp_tools": crate::github::MCP_GUIDANCE_TOOLS,
             "jeryu_api_routes": [
                 "GET /user",
                 "GET /repos",

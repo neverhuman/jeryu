@@ -23,7 +23,7 @@ env:
 jobs:
   jankurai-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout without marketplace actions
         run: |
@@ -37,7 +37,9 @@ jobs:
       - name: Ensure pinned jankurai on PATH
         run: bash ops/ci/ensure-jankurai.sh
       - name: Jankurai audit lane
-        run: jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
+        run: |
+          bash ops/ci/jankurai.sh
+          jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
       - name: Upload Jankurai audit evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -46,4 +48,8 @@ jobs:
           path: |
             .jankurai/repo-score.json
             .jankurai/repo-score.md
+            target/jankurai/**/*.json
+            target/jankurai/**/*.md
+            target/jankurai/**/*.jsonl
+            target/jankurai/**/*.lst
           if-no-files-found: error

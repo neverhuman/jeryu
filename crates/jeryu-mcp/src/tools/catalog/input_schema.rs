@@ -242,6 +242,83 @@ pub(super) fn tool_input_schema(action_id: &str) -> Option<Value> {
                 ("runner_epoch", integer_schema()),
             ],
         ),
+        "agent_work.start" => object_schema(
+            &["source", "agent", "prompt", "model", "base_ref"],
+            &[
+                (
+                    "source",
+                    object_schema(
+                        &["kind"],
+                        &[
+                            ("kind", enum_schema(&["repo", "local_path", "scratch"])),
+                            ("repo", string_schema()),
+                            ("local_path", string_schema()),
+                            ("name", string_schema()),
+                        ],
+                    ),
+                ),
+                ("agent", enum_schema(&["codex", "claude", "jekko"])),
+                ("prompt", string_schema()),
+                ("model", string_schema()),
+                ("base_ref", string_schema()),
+                ("effort", string_schema()),
+                ("allowed_paths", array_schema(string_schema())),
+                ("branch_suffix", string_schema()),
+                (
+                    "budget",
+                    object_schema(
+                        &[],
+                        &[
+                            ("wall_secs", integer_schema()),
+                            ("output_bytes", integer_schema()),
+                        ],
+                    ),
+                ),
+                (
+                    "stream",
+                    object_schema(&[], &[("required", serde_json::json!({"type": "boolean"}))]),
+                ),
+            ],
+        ),
+        "agent_work.status" => {
+            object_schema(&["agent_run_id"], &[("agent_run_id", string_schema())])
+        }
+        "agent_work.control" => object_schema(
+            &["agent_run_id", "command"],
+            &[
+                ("agent_run_id", string_schema()),
+                (
+                    "command",
+                    object_schema(
+                        &["kind"],
+                        &[
+                            (
+                                "kind",
+                                enum_schema(&[
+                                    "stdin_text",
+                                    "continue_prompt",
+                                    "interrupt",
+                                    "terminate",
+                                    "resize_pty",
+                                ]),
+                            ),
+                            ("text", string_schema()),
+                            ("prompt", string_schema()),
+                            ("cols", integer_schema()),
+                            ("rows", integer_schema()),
+                        ],
+                    ),
+                ),
+            ],
+        ),
+        "agent_work.export_pr" => object_schema(
+            &["agent_run_id", "title"],
+            &[
+                ("agent_run_id", string_schema()),
+                ("title", string_schema()),
+                ("body", string_schema()),
+            ],
+        ),
         _ => return None,
     };
     Some(schema)

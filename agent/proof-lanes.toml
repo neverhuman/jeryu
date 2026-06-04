@@ -28,8 +28,27 @@ blocks_merge = true
 
 [lanes.agent-substrate]
 required = [
+  "cargo test -p jeryu-agent-auth --jobs 40",
+  "cargo test -p jeryu-agent-stream --jobs 40",
+  "cargo test -p jeryu-cli --jobs 40",
+  "cargo test -p jeryu-mcp --jobs 40",
+  "cargo test -p jeryu-api --features web --jobs 40",
   "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
+  "cargo test -p jeryu-sandbox-linux --jobs 40",
+  "cargo test -p jeryu-runnerd workcell --jobs 40",
+  "bash ops/ci/workflow-lint.sh",
+  "just security",
   "cargo test -p jeryu-agentbridge --test adversarial_refute -- --nocapture"
+]
+blocks_merge = true
+
+[lanes.jankurai-proof]
+required = [
+  "./scripts/check-owner-test-map.sh",
+  "./scripts/check-agent-maps.sh",
+  "cargo run -q -p jeryu-mapcheck -- generated-zones",
+  "cargo run -q -p jeryu-mapcheck -- db-boundary",
+  "./ops/ci/jankurai.sh"
 ]
 blocks_merge = true
 

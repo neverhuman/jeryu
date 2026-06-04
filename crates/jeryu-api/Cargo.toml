@@ -13,7 +13,9 @@ jeryu-ci-compiler = { path = "../jeryu-ci-compiler", optional = true }
 jeryu-ci-ir = { path = "../jeryu-ci-ir", optional = true }
 jeryu-core = { path = "../jeryu-core" }
 jeryu-codegraph = { path = "../jeryu-codegraph", optional = true }
+jeryu-agent-auth = { path = "../jeryu-agent-auth", optional = true }
 jeryu-agentbridge = { path = "../jeryu-agentbridge", optional = true }
+jeryu-agent-stream = { path = "../jeryu-agent-stream", optional = true }
 jeryu-autonomy = { path = "../jeryu-autonomy", optional = true }
 jeryu-gitd = { path = "../jeryu-gitd", optional = true }
 jeryu-mcp = { path = "../jeryu-mcp", optional = true }
@@ -39,7 +41,7 @@ tower = "0.5"
 
 [features]
 default = []
-web = ["dep:axum", "dep:futures-util", "dep:hex", "dep:jeryu-agentbridge", "dep:jeryu-autonomy", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-codegraph", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:jeryu-runner-core", "dep:jeryu-runnerd", "dep:jeryu-wsversion", "dep:sha2", "dep:tokio", "dep:tower-http", "dep:uuid"]
+web = ["dep:axum", "dep:futures-util", "dep:hex", "dep:jeryu-agent-auth", "dep:jeryu-agent-stream", "dep:jeryu-agentbridge", "dep:jeryu-autonomy", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-codegraph", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:jeryu-runner-core", "dep:jeryu-runnerd", "dep:jeryu-wsversion", "dep:sha2", "dep:tokio", "dep:tower-http", "dep:uuid"]
 
 [lints]
 workspace = true

@@ -29,6 +29,10 @@ pub(crate) enum ToolKind {
     WorkcellRepairLive,
     WorkcellExportPr,
     WorkcellRelease,
+    AgentWorkStart,
+    AgentWorkStatus,
+    AgentWorkControl,
+    AgentWorkExportPr,
 }
 
 #[derive(Debug, Clone)]
@@ -172,6 +176,30 @@ impl ToolDefinition {
             ToolKind::WorkcellRelease => serde_json::json!({
                 "workcell_id": s("workcell_id")?,
                 "runner_epoch": i("runner_epoch")?,
+            }),
+            ToolKind::AgentWorkStart => serde_json::json!({
+                "source": args.get("source")?.clone(),
+                "agent": s("agent")?,
+                "prompt": s("prompt")?,
+                "model": s("model")?,
+                "base_ref": s("base_ref")?,
+                "effort": opt_s("effort"),
+                "allowed_paths": args.get("allowed_paths").cloned(),
+                "branch_suffix": opt_s("branch_suffix"),
+                "budget": args.get("budget").cloned(),
+                "stream": args.get("stream").cloned(),
+            }),
+            ToolKind::AgentWorkStatus => serde_json::json!({
+                "agent_run_id": s("agent_run_id")?,
+            }),
+            ToolKind::AgentWorkControl => serde_json::json!({
+                "agent_run_id": s("agent_run_id")?,
+                "command": args.get("command")?.clone(),
+            }),
+            ToolKind::AgentWorkExportPr => serde_json::json!({
+                "agent_run_id": s("agent_run_id")?,
+                "title": s("title")?,
+                "body": opt_s("body"),
             }),
         };
         Some(out)

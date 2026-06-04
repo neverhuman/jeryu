@@ -6,12 +6,17 @@
 
 use clap::{Parser, Subcommand};
 
+mod agent;
 mod ci;
 mod forge;
 mod operator;
 mod proof;
 mod runner;
 
+pub use agent::{
+    AgentAuthCommands, AgentCommands, AgentControlArgs, AgentExportPrArgs, AgentRunArgs,
+    AgentToolArg,
+};
 pub use ci::{CiCommands, CiKindArg};
 pub use forge::{ForgeCommands, IssueCommands, PrCommands, RepoCommands};
 pub use operator::{AutonomyCommands, AutonomyInitArgs, AutonomyProfile, GhSetupArgs, OnboardArgs};
@@ -55,6 +60,10 @@ pub enum Commands {
     /// Runners: list, enroll, drain, and rotate build runners.
     #[command(subcommand)]
     Runner(RunnerCommands),
+
+    /// Agent-edit: auth, run, control, and PR export.
+    #[command(subcommand)]
+    Agent(AgentCommands),
 
     /// Proofs: verify a changeset and explain a blocker.
     #[command(subcommand)]

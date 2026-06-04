@@ -5,6 +5,7 @@
 //! dispatch smoke tests can capture and assert on rendered output without
 //! touching the process stdout.
 
+pub mod agent;
 pub mod autonomy;
 pub mod cache;
 pub mod ci;

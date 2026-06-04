@@ -296,6 +296,22 @@ impl ToolBackend for MemoryBackend {
                     "released": true,
                 }),
             ),
+            "agent_work.start" => ToolResponse::error(
+                "agent_work.start denied: protected runner, required stream, auth, tool, netguard, and sandbox proof are not all wired",
+            ),
+            "agent_work.status" => ToolResponse::ok(
+                "agent work status",
+                serde_json::json!({
+                    "agent_run_id": arg("agent_run_id"),
+                    "state": "not_found",
+                }),
+            ),
+            "agent_work.control" => ToolResponse::error(
+                "agent_work.control denied: agent run was not found or is not live",
+            ),
+            "agent_work.export_pr" => ToolResponse::error(
+                "agent_work.export_pr denied: agent run was not found or has not frozen an exportable diff",
+            ),
             other => ToolResponse::error(format!("unknown tool: {other}")),
         };
         Ok(resp)

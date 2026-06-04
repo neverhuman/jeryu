@@ -6,6 +6,12 @@
       "purpose": "verify coordination files remain routed through the agent control plane",
       "lane": "agent"
     },
+    "AGENT_EDIT_MASTER_CODEX.md": {
+      "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh",
+      "purpose": "verify the agent-edit master plan is routed through the owner/test maps",
+      "lane": "agent",
+      "proof_lane": "agent"
+    },
     ".config/nextest.toml": {
       "command": "cargo nextest run --profile ci -p jeryu-runner-core",
       "purpose": "verify the nextest CI profile loads and runs",
@@ -91,6 +97,12 @@
       "purpose": "verify agent ownership, proof routing, and generated-zone maps",
       "lane": "jankurai-proof"
     },
+    "agent/native-cli-manifest.toml": {
+      "command": "just security && cargo test -p jeryu-agent-auth -p jeryu-agent-stream -p jeryu-cli -p jeryu-mcp --jobs 40 && bash ops/ci/workflow-lint.sh",
+      "purpose": "verify native CLI manifest digest pins, auth/stream contracts, CLI/MCP surfaces, and hosted workflow parity",
+      "lane": "security",
+      "proof_lane": "agent-substrate"
+    },
     "agent/ci-lanes.toml": {
       "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-repogate -- ci-lanes-check",
       "purpose": "verify the CI lane manifest matches hosted workflows and local CI entrypoints",
@@ -104,7 +116,8 @@
     "agent/tool-adoption.toml": {
       "command": "./ops/ci/jankurai.sh",
       "purpose": "verify Jankurai tool adoption evidence remains wired into local audit",
-      "lane": "audit"
+      "lane": "audit",
+      "proof_lane": "jankurai-proof"
     },
     "bench/": {
       "command": "./bench/startup-native.sh 1",
@@ -130,6 +143,18 @@
       "command": "cargo test -p jeryu-api --features web --jobs 40",
       "purpose": "verify GitHub-compatible REST, guided GraphQL, and local web API behavior",
       "lane": "api"
+    },
+    "crates/jeryu-agent-auth/": {
+      "command": "cargo test -p jeryu-agent-auth --jobs 40",
+      "purpose": "verify portable agent auth import, doctor, per-run materialization, and typed denial contracts",
+      "lane": "agent-substrate",
+      "proof_lane": "agent-substrate"
+    },
+    "crates/jeryu-agent-stream/": {
+      "command": "cargo test -p jeryu-agent-stream --jobs 40",
+      "purpose": "verify agent-run TTY/control event contracts and the in-memory stream bus",
+      "lane": "agent-substrate",
+      "proof_lane": "agent-substrate"
     },
     "crates/jeryu-readmodel/": {
       "command": "cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck",

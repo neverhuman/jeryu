@@ -1371,6 +1371,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "jeryu-agent-auth"
+version = "4.0.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "jeryu-agent-stream"
+version = "4.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "jeryu-agentbridge"
 version = "4.0.0"
 dependencies = [
@@ -1390,6 +1412,8 @@ dependencies = [
  "clap",
  "futures-util",
  "hex",
+ "jeryu-agent-auth",
+ "jeryu-agent-stream",
  "jeryu-agentbridge",
  "jeryu-autonomy",
  "jeryu-bench",
@@ -1553,6 +1577,7 @@ dependencies = [
  "clap",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

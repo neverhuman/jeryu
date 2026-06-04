@@ -25,6 +25,7 @@ pub fn dispatch(
         Commands::Forge(cmd) => commands::forge::run(client, &owner, json, cmd, out),
         Commands::Ci(cmd) => commands::ci::run(client, json, cmd, out),
         Commands::Runner(cmd) => commands::runner::run(client, json, cmd, out),
+        Commands::Agent(cmd) => commands::agent::run(client, json, cmd, out),
         Commands::Proof(cmd) => commands::proof::run(client, json, cmd, out),
         Commands::Release { version } => commands::release::run(client, json, &version, out),
         Commands::Cache(cmd) => commands::cache::run(client, json, cmd, out),

@@ -69,6 +69,9 @@ Primary lanes:
 - `cargo test -p jeryu-agentbridge`: the in-cell agent driver (Rung 4, see `docs/workcell.md`). The `driver_in_cell` integration tests prove a jailed edit-bot writes only inside the cell, an out-of-cell write is DENIED by Landlock (honestly skipped if the host lacks Landlock), the watchdog kills a runaway, and an exceeded output/token budget kills the child.
 - `cargo test -p jeryu-egress`: the allowlist egress proxy. Unit tests cover `egress_decision` (allowed host/suffix, non-allowlisted denial, budget-kill denies even allowlisted hosts, case-insensitive match, and the `crates.io.attacker.com` substring-attack denial); the integration tests prove a non-allowlisted CONNECT returns 403 before any upstream connect.
 - `cargo test -p jeryu-sandbox-linux` (`cgroup_confinement`) and `cargo test -p jeryu-agentbridge` (`cgroup_fail_closed`): resource confinement, fail-closed. They prove a `require_cgroup` plan refuses to launch without a delegated cgroup-v2 subtree, that the `LandlockRule.execute` bit permits/denies exec correctly on ABI ≥ 2, and (honest-skip on hosts without cgroup-v2 delegation) that a runaway is contained under an enforced cgroup.
+- `cargo test -p jeryu-agent-auth --jobs 40`: portable Codex/Claude/Jekko auth import, host-bound auth denial, per-run home materialization, private file modes, and no-secret receipts.
+- `cargo test -p jeryu-agent-stream --jobs 40`: `jeryu.agent.tty.v1`/`jeryu.agent.control.v1` schema, in-memory event/control bus, and typed missing-stream denial.
+- `cargo test -p jeryu-api --features web --jobs 40 agent_runs`: high-level `/api/v1/agent-runs*` contract. Start requests must fail closed when required stream/auth/tool/netguard/sandbox proof is missing; status/control/export on unknown ids return typed repair bodies.
 
 Workcell regression suite (added to keep the north-star guarantees from silently
 regressing — each test asserts a discriminating signal, not a tautology):

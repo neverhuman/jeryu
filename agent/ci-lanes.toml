@@ -46,6 +46,7 @@ id = "jankurai"
 workflow = ".github/workflows/jankurai.yml"
 job = "jankurai-audit"
 command = """
+bash ops/ci/jankurai.sh
 jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
 """
 full = true

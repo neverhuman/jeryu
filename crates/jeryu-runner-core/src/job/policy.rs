@@ -11,6 +11,8 @@ pub enum NetworkPolicy {
     LoopbackOnly,
     /// Egress-only network access.
     EgressOnly,
+    /// Agent-edit egress through the configured Jeryu proxy only.
+    EgressProxyOnly,
 }
 
 impl NetworkPolicy {
@@ -20,6 +22,7 @@ impl NetworkPolicy {
             Self::Deny => "deny",
             Self::LoopbackOnly => "loopback-only",
             Self::EgressOnly => "egress-only",
+            Self::EgressProxyOnly => "egress-proxy-only",
         }
     }
 }
@@ -32,6 +35,7 @@ impl std::str::FromStr for NetworkPolicy {
             "deny" | "none" | "off" => Ok(Self::Deny),
             "loopback" | "loopback-only" => Ok(Self::LoopbackOnly),
             "egress" | "egress-only" => Ok(Self::EgressOnly),
+            "egress-proxy" | "egress-proxy-only" | "proxy-only" => Ok(Self::EgressProxyOnly),
             _ => Err(RunnerError::new(
                 "invalid_network_policy",
                 format!("unknown network policy '{value}'"),

@@ -22,6 +22,23 @@ fn parses_key_value_job() {
 }
 
 #[test]
+fn parses_proxy_only_network_policy() {
+    let job = JobRequest::from_key_value(
+        r#"
+        job_id=job_1
+        repo_id=jeryu/jeryu
+        commit_sha=abc123
+        workspace=/tmp/jeryu-work
+        command=/bin/echo
+        network_policy=egress-proxy-only
+        "#,
+    )
+    .unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(job.network_policy, NetworkPolicy::EgressProxyOnly);
+    assert_eq!(job.network_policy.as_str(), "egress-proxy-only");
+}
+
+#[test]
 fn rejects_relative_workspace() {
     let err = JobRequest::from_key_value(
         r#"

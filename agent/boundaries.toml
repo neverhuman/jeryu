@@ -44,6 +44,7 @@ forbidden_direct_data_imports = [
 
 [db]
 truth_owner = "jeryu-core"
+auxiliary_sqlite_paths = ["crates/jeryu-codegraph"]
 root_paths = ["db"]
 migration_paths = ["db/migrations"]
 constraint_paths = ["db/constraints.md", "db/migrations"]
@@ -51,8 +52,19 @@ status = "active"
 
 [queues]
 adapter_paths = ["crates/jeryu-ci-scheduler", "crates/jeryu-runnerd"]
-event_contract_paths = ["crates/jeryu-ci-ir", "crates/jeryu-runner-protocol"]
+event_contract_paths = [
+  "crates/jeryu-ci-ir",
+  "crates/jeryu-runner-protocol",
+  "crates/jeryu-agent-stream",
+]
 generated_type_paths = ["crates/jeryu-readmodel"]
+
+[[queues.streaming_exception]]
+path = "crates/jeryu-agent-stream"
+owner = "jankurai"
+expires = "2026-07-31"
+reason = "agent-edit stream schema and feature-gated adapter contract; no runtime client is wired by default"
+migration_path = "move production queue clients behind the approved queue adapter crate before enabling live agent launches"
 
 [agent]
 tool_paths = ["crates/jeryu-mcp", "crates/jeryu-agentbridge"]

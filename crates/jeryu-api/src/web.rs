@@ -1,23 +1,25 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
+mod agent_runs;
 mod ci_evidence;
 mod ecosystem;
 mod markdown;
 mod permissions;
 mod repositories;
+mod steering;
 mod surface;
 mod workcells;
 mod workcells_support;
 mod ws;
+mod ws_hub;
 
-use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::extract::{Path as AxumPath, Request, State};
-use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
-use axum::middleware::{Next, from_fn};
+use axum::extract::{Path as AxumPath, State};
+use axum::http::StatusCode;
+use axum::middleware::from_fn;
 use axum::response::{IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
@@ -29,21 +31,29 @@ use tower_http::services::{ServeDir, ServeFile};
 
 use crate::GithubRouter;
 use crate::git_materializer::GitMaterializer;
-use crate::github::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use jeryu_gitd::{GitdConfig, RepoManager};
 use jeryu_runnerd::WorkcellManager;
 use repositories::{
     repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
 };
+use steering::{capabilities, steer_headers};
 use surface::{bootstrap_payload, github_forward, graphql, markdown_render, repo_entry};
+use ws_hub::WsHub;
 
 const WS_PROTOCOL: &str = "jeryu.ws.v1";
-const MCP_READ_TOOL: &str = "jeryu.get_system_snapshot";
-const MCP_CHECKS_TOOL: &str = "jeryu.get_ci_run_jobs";
-const MCP_BLOCKERS_TOOL: &str = "jeryu.explain_blockers";
-const MCP_PATCH_TOOL: &str = "jeryu.propose_patch";
-const MCP_MERGE_TOOL: &str = "jeryu.request_merge";
-const MCP_ISSUE_TOOL: &str = "jeryu.bug_submit";
+
+#[cfg(test)]
+use crate::github::MCP_GUIDANCE_TOOLS;
+#[cfg(test)]
+use axum::extract::Request;
+#[cfg(test)]
+use axum::http::{Method as HttpMethod, header};
+#[cfg(test)]
+use steering::{
+    HDR_API, HDR_FAST_PATH, HDR_TOOL, MCP_BLOCKERS_TOOL, MCP_CHECKS_TOOL, MCP_ISSUE_TOOL,
+    MCP_MERGE_TOOL, MCP_PATCH_TOOL, MCP_READ_TOOL, advisory_headers, capabilities_payload,
+    is_automation_agent, suggested_tool,
+};
 
 #[derive(Clone, Debug)]
 pub struct WebServerConfig {
@@ -118,88 +128,6 @@ impl WebState {
     }
 }
 
-/// Live-stream fan-out hub for the WebSocket event spine.
-///
-/// The tokio `sync` feature is intentionally NOT enabled in this crate, so this
-/// is a deliberately minimal `Arc<Mutex<_>>` registry rather than a
-/// `tokio::sync::broadcast`. It hands out the server-wide monotonic event
-/// sequence and tracks which scopes each live connection is subscribed to, so a
-/// future producer can fan deltas out to exactly the interested connections.
-/// The snapshot-on-subscribe path below works entirely through this hub today.
-#[derive(Clone, Default)]
-struct WsHub {
-    inner: Arc<Mutex<WsHubInner>>,
-}
-
-#[derive(Default)]
-struct WsHubInner {
-    /// Server-wide monotonic event sequence; never reused, never decreases.
-    next_seq: u64,
-    /// Live connections, in registration order. Each tracks its own scopes.
-    connections: Vec<WsConnection>,
-}
-
-/// A single live WebSocket connection's subscription state inside the hub.
-struct WsConnection {
-    id: u64,
-    scopes: BTreeSet<String>,
-}
-
-impl WsHub {
-    fn new() -> Self {
-        Self::default()
-    }
-
-    /// Allocate the next monotonic event sequence number.
-    fn next_seq(&self) -> u64 {
-        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
-        inner.next_seq = inner.next_seq.saturating_add(1);
-        inner.next_seq
-    }
-
-    /// The highest sequence handed out so far (0 before any event).
-    fn current_seq(&self) -> u64 {
-        self.inner.lock().expect("ws hub mutex poisoned").next_seq
-    }
-
-    /// Register a fresh connection and return its hub-unique id.
-    fn register(&self) -> u64 {
-        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
-        let id = inner
-            .next_seq
-            .wrapping_add(inner.connections.len() as u64 + 1);
-        inner.connections.push(WsConnection {
-            id,
-            scopes: BTreeSet::new(),
-        });
-        id
-    }
-
-    /// Replace the scope set a connection is subscribed to.
-    fn set_scopes(&self, id: u64, scopes: &BTreeSet<String>) {
-        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
-        if let Some(conn) = inner.connections.iter_mut().find(|c| c.id == id) {
-            conn.scopes = scopes.clone();
-        }
-    }
-
-    /// Drop scopes from a connection's subscription set.
-    fn remove_scopes(&self, id: u64, scopes: &[String]) {
-        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
-        if let Some(conn) = inner.connections.iter_mut().find(|c| c.id == id) {
-            for scope in scopes {
-                conn.scopes.remove(scope);
-            }
-        }
-    }
-
-    /// Forget a connection entirely (on socket close).
-    fn unregister(&self, id: u64) {
-        let mut inner = self.inner.lock().expect("ws hub mutex poisoned");
-        inner.connections.retain(|c| c.id != id);
-    }
-}
-
 pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&config.data_dir)?;
     std::fs::create_dir_all(&config.git_storage_root)?;
@@ -241,6 +169,13 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/.jeryu/capabilities", get(capabilities))
         .route("/api/v1/bootstrap", get(bootstrap))
         .route("/api/v1/bootstrap.tui", get(bootstrap_tui))
+        .route("/api/v1/agent-runs", post(agent_runs::start))
+        .route("/api/v1/agent-runs/:id", get(agent_runs::status))
+        .route("/api/v1/agent-runs/:id/control", post(agent_runs::control))
+        .route(
+            "/api/v1/agent-runs/:id/export_pr",
+            post(agent_runs::export_pr),
+        )
         .route(
             "/api/v1/workcells",
             get(workcells::list).post(workcells::claim),
@@ -316,128 +251,6 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
 
 async fn health() -> Json<Value> {
     Json(json!({ "status": "ok", "service": "jeryu-api" }))
-}
-
-const HDR_API: &str = "x-jeryu-api";
-const HDR_FAST_PATH: &str = "x-jeryu-fast-path";
-const HDR_TOOL: &str = "x-jeryu-tool";
-
-/// Response middleware: stamps every reply with advisory steering headers. For
-/// `gh`/automation user-agents it also injects a suggested jeryu MCP tool for
-/// the request's route+method, nudging external agents off bespoke `gh`
-/// invocations and onto the faster MCP path. Cheap and infallible: it never
-/// fails the request and only ever appends headers.
-async fn steer_headers(request: Request, next: Next) -> AxumResponse {
-    let user_agent = request
-        .headers()
-        .get(header::USER_AGENT)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let method = request.method().clone();
-    let path = request.uri().path().to_string();
-
-    let mut response = next.run(request).await;
-    let headers = response.headers_mut();
-    for (name, value) in advisory_headers(&user_agent, &method, &path) {
-        if let (Ok(name), Ok(value)) = (
-            HeaderName::from_bytes(name.as_bytes()),
-            HeaderValue::from_str(&value),
-        ) {
-            headers.insert(name, value);
-        }
-    }
-    response
-}
-
-/// Pure builder for the advisory steering headers. Always emits the API version
-/// and fast-path pointer; for `gh`/automation/agent user-agents it additionally
-/// emits a per-route MCP tool hint when one is known. Factored out of the
-/// middleware so the header policy can be unit-tested without a live server.
-fn advisory_headers(
-    user_agent: &str,
-    method: &HttpMethod,
-    path: &str,
-) -> Vec<(&'static str, String)> {
-    let mut headers = vec![
-        (HDR_API, "v4".to_string()),
-        (HDR_FAST_PATH, "/.jeryu/capabilities".to_string()),
-    ];
-    if is_automation_agent(user_agent)
-        && let Some(tool) = suggested_tool(method, path)
-    {
-        headers.push((HDR_TOOL, tool.to_string()));
-    }
-    headers
-}
-
-/// Heuristic: does this user-agent look like the `gh` CLI, a generic HTTP
-/// client used by automation, or a Jeryu/agent UA? Matched case-insensitively.
-fn is_automation_agent(user_agent: &str) -> bool {
-    let ua = user_agent.to_ascii_lowercase();
-    const NEEDLES: [&str; 7] = [
-        "github cli",
-        "go-gh",
-        "okhttp",
-        "curl",
-        "python-requests",
-        "jeryu",
-        "agent",
-    ];
-    NEEDLES.iter().any(|needle| ua.contains(needle))
-}
-
-/// Suggests the jeryu MCP tool for a route+method so steered agents can switch
-/// to the faster path. Mutations map to dedicated MCP tools; all other GETs map
-/// to the generic read tool. Returns `None` when no hint applies.
-fn suggested_tool(method: &HttpMethod, path: &str) -> Option<&'static str> {
-    let trimmed = path.trim_end_matches('/');
-    match *method {
-        HttpMethod::POST if trimmed.ends_with("/pulls") => Some(MCP_PATCH_TOOL),
-        HttpMethod::POST if trimmed.contains("/actions/") => Some(MCP_RUN_TESTS_TOOL),
-        HttpMethod::PUT if trimmed.ends_with("/merge") => Some(MCP_MERGE_TOOL),
-        HttpMethod::POST if trimmed.ends_with("/issues") => Some(MCP_ISSUE_TOOL),
-        HttpMethod::GET if trimmed.contains("/actions/") => Some(MCP_CHECKS_TOOL),
-        HttpMethod::GET if trimmed.contains("/check-runs") => Some(MCP_CHECKS_TOOL),
-        HttpMethod::GET if trimmed.contains("/pulls") => Some(MCP_BLOCKERS_TOOL),
-        HttpMethod::GET => Some(MCP_READ_TOOL),
-        _ => None,
-    }
-}
-
-/// Capability manifest: advertises the live endpoints plus a `gh` command -> jeryu
-/// mapping so external agents can discover and prefer the faster MCP path.
-async fn capabilities() -> Json<Value> {
-    Json(capabilities_payload())
-}
-
-/// Pure builder for the `/.jeryu/capabilities` payload (unit-testable).
-fn capabilities_payload() -> Value {
-    json!({
-        "server": "jeryu",
-        "api_version": "v4",
-        "graphql": "/graphql",
-        "websocket": "/api/v1/ws",
-        "mcp_endpoint": "/mcp",
-        "mcp_tools": MCP_GUIDANCE_TOOLS,
-        "gh_command_map": {
-            "gh pr create": MCP_PATCH_TOOL,
-            "gh pr merge": MCP_MERGE_TOOL,
-            "gh pr list": "GET /repos/{owner}/{repo}/pulls",
-            "gh workflow list": "GET /repos/{owner}/{repo}/actions/workflows",
-            "gh workflow view": "GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}",
-            "gh run list": "GET /repos/{owner}/{repo}/actions/runs",
-            "gh run view": "GET /repos/{owner}/{repo}/actions/runs/{id}",
-            "gh workflow run": MCP_RUN_TESTS_TOOL,
-            "gh run rerun": MCP_RUN_TESTS_TOOL,
-            "gh run cancel": MCP_RUN_TESTS_TOOL,
-            "gh issue create": MCP_ISSUE_TOOL,
-            "gh api": "Use /.jeryu/capabilities and the listed jeryu.* MCP tools; unsupported REST returns guided JSON.",
-            "gh repo create": "POST /repos",
-        },
-        "fast_path_advice":
-            "Prefer the jeryu MCP tools for mutations; gh REST/GraphQL is supported but slower.",
-    })
 }
 
 async fn bootstrap(State(state): State<Arc<WebState>>) -> AxumResponse {

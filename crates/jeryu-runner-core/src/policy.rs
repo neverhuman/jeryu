@@ -171,8 +171,12 @@ fn effective_network(
             if job.network_policy == NetworkPolicy::EgressOnly {
                 return Err(RunnerError::new(
                     "network_policy_denied",
-                    "agent jobs may not request egress in Phase 4",
+                    "agent jobs may not request direct egress",
                 ));
+            }
+            if job.network_policy == NetworkPolicy::EgressProxyOnly {
+                reasons.push("network=egress-proxy-only-agent".to_string());
+                return Ok(NetworkPolicy::EgressProxyOnly);
             }
             reasons.push(format!("network={}", job.network_policy.as_str()));
             Ok(job.network_policy)
@@ -182,6 +186,8 @@ fn effective_network(
                 && job.network_policy == NetworkPolicy::EgressOnly
             {
                 reasons.push("network=egress-native-hot-explicit".to_string());
+            } else if job.network_policy == NetworkPolicy::EgressProxyOnly {
+                reasons.push("network=egress-proxy-only-explicit".to_string());
             } else {
                 reasons.push(format!("network={}", job.network_policy.as_str()));
             }
@@ -311,5 +317,31 @@ mod tests {
             .err()
             .unwrap_or_else(|| panic!("expected network denial"));
         assert_eq!(err.code(), "network_policy_denied");
+
+        request.network_policy = NetworkPolicy::EgressProxyOnly;
+        let decision = select_runner(&request).unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(decision.network_policy, NetworkPolicy::EgressProxyOnly);
+        assert!(
+            decision
+                .reasons
+                .iter()
+                .any(|reason| reason == "network=egress-proxy-only-agent")
+        );
+    }
+
+    #[test]
+    fn fork_public_and_release_cannot_request_proxy_egress() {
+        for tier in [
+            TrustTier::T4ForkPr,
+            TrustTier::T5PublicUntrusted,
+            TrustTier::T0ReleaseHermetic,
+        ] {
+            let mut request = job(tier);
+            request.network_policy = NetworkPolicy::EgressProxyOnly;
+            let err = select_runner(&request)
+                .err()
+                .unwrap_or_else(|| panic!("expected network denial for {tier}"));
+            assert_eq!(err.code(), "network_policy_denied");
+        }
     }
 }

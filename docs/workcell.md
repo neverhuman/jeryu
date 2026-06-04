@@ -110,6 +110,29 @@ Proof lane:
 cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent
 ```
 
+## Agent-Run Control Surface
+
+The high-level agent-edit API sits above the workcell route and owns the public
+run lifecycle contract:
+
+- `POST /api/v1/agent-runs`
+- `GET /api/v1/agent-runs/{id}`
+- `POST /api/v1/agent-runs/{id}/control`
+- `POST /api/v1/agent-runs/{id}/export_pr`
+
+Start requests use the shared API/MCP/CLI shape from
+`AGENT_EDIT_MASTER_CODEX.md`. Until required streaming, portable auth, native tool
+doctor evidence, proxy-only egress netguard proof, and cgroup/Landlock/seccomp
+enforcement proof are all wired, the route fails closed with typed repair
+fields. It must not silently fall back to unauthenticated mode, local memory
+streaming, direct egress, or an unsandboxed native CLI.
+
+Proof lane:
+
+```sh
+cargo test -p jeryu-api --features web --jobs 40 agent_runs
+```
+
 ## Rung 4 — egress allowlist proxy
 
 `crates/jeryu-egress` is a host-allowlist forward proxy (HTTP `CONNECT` + plain

@@ -152,7 +152,8 @@ fn top_level_excludes_removed_commands() {
 fn top_level_includes_renamed_commands() {
     let names = top_level_names();
     for required in [
-        "forge", "ci", "runner", "proof", "release", "cache", "gh-setup", "autonomy", "onboard",
+        "forge", "ci", "runner", "agent", "proof", "release", "cache", "gh-setup", "autonomy",
+        "onboard",
     ] {
         assert!(
             names.iter().any(|n| n == required),
@@ -313,6 +314,37 @@ fn runner_enroll_defaults_to_native_executor() {
         Commands::Runner(RunnerCommands::Enroll { node, executor }) => {
             assert_eq!(node, "node-8");
             assert_eq!(executor, RunnerExecutorArg::Native);
+        }
+        other => panic!("unexpected parse: {other:?}"),
+    }
+}
+
+#[test]
+fn agent_run_parses_required_contract_shape() {
+    use jeryu_cli::cli::{AgentCommands, AgentToolArg};
+    let cli = Cli::try_parse_from([
+        "jeryu",
+        "agent",
+        "run",
+        "--repo",
+        "alice/jeryu",
+        "--agent",
+        "codex",
+        "--model",
+        "model-x",
+        "--effort",
+        "xhigh",
+        "--task-file",
+        "TASK.md",
+    ])
+    .expect("agent run parses");
+    match cli.command {
+        Commands::Agent(AgentCommands::Run(args)) => {
+            assert_eq!(args.repo, "alice/jeryu");
+            assert_eq!(args.agent, AgentToolArg::Codex);
+            assert_eq!(args.model, "model-x");
+            assert_eq!(args.effort, "xhigh");
+            assert_eq!(args.base_ref, "main");
         }
         other => panic!("unexpected parse: {other:?}"),
     }
@@ -546,6 +578,59 @@ fn dispatch_release_and_cache_self_test() {
         "cache stdout was {out:?}"
     );
     assert!(out.contains("false_hits=0"), "cache stdout was {out:?}");
+}
+
+#[test]
+fn dispatch_agent_auth_import_then_doctor_roundtrips() {
+    let client = InMemoryClient::new();
+    let (code, out, _) = run_cli(
+        &client,
+        &["jeryu", "agent", "auth", "import", "--from-host", "codex"],
+    );
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("imported codex auth"),
+        "auth import stdout was {out:?}"
+    );
+
+    let (code, out, _) = run_cli(&client, &["jeryu", "agent", "auth", "doctor", "codex"]);
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("codex auth ok=true"),
+        "doctor stdout was {out:?}"
+    );
+}
+
+#[test]
+fn dispatch_agent_run_fails_closed_until_runtime_is_wired() {
+    let client = InMemoryClient::new();
+    let task = tempfile::NamedTempFile::new().expect("task file");
+    std::fs::write(task.path(), "fix the failing test").expect("write task");
+    let path = task.path().to_string_lossy().to_string();
+    let (code, out, err) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "agent",
+            "run",
+            "--repo",
+            "alice/jeryu",
+            "--agent",
+            "codex",
+            "--model",
+            "model-x",
+            "--task-file",
+            &path,
+        ],
+    );
+    assert_eq!(code, 5, "NotWired maps to exit code 5");
+    assert!(out.is_empty(), "no stdout on denied launch");
+    assert!(
+        err.contains("not yet wired")
+            && err.contains("protected runner PTY")
+            && err.contains("required stream"),
+        "stderr must explain the fail-closed runtime gap: {err:?}"
+    );
 }
 
 #[test]

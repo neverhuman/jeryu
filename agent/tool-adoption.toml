@@ -79,3 +79,8 @@ mode = "auto"
 [[tools]]
 id = "cost-budget"
 mode = "auto"
+
+[[tools]]
+id = "agent-edit-native-cli"
+mode = "manual"
+evidence = "agent/native-cli-manifest.toml"

@@ -132,6 +132,30 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(false, false, false, true),
             ToolKind::WorkcellRelease,
         ),
+        "agent_work.start" => (
+            "Start agent work",
+            "Start a high-level agent-edit run through the workcell substrate.",
+            tool_annotations(false, false, false, true),
+            ToolKind::AgentWorkStart,
+        ),
+        "agent_work.status" => (
+            "Agent work status",
+            "Read high-level agent-edit run status.",
+            tool_annotations(true, false, true, false),
+            ToolKind::AgentWorkStatus,
+        ),
+        "agent_work.control" => (
+            "Agent work control",
+            "Send stdin, continuation, interrupt, terminate, or PTY resize control to an agent run.",
+            tool_annotations(false, false, false, true),
+            ToolKind::AgentWorkControl,
+        ),
+        "agent_work.export_pr" => (
+            "Export agent PR",
+            "Export a completed agent-edit run as a namespaced pull request.",
+            tool_annotations(false, false, false, true),
+            ToolKind::AgentWorkExportPr,
+        ),
         _ => return None,
     };
 

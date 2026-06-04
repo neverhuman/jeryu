@@ -10,6 +10,7 @@ use jeryu_core::CheckConclusion;
 use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
 use jeryu_readmodel::contracts::ServerWsMessage;
 use jeryu_readmodel::{HealthLevel, sample_read_model};
+use std::collections::BTreeSet;
 use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
 use tempfile::tempdir;

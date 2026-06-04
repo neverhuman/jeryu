@@ -27,6 +27,11 @@ Run these from the canonical repository root before creating a release receipt:
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the jailed workcell edit, namespaced branch export, PR creation, or CI evidence flow changes.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API routes or repair bodies change.
+- `cargo test -p jeryu-agent-auth -p jeryu-agent-stream -p jeryu-cli -p
+  jeryu-mcp --jobs 40`, `cargo test -p jeryu-agentbridge -p jeryu-egress -p
+  jeryu-sandbox-linux --jobs 40`, `cargo test -p jeryu-runnerd workcell
+  --jobs 40`, and `bash ops/ci/workflow-lint.sh` when agent-edit auth,
+  streaming, API/MCP/CLI, egress, sandbox, or workcell runner controls change.
 - `just security`
 - `just audit`
 

@@ -121,7 +121,7 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 21-tool catalog (replaces the source's action_registry guardrail).
+    // The 25-tool catalog (replaces the source's action_registry guardrail).
     let expected = [
         "fetch_capsule",
         "get_system_snapshot",
@@ -144,11 +144,15 @@ fn manifest_covers_all_catalog_actions() {
         "workcell.repair_live",
         "workcell.export_pr",
         "workcell.release",
+        "agent_work.start",
+        "agent_work.status",
+        "agent_work.control",
+        "agent_work.export_pr",
     ];
     assert_eq!(
         names.len(),
-        21,
-        "expected exactly 21 tools, got {}",
+        25,
+        "expected exactly 25 tools, got {}",
         names.len()
     );
     for id in expected {
@@ -226,7 +230,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 21);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 25);
 }
 
 #[tokio::test]

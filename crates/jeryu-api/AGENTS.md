@@ -10,6 +10,9 @@ Owns:
   typed no-PR denial for out-of-slice workcell repairs.
 - Workcell run-agent route behavior, including epoch fencing, claimed-repo-root
   confinement, structured run events, and sandbox-unavailable repair guidance.
+- Agent-run route behavior (`/api/v1/agent-runs*`), including fail-closed
+  preflight denials for missing required stream, auth, native tool doctor, egress
+  netguard, and sandbox proof.
 
 Forbidden:
 - Broad GraphQL execution without a narrow conformance test.
@@ -21,5 +24,6 @@ Proof lane:
 - `cargo test -p jeryu-api --features web --jobs 40`
 - `cargo test -p jeryu-api --features web --jobs 40 ci_bridge`
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`
+- `cargo test -p jeryu-api --features web --jobs 40 agent_runs`
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`

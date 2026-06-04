@@ -19,6 +19,7 @@
 //! `impl ForgeClient for InMemoryClient` block that wires the trait surface to
 //! those per-domain method bodies lives in [`inmemory`].
 
+mod agent;
 mod cache;
 mod ci;
 mod forge;
@@ -27,6 +28,10 @@ mod proof;
 mod release;
 mod runner;
 
+pub use agent::{
+    AgentAuthDoctor, AgentAuthImportReceipt, AgentControl, AgentExportPr, AgentExportPrRequest,
+    AgentRunRequest, AgentRunStatus, AgentTool,
+};
 pub use cache::CacheSelfTest;
 pub use ci::{CiExplanation, CiKind, CiRun, CiStatus};
 pub use forge::{
@@ -146,6 +151,20 @@ pub trait ForgeClient {
     // cache
     /// Run the cache integrity self-test. Backs `jeryu cache self-test`.
     fn cache_self_test(&self) -> ClientResult<CacheSelfTest>;
+
+    // agent
+    /// Import portable agent auth. Backs `jeryu agent auth import`.
+    fn agent_auth_import(&self, tool: AgentTool) -> ClientResult<AgentAuthImportReceipt>;
+    /// Check imported portable agent auth. Backs `jeryu agent auth doctor`.
+    fn agent_auth_doctor(&self, tool: AgentTool) -> ClientResult<AgentAuthDoctor>;
+    /// Start an agent-edit run. Backs `jeryu agent run`.
+    fn agent_run(&self, request: AgentRunRequest) -> ClientResult<AgentRunStatus>;
+    /// Read agent-edit run status. Backs `jeryu agent status`.
+    fn agent_status(&self, run_id: &str) -> ClientResult<AgentRunStatus>;
+    /// Send agent-edit control. Backs `jeryu agent control`.
+    fn agent_control(&self, run_id: &str, control: AgentControl) -> ClientResult<AgentRunStatus>;
+    /// Export agent-edit run as PR. Backs `jeryu agent export-pr`.
+    fn agent_export_pr(&self, request: AgentExportPrRequest) -> ClientResult<AgentExportPr>;
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +179,8 @@ struct InMemoryState {
     runners: Vec<Runner>,
     runs: Vec<CiRun>,
     run_seq: u64,
+    agent_auth: BTreeMap<AgentTool, bool>,
+    agent_runs: BTreeMap<String, AgentRunStatus>,
 }
 
 /// An in-memory [`ForgeClient`] for tests and local rehearsals.
