@@ -45,6 +45,11 @@ pub struct ProtectedRefRule {
 
 impl ProtectedRefRule {
     /// Default Phase 1 rules.
+    ///
+    /// PR auto-merge ([`crate::refs::RefService::merge_pull`]) advances the base
+    /// ref as a non-force fast-forward-of-base (the new tip is always a
+    /// descendant of the old base), so it satisfies `deny_force` on
+    /// `refs/heads/main` without needing a bypass actor here.
     #[must_use]
     pub fn default_phase1_rules() -> Vec<Self> {
         vec![

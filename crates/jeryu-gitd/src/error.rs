@@ -26,6 +26,10 @@ pub enum GitdError {
     RepoNotFound(PathBuf),
     /// A protected-ref policy denied an update.
     ProtectedRefDenied(String),
+    /// A pull-request merge produced a conflicting tree.
+    MergeConflict(String),
+    /// A non-fast-forward merge was refused because the base requires linear history.
+    NonFastForwardRequired,
     /// Protocol parsing failed.
     Protocol(String),
     /// HTTP parsing or response failure.
@@ -56,6 +60,11 @@ impl Display for GitdError {
             }
             Self::RepoNotFound(path) => write!(f, "repository not found: {}", path.display()),
             Self::ProtectedRefDenied(msg) => write!(f, "protected ref denied: {msg}"),
+            Self::MergeConflict(msg) => write!(f, "merge conflict: {msg}"),
+            Self::NonFastForwardRequired => write!(
+                f,
+                "non-fast-forward merge refused: base requires linear history"
+            ),
             Self::Protocol(msg) => write!(f, "protocol error: {msg}"),
             Self::Http(msg) => write!(f, "http error: {msg}"),
             Self::Lfs(msg) => write!(f, "lfs error: {msg}"),

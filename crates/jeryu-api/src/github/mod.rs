@@ -49,9 +49,17 @@ pub enum Method {
 }
 
 /// GitHub-compatible REST router backed by an in-memory [`ForgeCore`] store.
+///
+/// When built with the `web` feature, the router may also carry an optional
+/// [`jeryu_gitd::RepoManager`] (via [`GithubRouter::with_repo_manager`]). When
+/// present, the PR merge endpoint performs a REAL, gated git merge that
+/// advances `refs/heads/<base>` in the bare repo; when absent it falls back to
+/// the in-memory synthetic-sha merge.
 #[derive(Clone, Debug, Default)]
 pub struct GithubRouter {
     core: ForgeCore,
+    #[cfg(feature = "web")]
+    repo_manager: Option<std::sync::Arc<jeryu_gitd::RepoManager>>,
 }
 
 impl GithubRouter {
@@ -62,7 +70,25 @@ impl GithubRouter {
 
     /// Builds a router over an existing forge store.
     pub fn with_core(core: ForgeCore) -> Self {
-        Self { core }
+        Self {
+            core,
+            #[cfg(feature = "web")]
+            repo_manager: None,
+        }
+    }
+
+    /// Attach a git [`RepoManager`](jeryu_gitd::RepoManager) so the PR merge
+    /// endpoint advances the real base ref in the bare repo. A single additive,
+    /// forward-compatible builder call: production wiring chains this onto
+    /// [`GithubRouter::with_core`] in `web.rs`.
+    #[cfg(feature = "web")]
+    #[must_use]
+    pub fn with_repo_manager(
+        mut self,
+        repo_manager: std::sync::Arc<jeryu_gitd::RepoManager>,
+    ) -> Self {
+        self.repo_manager = Some(repo_manager);
+        self
     }
 
     /// Borrows the backing forge store (used by tests and embedding callers).

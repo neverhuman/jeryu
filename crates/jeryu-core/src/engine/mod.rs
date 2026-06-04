@@ -35,6 +35,8 @@ mod webhooks;
 #[cfg(test)]
 mod tests;
 
+pub use pull_requests::MergeReadiness;
+
 #[derive(Debug, Clone, Default)]
 struct Counters {
     issue: u64,

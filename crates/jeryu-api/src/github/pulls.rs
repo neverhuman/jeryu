@@ -2,8 +2,8 @@
 //! GitHub-shaped renderers.
 
 use jeryu_core::{
-    ChangeSet, CreatePullRequestRequest, ForgeError, MergePullRequestRequest, OpenPr,
-    OverlapConfig, OverlapDecision, PullRequest, PullRequestState, decide,
+    ChangeSet, CreatePullRequestRequest, ForgeError, MergePullRequestRequest, MergeReadiness,
+    OpenPr, OverlapConfig, OverlapDecision, PullRequest, PullRequestState, decide,
 };
 use serde_json::{Value, json};
 
@@ -181,17 +181,88 @@ impl GithubRouter {
                 Err(response) => return response,
             }
         };
-        match self.core.merge_pull_request(owner, repo, number, req) {
-            Ok(result) => json_response(
+
+        // GATE FIRST (no git yet). A blocked PR returns Err(BranchProtection)
+        // here and the handler short-circuits BEFORE any git ref is touched.
+        let readiness =
+            match self
+                .core
+                .evaluate_merge_readiness(owner, repo, number, req.sha.as_deref())
+            {
+                Ok(readiness) => readiness,
+                // GitHub returns 405 "Method Not Allowed" when a PR is not
+                // mergeable (failing checks / protection), distinct from a 404.
+                Err(ForgeError::BranchProtection(reason)) => {
+                    return json_response(
+                        405,
+                        &json!({ "message": reason, "documentation_url": docs_url() }),
+                    );
+                }
+                Err(err) => return error_response(err),
+            };
+
+        match readiness {
+            // Idempotent: an already-merged PR returns its recorded merge sha.
+            MergeReadiness::AlreadyMerged { sha } => json_response(
                 200,
                 &json!({
-                    "sha": result.sha,
-                    "merged": result.merged,
-                    "message": result.message,
+                    "sha": sha,
+                    "merged": true,
+                    "message": "Pull Request already merged",
                 }),
             ),
-            // GitHub returns 405 "Method Not Allowed" when a PR is not
-            // mergeable (failing checks / protection), distinct from a 404.
+            MergeReadiness::Ready {
+                base_ref,
+                base_sha,
+                head_sha,
+                require_linear_history,
+            } => self.merge_ready_pull(MergeReady {
+                owner,
+                repo,
+                number,
+                req: &req,
+                base_ref,
+                base_sha,
+                head_sha,
+                require_linear_history,
+            }),
+        }
+    }
+
+    /// Finalize a PR that has already passed the merge gate. With a git
+    /// [`RepoManager`] wired this advances the real base ref; otherwise it falls
+    /// back to the in-memory synthetic-sha merge.
+    fn merge_ready_pull(&self, ready: MergeReady<'_>) -> Response {
+        #[cfg(feature = "web")]
+        {
+            if let Some(rm) = &self.repo_manager {
+                return self.merge_ready_pull_git(rm, ready);
+            }
+            // No git backend wired: production merges silently fall back to the
+            // in-memory synthetic-sha path. Surface it so an operator can spot a
+            // missing `.with_repo_manager(...)` wiring in web.rs. The crate has
+            // no tracing infra, so this matches the existing `eprintln!`
+            // advisory-logging convention (see web/tests.rs).
+            eprintln!(
+                "WARN: repo_manager unset; merge falling back to the in-memory synthetic-sha \
+                 path (production git merge not wired)"
+            );
+        }
+        self.merge_ready_pull_in_memory(ready)
+    }
+
+    /// Git-less finalize: synthesize a merge sha in core. Used by unit tests and
+    /// as the no-`repo_manager` fallback.
+    fn merge_ready_pull_in_memory(&self, ready: MergeReady<'_>) -> Response {
+        let merge_sha = format!("merge-{}-{}", ready.head_sha, ready.number);
+        match self.core.finalize_merge(
+            ready.owner,
+            ready.repo,
+            ready.number,
+            merge_sha,
+            ready.req.sha.as_deref(),
+        ) {
+            Ok(result) => merge_success_response(&result),
             Err(ForgeError::BranchProtection(reason)) => json_response(
                 405,
                 &json!({ "message": reason, "documentation_url": docs_url() }),
@@ -199,6 +270,144 @@ impl GithubRouter {
             Err(err) => error_response(err),
         }
     }
+
+    /// Real, gated git merge: advance `refs/heads/{base_ref}` in the bare repo
+    /// to the produced merge oid, then reconcile that real sha into the PR
+    /// record via `finalize_merge`.
+    #[cfg(feature = "web")]
+    fn merge_ready_pull_git(
+        &self,
+        rm: &std::sync::Arc<jeryu_gitd::RepoManager>,
+        ready: MergeReady<'_>,
+    ) -> Response {
+        use jeryu_gitd::GitdError;
+        use jeryu_gitd::refs::RefService;
+
+        let resolved = match rm.resolve_parts(ready.owner, ready.repo) {
+            Ok(resolved) => resolved,
+            Err(err) => {
+                return json_response(
+                    500,
+                    &json!({
+                        "message": format!("could not resolve repository: {err}"),
+                        "documentation_url": docs_url(),
+                    }),
+                );
+            }
+        };
+
+        let message = merge_message(ready.number, ready.req);
+        let refs = RefService::new((**rm).clone());
+        let outcome = match refs.merge_pull(
+            &resolved,
+            "system:pr-merge",
+            &format!("refs/heads/{}", ready.base_ref),
+            &ready.base_sha,
+            &ready.head_sha,
+            &message,
+            ready.require_linear_history,
+        ) {
+            Ok(outcome) => outcome,
+            // A conflicting tree is a 409, as is a refused non-fast-forward
+            // merge on a linear-history-protected base.
+            Err(GitdError::MergeConflict(detail)) => {
+                return json_response(
+                    409,
+                    &json!({
+                        "message": format!("merge conflict: {detail}"),
+                        "documentation_url": docs_url(),
+                    }),
+                );
+            }
+            Err(err @ GitdError::NonFastForwardRequired) => {
+                return json_response(
+                    409,
+                    &json!({ "message": err.to_string(), "documentation_url": docs_url() }),
+                );
+            }
+            Err(err) => {
+                return json_response(
+                    500,
+                    &json!({ "message": err.to_string(), "documentation_url": docs_url() }),
+                );
+            }
+        };
+
+        // Reconcile the REAL git oid back into the PR record (handler never
+        // mutates the model directly).
+        match self.core.finalize_merge(
+            ready.owner,
+            ready.repo,
+            ready.number,
+            outcome.merge_oid.clone(),
+            ready.req.sha.as_deref(),
+        ) {
+            Ok(result) => merge_success_response(&result),
+            // The ref already moved; we do NOT roll it back. A reconciler can
+            // detect the divergence by comparing merge_commit_sha vs the ref.
+            Err(ForgeError::BranchProtection(reason)) => json_response(
+                405,
+                &json!({ "message": reason, "documentation_url": docs_url() }),
+            ),
+            Err(err) => error_response(err),
+        }
+    }
+}
+
+/// Parameters describing a PR that has already passed the merge gate.
+///
+/// `base_ref`/`base_sha`/`require_linear_history` are only consumed by the real
+/// git-merge path (`web` feature); the in-memory fallback uses only
+/// `head_sha`/`number`.
+struct MergeReady<'a> {
+    owner: &'a str,
+    repo: &'a str,
+    number: u64,
+    req: &'a MergePullRequestRequest,
+    #[cfg_attr(not(feature = "web"), allow(dead_code))]
+    base_ref: String,
+    #[cfg_attr(not(feature = "web"), allow(dead_code))]
+    base_sha: String,
+    head_sha: String,
+    #[cfg_attr(not(feature = "web"), allow(dead_code))]
+    require_linear_history: bool,
+}
+
+fn merge_success_response(result: &jeryu_core::MergeResult) -> Response {
+    json_response(
+        200,
+        &json!({
+            "sha": result.sha,
+            "merged": result.merged,
+            "message": result.message,
+        }),
+    )
+}
+
+/// Build the merge commit message: a default GitHub-shaped title, optionally
+/// followed by a request-provided title/body.
+#[cfg(feature = "web")]
+fn merge_message(number: u64, req: &MergePullRequestRequest) -> String {
+    let mut message = format!("Merge pull request #{number}");
+    if let Some(title) = req
+        .commit_title
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
+        message.push_str("\n\n");
+        message.push_str(title);
+    }
+    if let Some(body) = req
+        .commit_message
+        .as_deref()
+        .map(str::trim)
+        .filter(|b| !b.is_empty())
+    {
+        message.push_str("\n\n");
+        message.push_str(body);
+    }
+    message
 }
 
 pub(super) fn pull_request_json(pr: &PullRequest) -> Value {
