@@ -67,7 +67,9 @@ first push wins and rejected duplicate pushes leave the single release bump on
   proving an out-of-slice diff creates no pull request.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API response contracts, `/api/v1/ecosystem`, or
-  `/api/v1/ci/runs/{id}/evidence` change.
+  `/api/v1/ci/runs/{id}/evidence` change. Evidence digest or canonicalization
+  changes must attach the route test transcript, clippy transcript, and
+  Jankurai audit score to the release receipt.
 - `cargo test -p jeryu-signrail --test release_witness` and
   `cargo clippy -p jeryu-signrail --all-targets -- -D warnings` when release
   signing, artifact provenance, witness, or stage-receipt behavior changes.

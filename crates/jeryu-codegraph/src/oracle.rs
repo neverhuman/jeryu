@@ -89,42 +89,56 @@ impl CodeGraphService {
             repo,
             commit,
             query,
-            &workspace,
-            &snapshot,
-            &impact,
-            &governance,
-            graph_stats,
-            IndexReceipt {
-                run_id,
-                store_path: self.store.path().display().to_string(),
-                ref_name: snapshot
-                    .index_runs
-                    .last()
-                    .map(|row| row.ref_name.clone())
-                    .unwrap_or_else(default_ref_name),
-                commit: snapshot
-                    .index_runs
-                    .last()
-                    .map(|row| row.commit_sha.clone())
-                    .unwrap_or_default(),
-                indexed_at,
-                analyzer_scope,
+            PackBuildInput {
+                workspace: &workspace,
+                snapshot: &snapshot,
+                impact: &impact,
+                governance: &governance,
+                graph_stats,
+                index_receipt: IndexReceipt {
+                    run_id,
+                    store_path: self.store.path().display().to_string(),
+                    ref_name: snapshot
+                        .index_runs
+                        .last()
+                        .map(|row| row.ref_name.clone())
+                        .unwrap_or_else(default_ref_name),
+                    commit: snapshot
+                        .index_runs
+                        .last()
+                        .map(|row| row.commit_sha.clone())
+                        .unwrap_or_default(),
+                    indexed_at,
+                    analyzer_scope,
+                },
             },
         ))
     }
+}
+
+struct PackBuildInput<'a> {
+    workspace: &'a WorkspaceGraph,
+    snapshot: &'a GraphSnapshot,
+    impact: &'a ImpactReport,
+    governance: &'a GovernanceMetadata,
+    graph_stats: GraphStats,
+    index_receipt: IndexReceipt,
 }
 
 fn build_pack(
     repo: CodeGraphRepoIdentity,
     commit: String,
     query: CodeGraphQuery,
-    workspace: &WorkspaceGraph,
-    snapshot: &GraphSnapshot,
-    impact: &ImpactReport,
-    governance: &GovernanceMetadata,
-    graph_stats: GraphStats,
-    index_receipt: IndexReceipt,
+    input: PackBuildInput<'_>,
 ) -> CodeGraphImpactPack {
+    let PackBuildInput {
+        workspace,
+        snapshot,
+        impact,
+        governance,
+        graph_stats,
+        index_receipt,
+    } = input;
     let mut must = BTreeMap::new();
     let mut should = BTreeMap::new();
     let file_rows: BTreeMap<&str, &FileRow> = snapshot
@@ -234,7 +248,7 @@ fn build_pack(
     }
     proof_lanes.sort_by(|a, b| a.lane.cmp(&b.lane));
 
-    let excluded_files = lexical_exclusions(&query, &must, &should, &governance);
+    let excluded_files = lexical_exclusions(&query, &must, &should, governance);
 
     let mut residual_risk = vec![
         "typescript/vite/react/security analyzers are outside the v1 authoritative analyzer scope; no authoritative results are emitted for those domains".to_string(),

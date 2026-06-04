@@ -141,6 +141,8 @@ identity, and digest-verifiable CI evidence for clients that need agent-readable
 state before choosing a mutation path. The bootstrap payload also carries the
 `workcells` feature flag and the live workcell dashboard snapshot inside the
 typed TUI model.
+CI evidence digest changes are routed through the proof commands in
+`docs/testing.md` and release receipt requirements in `docs/release.md`.
 The codegraph query route and `jeryu.codegraph.query` MCP tool return the
 Rust/Cargo impact pack documented in `docs/codegraph-oracle.md`.
 `~/.local/share/jeryu` is intentionally separate from the retired
