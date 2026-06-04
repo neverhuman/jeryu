@@ -203,6 +203,55 @@ pub fn open_pty() -> SandboxResult<(OwnedFd, OwnedFd)> {
     Ok((master, slave))
 }
 
+/// A signal to deliver to a sandboxed child's whole process group.
+pub enum GroupSignal {
+    /// `SIGINT` (Ctrl-C): ask the agent to interrupt.
+    Interrupt,
+    /// `SIGTERM`: ask the agent to terminate.
+    Terminate,
+    /// `SIGKILL`: force-kill.
+    Kill,
+}
+
+/// Deliver `signal` to the process GROUP led by `leader_pid`. The sandboxed
+/// child is a group/session leader (`setpgid`/`setsid` in `pre_exec`), so this
+/// reaps its descendants too. A failure (e.g. the group already exited) is
+/// ignored — the caller is tearing down regardless.
+pub fn signal_group(leader_pid: u32, signal: GroupSignal) {
+    let sig = match signal {
+        GroupSignal::Interrupt => libc::SIGINT,
+        GroupSignal::Terminate => libc::SIGTERM,
+        GroupSignal::Kill => libc::SIGKILL,
+    };
+    // SAFETY: kill() with a negative pid targets the process group; no pointer
+    // args, no shared state. A non-existent group is a benign error we ignore.
+    if let Ok(pid) = i32::try_from(leader_pid) {
+        unsafe {
+            let _ = libc::kill(-pid, sig);
+        }
+    }
+}
+
+/// Resize the PTY whose master is `master_fd` to `rows` x `cols`.
+pub fn resize_pty(master_fd: RawFd, rows: u16, cols: u16) -> SandboxResult<()> {
+    let ws = libc::winsize {
+        ws_row: rows,
+        ws_col: cols,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    // SAFETY: TIOCSWINSZ reads a winsize struct through the pointer; `master_fd`
+    // is a valid PTY master fd owned by the caller.
+    let rc = unsafe { libc::ioctl(master_fd, libc::TIOCSWINSZ, &ws) };
+    if rc != 0 {
+        return Err(SandboxError::new(
+            "pty_resize_failed",
+            IoError::last_os_error().to_string(),
+        ));
+    }
+    Ok(())
+}
+
 /// Spawn `job`'s command under the sandbox with the default piped stdio. See
 /// [`spawn_sandboxed_with_io`] for the PTY variant.
 pub fn spawn_sandboxed(
