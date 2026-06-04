@@ -109,6 +109,7 @@ pub(in crate::web) async fn run_agent(
         program: program.to_string_lossy().to_string(),
         args: request.args,
         env: request.env,
+        stdin: None,
     };
     let run_root_for_task = run_root.clone();
     let task = tokio::task::spawn_blocking(move || {

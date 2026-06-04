@@ -289,6 +289,12 @@ fn affected_lanes(changed_files: &[String], full_ci: bool) -> Vec<String> {
         if path.starts_with("crates/jeryu-api/") || path.starts_with("crates/jeryu-core/") {
             lanes.insert("api".to_string());
         }
+        if path.starts_with("crates/jeryu-codegraph/")
+            || path == "docs/codegraph-oracle.md"
+            || path == "ops/ci/codegraph-oracle.sh"
+        {
+            lanes.insert("codegraph".to_string());
+        }
         if path.starts_with("db/") {
             lanes.insert("db".to_string());
         }

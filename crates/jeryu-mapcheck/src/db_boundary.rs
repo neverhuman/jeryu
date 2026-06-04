@@ -25,7 +25,10 @@ struct Boundaries {
 
 #[derive(Debug, Deserialize)]
 struct DbBoundary {
+    #[serde(default)]
     truth_owner: String,
+    #[serde(default)]
+    truth_owners: Vec<String>,
     #[serde(default)]
     auxiliary_sqlite_paths: Vec<PathBuf>,
 }
@@ -38,13 +41,24 @@ pub fn db_boundary(root: &Path, boundaries_toml: &Path) -> Result<GateReport> {
     let boundaries: Boundaries = toml::from_str(&raw)
         .with_context(|| format!("parsing {} as TOML", boundaries_toml.display()))?;
 
-    let allowed_prefix = PathBuf::from("crates").join(boundaries.db.truth_owner);
+    let mut allowed_owners = boundaries.db.truth_owners;
+    if !boundaries.db.truth_owner.is_empty() {
+        allowed_owners.push(boundaries.db.truth_owner);
+    }
+    allowed_owners.sort();
+    allowed_owners.dedup();
+    let allowed_prefixes: Vec<PathBuf> = allowed_owners
+        .into_iter()
+        .map(|owner| PathBuf::from("crates").join(owner))
+        .collect();
     let auxiliary_prefixes = boundaries.db.auxiliary_sqlite_paths;
     let pattern = ["rus", "qlite"].concat();
     let mut hits = Vec::new();
     for (rel, path) in iter_files(root)? {
         if rel == Path::new("Cargo.lock")
-            || rel.starts_with(&allowed_prefix)
+            || allowed_prefixes
+                .iter()
+                .any(|prefix| rel.starts_with(prefix))
             || auxiliary_prefixes
                 .iter()
                 .any(|prefix| rel.starts_with(prefix))

@@ -24,7 +24,7 @@ pub struct AgentAuthError {
     /// Stable machine code.
     pub code: String,
     /// Required repair body.
-    pub repair: AgentAuthRepair,
+    pub repair: Box<AgentAuthRepair>,
 }
 
 impl AgentAuthError {
@@ -38,13 +38,13 @@ impl AgentAuthError {
     ) -> Self {
         Self {
             code: code.to_string(),
-            repair: AgentAuthRepair {
+            repair: Box::new(AgentAuthRepair {
                 purpose: purpose.into(),
                 reason: reason.into(),
                 common_fixes: common_fixes.iter().map(|fix| (*fix).to_string()).collect(),
                 docs_url: docs_url.to_string(),
                 repair_hint: repair_hint.to_string(),
-            },
+            }),
         }
     }
 }

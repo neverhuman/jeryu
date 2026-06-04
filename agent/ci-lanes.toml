@@ -73,6 +73,13 @@ command = "bash ops/ci/release.sh"
 full = false
 
 [[lanes]]
+id = "codegraph-oracle"
+workflow = ".github/workflows/codegraph-oracle.yml"
+job = "codegraph-oracle"
+command = "bash ops/ci/codegraph-oracle.sh"
+full = true
+
+[[lanes]]
 id = "web"
 workflow = ".github/workflows/web.yml"
 job = "web"

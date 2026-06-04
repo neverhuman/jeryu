@@ -4,8 +4,11 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use jeryu_codegraph::{CodeGraph, CodeGraphStore, Slice, default_db_path};
+use jeryu_codegraph::{
+    CodeGraph, CodeGraphStore, QueryOptions, RepoIdentity, Slice, default_db_path,
+};
 use jeryu_rustjet::WorkspaceGraph;
+use serde::Serialize;
 
 #[derive(Parser)]
 #[command(
@@ -52,6 +55,30 @@ enum Commands {
         #[arg(long)]
         db: Option<PathBuf>,
     },
+    /// Query the code graph and emit a JSON pack.
+    Query {
+        /// Workspace root.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// SQLite database path (defaults to ~/.jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Repository id.
+        #[arg(long, default_value = "local")]
+        repo_id: String,
+        /// Repository owner.
+        #[arg(long, default_value = "local")]
+        owner: String,
+        /// Repository name.
+        #[arg(long, default_value = "workspace")]
+        name: String,
+        /// Git ref name.
+        #[arg(long, default_value = "HEAD")]
+        ref_name: String,
+        /// Commit SHA.
+        #[arg(long, default_value = "unknown")]
+        commit_sha: String,
+    },
 }
 
 fn resolve_db(db: Option<PathBuf>) -> PathBuf {
@@ -77,7 +104,9 @@ fn main() -> Result<()> {
             let _store = CodeGraphStore::open(resolve_db(db)).context("open store")?;
             let workspace = WorkspaceGraph::load(&root).context("load workspace")?;
             let graph = CodeGraph::index_workspace(&workspace).context("index workspace")?;
-            let report = graph.impact_of(&workspace, &paths);
+            let report = graph
+                .try_impact_of(&workspace, &paths)
+                .context("impact analysis")?;
             println!("changed_crates:");
             for c in &report.changed_crates {
                 println!("  {c}");
@@ -115,6 +144,41 @@ fn main() -> Result<()> {
                 snapshot.crate_deps.len()
             );
         }
+        Commands::Query {
+            root,
+            db,
+            repo_id,
+            owner,
+            name,
+            ref_name,
+            commit_sha,
+        } => {
+            let store = CodeGraphStore::open(resolve_db(db)).context("open store")?;
+            let repo = RepoIdentity {
+                repo_id,
+                owner,
+                name,
+            };
+            let scope = QueryOptions::default();
+            let (snapshot, receipt) = store
+                .query_or_refresh(&repo, &ref_name, &commit_sha, &root, &scope, || {
+                    let workspace = WorkspaceGraph::load(&root)
+                        .map_err(|e| jeryu_codegraph::CodeGraphError::Workspace(e.to_string()))?;
+                    let graph = CodeGraph::index_workspace(&workspace)
+                        .map_err(|e| jeryu_codegraph::CodeGraphError::Storage(e.to_string()))?;
+                    Ok(graph.snapshot().clone())
+                })
+                .context("query code graph")?;
+            let pack = QueryPack {
+                receipt,
+                symbols: snapshot.symbols.len(),
+                crate_deps: snapshot.crate_deps.len(),
+            };
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&pack).context("serialize query pack")?
+            );
+        }
     }
     Ok(())
 }
@@ -126,4 +190,11 @@ fn split_csv(value: &str) -> Vec<String> {
         .filter(|part| !part.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+#[derive(Debug, Serialize)]
+struct QueryPack {
+    receipt: jeryu_codegraph::IndexReceipt,
+    symbols: usize,
+    crate_deps: usize,
 }

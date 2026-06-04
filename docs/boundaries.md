@@ -19,8 +19,9 @@ must check before a cross-boundary change is merged.
   startup rebase enforcement, branch-budget metadata, and quarantine-first
   tar import/export validation.
 - `jeryu-codegraph` owns a self-contained auxiliary SQLite index for code graph
-  snapshots and export-slice analysis. It is not forge product truth and does
-  not use the shared `db/migrations` schema.
+  snapshots and export-slice analysis. It is an auxiliary SQLite truth owner in
+  `agent/boundaries.toml`, and it does not use the shared `db/migrations`
+  schema.
 - `jeryu-signrail` owns release witnesses, signatures, checksums, rollback
   metadata, and artifact-support stage receipts. Local signing consumes
   `JERYU_SIGNRAIL_ED25519_SEED`; hosted artifact-support signing consumes only

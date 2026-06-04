@@ -45,21 +45,6 @@ pub(super) fn agent_run_not_found(agent_run_id: &str) -> AxumResponse {
     )
 }
 
-pub(super) fn runtime_not_wired() -> AxumResponse {
-    agent_typed_error(
-        StatusCode::FAILED_DEPENDENCY,
-        "agent_runtime_not_wired",
-        "launch a native agent-edit run",
-        "agent-run launch is not wired to the protected runner PTY path yet",
-        &[
-            "wire the agentbridge PTY launcher before enabling live native tools",
-            "keep start requests fail-closed until stream, auth, tool, netguard, and sandbox proof all pass",
-        ],
-        "docs/testing.md#workcells",
-        "rerun cargo test -p jeryu-api --features web --jobs 40 agent_runs",
-    )
-}
-
 pub(super) fn agent_typed_error(
     status: StatusCode,
     code: &'static str,

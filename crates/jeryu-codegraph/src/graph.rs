@@ -13,7 +13,10 @@ use std::path::Path;
 use jeryu_rustjet::{PublicApiDetector, WorkspaceGraph};
 
 use crate::error::{CodeGraphError, Result};
-use crate::storage::{CodeGraphStore, CrateDepRow, GraphSnapshot, SymbolRow};
+use crate::slice::validate_repo_relative_path;
+use crate::storage::{
+    CodeGraphStore, CrateDepRow, GraphSnapshot, IndexReceipt, QueryOptions, RepoIdentity, SymbolRow,
+};
 
 /// An in-memory code graph for a workspace.
 #[derive(Debug, Clone, Default)]
@@ -113,6 +116,26 @@ impl CodeGraph {
         store.persist(&self.snapshot)
     }
 
+    /// Persists this graph's snapshot with explicit repository metadata.
+    pub fn persist_with_context(
+        &self,
+        store: &CodeGraphStore,
+        repo: &RepoIdentity,
+        ref_name: &str,
+        commit_sha: &str,
+        root: impl AsRef<Path>,
+        query_options: &QueryOptions,
+    ) -> Result<IndexReceipt> {
+        store.persist_repo_commit(
+            repo,
+            ref_name,
+            commit_sha,
+            root,
+            query_options,
+            &self.snapshot,
+        )
+    }
+
     /// Loads a graph back from a persisted snapshot.
     pub fn from_snapshot(snapshot: GraphSnapshot) -> Self {
         let mut crate_deps: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -139,8 +162,22 @@ impl CodeGraph {
     /// Reuses `WorkspaceGraph::package_for_path` to resolve changed crates and
     /// `transitive_reverse_dependencies_of` to expand to affected crates.
     pub fn impact_of(&self, workspace: &WorkspaceGraph, changed_paths: &[String]) -> ImpactReport {
+        self.try_impact_of(workspace, changed_paths)
+            .expect("impact_of called with an invalid repo-relative path")
+    }
+
+    /// Computes the impact of a set of changed repo-relative paths.
+    pub fn try_impact_of(
+        &self,
+        workspace: &WorkspaceGraph,
+        changed_paths: &[String],
+    ) -> Result<ImpactReport> {
         let mut changed_crates = BTreeSet::new();
         for path in changed_paths {
+            validate_repo_relative_path(path).map_err(|reason| CodeGraphError::InvalidPath {
+                path: path.clone(),
+                reason: reason.to_string(),
+            })?;
             if let Some(package) = workspace.package_for_path(path) {
                 changed_crates.insert(package.name.clone());
             }
@@ -160,11 +197,11 @@ impl CodeGraph {
             }
         }
 
-        ImpactReport {
+        Ok(ImpactReport {
             changed_crates,
             affected_crates,
             affected_symbols,
-        }
+        })
     }
 
     /// Workspace-internal dependency edges (crate -> dependencies).

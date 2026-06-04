@@ -31,6 +31,7 @@ use tower_http::services::{ServeDir, ServeFile};
 
 use crate::GithubRouter;
 use crate::git_materializer::GitMaterializer;
+use agent_runs::AgentRunManager;
 use jeryu_gitd::{GitdConfig, RepoManager};
 use jeryu_runnerd::WorkcellManager;
 use repositories::{
@@ -76,6 +77,8 @@ pub(crate) struct WebState {
     pub(crate) workcells: Arc<Mutex<WorkcellManager>>,
     /// Shared git-daemon repository manager backing the smart-HTTP transport.
     pub(crate) repo_manager: Arc<RepoManager>,
+    /// In-memory agent-run lifecycle and export ledger.
+    pub(crate) agent_runs: Arc<Mutex<AgentRunManager>>,
     /// Forge handle for the push->CI bridge (shares state with `github`).
     pub(crate) core: ForgeCore,
 }
@@ -97,6 +100,7 @@ impl WebState {
             spa_dir,
             ws: WsHub::new(),
             workcells: Arc::new(Mutex::new(WorkcellManager::new())),
+            agent_runs: Arc::new(Mutex::new(AgentRunManager::new())),
             repo_manager,
             core: core_handle,
         }

@@ -12,7 +12,7 @@ code, docs, fixtures, tests, generated artifacts, and operator scripts.
 
 ## Agent Start Here
 
-Read these files before editing:
+Agent-readable docs are routed from this list. Read these files before editing:
 
 - `AGENTS.md`
 - `agent/owner-map.json`

@@ -9,6 +9,15 @@ Owns:
 - Workcell run-agent documentation in `docs/workcell.md`, including the route
   proof command for typed path denial and structured event evidence.
 
+Agent-readable route index:
+- Architecture: `docs/architecture.md`
+- Boundaries: `docs/boundaries.md`
+- Testing and proof lanes: `docs/testing.md`
+- Error repair fields: `docs/errors.md`
+- Generated zones: `docs/generated-zones.md`
+- Audit rules: `docs/audit-rubric.md`
+- Release process: `docs/release.md` and `docs/release-process.md`
+
 Forbidden:
 - Hosted-provider or retired review-request terminology.
 - Aspirational release claims without executable gate evidence.

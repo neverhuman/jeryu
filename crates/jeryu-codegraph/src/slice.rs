@@ -15,7 +15,7 @@
 //!
 //! Empty allowed-prefixes => deny all (fail-closed).
 
-use std::path::{Component, Path};
+use std::path::Path;
 
 /// An allow-list of repo-relative path prefixes that an export may touch.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -48,10 +48,7 @@ impl Slice {
     /// Fail-closed: with no allowed prefixes, nothing is permitted.
     #[must_use]
     pub fn permits(&self, candidate: &str) -> bool {
-        if self.allowed_prefixes.is_empty() {
-            return false;
-        }
-        if has_parent_dir_component(candidate) {
+        if validate_repo_relative_path(candidate).is_err() || self.allowed_prefixes.is_empty() {
             return false;
         }
         let candidate_path = Path::new(candidate);
@@ -90,11 +87,43 @@ impl Slice {
     }
 }
 
-/// Returns true if the path contains a `..` (parent dir) component.
-fn has_parent_dir_component(candidate: &str) -> bool {
-    Path::new(candidate)
-        .components()
-        .any(|component| matches!(component, Component::ParentDir))
+/// Returns whether `candidate` is a strict repo-relative path.
+///
+/// Valid paths are non-empty, non-absolute, use forward-slash separators, and
+/// contain no empty, `.` or `..` path components.
+#[must_use]
+pub fn is_valid_repo_relative_path(candidate: &str) -> bool {
+    validate_repo_relative_path(candidate).is_ok()
+}
+
+/// Validates that `candidate` is a strict repo-relative path.
+pub fn validate_repo_relative_path(candidate: &str) -> Result<(), &'static str> {
+    if candidate.is_empty() {
+        return Err("path is empty");
+    }
+    if Path::new(candidate).is_absolute() {
+        return Err("path is absolute");
+    }
+    if candidate.contains('\\') {
+        return Err("path uses backslash separators");
+    }
+    let mut saw_component = false;
+    for component in candidate.split('/') {
+        saw_component = true;
+        if component.is_empty() {
+            return Err("path contains an empty component");
+        }
+        if component == "." {
+            return Err("path contains a current-directory component");
+        }
+        if component == ".." {
+            return Err("path contains a parent-directory component");
+        }
+    }
+    if !saw_component {
+        return Err("path is empty");
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -146,5 +175,15 @@ mod tests {
         let slice = Slice::new(["crates/jeryu-core"]);
         assert!(!slice.permits("crates/jeryu-core-extra/x.rs"));
         assert!(slice.permits("crates/jeryu-core/x.rs"));
+    }
+
+    #[test]
+    fn invalid_repo_relative_paths_are_denied() {
+        let slice = Slice::new(["crates/jeryu-core"]);
+        assert!(!slice.permits("/absolute/path.rs"));
+        assert!(!slice.permits("crates//jeryu-core/src/lib.rs"));
+        assert!(!slice.permits("crates/jeryu-core/./src/lib.rs"));
+        assert!(!slice.permits("crates/jeryu-core/../src/lib.rs"));
+        assert!(validate_repo_relative_path("crates/jeryu-core/src/lib.rs").is_ok());
     }
 }

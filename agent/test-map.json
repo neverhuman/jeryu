@@ -252,9 +252,9 @@
       "lane": "release-provenance"
     },
     "crates/jeryu-codegraph/": {
-      "command": "cargo test -p jeryu-codegraph --jobs 40",
+      "command": "bash ops/ci/codegraph-oracle.sh",
       "purpose": "verify the additive workspace code graph: persist round-trip, impact analysis, and the corrected export slice predicate",
-      "lane": "rust-ci"
+      "lane": "codegraph-oracle"
     },
     "dashboards/": {
       "command": "cargo test -p jeryu-bench -p jeryu-obs --jobs 40",

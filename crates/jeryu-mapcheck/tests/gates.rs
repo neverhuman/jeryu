@@ -215,7 +215,7 @@ truth_owner = "jeryu-core"
 }
 
 #[test]
-fn db_boundary_allows_declared_auxiliary_sqlite_owner() {
+fn db_boundary_allows_multiple_truth_owners() {
     let temp = tempfile::tempdir().expect("tempdir");
     let root = temp.path();
     write(
@@ -223,7 +223,7 @@ fn db_boundary_allows_declared_auxiliary_sqlite_owner() {
         "agent/boundaries.toml",
         r#"[db]
 truth_owner = "jeryu-core"
-auxiliary_sqlite_paths = ["crates/jeryu-codegraph"]
+truth_owners = ["jeryu-core", "jeryu-codegraph"]
 "#,
     );
     write(

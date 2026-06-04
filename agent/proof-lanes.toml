@@ -67,3 +67,7 @@ blocks_merge = true
 [lanes.api]
 required = ["cargo test -p jeryu-api --features web --jobs 40"]
 blocks_merge = true
+
+[lanes.codegraph-oracle]
+required = ["bash ops/ci/codegraph-oracle.sh"]
+blocks_merge = true

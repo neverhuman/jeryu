@@ -26,7 +26,7 @@ use jeryu_runner_core::trust::TrustTier;
 use jeryu_sandbox_linux::capability::SandboxCapabilities;
 use jeryu_sandbox_linux::launch::spawn_sandboxed;
 use std::collections::BTreeMap;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Child;
 use std::sync::OnceLock;
@@ -46,6 +46,8 @@ pub struct CommandSpec {
     pub args: Vec<String>,
     /// Extra environment entries merged on top of the sandbox base env.
     pub env: BTreeMap<String, String>,
+    /// Optional stdin payload written immediately after spawn.
+    pub stdin: Option<String>,
 }
 
 impl CommandSpec {
@@ -55,6 +57,7 @@ impl CommandSpec {
             program: program.into(),
             args: Vec::new(),
             env: BTreeMap::new(),
+            stdin: None,
         }
     }
 
@@ -69,6 +72,13 @@ impl CommandSpec {
     #[must_use]
     pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.env.insert(key.into(), value.into());
+        self
+    }
+
+    /// Builder: set the stdin payload written after spawn.
+    #[must_use]
+    pub fn stdin(mut self, text: impl Into<String>) -> Self {
+        self.stdin = Some(text.into());
         self
     }
 }
@@ -346,7 +356,7 @@ impl AgentDriver {
         // This is a transient race (not a sandbox failure), so retry briefly
         // rather than mis-reporting it as SandboxUnavailable.
         let mut attempt: u32 = 0;
-        let child = loop {
+        let mut child = loop {
             match spawn_sandboxed(&job, &plan, caps, &env) {
                 Ok(child) => break child,
                 Err(e)
@@ -372,6 +382,16 @@ impl AgentDriver {
                 }
             }
         };
+
+        if let Some(stdin_text) = &spec.stdin {
+            let mut stdin = child
+                .stdin
+                .take()
+                .ok_or_else(|| DriverError::Supervision("child stdin unavailable".to_string()))?;
+            stdin
+                .write_all(stdin_text.as_bytes())
+                .map_err(|e| DriverError::Supervision(e.to_string()))?;
+        }
 
         sink.emit(AgentEvent::Started { pid: child.id() });
 
@@ -402,7 +422,8 @@ impl AgentDriver {
     /// env on top so an edit-bot can be told what to write.
     fn sandbox_env(&self, job: &JobRequest, decision: &PolicyDecision) -> BTreeMap<String, String> {
         let mut env = jeryu_runner_core::fscheck::sanitize_env(&job.env);
-        env.insert("HOME".to_string(), "/tmp/jeryu-home".to_string());
+        env.entry("HOME".to_string())
+            .or_insert_with(|| "/tmp/jeryu-home".to_string());
         env.insert("TMPDIR".to_string(), "/tmp".to_string());
         env.insert(
             "PATH".to_string(),
@@ -435,6 +456,8 @@ impl AgentDriver {
         let mut used = 0usize;
         let mut timed_out = false;
         let mut budget_exceeded = false;
+        let mut stdout_done = stdout_rx.is_none();
+        let mut stderr_done = stderr_rx.is_none();
 
         // Drain whatever lines are ready RIGHT NOW from one stream into its
         // buffer, emit per-line events, and grow the running byte total. Returns
@@ -442,9 +465,16 @@ impl AgentDriver {
         let drain = |rx: &Option<Receiver<Line>>,
                      buf: &mut Vec<u8>,
                      used: &mut usize,
-                     is_stdout: bool|
+                     is_stdout: bool,
+                     done: &mut bool|
          -> bool {
-            let Some(rx) = rx else { return false };
+            if *done {
+                return false;
+            }
+            let Some(rx) = rx else {
+                *done = true;
+                return false;
+            };
             loop {
                 match rx.try_recv() {
                     Ok(Line::Bytes(line)) => {
@@ -464,7 +494,10 @@ impl AgentDriver {
                             return true;
                         }
                     }
-                    Ok(Line::Eof) | Err(TryRecvError::Disconnected) => return false,
+                    Ok(Line::Eof) | Err(TryRecvError::Disconnected) => {
+                        *done = true;
+                        return false;
+                    }
                     Err(TryRecvError::Empty) => return false,
                 }
             }
@@ -472,8 +505,8 @@ impl AgentDriver {
 
         let exit_code = loop {
             // Pull any pending output first so a budget breach is seen promptly.
-            if drain(&stdout_rx, &mut stdout, &mut used, true)
-                || drain(&stderr_rx, &mut stderr, &mut used, false)
+            if drain(&stdout_rx, &mut stdout, &mut used, true, &mut stdout_done)
+                || drain(&stderr_rx, &mut stderr, &mut used, false, &mut stderr_done)
             {
                 budget_exceeded = true;
                 let _ = child.kill();
@@ -503,10 +536,18 @@ impl AgentDriver {
         };
 
         // Final drain of any output produced between the last poll and exit. We
-        // ignore a late budget trip here (the child has already exited), but we
-        // still account the bytes so `captured_bytes` is honest.
-        drain(&stdout_rx, &mut stdout, &mut used, true);
-        drain(&stderr_rx, &mut stderr, &mut used, false);
+        // ignore a late budget trip here (the child has already exited), but
+        // wait briefly for pipe-reader EOF so fast children cannot lose their
+        // last line to a scheduler race.
+        let final_drain_deadline = Instant::now() + Duration::from_millis(100);
+        while !(stdout_done && stderr_done) && Instant::now() < final_drain_deadline {
+            let before = used;
+            drain(&stdout_rx, &mut stdout, &mut used, true, &mut stdout_done);
+            drain(&stderr_rx, &mut stderr, &mut used, false, &mut stderr_done);
+            if used == before {
+                thread::sleep(Duration::from_millis(1));
+            }
+        }
 
         // Truncate the captured buffers to the budget so a final burst cannot
         // blow the cap retroactively.

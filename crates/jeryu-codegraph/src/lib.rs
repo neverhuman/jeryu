@@ -20,4 +20,8 @@ pub use error::{CodeGraphError, Result};
 pub use export_gate::{SliceDenied, enforce_export_slice, enforce_export_slice_from_diff};
 pub use graph::{CodeGraph, ImpactReport};
 pub use slice::{OutOfSlice, Slice};
-pub use storage::{CodeGraphStore, CrateDepRow, GraphSnapshot, SCHEMA, SymbolRow, default_db_path};
+pub use storage::{
+    CacheStatus, CodeGraphStore, CrateDepRow, FileRecord, GovernanceRecord, GraphSnapshot,
+    GraphStats, IndexReceipt, QueryOptions, RepoIdentity, SCHEMA, SCHEMA_VERSION, SymbolRow,
+    default_db_path, schema_digest,
+};

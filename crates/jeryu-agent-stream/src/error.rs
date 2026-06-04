@@ -22,7 +22,7 @@ pub struct AgentStreamError {
     /// Stable machine code.
     pub code: String,
     /// Required repair fields.
-    pub repair: AgentStreamRepair,
+    pub repair: Box<AgentStreamRepair>,
 }
 
 impl AgentStreamError {
@@ -38,13 +38,13 @@ impl AgentStreamError {
     ) -> Self {
         Self {
             code: code.into(),
-            repair: AgentStreamRepair {
+            repair: Box::new(AgentStreamRepair {
                 purpose: purpose.into(),
                 reason: reason.into(),
                 common_fixes: common_fixes.iter().map(|fix| (*fix).to_string()).collect(),
                 docs_url: docs_url.into(),
                 repair_hint: repair_hint.into(),
-            },
+            }),
         }
     }
 }

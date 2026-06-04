@@ -44,6 +44,7 @@ forbidden_direct_data_imports = [
 
 [db]
 truth_owner = "jeryu-core"
+truth_owners = ["jeryu-core", "jeryu-codegraph"]
 auxiliary_sqlite_paths = ["crates/jeryu-codegraph"]
 root_paths = ["db"]
 migration_paths = ["db/migrations"]

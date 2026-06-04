@@ -333,6 +333,9 @@ else
     run_step "web test" bash -lc 'cd apps/web && npm run test'
     run_step "web build" bash -lc 'cd apps/web && npm run build'
   fi
+  if has_lane codegraph; then
+    run_step "codegraph oracle" cargo test -p jeryu-codegraph --jobs "$JOBS"
+  fi
   if has_lane db; then
     run_step "db migration analysis" \
       run_pinned_jankurai migrate . --analyze --out target/jankurai/migration-report.json

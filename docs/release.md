@@ -10,6 +10,13 @@ Release process doc: [docs/release-process.md](release-process.md).
 SignRail artifact-support signing details:
 [docs/signrail-release-signing.md](signrail-release-signing.md).
 
+## Release Process Doc
+
+The release process doc is [docs/release-process.md](release-process.md). It is
+the operator checklist for running the local gates, publishing through the PR
+path, collecting `target/jankurai/` evidence, signing artifact-support receipts,
+and preserving the rollback target before any tag is cut.
+
 ## Version Source
 
 - `jeryu-wsversion` owns workspace version decisions. `decide` classifies the

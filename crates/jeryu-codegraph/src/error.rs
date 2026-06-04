@@ -12,6 +12,24 @@ pub enum CodeGraphError {
     #[error("storage error: {0}")]
     Storage(String),
 
+    /// Invalid repo-relative input path.
+    #[error("invalid path {path}: {reason}")]
+    InvalidPath {
+        /// The rejected path.
+        path: String,
+        /// Human-readable reason.
+        reason: String,
+    },
+
+    /// Invalid query token budget.
+    #[error("invalid max_tokens {value}: {reason}")]
+    InvalidMaxTokens {
+        /// The rejected value.
+        value: u32,
+        /// Human-readable reason.
+        reason: String,
+    },
+
     /// Workspace graph load failure (from `jeryu-rustjet`).
     #[error("workspace graph error: {0}")]
     Workspace(String),

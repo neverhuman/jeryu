@@ -1585,11 +1585,13 @@ name = "jeryu-codegraph"
 version = "4.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "jeryu-rustjet",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 1.0.69",
 ]
 

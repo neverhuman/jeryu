@@ -1,0 +1,42 @@
+name: codegraph-oracle
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codegraph-oracle-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JERYU_CI_JOBS: "40"
+  CARGO_BUILD_JOBS: "40"
+
+jobs:
+  codegraph-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout without marketplace actions
+        run: |
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git fetch --no-tags --depth 64 origin "$GITHUB_REF"
+          git checkout --detach FETCH_HEAD
+          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main
+      - name: Toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Codegraph oracle lane
+        run: bash ops/ci/codegraph-oracle.sh
+      - name: Upload codegraph oracle evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: codegraph-oracle-evidence
+          path: |
+            target/jankurai/codegraph-oracle/*.json
+          if-no-files-found: error
