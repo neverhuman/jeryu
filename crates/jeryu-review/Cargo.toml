@@ -1,6 +1,6 @@
 [package]
 name = "jeryu-review"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 description = "Multi-reviewer orchestrator, prompt-sha replay, quorum + SHA-bind approval, and pure judge policy-fusion for the jeryu autonomy gate."
 license = "MIT OR Apache-2.0"

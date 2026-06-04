@@ -1,7 +1,7 @@
 [package]
 name = "jeryu-bugtracker"
 description = "jeryu RedlineDB bug domain, triage, and CRUD behind a pluggable store seam"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 license.workspace = true
 

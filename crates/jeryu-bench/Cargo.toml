@@ -1,6 +1,6 @@
 [package]
 name = "jeryu-bench"
-version = "0.10.0"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true

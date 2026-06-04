@@ -221,6 +221,11 @@
       "purpose": "verify release provenance and signing gates",
       "lane": "release-provenance"
     },
+    "crates/jeryu-wsversion/": {
+      "command": "cargo test -p jeryu-wsversion --jobs 40 && cargo run -q -p jeryu-wsversion -- inherit-guard",
+      "purpose": "verify workspace auto-version decisions, changelog roll-forward behavior, and single-version-source enforcement",
+      "lane": "release-provenance"
+    },
     "crates/jeryu-codegraph/": {
       "command": "cargo test -p jeryu-codegraph --jobs 40",
       "purpose": "verify the additive workspace code graph: persist round-trip, impact analysis, and the corrected export slice predicate",

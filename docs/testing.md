@@ -51,6 +51,11 @@ Primary lanes:
 - `cargo test -p jeryu-signrail --test release_witness` and
   `cargo clippy -p jeryu-signrail --all-targets -- -D warnings`: SignRail
   release signing, provenance, witness, and stage-receipt proof lane.
+- `cargo test -p jeryu-wsversion --jobs 40` plus
+  `cargo run -q -p jeryu-wsversion -- inherit-guard`: workspace version source
+  and changelog roll-forward proof lane. Add
+  `cargo run -q -p jeryu-wsversion -- decide --range origin/main..HEAD --json`
+  for release-candidate evidence.
 
 ## Workcells
 
