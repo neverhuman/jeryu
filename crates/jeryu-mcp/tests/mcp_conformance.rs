@@ -104,6 +104,11 @@ fn manifest_includes_capability_tools() {
     assert!(
         manifest
             .iter()
+            .any(|tool| tool["name"] == "jeryu.codegraph.query")
+    );
+    assert!(
+        manifest
+            .iter()
             .any(|tool| tool["name"] == "jeryu.get_ci_run_jobs")
     );
     assert!(
@@ -121,9 +126,10 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 21-tool catalog (replaces the source's action_registry guardrail).
+    // The 22-tool catalog (replaces the source's action_registry guardrail).
     let expected = [
         "fetch_capsule",
+        "codegraph.query",
         "get_system_snapshot",
         "get_ci_run_jobs",
         "get_ci_bottlenecks",
@@ -147,8 +153,8 @@ fn manifest_covers_all_catalog_actions() {
     ];
     assert_eq!(
         names.len(),
-        21,
-        "expected exactly 21 tools, got {}",
+        22,
+        "expected exactly 22 tools, got {}",
         names.len()
     );
     for id in expected {
@@ -157,6 +163,28 @@ fn manifest_covers_all_catalog_actions() {
             "missing MCP tool for catalog action {id}"
         );
     }
+}
+
+#[test]
+fn codegraph_query_tool_is_readonly_idempotent_and_requires_repo_identity() {
+    let manifest = tool_manifest();
+    let tool = manifest
+        .iter()
+        .find(|t| t["name"] == "jeryu.codegraph.query")
+        .expect("codegraph query present");
+    assert_eq!(tool["annotations"]["readOnlyHint"], true);
+    assert_eq!(tool["annotations"]["destructiveHint"], false);
+    assert_eq!(tool["annotations"]["idempotentHint"], true);
+    let required = tool["inputSchema"]["required"]
+        .as_array()
+        .expect("required array");
+    let required: Vec<&str> = required.iter().filter_map(|v| v.as_str()).collect();
+    assert!(required.contains(&"repo"), "repo identity is required");
+    assert!(required.contains(&"ref"), "ref is required");
+    assert!(
+        required.contains(&"changed_paths"),
+        "changed paths are required"
+    );
 }
 
 #[test]
@@ -226,7 +254,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 21);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 22);
 }
 
 #[tokio::test]
@@ -284,6 +312,34 @@ async fn stdio_tools_call_round_trip() {
         workcell[0]["result"]["structuredContent"]["data"]["state"],
         "ready"
     );
+
+    let codegraph = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.codegraph.query",
+                    "arguments": {
+                        "repo": "alice/jeryu",
+                        "ref": "main",
+                        "changed_paths": ["crates/core/src/lib.rs"],
+                        "intent": "edit core"
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(codegraph.len(), 1);
+    let data = &codegraph[0]["result"]["structuredContent"]["data"];
+    assert_eq!(data["repo"]["owner"], "alice");
+    assert_eq!(data["ref"], "main");
+    assert_eq!(data["changed_paths"][0], "crates/core/src/lib.rs");
+    assert!(data["must_read_files"].is_array());
+    assert!(data["provenance"].is_array());
 }
 
 #[tokio::test]

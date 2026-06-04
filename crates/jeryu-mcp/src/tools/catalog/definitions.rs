@@ -12,6 +12,12 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(true, false, true, false),
             ToolKind::FetchCapsule,
         ),
+        "codegraph.query" => (
+            "Codegraph query",
+            "Return the hosted codegraph impact pack for a repository ref and changed paths.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodeGraphQuery,
+        ),
         "get_system_snapshot" => (
             "System snapshot",
             "Get a full system state summary.",

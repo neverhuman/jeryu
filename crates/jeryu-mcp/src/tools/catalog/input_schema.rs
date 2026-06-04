@@ -7,6 +7,17 @@ use crate::tools::schema::*;
 pub(super) fn tool_input_schema(action_id: &str) -> Option<Value> {
     let schema = match action_id {
         "fetch_capsule" => object_schema(&["job_id"], &[("job_id", integer_schema())]),
+        "codegraph.query" => object_schema(
+            &["repo", "ref", "changed_paths"],
+            &[
+                ("repo", string_schema()),
+                ("ref", string_schema()),
+                ("changed_paths", array_schema(string_schema())),
+                ("intent", string_schema()),
+                ("question", string_schema()),
+                ("max_tokens", integer_schema()),
+            ],
+        ),
         "get_system_snapshot" => object_schema(&[], &[]),
         "get_ci_run_jobs" => object_schema(
             &["repo", "ci_run_id"],

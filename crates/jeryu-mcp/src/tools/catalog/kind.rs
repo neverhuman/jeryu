@@ -9,6 +9,7 @@ use crate::tools::schema::*;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ToolKind {
     FetchCapsule,
+    CodeGraphQuery,
     GetSystemSnapshot,
     GetCiRunJobs,
     GetCiBottlenecks,
@@ -63,6 +64,14 @@ impl ToolDefinition {
 
         let out = match self.kind {
             ToolKind::FetchCapsule => serde_json::json!({ "job_id": i("job_id")? }),
+            ToolKind::CodeGraphQuery => serde_json::json!({
+                "repo": s("repo")?,
+                "ref": s("ref")?,
+                "changed_paths": parse_string_array(args.get("changed_paths")?)?,
+                "intent": opt_s("intent"),
+                "question": opt_s("question"),
+                "max_tokens": args.get("max_tokens").and_then(Value::as_i64),
+            }),
             ToolKind::GetSystemSnapshot => serde_json::json!({}),
             ToolKind::GetCiRunJobs => serde_json::json!({
                 "repo": i("repo")?,

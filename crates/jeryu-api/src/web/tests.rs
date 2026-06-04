@@ -947,12 +947,407 @@ fn build_bare_repo_with_diff(
     (base_sha, head_sha)
 }
 
+/// Builds a real bare repository at `<storage_root>/<owner>/<repo>.git`
+/// containing a minimal Rust workspace plus Jankurai governance metadata.
+fn build_bare_rust_codegraph_repo(
+    storage_root: &std::path::Path,
+    owner: &str,
+    repo: &str,
+) -> String {
+    use std::process::Command;
+
+    let bare = storage_root.join(owner).join(format!("{repo}.git"));
+    std::fs::create_dir_all(bare.parent().expect("bare parent")).expect("create owner dir");
+    let work = storage_root.join(format!("{owner}-{repo}-codegraph-work"));
+    std::fs::create_dir_all(&work).expect("create work dir");
+
+    let git = |args: &[&str], cwd: &std::path::Path| {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(cwd)
+            .env("GIT_AUTHOR_NAME", "jeryu-test")
+            .env("GIT_AUTHOR_EMAIL", "jeryu-test@example.com")
+            .env("GIT_COMMITTER_NAME", "jeryu-test")
+            .env("GIT_COMMITTER_EMAIL", "jeryu-test@example.com")
+            .output()
+            .unwrap_or_else(|e| panic!("git {args:?} failed to spawn: {e}"));
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    };
+
+    let write = |relative: &str, contents: &str| {
+        let path = work.join(relative);
+        std::fs::create_dir_all(path.parent().expect("file parent")).expect("create file dir");
+        std::fs::write(path, contents).expect("write fixture file");
+    };
+
+    git(&["init", "--quiet", "-b", "main"], &work);
+    write(
+        "Cargo.toml",
+        r#"[workspace]
+members = ["crates/core", "crates/api"]
+"#,
+    );
+    write(
+        "crates/core/Cargo.toml",
+        r#"[package]
+name = "core_lib"
+version = "0.1.0"
+edition = "2024"
+"#,
+    );
+    write("crates/core/src/lib.rs", "pub fn core_api() {}\n");
+    write(
+        "crates/api/Cargo.toml",
+        r#"[package]
+name = "api_lib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+core_lib = { path = "../core" }
+"#,
+    );
+    write("crates/api/src/lib.rs", "pub fn api() {}\n");
+    write("AGENTS.md", "fixture guidance\n");
+    write(
+        "agent/owner-map.json",
+        r#"{
+  "workspace": "fixture",
+  "owners": {
+    "crates/core/": "core-owner",
+    "crates/api/": "api-owner",
+    "agent/": "agent-owner",
+    "AGENTS.md": "docs-owner"
+  }
+}
+"#,
+    );
+    write(
+        "agent/test-map.json",
+        r#"{
+  "workspace": "fixture",
+  "tests": {
+    "crates/core/": {
+      "command": "cargo test -p core_lib",
+      "purpose": "verify core crate",
+      "lane": "api"
+    }
+  }
+}
+"#,
+    );
+    write(
+        "agent/generated-zones.toml",
+        r#"[[zones]]
+path = "contracts/generated/**"
+generator = "fixture-gen"
+manual_edits = false
+"#,
+    );
+    write(
+        "agent/proof-lanes.toml",
+        r#"[lanes.api]
+required = ["cargo test -p core_lib"]
+blocks_merge = true
+"#,
+    );
+    git(&["add", "."], &work);
+    git(&["commit", "--quiet", "-m", "codegraph fixture"], &work);
+    let sha = git(&["rev-parse", "HEAD"], &work);
+    git(
+        &[
+            "clone",
+            "--quiet",
+            "--bare",
+            ".",
+            bare.to_str().expect("bare utf8"),
+        ],
+        &work,
+    );
+    sha
+}
+
 async fn response_json(response: AxumResponse) -> Value {
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("response body reads");
     serde_json::from_slice(&bytes)
         .unwrap_or_else(|err| panic!("response body is not JSON ({err}): {bytes:?}"))
+}
+
+#[tokio::test]
+async fn codegraph_query_route_returns_valid_pack() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    let storage = tempfile::tempdir().expect("git storage dir");
+    let commit = build_bare_rust_codegraph_repo(storage.path(), "alice", "jeryu");
+    let router = app(
+        WebState::new_with_git_storage(core, storage.path().to_path_buf()),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/repos/alice%2Fjeryu/codegraph/query")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&serde_json::json!({
+                        "ref": "main",
+                        "changed_paths": ["crates/core/src/lib.rs"],
+                        "intent": "edit core",
+                        "question": "which public symbols move?",
+                        "max_tokens": 12000
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let pack = response_json(response).await;
+
+    assert_eq!(pack["repo"]["owner"], "alice");
+    assert_eq!(pack["ref"], "main");
+    assert_eq!(pack["commit"], commit);
+    assert_eq!(pack["changed_paths"][0], "crates/core/src/lib.rs");
+    assert!(
+        pack["changed_crates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "core_lib")
+    );
+    assert!(
+        pack["affected_symbols"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|symbol| symbol["symbol"] == "api")
+    );
+    assert!(
+        pack["proof_lanes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|lane| lane["lane"] == "api")
+    );
+    assert!(
+        pack["suggested_commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|command| command == "cargo test -p core_lib")
+    );
+    assert!(
+        pack["must_read_files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|file| file["provenance"]
+                .as_array()
+                .is_some_and(|items| !items.is_empty()))
+    );
+}
+
+#[tokio::test]
+async fn codegraph_query_missing_repo_returns_404() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let router = app(
+        WebState::new(ForgeCore::new()),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/repos/missing/codegraph/query")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"ref":"main","changed_paths":[]}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
+    let body = response_json(response).await;
+    assert_eq!(body["code"], "not_found");
+    assert_eq!(
+        body["jeryu_repair_hint"]["purpose"],
+        "load repository for codegraph query"
+    );
+}
+
+#[tokio::test]
+async fn codegraph_query_invalid_ref_returns_typed_error() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    let storage = tempfile::tempdir().expect("git storage dir");
+    let _commit = build_bare_rust_codegraph_repo(storage.path(), "alice", "jeryu");
+    let router = app(
+        WebState::new_with_git_storage(core, storage.path().to_path_buf()),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/repos/alice%2Fjeryu/codegraph/query")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"ref":"missing-ref","changed_paths":["crates/core/src/lib.rs"]}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        axum::http::StatusCode::UNPROCESSABLE_ENTITY
+    );
+    let body = response_json(response).await;
+    assert_eq!(body["code"], "invalid_ref");
+    assert_eq!(
+        body["jeryu_repair_hint"]["purpose"],
+        "resolve codegraph query ref to a commit"
+    );
+}
+
+#[tokio::test]
+async fn live_mcp_codegraph_query_returns_hosted_pack() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    let storage = tempfile::tempdir().expect("git storage dir");
+    let commit = build_bare_rust_codegraph_repo(storage.path(), "alice", "jeryu");
+    let router = app(
+        WebState::new_with_git_storage(core, storage.path().to_path_buf()),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+    let origin = "http://127.0.0.1:8787";
+
+    let init = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/mcp")
+                .header("Origin", origin)
+                .header("Mcp-Method", "initialize")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "initialize",
+                        "params": { "protocolVersion": jeryu_mcp::MCP_PROTOCOL_VERSION }
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(init.status(), axum::http::StatusCode::OK);
+    let session = init
+        .headers()
+        .get("Mcp-Session-Id")
+        .and_then(|value| value.to_str().ok())
+        .expect("mcp session id")
+        .to_string();
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/mcp")
+                .header("Origin", origin)
+                .header("Mcp-Session-Id", session)
+                .header("MCP-Protocol-Version", jeryu_mcp::MCP_PROTOCOL_VERSION)
+                .header("Mcp-Method", "tools/call")
+                .header("Mcp-Name", "jeryu.codegraph.query")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "id": 2,
+                        "method": "tools/call",
+                        "params": {
+                            "name": "jeryu.codegraph.query",
+                            "arguments": {
+                                "repo": "alice/jeryu",
+                                "ref": "main",
+                                "changed_paths": ["crates/core/src/lib.rs"]
+                            }
+                        }
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = response_json(response).await;
+    let data = &body["result"]["structuredContent"]["data"];
+    assert_eq!(data["repo"]["owner"], "alice");
+    assert_eq!(data["ref"], "main");
+    assert_eq!(data["commit"], commit);
+    assert!(
+        data["affected_symbols"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|symbol| symbol["symbol"] == "api")
+    );
 }
 
 #[test]

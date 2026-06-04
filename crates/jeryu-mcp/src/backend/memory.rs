@@ -5,6 +5,7 @@
 
 use std::sync::Mutex;
 
+use jeryu_codegraph::{CodeGraphImpactPack, CodeGraphQuery, CodeGraphRepoIdentity};
 use serde_json::Value;
 
 use super::{BugStore, McpCallContext, ToolBackend, ToolDescriptor, ToolResponse};
@@ -121,6 +122,52 @@ impl ToolBackend for MemoryBackend {
                 "fetched capsule",
                 serde_json::json!({ "job_id": arg("job_id"), "capsule": Value::Null }),
             ),
+            "codegraph.query" => {
+                let query = CodeGraphQuery {
+                    ref_name: args
+                        .get("ref")
+                        .and_then(Value::as_str)
+                        .unwrap_or("main")
+                        .to_string(),
+                    changed_paths: args
+                        .get("changed_paths")
+                        .and_then(Value::as_array)
+                        .map(|items| {
+                            items
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .map(ToString::to_string)
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    intent: args
+                        .get("intent")
+                        .and_then(Value::as_str)
+                        .map(ToString::to_string),
+                    question: args
+                        .get("question")
+                        .and_then(Value::as_str)
+                        .map(ToString::to_string),
+                    max_tokens: args
+                        .get("max_tokens")
+                        .and_then(Value::as_u64)
+                        .and_then(|value| u32::try_from(value).ok()),
+                };
+                let repo = args
+                    .get("repo")
+                    .and_then(Value::as_str)
+                    .map(CodeGraphRepoIdentity::from_repo_string)
+                    .unwrap_or_else(|| CodeGraphRepoIdentity::from_repo_string("unknown"));
+                ToolResponse::ok(
+                    "codegraph impact pack",
+                    serde_json::to_value(CodeGraphImpactPack::empty_contract(
+                        repo,
+                        query.ref_name.clone(),
+                        "memory".to_string(),
+                        query,
+                    ))?,
+                )
+            }
             "get_system_snapshot" => ToolResponse::ok(
                 "system snapshot",
                 serde_json::json!({ "engine_ready": true, "open_prs": 0 }),

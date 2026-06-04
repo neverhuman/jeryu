@@ -1,4 +1,4 @@
-//! The 16-tool catalog: kinds, definitions, input schemas, and argument normalization.
+//! The 22-tool catalog: kinds, definitions, input schemas, and argument normalization.
 //!
 //! The catalog uses repository and pull-request identifiers that match the local
 //! GitHub-compatible API surface.

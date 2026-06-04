@@ -1,8 +1,10 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
 mod ci_evidence;
+mod codegraph;
 mod ecosystem;
 mod markdown;
+mod mcp_backend;
 mod permissions;
 mod repositories;
 mod surface;
@@ -32,6 +34,7 @@ use crate::git_materializer::GitMaterializer;
 use crate::github::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use jeryu_gitd::{GitdConfig, RepoManager};
 use jeryu_runnerd::WorkcellManager;
+use mcp_backend::WebMcpBackend;
 use repositories::{
     repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
 };
@@ -231,9 +234,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
     let mut state = state;
     state.spa_dir = spa_dir.to_path_buf();
     let spa = ServeDir::new(spa_dir).fallback(ServeFile::new(spa_dir.join("index.html")));
-    let mcp_state = Arc::new(jeryu_mcp::McpHttpState::new(Arc::new(
-        jeryu_mcp::MemoryBackend::new(),
-    )));
+    let shared_state = Arc::new(state);
+    let mcp_state = Arc::new(jeryu_mcp::McpHttpState::new(Arc::new(WebMcpBackend::new(
+        shared_state.clone(),
+    ))));
     AxumRouter::new()
         .route("/health", get(health))
         // Steering surface: advertises the faster jeryu/MCP path so external
@@ -265,6 +269,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
+        .route(
+            "/api/v1/repos/:id/codegraph/query",
+            post(codegraph::query_repo),
+        )
         .route(
             "/api/v1/repos/:id/readme",
             get(repo_readme).put(repo_readme_update),
@@ -306,7 +314,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         // Response middleware that stamps every reply with advisory steering
         // headers (and a per-route MCP tool hint for gh/automation UAs).
         .layer(from_fn(steer_headers))
-        .with_state(Arc::new(state))
+        .with_state(shared_state)
         .merge(jeryu_mcp::mcp_router(mcp_state))
 }
 
