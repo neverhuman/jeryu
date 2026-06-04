@@ -9,9 +9,9 @@
 use jeryu_core::{
     CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
     CreateCommitStatusRequest, CreatePullRequestRequest, CreateRepositoryRequest,
-    CreateReviewRequest, CreateUserRequest, ForgeCore, ForgeError, MergeBlocker,
-    MergePullRequestRequest, PullRequestState, ReviewState, SetBranchProtectionRequest,
-    UpdatePullRequestRequest,
+    CreateReviewRequest, CreateUserRequest, ForgeCore, ForgeError, IssueState, MergeBlocker,
+    MergePullRequestRequest, MergeReadiness, PullRequestState, ReviewState,
+    SetBranchProtectionRequest, UpdatePullRequestRequest,
 };
 
 fn core_with_repo() -> ForgeCore {
@@ -743,4 +743,177 @@ fn list_pull_requests_filters_by_state() {
     // Sorted by number ascending.
     assert_eq!(all[0].number, 1);
     assert_eq!(all[1].number, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Two-phase merge API (B2): evaluate_merge_readiness + finalize_merge, plus
+// legacy back-compat for merge_pull_request.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn evaluate_merge_readiness_blocks_unmergeable_pr() {
+    let core = core_with_repo();
+    // Require a review and a status check, satisfy neither.
+    protect_main(&core, 1, &["ci/fast"]);
+    let number = open_pr(&core, "feat-sha", false);
+
+    let err = core
+        .evaluate_merge_readiness("alice", "jeryu", number, None)
+        .unwrap_err();
+    assert!(
+        matches!(err, ForgeError::BranchProtection(_)),
+        "expected BranchProtection, got {err:?}"
+    );
+    // PR.merged stays false — readiness mutates nothing.
+    let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert!(!pr.merged);
+    assert!(pr.merge_commit_sha.is_none());
+}
+
+#[test]
+fn evaluate_merge_readiness_ready_discloses_base_and_head() {
+    let core = core_with_repo();
+    protect_main(&core, 1, &[]);
+    // Seed a NON-default base_sha so the disclosure proves it reflects the
+    // actual PR state, not the create-time default ("base").
+    let number = core
+        .create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "change".to_string(),
+                body: Some("desc".to_string()),
+                head: "feature".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("feat-sha".to_string()),
+                base_sha: Some("seeded-base-sha".to_string()),
+                draft: false,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        .number;
+    approve(&core, number, "bob");
+
+    let readiness = core
+        .evaluate_merge_readiness("alice", "jeryu", number, None)
+        .unwrap();
+    match readiness {
+        MergeReadiness::Ready {
+            base_ref,
+            base_sha,
+            head_sha,
+            require_linear_history,
+        } => {
+            assert_eq!(base_ref, "main");
+            // Disclosure reflects the ACTUAL seeded base_sha, not the default.
+            assert_eq!(base_sha, "seeded-base-sha");
+            assert_eq!(head_sha, "feat-sha");
+            // protect_main sets required_linear_history=false (default request).
+            assert!(!require_linear_history);
+        }
+        other => panic!("expected Ready, got {other:?}"),
+    }
+    // Still not merged: readiness is read-only.
+    assert!(
+        !core
+            .get_pull_request("alice", "jeryu", number)
+            .unwrap()
+            .merged
+    );
+}
+
+#[test]
+fn evaluate_merge_readiness_reports_required_linear_history() {
+    let core = core_with_repo();
+    core.set_branch_protection(
+        "alice",
+        "jeryu",
+        "main",
+        SetBranchProtectionRequest {
+            required_approving_review_count: 1,
+            required_linear_history: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let number = open_pr(&core, "feat-sha", false);
+    approve(&core, number, "bob");
+
+    match core
+        .evaluate_merge_readiness("alice", "jeryu", number, None)
+        .unwrap()
+    {
+        MergeReadiness::Ready {
+            require_linear_history,
+            ..
+        } => assert!(require_linear_history),
+        other => panic!("expected Ready, got {other:?}"),
+    }
+}
+
+#[test]
+fn finalize_merge_records_real_sha() {
+    let core = core_with_repo();
+    protect_main(&core, 1, &[]);
+    let number = open_pr(&core, "feat-sha", false);
+    approve(&core, number, "bob");
+
+    let real_sha = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+    let result = core
+        .finalize_merge("alice", "jeryu", number, real_sha.to_string(), None)
+        .unwrap();
+    assert_eq!(result.sha, real_sha);
+    assert!(result.merged);
+
+    let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert!(pr.merged);
+    assert_eq!(pr.merge_commit_sha.as_deref(), Some(real_sha));
+    assert_eq!(pr.state, PullRequestState::Merged);
+
+    // Backing issue is closed.
+    let issue = core.get_issue("alice", "jeryu", pr.issue_number).unwrap();
+    assert_eq!(issue.state, IssueState::Closed);
+}
+
+#[test]
+fn finalize_merge_reevaluates_gate_under_lock() {
+    // TOCTOU defense: a PR that is NOT mergeable cannot be finalized even if a
+    // caller invokes finalize_merge directly (e.g. after a revoked review in
+    // the readiness->finalize window).
+    let core = core_with_repo();
+    protect_main(&core, 1, &["ci/fast"]);
+    let number = open_pr(&core, "feat-sha", false);
+
+    let err = core
+        .finalize_merge("alice", "jeryu", number, "realsha".to_string(), None)
+        .unwrap_err();
+    assert!(matches!(err, ForgeError::BranchProtection(_)));
+    assert!(
+        !core
+            .get_pull_request("alice", "jeryu", number)
+            .unwrap()
+            .merged
+    );
+}
+
+#[test]
+fn legacy_merge_pull_request_keeps_synthetic_sha() {
+    let core = core_with_repo();
+    protect_main(&core, 1, &[]);
+    let number = open_pr(&core, "feat-sha", false);
+    approve(&core, number, "bob");
+
+    let result = core
+        .merge_pull_request("alice", "jeryu", number, MergePullRequestRequest::default())
+        .unwrap();
+    // Back-compat: the git-less path still self-fabricates a synthetic sha.
+    assert_eq!(result.sha, format!("merge-feat-sha-{number}"));
+    let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert_eq!(
+        pr.merge_commit_sha,
+        Some(format!("merge-feat-sha-{number}"))
+    );
+    assert!(pr.merged);
 }

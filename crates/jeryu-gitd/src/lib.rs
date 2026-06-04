@@ -31,4 +31,5 @@ pub mod wire_protocol;
 pub use auth::{AuthDecision, AuthRegistry, Pat, Principal};
 pub use config::GitdConfig;
 pub use error::{GitdError, Result};
+pub use refs::{GitRef, MergeOutcome, RefService};
 pub use repo::{RepoId, RepoManager};

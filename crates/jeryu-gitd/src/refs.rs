@@ -15,6 +15,16 @@ pub struct GitRef {
     pub oid: String,
 }
 
+/// Result of a real pull-request merge that advanced the base ref.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MergeOutcome {
+    /// Object id the base ref now points at: the head oid for a fast-forward,
+    /// or the brand-new two-parent merge commit oid otherwise.
+    pub merge_oid: String,
+    /// Whether the merge was a pure fast-forward (no new commit object created).
+    pub fast_forward: bool,
+}
+
 /// Ref service enforcing protected-ref policy before mutation.
 #[derive(Clone, Debug)]
 pub struct RefService {
@@ -85,6 +95,180 @@ impl RefService {
         run_capture(&self.manager.config().git_bin, &args, Some(&repo.path))?;
         Ok(())
     }
+
+    /// Perform a real, server-side pull-request merge that advances `base_ref`
+    /// from `base_oid` to either the head commit (fast-forward) or a new
+    /// two-parent merge commit, returning the resulting oid.
+    ///
+    /// The advance goes through [`RefService::update_ref`], so the protected-ref
+    /// policy and the old-oid compare-and-swap both still apply. Because
+    /// `base_oid` is always an ancestor of the produced oid (in both the
+    /// fast-forward and merge-commit cases), this is a sanctioned non-force
+    /// advance: `deny_force` on `refs/heads/main` is satisfied without any
+    /// bypass actor.
+    ///
+    /// `require_fast_forward` enforces linear history: when set, a divergent
+    /// head (one that cannot fast-forward the base) is refused before any commit
+    /// is created or any ref is moved.
+    #[allow(clippy::too_many_arguments)]
+    pub fn merge_pull(
+        &self,
+        repo: &Repository,
+        actor: &str,
+        base_ref: &str,
+        base_oid: &str,
+        head_oid: &str,
+        message: &str,
+        require_fast_forward: bool,
+    ) -> Result<MergeOutcome> {
+        validate_ref_name(base_ref)?;
+        if is_zero_oid(base_oid) || is_zero_oid(head_oid) {
+            return Err(GitdError::InvalidInput(
+                "merge requires non-zero base and head oids".to_string(),
+            ));
+        }
+
+        let git_bin = self.manager.config().git_bin.clone();
+        // Both oids must resolve to real commits in the bare repo. This rejects
+        // synthetic shas (e.g. a stale `merge-…` placeholder) before they could
+        // smuggle into a real ref move.
+        verify_commit(&git_bin, repo, base_oid)?;
+        verify_commit(&git_bin, repo, head_oid)?;
+
+        let ff = ObjectFsck::new(git_bin.clone()).is_ancestor(repo, base_oid, head_oid)?;
+
+        if require_fast_forward && !ff {
+            return Err(GitdError::NonFastForwardRequired);
+        }
+
+        let (merge_oid, fast_forward) = if ff {
+            // Advancing the base to the head commit IS the merge; no new object.
+            (head_oid.to_string(), true)
+        } else {
+            let tree_oid = merge_tree(&git_bin, repo, base_oid, head_oid)?;
+            let merge_commit = commit_tree(&git_bin, repo, &tree_oid, base_oid, head_oid, message)?;
+            (merge_commit, false)
+        };
+
+        // Sanctioned non-force advance via the CAS-guarded, protection-checked
+        // path. Passing Some(base_oid) makes a concurrent advance fail loudly.
+        self.update_ref(repo, actor, base_ref, &merge_oid, Some(base_oid))?;
+
+        Ok(MergeOutcome {
+            merge_oid,
+            fast_forward,
+        })
+    }
+}
+
+/// Verify that `oid` resolves to a real commit object in the bare repository.
+fn verify_commit(git_bin: &str, repo: &Repository, oid: &str) -> Result<()> {
+    let spec = format!("{oid}^{{commit}}");
+    let out = std::process::Command::new(git_bin)
+        .args(["rev-parse", "--verify", "--quiet", &spec])
+        .current_dir(&repo.path)
+        .output()?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(GitdError::InvalidInput(format!(
+            "oid is not a commit in this repository: {oid}"
+        )))
+    }
+}
+
+/// Compute the merged tree of `base_oid` and `head_oid`.
+///
+/// Uses a direct `Command` (not `run_capture`) because `git merge-tree
+/// --write-tree` exits 1 on a conflict while still printing diagnostics; we must
+/// read stdout on that path to distinguish a conflict from a hard failure.
+fn merge_tree(git_bin: &str, repo: &Repository, base_oid: &str, head_oid: &str) -> Result<String> {
+    let out = std::process::Command::new(git_bin)
+        .args(["merge-tree", "--write-tree", base_oid, head_oid])
+        .current_dir(&repo.path)
+        .output()?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let first_line = stdout.lines().next().unwrap_or("").trim().to_string();
+    if out.status.success() {
+        if first_line.is_empty() {
+            return Err(GitdError::GitCommandFailed {
+                program: format!("{git_bin} merge-tree --write-tree"),
+                code: out.status.code(),
+                stderr: String::from_utf8_lossy(&out.stderr).to_string(),
+            });
+        }
+        Ok(first_line)
+    } else if out.status.code() == Some(1) {
+        // On a conflict (exit 1), `merge-tree --write-tree` prints the conflicted
+        // tree oid on line 1 and the human-readable `CONFLICT (...): Merge
+        // conflict in <path>` diagnostics on later lines. Surface the named
+        // conflict(s) when present rather than the bare tree oid, which is
+        // meaningless to a caller.
+        let detail = stdout
+            .lines()
+            .filter(|l| l.contains("CONFLICT"))
+            .map(|l| l.trim())
+            .collect::<Vec<_>>()
+            .join("; ");
+        let detail = if detail.is_empty() {
+            "merge conflict".to_string()
+        } else {
+            detail
+        };
+        Err(GitdError::MergeConflict(detail))
+    } else {
+        Err(GitdError::GitCommandFailed {
+            program: format!("{git_bin} merge-tree --write-tree"),
+            code: out.status.code(),
+            stderr: String::from_utf8_lossy(&out.stderr).to_string(),
+        })
+    }
+}
+
+/// Create a two-parent merge commit for `tree_oid` with `base_oid`/`head_oid` as
+/// parents. Uses a direct `Command` so committer identity is injected via the
+/// environment, never depending on ambient `git config`.
+fn commit_tree(
+    git_bin: &str,
+    repo: &Repository,
+    tree_oid: &str,
+    base_oid: &str,
+    head_oid: &str,
+    message: &str,
+) -> Result<String> {
+    let out = std::process::Command::new(git_bin)
+        .env("GIT_AUTHOR_NAME", "jeryu-merge")
+        .env("GIT_AUTHOR_EMAIL", "merge@jeryu.local")
+        .env("GIT_COMMITTER_NAME", "jeryu-merge")
+        .env("GIT_COMMITTER_EMAIL", "merge@jeryu.local")
+        .args([
+            "commit-tree",
+            tree_oid,
+            "-p",
+            base_oid,
+            "-p",
+            head_oid,
+            "-m",
+            message,
+        ])
+        .current_dir(&repo.path)
+        .output()?;
+    if !out.status.success() {
+        return Err(GitdError::GitCommandFailed {
+            program: format!("{git_bin} commit-tree"),
+            code: out.status.code(),
+            stderr: String::from_utf8_lossy(&out.stderr).to_string(),
+        });
+    }
+    let oid = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if oid.is_empty() {
+        return Err(GitdError::GitCommandFailed {
+            program: format!("{git_bin} commit-tree"),
+            code: out.status.code(),
+            stderr: "commit-tree produced no oid".to_string(),
+        });
+    }
+    Ok(oid)
 }
 
 /// All-zero oid used by receive-pack for deletes.
