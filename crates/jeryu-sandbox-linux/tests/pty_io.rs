@@ -67,7 +67,11 @@ fn read_master_until(master: std::os::fd::OwnedFd, needle: &str) -> String {
     String::from_utf8_lossy(&buf).into_owned()
 }
 
-fn skip_if_unavailable(plan: &SandboxPlan, caps: &SandboxCapabilities, ws: &std::path::Path) -> bool {
+fn skip_if_unavailable(
+    plan: &SandboxPlan,
+    caps: &SandboxCapabilities,
+    ws: &std::path::Path,
+) -> bool {
     if let EnforcementLevel::Unavailable { reason } = caps.enforcement_level(plan) {
         eprintln!("SKIP pty: sandbox unavailable: {reason}");
         let _ = std::fs::remove_dir_all(ws);
@@ -82,7 +86,11 @@ fn pty_child_output_reaches_master() {
     let ws = std::env::temp_dir().join(format!("jeryu-pty-out-{}", std::process::id()));
     std::fs::create_dir_all(&ws).expect("workspace");
 
-    let j = job(ws.clone(), "/bin/sh", vec!["-c".into(), "printf 'PTY_OK\\n'".into()]);
+    let j = job(
+        ws.clone(),
+        "/bin/sh",
+        vec!["-c".into(), "printf 'PTY_OK\\n'".into()],
+    );
     let decision = select_runner(&j).expect("policy");
     // cgroup-relaxed (the host lacks delegation); the jail's Landlock/seccomp
     // still apply. This proves PTY wiring, not cgroup enforcement.
@@ -126,7 +134,10 @@ fn pty_child_sees_stdout_as_a_terminal() {
     let j = job(
         ws.clone(),
         "/bin/sh",
-        vec!["-c".into(), "test -t 1 && printf IS_TTY || printf NOT_TTY".into()],
+        vec![
+            "-c".into(),
+            "test -t 1 && printf IS_TTY || printf NOT_TTY".into(),
+        ],
     );
     let decision = select_runner(&j).expect("policy");
     let plan = SandboxPlan::from_decision(&j.workspace, &decision).with_require_cgroup(false);

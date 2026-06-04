@@ -242,6 +242,28 @@ pub(super) fn tool_input_schema(action_id: &str) -> Option<Value> {
                 ("runner_epoch", integer_schema()),
             ],
         ),
+        "code.symbols.search" => object_schema(
+            &["query"],
+            &[("query", string_schema()), ("limit", integer_schema())],
+        ),
+        "code.definition" => object_schema(&["symbol"], &[("symbol", string_schema())]),
+        "code.impact" => object_schema(
+            &["changed_paths"],
+            &[("changed_paths", array_schema(string_schema()))],
+        ),
+        "code.crate.reverse_deps" => {
+            object_schema(&["crate_name"], &[("crate_name", string_schema())])
+        }
+        "code.references" => object_schema(&["symbol"], &[("symbol", string_schema())]),
+        "codegraph.query" => object_schema(
+            &[],
+            &[
+                ("changed_paths", array_schema(string_schema())),
+                ("symbol", string_schema()),
+                ("crate_name", string_schema()),
+                ("limit", integer_schema()),
+            ],
+        ),
         _ => return None,
     };
     Some(schema)

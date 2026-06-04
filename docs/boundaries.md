@@ -22,6 +22,10 @@ must check before a cross-boundary change is merged.
   metadata, and artifact-support stage receipts. Local signing consumes
   `JERYU_SIGNRAIL_ED25519_SEED`; hosted artifact-support signing consumes only
   the `SIGNRAIL_ED25519_SEED` GitHub Actions secret.
+- `jeryu-codegraph` owns an auxiliary `codegraph.sqlite` store for symbol,
+  reference, impact, and oracle evidence. It is explicitly listed under
+  `agent/boundaries.toml` `db.auxiliary_driver_paths`; it never owns the shared
+  forge truth DB or `db/migrations/`.
 
 Cross-boundary calls must use typed ids, receipts, or explicit policy decisions;
 direct state mutation from another layer is a bug.

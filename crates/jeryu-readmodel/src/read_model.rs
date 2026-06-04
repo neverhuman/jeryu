@@ -7,8 +7,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::dashboards::agent_runs::AgentRunsDashboard;
 use crate::dashboards::agents::AgentsSnapshot;
 use crate::dashboards::approvals::ApprovalsSnapshot;
+use crate::dashboards::codegraph::CodegraphDashboard;
 use crate::dashboards::evidence::EvidenceSnapshot;
 use crate::dashboards::release::ReleaseSnapshot;
 use crate::dashboards::runners::RunnersDashboard;
@@ -55,6 +57,10 @@ pub struct TuiReadModel {
     #[serde(default)]
     pub agents: AgentsSnapshot,
     #[serde(default)]
+    pub agent_runs: AgentRunsDashboard,
+    #[serde(default)]
+    pub codegraph: CodegraphDashboard,
+    #[serde(default)]
     pub release: ReleaseSnapshot,
     #[serde(default)]
     pub workcells: WorkcellsDashboard,
@@ -81,6 +87,8 @@ impl Default for TuiReadModel {
             approvals: ApprovalsSnapshot::default(),
             evidence: EvidenceSnapshot::default(),
             agents: AgentsSnapshot::default(),
+            agent_runs: AgentRunsDashboard::default(),
+            codegraph: CodegraphDashboard::default(),
             release: ReleaseSnapshot::default(),
             workcells: WorkcellsDashboard::default(),
             workflow: WorkflowSnapshot::default(),

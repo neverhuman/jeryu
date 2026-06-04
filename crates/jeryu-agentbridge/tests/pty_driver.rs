@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-use jeryu_agentbridge::driver::{AgentEvent, AgentRunResult, CollectingSink, CommandSpec, DriverError};
+use jeryu_agentbridge::driver::{
+    AgentEvent, AgentRunResult, CollectingSink, CommandSpec, DriverError,
+};
 use jeryu_agentbridge::pty_driver::{AgentControl, AgentControlSource, NoControl, PtyAgentDriver};
 
 fn cell_workspace(tag: &str) -> PathBuf {

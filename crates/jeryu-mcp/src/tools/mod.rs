@@ -12,7 +12,7 @@ pub(crate) fn catalog() -> Vec<ToolDescriptor> {
 }
 
 /// Static source-of-truth for the catalog (replaces the source's `action_registry::REGISTRY`
-/// filtered by `Surface::Capability`). Exactly the 21 tool ids, in manifest order.
+/// filtered by `Surface::Capability`). Exactly the 27 tool ids, in manifest order.
 pub(crate) const CATALOG: &[&str] = &[
     "fetch_capsule",
     "get_system_snapshot",
@@ -35,6 +35,12 @@ pub(crate) const CATALOG: &[&str] = &[
     "workcell.repair_live",
     "workcell.export_pr",
     "workcell.release",
+    "code.symbols.search",
+    "code.definition",
+    "code.impact",
+    "code.crate.reverse_deps",
+    "code.references",
+    "codegraph.query",
 ];
 
 /// Return every catalog descriptor as MCP-shaped JSON for `tools/list`.

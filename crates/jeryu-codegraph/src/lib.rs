@@ -13,11 +13,15 @@
 pub mod error;
 pub mod export_gate;
 pub mod graph;
+pub mod oracle;
 pub mod slice;
 pub mod storage;
 
 pub use error::{CodeGraphError, Result};
 pub use export_gate::{SliceDenied, enforce_export_slice, enforce_export_slice_from_diff};
 pub use graph::{CodeGraph, ImpactReport};
+pub use oracle::{CodegraphImpactPack, CodegraphQuery, query_snapshot, query_store};
 pub use slice::{OutOfSlice, Slice};
-pub use storage::{CodeGraphStore, CrateDepRow, GraphSnapshot, SCHEMA, SymbolRow, default_db_path};
+pub use storage::{
+    CodeGraphStore, CrateDepRow, GraphSnapshot, SCHEMA, SymbolRefRow, SymbolRow, default_db_path,
+};

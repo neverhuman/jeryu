@@ -29,6 +29,12 @@ pub(crate) enum ToolKind {
     WorkcellRepairLive,
     WorkcellExportPr,
     WorkcellRelease,
+    CodeSymbolsSearch,
+    CodeDefinition,
+    CodeImpact,
+    CodeCrateReverseDeps,
+    CodeReferences,
+    CodegraphQuery,
 }
 
 #[derive(Debug, Clone)]
@@ -172,6 +178,31 @@ impl ToolDefinition {
             ToolKind::WorkcellRelease => serde_json::json!({
                 "workcell_id": s("workcell_id")?,
                 "runner_epoch": i("runner_epoch")?,
+            }),
+            ToolKind::CodeSymbolsSearch => serde_json::json!({
+                "query": s("query")?,
+                "limit": args.get("limit").and_then(Value::as_i64),
+            }),
+            ToolKind::CodeDefinition => serde_json::json!({
+                "symbol": s("symbol")?,
+            }),
+            ToolKind::CodeImpact => serde_json::json!({
+                "changed_paths": parse_string_array(args.get("changed_paths")?)?,
+            }),
+            ToolKind::CodeCrateReverseDeps => serde_json::json!({
+                "crate_name": s("crate_name")?,
+            }),
+            ToolKind::CodeReferences => serde_json::json!({
+                "symbol": s("symbol")?,
+            }),
+            ToolKind::CodegraphQuery => serde_json::json!({
+                "changed_paths": args
+                    .get("changed_paths")
+                    .and_then(parse_string_array)
+                    .unwrap_or_default(),
+                "symbol": opt_s("symbol"),
+                "crate_name": opt_s("crate_name"),
+                "limit": args.get("limit").and_then(Value::as_i64),
             }),
         };
         Some(out)

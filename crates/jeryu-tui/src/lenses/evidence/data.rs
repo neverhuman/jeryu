@@ -1,11 +1,10 @@
 //! Evidence lens data selector.
 //!
 //! Invariants: pure projection from [`TuiReadModel`] to [`EvidenceLensInput`].
-//! No I/O. Projects the proof ledger: capsule receipts (capsule id, the entity
-//! they cover, the gate decision they back) from the read model's evidence
-//! dashboard, plus the open/total capsule counts from the dashboard summary.
+//! No I/O. Projects the proof ledger plus codegraph/oracle impact-pack
+//! evidence from the read model.
 
-use jeryu_readmodel::{EntityRef, EvidenceItem, GateDecision, TuiReadModel};
+use jeryu_readmodel::{CodegraphEvidenceItem, EntityRef, EvidenceItem, GateDecision, TuiReadModel};
 
 /// One row in the proof ledger: a receipt and the decision it justified.
 #[derive(Debug, Clone, PartialEq)]
@@ -29,6 +28,33 @@ impl EvidenceRow {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CodegraphEvidenceRow {
+    pub query_id: String,
+    pub tool: String,
+    pub symbol: String,
+    pub schema_version: u32,
+    pub references: u32,
+    pub required_reads: Vec<String>,
+    pub proof_lanes: Vec<String>,
+    pub miss: Option<String>,
+}
+
+impl CodegraphEvidenceRow {
+    fn from_item(item: &CodegraphEvidenceItem) -> Self {
+        Self {
+            query_id: item.query_id.clone(),
+            tool: item.tool.clone(),
+            symbol: item.symbol.clone(),
+            schema_version: item.schema_version,
+            references: item.references,
+            required_reads: item.required_reads.clone(),
+            proof_lanes: item.proof_lanes.clone(),
+            miss: item.miss.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct EvidenceLensInput {
     /// Total recorded capsules (from the dashboard summary).
@@ -37,6 +63,9 @@ pub struct EvidenceLensInput {
     pub open_capsules: u32,
     /// Proof-receipt rows projected from the dashboard items.
     pub rows: Vec<EvidenceRow>,
+    pub codegraph_rows: Vec<CodegraphEvidenceRow>,
+    pub codegraph_schema_version: Option<u32>,
+    pub codegraph_misses: u32,
     pub event_cursor: u64,
 }
 
@@ -49,6 +78,12 @@ impl EvidenceLensInput {
             .iter()
             .map(EvidenceRow::from_item)
             .collect();
+        let codegraph_rows: Vec<CodegraphEvidenceRow> = model
+            .codegraph
+            .items
+            .iter()
+            .map(CodegraphEvidenceRow::from_item)
+            .collect();
         Self {
             total_capsules: summary
                 .map(|s| s.total_capsules)
@@ -57,6 +92,14 @@ impl EvidenceLensInput {
                 .map(|s| s.open_capsules)
                 .unwrap_or(model.mission.open_capsules),
             rows,
+            codegraph_rows,
+            codegraph_schema_version: model.codegraph.summary.as_ref().map(|s| s.schema_version),
+            codegraph_misses: model
+                .codegraph
+                .summary
+                .as_ref()
+                .map(|s| s.miss_count)
+                .unwrap_or_else(|| model.codegraph.misses()),
             event_cursor: model.event_cursor,
         }
     }
@@ -81,6 +124,9 @@ mod tests {
         assert_eq!(input.total_capsules, 0);
         assert_eq!(input.open_capsules, 0);
         assert!(input.rows.is_empty());
+        assert!(input.codegraph_rows.is_empty());
+        assert_eq!(input.codegraph_schema_version, None);
+        assert_eq!(input.codegraph_misses, 0);
         assert_eq!(input.denied(), 0);
         assert_eq!(input.event_cursor, 0);
     }
@@ -95,6 +141,14 @@ mod tests {
         assert_eq!(input.rows[0].capsule_id, "cap-17");
         assert_eq!(input.rows[0].decision, GateDecision::Allow);
         assert_eq!(input.rows[1].decision, GateDecision::Deny);
+        assert_eq!(input.codegraph_rows.len(), 1);
+        assert_eq!(input.codegraph_rows[0].tool, "codegraph.query");
+        assert_eq!(input.codegraph_rows[0].schema_version, 2);
+        assert_eq!(
+            input.codegraph_rows[0].proof_lanes,
+            vec!["codegraph-oracle", "agent-runs"]
+        );
+        assert_eq!(input.codegraph_misses, 0);
         assert!(input.rows[1].redacted);
         assert_eq!(input.denied(), 1);
         assert_eq!(input.event_cursor, 42);

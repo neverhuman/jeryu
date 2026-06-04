@@ -110,6 +110,37 @@ Proof lane:
 cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent
 ```
 
+## Agent Run Control Surface
+
+`POST /api/v1/agent-runs` is the high-level repair-agent entrypoint. It keeps
+`POST /api/v1/workcells/{id}/run_agent` as the deterministic command route, but
+adds a live driver registry for real agents. Requests default to
+`io_mode: "pty"` and may set `io_mode: "pipe"` for noninteractive capture.
+
+The production route currently accepts `source.kind: "workcell"` with
+`workcell_id` and `runner_epoch`. The workcell must be held or repairing after a
+failed CI run; stale epochs, missing repo roots, and programs outside the
+claimed repo-root slice return typed repair bodies. The launch remains
+fail-closed on cgroup-v2 resource caps, so a host without the required delegated
+subtree refuses the run instead of falling back to an unbounded process.
+
+Workcell-sourced runs inject failure context when the held snapshot has it:
+`JERYU_WORKCELL_ID`, `JERYU_RUNNER_EPOCH`, `JERYU_CI_RUN_ID`,
+`JERYU_FAILED_RUN_ID`, `JERYU_FAILED_RECEIPT_ID`, and
+`JERYU_FAILURE_LOG_DIGEST`.
+
+`POST /api/v1/agent-runs/{id}/control` records the control envelope and forwards
+PTY-capable commands to the live driver: `send_input`, `inject_prompt`,
+`interrupt`, `terminate`, `resize_pty`, and `raise_budget`. Finished runs,
+missing run ids, and pipe-mode controls return typed repair responses with
+`purpose`, `reason`, `common_fixes`, `docs_url`, and `repair_hint`.
+
+Proof lane:
+
+```sh
+cargo test -p jeryu-api --features web --jobs 40 agent_runs
+```
+
 ## Rung 4 — egress allowlist proxy
 
 `crates/jeryu-egress` is a host-allowlist forward proxy (HTTP `CONNECT` + plain
@@ -178,6 +209,11 @@ Proof lanes:
   `workcell_run_sandbox_unavailable` means the host cannot prove the required
   sandbox. Rerun:
   `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`.
+- Agent-run route failure: inspect the typed body. `agent_run_workcell_state_denied`
+  means the selected workcell is not held or repairing; `workcell_epoch_fenced`
+  means the request used a stale runner epoch; `agent_run_control_unsupported`
+  means an interactive control was sent to a non-PTY run. Rerun:
+  `cargo test -p jeryu-api --features web --jobs 40 agent_runs`.
 - Egress denial of an expected host: extend the `Allowlist`; a denial of a
   non-allowlisted host is correct. Rerun: `cargo test -p jeryu-egress`.
 - Export slice denial: confirm the failed diff path is intended to be outside

@@ -132,6 +132,42 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(false, false, false, true),
             ToolKind::WorkcellRelease,
         ),
+        "code.symbols.search" => (
+            "Search code symbols",
+            "Search indexed workspace symbols by name, crate, or file.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodeSymbolsSearch,
+        ),
+        "code.definition" => (
+            "Code definition",
+            "Resolve an indexed symbol definition.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodeDefinition,
+        ),
+        "code.impact" => (
+            "Code impact",
+            "Return codegraph impact for changed repo-relative paths.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodeImpact,
+        ),
+        "code.crate.reverse_deps" => (
+            "Crate reverse dependencies",
+            "Return crates that directly depend on a workspace crate.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodeCrateReverseDeps,
+        ),
+        "code.references" => (
+            "Code references",
+            "Return indexed references for a symbol.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodeReferences,
+        ),
+        "codegraph.query" => (
+            "Codegraph query",
+            "Compatibility facade returning an impact pack with provenance and repair hints.",
+            tool_annotations(true, false, true, false),
+            ToolKind::CodegraphQuery,
+        ),
         _ => return None,
     };
 

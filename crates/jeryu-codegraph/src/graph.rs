@@ -13,7 +13,7 @@ use std::path::Path;
 use jeryu_rustjet::{PublicApiDetector, WorkspaceGraph};
 
 use crate::error::{CodeGraphError, Result};
-use crate::storage::{CodeGraphStore, CrateDepRow, GraphSnapshot, SymbolRow};
+use crate::storage::{CodeGraphStore, CrateDepRow, GraphSnapshot, SymbolRefRow, SymbolRow};
 
 /// An in-memory code graph for a workspace.
 #[derive(Debug, Clone, Default)]
@@ -102,6 +102,7 @@ impl CodeGraph {
             snapshot: GraphSnapshot {
                 symbols,
                 crate_deps: crate_deps_rows,
+                symbol_refs: Vec::new(),
             },
             crate_deps,
         })
@@ -171,6 +172,53 @@ impl CodeGraph {
     #[must_use]
     pub fn crate_dependencies(&self) -> &BTreeMap<String, BTreeSet<String>> {
         &self.crate_deps
+    }
+
+    /// Search in-memory symbols by symbol, file, or crate substring.
+    #[must_use]
+    pub fn search_symbols(&self, query: &str, limit: usize) -> Vec<SymbolRow> {
+        let needle = query.to_ascii_lowercase();
+        self.snapshot
+            .symbols
+            .iter()
+            .filter(|row| {
+                row.symbol.to_ascii_lowercase().contains(&needle)
+                    || row.file.to_ascii_lowercase().contains(&needle)
+                    || row.crate_name.to_ascii_lowercase().contains(&needle)
+            })
+            .take(limit.max(1))
+            .cloned()
+            .collect()
+    }
+
+    /// Return the first exact symbol definition.
+    #[must_use]
+    pub fn definition(&self, symbol: &str) -> Option<SymbolRow> {
+        self.snapshot
+            .symbols
+            .iter()
+            .find(|row| row.symbol == symbol)
+            .cloned()
+    }
+
+    /// Return reference rows for an exact symbol name.
+    #[must_use]
+    pub fn references(&self, symbol: &str) -> Vec<SymbolRefRow> {
+        self.snapshot
+            .symbol_refs
+            .iter()
+            .filter(|row| row.symbol == symbol)
+            .cloned()
+            .collect()
+    }
+
+    /// Return direct reverse dependencies for `crate_name`.
+    #[must_use]
+    pub fn reverse_deps(&self, crate_name: &str) -> Vec<String> {
+        self.crate_deps
+            .iter()
+            .filter_map(|(candidate, deps)| deps.contains(crate_name).then_some(candidate.clone()))
+            .collect()
     }
 }
 

@@ -54,3 +54,15 @@ shape used elsewhere in the product:
 Use the docs-linked sections in `docs/testing.md#workcells` and
 `docs/boundaries.md#workcells` to repair claim, epoch, path, or merge/delete
 denials.
+
+## Agent Run Control
+
+High-level `/api/v1/agent-runs` failures use the same typed repair shape. Common
+codes include `agent_run_workcell_state_denied` for non-held/non-repairing
+workcells, `workcell_epoch_fenced` for stale failed-CI repair requests,
+`agent_run_path_denied` for out-of-slice repo roots or programs,
+`agent_run_control_unsupported` for controls sent to pipe-mode runs, and
+`agent_run_finished` for controls sent after the driver has completed.
+
+Use `docs/workcell.md#agent-run-control-surface` and rerun
+`cargo test -p jeryu-api --features web --jobs 40 agent_runs`.

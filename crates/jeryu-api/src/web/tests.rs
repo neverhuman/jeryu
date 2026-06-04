@@ -6,6 +6,7 @@ use crate::web::surface::serialize_payload;
 use crate::web::surface::{bootstrap_payload, map_method};
 use crate::web::ws::{hello_message, requested_scopes, snapshot_event, unsubscribe_scopes};
 use jeryu_agentbridge::driver::{AgentDriver, CollectingSink, CommandSpec, stage_editbot};
+use jeryu_codegraph::{CrateDepRow, GraphSnapshot, SymbolRefRow, SymbolRow};
 use jeryu_core::CheckConclusion;
 use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
 use jeryu_readmodel::contracts::ServerWsMessage;
@@ -216,6 +217,131 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
     )
     .await;
     assert_eq!(release["state"], "released");
+}
+
+#[tokio::test]
+async fn codegraph_query_route_returns_impact_pack() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let state = Arc::new(WebState::new(core));
+    state
+        .codegraph_store
+        .persist(&GraphSnapshot {
+            symbols: vec![SymbolRow {
+                crate_name: "jeryu-codegraph".to_string(),
+                file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
+                symbol: "CodeGraph".to_string(),
+                kind: "public".to_string(),
+                is_public: true,
+                line: 7,
+            }],
+            crate_deps: vec![CrateDepRow {
+                crate_name: "jeryu-mcp".to_string(),
+                depends_on: "jeryu-codegraph".to_string(),
+            }],
+            symbol_refs: vec![SymbolRefRow {
+                crate_name: "jeryu-codegraph".to_string(),
+                file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
+                symbol: "CodeGraph".to_string(),
+                ref_file: "crates/jeryu-mcp/src/backend/memory.rs".to_string(),
+                ref_line: 12,
+                ref_kind: "type".to_string(),
+            }],
+        })
+        .unwrap();
+
+    let response = super::codegraph::query(
+        State(state),
+        AxumPath(repo.id.to_string()),
+        axum::body::Bytes::from(
+            serde_json::json!({
+                "changed_paths": ["crates/jeryu-codegraph/src/lib.rs"],
+                "symbol": "CodeGraph",
+                "crate_name": "jeryu-codegraph"
+            })
+            .to_string(),
+        ),
+    )
+    .await;
+    let pack = response_json(response).await;
+    assert_eq!(pack["schema_version"], "codegraph.query/v1");
+    assert_eq!(pack["provenance"]["storage_schema"], "2");
+    assert_eq!(pack["definition"]["symbol"], "CodeGraph");
+    assert_eq!(
+        pack["references"][0]["ref_file"],
+        "crates/jeryu-mcp/src/backend/memory.rs"
+    );
+    assert_eq!(pack["reverse_deps"], serde_json::json!(["jeryu-mcp"]));
+    assert!(
+        pack["proof_lanes"][0]
+            .as_str()
+            .unwrap()
+            .contains("jeryu-codegraph")
+    );
+}
+
+#[tokio::test]
+async fn codegraph_query_route_errors_are_typed() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let state = Arc::new(WebState::new(core));
+
+    let missing = response_json(
+        super::codegraph::query(
+            State(state.clone()),
+            AxumPath("repo-missing".to_string()),
+            axum::body::Bytes::from("{}"),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(missing["code"], "not_found");
+    assert_eq!(missing["purpose"], "query repository codegraph");
+    assert!(
+        missing["common_fixes"]
+            .as_array()
+            .expect("common fixes")
+            .len()
+            >= 2
+    );
+
+    let invalid = response_json(
+        super::codegraph::query(
+            State(state),
+            AxumPath(repo.id.to_string()),
+            axum::body::Bytes::from("{"),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(invalid["code"], "codegraph_invalid_request");
+    assert_eq!(invalid["docs_url"], "docs/errors.md#not-found");
+    assert!(
+        invalid["repair_hint"]
+            .as_str()
+            .expect("repair hint")
+            .contains("codegraph API proof lane")
+    );
 }
 
 fn write_exec_script(label: &str, contents: &str) -> std::path::PathBuf {

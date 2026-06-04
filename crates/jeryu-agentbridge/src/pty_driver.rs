@@ -215,8 +215,8 @@ impl PtyAgentDriver {
         let level = caps.enforcement_level(&plan);
         let env = self.sandbox_env(&job, &decision);
 
-        let (master, slave) = open_pty()
-            .map_err(|e| DriverError::SandboxUnavailable(e.message().to_string()))?;
+        let (master, slave) =
+            open_pty().map_err(|e| DriverError::SandboxUnavailable(e.message().to_string()))?;
 
         let started = Instant::now();
         let child = match spawn_sandboxed_with_io(
@@ -342,7 +342,10 @@ impl PtyAgentDriver {
                 sink.emit(AgentEvent::Stdout(
                     String::from_utf8_lossy(&chunk).into_owned(),
                 ));
-                sink.emit(AgentEvent::Budget { used, limit: budget });
+                sink.emit(AgentEvent::Budget {
+                    used,
+                    limit: budget,
+                });
                 if used > budget {
                     over_budget = true;
                     break;
@@ -388,8 +391,28 @@ impl PtyAgentDriver {
         while let Ok(chunk) = rx.try_recv() {
             used += chunk.len();
             captured.extend_from_slice(&chunk);
+            sink.emit(AgentEvent::Stdout(
+                String::from_utf8_lossy(&chunk).into_owned(),
+            ));
+            sink.emit(AgentEvent::Budget {
+                used,
+                limit: budget,
+            });
         }
         let _ = reader_handle.join();
+        // The reader can win the race after the pre-join drain on fast exits.
+        // Drain again after join so captured stdout and emitted events agree.
+        while let Ok(chunk) = rx.try_recv() {
+            used += chunk.len();
+            captured.extend_from_slice(&chunk);
+            sink.emit(AgentEvent::Stdout(
+                String::from_utf8_lossy(&chunk).into_owned(),
+            ));
+            sink.emit(AgentEvent::Budget {
+                used,
+                limit: budget,
+            });
+        }
         if captured.len() > budget {
             captured.truncate(budget);
         }

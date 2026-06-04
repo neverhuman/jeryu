@@ -1,6 +1,8 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
+mod agent_runs;
 mod ci_evidence;
+mod codegraph;
 mod ecosystem;
 mod markdown;
 mod permissions;
@@ -21,6 +23,7 @@ use axum::middleware::{Next, from_fn};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
+use jeryu_codegraph::CodeGraphStore;
 use jeryu_core::ForgeCore;
 use jeryu_readmodel::TuiReadModel;
 use serde_json::{Value, json};
@@ -64,6 +67,10 @@ pub(crate) struct WebState {
     ws: WsHub,
     /// In-memory workcell controller for claim/repair/export/release flows.
     pub(crate) workcells: Arc<Mutex<WorkcellManager>>,
+    /// Live high-level agent-run registry and control channels.
+    pub(crate) agent_runs: agent_runs::AgentRunStore,
+    /// Auxiliary codegraph SQLite store for read-only oracle queries.
+    pub(crate) codegraph_store: CodeGraphStore,
     /// Shared git-daemon repository manager backing the smart-HTTP transport.
     pub(crate) repo_manager: Arc<RepoManager>,
     /// Forge handle for the push->CI bridge (shares state with `github`).
@@ -81,12 +88,22 @@ impl WebState {
         let tui = crate::read_model::assemble_read_model(&core);
         // ForgeCore is Arc-backed, so this handle shares state with `github`.
         let core_handle = core.clone();
+        #[cfg(test)]
+        let codegraph_store = CodeGraphStore::open(std::env::temp_dir().join(format!(
+            "jeryu-web-codegraph-{}.sqlite",
+            jeryu_runner_core::receipt::now_ms()
+        )))
+        .expect("test codegraph store");
+        #[cfg(not(test))]
+        let codegraph_store = CodeGraphStore::open_default().expect("open codegraph store");
         Self {
             github: GithubRouter::with_core(core),
             tui,
             spa_dir,
             ws: WsHub::new(),
             workcells: Arc::new(Mutex::new(WorkcellManager::new())),
+            agent_runs: agent_runs::AgentRunStore::new(),
+            codegraph_store,
             repo_manager,
             core: core_handle,
         }
@@ -241,6 +258,9 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/.jeryu/capabilities", get(capabilities))
         .route("/api/v1/bootstrap", get(bootstrap))
         .route("/api/v1/bootstrap.tui", get(bootstrap_tui))
+        .route("/api/v1/agent-runs", post(agent_runs::start))
+        .route("/api/v1/agent-runs/:id", get(agent_runs::status))
+        .route("/api/v1/agent-runs/:id/control", post(agent_runs::control))
         .route(
             "/api/v1/workcells",
             get(workcells::list).post(workcells::claim),
@@ -269,6 +289,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
+        .route("/api/v1/repos/:id/codegraph/query", post(codegraph::query))
         .route(
             "/api/v1/repos/:id/readme",
             get(repo_readme).put(repo_readme_update),
@@ -511,6 +532,9 @@ fn ci_evidence_not_found_error() -> AxumResponse {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod agent_runs_tests;
 
 #[cfg(test)]
 mod workcell_surface_tests;

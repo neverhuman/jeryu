@@ -26,6 +26,8 @@ struct Boundaries {
 #[derive(Debug, Deserialize)]
 struct DbBoundary {
     truth_owner: String,
+    #[serde(default)]
+    auxiliary_driver_paths: Vec<String>,
 }
 
 /// Enforces that direct SQLite driver references stay in the configured DB
@@ -36,11 +38,22 @@ pub fn db_boundary(root: &Path, boundaries_toml: &Path) -> Result<GateReport> {
     let boundaries: Boundaries = toml::from_str(&raw)
         .with_context(|| format!("parsing {} as TOML", boundaries_toml.display()))?;
 
-    let allowed_prefix = PathBuf::from("crates").join(boundaries.db.truth_owner);
+    let mut allowed_prefixes = vec![PathBuf::from("crates").join(boundaries.db.truth_owner)];
+    allowed_prefixes.extend(
+        boundaries
+            .db
+            .auxiliary_driver_paths
+            .into_iter()
+            .map(PathBuf::from),
+    );
     let pattern = ["rus", "qlite"].concat();
     let mut hits = Vec::new();
     for (rel, path) in iter_files(root)? {
-        if rel == Path::new("Cargo.lock") || rel.starts_with(&allowed_prefix) {
+        if rel == Path::new("Cargo.lock")
+            || allowed_prefixes
+                .iter()
+                .any(|allowed_prefix| rel.starts_with(allowed_prefix))
+        {
             continue;
         }
         let text = match std::fs::read_to_string(&path) {

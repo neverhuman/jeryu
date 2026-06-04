@@ -25,10 +25,16 @@ fn arch() -> TargetArch {
 
 /// A representative agent PTY profile (the same groups the in-cell driver uses).
 fn pty_groups() -> Vec<String> {
-    ["process-basic", "file-readwrite-workspace", "futex", "time", "pty"]
-        .into_iter()
-        .map(String::from)
-        .collect()
+    [
+        "process-basic",
+        "file-readwrite-workspace",
+        "futex",
+        "time",
+        "pty",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect()
 }
 
 #[test]

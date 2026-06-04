@@ -201,6 +201,16 @@
       "purpose": "verify the Rung 4 in-cell agent driver and allowlist egress proxy contracts",
       "lane": "agent-substrate"
     },
+    "crates/jeryu-api/src/web/agent_runs.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 agent_runs",
+      "purpose": "verify high-level live agent-run repair launches, PTY controls, typed denials, and workcell failure context",
+      "lane": "api"
+    },
+    "crates/jeryu-api/src/web/codegraph.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 codegraph",
+      "purpose": "verify the repository codegraph oracle REST facade and typed repair guidance",
+      "lane": "api"
+    },
     "crates/jeryu-egress/": {
       "command": "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
       "purpose": "verify the Rung 4 allowlist egress proxy and in-cell agent driver contracts",
@@ -227,9 +237,29 @@
       "lane": "release-provenance"
     },
     "crates/jeryu-codegraph/": {
-      "command": "cargo test -p jeryu-codegraph --jobs 40",
-      "purpose": "verify the additive workspace code graph: persist round-trip, impact analysis, and the corrected export slice predicate",
+      "command": "cargo test -p jeryu-codegraph --jobs 40 && bash ops/ci/codegraph-oracle.sh",
+      "purpose": "verify schema v2 codegraph storage, references, impact analysis, MCP tools, and the API oracle facade",
       "lane": "rust-ci"
+    },
+    "crates/jeryu-mcp/": {
+      "command": "cargo test -p jeryu-mcp --jobs 40",
+      "purpose": "verify MCP tool catalog contracts, including codegraph query and code navigation tools",
+      "lane": "jankurai-proof"
+    },
+    "crates/jeryu-sandbox-linux/": {
+      "command": "cargo test -p jeryu-sandbox-linux --jobs 40",
+      "purpose": "verify Linux sandbox launch, cgroup fail-closed behavior, Landlock/seccomp policy, and PTY syscall rules",
+      "lane": "runner-sandbox"
+    },
+    "crates/jeryu-readmodel/src/dashboards/agent_runs.rs": {
+      "command": "cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40",
+      "purpose": "verify agent-run readmodel projection and TUI live TTY/failed-CI repair coverage",
+      "lane": "contract"
+    },
+    "crates/jeryu-readmodel/src/dashboards/codegraph.rs": {
+      "command": "cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40",
+      "purpose": "verify codegraph/oracle readmodel projection and TUI evidence coverage",
+      "lane": "contract"
     },
     "dashboards/": {
       "command": "cargo test -p jeryu-bench -p jeryu-obs --jobs 40",
@@ -265,6 +295,11 @@
       "command": "bash ops/ci/verify-jeryu-env.sh --build-local && cargo run -q -p jeryu-repogate -- ci-lanes-check && ./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
       "purpose": "verify local CI gates, ops scripts, and hosted/local parity wiring",
       "lane": "local-ci-parity"
+    },
+    "ops/ci/codegraph-oracle.sh": {
+      "command": "bash ops/ci/codegraph-oracle.sh",
+      "purpose": "verify the schema v2 codegraph oracle API/MCP contract lane",
+      "lane": "rust-ci"
     },
     "ops/ci/publish-readme-score.sh": {
       "command": "bash ops/ci/publish-readme-score.sh --dry-run --verify",

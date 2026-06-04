@@ -111,6 +111,11 @@ fn manifest_includes_capability_tools() {
             .iter()
             .any(|tool| tool["name"] == "jeryu.get_ci_bottlenecks")
     );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.codegraph.query")
+    );
 }
 
 #[test]
@@ -121,7 +126,7 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 21-tool catalog (replaces the source's action_registry guardrail).
+    // The 27-tool catalog (replaces the source's action_registry guardrail).
     let expected = [
         "fetch_capsule",
         "get_system_snapshot",
@@ -144,11 +149,17 @@ fn manifest_covers_all_catalog_actions() {
         "workcell.repair_live",
         "workcell.export_pr",
         "workcell.release",
+        "code.symbols.search",
+        "code.definition",
+        "code.impact",
+        "code.crate.reverse_deps",
+        "code.references",
+        "codegraph.query",
     ];
     assert_eq!(
         names.len(),
-        21,
-        "expected exactly 21 tools, got {}",
+        27,
+        "expected exactly 27 tools, got {}",
         names.len()
     );
     for id in expected {
@@ -226,7 +237,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 21);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 27);
 }
 
 #[tokio::test]
@@ -284,6 +295,31 @@ async fn stdio_tools_call_round_trip() {
         workcell[0]["result"]["structuredContent"]["data"]["state"],
         "ready"
     );
+
+    let codegraph = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.codegraph.query",
+                    "arguments": {
+                        "changed_paths": ["crates/jeryu-codegraph/src/lib.rs"],
+                        "symbol": "CodeGraph",
+                        "crate_name": "jeryu-codegraph"
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(codegraph.len(), 1);
+    let structured = &codegraph[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(structured["data"]["schema_version"], "codegraph.query/v1");
+    assert_eq!(structured["data"]["definition"]["symbol"], "CodeGraph");
 }
 
 #[tokio::test]

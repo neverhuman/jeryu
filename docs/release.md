@@ -52,7 +52,9 @@ first push wins and rejected duplicate pushes leave the single release bump on
 - `just audit`
 - `bash ops/ci/proof-evidence.sh`
 - `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or CI repair snapshot helpers change.
-- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the workcells dashboard or generated web bootstrap contract changes.
+- `cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40` when the workcells,
+  agent-runs, codegraph/oracle dashboard, or TUI projection contract changes.
+- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the generated web bootstrap contract changes.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the
@@ -61,16 +63,24 @@ first push wins and rejected duplicate pushes leave the single release bump on
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent` when
   the workcell run-agent route, typed path denial, structured event response, or
   sandbox-unavailable repair evidence changes.
+- `cargo test -p jeryu-api --features web --jobs 40 agent_runs` when the
+  high-level live agent-run route, PTY controls, failed-CI repair source, or
+  typed control denials change.
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
   when workcell export gating, `jeryu-codegraph`, or the export PR changed-file
   derivation changes. The release receipt must include the typed denial evidence
   proving an out-of-slice diff creates no pull request.
+- `bash ops/ci/codegraph-oracle.sh` when the codegraph schema, MCP catalog,
+  oracle impact-pack contract, or `/api/v1/repos/{id}/codegraph/query` facade
+  changes.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API response contracts, `/api/v1/ecosystem`, or
   `/api/v1/ci/runs/{id}/evidence` change.
-- `cargo test -p jeryu-signrail --test release_witness` and
+- `cargo test -p jeryu-signrail --test release_witness`,
+  `cargo test -p jeryu-signrail --jobs 40 verify_release`, and
   `cargo clippy -p jeryu-signrail --all-targets -- -D warnings` when release
-  signing, artifact provenance, witness, or stage-receipt behavior changes.
+  signing, release verification, artifact provenance, witness, or stage-receipt
+  behavior changes.
 - `cargo test -p jeryu-wsversion --jobs 40`,
   `cargo run -q -p jeryu-wsversion -- inherit-guard`, and
   `cargo run -q -p jeryu-wsversion -- decide --range origin/main..HEAD --json`
@@ -109,6 +119,10 @@ signed-commit provenance and fails closed unless the candidate is safe to tag:
 - `target/jankurai/` proof artifacts, including the release lane transcript,
   SBOM digests, provenance checksum, and any API route evidence for changed
   endpoints;
+- MCP/catalog trust evidence for changed local agent-facing commands:
+  `agent/tool-adoption.toml`, the pinned `ops/ci/security-tools.sh` transcript,
+  `cargo test -p jeryu-mcp --test mcp_conformance --jobs 40`, and any composed
+  route/tool contract lane such as `bash ops/ci/codegraph-oracle.sh`;
 - the `jeryu-wsversion decide --json` output for the released range, plus
   inherit-guard evidence proving every workspace member inherits the root
   version;
@@ -122,14 +136,13 @@ signed-commit provenance and fails closed unless the candidate is safe to tag:
   bundle file except `release-receipt.json` and `SHA256SUMS` itself; the
   receipt records the checksum manifest digest.
 
-Latest closeout validation used explicit `--full` mode with 40 workers in both
-local-native and GitHub-clean profiles: 1175 nextest tests, phase gates
-PASS=9/PENDING=0/FAIL=0, proof-evidence Jankurai full scan score 92 caps 0, and
-changed-file Jankurai diff/audit hard 0 caps 0. The GitHub-clean proof is
+Release receipts must include current local-native and GitHub-clean full-mode
+transcripts rather than historical score claims. The GitHub-clean proof command
+is
 `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`.
 Full mode runs `ops/ci/verify-jeryu-env.sh --build-local --release-guard` and
-accepts either the canonical GitHub remote or the loopback local Jeryu remote
-on `127.0.0.1:8787`. It rejects retired-provider runners, stale `~/.jeryu`
+accepts either the canonical GitHub remote or the loopback local Jeryu remote on
+`127.0.0.1:8787`. It rejects retired-provider runners, stale `~/.jeryu`
 binaries, old `/home/ubuntu/jeryu`, and local `:2224` listener/remotes so
 release evidence cannot be produced against the retired system. The local API
 install under `~/.jeryu/bin/jeryu-api` is accepted only when it byte-matches the
@@ -146,6 +159,9 @@ when `JERYU_CI_SOURCE_ROOTS` is set.
    payload contract.
    Workcell run-agent additions must include the typed path-denial evidence and
    either structured event output or honest sandbox-unavailable evidence.
+   Agent-run additions must include live PTY event/control evidence and typed
+   denial evidence for stale, finished, or unsupported control paths.
+   Codegraph oracle additions must include `bash ops/ci/codegraph-oracle.sh`.
 4. Build only from a signed commit. `scripts/emit-release-receipt.sh` verifies
    the commit with `git verify-commit --raw <sha>` and writes the transcript to
    `signed-commit.txt`.

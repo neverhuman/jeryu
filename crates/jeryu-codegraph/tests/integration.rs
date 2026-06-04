@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 
 use jeryu_codegraph::{
-    CodeGraph, CodeGraphStore, CrateDepRow, GraphSnapshot, Slice, SymbolRow,
-    enforce_export_slice_from_diff,
+    CodeGraph, CodeGraphStore, CodegraphQuery, CrateDepRow, GraphSnapshot, Slice, SymbolRefRow,
+    SymbolRow, enforce_export_slice_from_diff, query_store,
 };
 
 fn unique_db(tag: &str) -> PathBuf {
@@ -44,15 +44,100 @@ fn persist_round_trip() {
             crate_name: "jeryu-codegraph".into(),
             depends_on: "jeryu-rustjet".into(),
         }],
+        symbol_refs: vec![SymbolRefRow {
+            crate_name: "jeryu-codegraph".into(),
+            file: "crates/jeryu-codegraph/src/lib.rs".into(),
+            symbol: "CodeGraph".into(),
+            ref_file: "crates/jeryu-codegraph/tests/integration.rs".into(),
+            ref_line: 42,
+            ref_kind: "type".into(),
+        }],
     };
     store.persist(&snapshot).unwrap();
     let loaded = store.load_snapshot().unwrap();
     assert_eq!(loaded, snapshot);
+    assert_eq!(store.schema_version().unwrap(), "2");
+    assert_eq!(store.references("CodeGraph").unwrap(), snapshot.symbol_refs);
+    assert_eq!(
+        store.reverse_deps("jeryu-rustjet").unwrap(),
+        vec!["jeryu-codegraph".to_string()]
+    );
 
     // Persist is idempotent (delete-all then re-insert).
     store.persist(&snapshot).unwrap();
     let loaded_again = store.load_snapshot().unwrap();
     assert_eq!(loaded_again, snapshot);
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn oracle_query_pack_includes_provenance_refs_and_lanes() {
+    let path = unique_db("oracle");
+    let store = CodeGraphStore::open(&path).unwrap();
+    store
+        .persist(&GraphSnapshot {
+            symbols: vec![
+                SymbolRow {
+                    crate_name: "jeryu-codegraph".into(),
+                    file: "crates/jeryu-codegraph/src/lib.rs".into(),
+                    symbol: "CodeGraph".into(),
+                    kind: "public".into(),
+                    is_public: true,
+                    line: 10,
+                },
+                SymbolRow {
+                    crate_name: "jeryu-mcp".into(),
+                    file: "crates/jeryu-mcp/src/backend/memory.rs".into(),
+                    symbol: "MemoryBackend".into(),
+                    kind: "public".into(),
+                    is_public: true,
+                    line: 20,
+                },
+            ],
+            crate_deps: vec![CrateDepRow {
+                crate_name: "jeryu-mcp".into(),
+                depends_on: "jeryu-codegraph".into(),
+            }],
+            symbol_refs: vec![SymbolRefRow {
+                crate_name: "jeryu-codegraph".into(),
+                file: "crates/jeryu-codegraph/src/lib.rs".into(),
+                symbol: "CodeGraph".into(),
+                ref_file: "crates/jeryu-mcp/src/backend/memory.rs".into(),
+                ref_line: 7,
+                ref_kind: "type".into(),
+            }],
+        })
+        .unwrap();
+
+    let pack = query_store(
+        &store,
+        &CodegraphQuery {
+            changed_paths: vec!["crates/jeryu-codegraph/src/lib.rs".into()],
+            symbol: Some("CodeGraph".into()),
+            crate_name: Some("jeryu-codegraph".into()),
+            limit: 10,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(pack.provenance.storage_schema, "2");
+    assert_eq!(pack.definition.as_ref().unwrap().symbol, "CodeGraph");
+    assert_eq!(
+        pack.references[0].ref_file,
+        "crates/jeryu-mcp/src/backend/memory.rs"
+    );
+    assert_eq!(pack.reverse_deps, vec!["jeryu-mcp"]);
+    assert!(
+        pack.required_reads
+            .contains(&"crates/jeryu-codegraph/src/lib.rs".to_string())
+    );
+    assert!(
+        pack.proof_lanes
+            .iter()
+            .any(|lane| lane.contains("codegraph-oracle"))
+    );
+    assert!(pack.misses.is_empty());
 
     let _ = std::fs::remove_file(&path);
 }

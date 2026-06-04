@@ -2458,3 +2458,10 @@ Claiming `/tmp/jeryu-consolidate-main` for Jeryu publication blocker fixes only,
 - Restarted local Jeryu `127.0.0.1:8787` from the consolidation-built `jeryu-api` binary and verified `/health`, `/api/v1/repos`, `/api/v1/bootstrap`, and `/api/v1/workcells`.
 - Preserved the dirty canonical `/home/ubuntu/jeryu` checkout as local branch `codex/preserve-dirty-worktree-20260603` and pushed it only to the local Jeryu remote.
 - Folded forward only the required missing phase-gate file from that preservation branch: `ops/ci/gates/agent-substrate.sh`, plus exact owner/test-map coverage and PASS=10 docs alignment. The preserved JMCP code-truth API work is archived on the preservation branch because applying it directly would remove the consolidated workcell API.
+
+## 2026-06-04T14:01Z - Codex agent-execution integration branch
+
+- Branch: `codex/jeryu-agent-execution-final` from GitHub `main` at `1005c1ce`.
+- Ported targeted PTY sandbox/agentbridge behavior, high-level `/api/v1/agent-runs` workcell repair launch/control, schema-v2 codegraph oracle API/MCP evidence, SignRail `verify-release`, and readmodel/TUI coverage for live TTY, failed-CI repair/export, and codegraph oracle evidence.
+- Updated owner/test maps and docs for the new public API/script/CLI surfaces.
+- Passing so far: `jeryu-sandbox-linux pty`, `jeryu-agentbridge --test pty_driver`, `jeryu-api agent_runs`, `jeryu-codegraph`, `jeryu-api codegraph`, `jeryu-mcp mcp_conformance`, `ops/ci/codegraph-oracle.sh`, `jeryu-signrail verify_release`, `jeryu-readmodel -p jeryu-tui`, docs/map checks. Full workspace/clippy gates still need the final local pass before publish.

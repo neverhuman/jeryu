@@ -1671,6 +1671,7 @@ dependencies = [
  "anyhow",
  "axum",
  "jeryu-agentbridge",
+ "jeryu-codegraph",
  "jeryu-core",
  "jeryu-proof",
  "reqwest",
@@ -1900,6 +1901,7 @@ name = "jeryu-signrail"
 version = "4.0.0"
 dependencies = [
  "jeryu-signing",
+ "serde_json",
 ]
 
 [[package]]

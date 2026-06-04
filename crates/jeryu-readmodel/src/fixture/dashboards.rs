@@ -2,10 +2,15 @@
 
 use chrono::{DateTime, TimeZone, Utc};
 
+use crate::dashboards::agent_runs::{
+    AgentRunIoMode, AgentRunItem, AgentRunSourceKind, AgentRunStatus, AgentRunsDashboard,
+    AgentRunsSummary,
+};
 use crate::dashboards::agents::{AgentItem, AgentStatus, AgentsSnapshot, AgentsSummary};
 use crate::dashboards::approvals::{
     ApprovalItem, ApprovalsSnapshot, ApprovalsSummary, CheckStatus,
 };
+use crate::dashboards::codegraph::{CodegraphDashboard, CodegraphEvidenceItem, CodegraphSummary};
 use crate::dashboards::evidence::{EvidenceItem, EvidenceSnapshot, EvidenceSummary, GateDecision};
 use crate::dashboards::release::{
     PromotionStage, ReleaseGate, ReleaseItem, ReleaseSnapshot, ReleaseSummary, SbomStatus,
@@ -118,6 +123,88 @@ pub fn sample_agents() -> AgentsSnapshot {
     }
 }
 
+/// A populated agent-runs snapshot: one live PTY repair run and one finished
+/// pipe run, covering control affordances and output budget state.
+pub fn sample_agent_runs() -> AgentRunsDashboard {
+    let at = sample_at();
+    let mut live = AgentRunItem::new("run-pty-18", AgentRunStatus::Running);
+    live.label = "failed-CI repair".into();
+    live.io_mode = AgentRunIoMode::Pty;
+    live.source_kind = AgentRunSourceKind::Workcell;
+    live.workcell_id = Some("wc-18".into());
+    live.runner_epoch = Some(8);
+    live.tty_status = Some("live tty".into());
+    live.last_event = Some("stdout: test failure context loaded".into());
+    live.output_bytes_used = 8_192;
+    live.output_bytes_limit = 65_536;
+    live.supported_controls = vec![
+        "send_input".into(),
+        "inject_prompt".into(),
+        "interrupt".into(),
+        "resize_pty".into(),
+        "raise_budget".into(),
+    ];
+
+    let mut finished = AgentRunItem::new("run-pipe-17", AgentRunStatus::Finished);
+    finished.label = "deterministic command".into();
+    finished.io_mode = AgentRunIoMode::Pipe;
+    finished.source_kind = AgentRunSourceKind::Workcell;
+    finished.workcell_id = Some("wc-17".into());
+    finished.runner_epoch = Some(7);
+    finished.last_event = Some("exit 0".into());
+    finished.output_bytes_used = 2_048;
+    finished.output_bytes_limit = 16_384;
+
+    AgentRunsDashboard {
+        items: vec![live, finished],
+        freshness: Some(SourceFreshness::live(SourceKind::Autonomy, at, "cursor-1")),
+        summary: Some(AgentRunsSummary {
+            total_runs: 2,
+            running_runs: 1,
+            pty_runs: 1,
+            live_tty_runs: 1,
+            controllable_runs: 1,
+        }),
+    }
+}
+
+/// A populated codegraph/oracle snapshot: one impact-pack row backed by schema
+/// v2 references and proof lanes.
+pub fn sample_codegraph() -> CodegraphDashboard {
+    let at = sample_at();
+    let mut query = CodegraphEvidenceItem::new("cgq-18", "codegraph.query");
+    query.repo_id = "core/api".into();
+    query.symbol = "AgentRunStore".into();
+    query.schema_version = 2;
+    query.references = 4;
+    query.reverse_deps = 2;
+    query.required_reads = vec![
+        "crates/jeryu-api/src/web/agent_runs.rs".into(),
+        "crates/jeryu-agentbridge/src/pty_driver.rs".into(),
+    ];
+    query.proof_lanes = vec!["codegraph-oracle".into(), "agent-runs".into()];
+    query.suggested_commands = vec![
+        "cargo test -p jeryu-api --features web agent_runs".into(),
+        "bash ops/ci/codegraph-oracle.sh".into(),
+    ];
+
+    CodegraphDashboard {
+        items: vec![query],
+        freshness: Some(SourceFreshness::live(
+            SourceKind::InspectionHttp,
+            at,
+            "cursor-1",
+        )),
+        summary: Some(CodegraphSummary {
+            schema_version: 2,
+            indexed_symbols: 128,
+            indexed_references: 512,
+            oracle_queries: 1,
+            miss_count: 0,
+        }),
+    }
+}
+
 /// A populated release snapshot: a ready candidate and a blocked one.
 pub fn sample_release() -> ReleaseSnapshot {
     let at = sample_at();
@@ -192,6 +279,8 @@ pub fn sample_workcells() -> WorkcellsDashboard {
     held.failed_receipt_id = Some("receipt-18".into());
     held.allowed_paths = vec!["/workspace/core/api".into()];
     held.failure_log_digest = Some("sha256:deadbeef".into());
+    held.repair_state = Some("held_failed_ci".into());
+    held.export_state = Some("export_ready".into());
 
     let mut blocked = WorkcellItem::new("wc-19", "agent-frost-01 / core/docs");
     blocked.claim_state = WorkcellState::Blocked;

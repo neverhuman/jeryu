@@ -9,8 +9,8 @@ mod model;
 
 pub use builder::TuiReadModelBuilder;
 pub use dashboards::{
-    sample_agents, sample_approvals, sample_evidence, sample_release, sample_workcells,
-    sample_workflow,
+    sample_agent_runs, sample_agents, sample_approvals, sample_codegraph, sample_evidence,
+    sample_release, sample_workcells, sample_workflow,
 };
 pub use model::sample_read_model;
 

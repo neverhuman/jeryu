@@ -48,6 +48,7 @@ root_paths = ["db"]
 migration_paths = ["db/migrations"]
 constraint_paths = ["db/constraints.md", "db/migrations"]
 status = "active"
+auxiliary_driver_paths = ["crates/jeryu-codegraph"]
 
 [queues]
 adapter_paths = ["crates/jeryu-ci-scheduler", "crates/jeryu-runnerd"]

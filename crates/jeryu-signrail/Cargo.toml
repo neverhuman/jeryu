@@ -11,3 +11,4 @@ workspace = true
 
 [dependencies]
 jeryu-signing = { path = "../jeryu-signing" }
+serde_json = { workspace = true }

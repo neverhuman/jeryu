@@ -8,6 +8,9 @@ use std::sync::Mutex;
 use serde_json::Value;
 
 use super::{BugStore, McpCallContext, ToolBackend, ToolDescriptor, ToolResponse};
+use jeryu_codegraph::{
+    CodeGraph, CodegraphQuery, CrateDepRow, GraphSnapshot, SymbolRefRow, SymbolRow, query_snapshot,
+};
 
 /// Deterministic in-memory backend for tests. Validates argument shape via the catalog
 /// parsers and returns a predictable `ToolResponse` per tool. Holds an in-memory bug store.
@@ -296,6 +299,76 @@ impl ToolBackend for MemoryBackend {
                     "released": true,
                 }),
             ),
+            "code.symbols.search" => {
+                let graph = CodeGraph::from_snapshot(sample_codegraph_snapshot());
+                let limit = arg("limit").as_u64().unwrap_or(20) as usize;
+                ToolResponse::ok(
+                    "code symbols",
+                    serde_json::json!({
+                        "symbols": graph.search_symbols(arg("query").as_str().unwrap_or_default(), limit)
+                    }),
+                )
+            }
+            "code.definition" => {
+                let graph = CodeGraph::from_snapshot(sample_codegraph_snapshot());
+                let symbol = arg("symbol").as_str().unwrap_or_default().to_string();
+                ToolResponse::ok(
+                    "code definition",
+                    serde_json::json!({
+                        "symbol": symbol,
+                        "definition": graph.definition(arg("symbol").as_str().unwrap_or_default())
+                    }),
+                )
+            }
+            "code.impact" => {
+                let query = CodegraphQuery {
+                    changed_paths: string_array(&arg("changed_paths")),
+                    symbol: None,
+                    crate_name: None,
+                    limit: 20,
+                };
+                let pack = query_snapshot(sample_codegraph_snapshot(), "2".to_string(), &query);
+                ToolResponse::ok("code impact", serde_json::to_value(pack.impact).unwrap())
+            }
+            "code.crate.reverse_deps" => {
+                let graph = CodeGraph::from_snapshot(sample_codegraph_snapshot());
+                let crate_name = arg("crate_name").as_str().unwrap_or_default().to_string();
+                ToolResponse::ok(
+                    "crate reverse dependencies",
+                    serde_json::json!({
+                        "crate_name": crate_name,
+                        "reverse_deps": graph.reverse_deps(arg("crate_name").as_str().unwrap_or_default())
+                    }),
+                )
+            }
+            "code.references" => {
+                let graph = CodeGraph::from_snapshot(sample_codegraph_snapshot());
+                let symbol = arg("symbol").as_str().unwrap_or_default().to_string();
+                ToolResponse::ok(
+                    "code references",
+                    serde_json::json!({
+                        "symbol": symbol,
+                        "references": graph.references(arg("symbol").as_str().unwrap_or_default())
+                    }),
+                )
+            }
+            "codegraph.query" => {
+                let query = CodegraphQuery {
+                    changed_paths: string_array(&arg("changed_paths")),
+                    symbol: arg("symbol").as_str().map(ToString::to_string),
+                    crate_name: arg("crate_name").as_str().map(ToString::to_string),
+                    limit: arg("limit").as_u64().unwrap_or(20) as usize,
+                };
+                ToolResponse::ok(
+                    "codegraph impact pack",
+                    serde_json::to_value(query_snapshot(
+                        sample_codegraph_snapshot(),
+                        "2".to_string(),
+                        &query,
+                    ))
+                    .unwrap(),
+                )
+            }
             other => ToolResponse::error(format!("unknown tool: {other}")),
         };
         Ok(resp)
@@ -303,5 +376,53 @@ impl ToolBackend for MemoryBackend {
 
     fn list(&self) -> Vec<ToolDescriptor> {
         crate::tools::catalog()
+    }
+}
+
+fn string_array(value: &Value) -> Vec<String> {
+    value
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(ToString::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn sample_codegraph_snapshot() -> GraphSnapshot {
+    GraphSnapshot {
+        symbols: vec![
+            SymbolRow {
+                crate_name: "jeryu-codegraph".to_string(),
+                file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
+                symbol: "CodeGraph".to_string(),
+                kind: "public".to_string(),
+                is_public: true,
+                line: 10,
+            },
+            SymbolRow {
+                crate_name: "jeryu-mcp".to_string(),
+                file: "crates/jeryu-mcp/src/backend/memory.rs".to_string(),
+                symbol: "MemoryBackend".to_string(),
+                kind: "public".to_string(),
+                is_public: true,
+                line: 12,
+            },
+        ],
+        crate_deps: vec![CrateDepRow {
+            crate_name: "jeryu-mcp".to_string(),
+            depends_on: "jeryu-codegraph".to_string(),
+        }],
+        symbol_refs: vec![SymbolRefRow {
+            crate_name: "jeryu-codegraph".to_string(),
+            file: "crates/jeryu-codegraph/src/lib.rs".to_string(),
+            symbol: "CodeGraph".to_string(),
+            ref_file: "crates/jeryu-mcp/src/backend/memory.rs".to_string(),
+            ref_line: 7,
+            ref_kind: "type".to_string(),
+        }],
     }
 }

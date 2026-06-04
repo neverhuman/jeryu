@@ -215,6 +215,29 @@ truth_owner = "jeryu-core"
 }
 
 #[test]
+fn db_boundary_allows_explicit_auxiliary_driver_owner() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let root = temp.path();
+    write(
+        root,
+        "agent/boundaries.toml",
+        r#"[db]
+truth_owner = "jeryu-core"
+auxiliary_driver_paths = ["crates/jeryu-codegraph"]
+"#,
+    );
+    write(
+        root,
+        "crates/jeryu-codegraph/src/storage.rs",
+        &format!("use {}::Connection;", ["rus", "qlite"].concat()),
+    );
+
+    let report = db_boundary(root, &root.join("agent/boundaries.toml")).expect("gate runs");
+    assert!(report.ok, "expected pass, got {report:?}");
+    assert_eq!(report.lines, vec!["db boundary ok".to_string()]);
+}
+
+#[test]
 fn db_boundary_flags_driver_use_outside_truth_owner() {
     let temp = tempfile::tempdir().expect("tempdir");
     let root = temp.path();

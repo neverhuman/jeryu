@@ -91,7 +91,8 @@ not merge PRs until the safety rework is proven and re-enabled.
 SignRail release signing for artifact-support bundles is documented in
 `docs/signrail-release-signing.md`; it records stage receipts for `local`,
 `dev-canary`, and `prod` after release provenance reaches 100% signature
-coverage.
+coverage. `jeryu-signrail verify-release` rechecks a stored release JSON,
+stage receipt, and public key before a receipt is accepted as release evidence.
 
 Workspace version decisions are owned by `jeryu-wsversion`. The local API push
 bridge invokes it after `refs/heads/main` advances, writes a single
@@ -125,6 +126,22 @@ typed repair bodies, and returns structured start/stdout/stderr/budget/finish
 events plus the run outcome. Proof lane:
 `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`.
 
+Real repair agents launch through `POST /api/v1/agent-runs`. The route defaults
+to `io_mode: "pty"`, accepts `source.kind: "workcell"` for held or repairing
+failed-CI workcells, injects failure context into the jailed process, and keeps
+a live control channel for `send_input`, `inject_prompt`, `interrupt`,
+`terminate`, `resize_pty`, and `raise_budget`. Finished runs, stale epochs,
+out-of-slice paths, and unsupported pipe-mode controls return typed repair
+bodies instead of no-ops. Proof lane:
+`cargo test -p jeryu-api --features web --jobs 40 agent_runs`.
+
+The codegraph oracle exposes schema-v2 reference evidence through MCP tools
+(`code.symbols.search`, `code.definition`, `code.impact`,
+`code.crate.reverse_deps`, `code.references`, `codegraph.query`) and
+`POST /api/v1/repos/{id}/codegraph/query`. Rerun
+`bash ops/ci/codegraph-oracle.sh` when the schema, MCP contract, or API facade
+changes.
+
 ## Local Live Runtime
 
 The first live target is local-only. `jeryu-api` can run an Axum server backed
@@ -140,7 +157,8 @@ cargo run -p jeryu-api --features web -- web serve \
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
 `/api/v1/ecosystem`, `/api/v1/ci/runs/{id}/evidence`,
-`/api/v1/workcells/{id}/run_agent`, `/api/v1/markdown/render`, `/api/v1/ws`,
+`/api/v1/workcells/{id}/run_agent`, `/api/v1/agent-runs`,
+`/api/v1/repos/{id}/codegraph/query`, `/api/v1/markdown/render`, `/api/v1/ws`,
 and the guided GitHub-compatible `/user` and `/graphql` routes. The ecosystem
 and CI-run evidence routes are read-only: they expose live MCP tool graph
 metadata, forge health, queue identity, and digest-verifiable CI evidence for
@@ -198,7 +216,9 @@ lint, and Playwright end-to-end coverage against the local BFF/API contract.
 
 The TUI exposes `jeryu-tui --once` for deterministic tests and captures. It can
 render fixture data or the live `/api/v1/bootstrap.tui` read model, including
-all 18 tabs used by the local control-plane views.
+all 18 tabs used by the local control-plane views. The Agents and Evidence
+lenses surface live PTY status, held failed-CI repair/export state, and
+codegraph/oracle proof lanes from the read model.
 
 ## Local CI
 
