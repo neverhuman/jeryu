@@ -12,7 +12,12 @@ SignRail artifact-support signing details:
 
 ## Version Source
 
-- Rust crate versions live in workspace manifests and `Cargo.lock`.
+- `jeryu-wsversion` owns workspace version decisions. `decide` classifies the
+  commit range, `apply` rewrites only `[workspace.package].version` and
+  `CHANGELOG.md`, and `inherit-guard` rejects member manifests that pin their
+  own version.
+- Rust crate versions live in the root workspace manifest and `Cargo.lock`;
+  workspace members must use `version.workspace = true`.
 - User-facing changes are summarized in `CHANGELOG.md`.
 - Release candidates record the Git commit SHA, artifact checksums, SBOM
   digests, and rollback target.
@@ -47,6 +52,11 @@ SignRail artifact-support signing details:
 - `cargo test -p jeryu-signrail --test release_witness` and
   `cargo clippy -p jeryu-signrail --all-targets -- -D warnings` when release
   signing, artifact provenance, witness, or stage-receipt behavior changes.
+- `cargo test -p jeryu-wsversion --jobs 40`,
+  `cargo run -q -p jeryu-wsversion -- inherit-guard`, and
+  `cargo run -q -p jeryu-wsversion -- decide --range origin/main..HEAD --json`
+  when workspace versioning, changelog roll-forward, or release version source
+  behavior changes.
 - `cargo run -p jeryu-sandbox-linux --example jail_demo` and
   `cargo test -p jeryu-runnerd jailgun` when the workcell cell jail (the
   `jeryu-sandbox-linux` launch path) or the jailgun tar validators change.
@@ -80,6 +90,9 @@ signed-commit provenance and fails closed unless the candidate is safe to tag:
 - `target/jankurai/` proof artifacts, including the release lane transcript,
   SBOM digests, provenance checksum, and any API route evidence for changed
   endpoints;
+- the `jeryu-wsversion decide --json` output for the released range, plus
+  inherit-guard evidence proving every workspace member inherits the root
+  version;
 - `artifact-support-evidence.tar.gz` plus SignRail `release.json`,
   `sbom.json`, `provenance.json`, `witness.json`, `summary.json`, and
   `stage-receipts/{local,dev-canary,prod}.json`, copied into the release bundle

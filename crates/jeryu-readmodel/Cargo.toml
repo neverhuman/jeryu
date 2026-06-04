@@ -1,6 +1,6 @@
 [package]
 name = "jeryu-readmodel"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 description = "Provider-neutral TUI/web read-model contract types for the jeryu control plane."
 license = "MIT OR Apache-2.0"

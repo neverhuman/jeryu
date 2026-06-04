@@ -16,6 +16,11 @@ Run these from the canonical repository root before creating a release receipt:
 - `SIGNRAIL_ROLLBACK_TARGET=<previous-signed-release> bash ops/ci/artifact_support.sh`
 - `bash ops/ci/release.sh`
 - `bash ops/ci/proof-evidence.sh`
+- `cargo test -p jeryu-wsversion --jobs 40`,
+  `cargo run -q -p jeryu-wsversion -- inherit-guard`, and
+  `cargo run -q -p jeryu-wsversion -- decide --range origin/main..HEAD --json`
+  when the workspace version source, changelog roll-forward, or release bump
+  policy changes.
 - `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or frozen CI repair helpers change.
 - `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the workcells dashboard or bootstrap feature flags change.
 - `cargo test -p jeryu-api --features web --jobs 40`
@@ -47,6 +52,8 @@ Each final release receipt uses schema `jeryu.release-receipt/v2` and records:
 - `signed-commit.txt` proving `git verify-commit --raw <sha>` succeeded;
 - PR publication metadata from `target/ci-fast/publish.json`;
 - workspace version and changelog entry;
+- `jeryu-wsversion decide --json` evidence for the released commit range and
+  `inherit-guard` evidence for workspace member manifests;
 - `target/jankurai/` proof artifacts;
 - SPDX and CycloneDX SBOM digests;
 - provenance checksum and cosign transcript path;

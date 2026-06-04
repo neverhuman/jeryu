@@ -32,8 +32,8 @@ Read these files before editing:
 - `docs/signrail-release-signing.md`
 - `docs/audit-rubric.md`
 - `docs/agent-native-standard.md`
-- Local `AGENTS.md` files under changed paths, for example `docs/AGENTS.md`
-  and `crates/jeryu-api/AGENTS.md`
+- Local `AGENTS.md` files under changed paths, for example `docs/AGENTS.md`,
+  `crates/jeryu-api/AGENTS.md`, and `crates/jeryu-wsversion/AGENTS.md`
 - `CI_TRACKER.md`
 
 Public and agent-facing review objects are PRs. Do not add aliases, flags,
@@ -84,7 +84,7 @@ not merge PRs until the safety rework is proven and re-enabled.
 | Rust CI acceleration | `jeryu-rustjet`, `jeryu-rustjet-cli` |
 | JeryuCache cache/CAS | `jeryu-cache-core`, `jeryu-cache-service`, `jeryu-cache-cli`, `jeryu-cache-adversary`, `jeryu-cache` |
 | Proof, governance, and repo gates | `jeryu-proof`, `jeryu-mapcheck`, `jeryu-repogate`, `jeryu-evidence` |
-| Release provenance and compliance | `jeryu-signrail`, `jeryu-signing`, `jeryu-compliance-export`, `jeryu-lifecycle` |
+| Release provenance and compliance | `jeryu-wsversion`, `jeryu-signrail`, `jeryu-signing`, `jeryu-compliance-export`, `jeryu-lifecycle` |
 | Benchmark, observability, and operations | `jeryu-bench`, `jeryu-obs`, `jeryu-ops`, `jeryu-phase7-cli` |
 | Enterprise/operations layer | `jeryu-enterprise`, `phase11-*`, `jeryu-kernel`, `jeryu-tenant`, `jeryu-replay-verifier`, `jeryu-phase11-bin` |
 

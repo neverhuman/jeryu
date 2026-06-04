@@ -66,6 +66,7 @@
     "crates/jeryu-rustjet/": "rust-ci",
     "crates/jeryu-codegraph/": "rust-ci",
     "crates/jeryu-signrail/": "release-security",
+    "crates/jeryu-wsversion/": "release-security",
     "dashboards/": "bench-obs",
     "db/": "forge-api",
     "deny.toml": "platform-security",
