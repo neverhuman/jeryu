@@ -218,6 +218,7 @@ pub(super) fn pull_request_json(pr: &PullRequest) -> Value {
         "merged": pr.merged,
         "merged_at": pr.merged_at,
         "merge_commit_sha": pr.merge_commit_sha,
+        "source_repository": pr.source_repository,
         "html_url": format!("/{}/{}/pull/{}", pr.owner, pr.repo, pr.number),
         "url": format!("/repos/{}/{}/pulls/{}", pr.owner, pr.repo, pr.number),
         "created_at": pr.created_at,
@@ -241,5 +242,67 @@ fn pr_open_or_closed(state: &PullRequestState) -> &'static str {
     match state {
         PullRequestState::Merged | PullRequestState::Closed => "closed",
         _ => "open",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jeryu_core::{CreateRepositoryRequest, CreateUserRequest, ForgeCore};
+
+    #[test]
+    fn pull_request_json_includes_source_repository() {
+        let core = ForgeCore::new();
+        core.create_user(CreateUserRequest {
+            login: "alice".to_string(),
+            ..Default::default()
+        })
+        .unwrap();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                default_branch: Some("main".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+
+        let default_pr = core
+            .create_pull_request(
+                "alice",
+                "jeryu",
+                "alice",
+                CreatePullRequestRequest {
+                    title: "default source".to_string(),
+                    head: "feature".to_string(),
+                    base: "main".to_string(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            pull_request_json(&default_pr)["source_repository"],
+            "alice/jeryu"
+        );
+
+        let explicit_pr = core
+            .create_pull_request(
+                "alice",
+                "jeryu",
+                "alice",
+                CreatePullRequestRequest {
+                    title: "forked source".to_string(),
+                    head: "feature-2".to_string(),
+                    base: "main".to_string(),
+                    source_repository: Some("fork-owner/jeryu".to_string()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            pull_request_json(&explicit_pr)["source_repository"],
+            "fork-owner/jeryu"
+        );
     }
 }

@@ -215,6 +215,12 @@ ci-lanes-check` is the drift guard: every workflow under `.github/workflows/`
 must be declared in the manifest, every substantive `run:` command must match a
 local lane, and setup-only commands are explicitly allowlisted.
 
+For release closeout, run `bash ci-fast-push.sh --full` from a PR branch before
+tagging. That publish path writes `target/ci-fast/publish.json`; the final
+`jeryu.release-receipt/v2` emitted by `bash ops/ci/release.sh` rejects missing
+PR metadata, unsigned candidate commits, placeholder rollback evidence, or
+missing SignRail artifact-support stage receipts.
+
 The fast gate also verifies this repository before testing: it builds and
 checks the repo-local `jeryu` binary, ignores any retired `~/.jeryu/bin/jeryu`
 binary on `PATH`, and accepts only the canonical GitHub remote when a remote is

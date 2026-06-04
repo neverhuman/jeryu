@@ -24,10 +24,19 @@ The stale v4.0 deferred rows were retired from this tracker. Remaining closeout 
 
 - `jeryu/autonomy` stays advisory until the merge decision is provably safe again: head-pinned, reviewer-verified, base..head diffed, author/fork trust-checked, changed-file evidence populated, and empty/skipped CI fail-closed.
 - `agent/repo-score.json` is the live blocker list for the closeout sweep. Regenerate it with the pinned `jankurai 1.6.10` binary before treating any finding as current evidence.
-- Release closeout still needs a signed-commit build, SBOM/provenance/rollback evidence, and branch + PR publication before tagging.
+- Release closeout is now fail-closed in automation: `scripts/emit-release-receipt.sh`
+  emits `jeryu.release-receipt/v2` only after signed-commit verification,
+  previous signed rollback artifact evidence, artifact-support SignRail stage
+  receipts, `SHA256SUMS`, and PR publication metadata from
+  `target/ci-fast/publish.json` are all present for the same commit. Unsigned
+  commits, placeholder rollback values, and missing branch/PR metadata are
+  expected to block final tagging.
 
 ## Current Gate Snapshot
 
 - PASS=9 · PENDING=0 · FAIL=0 on the last recorded phase-gate run.
 - `just fast`, `just ci`, `just full`, `just security`, and `just audit` remain the main local proof surfaces.
+- Final release closeout also requires `SIGNRAIL_ROLLBACK_TARGET=<previous-signed-release> bash ops/ci/artifact_support.sh`,
+  `bash ci-fast-push.sh --full` from a PR branch, and `bash ops/ci/release.sh`;
+  direct `main` publishing remains an explicit escape hatch only.
 - The open audit artifacts live under `target/jankurai/` and `.jankurai/`; do not hand-copy their contents into this tracker.

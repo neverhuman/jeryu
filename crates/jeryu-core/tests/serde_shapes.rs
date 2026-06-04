@@ -148,9 +148,19 @@ fn create_pull_request_request_minimal_json() {
     assert_eq!(req.title, "t");
     assert_eq!(req.head, "feature");
     assert_eq!(req.base, "main");
+    assert!(req.source_repository.is_none());
     assert!(!req.draft);
     assert!(req.body.is_none());
     assert!(req.head_sha.is_none());
+}
+
+#[test]
+fn create_pull_request_request_accepts_source_repository() {
+    let req: CreatePullRequestRequest = serde_json::from_str(
+        r#"{"title":"t","head":"feature","base":"main","source_repository":"fork-owner/jeryu"}"#,
+    )
+    .unwrap();
+    assert_eq!(req.source_repository.as_deref(), Some("fork-owner/jeryu"));
 }
 
 #[test]

@@ -347,6 +347,7 @@ pub(super) async fn export_pr(
             base: target_branch.clone(),
             head_sha: Some(head_sha),
             base_sha: Some(base_sha),
+            source_repository: Some(format!("{owner}/{repo}")),
             draft: false,
             commits: Vec::new(),
             changed_files,
