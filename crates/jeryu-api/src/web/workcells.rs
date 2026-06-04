@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+mod run_agent;
+
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, State};
@@ -18,6 +20,8 @@ use super::workcells_support::{
     TypedError, default_true, forge_error, lease_to_item, manager, parse_json_body, typed_error,
     workcell_error, workcell_not_found,
 };
+
+pub(super) use run_agent::run_agent;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct WorkcellHeartbeatRequest {

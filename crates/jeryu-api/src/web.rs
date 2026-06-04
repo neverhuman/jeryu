@@ -256,6 +256,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route("/api/v1/workcells/:id/release", post(workcells::release))
         .route(
+            "/api/v1/workcells/:id/run_agent",
+            post(workcells::run_agent),
+        )
+        .route(
             "/api/v1/workcells/:id/export_pr",
             post(workcells::export_pr),
         )

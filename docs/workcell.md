@@ -88,6 +88,28 @@ The driver ships a deterministic edit-bot (`jeryu-editbot`) that writes a bounde
 file inside the cell — the placeholder for a real `claude`/`codex` CLI, which
 runs through the same jailed path.
 
+## Cell Surface Run Route
+
+`POST /api/v1/workcells/{id}/run_agent` is the HTTP control-plane entrypoint for
+that in-cell driver. The request names the `workcell_id`, `runner_epoch`,
+optional `repo_root`, staged program, args, environment, timeout, output budget,
+and whether cgroup enforcement is required. The API only accepts claimed, held,
+or repairing workcells; mismatched ids, stale epochs, missing repo roots, and
+programs outside the claimed repo root return typed repair bodies.
+
+The response is agent-readable evidence: selected `repo_root`, serialized
+`Started`/`Stdout`/`Stderr`/`Budget`/`Finished` events, and the final outcome
+with exit code, timeout flag, budget flag, captured bytes, enforcement level,
+elapsed milliseconds, and `succeeded`. A host that cannot provide the required
+sandbox returns `workcell_run_sandbox_unavailable` instead of pretending the run
+was proven.
+
+Proof lane:
+
+```sh
+cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent
+```
+
 ## Rung 4 — egress allowlist proxy
 
 `crates/jeryu-egress` is a host-allowlist forward proxy (HTTP `CONNECT` + plain
@@ -134,6 +156,7 @@ root prefixes, so a commit outside the slice is denied with
 
 Proof lanes:
 
+- `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`
 
@@ -150,6 +173,11 @@ Proof lanes:
 - Driver test failure: inspect the `AgentEvent` trace; a real out-of-cell write
   that *succeeds* is a sandbox regression — see `crates/jeryu-sandbox-linux`
   `escape_suite`. Rerun: `cargo test -p jeryu-agentbridge`.
+- Run-agent route failure: inspect the typed body. `workcell_run_path_denied`
+  means the staged program or requested repo root is outside the claimed slice;
+  `workcell_run_sandbox_unavailable` means the host cannot prove the required
+  sandbox. Rerun:
+  `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`.
 - Egress denial of an expected host: extend the `Allowlist`; a denial of a
   non-allowlisted host is correct. Rerun: `cargo test -p jeryu-egress`.
 - Export slice denial: confirm the failed diff path is intended to be outside

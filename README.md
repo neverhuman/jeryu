@@ -118,6 +118,13 @@ before PR creation; `cargo test -p jeryu-api --features web --jobs 40 workcell_e
 proves an out-of-slice diff returns `workcell_export_slice_denied` and creates
 no PR.
 
+The live workcell API also exposes
+`POST /api/v1/workcells/{id}/run_agent`. It runs a staged program only inside a
+claimed repo root, rejects stale runner epochs and out-of-root programs with
+typed repair bodies, and returns structured start/stdout/stderr/budget/finish
+events plus the run outcome. Proof lane:
+`cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`.
+
 ## Local Live Runtime
 
 The first live target is local-only. `jeryu-api` can run an Axum server backed
@@ -133,13 +140,13 @@ cargo run -p jeryu-api --features web -- web serve \
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
 `/api/v1/ecosystem`, `/api/v1/ci/runs/{id}/evidence`,
-`/api/v1/markdown/render`, `/api/v1/ws`, and the guided GitHub-compatible
-`/user` and `/graphql` routes. The ecosystem and CI-run evidence routes are
-read-only: they expose live MCP tool graph metadata, forge health, queue
-identity, and digest-verifiable CI evidence for clients that need agent-readable
-state before choosing a mutation path. The bootstrap payload also carries the
-`workcells` feature flag and the live workcell dashboard snapshot inside the
-typed TUI model.
+`/api/v1/workcells/{id}/run_agent`, `/api/v1/markdown/render`, `/api/v1/ws`,
+and the guided GitHub-compatible `/user` and `/graphql` routes. The ecosystem
+and CI-run evidence routes are read-only: they expose live MCP tool graph
+metadata, forge health, queue identity, and digest-verifiable CI evidence for
+clients that need agent-readable state before choosing a mutation path. The
+bootstrap payload also carries the `workcells` feature flag and the live
+workcell dashboard snapshot inside the typed TUI model.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 
