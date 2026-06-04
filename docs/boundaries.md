@@ -53,3 +53,11 @@ Agent jobs are also **fail-closed on resource limits**: the sandbox refuses to
 launch (`EnforcementLevel::Unavailable`) unless a delegated cgroup-v2 subtree is
 available to enforce the memory/PID caps, so a runaway agent can never run
 uncontained. Ordinary CI/build jobs keep the older degrade-don't-refuse posture.
+
+These boundaries are asserted negatively, not just described: a workspace-only
+jail provably DENIES reads of decoy `~/.ssh`/`~/.jeryu` secrets and of an
+unclaimed sibling repo while still allowing an in-workspace read
+(`secret_paths_denied`), a runaway allocator is OOM-killed by its `memory.max`
+(`memory_oom_kill`), the egress proxy denies the plain-HTTP forward path and an
+empty allowlist by default, and the record-only auto-merge bridge is held by a
+7-probe adversarial harness. See `docs/testing.md`.

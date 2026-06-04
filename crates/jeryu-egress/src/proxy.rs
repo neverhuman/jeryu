@@ -338,4 +338,57 @@ mod tests {
             ("host.example".to_string(), 80)
         );
     }
+
+    #[test]
+    fn connect_target_authority_wins_over_host_header() {
+        // For CONNECT, the request-target authority is the tunnel target; a
+        // conflicting Host header must NOT redirect the decision elsewhere.
+        let req = ParsedRequest::parse(
+            b"CONNECT real.target.example:443 HTTP/1.1\r\nHost: decoy.example:80\r\n\r\n",
+        )
+        .unwrap();
+        assert_eq!(req.method, "CONNECT");
+        assert_eq!(req.host, "real.target.example");
+        assert_eq!(req.port, 443);
+    }
+
+    #[test]
+    fn plain_absolute_uri_authority_wins_over_host_header() {
+        // Absolute-form target authority is preferred over the Host header.
+        let req = ParsedRequest::parse(
+            b"GET http://uri.example/path HTTP/1.1\r\nHost: header.example\r\n\r\n",
+        )
+        .unwrap();
+        assert_eq!(req.method, "GET");
+        assert_eq!(req.host, "uri.example");
+        assert_eq!(req.port, 80);
+    }
+
+    #[test]
+    fn userinfo_with_password_is_stripped_from_authority() {
+        // user:pass@host[:port] -> userinfo discarded, host/port preserved.
+        assert_eq!(
+            split_authority("alice:secret@host.example:8443", 80),
+            ("host.example".to_string(), 8443)
+        );
+        let req = ParsedRequest::parse(b"CONNECT bob@inner.example:443 HTTP/1.1\r\n\r\n").unwrap();
+        assert_eq!(req.host, "inner.example");
+        assert_eq!(req.port, 443);
+    }
+
+    #[test]
+    fn non_numeric_port_falls_back_to_default_not_error() {
+        // A non-numeric port is NOT a hard error: split_authority parses it with
+        // unwrap_or(default), so the request still resolves (then the allowlist
+        // decides). Pin this real behavior so a future "400 on bad port" change
+        // is a conscious one.
+        assert_eq!(
+            split_authority("host.example:notaport", 80),
+            ("host.example".to_string(), 80)
+        );
+        assert_eq!(
+            split_authority("host.example:443x", 8080),
+            ("host.example".to_string(), 8080)
+        );
+    }
 }

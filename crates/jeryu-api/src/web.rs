@@ -507,3 +507,6 @@ fn ci_evidence_not_found_error() -> AxumResponse {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod workcell_surface_tests;

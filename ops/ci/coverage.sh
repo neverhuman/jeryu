@@ -40,13 +40,37 @@ JERYU_JANKURAI_VERSION="${JANKURAI_VERSION:-jankurai 1.6.10}"
 JERYU_JANKURAI_BIN="${JERYU_JANKURAI_BIN:-${CARGO_HOME:-$HOME/.cargo}/bin/jankurai}"
 
 # Critical engine crates measured for line coverage.
+#
+# The first group is the original engine set; the second is the workcell stack,
+# added so the new regression suite is measured and the changed-line gate
+# (agent/coverage-sources.toml: hard_changed_line_coverage=0.90) protects it too.
+# Only DETERMINISTIC workcell crates are measured here: jeryu-sandbox-linux and
+# jeryu-agentbridge are deliberately excluded because their security tests
+# honestly skip when a host primitive (Landlock/cgroup delegation) is absent, so
+# their line coverage is host-dependent and would make a gate flaky. They are
+# protected by their own escape/refute suites, not a coverage percentage.
 LLVM_COV_CRATES=(
   jeryu-ci-scheduler
   jeryu-ci-compiler
   jeryu-runner-core
   jeryu-cache-core
   jeryu-cache-policy
+  jeryu-api
+  jeryu-egress
+  jeryu-codegraph
 )
+
+# Crates whose TOTAL src line coverage is ratcheted against a committed baseline
+# (ops/ci/coverage-baseline.json): coverage may not drop below the recorded
+# floor, and a green run that improves it rewrites the floor upward. This is the
+# "record baseline / fail-on-drop / ratchet-up" gate for the workcell surface.
+RATCHET_CRATES=(jeryu-api jeryu-egress jeryu-codegraph)
+COVERAGE_BASELINE="ops/ci/coverage-baseline.tsv"
+# Tolerance (fraction) below the baseline before failing — absorbs trivial
+# measurement jitter without letting real coverage rot.
+COVERAGE_EPSILON="${JERYU_COVERAGE_EPSILON:-0.005}"
+# jeryu-api's workcell surface lives behind the `web` feature; measure it.
+LLVM_COV_FEATURES="${JERYU_LLVM_COV_FEATURES:-jeryu-api/web}"
 
 # Mutation testing is expensive, so scope it tightly to one critical crate by
 # default. Override with JERYU_MUTANTS_PACKAGE / JERYU_MUTANTS_TIMEOUT.
@@ -141,9 +165,16 @@ COV_PKG_ARGS=()
 for c in "${LLVM_COV_CRATES[@]}"; do
   COV_PKG_ARGS+=(-p "${c}")
 done
+# Enable the per-package features needed to measure the gated crates (the
+# jeryu-api workcell surface lives behind the `web` feature). `pkg/feature`
+# syntax scopes each feature to its package so the others are unaffected.
+COV_FEATURE_ARGS=()
+if [ -n "${LLVM_COV_FEATURES}" ]; then
+  COV_FEATURE_ARGS+=(--features "${LLVM_COV_FEATURES}")
+fi
 
-log "cargo llvm-cov over ${#LLVM_COV_CRATES[@]} critical crates -> ${LLVM_COV_OUT}"
-if ! cargo llvm-cov "${COV_PKG_ARGS[@]}" \
+log "cargo llvm-cov over ${#LLVM_COV_CRATES[@]} crates (features: ${LLVM_COV_FEATURES:-none}) -> ${LLVM_COV_OUT}"
+if ! cargo llvm-cov "${COV_PKG_ARGS[@]}" "${COV_FEATURE_ARGS[@]}" \
   --lcov --output-path "${LLVM_COV_OUT}" \
   --jobs "${JERYU_CI_JOBS}"; then
   echo "[coverage] FAIL: cargo llvm-cov did not complete" >&2
@@ -154,6 +185,20 @@ if [ ! -s "${LLVM_COV_OUT}" ]; then
   exit 1
 fi
 log "line-coverage artifact ready: ${LLVM_COV_OUT} ($(wc -l < "${LLVM_COV_OUT}") lines)"
+
+# --- 2b. Workcell coverage ratchet -----------------------------------------
+# Gate the workcell crates' src line-coverage against a committed floor
+# (${COVERAGE_BASELINE}): coverage may not drop below the recorded baseline
+# (minus ${COVERAGE_EPSILON} jitter), and a run with
+# JERYU_COVERAGE_UPDATE_BASELINE=1 ratchets the floor UPWARD (never down). This
+# is the explicit "record baseline / fail-on-drop / ratchet-up" gate; it
+# complements the changed-line audit in agent/coverage-sources.toml.
+log "coverage ratchet: ${RATCHET_CRATES[*]} vs ${COVERAGE_BASELINE} (eps=${COVERAGE_EPSILON})"
+if ! JERYU_COVERAGE_EPSILON="${COVERAGE_EPSILON}" \
+  bash ops/ci/coverage_ratchet.sh "${LLVM_COV_OUT}" "${COVERAGE_BASELINE}" "${RATCHET_CRATES[@]}"; then
+  echo "[coverage] FAIL: workcell coverage ratchet gate failed" >&2
+  exit 1
+fi
 
 # --- 3. Mutation testing (cargo-mutants), SCOPED ---------------------------
 # Scoped to one critical crate with a per-mutant timeout: mutation testing the

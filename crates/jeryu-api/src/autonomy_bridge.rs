@@ -538,4 +538,179 @@ mod tests {
         );
         assert_record_only_verdict(&core, pr_number, CheckConclusion::ActionRequired);
     }
+
+    // =====================================================================
+    // 7-probe adversarial harness (module header / AGENT_CHAT 2026-06-01).
+    // Maps each documented merge-path attack to a regression assertion.
+    //
+    // Standing invariant (every probe): the bridge is RECORD-ONLY — it never
+    // calls merge_pull_request. But "never merges" alone is true by construction
+    // and would pass even if a guard were deleted, so each probe ALSO asserts a
+    // discriminating signal:
+    //   * Probes 4/5/7 assert the gate's hard stop (R5 floor / red-CI block) and
+    //     FAIL if that guard is removed.
+    //   * Probes 1/2/3/6 are the documented gaps where `decide` returns AllowMerge
+    //     today; they assert that AllowMerge plus the record-only no-merge, so they
+    //     double as tripwires — wiring a real auto-merge flips them red until the
+    //     safety rework (real reviewers / author gate / armed lanes) lands.
+    // =====================================================================
+
+    /// Drive the full record-only path: seed a PR, evaluate its pushed head with
+    /// the given CI check-runs + changed paths, and return (forge, pr_number) so
+    /// the caller can assert the recorded verdict and that nothing merged.
+    fn run_evaluate(ci: &[(&str, CheckConclusion)], changed: &[&str]) -> (ForgeCore, u64) {
+        let (core, pr_number) = core_with_pr();
+        let paths: Vec<String> = changed.iter().map(|s| s.to_string()).collect();
+        evaluate_pushed_head(&core, "neverhuman", "jeryu", HEAD, &checks(ci), &paths);
+        (core, pr_number)
+    }
+
+    // PROBE 1 — vacuous CI gate: with NO executable lanes the required-lane set is
+    // empty and the gate passes vacuously (decide -> AllowMerge). Record-only must
+    // still refuse to merge.
+    #[test]
+    fn probe1_vacuous_empty_ci_records_but_never_merges() {
+        assert_eq!(
+            decide(&inputs(
+                &["crates/jeryu-web/src/page.rs".into()],
+                green(&[])
+            )),
+            GateDecision::AllowMerge,
+            "documents the vacuous-CI gap: an empty required-lane set passes the gate"
+        );
+        let (core, n) = run_evaluate(&[], &["crates/jeryu-web/src/page.rs"]);
+        assert_record_only_verdict(&core, n, CheckConclusion::Neutral);
+    }
+
+    // PROBE 2 — skipped/neutral-only lanes are dropped by collect_ci_status, so the
+    // gate has nothing to require: same vacuous outcome, still no merge.
+    #[test]
+    fn probe2_skipped_only_lanes_record_but_never_merge() {
+        let (core, n) = run_evaluate(
+            &[
+                ("docs/lint", CheckConclusion::Skipped),
+                ("advisory", CheckConclusion::Neutral),
+            ],
+            &["crates/jeryu-web/src/page.rs"],
+        );
+        assert_record_only_verdict(&core, n, CheckConclusion::Neutral);
+    }
+
+    // PROBE 3 — the agent-reviewer quorum is synthetic (always-Pass, unsigned). Even
+    // clearing that quorum on a green R2 change, the record-only path must not act.
+    #[test]
+    fn probe3_synthetic_unsigned_quorum_records_but_never_merges() {
+        assert_eq!(
+            decide(&inputs(
+                &["crates/jeryu-web/src/page.rs".into()],
+                green(&["ci/build", "ci/test"]),
+            )),
+            GateDecision::AllowMerge,
+            "synthetic always-Pass quorum clears the gate — the gap the rework must close"
+        );
+        let (core, n) = run_evaluate(
+            &[
+                ("ci/build", CheckConclusion::Success),
+                ("ci/test", CheckConclusion::Success),
+            ],
+            &["crates/jeryu-web/src/page.rs"],
+        );
+        assert_record_only_verdict(&core, n, CheckConclusion::Neutral);
+    }
+
+    // PROBE 4 — a change to the merge engine's OWN judge is R5: the gate cannot
+    // auto-approve edits to itself. (FAILS if the jeryu-autonomy R5 marker is removed.)
+    #[test]
+    fn probe4_self_edit_of_merge_engine_requires_human() {
+        let changed = vec!["crates/jeryu-autonomy/src/judge/mod.rs".to_string()];
+        assert_eq!(
+            decide(&inputs(&changed, green(&["ci/build", "ci/test"]))),
+            GateDecision::RequireHuman,
+            "R5 floor must hold for a merge-engine self-edit"
+        );
+        let (core, n) = run_evaluate(
+            &[
+                ("ci/build", CheckConclusion::Success),
+                ("ci/test", CheckConclusion::Success),
+            ],
+            &["crates/jeryu-autonomy/src/judge/mod.rs"],
+        );
+        assert_record_only_verdict(&core, n, CheckConclusion::ActionRequired);
+    }
+
+    // PROBE 5 — a red required lane is a hard stop: decide != AllowMerge and the
+    // recorded verdict is Failure. (FAILS if the CI gate is removed.)
+    #[test]
+    fn probe5_red_required_lane_denies_and_records_failure() {
+        let ci = vec![
+            CiCheck {
+                name: "ci/build".into(),
+                conclusion: CiConclusion::Success,
+            },
+            CiCheck {
+                name: "ci/test".into(),
+                conclusion: CiConclusion::Failure,
+            },
+        ];
+        assert_ne!(
+            decide(&inputs(&["crates/jeryu-web/src/page.rs".into()], ci)),
+            GateDecision::AllowMerge,
+            "a failed required lane must block the merge decision"
+        );
+        let (core, n) = run_evaluate(
+            &[
+                ("ci/build", CheckConclusion::Success),
+                ("ci/test", CheckConclusion::Failure),
+            ],
+            &["crates/jeryu-web/src/page.rs"],
+        );
+        assert_record_only_verdict(&core, n, CheckConclusion::Failure);
+    }
+
+    // PROBE 6 — there is no author/fork trust gate yet: a foreign author with a
+    // green R2 change still yields AllowMerge, so the record-only path is the only
+    // thing preventing the merge (tripwire for the missing author gate).
+    #[test]
+    fn probe6_untrusted_author_records_but_never_merges() {
+        let changed = vec!["crates/jeryu-web/src/page.rs".to_string()];
+        let mut inp = inputs(&changed, green(&["ci/build", "ci/test"]));
+        inp.author_agent = Some("attacker.fork");
+        assert_eq!(
+            decide(&inp),
+            GateDecision::AllowMerge,
+            "documents the missing author/fork trust gate"
+        );
+        let (core, n) = run_evaluate(
+            &[
+                ("ci/build", CheckConclusion::Success),
+                ("ci/test", CheckConclusion::Success),
+            ],
+            &["crates/jeryu-web/src/page.rs"],
+        );
+        assert_record_only_verdict(&core, n, CheckConclusion::Neutral);
+    }
+
+    // PROBE 7 — a mixed changed-set is classified by its RISKIEST path: one benign
+    // file alongside a CI-definition edit is R5 overall, so a single commit cannot
+    // smuggle a trust-surface change past the gate. (FAILS if the set isn't scanned.)
+    #[test]
+    fn probe7_any_r5_path_in_the_changed_set_requires_human() {
+        let changed = vec![
+            "crates/jeryu-web/src/page.rs".to_string(),
+            ".github/workflows/ci.yml".to_string(),
+        ];
+        assert_eq!(
+            decide(&inputs(&changed, green(&["ci/build", "ci/test"]))),
+            GateDecision::RequireHuman,
+            "one R5 path in the set forces the whole change to R5"
+        );
+        let (core, n) = run_evaluate(
+            &[
+                ("ci/build", CheckConclusion::Success),
+                ("ci/test", CheckConclusion::Success),
+            ],
+            &["crates/jeryu-web/src/page.rs", ".github/workflows/ci.yml"],
+        );
+        assert_record_only_verdict(&core, n, CheckConclusion::ActionRequired);
+    }
 }
