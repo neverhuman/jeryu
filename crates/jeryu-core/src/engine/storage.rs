@@ -1,19 +1,17 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Utc};
 use rusqlite::{Connection, params};
-use serde::{Serialize, de::DeserializeOwned};
-use serde_json::Value;
-use uuid::Uuid;
 
 use super::{Counters, State};
 use crate::errors::{ForgeError, Result};
 use crate::model::*;
 
-const MIGRATION_0001: &str = include_str!("../../../../db/migrations/0001_core_forge.sql");
-const MIGRATION_0002: &str = include_str!("../../../../db/migrations/0002_core_forge_aux.sql");
-const MIGRATION_0003: &str = include_str!("../../../../db/migrations/0003_core_forge_readmes.sql");
+mod codec;
+mod migrations;
+
+use self::codec::*;
+use self::migrations::apply_migrations;
 
 #[derive(Debug, Clone)]
 pub(super) struct SqliteStore {
@@ -56,13 +54,6 @@ impl SqliteStore {
             .map_err(storage_error)?;
         Ok(conn)
     }
-}
-
-fn apply_migrations(conn: &Connection) -> Result<()> {
-    conn.execute_batch(MIGRATION_0001).map_err(storage_error)?;
-    conn.execute_batch(MIGRATION_0002).map_err(storage_error)?;
-    conn.execute_batch(MIGRATION_0003).map_err(storage_error)?;
-    Ok(())
 }
 
 fn delete_all(conn: &Connection) -> Result<()> {
@@ -202,8 +193,8 @@ fn persist_state(conn: &Connection, state: &State) -> Result<()> {
               id, repo_id, number, issue_number, title, body, state, draft,
               author, head_json, base_json, mergeable, mergeable_state, merged,
               merged_at, merge_commit_sha, commits_json, changed_files_json,
-              created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)
+              created_at, updated_at, source_repository
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)
             "#,
             params![
                 pr.id.to_string(),
@@ -226,6 +217,7 @@ fn persist_state(conn: &Connection, state: &State) -> Result<()> {
                 json(&pr.changed_files)?,
                 time(pr.created_at),
                 time(pr.updated_at),
+                pr.source_repository,
             ],
         )
         .map_err(storage_error)?;
@@ -612,7 +604,7 @@ fn load_pull_requests(conn: &Connection, state: &mut State) -> Result<()> {
                    p.state, p.draft, p.author, p.head_json, p.base_json,
                    p.mergeable, p.mergeable_state, p.merged, p.merged_at,
                    p.merge_commit_sha, p.commits_json, p.changed_files_json,
-                   p.created_at, p.updated_at
+                   p.created_at, p.updated_at, p.source_repository
             FROM pull_requests p
             JOIN repositories r ON r.id = p.repo_id
             "#,
@@ -645,6 +637,14 @@ fn load_pull_requests(conn: &Connection, state: &mut State) -> Result<()> {
             changed_files: parse_json(row.get(18).map_err(storage_error)?)?,
             created_at: parse_time(row.get(19).map_err(storage_error)?)?,
             updated_at: parse_time(row.get(20).map_err(storage_error)?)?,
+            source_repository: {
+                let source_repository: String = row.get(21).map_err(storage_error)?;
+                if source_repository.trim().is_empty() {
+                    format!("{owner}/{repo}")
+                } else {
+                    source_repository
+                }
+            },
         };
         state.pulls.insert((owner, repo, pr.number), pr);
     }
@@ -975,85 +975,6 @@ fn repo_id(
         .ok_or_else(|| ForgeError::Storage(format!("missing repository row for {owner}/{repo}")))
 }
 
-fn bool_int(value: bool) -> i64 {
-    if value { 1 } else { 0 }
-}
-
-fn int_bool(value: i64) -> bool {
-    value != 0
-}
-
-fn time(value: DateTime<Utc>) -> String {
-    value.to_rfc3339()
-}
-
-fn optional_time(value: Option<DateTime<Utc>>) -> Option<String> {
-    value.map(time)
-}
-
-fn parse_time(value: String) -> Result<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(&value)
-        .map(|value| value.with_timezone(&Utc))
-        .map_err(storage_error)
-}
-
-fn parse_optional_time(value: Option<String>) -> Result<Option<DateTime<Utc>>> {
-    value.map(parse_time).transpose()
-}
-
-fn parse_uuid(value: String) -> Result<Uuid> {
-    Uuid::parse_str(&value).map_err(storage_error)
-}
-
-fn json<T: Serialize>(value: &T) -> Result<String> {
-    serde_json::to_string(value).map_err(storage_error)
-}
-
-fn optional_json<T: Serialize>(value: &Option<T>) -> Result<Option<String>> {
-    value.as_ref().map(json).transpose()
-}
-
-fn parse_json<T: DeserializeOwned>(value: String) -> Result<T> {
-    serde_json::from_str(&value).map_err(storage_error)
-}
-
-fn parse_optional_json<T: DeserializeOwned>(value: Option<String>) -> Result<Option<T>> {
-    value.map(parse_json).transpose()
-}
-
-fn text<T: Serialize>(value: &T) -> Result<String> {
-    match serde_json::to_value(value).map_err(storage_error)? {
-        Value::String(value) => Ok(value),
-        other => Err(ForgeError::Storage(format!(
-            "expected enum string, got {other}"
-        ))),
-    }
-}
-
-fn optional_text<T: Serialize>(value: &Option<T>) -> Result<Option<String>> {
-    value.as_ref().map(text).transpose()
-}
-
-fn from_text<T: DeserializeOwned>(value: String) -> Result<T> {
-    serde_json::from_value(Value::String(value)).map_err(storage_error)
-}
-
-fn from_optional_text<T: DeserializeOwned>(value: Option<String>) -> Result<Option<T>> {
-    value.map(from_text).transpose()
-}
-
 fn storage_error(error: impl std::fmt::Display) -> ForgeError {
     ForgeError::Storage(error.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn enum_text_uses_wire_shape() {
-        assert_eq!(text(&IssueState::Closed).unwrap(), "closed");
-        assert_eq!(text(&CheckRunStatus::InProgress).unwrap(), "in_progress");
-        assert_eq!(text(&ReviewState::Approved).unwrap(), "APPROVED");
-    }
 }

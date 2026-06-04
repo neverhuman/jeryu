@@ -10,7 +10,10 @@ Run these from the canonical repository root before creating a release receipt:
 
 - `bash ci-fast-push.sh --full --no-push`
 - `JERYU_CI_PROFILE=github JERYU_CI_USE_SCCACHE=0 bash ci-fast-push.sh --full --no-push`
+- `bash ci-fast-push.sh --full` from a non-main release branch to push the
+  branch, open or report the PR, and write `target/ci-fast/publish.json`
 - `bash scripts/ci-phases.sh`
+- `SIGNRAIL_ROLLBACK_TARGET=<previous-signed-release> bash ops/ci/artifact_support.sh`
 - `bash ops/ci/release.sh`
 - `bash ops/ci/proof-evidence.sh`
 - `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or frozen CI repair helpers change.
@@ -29,32 +32,43 @@ recording release evidence.
 
 ## Local Merge Authority
 
-Open the release or consolidation PR against local Jeryu first. Local Jeryu
-mergeability plus the gates above are the release authority; hosted GitHub
-Actions are mirror evidence only. After the local PR merges to `main`, push
-`main` to the local Jeryu remote, then mirror the same commit to the explicit
-`github` remote.
+Open the release or consolidation PR with `ci-fast-push.sh`. The push path
+records `target/ci-fast/publish.json` with the branch, base, PR URL, PR number,
+and commit that the final receipt must name. Local Jeryu mergeability plus the
+gates above are the release authority; hosted GitHub Actions are mirror evidence
+only. Direct `main` pushes require `--push-main` and are an escape hatch, not
+the release default.
 
 ## Receipt Contents
 
-Each release receipt records:
+Each final release receipt uses schema `jeryu.release-receipt/v2` and records:
 
 - source commit SHA and tag name;
+- `signed-commit.txt` proving `git verify-commit --raw <sha>` succeeded;
+- PR publication metadata from `target/ci-fast/publish.json`;
 - workspace version and changelog entry;
 - `target/jankurai/` proof artifacts;
 - SPDX and CycloneDX SBOM digests;
 - provenance checksum and cosign transcript path;
 - migration, restore, and rollback evidence;
+- previous signed release binary, signature, and certificate checksums;
+- artifact-support `artifact-support-evidence.tar.gz`, SignRail
+  `release.json`, `sbom.json`, `provenance.json`, `witness.json`, and
+  `stage-receipts/{local,dev-canary,prod}.json`;
+- `SHA256SUMS`, generated over every bundle file except `release-receipt.json`
+  and `SHA256SUMS` itself;
 - public API route evidence for changed endpoints, including response-contract
   tests, typed repair guidance, and digest-verifiable CI evidence payloads;
-- previous signed artifact checksum.
 
 ## Tagging
 
-Tags are cut only after the receipt names the exact source commit and all gates
+Tags are cut only after the receipt names the exact signed source commit, the
+PR-backed publication path, the previous signed rollback artifact, and all gates
 above are green. Publish closeout changes through a PR branch first; direct
-`main` pushes require explicit `--push-main` and are not the default release
-path. Do not tag from an uncommitted worktree or from hosted-only state.
+`main` pushes require explicit `--push-main` and `JERYU_RELEASE_DIRECT_MAIN_ESCAPE=1`
+before the final receipt will accept them. Do not tag from an uncommitted
+worktree, an unsigned commit, placeholder rollback evidence, or hosted-only
+state.
 
 ## Rollback
 

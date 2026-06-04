@@ -15,6 +15,7 @@ use rusqlite::Connection;
 fn sqlite_store_round_trips_core_forge_resources() {
     let temp = tempfile::tempdir().unwrap();
     let db = temp.path().join("forge.sqlite");
+    let pr_number;
 
     {
         let core = ForgeCore::open_sqlite(&db).unwrap();
@@ -134,6 +135,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
                     base: "main".to_string(),
                     head_sha: Some("abc123".to_string()),
                     base_sha: Some("base123".to_string()),
+                    source_repository: Some("fork-owner/jeryu".to_string()),
                     draft: false,
                     commits: vec![PullRequestCommit {
                         sha: "abc123".to_string(),
@@ -144,6 +146,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
                 },
             )
             .unwrap();
+        pr_number = pr.number;
         core.create_review(
             "alice",
             "jeryu",
@@ -188,6 +191,65 @@ fn sqlite_store_round_trips_core_forge_resources() {
         .unwrap();
     }
 
+    let raw = Connection::open(&db).unwrap();
+    let stored_head: String = raw
+        .query_row(
+            "SELECT head_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_head,
+        serde_json::to_string(&jeryu_core::GitBranchRef::new("feature", "abc123")).unwrap()
+    );
+    let stored_base: String = raw
+        .query_row(
+            "SELECT base_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_base,
+        serde_json::to_string(&jeryu_core::GitBranchRef::new("main", "base123")).unwrap()
+    );
+    let stored_commits: String = raw
+        .query_row(
+            "SELECT commits_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_commits,
+        serde_json::to_string(&vec![PullRequestCommit {
+            sha: "abc123".to_string(),
+            verified: true,
+            parents: 1,
+        }])
+        .unwrap()
+    );
+    let stored_changes: String = raw
+        .query_row(
+            "SELECT changed_files_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_changes,
+        serde_json::to_string(&vec!["src/lib.rs".to_string()]).unwrap()
+    );
+    let issue_pull_request_json: Option<String> = raw
+        .query_row(
+            "SELECT pull_request_json FROM issues WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(issue_pull_request_json.is_none());
+
     let reopened = ForgeCore::open_sqlite(&db).unwrap();
     assert_eq!(
         reopened.get_user("alice").unwrap().name.as_deref(),
@@ -213,6 +275,13 @@ fn sqlite_store_round_trips_core_forge_resources() {
             .unwrap()
             .len(),
         1
+    );
+    assert_eq!(
+        reopened
+            .get_pull_request("alice", "jeryu", pr_number)
+            .unwrap()
+            .source_repository,
+        "fork-owner/jeryu"
     );
     assert_eq!(reopened.list_reviews("alice", "jeryu", 1).unwrap().len(), 1);
     assert_eq!(
@@ -283,6 +352,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
                 base: "main".to_string(),
                 head_sha: Some("def456".to_string()),
                 base_sha: None,
+                source_repository: Some("fork-owner/jeryu".to_string()),
                 draft: true,
                 commits: Vec::new(),
                 changed_files: Vec::new(),
@@ -290,6 +360,7 @@ fn sqlite_store_round_trips_core_forge_resources() {
         )
         .unwrap();
     assert_eq!(next_pr.number, 2);
+    assert_eq!(next_pr.source_repository, "fork-owner/jeryu");
 }
 
 #[test]
@@ -366,4 +437,101 @@ fn sqlite_open_backfills_missing_default_branch_protection() {
         })
         .unwrap();
     assert_eq!(persisted, 1);
+}
+
+#[test]
+fn sqlite_open_backfills_pull_request_source_repository() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let created_at = "2026-06-03T00:00:00Z";
+    let repo_id = "11111111-1111-1111-1111-111111111111";
+    let issue_id = "22222222-2222-2222-2222-222222222222";
+    let pull_request_id = "33333333-3333-3333-3333-333333333333";
+
+    {
+        let raw = Connection::open(&db).unwrap();
+        raw.execute_batch(include_str!("../../../db/migrations/0001_core_forge.sql"))
+            .unwrap();
+        raw.execute_batch(include_str!(
+            "../../../db/migrations/0002_core_forge_aux.sql"
+        ))
+        .unwrap();
+        raw.execute_batch(include_str!(
+            "../../../db/migrations/0003_core_forge_readmes.sql"
+        ))
+        .unwrap();
+        raw.execute(
+            r#"
+            INSERT INTO repositories (
+              id, owner, name, full_name, private, description, default_branch,
+              archived, disabled, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, 0, NULL, ?5, 0, 0, ?6, ?6)
+            "#,
+            rusqlite::params![repo_id, "alice", "jeryu", "alice/jeryu", "main", created_at,],
+        )
+        .unwrap();
+        raw.execute(
+            r#"
+            INSERT INTO issues (
+              id, repo_id, number, title, body, state, author, labels_json,
+              assignees_json, milestone, comments, pull_request_json,
+              created_at, updated_at, closed_at
+            ) VALUES (?1, ?2, 1, ?3, NULL, 'open', ?4, '[]', '[]', NULL, 0, NULL, ?5, ?5, NULL)
+            "#,
+            rusqlite::params![issue_id, repo_id, "backfill pr", "alice", created_at],
+        )
+        .unwrap();
+        raw.execute(
+            r#"
+            INSERT INTO pull_requests (
+              id, repo_id, number, issue_number, title, body, state, draft,
+              author, head_json, base_json, mergeable, mergeable_state, merged,
+              merged_at, merge_commit_sha, commits_json, changed_files_json,
+              created_at, updated_at
+            ) VALUES (?1, ?2, 1, 1, ?3, NULL, 'open', 0, ?4, ?5, ?6, 0, 'unknown', 0,
+                     NULL, NULL, '[]', '[]', ?7, ?7)
+            "#,
+            rusqlite::params![
+                pull_request_id,
+                repo_id,
+                "backfill pr",
+                "alice",
+                serde_json::to_string(&jeryu_core::GitBranchRef::new("feature", "abc")).unwrap(),
+                serde_json::to_string(&jeryu_core::GitBranchRef::new("main", "base")).unwrap(),
+                created_at,
+            ],
+        )
+        .unwrap();
+        raw.execute_batch(
+            r#"
+            INSERT INTO repo_counters (repo_id, issue_next, pull_next)
+            VALUES ('11111111-1111-1111-1111-111111111111', 2, 2);
+            "#,
+        )
+        .unwrap();
+    }
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    let pr = reopened.get_pull_request("alice", "jeryu", 1).unwrap();
+    assert_eq!(pr.source_repository, "alice/jeryu");
+
+    let raw = Connection::open(&db).unwrap();
+    let persisted: String = raw
+        .query_row(
+            "SELECT source_repository FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(persisted, "alice/jeryu");
+
+    drop(reopened);
+    let reopened_again = ForgeCore::open_sqlite(&db).unwrap();
+    assert_eq!(
+        reopened_again
+            .get_pull_request("alice", "jeryu", 1)
+            .unwrap()
+            .source_repository,
+        "alice/jeryu"
+    );
 }

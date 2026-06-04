@@ -77,6 +77,9 @@ pub struct PullRequest {
     pub state: PullRequestState,
     pub draft: bool,
     pub author: String,
+    /// Repository full name that originated the pull request.
+    #[serde(default)]
+    pub source_repository: String,
     pub head: GitBranchRef,
     pub base: GitBranchRef,
     pub mergeable: bool,
@@ -107,6 +110,9 @@ pub struct CreatePullRequestRequest {
     pub head_sha: Option<String>,
     #[serde(default)]
     pub base_sha: Option<String>,
+    /// Optional repository full name that originated the pull request.
+    #[serde(default)]
+    pub source_repository: Option<String>,
     #[serde(default)]
     pub draft: bool,
     #[serde(default)]

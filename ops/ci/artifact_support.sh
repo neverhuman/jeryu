@@ -28,6 +28,23 @@ current_sha() {
   git rev-parse HEAD
 }
 
+verify_signed_commit() {
+  local sha="$1" proof="$out_dir/signrail/signed-commit.txt" tmp
+  tmp="${proof}.tmp"
+  if ! git verify-commit --raw "$sha" >"$tmp" 2>&1; then
+    cat "$tmp" >&2 || true
+    rm -f "$tmp"
+    say "candidate commit $sha is not locally verifiable as a signed commit"
+    return 1
+  fi
+  {
+    printf 'commit: %s\n' "$sha"
+    printf 'verified_at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    cat "$tmp"
+  } >"$proof"
+  rm -f "$tmp"
+}
+
 just_has() {
   command -v just >/dev/null 2>&1 || return 1
   [[ -f justfile || -f Justfile || -f .justfile ]] || return 1
@@ -179,8 +196,13 @@ sign_bundle() {
   }
   repo_slug="${GITHUB_REPOSITORY:-$(repo_slug_from_remote)}"
   sha="$(current_sha)"
+  verify_signed_commit "$sha"
   version="${SIGNRAIL_RELEASE_VERSION:-$sha}"
-  rollback_target="${SIGNRAIL_ROLLBACK_TARGET:-$(git rev-parse HEAD^ 2>/dev/null || printf '%s' "$sha")}"
+  rollback_target="${SIGNRAIL_ROLLBACK_TARGET:-${JERYU_RELEASE_ROLLBACK_TAG:-}}"
+  [[ -n "$rollback_target" ]] || {
+    say "SIGNRAIL_ROLLBACK_TARGET or JERYU_RELEASE_ROLLBACK_TAG is required"
+    return 1
+  }
   tree_sha="$(git rev-parse HEAD^{tree})"
   ci_ir_hash="$(sha256_file_prefixed "$out_dir/manifest.json")"
   runner_rootfs_digest="$(sha256_text "$(uname -a)|${ImageOS:-local}|${ImageVersion:-local}")"
@@ -203,10 +225,24 @@ sign_bundle() {
     --ci-ir-hash "$ci_ir_hash" \
     --runner-rootfs-digest "$runner_rootfs_digest" \
     --toolchain-digest "$toolchain_digest" \
-    --cargo-lock-digest "$cargo_lock_digest"
+    --cargo-lock-digest "$cargo_lock_digest" \
+    > "$out_dir/signrail/summary.json"
+}
+
+preflight_signing_inputs() {
+  [[ -n "${JERYU_SIGNRAIL_ED25519_SEED:-${SIGNRAIL_ED25519_SEED:-}}" ]] || {
+    say "JERYU_SIGNRAIL_ED25519_SEED or SIGNRAIL_ED25519_SEED is required"
+    return 1
+  }
+  [[ -n "${SIGNRAIL_ROLLBACK_TARGET:-${JERYU_RELEASE_ROLLBACK_TAG:-}}" ]] || {
+    say "SIGNRAIL_ROLLBACK_TARGET or JERYU_RELEASE_ROLLBACK_TAG is required"
+    return 1
+  }
+  verify_signed_commit "$(current_sha)"
 }
 
 entrypoint="$(pick_ci_entrypoint)" || { say "no supported CI entrypoint"; exit 91; }
+preflight_signing_inputs
 if run_ci "$entrypoint" >"$out_dir/logs/ci.log" 2>&1; then
   write_json_files "$entrypoint"
   bundle_evidence

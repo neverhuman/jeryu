@@ -116,6 +116,24 @@ Repair evidence:
   and provenance failures, link back to `docs/release.md` and
   `docs/release-process.md` so the commit, rollback target, and gate evidence
   stay explicit.
+- Observability-related failures should use the same `AgentRepairHint` contract
+  documented in [docs/errors.md#missing-receipt](errors.md#missing-receipt).
+  For Jankurai, make the failure payload name the lane, the exact rerun
+  command, the local artifact path, and the dashboard owner before the next
+  audit starts:
+  ```rust
+  AgentRepairHint {
+      purpose: "repair observability lane evidence",
+      reason: "jankurai-audit failed and the repo-score artifact is stale or missing",
+      common_fixes: [
+          "rerun `JERYU_JANKURAI_FULL=1 bash ops/ci/jankurai.sh`",
+          "rerun `jankurai diff-audit --base-ref origin/main .` for a path-scoped repair",
+          "inspect `target/jankurai/raw-repo-score.{json,md}` and `.jankurai/repo-score.{json,md}`",
+      ],
+      docs_url: "errors.md#missing-receipt",
+      repair_hint: "rerun the pinned wrapper, then compare the emitted score against `.jankurai/repo-score.md`",
+  }
+  ```
 - SignRail artifact-support failures also link
   `docs/signrail-release-signing.md` and preserve generated
   `target/artifact-support/signrail` receipt paths.

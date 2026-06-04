@@ -15,6 +15,14 @@ Forbidden edits:
 
 Proof lane:
 - `jankurai migrate . --analyze --out target/jankurai/migration-report.json`
+- `cargo test -p jeryu-core --jobs 40 sqlite_open_backfills_pull_request_source_repository`
+
+Migration 0004 notes:
+- `pull_requests.source_repository` is provenance metadata only; it must not
+  weaken branch-protection review, status, signed-commit, or admin enforcement.
+- Keep a `VACUUM INTO` copy before applying the migration to a populated store.
+- The open path should guard `PRAGMA table_info(pull_requests)` so repeated
+  opens and backfills stay idempotent.
 
 Live-readiness note:
 - When migrations or constraints change, include this guidance file in the

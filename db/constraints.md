@@ -68,3 +68,33 @@ Rollback/backfill:
 - If a rollback is needed after content has been published, restore the
   pre-migration database copy rather than deleting `repository_readmes` rows in
   place.
+
+## 0004 Pull Request Source Repository
+
+The fourth migration adds `pull_requests.source_repository` so pull requests
+can record the originating repository full name for fork and trust checks.
+
+Constraint policy:
+- `source_repository` is stored as `TEXT NOT NULL` with a default empty string
+  during the schema change, then backfilled to the owning repository full name.
+- New PRs default the field to the base repository full name unless an
+  explicit non-empty source repository is supplied.
+- The SQLite open path must check `PRAGMA table_info(pull_requests)` before
+  applying the `ALTER TABLE` migration so repeated opens stay idempotent.
+- `source_repository` is provenance metadata only. Branch-protection
+  enforcement still depends on reviews, checks, signed commits, history
+  shape, and admin policy; provenance does not grant merge or ref-operation
+  bypasses.
+
+Rollback/backfill:
+- Before applying 0004 to a populated store, take a `VACUUM INTO` copy and
+  keep it as the rollback target.
+- Backfill the existing rows to the repository full name in the same migration
+  transaction; the open helper may repeat the empty-string backfill safely and
+  should be able to reopen the same database without changing already
+  backfilled rows.
+- The migration file carries timeout-guard metadata for the lock-sensitive
+  `ALTER TABLE` so audit evidence can prove the shape change is not expected to
+  wait indefinitely on traffic.
+- If a rollback is needed after the field has been populated, restore the
+  pre-migration database copy rather than deleting source provenance in place.

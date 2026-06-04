@@ -12,6 +12,17 @@ use crate::errors::{ForgeError, Result};
 use crate::model::*;
 use crate::webhooks::event_payload;
 
+fn normalize_source_repository(
+    owner: &str,
+    repo: &str,
+    source_repository: Option<String>,
+) -> String {
+    source_repository
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| format!("{owner}/{repo}"))
+}
+
 impl ForgeCore {
     pub fn create_pull_request(
         &self,
@@ -66,6 +77,7 @@ impl ForgeCore {
             },
             draft: request.draft,
             author: author.to_string(),
+            source_repository: normalize_source_repository(owner, repo, request.source_repository),
             head: GitBranchRef::new(
                 request.head,
                 request

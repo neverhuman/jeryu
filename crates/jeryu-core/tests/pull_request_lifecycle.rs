@@ -9,8 +9,9 @@
 use jeryu_core::{
     CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
     CreateCommitStatusRequest, CreatePullRequestRequest, CreateRepositoryRequest,
-    CreateReviewRequest, CreateUserRequest, ForgeCore, ForgeError, MergePullRequestRequest,
-    PullRequestState, ReviewState, SetBranchProtectionRequest, UpdatePullRequestRequest,
+    CreateReviewRequest, CreateUserRequest, ForgeCore, ForgeError, MergeBlocker,
+    MergePullRequestRequest, PullRequestState, ReviewState, SetBranchProtectionRequest,
+    UpdatePullRequestRequest,
 };
 
 fn core_with_repo() -> ForgeCore {
@@ -33,6 +34,15 @@ fn core_with_repo() -> ForgeCore {
 }
 
 fn open_pr(core: &ForgeCore, head_sha: &str, draft: bool) -> u64 {
+    open_pr_with_source_repository(core, head_sha, draft, None)
+}
+
+fn open_pr_with_source_repository(
+    core: &ForgeCore,
+    head_sha: &str,
+    draft: bool,
+    source_repository: Option<String>,
+) -> u64 {
     core.create_pull_request(
         "alice",
         "jeryu",
@@ -45,6 +55,7 @@ fn open_pr(core: &ForgeCore, head_sha: &str, draft: bool) -> u64 {
             head_sha: Some(head_sha.to_string()),
             base_sha: None,
             draft,
+            source_repository,
             ..Default::default()
         },
     )
@@ -113,6 +124,7 @@ fn pull_request_uses_github_field_names() {
     assert_eq!(pr.head.ref_name, "feature");
     assert_eq!(pr.head.sha, "abc");
     assert_eq!(pr.base.ref_name, "main");
+    assert_eq!(pr.source_repository, "alice/jeryu");
     assert!(!pr.merged);
     assert!(pr.merged_at.is_none());
     assert!(pr.merge_commit_sha.is_none());
@@ -123,8 +135,111 @@ fn pull_request_uses_github_field_names() {
     assert!(json.get("number").is_some());
     assert!(json.get("issue_number").is_some());
     assert!(json.get("merge_commit_sha").is_some());
+    assert_eq!(json["source_repository"], "alice/jeryu");
     // The branch ref serializes its name under the GitHub key "ref".
     assert_eq!(json["head"]["ref"], "feature");
+}
+
+#[test]
+fn create_pull_request_accepts_explicit_source_repository() {
+    let core = core_with_repo();
+    let pr = core
+        .create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "forked change".to_string(),
+                head: "feature".to_string(),
+                base: "main".to_string(),
+                source_repository: Some("fork-owner/jeryu".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(pr.source_repository, "fork-owner/jeryu");
+}
+
+#[test]
+fn owner_and_fork_prs_hit_branch_protection_the_same_way() {
+    let core = core_with_repo();
+    protect_main(&core, 1, &["ci/fast"]);
+
+    let owner_pr =
+        open_pr_with_source_repository(&core, "owner-sha", false, Some("alice/jeryu".to_string()));
+    let fork_pr = open_pr_with_source_repository(
+        &core,
+        "fork-sha",
+        false,
+        Some("fork-owner/jeryu".to_string()),
+    );
+
+    let owner_eval = core
+        .evaluate_pull_request("alice", "jeryu", owner_pr, None)
+        .unwrap();
+    let fork_eval = core
+        .evaluate_pull_request("alice", "jeryu", fork_pr, None)
+        .unwrap();
+    assert_eq!(owner_eval.blockers, fork_eval.blockers);
+    assert!(!owner_eval.mergeable);
+    assert!(owner_eval.blockers.iter().any(|blocker| matches!(
+        blocker,
+        MergeBlocker::MissingReview { required, approved } if *required == 1 && *approved == 0
+    )));
+    assert!(owner_eval.blockers.iter().any(|blocker| matches!(
+        blocker,
+        MergeBlocker::MissingStatusCheck { context } if context == "ci/fast"
+    )));
+
+    let owner_merge_err = core
+        .merge_pull_request(
+            "alice",
+            "jeryu",
+            owner_pr,
+            MergePullRequestRequest::default(),
+        )
+        .unwrap_err();
+    let fork_merge_err = core
+        .merge_pull_request(
+            "alice",
+            "jeryu",
+            fork_pr,
+            MergePullRequestRequest::default(),
+        )
+        .unwrap_err();
+    assert!(matches!(owner_merge_err, ForgeError::BranchProtection(_)));
+    assert!(matches!(fork_merge_err, ForgeError::BranchProtection(_)));
+}
+
+#[test]
+fn non_owner_pr_is_forbidden_from_bypassing_branch_protection() {
+    // Negative authorization proof for the branch-protection / enforce_admins
+    // boundary: a non-owner / fork PR (source_repository != owner/repo) is
+    // FORBIDDEN from merging into a protected branch — a wrong-user / other-user
+    // PR is denied the same way and source_repository grants no owner/admin
+    // bypass. (non-owner forbidden.)
+    let core = core_with_repo();
+    protect_main(&core, 1, &["ci/fast"]);
+
+    let non_owner_pr = open_pr_with_source_repository(
+        &core,
+        "non-owner-sha",
+        false,
+        Some("non-owner/jeryu-fork".to_string()),
+    );
+
+    let merge_err = core
+        .merge_pull_request(
+            "alice",
+            "jeryu",
+            non_owner_pr,
+            MergePullRequestRequest::default(),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(merge_err, ForgeError::BranchProtection(_)),
+        "a non-owner fork PR must be forbidden from bypassing branch protection"
+    );
 }
 
 #[test]

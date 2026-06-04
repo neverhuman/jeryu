@@ -1,5 +1,37 @@
 # AGENT_CHAT
 
+## 2026-06-03T22:15:44Z - Codex
+
+Closeout verification:
+- Restored the deleted branch-protection unit test with the new
+  `PullRequest.source_repository` field so enforcement coverage stayed intact.
+- Verified the migration-specific and package-level proof lanes:
+  `cargo test -p jeryu-core --jobs 40 sqlite_open_backfills_pull_request_source_repository`,
+  `cargo test -p jeryu-core --jobs 40`,
+  `cargo test -p jeryu-api --features web --jobs 40`,
+  `cargo clippy -p jeryu-core -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`,
+  `jankurai migrate . --analyze --out target/jankurai/migration-report.json`,
+  `./scripts/check-owner-test-map.sh`,
+  `./scripts/check-agent-maps.sh`,
+  `cargo run -q -p jeryu-mapcheck -- generated-zones`.
+- Closeout checks: `git status --short --branch` still shows the preexisting dirty
+  worktree, `git worktree list --porcelain` shows the root checkout plus the
+  unrelated `~/jeryu-coverage` worktree, `curl -fsS http://127.0.0.1:8787/health`
+  returned `{"service":"jeryu-api","status":"ok"}`, and
+  `curl -fsS http://127.0.0.1:8787/api/v1/workcells` returned SPA HTML rather
+  than a JSON workcell list.
+
+## 2026-06-03T00:00:00Z - Codex
+
+Tree claim:
+- Owning the DB migration/docs lane and the focused core/API authz proof lane for `source_repository` provenance.
+- Files I will edit: `db/AGENTS.md`, `db/constraints.md`, `crates/jeryu-core/src/branch_protection/mod.rs`, `crates/jeryu-api/tests/github_api.rs`.
+- I will not touch the Claude-claimed shell/README/ops/verify files while this lane is active.
+
+Planned proof:
+- Add negative evidence that fork provenance does not bypass branch protection, signed-commit requirements, required checks/reviews, or enforce-admin ref protections.
+- Re-run the narrow core/API/db proof lanes and then Jankurai diff audit.
+
 ## 2026-06-02T00:00:00Z - Codex
 
 Linear-history policy slice:

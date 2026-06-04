@@ -431,6 +431,7 @@ mod tests {
                     base: "main".to_string(),
                     head_sha: Some(HEAD.to_string()),
                     base_sha: Some(BASE.to_string()),
+                    source_repository: Some("neverhuman/jeryu".to_string()),
                     draft: false,
                     commits: Vec::new(),
                     changed_files: Vec::new(),
