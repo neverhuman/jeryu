@@ -16,6 +16,15 @@ pub enum CodeGraphError {
     #[error("workspace graph error: {0}")]
     Workspace(String),
 
+    /// Governance metadata load or parse failure.
+    #[error("governance metadata error at {path}: {message}")]
+    Governance {
+        /// Governance file that triggered the failure.
+        path: String,
+        /// Parse or load message.
+        message: String,
+    },
+
     /// Filesystem walk/read failure during indexing.
     #[error("indexing error at {path}: {source}")]
     Index {

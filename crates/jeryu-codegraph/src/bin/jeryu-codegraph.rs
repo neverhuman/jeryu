@@ -1,10 +1,14 @@
 //! `jeryu-codegraph` CLI: index the workspace, query impact, and check slices.
 
 use std::path::PathBuf;
+use std::process::Command;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use jeryu_codegraph::{CodeGraph, CodeGraphStore, Slice, default_db_path};
+use jeryu_codegraph::{
+    CodeGraph, CodeGraphQuery, CodeGraphRepoIdentity, CodeGraphService, CodeGraphStore, Slice,
+    default_db_path,
+};
 use jeryu_rustjet::WorkspaceGraph;
 
 #[derive(Parser)]
@@ -24,7 +28,7 @@ enum Commands {
         /// Workspace root.
         #[arg(long, default_value = ".")]
         root: PathBuf,
-        /// SQLite database path (defaults to ~/.jeryu/codegraph.sqlite).
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
         #[arg(long)]
         db: Option<PathBuf>,
     },
@@ -33,11 +37,38 @@ enum Commands {
         /// Workspace root.
         #[arg(long, default_value = ".")]
         root: PathBuf,
-        /// SQLite database path (defaults to ~/.jeryu/codegraph.sqlite).
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
         #[arg(long)]
         db: Option<PathBuf>,
         /// Changed repo-relative paths.
         paths: Vec<String>,
+    },
+    /// Build the hosted-oracle impact pack for changed paths.
+    Query {
+        /// Workspace root.
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
+        #[arg(long)]
+        db: Option<PathBuf>,
+        /// Changed repo-relative path. Repeat for multiple paths.
+        #[arg(long = "changed")]
+        changed: Vec<String>,
+        /// Optional short task intent.
+        #[arg(long)]
+        intent: Option<String>,
+        /// Optional code question.
+        #[arg(long)]
+        question: Option<String>,
+        /// Requested token budget for downstream context consumers.
+        #[arg(long)]
+        max_tokens: Option<u32>,
+        /// Ref label for the pack.
+        #[arg(long = "ref", default_value = "working-tree")]
+        ref_name: String,
+        /// Emit the full JSON impact pack.
+        #[arg(long)]
+        json: bool,
     },
     /// Check changed files against an export slice.
     SliceCheck {
@@ -48,7 +79,7 @@ enum Commands {
     },
     /// Validate that the persisted graph round-trips.
     Validate {
-        /// SQLite database path (defaults to ~/.jeryu/codegraph.sqlite).
+        /// SQLite database path (defaults to ~/.local/share/jeryu/codegraph.sqlite).
         #[arg(long)]
         db: Option<PathBuf>,
     },
@@ -88,6 +119,46 @@ fn main() -> Result<()> {
             }
             println!("affected_symbols: {}", report.affected_symbols.len());
         }
+        Commands::Query {
+            root,
+            db,
+            changed,
+            intent,
+            question,
+            max_tokens,
+            ref_name,
+            json,
+        } => {
+            let store = CodeGraphStore::open(resolve_db(db)).context("open store")?;
+            let service = CodeGraphService::new(root.clone(), store);
+            let repo = CodeGraphRepoIdentity::local(&root);
+            let query = CodeGraphQuery {
+                ref_name,
+                changed_paths: changed,
+                intent,
+                question,
+                max_tokens,
+            };
+            let commit = git_head(&root).unwrap_or_else(|| "working-tree".to_string());
+            let pack = service
+                .query(repo, commit, query)
+                .context("build codegraph impact pack")?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&pack)?);
+            } else {
+                println!(
+                    "{}@{} changed={} affected={} must_read={}",
+                    pack.repo.id,
+                    pack.commit,
+                    pack.changed_crates.len(),
+                    pack.affected_crates.len(),
+                    pack.must_read_files.len()
+                );
+                for file in &pack.must_read_files {
+                    println!("  must_read: {}", file.path);
+                }
+            }
+        }
         Commands::SliceCheck {
             prefixes_csv,
             changed_csv,
@@ -126,4 +197,18 @@ fn split_csv(value: &str) -> Vec<String> {
         .filter(|part| !part.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+fn git_head(root: &PathBuf) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("rev-parse")
+        .arg("HEAD")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }

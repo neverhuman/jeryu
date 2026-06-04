@@ -1386,6 +1386,7 @@ dependencies = [
 name = "jeryu-api"
 version = "4.0.0"
 dependencies = [
+ "anyhow",
  "axum",
  "clap",
  "futures-util",
@@ -1566,6 +1567,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "toml",
 ]
 
 [[package]]
@@ -1671,6 +1673,7 @@ dependencies = [
  "anyhow",
  "axum",
  "jeryu-agentbridge",
+ "jeryu-codegraph",
  "jeryu-core",
  "jeryu-proof",
  "reqwest",

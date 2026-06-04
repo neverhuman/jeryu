@@ -3,8 +3,8 @@
 use std::path::PathBuf;
 
 use jeryu_codegraph::{
-    CodeGraph, CodeGraphStore, CrateDepRow, GraphSnapshot, Slice, SymbolRow,
-    enforce_export_slice_from_diff,
+    CodeGraph, CodeGraphQuery, CodeGraphRepoIdentity, CodeGraphService, CodeGraphStore,
+    CrateDepRow, GraphSnapshot, Slice, SymbolRow, enforce_export_slice_from_diff,
 };
 
 fn unique_db(tag: &str) -> PathBuf {
@@ -15,6 +15,123 @@ fn unique_db(tag: &str) -> PathBuf {
         .as_nanos();
     dir.push(format!("codegraph-test-{tag}-{nanos}.sqlite"));
     dir
+}
+
+fn unique_dir(tag: &str) -> PathBuf {
+    let mut dir = std::env::temp_dir();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    dir.push(format!("codegraph-test-{tag}-{nanos}"));
+    dir
+}
+
+fn write_file(root: &std::path::Path, relative: &str, contents: &str) {
+    let path = root.join(relative);
+    std::fs::create_dir_all(path.parent().expect("file parent")).unwrap();
+    std::fs::write(path, contents).unwrap();
+}
+
+fn fixture_workspace() -> PathBuf {
+    let root = unique_dir("oracle-fixture");
+    write_file(
+        &root,
+        "Cargo.toml",
+        r#"[workspace]
+members = ["crates/core", "crates/api"]
+"#,
+    );
+    write_file(
+        &root,
+        "crates/core/Cargo.toml",
+        r#"[package]
+name = "core_lib"
+version = "0.1.0"
+edition = "2024"
+"#,
+    );
+    write_file(
+        &root,
+        "crates/core/src/lib.rs",
+        "pub fn core_api() {}\nmod security_notes;\n",
+    );
+    write_file(
+        &root,
+        "crates/core/src/security_notes.rs",
+        "fn internal_security_notes() {}\n",
+    );
+    write_file(
+        &root,
+        "crates/core/src/generated/schema.rs",
+        "pub fn generated_api() {}\n",
+    );
+    write_file(
+        &root,
+        "crates/api/Cargo.toml",
+        r#"[package]
+name = "api_lib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+core_lib = { path = "../core" }
+"#,
+    );
+    write_file(&root, "crates/api/src/lib.rs", "pub fn api() {}\n");
+    write_file(&root, "AGENTS.md", "fixture guidance\n");
+    write_file(
+        &root,
+        "agent/owner-map.json",
+        r#"{
+  "workspace": "fixture",
+  "owners": {
+    "crates/core/": "core-owner",
+    "crates/api/": "api-owner",
+    "agent/": "agent-owner",
+    "AGENTS.md": "docs-owner"
+  }
+}
+"#,
+    );
+    write_file(
+        &root,
+        "agent/test-map.json",
+        r#"{
+  "workspace": "fixture",
+  "tests": {
+    "crates/core/": {
+      "command": "cargo test -p core_lib",
+      "purpose": "verify core crate",
+      "lane": "api"
+    },
+    "crates/api/": {
+      "command": "cargo test -p api_lib",
+      "purpose": "verify api crate",
+      "lane": "api"
+    }
+  }
+}
+"#,
+    );
+    write_file(
+        &root,
+        "agent/generated-zones.toml",
+        r#"[[zones]]
+path = "crates/core/src/generated/**"
+generator = "fixture-gen"
+manual_edits = false
+"#,
+    );
+    write_file(
+        &root,
+        "agent/proof-lanes.toml",
+        r#"[lanes.api]
+required = ["cargo test -p core_lib"]
+blocks_merge = true
+"#,
+    );
+    root
 }
 
 #[test]
@@ -44,6 +161,9 @@ fn persist_round_trip() {
             crate_name: "jeryu-codegraph".into(),
             depends_on: "jeryu-rustjet".into(),
         }],
+        files: Vec::new(),
+        governance: Vec::new(),
+        index_runs: Vec::new(),
     };
     store.persist(&snapshot).unwrap();
     let loaded = store.load_snapshot().unwrap();
@@ -160,4 +280,126 @@ fn export_gate_deny_and_allow() {
         allow.unwrap(),
         vec!["crates/jeryu-codegraph/src/slice.rs".to_string()]
     );
+}
+
+#[test]
+fn oracle_query_builds_auditable_impact_pack() {
+    let root = fixture_workspace();
+    let db = unique_db("oracle");
+    let store = CodeGraphStore::open(&db).unwrap();
+    let service = CodeGraphService::new(&root, store.clone());
+    let pack = service
+        .query(
+            CodeGraphRepoIdentity {
+                id: "fixture/repo".into(),
+                owner: "fixture".into(),
+                name: "repo".into(),
+            },
+            "abc123",
+            CodeGraphQuery {
+                ref_name: "main".into(),
+                changed_paths: vec!["crates/core/src/generated/schema.rs".into()],
+                intent: Some("edit generated core api".into()),
+                question: Some("security impact?".into()),
+                max_tokens: Some(12_000),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(pack.repo.id, "fixture/repo");
+    assert_eq!(pack.ref_name, "main");
+    assert_eq!(pack.commit, "abc123");
+    assert!(pack.changed_crates.contains(&"core_lib".to_string()));
+    assert!(pack.affected_crates.contains(&"api_lib".to_string()));
+    assert!(
+        pack.affected_symbols
+            .iter()
+            .any(|symbol| symbol.crate_name == "api_lib" && symbol.symbol == "api")
+    );
+
+    let generated = pack
+        .must_read_files
+        .iter()
+        .find(|file| file.path == "crates/core/src/generated/schema.rs")
+        .expect("changed generated file is must-read");
+    assert_eq!(generated.owner.as_deref(), Some("core-owner"));
+    assert_eq!(generated.proof_lanes, vec!["api"]);
+    assert!(!generated.editable);
+    assert_eq!(
+        generated
+            .generated_zone
+            .as_ref()
+            .map(|zone| zone.path.as_str()),
+        Some("crates/core/src/generated/**")
+    );
+
+    assert!(
+        pack.should_read_files
+            .iter()
+            .any(|file| file.path == "agent/proof-lanes.toml")
+    );
+    assert!(
+        pack.proof_lanes
+            .iter()
+            .any(|lane| lane.lane == "api" && lane.blocks_merge)
+    );
+    assert!(
+        pack.suggested_commands
+            .contains(&"cargo test -p core_lib".to_string())
+    );
+
+    assert!(
+        pack.excluded_files
+            .iter()
+            .any(|file| file.path == "crates/core/src/security_notes.rs")
+    );
+    assert!(
+        !pack
+            .must_read_files
+            .iter()
+            .any(|file| file.path == "crates/core/src/security_notes.rs"),
+        "heuristic-only security path must not be authoritative must-read context"
+    );
+
+    for file in pack
+        .must_read_files
+        .iter()
+        .chain(pack.should_read_files.iter())
+    {
+        assert!(
+            !file.provenance.is_empty(),
+            "{} should carry provenance",
+            file.path
+        );
+    }
+
+    let json = serde_json::to_value(&pack).unwrap();
+    for key in [
+        "repo",
+        "ref",
+        "commit",
+        "changed_paths",
+        "changed_crates",
+        "affected_crates",
+        "affected_symbols",
+        "must_read_files",
+        "should_read_files",
+        "proof_lanes",
+        "suggested_commands",
+        "excluded_files",
+        "graph_stats",
+        "residual_risk",
+        "provenance",
+        "index_receipt",
+    ] {
+        assert!(json.get(key).is_some(), "stable pack key {key}");
+    }
+
+    let loaded = store.load_snapshot().unwrap();
+    assert!(!loaded.files.is_empty());
+    assert_eq!(loaded.governance.len(), 5);
+    assert_eq!(loaded.index_runs.len(), 1);
+
+    let _ = std::fs::remove_file(&db);
+    let _ = std::fs::remove_dir_all(&root);
 }
