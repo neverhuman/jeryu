@@ -203,6 +203,9 @@ Repair evidence:
   404 repair guidance. Rerun
   `cargo test -p jeryu-api --features web --jobs 40` plus the matching clippy
   lane before release evidence is recorded.
+- CI evidence digest changes must preserve canonicalization tests and fail
+  visibly on impossible serialization errors; release proof includes the route
+  test, clippy transcript, and Jankurai score artifact.
 - Workcell export changes must prove changed-file evidence is derived from the
   frozen git diff, not caller input, before a PR is created. Rerun
   `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice` and
