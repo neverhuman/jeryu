@@ -4,6 +4,8 @@ Owns:
 - GitHub-compatible REST response shapes.
 - Guided GraphQL repair responses.
 - Local Axum web/API edge under the `web` feature.
+- Push-to-CI bridge behavior, including the local `main` handoff to
+  `jeryu-wsversion` for workspace version bump commits.
 - Workcell export PR gates, including frozen-diff changed-file evidence and
   typed no-PR denial for out-of-slice workcell repairs.
 
@@ -15,5 +17,6 @@ Forbidden:
 
 Proof lane:
 - `cargo test -p jeryu-api --features web --jobs 40`
+- `cargo test -p jeryu-api --features web --jobs 40 ci_bridge`
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_export_slice`
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`

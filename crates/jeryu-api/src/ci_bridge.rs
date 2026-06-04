@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use jeryu_ci_compiler::{CiKind, CompileContext, Compiler};
@@ -26,6 +27,8 @@ const ZERO_OID: &str = "0000000000000000000000000000000000000000";
 
 /// A branch ref whose tip a push moved to a new commit.
 pub(crate) struct RefUpdate {
+    pub ref_name: String,
+    pub old_oid: String,
     pub new_oid: String,
 }
 
@@ -35,15 +38,19 @@ pub(crate) fn ref_updates(before: &[GitRef], after: &[GitRef]) -> Vec<RefUpdate>
     after
         .iter()
         .filter(|r| r.name.starts_with("refs/heads/") && r.oid != ZERO_OID)
-        .filter(|r| {
-            before
+        .filter_map(|r| {
+            let old_oid = before
                 .iter()
                 .find(|b| b.name == r.name)
-                .map(|b| b.oid != r.oid)
-                .unwrap_or(true)
-        })
-        .map(|r| RefUpdate {
-            new_oid: r.oid.clone(),
+                .map(|b| b.oid.clone());
+            match &old_oid {
+                Some(old) if *old == r.oid => None,
+                _ => Some(RefUpdate {
+                    ref_name: r.name.clone(),
+                    old_oid: old_oid.unwrap_or_else(|| ZERO_OID.to_owned()),
+                    new_oid: r.oid.clone(),
+                }),
+            }
         })
         .collect()
 }
@@ -66,6 +73,7 @@ pub(crate) fn on_push(
     let git_bin = manager.config().git_bin.clone();
     let origin_url = repo_origin_url(origin_base_url, owner, repo);
     for update in updates {
+        maybe_bump_main_version(&git_bin, &resolved.path, owner, repo, update);
         // Accumulate this head's recorded check-runs so the autonomy bridge can
         // run the evidence-gate judge over the live CI state once they all land.
         let mut ci_checks: Vec<(String, Option<CheckConclusion>)> = Vec::new();
@@ -112,6 +120,118 @@ pub(crate) fn on_push(
             &changed,
         );
     }
+}
+
+fn maybe_bump_main_version(
+    git_bin: &str,
+    bare: &Path,
+    owner: &str,
+    repo: &str,
+    update: &RefUpdate,
+) {
+    if update.ref_name != "refs/heads/main"
+        || update.old_oid == ZERO_OID
+        || update.new_oid == ZERO_OID
+    {
+        return;
+    }
+    let suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let worktree = std::env::temp_dir().join(format!(
+        "jeryu-wsversion-{owner}-{repo}-{}-{suffix}-{}",
+        std::process::id(),
+        update.new_oid
+    ));
+    let _ = std::fs::remove_dir_all(&worktree);
+    let bare_str = bare.to_string_lossy().to_string();
+    let worktree_str = worktree.to_string_lossy().to_string();
+    if !run_git_status(
+        git_bin,
+        None,
+        &[
+            "clone",
+            "--quiet",
+            "--no-hardlinks",
+            &bare_str,
+            &worktree_str,
+        ],
+    ) {
+        return;
+    }
+    if !run_git_status(
+        git_bin,
+        Some(&worktree),
+        &["checkout", "--quiet", "--detach", &update.new_oid],
+    ) {
+        let _ = std::fs::remove_dir_all(&worktree);
+        return;
+    }
+    let range = format!("{}..{}", update.old_oid, update.new_oid);
+    let decision = match jeryu_wsversion::decide(&worktree, &range) {
+        Ok(decision) => decision,
+        Err(_) => {
+            let _ = std::fs::remove_dir_all(&worktree);
+            return;
+        }
+    };
+    if decision.skipped || decision.to == decision.from {
+        let _ = std::fs::remove_dir_all(&worktree);
+        return;
+    }
+    let commits = match jeryu_wsversion::commits_in_range(&worktree, &range) {
+        Ok(commits) => commits,
+        Err(_) => {
+            let _ = std::fs::remove_dir_all(&worktree);
+            return;
+        }
+    };
+    if jeryu_wsversion::apply(&worktree, &decision, &commits).is_err() {
+        let _ = std::fs::remove_dir_all(&worktree);
+        return;
+    }
+    let _ = run_git_status(
+        git_bin,
+        Some(&worktree),
+        &["add", "Cargo.toml", "CHANGELOG.md"],
+    );
+    let msg = format!("chore(release): v{} [skip-version]", decision.to);
+    if !run_git_status(
+        git_bin,
+        Some(&worktree),
+        &[
+            "-c",
+            "user.email=forge@jeryu",
+            "-c",
+            "user.name=jeryu-forge",
+            "commit",
+            "--quiet",
+            "-m",
+            &msg,
+        ],
+    ) {
+        let _ = std::fs::remove_dir_all(&worktree);
+        return;
+    }
+    let _ = run_git_status(
+        git_bin,
+        Some(&worktree),
+        &["push", "--quiet", &bare_str, "HEAD:refs/heads/main"],
+    );
+    let _ = std::fs::remove_dir_all(&worktree);
+}
+
+fn run_git_status(git_bin: &str, cwd: Option<&Path>, args: &[&str]) -> bool {
+    let mut command = Command::new(git_bin);
+    command.args(args);
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    command
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 /// Files changed by `oid` relative to its first parent (root commit → all
@@ -303,3 +423,6 @@ fn read_workflows(git_bin: &str, bare: &Path, oid: &str) -> Vec<(String, String)
     }
     workflows
 }
+
+#[cfg(test)]
+mod tests;
