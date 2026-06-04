@@ -2458,3 +2458,9 @@ Claiming `/tmp/jeryu-consolidate-main` for Jeryu publication blocker fixes only,
 - Restarted local Jeryu `127.0.0.1:8787` from the consolidation-built `jeryu-api` binary and verified `/health`, `/api/v1/repos`, `/api/v1/bootstrap`, and `/api/v1/workcells`.
 - Preserved the dirty canonical `/home/ubuntu/jeryu` checkout as local branch `codex/preserve-dirty-worktree-20260603` and pushed it only to the local Jeryu remote.
 - Folded forward only the required missing phase-gate file from that preservation branch: `ops/ci/gates/agent-substrate.sh`, plus exact owner/test-map coverage and PASS=10 docs alignment. The preserved JMCP code-truth API work is archived on the preservation branch because applying it directly would remove the consolidated workcell API.
+
+## 2026-06-04T08:33Z - Codex codegraph oracle branch
+
+- Created clean linked Jeryu worktree `/home/ubuntu/jeryu-codegraph-oracle` because canonical `/home/ubuntu/jeryu` had unrelated dirty workcell changes. Branch: `codex/jeryu-codegraph-oracle`.
+- Added `jeryu-codegraph` oracle contract/service/CLI query path with Rust/Cargo exact impact, governance ingestion, SQLite metadata/index receipts, provenance-bearing context files, and heuristic-only exclusions.
+- Added `POST /api/v1/repos/{id}/codegraph/query` plus live `/mcp` `jeryu.codegraph.query` routing over hosted repo/ref materialization. Focused proof run so far: `cargo test -p jeryu-codegraph --jobs 40`, `cargo test -p jeryu-api --features web --jobs 40 codegraph`, `cargo test -p jeryu-mcp --jobs 40`.

@@ -54,3 +54,11 @@ shape used elsewhere in the product:
 Use the docs-linked sections in `docs/testing.md#workcells` and
 `docs/boundaries.md#workcells` to repair claim, epoch, path, or merge/delete
 denials.
+
+## Codegraph Oracle
+
+Codegraph query failures are typed repairable API errors. Missing repositories
+return `not_found`; malformed bodies return `invalid_input`; unresolved refs
+return `invalid_ref`; checkout or index failures return codegraph-specific
+repair messages. Use `docs/codegraph-oracle.md` for the route contract and
+`docs/testing.md#codegraph-oracle` for rerun commands.

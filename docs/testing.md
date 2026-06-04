@@ -57,6 +57,16 @@ Primary lanes:
   `cargo run -q -p jeryu-wsversion -- decide --range origin/main..HEAD --json`
   for release-candidate evidence.
 
+## Codegraph Oracle
+
+- `cargo test -p jeryu-codegraph --jobs 40`: SQLite schema round trips, Rust
+  crate/symbol impact expansion, governance ingestion, stable JSON pack shape,
+  provenance on included files, and heuristic-only exclusion behavior.
+- `cargo test -p jeryu-api --features web --jobs 40 codegraph`: REST route and
+  live mounted MCP codegraph query behavior over materialized Jeryu git repos.
+- `cargo test -p jeryu-mcp --jobs 40`: MCP manifest count, read-only/idempotent
+  annotations, required repo identity schema, and tool-call response contract.
+
 ## Workcells
 
 - `cargo test -p jeryu-runnerd workcell --jobs 40`: workcell lifecycle, epoch fencing, tar safety, and frozen CI repair helper proof lane.

@@ -52,6 +52,7 @@
     "crates/jeryu-cli/src/commands/autonomy.rs": "forge-api",
     "apps/web/src/pages/FleetPage.tsx": "forge-api",
     "crates/jeryu-gitd/": "git",
+    "crates/jeryu-mcp/": "jankurai",
     "crates/jeryu-mirror-cli/": "git",
     "crates/jeryu-evidence/": "jankurai",
     "crates/jeryu-proof/": "jankurai",

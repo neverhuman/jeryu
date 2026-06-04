@@ -8,6 +8,8 @@ Core boundaries:
 - `crates/jeryu-ci-*`, `crates/jeryu-runner-*`, and `crates/jeryu-runnerd` own CI IR, scheduling, and execution.
 - `crates/jeryu-cache*` owns cache/CAS policy and poisoning resistance.
 - `crates/jeryu-proof` and `crates/jeryu-agentbridge` own proof routing and bounded agent mutation.
+- `crates/jeryu-codegraph` owns hosted code-oracle indexing and impact packs
+  for resolved repo refs; see `docs/codegraph-oracle.md`.
 
 The shared workcell control plane is part of the runner/CI stack, not a separate subsystem. `jeryu-runnerd` owns warm-pool claims, epoch-fenced release/heartbeat handling, startup rebase enforcement, and quarantine-first tar validation on top of the existing runner fabric.
 

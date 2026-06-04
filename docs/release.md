@@ -6,7 +6,10 @@ This is the canonical release process doc for version source, changelog,
 release commands, integrity/provenance evidence, and rollback guidance.
 The step-by-step operator process lives in `docs/release-process.md`.
 
-Release process doc: [docs/release-process.md](release-process.md).
+Release process documentation: [docs/release-process.md](release-process.md).
+That document is the executable operator release process doc for required
+local gates, PR-backed publication metadata, receipt contents, tagging, and
+rollback.
 SignRail artifact-support signing details:
 [docs/signrail-release-signing.md](signrail-release-signing.md).
 
