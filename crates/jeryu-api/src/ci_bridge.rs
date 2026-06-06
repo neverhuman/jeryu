@@ -78,20 +78,25 @@ pub(crate) fn on_push(
         // run the evidence-gate judge over the live CI state once they all land.
         let mut ci_checks: Vec<(String, Option<CheckConclusion>)> = Vec::new();
         for (file, content) in read_workflows(&git_bin, &resolved.path, &update.new_oid) {
+            if !workflow_runs_for_branch_head(&content, &update.ref_name) {
+                continue;
+            }
             let context = CompileContext::new(format!("{owner}/{repo}"), update.new_oid.clone());
             let Ok(pipeline) = Compiler::compile(&content, CiKind::GitHubActions, context) else {
                 continue;
             };
+            let job_context = CiJobContext {
+                git_bin: &git_bin,
+                bare: &resolved.path,
+                oid: &update.new_oid,
+                origin_url: &origin_url,
+                origin_base_url,
+                owner,
+                repo,
+                ref_name: &update.ref_name,
+            };
             for job in &pipeline.jobs {
-                let conclusion = run_job(
-                    &git_bin,
-                    &resolved.path,
-                    &update.new_oid,
-                    &origin_url,
-                    job,
-                    owner,
-                    repo,
-                );
+                let conclusion = run_job(&job_context, job);
                 let name = format!("{}/{}", workflow_stem(&file), job.name);
                 let _ = core.create_check_run(
                     owner,
@@ -263,15 +268,18 @@ fn changed_paths(git_bin: &str, bare: &Path, oid: &str) -> Vec<String> {
 
 /// Execute a compiled job's `run` steps in the sandboxed runner and map the
 /// receipt to a check-run conclusion.
-fn run_job(
-    git_bin: &str,
-    bare: &Path,
-    oid: &str,
-    origin_url: &str,
-    job: &jeryu_ci_ir::Job,
-    owner: &str,
-    repo: &str,
-) -> CheckConclusion {
+struct CiJobContext<'a> {
+    git_bin: &'a str,
+    bare: &'a Path,
+    oid: &'a str,
+    origin_url: &'a str,
+    origin_base_url: &'a str,
+    owner: &'a str,
+    repo: &'a str,
+    ref_name: &'a str,
+}
+
+fn run_job(context: &CiJobContext<'_>, job: &jeryu_ci_ir::Job) -> CheckConclusion {
     let script = job
         .steps
         .iter()
@@ -282,17 +290,33 @@ fn run_job(
         // Action-only job with no executable shell step.
         return CheckConclusion::Skipped;
     }
-    let Ok(workspace) = checkout_commit(git_bin, bare, oid, origin_url) else {
+    let Ok(workspace) = checkout_commit(
+        context.git_bin,
+        context.bare,
+        context.oid,
+        context.origin_url,
+    ) else {
         return CheckConclusion::Failure;
     };
+    let mut env = BTreeMap::new();
+    env.insert(
+        "GITHUB_SERVER_URL".to_string(),
+        context.origin_base_url.trim_end_matches('/').to_string(),
+    );
+    env.insert(
+        "GITHUB_REPOSITORY".to_string(),
+        format!("{}/{}", context.owner, context.repo),
+    );
+    env.insert("GITHUB_REF".to_string(), context.ref_name.to_string());
+    env.insert("GITHUB_SHA".to_string(), context.oid.to_string());
     let request = CoreJobRequest {
-        job_id: format!("{owner}-{repo}-{}", job.id),
-        repo_id: format!("{owner}/{repo}"),
-        commit_sha: oid.to_string(),
+        job_id: format!("{}-{}-{}", context.owner, context.repo, job.id),
+        repo_id: format!("{}/{}", context.owner, context.repo),
+        commit_sha: context.oid.to_string(),
         workspace: workspace.clone(),
         command: "/bin/sh".to_string(),
         args: vec!["-lc".to_string(), script],
-        env: BTreeMap::new(),
+        env,
         trust_tier: TrustTier::T2InternalBranch,
         requested_runner: Some(RunnerClass::NativeRustClean),
         network_policy: NetworkPolicy::EgressOnly,
@@ -389,6 +413,201 @@ fn repo_origin_url(base_url: &str, owner: &str, repo: &str) -> String {
 
 fn workflow_stem(file: &str) -> &str {
     file.trim_end_matches(".yaml").trim_end_matches(".yml")
+}
+
+fn workflow_runs_for_branch_head(content: &str, ref_name: &str) -> bool {
+    let Some(branch) = ref_name.strip_prefix("refs/heads/") else {
+        return false;
+    };
+    let Some(on_block) = on_block(content) else {
+        return false;
+    };
+    on_block_has_trigger(&on_block, "pull_request")
+        || branch_push_trigger_matches(&on_block, branch)
+}
+
+#[derive(Debug, Clone)]
+struct WorkflowLine {
+    indent: usize,
+    text: String,
+}
+
+fn on_block(content: &str) -> Option<Vec<WorkflowLine>> {
+    let lines = workflow_lines(content);
+    let (index, line) = lines
+        .iter()
+        .enumerate()
+        .find(|(_, line)| line.text == "on:" || line.text.starts_with("on:"))?;
+    if let Some(inline) = line.text.strip_prefix("on:") {
+        let inline = inline.trim();
+        if !inline.is_empty() {
+            return Some(vec![WorkflowLine {
+                indent: line.indent + 2,
+                text: inline.to_string(),
+            }]);
+        }
+    }
+    let on_indent = line.indent;
+    Some(
+        lines
+            .into_iter()
+            .skip(index + 1)
+            .take_while(|child| child.indent > on_indent)
+            .collect(),
+    )
+}
+
+fn workflow_lines(content: &str) -> Vec<WorkflowLine> {
+    content
+        .lines()
+        .filter_map(|raw| {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                return None;
+            }
+            let uncommented = trimmed
+                .split_once(" #")
+                .map(|(before, _)| before.trim())
+                .unwrap_or(trimmed);
+            if uncommented.is_empty() {
+                return None;
+            }
+            Some(WorkflowLine {
+                indent: raw.len() - raw.trim_start().len(),
+                text: uncommented.to_string(),
+            })
+        })
+        .collect()
+}
+
+fn on_block_has_trigger(block: &[WorkflowLine], trigger: &str) -> bool {
+    block.iter().any(|line| {
+        trigger_tokens(&line.text)
+            .iter()
+            .any(|token| token == trigger)
+    })
+}
+
+fn branch_push_trigger_matches(block: &[WorkflowLine], branch: &str) -> bool {
+    if block.iter().any(|line| {
+        let text = line.text.trim();
+        if text == "push:" || text.starts_with("push:") {
+            return false;
+        }
+        trigger_tokens(&line.text)
+            .iter()
+            .any(|token| token == "push")
+    }) {
+        return true;
+    }
+
+    let Some((index, push)) = block
+        .iter()
+        .enumerate()
+        .find(|(_, line)| line.text == "push" || line.text.starts_with("push:"))
+    else {
+        return false;
+    };
+    let inline = push.text.strip_prefix("push:").map(str::trim).unwrap_or("");
+    if !inline.is_empty() {
+        return trigger_tokens(inline).iter().any(|token| token == "push");
+    }
+
+    let children: Vec<_> = block
+        .iter()
+        .skip(index + 1)
+        .take_while(|line| line.indent > push.indent)
+        .cloned()
+        .collect();
+    if children.is_empty() {
+        return true;
+    }
+
+    let branches = trigger_patterns(&children, "branches");
+    if !branches.is_empty() {
+        return branches.iter().any(|pattern| glob_match(pattern, branch));
+    }
+
+    let ignored = trigger_patterns(&children, "branches-ignore");
+    if ignored.iter().any(|pattern| glob_match(pattern, branch)) {
+        return false;
+    }
+
+    let tags = trigger_patterns(&children, "tags");
+    if !tags.is_empty() {
+        return false;
+    }
+
+    true
+}
+
+fn trigger_patterns(block: &[WorkflowLine], key: &str) -> Vec<String> {
+    let mut patterns = Vec::new();
+    for (index, line) in block.iter().enumerate() {
+        if line.text == key || line.text.starts_with(&format!("{key}:")) {
+            if let Some(inline) = line.text.strip_prefix(&format!("{key}:")) {
+                patterns.extend(trigger_tokens(inline));
+            }
+            patterns.extend(
+                block
+                    .iter()
+                    .skip(index + 1)
+                    .take_while(|child| child.indent > line.indent)
+                    .filter_map(|child| child.text.strip_prefix("- ").map(str::trim))
+                    .flat_map(trigger_tokens),
+            );
+        }
+    }
+    patterns
+}
+
+fn trigger_tokens(raw: &str) -> Vec<String> {
+    raw.trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',')
+        .map(|part| {
+            part.trim()
+                .trim_start_matches("- ")
+                .trim_matches('"')
+                .trim_matches('\'')
+                .trim_end_matches(':')
+                .trim()
+                .to_string()
+        })
+        .filter(|part| !part.is_empty())
+        .collect()
+}
+
+fn glob_match(pattern: &str, value: &str) -> bool {
+    if pattern == value {
+        return true;
+    }
+    let pattern = pattern.as_bytes();
+    let value = value.as_bytes();
+    let (mut pattern_index, mut value_index) = (0, 0);
+    let mut star = None;
+    let mut match_index = 0;
+    while value_index < value.len() {
+        if pattern_index < pattern.len() && pattern[pattern_index] == value[value_index] {
+            pattern_index += 1;
+            value_index += 1;
+        } else if pattern_index < pattern.len() && pattern[pattern_index] == b'*' {
+            star = Some(pattern_index);
+            match_index = value_index;
+            pattern_index += 1;
+        } else if let Some(star_index) = star {
+            pattern_index = star_index + 1;
+            match_index += 1;
+            value_index = match_index;
+        } else {
+            return false;
+        }
+    }
+    while pattern_index < pattern.len() && pattern[pattern_index] == b'*' {
+        pattern_index += 1;
+    }
+    pattern_index == pattern.len()
 }
 
 /// Read `.github/workflows/*.{yml,yaml}` from `oid` in a bare repo via `git`.

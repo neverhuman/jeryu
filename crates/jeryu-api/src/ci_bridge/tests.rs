@@ -85,6 +85,92 @@ fn ref_update(ref_name: &str, old_oid: &str, new_oid: &str) -> RefUpdate {
 }
 
 #[test]
+fn branch_head_skips_tag_only_release_workflow() {
+    let workflow = r#"
+name: release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: bash ops/ci/release.sh
+"#;
+
+    assert!(!workflow_runs_for_branch_head(
+        workflow,
+        "refs/heads/codex/feature"
+    ));
+}
+
+#[test]
+fn branch_head_runs_pull_request_workflow_even_with_main_push_filter() {
+    let workflow = r#"
+name: web
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - run: bash ops/ci/web.sh
+"#;
+
+    assert!(workflow_runs_for_branch_head(
+        workflow,
+        "refs/heads/codex/feature"
+    ));
+}
+
+#[test]
+fn branch_push_filter_matches_only_named_branches() {
+    let workflow = r#"
+name: branch-only
+on:
+  push:
+    branches: [main, release/*]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+"#;
+
+    assert!(workflow_runs_for_branch_head(workflow, "refs/heads/main"));
+    assert!(workflow_runs_for_branch_head(
+        workflow,
+        "refs/heads/release/next"
+    ));
+    assert!(!workflow_runs_for_branch_head(
+        workflow,
+        "refs/heads/codex/feature"
+    ));
+}
+
+#[test]
+fn inline_on_list_runs_for_branch_push() {
+    let workflow = r#"
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+"#;
+
+    assert!(workflow_runs_for_branch_head(
+        workflow,
+        "refs/heads/codex/feature"
+    ));
+}
+
+#[test]
 fn ref_updates_track_ref_name_and_old_oid() {
     let before = vec![
         GitRef {
