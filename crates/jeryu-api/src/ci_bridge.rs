@@ -286,7 +286,9 @@ fn run_job(context: &CiJobContext<'_>, job: &jeryu_ci_ir::Job) -> CheckConclusio
     let script = job
         .steps
         .iter()
-        .filter_map(|step| step.command.clone())
+        .filter_map(|step| step.command.as_deref())
+        .filter(|command| !is_hosted_toolchain_bootstrap(command))
+        .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join("\n");
     if script.trim().is_empty() {
@@ -427,6 +429,21 @@ fn workflow_runs_for_branch_head(content: &str, ref_name: &str) -> bool {
     };
     on_block_has_trigger(&on_block, "pull_request")
         || branch_push_trigger_matches(&on_block, branch)
+}
+
+fn is_hosted_toolchain_bootstrap(command: &str) -> bool {
+    let mut saw_rustup = false;
+    for line in command.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if !line.starts_with("rustup toolchain install ") {
+            return false;
+        }
+        saw_rustup = true;
+    }
+    saw_rustup
 }
 
 #[derive(Debug, Clone)]

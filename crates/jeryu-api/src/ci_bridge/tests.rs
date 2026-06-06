@@ -171,6 +171,17 @@ jobs:
 }
 
 #[test]
+fn hosted_toolchain_bootstrap_step_is_skipped_locally() {
+    assert!(is_hosted_toolchain_bootstrap(
+        "rustup toolchain install 1.95.0 --profile minimal"
+    ));
+    assert!(!is_hosted_toolchain_bootstrap(
+        "rustup toolchain install 1.95.0 --profile minimal\ncargo test"
+    ));
+    assert!(!is_hosted_toolchain_bootstrap("bash ops/ci/ci-fast.sh"));
+}
+
+#[test]
 fn ref_updates_track_ref_name_and_old_oid() {
     let before = vec![
         GitRef {

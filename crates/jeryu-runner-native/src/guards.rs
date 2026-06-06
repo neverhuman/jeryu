@@ -165,12 +165,27 @@ pub fn sanitized_native_env(job: &JobRequest, plan: &SandboxPlan) -> BTreeMap<St
         "JERYU_NETWORK_POLICY".to_string(),
         plan.network_policy.as_str().to_string(),
     );
-    env.insert("HOME".to_string(), "/tmp/jeryu-home".to_string());
+    env.insert(
+        "HOME".to_string(),
+        job.workspace.join(".home").display().to_string(),
+    );
+    env.insert(
+        "CARGO_HOME".to_string(),
+        job.workspace.join(".cargo-home").display().to_string(),
+    );
+    env.insert(
+        "NPM_CONFIG_CACHE".to_string(),
+        job.workspace.join(".npm-cache").display().to_string(),
+    );
+    env.insert(
+        "RUSTUP_HOME".to_string(),
+        "/home/ubuntu/.rustup".to_string(),
+    );
     env.insert("TMPDIR".to_string(), "/tmp".to_string());
     env.insert("GIT_CONFIG_NOSYSTEM".to_string(), "1".to_string());
     env.insert(
         "PATH".to_string(),
-        "/usr/local/bin:/usr/bin:/bin".to_string(),
+        "/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin".to_string(),
     );
     if !plan.allow_secrets {
         env.insert("JERYU_SECRETS".to_string(), "disabled".to_string());
@@ -336,5 +351,28 @@ mod tests {
         assert_eq!(env.get("RUST_LOG"), Some(&"debug".to_string()));
         assert_eq!(env.get("JERYU_SECRETS"), Some(&"disabled".to_string()));
         assert_eq!(env.get("GIT_CONFIG_NOSYSTEM"), Some(&"1".to_string()));
+        assert_eq!(
+            env.get("HOME"),
+            Some(&"/tmp/work/.home".to_string()),
+            "HOME writes must stay under the job workspace"
+        );
+        assert_eq!(
+            env.get("CARGO_HOME"),
+            Some(&"/tmp/work/.cargo-home".to_string())
+        );
+        assert_eq!(
+            env.get("NPM_CONFIG_CACHE"),
+            Some(&"/tmp/work/.npm-cache".to_string())
+        );
+        assert_eq!(
+            env.get("RUSTUP_HOME"),
+            Some(&"/home/ubuntu/.rustup".to_string())
+        );
+        assert!(
+            env.get("PATH")
+                .unwrap_or_else(|| panic!("PATH missing"))
+                .starts_with("/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:"),
+            "PATH should expose controlled local tool shims first"
+        );
     }
 }

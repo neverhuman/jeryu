@@ -169,8 +169,16 @@ impl SandboxPlan {
             write: true,
             execute: false,
         });
+        for path in local_toolchain_roots() {
+            landlock_rules.push(LandlockRule {
+                path,
+                read: true,
+                write: false,
+                execute: true,
+            });
+        }
 
-        let mounts = vec![
+        let mut mounts = vec![
             MountSpec {
                 source: workspace.clone(),
                 target: PathBuf::from("/workspace"),
@@ -182,6 +190,11 @@ impl SandboxPlan {
                 read_only: true,
             },
         ];
+        mounts.extend(local_toolchain_roots().into_iter().map(|path| MountSpec {
+            source: path.clone(),
+            target: path,
+            read_only: true,
+        }));
 
         Self {
             runner_class,
@@ -226,6 +239,17 @@ impl SandboxPlan {
             self.seccomp.name
         )
     }
+}
+
+fn local_toolchain_roots() -> Vec<PathBuf> {
+    [
+        "/home/ubuntu/.cargo/bin",
+        "/home/ubuntu/.rustup",
+        "/home/ubuntu/.local/bin",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect()
 }
 
 #[cfg(test)]
@@ -311,6 +335,27 @@ mod tests {
             assert!(rule.read);
             assert!(!rule.write);
             assert!(rule.execute);
+        }
+
+        for tool_path in [
+            "/home/ubuntu/.cargo/bin",
+            "/home/ubuntu/.rustup",
+            "/home/ubuntu/.local/bin",
+        ] {
+            let rule = plan
+                .landlock_rules
+                .iter()
+                .find(|rule| rule.path == Path::new(tool_path))
+                .unwrap_or_else(|| panic!("expected {tool_path} Landlock rule"));
+            assert!(rule.read);
+            assert!(!rule.write);
+            assert!(rule.execute);
+            let mount = plan
+                .mounts
+                .iter()
+                .find(|mount| mount.source == Path::new(tool_path))
+                .unwrap_or_else(|| panic!("expected {tool_path} mount"));
+            assert!(mount.read_only);
         }
 
         let dev_null_rule = plan
