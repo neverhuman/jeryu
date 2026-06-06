@@ -82,6 +82,48 @@ export const endpoints = {
     return `/api/v1/search?${qs.toString()}`;
   },
   activity: (): string => '/api/v1/activity',
+  controlPlaneStatus: (): string => '/api/v1/control-plane/status',
+  controlPlanePriorities: (limit?: number): string => {
+    const base = '/api/v1/control-plane/priorities';
+    return limit ? `${base}?limit=${encodeURIComponent(String(limit))}` : base;
+  },
+  controlPlaneRepoGraph: (params?: {
+    repo?: string;
+    clusterKind?: string;
+    query?: string;
+    limit?: number;
+  }): string => {
+    const qs = new URLSearchParams();
+    if (params?.repo) qs.set('repo', params.repo);
+    if (params?.clusterKind) qs.set('cluster_kind', params.clusterKind);
+    if (params?.query) qs.set('query', params.query);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    const suffix = qs.toString();
+    return suffix
+      ? `/api/v1/control-plane/repo-graph?${suffix}`
+      : '/api/v1/control-plane/repo-graph';
+  },
+  controlPlaneArtifactsLatest: (repo?: string): string =>
+    repo
+      ? `/api/v1/control-plane/artifacts/latest?repo=${encodeURIComponent(repo)}`
+      : '/api/v1/control-plane/artifacts/latest',
+  controlPlaneRunners: (): string => '/api/v1/control-plane/runners',
+  ecosystem: (): string => '/api/v1/ecosystem',
+  toolBuildClusters: (params?: {
+    repo?: string;
+    limit?: number;
+    includeIgnored?: boolean;
+  }): string => {
+    const qs = new URLSearchParams();
+    if (params?.repo) qs.set('repo', params.repo);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    if (params?.includeIgnored) qs.set('include_ignored', 'true');
+    const suffix = qs.toString();
+    return suffix
+      ? `/api/v1/codegraph/tool-build/clusters?${suffix}`
+      : '/api/v1/codegraph/tool-build/clusters';
+  },
+  agentRuns: (): string => '/api/v1/agent-runs',
 } as const;
 
 export type Endpoints = typeof endpoints;

@@ -26,6 +26,7 @@ fn sample_read_model_round_trips_json() {
     assert_eq!(decoded.agent_runs.items.len(), 2);
     assert_eq!(decoded.agent_runs.live_tty(), 1);
     assert_eq!(decoded.codegraph.items.len(), 1);
+    assert_eq!(decoded.codegraph.tool_build_opportunities.len(), 1);
     assert_eq!(decoded.codegraph.misses(), 0);
 }
 
@@ -108,5 +109,6 @@ fn unknown_optional_dashboards_default_in() {
     assert!(decoded.workcells.items.is_empty());
     assert!(decoded.agent_runs.items.is_empty());
     assert!(decoded.codegraph.items.is_empty());
+    assert!(decoded.codegraph.tool_build_opportunities.is_empty());
     assert_eq!(decoded.repos.registry_path, "");
 }

@@ -43,6 +43,13 @@ pub(crate) enum ToolKind {
     CodegraphToolBuildStatus,
     CodegraphToolBuildClusters,
     CodegraphToolBuildFeedback,
+    ControlPlaneStatus,
+    ControlPlanePriorities,
+    RepoGraphClusters,
+    RepoGraphQuery,
+    RemoteStatus,
+    ArtifactsLatest,
+    RunnerFabricStatus,
 }
 
 #[derive(Debug, Clone)]
@@ -266,6 +273,27 @@ impl ToolDefinition {
                 "reason": s("reason")?,
                 "ignored_by": opt_s("ignored_by").unwrap_or_else(|| "mcp".to_string()),
             }),
+            ToolKind::ControlPlaneStatus => serde_json::json!({}),
+            ToolKind::ControlPlanePriorities => serde_json::json!({
+                "limit": args.get("limit").and_then(Value::as_i64),
+            }),
+            ToolKind::RepoGraphClusters => serde_json::json!({
+                "cluster_kind": opt_s("cluster_kind"),
+                "limit": args.get("limit").and_then(Value::as_i64),
+            }),
+            ToolKind::RepoGraphQuery => serde_json::json!({
+                "repo": opt_s("repo"),
+                "cluster_kind": opt_s("cluster_kind"),
+                "query": opt_s("query"),
+                "limit": args.get("limit").and_then(Value::as_i64),
+            }),
+            ToolKind::RemoteStatus => serde_json::json!({
+                "remote": opt_s("remote"),
+            }),
+            ToolKind::ArtifactsLatest => serde_json::json!({
+                "repo": opt_s("repo"),
+            }),
+            ToolKind::RunnerFabricStatus => serde_json::json!({}),
         };
         Some(out)
     }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::{WebState, agent_runs, codegraph};
+use super::{WebState, agent_runs, codegraph, control_plane};
 
 pub(super) struct WebMcpBackend {
     state: Arc<WebState>,
@@ -29,6 +29,12 @@ impl jeryu_mcp::ToolBackend for WebMcpBackend {
             return Ok(response);
         }
         if let Some(response) = self.call_tool_build(tool, args.clone())? {
+            return Ok(response);
+        }
+        if let Some(response) = self.call_control_plane(tool, &args)? {
+            return Ok(response);
+        }
+        if let Some(response) = self.call_live_status_tool(tool, &args)? {
             return Ok(response);
         }
         if is_codegraph_tool(tool) && args.get("repo").and_then(Value::as_str).is_some() {
@@ -224,6 +230,75 @@ impl WebMcpBackend {
         };
         Ok(Some(response))
     }
+
+    fn call_control_plane(
+        &self,
+        tool: &str,
+        args: &Value,
+    ) -> anyhow::Result<Option<jeryu_mcp::ToolResponse>> {
+        let response = match tool {
+            "control_plane.status" => jeryu_mcp::ToolResponse::ok(
+                "control-plane status",
+                control_plane::mcp_status(&self.state),
+            ),
+            "control_plane.priorities" => jeryu_mcp::ToolResponse::ok(
+                "control-plane priorities",
+                control_plane::mcp_priorities(&self.state, args),
+            ),
+            "repo_graph.clusters" => jeryu_mcp::ToolResponse::ok(
+                "repo graph clusters",
+                control_plane::mcp_repo_graph_clusters(&self.state, args),
+            ),
+            "repo_graph.query" => jeryu_mcp::ToolResponse::ok(
+                "repo graph",
+                control_plane::mcp_repo_graph_query(&self.state, args),
+            ),
+            "remote.status" => {
+                jeryu_mcp::ToolResponse::ok("remote status", control_plane::mcp_remote_status())
+            }
+            "artifacts.latest" => jeryu_mcp::ToolResponse::ok(
+                "latest artifacts",
+                control_plane::mcp_artifacts_latest(&self.state),
+            ),
+            "runner_fabric.status" => jeryu_mcp::ToolResponse::ok(
+                "runner fabric status",
+                control_plane::mcp_runner_fabric_status(&self.state),
+            ),
+            _ => return Ok(None),
+        };
+        Ok(Some(response))
+    }
+
+    fn call_live_status_tool(
+        &self,
+        tool: &str,
+        args: &Value,
+    ) -> anyhow::Result<Option<jeryu_mcp::ToolResponse>> {
+        let response = match tool {
+            "get_system_snapshot" => jeryu_mcp::ToolResponse::ok(
+                "system snapshot",
+                control_plane::mcp_status(&self.state),
+            ),
+            "get_ci_run_jobs" => jeryu_mcp::ToolResponse::ok(
+                "ci run jobs",
+                control_plane::mcp_ci_run_jobs(&self.state, args),
+            ),
+            "get_ci_bottlenecks" => jeryu_mcp::ToolResponse::ok(
+                "ci bottlenecks",
+                control_plane::mcp_ci_bottlenecks(&self.state, args),
+            ),
+            "explain_blockers" => jeryu_mcp::ToolResponse::ok(
+                "blockers",
+                control_plane::mcp_explain_blockers(&self.state, args),
+            ),
+            "plan_validation" => jeryu_mcp::ToolResponse::ok(
+                "validation plan",
+                control_plane::mcp_plan_validation(&self.state, args),
+            ),
+            _ => return Ok(None),
+        };
+        Ok(Some(response))
+    }
 }
 
 fn live_graph(state: &Arc<WebState>) -> anyhow::Result<jeryu_codegraph::CodeGraph> {
@@ -372,7 +447,7 @@ mod tests {
         let script = write_script(
             &repo_root,
             "agent.sh",
-            "#!/bin/sh\necho mcp-agent-out\necho mcp-agent-err >&2\n",
+            "#!/bin/sh\necho mcp-agent-out\nsleep 0.1\necho mcp-agent-err >&2\n",
         );
         let (workcell_id, runner_epoch) =
             seed_repairing_workcell(&state, workspace.path(), &repo_root);
@@ -420,15 +495,51 @@ mod tests {
         assert!(status.success, "{status:?}");
         assert_eq!(status.data.as_ref().unwrap()["state"], "succeeded");
 
-        let events = call(
-            &backend,
-            "agent_work.events",
-            json!({
-                "agent_run_id": agent_run_id,
-                "after_seq": 0,
-                "limit": 20
-            }),
-        );
+        let events = (0..100)
+            .map(|_| {
+                let response = call(
+                    &backend,
+                    "agent_work.events",
+                    json!({
+                        "agent_run_id": agent_run_id,
+                        "after_seq": 0,
+                        "limit": 20
+                    }),
+                );
+                let has_stdout = response
+                    .data
+                    .as_ref()
+                    .and_then(|data| data["events"].as_array())
+                    .is_some_and(|events| {
+                        events.iter().any(|event| {
+                            event["stream"] == "stdout"
+                                && event["text"]
+                                    .as_str()
+                                    .unwrap_or_default()
+                                    .contains("mcp-agent-out")
+                        })
+                    });
+                if !has_stdout {
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                response
+            })
+            .find(|response| {
+                response
+                    .data
+                    .as_ref()
+                    .and_then(|data| data["events"].as_array())
+                    .is_some_and(|events| {
+                        events.iter().any(|event| {
+                            event["stream"] == "stdout"
+                                && event["text"]
+                                    .as_str()
+                                    .unwrap_or_default()
+                                    .contains("mcp-agent-out")
+                        })
+                    })
+            })
+            .expect("agent stdout event");
         assert!(events.success, "{events:?}");
         let event_rows = events.data.as_ref().unwrap()["events"]
             .as_array()

@@ -21,8 +21,13 @@ import {
   poolFromRollup,
 } from '../fleetModel';
 import { BOOTSTRAP_QUERY_KEY } from '../../hooks/useBootstrap';
+import { CONTROL_PLANE_RUNNERS_QUERY_KEY } from '../../hooks/useControlPlaneRunners';
 import { useRealtimeStore } from '../../stores/realtimeStore';
-import type { WebBootstrap, WebEvent } from '../../api/types';
+import type {
+  RunnerFabricResponse,
+  WebBootstrap,
+  WebEvent,
+} from '../../api/types';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -239,7 +244,30 @@ describe('fleetModel projection', () => {
 
 // ── Tier 2: component render ─────────────────────────────────────────────
 
-function renderFleet(tui: unknown): void {
+const EMPTY_RUNNERS: RunnerFabricResponse = {
+  schemaVersion: 'jeryu.runner_fabric/v1',
+  local: {
+    state: 'unknown',
+    nodes: 0,
+    onlineRunners: 0,
+    offlineRunners: 0,
+    busyRunners: 0,
+    idleRunners: 0,
+    totalSlots: 0,
+    activeSlots: 0,
+    utilization: 0,
+    lastUpdated: null,
+    nodeDetails: [],
+  },
+  mirror: {
+    name: 'github_actions_runners',
+    state: 'missing',
+    reason: 'optional GitHub mirror runner adapter is not configured',
+    docsUrl: 'docs/agent-native-standard.md',
+  },
+};
+
+function renderFleet(tui: unknown, runners: RunnerFabricResponse = EMPTY_RUNNERS): void {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -267,6 +295,7 @@ function renderFleet(tui: unknown): void {
     },
   };
   client.setQueryData(BOOTSTRAP_QUERY_KEY, bootstrap);
+  client.setQueryData(CONTROL_PLANE_RUNNERS_QUERY_KEY, runners);
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -358,6 +387,112 @@ describe('FleetPage render', () => {
     // No pools/components → the banner reports "Awaiting fleet telemetry."
     expect(screen.getByTestId('fleet-banner')).toHaveTextContent(
       /Awaiting fleet telemetry/i
+    );
+  });
+
+  it('renders the runner-network drilldown from the control-plane runners payload', () => {
+    useRealtimeStore.setState({ events: [], status: 'open' });
+    renderFleet(
+      {
+        generated_at: new Date().toISOString(),
+        pool_activity: { repos: [], pools: [], unplaceable: [] },
+        system: {},
+      },
+      {
+        schemaVersion: 'jeryu.runner_fabric/v1',
+        local: {
+          state: 'fresh',
+          nodes: 2,
+          onlineRunners: 2,
+          offlineRunners: 0,
+          busyRunners: 1,
+          idleRunners: 1,
+          totalSlots: 20,
+          activeSlots: 20,
+          utilization: 0.05,
+          lastUpdated: '2026-06-05T00:05:00Z',
+          nodeDetails: [
+            {
+              runnerId: 'xbabe0',
+              source: 'runnerd',
+              state: 'active',
+              capacity: 10,
+              inFlight: 1,
+              labels: ['rust', 'dogfood'],
+              classes: ['native-rust-clean'],
+              activeTaskCount: 1,
+              lastUpdated: '2026-06-05T00:05:00Z',
+              activeTasks: [
+                {
+                  taskId: 'ar-1',
+                  jobId: 'wc-1',
+                  agentRunId: 'ar-1',
+                  workcellId: 'wc-1',
+                  repo: 'jeryu/veox',
+                  label: 'editbot',
+                  program: '/workspace/repair.sh',
+                  state: 'running',
+                  startedAt: '2026-06-05T00:00:00Z',
+                  updatedAt: '2026-06-05T00:05:00Z',
+                  ttyPreview: {
+                    state: 'fresh',
+                    lines: ['$ repair.sh', 'running tests', 'publishing patch'],
+                  },
+                },
+              ],
+            },
+            {
+              runnerId: 'local',
+              source: 'local',
+              state: 'active',
+              capacity: 2,
+              inFlight: 1,
+              labels: ['local'],
+              classes: ['native-rust-hot'],
+              activeTaskCount: 1,
+              lastUpdated: '2026-06-05T00:03:00Z',
+              activeTasks: [
+                {
+                  taskId: 'ar-local',
+                  jobId: 'wc-local',
+                  agentRunId: 'ar-local',
+                  workcellId: 'wc-local',
+                  repo: null,
+                  label: 'local-repair',
+                  program: '/workspace/local.sh',
+                  state: 'running',
+                  startedAt: '2026-06-05T00:01:00Z',
+                  updatedAt: '2026-06-05T00:03:00Z',
+                  ttyPreview: {
+                    state: 'missing',
+                    lines: [],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        mirror: {
+          name: 'github_actions_runners',
+          state: 'missing',
+          reason: 'optional GitHub mirror runner adapter is not configured',
+          docsUrl: 'docs/agent-native-standard.md',
+        },
+      }
+    );
+
+    expect(screen.getByTestId('fleet-network')).toBeInTheDocument();
+    expect(screen.getByTestId('fleet-node-board')).toBeInTheDocument();
+    expect(screen.getByTestId('fleet-node-box-xbabe0')).toHaveTextContent(
+      'xbabe0'
+    );
+    expect(screen.getByTestId('fleet-node-xbabe0')).toHaveTextContent('xbabe0');
+    expect(screen.getByTestId('fleet-node-local')).toHaveTextContent('local');
+    expect(screen.getByTestId('fleet-task-ar-1')).toHaveTextContent(
+      'publishing patch'
+    );
+    expect(screen.getByTestId('fleet-task-ar-local')).toHaveTextContent(
+      /TTY preview unavailable/i
     );
   });
 

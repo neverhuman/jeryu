@@ -13,4 +13,10 @@ The shared workcell control plane is part of the runner/CI stack, not a separate
 
 The R5 proof lane lives in `crates/jeryu-api` and closes the loop from claim to reviewed pull request: rebase, jailed edit, namespaced branch export, PR creation, and CI evidence verification. The export request carries the changed-file list so the pull request preserves branch ownership and reviewer-visible edit scope.
 
+JMCP/control-plane intelligence is an API/read-model boundary over local truth:
+the local forge store, runner fabric, workcells, agent runs, codegraph, and
+tool-build clusters are authoritative, while GitHub mirror data is optional
+read-only evidence that must degrade as `missing`, `stale`, `queued`, `failed`,
+or `unknown` rather than becoming an implicit green signal.
+
 Operational truth is local-first. The canonical validation surfaces are `Justfile`, `ops/ci/*.sh`, `ops/ci/gates/*.sh`, and `agent/test-map.json`.

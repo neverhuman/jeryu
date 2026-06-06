@@ -160,6 +160,20 @@ clusters for frequent MCP polling by `~/jmcp`. It exposes
 ignored clusters. Rerun `bash ops/ci/codegraph-tool-build.sh` when the scanner,
 feedback store, MCP catalog, CLI, or API facade changes.
 
+The JMCP control-plane intelligence surface aggregates local forge truth,
+runner fabric, workcells, agent runs, codegraph/tool-build evidence, and
+explicit read-only mirror absence into one auditable snapshot. It exposes
+`GET /api/v1/control-plane/status`,
+`GET /api/v1/control-plane/priorities`,
+`GET /api/v1/control-plane/repo-graph`,
+`GET /api/v1/control-plane/artifacts/latest`, and
+`GET /api/v1/control-plane/runners`; MCP tools
+`jeryu.control_plane.status`, `jeryu.control_plane.priorities`,
+`jeryu.repo_graph.*`, `jeryu.remote.status`, `jeryu.artifacts.latest`, and
+`jeryu.runner_fabric.status`; CLI commands `jeryu status`,
+`jeryu priorities`, `jeryu repo-graph clusters`, `jeryu artifacts latest`, and
+`jeryu runners status`; and the web `/intelligence` route.
+
 ## Local Live Runtime
 
 The first live target is local-only. `jeryu-api` can run an Axum server backed
@@ -176,13 +190,16 @@ The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
 `/api/v1/ecosystem`, `/api/v1/ci/runs/{id}/evidence`,
 `/api/v1/workcells/{id}/run_agent`, `/api/v1/agent-runs`,
-`/api/v1/repos/{id}/codegraph/query`, `/api/v1/markdown/render`, `/api/v1/ws`,
-and the guided GitHub-compatible `/user` and `/graphql` routes. The ecosystem
-and CI-run evidence routes are read-only: they expose live MCP tool graph
-metadata, forge health, queue identity, and digest-verifiable CI evidence for
-clients that need agent-readable state before choosing a mutation path. The
-bootstrap payload also carries the `workcells` feature flag and the live
-workcell dashboard snapshot inside the typed TUI model.
+`/api/v1/repos/{id}/codegraph/query`,
+`/api/v1/control-plane/{status,priorities,repo-graph,runners}`,
+`/api/v1/control-plane/artifacts/latest`, `/api/v1/markdown/render`,
+`/api/v1/ws`, and the guided GitHub-compatible `/user` and `/graphql` routes.
+The ecosystem, CI-run evidence, and control-plane routes are read-only: they
+expose live MCP tool graph metadata, forge health, queue identity,
+digest-verifiable CI evidence, ranked local priorities, and explicit mirror or
+artifact absence for clients that need agent-readable state before choosing a
+mutation path. The bootstrap payload also carries the `workcells` feature flag
+and the live workcell dashboard snapshot inside the typed TUI model.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 

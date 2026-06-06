@@ -62,7 +62,7 @@ struct AgentRunRecord {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum AgentRunState {
+pub(super) enum AgentRunState {
     Running,
     Succeeded,
     Failed,
@@ -131,7 +131,7 @@ enum AgentRunSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-enum AgentRunSourceSnapshot {
+pub(super) enum AgentRunSourceSnapshot {
     Repo {
         repo: String,
     },
@@ -194,7 +194,7 @@ struct AgentRunStartResponse {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct AgentRunStatusResponse {
+pub(super) struct AgentRunStatusResponse {
     pub agent_run_id: String,
     pub state: AgentRunState,
     pub io_mode: AgentRunIoMode,
@@ -270,13 +270,13 @@ struct AgentRunExportPrResponse {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct AgentRunControlRecord {
+pub(super) struct AgentRunControlRecord {
     pub seq: u64,
     pub command: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct AgentRunEvent {
+pub(super) struct AgentRunEvent {
     pub seq: u64,
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -298,7 +298,7 @@ struct AgentRunEvent {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct AgentRunOutcome {
+pub(super) struct AgentRunOutcome {
     pub exit_code: Option<i32>,
     pub timed_out: bool,
     pub budget_exceeded: bool,
@@ -405,6 +405,10 @@ fn start_request(
         io_mode: request.io_mode,
         state: AgentRunState::Running,
     })
+}
+
+pub(super) async fn list(State(state): State<Arc<WebState>>) -> Json<Vec<AgentRunStatusResponse>> {
+    Json(state.agent_runs.list())
 }
 
 pub(super) async fn status(
@@ -726,27 +730,26 @@ impl AgentRunStore {
 
     fn status(&self, run_id: &str) -> Option<AgentRunStatusResponse> {
         let inner = self.inner.lock().expect("agent run store mutex");
-        inner.runs.get(run_id).map(|record| AgentRunStatusResponse {
-            agent_run_id: record.id.clone(),
-            state: record.state,
-            io_mode: record.io_mode,
-            source: record.source.clone(),
-            repo_root: record.repo_root.clone(),
-            program: record.program.clone(),
-            args: record.args.clone(),
-            events_url: format!("/api/v1/agent-runs/{run_id}/events"),
-            control_url: format!("/api/v1/agent-runs/{run_id}/control"),
-            export_pr_url: format!("/api/v1/agent-runs/{run_id}/export_pr"),
-            ws_scope: format!("agent_run.{run_id}"),
-            tty_topic: TTY_TOPIC.to_string(),
-            control_topic: CONTROL_TOPIC.to_string(),
-            events: record.events.clone(),
-            tty_events: record.tty_events.clone(),
-            controls: record.controls.clone(),
-            outcome: record.outcome.clone(),
-            error_code: record.error_code.clone(),
-            error_message: record.error_message.clone(),
-        })
+        inner
+            .runs
+            .get(run_id)
+            .and_then(|record| status_from_record(run_id, record))
+    }
+
+    pub(super) fn list(&self) -> Vec<AgentRunStatusResponse> {
+        let inner = self.inner.lock().expect("agent run store mutex");
+        inner
+            .runs
+            .iter()
+            .filter_map(|(run_id, record)| status_from_record(run_id, record))
+            .collect()
+    }
+
+    pub(super) fn list_json(&self) -> Vec<Value> {
+        self.list()
+            .into_iter()
+            .filter_map(|status| serde_json::to_value(status).ok())
+            .collect()
     }
 
     fn events(&self, run_id: &str, query: AgentRunEventsQuery) -> Option<AgentRunEventsResponse> {
@@ -916,6 +919,33 @@ impl AgentRunStore {
             }
         }
     }
+}
+
+fn status_from_record(run_id: &str, record: &AgentRunRecord) -> Option<AgentRunStatusResponse> {
+    if record.id != run_id {
+        return None;
+    }
+    Some(AgentRunStatusResponse {
+        agent_run_id: record.id.clone(),
+        state: record.state,
+        io_mode: record.io_mode,
+        source: record.source.clone(),
+        repo_root: record.repo_root.clone(),
+        program: record.program.clone(),
+        args: record.args.clone(),
+        events_url: format!("/api/v1/agent-runs/{run_id}/events"),
+        control_url: format!("/api/v1/agent-runs/{run_id}/control"),
+        export_pr_url: format!("/api/v1/agent-runs/{run_id}/export_pr"),
+        ws_scope: format!("agent_run.{run_id}"),
+        tty_topic: TTY_TOPIC.to_string(),
+        control_topic: CONTROL_TOPIC.to_string(),
+        events: record.events.clone(),
+        tty_events: record.tty_events.clone(),
+        controls: record.controls.clone(),
+        outcome: record.outcome.clone(),
+        error_code: record.error_code.clone(),
+        error_message: record.error_message.clone(),
+    })
 }
 
 fn tty_event_for(record: &AgentRunRecord, event: &AgentRunEvent) -> AgentTtyEvent {

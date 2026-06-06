@@ -40,7 +40,7 @@ jobs:
         run: bash ops/ci/security-tools.sh
       - name: Jankurai security and audit lane
         run: |
-          jankurai security run . --script ./ops/ci/security.sh --out target/jankurai/security/evidence.json --profile ci
+          jankurai security run . --script ./ops/ci/security.sh --strict --out target/jankurai/security/evidence.json --profile ci
           jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
       - name: Upload Jankurai audit evidence
         if: always()

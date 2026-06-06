@@ -124,7 +124,10 @@ async function readJsonOrNull<T>(response: Response): Promise<T> {
   }
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) {
-    return undefined as T;
+    throw new ApiError(response.status, {
+      code: 'invalid_response',
+      message: `Expected JSON from ${response.url || 'API'} but received ${contentType || 'unknown content type'}.`,
+    });
   }
   // The body is parsed as `unknown` and surfaced at the caller-declared wire
   // contract `T`. `T` is bound to a ts-rs-generated DTO at every call site

@@ -4,7 +4,10 @@
 //! No I/O. Projects the proof ledger plus codegraph/oracle impact-pack
 //! evidence from the read model.
 
-use jeryu_readmodel::{CodegraphEvidenceItem, EntityRef, EvidenceItem, GateDecision, TuiReadModel};
+use jeryu_readmodel::{
+    CodegraphEvidenceItem, EntityRef, EvidenceItem, GateDecision, ToolBuildOpportunityItem,
+    TuiReadModel,
+};
 
 /// One row in the proof ledger: a receipt and the decision it justified.
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +58,31 @@ impl CodegraphEvidenceRow {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolBuildOpportunityRow {
+    pub cluster_id: String,
+    pub repo_id: String,
+    pub score: u64,
+    pub occurrences: usize,
+    pub file_count: usize,
+    pub language: String,
+    pub suggested_proof_lane: String,
+}
+
+impl ToolBuildOpportunityRow {
+    fn from_item(item: &ToolBuildOpportunityItem) -> Self {
+        Self {
+            cluster_id: item.cluster_id.clone(),
+            repo_id: item.repo_id.clone(),
+            score: item.score,
+            occurrences: item.occurrences,
+            file_count: item.file_count,
+            language: item.language.clone(),
+            suggested_proof_lane: item.suggested_proof_lane.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct EvidenceLensInput {
     /// Total recorded capsules (from the dashboard summary).
@@ -64,6 +92,7 @@ pub struct EvidenceLensInput {
     /// Proof-receipt rows projected from the dashboard items.
     pub rows: Vec<EvidenceRow>,
     pub codegraph_rows: Vec<CodegraphEvidenceRow>,
+    pub tool_build_rows: Vec<ToolBuildOpportunityRow>,
     pub codegraph_schema_version: Option<u32>,
     pub codegraph_misses: u32,
     pub event_cursor: u64,
@@ -84,6 +113,12 @@ impl EvidenceLensInput {
             .iter()
             .map(CodegraphEvidenceRow::from_item)
             .collect();
+        let tool_build_rows: Vec<ToolBuildOpportunityRow> = model
+            .codegraph
+            .tool_build_opportunities
+            .iter()
+            .map(ToolBuildOpportunityRow::from_item)
+            .collect();
         Self {
             total_capsules: summary
                 .map(|s| s.total_capsules)
@@ -93,6 +128,7 @@ impl EvidenceLensInput {
                 .unwrap_or(model.mission.open_capsules),
             rows,
             codegraph_rows,
+            tool_build_rows,
             codegraph_schema_version: model.codegraph.summary.as_ref().map(|s| s.schema_version),
             codegraph_misses: model
                 .codegraph
@@ -125,6 +161,7 @@ mod tests {
         assert_eq!(input.open_capsules, 0);
         assert!(input.rows.is_empty());
         assert!(input.codegraph_rows.is_empty());
+        assert!(input.tool_build_rows.is_empty());
         assert_eq!(input.codegraph_schema_version, None);
         assert_eq!(input.codegraph_misses, 0);
         assert_eq!(input.denied(), 0);
@@ -147,6 +184,20 @@ mod tests {
         assert_eq!(
             input.codegraph_rows[0].proof_lanes,
             vec!["codegraph-oracle", "agent-runs"]
+        );
+        assert_eq!(input.tool_build_rows.len(), 1);
+        assert_eq!(
+            input.tool_build_rows[0].cluster_id,
+            "toolbuild-agent-runner"
+        );
+        assert_eq!(input.tool_build_rows[0].repo_id, "core/api");
+        assert_eq!(input.tool_build_rows[0].score, 91);
+        assert_eq!(input.tool_build_rows[0].occurrences, 5);
+        assert_eq!(input.tool_build_rows[0].file_count, 3);
+        assert_eq!(input.tool_build_rows[0].language, "rust");
+        assert_eq!(
+            input.tool_build_rows[0].suggested_proof_lane,
+            "bash ops/ci/codegraph-tool-build.sh"
         );
         assert_eq!(input.codegraph_misses, 0);
         assert!(input.rows[1].redacted);

@@ -7,6 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+chrono.workspace = true
 jeryu-bench = { path = "../jeryu-bench" }
 jeryu-obs = { path = "../jeryu-obs" }
 jeryu-enterprise = { path = "../jeryu-enterprise" }

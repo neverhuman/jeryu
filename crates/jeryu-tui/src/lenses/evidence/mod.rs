@@ -4,5 +4,5 @@
 pub mod data;
 pub mod view;
 
-pub use data::{EvidenceLensInput, EvidenceRow};
+pub use data::{CodegraphEvidenceRow, EvidenceLensInput, EvidenceRow, ToolBuildOpportunityRow};
 pub use view::draw;

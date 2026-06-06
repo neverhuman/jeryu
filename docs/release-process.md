@@ -32,6 +32,12 @@ Run these from the canonical repository root before creating a release receipt:
   when public API routes or repair bodies change.
 - `bash ops/ci/codegraph-oracle.sh` when the schema-v3 codegraph oracle API or
   MCP contract changes.
+- `cargo test -p jeryu-api --features web --jobs 40 control_plane`,
+  `cargo test -p jeryu-mcp --jobs 40`,
+  `cargo test -p jeryu-cli --jobs 40`,
+  `npm --workspace @jeryu/web run typecheck`, and
+  `npm --workspace @jeryu/web run test` when the JMCP control-plane REST, MCP,
+  CLI, or web Intelligence surface changes.
 - `cargo test -p jeryu-signrail --jobs 40 verify_release` when SignRail release
   verification changes.
 - `just security`
@@ -77,6 +83,9 @@ Each final release receipt uses schema `jeryu.release-receipt/v2` and records:
   and `SHA256SUMS` itself;
 - public API route evidence for changed endpoints, including response-contract
   tests, typed repair guidance, and digest-verifiable CI evidence payloads;
+- JMCP control-plane evidence when that surface changes, including explicit
+  mirror/artifact absence states, MCP catalog conformance, CLI grammar,
+  fail-closed dispatch, and `/intelligence` web smoke;
 - agent-run and codegraph-oracle route evidence when those public endpoints
   change;
 

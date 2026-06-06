@@ -114,6 +114,27 @@ regressing — each test asserts a discriminating signal, not a tautology):
 - `bash ops/ci/codegraph-tool-build.sh`: composed scanner/MCP/API/CLI smoke
   lane. It writes `target/jankurai/codegraph-tool-build-{scan,clusters}.json`.
 
+## JMCP Control Plane
+
+- `cargo test -p jeryu-api --features web --jobs 40 control_plane`: REST and
+  pure aggregation proof for `/api/v1/control-plane/status`, priorities,
+  repo-graph clusters, artifact absence states, local runner capacity,
+  read-only mirror degradation, camelCase contracts, and
+  `/api/v1/agent-runs` listing.
+- `cargo test -p jeryu-mcp --jobs 40`: MCP catalog and memory fallback proof
+  for read-only control-plane catalog entries.
+  Catalog changes are reviewed against `agent/tool-adoption.toml` and the
+  pinned `ops/ci/security-tools.sh` transcript; untrusted tool output remains
+  evidence only and never becomes trusted policy input.
+- `cargo test -p jeryu-cli --jobs 40`: CLI grammar and fail-closed live API URL
+  dispatch for status, priorities, repo-graph, artifact lookup, and runner
+  status subcommands.
+- `npm --workspace @jeryu/web run typecheck`,
+  `npm --workspace @jeryu/web run test`, and
+  `npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 12-intelligence.spec.ts`:
+  web contract, selector/render, and critical route smoke for `/intelligence`
+  without reusing a stale local BFF on the default port.
+
 PENDING is only allowed for a capability that is not built yet and must be
 printed as PENDING, not PASS. The current phase gates report PASS=10,
 PENDING=0, FAIL=0; if a future live capability is missing, mark only that gate

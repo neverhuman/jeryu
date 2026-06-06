@@ -152,13 +152,65 @@ fn top_level_excludes_removed_commands() {
 fn top_level_includes_renamed_commands() {
     let names = top_level_names();
     for required in [
-        "forge", "ci", "runner", "agent", "proof", "release", "cache", "gh-setup", "autonomy",
+        "forge",
+        "ci",
+        "runner",
+        "agent",
+        "proof",
+        "release",
+        "cache",
+        "status",
+        "priorities",
+        "repo-graph",
+        "artifacts",
+        "runners",
+        "gh-setup",
+        "autonomy",
         "onboard",
     ] {
         assert!(
             names.iter().any(|n| n == required),
             "required top-level command {required:?} missing from {names:?}"
         );
+    }
+}
+
+#[test]
+fn control_plane_commands_parse() {
+    use jeryu_cli::cli::{ArtifactsCommands, RepoGraphCommands, RunnersCommands};
+
+    let cli =
+        Cli::try_parse_from(["jeryu", "priorities", "--limit", "3"]).expect("priorities parses");
+    match cli.command {
+        Commands::Priorities { limit } => assert_eq!(limit, Some(3)),
+        other => panic!("unexpected parse: {other:?}"),
+    }
+
+    let cli = Cli::try_parse_from([
+        "jeryu",
+        "repo-graph",
+        "clusters",
+        "--cluster-kind",
+        "ci_blocker",
+    ])
+    .expect("repo graph clusters parses");
+    match cli.command {
+        Commands::RepoGraph(RepoGraphCommands::Clusters { cluster_kind, .. }) => {
+            assert_eq!(cluster_kind.as_deref(), Some("ci_blocker"));
+        }
+        other => panic!("unexpected parse: {other:?}"),
+    }
+
+    let cli = Cli::try_parse_from(["jeryu", "artifacts", "latest"]).expect("artifacts parses");
+    match cli.command {
+        Commands::Artifacts(ArtifactsCommands::Latest { repo }) => assert!(repo.is_none()),
+        other => panic!("unexpected parse: {other:?}"),
+    }
+
+    let cli = Cli::try_parse_from(["jeryu", "runners", "status"]).expect("runners parses");
+    match cli.command {
+        Commands::Runners(RunnersCommands::Status) => {}
+        other => panic!("unexpected parse: {other:?}"),
     }
 }
 
@@ -905,6 +957,29 @@ fn dispatch_onboard_without_dry_run_is_not_wired_exit_5() {
     );
     assert!(out.is_empty(), "no stdout on error, got {out:?}");
     assert!(err.contains("not yet wired"), "stderr was {err:?}");
+}
+
+#[test]
+fn dispatch_control_plane_commands_require_live_api_url() {
+    let client = InMemoryClient::new();
+    for argv in [
+        vec!["jeryu", "status"],
+        vec!["jeryu", "priorities"],
+        vec!["jeryu", "repo-graph", "clusters"],
+        vec!["jeryu", "artifacts", "latest"],
+        vec!["jeryu", "runners", "status"],
+    ] {
+        let (code, out, err) = run_cli(&client, &argv);
+        assert_eq!(code, 5, "argv {argv:?} should fail closed without API URL");
+        assert!(
+            out.is_empty(),
+            "no stdout on error for {argv:?}, got {out:?}"
+        );
+        assert!(
+            err.contains("--api-url") || err.contains("JERYU_API_URL"),
+            "stderr for {argv:?} was {err:?}"
+        );
+    }
 }
 
 #[test]

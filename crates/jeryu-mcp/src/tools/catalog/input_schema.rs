@@ -342,6 +342,27 @@ pub(super) fn tool_input_schema(action_id: &str) -> Option<Value> {
                 ("ignored_by", string_schema()),
             ],
         ),
+        "control_plane.status" => object_schema(&[], &[]),
+        "control_plane.priorities" => object_schema(&[], &[("limit", integer_schema())]),
+        "repo_graph.clusters" => object_schema(
+            &[],
+            &[
+                ("cluster_kind", string_schema()),
+                ("limit", integer_schema()),
+            ],
+        ),
+        "repo_graph.query" => object_schema(
+            &[],
+            &[
+                ("repo", string_schema()),
+                ("cluster_kind", string_schema()),
+                ("query", string_schema()),
+                ("limit", integer_schema()),
+            ],
+        ),
+        "remote.status" => object_schema(&[], &[("remote", string_schema())]),
+        "artifacts.latest" => object_schema(&[], &[("repo", string_schema())]),
+        "runner_fabric.status" => object_schema(&[], &[]),
         _ => return None,
     };
     Some(schema)

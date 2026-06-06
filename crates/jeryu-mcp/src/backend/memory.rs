@@ -450,6 +450,38 @@ impl ToolBackend for MemoryBackend {
                     "ignored_at": "0",
                 }),
             ),
+            "control_plane.status" => {
+                ToolResponse::ok("control-plane status", sample_control_plane_snapshot())
+            }
+            "control_plane.priorities" => ToolResponse::ok(
+                "control-plane priorities",
+                serde_json::json!({
+                    "priorities": sample_control_plane_snapshot()["priorities"].clone()
+                }),
+            ),
+            "repo_graph.clusters" => ToolResponse::ok(
+                "repo graph clusters",
+                serde_json::json!({
+                    "schemaVersion": "jeryu.repo_graph/v1",
+                    "clusters": sample_control_plane_snapshot()["repoGraph"]["clusters"].clone()
+                }),
+            ),
+            "repo_graph.query" => ToolResponse::ok(
+                "repo graph",
+                sample_control_plane_snapshot()["repoGraph"].clone(),
+            ),
+            "remote.status" => ToolResponse::ok(
+                "remote status",
+                sample_control_plane_snapshot()["mirror"].clone(),
+            ),
+            "artifacts.latest" => ToolResponse::ok(
+                "latest artifacts",
+                sample_control_plane_snapshot()["artifacts"].clone(),
+            ),
+            "runner_fabric.status" => ToolResponse::ok(
+                "runner fabric status",
+                sample_control_plane_snapshot()["runners"].clone(),
+            ),
             other => ToolResponse::error(format!("unknown tool: {other}")),
         };
         Ok(resp)
@@ -543,5 +575,156 @@ fn sample_tool_build_cluster() -> Value {
                 "normalized_token_count": 48
             }
         ]
+    })
+}
+
+fn sample_control_plane_snapshot() -> Value {
+    serde_json::json!({
+        "schemaVersion": "jeryu.control_plane/v1",
+        "generatedAt": "1970-01-01T00:00:00Z",
+        "localAuthority": {
+            "sourceOfTruth": "local_jeryu",
+            "state": "fresh",
+            "docsUrl": "docs/architecture.md"
+        },
+        "summary": {
+            "repoCount": 0,
+            "openPrCount": 0,
+            "draftPrCount": 0,
+            "queuedCheckCount": 0,
+            "runningCheckCount": 0,
+            "failingCheckCount": 0,
+            "missingCheckPrCount": 0,
+            "priorityCount": 1,
+            "criticalPriorityCount": 0,
+            "highPriorityCount": 0,
+            "mirrorState": "missing",
+            "artifactState": "missing",
+            "runnerState": "fresh"
+        },
+        "repos": [],
+        "pullRequests": [],
+        "checkRuns": [],
+        "workflows": [],
+        "releases": {
+            "state": "missing",
+            "latestRelease": null,
+            "releaseCount": 0,
+            "reason": "memory backend has no durable releases",
+            "docsUrl": "docs/release.md"
+        },
+        "artifacts": {
+            "schemaVersion": "jeryu.artifacts.latest/v1",
+            "state": "missing",
+            "latestBuild": {
+                "state": "missing",
+                "artifactCount": 0,
+                "reason": "memory backend has no artifacts",
+                "sourceLinks": []
+            },
+            "latestRelease": {
+                "state": "missing",
+                "artifactCount": 0,
+                "reason": "memory backend has no release artifacts",
+                "sourceLinks": []
+            },
+            "mirrorArtifacts": {
+                "state": "missing",
+                "artifactCount": 0,
+                "reason": "memory backend has no mirror artifacts",
+                "sourceLinks": []
+            },
+            "docsUrl": "docs/release.md#release-receipt",
+            "absenceIsSuccess": false
+        },
+        "runners": {
+            "schemaVersion": "jeryu.runner_fabric/v1",
+            "local": {
+                "state": "fresh",
+                "nodes": 4,
+                "onlineRunners": 4,
+                "offlineRunners": 0,
+                "busyRunners": 0,
+                "idleRunners": 40,
+                "totalSlots": 40,
+                "activeSlots": 40,
+                "utilization": 0.0
+            },
+            "mirror": {
+                "name": "github_actions_runners",
+                "state": "missing",
+                "reason": "mirror adapter unavailable",
+                "docsUrl": "docs/agent-native-standard.md"
+            }
+        },
+        "workcells": { "items": [], "summary": null },
+        "agentRuns": [],
+        "codegraph": {
+            "state": "missing",
+            "indexedSymbols": 0,
+            "indexedReferences": 0,
+            "crateEdges": 0,
+            "indexedFiles": 0,
+            "latestIndexRun": null,
+            "reason": "memory backend has no codegraph index"
+        },
+        "toolBuild": {
+            "state": "missing",
+            "clusterCount": 0,
+            "ignoredCount": 0,
+            "topClusters": []
+        },
+        "mcp": {
+            "state": "fresh",
+            "toolCount": 42,
+            "liveBackedTools": [],
+            "degradedTools": []
+        },
+        "mirror": {
+            "schemaVersion": "jeryu.remote.status/v1",
+            "state": "missing",
+            "mirrors": [{
+                "name": "github",
+                "state": "missing",
+                "reason": "mirror adapter unavailable",
+                "docsUrl": "docs/agent-native-standard.md"
+            }],
+            "divergence": {
+                "state": "unknown",
+                "reason": "mirror state unavailable",
+                "localDefaultBranches": [],
+                "mirrorDefaultBranches": []
+            }
+        },
+        "priorities": [{
+            "id": "memory-mirror-missing",
+            "title": "Mirror evidence unavailable",
+            "severity": "medium",
+            "score": 600,
+            "confidence": 1.0,
+            "owner": "forge-api",
+            "proofLane": "cargo test -p jeryu-mcp --jobs 40",
+            "recommendedAction": "configure a read-only mirror adapter before relying on mirror state",
+            "evidence": ["missing mirror evidence is explicit"],
+            "sourceLinks": [],
+            "state": "missing",
+            "rulesVersion": "rules-v1"
+        }],
+        "repoGraph": {
+            "schemaVersion": "jeryu.repo_graph/v1",
+            "generatedAt": "1970-01-01T00:00:00Z",
+            "nodes": [],
+            "edges": [],
+            "clusters": [{
+                "id": "cluster:stale-mirror",
+                "label": "Mirror evidence",
+                "kind": "stale_mirror",
+                "state": "missing",
+                "severity": "medium",
+                "nodeIds": [],
+                "insights": ["mirror state unavailable"]
+            }],
+            "insights": []
+        }
     })
 }

@@ -126,6 +126,16 @@ fn manifest_includes_capability_tools() {
             .iter()
             .any(|tool| tool["name"] == "jeryu.codegraph.tool_build.clusters")
     );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.control_plane.status")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.runner_fabric.status")
+    );
 }
 
 #[test]
@@ -136,7 +146,7 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 35-tool catalog (replaces the source's action_registry guardrail).
+    // The 42-tool catalog (replaces the source's action_registry guardrail).
     let expected = [
         "fetch_capsule",
         "get_system_snapshot",
@@ -173,11 +183,18 @@ fn manifest_covers_all_catalog_actions() {
         "codegraph.tool_build.status",
         "codegraph.tool_build.clusters",
         "codegraph.tool_build.feedback",
+        "control_plane.status",
+        "control_plane.priorities",
+        "repo_graph.clusters",
+        "repo_graph.query",
+        "remote.status",
+        "artifacts.latest",
+        "runner_fabric.status",
     ];
     assert_eq!(
         names.len(),
-        35,
-        "expected exactly 35 tools, got {}",
+        42,
+        "expected exactly 42 tools, got {}",
         names.len()
     );
     for id in expected {
@@ -255,7 +272,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 35);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 42);
 }
 
 #[tokio::test]
@@ -413,6 +430,30 @@ async fn stdio_tools_call_round_trip() {
     let structured = &feedback[0]["result"]["structuredContent"];
     assert_eq!(structured["success"], true);
     assert_eq!(structured["data"]["reason"], "fixture boilerplate");
+
+    let control_plane = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.control_plane.status",
+                    "arguments": {}
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(control_plane.len(), 1);
+    let structured = &control_plane[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(
+        structured["data"]["schemaVersion"],
+        "jeryu.control_plane/v1"
+    );
+    assert_eq!(structured["data"]["artifacts"]["absenceIsSuccess"], false);
 }
 
 #[tokio::test]

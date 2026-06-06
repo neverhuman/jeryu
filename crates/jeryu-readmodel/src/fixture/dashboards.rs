@@ -10,7 +10,9 @@ use crate::dashboards::agents::{AgentItem, AgentStatus, AgentsSnapshot, AgentsSu
 use crate::dashboards::approvals::{
     ApprovalItem, ApprovalsSnapshot, ApprovalsSummary, CheckStatus,
 };
-use crate::dashboards::codegraph::{CodegraphDashboard, CodegraphEvidenceItem, CodegraphSummary};
+use crate::dashboards::codegraph::{
+    CodegraphDashboard, CodegraphEvidenceItem, CodegraphSummary, ToolBuildOpportunityItem,
+};
 use crate::dashboards::evidence::{EvidenceItem, EvidenceSnapshot, EvidenceSummary, GateDecision};
 use crate::dashboards::release::{
     PromotionStage, ReleaseGate, ReleaseItem, ReleaseSnapshot, ReleaseSummary, SbomStatus,
@@ -187,9 +189,16 @@ pub fn sample_codegraph() -> CodegraphDashboard {
         "cargo test -p jeryu-api --features web agent_runs".into(),
         "bash ops/ci/codegraph-oracle.sh".into(),
     ];
+    let mut opportunity = ToolBuildOpportunityItem::new("toolbuild-agent-runner", "core/api");
+    opportunity.score = 91;
+    opportunity.occurrences = 5;
+    opportunity.file_count = 3;
+    opportunity.language = "rust".into();
+    opportunity.suggested_proof_lane = "bash ops/ci/codegraph-tool-build.sh".into();
 
     CodegraphDashboard {
         items: vec![query],
+        tool_build_opportunities: vec![opportunity],
         freshness: Some(SourceFreshness::live(
             SourceKind::InspectionHttp,
             at,

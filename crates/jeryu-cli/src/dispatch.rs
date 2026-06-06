@@ -30,6 +30,19 @@ pub fn dispatch(
         Commands::Proof(cmd) => commands::proof::run(client, json, cmd, out),
         Commands::Release { version } => commands::release::run(client, json, &version, out),
         Commands::Cache(cmd) => commands::cache::run(client, json, cmd, out),
+        Commands::Status => commands::control_plane::run_status(json, api_url.as_deref(), out),
+        Commands::Priorities { limit } => {
+            commands::control_plane::run_priorities(json, api_url.as_deref(), limit, out)
+        }
+        Commands::RepoGraph(cmd) => {
+            commands::control_plane::run_repo_graph(json, api_url.as_deref(), cmd, out)
+        }
+        Commands::Artifacts(cmd) => {
+            commands::control_plane::run_artifacts(json, api_url.as_deref(), cmd, out)
+        }
+        Commands::Runners(cmd) => {
+            commands::control_plane::run_runners(json, api_url.as_deref(), cmd, out)
+        }
         Commands::GhSetup(args) => commands::gh_setup::run(json, args, out),
         Commands::Autonomy(AutonomyCommands::Init(args)) => {
             commands::autonomy::run(json, args, out)

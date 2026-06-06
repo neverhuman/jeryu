@@ -3,10 +3,12 @@
 mod agent_runs;
 mod ci_evidence;
 mod codegraph;
+mod control_plane;
 mod ecosystem;
 mod markdown;
 mod mcp_backend;
 mod permissions;
+mod pulls;
 mod repositories;
 mod surface;
 mod tool_build;
@@ -261,7 +263,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/.jeryu/capabilities", get(capabilities))
         .route("/api/v1/bootstrap", get(bootstrap))
         .route("/api/v1/bootstrap.tui", get(bootstrap_tui))
-        .route("/api/v1/agent-runs", post(agent_runs::start))
+        .route(
+            "/api/v1/agent-runs",
+            get(agent_runs::list).post(agent_runs::start),
+        )
         .route("/api/v1/agent-runs/:id", get(agent_runs::status))
         .route("/api/v1/agent-runs/:id/events", get(agent_runs::events))
         .route("/api/v1/agent-runs/:id/control", post(agent_runs::control))
@@ -293,6 +298,27 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route("/api/v1/repos", get(repos))
         .route("/api/v1/repos/:id", get(repo_detail))
+        .route("/api/v1/repos/:id/pulls", get(pulls::list))
+        .route("/api/v1/repos/:id/pulls/:number", get(pulls::detail))
+        .route("/api/v1/repos/:id/pulls/:number/diff", get(pulls::diff))
+        .route("/api/v1/repos/:id/pulls/:number/checks", get(pulls::checks))
+        .route(
+            "/api/v1/repos/:id/pulls/:number/threads",
+            get(pulls::threads),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/reviews",
+            post(pulls::review),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/comments",
+            post(pulls::comment),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/approve",
+            post(pulls::approve),
+        )
+        .route("/api/v1/repos/:id/pulls/:number/merge", post(pulls::merge))
         .route("/api/v1/repos/:id/refs", get(repo_refs))
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))
@@ -310,6 +336,20 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             "/api/v1/codegraph/tool-build/clusters/:id/feedback",
             post(tool_build::feedback),
         )
+        .route("/api/v1/control-plane/status", get(control_plane::status))
+        .route(
+            "/api/v1/control-plane/priorities",
+            get(control_plane::priorities),
+        )
+        .route(
+            "/api/v1/control-plane/repo-graph",
+            get(control_plane::repo_graph),
+        )
+        .route(
+            "/api/v1/control-plane/artifacts/latest",
+            get(control_plane::artifacts_latest),
+        )
+        .route("/api/v1/control-plane/runners", get(control_plane::runners))
         .route(
             "/api/v1/repos/:id/readme",
             get(repo_readme).put(repo_readme_update),

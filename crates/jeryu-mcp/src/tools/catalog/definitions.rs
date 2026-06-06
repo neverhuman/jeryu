@@ -216,6 +216,48 @@ pub(crate) fn tool_definition(action_id: &str) -> Option<ToolDefinition> {
             tool_annotations(false, false, true, true),
             ToolKind::CodegraphToolBuildFeedback,
         ),
+        "control_plane.status" => (
+            "Control-plane status",
+            "Return the full live Jeryu control-plane intelligence snapshot.",
+            tool_annotations(true, false, true, false),
+            ToolKind::ControlPlaneStatus,
+        ),
+        "control_plane.priorities" => (
+            "Control-plane priorities",
+            "Return deterministic rules-v1 priority insights with evidence.",
+            tool_annotations(true, false, true, false),
+            ToolKind::ControlPlanePriorities,
+        ),
+        "repo_graph.clusters" => (
+            "Repository graph clusters",
+            "Return plot-ready repository graph clusters and insights.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RepoGraphClusters,
+        ),
+        "repo_graph.query" => (
+            "Repository graph query",
+            "Query plot-ready repository graph nodes, edges, clusters, and insights.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RepoGraphQuery,
+        ),
+        "remote.status" => (
+            "Remote mirror status",
+            "Return optional read-only mirror state and explicit degradation evidence.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RemoteStatus,
+        ),
+        "artifacts.latest" => (
+            "Latest artifacts",
+            "Return latest build/release artifact evidence and explicit absence states.",
+            tool_annotations(true, false, true, false),
+            ToolKind::ArtifactsLatest,
+        ),
+        "runner_fabric.status" => (
+            "Runner fabric status",
+            "Return local runner fabric capacity plus optional mirror runner evidence.",
+            tool_annotations(true, false, true, false),
+            ToolKind::RunnerFabricStatus,
+        ),
         _ => return None,
     };
 

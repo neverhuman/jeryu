@@ -85,6 +85,12 @@ first push wins and rejected duplicate pushes leave the single release bump on
 - `bash ops/ci/codegraph-oracle.sh` when the codegraph schema, MCP catalog,
   oracle impact-pack contract, or `/api/v1/repos/{id}/codegraph/query` facade
   changes.
+- `cargo test -p jeryu-api --features web --jobs 40 control_plane`,
+  `cargo test -p jeryu-mcp --jobs 40`,
+  `cargo test -p jeryu-cli --jobs 40`, and
+  `npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test`
+  when the JMCP control-plane REST, MCP, CLI, or `/intelligence` web surface
+  changes.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API response contracts, `/api/v1/ecosystem`, or
   `/api/v1/ci/runs/{id}/evidence` change.
@@ -174,6 +180,9 @@ when `JERYU_CI_SOURCE_ROOTS` is set.
    Agent-run additions must include live PTY event/control evidence and typed
    denial evidence for stale, finished, or unsupported control paths.
    Codegraph oracle additions must include `bash ops/ci/codegraph-oracle.sh`.
+   JMCP control-plane additions must include route tests for explicit mirror
+   and artifact absence, MCP catalog evidence, CLI grammar evidence, and web
+   route smoke for `/intelligence`.
 4. Build only from a signed commit. `scripts/emit-release-receipt.sh` verifies
    the commit with `git verify-commit --raw <sha>` and writes the transcript to
    `signed-commit.txt`.

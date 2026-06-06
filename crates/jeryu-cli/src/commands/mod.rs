@@ -6,9 +6,11 @@
 //! touching the process stdout.
 
 pub mod agent;
+pub mod api;
 pub mod autonomy;
 pub mod cache;
 pub mod ci;
+pub mod control_plane;
 pub mod forge;
 pub mod gh_setup;
 pub mod onboard;

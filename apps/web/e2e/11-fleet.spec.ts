@@ -1,27 +1,20 @@
-// 11-fleet.spec.ts — /fleet operator dashboard smoke (Slice C-web).
+// 11-fleet.spec.ts — Fleet runner-network smoke (Slice C-web).
 //
-// The /fleet page renders the server-wide runner-pool fabric: per-pool cards
-// (utilization / slots / queued-running-failed jobs / online-stuck runners /
-// paused-saturated state), the scm/database/sandbox/cache/vault system-health
-// strip, and a derived bottleneck/health alert banner. It hydrates from two
-// sources that speak the same Rust read-model contract:
-//
-//   * first paint  — `WebBootstrap.tui.pool_activity` + `tui.system`
-//   * live deltas  — the WS event spine (`global.activity` / `system.health` /
-//                    `pool.{name}` frames)
-//
-// Playwright's `page.route` intercepts HTTP only, never raw WebSocket frames
-// (see 08-ws-reconnect.spec.ts), so the live-delta path is exercised by the
-// vitest render test (`src/pages/__tests__/FleetPage.test.tsx`), which drives a
-// mocked `Event` payload through the realtime store. This spec asserts the
-// deterministic first-paint surface: the page mounts and paints pool cards +
-// the health strip from a populated bootstrap snapshot, and a saturated pool
-// raises the alert banner.
+// The Fleet page now keeps the existing pool summary and adds a live
+// runner-network drilldown sourced from `/api/v1/control-plane/runners`.
+// This spec exercises the rendered node cards, active task preview, last TTY
+// line, and the rule that `local` only appears when the backend payload
+// actually includes it.
 
 import { expect, test, type Page } from '@playwright/test';
 
 import { AppShellPage } from './pages/AppShellPage';
-import { mockFleetBootstrap } from './fixtures/mocks';
+import {
+  mockBootstrap,
+  mockControlPlaneRunners,
+  mockFleetBootstrap,
+} from './fixtures/mocks';
+import type { RunnerFabricResponse } from '../src/api/types';
 
 test.describe.configure({ retries: 1 });
 
@@ -31,11 +24,112 @@ async function blockFleetWebSocket(page: Page): Promise<void> {
   );
 }
 
-test.describe('Fleet operator dashboard (Slice C-web)', () => {
-  test('renders pool cards + system-health strip from the bootstrap snapshot', async ({
+function runnerFabric(includeLocal: boolean): RunnerFabricResponse {
+  return {
+    schemaVersion: 'jeryu.runner_fabric/v1',
+    local: {
+      state: 'fresh',
+      nodes: includeLocal ? 3 : 2,
+      onlineRunners: includeLocal ? 2 : 1,
+      offlineRunners: 1,
+      busyRunners: includeLocal ? 2 : 1,
+      idleRunners: includeLocal ? 1 : 0,
+      totalSlots: includeLocal ? 32 : 30,
+      activeSlots: includeLocal ? 22 : 20,
+      utilization: includeLocal ? 0.091 : 0.05,
+      lastUpdated: '2026-06-05T00:05:00Z',
+      nodeDetails: [
+        {
+          runnerId: 'xbabe0',
+          source: 'runnerd',
+          state: 'active',
+          capacity: 10,
+          inFlight: 1,
+          labels: ['rust', 'dogfood'],
+          classes: ['native-rust-clean', 'native-rust-hot'],
+          activeTaskCount: 1,
+          lastUpdated: '2026-06-05T00:05:00Z',
+          activeTasks: [
+            {
+              taskId: 'ar-000001',
+              jobId: 'wc-0001',
+              agentRunId: 'ar-000001',
+              workcellId: 'wc-0001',
+              repo: 'jeryu/veox',
+              label: 'editbot',
+              program: '/workspace/repair.sh',
+              state: 'running',
+              startedAt: '2026-06-05T00:00:00Z',
+              updatedAt: '2026-06-05T00:05:00Z',
+              ttyPreview: {
+                state: 'fresh',
+                lines: ['$ repair.sh', 'running tests', 'publishing patch'],
+              },
+            },
+          ],
+        },
+        {
+          runnerId: 'xbabe1',
+          source: 'runnerd',
+          state: 'draining',
+          capacity: 10,
+          inFlight: 0,
+          labels: ['rust', 'dogfood'],
+          classes: ['native-rust-clean', 'native-rust-hot'],
+          activeTaskCount: 0,
+          lastUpdated: '2026-06-05T00:04:00Z',
+          activeTasks: [],
+        },
+        ...(includeLocal
+          ? [
+              {
+                runnerId: 'local',
+                source: 'local',
+                state: 'active',
+                capacity: 2,
+                inFlight: 1,
+                labels: ['local'],
+                classes: ['native-rust-hot'],
+                activeTaskCount: 1,
+                lastUpdated: '2026-06-05T00:03:00Z',
+                activeTasks: [
+                  {
+                    taskId: 'ar-local-1',
+                    jobId: 'wc-local',
+                    agentRunId: 'ar-local-1',
+                    workcellId: 'wc-local',
+                    repo: null,
+                    label: 'local-repair',
+                    program: '/workspace/local.sh',
+                    state: 'running',
+                    startedAt: '2026-06-05T00:01:00Z',
+                    updatedAt: '2026-06-05T00:03:00Z',
+                    ttyPreview: {
+                      state: 'missing',
+                      lines: [],
+                    },
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
+    mirror: {
+      name: 'github_actions_runners',
+      state: 'missing',
+      reason: 'optional GitHub mirror runner adapter is not configured',
+      docsUrl: 'docs/agent-native-standard.md',
+    },
+  };
+}
+
+test.describe('Fleet runner-network dashboard (Slice C-web)', () => {
+  test('renders node cards, active task preview, and local only when present', async ({
     page,
   }) => {
     await blockFleetWebSocket(page);
+    await mockBootstrap(page);
     await mockFleetBootstrap(page, [
       {
         pool: 'trusted',
@@ -44,50 +138,59 @@ test.describe('Fleet operator dashboard (Slice C-web)', () => {
         active_slots: 4,
         online_runners: 4,
       },
-      // A saturated pool (queued work, no idle slot) must drive the banner.
-      {
-        pool: 'isolated',
-        running_jobs: 2,
-        active_slots: 2,
-        queued_jobs: 5,
-        online_runners: 2,
-      },
     ]);
+    await mockControlPlaneRunners(page, runnerFabric(true));
 
     const shell = new AppShellPage(page);
     await shell.goto('/fleet');
     await shell.assertShellLoaded();
 
-    // The page mounts.
     await expect(page.getByTestId('fleet-page')).toBeVisible({ timeout: 10_000 });
-
-    // Both pool cards paint.
-    await expect(page.getByTestId('fleet-pool-trusted')).toBeVisible();
-    await expect(page.getByTestId('fleet-pool-isolated')).toBeVisible();
-
-    // The saturated pool is flagged on first paint; the live-delta banner text
-    // is covered by the websocket reconnect and pure projection tests.
-    await expect(page.getByTestId('fleet-pool-isolated')).toHaveClass(
-      /is-saturated/
+    await expect(page.getByTestId('fleet-network')).toBeVisible();
+    await expect(page.getByTestId('fleet-node-board')).toBeVisible();
+    await expect(page.getByTestId('fleet-node-box-xbabe0')).toBeVisible();
+    await expect(page.getByTestId('fleet-node-xbabe0')).toContainText(
+      /xbabe0/
     );
-    const banner = page.getByTestId('fleet-banner');
-    await expect(banner).toBeVisible();
+    await expect(page.getByTestId('fleet-node-xbabe1')).toContainText(
+      /draining/
+    );
+    await expect(page.getByTestId('fleet-node-local')).toContainText(/local/);
+    await expect(page.getByTestId('fleet-task-ar-000001')).toContainText(
+      'publishing patch'
+    );
+    await expect(page.getByTestId('fleet-task-ar-local-1')).toContainText(
+      /TTY preview unavailable/i
+    );
 
-    // The system-health strip renders the five provider-neutral components.
-    await expect(page.getByTestId('fleet-health-strip')).toBeVisible();
-    for (const name of ['scm', 'database', 'sandbox', 'cache', 'vault']) {
-      await expect(page.getByTestId(`fleet-health-${name}`)).toBeVisible();
-    }
+    await page.screenshot({
+      path: 'playwright-report/fleet-runner-network.png',
+      fullPage: true,
+    });
   });
 
-  test('Fleet nav link routes to the page', async ({ page }) => {
-    await mockFleetBootstrap(page, [{ pool: 'trusted', active_slots: 2 }]);
+  test('does not invent a local node when the backend omits it', async ({
+    page,
+  }) => {
+    await blockFleetWebSocket(page);
+    await mockBootstrap(page);
+    await mockFleetBootstrap(page, [
+      {
+        pool: 'trusted',
+        tags: ['rust-hot'],
+        running_jobs: 1,
+        active_slots: 4,
+        online_runners: 4,
+      },
+    ]);
+    await mockControlPlaneRunners(page, runnerFabric(false));
 
     const shell = new AppShellPage(page);
-    await shell.goto('/');
+    await shell.goto('/fleet');
     await shell.assertShellLoaded();
 
-    await page.getByRole('link', { name: 'Fleet' }).click();
-    await expect(page).toHaveURL(/\/fleet$/);
+    await expect(page.getByTestId('fleet-node-xbabe0')).toBeVisible();
+    await expect(page.getByTestId('fleet-node-xbabe1')).toBeVisible();
+    await expect(page.getByTestId('fleet-node-local')).toHaveCount(0);
   });
 });

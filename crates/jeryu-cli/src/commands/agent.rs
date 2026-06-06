@@ -1,7 +1,6 @@
 //! Agent-edit command adapter.
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::io::Write;
 
 use crate::cli::{
     AgentAuthCommands, AgentCommands, AgentControlArgs, AgentExportPrArgs, AgentRunArgs,
@@ -11,6 +10,7 @@ use crate::client::{
     AgentControl, AgentExportPrRequest, AgentRunRequest, AgentTool, ClientError, ClientResult,
     ForgeClient,
 };
+use crate::commands::api::ApiClient;
 use crate::commands::render;
 use serde_json::{Value, json};
 
@@ -27,12 +27,8 @@ pub fn run(
         AgentCommands::Run(args) => run_agent(client, json, api_url, args, out),
         AgentCommands::Status { run_id } => {
             if let Some(api_url) = api_url {
-                let value = http_json(
-                    api_url,
-                    "GET",
-                    &format!("/api/v1/agent-runs/{run_id}"),
-                    None,
-                )?;
+                let value =
+                    ApiClient::new(api_url)?.get(&format!("/api/v1/agent-runs/{run_id}"))?;
                 return render(
                     out,
                     json,
@@ -116,7 +112,7 @@ fn run_agent(
         if let Some(repo_root) = args.repo_root {
             body["repo_root"] = Value::String(repo_root.to_string_lossy().to_string());
         }
-        let value = http_json(api_url, "POST", "/api/v1/agent-runs", Some(body))?;
+        let value = ApiClient::new(api_url)?.post("/api/v1/agent-runs", body)?;
         let run_id = value
             .get("agent_run_id")
             .and_then(Value::as_str)
@@ -164,11 +160,9 @@ fn run_control(
             AgentControl::Interrupt => json!({"kind": "interrupt"}),
             AgentControl::Terminate => json!({"kind": "terminate"}),
         };
-        let value = http_json(
-            api_url,
-            "POST",
+        let value = ApiClient::new(api_url)?.post(
             &format!("/api/v1/agent-runs/{}/control", args.run_id),
-            Some(json!({ "command": command })),
+            json!({ "command": command }),
         )?;
         return render(
             out,
@@ -195,12 +189,9 @@ fn run_follow(
             "agent follow requires --api-url or JERYU_API_URL".to_string(),
         ));
     };
-    let value = http_json(
-        api_url,
-        "GET",
-        &format!("/api/v1/agent-runs/{run_id}/events?after_seq={after_seq}&limit={limit}"),
-        None,
-    )?;
+    let value = ApiClient::new(api_url)?.get(&format!(
+        "/api/v1/agent-runs/{run_id}/events?after_seq={after_seq}&limit={limit}"
+    ))?;
     render(
         out,
         json_output,
@@ -236,11 +227,9 @@ fn run_export_pr(
         if let Some(target_branch) = args.target_branch {
             body["target_branch"] = Value::String(target_branch);
         }
-        let value = http_json(
-            api_url,
-            "POST",
+        let value = ApiClient::new(api_url)?.post(
             &format!("/api/v1/agent-runs/{}/export_pr", args.run_id),
-            Some(body),
+            body,
         )?;
         return render(
             out,
@@ -259,102 +248,6 @@ fn run_export_pr(
         exported.agent_run_id, exported.url
     );
     render(out, json, &exported, &human)
-}
-
-fn http_json(api_url: &str, method: &str, path: &str, body: Option<Value>) -> ClientResult<Value> {
-    let endpoint = Endpoint::parse(api_url)?;
-    let body_text = body.map(|value| value.to_string()).unwrap_or_default();
-    let mut stream = TcpStream::connect((endpoint.host.as_str(), endpoint.port))
-        .map_err(|err| ClientError::NotWired(format!("connect {}: {err}", endpoint.origin())))?;
-    let full_path = format!("{}{}", endpoint.base_path, path);
-    let request = if body_text.is_empty() {
-        format!(
-            "{method} {full_path} HTTP/1.1\r\nHost: {}\r\nAccept: application/json\r\nConnection: close\r\n\r\n",
-            endpoint.host_header()
-        )
-    } else {
-        format!(
-            "{method} {full_path} HTTP/1.1\r\nHost: {}\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            endpoint.host_header(),
-            body_text.len(),
-            body_text
-        )
-    };
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|err| ClientError::NotWired(format!("write request: {err}")))?;
-    let mut response = String::new();
-    stream
-        .read_to_string(&mut response)
-        .map_err(|err| ClientError::NotWired(format!("read response: {err}")))?;
-    let (head, body) = response
-        .split_once("\r\n\r\n")
-        .ok_or_else(|| ClientError::Invalid("malformed HTTP response".to_string()))?;
-    let status = head
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))
-        .and_then(|code| code.parse::<u16>().ok())
-        .unwrap_or(0);
-    let value = if body.trim().is_empty() {
-        Value::Null
-    } else {
-        serde_json::from_str(body)
-            .map_err(|err| ClientError::Invalid(format!("parse JSON response: {err}")))?
-    };
-    if !(200..300).contains(&status) {
-        return Err(ClientError::Conflict(format!(
-            "HTTP {status}: {}",
-            value
-                .get("message")
-                .and_then(Value::as_str)
-                .unwrap_or(body.trim())
-        )));
-    }
-    Ok(value)
-}
-
-struct Endpoint {
-    host: String,
-    port: u16,
-    base_path: String,
-}
-
-impl Endpoint {
-    fn parse(raw: &str) -> ClientResult<Self> {
-        let rest = raw.strip_prefix("http://").ok_or_else(|| {
-            ClientError::Invalid("only http:// API URLs are supported".to_string())
-        })?;
-        let (authority, base_path) = rest.split_once('/').unwrap_or((rest, ""));
-        let (host, port) = authority
-            .rsplit_once(':')
-            .and_then(|(host, port)| port.parse::<u16>().ok().map(|port| (host, port)))
-            .unwrap_or((authority, 80));
-        if host.is_empty() {
-            return Err(ClientError::Invalid("API URL host is empty".to_string()));
-        }
-        Ok(Self {
-            host: host.to_string(),
-            port,
-            base_path: if base_path.is_empty() {
-                String::new()
-            } else {
-                format!("/{base_path}")
-            },
-        })
-    }
-
-    fn host_header(&self) -> String {
-        if self.port == 80 {
-            self.host.clone()
-        } else {
-            format!("{}:{}", self.host, self.port)
-        }
-    }
-
-    fn origin(&self) -> String {
-        format!("http://{}", self.host_header())
-    }
 }
 
 fn map_tool(value: AgentToolArg) -> AgentTool {

@@ -186,6 +186,23 @@ fn evidence_lens_renders_proof_receipts_from_read_model() {
         ink.contains("codegraph-oracle"),
         "proof lane evidence not projected"
     );
+    assert!(
+        ink.contains("Tool-building opportunities"),
+        "tool-building opportunity section missing"
+    );
+    assert!(
+        ink.contains("toolbuild-agent-runner"),
+        "tool-building cluster id not projected"
+    );
+    assert!(ink.contains("core/api"), "tool-building repo not projected");
+    assert!(
+        ink.contains("codegraph-tool-build"),
+        "tool-building proof lane not projected"
+    );
+    assert!(
+        !ink.contains("not yet ported"),
+        "placeholder leaked into evidence lens"
+    );
 }
 
 // ── Agents lens ────────────────────────────────────────────────────────────

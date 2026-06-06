@@ -194,6 +194,8 @@ pub struct FleetSubmission {
 pub struct FleetNodeHealth {
     /// Node id.
     pub runner_id: String,
+    /// Source of the node record.
+    pub source: String,
     /// Node lifecycle state.
     pub state: String,
     /// Current epoch.
@@ -202,6 +204,10 @@ pub struct FleetNodeHealth {
     pub capacity: u32,
     /// Current in-flight leases.
     pub in_flight: u32,
+    /// Labels carried by the node.
+    pub labels: Vec<String>,
+    /// Runner classes supported by the node.
+    pub classes: Vec<String>,
 }
 
 /// Read-only health snapshot of a fleet, for the TUI read-model. A node counts
@@ -384,10 +390,17 @@ impl RunnerFleet {
             .values()
             .map(|node| FleetNodeHealth {
                 runner_id: node.node_id.clone(),
+                source: "runnerd".to_string(),
                 state: node.state.as_str().to_string(),
                 epoch: node.epoch,
                 capacity: node.capacity,
                 in_flight: node.in_flight,
+                labels: node.tags.clone(),
+                classes: node
+                    .supported_classes
+                    .iter()
+                    .map(|class| class.as_str().to_string())
+                    .collect(),
             })
             .collect()
     }

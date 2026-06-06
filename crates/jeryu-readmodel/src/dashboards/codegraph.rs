@@ -10,6 +10,8 @@ use crate::freshness::SourceFreshness;
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct CodegraphDashboard {
     pub items: Vec<CodegraphEvidenceItem>,
+    #[serde(default)]
+    pub tool_build_opportunities: Vec<ToolBuildOpportunityItem>,
     pub freshness: Option<SourceFreshness>,
     pub summary: Option<CodegraphSummary>,
 }
@@ -68,6 +70,37 @@ pub struct CodegraphSummary {
     pub miss_count: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToolBuildOpportunityItem {
+    pub cluster_id: String,
+    pub repo_id: String,
+    pub score: u64,
+    pub occurrences: usize,
+    pub file_count: usize,
+    pub language: String,
+    pub suggested_proof_lane: String,
+}
+
+impl ToolBuildOpportunityItem {
+    pub fn new(cluster_id: impl Into<String>, repo_id: impl Into<String>) -> Self {
+        Self {
+            cluster_id: cluster_id.into(),
+            repo_id: repo_id.into(),
+            score: 0,
+            occurrences: 0,
+            file_count: 0,
+            language: String::new(),
+            suggested_proof_lane: String::new(),
+        }
+    }
+}
+
+impl Default for ToolBuildOpportunityItem {
+    fn default() -> Self {
+        Self::new("unknown", "")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,9 +120,28 @@ mod tests {
         miss.miss = Some("symbol_not_found".into());
         let d = CodegraphDashboard {
             items: vec![hit, miss],
+            tool_build_opportunities: Vec::new(),
             freshness: None,
             summary: None,
         };
         assert_eq!(d.misses(), 1);
+    }
+
+    #[test]
+    fn dashboard_keeps_tool_build_opportunities_explicit() {
+        let mut opportunity = ToolBuildOpportunityItem::new("toolbuild-1", "core/api");
+        opportunity.score = 91;
+        opportunity.occurrences = 5;
+        opportunity.file_count = 3;
+        opportunity.language = "rust".into();
+        opportunity.suggested_proof_lane = "bash ops/ci/codegraph-tool-build.sh".into();
+        let d = CodegraphDashboard {
+            items: Vec::new(),
+            tool_build_opportunities: vec![opportunity],
+            freshness: None,
+            summary: None,
+        };
+        assert_eq!(d.tool_build_opportunities[0].cluster_id, "toolbuild-1");
+        assert_eq!(d.tool_build_opportunities[0].score, 91);
     }
 }

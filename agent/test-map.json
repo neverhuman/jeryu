@@ -136,6 +136,11 @@
       "purpose": "verify GitHub-compatible REST, guided GraphQL, and local web API behavior",
       "lane": "api"
     },
+    "crates/jeryu-api/src/web/control_plane.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 control_plane",
+      "purpose": "verify JMCP control-plane aggregation, priorities, graph clusters, explicit mirror/artifact absence, runner status, and route contracts",
+      "lane": "api"
+    },
     "crates/jeryu-agent-auth/": {
       "command": "cargo test -p jeryu-agent-auth --jobs 40",
       "purpose": "verify portable agent auth import, doctor, per-run materialization, and typed denial contracts",
@@ -406,6 +411,21 @@
       "purpose": "verify the jeryu CLI command surface and snapshots",
       "lane": "cli"
     },
+    "crates/jeryu-cli/src/cli/control_plane.rs": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify JMCP control-plane CLI grammar and fail-closed live API URL dispatch",
+      "lane": "cli"
+    },
+    "crates/jeryu-cli/src/commands/api.rs": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify the shared live API HTTP client used by CLI commands",
+      "lane": "cli"
+    },
+    "crates/jeryu-cli/src/commands/control_plane.rs": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify API-backed JMCP status, priorities, repo-graph, artifacts, and runner status CLI dispatch",
+      "lane": "cli"
+    },
     "crates/jeryu-core/src/overlap.rs": {
       "command": "cargo test -p jeryu-core --lib overlap --jobs 40",
       "purpose": "verify PR-overlap detection and route-to-existing reuse decisions",
@@ -446,10 +466,60 @@
       "purpose": "verify the web /fleet page renders live pool/health state with layered UX QA",
       "lane": "ux-qa"
     },
+    "apps/web/src/hooks/useControlPlane.ts": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the JMCP control-plane web hook contract and render consumers",
+      "lane": "web"
+    },
+    "apps/web/src/hooks/useControlPlaneRunners.ts": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the runner-fabric web hook contract and render consumers",
+      "lane": "web"
+    },
+    "apps/web/src/pages/IntelligencePage.tsx": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the Intelligence page renders priorities, graph clusters, runner health, and explicit absence evidence",
+      "lane": "web"
+    },
+    "apps/web/src/pages/IntelligencePage.css": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the Intelligence page layout remains typechecked and covered by render tests",
+      "lane": "web"
+    },
+    "apps/web/src/pages/__tests__/IntelligencePage.test.tsx": {
+      "command": "npm --workspace @jeryu/web run test",
+      "purpose": "verify the Intelligence page render smoke covers priorities, graph clusters, and absence states",
+      "lane": "web"
+    },
+    "apps/web/e2e/12-intelligence.spec.ts": {
+      "command": "npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 12-intelligence.spec.ts",
+      "purpose": "verify the /intelligence route and nav smoke against mocked control-plane evidence",
+      "lane": "web"
+    },
     "apps/web/src/pages/FleetPage.stories.tsx": {
       "command": "npm --workspace @jeryu/web run ux-qa",
       "purpose": "verify the fleet page Storybook states provide rendered UX proof for the web surface",
       "lane": "ux-qa"
+    },
+    "apps/web/src/pages/runnerNetworkModel.ts": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the runner-network selector contract and render model",
+      "lane": "web"
+    },
+    "apps/web/src/pages/__tests__/runnerNetworkModel.test.tsx": {
+      "command": "npm --workspace @jeryu/web run test",
+      "purpose": "verify the runner-network selector covers empty, offline, active, and tty-preview cases",
+      "lane": "web"
+    },
+    "apps/web/e2e/11-fleet.spec.ts": {
+      "command": "npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 11-fleet.spec.ts",
+      "purpose": "verify the Fleet runner-network render path and local-node gating against mocked evidence",
+      "lane": "web"
+    },
+    "apps/web/e2e/13-left-nav.spec.ts": {
+      "command": "npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 13-left-nav.spec.ts",
+      "purpose": "verify every left-nav destination resolves without NotFound",
+      "lane": "web"
     }
   }
 }

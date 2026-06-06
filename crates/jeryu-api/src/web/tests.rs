@@ -12,7 +12,10 @@ use jeryu_codegraph::{
     scan_tool_build_clusters,
 };
 use jeryu_core::CheckConclusion;
-use jeryu_core::{CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest};
+use jeryu_core::{
+    CreateCheckRunRequest, CreatePullRequestRequest, CreateRepositoryRequest,
+    SetBranchProtectionRequest,
+};
 use jeryu_readmodel::contracts::ServerWsMessage;
 use jeryu_readmodel::{HealthLevel, sample_read_model};
 use std::os::unix::fs::PermissionsExt;
@@ -482,6 +485,598 @@ pub fn alpha(input: &str) -> Result<String, String> {
             .iter()
             .all(|cluster| cluster["cluster_id"] != cluster_id)
     );
+}
+
+#[tokio::test]
+async fn pulls_routes_return_live_pr_detail_diff_checks_and_threads() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let pr = core
+        .create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "feature".to_string(),
+                head: "feature".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("head-a".to_string()),
+                base_sha: Some("base-a".to_string()),
+                changed_files: vec!["crates/jeryu-api/src/web.rs".to_string()],
+                ..CreatePullRequestRequest::default()
+            },
+        )
+        .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "ci/fast".to_string(),
+            head_sha: "head-a".to_string(),
+            status: Some(jeryu_core::CheckRunStatus::Completed),
+            conclusion: Some(CheckConclusion::Success),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    core.create_review(
+        "alice",
+        "jeryu",
+        pr.number,
+        "alice",
+        jeryu_core::CreateReviewRequest {
+            body: None,
+            event: jeryu_core::ReviewState::Commented,
+            comments: vec![jeryu_core::ReviewCommentInput {
+                path: "crates/jeryu-api/src/web.rs".to_string(),
+                line: Some(12),
+                body: "check this".to_string(),
+            }],
+        },
+    )
+    .unwrap();
+    let state = Arc::new(WebState::new(core));
+
+    let list = response_json(
+        super::pulls::list(
+            State(state.clone()),
+            AxumPath(repo.id.to_string()),
+            Query(super::pulls::PullListQuery { state: None }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(list["total"], 1);
+    assert_eq!(list["items"][0]["title"], "feature");
+    assert_eq!(list["items"][0]["repo"]["owner"], "alice");
+
+    let detail = response_json(
+        super::pulls::detail(
+            State(state.clone()),
+            AxumPath((repo.id.to_string(), pr.number)),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(detail["summary"]["head_sha"], "head-a");
+    assert!(
+        detail["passport_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("passport:")
+    );
+
+    let diff = response_json(
+        super::pulls::diff(
+            State(state.clone()),
+            AxumPath((repo.id.to_string(), pr.number)),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(diff["files"][0]["path"], "crates/jeryu-api/src/web.rs");
+    assert_eq!(diff["files"][0]["hunks"].as_array().unwrap().len(), 0);
+    assert_eq!(diff["truncated"], false);
+
+    let checks = response_json(
+        super::pulls::checks(
+            State(state.clone()),
+            AxumPath((repo.id.to_string(), pr.number)),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(checks["passing"], 1);
+    assert_eq!(checks["checks"][0]["status"], "success");
+
+    let threads = response_json(
+        super::pulls::threads(
+            State(state.clone()),
+            AxumPath((repo.id.to_string(), pr.number)),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        threads["threads"][0]["file_path"],
+        "crates/jeryu-api/src/web.rs"
+    );
+    assert_eq!(
+        threads["threads"][0]["comments"][0]["body_markdown"],
+        "check this"
+    );
+}
+
+#[tokio::test]
+async fn pulls_mutations_return_typed_repair_errors() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    core.set_branch_protection(
+        "alice",
+        "jeryu",
+        "main",
+        SetBranchProtectionRequest {
+            required_status_checks: vec!["ci/fast".to_string()],
+            required_approving_review_count: 1,
+            ..SetBranchProtectionRequest::default()
+        },
+    )
+    .unwrap();
+    let pr = core
+        .create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "blocked".to_string(),
+                head: "feature".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("head-b".to_string()),
+                ..CreatePullRequestRequest::default()
+            },
+        )
+        .unwrap();
+    let state = Arc::new(WebState::new(core));
+
+    let missing_repo = super::pulls::list(
+        State(state.clone()),
+        AxumPath("repo-missing".to_string()),
+        Query(super::pulls::PullListQuery { state: None }),
+    )
+    .await;
+    assert_eq!(missing_repo.status(), StatusCode::NOT_FOUND);
+    let missing_repo_body = response_json(missing_repo).await;
+    assert_eq!(missing_repo_body["code"], "not_found");
+    for key in [
+        "purpose",
+        "reason",
+        "common_fixes",
+        "docs_url",
+        "repair_hint",
+    ] {
+        assert!(missing_repo_body.get(key).is_some(), "missing {key}");
+    }
+
+    let missing_pr =
+        super::pulls::detail(State(state.clone()), AxumPath((repo.id.to_string(), 404))).await;
+    assert_eq!(missing_pr.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response_json(missing_pr).await["code"], "not_found");
+
+    let invalid_review = super::pulls::review(
+        State(state.clone()),
+        AxumPath((repo.id.to_string(), pr.number)),
+        axum::body::Bytes::from("{"),
+    )
+    .await;
+    assert_eq!(invalid_review.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        response_json(invalid_review).await["code"],
+        "pull_review_invalid_request"
+    );
+
+    let stale = super::pulls::approve(
+        State(state.clone()),
+        AxumPath((repo.id.to_string(), pr.number)),
+        axum::body::Bytes::from(r#"{"expected_head_sha":"old"}"#),
+    )
+    .await;
+    assert_eq!(stale.status(), StatusCode::CONFLICT);
+    let stale_body = response_json(stale).await;
+    assert_eq!(stale_body["error"]["code"], "merge_sha_stale");
+    assert_eq!(stale_body["error"]["details"]["current_head_sha"], "head-b");
+
+    let detail = response_json(
+        super::pulls::detail(
+            State(state.clone()),
+            AxumPath((repo.id.to_string(), pr.number)),
+        )
+        .await,
+    )
+    .await;
+    let merge = super::pulls::merge(
+        State(state),
+        AxumPath((repo.id.to_string(), pr.number)),
+        axum::body::Bytes::from(
+            serde_json::json!({
+                "expected_head_sha": "head-b",
+                "expected_passport_hash": detail["passport_hash"].as_str().unwrap(),
+                "merge_method": "merge"
+            })
+            .to_string(),
+        ),
+    )
+    .await;
+    assert_eq!(merge.status(), StatusCode::CONFLICT);
+    let merge_body = response_json(merge).await;
+    assert_eq!(merge_body["code"], "merge_blocked");
+    assert_eq!(merge_body["purpose"], "merge pull request");
+}
+
+#[tokio::test]
+async fn pulls_mutations_submit_review_and_comment() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let pr = core
+        .create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "ready".to_string(),
+                head: "feature".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("head-ready".to_string()),
+                base_sha: Some("base-ready".to_string()),
+                changed_files: vec!["src/lib.rs".to_string()],
+                ..CreatePullRequestRequest::default()
+            },
+        )
+        .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "ci/fast".to_string(),
+            head_sha: "head-ready".to_string(),
+            status: Some(jeryu_core::CheckRunStatus::Completed),
+            conclusion: Some(CheckConclusion::Success),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    let state = Arc::new(WebState::new(core));
+    let path = || AxumPath((repo.id.to_string(), pr.number));
+
+    let review = response_json(
+        super::pulls::review(
+            State(state.clone()),
+            path(),
+            axum::body::Bytes::from(
+                serde_json::json!({
+                    "verdict": "comment",
+                    "expected_head_sha": "head-ready",
+                    "body_markdown": "reviewed",
+                    "thread_comments": [{
+                        "thread_id": null,
+                        "body_markdown": "nit",
+                        "file_path": "src/lib.rs",
+                        "line": 7,
+                        "anchor_sha": "head-ready"
+                    }],
+                    "evidence": null
+                })
+                .to_string(),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(review["summary"]["review"]["unresolved_threads"], 1);
+
+    let comment = response_json(
+        super::pulls::comment(
+            State(state.clone()),
+            path(),
+            axum::body::Bytes::from(
+                serde_json::json!({
+                    "thread_id": null,
+                    "body_markdown": "follow-up",
+                    "file_path": "src/lib.rs",
+                    "line": 8,
+                    "anchor_sha": "head-ready"
+                })
+                .to_string(),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        comment["threads"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|thread| thread["comments"][0]["body_markdown"] == "follow-up")
+    );
+}
+
+#[tokio::test]
+async fn pulls_mutations_approve_and_merge_clean_pr() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let pr = core
+        .create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "merge-ready".to_string(),
+                head: "merge-ready".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("head-merge".to_string()),
+                base_sha: Some("base-ready".to_string()),
+                changed_files: vec!["src/merge.rs".to_string()],
+                ..CreatePullRequestRequest::default()
+            },
+        )
+        .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "ci/fast".to_string(),
+            head_sha: "head-merge".to_string(),
+            status: Some(jeryu_core::CheckRunStatus::Completed),
+            conclusion: Some(CheckConclusion::Success),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    let state = Arc::new(WebState::new(core));
+    let path = || AxumPath((repo.id.to_string(), pr.number));
+
+    let approved = response_json(
+        super::pulls::approve(
+            State(state.clone()),
+            path(),
+            axum::body::Bytes::from(
+                serde_json::json!({
+                    "expected_head_sha": "head-merge",
+                    "body_markdown": "ship it"
+                })
+                .to_string(),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(approved["summary"]["review"]["approvals"], 1);
+
+    let detail = response_json(super::pulls::detail(State(state.clone()), path()).await).await;
+    assert_eq!(detail["merge_passport"]["status"], "pass");
+    let passport_hash = detail["passport_hash"].as_str().unwrap();
+
+    let merged = response_json(
+        super::pulls::merge(
+            State(state),
+            path(),
+            axum::body::Bytes::from(
+                serde_json::json!({
+                    "expected_head_sha": "head-merge",
+                    "expected_passport_hash": passport_hash,
+                    "merge_method": "merge",
+                    "commit_title": "Merge ready",
+                    "commit_message": "route merge"
+                })
+                .to_string(),
+            ),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(merged["summary"]["state"], "merged");
+    assert_eq!(merged["merge_passport"]["head_sha"], "head-merge");
+}
+
+#[tokio::test]
+async fn mounted_pulls_routes_are_reachable() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    core.create_pull_request(
+        "alice",
+        "jeryu",
+        "alice",
+        CreatePullRequestRequest {
+            title: "mounted".to_string(),
+            head: "feature".to_string(),
+            base: "main".to_string(),
+            head_sha: Some("head-c".to_string()),
+            ..CreatePullRequestRequest::default()
+        },
+    )
+    .unwrap();
+    let response = app(
+        WebState::new(core),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    )
+    .oneshot(
+        Request::builder()
+            .uri(format!("/api/v1/repos/{}/pulls", repo.id))
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["items"][0]["title"], "mounted");
+}
+
+#[tokio::test]
+async fn control_plane_status_priorities_and_absence_states_are_live() {
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: false,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    core.create_pull_request(
+        "alice",
+        "jeryu",
+        "alice",
+        CreatePullRequestRequest {
+            title: "feature".to_string(),
+            head: "feature".to_string(),
+            base: "main".to_string(),
+            head_sha: Some("head-without-checks".to_string()),
+            draft: true,
+            ..CreatePullRequestRequest::default()
+        },
+    )
+    .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "ci/fast".to_string(),
+            head_sha: "other-head".to_string(),
+            status: Some(jeryu_core::CheckRunStatus::Completed),
+            conclusion: Some(CheckConclusion::Failure),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    let state = Arc::new(WebState::new(core));
+
+    let status = super::control_plane::status(State(state.clone())).await.0;
+    assert_eq!(status.schema_version, "jeryu.control_plane/v1");
+    assert_eq!(status.summary.repo_count, 1);
+    assert_eq!(status.summary.draft_pr_count, 1);
+    assert_eq!(status.summary.failing_check_count, 1);
+    assert_eq!(
+        serde_json::to_value(&status.summary).unwrap()["mirrorState"],
+        "missing"
+    );
+    assert!(
+        status
+            .priorities
+            .iter()
+            .any(|priority| priority.id.contains("checks-missing"))
+    );
+    assert!(!status.artifacts.absence_is_success);
+
+    let priorities = super::control_plane::priorities(
+        State(state.clone()),
+        Query(super::control_plane::PriorityQuery { limit: Some(1) }),
+    )
+    .await
+    .0;
+    assert_eq!(priorities.len(), 1);
+    assert_eq!(priorities[0].rules_version, "rules-v1");
+
+    let artifacts = super::control_plane::artifacts_latest(State(state.clone()))
+        .await
+        .0;
+    assert_eq!(
+        artifacts.state,
+        super::control_plane::EvidenceState::Missing
+    );
+    assert!(!artifacts.absence_is_success);
+
+    let runners = super::control_plane::runners(State(state.clone())).await.0;
+    assert_eq!(
+        runners.local.state,
+        super::control_plane::EvidenceState::Fresh
+    );
+    assert_eq!(
+        runners.mirror.state,
+        super::control_plane::EvidenceState::Missing
+    );
+
+    let graph = super::control_plane::repo_graph(
+        State(state),
+        Query(super::control_plane::RepoGraphQuery {
+            repo: None,
+            cluster_kind: Some("ci_blocker".to_string()),
+            query: None,
+            limit: None,
+        }),
+    )
+    .await
+    .0;
+    assert_eq!(graph.schema_version, "jeryu.repo_graph/v1");
+    assert!(
+        graph
+            .clusters
+            .iter()
+            .all(|cluster| cluster.kind == "ci_blocker")
+    );
+}
+
+#[tokio::test]
+async fn control_plane_agent_runs_list_route_starts_empty() {
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    let runs = super::agent_runs::list(State(state)).await.0;
+    assert!(runs.is_empty());
 }
 
 fn write_exec_script(label: &str, contents: &str) -> std::path::PathBuf {

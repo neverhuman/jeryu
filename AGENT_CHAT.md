@@ -1,5 +1,27 @@
 # AGENT_CHAT
 
+## 2026-06-06T04:06Z - Codex
+
+W-FE-11 Pull Room / Intelligence / PR BFF tranche:
+- Implemented real `/pull-room` queue lanes from control-plane PR truth, repo-scoped `/repos/:provider/:fullName/pulls`, W-FE-11 PR BFF routes under `/api/v1/repos/{id}/pulls*`, and typed repair bodies for PR API failures.
+- Upgraded `/intelligence` to the operator graph console with node filters, state legend, inspector, edge list, cluster chips, ecosystem/tool-build overlays, and tool-build dossiers.
+- Added readmodel/TUI tool-building opportunity rows and Evidence lens rendering for cluster id, repo, score, occurrences, file count, language, and suggested proof lane.
+- Verification passed:
+  `npm --workspace @jeryu/web run typecheck`;
+  `npm --workspace @jeryu/web run test`;
+  `npm --workspace @jeryu/web run build`;
+  `npm --workspace @jeryu/web run test:e2e -- 12-intelligence.spec.ts 13-left-nav.spec.ts 14-pull-room.spec.ts 15-repo-pulls.spec.ts`;
+  `npm --workspace @jeryu/web run test:e2e -- 08-ws-reconnect.spec.ts 10-a11y.spec.ts`;
+  `npm --workspace @jeryu/web run ux-qa`;
+  `cargo test -p jeryu-api --features web --jobs 40 pulls`;
+  `cargo test -p jeryu-api --features web --jobs 40 codegraph`;
+  `cargo test -p jeryu-api --features web --jobs 40 tool_build`;
+  `cargo test -p jeryu-api --features web --jobs 40 control_plane`;
+  `cargo test -p jeryu-codegraph --jobs 40 tool_build`;
+  `bash ops/ci/codegraph-oracle.sh`;
+  `bash ops/ci/codegraph-tool-build.sh`;
+  `cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40`.
+
 ## 2026-06-03T22:15:44Z - Codex
 
 Closeout verification:
@@ -2587,3 +2609,8 @@ Claiming `/tmp/jeryu-consolidate-main` for Jeryu publication blocker fixes only,
 - PASS: `rtk bash ops/ci/codegraph-tool-build.sh`; `rtk bash ops/ci/codegraph-oracle.sh`; `rtk cargo clippy -p jeryu-codegraph -p jeryu-mcp --all-targets --jobs 40 -- -D warnings`; `rtk cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`.
 - PASS: `rtk cargo test -p jeryu-agent-auth -p jeryu-agent-stream -p jeryu-agentbridge -p jeryu-cli -p jeryu-codegraph -p jeryu-mcp --jobs 40`; `rtk cargo test -p jeryu-api --features web --jobs 40 agent_runs`; `workcell_run_agent`; `workcell_export_slice`; `ci_run_evidence`.
 - PASS: `rtk ./scripts/check-owner-test-map.sh`; `rtk ./scripts/check-agent-maps.sh`; `rtk cargo run -q -p jeryu-mapcheck -- docs`; `generated-zones`; `db-boundary`.
+
+## 2026-06-05T00:00Z - Codex JMCP control-plane intelligence
+
+- Scope: adding local-first JMCP/control-plane read model, REST routes, MCP tools, CLI commands, and the web `/intelligence` surface. New public paths are being mapped in `agent/owner-map.json` and `agent/test-map.json`.
+- Invariants held: GitHub mirror data is read-only optional evidence, missing artifacts are explicit absence evidence, and agent-run/workcell sandbox guards are not relaxed.
