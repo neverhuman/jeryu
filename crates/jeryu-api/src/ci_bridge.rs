@@ -74,6 +74,9 @@ pub(crate) fn on_push(
     let origin_url = repo_origin_url(origin_base_url, owner, repo);
     for update in updates {
         maybe_bump_main_version(&git_bin, &resolved.path, owner, repo, update);
+        if let Some(branch) = update.ref_name.strip_prefix("refs/heads/") {
+            let _ = core.refresh_pull_request_heads_for_ref(owner, repo, branch, &update.new_oid);
+        }
         // Accumulate this head's recorded check-runs so the autonomy bridge can
         // run the evidence-gate judge over the live CI state once they all land.
         let mut ci_checks: Vec<(String, Option<CheckConclusion>)> = Vec::new();

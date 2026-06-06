@@ -350,6 +350,48 @@ fn open_pr_with_no_protection_is_immediately_mergeable() {
 }
 
 #[test]
+fn branch_head_refresh_updates_matching_open_pr() {
+    let core = core_with_repo();
+    let number = open_pr(&core, "abc", false);
+
+    let updated = core
+        .refresh_pull_request_heads_for_ref("alice", "jeryu", "feature", "def")
+        .unwrap();
+
+    assert_eq!(updated.len(), 1);
+    assert_eq!(updated[0].number, number);
+    assert_eq!(updated[0].head.sha, "def");
+    let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert_eq!(pr.head.sha, "def");
+    assert_eq!(pr.mergeable_state, "clean");
+}
+
+#[test]
+fn branch_head_refresh_ignores_closed_pr() {
+    let core = core_with_repo();
+    let number = open_pr(&core, "abc", false);
+    core.update_pull_request(
+        "alice",
+        "jeryu",
+        number,
+        UpdatePullRequestRequest {
+            state: Some(PullRequestState::Closed),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    let updated = core
+        .refresh_pull_request_heads_for_ref("alice", "jeryu", "feature", "def")
+        .unwrap();
+
+    assert!(updated.is_empty());
+    let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
+    assert_eq!(pr.head.sha, "abc");
+    assert_eq!(pr.mergeable_state, "closed");
+}
+
+#[test]
 fn protection_blocks_then_review_plus_status_unblocks() {
     let core = core_with_repo();
     protect_main(&core, 1, &["ci/fast"]);
