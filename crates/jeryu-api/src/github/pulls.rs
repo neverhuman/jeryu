@@ -61,7 +61,21 @@ impl GithubRouter {
         }
 
         match self.core.create_pull_request(owner, repo, &author, req) {
-            Ok(pr) => json_response(201, &pull_request_json(&pr)),
+            Ok(pr) => {
+                #[cfg(feature = "web")]
+                if let Some(repo_manager) = &self.repo_manager {
+                    crate::ci_bridge::seed_pull_request_head(
+                        &self.core,
+                        repo_manager,
+                        owner,
+                        repo,
+                        &format!("refs/heads/{}", pr.head.ref_name),
+                        &pr.head.sha,
+                        &crate::ci_bridge::default_origin_base_url(),
+                    );
+                }
+                json_response(201, &pull_request_json(&pr))
+            }
             Err(err) => error_response(err),
         }
     }

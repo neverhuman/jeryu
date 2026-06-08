@@ -543,6 +543,7 @@ async fn agent_runs_control_denials_and_pipe_mode_are_typed() {
         super::agent_runs::export_pr(
             State(state.clone()),
             AxumPath(agent_run_id.to_string()),
+            axum::http::HeaderMap::new(),
             Bytes::from(
                 json!({
                     "owner": "alice",

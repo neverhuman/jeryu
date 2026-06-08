@@ -127,6 +127,10 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         storage.path(),
         "alice",
         "jeryu",
+        &[(
+            ".github/workflows/ci.yml",
+            "name: ci\non: [push, pull_request]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ci\n",
+        )],
         &[("crates/jeryu-core/repaired.rs", "// repaired\n")],
     );
     let state = Arc::new(WebState::new_with_git_storage(
@@ -192,6 +196,7 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         super::workcells::export_pr(
             State(state.clone()),
             AxumPath(workcell_id.to_string()),
+            axum::http::HeaderMap::new(),
             axum::body::Bytes::from(serde_json::to_vec(&export_body).unwrap()),
         )
         .await,
@@ -217,6 +222,23 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
     assert_eq!(pr.head.ref_name, export["branch"]);
     assert_eq!(pr.base.ref_name, "main");
     assert_eq!(pr.changed_files, vec!["crates/jeryu-core/repaired.rs"]);
+
+    let check_runs = state
+        .core
+        .list_check_runs("alice", "jeryu", Some(&head_sha))
+        .expect("list check-runs for exported head");
+    assert!(
+        check_runs.total_count >= 1,
+        "exporting a PR should seed CI check-runs, got {check_runs:?}"
+    );
+    assert_eq!(
+        check_runs
+            .check_runs
+            .iter()
+            .any(|run| run.conclusion == Some(CheckConclusion::Success)),
+        true,
+        "the seeded export CI set should include a green run"
+    );
 
     let release = response_json(
         super::workcells::release(
@@ -1541,6 +1563,7 @@ async fn r5_jail_loop_exports_namespaced_branch_and_ci_evidence() {
         storage.path(),
         "alice",
         "jeryu",
+        &[],
         &[(
             "src/r5.rs",
             "pub fn repaired() -> &'static str { \"r5\" }\n",
@@ -1637,6 +1660,7 @@ printf '%s' "$EDIT_CONTENT" > "$EDIT_TARGET"
         super::workcells::export_pr(
             State(state.clone()),
             AxumPath(workcell_id.clone()),
+            axum::http::HeaderMap::new(),
             axum::body::Bytes::from(serde_json::to_vec(&export_body).unwrap()),
         )
         .await,
@@ -1741,6 +1765,7 @@ async fn workcell_export_slice_denies_out_of_slice_head_and_creates_no_pr() {
         storage.path(),
         "alice",
         "jeryu",
+        &[],
         &[("crates/jeryu-core/x.rs", "// out of slice\n")],
     );
     let state = Arc::new(WebState::new_with_git_storage(
@@ -1797,6 +1822,7 @@ async fn workcell_export_slice_denies_out_of_slice_head_and_creates_no_pr() {
         super::workcells::export_pr(
             State(state.clone()),
             AxumPath(workcell_id.clone()),
+            axum::http::HeaderMap::new(),
             axum::body::Bytes::from(serde_json::to_vec(&export_body).unwrap()),
         )
         .await,
@@ -2145,12 +2171,15 @@ fn known_mcp_tools() -> BTreeSet<String> {
 
 /// Builds a real bare repository at `<storage_root>/<owner>/<repo>.git` with a
 /// base commit and a head commit that adds `head_files` (repo-relative path +
-/// contents). Returns `(base_sha, head_sha)` so the workcell export slice gate
-/// can run a genuine `git diff base..head` against it.
+/// contents). Optional `base_files` let the base carry shared fixture files
+/// that should not appear in the export diff. Returns `(base_sha, head_sha)` so
+/// the workcell export slice gate can run a genuine `git diff base..head`
+/// against it.
 fn build_bare_repo_with_diff(
     storage_root: &std::path::Path,
     owner: &str,
     repo: &str,
+    base_files: &[(&str, &str)],
     head_files: &[(&str, &str)],
 ) -> (String, String) {
     use std::process::Command;
@@ -2184,6 +2213,13 @@ fn build_bare_repo_with_diff(
     // Base commit: a single placeholder file unrelated to the diff under test.
     std::fs::write(work.join("BASE.txt"), "base\n").expect("write base file");
     git(&["add", "BASE.txt"], &work);
+    for (rel, contents) in base_files {
+        let path = work.join(rel);
+        std::fs::create_dir_all(path.parent().expect("base file parent"))
+            .expect("create base file dir");
+        std::fs::write(&path, contents).expect("write base file");
+        git(&["add", rel], &work);
+    }
     git(&["commit", "--quiet", "-m", "base"], &work);
     let base_sha = git(&["rev-parse", "HEAD"], &work);
 
@@ -2379,6 +2415,71 @@ async fn live_unknown_github_route_returns_guided_json_not_spa() {
         "route unsupported GitHub-compatible REST request"
     );
     assert!(parsed["jeryu_mcp_tools"].as_array().unwrap().len() >= 4);
+}
+
+#[tokio::test]
+async fn live_gh_auth_workaround_route_returns_guided_json_not_spa() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let app = app(
+        WebState::new(ForgeCore::new()),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(HttpMethod::POST)
+                .uri("/login/device/code")
+                .header(header::USER_AGENT, "GitHub CLI 2.40.0 go-gh/2.0")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+    let parsed = response_json(response).await;
+    assert_eq!(
+        parsed["jeryu_repair_hint"]["purpose"],
+        "route GitHub CLI auth setup through Jeryu"
+    );
+    assert_eq!(
+        parsed["jeryu_connection"]["gh_setup"],
+        "jeryu gh-setup --host http://127.0.0.1:8787 --token JERYU-TOKEN"
+    );
+}
+
+#[tokio::test]
+async fn live_api_v3_user_alias_serves_github_cli_status() {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let app = app(
+        WebState::new(ForgeCore::new()),
+        std::path::Path::new("/tmp/jeryu-no-spa"),
+    );
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/v3/user")
+                .header(header::USER_AGENT, "GitHub CLI 2.40.0 go-gh/2.0")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let parsed = response_json(response).await;
+    assert_eq!(parsed["login"], "jeryu");
 }
 
 #[tokio::test]
@@ -2852,6 +2953,9 @@ fn capabilities_payload_exposes_the_gh_command_map() {
 
     let map = &payload["gh_command_map"];
     for key in [
+        "gh auth login",
+        "gh auth refresh",
+        "gh auth status",
         "gh pr create",
         "gh pr merge",
         "gh pr list",
@@ -2865,6 +2969,16 @@ fn capabilities_payload_exposes_the_gh_command_map() {
     assert_eq!(map["gh pr merge"], MCP_MERGE_TOOL);
     assert_eq!(map["gh issue create"], MCP_ISSUE_TOOL);
     assert_eq!(map["gh repo create"], "POST /repos");
+    assert!(
+        map["gh auth login"]
+            .as_str()
+            .expect("gh auth login guidance")
+            .contains("jeryu gh-setup")
+    );
+    assert_eq!(
+        payload["gh_auth_policy"]["run_instead"],
+        "jeryu gh-setup --host http://127.0.0.1:8787 --token JERYU-TOKEN"
+    );
 }
 
 #[test]

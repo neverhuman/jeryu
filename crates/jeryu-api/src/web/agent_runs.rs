@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use jeryu_agent_stream::{
     AgentEventBudget, AgentOutputStream, AgentRunStreamKey, AgentTtyEvent, CONTROL_TOPIC, TTY_TOPIC,
@@ -450,6 +450,7 @@ pub(super) async fn events(
 pub(super) async fn export_pr(
     State(state): State<Arc<WebState>>,
     AxumPath(agent_run_id): AxumPath<String>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> AxumResponse {
     let request: AgentRunExportPrRequest =
@@ -457,7 +458,7 @@ pub(super) async fn export_pr(
             Ok(request) => request,
             Err(response) => return *response,
         };
-    match export_workcell_agent_run(&state, &agent_run_id, request) {
+    match export_workcell_agent_run(&state, &agent_run_id, request, &origin_base_url(&headers)) {
         Ok(response) => (StatusCode::CREATED, Json(response)).into_response(),
         Err(response) => *response,
     }
@@ -516,9 +517,13 @@ pub(super) fn mcp_export_pr(state: &Arc<WebState>, args: Value) -> Result<Value,
     let run_id = required_run_id(&args)?;
     let request: AgentRunExportPrRequest =
         serde_json::from_value(args).map_err(|err| err.to_string())?;
-    let response = export_workcell_agent_run(state, &run_id, request).map_err(|_| {
-        "agent_work.export_pr failed; use REST for typed repair details".to_string()
-    })?;
+    let response = export_workcell_agent_run(
+        state,
+        &run_id,
+        request,
+        &crate::ci_bridge::default_origin_base_url(),
+    )
+    .map_err(|_| "agent_work.export_pr failed; use REST for typed repair details".to_string())?;
     serde_json::to_value(response).map_err(|err| err.to_string())
 }
 
@@ -1033,6 +1038,7 @@ fn export_workcell_agent_run(
     state: &Arc<WebState>,
     agent_run_id: &str,
     request: AgentRunExportPrRequest,
+    origin_base_url: &str,
 ) -> AgentRunResponseResult<AgentRunExportPrResponse> {
     let record = state
         .agent_runs
@@ -1167,6 +1173,15 @@ fn export_workcell_agent_run(
         Ok(pr) => pr,
         Err(err) => return Err(Box::new(forge_error(err))),
     };
+    crate::ci_bridge::seed_pull_request_head(
+        state.github.core(),
+        state.repo_manager.as_ref(),
+        &request.owner,
+        &request.repo,
+        &format!("refs/heads/{}", pr.head.ref_name),
+        &pr.head.sha,
+        origin_base_url,
+    );
     state.agent_runs.mark_exported(agent_run_id);
     Ok(AgentRunExportPrResponse {
         agent_run_id: agent_run_id.to_string(),
@@ -1175,6 +1190,15 @@ fn export_workcell_agent_run(
         pull_request_number: pr.number,
         url: format!("/{}/{}/pull/{}", pr.owner, pr.repo, pr.number),
     })
+}
+
+fn origin_base_url(headers: &HeaderMap) -> String {
+    headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .filter(|host| !host.trim().is_empty())
+        .map(|host| format!("http://{host}"))
+        .unwrap_or_else(crate::ci_bridge::default_origin_base_url)
 }
 
 fn derive_allowed_prefixes(allowed_paths: &[PathBuf], workspace_root: &Path) -> Vec<String> {

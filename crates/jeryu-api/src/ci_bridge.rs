@@ -130,6 +130,35 @@ pub(crate) fn on_push(
     }
 }
 
+/// Seed CI for a PR head that was created without going through the git push
+/// transport. This preserves GitHub-like parity for branch exports and other
+/// local PR creation paths: if the head already has check-runs, leave them
+/// alone; otherwise reuse the push bridge to compile workflows and record the
+/// real check-runs for the new head.
+pub(crate) fn seed_pull_request_head(
+    core: &ForgeCore,
+    manager: &RepoManager,
+    owner: &str,
+    repo: &str,
+    ref_name: &str,
+    head_sha: &str,
+    origin_base_url: &str,
+) {
+    if core
+        .list_check_runs(owner, repo, Some(head_sha))
+        .map(|runs| runs.total_count > 0)
+        .unwrap_or(false)
+    {
+        return;
+    }
+    let update = RefUpdate {
+        ref_name: ref_name.to_string(),
+        old_oid: ZERO_OID.to_string(),
+        new_oid: head_sha.to_string(),
+    };
+    on_push(core, manager, owner, repo, &[update], origin_base_url);
+}
+
 fn maybe_bump_main_version(
     git_bin: &str,
     bare: &Path,
@@ -230,6 +259,14 @@ fn maybe_bump_main_version(
     let _ = std::fs::remove_dir_all(&worktree);
 }
 
+pub(crate) fn default_origin_base_url() -> String {
+    std::env::var("JERYU_BASE")
+        .ok()
+        .filter(|host| !host.trim().is_empty())
+        .map(|host| format!("http://{host}"))
+        .unwrap_or_else(|| "http://127.0.0.1:8787".to_string())
+}
+
 fn run_git_status(git_bin: &str, cwd: Option<&Path>, args: &[&str]) -> bool {
     let mut command = Command::new(git_bin);
     command.args(args);
@@ -291,6 +328,13 @@ fn run_job(context: &CiJobContext<'_>, job: &jeryu_ci_ir::Job) -> CheckConclusio
         .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join("\n");
+    if ci_mock_enabled() {
+        return if script.trim().is_empty() {
+            CheckConclusion::Skipped
+        } else {
+            CheckConclusion::Success
+        };
+    }
     if script.trim().is_empty() {
         // Action-only job with no executable shell step.
         return CheckConclusion::Skipped;
@@ -314,6 +358,9 @@ fn run_job(context: &CiJobContext<'_>, job: &jeryu_ci_ir::Job) -> CheckConclusio
     );
     env.insert("GITHUB_REF".to_string(), context.ref_name.to_string());
     env.insert("GITHUB_SHA".to_string(), context.oid.to_string());
+    env.insert("CARGO_HOME".to_string(), "/home/ubuntu/.cargo".to_string());
+    env.insert("CARGO_NET_OFFLINE".to_string(), "true".to_string());
+    env.insert("JERYU_CI_USE_SCCACHE".to_string(), "0".to_string());
     let request = CoreJobRequest {
         job_id: format!("{}-{}-{}", context.owner, context.repo, job.id),
         repo_id: format!("{}/{}", context.owner, context.repo),
@@ -444,6 +491,16 @@ fn is_hosted_toolchain_bootstrap(command: &str) -> bool {
         saw_rustup = true;
     }
     saw_rustup
+}
+
+fn ci_mock_enabled() -> bool {
+    matches!(
+        std::env::var("JERYU_CI_MOCK"),
+        Ok(value) if {
+            let value = value.trim();
+            !value.is_empty() && value != "0"
+        }
+    )
 }
 
 #[derive(Debug, Clone)]
