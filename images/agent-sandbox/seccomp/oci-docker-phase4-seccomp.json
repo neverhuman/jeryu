@@ -1,5 +1,5 @@
 {
-  "_comment": "Seccomp profile for the confined agent sandbox. Default-allow with the kernel-escape and host-manipulation syscalls denied (EPERM). Combined with --cap-drop=ALL, --read-only, no-new-privileges, a non-root user, and --network none, this confines an untrusted coding agent to building this repo in its workspace. Referenced by OciSpec::from_agent_job at /opt/jeryu/seccomp/<name>.json. A stricter variant: switch to default-deny with an explicit build-tooling allowlist, and arg-filter socket() to AF_UNIX only.",
+  "_comment": "Seccomp profile for the confined agent sandbox. Default-allow with the kernel-escape and host-manipulation syscalls denied (EPERM). Combined with --cap-drop=ALL, --read-only, no-new-privileges, a non-root user, and --network none, this confines an untrusted coding agent to building this repo in its workspace. Referenced by OciSpec::from_agent_job at /opt/jeryu/seccomp/<name>.json, where <name> is the plan's seccomp name; for the OCI-Docker agent lane that is oci-docker-phase4-seccomp, hence this file's name. A stricter variant: switch to default-deny with an explicit build-tooling allowlist, and arg-filter socket() to AF_UNIX only.",
   "defaultAction": "SCMP_ACT_ALLOW",
   "archMap": [
     { "architecture": "SCMP_ARCH_X86_64", "subArchitectures": ["SCMP_ARCH_X86", "SCMP_ARCH_X32"] },

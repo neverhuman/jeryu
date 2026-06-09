@@ -21,7 +21,8 @@ No SSH client, no docker CLI, no extra packages, **no credentials** (injected pe
 ## How it's locked down at runtime
 `OciSpec::from_agent_job` (crates/jeryu-runner-oci) runs this image with:
 `--read-only` root + `--tmpfs /tmp`, `--cap-drop=ALL`, `--security-opt no-new-privileges`,
-`--security-opt seccomp=/opt/jeryu/seccomp/<name>.json` (see `seccomp/agent.json`),
+`--security-opt seccomp=/opt/jeryu/seccomp/<name>.json` where `<name>` is the plan's
+seccomp name (`oci-docker-phase4-seccomp`; see `seccomp/oci-docker-phase4-seccomp.json`),
 `--user 1000:1000`, `--memory`/`--pids-limit` from the plan's cgroup caps,
 `--network none`, and **ONLY** the workspace bind-mounted at `/workspace`. So the agent
 can reach nothing on the host beyond its own writable workspace.
@@ -32,7 +33,8 @@ exits 127 with a short explanation instead of working. The agent uses `cargo`/`r
 `rustup`/`node`/`npm`/`npx`/`tsc`/`vite` to build and the **git guard** to commit — and
 nothing else. Disabled:
 - **symlinks** (`ln`) — edit the real files directly; never link out of the workspace
-  (also denied at the `symlink`/`symlinkat` syscall level in `seccomp/agent.json`);
+  (also denied at the `symlink`/`symlinkat` syscall level in
+  `seccomp/oci-docker-phase4-seccomp.json`);
 - networking: `gh curl wget ssh scp sftp nc ncat netcat telnet socat git-remote-http(s)`;
 - privilege: `sudo su doas`;
 - package installs: `apt apt-get aptitude dpkg pip pip3 gem` (the image is fixed; deps prefetched);

@@ -27,7 +27,7 @@ fi
 
 # The seccomp profile the engine reads from the host. It is the same JSON the image ships
 # at /opt/jeryu/seccomp/, so the symlink syscall block this asserts is the image's own.
-seccomp_profile="$root/images/agent-sandbox/seccomp/agent.json"
+seccomp_profile="$root/images/agent-sandbox/seccomp/oci-docker-phase4-seccomp.json"
 branch="agents/smoke/sessions/run1"
 
 # Host-side workspace: a real git repo on the assigned branch, mounted read-write at

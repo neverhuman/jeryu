@@ -1,0 +1,11 @@
+# Keep the build context small for images/agent-sandbox (the guard-build stage
+# does `COPY . /src`). These are large, machine-local, or irrelevant to building
+# the jeryu-git guard binary and prefetching deps.
+.git
+.worktrees
+target
+**/target
+node_modules
+**/node_modules
+*.log
+.DS_Store

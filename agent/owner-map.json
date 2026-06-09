@@ -91,6 +91,7 @@
     "crates/jeryu-wsversion/": "release-security",
     "dashboards/": "bench-obs",
     "db/": "forge-api",
+    ".dockerignore": "devex",
     "deny.toml": "platform-security",
     "docs/": "docs",
     "docs/codegraph-oracle.md": "docs",

@@ -18,13 +18,21 @@
 #         (the runner references it via JERYU_AGENT_IMAGE)
 
 # ---- toolchain build stage: compile the jeryu-git guard from the repo ----------------
+# The guard lives in a Cargo WORKSPACE whose root Cargo.toml lists every member, so a
+# manifest-path build of one crate still makes cargo read all members. We therefore copy
+# the whole (already-small, see .dockerignore) context and build the one binary by
+# package selector. The guard is pure std, so this is fast and self-contained.
 FROM rust:1.95-slim-bookworm AS guard-build
+ENV CARGO_HOME=/opt/rust/cargo
 WORKDIR /src
-COPY Cargo.toml Cargo.lock ./
-COPY crates/jeryu-git-guard ./crates/jeryu-git-guard
-# Build only the guard binary; it is pure std, so this is fast and self-contained.
-RUN cargo build --release --manifest-path crates/jeryu-git-guard/Cargo.toml --bin jeryu-git \
+COPY . /src
+RUN cargo build --release -p jeryu-git-guard --bin jeryu-git \
     && cp target/release/jeryu-git /jeryu-git
+# Warm this repo's cargo registry cache here, where the FULL workspace source exists, so
+# the runtime image can ship it for an offline (`--network none`) first build. Doing it
+# in this stage avoids copying every member crate into the runtime just to satisfy
+# `cargo fetch`'s workspace-manifest read.
+RUN cargo fetch --locked || cargo fetch || true
 
 # ---- runtime image -------------------------------------------------------------------
 FROM debian:bookworm-slim AS runtime
@@ -38,9 +46,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     JERYU_REAL_GIT=/usr/bin/git
 
 # Base packages: ONLY what a Rust/Node build of this repo needs. No ssh, no docker CLI.
+# `passwd` provides groupadd/useradd (the agent user is created below); it is not in the
+# slim base. The rest is exactly what a Rust/Node build of this repo needs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git ca-certificates curl build-essential pkg-config libssl-dev \
-      python3 \
+      python3 passwd \
     && rm -rf /var/lib/apt/lists/*
 
 # Rust toolchain (pinned), no docs/components beyond the build set.
@@ -93,16 +103,29 @@ RUN for tool in \
 COPY images/agent-sandbox/seccomp/ /opt/jeryu/seccomp/
 
 # Prefetch this repo's build dependencies so the agent's first build is warm and the
-# container needs no network (it runs --network none).
+# container needs no network (it runs --network none). The cargo registry cache is taken
+# from the guard-build stage (which had the FULL workspace source, so `cargo fetch` could
+# resolve every member); the npm deps are installed here from the lockfile.
 WORKDIR /opt/jeryu/repo
+COPY --from=guard-build /opt/rust/cargo/registry /opt/rust/cargo/registry
 COPY Cargo.toml Cargo.lock ./
 COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
-RUN cargo fetch --manifest-path Cargo.toml || true \
-    && (cd apps/web && npm ci --no-audit --no-fund || true)
+RUN (cd apps/web && npm ci --no-audit --no-fund || true)
 
-# Non-root user; the agent's HOME is a writable tmpfs subtree at runtime.
-RUN groupadd -g 1000 agent && useradd -u 1000 -g 1000 -m -s /bin/bash agent \
-    && mkdir -p /workspace && chown agent:agent /workspace
+# Non-root user (uid/gid 1000). The container runs `--read-only`, so the ONLY writable
+# spots are `--tmpfs /tmp` and the workspace bind-mount. The agent CLIs (codex/claude)
+# write under $HOME (~/.codex, ~/.claude, ~/.cache); pointing HOME at a subdir of the
+# writable workspace mount lets them start without touching the read-only root. The
+# entrypoint creates $HOME on first use (a fresh workspace mount has no such dir yet),
+# then execs the agent argv emitted by the runner (codex / claude / jekko ...).
+COPY images/agent-sandbox/bin/entrypoint /opt/jeryu/bin/entrypoint
+RUN chmod 0555 /opt/jeryu/bin/entrypoint
+# groupadd/useradd live in /usr/sbin, which is intentionally NOT on the agent PATH above;
+# call them by absolute path so the build does not depend on PATH.
+RUN /usr/sbin/groupadd -g 1000 agent \
+    && /usr/sbin/useradd -u 1000 -g 1000 -m -s /bin/bash agent \
+    && mkdir -p /workspace && /bin/chown agent:agent /workspace
 USER agent
 WORKDIR /workspace
-ENV HOME=/home/agent TERM=xterm-256color JERYU_REAL_GIT=/usr/bin/git
+ENV HOME=/workspace/.agent-home TERM=xterm-256color JERYU_REAL_GIT=/usr/bin/git
+ENTRYPOINT ["/opt/jeryu/bin/entrypoint"]

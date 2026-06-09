@@ -306,6 +306,11 @@
       "purpose": "verify SQLite migrations, constraints, rollback notes, and DB ownership boundaries",
       "lane": "db-migration-analyze"
     },
+    ".dockerignore": {
+      "command": "test -f .dockerignore && grep -qx 'target' .dockerignore && grep -qx '.git' .dockerignore && bash -n ops/agent-sandbox/smoke.sh",
+      "purpose": "keep the agent-sandbox docker build context small (target/.git/node_modules excluded) so the guard-build COPY of the whole repo stays cheap",
+      "lane": "agent-substrate"
+    },
     "deny.toml": {
       "command": "cargo deny check licenses sources bans advisories",
       "purpose": "verify dependency license and source policy",
@@ -547,8 +552,8 @@
       "lane": "agent-substrate"
     },
     "images/agent-sandbox/": {
-      "command": "python3 -c \"import json;json.load(open('images/agent-sandbox/seccomp/agent.json'))\" && sh -n images/agent-sandbox/bin/refuse && cargo test -p jeryu-runner-oci --jobs 40 agent_hardened",
-      "purpose": "validate the locked-down agent image artifacts (seccomp JSON + refusal wrapper) and the hardened run-args spec",
+      "command": "python3 -c \"import json;json.load(open('images/agent-sandbox/seccomp/oci-docker-phase4-seccomp.json'))\" && sh -n images/agent-sandbox/bin/refuse && sh -n images/agent-sandbox/bin/entrypoint && cargo test -p jeryu-runner-oci --jobs 40 agent_hardened",
+      "purpose": "validate the locked-down agent image artifacts (seccomp JSON named for the plan's seccomp profile, refusal wrapper, entrypoint) and the hardened run-args spec",
       "lane": "agent-substrate"
     }
   }
