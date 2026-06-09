@@ -4,9 +4,9 @@
 # on the GitHub mirror's real runners; the forge does not seed them — see
 # crates/jeryu-api/src/ci_bridge.rs). This therefore carries the real equivalent
 # coverage locally: format + clippy (deny warnings) + the FULL workspace test suite
-# + the jankurai audit (>= 85). The security/web lanes (syft/grype/cosign/playwright)
-# run on the mirror; invoke them here too once their tooling is provisioned on the
-# runner.
+# + the jankurai audit (>= 85) + the web build/vitest lane for apps/web. The heavier
+# security and browser lanes (syft/grype/cosign/playwright) run on the mirror; invoke
+# them here too once their tooling is provisioned on the runner.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -51,6 +51,37 @@ cargo test --workspace --exclude jeryu-sandbox-linux --jobs "$JOBS" --no-fail-fa
   --skip streams_terminal_output_to_the_sink \
   --skip control_input_reaches_the_agent_stdin \
   --skip terminate_stops_a_runaway_agent
+
+# The cargo lanes leave the React web app (apps/web) and its ux-qa harness uncovered,
+# so a missing dep or a typecheck break ships to main while `npm run build` is red. When
+# a PR touches apps/web/ or ux-qa/, build it (tsc + vite) and run the vitest suite. The
+# repo is an npm workspace rooted here, so deps install from the repo root (npm install
+# inside apps/web errors EUSAGE). Non-web PRs skip the lane so they stay fast.
+web_base=""
+for ref in main origin/main; do
+  if git rev-parse --verify --quiet "$ref" >/dev/null 2>&1; then
+    web_base="$(git merge-base HEAD "$ref" 2>/dev/null || true)"
+    [ -n "$web_base" ] && break
+  fi
+done
+
+if [ -z "$web_base" ]; then
+  echo "[pr-ci] web lane: no base ref, skipping" >&2
+elif ! git diff --name-only "$web_base" | grep -qE '^(apps/web|ux-qa)/'; then
+  echo "[pr-ci] web lane: no apps/web or ux-qa changes, skipping" >&2
+elif ! command -v npm >/dev/null 2>&1; then
+  echo "[pr-ci] web lane: npm not found on this runner, SKIP" >&2
+else
+  echo "[pr-ci] web lane: build+vitest (apps/web touched)" >&2
+  (
+    cd "$repo_root"
+    npm install --no-audit --no-fund
+    cd apps/web
+    npm run build
+    npm run test -- --run
+  )
+  echo "[pr-ci] web lane: build+vitest green" >&2
+fi
 
 echo "[pr-ci] jankurai audit (>= 85)" >&2
 "$JANKURAI_BIN" . --json .jankurai/repo-score.json --md .jankurai/repo-score.md
