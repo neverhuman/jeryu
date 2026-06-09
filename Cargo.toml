@@ -60,6 +60,8 @@ members = [
   "crates/jeryu-wsversion",
   "crates/jeryu-runner-registry",
   "crates/jeryu-egress",
+  "crates/jeryu-git-guard",
+  "crates/jeryu-ci-governor",
 ]
 exclude = [
   "fixtures/rust-small",

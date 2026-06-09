@@ -520,6 +520,16 @@
       "command": "npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 13-left-nav.spec.ts",
       "purpose": "verify every left-nav destination resolves without NotFound",
       "lane": "web"
+    },
+    "crates/jeryu-git-guard/": {
+      "command": "cargo test -p jeryu-git-guard --jobs 40",
+      "purpose": "verify the deny-by-default git command allowlist confining agents to branch-local activity",
+      "lane": "agent-substrate"
+    },
+    "crates/jeryu-ci-governor/": {
+      "command": "cargo test -p jeryu-ci-governor --jobs 40",
+      "purpose": "verify the load-aware CI worker authority that overrides user worker requests",
+      "lane": "agent-substrate"
     }
   }
 }
