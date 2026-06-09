@@ -59,6 +59,7 @@ impl WebMcpBackend {
             "agent_work.status" => agent_runs::mcp_status(&self.state, &args),
             "agent_work.control" => agent_runs::mcp_control(&self.state, args),
             "agent_work.events" => agent_runs::mcp_events(&self.state, &args),
+            "agent_work.tail" => agent_runs::mcp_tail(&self.state, &args),
             "agent_work.export_pr" => agent_runs::mcp_export_pr(&self.state, args),
             _ => return Ok(None),
         };
@@ -574,6 +575,50 @@ mod tests {
             }),
         );
         assert!(!export.success);
+    }
+
+    #[test]
+    fn agent_work_tail_streams_raw_tty_for_member_and_denies_non_member() {
+        use base64::Engine;
+
+        let state = Arc::new(WebState::new(ForgeCore::new()));
+        state.agent_runs.seed_test_run("ar-mcp-tail", 16);
+        let raw = [0xff_u8, 0x10, 0x00, b'o', b'k', 0x9c];
+        state.agent_runs.push_test_tty(
+            "ar-mcp-tail",
+            super::agent_runs::test_raw_tty_event("ar-mcp-tail", 1, b"first"),
+        );
+        state.agent_runs.push_test_tty(
+            "ar-mcp-tail",
+            super::agent_runs::test_raw_tty_event("ar-mcp-tail", 2, &raw),
+        );
+        let backend = WebMcpBackend::new(state);
+
+        // Authorized scope: an existing run id streams its raw tty bytes.
+        let tail = call(
+            &backend,
+            "agent_work.tail",
+            json!({ "agent_run_id": "ar-mcp-tail", "after_seq": 1 }),
+        );
+        assert!(tail.success, "{tail:?}");
+        let data = tail.data.as_ref().expect("tail data");
+        assert_eq!(data["lagged"], false);
+        assert_eq!(data["next_after_seq"], 2);
+        let events = data["events"].as_array().expect("tail events");
+        assert_eq!(events.len(), 1, "only events strictly after the cursor");
+        let encoded = events[0]["bytes_b64"].as_str().expect("bytes_b64");
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .expect("decode");
+        assert_eq!(decoded, raw, "raw non-UTF8 bytes survive the MCP tool path");
+
+        // Non-member / unknown scope: the tool is denied with no payload.
+        let denied = call(
+            &backend,
+            "agent_work.tail",
+            json!({ "agent_run_id": "ar-not-a-member" }),
+        );
+        assert!(!denied.success, "unknown run is denied: {denied:?}");
     }
 
     #[test]

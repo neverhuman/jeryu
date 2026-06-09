@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender};
@@ -31,6 +31,82 @@ const AGENT_RUN_DOCS: &str = "docs/workcell.md#agent-run-control-surface";
 const AGENT_RUN_RERUN: &str = "rerun cargo test -p jeryu-api --features web --jobs 40 agent_runs";
 type AgentRunResponseResult<T> = Result<T, Box<AxumResponse>>;
 
+/// How many raw TTY events one run keeps live for cursor-pull tailing. Past this
+/// bound the oldest event is dropped so a long-lived landed session can never
+/// grow the in-memory store without limit.
+const TTY_RING_CAP: usize = 4096;
+
+/// A bounded, drop-oldest ring of raw TTY events for one agent run.
+///
+/// New events are appended at the back; once the ring is at capacity the oldest
+/// event at the front is evicted. The monotonic per-event `seq` is assigned by
+/// the publisher and therefore stays strictly increasing across the whole run
+/// even after eviction. `oldest_retained_seq` is the `seq` of the oldest event
+/// still held (0 while empty), so a tail reader whose cursor points before it
+/// knows part of the byte history rolled off and it must resync.
+#[derive(Debug, Clone)]
+struct TtyRing {
+    events: VecDeque<AgentTtyEvent>,
+    cap: usize,
+    oldest_retained_seq: u64,
+}
+
+impl Default for TtyRing {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TtyRing {
+    fn new() -> Self {
+        Self::with_cap(TTY_RING_CAP)
+    }
+
+    fn with_cap(cap: usize) -> Self {
+        Self {
+            events: VecDeque::new(),
+            cap: cap.max(1),
+            oldest_retained_seq: 0,
+        }
+    }
+
+    /// Publish one event, evicting the oldest first when the ring is full.
+    fn push(&mut self, event: AgentTtyEvent) {
+        if self.events.len() >= self.cap {
+            self.events.pop_front();
+        }
+        self.events.push_back(event);
+        self.oldest_retained_seq = self.events.front().map_or(0, |event| event.seq);
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &AgentTtyEvent> {
+        self.events.iter()
+    }
+
+    /// Every retained event in publish order (oldest first).
+    fn snapshot(&self) -> Vec<AgentTtyEvent> {
+        self.events.iter().cloned().collect()
+    }
+
+    /// Raw events with `seq > after_seq`, capped at `limit`, oldest first.
+    fn tail(&self, after_seq: u64, limit: usize) -> Vec<AgentTtyEvent> {
+        self.events
+            .iter()
+            .filter(|event| event.seq > after_seq)
+            .take(limit)
+            .cloned()
+            .collect()
+    }
+
+    /// True when `after_seq` sits before the oldest event still retained, i.e.
+    /// the reader fell behind the ring and the events between its cursor and the
+    /// oldest retained `seq` have already rolled off. A cursor that lands exactly
+    /// on the last evicted `seq` is contiguous with the front and is not lagged.
+    fn lagged(&self, after_seq: u64) -> bool {
+        after_seq.saturating_add(1) < self.oldest_retained_seq
+    }
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct AgentRunStore {
     inner: Arc<Mutex<AgentRunStoreInner>>,
@@ -52,7 +128,7 @@ struct AgentRunRecord {
     program: String,
     args: Vec<String>,
     events: Vec<AgentRunEvent>,
-    tty_events: Vec<AgentTtyEvent>,
+    tty_events: TtyRing,
     controls: Vec<AgentRunControlRecord>,
     outcome: Option<AgentRunOutcome>,
     error_code: Option<String>,
@@ -258,6 +334,20 @@ struct AgentRunEventsResponse {
     pub tty_events: Vec<AgentTtyEvent>,
 }
 
+/// Result of `agent_work.tail`: a slice of one run's raw TTY byte stream past a
+/// cursor, plus the next cursor and a `lagged` flag a subscriber uses to decide
+/// whether it must resync after the drop-oldest ring rolled events off.
+#[derive(Debug, Clone, Serialize)]
+pub(super) struct AgentRunTailResponse {
+    pub agent_run_id: String,
+    pub after_seq: u64,
+    pub next_after_seq: u64,
+    pub oldest_retained_seq: u64,
+    pub lagged: bool,
+    pub tty_topic: String,
+    pub events: Vec<AgentTtyEvent>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 struct AgentRunExportPrRequest {
     pub owner: String,
@@ -452,7 +542,7 @@ fn start_request(
         program: spec.program.clone(),
         args: spec.args.clone(),
         events: Vec::new(),
-        tty_events: Vec::new(),
+        tty_events: TtyRing::new(),
         controls: Vec::new(),
         outcome: None,
         error_code: None,
@@ -611,6 +701,20 @@ pub(super) fn mcp_events(state: &Arc<WebState>, args: &Value) -> Result<Value, S
     let response = state
         .agent_runs
         .events(&run_id, query)
+        .ok_or_else(|| format!("agent run {run_id} was not found"))?;
+    serde_json::to_value(response).map_err(|err| err.to_string())
+}
+
+pub(super) fn mcp_tail(state: &Arc<WebState>, args: &Value) -> Result<Value, String> {
+    let run_id = required_run_id(args)?;
+    let after_seq = args.get("after_seq").and_then(Value::as_u64).unwrap_or(0);
+    let limit = args
+        .get("limit")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    let response = state
+        .agent_runs
+        .tail_tty(&run_id, after_seq, limit)
         .ok_or_else(|| format!("agent run {run_id} was not found"))?;
     serde_json::to_value(response).map_err(|err| err.to_string())
 }
@@ -851,7 +955,7 @@ impl AgentRunStore {
             program: init.program,
             args: init.args,
             events: Vec::new(),
-            tty_events: Vec::new(),
+            tty_events: TtyRing::new(),
             controls: Vec::new(),
             outcome: None,
             error_code: None,
@@ -934,7 +1038,7 @@ impl AgentRunStore {
             .iter()
             .filter(|event| event.seq > after_seq && event.seq <= next_after_seq)
             .cloned()
-            .collect();
+            .collect::<Vec<_>>();
         Some(AgentRunEventsResponse {
             agent_run_id: record.id.clone(),
             after_seq,
@@ -1058,6 +1162,34 @@ impl AgentRunStore {
         record.tty_events.push(tty_event);
     }
 
+    /// Cursor-pull tail of one run's raw TTY events. Returns every retained event
+    /// with `seq > after_seq` (raw `bytes_b64` intact), capped at `limit`. When the
+    /// cursor fell behind the drop-oldest ring `lagged` is true and the events come
+    /// from the oldest retained `seq` so the caller (jpmc) can resync. `next_after_seq`
+    /// is the highest returned `seq`, or the input cursor when nothing is newer.
+    fn tail_tty(
+        &self,
+        run_id: &str,
+        after_seq: u64,
+        limit: Option<usize>,
+    ) -> Option<AgentRunTailResponse> {
+        let limit = limit.unwrap_or(TTY_RING_CAP).clamp(1, TTY_RING_CAP);
+        let inner = self.inner.lock().expect("agent run store mutex");
+        let record = inner.runs.get(run_id)?;
+        let lagged = record.tty_events.lagged(after_seq);
+        let events = record.tty_events.tail(after_seq, limit);
+        let next_after_seq = events.last().map_or(after_seq, |event| event.seq);
+        Some(AgentRunTailResponse {
+            agent_run_id: record.id.clone(),
+            after_seq,
+            next_after_seq,
+            oldest_retained_seq: record.tty_events.oldest_retained_seq,
+            lagged,
+            tty_topic: TTY_TOPIC.to_string(),
+            events,
+        })
+    }
+
     fn complete(&self, run_id: &str, result: Result<AgentRunResult, DriverError>) {
         let mut inner = self.inner.lock().expect("agent run store mutex");
         let Some(record) = inner.runs.get_mut(run_id) else {
@@ -1084,6 +1216,63 @@ impl AgentRunStore {
     }
 }
 
+#[cfg(test)]
+impl AgentRunStore {
+    /// Seed a minimal repo-scoped run for tail/ring coverage with a chosen ring
+    /// cap so eviction can be forced without pushing the whole production bound.
+    pub(super) fn seed_test_run(&self, run_id: &str, ring_cap: usize) {
+        self.insert(AgentRunRecord {
+            id: run_id.to_string(),
+            state: AgentRunState::Running,
+            io_mode: AgentRunIoMode::Pty,
+            source: AgentRunSourceSnapshot::Repo {
+                repo: "owner/repo".to_string(),
+            },
+            repo_root: PathBuf::from("/tmp/agent-run"),
+            program: "agent".to_string(),
+            args: Vec::new(),
+            events: Vec::new(),
+            tty_events: TtyRing::with_cap(ring_cap),
+            controls: Vec::new(),
+            outcome: None,
+            error_code: None,
+            error_message: None,
+            control_tx: None,
+            repo: Some("owner/repo".to_string()),
+            branch: Some("sessions/test".to_string()),
+            base_oid: Some("oid-test".to_string()),
+            runner: None,
+            agent: None,
+        });
+    }
+
+    /// Publish one prebuilt raw TTY event through the bounded ring.
+    pub(super) fn push_test_tty(&self, run_id: &str, event: AgentTtyEvent) {
+        let mut inner = self.inner.lock().expect("agent run store mutex");
+        if let Some(record) = inner.runs.get_mut(run_id) {
+            record.tty_events.push(event);
+        }
+    }
+}
+
+/// Build a raw (non-text) TTY event whose payload is the base64 of `bytes`, so a
+/// test can prove a non-UTF8 byte sequence survives the ring and tail byte-for-byte.
+#[cfg(test)]
+pub(super) fn test_raw_tty_event(run_id: &str, seq: u64, bytes: &[u8]) -> AgentTtyEvent {
+    use base64::Engine;
+    let key = AgentRunStreamKey {
+        repo: Some("owner/repo".to_string()),
+        workcell_id: "owner/repo".to_string(),
+        agent_run_id: run_id.to_string(),
+        agent: "agent".to_string(),
+        model: "local".to_string(),
+    };
+    let mut event = AgentTtyEvent::text(seq, 0, &key, AgentOutputStream::Pty, String::new());
+    event.text = None;
+    event.bytes_b64 = Some(base64::engine::general_purpose::STANDARD.encode(bytes));
+    event
+}
+
 fn status_from_record(run_id: &str, record: &AgentRunRecord) -> Option<AgentRunStatusResponse> {
     if record.id != run_id {
         return None;
@@ -1103,7 +1292,7 @@ fn status_from_record(run_id: &str, record: &AgentRunRecord) -> Option<AgentRunS
         tty_topic: TTY_TOPIC.to_string(),
         control_topic: CONTROL_TOPIC.to_string(),
         events: record.events.clone(),
-        tty_events: record.tty_events.clone(),
+        tty_events: record.tty_events.snapshot(),
         controls: record.controls.clone(),
         outcome: record.outcome.clone(),
         error_code: record.error_code.clone(),
@@ -1713,4 +1902,147 @@ fn default_true() -> bool {
 
 fn is_false(value: &bool) -> bool {
     !*value
+}
+
+#[cfg(test)]
+mod tail_tests {
+    use base64::Engine;
+
+    use super::{AgentRunEventInput, AgentRunStore, test_raw_tty_event};
+
+    fn decode(event: &super::AgentTtyEvent) -> Vec<u8> {
+        let encoded = event.bytes_b64.as_deref().expect("raw bytes payload");
+        base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .expect("base64 decode")
+    }
+
+    #[test]
+    fn tail_returns_events_past_cursor_with_raw_bytes_intact() {
+        let store = AgentRunStore::new();
+        store.seed_test_run("ar-tail", 16);
+        // A deliberately non-UTF8 byte sequence to prove byte-for-byte fidelity.
+        let raw_two = [0xff_u8, 0x00, 0xfe, b'h', b'i', 0x80];
+        store.push_test_tty("ar-tail", test_raw_tty_event("ar-tail", 1, b"one"));
+        store.push_test_tty("ar-tail", test_raw_tty_event("ar-tail", 2, &raw_two));
+        store.push_test_tty("ar-tail", test_raw_tty_event("ar-tail", 3, b"three"));
+
+        let tail = store.tail_tty("ar-tail", 1, None).expect("tail result");
+        assert!(!tail.lagged);
+        assert_eq!(tail.after_seq, 1);
+        assert_eq!(tail.next_after_seq, 3);
+        let seqs: Vec<u64> = tail.events.iter().map(|event| event.seq).collect();
+        assert_eq!(seqs, vec![2, 3], "only events strictly after the cursor");
+        assert_eq!(
+            decode(&tail.events[0]),
+            raw_two,
+            "non-UTF8 bytes round-trip byte-identical through bytes_b64"
+        );
+    }
+
+    #[test]
+    fn tail_from_zero_advances_then_returns_only_new_events() {
+        let store = AgentRunStore::new();
+        store.seed_test_run("ar-cursor", 16);
+        store.push_test_tty("ar-cursor", test_raw_tty_event("ar-cursor", 1, b"a"));
+        store.push_test_tty("ar-cursor", test_raw_tty_event("ar-cursor", 2, b"b"));
+
+        let first = store.tail_tty("ar-cursor", 0, None).expect("first tail");
+        assert!(!first.lagged);
+        assert_eq!(
+            first.events.len(),
+            2,
+            "after_seq=0 starts from the beginning"
+        );
+        assert_eq!(first.next_after_seq, 2);
+
+        let empty = store
+            .tail_tty("ar-cursor", first.next_after_seq, None)
+            .expect("empty tail");
+        assert!(empty.events.is_empty(), "no events newer than the cursor");
+        assert_eq!(
+            empty.next_after_seq, 2,
+            "next cursor holds when nothing is newer"
+        );
+
+        store.push_test_tty("ar-cursor", test_raw_tty_event("ar-cursor", 3, b"c"));
+        let resumed = store
+            .tail_tty("ar-cursor", empty.next_after_seq, None)
+            .expect("resumed tail");
+        let seqs: Vec<u64> = resumed.events.iter().map(|event| event.seq).collect();
+        assert_eq!(
+            seqs,
+            vec![3],
+            "second tail returns only the freshly pushed event"
+        );
+    }
+
+    #[test]
+    fn ring_eviction_marks_lagged_from_evicted_cursor_only() {
+        let store = AgentRunStore::new();
+        store.seed_test_run("ar-ring", 4);
+        // Push six events into a four-slot ring: seq 1 and 2 roll off the front.
+        for seq in 1..=6 {
+            store.push_test_tty(
+                "ar-ring",
+                test_raw_tty_event("ar-ring", seq, format!("chunk-{seq}").as_bytes()),
+            );
+        }
+
+        let evicted = store.tail_tty("ar-ring", 1, None).expect("evicted tail");
+        assert!(evicted.lagged, "a cursor behind the ring is flagged lagged");
+        assert_eq!(
+            evicted.oldest_retained_seq, 3,
+            "oldest retained seq after eviction"
+        );
+        let seqs: Vec<u64> = evicted.events.iter().map(|event| event.seq).collect();
+        assert_eq!(
+            seqs,
+            vec![3, 4, 5, 6],
+            "a lagged tail resyncs from the oldest retained event"
+        );
+
+        let live = store.tail_tty("ar-ring", 4, None).expect("live tail");
+        assert!(!live.lagged, "a cursor inside the ring is not lagged");
+        let live_seqs: Vec<u64> = live.events.iter().map(|event| event.seq).collect();
+        assert_eq!(live_seqs, vec![5, 6]);
+
+        // A cursor exactly on the last evicted seq is contiguous, not lagged.
+        let boundary = store.tail_tty("ar-ring", 2, None).expect("boundary tail");
+        assert!(!boundary.lagged);
+    }
+
+    #[test]
+    fn append_event_still_feeds_the_ws_snapshot_feed() {
+        let store = AgentRunStore::new();
+        store.seed_test_run("ar-ws", 16);
+        store.append_event(
+            "ar-ws",
+            AgentRunEventInput {
+                kind: "tty",
+                stream: Some("stdout"),
+                text: Some("ws-visible-line".to_string()),
+                pid: None,
+                used: None,
+                limit: None,
+                exit_code: None,
+                timed_out: false,
+                budget_exceeded: false,
+            },
+        );
+
+        // The WS tty stream renders from status(); the appended event must show up.
+        let status = store.status("ar-ws").expect("status snapshot");
+        assert!(
+            status
+                .tty_events
+                .iter()
+                .any(|event| event.text.as_deref() == Some("ws-visible-line")),
+            "append_event remains the publish point feeding WS subscribers"
+        );
+        // The same event is tailable as a raw cursor-pull payload.
+        let tail = store.tail_tty("ar-ws", 0, None).expect("tail snapshot");
+        assert_eq!(tail.events.len(), 1);
+        assert!(!tail.lagged);
+    }
 }
