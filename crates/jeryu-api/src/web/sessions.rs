@@ -26,6 +26,7 @@ use jeryu_runner_core::receipt::now_ms;
 use jeryu_runner_core::sandbox::SandboxPlan;
 use jeryu_runner_core::trust::{RunnerClass, TrustTier};
 use jeryu_runner_oci::plan_agent_session;
+use jeryu_runnerd::{SessionClaim, StartupSync, WorkcellClaimRequest};
 use serde::{Deserialize, Serialize};
 
 use super::WebState;
@@ -214,18 +215,49 @@ fn create_session(
     )
     .map_err(|err| Box::new(gitd_error(err)))?;
 
-    // Launch the hardened container through the injected runner. In production
-    // this is the real CLI runtime; tests inject a fake that records the exact
-    // confined argv without a daemon.
-    state
-        .oci_runner
-        .launch_session(&session)
-        .map_err(|err| Box::new(runner_error(err)))?;
+    // Claim a PRE-WARMED cell from the landed warm pool instead of cold-starting
+    // a fresh container. The pool reuses a detached `sleep infinity` container,
+    // materializes the latest-main checkout on the unique session branch, and
+    // refills back to its target depth — so this New Session pays no cold-start.
+    // The reused container's plan still carries the full hardening (read-only
+    // root, all caps dropped, `--network none`, workspace-only mount), and the
+    // branch is the namespaced `agents/<id>/sessions/<run>` we just registered,
+    // never `main`. The up-front plan above already rejected a spoofing id, so a
+    // malformed request never reaches — and never consumes — a warm cell.
+    let claimed = {
+        let mut pool = state.warm_pool.lock().expect("warm pool mutex poisoned");
+        pool.claim(SessionClaim {
+            owner,
+            repo: name,
+            run_id: run_id.clone(),
+            base_oid: base_oid.clone(),
+            origin_url,
+            job,
+            plan,
+            claim: WorkcellClaimRequest {
+                agent_id: agent_id.clone(),
+                workspace_root: workspace.clone(),
+                repo_roots: vec![workspace.clone()],
+                branch_budget: 1,
+                runner_id: runner.clone(),
+                runner_epoch: 0,
+                git_status_summary: "clean".to_string(),
+                ci_snapshot_age_ms: Some(0),
+                startup: StartupSync::Rebased {
+                    main_ref: "origin/main".to_string(),
+                    base_sha: base_oid.clone(),
+                    head_sha: base_oid.clone(),
+                },
+            },
+        })
+    }
+    .map_err(|err| Box::new(runner_error(err)))?;
+    let branch = claimed.session.branch;
 
     state.agent_runs.insert_session(SessionRecordInit {
         run_id: run_id.clone(),
         repo: full_name,
-        branch: session.branch.clone(),
+        branch: branch.clone(),
         base_oid: base_oid.clone(),
         runner,
         agent: agent_id,
@@ -237,7 +269,7 @@ fn create_session(
     Ok(CreateSessionResponse {
         session_id: run_id.clone(),
         run_id: run_id.clone(),
-        branch: session.branch,
+        branch,
         base_oid,
         ws_scope: format!("agent_run.{run_id}"),
         tty_topic: TTY_TOPIC.to_string(),

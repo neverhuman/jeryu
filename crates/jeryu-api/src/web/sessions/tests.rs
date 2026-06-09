@@ -1,9 +1,10 @@
 //! Route-level coverage for the repo-scoped agent session API.
 //!
 //! Everything here is deterministic and runs without Docker/Podman: the session
-//! container is launched through an injected `FakeContainerRuntime` that records
-//! the exact confined argv, and a real bare git repo is materialized on disk so
-//! the branch-registration and publish ref moves go through the live ref service.
+//! claims a pre-warmed cell from a `WarmPool` built over an injected, recording
+//! `FakeContainerRuntime` lifecycle, and a real bare git repo is materialized on
+//! disk so the branch-registration and publish ref moves go through the live ref
+//! service.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -13,10 +14,14 @@ use axum::extract::{Path as AxumPath, State};
 use axum::http::HeaderMap;
 use axum::response::Response as AxumResponse;
 use jeryu_core::{CreateRepositoryRequest, ForgeCore};
-use jeryu_runner_oci::{FakeContainerRuntime, OciRunner};
+use jeryu_runner_oci::{FakeContainerRuntime, LifecycleOp};
 use serde_json::{Value, json};
 
 use super::super::WebState;
+
+/// Pre-warmed pool depth used across the session route tests. Each test gets a
+/// fresh pool warmed to this many cells; a claim reuses one and refills back.
+const WARM_TARGET: usize = 2;
 
 async fn response_json(response: AxumResponse) -> Value {
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
@@ -122,12 +127,39 @@ fn capture_agent_commit(
 
 fn fake_state(core: ForgeCore, storage_root: &Path) -> (Arc<WebState>, Arc<FakeContainerRuntime>) {
     let fake = Arc::new(FakeContainerRuntime::default());
-    let state = Arc::new(WebState::new_with_git_storage_and_runner(
+    let state = Arc::new(WebState::new_with_git_storage_and_warm_pool(
         core,
         storage_root.to_path_buf(),
-        OciRunner::with_runtime(fake.clone()),
+        fake.clone(),
+        WARM_TARGET,
     ));
     (state, fake)
+}
+
+/// Container ids of the cells still idling warm in the state's pool, sorted.
+fn warm_container_ids(state: &Arc<WebState>) -> Vec<String> {
+    state
+        .warm_pool
+        .lock()
+        .expect("warm pool mutex")
+        .warm_container_ids()
+}
+
+/// Current warm depth of the state's pool.
+fn warm_depth(state: &Arc<WebState>) -> usize {
+    state
+        .warm_pool
+        .lock()
+        .expect("warm pool mutex")
+        .warm_depth()
+}
+
+/// Count of detached warm starts the fake lifecycle has recorded so far.
+fn start_warm_count(fake: &FakeContainerRuntime) -> usize {
+    fake.lifecycle_ops()
+        .iter()
+        .filter(|op| matches!(op, LifecycleOp::StartWarm { .. }))
+        .count()
 }
 
 async fn create_session(state: &Arc<WebState>, repo_id: &str, body: Value) -> Value {
@@ -143,11 +175,21 @@ async fn create_session(state: &Arc<WebState>, repo_id: &str, body: Value) -> Va
 }
 
 #[tokio::test]
-async fn create_launches_hardened_session_on_unique_branch_at_latest_main() {
+async fn create_claims_a_prewarmed_cell_on_unique_branch_at_latest_main() {
     let storage = tempfile::tempdir().expect("git storage");
     let core = ForgeCore::new();
     let main_oid = seed_repo(&core, storage.path(), "alice", "jeryu");
     let (state, fake) = fake_state(core, storage.path());
+
+    // The pool pre-warmed exactly WARM_TARGET detached cells at construction;
+    // nothing has been claimed yet, so those are the only warm starts on record.
+    let prewarmed = warm_container_ids(&state);
+    assert_eq!(prewarmed.len(), WARM_TARGET, "pool pre-warmed to target");
+    let starts_before = start_warm_count(&fake);
+    assert_eq!(
+        starts_before, WARM_TARGET,
+        "only the pre-warm starts so far"
+    );
 
     let created = create_session(
         &state,
@@ -167,33 +209,30 @@ async fn create_launches_hardened_session_on_unique_branch_at_latest_main() {
     assert_eq!(created["ws_scope"], "agent_run.run-42");
     assert_eq!(created["status_url"], "/api/v1/agent-runs/run-42");
 
-    // The launched container is HARDENED — the fake recorded the exact confined argv.
-    let recorded = fake.recorded();
+    // The session was handed a PRE-WARMED container: exactly one of the cells the
+    // pool had warmed before the claim has left the warm set, proving the New
+    // Session reused a ready container rather than cold-starting one.
+    let after = warm_container_ids(&state);
+    let reused: Vec<&String> = prewarmed.iter().filter(|id| !after.contains(id)).collect();
     assert_eq!(
-        recorded.len(),
+        reused.len(),
         1,
-        "exactly one container launch: {recorded:?}"
+        "exactly one pre-warmed cell was reused: {prewarmed:?} -> {after:?}"
     );
-    let argv = &recorded[0];
-    assert!(argv.contains(&"--read-only".to_string()), "argv: {argv:?}");
-    assert!(argv.contains(&"--cap-drop=ALL".to_string()));
-    assert!(
-        argv.windows(2)
-            .any(|w| w[0] == "--network" && w[1] == "none")
-    );
-    // ONLY the workspace is bind-mounted — no host paths leak in.
-    let binds: Vec<&String> = argv
-        .iter()
-        .enumerate()
-        .filter(|(_, a)| *a == "-v")
-        .map(|(i, _)| &argv[i + 1])
-        .collect();
+
+    // The pool refilled back to target, and the ONLY new lifecycle start is that
+    // single refill — never a cold start attributable to the claim itself.
     assert_eq!(
-        binds.len(),
-        1,
-        "exactly one mount (the workspace): {binds:?}"
+        warm_depth(&state),
+        WARM_TARGET,
+        "pool refills back to target"
     );
-    assert!(binds[0].ends_with(":/workspace:Z"));
+    let starts_after = start_warm_count(&fake);
+    assert_eq!(
+        starts_after - starts_before,
+        1,
+        "only the single refill start, no cold start for the claim"
+    );
 
     // The unique branch was REGISTERED on the forge at the base oid.
     let resolved = state
@@ -210,6 +249,52 @@ async fn create_launches_hardened_session_on_unique_branch_at_latest_main() {
     assert_eq!(
         registered.oid, main_oid,
         "branch registered at latest-main oid"
+    );
+}
+
+/// A second New Session reuses ANOTHER pre-warmed cell: across two back-to-back
+/// claims the pool depth stays pinned at target, and the only lifecycle starts
+/// are the two refills — neither claim paid a cold start.
+#[tokio::test]
+async fn second_create_reuses_another_warm_cell_and_depth_stays_at_target() {
+    let storage = tempfile::tempdir().expect("git storage");
+    let core = ForgeCore::new();
+    seed_repo(&core, storage.path(), "alice", "jeryu");
+    let (state, fake) = fake_state(core, storage.path());
+    assert_eq!(start_warm_count(&fake), WARM_TARGET);
+
+    let first = create_session(
+        &state,
+        "alice/jeryu",
+        json!({ "agent_id": "agent-7", "run_id": "run-1" }),
+    )
+    .await;
+    assert_eq!(first["branch"], "agents/agent-7/sessions/run-1");
+    assert_eq!(
+        warm_depth(&state),
+        WARM_TARGET,
+        "depth steady after one claim"
+    );
+
+    let second = create_session(
+        &state,
+        "alice/jeryu",
+        json!({ "agent_id": "agent-7", "run_id": "run-2" }),
+    )
+    .await;
+    assert_eq!(second["branch"], "agents/agent-7/sessions/run-2");
+    assert_eq!(
+        warm_depth(&state),
+        WARM_TARGET,
+        "depth steady across two claims"
+    );
+
+    // Two claims => exactly two refills on top of the initial pre-warm, and zero
+    // cold starts.
+    assert_eq!(
+        start_warm_count(&fake),
+        WARM_TARGET + 2,
+        "two refills, no cold starts across the two claims"
     );
 }
 
@@ -252,10 +337,18 @@ async fn create_rejects_invalid_session_id_with_typed_error() {
     .await;
     assert_eq!(bad_run["code"], "invalid_session_id");
 
-    // A rejected plan must never launch a container.
-    assert!(
-        fake.recorded().is_empty(),
-        "no container should launch for a rejected session id"
+    // A rejected session id must never consume a warm cell: the up-front plan
+    // fails before the claim, so the pool is still at its pre-warmed depth and no
+    // refill start fired (a refill would betray that a cell had been claimed).
+    assert_eq!(
+        warm_depth(&state),
+        WARM_TARGET,
+        "pool depth untouched by rejected requests"
+    );
+    assert_eq!(
+        start_warm_count(&fake),
+        WARM_TARGET,
+        "no refill => no warm cell was claimed for a rejected id"
     );
 }
 

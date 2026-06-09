@@ -39,8 +39,8 @@ use crate::GithubRouter;
 use crate::git_materializer::GitMaterializer;
 use crate::github::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use jeryu_gitd::{GitdConfig, RepoManager};
-use jeryu_runner_oci::OciRunner;
-use jeryu_runnerd::WorkcellManager;
+use jeryu_runner_oci::{CliContainerRuntime, ContainerLifecycle};
+use jeryu_runnerd::{WarmPool, WorkcellManager};
 use repositories::{
     repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
 };
@@ -53,6 +53,9 @@ const MCP_BLOCKERS_TOOL: &str = "jeryu.explain_blockers";
 const MCP_PATCH_TOOL: &str = "jeryu.propose_patch";
 const MCP_MERGE_TOOL: &str = "jeryu.request_merge";
 const MCP_ISSUE_TOOL: &str = "jeryu.bug_submit";
+/// Steady-state depth of pre-warmed agent containers the pool refills back to, so
+/// a New Session claims a ready cell instead of paying a cold-start.
+const WARM_POOL_TARGET: usize = 2;
 
 #[derive(Clone, Debug)]
 pub struct WebServerConfig {
@@ -81,10 +84,13 @@ pub(crate) struct WebState {
     pub(crate) repo_manager: Arc<RepoManager>,
     /// Forge handle for the push->CI bridge (shares state with `github`).
     pub(crate) core: ForgeCore,
-    /// Injectable agent-container launcher. Production wires the real CLI runtime
-    /// (plan-only unless `JERYU_RUN_OCI=1`); tests inject a fake runtime so the
-    /// session-launch path is exercised without Docker/Podman.
-    pub(crate) oci_runner: OciRunner,
+    /// Pool of pre-warmed agent containers a New Session claims from, so the
+    /// launch reuses a ready cell with no cold-start. It needs `&mut self` to
+    /// claim and refill, so it lives behind the same `Mutex` style the rest of
+    /// `WebState` uses. Production wires the real CLI lifecycle (plan-only unless
+    /// `JERYU_RUN_OCI=1`); tests inject a recording fake lifecycle so the claim
+    /// path is exercised without Docker/Podman.
+    pub(crate) warm_pool: Arc<Mutex<WarmPool>>,
 }
 
 impl WebState {
@@ -106,6 +112,13 @@ impl WebState {
         .expect("test codegraph store");
         #[cfg(not(test))]
         let codegraph_store = CodeGraphStore::open_default().expect("open codegraph store");
+        // Pre-warm the agent pool over the real CLI lifecycle. With the OCI gate
+        // closed this only records planned cells (no daemon), so construction is
+        // infallible in every environment the web edge boots in.
+        let warm_runtime: Arc<dyn ContainerLifecycle> = Arc::new(CliContainerRuntime);
+        let warm_pool = Arc::new(Mutex::new(
+            WarmPool::new(warm_runtime, WARM_POOL_TARGET).expect("pre-warm the agent pool"),
+        ));
         Self {
             github: GithubRouter::with_core(core).with_repo_manager(repo_manager.clone()),
             tui,
@@ -116,7 +129,7 @@ impl WebState {
             codegraph_store,
             repo_manager,
             core: core_handle,
-            oci_runner: OciRunner::new(),
+            warm_pool,
         }
     }
 
@@ -146,17 +159,21 @@ impl WebState {
     }
 
     /// Test-only constructor that roots the git `RepoManager` at `storage_root`
-    /// AND injects an [`OciRunner`], so the session-launch path can be driven with
-    /// a `FakeContainerRuntime` (no Docker/Podman) while still resolving a real
-    /// bare repository for branch registration.
+    /// AND injects a [`WarmPool`] built over the given container lifecycle, so the
+    /// claim path can be driven with a recording `FakeContainerRuntime` (no
+    /// Docker/Podman) while still resolving a real bare repository for branch
+    /// registration. The pool pre-warms `warm_target` cells.
     #[cfg(test)]
-    fn new_with_git_storage_and_runner(
+    fn new_with_git_storage_and_warm_pool(
         core: ForgeCore,
         storage_root: PathBuf,
-        oci_runner: OciRunner,
+        warm_runtime: Arc<dyn ContainerLifecycle>,
+        warm_target: usize,
     ) -> Self {
         let mut state = Self::new_with_git_storage(core, storage_root);
-        state.oci_runner = oci_runner;
+        state.warm_pool = Arc::new(Mutex::new(
+            WarmPool::new(warm_runtime, warm_target).expect("pre-warm the test agent pool"),
+        ));
         state
     }
 }
