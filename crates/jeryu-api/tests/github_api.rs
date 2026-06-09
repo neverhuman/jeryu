@@ -241,6 +241,86 @@ fn fork_source_repository_still_requires_signed_commits() {
     );
 }
 
+/// Collects the per-repo `number` of every PR in a list response body.
+fn pull_numbers(response: &jeryu_api::Response) -> Vec<u64> {
+    assert_eq!(response.status, 200, "list pulls: {}", response.body);
+    body(response)
+        .as_array()
+        .expect("pulls array")
+        .iter()
+        .map(|pr| pr["number"].as_u64().expect("pr number"))
+        .collect()
+}
+
+#[test]
+fn pulls_list_honors_state_query_filter() {
+    let router = router_with_repo();
+
+    // One PR stays open; the other is merged so GitHub renders it as `closed`
+    // (a closed sub-state with `merged_at` set). No protection -> both mergeable.
+    let open = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"stays open","head":"feat-open","base":"main","head_sha":"sha-open"}"#,
+    );
+    assert_eq!(open.status, 201, "open pr: {}", open.body);
+    let open_number = body(&open)["number"].as_u64().expect("open pr number");
+
+    let to_merge = router.post(
+        "/repos/alice/jeryu/pulls",
+        r#"{"title":"gets merged","head":"feat-merge","base":"main","head_sha":"sha-merge"}"#,
+    );
+    assert_eq!(to_merge.status, 201, "open pr to merge: {}", to_merge.body);
+    let merged_number = body(&to_merge)["number"].as_u64().expect("merge pr number");
+
+    let merged = router.put(
+        &format!("/repos/alice/jeryu/pulls/{merged_number}/merge"),
+        "{}",
+    );
+    assert_eq!(merged.status, 200, "merge pr: {}", merged.body);
+    assert_eq!(body(&merged)["merged"], true);
+
+    // `?state=open` returns only the open PR, never the merged one.
+    let open_only = pull_numbers(&router.get("/repos/alice/jeryu/pulls?state=open"));
+    assert_eq!(
+        open_only,
+        vec![open_number],
+        "state=open returns only the open PR"
+    );
+
+    // `?state=closed` returns the merged PR (merged is a closed sub-state),
+    // never the open one.
+    let closed_only = pull_numbers(&router.get("/repos/alice/jeryu/pulls?state=closed"));
+    assert_eq!(
+        closed_only,
+        vec![merged_number],
+        "state=closed returns only the merged/closed PR"
+    );
+
+    // `?state=all` returns both, sorted by number.
+    let all = pull_numbers(&router.get("/repos/alice/jeryu/pulls?state=all"));
+    assert_eq!(
+        all,
+        vec![open_number, merged_number],
+        "state=all returns both"
+    );
+
+    // Absent `state` defaults to GitHub's `open`, matching `?state=open`.
+    let default = pull_numbers(&router.get("/repos/alice/jeryu/pulls"));
+    assert_eq!(
+        default,
+        vec![open_number],
+        "absent state defaults to open (GitHub's documented default)"
+    );
+
+    // An unrecognized value is treated as the default rather than erroring.
+    let bogus = pull_numbers(&router.get("/repos/alice/jeryu/pulls?state=bogus"));
+    assert_eq!(
+        bogus,
+        vec![open_number],
+        "unknown state falls back to the open default"
+    );
+}
+
 /// Returns the number of pull requests currently open on the repo.
 fn open_pr_count(router: &GithubRouter) -> usize {
     let listed = router.get("/repos/alice/jeryu/pulls");

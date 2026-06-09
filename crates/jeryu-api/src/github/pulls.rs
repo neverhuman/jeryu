@@ -11,8 +11,8 @@ use crate::routes::Response;
 
 use super::GithubRouter;
 use super::support::{
-    Pagination, actor, docs_url, error_response, json_response, json_response_with_headers,
-    owner_json, paginate, parse_body, parse_number,
+    Pagination, PullStateSelector, actor, docs_url, error_response, json_response,
+    json_response_with_headers, owner_json, paginate, parse_body, parse_number,
 };
 
 /// Response header stamped when a create-PR request is hot-fixed onto an
@@ -31,10 +31,24 @@ impl GithubRouter {
         repo: &str,
         path: &str,
         page: Pagination,
+        pull_state: PullStateSelector,
     ) -> Response {
+        // The engine's `state_filter` is an exact match on one of its many
+        // internal lifecycle states (Mergeable, BlockedByChecks, ...), so it
+        // cannot express GitHub's coarse open/closed/all selector on its own: a
+        // healthy PR re-evaluates to a richer state on read and would slip past
+        // an exact-`Open` filter. So list everything and keep the PRs whose
+        // GitHub-rendered `state` field matches the selector, which guarantees
+        // the filter agrees with the `state` value each PR reports. Absent or
+        // unrecognized `?state=` defaults to `open` (GitHub's documented
+        // default), so a bare list now returns only open PRs.
         match self.core.list_pull_requests(owner, repo, None) {
             Ok(pulls) => {
-                let body: Vec<Value> = pulls.iter().map(pull_request_json).collect();
+                let body: Vec<Value> = pulls
+                    .iter()
+                    .filter(|pr| pull_state.keeps(pr_open_or_closed(&pr.state)))
+                    .map(pull_request_json)
+                    .collect();
                 paginate(path, page, &body, |slice, _total| {
                     Value::Array(slice.to_vec())
                 })

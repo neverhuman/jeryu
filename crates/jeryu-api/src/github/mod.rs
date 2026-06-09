@@ -36,7 +36,8 @@ use crate::routes::Response;
 #[allow(unused_imports)]
 pub(crate) use support::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use support::{
-    Pagination, first_contact_response, gh_auth_workaround_response, json_response, not_found,
+    Pagination, PullStateSelector, first_contact_response, gh_auth_workaround_response,
+    json_response, not_found,
 };
 
 /// Semantic version reported by `GET /api/v1/version`.
@@ -108,8 +109,9 @@ impl GithubRouter {
         // leaking into segment matching.
         let (route_path, query) = path.split_once('?').unwrap_or((path, ""));
         let page = Pagination::from_query(query);
+        let pull_state = PullStateSelector::from_query(query);
         let segments: Vec<&str> = route_path.trim_matches('/').split('/').collect();
-        self.route(method, &segments, body, route_path, page)
+        self.route(method, &segments, body, route_path, page, pull_state)
             .unwrap_or_else(not_found)
     }
 
@@ -137,6 +139,7 @@ impl GithubRouter {
         body: &str,
         path: &str,
         page: Pagination,
+        pull_state: PullStateSelector,
     ) -> std::result::Result<Response, u16> {
         use Method::{Get, Post, Put};
         match (method, segments) {
@@ -175,7 +178,9 @@ impl GithubRouter {
             (Get, ["repos", owner, repo]) => Ok(self.get_repo(owner, repo)),
 
             // Pull requests --------------------------------------------------
-            (Get, ["repos", owner, repo, "pulls"]) => Ok(self.list_pulls(owner, repo, path, page)),
+            (Get, ["repos", owner, repo, "pulls"]) => {
+                Ok(self.list_pulls(owner, repo, path, page, pull_state))
+            }
             (Post, ["repos", owner, repo, "pulls"]) => Ok(self.create_pull(owner, repo, body)),
             (Get, ["repos", owner, repo, "pulls", number]) => {
                 Ok(self.get_pull(owner, repo, number))
