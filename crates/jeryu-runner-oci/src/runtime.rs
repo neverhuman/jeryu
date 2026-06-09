@@ -1,9 +1,11 @@
 #![doc = "Runtime seam for OCI execution so the runner is testable without a daemon."]
 
 use crate::OciSpec;
+use crate::lifecycle::{ContainerLifecycle, WarmContainer, WarmContainerSpec};
 use jeryu_runner_core::error::{RunnerError, RunnerResult};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Outcome of asking a [`ContainerRuntime`] to run a spec.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,13 +36,28 @@ pub trait ContainerRuntime: Send + Sync + std::fmt::Debug {
 #[derive(Debug, Default, Clone)]
 pub struct CliContainerRuntime;
 
+impl CliContainerRuntime {
+    fn gate_open() -> bool {
+        std::env::var("JERYU_RUN_OCI").ok().as_deref() == Some("1")
+    }
+
+    fn engine() -> String {
+        std::env::var("JERYU_OCI_RUNTIME").unwrap_or_else(|_| "podman".to_string())
+    }
+
+    fn agent_image() -> String {
+        std::env::var("JERYU_AGENT_IMAGE")
+            .unwrap_or_else(|_| "localhost/jeryu/agent-sandbox:latest".to_string())
+    }
+}
+
 impl ContainerRuntime for CliContainerRuntime {
     fn name(&self) -> &str {
         "cli"
     }
 
     fn run(&self, spec: &OciSpec) -> RunnerResult<RuntimeOutcome> {
-        if std::env::var("JERYU_RUN_OCI").ok().as_deref() != Some("1") {
+        if !Self::gate_open() {
             return Ok(RuntimeOutcome {
                 exit_code: None,
                 ran: false,
@@ -58,6 +75,89 @@ impl ContainerRuntime for CliContainerRuntime {
     }
 }
 
+impl ContainerLifecycle for CliContainerRuntime {
+    fn start_warm(&self, workcell_id: &str) -> RunnerResult<String> {
+        let spec = WarmContainerSpec::new(
+            Self::engine(),
+            Self::agent_image(),
+            "none",
+            workcell_id.to_string(),
+        );
+        if !Self::gate_open() {
+            return Ok(format!("planned-{workcell_id}"));
+        }
+        let output = Command::new(&spec.runtime)
+            .args(spec.args())
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|err| RunnerError::new("oci_warm_failed", err.to_string()))?;
+        if !output.status.success() {
+            return Err(RunnerError::new(
+                "oci_warm_failed",
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    fn list_workcells(&self) -> RunnerResult<Vec<WarmContainer>> {
+        if !Self::gate_open() {
+            return Ok(Vec::new());
+        }
+        let label = crate::lifecycle::WORKCELL_LABEL;
+        let output = Command::new(Self::engine())
+            .args([
+                "ps",
+                "--all",
+                "--filter",
+                &format!("label={label}"),
+                "--format",
+                &format!("{{{{.ID}}}}\t{{{{.Label \"{label}\"}}}}"),
+            ])
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|err| RunnerError::new("oci_list_failed", err.to_string()))?;
+        if !output.status.success() {
+            return Err(RunnerError::new(
+                "oci_list_failed",
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        let listing = String::from_utf8_lossy(&output.stdout);
+        let mut found = Vec::new();
+        for line in listing.lines() {
+            let mut cols = line.splitn(2, '\t');
+            let (Some(id), Some(workcell)) = (cols.next(), cols.next()) else {
+                continue;
+            };
+            let (id, workcell) = (id.trim(), workcell.trim());
+            if !id.is_empty() && !workcell.is_empty() {
+                found.push(WarmContainer::new(id, workcell));
+            }
+        }
+        Ok(found)
+    }
+
+    fn remove(&self, container_id: &str) -> RunnerResult<()> {
+        if !Self::gate_open() {
+            return Ok(());
+        }
+        let output = Command::new(Self::engine())
+            .args(["rm", "--force", container_id])
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|err| RunnerError::new("oci_remove_failed", err.to_string()))?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(RunnerError::new(
+                "oci_remove_failed",
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ))
+        }
+    }
+}
+
 /// Fake runtime that records the argv it would run and never touches a daemon.
 ///
 /// It consumes the exact same [`OciSpec::args`] builder as the real runtime, so
@@ -66,6 +166,9 @@ impl ContainerRuntime for CliContainerRuntime {
 pub struct FakeContainerRuntime {
     exit_code: i32,
     invocations: Mutex<Vec<Vec<String>>>,
+    lifecycle_ops: Mutex<Vec<crate::lifecycle::LifecycleOp>>,
+    warm: Mutex<Vec<WarmContainer>>,
+    next_cid: AtomicU64,
 }
 
 impl FakeContainerRuntime {
@@ -73,7 +176,7 @@ impl FakeContainerRuntime {
     pub fn with_exit_code(exit_code: i32) -> Self {
         Self {
             exit_code,
-            invocations: Mutex::new(Vec::new()),
+            ..Self::default()
         }
     }
 
@@ -83,6 +186,74 @@ impl FakeContainerRuntime {
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
             .clone()
+    }
+
+    /// Snapshot of every recorded lifecycle operation, in order.
+    pub fn lifecycle_ops(&self) -> Vec<crate::lifecycle::LifecycleOp> {
+        self.lifecycle_ops
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone()
+    }
+
+    /// Live (not-yet-removed) warm containers the fake currently tracks.
+    pub fn live_warm(&self) -> Vec<WarmContainer> {
+        self.warm
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone()
+    }
+}
+
+impl ContainerLifecycle for FakeContainerRuntime {
+    fn start_warm(&self, workcell_id: &str) -> RunnerResult<String> {
+        let serial = self.next_cid.fetch_add(1, Ordering::SeqCst) + 1;
+        let container_id = format!("fake-ctr-{serial:04}");
+        let spec = WarmContainerSpec::new(
+            self.name(),
+            "agent-sandbox:fake",
+            "none",
+            workcell_id.to_string(),
+        );
+        self.warm
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .push(WarmContainer::new(&container_id, workcell_id));
+        self.lifecycle_ops
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .push(crate::lifecycle::LifecycleOp::StartWarm {
+                workcell_id: workcell_id.to_string(),
+                container_id: container_id.clone(),
+                argv: spec.argv(),
+            });
+        Ok(container_id)
+    }
+
+    fn list_workcells(&self) -> RunnerResult<Vec<WarmContainer>> {
+        self.lifecycle_ops
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .push(crate::lifecycle::LifecycleOp::List);
+        Ok(self
+            .warm
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone())
+    }
+
+    fn remove(&self, container_id: &str) -> RunnerResult<()> {
+        self.warm
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .retain(|c| c.container_id != container_id);
+        self.lifecycle_ops
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .push(crate::lifecycle::LifecycleOp::Remove {
+                container_id: container_id.to_string(),
+            });
+        Ok(())
     }
 }
 

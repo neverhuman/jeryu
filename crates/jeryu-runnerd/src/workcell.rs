@@ -621,6 +621,42 @@ impl WorkcellManager {
         }
     }
 
+    /// Queue one warm cell and return its id so the warm pool can pair it with a
+    /// detached `jeryu.workcell=<id>` container. The id matches the container
+    /// label, which is what the reaper compares against the live ledger.
+    pub fn warm_one(&mut self) -> String {
+        self.spawn_ready_cell()
+    }
+
+    /// Claim the ready cell with this exact id — the warm pool has already paired
+    /// it with a detached container labeled `jeryu.workcell=<id>`. Unlike
+    /// [`WorkcellManager::claim`], the ready queue entry is consumed without
+    /// minting a replacement, because the warm pool owns container refill.
+    pub fn claim_ready(
+        &mut self,
+        workcell_id: &str,
+        request: WorkcellClaimRequest,
+    ) -> WorkcellResult<WorkcellLease> {
+        if let Some(pos) = self.ready_queue.iter().position(|id| id == workcell_id) {
+            self.ready_queue.remove(pos);
+        }
+        let cell = self.cells.get_mut(workcell_id).ok_or_else(|| {
+            WorkcellError::claim_denied(format!("unknown warm cell {workcell_id}"))
+        })?;
+        cell.apply_claim(&request);
+        cell.apply_startup(&request.startup);
+        let outcome = match &request.startup {
+            StartupSync::Rebased { .. } => Ok(()),
+            StartupSync::Failed {
+                main_ref, reason, ..
+            } => Err(WorkcellError::startup_rebase_failed(format!(
+                "workcell {workcell_id} could not rebase onto {main_ref}: {reason}"
+            ))),
+        };
+        let lease = cell.clone();
+        outcome.map(|()| lease)
+    }
+
     pub fn repair_from_snapshot(
         &mut self,
         snapshot: &FrozenCiSnapshot,

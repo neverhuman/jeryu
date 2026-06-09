@@ -1,8 +1,12 @@
 #![doc = "OCI compatibility runner for Docker/Podman-style jobs."]
 
+pub mod lifecycle;
 pub mod runtime;
 pub mod session;
 
+pub use lifecycle::{
+    ContainerLifecycle, LifecycleOp, WORKCELL_LABEL, WarmContainer, WarmContainerSpec,
+};
 pub use runtime::{CliContainerRuntime, ContainerRuntime, FakeContainerRuntime, RuntimeOutcome};
 pub use session::{AgentSessionPlan, plan_agent_session};
 
