@@ -1,8 +1,10 @@
 #![doc = "OCI compatibility runner for Docker/Podman-style jobs."]
 
 pub mod runtime;
+pub mod session;
 
 pub use runtime::{CliContainerRuntime, ContainerRuntime, FakeContainerRuntime, RuntimeOutcome};
+pub use session::{AgentSessionPlan, plan_agent_session};
 
 use jeryu_runner_core::error::{RunnerError, RunnerResult};
 use jeryu_runner_core::fscheck::deny_dangerous_host_path;
@@ -51,6 +53,10 @@ pub struct OciSpec {
     pub command: Vec<String>,
     /// Network mode passed to runtime.
     pub network: String,
+    /// Non-secret container environment, emitted as `-e KEY=VALUE`. Credentials are
+    /// NEVER carried here: secrets reach the container only via mount or the broker,
+    /// so this vector holds plain, non-sensitive values (e.g. the pinned branch name).
+    pub env: Vec<(String, String)>,
     /// Lock-down options for confined agent containers; `None` for the OCI-compat lane.
     pub hardening: Option<AgentHardening>,
 }
@@ -79,6 +85,7 @@ impl OciSpec {
                 "deny" => "none".to_string(),
                 other => other.to_string(),
             },
+            env: Vec::new(),
             hardening: None,
         })
     }
@@ -116,6 +123,7 @@ impl OciSpec {
             workspace: job.workspace.display().to_string(),
             command,
             network: "none".to_string(),
+            env: Vec::new(),
             hardening: Some(AgentHardening {
                 uid: 1000,
                 gid: 1000,
@@ -156,6 +164,10 @@ impl OciSpec {
             }
             args.push("--cpu-shares".to_string());
             args.push(h.cpu_shares.to_string());
+        }
+        for (key, value) in &self.env {
+            args.push("-e".to_string());
+            args.push(format!("{key}={value}"));
         }
         args.push("--network".to_string());
         args.push(self.network.clone());
