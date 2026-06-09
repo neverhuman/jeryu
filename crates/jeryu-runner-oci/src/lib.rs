@@ -135,7 +135,16 @@ impl OciSpec {
                 pids_max: cg.pids_max,
                 cpu_shares: u32::from(cg.cpu_weight).max(2),
                 tmpfs: vec!["/tmp".to_string()],
-                seccomp_profile_path: format!("/opt/jeryu/seccomp/{}.json", plan.seccomp.name),
+                // The docker daemon reads `--security-opt seccomp=<path>` from the HOST,
+                // not from inside the image, so the profile dir must be a host path. It
+                // defaults to the in-image location but is overridable via
+                // JERYU_AGENT_SECCOMP_DIR for hosts where /opt is not writable.
+                seccomp_profile_path: format!(
+                    "{}/{}.json",
+                    std::env::var("JERYU_AGENT_SECCOMP_DIR")
+                        .unwrap_or_else(|_| "/opt/jeryu/seccomp".to_string()),
+                    plan.seccomp.name
+                ),
             }),
         })
     }
@@ -201,8 +210,13 @@ impl OciSpec {
         // args[0] == "run", args[1] == "--rm"; splice the live-terminal flags in
         // right after so they precede the hardening block and the image.
         let insert_at = 2.min(args.len());
+        // `-it`: keep stdin open AND allocate a TTY inside the container, so an
+        // interactive agent CLI (codex/claude) gets a controlling terminal — the host
+        // side is already the PtyAgentDriver's PTY. Without `-t` codex aborts with
+        // "stdin is not a terminal".
         let live = vec![
             "-i".to_string(),
+            "-t".to_string(),
             "--name".to_string(),
             format!("jeryu-agent-{run_id}"),
         ];
@@ -499,6 +513,7 @@ mod tests {
         assert_eq!(args[0], "run");
         assert_eq!(args[1], "--rm");
         assert_eq!(args[2], "-i");
+        assert_eq!(args[3], "-t");
         assert!(
             args.windows(2)
                 .any(|w| w[0] == "--name" && w[1] == "jeryu-agent-run-9"),
