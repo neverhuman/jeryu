@@ -89,6 +89,7 @@ tempfile = "3"
 thiserror = "1"
 toml = "0.8"
 uuid = { version = "1", features = ["v4", "serde"] }
+vt100 = "0.16"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -13,21 +13,38 @@ use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 use jeryu_readmodel::{AgentRunStatus, AgentStatus, WorkcellState};
 
 use super::data::{AgentRow, AgentRunRow, AgentsLensInput, RepairCellRow};
+use super::terminal::AgentTerminalSession;
+use crate::widgets::terminal_pane;
 
 pub fn draw(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
+    draw_with_terminal(f, input, None, area);
+}
+
+/// Draw the Agents lens, swapping the lifecycle table for the live terminal
+/// pane when an attached session is present. With no session (or a detached
+/// one) this is byte-identical to [`draw`].
+pub fn draw_with_terminal(
+    f: &mut Frame,
+    input: &AgentsLensInput,
+    terminal: Option<&AgentTerminalSession>,
+    area: Rect,
+) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // header / fleet summary
             Constraint::Length(8), // live runs + repair workcells
-            Constraint::Min(0),    // session table
+            Constraint::Min(0),    // session table / terminal pane
             Constraint::Length(3), // footer / cursor + alert
         ])
         .split(area);
 
     draw_header(f, input, chunks[0]);
     draw_live_runs(f, input, chunks[1]);
-    draw_body(f, input, chunks[2]);
+    match terminal {
+        Some(session) if session.is_attached() => terminal_pane::render(f, session, chunks[2]),
+        _ => draw_body(f, input, chunks[2]),
+    }
     draw_footer(f, input, chunks[3]);
 }
 

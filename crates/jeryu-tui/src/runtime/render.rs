@@ -52,9 +52,20 @@ pub fn draw(f: &mut Frame, app: &App, stream_mode: StreamMode) {
     };
     header::render(f, &header_props, rows[0], &palette);
 
-    // Content — the active lens projected from the read model.
+    // Content — the active lens projected from the read model. The Agents lens
+    // is the one surface that consults `app.terminal`: when a live session is
+    // present it swaps its lifecycle table for the terminal pane.
     let lens = LensId::for_tab(app.active_tab);
-    lenses::draw_lens(f, lens, &app.model, rows[1]);
+    if lens == LensId::Agents {
+        lenses::agents::view::draw_with_terminal(
+            f,
+            &lenses::agents::AgentsLensInput::from_read_model(&app.model),
+            app.terminal.as_ref(),
+            rows[1],
+        );
+    } else {
+        lenses::draw_lens(f, lens, &app.model, rows[1]);
+    }
 
     // Status strip
     let hints = [

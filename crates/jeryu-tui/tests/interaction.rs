@@ -19,10 +19,28 @@ use jeryu_readmodel::sample_read_model;
 use jeryu_tui::App;
 use jeryu_tui::app::ActiveTab;
 use jeryu_tui::focus::PaneId;
-use jeryu_tui::runtime::input::{Flow, handle_key};
+use jeryu_tui::runtime::input::{Flow, handle_key, handle_key_with_sink};
+use jeryu_tui::runtime::tty::{AgentControl, ControlSink};
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
+}
+
+fn ctrl(code: KeyCode) -> KeyEvent {
+    KeyEvent::new(code, KeyModifiers::CONTROL)
+}
+
+/// A [`ControlSink`] that records every intent the terminal pane emits, so the
+/// interaction tests can assert on what was sent upstream without a transport.
+#[derive(Default)]
+struct RecordingControlSink {
+    sent: Vec<AgentControl>,
+}
+
+impl ControlSink for RecordingControlSink {
+    fn send(&mut self, control: AgentControl) {
+        self.sent.push(control);
+    }
 }
 
 fn app_on(tab: ActiveTab) -> App {
@@ -239,4 +257,84 @@ fn focus_cycle_then_drill_fullscreens_the_focused_pane_for_every_tab() {
         assert_eq!(app.focus.active, focused);
         assert!(!app.focus.is_drilled());
     }
+}
+
+// ── Live agent-terminal attach / drive / detach ───────────────────────────
+
+/// Open + attach a terminal on the Agents tab via the production sink entry.
+fn attached_agents_app() -> App {
+    let mut app = app_on(ActiveTab::Agents);
+    let mut sink = RecordingControlSink::default();
+    let flow = handle_key_with_sink(&mut app, key(KeyCode::Enter), &mut sink);
+    assert_eq!(flow, Flow::Continue);
+    app
+}
+
+#[test]
+fn enter_on_a_run_row_constructs_and_attaches_a_session() {
+    let app = attached_agents_app();
+    let term = app.terminal.as_ref().expect("Enter must open a session");
+    assert!(term.is_attached(), "the opened session must be attached");
+    // The sample fleet's first run drives the scope.
+    assert!(
+        term.run_id().starts_with("agent_run."),
+        "session must carry the agent_run scope, got {}",
+        term.run_id()
+    );
+}
+
+#[test]
+fn attached_ctrl_c_interrupts_and_does_not_quit() {
+    let mut app = attached_agents_app();
+    let mut sink = RecordingControlSink::default();
+    let flow = handle_key_with_sink(&mut app, ctrl(KeyCode::Char('c')), &mut sink);
+    assert_eq!(flow, Flow::Continue, "Ctrl-C must not quit while attached");
+    assert_eq!(sink.sent, vec![AgentControl::Interrupt]);
+    assert!(app.terminal.as_ref().unwrap().is_attached());
+}
+
+#[test]
+fn attached_printable_keys_route_as_input_bytes() {
+    let mut app = attached_agents_app();
+    let mut sink = RecordingControlSink::default();
+    handle_key_with_sink(&mut app, key(KeyCode::Char('l')), &mut sink);
+    handle_key_with_sink(&mut app, key(KeyCode::Char('s')), &mut sink);
+    assert_eq!(
+        sink.sent,
+        vec![
+            AgentControl::Input(b"l".to_vec()),
+            AgentControl::Input(b"s".to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn detach_key_returns_control_then_q_quits_normally() {
+    let mut app = attached_agents_app();
+    let mut sink = RecordingControlSink::default();
+    // Ctrl-] detaches; no control intent is emitted for the detach itself.
+    let flow = handle_key_with_sink(&mut app, ctrl(KeyCode::Char(']')), &mut sink);
+    assert_eq!(flow, Flow::Continue);
+    assert!(
+        sink.sent.is_empty(),
+        "detach must not emit a control intent"
+    );
+    assert!(!app.terminal.as_ref().unwrap().is_attached());
+
+    // With the terminal detached, the normal Flight Deck routing resumes and
+    // `q` quits at the top level.
+    let flow = handle_key_with_sink(&mut app, key(KeyCode::Char('q')), &mut sink);
+    assert_eq!(flow, Flow::Quit, "q must quit once detached");
+}
+
+#[test]
+fn detached_session_does_not_capture_keys() {
+    // A present-but-detached session must not route keys to the terminal: `q`
+    // still quits through the standard handler.
+    let mut app = attached_agents_app();
+    app.terminal.as_mut().unwrap().detach();
+    let mut sink = RecordingControlSink::default();
+    let flow = handle_key_with_sink(&mut app, key(KeyCode::Char('q')), &mut sink);
+    assert_eq!(flow, Flow::Quit);
+    assert!(sink.sent.is_empty());
 }

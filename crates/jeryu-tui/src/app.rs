@@ -11,6 +11,7 @@
 use jeryu_readmodel::TuiReadModel;
 
 use crate::focus::FocusState;
+use crate::lenses::agents::AgentTerminalSession;
 
 /// The Flight Deck tab set. Each tab routes to exactly one lens; the digit
 /// shortcuts (`from_number`) and `Tab`/`BackTab` cycling are preserved from the
@@ -132,6 +133,10 @@ pub struct App {
     pub model: TuiReadModel,
     pub active_tab: ActiveTab,
     pub focus: FocusState,
+    /// The live agent-terminal session, when one has been opened on the Agents
+    /// tab. `None` for every other surface, so non-Agents snapshots are
+    /// unaffected by this pane.
+    pub terminal: Option<AgentTerminalSession>,
 }
 
 impl App {
@@ -142,6 +147,7 @@ impl App {
             model,
             active_tab,
             focus: FocusState::for_tab(active_tab),
+            terminal: None,
         }
     }
 
