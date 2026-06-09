@@ -29,6 +29,7 @@ pub use capability::{EnforcementLevel, SandboxCapabilities};
 pub use escape::{EscapeVerdict, run_in_forked_child};
 pub use launch::{
     ChildIo, EnforcementReport, GroupSignal, SandboxError, SandboxResult, open_pty, resize_pty,
-    signal_group, spawn_sandboxed, spawn_sandboxed_with_io, verify_enforcement,
+    signal_group, spawn_command_on_pty, spawn_sandboxed, spawn_sandboxed_with_io,
+    verify_enforcement,
 };
 pub use watchdog::{WatchdogOutcome, run_with_watchdog};

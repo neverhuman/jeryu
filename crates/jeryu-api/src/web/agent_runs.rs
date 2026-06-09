@@ -594,6 +594,8 @@ fn start_request(
         repo_root: resolved.repo_root,
         spec,
         io_mode: request.io_mode,
+        backend: PtyBackend::Native,
+        docker_fallback: None,
         timeout,
         output_budget,
         require_cgroup: request.require_cgroup(),
@@ -625,10 +627,30 @@ struct DriverThreadInit {
     repo_root: PathBuf,
     spec: CommandSpec,
     io_mode: AgentRunIoMode,
+    /// Which PTY execution backend supervises the child. `Native` runs the program
+    /// inside the in-process kernel sandbox; `DockerHost` runs an unsandboxed host
+    /// `docker run ...` (the container is the jail). Only meaningful for the Pty
+    /// io_mode; the Pipe path always uses the native sandbox driver.
+    backend: PtyBackend,
+    /// Auto-mode docker fallback. When the `Native` backend returns
+    /// `sandbox_unavailable` (the host blocks the unprivileged-userns sandbox) and
+    /// this carries a docker command, the same run retries on the docker host-PTY
+    /// backend instead of failing — the `auto` runtime selector's whole point.
+    docker_fallback: Option<CommandSpec>,
     timeout: Duration,
     output_budget: usize,
     require_cgroup: bool,
     control_rx: mpsc::Receiver<AgentControl>,
+}
+
+/// Which PTY backend a launched agent runs under.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum PtyBackend {
+    /// In-process kernel-sandbox PTY (the existing [`PtyAgentDriver::run`] path).
+    Native,
+    /// Host `docker run ...` on a PTY; the container engine confines the agent and
+    /// the host process is unsandboxed by design (see [`PtyAgentDriver::run_host_pty`]).
+    DockerHost,
 }
 
 /// Drive one agent child to completion on a background thread, streaming its TTY
@@ -643,6 +665,8 @@ fn spawn_driver_thread(init: DriverThreadInit) {
         repo_root,
         spec,
         io_mode,
+        backend,
+        docker_fallback,
         timeout,
         output_budget,
         require_cgroup,
@@ -653,11 +677,30 @@ fn spawn_driver_thread(init: DriverThreadInit) {
             store: store.clone(),
             run_id: run_id.clone(),
         };
-        let result = match io_mode {
-            AgentRunIoMode::Pty => PtyAgentDriver::new(timeout, output_budget)
-                .with_require_cgroup(require_cgroup)
-                .run(&repo_root, &spec, &sink, &control_rx),
-            AgentRunIoMode::Pipe => AgentDriver::new(timeout, output_budget)
+        let driver = PtyAgentDriver::new(timeout, output_budget);
+        let result = match (io_mode, backend) {
+            // Docker-backed live PTY: the container is the jail, so the host
+            // `docker run ...` runs unsandboxed on a controlling terminal.
+            (AgentRunIoMode::Pty, PtyBackend::DockerHost) => {
+                driver.run_host_pty(&repo_root, &spec, &sink, &control_rx)
+            }
+            (AgentRunIoMode::Pty, PtyBackend::Native) => {
+                let native = driver.clone().with_require_cgroup(require_cgroup).run(
+                    &repo_root,
+                    &spec,
+                    &sink,
+                    &control_rx,
+                );
+                match (native, docker_fallback) {
+                    // Auto fallback: the host blocked the kernel sandbox, so retry
+                    // the same run on the docker host-PTY backend.
+                    (Err(DriverError::SandboxUnavailable(_)), Some(docker_spec)) => {
+                        driver.run_host_pty(&repo_root, &docker_spec, &sink, &control_rx)
+                    }
+                    (other, _) => other,
+                }
+            }
+            (AgentRunIoMode::Pipe, _) => AgentDriver::new(timeout, output_budget)
                 .with_require_cgroup(require_cgroup)
                 .run(&repo_root, &spec, &sink),
         };
@@ -670,55 +713,58 @@ fn spawn_driver_thread(init: DriverThreadInit) {
 pub(super) struct SessionAgentSpawn {
     /// The recorded session run the TTY stream is keyed to.
     pub run_id: String,
-    /// The materialized session checkout the agent runs inside (its cwd).
+    /// The materialized session checkout the agent runs inside (its cwd). For the
+    /// native backend this is also the agent's cwd; for the docker backend it is
+    /// where the host `docker run` process runs (and the workspace it bind-mounts).
     pub workspace: PathBuf,
-    /// The resolved agent program; an empty path means the binary was unknown.
-    pub program: PathBuf,
-    /// Arguments passed to the agent entrypoint.
-    pub args: Vec<String>,
-    /// Branch-pinned env (carries `JERYU_BRANCH`) for the in-cell git guard.
-    pub env: BTreeMap<String, String>,
+    /// The launch command the driver runs. `None` means the agent could not be
+    /// resolved (a missing host binary, or `docker` absent from PATH), in which
+    /// case the run records one graceful "not available" line instead of starting.
+    pub spec: Option<CommandSpec>,
+    /// Which PTY backend supervises the child (native sandbox vs. host docker).
+    pub backend: PtyBackend,
+    /// Auto-mode docker fallback command: when `backend` is `Native` and native
+    /// returns `sandbox_unavailable`, the run retries on the docker host-PTY
+    /// backend with this command instead of failing.
+    pub docker_fallback: Option<CommandSpec>,
     /// Live control sender already recorded against the run, moved into the driver.
     pub control_rx: mpsc::Receiver<AgentControl>,
     /// Wall-clock budget for the session agent.
     pub timeout: Duration,
     /// Captured-output byte budget for the session agent.
     pub output_budget: usize,
-    /// Whether enforced cgroup-v2 limits are required (false only under test).
+    /// Whether enforced cgroup-v2 limits are required (false only under test, and
+    /// only consulted by the native backend; the docker backend ignores it).
     pub require_cgroup: bool,
 }
 
 /// Launch the selected agent for a repo-scoped session on a controlling PTY,
 /// wiring its raw terminal output into the recorded run exactly like the public
-/// agent-run route. The agent runs with cwd = the session workspace and the
-/// branch-pinned env, so the in-cell git guard confines it to its own branch.
+/// agent-run route. The native backend runs the agent inside the in-process kernel
+/// sandbox; the docker backend runs `docker run ...` on the host PTY and the
+/// container is the jail. Either way the agent works against the session checkout
+/// (its cwd for native, its `/workspace` bind mount for docker) on its own branch.
 ///
-/// When the resolved agent binary is missing — an empty path or a file that does
-/// not exist on disk — rather than fail the whole New Session request, record one
-/// clear TTY line so the web terminal shows why the agent never started, and mark
-/// the run finished.
+/// When the agent could not be resolved (`spec` is `None`) — a missing host binary
+/// or `docker` absent from PATH — rather than fail the whole New Session request,
+/// record one clear TTY line so the web terminal shows why the agent never started,
+/// and mark the run finished.
 pub(super) fn spawn_session_agent(store: &AgentRunStore, spawn: SessionAgentSpawn) {
     let SessionAgentSpawn {
         run_id,
         workspace,
-        program,
-        args,
-        env,
+        spec,
+        backend,
+        docker_fallback,
         control_rx,
         timeout,
         output_budget,
         require_cgroup,
     } = spawn;
 
-    if program.as_os_str().is_empty() || !program.is_file() {
+    let Some(spec) = spec else {
         store.note_agent_unavailable(&run_id);
         return;
-    }
-
-    let spec = CommandSpec {
-        program: program.to_string_lossy().to_string(),
-        args,
-        env,
     };
     spawn_driver_thread(DriverThreadInit {
         store: store.clone(),
@@ -726,6 +772,8 @@ pub(super) fn spawn_session_agent(store: &AgentRunStore, spawn: SessionAgentSpaw
         repo_root: workspace,
         spec,
         io_mode: AgentRunIoMode::Pty,
+        backend,
+        docker_fallback,
         timeout,
         output_budget,
         require_cgroup,
@@ -1216,6 +1264,37 @@ impl AgentRunStore {
         let program = record.program.clone();
         let agent = record.agent.clone().unwrap_or_else(|| "agent".to_string());
         let line = format!("agent {agent} not available: {program}\r\n");
+        let seq = (record.events.len() as u64).saturating_add(1);
+        let event = AgentRunEventInput {
+            kind: "tty",
+            stream: Some("stderr"),
+            text: Some(line),
+            pid: None,
+            used: None,
+            limit: None,
+            exit_code: None,
+            timed_out: false,
+            budget_exceeded: false,
+        }
+        .into_event(seq);
+        let tty_event = tty_event_for(record, &event);
+        record.events.push(event);
+        record.publish_tty(tty_event);
+        record.state = AgentRunState::Failed;
+        record.control_tx = None;
+    }
+
+    /// Record one clear TTY line for a session whose workspace checkout could not be
+    /// materialized (the bare clone or branch checkout failed), then mark the run
+    /// failed. The New Session request still returns a recorded run and 2xx; the web
+    /// terminal degrades to a single line naming the reason rather than launching an
+    /// agent against an empty, code-less workspace.
+    pub(super) fn note_session_checkout_failed(&self, run_id: &str, reason: &str) {
+        let mut inner = self.inner.lock().expect("agent run store mutex");
+        let Some(record) = inner.runs.get_mut(run_id) else {
+            return;
+        };
+        let line = format!("session workspace checkout failed: {reason}\r\n");
         let seq = (record.events.len() as u64).saturating_add(1);
         let event = AgentRunEventInput {
             kind: "tty",

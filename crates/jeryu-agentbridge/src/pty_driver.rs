@@ -26,7 +26,8 @@ use jeryu_runner_core::sandbox::SandboxPlan;
 use jeryu_runner_core::trust::TrustTier;
 use jeryu_sandbox_linux::capability::SandboxCapabilities;
 use jeryu_sandbox_linux::{
-    ChildIo, GroupSignal, open_pty, resize_pty, signal_group, spawn_sandboxed_with_io,
+    ChildIo, GroupSignal, open_pty, resize_pty, signal_group, spawn_command_on_pty,
+    spawn_sandboxed_with_io,
 };
 
 use crate::driver::{
@@ -259,6 +260,62 @@ impl PtyAgentDriver {
             stderr: Vec::new(),
             captured_bytes: outcome.used,
             enforcement_level: level.as_str().to_string(),
+            elapsed: outcome.elapsed,
+        })
+    }
+
+    /// Run an arbitrary HOST command (e.g. `docker run ...`) on a controlling PTY,
+    /// streaming its terminal output to `sink` and applying `control` live, exactly
+    /// like [`PtyAgentDriver::run`] — but WITHOUT the kernel sandbox. This is the
+    /// docker-backed agent runtime: the container engine confines the agent, so the
+    /// `docker run` process itself is an ordinary child. The output pump, budget,
+    /// timeout, and control handling are identical (the same [`Self::supervise`]
+    /// loop drives both paths), so the only difference from `run` is the child: a
+    /// plain host process instead of a sandboxed one. `cwd` is where the host
+    /// command runs; the container's `-w` governs the agent's working directory.
+    pub fn run_host_pty<S: AgentEventSink, C: AgentControlSource>(
+        &self,
+        cwd: &Path,
+        spec: &CommandSpec,
+        sink: &S,
+        control: &C,
+    ) -> Result<AgentRunResult, DriverError> {
+        if !cwd.is_dir() {
+            return Err(DriverError::Workspace(format!(
+                "{} is not an existing directory",
+                cwd.display()
+            )));
+        }
+
+        let (master, slave) =
+            open_pty().map_err(|e| DriverError::SandboxUnavailable(e.message().to_string()))?;
+
+        let started = Instant::now();
+        let child = spawn_command_on_pty(&spec.program, &spec.args, &spec.env, cwd, &slave)
+            .map_err(|e| {
+                DriverError::SandboxUnavailable(format!("[{}] {}", e.code(), e.message()))
+            })?;
+        // Parent closes its slave copy so the master observes EOF on child exit.
+        drop(slave);
+
+        sink.emit(AgentEvent::Started { pid: child.id() });
+        let outcome = self.supervise(child, master, sink, control, started)?;
+        sink.emit(AgentEvent::Finished {
+            exit_code: outcome.exit_code,
+            timed_out: outcome.timed_out,
+            budget_exceeded: outcome.budget_exceeded,
+        });
+
+        Ok(AgentRunResult {
+            exit_code: outcome.exit_code,
+            timed_out: outcome.timed_out,
+            budget_exceeded: outcome.budget_exceeded,
+            stdout: outcome.captured,
+            stderr: Vec::new(),
+            captured_bytes: outcome.used,
+            // The host docker process is unsandboxed-by-design (the container is the
+            // jail), so it carries no kernel-enforcement level of its own.
+            enforcement_level: "container".to_string(),
             elapsed: outcome.elapsed,
         })
     }

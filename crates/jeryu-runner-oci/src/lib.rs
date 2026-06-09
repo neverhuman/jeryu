@@ -184,6 +184,32 @@ impl OciSpec {
         args
     }
 
+    /// Runtime args for a LIVE, PTY-attached agent container run.
+    ///
+    /// Like [`OciSpec::args`] but tuned for the docker-backed live-terminal path:
+    /// it injects `-i` (keep stdin open so the web terminal can forward input into
+    /// the container) and a stable `--name jeryu-agent-<run_id>` (so an interrupt
+    /// can `docker kill` exactly this container) right after `run --rm`, then keeps
+    /// the full hardening + the in-image agent argv unchanged. The runtime
+    /// executable itself (docker) is NOT included — the caller prepends it.
+    ///
+    /// `--network none` is preserved: the agent still streams its banner / first
+    /// output (proving the pipeline) without egress. Model egress is a separate
+    /// later layer (the proxy bridge), never the container.
+    pub fn live_pty_args(&self, run_id: &str) -> Vec<String> {
+        let mut args = self.args();
+        // args[0] == "run", args[1] == "--rm"; splice the live-terminal flags in
+        // right after so they precede the hardening block and the image.
+        let insert_at = 2.min(args.len());
+        let live = vec![
+            "-i".to_string(),
+            "--name".to_string(),
+            format!("jeryu-agent-{run_id}"),
+        ];
+        args.splice(insert_at..insert_at, live);
+        args
+    }
+
     /// Explain this spec without secrets.
     pub fn explain(&self) -> String {
         format!("oci runtime={} {}", self.runtime, self.args().join(" "))
@@ -460,6 +486,37 @@ mod tests {
             .collect();
         assert_eq!(binds.len(), 1, "only the workspace is mounted: {binds:?}");
         assert!(binds[0].ends_with(":/workspace:Z"));
+    }
+
+    #[test]
+    fn live_pty_args_inject_interactive_name_and_keep_hardening() {
+        let job = oci_agent_job();
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        let spec = OciSpec::from_agent_job(&job, &plan).unwrap_or_else(|err| panic!("{err}"));
+        let args = spec.live_pty_args("run-9");
+        // The live-terminal flags are spliced in right after `run --rm`.
+        assert_eq!(args[0], "run");
+        assert_eq!(args[1], "--rm");
+        assert_eq!(args[2], "-i");
+        assert!(
+            args.windows(2)
+                .any(|w| w[0] == "--name" && w[1] == "jeryu-agent-run-9"),
+            "args: {args:?}"
+        );
+        // The full hardening + network-none + workspace mount survive unchanged.
+        assert!(args.contains(&"--read-only".to_string()), "args: {args:?}");
+        assert!(args.contains(&"--cap-drop=ALL".to_string()));
+        assert!(
+            args.windows(2)
+                .any(|w| w[0] == "--network" && w[1] == "none")
+        );
+        assert!(
+            args.iter()
+                .enumerate()
+                .filter(|(_, a)| *a == "-v")
+                .any(|(i, _)| args[i + 1].ends_with(":/workspace:Z"))
+        );
     }
 
     #[test]

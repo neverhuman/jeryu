@@ -21,6 +21,7 @@ use axum::extract::{Path as AxumPath, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use jeryu_agent_stream::{CONTROL_TOPIC, TTY_TOPIC};
+use jeryu_agentbridge::driver::CommandSpec;
 use jeryu_core::CreatePullRequestRequest;
 use jeryu_gitd::error::GitdError;
 use jeryu_gitd::refs::RefService;
@@ -29,14 +30,14 @@ use jeryu_runner_core::policy::select_runner;
 use jeryu_runner_core::receipt::now_ms;
 use jeryu_runner_core::sandbox::SandboxPlan;
 use jeryu_runner_core::trust::{RunnerClass, TrustTier};
-use jeryu_runner_oci::plan_agent_session;
+use jeryu_runner_oci::{OciSpec, plan_agent_session};
 use jeryu_runnerd::{SessionClaim, StartupSync, WorkcellClaimRequest};
 use serde::{Deserialize, Serialize};
 
 use super::WebState;
 use super::agent_runs::{
-    AgentRunState, RepoAgentRunRow, SessionAgentSpawn, SessionPublishInfo, SessionRecordInit,
-    origin_base_url, spawn_session_agent,
+    AgentRunState, PtyBackend, RepoAgentRunRow, SessionAgentSpawn, SessionPublishInfo,
+    SessionRecordInit, origin_base_url, spawn_session_agent,
 };
 use super::repositories::find_repo;
 use super::workcells_support::{TypedError, forge_error, typed_error};
@@ -330,6 +331,7 @@ fn create_session(
         })
     }
     .map_err(|err| Box::new(runner_error(err)))?;
+    let container = claimed.session.container.clone();
     let branch = claimed.session.branch;
 
     // Record the run with a live control channel so the web terminal can steer the
@@ -341,30 +343,60 @@ fn create_session(
         branch: branch.clone(),
         base_oid: base_oid.clone(),
         runner,
-        agent: agent_id,
-        program: command,
+        agent: agent_id.clone(),
+        program: command.clone(),
         args: request.args.clone(),
         workspace: workspace.clone(),
         control_tx: Some(control_tx),
     });
 
-    // Launch the selected agent on a controlling PTY against the session
-    // workspace, streaming its raw terminal output into the recorded run exactly
-    // like the public agent-run route. The agent runs with cwd = the session
-    // checkout and the branch-pinned env (JERYU_BRANCH) so the in-cell git guard
-    // confines it to its own branch. A best-effort mkdir gives the driver an
-    // existing workspace; the claimed cell materialized the checkout there.
-    let _ = std::fs::create_dir_all(&workspace);
+    // Materialize the session workspace into a REAL working tree before the agent
+    // launches: clone the forge's bare repo for this repository and check out the
+    // unique session branch pinned to the registered base oid. Without this the
+    // workspace is an empty dir with no `.git`, so the agent has no code to work on.
+    // The clone runs HOST-side from the local bare repo (no network); the agent
+    // never performs git over the wire. A failure records the run failed with a
+    // clear TTY line rather than 500-ing the New Session request.
+    if let Err(reason) = materialize_workspace(
+        &state.repo_manager.config().git_bin,
+        &resolved.path,
+        &workspace,
+        &branch,
+        &base_oid,
+    ) {
+        state
+            .agent_runs
+            .note_session_checkout_failed(&run_id, &reason);
+        return Ok(session_response(&run_id, &branch, &base_oid));
+    }
+
+    // Pick the PTY execution backend. The native in-process kernel sandbox cannot be
+    // created on a host whose AppArmor blocks the unprivileged userns
+    // (`kernel.apparmor_restrict_unprivileged_userns=1`), so `auto` (the default)
+    // tries native and falls back to docker when `docker` is on PATH; `docker` and
+    // `native` force one path. The docker backend runs the hardened agent container
+    // (`--read-only --network none -v <ws>:/workspace ...`) on a live PTY whose TTY
+    // streams to the web terminal — it still STARTS and streams the agent's banner
+    // even with `--network none` (model egress is a separate later layer).
     let mut agent_env: BTreeMap<String, String> = BTreeMap::new();
     agent_env.insert("JERYU_BRANCH".to_string(), branch.clone());
+    let (backend, spec, docker_fallback) = resolve_session_backend(
+        &state.session_runtime,
+        &agent_id,
+        &agent_program,
+        &workspace,
+        agent_env,
+        &container,
+        &run_id,
+    );
     spawn_session_agent(
         &state.agent_runs,
         SessionAgentSpawn {
             run_id: run_id.clone(),
             workspace,
-            program: agent_program,
-            args: request.args,
-            env: agent_env,
+            spec,
+            backend,
+            docker_fallback,
             control_rx,
             timeout: Duration::from_secs(SESSION_AGENT_TIMEOUT_SECS),
             output_budget: SESSION_AGENT_OUTPUT_BYTES,
@@ -372,11 +404,17 @@ fn create_session(
         },
     );
 
-    Ok(CreateSessionResponse {
-        session_id: run_id.clone(),
-        run_id: run_id.clone(),
-        branch,
-        base_oid,
+    Ok(session_response(&run_id, &branch, &base_oid))
+}
+
+/// The create-session response body, shared by the launched-agent success path and
+/// the graceful checkout-failure path (both record a run and return 2xx).
+fn session_response(run_id: &str, branch: &str, base_oid: &str) -> CreateSessionResponse {
+    CreateSessionResponse {
+        session_id: run_id.to_string(),
+        run_id: run_id.to_string(),
+        branch: branch.to_string(),
+        base_oid: base_oid.to_string(),
         ws_scope: format!("agent_run.{run_id}"),
         tty_topic: TTY_TOPIC.to_string(),
         control_topic: CONTROL_TOPIC.to_string(),
@@ -384,7 +422,7 @@ fn create_session(
         events_url: format!("/api/v1/agent-runs/{run_id}/events"),
         control_url: format!("/api/v1/agent-runs/{run_id}/control"),
         publish_url: format!("/api/v1/agent-runs/{run_id}/publish"),
-    })
+    }
 }
 
 /// `GET /api/v1/repos/{id}/agent-runs` — the live agent-runs list for ONE repo.
@@ -552,6 +590,218 @@ fn publish_session(
         pull_request_number: pr.number,
         url: format!("/{}/{}/pull/{}", pr.owner, pr.repo, pr.number),
     })
+}
+
+/// Materialize the session workspace into a real working tree on the unique branch
+/// at `base_oid`. Clones the local bare repo (`--no-local`-style file clone, no
+/// network) into `workspace`, then forces the session branch to the registered base
+/// oid. Returns `Err(reason)` if any host git step fails so the caller can degrade
+/// gracefully (record the run failed with a TTY line) instead of returning a 500.
+fn materialize_workspace(
+    git_bin: &str,
+    bare: &std::path::Path,
+    workspace: &std::path::Path,
+    branch: &str,
+    base_oid: &str,
+) -> Result<(), String> {
+    // A pre-existing empty dir (the temp path was reserved up front) is fine, but a
+    // populated one is not — `git clone` requires an empty or absent target.
+    let _ = std::fs::remove_dir_all(workspace);
+    let bare = bare.to_string_lossy().to_string();
+    let workspace_arg = workspace.to_string_lossy().to_string();
+    // Local file clone of the forge's bare repo — robust regardless of which branch
+    // the bare repo currently points HEAD at, and it never touches the network.
+    run_git(
+        git_bin,
+        &["clone", "--no-local", &bare, &workspace_arg],
+        None,
+    )?;
+    // Force the session branch to the exact base oid and check it out, so the agent
+    // starts on its own namespaced branch at latest-main (never `main` itself).
+    run_git(
+        git_bin,
+        &["-C", &workspace_arg, "checkout", "-B", branch, base_oid],
+        None,
+    )?;
+    Ok(())
+}
+
+/// Run one host git step, mapping a spawn failure or non-zero exit to a short
+/// reason string for the graceful checkout-failure path.
+fn run_git(git_bin: &str, args: &[&str], cwd: Option<&std::path::Path>) -> Result<(), String> {
+    let mut cmd = std::process::Command::new(git_bin);
+    cmd.args(args);
+    if let Some(dir) = cwd {
+        cmd.current_dir(dir);
+    }
+    let output = cmd
+        .output()
+        .map_err(|err| format!("git {} failed to spawn: {err}", args.join(" ")))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    Err(format!(
+        "git {} failed: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stderr).trim()
+    ))
+}
+
+/// Resolve which PTY backend a session agent runs under, the launch command for it,
+/// and (for `auto`) a docker fallback. `auto` (default) runs the native kernel
+/// sandbox and, only if native returns `sandbox_unavailable` at spawn time, retries
+/// the same run on docker; `docker`/`native` force one path.
+///
+/// Returns `(backend, primary_spec, docker_fallback)`:
+/// - `docker`: backend `DockerHost`, primary = the host `docker run ... <image>
+///   <in-image agent argv>` (hardened flags from the planned [`OciSpec`]); `None`
+///   when `docker` is absent (drives the graceful not-available line).
+/// - `native`: backend `Native`, primary = the resolved host agent binary; `None`
+///   when that binary is absent.
+/// - `auto`: backend `Native` with the host agent binary as primary AND a docker
+///   command as the fallback (when docker is on PATH). A missing native binary
+///   still degrades to the graceful not-available line — `auto` only falls back on
+///   an actual kernel-sandbox failure, never on a missing agent CLI.
+fn resolve_session_backend(
+    config: &SessionRuntimeConfig,
+    agent_id: &str,
+    agent_program: &std::path::Path,
+    workspace: &std::path::Path,
+    env: BTreeMap<String, String>,
+    container: &OciSpec,
+    run_id: &str,
+) -> (PtyBackend, Option<CommandSpec>, Option<CommandSpec>) {
+    let native_ok = !agent_program.as_os_str().is_empty() && agent_program.is_file();
+    let native_spec = native_ok.then(|| CommandSpec {
+        program: agent_program.to_string_lossy().to_string(),
+        args: container.command.iter().skip(1).cloned().collect(),
+        env: env.clone(),
+    });
+    let docker_spec = config
+        .docker_bin
+        .as_deref()
+        .map(|docker| docker_command(docker, container, workspace, agent_id, env, run_id));
+
+    match config.runtime {
+        SessionRuntime::Docker => (PtyBackend::DockerHost, docker_spec, None),
+        SessionRuntime::Native => (PtyBackend::Native, native_spec, None),
+        SessionRuntime::Auto => (PtyBackend::Native, native_spec, docker_spec),
+    }
+}
+
+/// Build the host `docker run ...` launch command for a session agent. The flags
+/// come straight from the planned, hardened [`OciSpec`] (read-only root, all caps
+/// dropped, `--network none`, the workspace bind-mounted at `/workspace`), with the
+/// in-image agent CLI as the container's argv and `-i` + a stable `--name` injected
+/// for the live PTY. The workspace mount is rewritten to the materialized session
+/// checkout so the agent sees real code at `/workspace`.
+fn docker_command(
+    docker: &str,
+    container: &OciSpec,
+    workspace: &std::path::Path,
+    agent_id: &str,
+    env: BTreeMap<String, String>,
+    run_id: &str,
+) -> CommandSpec {
+    let mut spec = container.clone();
+    spec.workspace = workspace.to_string_lossy().to_string();
+    spec.command = in_image_agent_command(agent_id);
+    // The forge env (JERYU_BRANCH etc.) is already carried as `-e` flags by the
+    // planned container; the host docker process itself needs no extra env.
+    let args = spec.live_pty_args(run_id);
+    CommandSpec {
+        program: docker.to_string(),
+        args,
+        env,
+    }
+}
+
+/// Map an `agent_id` to the agent CLI on the image's PATH. The hardened sandbox
+/// image bundles the coding-agent CLIs under stable names; an unknown id falls back
+/// to the standard `agent` entrypoint (its absence inside the image surfaces as the
+/// container exiting, which the live stream shows).
+fn in_image_agent_command(agent_id: &str) -> Vec<String> {
+    let program = match agent_id {
+        "codex" => "codex",
+        "claude" => "claude",
+        "jekko" => "jekko",
+        _ => "agent",
+    };
+    vec![program.to_string()]
+}
+
+/// Which container/native runtime a launched session uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SessionRuntime {
+    Auto,
+    Docker,
+    Native,
+}
+
+/// The resolved session-execution config: which PTY backend to prefer and which
+/// docker binary the seam points at. Production resolves this from the
+/// `JERYU_AGENT_RUNTIME` / `JERYU_DOCKER_BIN` env once at [`WebState`] construction;
+/// a hermetic test injects it directly so it never mutates process-global env (the
+/// crate forbids `unsafe`, so `std::env::set_var` is not available to tests).
+#[derive(Debug, Clone)]
+pub(crate) struct SessionRuntimeConfig {
+    /// Preferred backend: `auto` (native then docker fallback), `docker`, `native`.
+    pub(crate) runtime: SessionRuntime,
+    /// The docker binary the seam invokes (`JERYU_DOCKER_BIN` or `docker` on PATH);
+    /// `None` when no docker is resolvable, which drives the graceful path.
+    pub(crate) docker_bin: Option<String>,
+}
+
+impl SessionRuntimeConfig {
+    /// Resolve the session runtime config from the environment.
+    ///
+    /// `JERYU_AGENT_RUNTIME` selects the backend (`auto` default; `docker`/`native`
+    /// force one; an unknown value is treated as `auto` so a typo never wedges New
+    /// Session). `JERYU_DOCKER_BIN` overrides the docker binary the seam invokes;
+    /// otherwise a `docker` on `PATH` is used when present.
+    pub(crate) fn from_env() -> Self {
+        let runtime = match std::env::var("JERYU_AGENT_RUNTIME")
+            .ok()
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
+            Some("docker") => SessionRuntime::Docker,
+            Some("native") => SessionRuntime::Native,
+            _ => SessionRuntime::Auto,
+        };
+        let docker_bin = std::env::var("JERYU_DOCKER_BIN")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .filter(|bin| std::path::Path::new(bin).is_file())
+            .or_else(docker_on_path);
+        Self {
+            runtime,
+            docker_bin,
+        }
+    }
+}
+
+/// A `docker` on `PATH` as a launchable path, or `None` when absent.
+///
+/// Under test this always returns `None`: the deterministic session tests must
+/// never reach the host's real docker through `from_env`, so a docker-backed test
+/// injects [`SessionRuntimeConfig`] with an explicit fake `docker_bin` instead.
+fn docker_on_path() -> Option<String> {
+    #[cfg(test)]
+    {
+        None
+    }
+    #[cfg(not(test))]
+    {
+        let path = std::env::var("PATH").ok()?;
+        std::env::split_paths(&path)
+            .map(|dir| dir.join("docker"))
+            .find(|candidate| candidate.is_file())
+            .map(|candidate| candidate.to_string_lossy().to_string())
+    }
 }
 
 /// The smart-HTTP clone URL the agent container fetches `main` from.

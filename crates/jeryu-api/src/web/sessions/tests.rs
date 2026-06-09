@@ -137,6 +137,25 @@ fn fake_state(core: ForgeCore, storage_root: &Path) -> (Arc<WebState>, Arc<FakeC
     (state, fake)
 }
 
+/// Like [`fake_state`] but with the session runtime backend + docker seam injected
+/// directly (no process-global env), so the docker / native PTY paths are driven
+/// hermetically.
+fn fake_state_with_runtime(
+    core: ForgeCore,
+    storage_root: &Path,
+    runtime: super::SessionRuntimeConfig,
+) -> (Arc<WebState>, Arc<FakeContainerRuntime>) {
+    let fake = Arc::new(FakeContainerRuntime::default());
+    let state = WebState::new_with_git_storage_and_warm_pool(
+        core,
+        storage_root.to_path_buf(),
+        fake.clone(),
+        WARM_TARGET,
+    )
+    .with_session_runtime(runtime);
+    (Arc::new(state), fake)
+}
+
 /// Container ids of the cells still idling warm in the state's pool, sorted.
 fn warm_container_ids(state: &Arc<WebState>) -> Vec<String> {
     state
@@ -760,5 +779,214 @@ fn resolve_agent_program_maps_ids_command_and_env_override() {
     assert_eq!(
         super::resolve_agent_program_with("ghost", None, none),
         PathBuf::from("/opt/jeryu/bin/agent")
+    );
+}
+
+/// Write an executable scripted FAKE docker into `dir` that echoes its own argv (so
+/// a test can prove the hardened flags were assembled) and prints a live marker (so
+/// a test can prove the PTY stream is live). It deliberately does NOT `cat` stdin —
+/// on a PTY that would block forever; printing argv + the marker and exiting is the
+/// minimal proof the whole pipeline ran. Returns the script path.
+fn write_fake_docker(dir: &Path) -> std::path::PathBuf {
+    let path = dir.join("fake-docker.sh");
+    std::fs::write(
+        &path,
+        "#!/bin/sh\nprintf 'DOCKER-ARGV: %s\\n' \"$*\"\nprintf 'DOCKER-AGENT-LIVE\\n'\n",
+    )
+    .expect("write fake docker");
+    let mut perms = std::fs::metadata(&path)
+        .expect("fake docker meta")
+        .permissions();
+    use std::os::unix::fs::PermissionsExt;
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&path, perms).expect("chmod fake docker");
+    path
+}
+
+/// A docker-backed runtime config pointed at the given fake docker binary.
+fn docker_runtime(fake_docker: &Path) -> super::SessionRuntimeConfig {
+    super::SessionRuntimeConfig {
+        runtime: super::SessionRuntime::Docker,
+        docker_bin: Some(fake_docker.to_string_lossy().to_string()),
+    }
+}
+
+/// THE docker live-stream proof: with the runtime forced to docker and the docker
+/// seam pointed at a scripted fake, a New Session runs the agent on a docker-backed
+/// PTY and the run's tty stream carries the fake docker's output. Because the fake
+/// echoes its own argv, the same stream also proves the HARDENED flags were built
+/// (`--read-only`, `--network none`, `-v <ws>:/workspace`).
+#[tokio::test]
+async fn create_session_docker_runtime_streams_live_and_carries_hardened_flags() {
+    let storage = tempfile::tempdir().expect("git storage");
+    let core = ForgeCore::new();
+    seed_repo(&core, storage.path(), "alice", "jeryu");
+    let bin_dir = tempfile::tempdir().expect("fake docker dir");
+    let fake_docker = write_fake_docker(bin_dir.path());
+    let (state, _fake) =
+        fake_state_with_runtime(core, storage.path(), docker_runtime(&fake_docker));
+
+    let created = create_session(
+        &state,
+        "alice/jeryu",
+        json!({ "agent_id": "codex", "run_id": "run-docker" }),
+    )
+    .await;
+    assert_eq!(created["run_id"], "run-docker");
+
+    let status = await_tty(&state, "run-docker", "DOCKER-AGENT-LIVE").await;
+    let text = tty_text(&status);
+
+    // Live-stream proof: the fake docker's output reached the run's tty stream.
+    assert!(
+        text.contains("DOCKER-AGENT-LIVE"),
+        "the docker-backed run must stream the container's output live: {status:?}"
+    );
+    // Hardened-flags proof: the echoed argv carries the lock-down + workspace mount.
+    assert!(
+        text.contains("--read-only"),
+        "docker argv must carry --read-only: {text}"
+    );
+    assert!(
+        text.contains("--network none"),
+        "docker argv must keep --network none: {text}"
+    );
+    assert!(
+        text.contains(":/workspace"),
+        "docker argv must bind-mount the workspace at /workspace: {text}"
+    );
+    // The in-image agent CLI (codex) is the container's argv, and the live flags
+    // (-i + the stable per-run name) are present.
+    assert!(
+        text.contains("--name jeryu-agent-run-docker") && text.contains(" codex"),
+        "docker argv must name the container and run the in-image agent CLI: {text}"
+    );
+}
+
+/// The materialized workspace is a REAL checkout: after a New Session the session
+/// workspace has a `.git` dir and its HEAD is the registered base oid on the unique
+/// session branch — so the agent has actual code to work on, not an empty dir.
+#[tokio::test]
+async fn create_session_materializes_real_checkout() {
+    let storage = tempfile::tempdir().expect("git storage");
+    let core = ForgeCore::new();
+    let main_oid = seed_repo(&core, storage.path(), "alice", "jeryu");
+    let (state, _fake) = fake_state(core, storage.path());
+
+    create_session(
+        &state,
+        "alice/jeryu",
+        json!({ "agent_id": "agent-7", "run_id": "run-checkout" }),
+    )
+    .await;
+
+    // The recorded run carries the session workspace path (repo_root).
+    let status = run_status(&state, "run-checkout").await;
+    let workspace = status["repo_root"]
+        .as_str()
+        .map(std::path::PathBuf::from)
+        .expect("repo_root path");
+
+    assert!(
+        workspace.join(".git").exists(),
+        "the session workspace must be a real git checkout (.git present): {workspace:?}"
+    );
+    // HEAD is pinned to the registered base oid.
+    let head = git(&["rev-parse", "HEAD"], &workspace);
+    assert_eq!(
+        head, main_oid,
+        "workspace HEAD must be the session base oid"
+    );
+    // ...and it sits on the unique session branch, never main.
+    let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"], &workspace);
+    assert_eq!(branch, "agents/agent-7/sessions/run-checkout");
+}
+
+/// The runtime forced to `native` keeps the OLD native-sandbox path: the session
+/// runs the resolved host program in-process, never docker. The fake docker is
+/// present on the seam but must NOT be invoked — so its marker never reaches the
+/// stream.
+#[tokio::test]
+async fn create_session_native_runtime_uses_native_path() {
+    let storage = tempfile::tempdir().expect("git storage");
+    let core = ForgeCore::new();
+    seed_repo(&core, storage.path(), "alice", "jeryu");
+    let bin_dir = tempfile::tempdir().expect("fake docker dir");
+    let fake_docker = write_fake_docker(bin_dir.path());
+    // Native runtime, yet a docker seam is configured — to prove native never uses it.
+    let runtime = super::SessionRuntimeConfig {
+        runtime: super::SessionRuntime::Native,
+        docker_bin: Some(fake_docker.to_string_lossy().to_string()),
+    };
+    let (state, _fake) = fake_state_with_runtime(core, storage.path(), runtime);
+
+    let created = create_session(
+        &state,
+        "alice/jeryu",
+        json!({
+            "agent_id": "native-agent",
+            "run_id": "run-native",
+            "command": "/bin/sh",
+            "args": ["-c", "printf 'NATIVE-LIVE\\n'"],
+        }),
+    )
+    .await;
+    assert_eq!(created["run_id"], "run-native");
+
+    let status = await_tty(&state, "run-native", "NATIVE-LIVE").await;
+
+    // The docker fake must NEVER have run on the native path.
+    assert!(
+        !tty_text(&status).contains("DOCKER-AGENT-LIVE"),
+        "native runtime must not invoke docker: {status:?}"
+    );
+    if sandbox_unavailable(&status) {
+        eprintln!("SKIP native runtime stream proof: sandbox unavailable");
+        return;
+    }
+    assert!(
+        tty_text(&status).contains("NATIVE-LIVE"),
+        "native runtime must stream the in-process agent output: {status:?}"
+    );
+}
+
+/// The runtime forced to docker with the seam pointed at a NON-EXISTENT path
+/// degrades gracefully: the run is recorded, returns 2xx, and the tty stream carries
+/// one clear not-available line — never a 500 or an empty terminal.
+#[tokio::test]
+async fn create_session_docker_runtime_missing_docker_degrades_gracefully() {
+    let storage = tempfile::tempdir().expect("git storage");
+    let core = ForgeCore::new();
+    seed_repo(&core, storage.path(), "alice", "jeryu");
+    // A docker runtime whose seam resolves to nothing (no docker_bin), so the launch
+    // cannot start a container and must degrade to the graceful not-available line.
+    let runtime = super::SessionRuntimeConfig {
+        runtime: super::SessionRuntime::Docker,
+        docker_bin: None,
+    };
+    let (state, _fake) = fake_state_with_runtime(core, storage.path(), runtime);
+
+    let response = super::create(
+        State(state.clone()),
+        AxumPath("alice/jeryu".to_string()),
+        Bytes::from(json!({ "agent_id": "codex", "run_id": "run-nodocker" }).to_string()),
+    )
+    .await;
+    let status_code = response.status();
+
+    let status = run_status(&state, "run-nodocker").await;
+
+    assert_eq!(
+        status_code,
+        axum::http::StatusCode::CREATED,
+        "a missing docker must not fail the whole request"
+    );
+    assert_eq!(
+        status["state"], "failed",
+        "missing docker ends the run: {status:?}"
+    );
+    assert!(
+        tty_text(&status).contains("not available"),
+        "the tty stream must carry one clear not-available line: {status:?}"
     );
 }

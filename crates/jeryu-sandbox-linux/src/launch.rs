@@ -23,7 +23,7 @@ use jeryu_runner_core::job::JobRequest;
 use jeryu_runner_core::sandbox::{LandlockRule, SandboxPlan};
 use std::collections::BTreeMap;
 use std::io::{Error as IoError, ErrorKind};
-use std::os::fd::{FromRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -329,6 +329,71 @@ pub fn spawn_sandboxed_with_io(
     }
 }
 
+/// Spawn an arbitrary HOST command on a PTY, WITHOUT the kernel sandbox.
+///
+/// This is the launch path for the docker-backed agent runtime: on a host whose
+/// AppArmor blocks the unprivileged-userns sandbox, the container engine — not the
+/// host process — is what confines the agent, so the `docker run ...` invocation
+/// runs as an ordinary child. It still gets a real controlling terminal (the same
+/// `setsid` + `TIOCSCTTY` + `dup2` wiring [`spawn_sandboxed_with_io`]'s PTY path
+/// uses) so the agent CLI inside the container renders to a TTY, and it leads its
+/// own session/process group so [`signal_group`] reaps the whole tree.
+///
+/// `program`/`args`/`env` are the host command (e.g. `docker run ...`). `cwd` is
+/// where the host process runs; the container's own `-w /workspace` governs the
+/// agent's cwd. The caller keeps the PTY master to read output and write input and
+/// must drop its own copy of `slave` after this returns.
+pub fn spawn_command_on_pty(
+    program: &str,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+    cwd: &Path,
+    slave: &OwnedFd,
+) -> SandboxResult<Child> {
+    let slave_fd = slave.as_raw_fd();
+    let mut cmd = Command::new(program);
+    cmd.args(args).current_dir(cwd).env_clear().envs(env);
+    // The closure runs in the forked child between fork() and exec(). It only
+    // performs direct, async-signal-safe syscalls (setsid, ioctl, dup2, close);
+    // it mutates no parent allocator state. Any error fails the spawn closed
+    // before exec, so the child never runs with a half-wired terminal.
+    // SAFETY: pre_exec only runs the async-signal-safe terminal wiring above.
+    unsafe {
+        cmd.pre_exec(move || {
+            // Lead a new session so TIOCSCTTY can claim the slave as our tty.
+            if libc::setsid() == -1 {
+                return Err(IoError::last_os_error());
+            }
+            wire_pty_slave(slave_fd)
+        });
+    }
+    cmd.spawn()
+        .map_err(|err| SandboxError::new("process_start_failed", err.to_string()))
+}
+
+/// Make the PTY `slave` fd the calling (session-leader) process's controlling
+/// terminal and wire stdin/stdout/stderr to it. Caller must already be a session
+/// leader (`setsid`). Async-signal-safe: only direct syscalls, no allocation.
+fn wire_pty_slave(slave: RawFd) -> std::io::Result<()> {
+    // SAFETY: as the session leader ioctl(TIOCSCTTY) claims the slave as our
+    // controlling tty; dup2 wires the three standard fds to it. Both are direct
+    // syscalls with no shared state.
+    unsafe {
+        if libc::ioctl(slave, libc::TIOCSCTTY, 0) != 0 {
+            return Err(IoError::last_os_error());
+        }
+        for target in 0..3 {
+            if libc::dup2(slave, target) == -1 {
+                return Err(IoError::last_os_error());
+            }
+        }
+        if slave > 2 {
+            libc::close(slave);
+        }
+    }
+    Ok(())
+}
+
 /// Build the fork-safe payload in the parent: create the cgroup, precompile the
 /// seccomp BPF program, and capture Landlock rules + ABI.
 fn build_payload(plan: &SandboxPlan, caps: &SandboxCapabilities) -> SandboxResult<SandboxPayload> {
@@ -549,22 +614,7 @@ fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
     // 1b. PTY: make the slave our controlling terminal and wire 0/1/2 to it.
     //     Runs before seccomp (step 6), so TIOCSCTTY/dup2 are unrestricted setup.
     if let Some(slave) = payload.pty_slave_fd {
-        // SAFETY: as the session leader (setsid above) ioctl(TIOCSCTTY) claims the
-        // slave as our controlling tty; dup2 wires the three standard fds to it.
-        // Both are direct syscalls with no shared state.
-        unsafe {
-            if libc::ioctl(slave, libc::TIOCSCTTY, 0) != 0 {
-                return Err(IoError::last_os_error());
-            }
-            for target in 0..3 {
-                if libc::dup2(slave, target) == -1 {
-                    return Err(IoError::last_os_error());
-                }
-            }
-            if slave > 2 {
-                libc::close(slave);
-            }
-        }
+        wire_pty_slave(slave)?;
     }
 
     // 2. Join the cgroup so limits bind before exec. Writing our pid to

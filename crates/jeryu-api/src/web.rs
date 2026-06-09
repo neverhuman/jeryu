@@ -91,6 +91,11 @@ pub(crate) struct WebState {
     /// `JERYU_RUN_OCI=1`); tests inject a recording fake lifecycle so the claim
     /// path is exercised without Docker/Podman.
     pub(crate) warm_pool: Arc<Mutex<WarmPool>>,
+    /// Which PTY backend a New Session agent runs under (native kernel sandbox vs.
+    /// docker-backed live container) and the docker seam. Resolved once from
+    /// `JERYU_AGENT_RUNTIME` / `JERYU_DOCKER_BIN`; a test injects it directly so it
+    /// never mutates process-global env.
+    pub(crate) session_runtime: sessions::SessionRuntimeConfig,
 }
 
 impl WebState {
@@ -130,6 +135,7 @@ impl WebState {
             repo_manager,
             core: core_handle,
             warm_pool,
+            session_runtime: sessions::SessionRuntimeConfig::from_env(),
         }
     }
 
@@ -175,6 +181,15 @@ impl WebState {
             WarmPool::new(warm_runtime, warm_target).expect("pre-warm the test agent pool"),
         ));
         state
+    }
+
+    /// Test-only: override the session runtime backend + docker seam directly so a
+    /// hermetic test drives the docker / native paths without mutating process-wide
+    /// env (the crate forbids `unsafe`, so `std::env::set_var` is unavailable).
+    #[cfg(test)]
+    pub(crate) fn with_session_runtime(mut self, runtime: sessions::SessionRuntimeConfig) -> Self {
+        self.session_runtime = runtime;
+        self
     }
 }
 
