@@ -33,7 +33,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
-tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread"], optional = true }
+tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread", "sync", "time"], optional = true }
 tower-http = { version = "0.6", features = ["fs"], optional = true }
 
 [dev-dependencies]

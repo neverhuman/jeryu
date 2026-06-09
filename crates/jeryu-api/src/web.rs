@@ -308,6 +308,13 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route("/api/v1/agent-runs/:id", get(agent_runs::status))
         .route("/api/v1/agent-runs/:id/events", get(agent_runs::events))
+        // Live raw-TTY push transport (Server-Sent Events). An outside service such
+        // as jpmc subscribes once and is streamed raw bytes as they publish, instead
+        // of cursor-polling agent_work.tail; it replays the retained ring on connect.
+        .route(
+            "/api/v1/agent-runs/:id/tty/stream",
+            get(agent_runs::tty_stream),
+        )
         .route("/api/v1/agent-runs/:id/control", post(agent_runs::control))
         .route(
             "/api/v1/agent-runs/:id/export_pr",

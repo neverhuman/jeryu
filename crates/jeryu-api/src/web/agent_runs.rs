@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
+use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Sender};
@@ -9,7 +10,9 @@ use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::{HeaderMap, StatusCode, header};
+use axum::response::sse::{Event as SseEvent, Sse};
 use axum::response::{IntoResponse, Response as AxumResponse};
+use futures_util::{StreamExt, stream};
 use jeryu_agent_stream::{
     AgentEventBudget, AgentOutputStream, AgentRunStreamKey, AgentTtyEvent, CONTROL_TOPIC, TTY_TOPIC,
 };
@@ -21,7 +24,8 @@ use jeryu_core::{CreatePullRequestRequest, ForgeError};
 use jeryu_readmodel::contracts::WebEvent;
 use jeryu_runnerd::{WorkcellLease, WorkcellState};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
+use tokio::sync::broadcast;
 
 use super::WebState;
 use super::surface::serialize_payload;
@@ -35,6 +39,18 @@ type AgentRunResponseResult<T> = Result<T, Box<AxumResponse>>;
 /// bound the oldest event is dropped so a long-lived landed session can never
 /// grow the in-memory store without limit.
 const TTY_RING_CAP: usize = 4096;
+
+/// Live fan-out depth for the per-run raw TTY broadcast that backs the SSE push
+/// transport. A subscriber that drains slower than this bound overflows and is
+/// handed a `resync` marker so it re-pulls the retained ring rather than stalling.
+const TTY_BROADCAST_CAP: usize = 1024;
+
+/// Build a fresh per-run raw TTY broadcast channel and hand back only the sender.
+/// Subscribers materialize their own receiver through `subscribe` when a live SSE
+/// stream opens, so the channel keeps no idle receiver pinned open between viewers.
+fn new_tty_broadcast() -> broadcast::Sender<AgentTtyEvent> {
+    broadcast::channel(TTY_BROADCAST_CAP).0
+}
 
 /// A bounded, drop-oldest ring of raw TTY events for one agent run.
 ///
@@ -129,6 +145,10 @@ struct AgentRunRecord {
     args: Vec<String>,
     events: Vec<AgentRunEvent>,
     tty_events: TtyRing,
+    /// Live fan-out sender for raw TTY events. `append_event` publishes here right
+    /// after the ring push so an open SSE stream sees the same bytes the bounded
+    /// ring retains for cursor-pull replay.
+    tty_tx: broadcast::Sender<AgentTtyEvent>,
     controls: Vec<AgentRunControlRecord>,
     outcome: Option<AgentRunOutcome>,
     error_code: Option<String>,
@@ -543,6 +563,7 @@ fn start_request(
         args: spec.args.clone(),
         events: Vec::new(),
         tty_events: TtyRing::new(),
+        tty_tx: new_tty_broadcast(),
         controls: Vec::new(),
         outcome: None,
         error_code: None,
@@ -637,6 +658,92 @@ pub(super) async fn events(
         Some(response) => Json(response).into_response(),
         None => agent_run_not_found(&agent_run_id),
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(super) struct AgentTtyStreamQuery {
+    #[serde(default)]
+    pub(super) after_seq: Option<u64>,
+}
+
+/// Server-Sent-Events push transport for one run's raw TTY byte stream.
+///
+/// `GET /api/v1/agent-runs/{id}/tty/stream?after_seq=N` is the jpmc-subscribable
+/// live transport: an outside service opens it once and is pushed raw bytes as they
+/// reach the single `append_event` publish point, with no cursor-polling of
+/// `agent_work.tail`. The handler first replays the retained ring slice past
+/// `after_seq` (so a reconnect catches up byte-for-byte), then hands over the live
+/// broadcast. Each `data:` frame carries the same JSON shape a tail event does
+/// (`seq` + `stream` + `bytes_b64`). It mirrors the WS scope-membership rule: an
+/// unknown or non-member run yields the same typed not-found the WS snapshot path
+/// ignores. When the live broadcast overflows for a slow subscriber, one
+/// `event: resync` frame carrying `oldest_retained_seq` is pushed so the client
+/// re-pulls the ring through `agent_work.tail` instead of stalling or erroring.
+pub(super) async fn tty_stream(
+    State(state): State<Arc<WebState>>,
+    AxumPath(agent_run_id): AxumPath<String>,
+    Query(query): Query<AgentTtyStreamQuery>,
+) -> AxumResponse {
+    let after_seq = query.after_seq.unwrap_or(0);
+    let Some((receiver, replay)) = state.agent_runs.tty_stream_start(&agent_run_id, after_seq)
+    else {
+        return agent_run_not_found(&agent_run_id);
+    };
+
+    // Replay prelude: a resync marker when the cursor already fell behind the ring,
+    // then every retained event past the cursor, oldest first.
+    let mut prelude: Vec<Result<SseEvent, Infallible>> = Vec::new();
+    if replay.lagged {
+        prelude.push(Ok(tty_resync_frame(replay.oldest_retained_seq)));
+    }
+    for event in &replay.events {
+        prelude.push(Ok(tty_data_frame(event)));
+    }
+
+    // Live tail: events past the replay cursor, with broadcast overflow turned into
+    // a single resync marker so a lagged subscriber is told to re-pull, never stalled.
+    let store = state.agent_runs.clone();
+    let live = stream::unfold(
+        (receiver, replay.next_after_seq, store, agent_run_id),
+        |(mut receiver, cursor, store, run_id)| async move {
+            loop {
+                match receiver.recv().await {
+                    Ok(event) => {
+                        if event.seq <= cursor {
+                            continue;
+                        }
+                        let next_cursor = event.seq;
+                        let frame = Ok(tty_data_frame(&event));
+                        return Some((frame, (receiver, next_cursor, store, run_id)));
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        let oldest = store.oldest_retained_tty_seq(&run_id);
+                        let frame = Ok(tty_resync_frame(oldest));
+                        return Some((frame, (receiver, cursor, store, run_id)));
+                    }
+                    Err(broadcast::error::RecvError::Closed) => return None,
+                }
+            }
+        },
+    );
+
+    Sse::new(stream::iter(prelude).chain(live)).into_response()
+}
+
+/// Encode one raw TTY event as an SSE `data:` frame. The payload is the event's
+/// own JSON, so a subscriber reads the same `seq` + `stream` + `bytes_b64` shape a
+/// cursor-pull tail returns and raw non-UTF8 bytes ride through base64 intact.
+fn tty_data_frame(event: &AgentTtyEvent) -> SseEvent {
+    let payload = serde_json::to_string(event).unwrap_or_else(|_| "{}".to_string());
+    SseEvent::default().data(payload)
+}
+
+/// Build the `resync` marker frame a lagged subscriber receives, carrying the
+/// oldest `seq` the ring still retains as the floor to re-pull from.
+fn tty_resync_frame(oldest_retained_seq: u64) -> SseEvent {
+    SseEvent::default()
+        .event("resync")
+        .data(json!({ "oldest_retained_seq": oldest_retained_seq }).to_string())
 }
 
 pub(super) async fn export_pr(
@@ -924,6 +1031,17 @@ fn inject_workcell_env(env: &mut BTreeMap<String, String>, lease: &WorkcellLease
     }
 }
 
+impl AgentRunRecord {
+    /// Single publish point for one raw TTY event: append it to the bounded ring,
+    /// then fan it out to any live SSE subscriber. The ring push happens first so a
+    /// subscriber that resyncs after a broadcast overflow always finds the event in
+    /// the retained byte history. A send with no live receivers is a harmless drop.
+    fn publish_tty(&mut self, event: AgentTtyEvent) {
+        self.tty_events.push(event.clone());
+        let _ = self.tty_tx.send(event);
+    }
+}
+
 impl AgentRunStore {
     pub(super) fn new() -> Self {
         Self::default()
@@ -956,6 +1074,7 @@ impl AgentRunStore {
             args: init.args,
             events: Vec::new(),
             tty_events: TtyRing::new(),
+            tty_tx: new_tty_broadcast(),
             controls: Vec::new(),
             outcome: None,
             error_code: None,
@@ -1159,7 +1278,7 @@ impl AgentRunStore {
         let event = event.into_event(seq);
         let tty_event = tty_event_for(record, &event);
         record.events.push(event);
-        record.tty_events.push(tty_event);
+        record.publish_tty(tty_event);
     }
 
     /// Cursor-pull tail of one run's raw TTY events. Returns every retained event
@@ -1188,6 +1307,47 @@ impl AgentRunStore {
             tty_topic: TTY_TOPIC.to_string(),
             events,
         })
+    }
+
+    /// Atomically open a live SSE subscription for one run: under a single lock it
+    /// subscribes to the run's broadcast AND snapshots the retained ring past
+    /// `after_seq`. Subscribing before releasing the lock guarantees no event slips
+    /// between the replay snapshot and the live feed (any later publish also takes
+    /// the lock), so the caller only needs to drop live events whose `seq` is not
+    /// past the replay's `next_after_seq`. Returns `None` for an unknown run, which
+    /// is how the SSE edge denies an unknown or non-member scope.
+    fn tty_stream_start(
+        &self,
+        run_id: &str,
+        after_seq: u64,
+    ) -> Option<(broadcast::Receiver<AgentTtyEvent>, AgentRunTailResponse)> {
+        let inner = self.inner.lock().expect("agent run store mutex");
+        let record = inner.runs.get(run_id)?;
+        let receiver = record.tty_tx.subscribe();
+        let lagged = record.tty_events.lagged(after_seq);
+        let events = record.tty_events.tail(after_seq, TTY_RING_CAP);
+        let next_after_seq = events.last().map_or(after_seq, |event| event.seq);
+        let response = AgentRunTailResponse {
+            agent_run_id: record.id.clone(),
+            after_seq,
+            next_after_seq,
+            oldest_retained_seq: record.tty_events.oldest_retained_seq,
+            lagged,
+            tty_topic: TTY_TOPIC.to_string(),
+            events,
+        };
+        Some((receiver, response))
+    }
+
+    /// The oldest raw TTY `seq` still retained for one run (0 when empty or unknown).
+    /// A live SSE stream reads this when its broadcast overflows so the `resync`
+    /// marker tells a lagged subscriber the floor to re-pull the ring from.
+    fn oldest_retained_tty_seq(&self, run_id: &str) -> u64 {
+        let inner = self.inner.lock().expect("agent run store mutex");
+        inner
+            .runs
+            .get(run_id)
+            .map_or(0, |record| record.tty_events.oldest_retained_seq)
     }
 
     fn complete(&self, run_id: &str, result: Result<AgentRunResult, DriverError>) {
@@ -1233,6 +1393,7 @@ impl AgentRunStore {
             args: Vec::new(),
             events: Vec::new(),
             tty_events: TtyRing::with_cap(ring_cap),
+            tty_tx: new_tty_broadcast(),
             controls: Vec::new(),
             outcome: None,
             error_code: None,
@@ -1246,13 +1407,22 @@ impl AgentRunStore {
         });
     }
 
-    /// Publish one prebuilt raw TTY event through the bounded ring.
+    /// Publish one prebuilt raw TTY event through the same ring-plus-broadcast path
+    /// `append_event` uses, so a test can drive both the cursor-pull replay and the
+    /// live SSE fan-out from one helper.
     pub(super) fn push_test_tty(&self, run_id: &str, event: AgentTtyEvent) {
         let mut inner = self.inner.lock().expect("agent run store mutex");
         if let Some(record) = inner.runs.get_mut(run_id) {
-            record.tty_events.push(event);
+            record.publish_tty(event);
         }
     }
+}
+
+/// Live fan-out depth of the per-run raw TTY broadcast, exposed so a route test can
+/// overflow a slow subscriber by exactly enough to force the resync path.
+#[cfg(test)]
+pub(super) fn tty_broadcast_capacity() -> usize {
+    TTY_BROADCAST_CAP
 }
 
 /// Build a raw (non-text) TTY event whose payload is the base64 of `bytes`, so a
@@ -2044,5 +2214,41 @@ mod tail_tests {
         let tail = store.tail_tty("ar-ws", 0, None).expect("tail snapshot");
         assert_eq!(tail.events.len(), 1);
         assert!(!tail.lagged);
+    }
+
+    #[test]
+    fn append_event_fans_out_to_a_live_broadcast_subscriber() {
+        let store = AgentRunStore::new();
+        store.seed_test_run("ar-fanout", 16);
+        // Open a live subscription first, then publish through the one publish point.
+        let (mut receiver, replay) = store.tty_stream_start("ar-fanout", 0).expect("subscribe");
+        assert!(
+            replay.events.is_empty(),
+            "no buffered events before publish"
+        );
+
+        store.append_event(
+            "ar-fanout",
+            AgentRunEventInput {
+                kind: "tty",
+                stream: Some("stdout"),
+                text: Some("fanout-line".to_string()),
+                pid: None,
+                used: None,
+                limit: None,
+                exit_code: None,
+                timed_out: false,
+                budget_exceeded: false,
+            },
+        );
+
+        let live = receiver
+            .try_recv()
+            .expect("append_event fans the event out to the live broadcast");
+        assert_eq!(live.text.as_deref(), Some("fanout-line"));
+        // The same event still sits in the ring for a resyncing cursor-pull tailer.
+        let tail = store.tail_tty("ar-fanout", 0, None).expect("tail snapshot");
+        assert_eq!(tail.events.len(), 1);
+        assert_eq!(tail.events[0].text.as_deref(), Some("fanout-line"));
     }
 }

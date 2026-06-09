@@ -143,6 +143,20 @@ subscribers. Start/status responses also include `events_url`, the live
 workcell-backed runs through the frozen-diff slice gate; unfinished and
 non-workcell-backed runs fail with typed repair bodies.
 
+`GET /api/v1/agent-runs/{id}/tty/stream?after_seq=N` is the
+jpmc-subscribable Server-Sent-Events push transport for one run's raw TTY byte
+stream. An outside service opens it once and is pushed raw bytes as they reach
+the single publish point, with no cursor-polling of `agent_work.tail`. On
+connect it replays the retained ring slice past `after_seq` (so a reconnect
+catches up byte-for-byte), then hands over the live broadcast. Each `data:`
+frame carries the same JSON shape a tail event does (`seq` + `stream` +
+`bytes_b64`, raw non-UTF8 bytes ride through base64 intact). It mirrors the
+WebSocket scope-membership rule: an unknown or non-member run returns the same
+typed not-found. When a slow subscriber overflows the live broadcast, one
+`event: resync` frame carrying `oldest_retained_seq` is pushed so the client
+re-pulls the ring through `agent_work.tail` instead of stalling. The cursor-pull
+`agent_work.tail` tool stays intact; this transport is additive.
+
 MCP and CLI subscribers use the same run ids. The MCP tools are
 `jeryu.agent_work.start`, `jeryu.agent_work.status`,
 `jeryu.agent_work.control`, `jeryu.agent_work.events`, and

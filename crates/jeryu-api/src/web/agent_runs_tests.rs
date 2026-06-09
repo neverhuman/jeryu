@@ -603,3 +603,195 @@ async fn agent_runs_control_denials_and_pipe_mode_are_typed() {
     .await;
     assert_eq!(late["code"], "agent_run_finished");
 }
+
+/// Reads SSE frames off an open `text/event-stream` body one at a time, so a test
+/// can interleave reading replayed frames with publishing fresh live events on the
+/// same connection.
+struct SseReader {
+    stream: axum::body::BodyDataStream,
+    buffer: String,
+}
+
+impl SseReader {
+    fn new(response: AxumResponse) -> Self {
+        Self {
+            stream: response.into_body().into_data_stream(),
+            buffer: String::new(),
+        }
+    }
+
+    /// The next complete SSE frame (terminated by a blank line). Waits up to five
+    /// seconds for more body bytes so a stalled stream fails loudly rather than
+    /// hanging the whole suite.
+    async fn next_frame(&mut self) -> Option<SseFrame> {
+        use futures_util::StreamExt;
+        loop {
+            if let Some(idx) = self.buffer.find("\n\n") {
+                let raw: String = self.buffer.drain(..idx + 2).collect();
+                return Some(SseFrame::parse(&raw));
+            }
+            let chunk = tokio::time::timeout(Duration::from_secs(5), self.stream.next())
+                .await
+                .ok()??;
+            let chunk = chunk.ok()?;
+            self.buffer.push_str(&String::from_utf8_lossy(&chunk));
+        }
+    }
+}
+
+/// One parsed SSE frame: an optional `event:` name and the joined `data:` payload.
+struct SseFrame {
+    event: Option<String>,
+    data: String,
+}
+
+impl SseFrame {
+    fn parse(raw: &str) -> Self {
+        let mut event = None;
+        let mut data = String::new();
+        for line in raw.lines() {
+            if let Some(rest) = line.strip_prefix("data:") {
+                data.push_str(rest.strip_prefix(' ').unwrap_or(rest));
+            } else if let Some(rest) = line.strip_prefix("event:") {
+                event = Some(rest.strip_prefix(' ').unwrap_or(rest).to_string());
+            }
+        }
+        Self { event, data }
+    }
+
+    fn json(&self) -> Value {
+        serde_json::from_str(&self.data).unwrap_or(Value::Null)
+    }
+}
+
+async fn open_tty_stream(state: &Arc<WebState>, run_id: &str, after_seq: Option<u64>) -> SseReader {
+    let response = super::agent_runs::tty_stream(
+        State(state.clone()),
+        AxumPath(run_id.to_string()),
+        Query(super::agent_runs::AgentTtyStreamQuery { after_seq }),
+    )
+    .await;
+    SseReader::new(response)
+}
+
+#[tokio::test]
+async fn tty_stream_replays_buffer_then_delivers_live_raw_bytes() {
+    use base64::Engine;
+
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    state.agent_runs.seed_test_run("ar-sse-live", 16);
+    // A deliberately non-UTF8 byte sequence to prove byte-for-byte fidelity.
+    let raw = [0xff_u8, 0x00, 0xfe, b'h', b'i', 0x80];
+    state.agent_runs.push_test_tty(
+        "ar-sse-live",
+        super::agent_runs::test_raw_tty_event("ar-sse-live", 1, b"one"),
+    );
+    state.agent_runs.push_test_tty(
+        "ar-sse-live",
+        super::agent_runs::test_raw_tty_event("ar-sse-live", 2, &raw),
+    );
+
+    let mut reader = open_tty_stream(&state, "ar-sse-live", Some(0)).await;
+
+    let first = reader.next_frame().await.expect("replayed seq 1");
+    assert_eq!(first.event, None, "replay frames are default data events");
+    assert_eq!(first.json()["seq"], 1);
+
+    let second = reader.next_frame().await.expect("replayed seq 2");
+    assert_eq!(second.json()["seq"], 2);
+    let encoded = second.json()["bytes_b64"]
+        .as_str()
+        .expect("bytes_b64")
+        .to_string();
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .expect("decode");
+    assert_eq!(
+        decoded, raw,
+        "raw non-UTF8 bytes survive the SSE transport byte-identical"
+    );
+
+    // Publish a fresh event AFTER the stream is open; it must arrive live on the
+    // same connection through the single append/publish point.
+    state.agent_runs.push_test_tty(
+        "ar-sse-live",
+        super::agent_runs::test_raw_tty_event("ar-sse-live", 3, b"live"),
+    );
+    let live = reader.next_frame().await.expect("live seq 3");
+    assert_eq!(live.event, None);
+    assert_eq!(live.json()["seq"], 3);
+}
+
+#[tokio::test]
+async fn tty_stream_reconnect_cursor_replays_only_newer_events() {
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    state.agent_runs.seed_test_run("ar-sse-cursor", 16);
+    for seq in 1..=3u64 {
+        state.agent_runs.push_test_tty(
+            "ar-sse-cursor",
+            super::agent_runs::test_raw_tty_event(
+                "ar-sse-cursor",
+                seq,
+                format!("chunk-{seq}").as_bytes(),
+            ),
+        );
+    }
+
+    // Reconnect with a mid-stream cursor: only the event past it should replay.
+    let mut reader = open_tty_stream(&state, "ar-sse-cursor", Some(2)).await;
+    let frame = reader.next_frame().await.expect("replayed seq 3");
+    assert_eq!(frame.event, None);
+    assert_eq!(
+        frame.json()["seq"],
+        3,
+        "a reconnect at cursor 2 replays only newer events"
+    );
+}
+
+#[tokio::test]
+async fn tty_stream_signals_resync_when_slow_subscriber_overflows() {
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    state.agent_runs.seed_test_run("ar-sse-lag", 16);
+
+    // Open the stream (subscribing now), then flood past the broadcast depth without
+    // reading, so the live subscriber overflows and must be told to resync.
+    let mut reader = open_tty_stream(&state, "ar-sse-lag", Some(0)).await;
+    let flood = super::agent_runs::tty_broadcast_capacity() + 50;
+    for seq in 1..=flood as u64 {
+        state.agent_runs.push_test_tty(
+            "ar-sse-lag",
+            super::agent_runs::test_raw_tty_event("ar-sse-lag", seq, b"x"),
+        );
+    }
+
+    let frame = reader
+        .next_frame()
+        .await
+        .expect("resync frame after overflow");
+    assert_eq!(
+        frame.event.as_deref(),
+        Some("resync"),
+        "an overflowed subscriber is handed a resync marker, not an error"
+    );
+    let oldest = frame.json()["oldest_retained_seq"]
+        .as_u64()
+        .expect("oldest_retained_seq");
+    assert!(
+        oldest >= 1,
+        "resync carries the ring floor to re-pull from: {oldest}"
+    );
+}
+
+#[tokio::test]
+async fn tty_stream_unknown_run_is_denied_not_found() {
+    let state = Arc::new(WebState::new(ForgeCore::new()));
+    let response = super::agent_runs::tty_stream(
+        State(state),
+        AxumPath("ar-not-a-member".to_string()),
+        Query(super::agent_runs::AgentTtyStreamQuery { after_seq: None }),
+    )
+    .await;
+    assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
+    let body = response_json(response).await;
+    assert_eq!(body["code"], "not_found");
+}
