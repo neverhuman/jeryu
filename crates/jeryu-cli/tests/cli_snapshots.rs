@@ -832,10 +832,7 @@ fn dispatch_gh_setup_writes_idempotent_hosts_file() {
         out.contains("wrote gh host localhost:8080"),
         "stdout {out:?}"
     );
-    assert!(
-        out.contains("do not run gh auth login"),
-        "stdout {out:?}"
-    );
+    assert!(out.contains("do not run gh auth login"), "stdout {out:?}");
     let first = std::fs::read_to_string(&path).expect("hosts.yml written");
     assert!(first.contains("oauth_token: T"));
 
