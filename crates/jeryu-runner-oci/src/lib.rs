@@ -216,6 +216,20 @@ impl OciRunner {
         Self { runtime: rt }
     }
 
+    /// Launch a planned agent session's already-hardened container through the
+    /// configured runtime.
+    ///
+    /// Unlike [`OciRunner::execute`], the spec is NOT rebuilt here: the session
+    /// planner produced [`AgentSessionPlan::container`] with the full lock-down
+    /// (read-only root, all caps dropped, `--network none`, only the workspace
+    /// mounted), so the recorded argv is exactly what runs — no drift, and no way
+    /// for the launch path to silently widen the confinement. With the default
+    /// [`CliContainerRuntime`] this is plan-only unless `JERYU_RUN_OCI=1`; an
+    /// injected runtime (e.g. [`FakeContainerRuntime`]) executes unconditionally.
+    pub fn launch_session(&self, plan: &AgentSessionPlan) -> RunnerResult<RuntimeOutcome> {
+        self.runtime.run(&plan.container)
+    }
+
     /// Plan or execute OCI job.
     ///
     /// The spec is built unchanged, then handed to the configured runtime. A
@@ -398,6 +412,50 @@ mod tests {
             vec![expected],
             "fake must record the EXACT hardened argv (no drift from the real runtime)"
         );
+    }
+
+    #[test]
+    fn launch_session_runs_the_hardened_container_spec() {
+        use crate::runtime::FakeContainerRuntime;
+        use crate::session::plan_agent_session;
+        let job = oci_agent_job();
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        let session = plan_agent_session(
+            "jeryu",
+            "jeryu",
+            "agent-7",
+            "run-42",
+            "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            "https://forge.invalid/jeryu/jeryu.git",
+            &job,
+            &plan,
+        )
+        .unwrap_or_else(|err| panic!("{err}"));
+        let fake = Arc::new(FakeContainerRuntime::default());
+        let runner = OciRunner::with_runtime(fake.clone());
+        let outcome = runner
+            .launch_session(&session)
+            .unwrap_or_else(|err| panic!("{err}"));
+        assert!(outcome.ran, "injected runtime must execute");
+        let recorded = fake.recorded();
+        assert_eq!(recorded.len(), 1, "exactly one launch: {recorded:?}");
+        let argv = &recorded[0];
+        // The launched argv carries the FULL lock-down, not the loose OCI-compat args.
+        assert!(argv.contains(&"--read-only".to_string()), "argv: {argv:?}");
+        assert!(argv.contains(&"--cap-drop=ALL".to_string()));
+        assert!(
+            argv.windows(2)
+                .any(|w| w[0] == "--network" && w[1] == "none")
+        );
+        let binds: Vec<&String> = argv
+            .iter()
+            .enumerate()
+            .filter(|(_, a)| *a == "-v")
+            .map(|(i, _)| &argv[i + 1])
+            .collect();
+        assert_eq!(binds.len(), 1, "only the workspace is mounted: {binds:?}");
+        assert!(binds[0].ends_with(":/workspace:Z"));
     }
 
     #[test]

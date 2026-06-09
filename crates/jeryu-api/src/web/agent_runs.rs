@@ -58,6 +58,18 @@ struct AgentRunRecord {
     error_code: Option<String>,
     error_message: Option<String>,
     control_tx: Option<Sender<AgentControl>>,
+    /// Owning repository `owner/name` for a repo-scoped session run; `None` for
+    /// workcell-backed runs. The per-repo agent-runs route filters on this so one
+    /// repository's live runs can never leak into another's list.
+    repo: Option<String>,
+    /// The unique, namespaced session branch the agent works on (never `main`).
+    branch: Option<String>,
+    /// The latest-`main` oid the session branch was registered at.
+    base_oid: Option<String>,
+    /// Runner / node identity executing the session.
+    runner: Option<String>,
+    /// Agent identity that owns the session.
+    agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -315,6 +327,91 @@ struct ResolvedAgentRun {
     env: BTreeMap<String, String>,
 }
 
+/// Inputs needed to record a freshly-launched repo-scoped session run.
+pub(super) struct SessionRecordInit {
+    pub run_id: String,
+    pub repo: String,
+    pub branch: String,
+    pub base_oid: String,
+    pub runner: String,
+    pub agent: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub workspace: PathBuf,
+}
+
+/// The minimal record view a mediated publish needs.
+pub(super) struct SessionPublishInfo {
+    pub repo: Option<String>,
+    pub branch: Option<String>,
+    pub base_oid: Option<String>,
+    pub state: AgentRunState,
+}
+
+/// One row of the per-repo live agent-runs list consumed by the web
+/// Active-Agents page (`GET /api/v1/repos/{id}/agent-runs`).
+#[derive(Debug, Clone, Serialize)]
+pub(super) struct RepoAgentRunRow {
+    pub run_id: String,
+    pub branch: String,
+    pub runner: String,
+    pub status: String,
+    pub io_mode: AgentRunIoMode,
+    pub tty_live: bool,
+    pub supported_controls: Vec<String>,
+    pub ws_scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workcell_id: Option<String>,
+}
+
+impl RepoAgentRunRow {
+    fn from_record(record: &AgentRunRecord) -> Self {
+        let tty_live = record.state == AgentRunState::Running
+            && record.io_mode == AgentRunIoMode::Pty
+            && record.control_tx.is_some();
+        let supported_controls = if record.io_mode == AgentRunIoMode::Pty {
+            vec![
+                "send_input".to_string(),
+                "inject_prompt".to_string(),
+                "interrupt".to_string(),
+                "terminate".to_string(),
+                "resize_pty".to_string(),
+                "raise_budget".to_string(),
+            ]
+        } else {
+            Vec::new()
+        };
+        let workcell_id = match &record.source {
+            AgentRunSourceSnapshot::Workcell { workcell_id, .. } => Some(workcell_id.clone()),
+            _ => None,
+        };
+        Self {
+            run_id: record.id.clone(),
+            branch: record.branch.clone().unwrap_or_default(),
+            runner: record.runner.clone().unwrap_or_else(|| "local".to_string()),
+            status: agent_run_state_label(record.state).to_string(),
+            io_mode: record.io_mode,
+            tty_live,
+            supported_controls,
+            ws_scope: format!("agent_run.{}", record.id),
+            agent: record.agent.clone(),
+            workcell_id,
+        }
+    }
+}
+
+/// Stable lowercase lifecycle label for a run state (matches the serde encoding).
+pub(super) fn agent_run_state_label(state: AgentRunState) -> &'static str {
+    match state {
+        AgentRunState::Running => "running",
+        AgentRunState::Succeeded => "succeeded",
+        AgentRunState::Failed => "failed",
+        AgentRunState::Exported => "exported",
+    }
+}
+
 pub(super) async fn start(State(state): State<Arc<WebState>>, body: Bytes) -> AxumResponse {
     let request: AgentRunStartRequest = match parse_agent_body(&body, "start an agent run") {
         Ok(request) => request,
@@ -361,6 +458,11 @@ fn start_request(
         error_code: None,
         error_message: None,
         control_tx: control,
+        repo: None,
+        branch: None,
+        base_oid: None,
+        runner: None,
+        agent: None,
     });
 
     if let Some(prompt) = request.prompt.clone()
@@ -723,7 +825,7 @@ impl AgentRunStore {
         Self::default()
     }
 
-    fn allocate_id(&self) -> String {
+    pub(super) fn allocate_id(&self) -> String {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
         format!("ar-{id:06}")
     }
@@ -731,6 +833,62 @@ impl AgentRunStore {
     fn insert(&self, record: AgentRunRecord) {
         let mut inner = self.inner.lock().expect("agent run store mutex");
         inner.runs.insert(record.id.clone(), record);
+    }
+
+    /// Record a freshly-launched repo-scoped agent session. The run starts in the
+    /// `Running` state on its own unique branch; the `repo` it carries is what the
+    /// per-repo agent-runs route filters on, so a session is only ever visible to
+    /// the repository that owns it.
+    pub(super) fn insert_session(&self, init: SessionRecordInit) {
+        self.insert(AgentRunRecord {
+            id: init.run_id,
+            state: AgentRunState::Running,
+            io_mode: AgentRunIoMode::Pty,
+            source: AgentRunSourceSnapshot::Repo {
+                repo: init.repo.clone(),
+            },
+            repo_root: init.workspace,
+            program: init.program,
+            args: init.args,
+            events: Vec::new(),
+            tty_events: Vec::new(),
+            controls: Vec::new(),
+            outcome: None,
+            error_code: None,
+            error_message: None,
+            control_tx: None,
+            repo: Some(init.repo),
+            branch: Some(init.branch),
+            base_oid: Some(init.base_oid),
+            runner: Some(init.runner),
+            agent: Some(init.agent),
+        });
+    }
+
+    /// Live agent-run rows for ONE repository. Filters strictly on the run's owning
+    /// `repo`, so runs that belong to a different repository (or to a workcell, with
+    /// no repo) are never returned here — the data-isolation invariant the
+    /// per-repo route depends on.
+    pub(super) fn rows_for_repo(&self, repo_full_name: &str) -> Vec<RepoAgentRunRow> {
+        let inner = self.inner.lock().expect("agent run store mutex");
+        inner
+            .runs
+            .values()
+            .filter(|record| record.repo.as_deref() == Some(repo_full_name))
+            .map(RepoAgentRunRow::from_record)
+            .collect()
+    }
+
+    /// The branch + base oid + state needed to mediate a publish for one run.
+    pub(super) fn publish_info(&self, run_id: &str) -> Option<SessionPublishInfo> {
+        let inner = self.inner.lock().expect("agent run store mutex");
+        let record = inner.runs.get(run_id)?;
+        Some(SessionPublishInfo {
+            repo: record.repo.clone(),
+            branch: record.branch.clone(),
+            base_oid: record.base_oid.clone(),
+            state: record.state,
+        })
     }
 
     fn status(&self, run_id: &str) -> Option<AgentRunStatusResponse> {
@@ -801,7 +959,7 @@ impl AgentRunStore {
         inner.runs.get(run_id).cloned()
     }
 
-    fn mark_exported(&self, run_id: &str) {
+    pub(super) fn mark_exported(&self, run_id: &str) {
         let mut inner = self.inner.lock().expect("agent run store mutex");
         if let Some(record) = inner.runs.get_mut(run_id) {
             record.state = AgentRunState::Exported;
@@ -1192,7 +1350,7 @@ fn export_workcell_agent_run(
     })
 }
 
-fn origin_base_url(headers: &HeaderMap) -> String {
+pub(super) fn origin_base_url(headers: &HeaderMap) -> String {
     headers
         .get(header::HOST)
         .and_then(|value| value.to_str().ok())

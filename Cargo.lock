@@ -1460,6 +1460,7 @@ dependencies = [
  "jeryu-obs",
  "jeryu-readmodel",
  "jeryu-runner-core",
+ "jeryu-runner-oci",
  "jeryu-runnerd",
  "jeryu-wsversion",
  "reqwest",

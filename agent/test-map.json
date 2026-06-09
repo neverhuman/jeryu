@@ -226,6 +226,11 @@
       "purpose": "verify high-level live agent-run repair launches, PTY controls, typed denials, and workcell failure context",
       "lane": "api"
     },
+    "crates/jeryu-api/src/web/sessions.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 sessions",
+      "purpose": "verify repo-scoped agent session launch on a unique branch off latest main, hardened container args, per-repo agent-runs data isolation (HLT-022), and host-mediated publish",
+      "lane": "api"
+    },
     "crates/jeryu-api/src/web/codegraph.rs": {
       "command": "cargo test -p jeryu-api --features web --jobs 40 codegraph",
       "purpose": "verify the repository codegraph oracle REST facade and typed repair guidance",

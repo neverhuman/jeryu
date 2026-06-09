@@ -81,6 +81,7 @@
     "crates/jeryu-codegraph/": "rust-ci",
     "crates/jeryu-mcp/": "jankurai",
     "crates/jeryu-api/src/web/agent_runs.rs": "forge-api",
+    "crates/jeryu-api/src/web/sessions.rs": "forge-api",
     "crates/jeryu-api/src/web/codegraph.rs": "forge-api",
     "apps/web/src/hooks/useControlPlaneRunners.ts": "forge-api",
     "crates/jeryu-readmodel/src/dashboards/agent_runs.rs": "forge-api",

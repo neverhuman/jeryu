@@ -231,12 +231,11 @@ async fn workcell_repair_flow_holds_exports_and_releases() {
         check_runs.total_count >= 1,
         "exporting a PR should seed CI check-runs, got {check_runs:?}"
     );
-    assert_eq!(
+    assert!(
         check_runs
             .check_runs
             .iter()
             .any(|run| run.conclusion == Some(CheckConclusion::Success)),
-        true,
         "the seeded export CI set should include a green run"
     );
 

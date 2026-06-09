@@ -10,6 +10,7 @@ mod mcp_backend;
 mod permissions;
 mod pulls;
 mod repositories;
+mod sessions;
 mod surface;
 mod tool_build;
 mod workcells;
@@ -38,6 +39,7 @@ use crate::GithubRouter;
 use crate::git_materializer::GitMaterializer;
 use crate::github::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
 use jeryu_gitd::{GitdConfig, RepoManager};
+use jeryu_runner_oci::OciRunner;
 use jeryu_runnerd::WorkcellManager;
 use repositories::{
     repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
@@ -79,6 +81,10 @@ pub(crate) struct WebState {
     pub(crate) repo_manager: Arc<RepoManager>,
     /// Forge handle for the push->CI bridge (shares state with `github`).
     pub(crate) core: ForgeCore,
+    /// Injectable agent-container launcher. Production wires the real CLI runtime
+    /// (plan-only unless `JERYU_RUN_OCI=1`); tests inject a fake runtime so the
+    /// session-launch path is exercised without Docker/Podman.
+    pub(crate) oci_runner: OciRunner,
 }
 
 impl WebState {
@@ -110,6 +116,7 @@ impl WebState {
             codegraph_store,
             repo_manager,
             core: core_handle,
+            oci_runner: OciRunner::new(),
         }
     }
 
@@ -136,6 +143,21 @@ impl WebState {
             Arc::new(RepoManager::new(GitdConfig::new(storage_root))),
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/dist"),
         )
+    }
+
+    /// Test-only constructor that roots the git `RepoManager` at `storage_root`
+    /// AND injects an [`OciRunner`], so the session-launch path can be driven with
+    /// a `FakeContainerRuntime` (no Docker/Podman) while still resolving a real
+    /// bare repository for branch registration.
+    #[cfg(test)]
+    fn new_with_git_storage_and_runner(
+        core: ForgeCore,
+        storage_root: PathBuf,
+        oci_runner: OciRunner,
+    ) -> Self {
+        let mut state = Self::new_with_git_storage(core, storage_root);
+        state.oci_runner = oci_runner;
+        state
     }
 }
 
@@ -274,6 +296,9 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             "/api/v1/agent-runs/:id/export_pr",
             post(agent_runs::export_pr),
         )
+        // Host-mediated publish: advance the session branch ref + open a PR. The
+        // agent never pushes; the ref move goes through the protected ref service.
+        .route("/api/v1/agent-runs/:id/publish", post(sessions::publish))
         .route(
             "/api/v1/workcells",
             get(workcells::list).post(workcells::claim),
@@ -298,6 +323,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route("/api/v1/repos", get(repos))
         .route("/api/v1/repos/:id", get(repo_detail))
+        // Repo-scoped agent sessions: launch a hardened session, and the live
+        // per-repo agent-runs list the web Active-Agents page consumes.
+        .route("/api/v1/repos/:id/sessions", post(sessions::create))
+        .route("/api/v1/repos/:id/agent-runs", get(sessions::list))
         .route("/api/v1/repos/:id/pulls", get(pulls::list))
         .route("/api/v1/repos/:id/pulls/:number", get(pulls::detail))
         .route("/api/v1/repos/:id/pulls/:number/diff", get(pulls::diff))
