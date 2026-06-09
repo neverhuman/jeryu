@@ -530,6 +530,11 @@
       "command": "cargo test -p jeryu-ci-governor --jobs 40",
       "purpose": "verify the load-aware CI worker authority that overrides user worker requests",
       "lane": "agent-substrate"
+    },
+    "images/agent-sandbox/": {
+      "command": "python3 -c \"import json;json.load(open('images/agent-sandbox/seccomp/agent.json'))\" && sh -n images/agent-sandbox/bin/refuse && cargo test -p jeryu-runner-oci --jobs 40 agent_hardened",
+      "purpose": "validate the locked-down agent image artifacts (seccomp JSON + refusal wrapper) and the hardened run-args spec",
+      "lane": "agent-substrate"
     }
   }
 }

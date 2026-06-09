@@ -116,6 +116,7 @@
     "apps/web/e2e/13-left-nav.spec.ts": "forge-api",
     "apps/web/": "forge-api",
     "crates/jeryu-git-guard/": "platform-security",
-    "crates/jeryu-ci-governor/": "ci-runtime"
+    "crates/jeryu-ci-governor/": "ci-runtime",
+    "images/agent-sandbox/": "platform-security"
   }
 }

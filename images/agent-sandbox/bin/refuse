@@ -1,0 +1,19 @@
+#!/bin/sh
+# Refusal wrapper for the confined agent sandbox. Installed AS every tool a coding
+# agent does NOT need when it is JUST editing this repo's code in its assigned branch:
+# networking, symlinks (ln), package installs, privilege escalation, container/mount/
+# scheduling tools. The agent reads/edits files, runs the build (cargo/rustc/node/npm/
+# npx/tsc/vite), and commits via the git guard — that is all it needs.
+prog="$(basename "$0")"
+echo "jeryu: '$prog' is disabled in the agent sandbox — you do not need it to edit code." >&2
+case "$prog" in
+  ln)
+    echo "  Do NOT create symlinks. Edit the real files in your workspace directly." >&2 ;;
+  sudo | su | doas)
+    echo "  No privilege escalation. You run as a non-root user with capabilities dropped." >&2 ;;
+  apt | apt-get | aptitude | dpkg | pip | pip3 | gem)
+    echo "  No package installs. The toolchain + repo deps are already in the image." >&2 ;;
+  *)
+    echo "  Work in your assigned branch and submit to jeryu for PR CI; jeryu mediates network + git." >&2 ;;
+esac
+exit 127
