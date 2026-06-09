@@ -543,3 +543,223 @@ fn linear_history_base_refuses_true_merge_and_main_unchanged() {
     let _ = std::fs::remove_dir_all(&root);
     let _ = std::fs::remove_dir_all(&work);
 }
+
+/// Create the `acme/demo` repo over a router wired to `fixture`'s bare repo.
+/// Unlike `router_with_pr`, this opens NO PR and sets NO protection — callers
+/// drive the PR lifecycle themselves to exercise the live-resolve paths.
+fn router_over(fixture: &GitFixture) -> GithubRouter {
+    let core = ForgeCore::new();
+    let router = GithubRouter::with_core(core).with_repo_manager(fixture.manager.clone());
+    let created = router.post(
+        "/repos",
+        r#"{"owner":"acme","name":"demo","private":false,"default_branch":"main"}"#,
+    );
+    assert_eq!(created.status, 201, "create repo: {}", created.body);
+    router
+}
+
+/// Open a PR WITHOUT supplying any head/base sha, mirroring the GitHub flow that
+/// only names branches. Returns the PR number.
+fn open_pr_by_branch(router: &GithubRouter, head: &str, base: &str) -> u64 {
+    let opened = router.post(
+        "/repos/acme/demo/pulls",
+        &format!(r#"{{"title":"{head}","head":"{head}","base":"{base}","actor":"alice"}}"#),
+    );
+    assert_eq!(opened.status, 201, "open pr: {}", opened.body);
+    body(&opened)["number"].as_u64().expect("pr number")
+}
+
+#[test]
+fn open_pr_persists_real_resolved_oids_not_placeholders() {
+    if !git_available() {
+        return;
+    }
+    // A create request that names only branches (no shas) must persist the REAL
+    // commit oids of those refs, never the "base"/"head-<n>" placeholders that
+    // wedged `PUT /merge` with "oid is not a commit in this repository: base".
+    let fixture = seed_fixture("jeryu-open-resolves");
+    let router = router_over(&fixture);
+    let number = open_pr_by_branch(&router, "feature", "main");
+
+    let pr = body(&router.get(&format!("/repos/acme/demo/pulls/{number}")));
+    let head_sha = pr["head"]["sha"].as_str().expect("head sha");
+    let base_sha = pr["base"]["sha"].as_str().expect("base sha");
+
+    assert_eq!(
+        head_sha, fixture.head_oid,
+        "head must be the real feature oid"
+    );
+    assert_eq!(base_sha, fixture.base_oid, "base must be the real main oid");
+    assert!(
+        is_hex40(head_sha),
+        "head sha must be a 40-hex oid, got {head_sha}"
+    );
+    assert!(
+        is_hex40(base_sha),
+        "base sha must be a 40-hex oid, got {base_sha}"
+    );
+    assert_ne!(base_sha, "base", "base must not be the literal placeholder");
+    assert!(
+        !head_sha.starts_with("head-"),
+        "head must not be the head-<n> placeholder"
+    );
+
+    fixture.cleanup();
+}
+
+#[test]
+fn normal_pr_merges_via_live_resolve_and_advances_main() {
+    if !git_available() {
+        return;
+    }
+    // A not-yet-merged PR opened by branch name (no stored shas) merges through
+    // the REAL git path and fast-forwards main to the head — proving the merge
+    // no longer depends on stored shas.
+    let fixture = seed_fixture("jeryu-normal-live");
+    let router = router_over(&fixture);
+    let number = open_pr_by_branch(&router, "feature", "main");
+
+    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
+    assert_eq!(merged.status, 200, "merge: {}", merged.body);
+    let mb = body(&merged);
+    assert_eq!(mb["merged"], true);
+    assert_eq!(mb["sha"].as_str().expect("sha"), fixture.head_oid);
+
+    assert_eq!(
+        fixture.main_ref(),
+        fixture.head_oid,
+        "main must advance to head"
+    );
+    let after = body(&router.get(&format!("/repos/acme/demo/pulls/{number}")));
+    assert_eq!(after["merged"], true);
+    assert_eq!(after["merge_commit_sha"], fixture.head_oid);
+
+    fixture.cleanup();
+}
+
+/// Bare repo where `main` is one commit AHEAD of `feature`: feature's tip is an
+/// ancestor of main (its code already landed). `base_oid` is the advanced main,
+/// `head_oid` is the older feature tip contained in main's history.
+fn seed_landed_fixture(prefix: &str) -> GitFixture {
+    let root = temp_dir(&format!("{prefix}-root"));
+    let work = temp_dir(&format!("{prefix}-work"));
+    let manager = Arc::new(RepoManager::new(GitdConfig::new(&root)));
+    let id = RepoId::new("acme", "demo").unwrap();
+    let repo = manager.create_bare(&id).expect("create bare");
+
+    run_git(&work, &["init"], "git init");
+    run_git(
+        &work,
+        &["config", "user.email", "test@example.invalid"],
+        "config email",
+    );
+    run_git(&work, &["config", "user.name", "Test"], "config name");
+    std::fs::write(work.join("README.md"), "hello\n").expect("write");
+    run_git(&work, &["add", "README.md"], "git add");
+    run_git(&work, &["commit", "-m", "seed"], "git commit");
+    // feature points at the seed commit.
+    run_git(
+        &work,
+        &[
+            "push",
+            repo.path.to_str().unwrap(),
+            "HEAD:refs/heads/feature",
+        ],
+        "push feature",
+    );
+    let head_oid = rev_parse_head(&work);
+
+    // main advances one commit beyond feature: feature's code is now in main.
+    std::fs::write(work.join("README.md"), "landed\n").expect("write");
+    run_git(&work, &["add", "README.md"], "git add");
+    run_git(&work, &["commit", "-m", "land"], "git commit");
+    run_git(
+        &work,
+        &["push", repo.path.to_str().unwrap(), "HEAD:refs/heads/main"],
+        "push main",
+    );
+    let base_oid = rev_parse_head(&work);
+
+    GitFixture {
+        root,
+        work,
+        manager,
+        base_oid,
+        head_oid,
+    }
+}
+
+#[test]
+fn merging_already_landed_pr_marks_merged_idempotently() {
+    if !git_available() {
+        return;
+    }
+    // The core stale-record bug: a PR whose head is already an ANCESTOR of base
+    // (its code fast-forwarded into main server-side) must merge with
+    // {merged:true} and flip the record to merged WITHOUT moving any ref — and
+    // be idempotent on a repeat call.
+    let fixture = seed_landed_fixture("jeryu-landed");
+    let router = router_over(&fixture);
+    let number = open_pr_by_branch(&router, "feature", "main");
+
+    let main_before = fixture.main_ref();
+    assert_eq!(main_before, fixture.base_oid);
+
+    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
+    assert_eq!(merged.status, 200, "landed merge: {}", merged.body);
+    let mb = body(&merged);
+    assert_eq!(mb["merged"], true, "already-landed PR reports merged");
+    // The recorded merge sha is the real base tip that already contains the head.
+    assert_eq!(mb["sha"].as_str().expect("sha"), fixture.base_oid);
+
+    // No ref moved: main is unchanged (the code was already there).
+    assert_eq!(fixture.main_ref(), main_before, "main must NOT move");
+
+    let after = body(&router.get(&format!("/repos/acme/demo/pulls/{number}")));
+    assert_eq!(after["merged"], true);
+    assert_eq!(after["state"], "closed", "merged PR renders as closed");
+    assert!(
+        after["merged_at"].is_string(),
+        "merged_at must be stamped, got {}",
+        after["merged_at"]
+    );
+    assert_eq!(after["merge_commit_sha"], fixture.base_oid);
+
+    // Idempotent: a second merge call still succeeds and the record stays merged.
+    let again = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
+    assert_eq!(again.status, 200, "idempotent merge: {}", again.body);
+    assert_eq!(body(&again)["merged"], true);
+    assert_eq!(fixture.main_ref(), main_before, "main still unchanged");
+
+    fixture.cleanup();
+}
+
+#[test]
+fn merge_with_unresolvable_head_returns_4xx_not_500() {
+    if !git_available() {
+        return;
+    }
+    // A PR whose head names a branch that does not exist (and carries no real
+    // stored head sha) must yield a clean typed 4xx, never a 500.
+    let fixture = seed_fixture("jeryu-unresolvable-head");
+    let router = router_over(&fixture);
+    // head "ghost" has no ref; base "main" resolves fine.
+    let number = open_pr_by_branch(&router, "ghost", "main");
+
+    let merged = router.put(&format!("/repos/acme/demo/pulls/{number}/merge"), "{}");
+    assert_eq!(
+        merged.status, 422,
+        "unresolvable head must be a 422, got {}: {}",
+        merged.status, merged.body
+    );
+    assert!(
+        merged.status >= 400 && merged.status < 500,
+        "must be a 4xx, never a 5xx"
+    );
+
+    // The PR was NOT merged.
+    let after = body(&router.get(&format!("/repos/acme/demo/pulls/{number}")));
+    assert_eq!(after["merged"], false);
+
+    fixture.cleanup();
+}

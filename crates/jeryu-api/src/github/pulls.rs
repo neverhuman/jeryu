@@ -44,11 +44,22 @@ impl GithubRouter {
     }
 
     pub(super) fn create_pull(&self, owner: &str, repo: &str, body: &str) -> Response {
-        let req: CreatePullRequestRequest = match parse_body(body) {
+        #[cfg_attr(not(feature = "web"), allow(unused_mut))]
+        let mut req: CreatePullRequestRequest = match parse_body(body) {
             Ok(value) => value,
             Err(response) => return response,
         };
         let author = actor(body);
+
+        // With a git backend wired, persist the REAL commit oids of the head and
+        // base branch refs (never the literal "base"/"head-<n>" placeholders).
+        // A request that already carries explicit shas is honored as-is; an
+        // unresolvable branch falls through to the core default, preserving the
+        // git-less in-memory path used by unit tests.
+        #[cfg(feature = "web")]
+        if let Some(rm) = &self.repo_manager {
+            self.resolve_create_oids(rm, owner, repo, &mut req);
+        }
 
         // Flagship overlap routing: before opening a fresh PR, see whether the
         // proposed change overlaps an existing OPEN PR enough to hot-fix it.
@@ -77,6 +88,39 @@ impl GithubRouter {
                 json_response(201, &pull_request_json(&pr))
             }
             Err(err) => error_response(err),
+        }
+    }
+
+    /// Fill in a create request's `head_sha`/`base_sha` from the real commit
+    /// oids of the corresponding branch refs in the bare repo, but only for a
+    /// field the caller left unset and a ref that actually resolves. A git error
+    /// is non-fatal here: create then falls back to the core default rather than
+    /// failing the whole request on a transient resolve hiccup.
+    #[cfg(feature = "web")]
+    fn resolve_create_oids(
+        &self,
+        rm: &std::sync::Arc<jeryu_gitd::RepoManager>,
+        owner: &str,
+        repo: &str,
+        req: &mut CreatePullRequestRequest,
+    ) {
+        use jeryu_gitd::refs::RefService;
+
+        let Ok(resolved) = rm.resolve_parts(owner, repo) else {
+            return;
+        };
+        let refs = RefService::new((**rm).clone());
+        if req.head_sha.is_none()
+            && let Ok(Some(oid)) =
+                refs.resolve_commit(&resolved, &format!("refs/heads/{}", req.head))
+        {
+            req.head_sha = Some(oid);
+        }
+        if req.base_sha.is_none()
+            && let Ok(Some(oid)) =
+                refs.resolve_commit(&resolved, &format!("refs/heads/{}", req.base))
+        {
+            req.base_sha = Some(oid);
         }
     }
 
@@ -225,18 +269,23 @@ impl GithubRouter {
                     "message": "Pull Request already merged",
                 }),
             ),
+            // `base_sha` is intentionally ignored here: the git merge path
+            // resolves the LIVE base tip rather than trusting a possibly-stale
+            // stored sha. It remains part of the readiness disclosure for
+            // callers/inspection.
             MergeReadiness::Ready {
                 base_ref,
-                base_sha,
+                head_ref,
                 head_sha,
                 require_linear_history,
+                ..
             } => self.merge_ready_pull(MergeReady {
                 owner,
                 repo,
                 number,
                 req: &req,
                 base_ref,
-                base_sha,
+                head_ref,
                 head_sha,
                 require_linear_history,
             }),
@@ -288,6 +337,13 @@ impl GithubRouter {
     /// Real, gated git merge: advance `refs/heads/{base_ref}` in the bare repo
     /// to the produced merge oid, then reconcile that real sha into the PR
     /// record via `finalize_merge`.
+    ///
+    /// The merge does NOT trust the PR's stored base/head shas (which may be
+    /// stale placeholders): it resolves `base_ref` and the PR's head branch ref
+    /// live against the bare repo. When the head is already an ANCESTOR of the
+    /// base (its code is in main), it finalizes the record as merged
+    /// idempotently without moving any ref. An unresolvable base/head yields a
+    /// clean 4xx, never a 500.
     #[cfg(feature = "web")]
     fn merge_ready_pull_git(
         &self,
@@ -295,6 +351,7 @@ impl GithubRouter {
         ready: MergeReady<'_>,
     ) -> Response {
         use jeryu_gitd::GitdError;
+        use jeryu_gitd::object_fsck::ObjectFsck;
         use jeryu_gitd::refs::RefService;
 
         let resolved = match rm.resolve_parts(ready.owner, ready.repo) {
@@ -310,14 +367,96 @@ impl GithubRouter {
             }
         };
 
-        let message = merge_message(ready.number, ready.req);
         let refs = RefService::new((**rm).clone());
+
+        // Resolve the LIVE base tip, never the stored base sha. A base branch
+        // that does not resolve is an unprocessable request (422), not a 500.
+        let base_oid =
+            match refs.resolve_commit(&resolved, &format!("refs/heads/{}", ready.base_ref)) {
+                Ok(Some(oid)) => oid,
+                Ok(None) => {
+                    return json_response(
+                        422,
+                        &json!({
+                            "message": format!(
+                                "base ref refs/heads/{} does not resolve to a commit",
+                                ready.base_ref
+                            ),
+                            "documentation_url": docs_url(),
+                        }),
+                    );
+                }
+                Err(err) => {
+                    return json_response(
+                        500,
+                        &json!({ "message": err.to_string(), "documentation_url": docs_url() }),
+                    );
+                }
+            };
+
+        // Resolve the LIVE head: prefer the PR's head branch ref, then fall back
+        // to the stored head sha ONLY if it is itself a real commit. A head that
+        // resolves by neither route is unprocessable (422), not a 500.
+        let head_oid = match self.resolve_pull_head(&refs, &resolved, &ready) {
+            Ok(Some(oid)) => oid,
+            Ok(None) => {
+                return json_response(
+                    422,
+                    &json!({
+                        "message": format!(
+                            "head ref refs/heads/{} does not resolve to a commit",
+                            ready.head_ref
+                        ),
+                        "documentation_url": docs_url(),
+                    }),
+                );
+            }
+            Err(err) => {
+                return json_response(
+                    500,
+                    &json!({ "message": err.to_string(), "documentation_url": docs_url() }),
+                );
+            }
+        };
+
+        // If the head is already contained in the base history, the code has
+        // already landed (e.g. a server-side fast-forward that never flipped the
+        // record). Mark the PR merged idempotently against the real base oid
+        // WITHOUT moving any ref.
+        let fsck = ObjectFsck::new(rm.config().git_bin.clone());
+        match fsck.is_ancestor(&resolved, &head_oid, &base_oid) {
+            Ok(true) => {
+                return match self.core.finalize_merge(
+                    ready.owner,
+                    ready.repo,
+                    ready.number,
+                    base_oid,
+                    ready.req.sha.as_deref(),
+                ) {
+                    Ok(result) => merge_success_response(&result),
+                    Err(ForgeError::BranchProtection(reason)) => json_response(
+                        405,
+                        &json!({ "message": reason, "documentation_url": docs_url() }),
+                    ),
+                    Err(err) => error_response(err),
+                };
+            }
+            Ok(false) => {}
+            Err(err) => {
+                return json_response(
+                    500,
+                    &json!({ "message": err.to_string(), "documentation_url": docs_url() }),
+                );
+            }
+        }
+
+        let message = merge_message(ready.number, ready.req);
         let outcome = match refs.merge_pull(
             &resolved,
             "system:pr-merge",
             &format!("refs/heads/{}", ready.base_ref),
-            &ready.base_sha,
-            &ready.head_sha,
+            &base_oid,
+            &head_oid,
             &message,
             ready.require_linear_history,
         ) {
@@ -366,11 +505,30 @@ impl GithubRouter {
             Err(err) => error_response(err),
         }
     }
+
+    /// Resolve a PR's head to a real commit oid for merging.
+    ///
+    /// Tries the live head branch ref first (`refs/heads/<head_ref>`), then
+    /// falls back to the stored head sha ONLY when it is itself a real commit
+    /// in the repo. Returns `Ok(None)` when neither resolves, so the caller
+    /// renders a 4xx rather than feeding a placeholder into the merge.
+    #[cfg(feature = "web")]
+    fn resolve_pull_head(
+        &self,
+        refs: &jeryu_gitd::refs::RefService,
+        repo: &jeryu_gitd::repo::Repository,
+        ready: &MergeReady<'_>,
+    ) -> jeryu_gitd::Result<Option<String>> {
+        if let Some(oid) = refs.resolve_commit(repo, &format!("refs/heads/{}", ready.head_ref))? {
+            return Ok(Some(oid));
+        }
+        refs.resolve_commit(repo, &ready.head_sha)
+    }
 }
 
 /// Parameters describing a PR that has already passed the merge gate.
 ///
-/// `base_ref`/`base_sha`/`require_linear_history` are only consumed by the real
+/// `base_ref`/`head_ref`/`require_linear_history` are only consumed by the real
 /// git-merge path (`web` feature); the in-memory fallback uses only
 /// `head_sha`/`number`.
 struct MergeReady<'a> {
@@ -381,7 +539,7 @@ struct MergeReady<'a> {
     #[cfg_attr(not(feature = "web"), allow(dead_code))]
     base_ref: String,
     #[cfg_attr(not(feature = "web"), allow(dead_code))]
-    base_sha: String,
+    head_ref: String,
     head_sha: String,
     #[cfg_attr(not(feature = "web"), allow(dead_code))]
     require_linear_history: bool,

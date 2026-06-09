@@ -845,12 +845,14 @@ fn evaluate_merge_readiness_ready_discloses_base_and_head() {
         MergeReadiness::Ready {
             base_ref,
             base_sha,
+            head_ref,
             head_sha,
             require_linear_history,
         } => {
             assert_eq!(base_ref, "main");
             // Disclosure reflects the ACTUAL seeded base_sha, not the default.
             assert_eq!(base_sha, "seeded-base-sha");
+            assert_eq!(head_ref, "feature");
             assert_eq!(head_sha, "feat-sha");
             // protect_main sets required_linear_history=false (default request).
             assert!(!require_linear_history);

@@ -37,6 +37,10 @@ pub enum MergeReadiness {
         base_ref: String,
         /// Current base tip sha to merge into.
         base_sha: String,
+        /// Head branch name (e.g. `feature`). The caller resolves this live
+        /// against the git backend so a stale stored head sha cannot stop a
+        /// merge whose code is already on the branch.
+        head_ref: String,
         /// Head sha to merge.
         head_sha: String,
         /// Whether the base requires linear history; the caller must refuse a
@@ -349,6 +353,7 @@ impl ForgeCore {
         Ok(MergeReadiness::Ready {
             base_ref: pr.base.ref_name.clone(),
             base_sha: pr.base.sha.clone(),
+            head_ref: pr.head.ref_name.clone(),
             head_sha: pr.head.sha.clone(),
             require_linear_history,
         })

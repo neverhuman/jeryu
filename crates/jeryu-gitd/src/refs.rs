@@ -38,6 +38,33 @@ impl RefService {
         Self { manager }
     }
 
+    /// Resolve a revision (a ref name such as `refs/heads/main`, or a raw oid)
+    /// to the commit oid it names.
+    ///
+    /// Returns `Ok(None)` when the revision does not name a commit in this
+    /// repository — a clean "absent", NOT an error — so a caller can fall back
+    /// to another candidate without surfacing a 500. A genuine git/IO failure
+    /// still returns `Err`.
+    pub fn resolve_commit(&self, repo: &Repository, rev: &str) -> Result<Option<String>> {
+        if rev.trim().is_empty() {
+            return Ok(None);
+        }
+        let spec = format!("{rev}^{{commit}}");
+        let out = std::process::Command::new(&self.manager.config().git_bin)
+            .args(["rev-parse", "--verify", "--quiet", &spec])
+            .current_dir(&repo.path)
+            .output()?;
+        if !out.status.success() {
+            return Ok(None);
+        }
+        let oid = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if oid.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(oid))
+        }
+    }
+
     /// List refs in a bare repository.
     pub fn list_refs(&self, repo: &Repository) -> Result<Vec<GitRef>> {
         let out = run_capture(
