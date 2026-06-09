@@ -1,0 +1,189 @@
+#![doc = "Runtime seam for OCI execution so the runner is testable without a daemon."]
+
+use crate::OciSpec;
+use jeryu_runner_core::error::{RunnerError, RunnerResult};
+use std::process::{Command, Stdio};
+use std::sync::Mutex;
+
+/// Outcome of asking a [`ContainerRuntime`] to run a spec.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeOutcome {
+    /// Process exit code, when a container actually ran and reported one.
+    pub exit_code: Option<i32>,
+    /// Whether a container actually executed. `false` means plan-only.
+    pub ran: bool,
+}
+
+/// Abstraction over the container engine that runs an [`OciSpec`].
+///
+/// The seam lets the runner be exercised in CI with a fake engine, with no
+/// real Docker/Podman daemon present.
+pub trait ContainerRuntime: Send + Sync + std::fmt::Debug {
+    /// Short name of the runtime, for diagnostics.
+    fn name(&self) -> &str;
+
+    /// Run the spec, returning whether a container executed and its exit code.
+    fn run(&self, spec: &OciSpec) -> RunnerResult<RuntimeOutcome>;
+}
+
+/// Real runtime that shells out to the configured CLI (`podman`/`docker`).
+///
+/// This is the only runtime that honors the `JERYU_RUN_OCI=1` gate: without it
+/// the runtime is plan-only and never touches the daemon. Any other injected
+/// runtime (the injection itself is the opt-in) executes unconditionally.
+#[derive(Debug, Default, Clone)]
+pub struct CliContainerRuntime;
+
+impl ContainerRuntime for CliContainerRuntime {
+    fn name(&self) -> &str {
+        "cli"
+    }
+
+    fn run(&self, spec: &OciSpec) -> RunnerResult<RuntimeOutcome> {
+        if std::env::var("JERYU_RUN_OCI").ok().as_deref() != Some("1") {
+            return Ok(RuntimeOutcome {
+                exit_code: None,
+                ran: false,
+            });
+        }
+        let output = Command::new(&spec.runtime)
+            .args(spec.args())
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|err| RunnerError::new("oci_start_failed", err.to_string()))?;
+        Ok(RuntimeOutcome {
+            exit_code: output.status.code(),
+            ran: true,
+        })
+    }
+}
+
+/// Fake runtime that records the argv it would run and never touches a daemon.
+///
+/// It consumes the exact same [`OciSpec::args`] builder as the real runtime, so
+/// the recorded invocation cannot drift from what would really execute.
+#[derive(Debug, Default)]
+pub struct FakeContainerRuntime {
+    exit_code: i32,
+    invocations: Mutex<Vec<Vec<String>>>,
+}
+
+impl FakeContainerRuntime {
+    /// Fake that reports the given exit code on every run.
+    pub fn with_exit_code(exit_code: i32) -> Self {
+        Self {
+            exit_code,
+            invocations: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Snapshot of every recorded argv (executable followed by `args()`).
+    pub fn recorded(&self) -> Vec<Vec<String>> {
+        self.invocations
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone()
+    }
+}
+
+impl ContainerRuntime for FakeContainerRuntime {
+    fn name(&self) -> &str {
+        "fake"
+    }
+
+    fn run(&self, spec: &OciSpec) -> RunnerResult<RuntimeOutcome> {
+        let mut argv = vec![spec.runtime.clone()];
+        argv.extend(spec.args());
+        self.invocations
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .push(argv);
+        Ok(RuntimeOutcome {
+            exit_code: Some(self.exit_code),
+            ran: true,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::OciRunner;
+    use jeryu_runner_core::job::{JobRequest, NetworkPolicy, SecretPolicy, TokenPolicy};
+    use jeryu_runner_core::policy::select_runner;
+    use jeryu_runner_core::receipt::ReceiptStatus;
+    use jeryu_runner_core::sandbox::SandboxPlan;
+    use jeryu_runner_core::trust::{RunnerClass, TrustTier};
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    fn sample_job() -> JobRequest {
+        JobRequest {
+            job_id: "job".to_string(),
+            repo_id: "repo".to_string(),
+            commit_sha: "abc".to_string(),
+            workspace: PathBuf::from("/tmp/work"),
+            command: "/bin/echo".to_string(),
+            args: vec!["ok".to_string()],
+            env: Default::default(),
+            trust_tier: TrustTier::T4ForkPr,
+            requested_runner: Some(RunnerClass::OciDocker),
+            network_policy: NetworkPolicy::Deny,
+            secret_policy: SecretPolicy::Default,
+            token_policy: TokenPolicy::ReadOnly,
+            timeout_ms: 1000,
+            fork: true,
+        }
+    }
+
+    /// The fake records exactly the argv the real runtime would consume, so the
+    /// two cannot drift apart on the shared `OciSpec::args` builder.
+    #[test]
+    fn fake_records_same_argv_as_spec() {
+        let job = sample_job();
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+        let spec = OciSpec::from_job(&job, &plan).unwrap_or_else(|err| panic!("{err}"));
+
+        let fake = Arc::new(FakeContainerRuntime::default());
+        let runner = OciRunner::with_runtime(fake.clone());
+        runner
+            .execute(&job, &decision, &plan)
+            .unwrap_or_else(|err| panic!("{err}"));
+
+        let mut expected = vec![spec.runtime.clone()];
+        expected.extend(spec.args());
+        assert_eq!(fake.recorded(), vec![expected]);
+    }
+
+    /// An injected runtime is the opt-in: the fake-backed runner executes and
+    /// reports `Passed` with exit 0 without needing `JERYU_RUN_OCI`.
+    #[test]
+    fn fake_backed_execute_passes_without_gate() {
+        let job = sample_job();
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+
+        let runner = OciRunner::with_runtime(Arc::new(FakeContainerRuntime::default()));
+        let receipt = runner
+            .execute(&job, &decision, &plan)
+            .unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(receipt.status, ReceiptStatus::Passed);
+        assert_eq!(receipt.exit_code, Some(0));
+    }
+
+    /// A non-zero fake exit code maps to a `Failed` receipt.
+    #[test]
+    fn fake_backed_execute_maps_failure() {
+        let job = sample_job();
+        let decision = select_runner(&job).unwrap_or_else(|err| panic!("{err}"));
+        let plan = SandboxPlan::from_decision(&job.workspace, &decision);
+
+        let runner = OciRunner::with_runtime(Arc::new(FakeContainerRuntime::with_exit_code(7)));
+        let receipt = runner
+            .execute(&job, &decision, &plan)
+            .unwrap_or_else(|err| panic!("{err}"));
+        assert_eq!(receipt.status, ReceiptStatus::Failed);
+        assert_eq!(receipt.exit_code, Some(7));
+    }
+}

@@ -1,5 +1,9 @@
 #![doc = "OCI compatibility runner for Docker/Podman-style jobs."]
 
+pub mod runtime;
+
+pub use runtime::{CliContainerRuntime, ContainerRuntime, FakeContainerRuntime, RuntimeOutcome};
+
 use jeryu_runner_core::error::{RunnerError, RunnerResult};
 use jeryu_runner_core::fscheck::deny_dangerous_host_path;
 use jeryu_runner_core::job::JobRequest;
@@ -8,7 +12,7 @@ use jeryu_runner_core::receipt::{Receipt, ReceiptStatus, now_ms};
 use jeryu_runner_core::sandbox::SandboxPlan;
 use jeryu_runner_core::trust::RunnerClass;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::sync::Arc;
 
 /// OCI launch spec.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,18 +80,42 @@ impl OciSpec {
 }
 
 /// OCI runner.
-#[derive(Debug, Default, Clone)]
-pub struct OciRunner;
+///
+/// Execution is delegated to a [`ContainerRuntime`]. The default
+/// [`CliContainerRuntime`] keeps plan-only behavior unless `JERYU_RUN_OCI=1` is
+/// set; injecting any other runtime (e.g. [`FakeContainerRuntime`]) is itself
+/// the opt-in to execute, so injected runtimes do not consult that gate.
+#[derive(Debug, Clone)]
+pub struct OciRunner {
+    runtime: Arc<dyn ContainerRuntime>,
+}
+
+impl Default for OciRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl OciRunner {
-    /// Create an OCI runner.
+    /// Create an OCI runner backed by the real CLI runtime.
     pub fn new() -> Self {
-        Self
+        Self {
+            runtime: Arc::new(CliContainerRuntime),
+        }
+    }
+
+    /// Create an OCI runner backed by an injected runtime.
+    pub fn with_runtime(rt: Arc<dyn ContainerRuntime>) -> Self {
+        Self { runtime: rt }
     }
 
     /// Plan or execute OCI job.
     ///
-    /// Default is plan-only. Set `JERYU_RUN_OCI=1` to execute.
+    /// The spec is built unchanged, then handed to the configured runtime. A
+    /// plan-only outcome (`ran=false`) yields a `Planned` receipt; an executed
+    /// outcome yields `Passed` on exit 0 and `Failed` otherwise. With the
+    /// default [`CliContainerRuntime`], plan-only is the default unless
+    /// `JERYU_RUN_OCI=1` is set.
     pub fn execute(
         &self,
         job: &JobRequest,
@@ -96,38 +124,27 @@ impl OciRunner {
     ) -> RunnerResult<Receipt> {
         let spec = OciSpec::from_job(job, plan)?;
         let started = now_ms();
-        if std::env::var("JERYU_RUN_OCI").ok().as_deref() != Some("1") {
-            return Ok(Receipt::new(
-                job,
-                decision,
-                plan,
-                ReceiptStatus::Planned,
-                None,
-                started,
-                started,
-                spec.explain(),
-            ));
-        }
-        let output = Command::new(&spec.runtime)
-            .args(spec.args())
-            .stdin(Stdio::null())
-            .output();
-        let finished = now_ms();
-        match output {
-            Ok(output) => Ok(Receipt::new(
-                job,
-                decision,
-                plan,
-                if output.status.success() {
+        match self.runtime.run(&spec) {
+            Ok(outcome) => {
+                let finished = now_ms();
+                let status = if !outcome.ran {
+                    ReceiptStatus::Planned
+                } else if outcome.exit_code == Some(0) {
                     ReceiptStatus::Passed
                 } else {
                     ReceiptStatus::Failed
-                },
-                output.status.code(),
-                started,
-                finished,
-                spec.explain(),
-            )),
+                };
+                Ok(Receipt::new(
+                    job,
+                    decision,
+                    plan,
+                    status,
+                    outcome.exit_code,
+                    started,
+                    finished,
+                    spec.explain(),
+                ))
+            }
             Err(err) => Ok(Receipt::new(
                 job,
                 decision,
@@ -135,8 +152,8 @@ impl OciRunner {
                 ReceiptStatus::Failed,
                 None,
                 started,
-                finished,
-                format!("oci_start_failed: {err}; {}", spec.explain()),
+                now_ms(),
+                format!("{err}; {}", spec.explain()),
             )),
         }
     }
