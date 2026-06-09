@@ -17,17 +17,17 @@ import type { CreateSessionResponse } from '../api/types';
 
 export function useCreateSession(
   repoId: string | null
-): UseMutationResult<CreateSessionResponse, ApiError, void> {
+): UseMutationResult<CreateSessionResponse, ApiError, string> {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (agentId: string) => {
       if (!repoId) {
         throw new ApiError(0, {
           code: 'invalid_state',
           message: 'Repository not resolved yet.',
         });
       }
-      return createSession(repoId);
+      return createSession(repoId, agentId);
     },
     onSuccess: () => {
       if (repoId) {

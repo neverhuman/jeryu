@@ -38,6 +38,8 @@ export function RepositoryAgentsPage(): JSX.Element {
   // Deep-link seed: the optional run id rides the `agents/*` splat tail.
   const splatRunId = (params['*'] ?? '').replace(/\/+$/, '') || null;
   const [selectedRunId, setSelectedRunId] = useState<string | null>(splatRunId);
+  // Which coding agent the New Session button launches (Codex / Claude / Jekko).
+  const [agentId, setAgentId] = useState('codex');
 
   const resolved = useResolveRepo(provider, fullName);
   const repoId = resolved.data?.id ?? null;
@@ -51,7 +53,7 @@ export function RepositoryAgentsPage(): JSX.Element {
   // `<AgentTerminal>` on the returned run. The URL is rebuilt from the live
   // (still %2F-encoded) pathname so the `:fullName` segment is not re-decoded.
   function onNewSession(): void {
-    createSession.mutate(undefined, {
+    createSession.mutate(agentId, {
       onSuccess: (created) => {
         setSelectedRunId(created.run_id);
         const agentsBase = location.pathname.replace(/\/agents(?:\/.*)?$/, '/agents');
@@ -106,6 +108,21 @@ export function RepositoryAgentsPage(): JSX.Element {
           </p>
         </div>
         <div className="agents__header-actions">
+          <label className="agents__agent-pick">
+            <span className="sr-only">Agent</span>
+            <select
+              className="agents__agent-select"
+              value={agentId}
+              onChange={(event) => setAgentId(event.target.value)}
+              disabled={createSession.isPending}
+              data-testid="new-session-agent"
+              aria-label="Agent to launch"
+            >
+              <option value="codex">Codex</option>
+              <option value="claude">Claude</option>
+              <option value="jekko">Jekko</option>
+            </select>
+          </label>
           <button
             type="button"
             className="agents__new-session"

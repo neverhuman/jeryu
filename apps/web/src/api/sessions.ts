@@ -23,11 +23,12 @@ function newIdempotencyKey(): string {
  */
 export function createSession(
   repoId: string,
+  agentId: string,
   opts?: ApiRequestOptions
 ): Promise<CreateSessionResponse> {
   return apiSend<CreateSessionResponse>(
     endpoints.repoSessions(repoId),
-    {},
+    { agent_id: agentId },
     { idempotencyKey: newIdempotencyKey(), ...opts }
   );
 }

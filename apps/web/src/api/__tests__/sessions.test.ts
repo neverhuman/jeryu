@@ -31,7 +31,7 @@ describe('createSession', () => {
         })
       );
 
-    const result = await createSession('repo-1');
+    const result = await createSession('repo-1', 'codex');
 
     expect(result.run_id).toBe('run-xyz');
     expect(result.branch).toBe('agent/session-xyz');
@@ -40,6 +40,7 @@ describe('createSession', () => {
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe('/api/v1/repos/repo-1/sessions');
     expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({ agent_id: 'codex' });
     const headers = new Headers(init?.headers);
     expect(headers.get('Idempotency-Key')).toBeTruthy();
     expect(headers.get('Content-Type')).toContain('application/json');
@@ -55,7 +56,7 @@ describe('createSession', () => {
         })
       );
 
-    await createSession('group/repo');
+    await createSession('group/repo', 'codex');
     expect(String(fetchSpy.mock.calls[0][0])).toBe(
       '/api/v1/repos/group%2Frepo/sessions'
     );
@@ -71,12 +72,12 @@ describe('createSession', () => {
       )
     );
 
-    await expect(createSession('repo-1')).rejects.toMatchObject({
+    await expect(createSession('repo-1', 'codex')).rejects.toMatchObject({
       name: 'ApiError',
       status: 503,
       code: 'capacity_exhausted',
     });
     // The thrown value is a real ApiError instance, not a bare object.
-    await expect(createSession('repo-1')).rejects.toBeInstanceOf(ApiError);
+    await expect(createSession('repo-1', 'codex')).rejects.toBeInstanceOf(ApiError);
   });
 });
