@@ -160,6 +160,12 @@ export function RepositoryOverviewPage(): JSX.Element {
           >
             <ActionButton variant="default">Browse code</ActionButton>
           </Link>
+          <Link
+            to={`/repos/${encodeURIComponent(provider)}/${fullName}/agents`}
+            aria-label="Open agents and start a new session"
+          >
+            <ActionButton variant="primary">Agents</ActionButton>
+          </Link>
         </div>
       </header>
 
@@ -193,12 +199,17 @@ export function RepositoryOverviewPage(): JSX.Element {
             </Link>
           </article>
           <article className="repo-overview__sidebar-card">
-            <h2 className="repo-overview__sidebar-title">Recent activity</h2>
+            <h2 className="repo-overview__sidebar-title">Agents</h2>
             <p className="text-muted">
               {summary.active_agents} active agent
               {summary.active_agents === 1 ? '' : 's'} · updated{' '}
               {summary.updated_at}
             </p>
+            <Link
+              to={`/repos/${encodeURIComponent(provider)}/${fullName}/agents`}
+            >
+              View agents · New session
+            </Link>
           </article>
         </aside>
       </section>

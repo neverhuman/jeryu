@@ -80,6 +80,11 @@ else
     npm run build
     npm run test -- --run
   )
+  # npm install at the workspace root writes an untracked package-lock.json (and can
+  # touch the tracked workspace locks). Remove/restore them so the jankurai audit below
+  # does not flag the build artifact as an unrouted path and fail the gate.
+  rm -f "$repo_root/package-lock.json"
+  git -C "$repo_root" checkout -- apps/web/package-lock.json ux-qa/package-lock.json 2>/dev/null || true
   echo "[pr-ci] web lane: build+vitest green" >&2
 fi
 
