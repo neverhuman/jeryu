@@ -448,6 +448,9 @@ pub(super) struct SessionRecordInit {
     pub program: String,
     pub args: Vec<String>,
     pub workspace: PathBuf,
+    /// Live control sender the web terminal steers the PTY agent through. The
+    /// matching receiver is handed to the driver thread that supervises the agent.
+    pub control_tx: Option<Sender<AgentControl>>,
 }
 
 /// The minimal record view a mediated publish needs.
@@ -585,25 +588,16 @@ fn start_request(
             .and_then(|tx| tx.send(AgentControl::InjectPrompt(prompt)).ok());
     }
 
-    let store = state.agent_runs.clone();
-    let run_id_for_thread = agent_run_id.clone();
-    let run_root = resolved.repo_root;
-    let mode = request.io_mode;
-    let require_cgroup = request.require_cgroup();
-    std::thread::spawn(move || {
-        let sink = RecordingSink {
-            store: store.clone(),
-            run_id: run_id_for_thread.clone(),
-        };
-        let result = match mode {
-            AgentRunIoMode::Pty => PtyAgentDriver::new(timeout, output_budget)
-                .with_require_cgroup(require_cgroup)
-                .run(&run_root, &spec, &sink, &control_rx),
-            AgentRunIoMode::Pipe => AgentDriver::new(timeout, output_budget)
-                .with_require_cgroup(require_cgroup)
-                .run(&run_root, &spec, &sink),
-        };
-        store.complete(&run_id_for_thread, result);
+    spawn_driver_thread(DriverThreadInit {
+        store: state.agent_runs.clone(),
+        run_id: agent_run_id.clone(),
+        repo_root: resolved.repo_root,
+        spec,
+        io_mode: request.io_mode,
+        timeout,
+        output_budget,
+        require_cgroup: request.require_cgroup(),
+        control_rx,
     });
 
     Ok(AgentRunStartResponse {
@@ -618,6 +612,125 @@ fn start_request(
         io_mode: request.io_mode,
         state: AgentRunState::Running,
     })
+}
+
+/// Everything one driver thread needs to supervise a real child against a run.
+/// Both the public agent-run route and the repo-scoped session launch hand this
+/// to [`spawn_driver_thread`], so the two share the exact same supervision path:
+/// a [`RecordingSink`] feeds `append_event`/`publish_tty`, and `complete` records
+/// the terminal outcome.
+struct DriverThreadInit {
+    store: AgentRunStore,
+    run_id: String,
+    repo_root: PathBuf,
+    spec: CommandSpec,
+    io_mode: AgentRunIoMode,
+    timeout: Duration,
+    output_budget: usize,
+    require_cgroup: bool,
+    control_rx: mpsc::Receiver<AgentControl>,
+}
+
+/// Drive one agent child to completion on a background thread, streaming its TTY
+/// output into the run's tty ring + broadcast through a [`RecordingSink`]. The
+/// Pty path gives the child a controlling terminal and applies live control
+/// commands; the Pipe path supervises over pipes. Either way the terminal
+/// outcome lands through `store.complete`.
+fn spawn_driver_thread(init: DriverThreadInit) {
+    let DriverThreadInit {
+        store,
+        run_id,
+        repo_root,
+        spec,
+        io_mode,
+        timeout,
+        output_budget,
+        require_cgroup,
+        control_rx,
+    } = init;
+    std::thread::spawn(move || {
+        let sink = RecordingSink {
+            store: store.clone(),
+            run_id: run_id.clone(),
+        };
+        let result = match io_mode {
+            AgentRunIoMode::Pty => PtyAgentDriver::new(timeout, output_budget)
+                .with_require_cgroup(require_cgroup)
+                .run(&repo_root, &spec, &sink, &control_rx),
+            AgentRunIoMode::Pipe => AgentDriver::new(timeout, output_budget)
+                .with_require_cgroup(require_cgroup)
+                .run(&repo_root, &spec, &sink),
+        };
+        store.complete(&run_id, result);
+    });
+}
+
+/// Inputs the repo-scoped session launch hands to [`spawn_session_agent`] to put
+/// the selected agent on a controlling PTY against the session workspace.
+pub(super) struct SessionAgentSpawn {
+    /// The recorded session run the TTY stream is keyed to.
+    pub run_id: String,
+    /// The materialized session checkout the agent runs inside (its cwd).
+    pub workspace: PathBuf,
+    /// The resolved agent program; an empty path means the binary was unknown.
+    pub program: PathBuf,
+    /// Arguments passed to the agent entrypoint.
+    pub args: Vec<String>,
+    /// Branch-pinned env (carries `JERYU_BRANCH`) for the in-cell git guard.
+    pub env: BTreeMap<String, String>,
+    /// Live control sender already recorded against the run, moved into the driver.
+    pub control_rx: mpsc::Receiver<AgentControl>,
+    /// Wall-clock budget for the session agent.
+    pub timeout: Duration,
+    /// Captured-output byte budget for the session agent.
+    pub output_budget: usize,
+    /// Whether enforced cgroup-v2 limits are required (false only under test).
+    pub require_cgroup: bool,
+}
+
+/// Launch the selected agent for a repo-scoped session on a controlling PTY,
+/// wiring its raw terminal output into the recorded run exactly like the public
+/// agent-run route. The agent runs with cwd = the session workspace and the
+/// branch-pinned env, so the in-cell git guard confines it to its own branch.
+///
+/// When the resolved agent binary is missing — an empty path or a file that does
+/// not exist on disk — rather than fail the whole New Session request, record one
+/// clear TTY line so the web terminal shows why the agent never started, and mark
+/// the run finished.
+pub(super) fn spawn_session_agent(store: &AgentRunStore, spawn: SessionAgentSpawn) {
+    let SessionAgentSpawn {
+        run_id,
+        workspace,
+        program,
+        args,
+        env,
+        control_rx,
+        timeout,
+        output_budget,
+        require_cgroup,
+    } = spawn;
+
+    if program.as_os_str().is_empty() || !program.is_file() {
+        store.note_agent_unavailable(&run_id);
+        return;
+    }
+
+    let spec = CommandSpec {
+        program: program.to_string_lossy().to_string(),
+        args,
+        env,
+    };
+    spawn_driver_thread(DriverThreadInit {
+        store: store.clone(),
+        run_id,
+        repo_root: workspace,
+        spec,
+        io_mode: AgentRunIoMode::Pty,
+        timeout,
+        output_budget,
+        require_cgroup,
+        control_rx,
+    });
 }
 
 pub(super) async fn list(State(state): State<Arc<WebState>>) -> Json<Vec<AgentRunStatusResponse>> {
@@ -1079,13 +1192,48 @@ impl AgentRunStore {
             outcome: None,
             error_code: None,
             error_message: None,
-            control_tx: None,
+            // The session's live control channel: the launch records the sender so
+            // the web terminal can steer the PTY agent, and hands the receiver to
+            // the driver thread.
+            control_tx: init.control_tx,
             repo: Some(init.repo),
             branch: Some(init.branch),
             base_oid: Some(init.base_oid),
             runner: Some(init.runner),
             agent: Some(init.agent),
         });
+    }
+
+    /// Record one clear TTY line for a session whose agent binary could not be
+    /// resolved, then mark the run finished. The New Session request still returns
+    /// a recorded run, and the web terminal degrades gracefully to a single line
+    /// that names the missing agent instead of an empty stream.
+    pub(super) fn note_agent_unavailable(&self, run_id: &str) {
+        let mut inner = self.inner.lock().expect("agent run store mutex");
+        let Some(record) = inner.runs.get_mut(run_id) else {
+            return;
+        };
+        let program = record.program.clone();
+        let agent = record.agent.clone().unwrap_or_else(|| "agent".to_string());
+        let line = format!("agent {agent} not available: {program}\r\n");
+        let seq = (record.events.len() as u64).saturating_add(1);
+        let event = AgentRunEventInput {
+            kind: "tty",
+            stream: Some("stderr"),
+            text: Some(line),
+            pid: None,
+            used: None,
+            limit: None,
+            exit_code: None,
+            timed_out: false,
+            budget_exceeded: false,
+        }
+        .into_event(seq);
+        let tty_event = tty_event_for(record, &event);
+        record.events.push(event);
+        record.publish_tty(tty_event);
+        record.state = AgentRunState::Failed;
+        record.control_tx = None;
     }
 
     /// Live agent-run rows for ONE repository. Filters strictly on the run's owning

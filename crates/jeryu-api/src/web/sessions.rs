@@ -9,7 +9,11 @@
 //! captured commits advance the branch ref through the protected, compare-and-swap
 //! ref service and open a pull request — the agent itself never has push rights.
 
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use axum::Json;
 use axum::body::Bytes;
@@ -31,13 +35,86 @@ use serde::{Deserialize, Serialize};
 
 use super::WebState;
 use super::agent_runs::{
-    AgentRunState, RepoAgentRunRow, SessionPublishInfo, SessionRecordInit, origin_base_url,
+    AgentRunState, RepoAgentRunRow, SessionAgentSpawn, SessionPublishInfo, SessionRecordInit,
+    origin_base_url, spawn_session_agent,
 };
 use super::repositories::find_repo;
 use super::workcells_support::{TypedError, forge_error, typed_error};
 
 const SESSION_DOCS: &str = "docs/workcell.md#agent-run-control-surface";
+
+/// Wall-clock budget a launched session agent runs under (two hours), matching
+/// the session job's own `timeout_ms`.
+const SESSION_AGENT_TIMEOUT_SECS: u64 = 7_200;
+
+/// Captured-output byte budget a launched session agent streams under (20 MiB),
+/// the same bound the public agent-run route applies by default.
+const SESSION_AGENT_OUTPUT_BYTES: usize = 20_971_520;
+
+/// The CLI an unknown `agent_id` falls back to: a stable, non-existent path under
+/// the standard agent prefix. It deliberately does NOT exist on disk, so a session
+/// for an unmapped id records a run and degrades to the graceful "not available"
+/// TTY line rather than failing the whole New Session request.
 const DEFAULT_AGENT_COMMAND: &str = "/opt/jeryu/bin/agent";
+
+/// Resolve an `agent_id` to the installed CLI it launches. A caller-supplied
+/// `command` always wins (so an operator can point at any entrypoint); otherwise
+/// the id maps to one of the bundled agent CLIs. An env override
+/// (`JERYU_AGENT_<ID>_BIN`, id upper-cased) takes precedence over the baked-in
+/// path so a hermetic test can point at a scripted echo. An unknown id with no
+/// override falls back to the standard agent prefix; that path's absence later
+/// drives the graceful "not available" line instead of a hard request failure.
+fn resolve_agent_program(agent_id: &str, command: Option<&str>) -> PathBuf {
+    resolve_agent_program_with(agent_id, command, |key| std::env::var(key).ok())
+}
+
+/// Inner resolver with an injected env lookup so a hermetic test drives the
+/// `JERYU_AGENT_<ID>_BIN` override branch without mutating process-wide env.
+fn resolve_agent_program_with(
+    agent_id: &str,
+    command: Option<&str>,
+    env_lookup: impl Fn(&str) -> Option<String>,
+) -> PathBuf {
+    if let Some(command) = command.map(str::trim).filter(|value| !value.is_empty()) {
+        return PathBuf::from(command);
+    }
+    let key = agent_id
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_uppercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if let Some(path) = env_lookup(&format!("JERYU_AGENT_{key}_BIN"))
+        && !path.trim().is_empty()
+    {
+        return PathBuf::from(path);
+    }
+    match agent_id {
+        "codex" => PathBuf::from("/home/ubuntu/.npm-global/bin/codex"),
+        "claude" => PathBuf::from("/home/ubuntu/.local/bin/claude"),
+        "jekko" => PathBuf::from("/home/ubuntu/.local/bin/jekko"),
+        _ => PathBuf::from(DEFAULT_AGENT_COMMAND),
+    }
+}
+
+/// Whether a launched session agent requires enforced cgroup-v2 limits. Always
+/// true off the test path (fail-closed); the deterministic session tests run
+/// without managed cgroups, so they relax this through the env flag the agent-run
+/// route honors in the same way.
+fn session_require_cgroup() -> bool {
+    #[cfg(test)]
+    {
+        false
+    }
+    #[cfg(not(test))]
+    {
+        true
+    }
+}
 
 #[derive(Debug, Clone, Deserialize)]
 struct CreateSessionRequest {
@@ -162,11 +239,12 @@ fn create_session(
         .runner
         .clone()
         .unwrap_or_else(|| "local".to_string());
-    let command = request
-        .command
-        .clone()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| DEFAULT_AGENT_COMMAND.to_string());
+    // Resolve which installed CLI this session launches: a caller-supplied command
+    // wins, else the agent_id maps to a bundled agent binary (codex / claude /
+    // jekko), with a `JERYU_AGENT_<ID>_BIN` override for hermetic tests. An unknown
+    // id with no override is a typed error, not a silent default.
+    let agent_program = resolve_agent_program(&agent_id, request.command.as_deref());
+    let command = agent_program.to_string_lossy().to_string();
 
     let workspace = std::env::temp_dir().join(format!("jeryu-session-{run_id}-{}", now_ms()));
     let origin_url = repo_origin_url(&origin_base_url(&HeaderMap::new()), &owner, &name);
@@ -254,6 +332,9 @@ fn create_session(
     .map_err(|err| Box::new(runner_error(err)))?;
     let branch = claimed.session.branch;
 
+    // Record the run with a live control channel so the web terminal can steer the
+    // PTY agent; the matching receiver is handed to the driver thread below.
+    let (control_tx, control_rx) = mpsc::channel();
     state.agent_runs.insert_session(SessionRecordInit {
         run_id: run_id.clone(),
         repo: full_name,
@@ -262,9 +343,34 @@ fn create_session(
         runner,
         agent: agent_id,
         program: command,
-        args: request.args,
-        workspace,
+        args: request.args.clone(),
+        workspace: workspace.clone(),
+        control_tx: Some(control_tx),
     });
+
+    // Launch the selected agent on a controlling PTY against the session
+    // workspace, streaming its raw terminal output into the recorded run exactly
+    // like the public agent-run route. The agent runs with cwd = the session
+    // checkout and the branch-pinned env (JERYU_BRANCH) so the in-cell git guard
+    // confines it to its own branch. A best-effort mkdir gives the driver an
+    // existing workspace; the claimed cell materialized the checkout there.
+    let _ = std::fs::create_dir_all(&workspace);
+    let mut agent_env: BTreeMap<String, String> = BTreeMap::new();
+    agent_env.insert("JERYU_BRANCH".to_string(), branch.clone());
+    spawn_session_agent(
+        &state.agent_runs,
+        SessionAgentSpawn {
+            run_id: run_id.clone(),
+            workspace,
+            program: agent_program,
+            args: request.args,
+            env: agent_env,
+            control_rx,
+            timeout: Duration::from_secs(SESSION_AGENT_TIMEOUT_SECS),
+            output_budget: SESSION_AGENT_OUTPUT_BYTES,
+            require_cgroup: session_require_cgroup(),
+        },
+    );
 
     Ok(CreateSessionResponse {
         session_id: run_id.clone(),
