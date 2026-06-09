@@ -120,10 +120,17 @@
     "crates/jeryu-ci-governor/": "ci-runtime",
     "images/agent-sandbox/": "platform-security",
     "apps/web/src/components/terminal/": "forge-api",
+    "apps/web/src/components/terminal/AgentTerminal.stories.tsx": "forge-api",
+    "apps/web/e2e/09-permissions.spec.ts": "forge-api",
     "apps/web/src/pages/RepositoryAgentsPage.tsx": "forge-api",
     "apps/web/src/pages/RepositoryAgentsPage.css": "forge-api",
     "apps/web/src/api/agentTerminal.ts": "forge-api",
+    "apps/web/src/api/sessions.ts": "forge-api",
+    "apps/web/src/api/__tests__/sessions.test.ts": "forge-api",
+    "apps/web/src/hooks/useCreateSession.ts": "forge-api",
+    "apps/web/src/pages/__tests__/RepositoryAgentsPage.test.tsx": "forge-api",
     "apps/web/e2e/16-agent-terminal.spec.ts": "forge-api",
-    "apps/web/e2e/17-repo-agents.spec.ts": "forge-api"
+    "apps/web/e2e/17-repo-agents.spec.ts": "forge-api",
+    "apps/web/e2e/18-new-session.spec.ts": "forge-api"
   }
 }

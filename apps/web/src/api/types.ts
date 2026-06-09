@@ -514,4 +514,4 @@ export interface ToolBuildClustersResponse {
 }
 
 // Live agent terminal types (defined in ./agentTerminal).
-export type { AgentTtyFrame, AgentControl, AgentControlClientMessage, RepoAgentSummary, RepoAgentRunsResponse } from './agentTerminal';
+export type { AgentTtyFrame, AgentControl, AgentControlClientMessage, RepoAgentSummary, RepoAgentRunsResponse, CreateSessionResponse } from './agentTerminal';

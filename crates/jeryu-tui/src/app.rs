@@ -12,6 +12,71 @@ use jeryu_readmodel::TuiReadModel;
 
 use crate::focus::FocusState;
 use crate::lenses::agents::AgentTerminalSession;
+use crate::runtime::session::SessionHandle;
+
+/// Phase of an operator-initiated agent session launch (the Agents lens `n`
+/// affordance). The lens marks a launch [`Pending`](SessionLaunchPhase::Pending)
+/// the instant `n` is pressed, then [`Attached`](SessionLaunchPhase::Attached)
+/// once the control plane returns the new run's [`SessionHandle`] and its live
+/// terminal is mounted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionLaunchPhase {
+    /// The create-session request is in flight.
+    Pending,
+    /// The session was created and its live terminal is attached.
+    Attached,
+}
+
+/// State of the most recent "New Session" launch, surfaced in the Agents lens
+/// banner. Absent by default, so a render with no launch in progress is
+/// byte-identical to the pre-affordance frame.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionLaunch {
+    /// The repository the session was launched on.
+    pub repo_id: String,
+    /// Where the launch is in its lifecycle.
+    pub phase: SessionLaunchPhase,
+    /// The created run id, once the control plane has answered.
+    pub run_id: Option<String>,
+    /// The isolated working branch, once the control plane has answered.
+    pub branch: Option<String>,
+}
+
+impl SessionLaunch {
+    /// A launch whose create-session request is still in flight.
+    pub fn pending(repo_id: impl Into<String>) -> Self {
+        Self {
+            repo_id: repo_id.into(),
+            phase: SessionLaunchPhase::Pending,
+            run_id: None,
+            branch: None,
+        }
+    }
+
+    /// Advance the launch to attached, recording the run/branch the control
+    /// plane returned.
+    pub fn attach(repo_id: impl Into<String>, handle: &SessionHandle) -> Self {
+        Self {
+            repo_id: repo_id.into(),
+            phase: SessionLaunchPhase::Attached,
+            run_id: Some(handle.run_id.clone()),
+            branch: Some(handle.branch.clone()),
+        }
+    }
+
+    /// Whether the create-session request is still in flight.
+    pub fn is_pending(&self) -> bool {
+        self.phase == SessionLaunchPhase::Pending
+    }
+
+    /// Short status word for the affordance banner.
+    pub fn status_label(&self) -> &'static str {
+        match self.phase {
+            SessionLaunchPhase::Pending => "launching",
+            SessionLaunchPhase::Attached => "attached",
+        }
+    }
+}
 
 /// The Flight Deck tab set. Each tab routes to exactly one lens; the digit
 /// shortcuts (`from_number`) and `Tab`/`BackTab` cycling are preserved from the
@@ -137,6 +202,10 @@ pub struct App {
     /// tab. `None` for every other surface, so non-Agents snapshots are
     /// unaffected by this pane.
     pub terminal: Option<AgentTerminalSession>,
+    /// The most recent "New Session" launch, when the operator has pressed `n`
+    /// on the Agents tab. `None` by default, so every other frame is unchanged
+    /// by this affordance.
+    pub session_launch: Option<SessionLaunch>,
 }
 
 impl App {
@@ -148,6 +217,7 @@ impl App {
             active_tab,
             focus: FocusState::for_tab(active_tab),
             terminal: None,
+            session_launch: None,
         }
     }
 

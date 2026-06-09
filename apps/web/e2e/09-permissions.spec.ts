@@ -132,6 +132,79 @@ test.describe('Permission-denied UI state (W-T-17)', () => {
     expect(body.error?.details?.missing).toBe('settings.write');
   });
 
+  test('non-owner creating an agent session is rejected server-side with permission_denied', async ({
+    page,
+  }) => {
+    // Authorization / data-isolation negative proof for the per-repo session
+    // boundary (`POST /api/v1/repos/{id}/sessions`): a restricted viewer who
+    // holds only `repo.read` must NOT be able to spawn an isolated agent run on
+    // a repo they do not own. The server gate is authoritative (§35.1.5) — the
+    // SPA does not pre-gate the "New Session" button on perms, so this asserts
+    // the backend denies the mutation with `permission_denied` + the missing
+    // `agents.write` key.
+    await mockBootstrap(page, {
+      login: '@reader',
+      display_name: 'Read-only Reader',
+      global_permissions: ['repo.read'],
+    });
+    await mockRepoList(page, [{ id: REPO, default_branch: 'main' }]);
+
+    await page.route(
+      /\/api\/v1\/repos\/[^/]+\/sessions$/,
+      async (route, request) => {
+        if (request.method() === 'POST') {
+          await route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: {
+                code: 'permission_denied',
+                message: 'You need agents.write to start a session on this repository.',
+                details: { missing: 'agents.write' },
+                request_id: 'mock-session-denied',
+              },
+            }),
+          });
+          return;
+        }
+        await route.continue();
+      }
+    );
+
+    await page.goto(`/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/agents`);
+    await expect(page.getByTestId('repo-agents-page')).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Drive the create from the page's own network stack so the route mock
+    // fires (page.request.* would bypass interception).
+    const denied = await page.evaluate(async (url) => {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'e2e-session-denied',
+        },
+        body: JSON.stringify({}),
+      });
+      const text = await r.text();
+      let body: unknown = text;
+      try {
+        body = text.length > 0 ? JSON.parse(text) : null;
+      } catch {
+        body = text;
+      }
+      return { status: r.status, body };
+    }, `/api/v1/repos/${encodeURIComponent(REPO_ID)}/sessions`);
+
+    expect(denied.status, `POST returned ${denied.status}`).toBe(403);
+    const body = denied.body as {
+      error?: { code?: string; details?: { missing?: string } };
+    };
+    expect(body.error?.code).toBe('permission_denied');
+    expect(body.error?.details?.missing).toBe('agents.write');
+  });
+
   test('bootstrap reflects restricted viewer global_permissions', async ({
     page,
   }) => {

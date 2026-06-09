@@ -68,6 +68,27 @@ export interface RepoAgentRunsResponse {
   items: RepoAgentSummary[];
 }
 
+/** Wire shape of `POST /api/v1/repos/{id}/sessions` — the freshly created,
+ *  isolated agent session. `run_id` names the run the SPA then deep-links to
+ *  and mounts the live `<AgentTerminal>` on; the remaining fields locate the
+ *  session's realtime scope, control channel, and status surfaces. */
+export interface CreateSessionResponse {
+  /** The created agent run id (scope `agent_run.{run_id}`). */
+  run_id: string;
+  /** The isolated working branch the session operates on. */
+  branch: string;
+  /** Commit the branch was cut from. */
+  base_oid: string;
+  /** Realtime scope the session's activity is published on. */
+  ws_scope: string;
+  /** Realtime topic carrying the session's live TTY frames. */
+  tty_topic: string;
+  /** URL the operator drives control intents into. */
+  control_url: string;
+  /** URL the session's lifecycle status is polled from. */
+  status_url: string;
+}
+
 /** Typed URL builder for the per-repo agent-runs collection. */
 export function repoAgentRunsPath(repoId: string): string {
   return `/api/v1/repos/${encodeURIComponent(repoId)}/agent-runs`;

@@ -1,4 +1,49 @@
-/* RepositoryAgentsPage.css — active-agents list + terminal layout. */
+/* RepositoryAgentsPage.css — active-agents list + terminal layout.
+ *
+ * Styling is driven entirely by the app's semantic design tokens (the
+ * `--color-*` / `--radius-*` / `--space-*` custom properties from
+ * styles/app.css), so the New Session button and agent rows inherit the shared
+ * palette and dark/light theming rather than hard-coding colors. */
+
+.agents .page__header {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.agents__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.agents__new-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-accent, #2d6cdf);
+  color: #fff;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.agents__new-session:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.agents__new-session:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.agents__new-session-error {
+  color: var(--color-danger, #c4314b);
+}
 
 .agents__layout {
   display: grid;

@@ -15,8 +15,8 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, GitBranch, Radio, Server } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { Bot, GitBranch, Plus, Radio, Server } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { apiGet } from '../api/client';
 import { endpoints } from '../api/endpoints';
@@ -24,12 +24,15 @@ import type { RepoAgentRunsResponse, RepoAgentSummary } from '../api/types';
 import { AgentTerminal } from '../components/terminal/AgentTerminal';
 import { useResolveRepo } from '../hooks/useResolveRepo';
 import { useRealtime } from '../hooks/useRealtime';
+import { useCreateSession } from '../hooks/useCreateSession';
 
 import './page.css';
 import './RepositoryAgentsPage.css';
 
 export function RepositoryAgentsPage(): JSX.Element {
   const params = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const provider = params.provider ?? 'unknown';
   const fullName = params.fullName ?? '';
   // Deep-link seed: the optional run id rides the `agents/*` splat tail.
@@ -41,6 +44,21 @@ export function RepositoryAgentsPage(): JSX.Element {
 
   // Keep the per-repo activity scope live so the list reflects new runs.
   useRealtime(repoId ? [`repo.${repoId}`] : []);
+
+  const createSession = useCreateSession(repoId);
+
+  // Launch an isolated session, then deep-link to its terminal route and mount
+  // `<AgentTerminal>` on the returned run. The URL is rebuilt from the live
+  // (still %2F-encoded) pathname so the `:fullName` segment is not re-decoded.
+  function onNewSession(): void {
+    createSession.mutate(undefined, {
+      onSuccess: (created) => {
+        setSelectedRunId(created.run_id);
+        const agentsBase = location.pathname.replace(/\/agents(?:\/.*)?$/, '/agents');
+        navigate(`${agentsBase}/${encodeURIComponent(created.run_id)}`);
+      },
+    });
+  }
 
   const runs = useQuery({
     queryKey: ['repo-agent-runs', repoId],
@@ -87,7 +105,30 @@ export function RepositoryAgentsPage(): JSX.Element {
             {resolved.data.summary.id.owner}/{resolved.data.summary.id.name}
           </p>
         </div>
+        <div className="agents__header-actions">
+          <button
+            type="button"
+            className="agents__new-session"
+            data-testid="new-session-button"
+            onClick={onNewSession}
+            disabled={createSession.isPending || !repoId}
+            aria-busy={createSession.isPending}
+          >
+            <Plus size={14} aria-hidden="true" />
+            {createSession.isPending ? 'Starting…' : 'New Session'}
+          </button>
+        </div>
       </header>
+
+      {createSession.isError ? (
+        <p
+          className="page__roadmap-note agents__new-session-error"
+          role="alert"
+          data-testid="new-session-error"
+        >
+          Could not start a session: {createSession.error.message}
+        </p>
+      ) : null}
 
       <div className="agents__layout">
         <section

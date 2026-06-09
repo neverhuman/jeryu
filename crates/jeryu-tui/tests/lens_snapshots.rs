@@ -11,7 +11,7 @@ use jeryu_readmodel::{
     TagDemand, TuiReadModel, TuiReadModelBuilder, sample_read_model,
 };
 use jeryu_tui::tuiwright::{self, SWEEP_SIZES};
-use jeryu_tui::{ActiveTab, App, StreamMode, render_once};
+use jeryu_tui::{ActiveTab, App, SessionHandle, SessionLaunch, StreamMode, render_once};
 
 /// Render a single Flight Deck frame for `tab` from `model`.
 fn snapshot(model: TuiReadModel, tab: ActiveTab) -> String {
@@ -226,6 +226,36 @@ fn agents_lens_renders_fleet_from_read_model() {
     assert!(ink.contains("held_failed_ci"), "repair state not projected");
     assert!(ink.contains("export_ready"), "export state not projected");
     assert!(ink.contains("blocked"), "blocked status not projected");
+}
+
+#[test]
+fn agents_lens_shows_new_session_affordance_only_after_launch() {
+    // A quiet fleet renders no "New Session" banner — the affordance is gated
+    // behind launch state so the default frame is unchanged.
+    let mut quiet = App::new_render_only(sample_read_model());
+    quiet.set_tab(ActiveTab::Agents);
+    let quiet_ink = render_once(&quiet, 120, 40, StreamMode::Fixture);
+    assert!(
+        !quiet_ink.contains("New session"),
+        "affordance leaked into the default agents frame"
+    );
+
+    // Once a session is launched, the banner surfaces the lifecycle word, the
+    // returned run id, and the `n new session` key hint.
+    let mut launched = App::new_render_only(sample_read_model());
+    launched.set_tab(ActiveTab::Agents);
+    launched.session_launch = Some(SessionLaunch::attach(
+        "core/web",
+        &SessionHandle::new("agent_run.session-7", "agent/session-7"),
+    ));
+    let ink = render_once(&launched, 120, 40, StreamMode::Fixture);
+    assert!(ink.contains("New session"), "affordance banner missing");
+    assert!(ink.contains("attached"), "launch phase word missing");
+    assert!(
+        ink.contains("agent_run.session-7"),
+        "launched run id not surfaced"
+    );
+    assert!(ink.contains("n new session"), "key hint missing");
 }
 
 // ── Release lens ───────────────────────────────────────────────────────────

@@ -24,6 +24,7 @@ import {
   mockBootstrap,
   mockFleetBootstrap,
   mockPullRequestDetail,
+  mockRepoAgentRuns,
   mockRepoList,
   mockRepoLookup,
 } from './fixtures/mocks';
@@ -171,5 +172,40 @@ test.describe('Accessibility scans — operator + cockpit surfaces (W-T-18)', ()
       page.getByRole('heading', { name: /PR #99: A11y cockpit scan/i })
     ).toBeVisible({ timeout: 15_000 });
     await scanAndAssert(page, 'pr-cockpit');
+  });
+
+  test('axe scan: Active agents + live terminal', async ({ page }) => {
+    // The Agents lens is the live-terminal surface flagged by the gate's
+    // `missing-rendered-ux-qa-lane` cap. Scan it in its richest state: the
+    // active-agents list, the "New Session" button, and a mounted
+    // `<AgentTerminal>` (deep-linked via the splat so the pane renders without
+    // depending on row selection). The realtime socket is blocked — the scan
+    // covers the rendered DOM, not live streaming.
+    const repo = { host: 'jeryu', owner: 'neverhuman', name: 'jeryu' } as const;
+    await page.context().route('**/api/v1/ws', (route) =>
+      route.abort('failed').catch(() => undefined)
+    );
+    await mockBootstrap(page);
+    await mockRepoList(page, [{ id: repo, default_branch: 'main' }]);
+    await mockRepoAgentRuns(page, [
+      {
+        run_id: 'run-axe',
+        branch: 'fix/a11y',
+        runner: 'runnerd-axe',
+        status: 'running',
+        tty_live: true,
+        agent: 'editbot',
+      },
+    ]);
+
+    await page.goto(
+      `/repos/${repo.host}/${repo.owner}%2F${repo.name}/agents/run-axe`
+    );
+    await expect(page.getByTestId('repo-agents-page')).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId('new-session-button')).toBeVisible();
+    await expect(page.getByTestId('agent-terminal')).toBeVisible();
+    await scanAndAssert(page, 'repo-agents');
   });
 });

@@ -61,6 +61,7 @@ pub fn draw(f: &mut Frame, app: &App, stream_mode: StreamMode) {
             f,
             &lenses::agents::AgentsLensInput::from_read_model(&app.model),
             app.terminal.as_ref(),
+            app.session_launch.as_ref(),
             rows[1],
         );
     } else {

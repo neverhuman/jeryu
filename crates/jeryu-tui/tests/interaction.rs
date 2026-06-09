@@ -17,9 +17,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use jeryu_readmodel::sample_read_model;
 use jeryu_tui::App;
-use jeryu_tui::app::ActiveTab;
+use jeryu_tui::app::{ActiveTab, SessionLaunchPhase};
 use jeryu_tui::focus::PaneId;
-use jeryu_tui::runtime::input::{Flow, handle_key, handle_key_with_sink};
+use jeryu_tui::runtime::input::{Flow, handle_key, handle_key_with_session, handle_key_with_sink};
+use jeryu_tui::runtime::session::{SessionHandle, SessionLauncher};
 use jeryu_tui::runtime::tty::{AgentControl, ControlSink};
 
 fn key(code: KeyCode) -> KeyEvent {
@@ -40,6 +41,21 @@ struct RecordingControlSink {
 impl ControlSink for RecordingControlSink {
     fn send(&mut self, control: AgentControl) {
         self.sent.push(control);
+    }
+}
+
+/// A [`SessionLauncher`] that records every repository it was asked to launch a
+/// session on, so the interaction tests can prove the `n` key reaches the seam
+/// without a backend.
+#[derive(Default)]
+struct RecordingLauncher {
+    requested: Vec<String>,
+}
+
+impl SessionLauncher for RecordingLauncher {
+    fn create_session(&mut self, repo_id: &str) -> SessionHandle {
+        self.requested.push(repo_id.to_string());
+        SessionHandle::new("agent_run.spawned", "agent/spawned")
     }
 }
 
@@ -337,4 +353,48 @@ fn detached_session_does_not_capture_keys() {
     let flow = handle_key_with_sink(&mut app, key(KeyCode::Char('q')), &mut sink);
     assert_eq!(flow, Flow::Quit);
     assert!(sink.sent.is_empty());
+}
+
+// ── New Session affordance (`n` on the Agents tab) ─────────────────────────
+
+#[test]
+fn n_on_agents_invokes_the_launcher_and_attaches_the_run() {
+    let mut app = app_on(ActiveTab::Agents);
+    let mut sink = RecordingControlSink::default();
+    let mut launcher = RecordingLauncher::default();
+
+    let flow = handle_key_with_session(&mut app, key(KeyCode::Char('n')), &mut sink, &mut launcher);
+    assert_eq!(flow, Flow::Continue);
+
+    // The seam was reached for the in-scope repository.
+    assert_eq!(launcher.requested, vec!["core/web".to_string()]);
+    // The launch is recorded as attached with the returned run + branch.
+    let launch = app.session_launch.as_ref().expect("launch recorded");
+    assert_eq!(launch.phase, SessionLaunchPhase::Attached);
+    assert_eq!(launch.run_id.as_deref(), Some("agent_run.spawned"));
+    assert_eq!(launch.branch.as_deref(), Some("agent/spawned"));
+    // The new run's terminal is mounted and attached.
+    let term = app.terminal.as_ref().expect("terminal mounted");
+    assert!(term.is_attached());
+    assert_eq!(term.run_id(), "agent_run.spawned");
+}
+
+#[test]
+fn n_does_not_break_existing_keys_through_the_session_router() {
+    // The session router is a superset of the standard routing: digit
+    // tab-select and `q` quit behave identically, and the launcher stays idle.
+    let mut app = app_on(ActiveTab::Agents);
+    let mut sink = RecordingControlSink::default();
+    let mut launcher = RecordingLauncher::default();
+
+    handle_key_with_session(&mut app, key(KeyCode::Char('5')), &mut sink, &mut launcher);
+    assert_eq!(app.active_tab, ActiveTab::Agents); // digit 5 == Agents
+
+    handle_key_with_session(&mut app, key(KeyCode::Char('1')), &mut sink, &mut launcher);
+    assert_eq!(app.active_tab, ActiveTab::Mission);
+
+    let flow = handle_key_with_session(&mut app, key(KeyCode::Char('q')), &mut sink, &mut launcher);
+    assert_eq!(flow, Flow::Quit);
+    assert!(launcher.requested.is_empty(), "no spurious session launch");
+    assert!(app.session_launch.is_none());
 }

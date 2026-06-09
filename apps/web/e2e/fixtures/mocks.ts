@@ -792,6 +792,47 @@ export async function mockRepoAgentRuns(
   );
 }
 
+export interface MockCreatedSession {
+  run_id: string;
+  branch?: string;
+}
+
+/**
+ * Mock `POST /api/v1/repos/{id}/sessions` — the "New Session" creation route
+ * backing the Agents lens button (a separate backend workstream). Returns the
+ * `{ run_id, branch, base_oid, ws_scope, tty_topic, control_url, status_url }`
+ * wire shape the SPA deep-links to and mounts the live terminal on.
+ */
+export async function mockCreateSession(
+  page: Page,
+  session: MockCreatedSession
+): Promise<void> {
+  const runId = session.run_id;
+  const branch = session.branch ?? `agent/${runId}`;
+  await page.route(
+    /\/api\/v1\/repos\/[^/]+\/sessions(\?.*)?$/,
+    async (route: Route, request) => {
+      if (request.method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          run_id: runId,
+          branch,
+          base_oid: 'b'.repeat(40),
+          ws_scope: `agent_run.${runId}`,
+          tty_topic: `agent_run.${runId}.tty`,
+          control_url: `/api/v1/agent-runs/${runId}/control`,
+          status_url: `/api/v1/agent-runs/${runId}/status`,
+        }),
+      });
+    }
+  );
+}
+
 function normalizeRepo(repo: MockRepoSummary): Record<string, unknown> {
   // Per §35.1.2 the canonical `RepositoryId.id` is the opaque UUID-shaped
   // key used in `/api/v1/repos/{id}/...` sub-paths. The SPA's

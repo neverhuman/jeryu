@@ -14,19 +14,21 @@ use jeryu_readmodel::{AgentRunStatus, AgentStatus, WorkcellState};
 
 use super::data::{AgentRow, AgentRunRow, AgentsLensInput, RepairCellRow};
 use super::terminal::AgentTerminalSession;
+use crate::app::SessionLaunch;
 use crate::widgets::terminal_pane;
 
 pub fn draw(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
-    draw_with_terminal(f, input, None, area);
+    draw_with_terminal(f, input, None, None, area);
 }
 
 /// Draw the Agents lens, swapping the lifecycle table for the live terminal
 /// pane when an attached session is present. With no session (or a detached
-/// one) this is byte-identical to [`draw`].
+/// one) and no in-flight launch this is byte-identical to [`draw`].
 pub fn draw_with_terminal(
     f: &mut Frame,
     input: &AgentsLensInput,
     terminal: Option<&AgentTerminalSession>,
+    launch: Option<&SessionLaunch>,
     area: Rect,
 ) {
     let chunks = Layout::default()
@@ -45,7 +47,7 @@ pub fn draw_with_terminal(
         Some(session) if session.is_attached() => terminal_pane::render(f, session, chunks[2]),
         _ => draw_body(f, input, chunks[2]),
     }
-    draw_footer(f, input, chunks[3]);
+    draw_footer(f, input, launch, chunks[3]);
 }
 
 fn draw_header(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
@@ -267,7 +269,7 @@ fn session_row(r: &AgentRow) -> Row<'_> {
     ])
 }
 
-fn draw_footer(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
+fn draw_footer(f: &mut Frame, input: &AgentsLensInput, launch: Option<&SessionLaunch>, area: Rect) {
     let mut spans = vec![Span::raw(format!("cursor={}", input.event_cursor))];
     if !input.agents_can_code {
         spans.push(Span::styled(
@@ -282,11 +284,32 @@ fn draw_footer(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         ));
     }
+    // The "New Session" affordance: surfaced only once the operator has pressed
+    // `n`, so a quiet fleet renders the byte-identical original footer. The
+    // launch banner carries its own `n new session` key hint.
+    if let Some(launch) = launch {
+        spans.push(Span::styled(
+            session_launch_label(launch),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::raw(" · n new session"));
+    }
     spans.push(Span::raw(" · Keys: a actions · x explain · ? help"));
     f.render_widget(
         Paragraph::new(Line::from(spans)).block(Block::default().borders(Borders::ALL)),
         area,
     );
+}
+
+/// Human-readable banner for a "New Session" launch — its lifecycle word plus
+/// the run id once the control plane has answered.
+fn session_launch_label(launch: &SessionLaunch) -> String {
+    match launch.run_id.as_deref() {
+        Some(run_id) => format!(" · New session: {} {}", launch.status_label(), run_id),
+        None => format!(" · New session: {}", launch.status_label()),
+    }
 }
 
 #[cfg(test)]

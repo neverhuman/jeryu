@@ -35,9 +35,10 @@ pub mod theme;
 pub mod tuiwright;
 pub mod widgets;
 
-pub use app::{ActiveTab, App};
+pub use app::{ActiveTab, App, SessionLaunch, SessionLaunchPhase};
 pub use lenses::LensId;
 pub use runtime::render::{draw, render_once};
+pub use runtime::session::{SessionHandle, SessionLauncher};
 pub use tuiwright::{
     FrameRecord, TuiwrightReceipt, certify_frame, receipt_stamp, sweep_fixture, write_receipt,
 };
