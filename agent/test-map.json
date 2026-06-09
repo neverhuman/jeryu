@@ -136,7 +136,7 @@
       "purpose": "verify GitHub-compatible REST, guided GraphQL, and local web API behavior",
       "lane": "api"
     },
-    "crates/jeryu-api/src/web/control_plane.rs": {
+    "crates/jeryu-api/src/web/control_plane/": {
       "command": "cargo test -p jeryu-api --features web --jobs 40 control_plane",
       "purpose": "verify JMCP control-plane aggregation, priorities, graph clusters, explicit mirror/artifact absence, runner status, and route contracts",
       "lane": "api"

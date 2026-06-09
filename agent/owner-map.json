@@ -32,7 +32,7 @@
     "crates/jeryu-agentbridge/": "jankurai",
     "crates/jeryu-agent-stream/": "jankurai",
     "crates/jeryu-api/": "forge-api",
-    "crates/jeryu-api/src/web/control_plane.rs": "forge-api",
+    "crates/jeryu-api/src/web/control_plane/": "forge-api",
     "crates/jeryu-api/src/web/tool_build.rs": "forge-api",
     "crates/jeryu-artifact-metadata/": "ci-runtime",
     "crates/jeryu-bench/": "bench-obs",
