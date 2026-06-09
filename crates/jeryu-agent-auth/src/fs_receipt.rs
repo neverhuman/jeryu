@@ -59,6 +59,31 @@ pub(crate) fn write_private_file(
     receipt_for_file(target)
 }
 
+/// Write `bytes` to `target` so readers never observe a partial credential: the
+/// content lands in a sibling 0600 file and is renamed over `target`.
+pub(crate) fn write_private_file_atomic(
+    target: &Path,
+    bytes: &[u8],
+) -> Result<AuthFileReceipt, AgentAuthError> {
+    if let Some(parent) = target.parent() {
+        create_private_dir(parent)?;
+    }
+    let pending = pending_sibling(target);
+    std::fs::write(&pending, bytes).map_err(fs_error)?;
+    set_file_private(&pending)?;
+    std::fs::rename(&pending, target).map_err(fs_error)?;
+    receipt_for_file(target)
+}
+
+fn pending_sibling(target: &Path) -> PathBuf {
+    let mut name = target
+        .file_name()
+        .map(|name| name.to_os_string())
+        .unwrap_or_default();
+    name.push(".pending");
+    target.with_file_name(name)
+}
+
 pub(crate) fn receipts_for_dir(path: &Path) -> Result<Vec<AuthFileReceipt>, AgentAuthError> {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(path).map_err(fs_error)? {
