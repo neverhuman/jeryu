@@ -81,6 +81,15 @@ pub(crate) fn on_push(
         // run the evidence-gate judge over the live CI state once they all land.
         let mut ci_checks: Vec<(String, Option<CheckConclusion>)> = Vec::new();
         for (file, content) in read_workflows(&git_bin, &resolved.path, &update.new_oid) {
+            // The forge has no GitHub-Actions runners, so it does not execute these
+            // workflows: they run on the GitHub mirror's real runners, and the forge
+            // PR gate is host-ci's comprehensive `jeryu/ci` (ops/ci/pr-ci.sh). Seeding
+            // them here only produced all-red check-runs that misrepresent CI. Seed
+            // synthetic conclusions ONLY under JERYU_CI_MOCK — the in-process
+            // CI-seeding-flow tests (workcell export) that assert a recorded check-run.
+            if !ci_mock_enabled() {
+                continue;
+            }
             if !workflow_runs_for_branch_head(&content, &update.ref_name) {
                 continue;
             }
@@ -494,13 +503,16 @@ fn is_hosted_toolchain_bootstrap(command: &str) -> bool {
 }
 
 fn ci_mock_enabled() -> bool {
-    matches!(
-        std::env::var("JERYU_CI_MOCK"),
-        Ok(value) if {
-            let value = value.trim();
-            !value.is_empty() && value != "0"
-        }
-    )
+    mock_flag_set(std::env::var("JERYU_CI_MOCK").ok().as_deref())
+}
+
+/// Pure mock-flag predicate. The forge seeds `.github/workflows` check-runs ONLY
+/// when this is set — the in-process CI-seeding-flow tests opt in via
+/// `JERYU_CI_MOCK`. The production forge leaves it unset and seeds nothing (it has
+/// no GitHub-Actions runners; host-ci's `jeryu/ci` is the gate). Pure so it is
+/// unit-tested without mutating shared process env.
+fn mock_flag_set(value: Option<&str>) -> bool {
+    matches!(value, Some(v) if { let v = v.trim(); !v.is_empty() && v != "0" })
 }
 
 #[derive(Debug, Clone)]

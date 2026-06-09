@@ -332,3 +332,21 @@ fn concurrent_main_updates_leave_one_release_commit() {
     assert_eq!(subjects.matches("[skip-version]").count(), 1);
     assert!(subjects.contains("feat: add dashboard signal"));
 }
+
+#[test]
+fn mock_flag_gates_workflow_check_run_seeding() {
+    // The production forge (no JERYU_CI_MOCK) must NOT seed GitHub-Actions check-runs
+    // — it has no Actions runners, so they only produced all-red noise; host-ci's
+    // `jeryu/ci` is the real gate. Only the in-process CI-seeding-flow tests opt in.
+    // Pure predicate, so this never mutates the shared process env (which would race
+    // the parallel seeded-CI tests that read JERYU_CI_MOCK).
+    assert!(
+        !mock_flag_set(None),
+        "unset -> production posture, no seeding"
+    );
+    assert!(!mock_flag_set(Some("")));
+    assert!(!mock_flag_set(Some("0")));
+    assert!(!mock_flag_set(Some("  0  ")));
+    assert!(mock_flag_set(Some("1")), "opt-in for tests");
+    assert!(mock_flag_set(Some("true")));
+}
