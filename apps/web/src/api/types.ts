@@ -512,3 +512,6 @@ export interface ToolBuildClustersResponse {
   include_ignored: boolean;
   clusters: ToolBuildCluster[];
 }
+
+// Live agent terminal types (defined in ./agentTerminal).
+export type { AgentTtyFrame, AgentControl, AgentControlClientMessage, RepoAgentSummary, RepoAgentRunsResponse } from './agentTerminal';

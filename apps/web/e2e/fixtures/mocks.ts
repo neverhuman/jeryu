@@ -746,6 +746,52 @@ export async function mockSettingsPreview(
   );
 }
 
+export interface MockAgentRun {
+  run_id: string;
+  branch: string;
+  runner: string;
+  status: string;
+  tty_live?: boolean;
+  agent?: string;
+  workcell_id?: string;
+}
+
+/**
+ * Mock `GET /api/v1/repos/{id}/agent-runs` — the active-agents list backing
+ * `RepositoryAgentsPage`. NOTE (per the task brief): this backend route is a
+ * separate workstream and may not exist live yet, so the e2e suite mocks it
+ * here. Matches the `{ items: RepoAgentSummary[] }` wire shape.
+ */
+export async function mockRepoAgentRuns(
+  page: Page,
+  runs: MockAgentRun[]
+): Promise<void> {
+  const items = runs.map((r) => ({
+    run_id: r.run_id,
+    branch: r.branch,
+    runner: r.runner,
+    status: r.status,
+    tty_live: r.tty_live ?? false,
+    agent: r.agent ?? null,
+    workcell_id: r.workcell_id ?? null,
+    updated_at: '2026-05-26T00:00:00Z',
+  }));
+  await page.route(
+    /\/api\/v1\/repos\/[^/]+\/agent-runs(\?.*)?$/,
+    async (route: Route, request) => {
+      if (request.method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items }),
+      });
+    }
+  );
+}
+
 function normalizeRepo(repo: MockRepoSummary): Record<string, unknown> {
   // Per §35.1.2 the canonical `RepositoryId.id` is the opaque UUID-shaped
   // key used in `/api/v1/repos/{id}/...` sub-paths. The SPA's

@@ -1,0 +1,126 @@
+/* RepositoryAgentsPage.css — active-agents list + terminal layout. */
+
+.agents__layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 880px) {
+  .agents__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.agents__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.agents__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'branch status'
+    'runner tty'
+    'agent  tty';
+  gap: 0.2rem 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-2);
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+  color: var(--color-fg-primary);
+}
+
+.agents__row:hover {
+  border-color: var(--color-border-strong);
+}
+
+.agents__row.is-active {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-primary-bg);
+}
+
+.agents__row-branch {
+  grid-area: branch;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.agents__row-runner {
+  grid-area: runner;
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-secondary);
+}
+
+.agents__row-agent {
+  grid-area: agent;
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.agents__row-branch,
+.agents__row-runner,
+.agents__row-agent,
+.agents__tty-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.agents__row-status {
+  grid-area: status;
+  justify-self: end;
+  align-self: start;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  text-transform: capitalize;
+}
+
+.agents__row-status--success {
+  background: var(--color-accent-success-bg);
+  color: var(--color-accent-success);
+}
+
+.agents__row-status--warning {
+  background: var(--color-accent-warning-bg);
+  color: var(--color-accent-warning);
+}
+
+.agents__row-status--danger {
+  background: var(--color-accent-danger-bg);
+  color: var(--color-accent-danger);
+}
+
+.agents__row-status--muted {
+  background: var(--color-bg-3);
+  color: var(--color-fg-muted);
+}
+
+.agents__tty-dot {
+  grid-area: tty;
+  justify-self: end;
+  align-self: end;
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.agents__tty-dot.is-live {
+  color: var(--color-accent-success);
+}
+
+.agents__list-pane,
+.agents__terminal-pane {
+  min-width: 0;
+}

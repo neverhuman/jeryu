@@ -124,6 +124,7 @@ export const endpoints = {
       : '/api/v1/codegraph/tool-build/clusters';
   },
   agentRuns: (): string => '/api/v1/agent-runs',
+  repoAgentRuns: (id: string): string => '/api/v1/repos/' + id + '/agent-runs',
 } as const;
 
 export type Endpoints = typeof endpoints;

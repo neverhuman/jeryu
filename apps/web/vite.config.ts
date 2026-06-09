@@ -19,6 +19,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'monaco-vendor': ['@monaco-editor/react'],
+          'xterm-vendor': ['@xterm/xterm', '@xterm/addon-fit'],
           'markdown-vendor': [
             'react-markdown', 'remark-gfm', 'rehype-autolink-headings',
             'rehype-highlight', 'rehype-raw', 'rehype-sanitize',

@@ -22,10 +22,17 @@
 // resume cleanly across page refresh.
 
 import type {
+  AgentControl,
+  AgentControlClientMessage,
   ClientWsMessage,
   SubscriptionSpec,
   WebEvent,
 } from './types';
+
+/** A tap receives `event` frames for a single scope before they reach the
+ *  zustand buffer. Used by the agent-terminal transport so high-frequency TTY
+ *  bytes never pass through the rolling 200-event buffer. */
+export type ScopeTap = (event: WebEvent) => void;
 import {
   WS_PROTOCOL,
   bigintReplacer,
@@ -75,6 +82,7 @@ export class JeRyuWsClient {
   private socket: WebSocket | null = null;
   private status: RealtimeStatus = 'idle';
   private subscriptions = new Map<string, SubscriptionSpec>();
+  private taps = new Map<string, ScopeTap>();
   private resumeFrom: bigint | null = null;
   private readonly handlers: JeRyuWsClientHandlers;
   private readonly url: string;
@@ -134,6 +142,31 @@ export class JeRyuWsClient {
     }
     if (removed.length === 0) return;
     this.send({ type: 'unsubscribe', scopes: removed });
+  }
+
+  /**
+   * Route `event` frames on `scope` directly to `cb` instead of the normal
+   * `onEvent` path (the zustand rolling buffer). The agent terminal uses this
+   * so raw TTY bytes bypass the bounded activity buffer entirely. At most one
+   * tap per scope; re-tapping replaces the callback. The caller is still
+   * responsible for `subscribe(scope)` so the server actually sends frames.
+   */
+  tapScope(scope: string, cb: ScopeTap): void {
+    this.taps.set(scope, cb);
+  }
+
+  /** Remove a tap installed by {@link tapScope}. */
+  untapScope(scope: string): void {
+    this.taps.delete(scope);
+  }
+
+  /**
+   * Drive a control command into a running agent's sandboxed TTY. Emits an
+   * `agent_control` client frame keyed by `runId` (input bytes, interrupt,
+   * resize, or resync).
+   */
+  sendControl(runId: string, control: AgentControl): void {
+    this.sendFrame({ type: 'agent_control', run_id: runId, control });
   }
 
   /** Latest cursor observed from the server. */
@@ -231,9 +264,16 @@ export class JeRyuWsClient {
       case 'event': {
         const evt = frame.event;
         this.resumeFrom = evt.seq;
-        this.handlers.onEvent(evt);
         // Phase 1 fire-and-forget ack so the server can flush its window.
         this.send({ type: 'ack', seq: evt.seq });
+        // Tapped scopes (agent TTY) are delivered straight to the tap and
+        // never enter the zustand rolling buffer — return BEFORE `onEvent`.
+        const tap = this.taps.get(evt.scope);
+        if (tap) {
+          tap(evt);
+          break;
+        }
+        this.handlers.onEvent(evt);
         break;
       }
       case 'pong': {
@@ -319,6 +359,10 @@ export class JeRyuWsClient {
   }
 
   private send(frame: ClientWsMessage): void {
+    this.sendFrame(frame);
+  }
+
+  private sendFrame(frame: ClientWsMessage | AgentControlClientMessage): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
     try {
       this.socket.send(JSON.stringify(frame, bigintReplacer));

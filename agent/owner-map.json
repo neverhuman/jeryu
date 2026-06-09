@@ -117,6 +117,12 @@
     "apps/web/": "forge-api",
     "crates/jeryu-git-guard/": "platform-security",
     "crates/jeryu-ci-governor/": "ci-runtime",
-    "images/agent-sandbox/": "platform-security"
+    "images/agent-sandbox/": "platform-security",
+    "apps/web/src/components/terminal/": "forge-api",
+    "apps/web/src/pages/RepositoryAgentsPage.tsx": "forge-api",
+    "apps/web/src/pages/RepositoryAgentsPage.css": "forge-api",
+    "apps/web/src/api/agentTerminal.ts": "forge-api",
+    "apps/web/e2e/16-agent-terminal.spec.ts": "forge-api",
+    "apps/web/e2e/17-repo-agents.spec.ts": "forge-api"
   }
 }

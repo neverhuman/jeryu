@@ -25,6 +25,7 @@ import { PullRoomPage } from '../pages/PullRoomPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { NotificationsPage } from '../pages/NotificationsPage';
 import { RepositoriesPage } from '../pages/RepositoriesPage';
+import { RepositoryAgentsPage } from '../pages/RepositoryAgentsPage';
 import { RepositoryCodePage } from '../pages/RepositoryCodePage';
 import { RepositoryFilePage } from '../pages/RepositoryFilePage';
 import { RepositoryPullRequestsPage } from '../pages/RepositoryPullRequestsPage';
@@ -63,6 +64,14 @@ export const router = createBrowserRouter([
       {
         path: 'repos/:provider/:fullName/issues',
         element: <IssuesPage />,
+      },
+      {
+        // `agents/*` splat carries the optional run id as its tail. A single
+        // splat route (rather than `agents` + `agents/:runId`) is robust to
+        // React Router's handling of a `%2F`-encoded `:fullName` segment on
+        // client-side Link navigation.
+        path: 'repos/:provider/:fullName/agents/*',
+        element: <RepositoryAgentsPage />,
       },
       {
         path: 'repos/:provider/:fullName/settings/:section?',
