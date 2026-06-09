@@ -80,10 +80,29 @@ Implemented HTTP/WebSocket routes:
 - `GET /api/v1/repos/{id}/readme`
 - `PUT /api/v1/repos/{id}/readme`
 - `POST /api/v1/markdown/render`
+- `GET /api/v1/codegraph/query`
+- `GET /api/v1/codegraph/symbol`
+- `GET /api/v1/codegraph/references`
+- `GET /api/v1/codegraph/callers`
+- `GET /api/v1/codegraph/callees`
+- `POST /api/v1/workcells/{id}/run_agent`
+- `POST /api/v1/agent-runs`
+- `GET /api/v1/agent-runs/{id}`
+- `POST /api/v1/agent-runs/{id}/control`
+- `GET /api/v1/agent-runs/{id}/events?after_seq=N&limit=M`
+- `POST /api/v1/agent-runs/{id}/export_pr`
 - `GET /api/v1/ws`
+- `POST /mcp`
 - `POST /graphql`
 
 The WebSocket sends a `jeryu.ws.v1` hello, responds to JSON
 `{"type":"ping","nonce":"..."}` with `pong`, accepts `ack`, `subscribe`, and
-`unsubscribe` as no-ops, and can be reconnected without server-side session
-state.
+`unsubscribe`, and can be reconnected without server-side session state.
+Subscriptions to `agent_run.{id}` replay the latest run snapshot and then emit
+live `agent_run.event` frames as PTY, stdout, stderr, control, and final events
+are recorded.
+
+`POST /mcp` uses the live web MCP backend for repository-scoped
+`codegraph.query` and code navigation tools, and for
+`agent_work.start/status/control/events/export_pr`. Calls without a `repo`
+argument keep the deterministic in-memory fallback used by conformance tests.

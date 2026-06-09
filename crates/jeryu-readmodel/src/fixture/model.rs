@@ -19,8 +19,8 @@ use crate::risk::RiskTier;
 
 use super::builder::TuiReadModelBuilder;
 use super::dashboards::{
-    sample_agents, sample_approvals, sample_at, sample_evidence, sample_release, sample_workcells,
-    sample_workflow,
+    sample_agent_runs, sample_agents, sample_approvals, sample_at, sample_codegraph,
+    sample_evidence, sample_release, sample_workcells, sample_workflow,
 };
 
 /// A fully-populated, deterministic sample read model exercising every nested
@@ -183,6 +183,8 @@ pub fn sample_read_model() -> TuiReadModel {
         .approvals(sample_approvals())
         .evidence(sample_evidence())
         .agents(sample_agents())
+        .agent_runs(sample_agent_runs())
+        .codegraph(sample_codegraph())
         .release(sample_release())
         .workcells(workcells)
         .workflow(sample_workflow())

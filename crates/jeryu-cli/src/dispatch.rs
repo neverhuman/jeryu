@@ -21,13 +21,28 @@ pub fn dispatch(
 ) -> i32 {
     let owner = cli.owner;
     let json = cli.json;
+    let api_url = cli.api_url.or_else(|| std::env::var("JERYU_API_URL").ok());
     let result = match cli.command {
         Commands::Forge(cmd) => commands::forge::run(client, &owner, json, cmd, out),
         Commands::Ci(cmd) => commands::ci::run(client, json, cmd, out),
         Commands::Runner(cmd) => commands::runner::run(client, json, cmd, out),
+        Commands::Agent(cmd) => commands::agent::run(client, json, api_url.as_deref(), cmd, out),
         Commands::Proof(cmd) => commands::proof::run(client, json, cmd, out),
         Commands::Release { version } => commands::release::run(client, json, &version, out),
         Commands::Cache(cmd) => commands::cache::run(client, json, cmd, out),
+        Commands::Status => commands::control_plane::run_status(json, api_url.as_deref(), out),
+        Commands::Priorities { limit } => {
+            commands::control_plane::run_priorities(json, api_url.as_deref(), limit, out)
+        }
+        Commands::RepoGraph(cmd) => {
+            commands::control_plane::run_repo_graph(json, api_url.as_deref(), cmd, out)
+        }
+        Commands::Artifacts(cmd) => {
+            commands::control_plane::run_artifacts(json, api_url.as_deref(), cmd, out)
+        }
+        Commands::Runners(cmd) => {
+            commands::control_plane::run_runners(json, api_url.as_deref(), cmd, out)
+        }
         Commands::GhSetup(args) => commands::gh_setup::run(json, args, out),
         Commands::Autonomy(AutonomyCommands::Init(args)) => {
             commands::autonomy::run(json, args, out)

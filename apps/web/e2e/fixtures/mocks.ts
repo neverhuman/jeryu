@@ -1,4 +1,6 @@
 // mocks.ts — Playwright route-mocking helpers (W-T-12..17).
+// Generated API mocks stay aligned with generated contract types here and
+// with the MSW mock service worker component-test fixtures in src/test/.
 //
 // These helpers wrap `page.route(...)` so individual specs can mock out
 // `/api/v1/*` JSON endpoints without sharing fragile cross-test state. The
@@ -19,6 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { Page, Route } from '@playwright/test';
+import type { RunnerFabricResponse } from '../../src/api/types';
 
 // Playwright 1.60's bundled TS compilation treats fixture files as ESM, so
 // `__dirname` is unavailable. Resolve the JSON fixture relative to the
@@ -151,6 +154,19 @@ export async function mockFleetBootstrap(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(body),
+    });
+  });
+}
+
+export async function mockControlPlaneRunners(
+  page: Page,
+  response: RunnerFabricResponse
+): Promise<void> {
+  await page.route('**/api/v1/control-plane/runners', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(response),
     });
   });
 }
@@ -419,17 +435,50 @@ export async function mockPullRequestList(
   prs: MockPullRequest[]
 ): Promise<void> {
   const items = prs.map((pr) => ({
-    number: pr.number,
+    repo: {
+      id: 'jeryu:neverhuman/jeryu',
+      host: 'jeryu',
+      owner: 'neverhuman',
+      name: 'jeryu',
+    },
+    number: Number(pr.number),
+    entity: {
+      kind: 'pull_request',
+      id: `jeryu:neverhuman/jeryu#${pr.number}`,
+    },
     title: pr.title,
     state: pr.state,
+    draft: false,
+    head_ref: 'feature/x',
     head_sha: pr.head_sha,
-    author:
-      pr.author ?? {
-        login: '@author',
-        display_name: 'PR Author',
-      },
-    approvals: pr.approvals ?? 0,
-    approvals_required: pr.approvals_required ?? 1,
+    base_ref: 'main',
+    base_sha: pr.base_sha ?? 'base000000000000000000000000000000000000',
+    author: pr.author?.login ?? '@author',
+    mergeable: {
+      level: 'blocked',
+      can_merge: false,
+      reason: 'fixture',
+      exact_head_sha: pr.head_sha,
+      required_gate: 'merge_passport',
+    },
+    review: {
+      required_approvals: pr.approvals_required ?? 1,
+      approvals: pr.approvals ?? 0,
+      changes_requested: 0,
+      unresolved_threads: 0,
+      user_review_state: null,
+    },
+    checks: { total: 0, passing: 0, failing: 0, pending: 0, skipped: 0 },
+    agents: {
+      active_sessions: 0,
+      proposed_patches: 0,
+      evidence_packets: 0,
+      blockers: 0,
+    },
+    labels: [],
+    updated_at: '2026-05-26T00:00:00Z',
+    passport_hash: null,
+    available_actions: [],
   }));
   await page.route(
     /\/api\/v1\/repos\/[^/]+\/pulls(\?.*)?$/,

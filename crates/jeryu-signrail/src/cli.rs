@@ -14,6 +14,8 @@ use crate::rollback::RollbackMetadata;
 use crate::sbom::SbomDocument;
 use crate::signature::{Ed25519Signer, Signer};
 use crate::store::ArtifactStore;
+use jeryu_signing::{EdVerifier, Signature as WireSignature};
+use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -62,12 +64,22 @@ where
             Ok(SbomDocument::from_artifacts(version, &artifacts, 0).to_json())
         }
         Some("sign-release") => sign_release(&args[1..], &env),
+        Some("verify-release") => verify_release(&args[1..]),
         Some("help") | None => Ok(help()),
         Some(other) => Err(SignRailError::InvalidInput(format!(
             "unknown command {other}\n{}",
             help()
         ))),
     }
+}
+
+#[derive(Debug)]
+struct VerifyReleaseArgs {
+    release: PathBuf,
+    stage: String,
+    store_root: PathBuf,
+    pubkey_file: PathBuf,
+    json: bool,
 }
 
 #[derive(Debug)]
@@ -280,6 +292,138 @@ fn artifacts_from_paths<'a>(paths: impl Iterator<Item = &'a String>) -> Result<V
     Ok(artifacts)
 }
 
+fn verify_release(raw_args: &[String]) -> Result<String> {
+    let args = parse_verify_release_args(raw_args)?;
+    let release_json = fs::read_to_string(&args.release)?;
+    let release: Value = serde_json::from_str(&release_json)
+        .map_err(|err| SignRailError::InvalidInput(format!("release JSON parse failed: {err}")))?;
+    let release_id = json_string(&release, &["id"])?;
+    let commit_sha = json_string(&release, &["commit_sha"])?;
+    let artifacts = release
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            SignRailError::InvalidInput("release artifacts must be an array".to_string())
+        })?;
+    let provenance = release
+        .get("provenance")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            SignRailError::InvalidInput("release provenance must be an array".to_string())
+        })?;
+    if artifacts.is_empty() {
+        return Err(SignRailError::Policy(
+            "release has no artifacts to verify".to_string(),
+        ));
+    }
+    if artifacts.len() != provenance.len() {
+        return Err(SignRailError::Policy(format!(
+            "signature coverage is not 100%: {} provenance entries for {} artifacts",
+            provenance.len(),
+            artifacts.len()
+        )));
+    }
+
+    let stored_release = args
+        .store_root
+        .join("releases")
+        .join(format!("{}.json", safe_store_name(release_id)));
+    if !stored_release.is_file() {
+        return Err(SignRailError::Verification(format!(
+            "stored release JSON missing: {}",
+            stored_release.display()
+        )));
+    }
+
+    let pubkey_hex = read_pubkey_hex(&args.pubkey_file)?;
+    for item in provenance {
+        verify_provenance(item, &pubkey_hex)?;
+    }
+
+    let receipt_path = args.store_root.join("receipts").join(format!(
+        "{}-{}.json",
+        safe_store_name(release_id),
+        args.stage
+    ));
+    let receipt_json = fs::read_to_string(&receipt_path).map_err(|err| {
+        SignRailError::Verification(format!(
+            "stage receipt missing or unreadable {}: {err}",
+            receipt_path.display()
+        ))
+    })?;
+    let receipt: Value = serde_json::from_str(&receipt_json).map_err(|err| {
+        SignRailError::InvalidInput(format!("stage receipt JSON parse failed: {err}"))
+    })?;
+    let payload = receipt
+        .get("payload")
+        .ok_or_else(|| SignRailError::Verification("stage receipt missing payload".to_string()))?;
+    if json_string(payload, &["stage"])? != args.stage {
+        return Err(SignRailError::Verification(format!(
+            "stage receipt mismatch: expected {}, got {}",
+            args.stage,
+            json_string(payload, &["stage"])?
+        )));
+    }
+    if json_string(payload, &["sha"])? != commit_sha {
+        return Err(SignRailError::Verification(format!(
+            "stage receipt sha mismatch: expected {commit_sha}, got {}",
+            json_string(payload, &["sha"])?
+        )));
+    }
+    if json_u64(payload, &["signature_coverage_percent"])? != 100 {
+        return Err(SignRailError::Policy(
+            "stage receipt signature coverage is not 100%".to_string(),
+        ));
+    }
+
+    if args.json {
+        Ok(format!(
+            "{{{},{},{},{},{}}}",
+            crate::json::field("release_id", release_id),
+            crate::json::field("stage", &args.stage),
+            crate::json::field("commit_sha", commit_sha),
+            crate::json::number_field("artifact_count", artifacts.len() as u64),
+            crate::json::number_field("signature_coverage_percent", 100)
+        ))
+    } else {
+        Ok(format!(
+            "verified release {release_id} stage {} ({} artifacts, 100% signature coverage)",
+            args.stage,
+            artifacts.len()
+        ))
+    }
+}
+
+fn verify_provenance(item: &Value, pubkey_hex: &str) -> Result<()> {
+    let statement = item
+        .get("statement")
+        .ok_or_else(|| SignRailError::Verification("provenance missing statement".to_string()))?;
+    let signature = item
+        .get("signature")
+        .ok_or_else(|| SignRailError::Verification("provenance missing signature".to_string()))?;
+    let algorithm = json_string(signature, &["algorithm"])?;
+    if algorithm != "JFSIG-ED25519" {
+        return Err(SignRailError::Verification(format!(
+            "unsupported signature algorithm {algorithm}"
+        )));
+    }
+    let key_id = json_string(signature, &["key_id"])?;
+    let verifier = EdVerifier::from_public_key_hex(key_id, pubkey_hex)
+        .map_err(|err| SignRailError::Verification(format!("public key decode failed: {err}")))?;
+    let wire = WireSignature {
+        key_id: key_id.to_string(),
+        algo: "ed25519".to_string(),
+        value: json_string(signature, &["value_hex"])?.to_string(),
+    };
+    if verifier.verify(&canonical_statement(statement)?, &wire) {
+        Ok(())
+    } else {
+        Err(SignRailError::Verification(
+            "provenance signature mismatch".to_string(),
+        ))
+    }
+}
+
 fn parse_sign_release_args<F>(raw_args: &[String], env: &F) -> Result<SignReleaseArgs>
 where
     F: Fn(&str) -> Option<String>,
@@ -395,6 +539,60 @@ where
     })
 }
 
+fn parse_verify_release_args(raw_args: &[String]) -> Result<VerifyReleaseArgs> {
+    let mut release = None;
+    let mut stage = None;
+    let mut store_root = None;
+    let mut pubkey_file = None;
+    let mut json = false;
+
+    let mut index = 0;
+    while index < raw_args.len() {
+        let arg = &raw_args[index];
+        let value = |index: &mut usize| -> Result<String> {
+            *index += 1;
+            raw_args.get(*index).cloned().ok_or_else(|| {
+                SignRailError::InvalidInput(format!(
+                    "missing value for {arg}\n{}",
+                    verify_release_usage()
+                ))
+            })
+        };
+        match arg.as_str() {
+            "--release" => release = Some(PathBuf::from(value(&mut index)?)),
+            "--stage" => stage = Some(value(&mut index)?),
+            "--store-root" => store_root = Some(PathBuf::from(value(&mut index)?)),
+            "--pubkey-file" => pubkey_file = Some(PathBuf::from(value(&mut index)?)),
+            "--json" => json = true,
+            "--help" => return Err(SignRailError::InvalidInput(verify_release_usage())),
+            _ => {
+                return Err(SignRailError::InvalidInput(format!(
+                    "unknown verify-release option {arg}\n{}",
+                    verify_release_usage()
+                )));
+            }
+        }
+        index += 1;
+    }
+
+    let stage = required(stage, "--stage")?;
+    if !matches!(stage.as_str(), "local" | "dev-canary" | "prod") {
+        return Err(SignRailError::InvalidInput(format!(
+            "--stage must be local, dev-canary, or prod (got {stage})"
+        )));
+    }
+
+    Ok(VerifyReleaseArgs {
+        release: release.ok_or_else(|| SignRailError::InvalidInput(verify_release_usage()))?,
+        stage,
+        store_root: store_root
+            .ok_or_else(|| SignRailError::InvalidInput(verify_release_usage()))?,
+        pubkey_file: pubkey_file
+            .ok_or_else(|| SignRailError::InvalidInput(verify_release_usage()))?,
+        json,
+    })
+}
+
 fn required(value: Option<String>, flag: &str) -> Result<String> {
     value.filter(|item| !item.trim().is_empty()).ok_or_else(|| {
         SignRailError::InvalidInput(format!("missing required {flag}\n{}", sign_release_usage()))
@@ -440,9 +638,91 @@ fn sign_release_usage() -> String {
     .to_string()
 }
 
+fn verify_release_usage() -> String {
+    "usage: jeryu_signrail verify-release --release <file> --stage <local|dev-canary|prod> --store-root <dir> --pubkey-file <file> [--json]"
+        .to_string()
+}
+
 fn help() -> String {
     format!(
-        "jeryu_signrail commands:\n  checksum <path>\n  sbom <version> <artifact>...\n  {}",
-        sign_release_usage()
+        "jeryu_signrail commands:\n  checksum <path>\n  sbom <version> <artifact>...\n  {}\n  {}",
+        sign_release_usage(),
+        verify_release_usage()
     )
+}
+
+fn json_string<'a>(value: &'a Value, path: &[&str]) -> Result<&'a str> {
+    let mut current = value;
+    for key in path {
+        current = current.get(*key).ok_or_else(|| {
+            SignRailError::InvalidInput(format!("missing JSON field {}", path.join(".")))
+        })?;
+    }
+    current.as_str().ok_or_else(|| {
+        SignRailError::InvalidInput(format!("JSON field {} must be a string", path.join(".")))
+    })
+}
+
+fn json_u64(value: &Value, path: &[&str]) -> Result<u64> {
+    let mut current = value;
+    for key in path {
+        current = current.get(*key).ok_or_else(|| {
+            SignRailError::InvalidInput(format!("missing JSON field {}", path.join(".")))
+        })?;
+    }
+    current.as_u64().ok_or_else(|| {
+        SignRailError::InvalidInput(format!("JSON field {} must be a number", path.join(".")))
+    })
+}
+
+fn canonical_statement(statement: &Value) -> Result<Vec<u8>> {
+    Ok(format!(
+        concat!(
+            "source_repository={}\n",
+            "commit_sha={}\n",
+            "tree_sha={}\n",
+            "jeryu_ci_ir_hash={}\n",
+            "runner_class={}\n",
+            "runner_rootfs_digest={}\n",
+            "toolchain_digest={}\n",
+            "cargo_lock_digest={}\n",
+            "artifact_digest={}\n",
+            "sbom_digest={}\n",
+            "signer_identity={}\n",
+            "oidc_subject={}\n",
+            "jankurai_release_witness={}\n",
+            "created_at_epoch={}\n"
+        ),
+        json_string(statement, &["source_repository"])?,
+        json_string(statement, &["commit_sha"])?,
+        json_string(statement, &["tree_sha"])?,
+        json_string(statement, &["jeryu_ci_ir_hash"])?,
+        json_string(statement, &["runner_class"])?,
+        json_string(statement, &["runner_rootfs_digest"])?,
+        json_string(statement, &["toolchain_digest"])?,
+        json_string(statement, &["cargo_lock_digest"])?,
+        json_string(statement, &["artifact_digest"])?,
+        json_string(statement, &["sbom_digest"])?,
+        json_string(statement, &["signer_identity"])?,
+        json_string(statement, &["oidc_subject"])?,
+        json_string(statement, &["jankurai_release_witness"])?,
+        json_u64(statement, &["created_at_epoch"])?
+    )
+    .into_bytes())
+}
+
+fn safe_store_name(name: &str) -> String {
+    name.replace('/', "_")
+}
+
+fn read_pubkey_hex(path: &Path) -> Result<String> {
+    let contents = fs::read_to_string(path)?;
+    let tokens = contents.split_whitespace().collect::<Vec<_>>();
+    let Some(value) = tokens.last() else {
+        return Err(SignRailError::InvalidInput(format!(
+            "empty public key file {}",
+            path.display()
+        )));
+    };
+    Ok((*value).to_string())
 }

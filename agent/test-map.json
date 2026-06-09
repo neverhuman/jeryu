@@ -91,6 +91,11 @@
       "purpose": "verify agent ownership, proof routing, and generated-zone maps",
       "lane": "jankurai-proof"
     },
+    "agent/native-cli-manifest.toml": {
+      "command": "cargo test -p jeryu-agent-auth -p jeryu-agent-stream -p jeryu-cli -p jeryu-mcp --jobs 40",
+      "purpose": "verify native CLI manifest digest pins, auth/stream contracts, CLI surfaces, and MCP agent-work/codegraph contracts",
+      "lane": "agent-substrate"
+    },
     "agent/ci-lanes.toml": {
       "command": "./scripts/check-owner-test-map.sh && ./scripts/check-agent-maps.sh && cargo run -q -p jeryu-repogate -- ci-lanes-check",
       "purpose": "verify the CI lane manifest matches hosted workflows and local CI entrypoints",
@@ -130,6 +135,21 @@
       "command": "cargo test -p jeryu-api --features web --jobs 40",
       "purpose": "verify GitHub-compatible REST, guided GraphQL, and local web API behavior",
       "lane": "api"
+    },
+    "crates/jeryu-api/src/web/control_plane.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 control_plane",
+      "purpose": "verify JMCP control-plane aggregation, priorities, graph clusters, explicit mirror/artifact absence, runner status, and route contracts",
+      "lane": "api"
+    },
+    "crates/jeryu-agent-auth/": {
+      "command": "cargo test -p jeryu-agent-auth --jobs 40",
+      "purpose": "verify portable agent auth import, doctor, per-run materialization, and typed denial contracts",
+      "lane": "agent-substrate"
+    },
+    "crates/jeryu-agent-stream/": {
+      "command": "cargo test -p jeryu-agent-stream --jobs 40",
+      "purpose": "verify agent-run TTY/control event contracts and the in-memory stream bus",
+      "lane": "agent-substrate"
     },
     "crates/jeryu-readmodel/": {
       "command": "cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck",
@@ -201,6 +221,21 @@
       "purpose": "verify the Rung 4 in-cell agent driver and allowlist egress proxy contracts",
       "lane": "agent-substrate"
     },
+    "crates/jeryu-api/src/web/agent_runs.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 agent_runs",
+      "purpose": "verify high-level live agent-run repair launches, PTY controls, typed denials, and workcell failure context",
+      "lane": "api"
+    },
+    "crates/jeryu-api/src/web/codegraph.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 codegraph",
+      "purpose": "verify the repository codegraph oracle REST facade and typed repair guidance",
+      "lane": "api"
+    },
+    "crates/jeryu-api/src/web/tool_build.rs": {
+      "command": "cargo test -p jeryu-api --features web --jobs 40 tool_build",
+      "purpose": "verify tool-build status, cluster listing, and typed feedback repair bodies",
+      "lane": "api"
+    },
     "crates/jeryu-egress/": {
       "command": "cargo test -p jeryu-agentbridge -p jeryu-egress --jobs 40",
       "purpose": "verify the Rung 4 allowlist egress proxy and in-cell agent driver contracts",
@@ -227,9 +262,29 @@
       "lane": "release-provenance"
     },
     "crates/jeryu-codegraph/": {
-      "command": "cargo test -p jeryu-codegraph --jobs 40",
-      "purpose": "verify the additive workspace code graph: persist round-trip, impact analysis, and the corrected export slice predicate",
+      "command": "cargo test -p jeryu-codegraph --jobs 40 && bash ops/ci/codegraph-oracle.sh && bash ops/ci/codegraph-tool-build.sh",
+      "purpose": "verify schema v3 codegraph storage, references, impact analysis, MCP tools, API oracle facade, and tool-build insight clusters",
       "lane": "rust-ci"
+    },
+    "crates/jeryu-mcp/": {
+      "command": "cargo test -p jeryu-mcp --jobs 40",
+      "purpose": "verify MCP tool catalog contracts, including codegraph query and code navigation tools",
+      "lane": "jankurai-proof"
+    },
+    "crates/jeryu-sandbox-linux/": {
+      "command": "cargo test -p jeryu-sandbox-linux --jobs 40",
+      "purpose": "verify Linux sandbox launch, cgroup fail-closed behavior, Landlock/seccomp policy, and PTY syscall rules",
+      "lane": "runner-sandbox"
+    },
+    "crates/jeryu-readmodel/src/dashboards/agent_runs.rs": {
+      "command": "cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40",
+      "purpose": "verify agent-run readmodel projection and TUI live TTY/failed-CI repair coverage",
+      "lane": "contract"
+    },
+    "crates/jeryu-readmodel/src/dashboards/codegraph.rs": {
+      "command": "cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40",
+      "purpose": "verify codegraph/oracle readmodel projection and TUI evidence coverage",
+      "lane": "contract"
     },
     "dashboards/": {
       "command": "cargo test -p jeryu-bench -p jeryu-obs --jobs 40",
@@ -251,6 +306,16 @@
       "purpose": "verify docs stay complete enough for agents",
       "lane": "docs"
     },
+    "docs/codegraph-oracle.md": {
+      "command": "cargo run -q -p jeryu-mapcheck -- docs && cargo test -p jeryu-codegraph --jobs 40 oracle",
+      "purpose": "verify the codegraph oracle contract docs stay matched to the executable oracle proof",
+      "lane": "docs"
+    },
+    "docs/codegraph-tool-build.md": {
+      "command": "cargo run -q -p jeryu-mapcheck -- docs && bash ops/ci/codegraph-tool-build.sh",
+      "purpose": "verify tool-build insight docs stay matched to scanner/MCP/API proof",
+      "lane": "docs"
+    },
     "examples/": {
       "command": "./scripts/ci-doctor.sh",
       "purpose": "verify example fixtures remain local-only",
@@ -265,6 +330,16 @@
       "command": "bash ops/ci/verify-jeryu-env.sh --build-local && cargo run -q -p jeryu-repogate -- ci-lanes-check && ./scripts/ci-doctor.sh && bash scripts/ci-phases.sh",
       "purpose": "verify local CI gates, ops scripts, and hosted/local parity wiring",
       "lane": "local-ci-parity"
+    },
+    "ops/ci/codegraph-oracle.sh": {
+      "command": "bash ops/ci/codegraph-oracle.sh",
+      "purpose": "verify the schema v3 codegraph oracle API/MCP contract lane",
+      "lane": "rust-ci"
+    },
+    "ops/ci/codegraph-tool-build.sh": {
+      "command": "bash ops/ci/codegraph-tool-build.sh",
+      "purpose": "verify the codegraph tool-build scanner, MCP catalog, API facade, and CLI smoke lane",
+      "lane": "rust-ci"
     },
     "ops/ci/publish-readme-score.sh": {
       "command": "bash ops/ci/publish-readme-score.sh --dry-run --verify",
@@ -336,6 +411,21 @@
       "purpose": "verify the jeryu CLI command surface and snapshots",
       "lane": "cli"
     },
+    "crates/jeryu-cli/src/cli/control_plane.rs": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify JMCP control-plane CLI grammar and fail-closed live API URL dispatch",
+      "lane": "cli"
+    },
+    "crates/jeryu-cli/src/commands/api.rs": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify the shared live API HTTP client used by CLI commands",
+      "lane": "cli"
+    },
+    "crates/jeryu-cli/src/commands/control_plane.rs": {
+      "command": "cargo test -p jeryu-cli --jobs 40",
+      "purpose": "verify API-backed JMCP status, priorities, repo-graph, artifacts, and runner status CLI dispatch",
+      "lane": "cli"
+    },
     "crates/jeryu-core/src/overlap.rs": {
       "command": "cargo test -p jeryu-core --lib overlap --jobs 40",
       "purpose": "verify PR-overlap detection and route-to-existing reuse decisions",
@@ -376,10 +466,60 @@
       "purpose": "verify the web /fleet page renders live pool/health state with layered UX QA",
       "lane": "ux-qa"
     },
+    "apps/web/src/hooks/useControlPlane.ts": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the JMCP control-plane web hook contract and render consumers",
+      "lane": "web"
+    },
+    "apps/web/src/hooks/useControlPlaneRunners.ts": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the runner-fabric web hook contract and render consumers",
+      "lane": "web"
+    },
+    "apps/web/src/pages/IntelligencePage.tsx": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the Intelligence page renders priorities, graph clusters, runner health, and explicit absence evidence",
+      "lane": "web"
+    },
+    "apps/web/src/pages/IntelligencePage.css": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the Intelligence page layout remains typechecked and covered by render tests",
+      "lane": "web"
+    },
+    "apps/web/src/pages/__tests__/IntelligencePage.test.tsx": {
+      "command": "npm --workspace @jeryu/web run test",
+      "purpose": "verify the Intelligence page render smoke covers priorities, graph clusters, and absence states",
+      "lane": "web"
+    },
+    "apps/web/e2e/12-intelligence.spec.ts": {
+      "command": "npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 12-intelligence.spec.ts",
+      "purpose": "verify the /intelligence route and nav smoke against mocked control-plane evidence",
+      "lane": "web"
+    },
     "apps/web/src/pages/FleetPage.stories.tsx": {
       "command": "npm --workspace @jeryu/web run ux-qa",
       "purpose": "verify the fleet page Storybook states provide rendered UX proof for the web surface",
       "lane": "ux-qa"
+    },
+    "apps/web/src/pages/runnerNetworkModel.ts": {
+      "command": "npm --workspace @jeryu/web run typecheck && npm --workspace @jeryu/web run test",
+      "purpose": "verify the runner-network selector contract and render model",
+      "lane": "web"
+    },
+    "apps/web/src/pages/__tests__/runnerNetworkModel.test.tsx": {
+      "command": "npm --workspace @jeryu/web run test",
+      "purpose": "verify the runner-network selector covers empty, offline, active, and tty-preview cases",
+      "lane": "web"
+    },
+    "apps/web/e2e/11-fleet.spec.ts": {
+      "command": "npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 11-fleet.spec.ts",
+      "purpose": "verify the Fleet runner-network render path and local-node gating against mocked evidence",
+      "lane": "web"
+    },
+    "apps/web/e2e/13-left-nav.spec.ts": {
+      "command": "npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 13-left-nav.spec.ts",
+      "purpose": "verify every left-nav destination resolves without NotFound",
+      "lane": "web"
     }
   }
 }

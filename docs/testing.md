@@ -48,9 +48,11 @@ Primary lanes:
 - `just full`: workspace foundation gate with fmt, check, tests, clippy, zero-evidence, docs, release, score, and doctor checks.
 - `just security`: cache adversary, poisoning matrix, zero-evidence, and secret scan.
 - `just audit`: Jankurai audit plus dependency-audit integration when the tool is installed.
-- `cargo test -p jeryu-signrail --test release_witness` and
+- `cargo test -p jeryu-signrail --test release_witness`,
+  `cargo test -p jeryu-signrail --jobs 40 verify_release`, and
   `cargo clippy -p jeryu-signrail --all-targets -- -D warnings`: SignRail
-  release signing, provenance, witness, and stage-receipt proof lane.
+  release signing, verification, provenance, witness, and stage-receipt proof
+  lane.
 - `cargo test -p jeryu-wsversion --jobs 40` plus
   `cargo run -q -p jeryu-wsversion -- inherit-guard`: workspace version source
   and changelog roll-forward proof lane. Add
@@ -64,6 +66,12 @@ Primary lanes:
 - `cargo test -p jeryu-api --features web --jobs 40`: required when the bootstrap payload or web feature flags change, including the `workcells` flag.
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop`: the integrated R5 proof lane. It claims a live workcell, rebases it onto `origin/main`, runs a jailed edit inside the checkout, exports a namespaced branch with `changed_files`, opens the pull request, and verifies CI evidence for the resulting head sha.
 - `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`: route-level proof for `POST /api/v1/workcells/{id}/run_agent`. It claims a repo-root slice, proves an out-of-root program returns typed `workcell_run_path_denied`, then runs a staged in-root program and verifies structured stdout/stderr/finish events when the host sandbox is available.
+- `cargo test -p jeryu-api --features web --jobs 40 agent_runs`: high-level proof for `POST /api/v1/agent-runs`. It launches from a held or repairing failed-CI workcell, validates epoch and path fencing, verifies live PTY events/control recording, proves cursor-safe `/events` resume reads, and proves unsupported/finished controls plus unfinished export attempts return typed repair bodies.
+- `cargo test -p jeryu-agent-auth -p jeryu-agent-stream --jobs 40`: portable native CLI auth receipts and broker-compatible TTY/control stream contracts.
+- `cargo test -p jeryu-mcp -p jeryu-cli --jobs 40`: `agent_work.start/status/control/events/export_pr` MCP catalog/memory fallback and `jeryu agent ...` CLI grammar/live URL dispatch.
+- `cargo test -p jeryu-agent-auth -p jeryu-agent-stream -p jeryu-cli -p jeryu-mcp --jobs 40`: companion proof for portable native CLI auth receipts, broker-compatible TTY/control event schemas, `jeryu agent ...`, and MCP `agent_work.*` subscription/control tools.
+- `cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40`: read-model/TUI proof for agent runs, live TTY status, held failed-CI workcells, repair/export state, and codegraph/oracle evidence.
+- `cargo test -p jeryu-sandbox-linux --jobs 40 pty` and `cargo test -p jeryu-agentbridge --test pty_driver --jobs 40`: PTY launch, TTY ioctl policy, process-group signaling, resize/control, and final-drain proof.
 - `cargo run -p jeryu-sandbox-linux --example jail_demo`: the live folder-jail demo (Rung 1, see `docs/workcell.md`). Drives the production launch path against a throwaway checkout and exits non-zero unless write-inside is ALLOWED and write-outside, `/etc/shadow` read, and an `AF_INET` socket are each DENIED (or a host-absent primitive is honestly skipped). Run it on a fleet node where Landlock + seccomp are present.
 - `cargo test -p jeryu-runnerd jailgun`: the jailgun tar round-trip (Rung 2). A clean subtree imports/exports while adversarial tar entries (parent traversal, absolute path, symlink, character device, a smuggled traversal, and an out-of-root export) are each rejected with `workcell_tar_path_denied`.
 - `cargo test -p jeryu-agentbridge`: the in-cell agent driver (Rung 4, see `docs/workcell.md`). The `driver_in_cell` integration tests prove a jailed edit-bot writes only inside the cell, an out-of-cell write is DENIED by Landlock (honestly skipped if the host lacks Landlock), the watchdog kills a runaway, and an exceeded output/token budget kills the child.
@@ -80,6 +88,52 @@ regressing — each test asserts a discriminating signal, not a tautology):
 - `cargo test -p jeryu-api --features web workcell_surface_tests`: the cell-surface REST + error-path lane for the previously-untested handlers — `list`/`status`/`claim`/`heartbeat` plus typed 404 (`not_found`), 409 epoch-fence (`workcell_epoch_fenced`), 422 malformed body (`workcell_invalid_request`), and 400 id-mismatch (`workcell_id_mismatch`).
 - `cargo test -p jeryu-api --features web autonomy_bridge`: the record-only auto-merge 7-probe adversarial harness. Every probe proves the bridge never merges; probes 4/5/7 assert the R5-floor and red-CI hard stops (they fail if those guards are removed), while probes 1/2/3/6 document the known AllowMerge gaps (vacuous CI, synthetic quorum, no author gate) as tripwires that must flip red when the safety rework lands.
 - `bash ops/ci/coverage.sh`: line + mutation coverage, now extended with a per-crate src-coverage ratchet (`ops/ci/coverage-baseline.json`) over `jeryu-api`, `jeryu-egress`, and `jeryu-codegraph`. Coverage may not drop below the recorded floor (minus a small jitter epsilon) and ratchets UP only — regenerate with `JERYU_COVERAGE_UPDATE_BASELINE=1 bash ops/ci/coverage.sh`. `jeryu-sandbox-linux` and `jeryu-agentbridge` are deliberately NOT ratcheted: their security tests honest-skip when a host primitive is absent, so a coverage percentage would be host-dependent; they are protected by their own escape/refute suites instead. (Namespace classification and the output-budget/timeout kill paths are already covered by `capability.rs` and `driver_in_cell.rs` unit tests, so they are not duplicated here.)
+
+## Codegraph Oracle
+
+- `cargo test -p jeryu-codegraph --jobs 40`: schema-v3 storage, symbol
+  references, impact, reverse dependencies, and oracle pack construction.
+- `cargo test -p jeryu-mcp --test mcp_conformance --jobs 40`: MCP catalog
+  proof for `code.symbols.search`, `code.definition`, `code.impact`,
+  `code.crate.reverse_deps`, `code.references`, and `codegraph.query`.
+- `cargo test -p jeryu-api --features web --jobs 40 codegraph`: REST facade
+  proof for `POST /api/v1/repos/{id}/codegraph/query` and typed repair
+  guidance.
+- `bash ops/ci/codegraph-oracle.sh`: the composed schema-v3 API/MCP contract
+  lane.
+
+## Codegraph Tool-Build Insights
+
+- `cargo test -p jeryu-codegraph --jobs 40 tool_build`: fast normalized-window
+  cluster scan, persistence, and ignore feedback.
+- `cargo test -p jeryu-mcp --test mcp_conformance --jobs 40`: MCP catalog
+  proof for `codegraph.tool_build.status`, `codegraph.tool_build.clusters`, and
+  `codegraph.tool_build.feedback`.
+- `cargo test -p jeryu-api --features web --jobs 40 tool_build`: REST facade
+  proof for status, ranked clusters, and typed feedback repair bodies.
+- `bash ops/ci/codegraph-tool-build.sh`: composed scanner/MCP/API/CLI smoke
+  lane. It writes `target/jankurai/codegraph-tool-build-{scan,clusters}.json`.
+
+## JMCP Control Plane
+
+- `cargo test -p jeryu-api --features web --jobs 40 control_plane`: REST and
+  pure aggregation proof for `/api/v1/control-plane/status`, priorities,
+  repo-graph clusters, artifact absence states, local runner capacity,
+  read-only mirror degradation, camelCase contracts, and
+  `/api/v1/agent-runs` listing.
+- `cargo test -p jeryu-mcp --jobs 40`: MCP catalog and memory fallback proof
+  for read-only control-plane catalog entries.
+  Catalog changes are reviewed against `agent/tool-adoption.toml` and the
+  pinned `ops/ci/security-tools.sh` transcript; untrusted tool output remains
+  evidence only and never becomes trusted policy input.
+- `cargo test -p jeryu-cli --jobs 40`: CLI grammar and fail-closed live API URL
+  dispatch for status, priorities, repo-graph, artifact lookup, and runner
+  status subcommands.
+- `npm --workspace @jeryu/web run typecheck`,
+  `npm --workspace @jeryu/web run test`, and
+  `npm --workspace @jeryu/web run build && JERYU_PLAYWRIGHT_API_URL=http://127.0.0.1:8790 npm --workspace @jeryu/web run test:e2e -- 12-intelligence.spec.ts`:
+  web contract, selector/render, and critical route smoke for `/intelligence`
+  without reusing a stale local BFF on the default port.
 
 PENDING is only allowed for a capability that is not built yet and must be
 printed as PENDING, not PASS. The current phase gates report PASS=10,
@@ -160,6 +214,10 @@ Repair evidence:
   attach either the stdout/stderr/finished event evidence or the honest
   `workcell_run_sandbox_unavailable` skip evidence for hosts without the
   required sandbox.
+- Agent-run route changes must prove stale epochs, state denials, path denials,
+  unsupported controls, and finished-run controls remain typed repair failures.
+  Rerun `cargo test -p jeryu-api --features web --jobs 40 agent_runs` and attach
+  live PTY event/control evidence or the sandbox-unavailable repair evidence.
 - README publish failures should rerun
   `bash ops/ci/publish-readme-score.sh --verify` after regenerating
   `target/jankurai/repo-score.json` and `target/jankurai/repo-score.md` from

@@ -1,9 +1,8 @@
 //! Agents lens view.
 //!
 //! Invariants: pure draw. Reads [`AgentsLensInput`]; no backend I/O. Renders
-//! the agent fleet: a posture header, a per-session table (SESSION/STATUS/TASK/
-//! BRANCH/GRANTS, status colored by lifecycle), and a footer carrying the
-//! cursor plus a freeze/block alert.
+//! the agent fleet, live agent-run driver state, failed-CI repair workcells,
+//! and a footer carrying the cursor plus a freeze/block alert.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -11,29 +10,35 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 
-use jeryu_readmodel::AgentStatus;
+use jeryu_readmodel::{AgentRunStatus, AgentStatus, WorkcellState};
 
-use super::data::{AgentRow, AgentsLensInput};
+use super::data::{AgentRow, AgentRunRow, AgentsLensInput, RepairCellRow};
 
 pub fn draw(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // header / fleet summary
+            Constraint::Length(8), // live runs + repair workcells
             Constraint::Min(0),    // session table
             Constraint::Length(3), // footer / cursor + alert
         ])
         .split(area);
 
     draw_header(f, input, chunks[0]);
-    draw_body(f, input, chunks[1]);
-    draw_footer(f, input, chunks[2]);
+    draw_live_runs(f, input, chunks[1]);
+    draw_body(f, input, chunks[2]);
+    draw_footer(f, input, chunks[3]);
 }
 
 fn draw_header(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
     let text = format!(
-        "Agents — {} active · {} blocked · {} grants",
-        input.active_agents, input.blocked_agents, input.active_grants,
+        "Agents — {} active · {} blocked · {} grants · {} running runs · {} live tty",
+        input.active_agents,
+        input.blocked_agents,
+        input.active_grants,
+        input.running_runs,
+        input.live_tty_runs,
     );
     f.render_widget(
         Paragraph::new(text).block(
@@ -52,6 +57,124 @@ fn status_style(status: AgentStatus) -> Style {
         AgentStatus::Idle => Style::default().fg(Color::Gray),
         AgentStatus::Done => Style::default().fg(Color::DarkGray),
     }
+}
+
+fn run_status_style(status: AgentRunStatus) -> Style {
+    match status {
+        AgentRunStatus::Running => Style::default().fg(Color::Green),
+        AgentRunStatus::Queued => Style::default().fg(Color::Yellow),
+        AgentRunStatus::Finished => Style::default().fg(Color::DarkGray),
+        AgentRunStatus::Failed => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        AgentRunStatus::Cancelled => Style::default().fg(Color::Gray),
+    }
+}
+
+fn workcell_style(state: WorkcellState) -> Style {
+    match state {
+        WorkcellState::Held | WorkcellState::Repairing => Style::default().fg(Color::Yellow),
+        WorkcellState::Blocked => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        _ => Style::default(),
+    }
+}
+
+fn draw_live_runs(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
+    let panes = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .split(area);
+
+    draw_run_table(f, input, panes[0]);
+    draw_repair_cells(f, input, panes[1]);
+}
+
+fn draw_run_table(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
+    if input.run_rows.is_empty() {
+        f.render_widget(
+            Paragraph::new("No active agent runs.")
+                .block(Block::default().borders(Borders::ALL).title(" Agent Runs ")),
+            area,
+        );
+        return;
+    }
+
+    let header = Row::new(vec![
+        Cell::from("RUN"),
+        Cell::from("MODE"),
+        Cell::from("TTY"),
+        Cell::from("BUDGET"),
+        Cell::from("CONTROL"),
+    ])
+    .style(Style::default().add_modifier(Modifier::BOLD));
+    let rows: Vec<Row> = input.run_rows.iter().map(run_row).collect();
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(14),
+            Constraint::Length(8),
+            Constraint::Length(10),
+            Constraint::Length(15),
+            Constraint::Min(16),
+        ],
+    )
+    .header(header)
+    .block(Block::default().borders(Borders::ALL).title(" Agent Runs "));
+    f.render_widget(table, area);
+}
+
+fn run_row(r: &AgentRunRow) -> Row<'_> {
+    let tty = r.tty_status.clone().unwrap_or_else(|| "not tty".into());
+    Row::new(vec![
+        Cell::from(r.run_id.clone()),
+        Cell::from(format!("{} {}", r.io_mode.label(), r.status.label()))
+            .style(run_status_style(r.status)),
+        Cell::from(tty),
+        Cell::from(r.output_budget()),
+        Cell::from(r.controls_label()),
+    ])
+}
+
+fn draw_repair_cells(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
+    if input.repair_cells.is_empty() {
+        f.render_widget(
+            Paragraph::new("No held failed-CI workcells.").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Repair Cells "),
+            ),
+            area,
+        );
+        return;
+    }
+
+    let mut lines = Vec::new();
+    for cell in &input.repair_cells {
+        lines.push(repair_line(cell));
+        lines.push(Line::from(format!(
+            "export={} receipt={}",
+            cell.export_state.as_deref().unwrap_or("—"),
+            cell.failed_receipt_id.as_deref().unwrap_or("—"),
+        )));
+    }
+    f.render_widget(
+        Paragraph::new(lines).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Failed-CI Repair "),
+        ),
+        area,
+    );
+}
+
+fn repair_line(r: &RepairCellRow) -> Line<'_> {
+    Line::from(vec![
+        Span::raw(format!("{} ", r.cell_id)),
+        Span::styled(r.state.label().to_string(), workcell_style(r.state)),
+        Span::raw(format!(
+            " failed={} repair={}",
+            r.failed_run_id.as_deref().unwrap_or("—"),
+            r.repair_state.as_deref().unwrap_or("—"),
+        )),
+    ])
 }
 
 fn draw_body(f: &mut Frame, input: &AgentsLensInput, area: Rect) {
@@ -185,6 +308,12 @@ mod tests {
         let out = ink(120, 36, &input);
         assert!(out.contains("agent-wrath-17"));
         assert!(out.contains("agent-storm-04"));
+        assert!(out.contains("run-pty-18"));
+        assert!(out.contains("live tty"));
+        assert!(out.contains("send_input"));
+        assert!(out.contains("wc-18"));
+        assert!(out.contains("held_failed_ci"));
+        assert!(out.contains("export_ready"));
         assert!(out.contains("blocked"));
         assert!(out.contains("1 blocked"));
         assert!(out.contains("feat/approvals"));

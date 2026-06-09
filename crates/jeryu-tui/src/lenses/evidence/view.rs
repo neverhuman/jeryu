@@ -1,8 +1,8 @@
 //! Evidence lens view.
 //!
 //! Invariants: pure draw. Reads [`EvidenceLensInput`]; no backend I/O. Renders
-//! the proof ledger: a capsule-count header, a table of receipts
-//! (CAPSULE/ENTITY/DECISION/LABEL, decisions colored by verdict) and a footer.
+//! the proof ledger, codegraph/oracle evidence, tool-building opportunities,
+//! and a footer.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -12,7 +12,7 @@ use ratatui::widgets::{Block, Borders, Cell, Paragraph, Row, Table};
 
 use jeryu_readmodel::GateDecision;
 
-use super::data::{EvidenceLensInput, EvidenceRow};
+use super::data::{CodegraphEvidenceRow, EvidenceLensInput, EvidenceRow, ToolBuildOpportunityRow};
 
 pub fn draw(f: &mut Frame, input: &EvidenceLensInput, area: Rect) {
     let chunks = Layout::default()
@@ -20,21 +20,30 @@ pub fn draw(f: &mut Frame, input: &EvidenceLensInput, area: Rect) {
         .constraints([
             Constraint::Length(3), // header / capsule summary
             Constraint::Min(0),    // proof ledger
+            Constraint::Length(7), // codegraph/oracle evidence
+            Constraint::Length(7), // tool-building opportunities
             Constraint::Length(3), // footer / keys
         ])
         .split(area);
 
     draw_header(f, input, chunks[0]);
     draw_ledger(f, input, chunks[1]);
-    draw_footer(f, input, chunks[2]);
+    draw_codegraph(f, input, chunks[2]);
+    draw_tool_build(f, input, chunks[3]);
+    draw_footer(f, input, chunks[4]);
 }
 
 fn draw_header(f: &mut Frame, input: &EvidenceLensInput, area: Rect) {
     let text = format!(
-        "Evidence — {} capsules · {} open · {} denied",
+        "Evidence — {} capsules · {} open · {} denied · codegraph v{} · {} miss",
         input.total_capsules,
         input.open_capsules,
         input.denied(),
+        input
+            .codegraph_schema_version
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "n/a".into()),
+        input.codegraph_misses,
     );
     f.render_widget(
         Paragraph::new(text).block(Block::default().borders(Borders::ALL).title(" Evidence ")),
@@ -84,6 +93,129 @@ fn draw_ledger(f: &mut Frame, input: &EvidenceLensInput, area: Rect) {
     .block(Block::default().borders(Borders::ALL).title(" Ledger "));
 
     f.render_widget(table, area);
+}
+
+fn draw_codegraph(f: &mut Frame, input: &EvidenceLensInput, area: Rect) {
+    if input.codegraph_rows.is_empty() {
+        f.render_widget(
+            Paragraph::new("No codegraph oracle evidence.")
+                .block(Block::default().borders(Borders::ALL).title(" Codegraph ")),
+            area,
+        );
+        return;
+    }
+
+    let header = Row::new(vec![
+        Cell::from("QUERY"),
+        Cell::from("TOOL"),
+        Cell::from("SYMBOL"),
+        Cell::from("REFS"),
+        Cell::from("LANES"),
+        Cell::from("READS"),
+    ])
+    .style(Style::default().add_modifier(Modifier::BOLD));
+    let rows: Vec<Row> = input.codegraph_rows.iter().map(codegraph_row).collect();
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(10),
+            Constraint::Length(16),
+            Constraint::Length(18),
+            Constraint::Length(6),
+            Constraint::Length(22),
+            Constraint::Min(20),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Codegraph Oracle "),
+    );
+    f.render_widget(table, area);
+}
+
+fn codegraph_row(r: &CodegraphEvidenceRow) -> Row<'_> {
+    let reads = if r.required_reads.is_empty() {
+        "—".into()
+    } else {
+        r.required_reads.join(",")
+    };
+    let lanes = if r.proof_lanes.is_empty() {
+        "—".into()
+    } else {
+        r.proof_lanes.join(",")
+    };
+    let symbol = if let Some(miss) = &r.miss {
+        format!("{} ({miss})", r.symbol)
+    } else {
+        r.symbol.clone()
+    };
+    Row::new(vec![
+        Cell::from(r.query_id.clone()),
+        Cell::from(r.tool.clone()),
+        Cell::from(symbol),
+        Cell::from(r.references.to_string()),
+        Cell::from(lanes),
+        Cell::from(reads),
+    ])
+}
+
+fn draw_tool_build(f: &mut Frame, input: &EvidenceLensInput, area: Rect) {
+    if input.tool_build_rows.is_empty() {
+        f.render_widget(
+            Paragraph::new("No tool-building opportunities.").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Tool-building opportunities "),
+            ),
+            area,
+        );
+        return;
+    }
+
+    let header = Row::new(vec![
+        Cell::from("CLUSTER"),
+        Cell::from("REPO"),
+        Cell::from("SCORE"),
+        Cell::from("OCC"),
+        Cell::from("FILES"),
+        Cell::from("LANG"),
+        Cell::from("PROOF LANE"),
+    ])
+    .style(Style::default().add_modifier(Modifier::BOLD));
+    let rows: Vec<Row> = input.tool_build_rows.iter().map(tool_build_row).collect();
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(22),
+            Constraint::Length(16),
+            Constraint::Length(7),
+            Constraint::Length(5),
+            Constraint::Length(7),
+            Constraint::Length(8),
+            Constraint::Min(24),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Tool-building opportunities "),
+    );
+    f.render_widget(table, area);
+}
+
+fn tool_build_row(r: &ToolBuildOpportunityRow) -> Row<'_> {
+    Row::new(vec![
+        Cell::from(r.cluster_id.clone()),
+        Cell::from(r.repo_id.clone()),
+        Cell::from(r.score.to_string()),
+        Cell::from(r.occurrences.to_string()),
+        Cell::from(r.file_count.to_string()),
+        Cell::from(r.language.clone()),
+        Cell::from(r.suggested_proof_lane.clone()),
+    ])
 }
 
 fn receipt_row(r: &EvidenceRow) -> Row<'_> {
@@ -141,6 +273,7 @@ mod tests {
         assert!(out.contains("Evidence"));
         assert!(out.contains("capsules"));
         assert!(out.contains("No proof receipts recorded."));
+        assert!(out.contains("No tool-building opportunities."));
         assert!(out.contains("cursor="));
     }
 
@@ -155,6 +288,16 @@ mod tests {
         assert!(out.contains("deny"));
         assert!(out.contains("redacted"));
         assert!(out.contains("1 denied"));
+        assert!(out.contains("codegraph v2"));
+        assert!(out.contains("codegraph.query"));
+        assert!(out.contains("AgentRunStore"));
+        assert!(out.contains("codegraph-oracle"));
+        assert!(out.contains("Tool-building opportunities"));
+        assert!(out.contains("toolbuild-agent-runner"));
+        assert!(out.contains("core/api"));
+        assert!(out.contains("rust"));
+        assert!(out.contains("codegraph-tool-build"));
+        assert!(!out.contains("not yet ported"));
     }
 
     #[test]

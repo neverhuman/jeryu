@@ -11,6 +11,8 @@ members = [
   "bins/jeryu-ci-bin",
   "bins/jeryu-phase11-bin",
   "crates/jeryu-agentbridge",
+  "crates/jeryu-agent-auth",
+  "crates/jeryu-agent-stream",
   "crates/jeryu-artifact-metadata",
   "crates/jeryu-bench",
   "crates/jeryu-cache-policy",

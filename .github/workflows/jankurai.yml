@@ -23,7 +23,7 @@ env:
 jobs:
   jankurai-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout without marketplace actions
         run: |
@@ -36,8 +36,12 @@ jobs:
         run: rustup toolchain install 1.95.0 --profile minimal
       - name: Ensure pinned jankurai on PATH
         run: bash ops/ci/ensure-jankurai.sh
-      - name: Jankurai audit lane
-        run: jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
+      - name: Install open security tools
+        run: bash ops/ci/security-tools.sh
+      - name: Jankurai security and audit lane
+        run: |
+          jankurai security run . --script ./ops/ci/security.sh --strict --out target/jankurai/security/evidence.json --profile ci
+          jankurai . --json .jankurai/repo-score.json --md .jankurai/repo-score.md --fail-under "${JERYU_JANKURAI_FAIL_UNDER:-85}"
       - name: Upload Jankurai audit evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -46,4 +50,6 @@ jobs:
           path: |
             .jankurai/repo-score.json
             .jankurai/repo-score.md
+            target/jankurai/security/evidence.json
+            target/jankurai/security/sbom/**
           if-no-files-found: error

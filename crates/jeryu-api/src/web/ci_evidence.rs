@@ -129,7 +129,8 @@ fn build_item(run_id: &str, kind: &str, captured_at: &str, payload: Value) -> Ev
 /// declaration order.
 fn digest_of(value: &Value) -> String {
     let canonical = canonicalize(value);
-    let encoded = serde_json::to_vec(&canonical).unwrap_or_default();
+    let encoded =
+        serde_json::to_vec(&canonical).expect("canonical serde_json::Value must serialize");
     let hash = Sha256::digest(&encoded);
     format!("sha256:{}", hex::encode(hash))
 }

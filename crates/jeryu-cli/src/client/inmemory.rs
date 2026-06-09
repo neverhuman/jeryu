@@ -7,10 +7,11 @@
 //! whole surface while the actual logic stays grouped by domain.
 
 use super::{
-    CacheSelfTest, CiExplanation, CiKind, CiRun, ClientResult, CreateIssueRequest,
-    CreateRepositoryRequest, ForgeClient, InMemoryClient, Issue, MergeOutcome,
-    OpenPullRequestRequest, ProofVerdict, PullRequest, ReleaseRecord, Repository, Runner,
-    RunnerExecutor,
+    AgentAuthDoctor, AgentAuthImportReceipt, AgentControl, AgentExportPr, AgentExportPrRequest,
+    AgentRunRequest, AgentRunStatus, AgentTool, CacheSelfTest, CiExplanation, CiKind, CiRun,
+    ClientResult, CreateIssueRequest, CreateRepositoryRequest, ForgeClient, InMemoryClient, Issue,
+    MergeOutcome, OpenPullRequestRequest, ProofVerdict, PullRequest, ReleaseRecord, Repository,
+    Runner, RunnerExecutor,
 };
 
 impl ForgeClient for InMemoryClient {
@@ -107,5 +108,29 @@ impl ForgeClient for InMemoryClient {
 
     fn cache_self_test(&self) -> ClientResult<CacheSelfTest> {
         self.cache_self_test_inner()
+    }
+
+    fn agent_auth_import(&self, tool: AgentTool) -> ClientResult<AgentAuthImportReceipt> {
+        self.agent_auth_import_inner(tool)
+    }
+
+    fn agent_auth_doctor(&self, tool: AgentTool) -> ClientResult<AgentAuthDoctor> {
+        self.agent_auth_doctor_inner(tool)
+    }
+
+    fn agent_run(&self, request: AgentRunRequest) -> ClientResult<AgentRunStatus> {
+        self.agent_run_inner(request)
+    }
+
+    fn agent_status(&self, run_id: &str) -> ClientResult<AgentRunStatus> {
+        self.agent_status_inner(run_id)
+    }
+
+    fn agent_control(&self, run_id: &str, control: AgentControl) -> ClientResult<AgentRunStatus> {
+        self.agent_control_inner(run_id, control)
+    }
+
+    fn agent_export_pr(&self, request: AgentExportPrRequest) -> ClientResult<AgentExportPr> {
+        self.agent_export_pr_inner(request)
     }
 }

@@ -169,8 +169,11 @@ impl SandboxPlan {
             write: true,
             execute: false,
         });
+        for rule in local_toolchain_rules() {
+            landlock_rules.push(rule);
+        }
 
-        let mounts = vec![
+        let mut mounts = vec![
             MountSpec {
                 source: workspace.clone(),
                 target: PathBuf::from("/workspace"),
@@ -182,6 +185,11 @@ impl SandboxPlan {
                 read_only: true,
             },
         ];
+        mounts.extend(local_toolchain_rules().into_iter().map(|rule| MountSpec {
+            source: rule.path.clone(),
+            target: rule.path,
+            read_only: true,
+        }));
 
         Self {
             runner_class,
@@ -226,6 +234,26 @@ impl SandboxPlan {
             self.seccomp.name
         )
     }
+}
+
+fn local_toolchain_rules() -> Vec<LandlockRule> {
+    [
+        ("/home/ubuntu/.cargo/bin", true),
+        ("/home/ubuntu/.cargo/config.toml", false),
+        ("/home/ubuntu/.cargo/git/db", false),
+        ("/home/ubuntu/.cargo/git/checkouts", false),
+        ("/home/ubuntu/.cargo/registry", false),
+        ("/home/ubuntu/.rustup", true),
+        ("/home/ubuntu/.local/bin", true),
+    ]
+    .into_iter()
+    .map(|(path, execute)| LandlockRule {
+        path: PathBuf::from(path),
+        read: true,
+        write: false,
+        execute,
+    })
+    .collect()
 }
 
 #[cfg(test)]
@@ -311,6 +339,31 @@ mod tests {
             assert!(rule.read);
             assert!(!rule.write);
             assert!(rule.execute);
+        }
+
+        for (tool_path, execute) in [
+            ("/home/ubuntu/.cargo/bin", true),
+            ("/home/ubuntu/.cargo/config.toml", false),
+            ("/home/ubuntu/.cargo/git/db", false),
+            ("/home/ubuntu/.cargo/git/checkouts", false),
+            ("/home/ubuntu/.cargo/registry", false),
+            ("/home/ubuntu/.rustup", true),
+            ("/home/ubuntu/.local/bin", true),
+        ] {
+            let rule = plan
+                .landlock_rules
+                .iter()
+                .find(|rule| rule.path == Path::new(tool_path))
+                .unwrap_or_else(|| panic!("expected {tool_path} Landlock rule"));
+            assert!(rule.read);
+            assert!(!rule.write);
+            assert_eq!(rule.execute, execute);
+            let mount = plan
+                .mounts
+                .iter()
+                .find(|mount| mount.source == Path::new(tool_path))
+                .unwrap_or_else(|| panic!("expected {tool_path} mount"));
+            assert!(mount.read_only);
         }
 
         let dev_null_rule = plan

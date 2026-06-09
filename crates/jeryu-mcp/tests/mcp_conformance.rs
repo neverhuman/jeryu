@@ -111,6 +111,31 @@ fn manifest_includes_capability_tools() {
             .iter()
             .any(|tool| tool["name"] == "jeryu.get_ci_bottlenecks")
     );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.codegraph.query")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.agent_work.start")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.codegraph.tool_build.clusters")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.control_plane.status")
+    );
+    assert!(
+        manifest
+            .iter()
+            .any(|tool| tool["name"] == "jeryu.runner_fabric.status")
+    );
 }
 
 #[test]
@@ -121,7 +146,7 @@ fn manifest_covers_all_catalog_actions() {
         .filter_map(|tool| tool["name"].as_str().map(ToString::to_string))
         .collect();
 
-    // The 21-tool catalog (replaces the source's action_registry guardrail).
+    // The 42-tool catalog (replaces the source's action_registry guardrail).
     let expected = [
         "fetch_capsule",
         "get_system_snapshot",
@@ -144,11 +169,32 @@ fn manifest_covers_all_catalog_actions() {
         "workcell.repair_live",
         "workcell.export_pr",
         "workcell.release",
+        "agent_work.start",
+        "agent_work.status",
+        "agent_work.control",
+        "agent_work.events",
+        "agent_work.export_pr",
+        "code.symbols.search",
+        "code.definition",
+        "code.impact",
+        "code.crate.reverse_deps",
+        "code.references",
+        "codegraph.query",
+        "codegraph.tool_build.status",
+        "codegraph.tool_build.clusters",
+        "codegraph.tool_build.feedback",
+        "control_plane.status",
+        "control_plane.priorities",
+        "repo_graph.clusters",
+        "repo_graph.query",
+        "remote.status",
+        "artifacts.latest",
+        "runner_fabric.status",
     ];
     assert_eq!(
         names.len(),
-        21,
-        "expected exactly 21 tools, got {}",
+        42,
+        "expected exactly 42 tools, got {}",
         names.len()
     );
     for id in expected {
@@ -226,7 +272,7 @@ async fn stdio_initialize_and_tools_list_work() {
         .await;
     assert_eq!(list.len(), 1);
     assert!(list[0]["result"]["tools"].is_array());
-    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 21);
+    assert_eq!(list[0]["result"]["tools"].as_array().unwrap().len(), 42);
 }
 
 #[tokio::test]
@@ -284,6 +330,130 @@ async fn stdio_tools_call_round_trip() {
         workcell[0]["result"]["structuredContent"]["data"]["state"],
         "ready"
     );
+
+    let codegraph = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.codegraph.query",
+                    "arguments": {
+                        "changed_paths": ["crates/jeryu-codegraph/src/lib.rs"],
+                        "symbol": "CodeGraph",
+                        "crate_name": "jeryu-codegraph"
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(codegraph.len(), 1);
+    let structured = &codegraph[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(structured["data"]["schema_version"], "codegraph.query/v1");
+    assert_eq!(structured["data"]["definition"]["symbol"], "CodeGraph");
+
+    let agent_events = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.agent_work.events",
+                    "arguments": {
+                        "agent_run_id": "ar-memory-000001",
+                        "after_seq": 0,
+                        "limit": 10
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(agent_events.len(), 1);
+    let structured = &agent_events[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(structured["data"]["agent_run_id"], "ar-memory-000001");
+    assert_eq!(structured["data"]["has_more"], false);
+
+    let tool_clusters = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.codegraph.tool_build.clusters",
+                    "arguments": {
+                        "repo": "memory",
+                        "limit": 5
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(tool_clusters.len(), 1);
+    let structured = &tool_clusters[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(
+        structured["data"]["clusters"][0]["cluster_id"],
+        "toolbuild-memory-0001"
+    );
+
+    let feedback = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 8,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.codegraph.tool_build.feedback",
+                    "arguments": {
+                        "cluster_id": "toolbuild-memory-0001",
+                        "reason": "fixture boilerplate",
+                        "ignored_by": "test"
+                    }
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(feedback.len(), 1);
+    let structured = &feedback[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(structured["data"]["reason"], "fixture boilerplate");
+
+    let control_plane = core
+        .handle_line_test(
+            &mut state,
+            &serde_json::to_string(&json!({
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "tools/call",
+                "params": {
+                    "name": "jeryu.control_plane.status",
+                    "arguments": {}
+                }
+            }))
+            .unwrap(),
+        )
+        .await;
+    assert_eq!(control_plane.len(), 1);
+    let structured = &control_plane[0]["result"]["structuredContent"];
+    assert_eq!(structured["success"], true);
+    assert_eq!(
+        structured["data"]["schemaVersion"],
+        "jeryu.control_plane/v1"
+    );
+    assert_eq!(structured["data"]["artifacts"]["absenceIsSuccess"], false);
 }
 
 #[tokio::test]

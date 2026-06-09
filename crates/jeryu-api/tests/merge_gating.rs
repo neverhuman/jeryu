@@ -123,6 +123,13 @@ fn seed_fixture(prefix: &str) -> GitFixture {
     // A fast-forward feature commit on top of main.
     std::fs::write(work.join("FEATURE.md"), "feature\n").expect("write");
     run_git(&work, &["add", "FEATURE.md"], "git add");
+    std::fs::create_dir_all(work.join(".github/workflows")).expect("create workflow dir");
+    std::fs::write(
+        work.join(".github/workflows/ci.yml"),
+        "name: ci\non: [push, pull_request]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ci\n",
+    )
+    .expect("write workflow");
+    run_git(&work, &["add", "."], "git add feature and workflow");
     run_git(&work, &["commit", "-m", "feature"], "git commit");
     run_git(
         &work,
@@ -165,6 +172,15 @@ fn router_with_pr(fixture: &GitFixture) -> (GithubRouter, u64) {
     );
     assert_eq!(opened.status, 201, "open pr: {}", opened.body);
     let number = body(&opened)["number"].as_u64().expect("pr number");
+
+    let runs = router
+        .core()
+        .list_check_runs("acme", "demo", Some(&fixture.head_oid))
+        .expect("list check-runs for head");
+    assert!(
+        runs.total_count >= 1,
+        "opening a PR should seed CI check-runs, got {runs:?}"
+    );
 
     // Require one approving review on main.
     let protect = router.put(

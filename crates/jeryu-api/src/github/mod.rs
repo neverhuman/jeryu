@@ -35,7 +35,9 @@ use crate::routes::Response;
 
 #[allow(unused_imports)]
 pub(crate) use support::{MCP_GUIDANCE_TOOLS, MCP_RUN_TESTS_TOOL};
-use support::{Pagination, first_contact_response, json_response, not_found};
+use support::{
+    Pagination, first_contact_response, gh_auth_workaround_response, json_response, not_found,
+};
 
 /// Semantic version reported by `GET /api/v1/version`.
 pub const JERYU_API_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -100,6 +102,7 @@ impl GithubRouter {
     /// bodiless GETs). The actor is the authenticated principal; the in-memory
     /// edge defaults it where GitHub would take it from the token.
     pub fn handle(&self, method: Method, path: &str, body: &str) -> Response {
+        let path = normalize_github_path(path);
         // Split a `path?query` so callers (tests, the future HTTP edge) can pass
         // RFC5988 list pagination as `?per_page=&page=` without the query
         // leaking into segment matching.
@@ -143,6 +146,12 @@ impl GithubRouter {
             )),
             // Steering: first-contact doc for a confused agent on the REST edge.
             (Get, [".jeryu", "agents", "first-contact"]) => Ok(first_contact_response()),
+            (
+                _,
+                ["login", "device", "code"]
+                | ["login", "oauth", "access_token"]
+                | ["login", "oauth", "authorize"],
+            ) => Ok(gh_auth_workaround_response(path)),
             (Get, ["api", "v1", "version"]) => Ok(json_response(
                 200,
                 &json!({ "version": JERYU_API_VERSION, "name": "jeryu-api" }),
@@ -260,5 +269,20 @@ impl GithubRouter {
 
             _ => Err(404),
         }
+    }
+}
+
+fn normalize_github_path(path: &str) -> &str {
+    let Some(rest) = path.strip_prefix("/api/v3") else {
+        return path;
+    };
+    if rest.is_empty() || rest.starts_with('/') || rest.starts_with('?') {
+        if rest.is_empty() || rest.starts_with('?') {
+            "/"
+        } else {
+            rest
+        }
+    } else {
+        path
     }
 }

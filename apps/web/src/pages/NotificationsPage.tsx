@@ -41,7 +41,7 @@ export function NotificationsPage(): JSX.Element {
   }, [markSeen]);
 
   return (
-    <div className="page">
+    <div className="page" data-testid="notifications-page">
       <header className="page__header">
         <h1 className="page__title">Notifications</h1>
         <p className="page__subtitle">

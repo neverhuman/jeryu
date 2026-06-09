@@ -22,11 +22,24 @@ Run these from the canonical repository root before creating a release receipt:
   when the workspace version source, changelog roll-forward, or release bump
   policy changes.
 - `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or frozen CI repair helpers change.
-- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the workcells dashboard or bootstrap feature flags change.
+- `cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40` when the workcells,
+  agent-runs, codegraph/oracle dashboard, or TUI projection contract changes.
+- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when bootstrap feature flags or generated web contracts change.
 - `cargo test -p jeryu-api --features web --jobs 40`
+- `cargo test -p jeryu-api --features web --jobs 40 agent_runs` when the high-level agent-run route or PTY controls change.
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the jailed workcell edit, namespaced branch export, PR creation, or CI evidence flow changes.
 - `cargo clippy -p jeryu-api --features web --all-targets --jobs 40 -- -D warnings`
   when public API routes or repair bodies change.
+- `bash ops/ci/codegraph-oracle.sh` when the schema-v3 codegraph oracle API or
+  MCP contract changes.
+- `cargo test -p jeryu-api --features web --jobs 40 control_plane`,
+  `cargo test -p jeryu-mcp --jobs 40`,
+  `cargo test -p jeryu-cli --jobs 40`,
+  `npm --workspace @jeryu/web run typecheck`, and
+  `npm --workspace @jeryu/web run test` when the JMCP control-plane REST, MCP,
+  CLI, or web Intelligence surface changes.
+- `cargo test -p jeryu-signrail --jobs 40 verify_release` when SignRail release
+  verification changes.
 - `just security`
 - `just audit`
 
@@ -55,6 +68,10 @@ Each final release receipt uses schema `jeryu.release-receipt/v2` and records:
 - `jeryu-wsversion decide --json` evidence for the released commit range and
   `inherit-guard` evidence for workspace member manifests;
 - `target/jankurai/` proof artifacts;
+- MCP/catalog trust evidence for changed local agent-facing commands, including
+  `agent/tool-adoption.toml`, the pinned `ops/ci/security-tools.sh` transcript,
+  `cargo test -p jeryu-mcp --test mcp_conformance --jobs 40`, and any composed
+  route/tool contract lane such as `bash ops/ci/codegraph-oracle.sh`;
 - SPDX and CycloneDX SBOM digests;
 - provenance checksum and cosign transcript path;
 - migration, restore, and rollback evidence;
@@ -66,6 +83,11 @@ Each final release receipt uses schema `jeryu.release-receipt/v2` and records:
   and `SHA256SUMS` itself;
 - public API route evidence for changed endpoints, including response-contract
   tests, typed repair guidance, and digest-verifiable CI evidence payloads;
+- JMCP control-plane evidence when that surface changes, including explicit
+  mirror/artifact absence states, MCP catalog conformance, CLI grammar,
+  fail-closed dispatch, and `/intelligence` web smoke;
+- agent-run and codegraph-oracle route evidence when those public endpoints
+  change;
 
 ## Tagging
 

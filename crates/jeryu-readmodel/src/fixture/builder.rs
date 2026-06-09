@@ -2,8 +2,10 @@
 
 use chrono::{DateTime, Utc};
 
+use crate::dashboards::agent_runs::AgentRunsDashboard;
 use crate::dashboards::agents::AgentsSnapshot;
 use crate::dashboards::approvals::ApprovalsSnapshot;
+use crate::dashboards::codegraph::CodegraphDashboard;
 use crate::dashboards::evidence::EvidenceSnapshot;
 use crate::dashboards::release::ReleaseSnapshot;
 use crate::dashboards::runners::RunnersDashboard;
@@ -78,6 +80,16 @@ impl TuiReadModelBuilder {
 
     pub fn agents(mut self, agents: AgentsSnapshot) -> Self {
         self.model.agents = agents;
+        self
+    }
+
+    pub fn agent_runs(mut self, agent_runs: AgentRunsDashboard) -> Self {
+        self.model.agent_runs = agent_runs;
+        self
+    }
+
+    pub fn codegraph(mut self, codegraph: CodegraphDashboard) -> Self {
+        self.model.codegraph = codegraph;
         self
     }
 

@@ -36,7 +36,7 @@ export function DashboardPage(): JSX.Element {
 
   if (demoState === 'loading' || bootstrap.isPending) {
     return (
-      <div className="page">
+      <div className="page" data-testid="dashboard-page">
         <DemoStateSwitcher value={demoState} onChange={setDemoState} />
         <LoadingState
           title="Loading dashboard"
@@ -49,7 +49,7 @@ export function DashboardPage(): JSX.Element {
 
   if (demoState === 'error' || bootstrap.isError) {
     return (
-      <div className="page">
+      <div className="page" data-testid="dashboard-page">
         <DemoStateSwitcher value={demoState} onChange={setDemoState} />
         <ErrorState
           title="Could not load the dashboard."
@@ -77,7 +77,7 @@ export function DashboardPage(): JSX.Element {
 
   if (demoState === 'denied') {
     return (
-      <div className="page">
+      <div className="page" data-testid="dashboard-page">
         <DemoStateSwitcher value={demoState} onChange={setDemoState} />
         <PermissionDeniedState
           title="Dashboard requires sign-in"
@@ -99,7 +99,7 @@ export function DashboardPage(): JSX.Element {
   const flags = data?.feature_flags;
 
   return (
-    <div className="page">
+    <div className="page" data-testid="dashboard-page">
       <header className="page__header">
         <div className="page__welcome">
           <h1 className="page__title">Welcome back</h1>

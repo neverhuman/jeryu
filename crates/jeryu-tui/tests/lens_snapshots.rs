@@ -176,6 +176,33 @@ fn evidence_lens_renders_proof_receipts_from_read_model() {
     assert!(ink.contains("allow"), "allow decision not projected");
     assert!(ink.contains("deny"), "deny decision not projected");
     assert!(ink.contains("17 capsules"), "capsule count not projected");
+    assert!(ink.contains("codegraph v2"), "schema evidence missing");
+    assert!(ink.contains("codegraph.query"), "oracle tool not projected");
+    assert!(
+        ink.contains("AgentRunStore"),
+        "oracle symbol evidence not projected"
+    );
+    assert!(
+        ink.contains("codegraph-oracle"),
+        "proof lane evidence not projected"
+    );
+    assert!(
+        ink.contains("Tool-building opportunities"),
+        "tool-building opportunity section missing"
+    );
+    assert!(
+        ink.contains("toolbuild-agent-runner"),
+        "tool-building cluster id not projected"
+    );
+    assert!(ink.contains("core/api"), "tool-building repo not projected");
+    assert!(
+        ink.contains("codegraph-tool-build"),
+        "tool-building proof lane not projected"
+    );
+    assert!(
+        !ink.contains("not yet ported"),
+        "placeholder leaked into evidence lens"
+    );
 }
 
 // ── Agents lens ────────────────────────────────────────────────────────────
@@ -189,6 +216,15 @@ fn agents_lens_renders_fleet_from_read_model() {
         ink.contains("agent-wrath-17"),
         "agent session not projected"
     );
+    assert!(ink.contains("run-pty-18"), "agent run not projected");
+    assert!(ink.contains("live tty"), "live TTY state not projected");
+    assert!(
+        ink.contains("send_input"),
+        "control affordance not projected"
+    );
+    assert!(ink.contains("wc-18"), "failed-CI workcell not projected");
+    assert!(ink.contains("held_failed_ci"), "repair state not projected");
+    assert!(ink.contains("export_ready"), "export state not projected");
     assert!(ink.contains("blocked"), "blocked status not projected");
 }
 

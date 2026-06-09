@@ -1,0 +1,42 @@
+schema_version = "1.0.0"
+purpose = "agent-edit native CLI execution contract"
+
+[[tools]]
+id = "codex"
+category = "native_cli"
+version = "0.136.0"
+binary = "codex"
+observed_path = "/home/ubuntu/.npm-global/bin/codex"
+observed_digest = "sha256:aa3c64b122c9d06bf48eaf988f5970aa69556d69506c3118cf07d10b2401b48a"
+health_command = ["codex", "--version"]
+requires_portable_auth = true
+
+[[tools]]
+id = "claude"
+category = "native_cli"
+version = "2.1.162"
+binary = "claude"
+observed_path = "/home/ubuntu/.local/bin/claude"
+observed_digest = "sha256:947a49b0de8688f6a74a6e753c24771ff3ddd17b2a6dae85f36304ec514e61d1"
+health_command = ["claude", "--version"]
+requires_portable_auth = true
+
+[[tools]]
+id = "jekko"
+category = "native_cli"
+version = "2.0.6"
+binary = "jekko"
+observed_path = "/home/ubuntu/.local/bin/jekko"
+observed_digest = "sha256:547dc05bca5bacd562a2296061acecbcf905f44b53a3335e587f31478defe2e2"
+health_command = ["jekko", "--version"]
+requires_portable_auth = true
+
+[[tools]]
+id = "jankurai"
+category = "audit_cli"
+version = "1.6.10"
+binary = "jankurai"
+observed_path = "/home/ubuntu/.local/bin/jankurai"
+observed_digest = "sha256:bb8d0866f78ed18fa3c3617940f4e349bdb46aedcd7dcb19af518d2351b6a3ad"
+health_command = ["jankurai", "doctor"]
+requires_portable_auth = false

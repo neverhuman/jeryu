@@ -37,6 +37,13 @@ export function useShellCommands(): void {
         shortcut: 'g m',
       },
       {
+        id: 'nav.intelligence',
+        title: 'Go to Intelligence',
+        keywords: ['jmcp', 'control-plane', 'priority', 'graph'],
+        icon: 'activity',
+        target: { kind: 'route', path: '/intelligence' },
+      },
+      {
         id: 'nav.notifications',
         title: 'Go to Notifications',
         keywords: ['notify', 'alerts'],

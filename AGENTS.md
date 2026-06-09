@@ -40,6 +40,14 @@ Hard rules:
 - Keep legacy-provider evidence out of code, docs, fixtures, tests, and ops.
 - Route repairable failures through typed errors with `purpose`, `reason`,
   `common_fixes`, `docs_url`, and `repair_hint`.
+- Jeryu access contract: do not run `gh auth login`, `gh auth refresh`, or
+  token-hunting workarounds for a Jeryu host. Use `jeryu gh-setup --host
+  <local-jeryu-url>` for GitHub CLI host entries, `/.jeryu/capabilities` for
+  route/tool discovery, and `jeryu agent auth doctor/import` for portable
+  native CLI credentials.
 - Any new public path must be mapped in owner-map and test-map.
 - Any generated artifact must be declared under generated zones.
+- Agents may not create temporary repo copies, sibling branch folders, `/tmp`
+  worktrees, archives, or duplicate roots. Use normal git branches or
+  registered git worktrees under `.worktrees/` only.
 - Do not remove a workcell security guard (jail secret/other-repo denial, egress deny-by-default, cgroup fail-closed, record-only auto-merge) without its negative regression test going red first — every such test asserts a flip-the-guard signal, not a tautology. See `docs/testing.md` and `docs/boundaries.md`.

@@ -69,6 +69,10 @@ pub struct WorkcellItem {
     pub failed_receipt_id: Option<String>,
     pub allowed_paths: Vec<String>,
     pub failure_log_digest: Option<String>,
+    #[serde(default)]
+    pub repair_state: Option<String>,
+    #[serde(default)]
+    pub export_state: Option<String>,
 }
 
 impl WorkcellItem {
@@ -96,6 +100,8 @@ impl WorkcellItem {
             failed_receipt_id: None,
             allowed_paths: Vec::new(),
             failure_log_digest: None,
+            repair_state: None,
+            export_state: None,
         }
     }
 }

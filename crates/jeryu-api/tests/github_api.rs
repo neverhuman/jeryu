@@ -42,6 +42,10 @@ fn version_and_health_are_github_shaped() {
     let parsed_user = body(&user);
     assert_eq!(parsed_user["login"], "jeryu");
     assert_eq!(parsed_user["type"], "User");
+
+    let enterprise_user = router.get("/api/v3/user");
+    assert_eq!(enterprise_user.status, 200);
+    assert_eq!(body(&enterprise_user)["login"], "jeryu");
 }
 
 #[test]
@@ -58,6 +62,10 @@ fn create_and_get_repository_returns_github_shaped_json() {
     // GitHub nests the owner as an object with a `login`, not a bare string.
     assert_eq!(repo["owner"]["login"], "alice");
     assert_eq!(repo["owner"]["type"], "User");
+
+    let enterprise_created = router.get("/api/v3/repos/alice/jeryu");
+    assert_eq!(enterprise_created.status, 200);
+    assert_eq!(body(&enterprise_created)["full_name"], "alice/jeryu");
 
     let listed = router.get("/repos");
     assert_eq!(listed.status, 200);
@@ -906,8 +914,52 @@ fn first_contact_returns_a_steering_doc() {
             .any(|line| line.as_str().unwrap_or("").contains("/.jeryu/capabilities")),
         "advice points at the capability manifest"
     );
+    assert!(
+        advice
+            .iter()
+            .any(|line| line.as_str().unwrap_or("").contains("gh auth login")),
+        "advice blocks direct gh auth"
+    );
+    assert_eq!(
+        parsed["gh_auth_policy"]["run_instead"],
+        "jeryu gh-setup --host http://127.0.0.1:8787 --token JERYU-TOKEN"
+    );
     for tool in parsed["mcp_tools"].as_array().expect("mcp_tools array") {
         assert!(tool.as_str().unwrap().starts_with("jeryu."));
+    }
+}
+
+#[test]
+fn gh_auth_workaround_paths_return_typed_jeryu_guidance() {
+    let router = GithubRouter::new();
+    for (method, path) in [
+        (Method::Post, "/login/device/code"),
+        (Method::Post, "/login/oauth/access_token"),
+        (Method::Get, "/login/oauth/authorize"),
+        (Method::Post, "/api/v3/login/device/code"),
+    ] {
+        let response = router.handle(method, path, "{}");
+        assert_eq!(response.status, 501, "{path}: {}", response.body);
+        let parsed = body(&response);
+        assert_eq!(
+            parsed["jeryu_repair_hint"]["purpose"],
+            "route GitHub CLI auth setup through Jeryu"
+        );
+        assert!(
+            parsed["jeryu_repair_hint"]["common_fixes"]
+                .as_array()
+                .expect("common fixes")
+                .iter()
+                .any(|fix| fix.as_str().unwrap_or("").contains("jeryu gh-setup")),
+            "guidance must point agents at jeryu gh-setup"
+        );
+        assert!(
+            parsed["jeryu_repair_hint"]["reason"]
+                .as_str()
+                .expect("reason")
+                .contains("gh auth login"),
+            "reason must name the wrong workaround"
+        );
     }
 }
 

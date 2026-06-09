@@ -165,6 +165,7 @@ async fn export_pr_with_mismatched_id_is_400_before_any_git() {
     let resp = super::workcells::export_pr(
         State(state),
         AxumPath("wc-real".into()),
+        axum::http::HeaderMap::new(),
         axum::body::Bytes::from(serde_json::to_vec(&body).unwrap()),
     )
     .await;

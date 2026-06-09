@@ -13,7 +13,9 @@ use std::path::Path;
 use jeryu_rustjet::{PublicApiDetector, WorkspaceGraph};
 
 use crate::error::{CodeGraphError, Result};
-use crate::storage::{CodeGraphStore, CrateDepRow, GraphSnapshot, SymbolRow};
+use crate::storage::{
+    CodeGraphStore, CrateDepRow, FileRow, GraphSnapshot, SymbolRefRow, SymbolRow,
+};
 
 /// An in-memory code graph for a workspace.
 #[derive(Debug, Clone, Default)]
@@ -49,9 +51,29 @@ impl CodeGraph {
         let detector = PublicApiDetector::new();
         let mut symbols = Vec::new();
         let mut crate_deps_rows = Vec::new();
+        let mut files: BTreeMap<String, FileRow> = BTreeMap::new();
         let mut crate_deps: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
         for package in workspace.packages() {
+            let manifest_path = if package.relative_root == "." {
+                "Cargo.toml".to_string()
+            } else {
+                format!("{}/Cargo.toml", package.relative_root)
+            };
+            files.entry(manifest_path.clone()).or_insert(FileRow {
+                repo_id: String::new(),
+                commit_sha: String::new(),
+                path: manifest_path,
+                crate_name: Some(package.name.clone()),
+                language: "cargo_toml".to_string(),
+                owner: None,
+                test_lane: None,
+                proof_lanes: Vec::new(),
+                generated_zone: None,
+                editable: true,
+                provenance_json: "[]".to_string(),
+            });
+
             // Record workspace-internal dependency edges.
             let deps = workspace.direct_dependencies_of(&package.name);
             let entry = crate_deps.entry(package.name.clone()).or_default();
@@ -66,6 +88,19 @@ impl CodeGraph {
             // Walk src/*.rs and index public symbols via the rustjet detector.
             let src_dir = package.root.join("src");
             for relative in collect_rust_sources(&src_dir, &package.relative_root)? {
+                files.entry(relative.clone()).or_insert(FileRow {
+                    repo_id: String::new(),
+                    commit_sha: String::new(),
+                    path: relative.clone(),
+                    crate_name: Some(package.name.clone()),
+                    language: "rust".to_string(),
+                    owner: None,
+                    test_lane: None,
+                    proof_lanes: Vec::new(),
+                    generated_zone: None,
+                    editable: true,
+                    provenance_json: "[]".to_string(),
+                });
                 // `relative` is repo-relative (e.g. crates/foo/src/lib.rs).
                 let inside = package
                     .path_inside_package(&relative)
@@ -102,6 +137,10 @@ impl CodeGraph {
             snapshot: GraphSnapshot {
                 symbols,
                 crate_deps: crate_deps_rows,
+                symbol_refs: Vec::new(),
+                files: files.into_values().collect(),
+                governance: Vec::new(),
+                index_runs: Vec::new(),
             },
             crate_deps,
         })
@@ -171,6 +210,53 @@ impl CodeGraph {
     #[must_use]
     pub fn crate_dependencies(&self) -> &BTreeMap<String, BTreeSet<String>> {
         &self.crate_deps
+    }
+
+    /// Search in-memory symbols by symbol, file, or crate substring.
+    #[must_use]
+    pub fn search_symbols(&self, query: &str, limit: usize) -> Vec<SymbolRow> {
+        let needle = query.to_ascii_lowercase();
+        self.snapshot
+            .symbols
+            .iter()
+            .filter(|row| {
+                row.symbol.to_ascii_lowercase().contains(&needle)
+                    || row.file.to_ascii_lowercase().contains(&needle)
+                    || row.crate_name.to_ascii_lowercase().contains(&needle)
+            })
+            .take(limit.max(1))
+            .cloned()
+            .collect()
+    }
+
+    /// Return the first exact symbol definition.
+    #[must_use]
+    pub fn definition(&self, symbol: &str) -> Option<SymbolRow> {
+        self.snapshot
+            .symbols
+            .iter()
+            .find(|row| row.symbol == symbol)
+            .cloned()
+    }
+
+    /// Return reference rows for an exact symbol name.
+    #[must_use]
+    pub fn references(&self, symbol: &str) -> Vec<SymbolRefRow> {
+        self.snapshot
+            .symbol_refs
+            .iter()
+            .filter(|row| row.symbol == symbol)
+            .cloned()
+            .collect()
+    }
+
+    /// Return direct reverse dependencies for `crate_name`.
+    #[must_use]
+    pub fn reverse_deps(&self, crate_name: &str) -> Vec<String> {
+        self.crate_deps
+            .iter()
+            .filter_map(|(candidate, deps)| deps.contains(crate_name).then_some(candidate.clone()))
+            .collect()
     }
 }
 

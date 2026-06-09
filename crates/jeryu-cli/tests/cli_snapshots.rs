@@ -152,12 +152,65 @@ fn top_level_excludes_removed_commands() {
 fn top_level_includes_renamed_commands() {
     let names = top_level_names();
     for required in [
-        "forge", "ci", "runner", "proof", "release", "cache", "gh-setup", "autonomy", "onboard",
+        "forge",
+        "ci",
+        "runner",
+        "agent",
+        "proof",
+        "release",
+        "cache",
+        "status",
+        "priorities",
+        "repo-graph",
+        "artifacts",
+        "runners",
+        "gh-setup",
+        "autonomy",
+        "onboard",
     ] {
         assert!(
             names.iter().any(|n| n == required),
             "required top-level command {required:?} missing from {names:?}"
         );
+    }
+}
+
+#[test]
+fn control_plane_commands_parse() {
+    use jeryu_cli::cli::{ArtifactsCommands, RepoGraphCommands, RunnersCommands};
+
+    let cli =
+        Cli::try_parse_from(["jeryu", "priorities", "--limit", "3"]).expect("priorities parses");
+    match cli.command {
+        Commands::Priorities { limit } => assert_eq!(limit, Some(3)),
+        other => panic!("unexpected parse: {other:?}"),
+    }
+
+    let cli = Cli::try_parse_from([
+        "jeryu",
+        "repo-graph",
+        "clusters",
+        "--cluster-kind",
+        "ci_blocker",
+    ])
+    .expect("repo graph clusters parses");
+    match cli.command {
+        Commands::RepoGraph(RepoGraphCommands::Clusters { cluster_kind, .. }) => {
+            assert_eq!(cluster_kind.as_deref(), Some("ci_blocker"));
+        }
+        other => panic!("unexpected parse: {other:?}"),
+    }
+
+    let cli = Cli::try_parse_from(["jeryu", "artifacts", "latest"]).expect("artifacts parses");
+    match cli.command {
+        Commands::Artifacts(ArtifactsCommands::Latest { repo }) => assert!(repo.is_none()),
+        other => panic!("unexpected parse: {other:?}"),
+    }
+
+    let cli = Cli::try_parse_from(["jeryu", "runners", "status"]).expect("runners parses");
+    match cli.command {
+        Commands::Runners(RunnersCommands::Status) => {}
+        other => panic!("unexpected parse: {other:?}"),
     }
 }
 
@@ -313,6 +366,37 @@ fn runner_enroll_defaults_to_native_executor() {
         Commands::Runner(RunnerCommands::Enroll { node, executor }) => {
             assert_eq!(node, "node-8");
             assert_eq!(executor, RunnerExecutorArg::Native);
+        }
+        other => panic!("unexpected parse: {other:?}"),
+    }
+}
+
+#[test]
+fn agent_run_parses_required_contract_shape() {
+    use jeryu_cli::cli::{AgentCommands, AgentToolArg};
+    let cli = Cli::try_parse_from([
+        "jeryu",
+        "agent",
+        "run",
+        "--repo",
+        "alice/jeryu",
+        "--agent",
+        "codex",
+        "--model",
+        "model-x",
+        "--effort",
+        "xhigh",
+        "--task-file",
+        "TASK.md",
+    ])
+    .expect("agent run parses");
+    match cli.command {
+        Commands::Agent(AgentCommands::Run(args)) => {
+            assert_eq!(args.repo, "alice/jeryu");
+            assert_eq!(args.agent, AgentToolArg::Codex);
+            assert_eq!(args.model, "model-x");
+            assert_eq!(args.effort, "xhigh");
+            assert_eq!(args.base_ref, "main");
         }
         other => panic!("unexpected parse: {other:?}"),
     }
@@ -549,6 +633,59 @@ fn dispatch_release_and_cache_self_test() {
 }
 
 #[test]
+fn dispatch_agent_auth_import_then_doctor_roundtrips() {
+    let client = InMemoryClient::new();
+    let (code, out, _) = run_cli(
+        &client,
+        &["jeryu", "agent", "auth", "import", "--from-host", "codex"],
+    );
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("imported codex auth"),
+        "auth import stdout was {out:?}"
+    );
+
+    let (code, out, _) = run_cli(&client, &["jeryu", "agent", "auth", "doctor", "codex"]);
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("codex auth ok=true"),
+        "doctor stdout was {out:?}"
+    );
+}
+
+#[test]
+fn dispatch_agent_run_fails_closed_until_runtime_is_wired() {
+    let client = InMemoryClient::new();
+    let task = tempfile::NamedTempFile::new().expect("task file");
+    std::fs::write(task.path(), "fix the failing test").expect("write task");
+    let path = task.path().to_string_lossy().to_string();
+    let (code, out, err) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "agent",
+            "run",
+            "--repo",
+            "alice/jeryu",
+            "--agent",
+            "codex",
+            "--model",
+            "model-x",
+            "--task-file",
+            &path,
+        ],
+    );
+    assert_eq!(code, 5, "NotWired maps to exit code 5");
+    assert!(out.is_empty(), "no stdout on denied launch");
+    assert!(
+        err.contains("not yet wired")
+            && err.contains("protected runner PTY")
+            && err.contains("required stream"),
+        "stderr must explain the fail-closed runtime gap: {err:?}"
+    );
+}
+
+#[test]
 fn dispatch_issue_create_success_and_missing_repo_maps_to_exit_code_2_and_names_repo() {
     // This test pins the *full* contract of one command shape
     // (`forge issue create`): the positive path (repo exists) AND the
@@ -660,6 +797,10 @@ fn dispatch_gh_setup_print_does_not_write_and_dumps_entry() {
     // The host key is the authority (no scheme, no port-stripping surprises).
     assert!(out.contains("forge.example:9000:"), "stdout was {out:?}");
     assert!(out.contains("oauth_token: tok"), "stdout was {out:?}");
+    assert!(
+        out.contains("do not run gh auth login"),
+        "stdout was {out:?}"
+    );
     // --print must not create the file.
     assert!(
         !std::path::Path::new("/definitely/not/written.yml").exists(),
@@ -689,6 +830,10 @@ fn dispatch_gh_setup_writes_idempotent_hosts_file() {
     assert_eq!(code, 0);
     assert!(
         out.contains("wrote gh host localhost:8080"),
+        "stdout {out:?}"
+    );
+    assert!(
+        out.contains("do not run gh auth login"),
         "stdout {out:?}"
     );
     let first = std::fs::read_to_string(&path).expect("hosts.yml written");
@@ -820,6 +965,29 @@ fn dispatch_onboard_without_dry_run_is_not_wired_exit_5() {
     );
     assert!(out.is_empty(), "no stdout on error, got {out:?}");
     assert!(err.contains("not yet wired"), "stderr was {err:?}");
+}
+
+#[test]
+fn dispatch_control_plane_commands_require_live_api_url() {
+    let client = InMemoryClient::new();
+    for argv in [
+        vec!["jeryu", "status"],
+        vec!["jeryu", "priorities"],
+        vec!["jeryu", "repo-graph", "clusters"],
+        vec!["jeryu", "artifacts", "latest"],
+        vec!["jeryu", "runners", "status"],
+    ] {
+        let (code, out, err) = run_cli(&client, &argv);
+        assert_eq!(code, 5, "argv {argv:?} should fail closed without API URL");
+        assert!(
+            out.is_empty(),
+            "no stdout on error for {argv:?}, got {out:?}"
+        );
+        assert!(
+            err.contains("--api-url") || err.contains("JERYU_API_URL"),
+            "stderr for {argv:?} was {err:?}"
+        );
+    }
 }
 
 #[test]

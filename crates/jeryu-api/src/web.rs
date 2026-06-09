@@ -1,11 +1,17 @@
 //! Axum HTTP/WebSocket edge for the local live Jeryu API.
 
+mod agent_runs;
 mod ci_evidence;
+mod codegraph;
+mod control_plane;
 mod ecosystem;
 mod markdown;
+mod mcp_backend;
 mod permissions;
+mod pulls;
 mod repositories;
 mod surface;
+mod tool_build;
 mod workcells;
 mod workcells_support;
 mod ws;
@@ -21,6 +27,7 @@ use axum::middleware::{Next, from_fn};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use axum::routing::{any, get, post};
 use axum::{Json, Router as AxumRouter};
+use jeryu_codegraph::CodeGraphStore;
 use jeryu_core::ForgeCore;
 use jeryu_readmodel::TuiReadModel;
 use serde_json::{Value, json};
@@ -64,6 +71,10 @@ pub(crate) struct WebState {
     ws: WsHub,
     /// In-memory workcell controller for claim/repair/export/release flows.
     pub(crate) workcells: Arc<Mutex<WorkcellManager>>,
+    /// Live high-level agent-run registry and control channels.
+    pub(crate) agent_runs: agent_runs::AgentRunStore,
+    /// Auxiliary codegraph SQLite store for read-only oracle queries.
+    pub(crate) codegraph_store: CodeGraphStore,
     /// Shared git-daemon repository manager backing the smart-HTTP transport.
     pub(crate) repo_manager: Arc<RepoManager>,
     /// Forge handle for the push->CI bridge (shares state with `github`).
@@ -81,12 +92,22 @@ impl WebState {
         let tui = crate::read_model::assemble_read_model(&core);
         // ForgeCore is Arc-backed, so this handle shares state with `github`.
         let core_handle = core.clone();
+        #[cfg(test)]
+        let codegraph_store = CodeGraphStore::open(std::env::temp_dir().join(format!(
+            "jeryu-web-codegraph-{}.sqlite",
+            jeryu_runner_core::receipt::now_ms()
+        )))
+        .expect("test codegraph store");
+        #[cfg(not(test))]
+        let codegraph_store = CodeGraphStore::open_default().expect("open codegraph store");
         Self {
-            github: GithubRouter::with_core(core),
+            github: GithubRouter::with_core(core).with_repo_manager(repo_manager.clone()),
             tui,
             spa_dir,
             ws: WsHub::new(),
             workcells: Arc::new(Mutex::new(WorkcellManager::new())),
+            agent_runs: agent_runs::AgentRunStore::new(),
+            codegraph_store,
             repo_manager,
             core: core_handle,
         }
@@ -231,8 +252,9 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
     let mut state = state;
     state.spa_dir = spa_dir.to_path_buf();
     let spa = ServeDir::new(spa_dir).fallback(ServeFile::new(spa_dir.join("index.html")));
+    let state = Arc::new(state);
     let mcp_state = Arc::new(jeryu_mcp::McpHttpState::new(Arc::new(
-        jeryu_mcp::MemoryBackend::new(),
+        mcp_backend::WebMcpBackend::new(state.clone()),
     )));
     AxumRouter::new()
         .route("/health", get(health))
@@ -241,6 +263,17 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/.jeryu/capabilities", get(capabilities))
         .route("/api/v1/bootstrap", get(bootstrap))
         .route("/api/v1/bootstrap.tui", get(bootstrap_tui))
+        .route(
+            "/api/v1/agent-runs",
+            get(agent_runs::list).post(agent_runs::start),
+        )
+        .route("/api/v1/agent-runs/:id", get(agent_runs::status))
+        .route("/api/v1/agent-runs/:id/events", get(agent_runs::events))
+        .route("/api/v1/agent-runs/:id/control", post(agent_runs::control))
+        .route(
+            "/api/v1/agent-runs/:id/export_pr",
+            post(agent_runs::export_pr),
+        )
         .route(
             "/api/v1/workcells",
             get(workcells::list).post(workcells::claim),
@@ -265,10 +298,58 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         )
         .route("/api/v1/repos", get(repos))
         .route("/api/v1/repos/:id", get(repo_detail))
+        .route("/api/v1/repos/:id/pulls", get(pulls::list))
+        .route("/api/v1/repos/:id/pulls/:number", get(pulls::detail))
+        .route("/api/v1/repos/:id/pulls/:number/diff", get(pulls::diff))
+        .route("/api/v1/repos/:id/pulls/:number/checks", get(pulls::checks))
+        .route(
+            "/api/v1/repos/:id/pulls/:number/threads",
+            get(pulls::threads),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/reviews",
+            post(pulls::review),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/comments",
+            post(pulls::comment),
+        )
+        .route(
+            "/api/v1/repos/:id/pulls/:number/approve",
+            post(pulls::approve),
+        )
+        .route("/api/v1/repos/:id/pulls/:number/merge", post(pulls::merge))
         .route("/api/v1/repos/:id/refs", get(repo_refs))
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))
         .route("/api/v1/repos/:id/raw", get(repo_raw))
+        .route("/api/v1/repos/:id/codegraph/query", post(codegraph::query))
+        .route(
+            "/api/v1/codegraph/tool-build/status",
+            get(tool_build::status),
+        )
+        .route(
+            "/api/v1/codegraph/tool-build/clusters",
+            get(tool_build::clusters),
+        )
+        .route(
+            "/api/v1/codegraph/tool-build/clusters/:id/feedback",
+            post(tool_build::feedback),
+        )
+        .route("/api/v1/control-plane/status", get(control_plane::status))
+        .route(
+            "/api/v1/control-plane/priorities",
+            get(control_plane::priorities),
+        )
+        .route(
+            "/api/v1/control-plane/repo-graph",
+            get(control_plane::repo_graph),
+        )
+        .route(
+            "/api/v1/control-plane/artifacts/latest",
+            get(control_plane::artifacts_latest),
+        )
+        .route("/api/v1/control-plane/runners", get(control_plane::runners))
         .route(
             "/api/v1/repos/:id/readme",
             get(repo_readme).put(repo_readme_update),
@@ -286,8 +367,18 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         .route("/user", any(github_forward))
         .route("/users/:login", any(github_forward))
         .route("/api/v1/version", any(github_forward))
+        .route("/api/v3", any(github_forward))
+        .route("/api/v3/user", any(github_forward))
+        .route("/api/v3/users/:login", any(github_forward))
+        .route("/api/v3/repos", any(repo_entry))
+        .route("/api/v3/repos/*rest", any(repo_entry))
+        .route("/api/v3/graphql", any(github_forward))
         .route("/repos", any(repo_entry))
         .route("/repos/*rest", any(repo_entry))
+        // Explicitly catch gh auth login/device-flow attempts so agents get a
+        // typed Jeryu repair path instead of falling through to the SPA.
+        .route("/login/*rest", any(github_forward))
+        .route("/api/v3/login/*rest", any(github_forward))
         // Steering: first-contact doc for a confused agent on the REST edge.
         .route("/.jeryu/agents/first-contact", any(github_forward))
         // Git smart-HTTP transport on the unified listener so `git clone`/`push`
@@ -310,7 +401,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         // Response middleware that stamps every reply with advisory steering
         // headers (and a per-route MCP tool hint for gh/automation UAs).
         .layer(from_fn(steer_headers))
-        .with_state(Arc::new(state))
+        .with_state(state)
         .merge(jeryu_mcp::mcp_router(mcp_state))
 }
 
@@ -421,6 +512,9 @@ fn capabilities_payload() -> Value {
         "mcp_endpoint": "/mcp",
         "mcp_tools": MCP_GUIDANCE_TOOLS,
         "gh_command_map": {
+            "gh auth login": "Do not run direct gh auth against a Jeryu host; run jeryu gh-setup --host <local-jeryu-url> instead.",
+            "gh auth refresh": "Do not refresh host auth manually; rerun jeryu gh-setup for the Jeryu host entry.",
+            "gh auth status": "If status fails for the Jeryu host, do not start a login flow; rerun jeryu gh-setup and inspect /.jeryu/capabilities.",
             "gh pr create": MCP_PATCH_TOOL,
             "gh pr merge": MCP_MERGE_TOOL,
             "gh pr list": "GET /repos/{owner}/{repo}/pulls",
@@ -434,6 +528,11 @@ fn capabilities_payload() -> Value {
             "gh issue create": MCP_ISSUE_TOOL,
             "gh api": "Use /.jeryu/capabilities and the listed jeryu.* MCP tools; unsupported REST returns guided JSON.",
             "gh repo create": "POST /repos",
+        },
+        "gh_auth_policy": {
+            "do_not_run": ["gh auth login", "gh auth refresh", "credential-store token hunting"],
+            "run_instead": "jeryu gh-setup --host http://127.0.0.1:8787 --token JERYU-TOKEN",
+            "agent_auth": "jeryu agent auth doctor <tool>; jeryu agent auth import --from-host <tool>",
         },
         "fast_path_advice":
             "Prefer the jeryu MCP tools for mutations; gh REST/GraphQL is supported but slower.",
@@ -511,6 +610,9 @@ fn ci_evidence_not_found_error() -> AxumResponse {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod agent_runs_tests;
 
 #[cfg(test)]
 mod workcell_surface_tests;

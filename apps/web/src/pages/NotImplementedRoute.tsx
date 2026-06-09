@@ -19,6 +19,7 @@ export interface NotImplementedRouteProps {
   /** Tracking reference for the work package that delivers this route. */
   workPackage: string;
   description?: string;
+  testId?: string;
   /** Optional content to render above the empty state. */
   preface?: ReactNode;
 }
@@ -27,10 +28,11 @@ export function NotImplementedRoute({
   title,
   workPackage,
   description,
+  testId,
   preface,
 }: NotImplementedRouteProps): JSX.Element {
   return (
-    <div className="page">
+    <div className="page" data-testid={testId}>
       <header className="page__header">
         <h1 className="page__title">{title}</h1>
         {description ? (

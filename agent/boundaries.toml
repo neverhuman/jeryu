@@ -48,6 +48,7 @@ root_paths = ["db"]
 migration_paths = ["db/migrations"]
 constraint_paths = ["db/constraints.md", "db/migrations"]
 status = "active"
+auxiliary_driver_paths = ["crates/jeryu-codegraph"]
 
 [queues]
 adapter_paths = ["crates/jeryu-ci-scheduler", "crates/jeryu-runnerd"]
@@ -55,6 +56,11 @@ event_contract_paths = ["crates/jeryu-ci-ir", "crates/jeryu-runner-protocol"]
 generated_type_paths = ["crates/jeryu-readmodel"]
 
 [agent]
-tool_paths = ["crates/jeryu-mcp", "crates/jeryu-agentbridge"]
+tool_paths = [
+  "crates/jeryu-mcp",
+  "crates/jeryu-agentbridge",
+  "crates/jeryu-agent-auth",
+  "crates/jeryu-agent-stream",
+]
 write_policy = "dry-run-before-mutation"
 receipt_policy = "all writes emit receipts"

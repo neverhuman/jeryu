@@ -23,7 +23,7 @@ export function AdminSettingsPage(): JSX.Element {
   const setDensity = usePreferencesStore((s) => s.setDensity);
 
   return (
-    <div className="page">
+    <div className="page" data-testid="settings-page">
       <header className="page__header">
         <h1 className="page__title">Settings</h1>
         <p className="page__subtitle">

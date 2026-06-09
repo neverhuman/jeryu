@@ -18,6 +18,7 @@ import { AdminSettingsPage } from '../pages/AdminSettingsPage';
 import { AuditPage } from '../pages/AuditPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { FleetPage } from '../pages/FleetPage';
+import { IntelligencePage } from '../pages/IntelligencePage';
 import { IssuesPage } from '../pages/IssuesPage';
 import { PullRequestPage } from '../pages/PullRequestPage';
 import { PullRoomPage } from '../pages/PullRoomPage';
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
         element: <RepositoryOverviewPage />,
       },
       { path: 'pull-room', element: <PullRoomPage /> },
+      { path: 'intelligence', element: <IntelligencePage /> },
       { path: 'fleet', element: <FleetPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
       { path: 'audit', element: <AuditPage /> },

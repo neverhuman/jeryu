@@ -23,6 +23,7 @@ use jeryu_runner_core::job::JobRequest;
 use jeryu_runner_core::sandbox::{LandlockRule, SandboxPlan};
 use std::collections::BTreeMap;
 use std::io::{Error as IoError, ErrorKind};
+use std::os::fd::{FromRawFd, OwnedFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -122,6 +123,9 @@ struct SandboxPayload {
     apply_pid_ns: bool,
     landlock: Option<LandlockPayload>,
     seccomp_bpf: Option<seccompiler::BpfProgram>,
+    /// Slave end of an allocated PTY to become the child's controlling terminal
+    /// (stdin/stdout/stderr). `None` keeps the default piped/null stdio.
+    pty_slave_fd: Option<RawFd>,
     /// Best-effort `setrlimit` fallback values. These are a backstop only: the
     /// real protection for agent jobs is the fail-closed cgroup gate in
     /// [`crate::capability`].
@@ -147,28 +151,157 @@ struct LandlockPayload {
 /// The function refuses to spawn when the enforcement level is `Unavailable`
 /// (cannot fail closed). Under `Degraded`, the missing primitives are recorded
 /// and skipped; everything still-available is applied fail-closed.
+/// How the sandboxed child's stdio is wired.
+pub enum ChildIo {
+    /// stdin = `/dev/null`, stdout/stderr = pipes (the default the watchdog drains).
+    Piped,
+    /// All three standard fds are wired to `slave_fd`, the slave end of a PTY
+    /// allocated by [`open_pty`]; the child becomes a session leader with that
+    /// PTY as its controlling terminal. The caller keeps the master end to read
+    /// agent output and write control input, and should close its own copy of
+    /// the slave after the spawn returns.
+    Pty {
+        /// Slave PTY fd (still owned by the caller).
+        slave_fd: RawFd,
+    },
+}
+
+/// Allocate a PTY pair, returning `(master, slave)` owned fds. The master is
+/// driven by the supervisor; the slave is handed to [`spawn_sandboxed_with_io`]
+/// via [`ChildIo::Pty`]. The master is set close-on-exec so the execed child
+/// never keeps it open.
+pub fn open_pty() -> SandboxResult<(OwnedFd, OwnedFd)> {
+    let mut master: RawFd = -1;
+    let mut slave: RawFd = -1;
+    // SAFETY: openpty fills the two fd out-params; the name/termios/winsize
+    // out-params are null. On success (0) both fds are valid and owned here.
+    let rc = unsafe {
+        libc::openpty(
+            &mut master,
+            &mut slave,
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            std::ptr::null(),
+        )
+    };
+    if rc != 0 {
+        return Err(SandboxError::new(
+            "pty_alloc_failed",
+            IoError::last_os_error().to_string(),
+        ));
+    }
+    // SAFETY: openpty returned 0, so master is a valid fd we exclusively own.
+    unsafe {
+        let flags = libc::fcntl(master, libc::F_GETFD);
+        if flags != -1 {
+            let _ = libc::fcntl(master, libc::F_SETFD, flags | libc::FD_CLOEXEC);
+        }
+    }
+    // SAFETY: both fds are valid and exclusively owned after a successful openpty.
+    let master = unsafe { OwnedFd::from_raw_fd(master) };
+    let slave = unsafe { OwnedFd::from_raw_fd(slave) };
+    Ok((master, slave))
+}
+
+/// A signal to deliver to a sandboxed child's whole process group.
+pub enum GroupSignal {
+    /// `SIGINT` (Ctrl-C): ask the agent to interrupt.
+    Interrupt,
+    /// `SIGTERM`: ask the agent to terminate.
+    Terminate,
+    /// `SIGKILL`: force-kill.
+    Kill,
+}
+
+/// Deliver `signal` to the process GROUP led by `leader_pid`. The sandboxed
+/// child is a group/session leader (`setpgid`/`setsid` in `pre_exec`), so this
+/// reaps its descendants too. A failure (e.g. the group already exited) is
+/// ignored — the caller is tearing down regardless.
+pub fn signal_group(leader_pid: u32, signal: GroupSignal) {
+    let sig = match signal {
+        GroupSignal::Interrupt => libc::SIGINT,
+        GroupSignal::Terminate => libc::SIGTERM,
+        GroupSignal::Kill => libc::SIGKILL,
+    };
+    // SAFETY: kill() with a negative pid targets the process group; no pointer
+    // args, no shared state. A non-existent group is a benign error we ignore.
+    if let Ok(pid) = i32::try_from(leader_pid) {
+        unsafe {
+            let _ = libc::kill(-pid, sig);
+        }
+    }
+}
+
+/// Resize the PTY whose master is `master_fd` to `rows` x `cols`.
+pub fn resize_pty(master_fd: RawFd, rows: u16, cols: u16) -> SandboxResult<()> {
+    let ws = libc::winsize {
+        ws_row: rows,
+        ws_col: cols,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
+    // SAFETY: TIOCSWINSZ reads a winsize struct through the pointer; `master_fd`
+    // is a valid PTY master fd owned by the caller.
+    let rc = unsafe { libc::ioctl(master_fd, libc::TIOCSWINSZ, &ws) };
+    if rc != 0 {
+        return Err(SandboxError::new(
+            "pty_resize_failed",
+            IoError::last_os_error().to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Spawn `job`'s command under the sandbox with the default piped stdio. See
+/// [`spawn_sandboxed_with_io`] for the PTY variant.
 pub fn spawn_sandboxed(
     job: &JobRequest,
     plan: &SandboxPlan,
     caps: &SandboxCapabilities,
     env: &BTreeMap<String, String>,
 ) -> SandboxResult<Child> {
+    spawn_sandboxed_with_io(job, plan, caps, env, ChildIo::Piped)
+}
+
+/// Spawn `job`'s command under the sandbox, choosing the child's stdio wiring.
+/// `ChildIo::Piped` is byte-identical to [`spawn_sandboxed`]; `ChildIo::Pty`
+/// makes the given PTY slave the child's controlling terminal (the kernel
+/// confinement is applied identically either way).
+pub fn spawn_sandboxed_with_io(
+    job: &JobRequest,
+    plan: &SandboxPlan,
+    caps: &SandboxCapabilities,
+    env: &BTreeMap<String, String>,
+    io: ChildIo,
+) -> SandboxResult<Child> {
     let level = caps.enforcement_level(plan);
     if let EnforcementLevel::Unavailable { reason } = &level {
         return Err(SandboxError::new("sandbox_unavailable", reason.clone()));
     }
 
-    let payload = build_payload(plan, caps)?;
+    let mut payload = build_payload(plan, caps)?;
     let cgroup_cleanup = payload.cgroup_procs.clone();
 
     let mut cmd = Command::new(&job.command);
     cmd.args(&job.args)
         .current_dir(&job.workspace)
         .env_clear()
-        .envs(env)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .envs(env);
+
+    match io {
+        ChildIo::Piped => {
+            cmd.stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+        }
+        ChildIo::Pty { slave_fd } => {
+            // The child wires its own 0/1/2 to the slave in pre_exec (after
+            // setsid + TIOCSCTTY), so we leave std's stdio inherited and override
+            // there — keeping the dup2 ordering under our control regardless of
+            // std's internal stdio sequencing.
+            payload.pty_slave_fd = Some(slave_fd);
+        }
+    }
 
     // SAFETY: the closure runs in the forked child between fork() and exec().
     // Every call inside is a direct syscall (setpgid, prctl, unshare, write,
@@ -232,6 +365,7 @@ fn build_payload(plan: &SandboxPlan, caps: &SandboxCapabilities) -> SandboxResul
         apply_pid_ns: plan.pid_namespace && caps.pid_namespace,
         landlock,
         seccomp_bpf,
+        pty_slave_fd: None,
         rlimits: RlimitFallback {
             memory_max_bytes: plan.cgroup_limits.memory_max_bytes,
         },
@@ -394,11 +528,43 @@ fn compile_seccomp(
 /// The body that runs inside the forked child. MUST stay fail-closed: any error
 /// returned here aborts the spawn before exec.
 fn apply_in_child(payload: &SandboxPayload) -> std::io::Result<()> {
-    // 1. Own process group for the watchdog's group-kill.
-    // SAFETY: setpgid(0, 0) only moves the calling process into a new process
-    // group; it touches no shared state and is async-signal-safe.
-    if unsafe { libc::setpgid(0, 0) } != 0 {
-        return Err(IoError::last_os_error());
+    // 1. Session / process-group setup for the watchdog's group-kill. A PTY
+    //    child needs its own SESSION (setsid) to acquire a controlling tty; a
+    //    piped child just needs its own process group (setpgid). Either way the
+    //    child becomes a group leader, so the watchdog's kill(-pgid) reaps it.
+    if payload.pty_slave_fd.is_some() {
+        // SAFETY: setsid() creates a new session + process group led by this
+        // process; no pointer args, no shared state, async-signal-safe.
+        if unsafe { libc::setsid() } == -1 {
+            return Err(IoError::last_os_error());
+        }
+    } else {
+        // SAFETY: setpgid(0, 0) only moves the calling process into a new process
+        // group; it touches no shared state and is async-signal-safe.
+        if unsafe { libc::setpgid(0, 0) } != 0 {
+            return Err(IoError::last_os_error());
+        }
+    }
+
+    // 1b. PTY: make the slave our controlling terminal and wire 0/1/2 to it.
+    //     Runs before seccomp (step 6), so TIOCSCTTY/dup2 are unrestricted setup.
+    if let Some(slave) = payload.pty_slave_fd {
+        // SAFETY: as the session leader (setsid above) ioctl(TIOCSCTTY) claims the
+        // slave as our controlling tty; dup2 wires the three standard fds to it.
+        // Both are direct syscalls with no shared state.
+        unsafe {
+            if libc::ioctl(slave, libc::TIOCSCTTY, 0) != 0 {
+                return Err(IoError::last_os_error());
+            }
+            for target in 0..3 {
+                if libc::dup2(slave, target) == -1 {
+                    return Err(IoError::last_os_error());
+                }
+            }
+            if slave > 2 {
+                libc::close(slave);
+            }
+        }
     }
 
     // 2. Join the cgroup so limits bind before exec. Writing our pid to

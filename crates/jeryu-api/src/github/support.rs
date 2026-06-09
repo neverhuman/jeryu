@@ -323,6 +323,42 @@ pub(super) fn actions_write_response(owner: &str, repo: &str) -> Response {
     )
 }
 
+pub(super) fn gh_auth_workaround_response(path: &str) -> Response {
+    json_response(
+        501,
+        &json!({
+            "message": "Direct GitHub CLI auth setup is not supported for a Jeryu host.",
+            "documentation_url": "docs/errors.md#github-cli-auth-steering",
+            "jeryu_repair_hint": {
+                "purpose": "route GitHub CLI auth setup through Jeryu",
+                "reason": "Jeryu uses an explicit gh hosts.yml entry plus portable agent-auth receipts; running gh auth login, refresh, or token-hunting workarounds against the Jeryu host is the wrong repair path.",
+                "common_fixes": [
+                    "stop running gh auth login, gh auth refresh, or credential-store searches for the Jeryu host",
+                    "run jeryu gh-setup --host http://127.0.0.1:8787 --token JERYU-TOKEN, or rerun it with the live JERYU_API_URL",
+                    "use GET /.jeryu/capabilities or the listed jeryu.* MCP tools for PR, CI, issue, and repo workflows",
+                    "for agent native CLI credentials, run jeryu agent auth doctor <tool> and jeryu agent auth import --from-host <tool>"
+                ],
+                "docs_url": "docs/errors.md#github-cli-auth-steering",
+                "repair_hint": "rerun jeryu gh-setup for the Jeryu host, then retry the original Jeryu CLI/MCP/API operation instead of gh auth"
+            },
+            "jeryu_connection": {
+                "capabilities": FASTER_PATH,
+                "first_contact": "/.jeryu/agents/first-contact",
+                "mcp": "/mcp",
+                "gh_setup": "jeryu gh-setup --host http://127.0.0.1:8787 --token JERYU-TOKEN",
+                "agent_auth_doctor": "jeryu agent auth doctor <codex|claude|jekko>",
+                "agent_auth_import": "jeryu agent auth import --from-host <codex|claude|jekko>"
+            },
+            "jeryu_mcp_tools": MCP_GUIDANCE_TOOLS,
+            "jeryu_steering": steering(
+                "jeryu.get_system_snapshot",
+                "stop the gh auth flow; configure gh with jeryu gh-setup and use Jeryu MCP/API routes for the original task",
+            ),
+            "path": path,
+        }),
+    )
+}
+
 pub(super) fn not_found(status: u16) -> Response {
     json_response(
         status,
@@ -381,8 +417,14 @@ pub(super) fn first_contact_response() -> Response {
             "advice": [
                 "GET /.jeryu/capabilities for the live endpoint + gh-command map.",
                 "Prefer the typed jeryu.* MCP tools over bespoke gh REST calls; they are faster and never dead-end.",
+                "Do not run gh auth login or gh auth refresh for a Jeryu host; run jeryu gh-setup for the host entry.",
                 "Every error reply carries a jeryu_steering block naming the MCP tool that serves your intent.",
             ],
+            "gh_auth_policy": {
+                "do_not_run": ["gh auth login", "gh auth refresh", "credential-store token hunting"],
+                "run_instead": "jeryu gh-setup --host http://127.0.0.1:8787 --token JERYU-TOKEN",
+                "agent_auth": "jeryu agent auth doctor <tool>; jeryu agent auth import --from-host <tool>",
+            },
             "mcp_tools": MCP_GUIDANCE_TOOLS,
             "documentation_url": docs_url(),
         }),

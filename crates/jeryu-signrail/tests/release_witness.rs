@@ -457,3 +457,61 @@ fn cli_sign_release_writes_signed_outputs_and_stage_receipts() {
     assert!(root.join("releases").is_dir());
     assert!(root.join("witnesses").is_dir());
 }
+
+#[test]
+fn cli_verify_release_checks_stage_receipt_and_public_key() {
+    let root = temp_store_root("verify-cli");
+    let out_dir = root.join("out");
+    let artifact = temp_artifact("verify-bundle.tar.gz", b"verify bundle bytes");
+    let seed = "24".repeat(32);
+    jeryu_signrail::cli::run_from_with_env(
+        vec![
+            "sign-release".to_string(),
+            "--artifact".to_string(),
+            artifact.display().to_string(),
+            "--repo".to_string(),
+            "neverhuman/veox-shared".to_string(),
+            "--sha".to_string(),
+            "abc123".to_string(),
+            "--version".to_string(),
+            "abc123".to_string(),
+            "--rollback-target".to_string(),
+            "abc122".to_string(),
+            "--store-root".to_string(),
+            root.display().to_string(),
+            "--out-dir".to_string(),
+            out_dir.display().to_string(),
+            "--created-at-epoch".to_string(),
+            "100".to_string(),
+        ],
+        |key| match key {
+            "JERYU_SIGNRAIL_ED25519_SEED" => Some(seed.clone()),
+            _ => None,
+        },
+    )
+    .unwrap_or_else(|err| panic!("sign-release failed: {err}"));
+
+    let signer = jeryu_signrail::Ed25519Signer::from_seed_hex(None, &seed)
+        .unwrap_or_else(|err| panic!("signer failed: {err}"));
+    let pubkey = root.join("signrail.pub");
+    fs::write(&pubkey, signer.public_key_hex())
+        .unwrap_or_else(|err| panic!("write pubkey failed: {err}"));
+
+    let verified = jeryu_signrail::cli::run_from([
+        "verify-release",
+        "--release",
+        out_dir.join("release.json").to_str().unwrap(),
+        "--stage",
+        "prod",
+        "--store-root",
+        root.to_str().unwrap(),
+        "--pubkey-file",
+        pubkey.to_str().unwrap(),
+        "--json",
+    ])
+    .unwrap_or_else(|err| panic!("verify-release failed: {err}"));
+
+    assert!(verified.contains("\"release_id\":\"neverhuman/veox-shared@abc123\""));
+    assert!(verified.contains("\"stage\":\"prod\""));
+    assert!(verified.contains("\"signature_coverage_percent\":100"));
+}

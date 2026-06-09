@@ -101,7 +101,7 @@ export function RepositoriesPage({
   const facets = list.data?.facets;
 
   return (
-    <div className="page">
+    <div className="page" data-testid="repositories-page">
       <header className="page__header">
         <div className="page__welcome">
           <h1 className="page__title">Repositories</h1>

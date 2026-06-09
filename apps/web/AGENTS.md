@@ -16,6 +16,9 @@ backend-only crate/SDK; this workspace must stay UI-tier).
 
 Proof lane: rendered UX / Playwright. Marker-evidence companion lives at
 `ux-qa/` (`@jankurai/ux-qa`).
+Control-plane, pull-room, and repository PR surfaces must keep Playwright
+screenshot capture, generated API mocks, and design token discipline evidence
+in the changed surface alongside route and unit coverage.
 
 Owner work-packages: `W-FE-*` (and `W-F-07`, `W-F-09`, `W-F-12` for
 foundation skeleton).

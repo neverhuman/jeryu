@@ -6,7 +6,7 @@ mod run_agent;
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response as AxumResponse};
 use jeryu_core::{CreatePullRequestRequest, ForgeError};
 use jeryu_readmodel::contracts::WebEvent;
@@ -209,6 +209,7 @@ pub(super) async fn release(
 pub(super) async fn export_pr(
     State(state): State<Arc<WebState>>,
     AxumPath(workcell_id): AxumPath<String>,
+    headers: HeaderMap,
     body: Bytes,
 ) -> AxumResponse {
     let request: ExportRepairPrRequest = match parse_json_body(
@@ -360,6 +361,15 @@ pub(super) async fn export_pr(
         Ok(pr) => pr,
         Err(err) => return forge_error(err),
     };
+    crate::ci_bridge::seed_pull_request_head(
+        state.github.core(),
+        state.repo_manager.as_ref(),
+        &owner,
+        &repo,
+        &format!("refs/heads/{}", pr.head.ref_name),
+        &pr.head.sha,
+        &origin_base_url(&headers),
+    );
 
     (
         StatusCode::CREATED,
@@ -371,6 +381,15 @@ pub(super) async fn export_pr(
         }),
     )
         .into_response()
+}
+
+fn origin_base_url(headers: &HeaderMap) -> String {
+    headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .filter(|host| !host.trim().is_empty())
+        .map(|host| format!("http://{host}"))
+        .unwrap_or_else(crate::ci_bridge::default_origin_base_url)
 }
 
 /// Derives the repo-relative export-slice prefixes from a lease's absolute

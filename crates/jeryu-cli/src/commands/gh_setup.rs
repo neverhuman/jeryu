@@ -52,7 +52,7 @@ pub(crate) fn run(json: bool, args: GhSetupArgs, out: &mut dyn Write) -> ClientR
     if args.print {
         writeln!(
             out,
-            "# gh hosts.yml entry for jeryu ({})\n# write to: {}\n{}",
+            "# gh hosts.yml entry for jeryu ({})\n# write to: {}\n# If gh reports auth trouble for this host, rerun jeryu gh-setup; do not run gh auth login or gh auth refresh.\n{}",
             args.host,
             path.display(),
             config.trim_end()
@@ -61,7 +61,7 @@ pub(crate) fn run(json: bool, args: GhSetupArgs, out: &mut dyn Write) -> ClientR
     } else {
         writeln!(
             out,
-            "wrote gh host {host_key} -> {} to {}",
+            "wrote gh host {host_key} -> {} to {}\nif gh reports auth trouble for this host, rerun jeryu gh-setup; do not run gh auth login or gh auth refresh",
             args.host,
             path.display()
         )

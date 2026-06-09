@@ -48,8 +48,15 @@ pub use repos::{RepoFamilySummary, RepoSummary, ReposSnapshot};
 pub use risk::RiskTier;
 pub use seam::{BugStore, ReadModelSource, SeamError, SeamResult, ToolBackend};
 
+pub use dashboards::agent_runs::{
+    AgentRunIoMode, AgentRunItem, AgentRunSourceKind, AgentRunStatus, AgentRunsDashboard,
+    AgentRunsSummary,
+};
 pub use dashboards::agents::{AgentItem, AgentStatus, AgentsSnapshot, AgentsSummary};
 pub use dashboards::approvals::{ApprovalItem, ApprovalsSnapshot, ApprovalsSummary, CheckStatus};
+pub use dashboards::codegraph::{
+    CodegraphDashboard, CodegraphEvidenceItem, CodegraphSummary, ToolBuildOpportunityItem,
+};
 pub use dashboards::evidence::{EvidenceItem, EvidenceSnapshot, EvidenceSummary, GateDecision};
 pub use dashboards::release::{
     PromotionStage, ReleaseGate, ReleaseItem, ReleaseSnapshot, ReleaseSummary, SbomStatus,

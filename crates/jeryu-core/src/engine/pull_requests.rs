@@ -240,6 +240,62 @@ impl ForgeCore {
         Ok(updated)
     }
 
+    pub fn refresh_pull_request_heads_for_ref(
+        &self,
+        owner: &str,
+        repo: &str,
+        ref_name: &str,
+        head_sha: &str,
+    ) -> Result<Vec<PullRequest>> {
+        self.ensure_repo_exists(owner, repo)?;
+        let mut state = self.state.write();
+        let previous = state.clone();
+        let now = Utc::now();
+        let keys: Vec<_> = state
+            .pulls
+            .iter()
+            .filter_map(|(key, pr)| {
+                let open = !pr.merged
+                    && !matches!(
+                        pr.state,
+                        PullRequestState::Closed | PullRequestState::Merged
+                    );
+                if pr.owner == owner && pr.repo == repo && pr.head.ref_name == ref_name && open {
+                    Some(key.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if keys.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut updated = Vec::new();
+        for key in keys {
+            if let Some(pr) = state.pulls.get_mut(&key) {
+                pr.head.sha = head_sha.to_string();
+                pr.updated_at = now;
+            }
+            let Some(mut pr) = state.pulls.get(&key).cloned() else {
+                continue;
+            };
+            let evaluation = evaluate_locked(&state, &pr, None);
+            apply_evaluation(&mut pr, evaluation);
+            state.pulls.insert(key, pr.clone());
+            emit_event_locked(
+                &mut state,
+                owner,
+                repo,
+                "pull_request",
+                event_payload("synchronize", "pull_request", json!(pr.clone())),
+            );
+            updated.push(pr);
+        }
+        self.persist_after_mutation(&mut state, previous)?;
+        Ok(updated)
+    }
+
     /// Read-only merge-gate phase: evaluate branch protection and, on success,
     /// disclose the base/head shas the caller should merge.
     ///

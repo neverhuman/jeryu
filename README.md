@@ -91,7 +91,13 @@ not merge PRs until the safety rework is proven and re-enabled.
 SignRail release signing for artifact-support bundles is documented in
 `docs/signrail-release-signing.md`; it records stage receipts for `local`,
 `dev-canary`, and `prod` after release provenance reaches 100% signature
-coverage.
+coverage. `jeryu-signrail verify-release` rechecks a stored release JSON,
+stage receipt, and public key before a receipt is accepted as release evidence.
+
+Workspace version decisions are owned by `jeryu-wsversion`. The local API push
+bridge invokes it after `refs/heads/main` advances, writes a single
+`[skip-version]` release bump commit, and leaves artifact signing, tagging, and
+rollback evidence to the normal `docs/release.md` process.
 
 Workspace version decisions are owned by `jeryu-wsversion`. The local API push
 bridge invokes it after `refs/heads/main` advances, writes a single
@@ -125,6 +131,54 @@ typed repair bodies, and returns structured start/stdout/stderr/budget/finish
 events plus the run outcome. Proof lane:
 `cargo test -p jeryu-api --features web --jobs 40 workcell_run_agent`.
 
+Real repair agents launch through `POST /api/v1/agent-runs`. The route defaults
+to `io_mode: "pty"`, accepts `source.kind: "workcell"` for held or repairing
+failed-CI workcells, injects failure context into the jailed process, and keeps
+a live control channel for `send_input`, `inject_prompt`, `interrupt`,
+`terminate`, `resize_pty`, and `raise_budget`. Finished runs, stale epochs,
+out-of-slice paths, and unsupported pipe-mode controls return typed repair
+bodies instead of no-ops. Proof lane:
+`cargo test -p jeryu-api --features web --jobs 40 agent_runs`.
+Start/status responses include `events_url`, `ws_scope`, `tty_topic`,
+`control_topic`, and `export_pr_url`. Cursor reads use
+`GET /api/v1/agent-runs/{id}/events?after_seq=N&limit=M`; finished
+workcell-backed runs can be exported with
+`POST /api/v1/agent-runs/{id}/export_pr`. The companion CLI/MCP contracts are
+`jeryu agent ...` and `jeryu.agent_work.start/status/control/events/export_pr`;
+`jeryu-agent-auth` owns portable native CLI auth receipts, while
+`jeryu-agent-stream` owns the TTY/control event schema for broker or subscriber
+adapters. Live CLI commands use `--api-url` or `JERYU_API_URL`; calls without a
+live URL keep deterministic fail-closed test behavior.
+
+The codegraph oracle exposes schema-v3 reference evidence through MCP tools
+(`code.symbols.search`, `code.definition`, `code.impact`,
+`code.crate.reverse_deps`, `code.references`, `codegraph.query`) and
+`POST /api/v1/repos/{id}/codegraph/query`. Rerun
+`bash ops/ci/codegraph-oracle.sh` when the schema, MCP contract, or API facade
+changes.
+
+The codegraph tool-build insight lane materializes repeated normalized-code
+clusters for frequent MCP polling by `~/jmcp`. It exposes
+`jeryu.codegraph.tool_build.status`, `jeryu.codegraph.tool_build.clusters`, and
+`jeryu.codegraph.tool_build.feedback`, plus
+`GET /api/v1/codegraph/tool-build/{status,clusters}` and feedback POSTs for
+ignored clusters. Rerun `bash ops/ci/codegraph-tool-build.sh` when the scanner,
+feedback store, MCP catalog, CLI, or API facade changes.
+
+The JMCP control-plane intelligence surface aggregates local forge truth,
+runner fabric, workcells, agent runs, codegraph/tool-build evidence, and
+explicit read-only mirror absence into one auditable snapshot. It exposes
+`GET /api/v1/control-plane/status`,
+`GET /api/v1/control-plane/priorities`,
+`GET /api/v1/control-plane/repo-graph`,
+`GET /api/v1/control-plane/artifacts/latest`, and
+`GET /api/v1/control-plane/runners`; MCP tools
+`jeryu.control_plane.status`, `jeryu.control_plane.priorities`,
+`jeryu.repo_graph.*`, `jeryu.remote.status`, `jeryu.artifacts.latest`, and
+`jeryu.runner_fabric.status`; CLI commands `jeryu status`,
+`jeryu priorities`, `jeryu repo-graph clusters`, `jeryu artifacts latest`, and
+`jeryu runners status`; and the web `/intelligence` route.
+
 ## Local Live Runtime
 
 The first live target is local-only. `jeryu-api` can run an Axum server backed
@@ -140,13 +194,17 @@ cargo run -p jeryu-api --features web -- web serve \
 The server exposes `/health`, `/api/v1/bootstrap`, `/api/v1/bootstrap.tui`,
 `/api/v1/repos`, `/api/v1/repos/{id}`, repo refs/tree/blob/raw/readme routes,
 `/api/v1/ecosystem`, `/api/v1/ci/runs/{id}/evidence`,
-`/api/v1/workcells/{id}/run_agent`, `/api/v1/markdown/render`, `/api/v1/ws`,
-and the guided GitHub-compatible `/user` and `/graphql` routes. The ecosystem
-and CI-run evidence routes are read-only: they expose live MCP tool graph
-metadata, forge health, queue identity, and digest-verifiable CI evidence for
-clients that need agent-readable state before choosing a mutation path. The
-bootstrap payload also carries the `workcells` feature flag and the live
-workcell dashboard snapshot inside the typed TUI model.
+`/api/v1/workcells/{id}/run_agent`, `/api/v1/agent-runs`,
+`/api/v1/repos/{id}/codegraph/query`,
+`/api/v1/control-plane/{status,priorities,repo-graph,runners}`,
+`/api/v1/control-plane/artifacts/latest`, `/api/v1/markdown/render`,
+`/api/v1/ws`, and the guided GitHub-compatible `/user` and `/graphql` routes.
+The ecosystem, CI-run evidence, and control-plane routes are read-only: they
+expose live MCP tool graph metadata, forge health, queue identity,
+digest-verifiable CI evidence, ranked local priorities, and explicit mirror or
+artifact absence for clients that need agent-readable state before choosing a
+mutation path. The bootstrap payload also carries the `workcells` feature flag
+and the live workcell dashboard snapshot inside the typed TUI model.
 `~/.local/share/jeryu` is intentionally separate from the retired
 `~/.jeryu` config/secrets tree.
 
@@ -198,7 +256,9 @@ lint, and Playwright end-to-end coverage against the local BFF/API contract.
 
 The TUI exposes `jeryu-tui --once` for deterministic tests and captures. It can
 render fixture data or the live `/api/v1/bootstrap.tui` read model, including
-all 18 tabs used by the local control-plane views.
+all 18 tabs used by the local control-plane views. The Agents and Evidence
+lenses surface live PTY status, held failed-CI repair/export state, and
+codegraph/oracle proof lanes from the read model.
 
 ## Local CI
 
