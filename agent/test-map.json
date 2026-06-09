@@ -206,6 +206,11 @@
       "purpose": "verify OCI runner guard contracts",
       "lane": "runner-sandbox"
     },
+    "crates/jeryu-runner-oci/tests/": {
+      "command": "cargo test -p jeryu-runner-oci --jobs 40",
+      "purpose": "verify the OCI runner integration tests, including the capability-gated real-engine smoke that is a no-op without a container engine",
+      "lane": "runner-sandbox"
+    },
     "crates/jeryu-runner-registry/": {
       "command": "cargo test -p jeryu-runner-core -p jeryu-runner-native -p jeryu-runner-microvm -p jeryu-runner-oci -p jeryu-runner-protocol -p jeryu-runner-registry -p jeryu-runnerd --jobs 40 && ./tests/sandbox_escape_matrix.sh",
       "purpose": "verify runner registry fencing and runner sandbox contracts",
@@ -354,6 +359,11 @@
     "ops/ci/gates/agent-substrate.sh": {
       "command": "bash ops/ci/gates/agent-substrate.sh",
       "purpose": "verify the in-cell agent substrate phase gate runs the mapped agentbridge and egress proof lane",
+      "lane": "agent-substrate"
+    },
+    "ops/agent-sandbox/": {
+      "command": "bash -n ops/agent-sandbox/smoke.sh && ops/agent-sandbox/smoke.sh",
+      "purpose": "verify the real-engine agent-sandbox smoke parses and either proves the lockdown on an engine or cleanly SKIPs where none is present",
       "lane": "agent-substrate"
     },
     "ops/ci/gates/workcells.sh": {
