@@ -9,6 +9,12 @@ fi
 export JERYU_CI_JOBS="${JERYU_CI_JOBS:-40}"
 export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-${JERYU_CI_JOBS}}"
 export CARGO_NET_RETRY="${CARGO_NET_RETRY:-10}"
+# The workcell-export CI-seeding unit tests assert a deterministic check-run
+# conclusion; they exercise the seeding/recording flow, not real in-process job
+# execution (which is non-deterministic under cargo-test). JERYU_CI_MOCK makes
+# ci_bridge::run_job return a synthetic conclusion (crates/jeryu-api/src/ci_bridge.rs).
+# Production (jeryu-api.service) runs without it and executes jobs for real.
+export JERYU_CI_MOCK="${JERYU_CI_MOCK:-1}"
 export CARGO_TERM_COLOR="${CARGO_TERM_COLOR:-always}"
 
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
