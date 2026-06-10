@@ -80,6 +80,10 @@ pub struct Repository {
     pub private: bool,
     pub description: Option<String>,
     pub default_branch: String,
+    /// UI grouping (e.g. `veox-split`); `None` for standalone projects.
+    /// Seeded once by migration 0005, edited via `set_repository_family`.
+    #[serde(default)]
+    pub family: Option<String>,
     pub archived: bool,
     pub disabled: bool,
     pub created_at: DateTime<Utc>,

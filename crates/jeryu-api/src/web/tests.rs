@@ -3278,3 +3278,78 @@ fn repo_health_counts_live_failures_and_ignores_mirror_checks() {
     assert_eq!(summary.health, "warning");
     assert_eq!(summary.running_jobs, 1, "stale in-progress run excluded");
 }
+
+/// PATCH /api/v1/repos/:id applies only the keys present in the body:
+/// a string sets the family, an explicit null clears it, junk is rejected,
+/// and the families facet reflects the live values.
+#[tokio::test]
+async fn repo_update_sets_and_clears_family() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: "veox-nht".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    let state = Arc::new(WebState::new(core));
+    let id = repo.id.to_string();
+
+    let updated = response_json(
+        repo_update(
+            State(state.clone()),
+            AxumPath(id.clone()),
+            axum::body::Bytes::from_static(br#"{"family": "veox-split"}"#),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(updated["family"], "veox-split");
+    let list = repo_list_response(&state);
+    assert_eq!(list.facets.families, vec!["veox-split".to_string()]);
+
+    let cleared = response_json(
+        repo_update(
+            State(state.clone()),
+            AxumPath("jeryu/veox-nht".to_string()),
+            axum::body::Bytes::from_static(br#"{"family": null}"#),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(cleared["family"], serde_json::Value::Null);
+    assert!(repo_list_response(&state).facets.families.is_empty());
+
+    // Unknown fields, non-string family, and blank family are 422s.
+    for body in [
+        br#"{"name": "nope"}"#.as_slice(),
+        br#"{"family": 7}"#.as_slice(),
+        br#"{"family": "  "}"#.as_slice(),
+    ] {
+        let response = repo_update(
+            State(state.clone()),
+            AxumPath(id.clone()),
+            axum::body::Bytes::copy_from_slice(body),
+        )
+        .await;
+        assert_eq!(
+            response.into_response().status(),
+            axum::http::StatusCode::UNPROCESSABLE_ENTITY
+        );
+    }
+
+    let missing = repo_update(
+        State(state),
+        AxumPath("jeryu/missing".to_string()),
+        axum::body::Bytes::from_static(br#"{"family": "x"}"#),
+    )
+    .await;
+    assert_eq!(
+        missing.into_response().status(),
+        axum::http::StatusCode::NOT_FOUND
+    );
+}

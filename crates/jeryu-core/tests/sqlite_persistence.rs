@@ -535,3 +535,64 @@ fn sqlite_open_backfills_pull_request_source_repository() {
         "alice/jeryu"
     );
 }
+
+/// `family` must survive the full-rewrite persist: every mutation rewrites the
+/// whole repositories table, so a field missed in persist/load silently wipes.
+#[test]
+fn sqlite_store_round_trips_repository_family() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: "veox-nht".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let updated = core
+            .set_repository_family("jeryu", "veox-nht", Some("veox-split".to_string()))
+            .unwrap();
+        assert_eq!(updated.family.as_deref(), Some("veox-split"));
+        // Blank family is a validation error, not a silent clear.
+        let blank = core.set_repository_family("jeryu", "veox-nht", Some("  ".to_string()));
+        assert!(matches!(blank, Err(ForgeError::Validation(_))));
+        // A later unrelated mutation re-persists everything; family must ride along.
+        core.create_label(
+            "jeryu",
+            "veox-nht",
+            CreateLabelRequest {
+                name: "ops".to_string(),
+                color: "00ff00".to_string(),
+                description: None,
+            },
+        )
+        .unwrap();
+    }
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        let repo = core.get_repository("jeryu", "veox-nht").unwrap();
+        assert_eq!(repo.family.as_deref(), Some("veox-split"));
+        // Clearing also persists.
+        let cleared = core
+            .set_repository_family("jeryu", "veox-nht", None)
+            .unwrap();
+        assert_eq!(cleared.family, None);
+    }
+
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    assert_eq!(
+        core.get_repository("jeryu", "veox-nht").unwrap().family,
+        None
+    );
+    assert!(matches!(
+        core.set_repository_family("jeryu", "missing", None),
+        Err(ForgeError::NotFound(_))
+    ));
+}

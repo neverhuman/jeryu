@@ -65,6 +65,89 @@ pub(super) async fn repo_detail(
     }
 }
 
+/// PATCH /api/v1/repos/:id — update mutable repository metadata.
+///
+/// Body is a JSON object; only the keys that are PRESENT are applied, so
+/// `{"family": "veox-split"}` sets the family, `{"family": null}` clears it,
+/// and an absent key leaves it untouched. Hand-parsed because serde's
+/// `Option<Option<T>>` cannot distinguish absent from null.
+pub(super) async fn repo_update(
+    State(state): State<std::sync::Arc<WebState>>,
+    AxumPath(id): AxumPath<String>,
+    body: Bytes,
+) -> AxumResponse {
+    let Some(repo) = find_repo(&state, &id) else {
+        return api_error(
+            axum::http::StatusCode::NOT_FOUND,
+            "not_found",
+            "repository not found",
+        );
+    };
+    let parsed: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(error) => {
+            return repo_update_invalid(&format!("body is not valid JSON: {error}"));
+        }
+    };
+    let Some(fields) = parsed.as_object() else {
+        return repo_update_invalid("body must be a JSON object");
+    };
+    if let Some(unknown) = fields.keys().find(|key| key.as_str() != "family") {
+        return repo_update_invalid(&format!("unknown field: {unknown}"));
+    }
+    let mut updated = repo.clone();
+    if let Some(family_value) = fields.get("family") {
+        let family = match family_value {
+            serde_json::Value::Null => None,
+            serde_json::Value::String(name) => Some(name.clone()),
+            _ => return repo_update_invalid("family must be a string or null"),
+        };
+        updated = match state
+            .github
+            .core()
+            .set_repository_family(&repo.owner, &repo.name, family)
+        {
+            Ok(repo) => repo,
+            Err(ForgeError::Validation(reason)) => {
+                return repo_update_invalid(&reason);
+            }
+            Err(ForgeError::NotFound(_)) => {
+                return api_error(
+                    axum::http::StatusCode::NOT_FOUND,
+                    "not_found",
+                    "repository not found",
+                );
+            }
+            Err(error) => {
+                return api_error(
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "storage_failed",
+                    &format!("repository update could not be persisted: {error}"),
+                );
+            }
+        };
+    }
+    Json(repo_summary(&state, &updated)).into_response()
+}
+
+fn repo_update_invalid(reason: &str) -> AxumResponse {
+    api_error_with_hint(
+        axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_input",
+        "repository update body failed validation",
+        ApiErrorHint {
+            purpose: "update repository metadata",
+            reason: "invalid_input",
+            common_fixes: &[
+                "send a JSON object with a family string field",
+                "send {\"family\": null} to clear the grouping",
+            ],
+            docs_url: "docs/errors.md#invalid-input",
+            repair_hint: &format!("fix the PATCH body and retry ({reason})"),
+        },
+    )
+}
+
 pub(super) async fn repo_refs(
     State(state): State<std::sync::Arc<WebState>>,
     AxumPath(id): AxumPath<String>,
@@ -270,8 +353,12 @@ pub(super) async fn repo_readme_update(
 pub(super) fn repo_list_response(state: &WebState) -> RepositoryListResponse {
     let repositories = repo_summaries(state);
     let mut owners = BTreeSet::new();
+    let mut families = BTreeSet::new();
     for repo in &repositories {
         owners.insert(repo.id.owner.clone());
+        if let Some(family) = &repo.family {
+            families.insert(family.clone());
+        }
     }
     RepositoryListResponse {
         generated_at: state.tui.generated_at.to_rfc3339(),
@@ -280,7 +367,7 @@ pub(super) fn repo_list_response(state: &WebState) -> RepositoryListResponse {
         facets: RepositoryFacets {
             hosts: vec!["jeryu".to_string()],
             owners: owners.into_iter().collect(),
-            families: Vec::new(),
+            families: families.into_iter().collect(),
             languages: Vec::new(),
         },
     }
@@ -332,7 +419,7 @@ pub(super) fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySum
             RepositoryVisibility::Public
         },
         default_branch: repo.default_branch.clone(),
-        family: None,
+        family: repo.family.clone(),
         topics: Vec::new(),
         language: None,
         health: if failing_checks > 0 {

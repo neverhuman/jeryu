@@ -42,7 +42,8 @@ use jeryu_gitd::{GitdConfig, RepoManager};
 use jeryu_runner_oci::{CliContainerRuntime, ContainerLifecycle};
 use jeryu_runnerd::{WarmPool, WorkcellManager};
 use repositories::{
-    repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree, repos,
+    repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree,
+    repo_update, repos,
 };
 use surface::{bootstrap_payload, github_forward, graphql, markdown_render, repo_entry};
 
@@ -362,7 +363,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             post(workcells::export_pr),
         )
         .route("/api/v1/repos", get(repos))
-        .route("/api/v1/repos/:id", get(repo_detail))
+        .route("/api/v1/repos/:id", get(repo_detail).patch(repo_update))
         // Repo-scoped agent sessions: launch a hardened session, and the live
         // per-repo agent-runs list the web Active-Agents page consumes.
         .route("/api/v1/repos/:id/sessions", post(sessions::create))

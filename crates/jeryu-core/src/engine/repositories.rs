@@ -32,6 +32,7 @@ impl ForgeCore {
             private: request.private,
             description: request.description,
             default_branch: request.default_branch.unwrap_or_else(|| "main".to_string()),
+            family: None,
             archived: false,
             disabled: false,
             created_at: now,
@@ -68,6 +69,39 @@ impl ForgeCore {
             .get(&(owner.to_string(), repo.to_string()))
             .cloned()
             .ok_or_else(|| ForgeError::NotFound(format!("repository {owner}/{repo}")))
+    }
+
+    /// Set or clear the repository's UI grouping family.
+    pub fn set_repository_family(
+        &self,
+        owner: &str,
+        repo: &str,
+        family: Option<String>,
+    ) -> Result<Repository> {
+        let family = match family {
+            Some(value) => {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    return Err(ForgeError::Validation(
+                        "family must not be blank; send null to clear it".to_string(),
+                    ));
+                }
+                Some(trimmed.to_string())
+            }
+            None => None,
+        };
+        let mut state = self.state.write();
+        let key = (owner.to_string(), repo.to_string());
+        if !state.repos.contains_key(&key) {
+            return Err(ForgeError::NotFound(format!("repository {owner}/{repo}")));
+        }
+        let previous = state.clone();
+        let entry = state.repos.get_mut(&key).expect("presence checked above");
+        entry.family = family;
+        entry.updated_at = Utc::now();
+        let updated = entry.clone();
+        self.persist_after_mutation(&mut state, previous)?;
+        Ok(updated)
     }
 
     pub fn create_label(
