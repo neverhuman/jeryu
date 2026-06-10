@@ -39,9 +39,14 @@ if [ "${JOBS}" -gt 3 ]; then
 fi
 
 DRY_RUN=0
+FORCE=0
 for arg in "$@"; do
   case "${arg}" in
     --dry-run) DRY_RUN=1 ;;
+    # Re-audit and re-ingest even when the SHA already carries a score; the
+    # ingest endpoint upserts per (branch, commit_sha), so this replaces
+    # records (used to repair a sweep that audited bad checkouts).
+    --force) FORCE=1 ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: ${arg}" >&2; exit 2 ;;
   esac
@@ -129,7 +134,7 @@ audit_one() {
     return 0
   fi
 
-  if already_scored "${name}" "${sha}"; then
+  if [ "${FORCE}" -ne 1 ] && already_scored "${name}" "${sha}"; then
     echo "[backfill] jeryu/${name}: SKIP (score already ingested for ${sha})"
     record "${name}" "skipped: already scored @ ${sha}"
     return 0
@@ -145,9 +150,17 @@ audit_one() {
   tmp="$(mktemp -d)"
   trap 'rm -rf "${tmp}"' EXIT
   # file:// forces a real object copy — never hardlink into the live bare repo.
-  if ! git clone -q "file://${bare}" "${tmp}/src" >>"${log}" 2>&1; then
+  # --branch is load-bearing: several bares carry a HEAD that points at a
+  # nonexistent ref, and a default clone then checks out NOTHING — the auditor
+  # silently scores an empty tree (uniform bogus low scores).
+  if ! git clone -q --branch "${branch}" "file://${bare}" "${tmp}/src" >>"${log}" 2>&1; then
     echo "[backfill] jeryu/${name}: CLONE FAILED (see ${log})" >&2
     record "${name}" "failed: clone failed (see ${log})"
+    return 0
+  fi
+  if [ ! -e "${tmp}/src/.git/HEAD" ] || [ -z "$(ls -A "${tmp}/src" | grep -v '^\.git$')" ]; then
+    echo "[backfill] jeryu/${name}: EMPTY CHECKOUT — refusing to audit nothing" >&2
+    record "${name}" "failed: empty checkout for ${branch}"
     return 0
   fi
 
