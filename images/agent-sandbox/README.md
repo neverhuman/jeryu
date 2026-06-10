@@ -10,6 +10,9 @@ unique branch, and the agent works there and submits to jeryu for PR CI.
 - This repo's **prefetched build dependencies** (cargo + npm caches) so the first build
   is warm and no network is needed.
 - The agent CLIs: **Codex, Jekko, Claude**.
+- The pinned **jankurai** auditor (**1.6.10**, rev-locked) at
+  `/opt/rust/cargo/bin/jankurai` — the runtime is `--network none`, so the auditor must
+  ship in the image for the in-sandbox CI lanes to audit offline.
 - The **`jeryu-git` guard installed as `git`** (deny-by-default allowlist — only
   branch-local activity on the assigned branch; no push/fetch/worktree/branch-create)
   plus **refusal wrappers** for `gh`/`curl`/`wget`/`ssh`/`scp`/`nc`.
@@ -46,6 +49,16 @@ nothing else. Disabled:
 The **git guard** (`jeryu-git` installed as `git`) separately forbids new branches /
 switching branches / push / fetch / clone / worktrees — the agent can only commit, diff,
 revert, etc. on its assigned branch and submit to jeryu for PR CI.
+
+## How CI lanes find the auditor
+Lanes always resolve jankurai via **`$JERYU_JANKURAI_BIN`** (baked into the image as
+`/opt/rust/cargo/bin/jankurai`) or that explicit path — **never** a bare `jankurai`
+PATH lookup, which a stale build earlier on PATH can shadow with the wrong version.
+The path is exactly what `ops/ci/common.sh` derives from `CARGO_HOME`, so the lanes
+run unchanged inside the sandbox. The pin (repo/rev/version) **must stay in sync with
+`ops/ci/ensure-jankurai.sh`** — that script is the source of truth, and a pin bump
+there requires rebuilding this image (the runtime has no network to install at session
+time). The build and the smoke both assert the exact version string.
 
 ## Build
 ```

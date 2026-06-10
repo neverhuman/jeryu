@@ -9,6 +9,7 @@
 #   * the Rust toolchain (pinned), * Node + the Vite/TS/React toolchain,
 #   * this repo's prefetched build dependencies (cargo + npm caches),
 #   * the agent CLIs: Codex, Jekko, Claude,
+#   * the pinned jankurai auditor (the in-sandbox CI lanes audit offline),
 #   * the jeryu-git guard installed AS `git` (deny-by-default allowlist) + refusal wrappers
 #     for gh/curl/wget/ssh/scp on a controlled PATH,
 #   * a non-root user `agent` (uid/gid 1000).
@@ -34,6 +35,24 @@ RUN cargo build --release -p jeryu-git-guard --bin jeryu-git \
 # `cargo fetch`'s workspace-manifest read.
 RUN cargo fetch --locked || cargo fetch || true
 
+# ---- jankurai build stage: compile the pinned auditor ---------------------------------
+# KEEP IN SYNC with ops/ci/ensure-jankurai.sh (the pin source of truth). The runtime
+# container runs `--network none`, so the auditor must ship IN the image — a CI lane
+# inside the sandbox can never cargo-install it at session time. Bumping the pin means
+# bumping it there first, then rebuilding this image.
+FROM rust:1.95-slim-bookworm AS jankurai-build
+ARG JANKURAI_REPO=https://github.com/neverhuman/jankurai.git
+ARG JANKURAI_REV=68bd6114373cf407a930011b76669af306cb0cb1
+ARG JANKURAI_VERSION="jankurai 1.6.10"
+ENV CARGO_HOME=/opt/rust/cargo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+# Same install invocation as ensure-jankurai.sh; the version assert fails the build if
+# the rev and the version string ever drift apart.
+RUN cargo install --git "$JANKURAI_REPO" --rev "$JANKURAI_REV" --locked --bin jankurai jankurai \
+    && /opt/rust/cargo/bin/jankurai --version | grep -qx "$JANKURAI_VERSION"
+
 # ---- runtime image -------------------------------------------------------------------
 FROM debian:bookworm-slim AS runtime
 
@@ -57,6 +76,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --no-modify-path --profile minimal --default-toolchain "${RUST_VERSION}" \
     && /opt/rust/cargo/bin/rustup component add clippy rustfmt
+
+# The pinned jankurai auditor (KEEP IN SYNC with ops/ci/ensure-jankurai.sh). The runtime
+# is `--network none`, so the auditor must ship in the image. It lands at the exact path
+# ops/ci/common.sh derives from CARGO_HOME (${CARGO_HOME}/bin/jankurai), so the CI lanes
+# need zero changes, and JERYU_JANKURAI_BIN pins lanes to this binary — never a bare
+# `jankurai` PATH lookup a stale build could shadow.
+ARG JANKURAI_VERSION="jankurai 1.6.10"
+COPY --from=jankurai-build /opt/rust/cargo/bin/jankurai /opt/rust/cargo/bin/jankurai
+ENV JERYU_JANKURAI_BIN=/opt/rust/cargo/bin/jankurai
+RUN /opt/rust/cargo/bin/jankurai --version | grep -qx "${JANKURAI_VERSION}"
 
 # Node + the Vite/TS/React toolchain, then the agent CLIs.
 RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \

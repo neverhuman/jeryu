@@ -151,6 +151,18 @@ expect_zero "cargo is present" cargo --version
 expect_zero "node is present" node --version
 expect_zero "tsc is present" tsc --version
 
+# The pinned jankurai auditor ships in the image (the runtime is --network none, so CI
+# lanes can never install it at session time). KEEP IN SYNC with ops/ci/ensure-jankurai.sh:
+# the version must be the pin, the binary must resolve unshadowed at the exact path
+# ops/ci/common.sh derives from CARGO_HOME, and JERYU_JANKURAI_BIN must point there so
+# lanes never fall back to a bare `jankurai` PATH lookup.
+expect_zero "jankurai is the pinned 1.6.10" \
+  sh -c '[ "$(/opt/rust/cargo/bin/jankurai --version)" = "jankurai 1.6.10" ]'
+expect_zero "jankurai resolves to the pinned path (no shadowing)" \
+  sh -c '[ "$(command -v jankurai)" = "/opt/rust/cargo/bin/jankurai" ]'
+expect_zero "JERYU_JANKURAI_BIN points at the pinned path" \
+  sh -c '[ "$JERYU_JANKURAI_BIN" = "/opt/rust/cargo/bin/jankurai" ]'
+
 echo "agent-sandbox smoke: $passes passed, $fails failed"
 if [[ "$mode" == "full" ]]; then
   echo "agent-sandbox smoke: full mode ran the complete lockdown battery on $runtime"
