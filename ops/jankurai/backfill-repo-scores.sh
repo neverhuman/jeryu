@@ -90,7 +90,7 @@ record() {
 # on this forge build yet.
 already_scored() {
   local name="$1" sha="$2" body
-  body="$(curl -fsS "${API}/api/v1/repos/jeryu/${name}/jankurai-scores?sha=${sha}" 2>/dev/null || true)"
+  body="$(curl -fsS "${API}/api/v1/repos/jeryu%2F${name}/jankurai-scores?sha=${sha}" 2>/dev/null || true)"
   [ -n "${body}" ] || return 1
   printf '%s' "${body}" | python3 -c '
 import json
@@ -200,7 +200,7 @@ print(json.dumps({
     outcome="tool-failed (exit ${rc})"
   fi
 
-  if curl -fsS -X POST "${API}/api/v1/repos/jeryu/${name}/jankurai-scores" \
+  if curl -fsS -X POST "${API}/api/v1/repos/jeryu%2F${name}/jankurai-scores" \
     -H 'content-type: application/json' --data "${payload}" >>"${log}" 2>&1; then
     echo "[backfill] jeryu/${name}: ${outcome} @ ${sha}"
     record "${name}" "${outcome} @ ${sha}"

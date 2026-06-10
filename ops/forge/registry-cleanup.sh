@@ -104,7 +104,7 @@ for full in "${DELETES[@]}"; do
   owner="${full%%/*}"
   name="${full#*/}"
   echo "DELETE ${full}"
-  curl -fsS -X DELETE "${API}/api/v1/repos/${owner}/${name}" \
+  curl -fsS -X DELETE "${API}/api/v1/repos/${owner}%2F${name}" \
     -H 'content-type: application/json' \
     --data "{\"confirm_full_name\":\"${full}\",\"delete_storage\":false}"
 done
