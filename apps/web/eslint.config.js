@@ -84,6 +84,12 @@ export default [
       'jsx-a11y/role-has-required-aria-props': 'warn',
       'jsx-a11y/click-events-have-key-events': 'warn',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
+      // Scrollable panes (diff viewer, cockpit sidebars) carry tabindex so
+      // keyboard users can focus + scroll them — axe's
+      // `scrollable-region-focusable` check *requires* this. The rule cannot
+      // see overflow styling and false-positives on the pattern, so it stays
+      // advisory.
+      'jsx-a11y/no-noninteractive-tabindex': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
       // react-hooks' purity / static-components / refs rules report
       // render-phase patterns (creating components or reading refs during

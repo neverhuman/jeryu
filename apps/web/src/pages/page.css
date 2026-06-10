@@ -17,6 +17,20 @@
   padding: var(--space-4) var(--space-5);
 }
 
+/* Wide variant: keeps the standard page chrome but lifts the width cap so
+ * grids (repos list, family drill-down) can use the whole viewport. */
+.page--wide {
+  max-width: none;
+}
+
+/* On very wide viewports the auto-fill grid would otherwise pack many
+ * narrow columns; bump the minimum card width so cards stay readable. */
+@media (min-width: 1920px) {
+  .page--wide .page__cards {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
 .page__header {
   display: flex;
   flex-direction: column;

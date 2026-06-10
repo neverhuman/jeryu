@@ -114,11 +114,6 @@
   color: var(--color-fg-primary);
 }
 
-.repo-card__owner {
-  color: var(--color-fg-muted);
-  font-weight: var(--font-weight-regular);
-}
-
 .repo-card__description {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -206,31 +201,90 @@
   outline-offset: -2px;
 }
 
-.repo-family {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+/* Family tile ------------------------------------------------------------- */
+/* A family rolls several repos into one tile. The stacked-deck offset
+ * shadow + accent-tinted border distinguish it from plain repo cards. */
+
+.repo-family-card {
+  border-color: var(--color-accent-primary);
+  box-shadow:
+    var(--space-1) var(--space-1) 0 calc(-1 * var(--space-1) / 4) var(--color-bg-1),
+    var(--space-1) var(--space-1) 0 0 var(--color-border-strong);
 }
 
-.repo-family__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
+.repo-family-card:hover {
+  border-color: var(--color-accent-primary);
+  box-shadow:
+    var(--space-1) var(--space-1) 0 calc(-1 * var(--space-1) / 4) var(--color-bg-1),
+    var(--space-1) var(--space-1) 0 0 var(--color-accent-primary);
 }
 
-.repo-family__title {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-fg-muted);
+.repo-family-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.repo-family__count {
+.repo-family-card__title svg {
+  color: var(--color-accent-primary);
+  flex-shrink: 0;
+}
+
+.repo-family-card__count {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--color-fg-muted);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent-primary-bg);
+  color: var(--color-accent-primary);
+}
+
+/* Family drill-down page --------------------------------------------------- */
+
+.repo-family-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-secondary);
+}
+
+.repo-family-strip__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.repo-family-panel {
+  background-color: var(--color-bg-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-1);
+}
+
+/* Family link-chip in the table view --------------------------------------- */
+
+.repo-table__family-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent-primary-bg);
+  color: var(--color-accent-primary);
+  text-decoration: none;
+}
+
+.repo-table__family-link:hover {
+  background-color: var(--color-accent-primary);
+  color: var(--color-bg-1);
+  text-decoration: none;
 }
 
 .repo-health-pill {

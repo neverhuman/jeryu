@@ -26,6 +26,7 @@ import { RepositoriesPage } from '../pages/RepositoriesPage';
 import { RepositoryAgentsPage } from '../pages/RepositoryAgentsPage';
 import { RepositoryCodePage } from '../pages/RepositoryCodePage';
 import { RepositoryFilePage } from '../pages/RepositoryFilePage';
+import { RepositoryFamilyPage } from '../pages/RepositoryFamilyPage';
 import { RepositoryPullRequestsPage } from '../pages/RepositoryPullRequestsPage';
 import { RepositoryOverviewPage } from '../pages/RepositoryOverviewPage';
 import { RepositorySettingsPage } from '../pages/RepositorySettingsPage';
@@ -40,6 +41,9 @@ export const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: 'repos', element: <RepositoriesPage /> },
       { path: 'repos/new', element: <RepositoriesPage mode="create" /> },
+      // Family drill-down. Declared before the `repos/:provider/*` catch-all
+      // so the static `family` segment wins over the dynamic provider.
+      { path: 'repos/family/:family', element: <RepositoryFamilyPage /> },
       // Single catch-all for all repo routes. The RepoRouter component
       // parses the splat to determine the sub-page.
       {

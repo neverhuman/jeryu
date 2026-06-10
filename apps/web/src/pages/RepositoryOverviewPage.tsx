@@ -133,10 +133,7 @@ export function RepositoryOverviewPage(props: RepositoryOverviewPageProps = {}):
 
       <header className="page__header">
         <div className="repo-overview__head">
-          <h1 className="repo-overview__title">
-            <span className="text-muted">{summary.id.owner}/</span>
-            {summary.id.name}
-          </h1>
+          <h1 className="repo-overview__title">{summary.id.name}</h1>
           <RepoHealthPill health={summary.health} />
           <span className="page__pill">{summary.visibility}</span>
           {summary.language ? (

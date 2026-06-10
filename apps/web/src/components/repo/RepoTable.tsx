@@ -14,12 +14,13 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import type { RepositorySummary } from '../../api/types';
 
 import { RepoHealthPill } from './RepoHealthPill';
 import { repoHref } from './RepoCard';
+import { familyHref } from './RepoFamilyCard';
 
 import './repo.css';
 
@@ -38,14 +39,25 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
       {
         id: 'name',
         header: 'Repository',
-        accessorFn: (row) => `${row.id.owner}/${row.id.name}`,
+        accessorFn: (row) => row.id.name,
+        cell: ({ row }) => <strong>{row.original.id.name}</strong>,
+      },
+      {
+        id: 'family',
+        header: 'Family',
+        accessorFn: (row) => row.family ?? '',
         cell: ({ row }) => {
-          const repo = row.original;
+          const family = row.original.family;
+          if (!family) return null;
           return (
-            <span>
-              <span className="text-muted">{repo.id.owner}/</span>
-              <strong>{repo.id.name}</strong>
-            </span>
+            <Link
+              to={familyHref(family)}
+              className="repo-table__family-link"
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`Open family ${family}`}
+            >
+              {family}
+            </Link>
           );
         },
       },
@@ -140,7 +152,7 @@ export function RepoTable({ repos }: RepoTableProps): JSX.Element {
               key={repo.id.id}
               tabIndex={0}
               role="row"
-              aria-label={`Open ${repo.id.owner}/${repo.id.name}`}
+              aria-label={`Open ${repo.id.name}`}
               onClick={() => navigate(repoHref(repo))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {

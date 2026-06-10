@@ -176,6 +176,7 @@ export interface MockRepoSummary {
   default_branch?: string;
   description?: string | null;
   visibility?: 'public' | 'internal' | 'private';
+  family?: string | null;
   topics?: string[];
   open_pull_requests?: number;
   failing_checks?: number;
@@ -196,7 +197,13 @@ export async function mockRepoList(
 ): Promise<void> {
   const repositories = repos.map((r) => normalizeRepo(r));
   const hosts = Array.from(new Set(repos.map((r) => r.id.host)));
-  const families: string[] = [];
+  const families = Array.from(
+    new Set(
+      repos
+        .map((r) => r.family)
+        .filter((f): f is string => typeof f === 'string' && f.length > 0)
+    )
+  );
   await page.route('**/api/v1/repos**', async (route: Route, request) => {
     if (request.method() !== 'GET') {
       await route.continue();
@@ -210,13 +217,21 @@ export async function mockRepoList(
       await route.continue();
       return;
     }
+    // Honour the `?family=` filter like the real backend so the family
+    // drill-down page sees only the matching members.
+    const familyFilter = url.searchParams.get('family');
+    const filtered = familyFilter
+      ? repositories.filter(
+          (r) => (r as { family: string | null }).family === familyFilter
+        )
+      : repositories;
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         generated_at: '2026-05-26T00:00:00Z',
-        total: repositories.length,
-        repositories,
+        total: filtered.length,
+        repositories: filtered,
         facets: {
           hosts,
           owners: Array.from(new Set(repos.map((r) => r.id.owner))),
@@ -858,7 +873,7 @@ function normalizeRepo(repo: MockRepoSummary): Record<string, unknown> {
     description: repo.description ?? null,
     visibility: repo.visibility ?? 'private',
     default_branch: repo.default_branch ?? 'main',
-    family: null,
+    family: repo.family ?? null,
     topics: repo.topics ?? [],
     language: null,
     health: 'green',

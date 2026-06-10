@@ -11,8 +11,9 @@ const AGENTS_ROUTE = '/repos/jeryu/alice%2Fjeryu/agents';
 
 describe('RepositoryAgentsPage — New Session', () => {
   beforeEach(() => {
-    // The agents surface + mounted terminal touch WebSocket / ResizeObserver,
-    // which jsdom does not provide. Minimal doubles keep the render clean.
+    // The agents surface + mounted terminal touch WebSocket / EventSource /
+    // ResizeObserver, which jsdom does not provide. Minimal doubles keep the
+    // render clean.
     vi.stubGlobal(
       'WebSocket',
       class {
@@ -21,6 +22,15 @@ describe('RepositoryAgentsPage — New Session', () => {
         addEventListener(): void {}
         removeEventListener(): void {}
         send(): void {}
+        close(): void {}
+      }
+    );
+    vi.stubGlobal(
+      'EventSource',
+      class {
+        onopen: (() => void) | null = null;
+        onmessage: ((msg: { data: string }) => void) | null = null;
+        onerror: (() => void) | null = null;
         close(): void {}
       }
     );

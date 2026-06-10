@@ -10,7 +10,7 @@
 //   * empty         — `total === 0`
 //   * error         — non-403 ApiError
 //   * permission    — 403 from the list endpoint
-//   * success       — repositories grouped by family.
+//   * success       — family tiles first, then single repo cards.
 
 import { LayoutGrid, Plus, Table } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -101,7 +101,7 @@ export function RepositoriesPage({
   const facets = list.data?.facets;
 
   return (
-    <div className="page" data-testid="repositories-page">
+    <div className="page page--wide" data-testid="repositories-page">
       <header className="page__header">
         <div className="page__welcome">
           <h1 className="page__title">Repositories</h1>
@@ -235,6 +235,8 @@ export function RepositoriesPage({
         error={list.error}
         repos={repos}
         view={reposView}
+        search={filter.search}
+        familyFilter={filter.family}
         onClearFilters={() => {
           setFilter(DEFAULT_FILTER);
           setSearchInput('');

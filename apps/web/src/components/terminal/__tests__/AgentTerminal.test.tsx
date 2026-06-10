@@ -1,20 +1,23 @@
 // AgentTerminal.test.tsx — component-level wiring test for the live terminal.
 //
-// Drives the REAL transport path: a stubbed `WebSocket` feeds `agent_run.{id}`
-// event frames into `JeRyuWsClient`, which routes them through the tap →
-// `realtimeStore` → `useAgentTty` → the rAF write loop → `term.write`. xterm
+// Drives the REAL transport path of the SSE + REST architecture: a stubbed
+// `EventSource` feeds `AgentStreamEvent` frames through `connectTtyStream`
+// → the rAF write loop → `term.write`, and operator input flows out via
+// POST /api/v1/agent-runs/{id}/control (captured by a `fetch` spy). xterm
 // itself is mocked so we can assert the exact bytes handed to `write` and
 // invoke the captured `onData` handler. Covers:
 //   * merged bytes: two frames in one rAF batch coalesce into one write;
-//   * input: keystrokes become `input` controls with the right decoded bytes;
+//   * verbatim rendering of base64-encoded PTY bytes;
+//   * input: keystrokes become `send_input` controls with the typed text;
 //   * interrupt: Ctrl-C (button + ETX keystroke) become `interrupt` controls;
-//   * resync: a chunk_seq gap clears the screen and emits a `resync` control.
+//   * exit: an exit_code event surfaces the exit pill and the exit line;
+//   * isolation: SSE bytes never touch the realtime rolling event buffer.
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentTerminal } from '../AgentTerminal';
-import { textToBase64, base64ToBytes } from '../agentTtyDecode';
+import { textToBase64 } from '../agentTtyDecode';
 import { useRealtimeStore } from '../../../stores/realtimeStore';
 
 // ── xterm mocks ────────────────────────────────────────────────────────────
@@ -77,29 +80,18 @@ function resetLastTerm(): void {
   (Terminal as unknown as { last: MockTerminal | null }).last = null;
 }
 
-// ── scriptable WebSocket double ─────────────────────────────────────────────
-type Listener = (ev: unknown) => void;
-class FakeWebSocket {
-  static OPEN = 1;
-  static instances: FakeWebSocket[] = [];
-  readyState = FakeWebSocket.OPEN;
-  sent: string[] = [];
-  private listeners: Record<string, Listener[]> = {};
+// ── scriptable EventSource double ───────────────────────────────────────────
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((msg: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
   constructor(public url: string) {
-    FakeWebSocket.instances.push(this);
-  }
-  addEventListener(type: string, fn: Listener): void {
-    (this.listeners[type] ??= []).push(fn);
-  }
-  removeEventListener(): void {}
-  send(data: string): void {
-    this.sent.push(data);
+    FakeEventSource.instances.push(this);
   }
   close(): void {
-    this.readyState = 3;
-  }
-  emit(type: string, ev: unknown): void {
-    for (const fn of this.listeners[type] ?? []) fn(ev);
+    this.closed = true;
   }
 }
 
@@ -108,49 +100,54 @@ let rafCallbacks: Array<FrameRequestCallback | undefined> = [];
 function runRaf(): void {
   const cbs = rafCallbacks;
   rafCallbacks = [];
-  for (const cb of cbs) cb?.(0);
+  act(() => {
+    for (const cb of cbs) cb?.(0);
+  });
 }
 
 const RUN_ID = 'run-1';
-const SCOPE = `agent_run.${RUN_ID}`;
+const CONTROL_PATH = `/api/v1/agent-runs/${RUN_ID}/control`;
 
-function helloFrame(): string {
-  return JSON.stringify({
-    type: 'hello',
-    server_time: '2026-01-01T00:00:00Z',
-    current_seq: 0,
-    protocol: 'jeryu.ws.v1',
-  });
-}
-
-function eventFrame(opts: {
+interface SseEventOpts {
   seq: number;
-  chunk_seq: number;
-  text: string;
-  scope?: string;
-}): string {
+  stream?: 'stdout' | 'stderr' | 'event';
+  text?: string | null;
+  bytesB64?: string | null;
+  exitCode?: number | null;
+}
+
+function sseFrame(opts: SseEventOpts): string {
   return JSON.stringify({
-    type: 'event',
-    event: {
-      seq: opts.seq,
-      timestamp: '2026-01-01T00:00:00Z',
-      scope: opts.scope ?? SCOPE,
-      kind: 'agent.tty',
-      entity: SCOPE,
-      summary: 'tty',
-      payload: {
-        chunk_seq: opts.chunk_seq,
-        stream: 'pty',
-        bytes_b64: textToBase64(opts.text),
-      },
-    },
+    seq: opts.seq,
+    stream: opts.stream ?? 'stdout',
+    text: opts.text ?? null,
+    bytes_b64: opts.bytesB64 ?? null,
+    exit_code: opts.exitCode ?? null,
   });
 }
 
-function sentControls(socket: FakeWebSocket): Array<Record<string, unknown>> {
-  return socket.sent
-    .map((s): Record<string, unknown> => JSON.parse(s))
-    .filter((f) => f.type === 'agent_control');
+function emit(source: FakeEventSource, frame: string): void {
+  act(() => {
+    source.onmessage?.({ data: frame });
+  });
+}
+
+let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+/** Control POSTs captured by the fetch spy, parsed. */
+function sentControls(): Array<Record<string, unknown>> {
+  const calls = fetchSpy.mock.calls as Array<[unknown, RequestInit | undefined]>;
+  return calls
+    .filter(
+      ([url, init]) =>
+        String(url).includes(CONTROL_PATH) &&
+        (init?.method ?? 'GET').toUpperCase() === 'POST'
+    )
+    .map(([, init]): Record<string, unknown> => JSON.parse(String(init?.body)));
+}
+
+function controlsOfKind(kind: string): Array<Record<string, unknown>> {
+  return sentControls().filter((c) => c.kind === kind);
 }
 
 function decode(bytes: Uint8Array): string {
@@ -158,25 +155,29 @@ function decode(bytes: Uint8Array): string {
 }
 
 async function mountAndStream(): Promise<{
-  socket: FakeWebSocket;
+  source: FakeEventSource;
   term: () => MockTerminal;
 }> {
   render(<AgentTerminal runId={RUN_ID} />);
-  useRealtimeStore.getState().connect();
-  const socket = FakeWebSocket.instances[0];
-  socket.emit('open', {});
-  socket.emit('message', { data: helloFrame() });
-  // Wait for the lazy xterm surface + the subscribe/tap effect to run.
+  const source = FakeEventSource.instances[0];
+  expect(source.url).toContain(`/api/v1/agent-runs/${RUN_ID}/tty/stream`);
+  act(() => {
+    source.onopen?.();
+  });
+  // Wait for the lazy xterm surface + the dynamic import to finish.
   await screen.findByTestId('agent-terminal-surface');
   await waitFor(() => expect(lastTermOrNull()).not.toBeNull());
-  return { socket, term: lastTerm };
+  // The mount-time resize control may still be in flight; drain it so the
+  // per-test control assertions start from a clean slate.
+  fetchSpy.mockClear();
+  return { source, term: lastTerm };
 }
 
 beforeEach(() => {
-  FakeWebSocket.instances = [];
+  FakeEventSource.instances = [];
   rafCallbacks = [];
   resetLastTerm();
-  vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket);
+  vi.stubGlobal('EventSource', FakeEventSource as unknown as typeof EventSource);
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -192,83 +193,76 @@ beforeEach(() => {
   vi.stubGlobal('cancelAnimationFrame', (id: number) => {
     rafCallbacks[id - 1] = undefined;
   });
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  });
   useRealtimeStore.setState({ status: 'idle', events: [] });
 });
 
 afterEach(() => {
-  useRealtimeStore.getState().disconnect();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('AgentTerminal live wiring', () => {
   it('merges two TTY frames in one rAF batch into a single write', async () => {
-    const { socket, term } = await mountAndStream();
-    socket.emit('message', { data: eventFrame({ seq: 1, chunk_seq: 1, text: 'A' }) });
-    socket.emit('message', { data: eventFrame({ seq: 2, chunk_seq: 2, text: 'B' }) });
+    const { source, term } = await mountAndStream();
+    emit(source, sseFrame({ seq: 1, text: 'A' }));
+    emit(source, sseFrame({ seq: 2, text: 'B' }));
     runRaf();
     const t = term();
     expect(t.writes).toHaveLength(1);
     expect(decode(t.writes[0])).toBe('AB');
   });
 
-  it('renders the scripted prompt bytes verbatim', async () => {
-    const { socket, term } = await mountAndStream();
-    socket.emit('message', {
-      data: eventFrame({ seq: 1, chunk_seq: 1, text: '$ cargo test\r\n' }),
-    });
+  it('renders base64-encoded PTY bytes verbatim', async () => {
+    const { source, term } = await mountAndStream();
+    emit(
+      source,
+      sseFrame({ seq: 1, bytesB64: textToBase64('$ cargo test\r\n') })
+    );
     runRaf();
     expect(decode(term().writes[0])).toBe('$ cargo test\r\n');
   });
 
-  it('sends an input control with the decoded bytes when the operator types', async () => {
-    const { socket } = await mountAndStream();
-    socket.sent.length = 0;
-    lastTerm().dataHandler?.('x');
-    const controls = sentControls(socket);
-    expect(controls).toHaveLength(1);
-    const control = controls[0].control as { kind: string; bytes_b64: string };
-    expect(controls[0].run_id).toBe(RUN_ID);
-    expect(control.kind).toBe('input');
-    expect(decode(base64ToBytes(control.bytes_b64))).toBe('x');
+  it('sends a send_input control with the typed text when the operator types', async () => {
+    const { term } = await mountAndStream();
+    term().dataHandler?.('x');
+    const inputs = controlsOfKind('send_input');
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0].text).toBe('x');
   });
 
   it('promotes a Ctrl-C keystroke (ETX) to an interrupt control', async () => {
-    const { socket } = await mountAndStream();
-    socket.sent.length = 0;
-    lastTerm().dataHandler?.('\x03');
-    const controls = sentControls(socket);
-    expect(controls).toHaveLength(1);
-    expect((controls[0].control as { kind: string }).kind).toBe('interrupt');
+    const { term } = await mountAndStream();
+    term().dataHandler?.('\x03');
+    expect(controlsOfKind('interrupt')).toHaveLength(1);
+    expect(controlsOfKind('send_input')).toHaveLength(0);
   });
 
   it('sends an interrupt when the Ctrl-C toolbar button is clicked', async () => {
-    const { socket } = await mountAndStream();
-    socket.sent.length = 0;
+    await mountAndStream();
     fireEvent.click(screen.getByTestId('agent-terminal-interrupt'));
-    const controls = sentControls(socket);
-    expect(controls).toHaveLength(1);
-    expect((controls[0].control as { kind: string }).kind).toBe('interrupt');
+    expect(controlsOfKind('interrupt')).toHaveLength(1);
   });
 
-  it('clears the screen and resyncs on a chunk_seq gap', async () => {
-    const { socket, term } = await mountAndStream();
-    socket.emit('message', { data: eventFrame({ seq: 1, chunk_seq: 1, text: 'A' }) });
+  it('surfaces the exit pill and writes the exit line on an exit_code event', async () => {
+    const { source, term } = await mountAndStream();
+    emit(source, sseFrame({ seq: 1, stream: 'event', exitCode: 0 }));
+    const pill = await screen.findByTestId('agent-terminal-exit');
+    expect(pill).toHaveTextContent('exit 0');
     runRaf();
-    socket.sent.length = 0;
-    // Gap: chunk_seq jumps 1 -> 3.
-    socket.emit('message', { data: eventFrame({ seq: 2, chunk_seq: 3, text: 'C' }) });
-    expect(term().clears).toBeGreaterThanOrEqual(1);
-    const controls = sentControls(socket);
-    expect(controls.some((c) => (c.control as { kind: string }).kind === 'resync')).toBe(
-      true
-    );
+    expect(decode(term().writes[0])).toContain('process exited with code 0');
   });
 
   it('streams agent bytes WITHOUT touching the rolling event buffer', async () => {
-    const { socket } = await mountAndStream();
-    socket.emit('message', { data: eventFrame({ seq: 1, chunk_seq: 1, text: 'A' }) });
+    const { source, term } = await mountAndStream();
+    emit(source, sseFrame({ seq: 1, text: 'quiet bytes' }));
     runRaf();
-    // The tap intercepts the frame before the zustand buffer — it stays empty.
+    expect(decode(term().writes[0])).toBe('quiet bytes');
     expect(useRealtimeStore.getState().events).toHaveLength(0);
   });
 });

@@ -1,8 +1,8 @@
 // RepoCard.test.tsx — minimal render smoke for W-FE-08.
 //
-// The card must surface owner/name, description, default branch, language
-// and the health pill. We do not assert on relative time so the test is
-// independent of the wall clock.
+// The card must surface the repo name (without an owner prefix),
+// description, default branch, language and the health pill. We do not
+// assert on relative time so the test is independent of the wall clock.
 
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -38,19 +38,20 @@ const FIXTURE: RepositorySummary = {
 };
 
 describe('RepoCard', () => {
-  it('renders owner, name, description, language, and health', () => {
+  it('renders name, description, language, and health without owner prefix', () => {
     render(
       <MemoryRouter>
         <RepoCard repo={FIXTURE} />
       </MemoryRouter>
     );
     expect(screen.getByText('redline')).toBeInTheDocument();
-    expect(screen.getByText('veox/')).toBeInTheDocument();
+    expect(screen.queryByText('veox/')).not.toBeInTheDocument();
+    expect(screen.queryByText(/veox\/redline/)).not.toBeInTheDocument();
     expect(screen.getByText('Edge router for VEOX')).toBeInTheDocument();
     expect(screen.getByText('main')).toBeInTheDocument();
     expect(screen.getByText('Rust')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /Open repository veox\/redline/ })
+      screen.getByRole('link', { name: 'Open repository redline' })
     ).toHaveAttribute('href', '/repos/jeryu/veox/redline');
     expect(screen.getByRole('status', { name: /Health/ })).toBeInTheDocument();
   });
