@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, params};
 
+use super::audit::AuditEntry;
 use super::{Counters, State};
 use crate::errors::{ForgeError, Result};
 use crate::model::*;
@@ -46,6 +47,62 @@ impl SqliteStore {
         persist_state(&tx, state)?;
         tx.commit().map_err(storage_error)?;
         Ok(())
+    }
+
+    /// Append one audit receipt through a fresh connection.
+    ///
+    /// `forge_audit_log` is intentionally NOT part of `persist`/`delete_all`:
+    /// the full-state rewrite must never wipe the trail, so audit writes take
+    /// this dedicated path instead of riding the state snapshot.
+    pub(super) fn append_audit(&self, entry: &AuditEntry) -> Result<()> {
+        let conn = self.connect()?;
+        conn.execute(
+            r#"
+            INSERT INTO forge_audit_log (
+              id, occurred_at, actor, action, subject, phase, detail_json
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            "#,
+            params![
+                entry.id,
+                entry.occurred_at,
+                entry.actor,
+                entry.action,
+                entry.subject,
+                entry.phase,
+                json(&entry.detail)?,
+            ],
+        )
+        .map_err(storage_error)?;
+        Ok(())
+    }
+
+    /// All audit entries for one subject, oldest first.
+    pub(super) fn list_audit(&self, subject: &str) -> Result<Vec<AuditEntry>> {
+        let conn = self.connect()?;
+        let mut stmt = conn
+            .prepare(
+                r#"
+                SELECT id, occurred_at, actor, action, subject, phase, detail_json
+                FROM forge_audit_log
+                WHERE subject = ?1
+                ORDER BY occurred_at, rowid
+                "#,
+            )
+            .map_err(storage_error)?;
+        let mut rows = stmt.query(params![subject]).map_err(storage_error)?;
+        let mut entries = Vec::new();
+        while let Some(row) = rows.next().map_err(storage_error)? {
+            entries.push(AuditEntry {
+                id: row.get(0).map_err(storage_error)?,
+                occurred_at: row.get(1).map_err(storage_error)?,
+                actor: row.get(2).map_err(storage_error)?,
+                action: row.get(3).map_err(storage_error)?,
+                subject: row.get(4).map_err(storage_error)?,
+                phase: row.get(5).map_err(storage_error)?,
+                detail: parse_json(row.get(6).map_err(storage_error)?)?,
+            });
+        }
+        Ok(entries)
     }
 
     fn connect(&self) -> Result<Connection> {

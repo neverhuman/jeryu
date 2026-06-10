@@ -9,6 +9,7 @@ mod markdown;
 mod mcp_backend;
 mod permissions;
 mod pulls;
+mod repo_admin;
 mod repositories;
 mod sessions;
 mod surface;
@@ -363,7 +364,12 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             post(workcells::export_pr),
         )
         .route("/api/v1/repos", get(repos))
-        .route("/api/v1/repos/:id", get(repo_detail).patch(repo_update))
+        .route(
+            "/api/v1/repos/:id",
+            get(repo_detail)
+                .patch(repo_update)
+                .delete(repo_admin::repo_delete),
+        )
         // Repo-scoped agent sessions: launch a hardened session, and the live
         // per-repo agent-runs list the web Active-Agents page consumes.
         .route("/api/v1/repos/:id/sessions", post(sessions::create))

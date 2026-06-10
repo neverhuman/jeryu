@@ -435,11 +435,23 @@ pub(super) fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySum
         updated_at: repo.updated_at.to_rfc3339(),
         clone_http_url: Some(format!("/repos/{}.git", repo.full_name)),
         clone_ssh_url: None,
-        available_actions: vec![AvailableAction {
-            action_id: "repo.open".to_string(),
-            label: "Open".to_string(),
-            risk: None,
-        }],
+        available_actions: vec![
+            AvailableAction {
+                action_id: "repo.open".to_string(),
+                label: "Open".to_string(),
+                risk: None,
+            },
+            AvailableAction {
+                action_id: "repo.delete_registry".to_string(),
+                label: "Remove from jeryu".to_string(),
+                risk: Some("destructive".to_string()),
+            },
+            AvailableAction {
+                action_id: "repo.delete_storage".to_string(),
+                label: "Delete managed storage".to_string(),
+                risk: Some("destructive".to_string()),
+            },
+        ],
     }
 }
 
@@ -579,15 +591,15 @@ fn readme_not_found_error() -> AxumResponse {
     )
 }
 
-struct ApiErrorHint<'a> {
-    purpose: &'a str,
-    reason: &'a str,
-    common_fixes: &'a [&'a str],
-    docs_url: &'a str,
-    repair_hint: &'a str,
+pub(super) struct ApiErrorHint<'a> {
+    pub(super) purpose: &'a str,
+    pub(super) reason: &'a str,
+    pub(super) common_fixes: &'a [&'a str],
+    pub(super) docs_url: &'a str,
+    pub(super) repair_hint: &'a str,
 }
 
-fn api_error_with_hint(
+pub(super) fn api_error_with_hint(
     status: axum::http::StatusCode,
     code: &str,
     message: &str,

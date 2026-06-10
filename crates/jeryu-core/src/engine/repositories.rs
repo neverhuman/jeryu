@@ -1,11 +1,96 @@
 //! Repositories and labels.
 
+use std::collections::HashMap;
+use std::hash::Hash;
+
 use chrono::Utc;
 use uuid::Uuid;
 
 use super::{Counters, ForgeCore, require_name};
 use crate::errors::{ForgeError, Result};
 use crate::model::*;
+
+/// Receipt for one [`ForgeCore::delete_repository`]: the removed repository
+/// plus how many entries each repo-scoped collection lost.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepositoryDeletion {
+    pub repo: Repository,
+    pub labels: u32,
+    pub issues: u32,
+    pub issue_comments: u32,
+    pub pulls: u32,
+    pub reviews: u32,
+    pub review_comments: u32,
+    pub branch_protections: u32,
+    pub codeowners: u32,
+    pub readmes: u32,
+    pub commit_statuses: u32,
+    pub check_runs: u32,
+    pub webhooks: u32,
+    pub webhook_deliveries: u32,
+    pub counters: u32,
+}
+
+impl RepositoryDeletion {
+    /// `(collection, removed)` pairs in stable order for operator receipts.
+    #[must_use]
+    pub fn removed_counts(&self) -> Vec<(&'static str, u32)> {
+        vec![
+            ("labels", self.labels),
+            ("issues", self.issues),
+            ("issue_comments", self.issue_comments),
+            ("pulls", self.pulls),
+            ("reviews", self.reviews),
+            ("review_comments", self.review_comments),
+            ("branch_protections", self.branch_protections),
+            ("codeowners", self.codeowners),
+            ("readmes", self.readmes),
+            ("commit_statuses", self.commit_statuses),
+            ("check_runs", self.check_runs),
+            ("webhooks", self.webhooks),
+            ("webhook_deliveries", self.webhook_deliveries),
+            ("counters", self.counters),
+        ]
+    }
+}
+
+/// Remove every `(owner, repo, _)`-keyed entry, counting removed entries.
+fn drain_scoped<K: Eq + Hash + Clone, V>(
+    map: &mut HashMap<(String, String, K), V>,
+    owner: &str,
+    repo: &str,
+) -> u32 {
+    let keys: Vec<_> = map
+        .keys()
+        .filter(|(key_owner, key_repo, _)| key_owner == owner && key_repo == repo)
+        .cloned()
+        .collect();
+    let removed = keys.len() as u32;
+    for key in keys {
+        map.remove(&key);
+    }
+    removed
+}
+
+/// Remove every `(owner, repo, _)`-keyed bucket, counting removed ELEMENTS.
+fn drain_scoped_vecs<K: Eq + Hash + Clone, V>(
+    map: &mut HashMap<(String, String, K), Vec<V>>,
+    owner: &str,
+    repo: &str,
+) -> u32 {
+    let keys: Vec<_> = map
+        .keys()
+        .filter(|(key_owner, key_repo, _)| key_owner == owner && key_repo == repo)
+        .cloned()
+        .collect();
+    let mut removed = 0u32;
+    for key in keys {
+        if let Some(bucket) = map.remove(&key) {
+            removed += bucket.len() as u32;
+        }
+    }
+    removed
+}
 
 impl ForgeCore {
     pub fn create_repository(
@@ -102,6 +187,69 @@ impl ForgeCore {
         let updated = entry.clone();
         self.persist_after_mutation(&mut state, previous)?;
         Ok(updated)
+    }
+
+    /// Delete a repository and everything scoped to it from the live state.
+    ///
+    /// Persistence is a full-state rewrite (`SqliteStore::persist` deletes and
+    /// reinserts every table), so removing the repo from EVERY `State` map and
+    /// persisting once is the complete, transactional registry deletion: the
+    /// rewrite simply never re-inserts the removed rows. Account-level state
+    /// (users, organizations, teams) is not repo-scoped and stays untouched;
+    /// the `forge_audit_log` table lives outside the rewrite by design and
+    /// keeps its trail for the deleted subject.
+    pub fn delete_repository(&self, owner: &str, repo: &str) -> Result<RepositoryDeletion> {
+        let mut state = self.state.write();
+        let key = (owner.to_string(), repo.to_string());
+        let Some(removed_repo) = state.repos.get(&key).cloned() else {
+            return Err(ForgeError::NotFound(format!("repository {owner}/{repo}")));
+        };
+        let previous = state.clone();
+
+        state.repos.remove(&key);
+        let labels = drain_scoped(&mut state.labels, owner, repo);
+        let issues = drain_scoped(&mut state.issues, owner, repo);
+        let issue_comments = drain_scoped_vecs(&mut state.issue_comments, owner, repo);
+        let pulls = drain_scoped(&mut state.pulls, owner, repo);
+        let reviews = drain_scoped_vecs(&mut state.reviews, owner, repo);
+        let review_comments = drain_scoped_vecs(&mut state.review_comments, owner, repo);
+        let branch_protections = drain_scoped(&mut state.branch_protections, owner, repo);
+        let codeowners = u32::from(state.codeowners.remove(&key).is_some());
+        let readmes = u32::from(state.readmes.remove(&key).is_some());
+        let commit_statuses = drain_scoped_vecs(&mut state.statuses, owner, repo);
+        let check_runs = state
+            .check_runs
+            .remove(&key)
+            .map_or(0, |runs| runs.len() as u32);
+        let webhooks = state
+            .webhooks
+            .remove(&key)
+            .map_or(0, |hooks| hooks.len() as u32);
+        let deliveries_before = state.webhook_deliveries.len();
+        state
+            .webhook_deliveries
+            .retain(|delivery| !(delivery.owner == owner && delivery.repo == repo));
+        let webhook_deliveries = (deliveries_before - state.webhook_deliveries.len()) as u32;
+        let counters = u32::from(state.counters.remove(&key).is_some());
+
+        self.persist_after_mutation(&mut state, previous)?;
+        Ok(RepositoryDeletion {
+            repo: removed_repo,
+            labels,
+            issues,
+            issue_comments,
+            pulls,
+            reviews,
+            review_comments,
+            branch_protections,
+            codeowners,
+            readmes,
+            commit_statuses,
+            check_runs,
+            webhooks,
+            webhook_deliveries,
+            counters,
+        })
     }
 
     pub fn create_label(

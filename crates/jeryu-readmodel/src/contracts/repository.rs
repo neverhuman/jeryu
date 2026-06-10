@@ -106,6 +106,43 @@ pub struct CreateRepositoryRequest {
     pub dry_run: bool,
 }
 
+/// Body of `DELETE /api/v1/repos/{repo_id}`.
+///
+/// `confirm_full_name` must byte-match the repository's `owner/name` exactly
+/// (no wildcards, no normalization) or the request is rejected with 422.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct DeleteRepositoryRequest {
+    pub confirm_full_name: String,
+    /// Also delete the managed bare git directory (second tier). Defaults to
+    /// false: registry-only removal that leaves storage on disk.
+    #[serde(default)]
+    pub delete_storage: bool,
+}
+
+/// One per-collection removal count inside a [`DeleteRepositoryReceipt`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct DeletedCount {
+    pub collection: String,
+    pub removed: u32,
+}
+
+/// Receipt returned by a successful `DELETE /api/v1/repos/{repo_id}`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct DeleteRepositoryReceipt {
+    pub repo: RepositoryId,
+    pub registry_deleted: bool,
+    pub deleted_counts: Vec<DeletedCount>,
+    /// True only when `delete_storage` was requested AND the managed bare
+    /// directory passed every safety check and was removed.
+    pub storage_deleted: bool,
+    pub storage_path: Option<String>,
+    /// Id of the audit-trail entry recording this deletion.
+    pub audit_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct CreateRepositoryPreview {

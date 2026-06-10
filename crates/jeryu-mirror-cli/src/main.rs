@@ -3,8 +3,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use jeryu_core::{CreateRepositoryRequest, ForgeCore, ForgeError};
+use jeryu_gitd::command::run_capture;
 use jeryu_gitd::import::{
-    GitDirKind, LocalGitImporter, classify_git_dir, inferred_owner, repo_name,
+    GitDirKind, LocalGitImporter, classify_git_dir, forbidden_import_root, inferred_owner,
+    repo_name,
 };
 use jeryu_gitd::{GitdConfig, RepoId, RepoManager};
 use jeryu_mirror::{
@@ -71,6 +73,10 @@ enum Command {
         owner: Option<String>,
         #[arg(long, default_value_t = false)]
         dry_run: bool,
+        /// Re-import a path even when an existing managed mirror already
+        /// points at it (skipped as a duplicate otherwise).
+        #[arg(long, default_value_t = false)]
+        force: bool,
         #[arg(required = true)]
         paths: Vec<PathBuf>,
     },
@@ -164,10 +170,12 @@ fn main() -> Result<()> {
             data_dir,
             owner,
             dry_run,
+            force,
             paths,
         } => {
             let data_dir = expand_tilde(data_dir);
-            let manifest = import_local_git_dirs(&data_dir, owner.as_deref(), dry_run, &paths)?;
+            let manifest =
+                import_local_git_dirs(&data_dir, owner.as_deref(), dry_run, force, &paths)?;
             println!("{}", serde_json::to_string_pretty(&manifest)?);
         }
     }
@@ -198,11 +206,20 @@ fn import_local_git_dirs(
     data_dir: &Path,
     owner: Option<&str>,
     dry_run: bool,
+    force: bool,
     paths: &[PathBuf],
 ) -> Result<LocalImportManifest> {
     std::fs::create_dir_all(data_dir)
         .with_context(|| format!("create data dir {}", data_dir.display()))?;
     let gitd_storage_root = data_dir.join("git");
+    let gitd_config = GitdConfig::new(&gitd_storage_root);
+    // Never import from inside jeryu's own state: the gitd storage root would
+    // mirror managed mirrors into themselves, and the data dir / ~/.jeryu hold
+    // daemon state, not source repositories.
+    let mut guard_roots = vec![data_dir.to_path_buf()];
+    if let Some(home) = std::env::var_os("HOME") {
+        guard_roots.push(PathBuf::from(home).join(".jeryu"));
+    }
     let core = if dry_run {
         None
     } else {
@@ -211,9 +228,10 @@ fn import_local_git_dirs(
     let gitd = if dry_run {
         None
     } else {
-        Some(LocalGitImporter::new(RepoManager::new(GitdConfig::new(
-            &gitd_storage_root,
-        ))))
+        Some(
+            LocalGitImporter::new(RepoManager::new(gitd_config.clone()))
+                .with_guard_roots(guard_roots.clone()),
+        )
     };
     let mut manifest = LocalImportManifest {
         data_dir: data_dir.display().to_string(),
@@ -227,6 +245,18 @@ fn import_local_git_dirs(
         let canonical = path
             .canonicalize()
             .with_context(|| format!("canonicalize {}", path.display()))?;
+        if let Some(reason) = forbidden_import_root(&canonical, &gitd_storage_root, &guard_roots) {
+            manifest.skipped.push(LocalImportEntry {
+                path: canonical.display().to_string(),
+                owner: owner.unwrap_or("local").to_string(),
+                name: repo_name(&canonical),
+                bare: false,
+                gitd_path: None,
+                gitd_action: None,
+                reason: Some(reason),
+            });
+            continue;
+        }
         let Some(kind) = classify_git_dir(&canonical) else {
             manifest.skipped.push(LocalImportEntry {
                 path: canonical.display().to_string(),
@@ -243,6 +273,23 @@ fn import_local_git_dirs(
             .map(str::to_string)
             .unwrap_or_else(|| inferred_owner(&canonical));
         let name = repo_name(&canonical);
+        if !force
+            && let Some((existing_owner, existing_name)) =
+                existing_import_of(&gitd_config.git_bin, &gitd_storage_root, &canonical)
+        {
+            manifest.skipped.push(LocalImportEntry {
+                path: canonical.display().to_string(),
+                owner: repo_owner,
+                name,
+                bare: kind == GitDirKind::Bare,
+                gitd_path: None,
+                gitd_action: None,
+                reason: Some(format!(
+                    "already imported as {existing_owner}/{existing_name} (use --force to re-import)"
+                )),
+            });
+            continue;
+        }
         let mut gitd_path = None;
         let mut gitd_action = None;
         if let Some(gitd) = &gitd {
@@ -282,6 +329,53 @@ fn import_local_git_dirs(
     Ok(manifest)
 }
 
+/// `(owner, name)` of an existing managed bare under `storage_root` whose
+/// `remote.origin.url` canonicalizes to `canonical` — i.e. this local path was
+/// already imported. Walks the two-level `owner/name.git` layout; anything
+/// unreadable or non-local simply does not match.
+fn existing_import_of(
+    git_bin: &str,
+    storage_root: &Path,
+    canonical: &Path,
+) -> Option<(String, String)> {
+    let owners = std::fs::read_dir(storage_root).ok()?;
+    for owner_entry in owners.flatten() {
+        let owner_dir = owner_entry.path();
+        if !owner_dir.is_dir() {
+            continue;
+        }
+        let Ok(repos) = std::fs::read_dir(&owner_dir) else {
+            continue;
+        };
+        for repo_entry in repos.flatten() {
+            let bare = repo_entry.path();
+            if !bare.join("HEAD").is_file() {
+                continue;
+            }
+            let Ok(output) = run_capture(
+                git_bin,
+                &["config", "--get", "remote.origin.url"],
+                Some(&bare),
+            ) else {
+                continue;
+            };
+            let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if url.is_empty() || url.contains("://") {
+                continue;
+            }
+            let Ok(resolved) = Path::new(&url).canonicalize() else {
+                continue;
+            };
+            if resolved == canonical {
+                let owner = owner_entry.file_name().to_string_lossy().to_string();
+                let name = repo_name(&bare);
+                return Some((owner, name));
+            }
+        }
+    }
+    None
+}
+
 fn expand_tilde(path: PathBuf) -> PathBuf {
     let raw = path.to_string_lossy();
     if raw == "~" {
@@ -292,5 +386,136 @@ fn expand_tilde(path: PathBuf) -> PathBuf {
             .unwrap_or(path)
     } else {
         path
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command as StdCommand;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(prefix: &str) -> PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "{prefix}-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&base).expect("create temp dir");
+        base
+    }
+
+    fn git_available() -> bool {
+        StdCommand::new("git")
+            .arg("--version")
+            .output()
+            .map(|out| out.status.success())
+            .unwrap_or(false)
+    }
+
+    /// Dedupe resolves an existing managed bare back to its source path via
+    /// `remote.origin.url`, and only an exact canonical match counts.
+    #[test]
+    fn existing_import_of_matches_origin_url_by_canonical_path() {
+        if !git_available() {
+            return;
+        }
+        let base = temp_dir("jeryu-mirror-dedupe");
+        let source = base.join("projects").join("foo");
+        std::fs::create_dir_all(&source).expect("source dir");
+        let other = base.join("projects").join("bar");
+        std::fs::create_dir_all(&other).expect("other dir");
+        let storage = base.join("git");
+        let bare = storage.join("local").join("foo.git");
+        std::fs::create_dir_all(bare.parent().expect("owner dir")).expect("create owner dir");
+        run_capture("git", &["init", "--bare", &bare.to_string_lossy()], None).expect("init bare");
+        let canonical_source = source.canonicalize().expect("canonical source");
+        run_capture(
+            "git",
+            &[
+                "config",
+                "remote.origin.url",
+                &canonical_source.to_string_lossy(),
+            ],
+            Some(&bare),
+        )
+        .expect("set origin url");
+
+        assert_eq!(
+            existing_import_of("git", &storage, &canonical_source),
+            Some(("local".to_string(), "foo".to_string()))
+        );
+        assert_eq!(
+            existing_import_of(
+                "git",
+                &storage,
+                &other.canonicalize().expect("canonical other")
+            ),
+            None
+        );
+
+        let _ = std::fs::remove_dir_all(base);
+    }
+
+    /// The import flow refuses the jeryu data dir / storage root as sources
+    /// (skipped with the guard reason) and dedupes already-imported paths
+    /// unless forced. Dry-run keeps everything read-only.
+    #[test]
+    fn import_local_guards_and_dedupes() {
+        if !git_available() {
+            return;
+        }
+        let base = temp_dir("jeryu-mirror-import-guard");
+        let data_dir = base.join("data");
+        let storage = data_dir.join("git");
+        let bare = storage.join("local").join("foo.git");
+        std::fs::create_dir_all(bare.parent().expect("owner dir")).expect("create owner dir");
+        run_capture("git", &["init", "--bare", &bare.to_string_lossy()], None).expect("init bare");
+        let source = base.join("projects").join("foo");
+        std::fs::create_dir_all(&source).expect("source dir");
+        run_capture("git", &["init"], Some(&source)).expect("init source worktree");
+        let canonical_source = source.canonicalize().expect("canonical source");
+        run_capture(
+            "git",
+            &[
+                "config",
+                "remote.origin.url",
+                &canonical_source.to_string_lossy(),
+            ],
+            Some(&bare),
+        )
+        .expect("set origin url");
+
+        // A path inside the data dir is refused with the guard reason; the
+        // already-imported source is skipped as a duplicate.
+        let manifest = import_local_git_dirs(
+            &data_dir,
+            Some("local"),
+            true,
+            false,
+            &[bare.clone(), source.clone()],
+        )
+        .expect("dry-run import");
+        assert!(manifest.imported.is_empty());
+        assert_eq!(manifest.skipped.len(), 2);
+        let guard_reason = manifest.skipped[0].reason.as_deref().unwrap_or_default();
+        assert!(guard_reason.contains("refusing import"), "{guard_reason}");
+        let dedupe_reason = manifest.skipped[1].reason.as_deref().unwrap_or_default();
+        assert!(
+            dedupe_reason.contains("already imported as local/foo"),
+            "{dedupe_reason}"
+        );
+
+        // --force bypasses the dedupe skip: the candidate flows through the
+        // normal import path again (dry-run, so no side effects).
+        let forced = import_local_git_dirs(&data_dir, Some("local"), true, true, &[source])
+            .expect("forced dry-run import");
+        assert!(forced.skipped.is_empty());
+        assert_eq!(forced.imported.len(), 1);
+        assert_eq!(forced.imported[0].name, "foo");
+
+        let _ = std::fs::remove_dir_all(base);
     }
 }

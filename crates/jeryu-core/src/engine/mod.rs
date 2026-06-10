@@ -21,6 +21,7 @@ use crate::model::*;
 use crate::webhooks::{should_deliver, sign_webhook_payload};
 
 mod accounts;
+mod audit;
 mod branch_protection;
 mod check_runs;
 mod commit_status;
@@ -35,7 +36,9 @@ mod webhooks;
 #[cfg(test)]
 mod tests;
 
+pub use audit::AuditEntry;
 pub use pull_requests::MergeReadiness;
+pub use repositories::RepositoryDeletion;
 
 #[derive(Debug, Clone, Default)]
 struct Counters {

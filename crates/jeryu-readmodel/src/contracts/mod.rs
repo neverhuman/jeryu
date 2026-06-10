@@ -29,8 +29,9 @@ pub use pulls::{
     ReviewPosture,
 };
 pub use repository::{
-    CreateRepositoryPreview, CreateRepositoryRequest, RepositoryFacets, RepositoryHostKind,
-    RepositoryId, RepositoryListResponse, RepositorySummary, RepositoryVisibility,
+    CreateRepositoryPreview, CreateRepositoryRequest, DeleteRepositoryReceipt,
+    DeleteRepositoryRequest, DeletedCount, RepositoryFacets, RepositoryHostKind, RepositoryId,
+    RepositoryListResponse, RepositorySummary, RepositoryVisibility,
 };
 pub use review::{
     CreateReviewCommentRequest, ReviewComment, ReviewEvidence, ReviewSuggestion, ReviewThread,
@@ -52,7 +53,7 @@ pub use web::{
 
 use ts_rs::{Config, ExportError, TS};
 
-/// The 57 exported web/TUI wire contracts, in stable (sorted) order.
+/// The 60 exported web/TUI wire contracts, in stable (sorted) order.
 ///
 /// Each entry exports exactly one `contracts/generated/<Name>.ts` file. This
 /// list is the single source the export binary and the drift test share, so
@@ -103,6 +104,9 @@ contract_exports!(
     CreateRepositoryPreview,
     CreateRepositoryRequest,
     CreateReviewCommentRequest,
+    DeleteRepositoryReceipt,
+    DeleteRepositoryRequest,
+    DeletedCount,
     FeatureSettings,
     GeneralSettings,
     IssueState,

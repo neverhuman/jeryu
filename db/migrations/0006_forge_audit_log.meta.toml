@@ -1,0 +1,17 @@
+# jankurai:migration v1
+id = "0006_forge_audit_log"
+owner = "forge-api"
+reviewer = "forge-api"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "old_app_new_db,new_app_old_db"
+rollback = "db/rollbacks/0006_forge_audit_log.sql"
+backfill = "none; new append-only audit table, no FK to repositories by design"
+data_classification = "internal"
+tenant_impact = "none"
+tests = ["db-migration-analyze", "forge_audit_log_survives_full_state_rewrites"]
