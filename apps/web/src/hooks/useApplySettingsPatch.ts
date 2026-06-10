@@ -27,7 +27,12 @@ export interface ApplySettingsInput {
   baseSettingsHash: string;
 }
 
-function newIdempotencyKey(): string {
+/**
+ * Per-attempt `Idempotency-Key` (§35.1.3). Exported so other mutation hooks
+ * that the backend gates on the header (e.g. repo delete) reuse one
+ * implementation instead of forking the fallback format.
+ */
+export function newIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }

@@ -90,6 +90,29 @@ describe('aggregateFamily', () => {
     expect(rollup.activeAgents).toBe(3);
   });
 
+  it('takes the worst (minimum) member jankurai score', () => {
+    const rollup = aggregateFamily('fam', [
+      repo({ jankurai_score: 92 }),
+      repo({ jankurai_score: 61 }),
+      repo({ jankurai_score: 88 }),
+    ]);
+    expect(rollup.worstScore).toBe(61);
+  });
+
+  it('ignores members without a score when deriving worstScore', () => {
+    const rollup = aggregateFamily('fam', [
+      repo({ jankurai_score: 90 }),
+      repo({ jankurai_score: null }),
+      repo({}),
+    ]);
+    expect(rollup.worstScore).toBe(90);
+  });
+
+  it('worstScore is null when no member carries a score', () => {
+    const rollup = aggregateFamily('fam', [repo(), repo()]);
+    expect(rollup.worstScore).toBeNull();
+  });
+
   it('takes the max updated_at', () => {
     const rollup = aggregateFamily('fam', [
       repo({ updated_at: '2026-06-02T10:00:00Z' }),

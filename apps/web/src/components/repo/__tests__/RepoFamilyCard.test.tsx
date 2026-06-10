@@ -20,6 +20,7 @@ const ROLLUP: FamilyRollup = {
   runningJobs: 1,
   activeAgents: 4,
   updatedAt: '2026-06-09T08:30:00Z',
+  worstScore: 88,
 };
 
 describe('RepoFamilyCard', () => {

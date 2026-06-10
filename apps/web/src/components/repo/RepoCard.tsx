@@ -2,17 +2,21 @@
 //
 // Renders the bits a triage user needs at-a-glance: repo name, description,
 // language + default branch, visibility, open PR count, failing-check count,
-// active-agent count, updated_at, plus a health pill on the right.
+// active-agent count, updated_at, plus health + jankurai score pills on the
+// right. The meta row also carries the offsite mirror posture and a
+// running-jobs indicator (only when something is actually running).
 //
 // Click navigates to the overview page. The whole card is an anchor so
 // modifier-clicks (open in new tab) work like a native link without us
 // reimplementing the contract.
 
-import { Bot, GitBranch, GitMerge, ShieldAlert } from 'lucide-react';
+import { Bot, GitBranch, GitMerge, Play, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import type { RepositorySummary } from '../../api/types';
 
+import { JankuraiScoreBadge } from './JankuraiScoreBadge';
+import { MirrorStatusBadge } from './MirrorStatusBadge';
 import { RepoHealthPill } from './RepoHealthPill';
 import { relativeTime } from './relativeTime';
 import './repo.css';
@@ -35,7 +39,14 @@ export function RepoCard({ repo }: RepoCardProps): JSX.Element {
     >
       <div className="repo-card__head">
         <h3 className="repo-card__title">{repo.id.name}</h3>
-        <RepoHealthPill health={repo.health} />
+        <div className="repo-card__pills">
+          <JankuraiScoreBadge
+            score={repo.jankurai_score}
+            decision={repo.jankurai_decision}
+            scoredAt={repo.jankurai_scored_at}
+          />
+          <RepoHealthPill health={repo.health} />
+        </div>
       </div>
       <p className="repo-card__description">{description}</p>
       <div className="repo-card__meta">
@@ -64,6 +75,16 @@ export function RepoCard({ repo }: RepoCardProps): JSX.Element {
         >
           <ShieldAlert size={12} aria-hidden="true" /> {repo.failing_checks}
         </span>
+        {repo.running_jobs > 0 ? (
+          <span
+            className="repo-card__meta-item repo-card__meta-item--running"
+            title="Running jobs"
+            aria-label={`${repo.running_jobs} running jobs`}
+          >
+            <Play size={12} aria-hidden="true" /> {repo.running_jobs}
+          </span>
+        ) : null}
+        <MirrorStatusBadge mirror={repo.mirror} />
         <span
           className="repo-card__meta-item"
           title={repo.updated_at}

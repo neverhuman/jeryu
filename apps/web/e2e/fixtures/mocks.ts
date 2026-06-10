@@ -171,6 +171,14 @@ export async function mockControlPlaneRunners(
   });
 }
 
+export interface MockMirrorStatus {
+  configured: boolean;
+  last_attempt_at?: string | null;
+  last_attempt_ok?: boolean;
+  last_attempt_conclusion?: string | null;
+  last_success_at?: string | null;
+}
+
 export interface MockRepoSummary {
   id: { host: string; owner: string; name: string };
   default_branch?: string;
@@ -180,7 +188,17 @@ export interface MockRepoSummary {
   topics?: string[];
   open_pull_requests?: number;
   failing_checks?: number;
+  running_jobs?: number;
   active_agents?: number;
+  jankurai_score?: number | null;
+  jankurai_decision?: string | null;
+  jankurai_scored_at?: string | null;
+  mirror?: MockMirrorStatus | null;
+  available_actions?: Array<{
+    action_id: string;
+    label: string;
+    risk: string | null;
+  }>;
 }
 
 /**
@@ -269,6 +287,98 @@ export async function mockRepoLookup(
       body: JSON.stringify({ id: summary.id, summary }),
     });
   });
+}
+
+export interface MockDeleteRepoError {
+  status: number;
+  code: string;
+  message: string;
+}
+
+export interface CapturedDeleteRequest {
+  url: string;
+  idempotencyKey: string | null;
+  body: Record<string, unknown>;
+}
+
+/**
+ * Mock the `DELETE`-method removal of `/api/v1/repos/{id}` — the two-tier repo removal. Captures every
+ * removal request (URL, `Idempotency-Key`, parsed JSON body) into the returned
+ * array so specs can assert the confirmation contract. Serves either a
+ * `DeleteRepositoryReceipt` (200) or the provided error envelope (e.g. 422
+ * `confirm_mismatch`, 403 `permission_denied`). GET and sub-resource traffic
+ * falls through untouched.
+ *
+ * Registration order matters: Playwright runs route handlers LIFO and
+ * `route.continue()` (used by `mockRepoList` for non-GET traffic) sends the
+ * request straight to the network, skipping the remaining handlers. Register
+ * this mock AFTER `mockRepoList` so the removal call is intercepted first.
+ */
+export async function mockDeleteRepo(
+  page: Page,
+  repo: { host: string; owner: string; name: string },
+  opts: { error?: MockDeleteRepoError; storageDeleted?: boolean } = {}
+): Promise<CapturedDeleteRequest[]> {
+  const captured: CapturedDeleteRequest[] = [];
+  const receipt = {
+    repo: {
+      id: `${repo.host}:${repo.owner}/${repo.name}`,
+      host: repo.host,
+      owner: repo.owner,
+      name: repo.name,
+    },
+    registry_deleted: true,
+    deleted_counts: [{ collection: 'web_repositories', removed: 1 }],
+    storage_deleted: opts.storageDeleted ?? false,
+    storage_path: opts.storageDeleted
+      ? `/srv/jeryu/${repo.owner}/${repo.name}.git`
+      : null,
+    audit_id: 'mock-audit-0001',
+  };
+  await page.route('**/api/v1/repos/*', async (route: Route, request) => {
+    if (request.method() !== 'DELETE') {
+      await route.continue();
+      return;
+    }
+    const url = new URL(request.url());
+    // Single path segment after /repos/ only (UUID or percent-encoded
+    // owner/name) — never sub-resources.
+    if (url.pathname.split('/').filter(Boolean).length !== 4) {
+      await route.continue();
+      return;
+    }
+    let body: Record<string, unknown> = {};
+    try {
+      body = JSON.parse(request.postData() ?? '{}') as Record<string, unknown>;
+    } catch {
+      // keep {}
+    }
+    captured.push({
+      url: request.url(),
+      idempotencyKey: request.headers()['idempotency-key'] ?? null,
+      body,
+    });
+    if (opts.error) {
+      await route.fulfill({
+        status: opts.error.status,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: opts.error.code,
+            message: opts.error.message,
+            request_id: 'mock-delete-error',
+          },
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(receipt),
+    });
+  });
+  return captured;
 }
 
 export interface MockPullRequest {
@@ -879,13 +989,25 @@ function normalizeRepo(repo: MockRepoSummary): Record<string, unknown> {
     health: 'green',
     open_pull_requests: repo.open_pull_requests ?? 0,
     failing_checks: repo.failing_checks ?? 0,
-    running_jobs: 0,
+    running_jobs: repo.running_jobs ?? 0,
     active_agents: repo.active_agents ?? 0,
     blocked_agents: 0,
     updated_at: '2026-05-26T00:00:00Z',
+    jankurai_score: repo.jankurai_score ?? null,
+    jankurai_decision: repo.jankurai_decision ?? null,
+    jankurai_scored_at: repo.jankurai_scored_at ?? null,
+    mirror: repo.mirror
+      ? {
+          configured: repo.mirror.configured,
+          last_attempt_at: repo.mirror.last_attempt_at ?? null,
+          last_attempt_ok: repo.mirror.last_attempt_ok ?? true,
+          last_attempt_conclusion: repo.mirror.last_attempt_conclusion ?? null,
+          last_success_at: repo.mirror.last_success_at ?? null,
+        }
+      : null,
     clone_http_url: `https://example.com/${repo.id.owner}/${repo.id.name}.git`,
     clone_ssh_url: `git@example.com:${repo.id.owner}/${repo.id.name}.git`,
-    available_actions: [],
+    available_actions: repo.available_actions ?? [],
   };
 }
 

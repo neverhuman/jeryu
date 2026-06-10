@@ -15,6 +15,10 @@ export type { RepositorySummary } from '../../../../contracts/generated/Reposito
 export type { RepositoryId } from '../../../../contracts/generated/RepositoryId';
 export type { RepositoryVisibility } from '../../../../contracts/generated/RepositoryVisibility';
 export type { RepositoryListResponse } from '../../../../contracts/generated/RepositoryListResponse';
+export type { RepositoryMirrorStatus } from '../../../../contracts/generated/RepositoryMirrorStatus';
+export type { DeleteRepositoryRequest } from '../../../../contracts/generated/DeleteRepositoryRequest';
+export type { DeleteRepositoryReceipt } from '../../../../contracts/generated/DeleteRepositoryReceipt';
+export type { DeletedCount } from '../../../../contracts/generated/DeletedCount';
 export type { RefSelectorItem } from '../../../../contracts/generated/RefSelectorItem';
 export type { RefKind } from '../../../../contracts/generated/RefKind';
 export type { TreeEntry } from '../../../../contracts/generated/TreeEntry';

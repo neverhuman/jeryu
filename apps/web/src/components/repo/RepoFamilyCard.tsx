@@ -6,7 +6,7 @@
 // family page. Visually distinguished from plain repo cards by a
 // stacked-deck offset shadow + accent border (see `.repo-family-card`).
 
-import { Boxes, GitMerge, Play, ShieldAlert } from 'lucide-react';
+import { Boxes, Gauge, GitMerge, Play, ShieldAlert } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import type { FamilyRollup } from './familyRollup';
@@ -64,6 +64,15 @@ export function RepoFamilyCard({ family }: RepoFamilyCardProps): JSX.Element {
         >
           <Play size={12} aria-hidden="true" /> {family.runningJobs}
         </span>
+        {family.worstScore !== null ? (
+          <span
+            className="repo-card__meta-item"
+            title="Lowest member jankurai score"
+            aria-label={`Lowest member jankurai score ${family.worstScore}`}
+          >
+            <Gauge size={12} aria-hidden="true" /> {family.worstScore}
+          </span>
+        ) : null}
         <span className="repo-card__meta-item" title={family.updatedAt}>
           {relativeTime(family.updatedAt)}
         </span>

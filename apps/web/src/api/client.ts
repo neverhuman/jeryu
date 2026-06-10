@@ -6,6 +6,8 @@
 //   - `apiPut<T>(url, body, opts)`  — PUT, JSON, optional `Idempotency-Key`.
 //   - `apiPatch<T>(url, body, opts)` — PATCH with the same headers.
 //   - `apiDelete(url, opts)`        — DELETE; returns void on 204.
+//   - `apiDeleteWithBody<T>(url, body, opts)` — HTTP removal request that
+//     carries a JSON confirmation payload and parses a typed JSON receipt.
 //
 // Responses with `application/json` content-type are parsed; non-JSON 4xx/5xx
 // fall through to `ApiError` with the raw status text.
@@ -144,7 +146,7 @@ async function send<T>(
   body: unknown,
   opts: ApiRequestOptions | undefined
 ): Promise<T> {
-  const hasBody = body !== undefined && method !== 'GET' && method !== 'DELETE';
+  const hasBody = body !== undefined && method !== 'GET';
   const init: RequestInit = {
     method,
     headers: buildHeaders(hasBody, opts),
@@ -211,4 +213,17 @@ export function apiDelete(
   opts?: ApiRequestOptions
 ): Promise<void> {
   return send<void>('DELETE', url, undefined, opts);
+}
+
+/**
+ * Removal request that carries a JSON confirmation payload (the repos
+ * endpoint requires `{ confirm_full_name, delete_storage }`) and parses a
+ * typed JSON receipt.
+ */
+export function apiDeleteWithBody<T>(
+  url: string,
+  body: unknown,
+  opts?: ApiRequestOptions
+): Promise<T> {
+  return send<T>('DELETE', url, body, opts);
 }

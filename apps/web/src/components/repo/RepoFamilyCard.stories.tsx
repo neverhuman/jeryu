@@ -22,6 +22,7 @@ function baseRollup(overrides: Partial<FamilyRollup> = {}): FamilyRollup {
     runningJobs: 2,
     activeAgents: 3,
     updatedAt: '2026-05-26T12:00:00Z',
+    worstScore: 91,
     ...overrides,
   };
 }
@@ -57,7 +58,14 @@ export const Failing: Story = {
       health: 'failing',
       failingChecks: 7,
       runningJobs: 0,
+      worstScore: 58,
     }),
+  },
+};
+
+export const NoMemberScores: Story = {
+  args: {
+    family: baseRollup({ worstScore: null }),
   },
 };
 

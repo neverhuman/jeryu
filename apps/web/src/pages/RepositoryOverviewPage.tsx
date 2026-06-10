@@ -27,6 +27,7 @@ import {
   LoadingState,
   PermissionDeniedState,
 } from '../components/state';
+import { RepoDangerZone } from '../components/repo/RepoDangerZone';
 import { RepoHealthPill } from '../components/repo/RepoHealthPill';
 import { useRealtime } from '../hooks/useRealtime';
 import { useResolveRepo } from '../hooks/useResolveRepo';
@@ -215,6 +216,8 @@ export function RepositoryOverviewPage(props: RepositoryOverviewPageProps = {}):
           </article>
         </aside>
       </section>
+
+      <RepoDangerZone repo={summary} />
     </div>
   );
 }

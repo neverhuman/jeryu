@@ -28,6 +28,16 @@ function baseRepo(overrides: Partial<RepositorySummary> = {}): RepositorySummary
     active_agents: 1,
     blocked_agents: 0,
     updated_at: '2026-05-26T12:00:00Z',
+    jankurai_score: 92,
+    jankurai_decision: 'pass',
+    jankurai_scored_at: '2026-05-26T11:00:00Z',
+    mirror: {
+      configured: true,
+      last_attempt_at: '2026-05-26T11:30:00Z',
+      last_attempt_ok: true,
+      last_attempt_conclusion: 'success',
+      last_success_at: '2026-05-26T11:30:00Z',
+    },
     clone_http_url: 'https://jeryu.example/veox/redline.git',
     clone_ssh_url: 'git@jeryu.example:veox/redline.git',
     available_actions: [],
@@ -55,6 +65,32 @@ export const Warning: Story = {
       health: 'degraded',
       open_pull_requests: 12,
       failing_checks: 1,
+      jankurai_score: 71,
+      jankurai_decision: 'fail',
+    }),
+  },
+};
+
+export const MirrorFailing: Story = {
+  args: {
+    repo: baseRepo({
+      mirror: {
+        configured: true,
+        last_attempt_at: '2026-05-26T11:30:00Z',
+        last_attempt_ok: false,
+        last_attempt_conclusion: 'failure',
+        last_success_at: '2026-05-24T08:00:00Z',
+      },
+    }),
+  },
+};
+
+export const AuditUnavailable: Story = {
+  args: {
+    repo: baseRepo({
+      jankurai_score: null,
+      jankurai_decision: 'tool-failed',
+      jankurai_scored_at: '2026-05-26T11:00:00Z',
     }),
   },
 };

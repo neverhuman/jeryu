@@ -9,5 +9,16 @@ export type { FamilyRollup } from './familyRollup';
 export { relativeTime } from './relativeTime';
 export { RepoHealthPill } from './RepoHealthPill';
 export type { RepoHealthPillProps } from './RepoHealthPill';
+export {
+  JankuraiScoreBadge,
+  JANKURAI_GOOD_THRESHOLD,
+} from './JankuraiScoreBadge';
+export type { JankuraiScoreBadgeProps } from './JankuraiScoreBadge';
+export { MirrorStatusBadge } from './MirrorStatusBadge';
+export type { MirrorStatusBadgeProps } from './MirrorStatusBadge';
+export { DeleteRepoDialog } from './DeleteRepoDialog';
+export type { DeleteRepoDialogProps, DeleteRepoTier } from './DeleteRepoDialog';
+export { RepoDangerZone } from './RepoDangerZone';
+export type { RepoDangerZoneProps } from './RepoDangerZone';
 export { CreateRepoDialog } from './CreateRepoDialog';
 export type { CreateRepoDialogProps } from './CreateRepoDialog';

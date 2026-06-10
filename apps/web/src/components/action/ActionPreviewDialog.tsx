@@ -4,10 +4,10 @@
 // which the action preview payload, will-not-do bullet list, and execute
 // round-trip are composed by W-FE-13.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
-import { ActionButton } from './ActionButton';
+import { ActionButton, type ActionButtonVariant } from './ActionButton';
 import { RiskBadge, type RiskTier } from './RiskBadge';
 
 import './action.css';
@@ -21,6 +21,12 @@ export interface ActionPreviewDialogProps {
   onCancel: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Extra dialog body content rendered between description and footer. */
+  children?: ReactNode;
+  /** Gates the confirm button (e.g. typed-name confirmation). */
+  confirmDisabled?: boolean;
+  /** Confirm button variant; defaults to `primary`. */
+  confirmVariant?: ActionButtonVariant;
 }
 
 export function ActionPreviewDialog({
@@ -32,6 +38,9 @@ export function ActionPreviewDialog({
   onCancel,
   confirmLabel = 'Run',
   cancelLabel = 'Cancel',
+  children,
+  confirmDisabled = false,
+  confirmVariant = 'primary',
 }: ActionPreviewDialogProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -83,11 +92,16 @@ export function ActionPreviewDialog({
         {description ? (
           <p className="state-block__description">{description}</p>
         ) : null}
+        {children}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <ActionButton variant="ghost" onClick={onCancel}>
             {cancelLabel}
           </ActionButton>
-          <ActionButton variant="primary" onClick={onConfirm}>
+          <ActionButton
+            variant={confirmVariant}
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+          >
             {confirmLabel}
           </ActionButton>
         </div>

@@ -1,8 +1,11 @@
 # Docs Agent Guidance
 
 Owns:
-- Architecture, testing, error repair, boundary, generated-zone, audit, and
-  release-control documentation.
+- Architecture (`docs/architecture.md`), testing (`docs/testing.md`), error
+  repair (`docs/errors.md`), boundary (`docs/boundaries.md`), generated-zone
+  (`docs/generated-zones.md`), audit (`docs/audit-rubric.md`), and
+  release-control (`docs/release.md`, `docs/release-process.md`) documentation,
+  all routed from root `AGENTS.md`.
 - Keeping root `AGENTS.md` and `README.md` routed to the same canonical docs.
 - Workcell export-slice documentation in `docs/workcell.md`, including the
   release and testing proof commands for typed no-PR denial evidence.

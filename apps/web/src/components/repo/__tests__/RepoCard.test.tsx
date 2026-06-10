@@ -32,6 +32,16 @@ const FIXTURE: RepositorySummary = {
   active_agents: 1,
   blocked_agents: 0,
   updated_at: '2026-05-26T12:00:00Z',
+  jankurai_score: 92,
+  jankurai_decision: 'pass',
+  jankurai_scored_at: '2026-05-26T11:00:00Z',
+  mirror: {
+    configured: true,
+    last_attempt_at: '2026-05-26T11:30:00Z',
+    last_attempt_ok: true,
+    last_attempt_conclusion: 'success',
+    last_success_at: '2026-05-26T11:30:00Z',
+  },
   clone_http_url: 'https://jeryu.example/veox/redline.git',
   clone_ssh_url: 'git@jeryu.example:veox/redline.git',
   available_actions: [],
@@ -54,5 +64,45 @@ describe('RepoCard', () => {
       screen.getByRole('link', { name: 'Open repository redline' })
     ).toHaveAttribute('href', '/repos/jeryu/veox/redline');
     expect(screen.getByRole('status', { name: /Health/ })).toBeInTheDocument();
+  });
+
+  it('renders the jankurai score pill and the mirror posture badge', () => {
+    render(
+      <MemoryRouter>
+        <RepoCard repo={FIXTURE} />
+      </MemoryRouter>
+    );
+    expect(
+      screen.getByRole('status', { name: /jankurai score 92/ })
+    ).toHaveClass('repo-score-badge--good');
+    expect(
+      screen.getByRole('status', { name: /Mirror pushed/ })
+    ).toBeInTheDocument();
+  });
+
+  it('shows the running-jobs indicator only when jobs are running', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <RepoCard repo={FIXTURE} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByLabelText(/running jobs/)).not.toBeInTheDocument();
+    rerender(
+      <MemoryRouter>
+        <RepoCard repo={{ ...FIXTURE, running_jobs: 2 }} />
+      </MemoryRouter>
+    );
+    expect(screen.getByLabelText('2 running jobs')).toBeInTheDocument();
+  });
+
+  it('omits the mirror badge when no mirror is configured', () => {
+    render(
+      <MemoryRouter>
+        <RepoCard repo={{ ...FIXTURE, mirror: null }} />
+      </MemoryRouter>
+    );
+    expect(
+      screen.queryByRole('status', { name: /Mirror/ })
+    ).not.toBeInTheDocument();
   });
 });

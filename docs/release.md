@@ -70,6 +70,9 @@ first push wins and rejected duplicate pushes leave the single release bump on
 - `cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40` when the workcells,
   agent-runs, codegraph/oracle dashboard, or TUI projection contract changes.
 - `cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck` when the generated web bootstrap contract changes.
+- `cd apps/web && npm run ux-qa` when the SPA's rendered surface changes; the
+  Playwright HTML report it checks is suppressed by the rtk command wrapper, so
+  produce it with `rtk proxy npx playwright test` first.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the

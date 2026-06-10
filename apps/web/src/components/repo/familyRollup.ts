@@ -24,6 +24,12 @@ export interface FamilyRollup {
   activeAgents: number;
   /** Max member `updated_at` (ISO timestamp). */
   updatedAt: string;
+  /**
+   * Worst (minimum) member `jankurai_score`; `null` when no member carries
+   * a numeric score. Members without a score do not drag the rollup down —
+   * "no audit yet" is not the same as a bad audit.
+   */
+  worstScore: number | null;
 }
 
 /**
@@ -62,6 +68,7 @@ export function aggregateFamily(
   let activeAgents = 0;
   let updatedAt = '';
   let updatedAtMs = Number.NEGATIVE_INFINITY;
+  let worstScore: number | null = null;
 
   for (const repo of repos) {
     const rank = healthRank(repo.health);
@@ -73,6 +80,10 @@ export function aggregateFamily(
     failingChecks += repo.failing_checks;
     runningJobs += repo.running_jobs;
     activeAgents += repo.active_agents;
+    const score = repo.jankurai_score;
+    if (typeof score === 'number' && (worstScore === null || score < worstScore)) {
+      worstScore = score;
+    }
     const ms = updatedAtMillis(repo);
     if (updatedAt === '' || ms > updatedAtMs) {
       updatedAtMs = ms;
@@ -90,6 +101,7 @@ export function aggregateFamily(
     runningJobs,
     activeAgents,
     updatedAt,
+    worstScore,
   };
 }
 

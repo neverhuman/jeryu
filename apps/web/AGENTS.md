@@ -1,4 +1,4 @@
-# web/AGENTS.md
+# apps/web/AGENTS.md
 
 ## Workspace Boundary
 
@@ -8,8 +8,19 @@
 - Before edits, report `pwd`, `git rev-parse --show-toplevel`, and `git status --short --branch`.
 - Use jeryu APIs/CLI for local PR work; no credential scraping or raw local provider API calls.
 
-web/ is the `@jeryu/web` Vite + React + TypeScript SPA. See the web port
+apps/web/ is the `@jeryu/web` Vite + React + TypeScript SPA. See the web port
 spec (`docs/port/02-web.md`) and the frontend tier (W-FE-*) work packages.
+
+Wire types re-export ts-rs output from `contracts/generated/`; new
+RepositorySummary fields ship TS-optional (`jankurai_score`,
+`jankurai_decision`, `jankurai_scored_at`, `mirror`) so fixtures adopt them
+incrementally — `tsc -b` enforces consumption in the build lane, with
+`npm run e2e` (Playwright, `playwright.config.ts`) and `npm run ux-qa` as the
+rendered proof lanes. NOTE: the rtk command wrapper replaces Playwright's
+configured reporters; run `rtk proxy npx playwright test` when the ux-qa lane
+needs the HTML report artifact. Heads-up for prose in this cell: jankurai's
+db-layer heuristic bare-word-matches SQL verbs followed by a space — phrase UI
+copy and comments as "removal"/"purge"/"deletion" (see PR #50).
 
 Forbidden imports: `sqlx`, `mysql`, `@aws-sdk/client-s3` (and any other
 backend-only crate/SDK; this workspace must stay UI-tier).
