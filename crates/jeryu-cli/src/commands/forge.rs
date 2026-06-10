@@ -273,7 +273,7 @@ fn run_pr_live(
             render(out, json, &prs, &human)
         }
         PrCommands::Status { repo, pr } => {
-            let value = api.get(&format!("/repos/{owner}/{repo}/pulls/{pr}"))?;
+            let value = api.get(&format!("/api/v3/repos/{owner}/{repo}/pulls/{pr}"))?;
             let pull = pull_request_from_value(&value)?;
             render(
                 out,
