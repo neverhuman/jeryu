@@ -15,5 +15,5 @@ Forbidden edits:
 - Do not introduce direct data access or runtime persistence in this directory.
 
 Proof lane:
-- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck`
+- `cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck`
 

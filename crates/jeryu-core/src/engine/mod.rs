@@ -26,6 +26,7 @@ mod branch_protection;
 mod check_runs;
 mod commit_status;
 mod issues;
+mod jankurai;
 mod pull_requests;
 mod readmes;
 mod repositories;
@@ -66,6 +67,7 @@ struct State {
     webhooks: HashMap<(String, String), Vec<Webhook>>,
     webhook_deliveries: Vec<WebhookDelivery>,
     counters: HashMap<(String, String), Counters>,
+    jankurai_scores: HashMap<(String, String), Vec<JankuraiScore>>,
 }
 
 fn default_branch_protection_rule(owner: &str, repo: &str, branch: &str) -> BranchProtectionRule {

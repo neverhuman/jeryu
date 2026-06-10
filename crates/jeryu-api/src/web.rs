@@ -43,8 +43,8 @@ use jeryu_gitd::{GitdConfig, RepoManager};
 use jeryu_runner_oci::{CliContainerRuntime, ContainerLifecycle};
 use jeryu_runnerd::{WarmPool, WorkcellManager};
 use repositories::{
-    repo_blob, repo_detail, repo_raw, repo_readme, repo_readme_update, repo_refs, repo_tree,
-    repo_update, repos,
+    repo_blob, repo_detail, repo_jankurai_scores_ingest, repo_jankurai_scores_list, repo_raw,
+    repo_readme, repo_readme_update, repo_refs, repo_tree, repo_update, repos,
 };
 use surface::{bootstrap_payload, github_forward, graphql, markdown_render, repo_entry};
 
@@ -395,6 +395,10 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             post(pulls::approve),
         )
         .route("/api/v1/repos/:id/pulls/:number/merge", post(pulls::merge))
+        .route(
+            "/api/v1/repos/:id/jankurai-scores",
+            get(repo_jankurai_scores_list).post(repo_jankurai_scores_ingest),
+        )
         .route("/api/v1/repos/:id/refs", get(repo_refs))
         .route("/api/v1/repos/:id/tree", get(repo_tree))
         .route("/api/v1/repos/:id/blob", get(repo_blob))

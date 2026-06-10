@@ -7,6 +7,7 @@
 
 mod checks;
 mod issues;
+mod jankurai;
 mod policy;
 mod pull_requests;
 mod repo;
@@ -14,6 +15,7 @@ mod webhooks;
 
 pub use checks::*;
 pub use issues::*;
+pub use jankurai::*;
 pub use policy::*;
 pub use pull_requests::*;
 pub use repo::*;

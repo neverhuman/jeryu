@@ -69,7 +69,7 @@ first push wins and rejected duplicate pushes leave the single release bump on
 - `cargo test -p jeryu-runnerd workcell --jobs 40` when the workcell control plane, tar safety, or CI repair snapshot helpers change.
 - `cargo test -p jeryu-readmodel -p jeryu-tui --jobs 40` when the workcells,
   agent-runs, codegraph/oracle dashboard, or TUI projection contract changes.
-- `cargo test -p jeryu-readmodel --jobs 40 && cd web && npm run typecheck` when the generated web bootstrap contract changes.
+- `cargo test -p jeryu-readmodel --jobs 40 && cd apps/web && npm run typecheck` when the generated web bootstrap contract changes.
 - `cargo test -p jeryu-api --features web --jobs 40` when compatibility routes
   or guided repair bodies change.
 - `cargo test -p jeryu-api --features web --jobs 40 r5_jail_loop` when the

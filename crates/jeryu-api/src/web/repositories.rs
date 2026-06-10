@@ -5,16 +5,18 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use axum::Json;
 use axum::body::Bytes;
+use axum::extract::Query;
 use axum::extract::{Path as AxumPath, State};
 use axum::response::{Html, IntoResponse, Response as AxumResponse};
 use jeryu_core::{
     CheckConclusion, CheckRun, CheckRunStatus, ForgeError, PullRequest, PullRequestState,
-    Repository,
+    RecordJankuraiScoreRequest, Repository,
 };
 use jeryu_gitd::refs::RefService;
 use jeryu_readmodel::contracts::{
-    AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
-    RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
+    AvailableAction, BlobEncoding, BlobResponse, EntityHandle, JankuraiScoreListResponse,
+    JankuraiScoreSummary, RefKind, RefSelectorItem, RenderedMarkdown, RepositoryFacets,
+    RepositoryId, RepositoryListResponse, RepositoryMirrorStatus, RepositorySummary,
     RepositoryVisibility, TreeEntry,
 };
 use serde::{Deserialize, Serialize};
@@ -144,6 +146,113 @@ fn repo_update_invalid(reason: &str) -> AxumResponse {
             ],
             docs_url: "docs/errors.md#invalid-input",
             repair_hint: &format!("fix the PATCH body and retry ({reason})"),
+        },
+    )
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub(super) struct ScoreListQuery {
+    pub(super) branch: Option<String>,
+    pub(super) sha: Option<String>,
+}
+
+/// GET /api/v1/repos/:id/jankurai-scores[?branch=&sha=] — ingested audit
+/// outcomes, newest first. The backfill sweep uses `?sha=` as its
+/// idempotency probe.
+pub(super) async fn repo_jankurai_scores_list(
+    State(state): State<std::sync::Arc<WebState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(query): Query<ScoreListQuery>,
+) -> AxumResponse {
+    let Some(repo) = find_repo(&state, &id) else {
+        return api_error(
+            axum::http::StatusCode::NOT_FOUND,
+            "not_found",
+            "repository not found",
+        );
+    };
+    let scores = state
+        .github
+        .core()
+        .list_jankurai_scores(
+            &repo.owner,
+            &repo.name,
+            query.branch.as_deref(),
+            query.sha.as_deref(),
+        )
+        .unwrap_or_default();
+    Json(JankuraiScoreListResponse {
+        scores: scores.iter().map(score_summary).collect(),
+    })
+    .into_response()
+}
+
+/// POST /api/v1/repos/:id/jankurai-scores — ingest one audit outcome from a
+/// CI lane or the backfill sweep. Idempotent per (branch, commit_sha).
+pub(super) async fn repo_jankurai_scores_ingest(
+    State(state): State<std::sync::Arc<WebState>>,
+    AxumPath(id): AxumPath<String>,
+    body: Bytes,
+) -> AxumResponse {
+    let Some(repo) = find_repo(&state, &id) else {
+        return api_error(
+            axum::http::StatusCode::NOT_FOUND,
+            "not_found",
+            "repository not found",
+        );
+    };
+    let request: RecordJankuraiScoreRequest = match serde_json::from_slice(&body) {
+        Ok(request) => request,
+        Err(error) => {
+            return score_ingest_invalid(&format!("body failed to parse: {error}"));
+        }
+    };
+    match state
+        .github
+        .core()
+        .record_jankurai_score(&repo.owner, &repo.name, request)
+    {
+        Ok(score) => (axum::http::StatusCode::CREATED, Json(score_summary(&score))).into_response(),
+        Err(ForgeError::Validation(reason)) => score_ingest_invalid(&reason),
+        Err(ForgeError::NotFound(_)) => api_error(
+            axum::http::StatusCode::NOT_FOUND,
+            "not_found",
+            "repository not found",
+        ),
+        Err(error) => api_error(
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "storage_failed",
+            &format!("score could not be persisted: {error}"),
+        ),
+    }
+}
+
+fn score_summary(score: &jeryu_core::JankuraiScore) -> JankuraiScoreSummary {
+    JankuraiScoreSummary {
+        branch: score.branch.clone(),
+        commit_sha: score.commit_sha.clone(),
+        score: score.score,
+        hard_findings: score.hard_findings,
+        decision: score.decision.clone(),
+        caps_applied: score.caps_applied.clone(),
+        created_at: score.created_at.to_rfc3339(),
+    }
+}
+
+fn score_ingest_invalid(reason: &str) -> AxumResponse {
+    api_error_with_hint(
+        axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_input",
+        "jankurai score submission failed validation",
+        ApiErrorHint {
+            purpose: "ingest a jankurai audit score",
+            reason: "invalid_input",
+            common_fixes: &[
+                "send JSON with branch, commit_sha, and decision fields",
+                "score must be 0-100 or null for tool-failed audits",
+            ],
+            docs_url: "docs/errors.md#invalid-input",
+            repair_hint: &format!("fix the POST body and retry ({reason})"),
         },
     )
 }
@@ -395,6 +504,11 @@ pub(super) fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySum
         .list_check_runs(&repo.owner, &repo.name, None)
         .map(|runs| runs.check_runs)
         .unwrap_or_default();
+    let latest_score =
+        state
+            .github
+            .core()
+            .latest_jankurai_score(&repo.owner, &repo.name, &repo.default_branch);
     let current = current_check_runs(state, repo, &pulls, &checks);
     let failing_checks = current
         .iter()
@@ -433,6 +547,12 @@ pub(super) fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySum
         active_agents: 0,
         blocked_agents: 0,
         updated_at: repo.updated_at.to_rfc3339(),
+        jankurai_score: latest_score.as_ref().and_then(|score| score.score),
+        jankurai_decision: latest_score.as_ref().map(|score| score.decision.clone()),
+        jankurai_scored_at: latest_score
+            .as_ref()
+            .map(|score| score.created_at.to_rfc3339()),
+        mirror: mirror_status(&checks),
         clone_http_url: Some(format!("/repos/{}.git", repo.full_name)),
         clone_ssh_url: None,
         available_actions: vec![
@@ -509,6 +629,43 @@ fn current_check_runs<'a>(
         }
     }
     latest.into_values().collect()
+}
+
+/// Offsite mirror posture derived from `jeryu/github-mirror` bookkeeping
+/// runs over the FULL check-run history (not sha-scoped — the newest mirror
+/// attempt is meaningful regardless of which commit it pushed).
+fn mirror_status(checks: &[CheckRun]) -> Option<RepositoryMirrorStatus> {
+    let newer = |a: &CheckRun, b: &CheckRun| {
+        (a.started_at, a.completed_at) >= (b.started_at, b.completed_at)
+    };
+    let mut latest: Option<&CheckRun> = None;
+    let mut latest_success: Option<&CheckRun> = None;
+    for check in checks
+        .iter()
+        .filter(|check| check.name == GITHUB_MIRROR_CHECK)
+    {
+        if latest.is_none_or(|held| newer(check, held)) {
+            latest = Some(check);
+        }
+        if check.conclusion == Some(CheckConclusion::Success)
+            && latest_success.is_none_or(|held| newer(check, held))
+        {
+            latest_success = Some(check);
+        }
+    }
+    let latest = latest?;
+    let run_time = |run: &CheckRun| run.completed_at.unwrap_or(run.started_at).to_rfc3339();
+    Some(RepositoryMirrorStatus {
+        configured: true,
+        last_attempt_at: Some(run_time(latest)),
+        last_attempt_ok: latest.conclusion == Some(CheckConclusion::Success),
+        last_attempt_conclusion: latest.conclusion.as_ref().and_then(|conclusion| {
+            serde_json::to_value(conclusion)
+                .ok()
+                .and_then(|value| value.as_str().map(str::to_string))
+        }),
+        last_success_at: latest_success.map(run_time),
+    })
 }
 
 /// Resolve the default-branch head commit, tolerating repos with no bare

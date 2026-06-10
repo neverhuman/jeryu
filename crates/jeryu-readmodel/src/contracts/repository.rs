@@ -64,10 +64,58 @@ pub struct RepositorySummary {
     pub active_agents: u32,
     pub blocked_agents: u32,
     pub updated_at: String,
+    /// Newest jankurai audit of the default branch; `None` when no audit has
+    /// been ingested, score `None` with a decision when the tool could not
+    /// score the tree. TS-optional so pre-existing SPA fixtures stay valid
+    /// while the frontend adopts the fields (the server always sends them).
+    #[ts(optional = nullable)]
+    pub jankurai_score: Option<u32>,
+    #[ts(optional = nullable)]
+    pub jankurai_decision: Option<String>,
+    #[ts(optional = nullable)]
+    pub jankurai_scored_at: Option<String>,
+    /// Offsite push-mirror state derived from `jeryu/github-mirror`
+    /// bookkeeping runs; `None` when no mirror has ever reported.
+    #[ts(optional = nullable)]
+    pub mirror: Option<RepositoryMirrorStatus>,
     pub clone_http_url: Option<String>,
     pub clone_ssh_url: Option<String>,
     #[ts(type = "Array<{ action_id: string; label: string; risk: string | null }>")]
     pub available_actions: Vec<AvailableAction>,
+}
+
+/// Offsite push-mirror posture for one repository.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct RepositoryMirrorStatus {
+    /// Always true inside `Some`; kept so the SPA can branch without
+    /// null-checking the parent.
+    pub configured: bool,
+    pub last_attempt_at: Option<String>,
+    pub last_attempt_ok: bool,
+    /// Raw conclusion of the newest mirror run ("success" | "neutral" | ...).
+    pub last_attempt_conclusion: Option<String>,
+    pub last_success_at: Option<String>,
+}
+
+/// One ingested jankurai audit outcome (report payload omitted).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct JankuraiScoreSummary {
+    pub branch: String,
+    pub commit_sha: String,
+    pub score: Option<u32>,
+    pub hard_findings: u32,
+    pub decision: String,
+    pub caps_applied: Vec<String>,
+    pub created_at: String,
+}
+
+/// Response of `GET /api/v1/repos/:id/jankurai-scores`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct JankuraiScoreListResponse {
+    pub scores: Vec<JankuraiScoreSummary>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]

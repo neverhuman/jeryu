@@ -24,6 +24,17 @@ Migration 0004 notes:
 - The open path should guard `PRAGMA table_info(pull_requests)` so repeated
   opens and backfills stay idempotent.
 
+Migration 0005-0007 notes:
+- `repositories.family` (0005) is UI grouping data; its seed backfill runs only
+  when the column is first added and must never overwrite operator edits.
+- `forge_audit_log` (0006) deliberately has NO repository FK and is excluded
+  from the full-rewrite persist (`delete_all`/`persist_state`) so delete
+  receipts survive both repository deletion and every state rewrite.
+- `jankurai_scores` (0007) allows NULL `score` (decision `tool-failed` records
+  an unscoreable audit); any new per-repo table MUST be threaded through
+  `State`, `load_state`, `persist_state`, and `delete_all`, or the next
+  mutation silently wipes it.
+
 Live-readiness note:
 - When migrations or constraints change, include this guidance file in the
   changed-fast audit so Jankurai can detect the local DB owner and proof lane.

@@ -596,3 +596,177 @@ fn sqlite_store_round_trips_repository_family() {
         Err(ForgeError::NotFound(_))
     ));
 }
+
+/// Jankurai scores must survive the full-rewrite persist, replace records for
+/// a re-ingested (branch, commit_sha), and vanish with their repository.
+#[test]
+fn sqlite_store_round_trips_jankurai_scores() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let scored = core
+            .record_jankurai_score(
+                "jeryu",
+                "jeryu",
+                jeryu_core::RecordJankuraiScoreRequest {
+                    branch: "main".to_string(),
+                    commit_sha: "abc123".to_string(),
+                    score: Some(92),
+                    hard_findings: Some(0),
+                    decision: "scored".to_string(),
+                    caps_applied: Vec::new(),
+                    report: Some(serde_json::json!({"score": 92})),
+                    tool_exit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(scored.score, Some(92));
+        // Re-ingesting the same commit replaces, not appends.
+        core.record_jankurai_score(
+            "jeryu",
+            "jeryu",
+            jeryu_core::RecordJankuraiScoreRequest {
+                branch: "main".to_string(),
+                commit_sha: "abc123".to_string(),
+                score: Some(95),
+                decision: "scored".to_string(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // A tool-failed audit records a null score without erroring.
+        core.record_jankurai_score(
+            "jeryu",
+            "jeryu",
+            jeryu_core::RecordJankuraiScoreRequest {
+                branch: "main".to_string(),
+                commit_sha: "def456".to_string(),
+                score: None,
+                decision: "tool-failed".to_string(),
+                tool_exit: Some(2),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // Out-of-range scores are rejected.
+        assert!(matches!(
+            core.record_jankurai_score(
+                "jeryu",
+                "jeryu",
+                jeryu_core::RecordJankuraiScoreRequest {
+                    branch: "main".to_string(),
+                    commit_sha: "ggg".to_string(),
+                    score: Some(101),
+                    decision: "scored".to_string(),
+                    ..Default::default()
+                },
+            ),
+            Err(ForgeError::Validation(_))
+        ));
+    }
+
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    let scores = core
+        .list_jankurai_scores("jeryu", "jeryu", Some("main"), None)
+        .unwrap();
+    assert_eq!(scores.len(), 2, "replacement kept one record per commit");
+    let latest = core
+        .latest_jankurai_score("jeryu", "jeryu", "main")
+        .unwrap();
+    assert_eq!(latest.decision, "tool-failed");
+    assert_eq!(latest.score, None);
+    assert_eq!(
+        latest.report_json.as_deref(),
+        Some(r#"{"tool_exit":2}"#),
+        "tool exit folded into the stored report"
+    );
+    let by_sha = core
+        .list_jankurai_scores("jeryu", "jeryu", None, Some("abc123"))
+        .unwrap();
+    assert_eq!(by_sha.len(), 1);
+    assert_eq!(by_sha[0].score, Some(95), "re-ingest replaced the record");
+}
+
+/// Negative authorization proof for the score boundary: scores are keyed by
+/// (owner, repo) and one owner's records must never leak through another
+/// owner's same-named repository, nor through unknown repositories.
+#[test]
+fn jankurai_scores_are_isolated_per_repository_owner() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    for owner in ["alice", "mallory"] {
+        core.create_repository(
+            owner,
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    }
+    core.record_jankurai_score(
+        "alice",
+        "jeryu",
+        jeryu_core::RecordJankuraiScoreRequest {
+            branch: "main".to_string(),
+            commit_sha: "abc".to_string(),
+            score: Some(92),
+            decision: "scored".to_string(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    // Same repo NAME under a different owner sees nothing.
+    assert!(
+        core.list_jankurai_scores("mallory", "jeryu", None, None)
+            .unwrap()
+            .is_empty(),
+        "scores must not leak across owners"
+    );
+    assert!(
+        core.latest_jankurai_score("mallory", "jeryu", "main")
+            .is_none()
+    );
+
+    // Unknown owner/repo cannot read or write the boundary at all.
+    assert!(matches!(
+        core.list_jankurai_scores("nobody", "jeryu", None, None),
+        Err(ForgeError::NotFound(_))
+    ));
+    assert!(matches!(
+        core.record_jankurai_score(
+            "nobody",
+            "jeryu",
+            jeryu_core::RecordJankuraiScoreRequest {
+                branch: "main".to_string(),
+                commit_sha: "abc".to_string(),
+                decision: "scored".to_string(),
+                ..Default::default()
+            },
+        ),
+        Err(ForgeError::NotFound(_))
+    ));
+
+    // The owner's own records are intact and scoped.
+    let own = core
+        .list_jankurai_scores("alice", "jeryu", None, None)
+        .unwrap();
+    assert_eq!(own.len(), 1);
+    assert_eq!(own[0].owner, "alice");
+}

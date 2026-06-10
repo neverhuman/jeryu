@@ -29,6 +29,7 @@ pub struct RepositoryDeletion {
     pub webhooks: u32,
     pub webhook_deliveries: u32,
     pub counters: u32,
+    pub jankurai_scores: u32,
 }
 
 impl RepositoryDeletion {
@@ -50,6 +51,7 @@ impl RepositoryDeletion {
             ("webhooks", self.webhooks),
             ("webhook_deliveries", self.webhook_deliveries),
             ("counters", self.counters),
+            ("jankurai_scores", self.jankurai_scores),
         ]
     }
 }
@@ -231,6 +233,10 @@ impl ForgeCore {
             .retain(|delivery| !(delivery.owner == owner && delivery.repo == repo));
         let webhook_deliveries = (deliveries_before - state.webhook_deliveries.len()) as u32;
         let counters = u32::from(state.counters.remove(&key).is_some());
+        let jankurai_scores = state
+            .jankurai_scores
+            .remove(&key)
+            .map_or(0, |scores| scores.len() as u32);
 
         self.persist_after_mutation(&mut state, previous)?;
         Ok(RepositoryDeletion {
@@ -249,6 +255,7 @@ impl ForgeCore {
             webhooks,
             webhook_deliveries,
             counters,
+            jankurai_scores,
         })
     }
 

@@ -276,3 +276,87 @@ fn readme_round_trips_through_sqlite_storage() {
         Some(markdown)
     );
 }
+
+/// Owner/non-owner authorization proof for the jankurai score boundary added
+/// to `State`: records are keyed by (owner, repo); a non-owner reading the
+/// same repo NAME under their own namespace sees nothing, and an unknown
+/// owner can neither read nor write.
+#[test]
+fn jankurai_score_boundary_rejects_non_owner_access() {
+    let core = core_with_repo(); // alice/jeryu
+    core.create_repository(
+        "mallory",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: true,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    core.record_jankurai_score(
+        "alice",
+        "jeryu",
+        RecordJankuraiScoreRequest {
+            branch: "main".to_string(),
+            commit_sha: "abc".to_string(),
+            score: Some(92),
+            decision: "scored".to_string(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    // Non-owner: same repo name, different owner — no leakage.
+    assert!(
+        core.list_jankurai_scores("mallory", "jeryu", None, None)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        core.latest_jankurai_score("mallory", "jeryu", "main")
+            .is_none()
+    );
+    // Unknown owner: read and write are both refused.
+    assert!(matches!(
+        core.list_jankurai_scores("nobody", "jeryu", None, None),
+        Err(ForgeError::NotFound(_))
+    ));
+    assert!(matches!(
+        core.record_jankurai_score(
+            "nobody",
+            "jeryu",
+            RecordJankuraiScoreRequest {
+                branch: "main".to_string(),
+                commit_sha: "abc".to_string(),
+                decision: "scored".to_string(),
+                ..Default::default()
+            },
+        ),
+        Err(ForgeError::NotFound(_))
+    ));
+    // Owner keeps exactly their own records, listed newest-first, and the
+    // ordering never interleaves another owner's rows.
+    core.record_jankurai_score(
+        "alice",
+        "jeryu",
+        RecordJankuraiScoreRequest {
+            branch: "main".to_string(),
+            commit_sha: "def".to_string(),
+            score: Some(95),
+            decision: "scored".to_string(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let own = core
+        .list_jankurai_scores("alice", "jeryu", None, None)
+        .unwrap();
+    assert_eq!(own.len(), 2);
+    assert!(own.iter().all(|score| score.owner == "alice"));
+    assert!(
+        own[0].created_at >= own[1].created_at,
+        "scores must list newest-first"
+    );
+    assert_eq!(own[0].commit_sha, "def");
+}

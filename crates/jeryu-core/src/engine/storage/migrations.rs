@@ -30,14 +30,17 @@ WHERE family IS NULL AND name LIKE 'veox-%';
 "#;
 const MIGRATION_0006: &str = include_str!("../../../../../db/migrations/0006_forge_audit_log.sql");
 
+const MIGRATION_0007: &str = include_str!("../../../../../db/migrations/0007_jankurai_scores.sql");
+
 pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     conn.execute_batch(MIGRATION_0001).map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0002).map_err(storage_error)?;
     conn.execute_batch(MIGRATION_0003).map_err(storage_error)?;
     apply_migration_0004(conn)?;
     apply_migration_0005(conn)?;
-    // 0006 is pure CREATE TABLE/INDEX IF NOT EXISTS: idempotent, no guard.
+    // 0006 and 0007 are pure CREATE TABLE/INDEX IF NOT EXISTS: idempotent, no guard.
     conn.execute_batch(MIGRATION_0006).map_err(storage_error)?;
+    conn.execute_batch(MIGRATION_0007).map_err(storage_error)?;
     Ok(())
 }
 

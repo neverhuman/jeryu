@@ -3694,3 +3694,130 @@ async fn repo_delete_cannot_cross_owner_boundaries() {
     );
     assert_eq!(bob_labels[0].name, "keep");
 }
+
+/// Score ingest → list → repo-summary badge join, plus mirror status derived
+/// from jeryu/github-mirror bookkeeping runs.
+#[tokio::test]
+async fn jankurai_scores_ingest_and_surface_on_the_repo_summary() {
+    let core = ForgeCore::new();
+    let repo = core
+        .create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    // Mirror bookkeeping: an old success then a newer failure -> last attempt
+    // failed, last success still reported, repo health untouched.
+    core.create_check_run(
+        "jeryu",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/github-mirror".to_string(),
+            head_sha: "m1".to_string(),
+            conclusion: Some(CheckConclusion::Success),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    core.create_check_run(
+        "jeryu",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/github-mirror".to_string(),
+            head_sha: "m2".to_string(),
+            conclusion: Some(CheckConclusion::Failure),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    let state = Arc::new(WebState::new(core));
+    let id = repo.id.to_string();
+
+    // Ingest: a scored run on main.
+    let created = repo_jankurai_scores_ingest(
+        State(state.clone()),
+        AxumPath(id.clone()),
+        axum::body::Bytes::from_static(
+            br#"{"branch":"main","commit_sha":"abc","score":92,"hard_findings":0,"decision":"scored","caps_applied":[]}"#,
+        ),
+    )
+    .await
+    .into_response();
+    assert_eq!(created.status(), axum::http::StatusCode::CREATED);
+
+    // The backfill probe shape: GET ?sha= returns {"scores": [...]}.
+    let listed = response_json(
+        repo_jankurai_scores_list(
+            State(state.clone()),
+            AxumPath("jeryu/jeryu".to_string()),
+            Query(super::repositories::ScoreListQuery {
+                branch: None,
+                sha: Some("abc".to_string()),
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(listed["scores"].as_array().unwrap().len(), 1);
+    assert_eq!(listed["scores"][0]["score"], 92);
+
+    // Summary join + mirror posture.
+    let repos = repo_list_response(&state);
+    let summary = &repos.repositories[0];
+    assert_eq!(summary.jankurai_score, Some(92));
+    assert_eq!(summary.jankurai_decision.as_deref(), Some("scored"));
+    assert!(summary.jankurai_scored_at.is_some());
+    let mirror = summary.mirror.as_ref().expect("mirror reported");
+    assert!(mirror.configured);
+    assert!(!mirror.last_attempt_ok, "newest mirror run failed");
+    assert_eq!(mirror.last_attempt_conclusion.as_deref(), Some("failure"));
+    assert!(
+        mirror.last_success_at.is_some(),
+        "old success still visible"
+    );
+    assert_eq!(
+        summary.failing_checks, 0,
+        "mirror failures are not repo ill-health"
+    );
+    assert_eq!(summary.health, "healthy");
+
+    // Tool-failed ingest: null score + decision surfaces, badge score stays None.
+    let failed = repo_jankurai_scores_ingest(
+        State(state.clone()),
+        AxumPath(id.clone()),
+        axum::body::Bytes::from_static(
+            br#"{"branch":"main","commit_sha":"zzz","score":null,"decision":"tool-failed","tool_exit":2}"#,
+        ),
+    )
+    .await
+    .into_response();
+    assert_eq!(failed.status(), axum::http::StatusCode::CREATED);
+    let summary = &repo_list_response(&state).repositories[0];
+    assert_eq!(summary.jankurai_score, None);
+    assert_eq!(summary.jankurai_decision.as_deref(), Some("tool-failed"));
+
+    // Garbage and unknown repos are rejected cleanly.
+    let bad = repo_jankurai_scores_ingest(
+        State(state.clone()),
+        AxumPath(id),
+        axum::body::Bytes::from_static(br#"{"branch":"main"}"#),
+    )
+    .await
+    .into_response();
+    assert_eq!(bad.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+    let missing = repo_jankurai_scores_ingest(
+        State(state),
+        AxumPath("jeryu/missing".to_string()),
+        axum::body::Bytes::from_static(
+            br#"{"branch":"main","commit_sha":"a","decision":"scored"}"#,
+        ),
+    )
+    .await
+    .into_response();
+    assert_eq!(missing.status(), axum::http::StatusCode::NOT_FOUND);
+}
