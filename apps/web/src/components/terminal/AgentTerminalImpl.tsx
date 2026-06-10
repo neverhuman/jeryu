@@ -1,76 +1,53 @@
-// AgentTerminalImpl.tsx — the heavy xterm-backed terminal surface.
+// AgentTerminalImpl.tsx — live agent terminal surface (SSE + REST transport).
 //
-// Lazy-loaded by `AgentTerminal` (React.lazy), and the xterm core itself is
-// pulled in at RUNTIME via dynamic `import('@xterm/xterm')` inside the mount
-// effect — so the ~330 KB core ships in its own `xterm-vendor` chunk and is
-// only fetched the first time a terminal actually mounts (out of the initial
-// bundle, and out of this lazy chunk's static graph too). This component owns
-// the live wiring:
-//   * a real `Terminal` + `FitAddon`, opened into a container div;
-//   * a requestAnimationFrame-batched write loop so a burst of byte frames
-//     coalesces into ONE `term.write` per frame instead of thrashing the
-//     renderer (frames that arrive before xterm finishes loading are buffered);
-//   * `onData` → `input` controls (operator keystrokes), with Ctrl-C (ETX)
-//     promoted to an explicit `interrupt` control;
-//   * a `ResizeObserver` → debounced `FitAddon.fit()` → `resize` control;
-//   * chunk_seq gap / reconnect detection → clear + `resync` control.
-//
-// All transport goes through `realtimeStore` (`subscribeTty` + `sendAgentControl`)
-// so the bytes never touch the rolling activity buffer.
+// On mount:
+//   1. Dynamically imports xterm and boots it into the container div.
+//   2. Opens an SSE connection to GET /api/v1/agent-runs/{runId}/tty/stream
+//      for live TTY output.
+//   3. Operator keystrokes are sent via POST /api/v1/agent-runs/{runId}/control.
 
-import { useEffect, useRef } from 'react';
-import type { Terminal as XTerm } from '@xterm/xterm';
-import type { FitAddon as XFitAddon } from '@xterm/addon-fit';
+import { useEffect, useRef, useCallback, useState } from 'react';
 
-import { useRealtimeStore } from '../../stores/realtimeStore';
-import { base64ToBytes, textToBase64 } from './agentTtyDecode';
-import { useAgentTty } from './useAgentTty';
+import { connectTtyStream, type AgentTtyConnection, type AgentStreamEvent } from './agentTtyTransport';
+import { sendInput, sendInterrupt, sendResize } from './agentControlTransport';
 
 export interface AgentTerminalImplProps {
   runId: string;
-  /** Reports the cumulative decoded byte count so the toolbar can show a byte
-   *  budget. */
   onBytes?: (totalBytes: number) => void;
-  /** Debounce window (ms) for resize controls. Exposed for tests. */
+  onSseStatus?: (status: 'connecting' | 'open' | 'closed' | 'error') => void;
+  onExit?: (exitCode: number) => void;
   resizeDebounceMs?: number;
 }
 
-/** Byte value of Ctrl-C (ETX). Promoted from raw input to an interrupt. */
 const ETX = 0x03;
 
 export function AgentTerminalImpl({
   runId,
   onBytes,
+  onSseStatus,
+  onExit,
   resizeDebounceMs = 150,
 }: AgentTerminalImplProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const termRef = useRef<XTerm | null>(null);
-  const fitRef = useRef<XFitAddon | null>(null);
+  const termRef = useRef<any>(null);
+  const fitRef = useRef<any>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [xtermReady, setXtermReady] = useState(false);
 
-  // rAF write-loop state.
   const pendingRef = useRef<Uint8Array[]>([]);
   const rafRef = useRef<number | null>(null);
   const bytesRef = useRef(0);
 
-  // Stream-continuity state.
-  const lastChunkSeqRef = useRef<number | null>(null);
-  const staleRef = useRef(false);
-  const everOpenRef = useRef(false);
-
   const onBytesRef = useRef(onBytes);
-  useEffect(() => {
-    onBytesRef.current = onBytes;
-  }, [onBytes]);
+  useEffect(() => { onBytesRef.current = onBytes; }, [onBytes]);
+  const onSseStatusRef = useRef(onSseStatus);
+  useEffect(() => { onSseStatusRef.current = onSseStatus; }, [onSseStatus]);
+  const onExitRef = useRef(onExit);
+  useEffect(() => { onExitRef.current = onExit; }, [onExit]);
 
-  const sendAgentControl = useRealtimeStore((s) => s.sendAgentControl);
-  const status = useRealtimeStore((s) => s.status);
-
-  // ── rAF-batched write loop ────────────────────────────────────────────────
-  function flush(): void {
+  const flush = useCallback((): void => {
     rafRef.current = null;
     const term = termRef.current;
-    // xterm may not have finished loading yet — keep the pending bytes and try
-    // again next frame rather than dropping output.
     if (!term) {
       if (pendingRef.current.length > 0) {
         rafRef.current = requestAnimationFrame(flush);
@@ -80,7 +57,7 @@ export function AgentTerminalImpl({
     const chunks = pendingRef.current;
     pendingRef.current = [];
     if (chunks.length === 0) return;
-    const total = chunks.reduce((n, c) => n + c.length, 0);
+    const total = chunks.reduce((n: number, c: Uint8Array) => n + c.length, 0);
     const merged = new Uint8Array(total);
     let offset = 0;
     for (const c of chunks) {
@@ -88,31 +65,53 @@ export function AgentTerminalImpl({
       offset += c.length;
     }
     term.write(merged);
-  }
+  }, []);
 
-  function scheduleFlush(): void {
+  function enqueueBytes(bytes: Uint8Array): void {
+    pendingRef.current.push(bytes);
+    bytesRef.current += bytes.length;
+    onBytesRef.current?.(bytesRef.current);
     if (rafRef.current === null) {
       rafRef.current = requestAnimationFrame(flush);
     }
   }
 
-  function enqueue(bytes: Uint8Array): void {
-    pendingRef.current.push(bytes);
-    bytesRef.current += bytes.length;
-    onBytesRef.current?.(bytesRef.current);
-    scheduleFlush();
+  function enqueueText(text: string): void {
+    enqueueBytes(new TextEncoder().encode(text));
   }
 
-  function clearTerminal(): void {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+  function handleStreamEvent(evt: AgentStreamEvent): void {
+    if (evt.exit_code !== null && evt.exit_code !== undefined) {
+      const exitLine = `\r\n\x1b[90m── process exited with code ${evt.exit_code} ──\x1b[0m\r\n`;
+      enqueueText(exitLine);
+      onExitRef.current?.(evt.exit_code);
+      return;
     }
-    pendingRef.current = [];
-    termRef.current?.clear();
+
+    if (evt.stream === 'event' && evt.text && evt.text !== 'started' && evt.text !== 'budget') {
+      enqueueText(`\r\n\x1b[36m[${evt.text}]\x1b[0m\r\n`);
+      return;
+    }
+
+    if (evt.stream === 'stdout' || evt.stream === 'stderr') {
+      if (evt.text) {
+        enqueueText(evt.text);
+      } else if (evt.bytes_b64) {
+        try {
+          const binary = atob(evt.bytes_b64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i) & 0xff;
+          }
+          enqueueBytes(bytes);
+        } catch {
+          // malformed
+        }
+      }
+    }
   }
 
-  // ── xterm lifecycle (xterm loaded at runtime) ─────────────────────────────
+  // ── xterm + SSE lifecycle ─────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
@@ -121,68 +120,84 @@ export function AgentTerminalImpl({
     let dataSub: { dispose(): void } | null = null;
     let ro: ResizeObserver | null = null;
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    let sseConn: AgentTtyConnection | null = null;
 
-    void (async () => {
-      const [{ Terminal }, { FitAddon }] = await Promise.all([
-        import('@xterm/xterm'),
-        import('@xterm/addon-fit'),
-      ]);
-      // xterm's stylesheet is pulled in via `terminal.css` (`@import`), so it
-      // rides the agents-route CSS chunk rather than the global bundle.
-      if (disposed || !containerRef.current) return;
+    // Start SSE immediately — don't wait for xterm to load.
+    sseConn = connectTtyStream(
+      runId,
+      (evt) => handleStreamEvent(evt),
+      (status) => onSseStatusRef.current?.(status),
+    );
 
-      const term = new Terminal({
-        convertEol: false,
-        cursorBlink: true,
-        fontFamily:
-          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-        fontSize: 13,
-        scrollback: 5000,
-        theme: { background: '#0b0f17' },
-      });
-      const fit = new FitAddon();
-      term.loadAddon(fit);
-      term.open(containerRef.current);
-      safeFit(fit);
-      termRef.current = term;
-      fitRef.current = fit;
+    // Load xterm asynchronously.
+    (async () => {
+      try {
+        const [xtermModule, fitModule] = await Promise.all([
+          import('@xterm/xterm'),
+          import('@xterm/addon-fit'),
+        ]);
+        if (disposed || !containerRef.current) return;
 
-      // Operator keystrokes. Ctrl-C is promoted to an explicit interrupt; all
-      // other data is forwarded verbatim into the agent input (already a typed string).
-      dataSub = term.onData((data: string) => {
-        if (data.length === 1 && data.charCodeAt(0) === ETX) {
-          sendAgentControl(runId, { kind: 'interrupt' });
-          return;
-        }
-        sendAgentControl(runId, {
-          kind: 'input',
-          bytes_b64: textToBase64(data),
+        const { Terminal } = xtermModule;
+        const { FitAddon } = fitModule;
+
+        const term = new Terminal({
+          convertEol: false,
+          cursorBlink: true,
+          fontFamily:
+            'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+          fontSize: 13,
+          scrollback: 5000,
+          theme: { background: '#0b0f17' },
         });
-      });
+        const fit = new FitAddon();
+        term.loadAddon(fit);
+        term.open(containerRef.current);
+        safeFit(fit);
+        termRef.current = term;
+        fitRef.current = fit;
+        setXtermReady(true);
 
-      // Resize → debounced fit + resize control.
-      ro = new ResizeObserver(() => {
-        if (resizeTimer) clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          safeFit(fit);
-          const t = termRef.current;
-          if (t) {
-            sendAgentControl(runId, {
-              kind: 'resize',
-              cols: t.cols,
-              rows: t.rows,
-            });
+        // Send the initial PTY resize so the backend knows our dimensions
+        // before any content is rendered.
+        void sendResize(runId, term.cols, term.rows);
+
+        // Keystrokes → REST control.
+        dataSub = term.onData((data: string) => {
+          if (data.length === 1 && data.charCodeAt(0) === ETX) {
+            void sendInterrupt(runId);
+            return;
           }
-        }, resizeDebounceMs);
-      });
-      ro.observe(container);
+          void sendInput(runId, data);
+        });
 
-      // Drain anything that streamed in before xterm was ready.
-      scheduleFlush();
+        // Resize → debounced fit + REST resize.
+        ro = new ResizeObserver(() => {
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            safeFit(fit);
+            const t = termRef.current;
+            if (t) {
+              void sendResize(runId, t.cols, t.rows);
+            }
+          }, resizeDebounceMs);
+        });
+        ro.observe(container);
+
+        // Flush any SSE events that arrived before xterm was ready.
+        if (rafRef.current === null && pendingRef.current.length > 0) {
+          rafRef.current = requestAnimationFrame(flush);
+        }
+      } catch (err) {
+        if (!disposed) {
+          setLoadError(String(err));
+        }
+      }
     })();
 
     return () => {
       disposed = true;
+      sseConn?.close();
       dataSub?.dispose();
       ro?.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
@@ -193,48 +208,17 @@ export function AgentTerminalImpl({
       termRef.current = null;
       fitRef.current = null;
     };
-    // runId / debounce are stable for a mounted terminal; sendAgentControl is a
-    // stable store action.
-  }, [runId]);
+  }, [runId, flush]);
 
-  // ── live stream ───────────────────────────────────────────────────────────
-  useAgentTty(runId, (frame) => {
-    const prev = lastChunkSeqRef.current;
-    // A gap in the per-run chunk cursor means we lost bytes — the screen is no
-    // longer trustworthy, so clear and ask the backend for a fresh snapshot.
-    if (prev !== null && frame.chunk_seq !== prev + 1) {
-      clearTerminal();
-      lastChunkSeqRef.current = frame.chunk_seq;
-      sendAgentControl(runId, { kind: 'resync' });
-      // Still render the bytes we did receive after the resync request.
-    } else {
-      lastChunkSeqRef.current = frame.chunk_seq;
-    }
-    enqueue(base64ToBytes(frame.bytes_b64));
-  });
-
-  // Reconnect handling: while the socket is down the byte stream pauses, so on
-  // return-to-open we clear the (now stale) screen and resync. We only treat a
-  // drop as stale once we have already been open, so the INITIAL connect
-  // (idle → connecting → open) never fires a spurious resync.
-  useEffect(() => {
-    if (status === 'open') {
-      if (staleRef.current) {
-        staleRef.current = false;
-        lastChunkSeqRef.current = null;
-        clearTerminal();
-        sendAgentControl(runId, { kind: 'resync' });
-      }
-      everOpenRef.current = true;
-      return;
-    }
-    if (
-      (status === 'reconnecting' || status === 'closed') &&
-      everOpenRef.current
-    ) {
-      staleRef.current = true;
-    }
-  }, [status, runId]);
+  if (loadError) {
+    return (
+      <div className="agent-terminal__surface agent-terminal__error" data-testid="agent-terminal-surface">
+        <p style={{ color: '#ef4444', padding: '1rem' }}>
+          Failed to load terminal: {loadError}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -242,13 +226,12 @@ export function AgentTerminalImpl({
       className="agent-terminal__surface"
       data-testid="agent-terminal-surface"
       role="presentation"
+      style={{ minHeight: '200px' }}
     />
   );
 }
 
-/** `FitAddon.fit()` throws if the container has no layout yet (0×0, e.g. in a
- *  unit test). Swallow that — the ResizeObserver will fit again once sized. */
-function safeFit(fit: XFitAddon): void {
+function safeFit(fit: any): void {
   try {
     fit.fit();
   } catch {

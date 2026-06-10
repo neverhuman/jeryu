@@ -3,14 +3,11 @@
 .app-shell {
   display: grid;
   grid-template-areas:
-    'header header header'
-    'leftnav main activity'
-    'status status status';
+    'header header'
+    'leftnav main'
+    'status status';
   grid-template-rows: var(--app-header-height) 1fr var(--app-status-height);
-  grid-template-columns:
-    var(--app-leftnav-width)
-    minmax(0, 1fr)
-    var(--app-activity-width);
+  grid-template-columns: var(--app-leftnav-width) minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -18,7 +15,6 @@
   --app-header-height: 48px;
   --app-status-height: 28px;
   --app-leftnav-width: 240px;
-  --app-activity-width: 280px;
 }
 
 .app-shell__header {
@@ -31,6 +27,72 @@
   border-right: 1px solid var(--color-border-subtle);
   background-color: var(--color-bg-1);
   overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+/* ── Sidebar collapse toggle ──────────────────────────────────────────── */
+.app-shell__sidebar-toggle {
+  position: absolute;
+  bottom: 12px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-2);
+  color: var(--color-fg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  z-index: 10;
+}
+
+.app-shell__leftnav:hover .app-shell__sidebar-toggle,
+.app-shell--sidebar-collapsed .app-shell__sidebar-toggle {
+  opacity: 1;
+}
+
+.app-shell__sidebar-toggle:hover {
+  background: var(--color-bg-3);
+  color: var(--color-fg-primary);
+  border-color: var(--color-border-strong);
+}
+
+.app-shell__sidebar-toggle-icon {
+  transition: transform 0.2s ease;
+}
+
+/* ── Collapsed sidebar ────────────────────────────────────────────────── */
+.app-shell--sidebar-collapsed {
+  --app-leftnav-width: 0px;
+}
+
+.app-shell--sidebar-collapsed .app-shell__leftnav {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+  overflow: hidden;
+}
+
+.app-shell--sidebar-collapsed .app-shell__sidebar-toggle {
+  position: fixed;
+  left: 4px;
+  bottom: 36px;
+  right: auto;
+  opacity: 1;
+  z-index: 100;
+  background: var(--color-bg-1);
+  border-color: var(--color-border-subtle);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.app-shell--sidebar-collapsed .app-shell__sidebar-toggle-icon {
+  transform: rotate(180deg);
 }
 
 .app-shell__main {
@@ -39,12 +101,7 @@
   background-color: var(--color-bg-0);
 }
 
-.app-shell__activity {
-  grid-area: activity;
-  border-left: 1px solid var(--color-border-subtle);
-  background-color: var(--color-bg-1);
-  overflow-y: auto;
-}
+
 
 .app-shell__status {
   grid-area: status;
@@ -52,15 +109,8 @@
 }
 
 @media (max-width: 1024px) {
-  .app-shell {
-    grid-template-areas:
-      'header header'
-      'leftnav main'
-      'status status';
-    grid-template-columns: var(--app-leftnav-width) minmax(0, 1fr);
-  }
-  .app-shell__activity {
-    display: none;
+  :root {
+    --app-leftnav-width: 200px;
   }
 }
 

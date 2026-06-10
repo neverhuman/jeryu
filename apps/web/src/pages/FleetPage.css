@@ -466,3 +466,47 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Interactive task card drill-down. */
+.fleet__task-card--interactive {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-2);
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease;
+}
+
+.fleet__task-card--interactive:hover {
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 1px var(--color-accent-primary);
+  transform: translateY(-1px);
+}
+
+.fleet__task-card--interactive:active {
+  transform: translateY(0);
+}
+
+.fleet__task-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-primary);
+  font-weight: var(--font-weight-medium);
+  margin-top: var(--space-1);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.fleet__task-card--interactive:hover .fleet__task-open {
+  opacity: 1;
+}

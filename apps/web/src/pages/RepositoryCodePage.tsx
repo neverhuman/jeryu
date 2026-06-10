@@ -41,11 +41,16 @@ function fullNameFromParams(params: Record<string, string | undefined>): string 
   return main;
 }
 
-export function RepositoryCodePage(): JSX.Element {
+export interface RepositoryCodePageProps {
+  provider?: string;
+  fullName?: string;
+}
+
+export function RepositoryCodePage(props: RepositoryCodePageProps = {}): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
-  const provider = params.provider ?? 'unknown';
-  const fullName = fullNameFromParams(params);
+  const provider = props.provider ?? params.provider ?? 'unknown';
+  const fullName = props.fullName ?? fullNameFromParams(params);
   const resolved = useResolveRepo(provider, fullName);
 
   const repoId = resolved.data?.id ?? null;
@@ -73,7 +78,7 @@ export function RepositoryCodePage(): JSX.Element {
 
   if (resolved.isPending) {
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-code-page">
         <LoadingState title="Loading repository…" variant="message" />
       </div>
     );
@@ -82,7 +87,7 @@ export function RepositoryCodePage(): JSX.Element {
   if (resolved.error) {
     if (resolved.error instanceof ApiError && resolved.error.status === 403) {
       return (
-        <div className="page">
+        <div className="page" data-testid="repo-code-page">
           <PermissionDeniedState
             description="You do not have permission to view this repository."
             missingPermission="repo.read"
@@ -91,7 +96,7 @@ export function RepositoryCodePage(): JSX.Element {
       );
     }
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-code-page">
         <ErrorState
           title="Could not load repository"
           error={resolved.error}
@@ -102,7 +107,7 @@ export function RepositoryCodePage(): JSX.Element {
 
   if (!resolved.data) {
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-code-page">
         <ErrorState
           title="Repository not found"
           description={`No repository named ${fullName} on ${provider}.`}
@@ -112,7 +117,7 @@ export function RepositoryCodePage(): JSX.Element {
   }
 
   return (
-    <div className="page">
+    <div className="page" data-testid="repo-code-page">
       <div className="code-browser-layout__top">
         <BranchSelector
           repoId={repoId}

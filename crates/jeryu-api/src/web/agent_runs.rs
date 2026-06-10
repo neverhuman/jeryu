@@ -132,6 +132,8 @@ pub(crate) struct AgentRunStore {
 #[derive(Default)]
 struct AgentRunStoreInner {
     runs: BTreeMap<String, AgentRunRecord>,
+    /// Map from agent run_id to its companion shell run_id.
+    shell_companions: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -475,6 +477,9 @@ pub(super) struct RepoAgentRunRow {
     pub ws_scope: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent: Option<String>,
+    /// Companion shell run id for split terminal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shell_run_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workcell_id: Option<String>,
 }
@@ -510,6 +515,7 @@ impl RepoAgentRunRow {
             supported_controls,
             ws_scope: format!("agent_run.{}", record.id),
             agent: record.agent.clone(),
+            shell_run_id: None,
             workcell_id,
         }
     }
@@ -924,6 +930,94 @@ pub(super) async fn export_pr(
     }
 }
 
+/// `POST /api/v1/agent-runs/{id}/shell` — spawn a companion shell in the same
+/// workspace as the given run. Returns the companion run's id and URLs so the
+/// frontend can mount a second terminal pane for free-form operator interaction.
+#[derive(Debug, Serialize)]
+struct CompanionShellResponse {
+    shell_run_id: String,
+    status_url: String,
+    tty_stream_url: String,
+    control_url: String,
+}
+
+pub(super) async fn shell(
+    State(state): State<Arc<WebState>>,
+    AxumPath(parent_run_id): AxumPath<String>,
+) -> AxumResponse {
+    // Look up the parent run's workspace.
+    let workspace = {
+        let inner = state.agent_runs.inner.lock().expect("runs mutex");
+        inner.runs.get(&parent_run_id).map(|r| r.repo_root.clone())
+    };
+    let Some(workspace) = workspace else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": { "code": "not_found", "message": format!("agent run {parent_run_id} not found") }
+            })),
+        ).into_response();
+    };
+
+    // Allocate a new run for the companion shell.
+    let shell_id = state.agent_runs.allocate_id();
+    let (control_tx, control_rx) = std::sync::mpsc::channel();
+
+    let repo_name = {
+        let inner = state.agent_runs.inner.lock().expect("runs mutex");
+        inner
+            .runs
+            .get(&parent_run_id)
+            .and_then(|r| r.repo.clone())
+            .unwrap_or_default()
+    };
+
+    state.agent_runs.insert_session(SessionRecordInit {
+        run_id: shell_id.clone(),
+        repo: repo_name,
+        branch: String::new(),
+        base_oid: String::new(),
+        runner: "local".to_string(),
+        agent: "shell".to_string(),
+        program: "/bin/bash".to_string(),
+        args: vec!["--login".to_string()],
+        workspace: workspace.clone(),
+        control_tx: Some(control_tx),
+    });
+
+    let spec = CommandSpec {
+        program: "/bin/bash".to_string(),
+        args: vec!["--login".to_string()],
+        env: Default::default(),
+    };
+
+    spawn_session_agent(
+        &state.agent_runs,
+        SessionAgentSpawn {
+            run_id: shell_id.clone(),
+            workspace,
+            spec: Some(spec),
+            backend: PtyBackend::Native,
+            docker_fallback: None,
+            control_rx,
+            timeout: std::time::Duration::from_secs(7200),
+            output_budget: 20_971_520,
+            require_cgroup: false,
+        },
+    );
+
+    (
+        StatusCode::CREATED,
+        Json(CompanionShellResponse {
+            status_url: format!("/api/v1/agent-runs/{shell_id}"),
+            tty_stream_url: format!("/api/v1/agent-runs/{shell_id}/tty/stream"),
+            control_url: format!("/api/v1/agent-runs/{shell_id}/control"),
+            shell_run_id: shell_id,
+        }),
+    )
+        .into_response()
+}
+
 pub(super) fn mcp_start(state: Arc<WebState>, args: Value) -> Result<Value, String> {
     let request: AgentRunStartRequest =
         serde_json::from_value(args).map_err(|err| err.to_string())?;
@@ -1324,9 +1418,24 @@ impl AgentRunStore {
         inner
             .runs
             .values()
-            .filter(|record| record.repo.as_deref() == Some(repo_full_name))
-            .map(RepoAgentRunRow::from_record)
+            .filter(|record| {
+                record.repo.as_deref() == Some(repo_full_name)
+                    && record.agent.as_deref() != Some("shell")
+            })
+            .map(|record| {
+                let mut row = RepoAgentRunRow::from_record(record);
+                row.shell_run_id = inner.shell_companions.get(&record.id).cloned();
+                row
+            })
             .collect()
+    }
+
+    /// Register a companion shell for a given agent run.
+    pub(super) fn register_shell_companion(&self, agent_run_id: &str, shell_run_id: &str) {
+        let mut inner = self.inner.lock().expect("agent run store mutex");
+        inner
+            .shell_companions
+            .insert(agent_run_id.to_string(), shell_run_id.to_string());
     }
 
     /// The branch + base oid + state needed to mediate a publish for one run.

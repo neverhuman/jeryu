@@ -10,6 +10,7 @@
 //! ref service and open a pull request — the agent itself never has push rights.
 
 use std::collections::BTreeMap;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -98,6 +99,7 @@ fn resolve_agent_program_with(
         "codex" => PathBuf::from("/home/ubuntu/.npm-global/bin/codex"),
         "claude" => PathBuf::from("/home/ubuntu/.local/bin/claude"),
         "jekko" => PathBuf::from("/home/ubuntu/.local/bin/jekko"),
+        "agy" => PathBuf::from("/home/ubuntu/.local/bin/agy"),
         _ => PathBuf::from(DEFAULT_AGENT_COMMAND),
     }
 }
@@ -148,6 +150,10 @@ struct CreateSessionResponse {
     events_url: String,
     control_url: String,
     publish_url: String,
+    /// Companion shell run id — a free-form bash session in the same workspace,
+    /// ready immediately so the UI can mount a second terminal pane.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shell_run_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -339,7 +345,7 @@ fn create_session(
     let (control_tx, control_rx) = mpsc::channel();
     state.agent_runs.insert_session(SessionRecordInit {
         run_id: run_id.clone(),
-        repo: full_name,
+        repo: full_name.clone(),
         branch: branch.clone(),
         base_oid: base_oid.clone(),
         runner,
@@ -370,6 +376,11 @@ fn create_session(
         return Ok(session_response(&run_id, &branch, &base_oid));
     }
 
+    // Seed the host operator's agent auth into the workspace so the
+    // container's codex/claude CLI starts pre-authenticated (login once on the
+    // host, every session inherits). Best-effort: a missing file never blocks.
+    seed_agent_auth(&workspace, &agent_id);
+
     // Pick the PTY execution backend. The native in-process kernel sandbox cannot be
     // created on a host whose AppArmor blocks the unprivileged userns
     // (`kernel.apparmor_restrict_unprivileged_userns=1`), so `auto` (the default)
@@ -393,7 +404,7 @@ fn create_session(
         &state.agent_runs,
         SessionAgentSpawn {
             run_id: run_id.clone(),
-            workspace,
+            workspace: workspace.clone(),
             spec,
             backend,
             docker_fallback,
@@ -404,7 +415,62 @@ fn create_session(
         },
     );
 
-    Ok(session_response(&run_id, &branch, &base_oid))
+    // ── Spawn a companion shell in the same workspace ──────────────────
+    // The operator can interact with this shell freely while the agent runs
+    // in the top pane. Spawned at creation time so it is ready immediately.
+    let shell_id = state.agent_runs.allocate_id();
+    let (shell_ctl_tx, shell_ctl_rx) = std::sync::mpsc::channel();
+    state.agent_runs.insert_session(SessionRecordInit {
+        run_id: shell_id.clone(),
+        repo: full_name.clone(),
+        branch: String::new(),
+        base_oid: String::new(),
+        runner: "local".to_string(),
+        agent: "shell".to_string(),
+        program: "/bin/bash".to_string(),
+        args: vec!["--norc".to_string(), "--noprofile".to_string()],
+        workspace: workspace.clone(),
+        control_tx: Some(shell_ctl_tx),
+    });
+    let mut shell_env: BTreeMap<String, String> = BTreeMap::new();
+    // Colorful prompt: green user@host, blue cwd, reset.
+    shell_env.insert(
+        "PS1".to_string(),
+        r#"\[\033[1;32m\]shell\[\033[0m\]:\[\033[1;34m\]\w\[\033[0m\]\$ "#.to_string(),
+    );
+    // Enable color output for ls, grep, etc.
+    shell_env.insert("TERM".to_string(), "xterm-256color".to_string());
+    shell_env.insert("CLICOLOR".to_string(), "1".to_string());
+    shell_env.insert("CLICOLOR_FORCE".to_string(), "1".to_string());
+    shell_env.insert("LS_COLORS".to_string(),
+        "di=1;34:ln=1;36:so=1;35:pi=33:ex=1;32:bd=1;33;40:cd=1;33;40:su=37;41:sg=30;43:tw=30;42:ow=34;42".to_string());
+    let shell_spec = CommandSpec {
+        program: "/bin/bash".to_string(),
+        args: vec!["--norc".to_string(), "--noprofile".to_string()],
+        env: shell_env,
+    };
+    spawn_session_agent(
+        &state.agent_runs,
+        SessionAgentSpawn {
+            run_id: shell_id.clone(),
+            workspace,
+            spec: Some(shell_spec),
+            backend: PtyBackend::DockerHost, // unsandboxed host PTY — operator shell
+            docker_fallback: None,
+            control_rx: shell_ctl_rx,
+            timeout: Duration::from_secs(7200),
+            output_budget: 20_971_520,
+            require_cgroup: false,
+        },
+    );
+
+    state
+        .agent_runs
+        .register_shell_companion(&run_id, &shell_id);
+
+    let mut resp = session_response(&run_id, &branch, &base_oid);
+    resp.shell_run_id = Some(shell_id);
+    Ok(resp)
 }
 
 /// The create-session response body, shared by the launched-agent success path and
@@ -422,6 +488,7 @@ fn session_response(run_id: &str, branch: &str, base_oid: &str) -> CreateSession
         events_url: format!("/api/v1/agent-runs/{run_id}/events"),
         control_url: format!("/api/v1/agent-runs/{run_id}/control"),
         publish_url: format!("/api/v1/agent-runs/{run_id}/publish"),
+        shell_run_id: None,
     }
 }
 
@@ -689,6 +756,256 @@ fn resolve_session_backend(
     }
 }
 
+/// Seed the host operator's agent CLI auth into the session workspace so the
+/// container (or native) agent starts pre-authenticated. Login once on the
+/// host, every New Session inherits.
+///
+/// The container `$HOME` is `/workspace/.agent-home` (set in the Dockerfile),
+/// so we copy the auth files into `{workspace}/.agent-home/{config_dir}/{file}`.
+///
+/// This is best-effort: a missing host file is silently skipped, a copy failure
+/// is logged but never blocks the session. The files are copied (not bind-mounted)
+/// so the container cannot modify the host's tokens.
+fn seed_agent_auth(workspace: &std::path::Path, agent_id: &str) {
+    /// One auth file mapping: host relative path (under `$HOME`) → container
+    /// relative path (under `{workspace}/.agent-home`).
+    struct AuthFile {
+        host_rel: &'static str,
+        container_rel: &'static str,
+    }
+
+    let codex_files: &[AuthFile] = &[
+        AuthFile {
+            host_rel: ".codex/auth.json",
+            container_rel: ".codex/auth.json",
+        },
+        AuthFile {
+            host_rel: ".codex/config.toml",
+            container_rel: ".codex/config.toml",
+        },
+        AuthFile {
+            host_rel: ".codex/config.yaml",
+            container_rel: ".codex/config.yaml",
+        },
+    ];
+
+    let claude_files: &[AuthFile] = &[
+        AuthFile {
+            host_rel: ".claude/.credentials.json",
+            container_rel: ".claude/.credentials.json",
+        },
+        AuthFile {
+            host_rel: ".claude/settings.json",
+            container_rel: ".claude/settings.json",
+        },
+    ];
+
+    let agy_files: &[AuthFile] = &[
+        AuthFile {
+            host_rel: ".gemini/antigravity-cli/installation_id",
+            container_rel: ".gemini/antigravity-cli/installation_id",
+        },
+        AuthFile {
+            host_rel: ".gemini/antigravity-cli/settings.json",
+            container_rel: ".gemini/antigravity-cli/settings.json",
+        },
+    ];
+
+    let all_files: &[AuthFile] = &[
+        AuthFile {
+            host_rel: ".codex/auth.json",
+            container_rel: ".codex/auth.json",
+        },
+        AuthFile {
+            host_rel: ".codex/config.toml",
+            container_rel: ".codex/config.toml",
+        },
+        AuthFile {
+            host_rel: ".codex/config.yaml",
+            container_rel: ".codex/config.yaml",
+        },
+        AuthFile {
+            host_rel: ".claude/.credentials.json",
+            container_rel: ".claude/.credentials.json",
+        },
+        AuthFile {
+            host_rel: ".claude/settings.json",
+            container_rel: ".claude/settings.json",
+        },
+        AuthFile {
+            host_rel: ".gemini/antigravity-cli/installation_id",
+            container_rel: ".gemini/antigravity-cli/installation_id",
+        },
+        AuthFile {
+            host_rel: ".gemini/antigravity-cli/settings.json",
+            container_rel: ".gemini/antigravity-cli/settings.json",
+        },
+    ];
+
+    let files: &[AuthFile] = match agent_id {
+        "codex" => codex_files,
+        "claude" => claude_files,
+        "agy" => agy_files,
+        _ => all_files,
+    };
+
+    // The host home directory: prefer `JERYU_AUTH_HOME`, then the real `$HOME`.
+    let host_home = std::env::var("JERYU_AUTH_HOME")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .unwrap_or_else(|| std::env::var("HOME").unwrap_or_else(|_| "/root".to_string()));
+    let host_home = std::path::Path::new(&host_home);
+    let agent_home = workspace.join(".agent-home");
+
+    for file in files {
+        let src = host_home.join(file.host_rel);
+        if !src.is_file() {
+            continue;
+        }
+        let dst = agent_home.join(file.container_rel);
+        if let Some(parent) = dst.parent() {
+            if let Err(err) = std::fs::create_dir_all(parent) {
+                eprintln!(
+                    "seed_agent_auth: failed to create dir {} -> {}: {}",
+                    src.display(),
+                    dst.display(),
+                    err
+                );
+                continue;
+            }
+        }
+        match std::fs::copy(&src, &dst) {
+            Ok(bytes) => {
+                // Lock down permissions: the container should read but not modify.
+                let _ = std::fs::set_permissions(&dst, std::fs::Permissions::from_mode(0o400));
+                eprintln!(
+                    "seed_agent_auth[{}]: seeded {} -> {} ({} bytes)",
+                    agent_id,
+                    src.display(),
+                    dst.display(),
+                    bytes
+                );
+            }
+            Err(err) => {
+                eprintln!(
+                    "seed_agent_auth[{}]: failed to copy {} -> {}: {}",
+                    agent_id,
+                    src.display(),
+                    dst.display(),
+                    err
+                );
+            }
+        }
+    }
+
+    // ── Seed agy auth: copy entire ~/.gemini tree (config + CLI state) ────
+    if agent_id == "agy" || !matches!(agent_id, "codex" | "claude") {
+        // Recursively copy relevant ~/.gemini subtrees for agy auth.
+        fn copy_dir_recursive(
+            src: &std::path::Path,
+            dst: &std::path::Path,
+            agent_id: &str,
+            label: &str,
+        ) {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::create_dir_all(dst);
+            let entries = match std::fs::read_dir(src) {
+                Ok(e) => e,
+                Err(_) => return,
+            };
+            for entry in entries.flatten() {
+                let src_path = entry.path();
+                let dst_path = dst.join(entry.file_name());
+                if src_path.is_dir() {
+                    copy_dir_recursive(&src_path, &dst_path, agent_id, label);
+                } else if src_path.is_file() {
+                    match std::fs::copy(&src_path, &dst_path) {
+                        Ok(bytes) => {
+                            eprintln!(
+                                "seed_agent_auth[{}]: seeded {} {} ({} bytes)",
+                                agent_id,
+                                label,
+                                entry.file_name().to_string_lossy(),
+                                bytes
+                            );
+                        }
+                        Err(err) => {
+                            eprintln!(
+                                "seed_agent_auth[{}]: failed {} {}: {}",
+                                agent_id,
+                                label,
+                                entry.file_name().to_string_lossy(),
+                                err
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // ~/.gemini/antigravity-cli/ (installation_id, implicit tokens, settings)
+        let cli_src = host_home.join(".gemini/antigravity-cli");
+        let cli_dst = agent_home.join(".gemini/antigravity-cli");
+        copy_dir_recursive(&cli_src, &cli_dst, agent_id, "cli");
+
+        // ~/.gemini/config/ (projects, mcp_config, .migrated marker)
+        let cfg_src = host_home.join(".gemini/config");
+        let cfg_dst = agent_home.join(".gemini/config");
+        copy_dir_recursive(&cfg_src, &cfg_dst, agent_id, "config");
+    }
+
+    // ── Create writable dirs that agent CLIs expect under $HOME ──────────
+    // agy needs write access to log/, cache/, conversations/, knowledge/ etc.
+    if agent_id == "agy" {
+        for subdir in &[
+            ".gemini/antigravity-cli/log",
+            ".gemini/antigravity-cli/cache",
+            ".gemini/antigravity-cli/conversations",
+            ".gemini/antigravity-cli/knowledge",
+            ".gemini/antigravity-cli/builtin",
+        ] {
+            let _ = std::fs::create_dir_all(agent_home.join(subdir));
+        }
+    }
+
+    // ── Auto-trust the workspace so codex/claude never prompts ──────────
+    // Codex: append a [projects."/workspace"] trust entry to the seeded config.toml.
+    // Claude: seed a settings.json that auto-accepts /workspace.
+    if agent_id == "codex" || agent_id == "claude" || agent_id == "agy" {
+        let codex_cfg = agent_home.join(".codex/config.toml");
+        if codex_cfg.is_file() {
+            // Temporarily make writable (it was locked to 0o400 by the copy loop).
+            let _ = std::fs::set_permissions(&codex_cfg, std::fs::Permissions::from_mode(0o600));
+            // Append workspace trust to the copied config.
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&codex_cfg) {
+                let _ = writeln!(
+                    f,
+                    "\n[projects.\"/workspace\"]\ntrust_level = \"trusted\"\n"
+                );
+                drop(f);
+                let _ =
+                    std::fs::set_permissions(&codex_cfg, std::fs::Permissions::from_mode(0o400));
+                eprintln!(
+                    "seed_agent_auth[{}]: appended /workspace trust to config.toml",
+                    agent_id
+                );
+            }
+        } else {
+            // No host config — create a minimal one with just the workspace trust.
+            let _ = std::fs::create_dir_all(agent_home.join(".codex"));
+            let _ = std::fs::write(
+                &codex_cfg,
+                "[projects.\"/workspace\"]\ntrust_level = \"trusted\"\n",
+            );
+            eprintln!(
+                "seed_agent_auth[{}]: created minimal config.toml with /workspace trust",
+                agent_id
+            );
+        }
+    }
+}
+
 /// Build the host `docker run ...` launch command for a session agent. The flags
 /// come straight from the planned, hardened [`OciSpec`] (read-only root, all caps
 /// dropped, `--network none`, the workspace bind-mounted at `/workspace`), with the
@@ -721,13 +1038,16 @@ fn docker_command(
 /// to the standard `agent` entrypoint (its absence inside the image surfaces as the
 /// container exiting, which the live stream shows).
 fn in_image_agent_command(agent_id: &str) -> Vec<String> {
-    let program = match agent_id {
-        "codex" => "codex",
-        "claude" => "claude",
-        "jekko" => "jekko",
-        _ => "agent",
-    };
-    vec![program.to_string()]
+    match agent_id {
+        "codex" => vec!["codex".to_string()],
+        "claude" => vec!["claude".to_string()],
+        "jekko" => vec!["jekko".to_string()],
+        "agy" => vec![
+            "agy".to_string(),
+            "--dangerously-skip-permissions".to_string(),
+        ],
+        _ => vec!["agent".to_string()],
+    }
 }
 
 /// Which container/native runtime a launched session uses.

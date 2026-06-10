@@ -2,7 +2,12 @@
 
 import { NotImplementedRoute } from './NotImplementedRoute';
 
-export function IssuesPage(): JSX.Element {
+export interface IssuesPageProps {
+  provider?: string;
+  fullName?: string;
+}
+
+export function IssuesPage(props: IssuesPageProps = {}): JSX.Element {
   return (
     <NotImplementedRoute
       title="Issues"

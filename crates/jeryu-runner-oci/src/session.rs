@@ -97,6 +97,8 @@ pub fn plan_agent_session(
     ];
 
     let mut container = OciSpec::from_agent_job(job, plan)?;
+    // Sessions need outbound network for model API calls (Anthropic, OpenAI).
+    container.network = "bridge".to_string();
     container.env = vec![
         ("JERYU_BRANCH".to_string(), branch.clone()),
         ("JERYU_REAL_GIT".to_string(), "/usr/bin/git".to_string()),
@@ -211,14 +213,14 @@ mod tests {
     }
 
     #[test]
-    fn container_is_hardened_with_only_the_workspace_mount() {
+    fn container_is_hardened_with_the_workspace_mount_and_bridge_network() {
         let session = sample_session();
         let args = session.container.args();
         assert!(args.contains(&"--read-only".to_string()), "args: {args:?}");
         assert!(args.contains(&"--cap-drop=ALL".to_string()));
         assert!(
             args.windows(2)
-                .any(|w| w[0] == "--network" && w[1] == "none")
+                .any(|w| w[0] == "--network" && w[1] == "bridge")
         );
         let binds: Vec<&String> = args
             .iter()

@@ -49,11 +49,17 @@ function fullNameFromParams(params: Record<string, string | undefined>): string 
   return params.fullName ?? '';
 }
 
-export function PullRequestPage(): JSX.Element {
+export interface PullRequestPageProps {
+  provider?: string;
+  fullName?: string;
+  prNumber?: string;
+}
+
+export function PullRequestPage(props: PullRequestPageProps = {}): JSX.Element {
   const params = useParams();
-  const provider = params.provider ?? 'unknown';
-  const fullName = fullNameFromParams(params);
-  const prNumber = params.number ?? null;
+  const provider = props.provider ?? params.provider ?? 'unknown';
+  const fullName = props.fullName ?? fullNameFromParams(params);
+  const prNumber = props.prNumber ?? params.number ?? null;
 
   const resolved = useResolveRepo(provider, fullName);
   const repoId = resolved.data?.id ?? null;

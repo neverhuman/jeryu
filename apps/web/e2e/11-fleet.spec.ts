@@ -193,4 +193,61 @@ test.describe('Fleet runner-network dashboard (Slice C-web)', () => {
     await expect(page.getByTestId('fleet-node-xbabe1')).toBeVisible();
     await expect(page.getByTestId('fleet-node-local')).toHaveCount(0);
   });
+
+  test('clicking a task card with repo + agentRunId navigates to the agent terminal', async ({
+    page,
+  }) => {
+    await blockFleetWebSocket(page);
+    await mockBootstrap(page);
+    await mockFleetBootstrap(page, [
+      {
+        pool: 'trusted',
+        tags: ['rust-hot'],
+        running_jobs: 1,
+        active_slots: 4,
+        online_runners: 4,
+      },
+    ]);
+    await mockControlPlaneRunners(page, runnerFabric(true));
+
+    const shell = new AppShellPage(page);
+    await shell.goto('/fleet');
+    await shell.assertShellLoaded();
+
+    const taskCard = page.getByTestId('fleet-task-ar-000001');
+    await expect(taskCard).toBeVisible();
+    await expect(taskCard).toContainText('Open terminal');
+
+    const localTask = page.getByTestId('fleet-task-ar-local-1');
+    await expect(localTask).toBeVisible();
+    await expect(localTask).not.toContainText('Open terminal');
+
+    await taskCard.click();
+    await page.waitForURL(/\/repos\/jeryu\/jeryu%2Fveox\/agents\/ar-000001/);
+  });
+
+  test('task card without repo remains non-interactive', async ({ page }) => {
+    await blockFleetWebSocket(page);
+    await mockBootstrap(page);
+    await mockFleetBootstrap(page, [
+      {
+        pool: 'trusted',
+        tags: ['rust-hot'],
+        running_jobs: 1,
+        active_slots: 4,
+        online_runners: 4,
+      },
+    ]);
+    await mockControlPlaneRunners(page, runnerFabric(true));
+
+    const shell = new AppShellPage(page);
+    await shell.goto('/fleet');
+    await shell.assertShellLoaded();
+
+    const localTask = page.getByTestId('fleet-task-ar-local-1');
+    await expect(localTask).toBeVisible();
+    const tagName = await localTask.evaluate((el) => el.tagName.toLowerCase());
+    expect(tagName).toBe('article');
+  });
+
 });

@@ -848,8 +848,8 @@ async fn create_session_docker_runtime_streams_live_and_carries_hardened_flags()
         "docker argv must carry --read-only: {text}"
     );
     assert!(
-        text.contains("--network none"),
-        "docker argv must keep --network none: {text}"
+        text.contains("--network bridge"),
+        "docker argv must keep --network bridge: {text}"
     );
     assert!(
         text.contains(":/workspace"),

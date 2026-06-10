@@ -44,10 +44,15 @@ function fullNameFromParams(params: Record<string, string | undefined>): string 
   return main;
 }
 
-export function RepositoryOverviewPage(): JSX.Element {
+export interface RepositoryOverviewPageProps {
+  provider?: string;
+  fullName?: string;
+}
+
+export function RepositoryOverviewPage(props: RepositoryOverviewPageProps = {}): JSX.Element {
   const params = useParams();
-  const provider = params.provider ?? 'unknown';
-  const fullName = fullNameFromParams(params);
+  const provider = props.provider ?? params.provider ?? 'unknown';
+  const fullName = props.fullName ?? fullNameFromParams(params);
   const resolved = useResolveRepo(provider, fullName);
   const setRepo = useSelectionStore((s) => s.setCurrentRepo);
 
@@ -69,7 +74,7 @@ export function RepositoryOverviewPage(): JSX.Element {
 
   if (resolved.isPending) {
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-overview-page">
         <LoadingState
           title="Loading repository…"
           variant="message"
@@ -82,7 +87,7 @@ export function RepositoryOverviewPage(): JSX.Element {
     const err = resolved.error;
     if (err instanceof ApiError && err.status === 403) {
       return (
-        <div className="page">
+        <div className="page" data-testid="repo-overview-page">
           <PermissionDeniedState
             description="You do not have permission to view this repository."
             missingPermission="repo.read"
@@ -91,7 +96,7 @@ export function RepositoryOverviewPage(): JSX.Element {
       );
     }
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-overview-page">
         <ErrorState
           title="Could not load repository"
           error={resolved.error}
@@ -101,7 +106,7 @@ export function RepositoryOverviewPage(): JSX.Element {
   }
   if (!summary) {
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-overview-page">
         <ErrorState
           title="Repository not found"
           description={`No repository named ${fullName} on ${provider}.`}
@@ -116,7 +121,7 @@ export function RepositoryOverviewPage(): JSX.Element {
   }
 
   return (
-    <div className="page">
+    <div className="page" data-testid="repo-overview-page">
       <Breadcrumbs
         segments={[
           { label: 'Repos', to: '/repos' },

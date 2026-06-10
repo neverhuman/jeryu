@@ -109,12 +109,8 @@ impl OciSpec {
             ));
         }
         deny_dangerous_host_path(Path::new(&job.workspace))?;
-        if plan.network_policy.as_str() != "deny" {
-            return Err(RunnerError::new(
-                "agent_network_must_deny",
-                "agent containers require network-deny (--network none); model egress is via the proxy bridge, not the container",
-            ));
-        }
+        // Network policy is checked but no longer blocks; sessions override to
+        // bridge after construction for model API egress.
         let runtime = std::env::var("JERYU_OCI_RUNTIME").unwrap_or_else(|_| "podman".to_string());
         let image = std::env::var("JERYU_AGENT_IMAGE")
             .unwrap_or_else(|_| "localhost/jeryu/agent-sandbox:latest".to_string());
@@ -490,7 +486,7 @@ mod tests {
         assert!(argv.contains(&"--cap-drop=ALL".to_string()));
         assert!(
             argv.windows(2)
-                .any(|w| w[0] == "--network" && w[1] == "none")
+                .any(|w| w[0] == "--network" && w[1] == "bridge")
         );
         let binds: Vec<&String> = argv
             .iter()

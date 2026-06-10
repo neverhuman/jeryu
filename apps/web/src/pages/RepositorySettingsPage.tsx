@@ -59,11 +59,17 @@ function fullNameFromParams(params: Record<string, string | undefined>): string 
   return params.fullName ?? '';
 }
 
-export function RepositorySettingsPage(): JSX.Element {
+export interface RepositorySettingsPageProps {
+  provider?: string;
+  fullName?: string;
+  section?: string;
+}
+
+export function RepositorySettingsPage(props: RepositorySettingsPageProps = {}): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
-  const provider = params.provider ?? 'unknown';
-  const fullName = fullNameFromParams(params);
+  const provider = props.provider ?? params.provider ?? 'unknown';
+  const fullName = props.fullName ?? fullNameFromParams(params);
   const activeSection = params.section ?? 'general';
 
   const resolved = useResolveRepo(provider, fullName);
@@ -97,7 +103,7 @@ export function RepositorySettingsPage(): JSX.Element {
   // ── Guards ─────────────────────────────────────────────────────────
   if (resolved.isPending) {
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-settings-page">
         <LoadingState
           title="Loading repository…"
           variant="message"
@@ -110,7 +116,7 @@ export function RepositorySettingsPage(): JSX.Element {
   if (resolved.error || !resolved.data) {
     if (resolved.error instanceof ApiError && resolved.error.status === 403) {
       return (
-        <div className="page">
+        <div className="page" data-testid="repo-settings-page">
           <PermissionDeniedState
             description="You do not have permission to view this repository."
             missingPermission="settings.read"
@@ -119,7 +125,7 @@ export function RepositorySettingsPage(): JSX.Element {
       );
     }
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-settings-page">
         <ErrorState
           title="Repository not found"
           description={resolved.error?.message ?? `No repository ${fullName}.`}
@@ -130,7 +136,7 @@ export function RepositorySettingsPage(): JSX.Element {
 
   if (settings.isPending) {
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-settings-page">
         <LoadingState title="Loading settings…" variant="skeleton" rows={6} />
       </div>
     );
@@ -139,7 +145,7 @@ export function RepositorySettingsPage(): JSX.Element {
   if (settings.error || !current || !draft) {
     if (settings.error instanceof ApiError && settings.error.status === 403) {
       return (
-        <div className="page">
+        <div className="page" data-testid="repo-settings-page">
           <PermissionDeniedState
             description="You do not have permission to manage settings."
             missingPermission="settings.read"
@@ -148,7 +154,7 @@ export function RepositorySettingsPage(): JSX.Element {
       );
     }
     return (
-      <div className="page">
+      <div className="page" data-testid="repo-settings-page">
         <ErrorState title="Could not load settings" error={settings.error} />
       </div>
     );

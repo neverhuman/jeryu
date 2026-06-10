@@ -12,10 +12,15 @@ import { fromPullRequestSummary, groupPullRequests } from './pullRoomModel';
 import './page.css';
 import './PullRoomPage.css';
 
-export function RepositoryPullRequestsPage(): JSX.Element {
+export interface RepositoryPullRequestsPageProps {
+  provider?: string;
+  fullName?: string;
+}
+
+export function RepositoryPullRequestsPage(props: RepositoryPullRequestsPageProps = {}): JSX.Element {
   const params = useParams();
-  const provider = params.provider ?? 'unknown';
-  const fullName = params.fullName ?? '';
+  const provider = props.provider ?? params.provider ?? 'unknown';
+  const fullName = props.fullName ?? params.fullName ?? '';
   const resolved = useResolveRepo(provider, fullName);
   const repoId = resolved.data?.id ?? null;
   const pulls = useQuery({

@@ -1,15 +1,13 @@
 // router.tsx — declarative route map (W-FE-02).
 //
-// Adopts the §35.2.1 route map. `*fullName` in the spec is a React Router
-// splat: nested-namespace paths like `parent/child/repo` are valid
-// repository identifiers, so `:fullName` must accept slashes. We model this
-// by keeping `:fullName` as a final-segment param and binding the catch-all
-// (`*`) on the overview route. Leaf routes (`/code`, `/blob/*`,
-// `/pulls`, etc.) sit alongside as siblings so they keep their
-// own param scopes.
+// Repository URLs use the pattern `/repos/:provider/:owner/:name[/sub-path]`.
+// Because `:owner/:name` spans two segments, we cannot use a single `:fullName`
+// param for leaf routes (code, agents, pulls, etc.) — React Router's named
+// params only match one segment. Instead we use a single catch-all splat
+// route `repos/:provider/*` and each repo page component parses the owner,
+// name, and sub-path from the splat.
 //
-// Pages are imported eagerly for Phase 1; W-FE-10 will React.lazy() the
-// Monaco-bearing routes so they stay out of the initial bundle.
+// The repoRouteParser utility centralizes this parsing.
 
 import { createBrowserRouter } from 'react-router-dom';
 
@@ -32,6 +30,7 @@ import { RepositoryPullRequestsPage } from '../pages/RepositoryPullRequestsPage'
 import { RepositoryOverviewPage } from '../pages/RepositoryOverviewPage';
 import { RepositorySettingsPage } from '../pages/RepositorySettingsPage';
 import { SearchResultsPage } from '../pages/SearchResultsPage';
+import { RepoRouter } from '../pages/RepoRouter';
 
 export const router = createBrowserRouter([
   {
@@ -40,54 +39,12 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'repos', element: <RepositoriesPage /> },
-      // /repos/new shares the list page with a `mode` flag. W-FE-08 swaps
-      // for a real modal anchored to the list route.
       { path: 'repos/new', element: <RepositoriesPage mode="create" /> },
-      // Leaf routes — declared before the catch-all so React Router 7's
-      // ranking matches them first when a path ends with the suffix.
+      // Single catch-all for all repo routes. The RepoRouter component
+      // parses the splat to determine the sub-page.
       {
-        path: 'repos/:provider/:fullName/code',
-        element: <RepositoryCodePage />,
-      },
-      {
-        path: 'repos/:provider/:fullName/blob/*',
-        element: <RepositoryFilePage />,
-      },
-      {
-        path: 'repos/:provider/:fullName/pulls',
-        element: <RepositoryPullRequestsPage />,
-      },
-      {
-        path: 'repos/:provider/:fullName/pulls/:number',
-        element: <PullRequestPage />,
-      },
-      {
-        path: 'repos/:provider/:fullName/issues',
-        element: <IssuesPage />,
-      },
-      {
-        // `agents/*` splat carries the optional run id as its tail. A single
-        // splat route (rather than `agents` + `agents/:runId`) is robust to
-        // React Router's handling of a `%2F`-encoded `:fullName` segment on
-        // client-side Link navigation.
-        path: 'repos/:provider/:fullName/agents/*',
-        element: <RepositoryAgentsPage />,
-      },
-      {
-        path: 'repos/:provider/:fullName/settings/:section?',
-        element: <RepositorySettingsPage />,
-      },
-      // Overview catch-all — handles both single-segment and nested
-      // namespace paths via the `*` splat (`params['*']` carries the
-      // tail). For top-level repositories the user lands on
-      // `/repos/:provider/:fullName` and `*` is empty.
-      {
-        path: 'repos/:provider/:fullName/*',
-        element: <RepositoryOverviewPage />,
-      },
-      {
-        path: 'repos/:provider/:fullName',
-        element: <RepositoryOverviewPage />,
+        path: 'repos/:provider/*',
+        element: <RepoRouter />,
       },
       { path: 'pull-room', element: <PullRoomPage /> },
       { path: 'intelligence', element: <IntelligencePage /> },

@@ -1,21 +1,6 @@
-// RepositoryAgentsPage.tsx — per-repo "Active Agents" view + live terminal.
-//
-// Lists the agent runs attached to a repository (branch, runner, status, and a
-// tty-live dot) from `GET /api/v1/repos/{id}/agent-runs`, and — when a run is
-// selected — mounts the live `<AgentTerminal>` so the operator can watch and
-// drive that run's sandboxed TTY.
-//
-// Route (see router.tsx): `/repos/:provider/:fullName/agents/*`; the
-// splat tail is an optional run id so `/agents/{runId}` deep-links straight to
-// a terminal. In-app row selection is COMPONENT STATE (rows are buttons, not
-// links): React Router decodes the `%2F`-encoded `:fullName` segment during
-// client-side navigation, which re-resolves the route to the wrong page — so
-// selecting a run must not navigate. Deep links still work because a fresh
-// document load matches against the (encoded) `window.location`.
-
-import { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, GitBranch, Plus, Radio, Server } from 'lucide-react';
+import { Plus, GitBranch, Server, Bot, Radio } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { apiGet } from '../api/client';
@@ -29,38 +14,66 @@ import { useCreateSession } from '../hooks/useCreateSession';
 import './page.css';
 import './RepositoryAgentsPage.css';
 
-export function RepositoryAgentsPage(): JSX.Element {
+const MAX_AGENT_PANES = 3;
+
+/** A single agent pane shown in the top split. */
+interface ActivePane {
+  runId: string;
+  shellRunId: string | null;
+  label?: string;
+}
+
+export interface RepositoryAgentsPageProps {
+  provider?: string;
+  fullName?: string;
+  splatTail?: string;
+}
+
+export function RepositoryAgentsPage(props: RepositoryAgentsPageProps = {}): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const provider = params.provider ?? 'unknown';
-  const fullName = params.fullName ?? '';
-  // Deep-link seed: the optional run id rides the `agents/*` splat tail.
-  const splatRunId = (params['*'] ?? '').replace(/\/+$/, '') || null;
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(splatRunId);
-  // Which coding agent the New Session button launches (Codex / Claude / Jekko).
+  const provider = props.provider ?? params.provider ?? 'unknown';
+  const fullName = props.fullName ?? params.fullName ?? '';
+  const splatRunId = (props.splatTail ?? params['*'] ?? '').replace(/\/+$/, '') || null;
   const [agentId, setAgentId] = useState('codex');
+
+  // Multiple active panes (up to MAX_AGENT_PANES).
+  const [activePanes, setActivePanes] = useState<ActivePane[]>([]);
+
+  // The "selected" run is the last-added pane (for URL + list highlighting).
+  const selectedRunId = activePanes.length > 0 ? activePanes[activePanes.length - 1].runId : null;
+  // The companion shell is from the first pane (primary workspace).
+  const shellRunId = activePanes.length > 0 ? activePanes[0].shellRunId : null;
 
   const resolved = useResolveRepo(provider, fullName);
   const repoId = resolved.data?.id ?? null;
 
-  // Keep the per-repo activity scope live so the list reflects new runs.
   useRealtime(repoId ? [`repo.${repoId}`] : []);
 
   const createSession = useCreateSession(repoId);
 
-  // Launch an isolated session, then deep-link to its terminal route and mount
-  // `<AgentTerminal>` on the returned run. The URL is rebuilt from the live
-  // (still %2F-encoded) pathname so the `:fullName` segment is not re-decoded.
-  function onNewSession(): void {
+  const onNewSession = useCallback((): void => {
+    if (activePanes.length >= MAX_AGENT_PANES) return;
     createSession.mutate(agentId, {
       onSuccess: (created) => {
-        setSelectedRunId(created.run_id);
+        setActivePanes((prev) => {
+          // Guard against duplicate panes (e.g. server ID counter reset).
+          if (prev.some((p) => p.runId === created.run_id)) return prev;
+          return [
+            ...prev,
+            {
+              runId: created.run_id,
+              shellRunId: created.shell_run_id ?? null,
+              label: `${agentId} · ${created.branch ?? created.run_id}`,
+            },
+          ];
+        });
         const agentsBase = location.pathname.replace(/\/agents(?:\/.*)?$/, '/agents');
         navigate(`${agentsBase}/${encodeURIComponent(created.run_id)}`);
       },
     });
-  }
+  }, [activePanes.length, agentId, createSession, location.pathname, navigate]);
 
   const runs = useQuery({
     queryKey: ['repo-agent-runs', repoId],
@@ -71,6 +84,54 @@ export function RepositoryAgentsPage(): JSX.Element {
     enabled: typeof repoId === 'string' && repoId.length > 0,
     staleTime: 10_000,
   });
+
+  const items = runs.data?.items ?? [];
+
+  // Deep-link: when the runs list loads, add the splat run if it exists on
+  // the server and isn't already in the active panes. Also backfill
+  // shellRunId for any panes that were added before the list arrived.
+  useEffect(() => {
+    if (items.length === 0) return;
+    setActivePanes((prev) => {
+      let next = prev;
+      let changed = false;
+
+      // Deep-link: add the URL-specified run if not already present.
+      if (splatRunId && !next.some((p) => p.runId === splatRunId)) {
+        const match = items.find((r: RepoAgentSummary) => r.run_id === splatRunId);
+        if (match) {
+          next = [...next, {
+            runId: splatRunId,
+            shellRunId: match.shell_run_id ?? null,
+            label: `${match.agent ?? 'agent'} · ${match.branch}`,
+          }];
+          changed = true;
+        }
+      }
+
+      // Backfill shellRunId for any panes missing it.
+      next = next.map((pane) => {
+        if (pane.shellRunId) return pane;
+        const match = items.find((r: RepoAgentSummary) => r.run_id === pane.runId);
+        if (match?.shell_run_id) {
+          changed = true;
+          return { ...pane, shellRunId: match.shell_run_id };
+        }
+        return pane;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [splatRunId, items]);
+
+  // Click a row from the list → replace all panes with just that one.
+  function onSelectRun(run: RepoAgentSummary): void {
+    setActivePanes([{
+      runId: run.run_id,
+      shellRunId: run.shell_run_id ?? null,
+      label: `${run.agent ?? 'agent'} · ${run.branch}`,
+    }]);
+  }
 
   if (resolved.isPending) {
     return (
@@ -93,10 +154,7 @@ export function RepositoryAgentsPage(): JSX.Element {
     );
   }
 
-  const items = runs.data?.items ?? [];
-  const selected = selectedRunId
-    ? items.find((r: RepoAgentSummary) => r.run_id === selectedRunId) ?? null
-    : null;
+  const atCapacity = activePanes.length >= MAX_AGENT_PANES;
 
   return (
     <div className="page page--full agents" data-testid="repo-agents-page">
@@ -120,6 +178,7 @@ export function RepositoryAgentsPage(): JSX.Element {
             >
               <option value="codex">Codex</option>
               <option value="claude">Claude</option>
+              <option value="agy">AntiGravity</option>
               <option value="jekko">Jekko</option>
             </select>
           </label>
@@ -128,11 +187,17 @@ export function RepositoryAgentsPage(): JSX.Element {
             className="agents__new-session"
             data-testid="new-session-button"
             onClick={onNewSession}
-            disabled={createSession.isPending || !repoId}
+            disabled={createSession.isPending || !repoId || atCapacity}
             aria-busy={createSession.isPending}
+            title={atCapacity ? `Max ${MAX_AGENT_PANES} sessions` : undefined}
           >
             <Plus size={14} aria-hidden="true" />
             {createSession.isPending ? 'Starting…' : 'New Session'}
+            {activePanes.length > 0 ? (
+              <span className="agents__session-count">
+                {activePanes.length}/{MAX_AGENT_PANES}
+              </span>
+            ) : null}
           </button>
         </div>
       </header>
@@ -169,8 +234,8 @@ export function RepositoryAgentsPage(): JSX.Element {
                 <AgentRow
                   key={run.run_id}
                   run={run}
-                  onSelect={() => setSelectedRunId(run.run_id)}
-                  active={run.run_id === selectedRunId}
+                  onSelect={() => onSelectRun(run)}
+                  active={activePanes.some((p) => p.runId === run.run_id)}
                 />
               ))}
             </ul>
@@ -178,11 +243,39 @@ export function RepositoryAgentsPage(): JSX.Element {
         </section>
 
         <section className="agents__terminal-pane" aria-label="Agent terminal">
-          {selectedRunId ? (
-            <AgentTerminal
-              runId={selectedRunId}
-              label={selected ? `${selected.branch} · ${selected.agent ?? 'agent'}` : undefined}
-            />
+          {activePanes.length > 0 ? (
+            <div className="agents__split-terminals">
+              {/* Top: 1–3 agent terminals side by side */}
+              <div className="agents__split-top" data-testid="agent-terminal-pane">
+                {activePanes.map((pane, i) => (
+                  <React.Fragment key={pane.runId}>
+                    {i > 0 && <div className="agents__col-divider" />}
+                    <div className="agents__agent-col">
+                      <AgentTerminal
+                        runId={pane.runId}
+                        label={pane.label}
+                      />
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+
+              <div className="agents__split-divider" />
+
+              {/* Bottom: companion shell */}
+              <div className="agents__split-bottom" data-testid="shell-terminal-pane">
+                {shellRunId ? (
+                  <AgentTerminal
+                    runId={shellRunId}
+                    label="Shell · free-form"
+                  />
+                ) : (
+                  <p className="page__roadmap-note">
+                    No companion shell available.
+                  </p>
+                )}
+              </div>
+            </div>
           ) : (
             <p className="page__roadmap-note" data-testid="agents-no-selection">
               Choose a run to open its live terminal.

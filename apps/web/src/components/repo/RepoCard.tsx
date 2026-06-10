@@ -8,7 +8,7 @@
 // modifier-clicks (open in new tab) work like a native link without us
 // reimplementing the contract.
 
-import { GitBranch, GitMerge, ShieldAlert, Sparkles } from 'lucide-react';
+import { Bot, GitBranch, GitMerge, ShieldAlert, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import type { RepositorySummary } from '../../api/types';
@@ -93,17 +93,23 @@ export function RepoCard({ repo }: RepoCardProps): JSX.Element {
         </span>
         <span
           className="repo-card__meta-item"
-          title="Active agents"
-          aria-label={`${repo.active_agents} active agents`}
-        >
-          <Sparkles size={12} aria-hidden="true" /> {repo.active_agents}
-        </span>
-        <span
-          className="repo-card__meta-item"
           title={repo.updated_at}
         >
           {relativeUpdated(repo.updated_at)}
         </span>
+      </div>
+      <div className="repo-card__actions">
+        <a
+          href={`${repoHref(repo)}/agents`}
+          className="repo-card__agents-link"
+          data-testid={`repo-agents-link-${repo.id.owner}-${repo.id.name}`}
+          onClick={(e) => e.stopPropagation()}
+          aria-label={`Open agents for ${repo.id.owner}/${repo.id.name} (${repo.active_agents} active)`}
+        >
+          <Bot size={14} aria-hidden="true" />
+          <span className="repo-card__agents-count">{repo.active_agents}</span>
+          Agents
+        </a>
       </div>
     </Link>
   );

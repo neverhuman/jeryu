@@ -23,6 +23,8 @@ use std::collections::BTreeMap;
 /// escape suite asserts an `AF_INET` socket is denied.
 const AF_UNIX: u64 = libc::AF_UNIX as u64;
 const AF_NETLINK: u64 = libc::AF_NETLINK as u64;
+const AF_INET: u64 = libc::AF_INET as u64;
+const AF_INET6: u64 = libc::AF_INET6 as u64;
 
 /// `TIOCSTI` ioctl request — terminal stdin injection. Denied under the `pty`
 /// group so a jailed agent cannot forge input into its controlling terminal.
@@ -62,6 +64,13 @@ pub fn build_rules(
                 // denied by falling through to the default EPERM.
                 add_local_socket_rule(&mut conditional)?;
             }
+            "network-egress" => {
+                // Allow AF_INET and AF_INET6 sockets for outbound API calls.
+                // This OVERRIDES the local-only socket rule from rust-build-tooling.
+                add_network_socket_rule(&mut conditional)?;
+                // Also need connect, sendto, recvfrom, getpeername, etc.
+                push_all(&mut allowed, NETWORK_EGRESS);
+            }
             "pty" => {
                 // A jailed agent driven through a PTY (controlling terminal)
                 // needs `setsid` to lead its own session, and `ioctl` for tty
@@ -97,6 +106,22 @@ pub fn build_rules(
 fn add_local_socket_rule(rules: &mut RuleMap) -> Result<(), Box<dyn std::error::Error>> {
     let mut socket_rules = Vec::new();
     for domain in [AF_UNIX, AF_NETLINK] {
+        socket_rules.push(SeccompRule::new(vec![SeccompCondition::new(
+            0, // arg0 == domain
+            SeccompCmpArgLen::Dword,
+            SeccompCmpOp::Eq,
+            domain,
+        )?])?);
+    }
+    rules.insert(libc::SYS_socket, socket_rules);
+    Ok(())
+}
+
+/// Add an unconditional `socket` rule: allow AF_UNIX, AF_NETLINK, AF_INET,
+/// and AF_INET6. Used when network egress is permitted.
+fn add_network_socket_rule(rules: &mut RuleMap) -> Result<(), Box<dyn std::error::Error>> {
+    let mut socket_rules = Vec::new();
+    for domain in [AF_UNIX, AF_NETLINK, AF_INET, AF_INET6] {
         socket_rules.push(SeccompRule::new(vec![SeccompCondition::new(
             0, // arg0 == domain
             SeccompCmpArgLen::Dword,
@@ -253,6 +278,23 @@ const FUTEX_GROUP: &[i64] = &[libc::SYS_futex, libc::SYS_futex_waitv];
 /// PTY / controlling-terminal support: `setsid` to lead a session. `ioctl` is
 /// added separately as a CONDITIONAL rule (`add_pty_ioctl_rule`) that allows
 /// every request except `TIOCSTI`.
+/// Syscalls needed for outbound network connections (connect, send, recv, DNS).
+const NETWORK_EGRESS: &[i64] = &[
+    libc::SYS_connect,
+    libc::SYS_sendto,
+    libc::SYS_recvfrom,
+    libc::SYS_sendmsg,
+    libc::SYS_recvmsg,
+    libc::SYS_bind, // needed for ephemeral port binding
+    libc::SYS_getsockname,
+    libc::SYS_getpeername,
+    libc::SYS_setsockopt,
+    libc::SYS_getsockopt,
+    libc::SYS_shutdown,
+    libc::SYS_epoll_ctl, // async I/O on sockets
+    libc::SYS_ppoll,     // poll on fds
+];
+
 const PTY_GROUP: &[i64] = &[libc::SYS_setsid];
 
 /// Legacy / arch-specific syscalls present on x86_64 (and most CISC arches) but

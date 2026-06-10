@@ -1,8 +1,16 @@
 // LeftNav.tsx — primary navigation (W-FE-01).
+//
+// Shows workspace-level nav items. When the current URL is inside a
+// repository route (`/repos/:provider/:fullName/*`), a contextual
+// sub-navigation appears below the workspace links so the operator can
+// jump directly to Code / Pulls / Agents / Settings without going through
+// the overview page first.
 
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Bell,
+  Bot,
+  Code2,
   Cog,
   Brain,
   FolderGit2,
@@ -35,8 +43,24 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/settings', label: 'Settings', icon: Cog },
 ];
 
+/** Extract the repo base path from the current pathname, if any.
+ *  Matches `/repos/:provider/:fullName` (where fullName may include slashes). */
+function extractRepoBase(pathname: string): { base: string; repoName: string } | null {
+  // URL pattern: /repos/{provider}/{owner}/{name}[/{subPath}[/{...tail}]]
+  // Always exactly 3 segments after /repos/, then optional sub-path.
+  const match = pathname.match(
+    /^\/repos\/([^/]+)\/([^/]+)\/([^/]+)(?:\/(code|pulls|agents|settings|blob|issues)(?:\/.*)?)?$/
+  );
+  if (!match) return null;
+  const [, provider, owner, name] = match;
+  const base = `/repos/${provider}/${owner}/${name}`;
+  const repoName = `${owner}/${name}`;
+  return { base, repoName };
+}
+
 export function LeftNav(): JSX.Element {
   const { pathname } = useLocation();
+  const repo = extractRepoBase(pathname);
 
   return (
     <nav className="left-nav" aria-label="Primary">
@@ -54,6 +78,45 @@ export function LeftNav(): JSX.Element {
           {item.label}
         </a>
       ))}
+
+      {repo ? (
+        <>
+          <div className="left-nav__divider" />
+          <span className="left-nav__group">
+            {repo.repoName}
+          </span>
+          <Link
+            to={`${repo.base}/code`}
+            className={`left-nav__item${isActivePath(pathname, `${repo.base}/code`) ? ' is-active' : ''}`}
+          >
+            <Code2 aria-hidden="true" size={16} />
+            Code
+          </Link>
+          <Link
+            to={`${repo.base}/pulls`}
+            className={`left-nav__item${isActivePath(pathname, `${repo.base}/pulls`) ? ' is-active' : ''}`}
+          >
+            <GitMerge aria-hidden="true" size={16} />
+            Pull requests
+          </Link>
+          <Link
+            to={`${repo.base}/agents`}
+            className={`left-nav__item left-nav__item--agents${isActivePath(pathname, `${repo.base}/agents`) ? ' is-active' : ''}`}
+            data-testid="left-nav-agents"
+          >
+            <Bot aria-hidden="true" size={16} />
+            Agents
+          </Link>
+          <Link
+            to={`${repo.base}/settings`}
+            className={`left-nav__item${isActivePath(pathname, `${repo.base}/settings`) ? ' is-active' : ''}`}
+          >
+            <Cog aria-hidden="true" size={16} />
+            Settings
+          </Link>
+        </>
+      ) : null}
+
       <div className="left-nav__divider" />
       <span className="left-nav__group">Activity</span>
       <a

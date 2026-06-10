@@ -1,22 +1,27 @@
 // 17-repo-agents.spec.ts — per-repo Active Agents list → terminal.
 //
-// Mocks `GET /api/v1/repos/{id}/agent-runs` (a separate backend workstream;
-// see fixtures/mocks.ts `mockRepoAgentRuns`) and asserts the active-agents list
+// Mocks `GET /api/v1/repos/{id}/agent-runs` and asserts the active-agents list
 // renders branch / runner / status / tty-live for each run, and that clicking a
 // row navigates to the run route and mounts the live `<AgentTerminal>`.
 //
-// The WebSocket is blocked here (the list view does not depend on live TTY);
-// the terminal-streaming behavior itself is covered by 16-agent-terminal.
+// The terminal-streaming behavior itself is covered by 16-agent-terminal.
 
 import { expect, test, type Page } from '@playwright/test';
 
 import { AppShellPage } from './pages/AppShellPage';
-import { mockBootstrap, mockRepoAgentRuns, mockRepoList } from './fixtures/mocks';
+import {
+  mockBootstrap,
+  mockRepoAgentRuns,
+  mockRepoList,
+  mockTtyStream,
+  mockAgentControl,
+  mockCompanionShell,
+} from './fixtures/mocks';
 
 test.describe.configure({ retries: 1 });
 
 const REPO = { host: 'jeryu', owner: 'neverhuman', name: 'jeryu' } as const;
-const REPO_PATH = `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}`;
+const REPO_PATH = `/repos/${REPO.host}/${REPO.owner}/${REPO.name}`;
 
 async function blockWebSocket(page: Page): Promise<void> {
   await page.context().route('**/api/v1/ws', (route) =>
@@ -38,6 +43,7 @@ async function seed(page: Page): Promise<void> {
       status: 'running',
       tty_live: true,
       agent: 'editbot',
+      shell_run_id: 'shell-run-1',
     },
     {
       run_id: 'run-2',
@@ -46,8 +52,14 @@ async function seed(page: Page): Promise<void> {
       status: 'blocked',
       tty_live: false,
       agent: 'planner',
+      shell_run_id: 'shell-run-2',
     },
   ]);
+  // Mock SSE + control so the terminal component doesn't hit the real backend.
+  await mockTtyStream(page);
+  await mockAgentControl(page);
+  // Mock the companion shell endpoint so the split-terminal logic doesn't fail.
+  await mockCompanionShell(page);
 }
 
 test('renders the active-agents list with branch / runner / status / tty-live', async ({
@@ -89,20 +101,17 @@ test('clicking a run row opens its live terminal', async ({ page }) => {
   await shell.goto(`${REPO_PATH}/agents`);
   await shell.assertShellLoaded();
 
-  // Selecting a run is component state (rows are buttons, not links — see the
-  // page header for why), so the terminal appears in-place without navigating.
   await page.getByTestId('agent-row-run-1').click();
 
-  const terminal = page.getByTestId('agent-terminal');
+  const terminal = page.getByTestId('agent-terminal').first();
   await expect(terminal).toBeVisible();
   await expect(terminal).toHaveAttribute('data-run-id', 'run-1');
   await expect(page.getByTestId('agent-row-run-1')).toHaveAttribute(
     'aria-pressed',
     'true'
   );
-  // The toolbar (status pill + Ctrl-C + byte budget) is present.
-  await expect(page.getByTestId('agent-terminal-toolbar')).toBeVisible();
-  await expect(page.getByTestId('agent-terminal-interrupt')).toBeVisible();
+  await expect(page.getByTestId('agent-terminal-toolbar').first()).toBeVisible();
+  await expect(page.getByTestId('agent-terminal-interrupt').first()).toBeVisible();
 });
 
 test('deep-links straight to a run terminal via the splat tail', async ({
@@ -114,7 +123,7 @@ test('deep-links straight to a run terminal via the splat tail', async ({
   await shell.goto(`${REPO_PATH}/agents/run-2`);
   await shell.assertShellLoaded();
 
-  const terminal = page.getByTestId('agent-terminal');
+  const terminal = page.getByTestId('agent-terminal').first();
   await expect(terminal).toBeVisible();
   await expect(terminal).toHaveAttribute('data-run-id', 'run-2');
 });

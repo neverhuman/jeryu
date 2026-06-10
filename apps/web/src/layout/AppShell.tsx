@@ -1,17 +1,18 @@
-// AppShell.tsx — 3-column mission-control layout (W-FE-01).
+// AppShell.tsx — 2-column mission-control layout with collapsible sidebar.
 //
-//   ┌────────────────────────────────────────────────────────────────────┐
-//   │ <GlobalHeader />                                                    │
-//   ├──────────┬────────────────────────────────────────┬─────────────────┤
-//   │ <LeftNav │ <Outlet />                              │ <LiveActivity  │
-//   │   />     │                                         │   Dock />      │
-//   ├──────────┴────────────────────────────────────────┴─────────────────┤
-//   │ <StatusBar />                                                       │
-//   └────────────────────────────────────────────────────────────────────┘
+//   ┌────────────────────────────────────────────────────┐
+//   │ <GlobalHeader />                                    │
+//   ├──────────┬─────────────────────────────────────────┤
+//   │ <LeftNav  │ <Outlet />                              │
+//   │   />      │                                         │
+//   ├──────────┴─────────────────────────────────────────┤
+//   │ <StatusBar />                                       │
+//   └────────────────────────────────────────────────────┘
 //
 // Shell-level shortcuts (`⌘K` palette, `?` help) are wired here so they
 // outlive any route change.
 
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Outlet } from 'react-router-dom';
@@ -19,7 +20,6 @@ import { Outlet } from 'react-router-dom';
 import { CommandPalette } from './CommandPalette';
 import { GlobalHeader } from './GlobalHeader';
 import { LeftNav } from './LeftNav';
-import { LiveActivityDock } from './LiveActivityDock';
 import { StatusBar } from './StatusBar';
 import { useCommandStore } from '../stores/commandStore';
 import { useKeyboardShortcut } from '../hooks/useKeyboard';
@@ -31,8 +31,14 @@ import './AppShell.css';
 export function AppShell(): JSX.Element {
   const navigate = useNavigate();
   const openPalette = useCommandStore((s) => s.open);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   // Register navigation commands so the palette is non-empty on first render.
   useShellCommands();
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => !prev);
+  }, []);
 
   useKeyboardShortcut(
     'mod+k',
@@ -45,12 +51,15 @@ export function AppShell(): JSX.Element {
   useKeyboardShortcut(
     '/',
     () => {
-      // W-FE-20: `/` jumps to the global search page. The page autofocuses
-      // its input on mount so the user can keep typing immediately.
       navigate('/search');
     },
     { label: 'Focus search', group: 'Navigation' }
   );
+
+  useKeyboardShortcut('mod+b', toggleSidebar, {
+    label: 'Toggle sidebar',
+    group: 'Navigation',
+  });
 
   useKeyboardShortcut('g d', () => navigate('/'), {
     label: 'Go to Dashboard',
@@ -68,29 +77,46 @@ export function AppShell(): JSX.Element {
     label: 'Go to Settings',
     group: 'Navigation',
   });
-  // W-FE-20: Ctrl+/ jumps to global search. Plan §7.4 suggests "Ctrl+/
-  // or `g s s`" — we pick the modifier combo because the chord `g s s`
-  // collides with the existing `g s` shortcut (chord matching greedily
-  // resolves on the first atom set that matches).
   useKeyboardShortcut('Mod+/', () => navigate('/search'), {
     label: 'Go to Search',
     group: 'Navigation',
   });
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${sidebarCollapsed ? ' app-shell--sidebar-collapsed' : ''}`}>
       <header className="app-shell__header">
         <GlobalHeader />
       </header>
       <aside className="app-shell__leftnav" aria-label="Primary navigation">
         <LeftNav />
+        <button
+          type="button"
+          className="app-shell__sidebar-toggle"
+          onClick={toggleSidebar}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={`${sidebarCollapsed ? 'Expand' : 'Collapse'} sidebar (⌘B)`}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="app-shell__sidebar-toggle-icon"
+          >
+            <path
+              d="M10 4L6 8L10 12"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </aside>
       <main className="app-shell__main" id="main-content">
         <Outlet />
       </main>
-      <aside className="app-shell__activity" aria-label="Live activity">
-        <LiveActivityDock />
-      </aside>
       <footer className="app-shell__status">
         <StatusBar />
       </footer>

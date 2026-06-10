@@ -55,6 +55,8 @@ export interface RepoAgentSummary {
   status: string;
   /** True while the run is streaming live TTY output. */
   tty_live: boolean;
+  /** Companion shell run id for split terminal. */
+  shell_run_id?: string;
   /** Agent tool id, when known. */
   agent?: string | null;
   /** Workcell id, when known. */
@@ -87,6 +89,8 @@ export interface CreateSessionResponse {
   control_url: string;
   /** URL the session's lifecycle status is polled from. */
   status_url: string;
+  /** Companion shell run id — ready immediately for the split terminal. */
+  shell_run_id?: string;
 }
 
 /** Typed URL builder for the per-repo agent-runs collection. */

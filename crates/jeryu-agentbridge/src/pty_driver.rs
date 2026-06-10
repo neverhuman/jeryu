@@ -157,7 +157,7 @@ impl PtyAgentDriver {
             env: spec.env.clone(),
             trust_tier: TrustTier::T1ProtectedInternal,
             requested_runner: None,
-            network_policy: NetworkPolicy::Deny,
+            network_policy: NetworkPolicy::EgressOnly,
             secret_policy: SecretPolicy::None,
             token_policy: TokenPolicy::ReadOnly,
             timeout_ms: u64::try_from(self.timeout.as_millis())
@@ -170,13 +170,29 @@ impl PtyAgentDriver {
     /// Hardened base env + a `TERM` so the agent CLI renders for the PTY.
     fn sandbox_env(&self, job: &JobRequest, decision: &PolicyDecision) -> BTreeMap<String, String> {
         let mut env = jeryu_runner_core::fscheck::sanitize_env(&job.env);
-        env.insert("HOME".to_string(), "/tmp/jeryu-home".to_string());
+        // Point HOME at the workspace agent-home where seeded auth lives.
+        let agent_home = job.workspace.join(".agent-home");
+        let _ = std::fs::create_dir_all(&agent_home);
+        env.insert("HOME".to_string(), agent_home.display().to_string());
         env.insert("TMPDIR".to_string(), "/tmp".to_string());
         env.insert(
             "PATH".to_string(),
             "/usr/local/bin:/usr/bin:/bin".to_string(),
         );
         env.insert("TERM".to_string(), "xterm-256color".to_string());
+        // Force Go's net package to use CGO (system) DNS resolver so it
+        // reads /etc/resolv.conf (127.0.0.53) instead of its own resolver
+        // which tries [::1]:53 and fails in the sandbox.
+        env.insert("GODEBUG".to_string(), "netdns=cgo".to_string());
+        // Suppress tcmalloc warnings from Go/C++ agent binaries.
+        env.insert("GOMEMLIMIT".to_string(), "4GiB".to_string());
+        env.insert(
+            "TCMALLOC_LARGE_ALLOC_REPORT_THRESHOLD".to_string(),
+            "10737418240".to_string(),
+        );
+        // Set initial window size hints.
+        env.insert("COLUMNS".to_string(), "120".to_string());
+        env.insert("LINES".to_string(), "40".to_string());
         env.insert(
             "JERYU_NETWORK_POLICY".to_string(),
             decision.network_policy.as_str().to_string(),
@@ -211,6 +227,67 @@ impl PtyAgentDriver {
         if !plan.seccomp.allow_groups.iter().any(|g| g == "pty") {
             plan.seccomp.allow_groups.push("pty".to_string());
         }
+        // PTY agents (codex, claude, agy) open /dev/tty for their TUI. Add a
+        // read-write landlock rule so the kernel allows the open().
+        plan.landlock_rules
+            .push(jeryu_runner_core::sandbox::LandlockRule {
+                path: std::path::PathBuf::from("/dev/tty"),
+                read: true,
+                write: true,
+                execute: false,
+            });
+        // Also allow reading /dev/urandom and /dev/random (crypto/TLS).
+        plan.landlock_rules
+            .push(jeryu_runner_core::sandbox::LandlockRule {
+                path: std::path::PathBuf::from("/dev/urandom"),
+                read: true,
+                write: false,
+                execute: false,
+            });
+        // Allow reading /etc (SSL certs, resolv.conf, passwd, etc.).
+        plan.landlock_rules
+            .push(jeryu_runner_core::sandbox::LandlockRule {
+                path: std::path::PathBuf::from("/etc"),
+                read: true,
+                write: false,
+                execute: false,
+            });
+        // Allow read-write to agent home (auth tokens, logs, cache).
+        let ah = job.workspace.join(".agent-home");
+        plan.landlock_rules
+            .push(jeryu_runner_core::sandbox::LandlockRule {
+                path: ah,
+                read: true,
+                write: true,
+                execute: false,
+            });
+        // Allow read of /tmp (for TMPDIR).
+        plan.landlock_rules
+            .push(jeryu_runner_core::sandbox::LandlockRule {
+                path: std::path::PathBuf::from("/tmp"),
+                read: true,
+                write: true,
+                execute: true,
+            });
+        // Allow /lib (shared libs used by dynamically linked Go binaries).
+        plan.landlock_rules
+            .push(jeryu_runner_core::sandbox::LandlockRule {
+                path: std::path::PathBuf::from("/lib"),
+                read: true,
+                write: false,
+                execute: true,
+            });
+
+        // If the job allows egress, unlock AF_INET/AF_INET6 sockets in seccomp.
+        if job.network_policy == NetworkPolicy::EgressOnly
+            && !plan
+                .seccomp
+                .allow_groups
+                .iter()
+                .any(|g| g == "network-egress")
+        {
+            plan.seccomp.allow_groups.push("network-egress".to_string());
+        }
 
         let caps = cached_capabilities();
         let level = caps.enforcement_level(&plan);
@@ -218,6 +295,9 @@ impl PtyAgentDriver {
 
         let (master, slave) =
             open_pty().map_err(|e| DriverError::SandboxUnavailable(e.message().to_string()))?;
+        // Set a reasonable initial window size so TUI agents (bubbletea, etc.)
+        // render immediately instead of seeing a 0×0 terminal.
+        let _ = resize_pty(master.as_raw_fd(), 40, 120);
 
         let started = Instant::now();
         let child = match spawn_sandboxed_with_io(
@@ -289,6 +369,9 @@ impl PtyAgentDriver {
 
         let (master, slave) =
             open_pty().map_err(|e| DriverError::SandboxUnavailable(e.message().to_string()))?;
+        // Set a reasonable initial window size so TUI agents (bubbletea, etc.)
+        // render immediately instead of seeing a 0×0 terminal.
+        let _ = resize_pty(master.as_raw_fd(), 40, 120);
 
         let started = Instant::now();
         let child = spawn_command_on_pty(&spec.program, &spec.args, &spec.env, cwd, &slave)

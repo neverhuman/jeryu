@@ -179,6 +179,7 @@ export interface MockRepoSummary {
   topics?: string[];
   open_pull_requests?: number;
   failing_checks?: number;
+  active_agents?: number;
 }
 
 /**
@@ -773,6 +774,7 @@ export async function mockRepoAgentRuns(
     status: r.status,
     tty_live: r.tty_live ?? false,
     agent: r.agent ?? null,
+    shell_run_id: r.shell_run_id ?? null,
     workcell_id: r.workcell_id ?? null,
     updated_at: '2026-05-26T00:00:00Z',
   }));
@@ -827,6 +829,7 @@ export async function mockCreateSession(
           tty_topic: `agent_run.${runId}.tty`,
           control_url: `/api/v1/agent-runs/${runId}/control`,
           status_url: `/api/v1/agent-runs/${runId}/status`,
+          shell_run_id: `shell-${runId}`,
         }),
       });
     }
@@ -862,11 +865,99 @@ function normalizeRepo(repo: MockRepoSummary): Record<string, unknown> {
     open_pull_requests: repo.open_pull_requests ?? 0,
     failing_checks: repo.failing_checks ?? 0,
     running_jobs: 0,
-    active_agents: 0,
+    active_agents: repo.active_agents ?? 0,
     blocked_agents: 0,
     updated_at: '2026-05-26T00:00:00Z',
     clone_http_url: `https://example.com/${repo.id.owner}/${repo.id.name}.git`,
     clone_ssh_url: `git@example.com:${repo.id.owner}/${repo.id.name}.git`,
     available_actions: [],
   };
+}
+
+/**
+ * Mock the SSE TTY stream endpoint. Returns a minimal stream so the terminal
+ * component initializes without errors.
+ */
+export async function mockTtyStream(
+  page: Page,
+  events?: Array<{ seq: number; stream: string; text: string }>,
+): Promise<void> {
+  await page.route("**/api/v1/agent-runs/*/tty/stream*", async (route: Route) => {
+    const items = events ?? [
+      { seq: 1, stream: "stdout", text: "$ ready\r\n" },
+    ];
+    const body = items
+      .map(
+        (evt) =>
+          `data: ${JSON.stringify({
+            seq: evt.seq,
+            stream: evt.stream,
+            text: evt.text,
+            bytes_b64: null,
+            exit_code: null,
+          })}\n\n`,
+      )
+      .join("");
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      headers: { "Cache-Control": "no-cache" },
+      body,
+    });
+  });
+}
+
+/**
+ * Mock the REST control endpoint. Captures posted commands into the returned
+ * array for assertion.
+ */
+export async function mockAgentControl(
+  page: Page,
+): Promise<Array<Record<string, unknown>>> {
+  const controls: Array<Record<string, unknown>> = [];
+  await page.route("**/api/v1/agent-runs/*/control", async (route: Route, request) => {
+    if (request.method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    try {
+      const body = JSON.parse(request.postData() ?? "{}");
+      controls.push(body);
+    } catch {
+      // ignore
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ accepted: true, control_seq: controls.length }),
+    });
+  });
+  return controls;
+}
+
+/**
+ * Mock the companion shell endpoint `POST /api/v1/agent-runs/:id/shell`.
+ * Returns a stable `shell_run_id` so the split terminal test can assert
+ * that both panes are mounted.
+ */
+export async function mockCompanionShell(
+  page: Page,
+  shellRunId = 'shell-001',
+): Promise<void> {
+  await page.route('**/api/v1/agent-runs/*/shell', async (route: Route, request) => {
+    if (request.method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        shell_run_id: shellRunId,
+        status_url: `/api/v1/agent-runs/${shellRunId}`,
+        tty_stream_url: `/api/v1/agent-runs/${shellRunId}/tty/stream`,
+        control_url: `/api/v1/agent-runs/${shellRunId}/control`,
+      }),
+    });
+  });
 }

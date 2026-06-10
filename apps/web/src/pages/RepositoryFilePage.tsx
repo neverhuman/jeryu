@@ -42,10 +42,16 @@ function parseRefAndPath(splat: string): { ref: string; path: string } {
   return { ref: splat.slice(0, slash), path: splat.slice(slash + 1) };
 }
 
-export function RepositoryFilePage(): JSX.Element {
+export interface RepositoryFilePageProps {
+  provider?: string;
+  fullName?: string;
+  blobPath?: string;
+}
+
+export function RepositoryFilePage(props: RepositoryFilePageProps = {}): JSX.Element {
   const params = useParams();
-  const provider = params.provider ?? 'unknown';
-  const fullName = fullNameFromParams(params);
+  const provider = props.provider ?? params.provider ?? 'unknown';
+  const fullName = props.fullName ?? fullNameFromParams(params);
   const splat = params['*'] ?? '';
   const { ref, path } = parseRefAndPath(splat);
 

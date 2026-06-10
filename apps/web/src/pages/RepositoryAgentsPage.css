@@ -1,15 +1,43 @@
-/* RepositoryAgentsPage.css — active-agents list + terminal layout.
+/* RepositoryAgentsPage.css — active-agents list + multi-agent split terminal.
  *
- * Styling is driven entirely by the app's semantic design tokens (the
- * `--color-*` / `--radius-*` / `--space-*` custom properties from
- * styles/app.css), so the New Session button and agent rows inherit the shared
- * palette and dark/light theming rather than hard-coding colors. */
+ * Top pane: 1–3 agent terminals split horizontally (side by side).
+ * Bottom pane: single free-form companion shell.
+ * A thin divider separates top from bottom. */
 
+/* ── Page container: fill the entire main viewport ──────────────────────── */
+.agents {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 !important;
+  gap: 0 !important;
+  max-width: none !important;
+}
+
+/* ── Header row ─────────────────────────────────────────────────────────── */
 .agents .page__header {
+  flex: 0 0 auto;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-1);
+  margin: 0;
+}
+
+.agents .page__title {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.agents .page__subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+  margin: 0;
 }
 
 .agents__header-actions {
@@ -18,16 +46,33 @@
   gap: 0.5rem;
 }
 
+.agents__agent-pick {
+  display: inline-flex;
+  align-items: center;
+}
+
+.agents__agent-select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-2);
+  color: var(--color-fg-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
 .agents__new-session {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.45rem 0.8rem;
+  padding: 0.4rem 0.7rem;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-accent, #2d6cdf);
   color: #fff;
   font: inherit;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
@@ -43,19 +88,48 @@
 
 .agents__new-session-error {
   color: var(--color-danger, #c4314b);
+  padding: 0.5rem 1rem;
+  margin: 0;
 }
 
+/* ── Session count badge next to "New Session" ──────────────────────────── */
+.agents__session-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.65rem;
+  font-weight: var(--font-weight-bold);
+}
+
+/* ── Layout: two modes ──────────────────────────────────────────────────── */
+
+/* Default (no run selected): single column, runs list visible. */
 .agents__layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
-  gap: 1rem;
-  align-items: start;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-@media (max-width: 880px) {
-  .agents__layout {
-    grid-template-columns: 1fr;
-  }
+/* ── Runs list pane (always present) ────────────────────────────────────── */
+.agents__list-pane {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-1);
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0;
+}
+
+.agents__list-pane h2 {
+  display: none; /* hide the "Runs" heading — compact mode */
 }
 
 .agents__list {
@@ -63,32 +137,33 @@
   margin: 0;
   padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  flex-direction: row;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
 }
 
+/* ── Run row (horizontal chip when terminal is open) ────────────────────── */
 .agents__row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas:
-    'branch status'
-    'runner tty'
-    'agent  tty';
-  gap: 0.2rem 0.5rem;
-  width: 100%;
-  padding: 0.5rem 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-bg-2);
   text-align: left;
   text-decoration: none;
   font: inherit;
+  font-size: var(--font-size-xs);
   cursor: pointer;
   color: var(--color-fg-primary);
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .agents__row:hover {
   border-color: var(--color-border-strong);
+  background: var(--color-bg-3);
 }
 
 .agents__row.is-active {
@@ -97,19 +172,16 @@
 }
 
 .agents__row-branch {
-  grid-area: branch;
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
 }
 
 .agents__row-runner {
-  grid-area: runner;
   font-size: var(--font-size-xs);
   color: var(--color-fg-secondary);
 }
 
 .agents__row-agent {
-  grid-area: agent;
   font-size: var(--font-size-xs);
   color: var(--color-fg-muted);
 }
@@ -120,17 +192,15 @@
 .agents__tty-dot {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
 }
 
 .agents__row-status {
-  grid-area: status;
-  justify-self: end;
-  align-self: start;
-  padding: 0.05rem 0.45rem;
+  padding: 0.05rem 0.4rem;
   border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+  font-size: 0.65rem;
   text-transform: capitalize;
+  font-weight: var(--font-weight-semibold);
 }
 
 .agents__row-status--success {
@@ -154,9 +224,6 @@
 }
 
 .agents__tty-dot {
-  grid-area: tty;
-  justify-self: end;
-  align-self: end;
   font-size: var(--font-size-xs);
   color: var(--color-fg-muted);
 }
@@ -165,7 +232,109 @@
   color: var(--color-accent-success);
 }
 
-.agents__list-pane,
+/* ── Terminal pane: fills ALL remaining space ────────────────────────────── */
 .agents__terminal-pane {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* No-selection placeholder */
+.agents__terminal-pane .page__roadmap-note {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Split terminal: agent panes on top, shell on bottom ────────────────── */
+.agents__split-terminals {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Top: agent terminals split horizontally (side by side) ─────────────── */
+.agents__split-top {
+  flex: 1 1 50%;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+/* Each agent pane inside the top row */
+.agents__agent-col {
+  flex: 1 1 0%;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Thin vertical divider between side-by-side agent panes */
+.agents__col-divider {
+  flex: 0 0 2px;
+  background: var(--color-border-subtle);
+  position: relative;
+}
+
+.agents__col-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 24px;
+  border-radius: 1px;
+  background: var(--color-fg-muted);
+  opacity: 0.35;
+}
+
+/* ── Bottom: companion shell ────────────────────────────────────────────── */
+.agents__split-bottom {
+  flex: 1 1 50%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Horizontal divider between top (agents) and bottom (shell) */
+.agents__split-divider {
+  flex: 0 0 3px;
+  background: var(--color-border-subtle);
+  cursor: row-resize;
+  position: relative;
+}
+
+.agents__split-divider::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-fg-muted);
+  opacity: 0.4;
+}
+
+.agents__split-divider:hover::after {
+  opacity: 0.8;
+}
+
+/* Ensure the terminal components fill their pane */
+.agents__agent-col .terminal-wrapper,
+.agents__split-bottom .terminal-wrapper {
+  flex: 1 1 auto;
+  min-height: 0;
 }

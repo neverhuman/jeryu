@@ -11,6 +11,7 @@
 // within the TTL.
 
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
@@ -19,6 +20,7 @@ import {
   Server,
   CircleAlert,
   CircleSlash,
+  ExternalLink,
 } from 'lucide-react';
 
 import { useBootstrap } from '../hooks/useBootstrap';
@@ -565,14 +567,19 @@ function RunnerNodeCard({ node }: { node: RunnerNetworkNode }): JSX.Element {
   );
 }
 
+/** Build the drill-down URL for a task that has both a repo and an agent run id. */
+function taskTerminalPath(task: RunnerNetworkNode['tasks'][number]): string | null {
+  if (!task.repo || !task.agentRunId) return null;
+  const provider = 'jeryu';
+  const fullName = encodeURIComponent(task.repo);
+  return `/repos/${encodeURIComponent(provider)}/${fullName}/agents/${encodeURIComponent(task.agentRunId)}`;
+}
+
 function RunnerTaskCard({ task }: { task: RunnerNetworkNode['tasks'][number] }): JSX.Element {
   const taskId = testIdSegment(task.taskId);
-  return (
-    <article
-      className="fleet__task-card"
-      data-testid={`fleet-task-${taskId}`}
-      aria-label={`Runner task ${task.label}`}
-    >
+  const drillPath = taskTerminalPath(task);
+  const cardContent = (
+    <>
       <div className="fleet__task-head">
         <h4 className="fleet__task-title">{task.label}</h4>
         <span className="page__pill page__pill--warning">{task.state}</span>
@@ -587,6 +594,32 @@ function RunnerTaskCard({ task }: { task: RunnerNetworkNode['tasks'][number] }):
       <p className="fleet__task-tty">
         {task.lastTtyLine ?? 'TTY preview unavailable.'}
       </p>
+      {drillPath ? (
+        <span className="fleet__task-open">
+          <ExternalLink size={12} aria-hidden="true" /> Open terminal
+        </span>
+      ) : null}
+    </>
+  );
+  if (drillPath) {
+    return (
+      <Link
+        to={drillPath}
+        className="fleet__task-card fleet__task-card--interactive"
+        data-testid={`fleet-task-${taskId}`}
+        aria-label={`Open terminal for ${task.label}`}
+      >
+        {cardContent}
+      </Link>
+    );
+  }
+  return (
+    <article
+      className="fleet__task-card"
+      data-testid={`fleet-task-${taskId}`}
+      aria-label={`Runner task ${task.label}`}
+    >
+      {cardContent}
     </article>
   );
 }
