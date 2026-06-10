@@ -50,9 +50,16 @@ export function KeyboardProvider({
         return [...prev, descriptor];
       });
       return () => {
-        setShortcuts((prev) =>
-          prev.filter((s) => s.combo !== descriptor.combo)
-        );
+        // Preserve the previous reference when nothing was removed: an
+        // unconditional `filter` returns a NEW array every call, which reads
+        // as a state change, recomputes the context value, and re-runs every
+        // consumer's register effect — a self-sustaining re-render loop (React
+        // #185 on back-navigation, and enough churn to keep interrupting
+        // router transitions so Link navigations never committed).
+        setShortcuts((prev) => {
+          const next = prev.filter((s) => s.combo !== descriptor.combo);
+          return next.length === prev.length ? prev : next;
+        });
       };
     },
     []
@@ -171,14 +178,28 @@ export function useKeyboardShortcut(
       .map(parseAtom);
   }, [combo]);
 
+  // Depend on the STABLE register function, never on the context value: the
+  // value recomputes whenever the shortcuts list changes, so using it as a
+  // dep re-runs every consumer's register effect on every registry change —
+  // each re-run unregisters/re-registers (two more updates) and the loop
+  // never settles.
+  const registerShortcut = ctx?.registerShortcut ?? null;
   useEffect(() => {
-    if (options.registerInHelp === false || !ctx) return undefined;
-    return ctx.registerShortcut({
+    if (options.registerInHelp === false || !registerShortcut) {
+      return undefined;
+    }
+    return registerShortcut({
       combo,
       label: options.label ?? combo,
       group: options.group,
     });
-  }, [combo, ctx, options.label, options.group, options.registerInHelp]);
+  }, [
+    combo,
+    registerShortcut,
+    options.label,
+    options.group,
+    options.registerInHelp,
+  ]);
 
   useEffect(() => {
     if (options.enabled === false || atoms.length === 0) return undefined;

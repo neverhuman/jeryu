@@ -31,5 +31,12 @@ Control-plane, pull-room, and repository PR surfaces must keep Playwright
 screenshot capture, generated API mocks, and design token discipline evidence
 in the changed surface alongside route and unit coverage.
 
+SPA navigation regression net: the keyboard registry (`useKeyboard.ts`) must
+stay loop-free — its register effect depends on the STABLE register function
+(never the context value) and unregister preserves the previous reference when
+nothing was removed. The e2e specs for /repos assert rendered outlet content
+after Link clicks plus a crash-free history back; Storybook covers the
+multi-consumer registry shape (`KeyboardShortcutsOverlay.stories.tsx`).
+
 Owner work-packages: `W-FE-*` (and `W-F-07`, `W-F-09`, `W-F-12` for
 foundation skeleton).

@@ -78,11 +78,10 @@ test.describe('Repositories list (W-T-10)', () => {
     await expect(cards).toHaveCount(REPOS.length, { timeout: 10_000 });
     await expect(cards.first()).toContainText('jeryu');
 
-    // 2. Click a repo card and assert the route navigates to the overview
-    //    page. The card is a `<Link>` whose href encodes the host, owner,
-    //    and name; we simply assert the URL changes to a `/repos/{host}/…`
-    //    path. Mocking the list a second time ensures the overview's
-    //    `useResolveRepo` finds the summary in the cache and resolves.
+    // 2. Click a repo card and assert the SPA transition COMMITS: the URL
+    //    changes AND the overview outlet renders (regression net for the
+    //    keyboard-registry re-render loop that kept interrupting router
+    //    transitions, leaving the old route on screen after pushState).
     await cards
       .filter({ hasText: 'jeryu' })
       .first()
@@ -91,6 +90,9 @@ test.describe('Repositories list (W-T-10)', () => {
     await expect(page).toHaveURL(/\/repos\/jeryu\/neverhuman\/jeryu/, {
       timeout: 10_000,
     });
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'jeryu' })
+    ).toBeVisible({ timeout: 10_000 });
 
     // 3. Return to the list and open the Create repo dialog.
     await page.goto('/repos');

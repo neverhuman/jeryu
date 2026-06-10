@@ -41,6 +41,13 @@ test.describe('Repository families', () => {
   test('list shows one family tile + plain cards, tile drills into the family page', async ({
     page,
   }) => {
+    // Regression net for the keyboard-registry re-render loop: it kept
+    // interrupting router transitions (pushState landed but the outlet kept
+    // the previous route) and crashed with React #185 on history back. Any
+    // page error during the click → back round trip fails this test.
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+
     await mockBootstrap(page);
     await mockRepoList(page, REPOS);
 
@@ -59,15 +66,29 @@ test.describe('Repository families', () => {
     await expect(plainCards).toHaveCount(1);
     await expect(plainCards.first()).toContainText('solo');
 
-    // 3. Clicking the tile routes to the family drill-down URL. (Like
-    //    02-repos, only the URL is asserted post-click: the production
-    //    bundle has a pre-existing SPA-transition gap where pushState
-    //    lands but the outlet keeps the previous route — repro: clicking
-    //    any repo card on /repos against main's bundle. The full-load
-    //    path below proves the family page itself.)
+    // 3. Clicking the tile commits the SPA transition: URL AND rendered
+    //    outlet move to the family page (not just pushState).
     await tile.click();
     await expect(page).toHaveURL(/\/repos\/family\/veox-split/, {
       timeout: 10_000,
+    });
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'veox-split' })
+    ).toBeVisible({ timeout: 10_000 });
+
+    // 4. History back re-renders the repos list (this crashed with React
+    //    #185 before the keyboard-registry fix) — then return forward via a
+    //    fresh full load to keep asserting the family page contract.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/repos$/, { timeout: 10_000 });
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Repositories' })
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('a.repo-family-card')).toHaveCount(1);
+    expect(pageErrors).toEqual([]);
+    await page.screenshot({
+      path: 'playwright-report/repo-family-back-nav.png',
+      fullPage: true,
     });
 
     // Full-load the drill-down URL and assert the page contract.
