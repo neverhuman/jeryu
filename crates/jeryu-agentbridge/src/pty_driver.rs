@@ -595,10 +595,27 @@ impl PtyAgentDriver {
     }
 }
 
+struct PtyOutcome {
+    exit_code: Option<i32>,
+    timed_out: bool,
+    budget_exceeded: bool,
+    captured: Vec<u8>,
+    used: usize,
+    elapsed: Duration,
+}
+
+/// Adapt poll cadence to the deadline: tight near the end, relaxed early.
+fn poll_interval(elapsed: Duration, timeout: Duration) -> Duration {
+    timeout
+        .saturating_sub(elapsed)
+        .min(Duration::from_millis(10))
+        .max(Duration::from_millis(1))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use std::path::Path;
 
     #[test]
     fn sandbox_env_sets_agent_home_and_go_dns() {
@@ -627,25 +644,8 @@ mod tests {
         assert!(
             plan.landlock_rules
                 .iter()
-                .any(|rule| rule.path == PathBuf::from("/run")),
+                .any(|rule| rule.path == Path::new("/run")),
             "PTY sessions must allow reading /run for DNS resolution"
         );
     }
-}
-
-struct PtyOutcome {
-    exit_code: Option<i32>,
-    timed_out: bool,
-    budget_exceeded: bool,
-    captured: Vec<u8>,
-    used: usize,
-    elapsed: Duration,
-}
-
-/// Adapt poll cadence to the deadline: tight near the end, relaxed early.
-fn poll_interval(elapsed: Duration, timeout: Duration) -> Duration {
-    timeout
-        .saturating_sub(elapsed)
-        .min(Duration::from_millis(10))
-        .max(Duration::from_millis(1))
 }
