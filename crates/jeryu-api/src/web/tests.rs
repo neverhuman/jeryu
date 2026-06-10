@@ -3112,3 +3112,169 @@ fn unsubscribe_frame_extracts_scopes() {
     let dropped = unsubscribe_scopes(&frame);
     assert_eq!(dropped, vec!["pool.trusted", "system.health"]);
 }
+
+/// Health and the failing/running badges must reflect the repository's CURRENT
+/// state — the latest run per check on a live head — not the append-only
+/// check-run history. Legacy failures on stale shas and superseded failures on
+/// a live head are both invisible once a newer green run exists.
+#[test]
+fn repo_health_scopes_check_runs_to_current_heads() {
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: true,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    // Legacy failure on a sha no open PR (or branch head) points at anymore.
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/ci".to_string(),
+            head_sha: "stale-sha".to_string(),
+            conclusion: Some(CheckConclusion::Failure),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    // Open PR whose head first failed, then passed on a rerun: only the
+    // newest verdict for (head, name) may count.
+    core.create_pull_request(
+        "alice",
+        "jeryu",
+        "alice",
+        CreatePullRequestRequest {
+            title: "feature".to_string(),
+            head: "feature".to_string(),
+            base: "main".to_string(),
+            head_sha: Some("live-sha".to_string()),
+            ..CreatePullRequestRequest::default()
+        },
+    )
+    .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/ci".to_string(),
+            head_sha: "live-sha".to_string(),
+            conclusion: Some(CheckConclusion::Failure),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/ci".to_string(),
+            head_sha: "live-sha".to_string(),
+            conclusion: Some(CheckConclusion::Success),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+
+    let state = WebState::new(core);
+    let repos = repo_list_response(&state);
+    let summary = &repos.repositories[0];
+    assert_eq!(
+        summary.failing_checks, 0,
+        "stale + superseded failures must not count"
+    );
+    assert_eq!(summary.health, "healthy");
+    assert_eq!(summary.open_pull_requests, 1);
+}
+
+/// A failure that IS the latest verdict on a live head flips health to
+/// warning, while a failing `jeryu/github-mirror` bookkeeping run never does —
+/// mirror state has its own surface. In-progress runs only count on live heads.
+#[test]
+fn repo_health_counts_live_failures_and_ignores_mirror_checks() {
+    let core = ForgeCore::new();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "jeryu".to_string(),
+            private: true,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    core.create_pull_request(
+        "alice",
+        "jeryu",
+        "alice",
+        CreatePullRequestRequest {
+            title: "feature".to_string(),
+            head: "feature".to_string(),
+            base: "main".to_string(),
+            head_sha: Some("live-sha".to_string()),
+            ..CreatePullRequestRequest::default()
+        },
+    )
+    .unwrap();
+    // Latest verdict for jeryu/ci on the live head is a failure.
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/ci".to_string(),
+            head_sha: "live-sha".to_string(),
+            conclusion: Some(CheckConclusion::Failure),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    // A failed mirror push on the same head is bookkeeping, not ill-health.
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/github-mirror".to_string(),
+            head_sha: "live-sha".to_string(),
+            conclusion: Some(CheckConclusion::Failure),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    // Running job on the live head counts; on a stale sha it does not.
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/agent-review".to_string(),
+            head_sha: "live-sha".to_string(),
+            status: Some(jeryu_core::CheckRunStatus::InProgress),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+    core.create_check_run(
+        "alice",
+        "jeryu",
+        CreateCheckRunRequest {
+            name: "jeryu/agent-review".to_string(),
+            head_sha: "stale-sha".to_string(),
+            status: Some(jeryu_core::CheckRunStatus::InProgress),
+            ..CreateCheckRunRequest::default()
+        },
+    )
+    .unwrap();
+
+    let state = WebState::new(core);
+    let repos = repo_list_response(&state);
+    let summary = &repos.repositories[0];
+    assert_eq!(
+        summary.failing_checks, 1,
+        "mirror failure excluded, ci failure counted"
+    );
+    assert_eq!(summary.health, "warning");
+    assert_eq!(summary.running_jobs, 1, "stale in-progress run excluded");
+}

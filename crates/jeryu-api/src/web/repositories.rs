@@ -1,12 +1,17 @@
 //! Repository, README, and document routes for the local web surface.
 
-use std::collections::BTreeSet;
+use std::collections::btree_map::Entry;
+use std::collections::{BTreeMap, BTreeSet};
 
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, State};
 use axum::response::{Html, IntoResponse, Response as AxumResponse};
-use jeryu_core::{CheckConclusion, ForgeError, PullRequestState, Repository};
+use jeryu_core::{
+    CheckConclusion, CheckRun, CheckRunStatus, ForgeError, PullRequest, PullRequestState,
+    Repository,
+};
+use jeryu_gitd::refs::RefService;
 use jeryu_readmodel::contracts::{
     AvailableAction, BlobEncoding, BlobResponse, EntityHandle, RefKind, RefSelectorItem,
     RenderedMarkdown, RepositoryFacets, RepositoryId, RepositoryListResponse, RepositorySummary,
@@ -303,6 +308,17 @@ pub(super) fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySum
         .list_check_runs(&repo.owner, &repo.name, None)
         .map(|runs| runs.check_runs)
         .unwrap_or_default();
+    let current = current_check_runs(state, repo, &pulls, &checks);
+    let failing_checks = current
+        .iter()
+        .filter(|check| {
+            check.conclusion == Some(CheckConclusion::Failure) && check.name != GITHUB_MIRROR_CHECK
+        })
+        .count() as u32;
+    let running_jobs = current
+        .iter()
+        .filter(|check| check.status == CheckRunStatus::InProgress)
+        .count() as u32;
     RepositorySummary {
         id: repo_id(repo),
         entity: EntityHandle {
@@ -319,31 +335,14 @@ pub(super) fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySum
         family: None,
         topics: Vec::new(),
         language: None,
-        health: if checks
-            .iter()
-            .any(|check| check.conclusion == Some(CheckConclusion::Failure))
-        {
+        health: if failing_checks > 0 {
             "warning".to_string()
         } else {
             "healthy".to_string()
         },
-        open_pull_requests: pulls
-            .iter()
-            .filter(|pr| {
-                !matches!(
-                    pr.state,
-                    PullRequestState::Closed | PullRequestState::Merged
-                )
-            })
-            .count() as u32,
-        failing_checks: checks
-            .iter()
-            .filter(|check| check.conclusion == Some(CheckConclusion::Failure))
-            .count() as u32,
-        running_jobs: checks
-            .iter()
-            .filter(|check| check.status == jeryu_core::CheckRunStatus::InProgress)
-            .count() as u32,
+        open_pull_requests: pulls.iter().filter(|pr| pull_is_open(pr)).count() as u32,
+        failing_checks,
+        running_jobs,
         active_agents: 0,
         blocked_agents: 0,
         updated_at: repo.updated_at.to_rfc3339(),
@@ -355,6 +354,75 @@ pub(super) fn repo_summary(state: &WebState, repo: &Repository) -> RepositorySum
             risk: None,
         }],
     }
+}
+
+/// Push-mirror bookkeeping check. A mirror hiccup is surfaced through the
+/// dedicated mirror-status field, not as repository ill-health.
+const GITHUB_MIRROR_CHECK: &str = "jeryu/github-mirror";
+
+fn pull_is_open(pr: &PullRequest) -> bool {
+    !matches!(
+        pr.state,
+        PullRequestState::Closed | PullRequestState::Merged
+    )
+}
+
+/// Check runs that describe the repository's CURRENT state: the latest run per
+/// `(head_sha, name)` across the open pull-request heads plus the
+/// default-branch head.
+///
+/// The check-run store is append-only history. Counting it wholesale
+/// resurfaces every legacy failure forever (jeryu/jeryu carried ~2k stale
+/// failures from retired seeding), so health and the list badges must only
+/// see the newest verdict per check name on a sha that is still live.
+fn current_check_runs<'a>(
+    state: &WebState,
+    repo: &Repository,
+    pulls: &[PullRequest],
+    checks: &'a [CheckRun],
+) -> Vec<&'a CheckRun> {
+    let default_head = default_branch_head(state, repo);
+    let mut relevant: BTreeSet<&str> = pulls
+        .iter()
+        .filter(|pr| pull_is_open(pr))
+        .map(|pr| pr.head.sha.as_str())
+        .collect();
+    if let Some(sha) = default_head.as_deref() {
+        relevant.insert(sha);
+    }
+    let mut latest: BTreeMap<(&str, &str), &CheckRun> = BTreeMap::new();
+    for check in checks {
+        if !relevant.contains(check.head_sha.as_str()) {
+            continue;
+        }
+        match latest.entry((check.head_sha.as_str(), check.name.as_str())) {
+            Entry::Vacant(slot) => {
+                slot.insert(check);
+            }
+            Entry::Occupied(mut slot) => {
+                let held = *slot.get();
+                // `>=` so runs with identical timestamps resolve to the
+                // later-listed one — the store appends in creation order.
+                if (check.started_at, check.completed_at) >= (held.started_at, held.completed_at) {
+                    slot.insert(check);
+                }
+            }
+        }
+    }
+    latest.into_values().collect()
+}
+
+/// Resolve the default-branch head commit, tolerating repos with no bare
+/// storage (metadata-only imports) — those simply contribute no sha.
+fn default_branch_head(state: &WebState, repo: &Repository) -> Option<String> {
+    let bare = state
+        .repo_manager
+        .open_parts(&repo.owner, &repo.name)
+        .ok()?;
+    RefService::new((*state.repo_manager).clone())
+        .resolve_commit(&bare, &format!("refs/heads/{}", repo.default_branch))
+        .ok()
+        .flatten()
 }
 
 pub(super) fn repo_id(repo: &Repository) -> RepositoryId {
