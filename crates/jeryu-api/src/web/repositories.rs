@@ -37,10 +37,25 @@ struct ReadmeResponse {
     rendered_markdown: RenderedMarkdown,
 }
 
+/// Query parameters of `GET /api/v1/repos` — the SPA sends all of these
+/// (`apps/web/src/hooks/useRepositories.ts` builds the URL), so every one
+/// must filter server-side; the family drill-down page in particular is
+/// nothing but `?family=`.
+#[derive(Debug, Default, Deserialize)]
+pub(super) struct RepoListQuery {
+    pub(super) q: Option<String>,
+    pub(super) host: Option<String>,
+    pub(super) visibility: Option<String>,
+    pub(super) family: Option<String>,
+    pub(super) archived: Option<String>,
+    pub(super) sort: Option<String>,
+}
+
 pub(super) async fn repos(
     State(state): State<std::sync::Arc<WebState>>,
+    Query(query): Query<RepoListQuery>,
 ) -> Json<RepositoryListResponse> {
-    Json(repo_list_response(&state))
+    Json(filtered_repo_list_response(&state, &query))
 }
 
 pub(super) async fn repo_detail(
@@ -459,16 +474,87 @@ pub(super) async fn repo_readme_update(
     }
 }
 
+/// Unfiltered listing — test convenience over the filtered handler path.
+#[cfg(test)]
 pub(super) fn repo_list_response(state: &WebState) -> RepositoryListResponse {
-    let repositories = repo_summaries(state);
+    filtered_repo_list_response(state, &RepoListQuery::default())
+}
+
+/// Build the repos listing with the SPA's filters applied server-side.
+///
+/// Facets are computed from the UNFILTERED listing so the filter chips stay
+/// populated while a filter narrows the repositories array. `archived`
+/// matches the SPA contract: absent → active repos only, `1`/`true` → only
+/// archived ones.
+pub(super) fn filtered_repo_list_response(
+    state: &WebState,
+    query: &RepoListQuery,
+) -> RepositoryListResponse {
+    let all = state.github.core().list_repositories(None);
     let mut owners = BTreeSet::new();
     let mut families = BTreeSet::new();
-    for repo in &repositories {
-        owners.insert(repo.id.owner.clone());
+    for repo in &all {
+        owners.insert(repo.owner.clone());
         if let Some(family) = &repo.family {
             families.insert(family.clone());
         }
     }
+
+    let archived_only = matches!(
+        query.archived.as_deref(),
+        Some("1") | Some("true") | Some("yes")
+    );
+    let needle = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|q| !q.is_empty())
+        .map(str::to_lowercase);
+    // Filter on the core repos BEFORE summarizing: summaries resolve the
+    // default-branch head per repo, so narrowing first keeps a filtered
+    // request from paying for the whole registry.
+    let mut repositories: Vec<RepositorySummary> = all
+        .into_iter()
+        .filter(|repo| repo.archived == archived_only)
+        // Every registry repo lives on the local forge host.
+        .filter(|_| query.host.as_deref().is_none_or(|host| host == "jeryu"))
+        .filter(|repo| {
+            query.visibility.as_deref().is_none_or(|visibility| {
+                let actual = if repo.private { "private" } else { "public" };
+                actual == visibility
+            })
+        })
+        .filter(|repo| {
+            query
+                .family
+                .as_deref()
+                .is_none_or(|family| repo.family.as_deref() == Some(family))
+        })
+        .filter(|repo| {
+            needle.as_deref().is_none_or(|needle| {
+                repo.name.to_lowercase().contains(needle)
+                    || repo
+                        .description
+                        .as_deref()
+                        .is_some_and(|description| description.to_lowercase().contains(needle))
+            })
+        })
+        .map(|repo| repo_summary(state, &repo))
+        .collect();
+
+    match query.sort.as_deref() {
+        Some("name") => repositories.sort_by(|a, b| a.id.name.cmp(&b.id.name)),
+        Some("open_prs") => {
+            repositories.sort_by_key(|repo| std::cmp::Reverse(repo.open_pull_requests))
+        }
+        Some("failing_checks") => {
+            repositories.sort_by_key(|repo| std::cmp::Reverse(repo.failing_checks));
+        }
+        // Default and "recent_activity": newest first (RFC3339 sorts
+        // lexicographically).
+        _ => repositories.sort_by(|a, b| b.updated_at.cmp(&a.updated_at)),
+    }
+
     RepositoryListResponse {
         generated_at: state.tui.generated_at.to_rfc3339(),
         total: repositories.len() as u64,

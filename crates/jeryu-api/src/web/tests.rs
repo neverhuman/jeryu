@@ -3821,3 +3821,103 @@ async fn jankurai_scores_ingest_and_surface_on_the_repo_summary() {
     .into_response();
     assert_eq!(missing.status(), axum::http::StatusCode::NOT_FOUND);
 }
+
+/// GET /api/v1/repos must apply the SPA's filters SERVER-SIDE — the family
+/// drill-down page is nothing but `?family=`, and it shipped against a
+/// handler that ignored every query parameter (the e2e mock honoured the
+/// filter, masking the gap). This drives the real handler through Query
+/// extraction so a mock can never hide it again.
+#[tokio::test]
+async fn repo_list_filters_apply_server_side() {
+    let core = ForgeCore::new();
+    for (name, family) in [
+        ("jmcp-core", Some("jmcp-split")),
+        ("jmcp-web", Some("jmcp-split")),
+        ("veox-nht", Some("veox-split")),
+        ("openQG", None),
+    ] {
+        core.create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: name.to_string(),
+                private: true,
+                description: Some(format!("{name} repository")),
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        if let Some(family) = family {
+            core.set_repository_family("jeryu", name, Some(family.to_string()))
+                .unwrap();
+        }
+    }
+    let state = Arc::new(WebState::new(core));
+
+    let family_only = repos(
+        State(state.clone()),
+        Query(super::repositories::RepoListQuery {
+            family: Some("jmcp-split".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .0;
+    let names: Vec<&str> = family_only
+        .repositories
+        .iter()
+        .map(|repo| repo.id.name.as_str())
+        .collect();
+    assert_eq!(
+        family_only.total, 2,
+        "only the family members may be listed"
+    );
+    assert!(names.contains(&"jmcp-core") && names.contains(&"jmcp-web"));
+    // Facets keep the full picture so the filter chips stay populated.
+    assert_eq!(
+        family_only.facets.families,
+        vec!["jmcp-split".to_string(), "veox-split".to_string()]
+    );
+
+    let searched = repos(
+        State(state.clone()),
+        Query(super::repositories::RepoListQuery {
+            q: Some("veox".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .0;
+    assert_eq!(searched.total, 1);
+    assert_eq!(searched.repositories[0].id.name, "veox-nht");
+
+    let sorted = repos(
+        State(state.clone()),
+        Query(super::repositories::RepoListQuery {
+            sort: Some("name".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .0;
+    let sorted_names: Vec<&str> = sorted
+        .repositories
+        .iter()
+        .map(|repo| repo.id.name.as_str())
+        .collect();
+    assert_eq!(
+        sorted_names,
+        vec!["jmcp-core", "jmcp-web", "openQG", "veox-nht"]
+    );
+
+    // Archived repos are excluded by default and exclusive under ?archived=1.
+    let archived = repos(
+        State(state),
+        Query(super::repositories::RepoListQuery {
+            archived: Some("1".to_string()),
+            ..Default::default()
+        }),
+    )
+    .await
+    .0;
+    assert_eq!(archived.total, 0, "no archived repos exist in this fixture");
+}
