@@ -5,6 +5,8 @@
 //! landed in the on-disk bare repo. This exercises create-repo-to-disk (S3) and
 //! the git transport on the unified `jeryu serve` (S4) end to end.
 
+use std::fs::File;
+use std::io::Write;
 use std::net::{SocketAddr, TcpStream};
 use std::path::Path;
 use std::process::Command;
@@ -27,6 +29,27 @@ fn run_git(dir: &Path, args: &[&str]) {
         .status()
         .unwrap_or_else(|err| panic!("git {args:?}: {err}"));
     assert!(status.success(), "git {args:?} failed in {}", dir.display());
+}
+
+fn write_incompressible_file(path: &Path, len: usize) {
+    let mut file = File::create(path).unwrap();
+    let mut state: u64 = 0x9e37_79b9_7f4a_7c15 ^ (len as u64);
+    let mut remaining = len;
+    let mut buffer = vec![0u8; 8192];
+    while remaining > 0 {
+        for chunk in buffer.chunks_mut(8) {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            let bytes = state.to_le_bytes();
+            let len = chunk.len();
+            chunk.copy_from_slice(&bytes[..len]);
+        }
+        let write_len = remaining.min(buffer.len());
+        file.write_all(&buffer[..write_len]).unwrap();
+        remaining -= write_len;
+    }
+    file.flush().unwrap();
 }
 
 /// Git http config that aborts a stalled transfer instead of hanging.
@@ -108,7 +131,7 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
         &["config", "user.email", "tester@jeryu.invalid"],
     );
     run_git(&clone_dir, &["config", "user.name", "Tester"]);
-    std::fs::write(clone_dir.join("hello.txt"), "hello jeryu\n").unwrap();
+    write_incompressible_file(&clone_dir.join("hello.bin"), 3 * 1024 * 1024);
     // A GitHub-Actions workflow so the push->CI bridge has something to compile.
     std::fs::create_dir_all(clone_dir.join(".github/workflows")).unwrap();
     std::fs::write(
@@ -123,7 +146,12 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
     eprintln!("[s4] git push");
     run_git(
         &clone_dir,
-        &[GIT_HTTP_GUARD, &["push", "origin", "HEAD:refs/heads/main"]].concat(),
+        &[
+            GIT_HTTP_GUARD,
+            &["-c", "pack.compression=0", "-c", "core.compression=0"],
+            &["push", "origin", "HEAD:refs/heads/main"],
+        ]
+        .concat(),
     );
     eprintln!("[s4] pushed");
 
@@ -155,24 +183,36 @@ async fn s4_create_repo_to_disk_and_git_push_over_http() {
     .unwrap()
     .trim()
     .to_string();
-    let runs: serde_json::Value = client
-        .get(format!(
-            "http://{addr}/repos/jeryu/demo/commits/{sha}/check-runs"
-        ))
-        .send()
-        .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let runs = loop {
+        let runs: serde_json::Value = client
+            .get(format!(
+                "http://{addr}/repos/jeryu/demo/commits/{sha}/check-runs"
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        if runs
+            .get("total_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+            >= 1
+        {
+            break runs;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "push->CI bridge should register a check-run before the deadline, got {runs}"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
     let total = runs
         .get("total_count")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    assert!(
-        total >= 1,
-        "push->CI bridge should register >=1 check-run, got {total}: {runs}"
-    );
     let conclusion = runs["check_runs"][0]["conclusion"].as_str().unwrap_or("");
     assert_eq!(
         conclusion, "success",

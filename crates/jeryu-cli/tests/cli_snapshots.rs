@@ -11,6 +11,10 @@ use jeryu_cli::ForgeClient;
 use jeryu_cli::cli::{Cli, Commands};
 use jeryu_cli::client::{InMemoryClient, IssueState, PullRequestState};
 use jeryu_cli::dispatch;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{SocketAddr, TcpListener};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 // ---------------------------------------------------------------------------
 // Help-tree harness
@@ -421,6 +425,63 @@ fn run_cli(client: &dyn ForgeClient, argv: &[&str]) -> (i32, String, String) {
     )
 }
 
+#[derive(Clone, Debug)]
+struct CapturedRequest {
+    request_line: String,
+    body: String,
+}
+
+fn spawn_http_fixture(
+    response_body: String,
+) -> (
+    SocketAddr,
+    Arc<Mutex<Option<CapturedRequest>>>,
+    thread::JoinHandle<()>,
+) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+    let addr = listener.local_addr().expect("fixture addr");
+    let captured = Arc::new(Mutex::new(None));
+    let captured_thread = Arc::clone(&captured);
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept fixture request");
+        let mut reader = BufReader::new(stream.try_clone().expect("clone stream"));
+        let mut request_line = String::new();
+        reader
+            .read_line(&mut request_line)
+            .expect("read request line");
+        let mut content_length = 0usize;
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).expect("read header line");
+            if line == "\r\n" || line == "\n" || line.is_empty() {
+                break;
+            }
+            if let Some(value) = line.strip_prefix("Content-Length:") {
+                content_length = value.trim().parse().expect("content length");
+            }
+        }
+        let mut body = vec![0; content_length];
+        if content_length > 0 {
+            reader.read_exact(&mut body).expect("read request body");
+        }
+        let body = String::from_utf8(body).expect("utf8 request body");
+        *captured_thread.lock().expect("capture lock") = Some(CapturedRequest {
+            request_line: request_line.trim_end().to_string(),
+            body,
+        });
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            response_body.len(),
+            response_body
+        );
+        stream
+            .write_all(response.as_bytes())
+            .expect("write fixture response");
+        stream.flush().ok();
+    });
+    (addr, captured, handle)
+}
+
 #[test]
 fn dispatch_repo_create_then_list_roundtrips() {
     let client = InMemoryClient::new();
@@ -501,6 +562,75 @@ fn dispatch_issue_create_then_list() {
     let issues = client.list_issues("jeryu", "alpha").unwrap();
     assert_eq!(issues.len(), 1);
     assert_eq!(issues[0].state, IssueState::Open);
+}
+
+#[test]
+fn dispatch_forge_repo_list_uses_live_api_url() {
+    let (addr, captured, server) = spawn_http_fixture(
+        r#"[{"name":"alpha","full_name":"jeryu/alpha","private":false,"owner":{"login":"jeryu"},"default_branch":"main"}]"#
+            .to_string(),
+    );
+    let api_url = format!("http://{addr}");
+    let client = InMemoryClient::new();
+    let (code, out, err) = run_cli(
+        &client,
+        &["jeryu", "--api-url", &api_url, "forge", "repo", "list"],
+    );
+    assert_eq!(code, 0);
+    assert!(err.is_empty(), "stderr was {err:?}");
+    assert!(out.contains("jeryu/alpha"), "stdout was {out:?}");
+    let captured = captured
+        .lock()
+        .expect("capture lock")
+        .clone()
+        .expect("request captured");
+    assert!(
+        captured.request_line.starts_with("GET /repos HTTP/1.1"),
+        "request line was {:?}",
+        captured.request_line
+    );
+    assert!(captured.body.is_empty(), "GET must not send a body");
+    server.join().expect("fixture server");
+}
+
+#[test]
+fn dispatch_forge_pr_merge_uses_put_live_api_url() {
+    let (addr, captured, server) =
+        spawn_http_fixture(r#"{"merged":true,"message":"pull request #1 merged"}"#.to_string());
+    let api_url = format!("http://{addr}");
+    let client = InMemoryClient::new();
+    let (code, out, err) = run_cli(
+        &client,
+        &[
+            "jeryu",
+            "--api-url",
+            &api_url,
+            "forge",
+            "pr",
+            "merge",
+            "--repo",
+            "alpha",
+            "--pr",
+            "1",
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(err.is_empty(), "stderr was {err:?}");
+    assert!(out.contains("merged"), "stdout was {out:?}");
+    let captured = captured
+        .lock()
+        .expect("capture lock")
+        .clone()
+        .expect("request captured");
+    assert!(
+        captured
+            .request_line
+            .starts_with("PUT /repos/jeryu/alpha/pulls/1/merge HTTP/1.1"),
+        "request line was {:?}",
+        captured.request_line
+    );
+    assert_eq!(captured.body, "{}", "merge should send an empty JSON body");
+    server.join().expect("fixture server");
 }
 
 #[test]

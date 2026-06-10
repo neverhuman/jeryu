@@ -22,7 +22,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use axum::extract::{Path as AxumPath, Request, State};
+use axum::extract::{DefaultBodyLimit, Path as AxumPath, Request, State};
 use axum::http::{HeaderName, HeaderValue, Method as HttpMethod, StatusCode, header};
 use axum::middleware::{Next, from_fn};
 use axum::response::{IntoResponse, Response as AxumResponse};
@@ -331,6 +331,7 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             get(agent_runs::tty_stream),
         )
         .route("/api/v1/agent-runs/:id/control", post(agent_runs::control))
+        .route("/api/v1/agent-runs/:id/shell", post(agent_runs::shell))
         .route(
             "/api/v1/agent-runs/:id/export_pr",
             post(agent_runs::export_pr),
@@ -453,17 +454,21 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
         // work against this server. Mounted under `/git/` to stay clear of the
         // GitHub-shaped REST routes above: a root-level `:owner` param would
         // conflict with the literal `/repos`, `/users`, ... routes in the matcher.
-        .route(
-            "/git/:owner/:repo/info/refs",
-            get(crate::git_transport::git_info_refs),
-        )
-        .route(
-            "/git/:owner/:repo/git-upload-pack",
-            post(crate::git_transport::git_upload_pack),
-        )
-        .route(
-            "/git/:owner/:repo/git-receive-pack",
-            post(crate::git_transport::git_receive_pack),
+        .merge(
+            AxumRouter::new()
+                .route(
+                    "/git/:owner/:repo/info/refs",
+                    get(crate::git_transport::git_info_refs),
+                )
+                .route(
+                    "/git/:owner/:repo/git-upload-pack",
+                    post(crate::git_transport::git_upload_pack),
+                )
+                .route(
+                    "/git/:owner/:repo/git-receive-pack",
+                    post(crate::git_transport::git_receive_pack),
+                )
+                .route_layer(DefaultBodyLimit::disable()),
         )
         .fallback_service(spa)
         // Response middleware that stamps every reply with advisory steering

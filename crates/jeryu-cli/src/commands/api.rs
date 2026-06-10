@@ -26,6 +26,10 @@ impl ApiClient {
         self.request("POST", path, Some(body))
     }
 
+    pub(crate) fn put(&self, path: &str, body: Value) -> ClientResult<Value> {
+        self.request("PUT", path, Some(body))
+    }
+
     fn request(&self, method: &str, path: &str, body: Option<Value>) -> ClientResult<Value> {
         let body_text = body.map(|value| value.to_string()).unwrap_or_default();
         let mut stream = TcpStream::connect((self.endpoint.host.as_str(), self.endpoint.port))
