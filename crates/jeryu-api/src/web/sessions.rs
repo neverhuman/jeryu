@@ -954,6 +954,23 @@ fn seed_agent_auth(workspace: &std::path::Path, agent_id: &str) {
         copy_dir_recursive(&cfg_src, &cfg_dst, agent_id, "config");
     }
 
+    // ── Seed a custom resolv.conf with public DNS for sandboxed agents ──
+    // Some agent CLIs (agy) use [::1]:53 as DNS fallback instead of reading
+    // /etc/resolv.conf. Write a resolv.conf with Google DNS into the workspace
+    // at a well-known path; the sandbox mounts it over /etc/resolv.conf.
+    {
+        let resolv_path = workspace.join(".resolv.conf");
+        let _ = std::fs::write(
+            &resolv_path,
+            "nameserver 8.8.8.8\nnameserver 8.8.4.4\noptions ndots:0\n",
+        );
+        eprintln!(
+            "seed_agent_auth[{}]: wrote custom resolv.conf at {}",
+            agent_id,
+            resolv_path.display()
+        );
+    }
+
     // ── Create writable dirs that agent CLIs expect under $HOME ──────────
     // agy needs write access to log/, cache/, conversations/, knowledge/ etc.
     if agent_id == "agy" {

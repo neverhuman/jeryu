@@ -180,10 +180,11 @@ impl PtyAgentDriver {
             "/usr/local/bin:/usr/bin:/bin".to_string(),
         );
         env.insert("TERM".to_string(), "xterm-256color".to_string());
-        // Force Go's net package to use CGO (system) DNS resolver so it
-        // reads /etc/resolv.conf (127.0.0.53) instead of its own resolver
-        // which tries [::1]:53 and fails in the sandbox.
-        env.insert("GODEBUG".to_string(), "netdns=cgo".to_string());
+        // Force Go's net package to use its pure-Go DNS resolver which
+        // reads /etc/resolv.conf (the CGO resolver fails in static binaries).
+        // We point GODEBUG=netdns=go and create a custom resolv.conf with
+        // Google DNS (8.8.8.8) so Go doesn't try [::1]:53.
+        env.insert("GODEBUG".to_string(), "netdns=go".to_string());
         // Suppress tcmalloc warnings from Go/C++ agent binaries.
         env.insert("GOMEMLIMIT".to_string(), "4GiB".to_string());
         env.insert(
@@ -203,15 +204,14 @@ impl PtyAgentDriver {
         env
     }
 
-    /// Run the agent command jailed inside `workspace` with a controlling PTY,
-    /// streaming terminal output to `sink` and applying `control` commands live.
-    pub fn run<S: AgentEventSink, C: AgentControlSource>(
+    /// Build the hardened PTY sandbox plan and the job/decision pair it depends
+    /// on. Tests call this directly so they can assert the exact hardening
+    /// posture without spawning a child process.
+    fn build_sandbox_plan(
         &self,
         workspace: &Path,
         spec: &CommandSpec,
-        sink: &S,
-        control: &C,
-    ) -> Result<AgentRunResult, DriverError> {
+    ) -> Result<(JobRequest, SandboxPlan, PolicyDecision), DriverError> {
         if !workspace.is_dir() {
             return Err(DriverError::Workspace(format!(
                 "{} is not an existing directory",
@@ -223,6 +223,10 @@ impl PtyAgentDriver {
         let decision = select_runner(&job).map_err(|e| DriverError::Policy(e.to_string()))?;
         let mut plan = SandboxPlan::from_decision(workspace, &decision)
             .with_require_cgroup(self.require_cgroup);
+        // Disable user namespace for PTY sessions: CLONE_NEWUSER breaks Go's
+        // pure DNS resolver (falls back to [::1]:53 instead of reading
+        // /etc/resolv.conf). Landlock + seccomp still provide isolation.
+        plan.user_namespace = false;
         // Request the pty seccomp group: setsid + ioctl-except-TIOCSTI.
         if !plan.seccomp.allow_groups.iter().any(|g| g == "pty") {
             plan.seccomp.allow_groups.push("pty".to_string());
@@ -248,6 +252,15 @@ impl PtyAgentDriver {
         plan.landlock_rules
             .push(jeryu_runner_core::sandbox::LandlockRule {
                 path: std::path::PathBuf::from("/etc"),
+                read: true,
+                write: false,
+                execute: false,
+            });
+        // /etc/resolv.conf symlinks to /run/systemd/resolve/stub-resolv.conf;
+        // landlock must allow reading the target for DNS to work.
+        plan.landlock_rules
+            .push(jeryu_runner_core::sandbox::LandlockRule {
+                path: std::path::PathBuf::from("/run"),
                 read: true,
                 write: false,
                 execute: false,
@@ -288,6 +301,20 @@ impl PtyAgentDriver {
         {
             plan.seccomp.allow_groups.push("network-egress".to_string());
         }
+
+        Ok((job, plan, decision))
+    }
+
+    /// Run the agent command jailed inside `workspace` with a controlling PTY,
+    /// streaming terminal output to `sink` and applying `control` commands live.
+    pub fn run<S: AgentEventSink, C: AgentControlSource>(
+        &self,
+        workspace: &Path,
+        spec: &CommandSpec,
+        sink: &S,
+        control: &C,
+    ) -> Result<AgentRunResult, DriverError> {
+        let (job, plan, decision) = self.build_sandbox_plan(workspace, spec)?;
 
         let caps = cached_capabilities();
         let level = caps.enforcement_level(&plan);
@@ -565,6 +592,44 @@ impl PtyAgentDriver {
             used,
             elapsed: started.elapsed(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn sandbox_env_sets_agent_home_and_go_dns() {
+        let workspace = tempfile::tempdir().expect("workspace");
+        let driver = PtyAgentDriver::new(Duration::from_secs(5), 1024);
+        let spec = CommandSpec::new("/bin/true");
+        let (job, plan, decision) = driver
+            .build_sandbox_plan(workspace.path(), &spec)
+            .expect("sandbox plan");
+
+        let env = driver.sandbox_env(&job, &decision);
+        let agent_home = workspace.path().join(".agent-home");
+        let expected_home = agent_home.to_string_lossy().to_string();
+
+        assert_eq!(
+            env.get("HOME").map(String::as_str),
+            Some(expected_home.as_str())
+        );
+        assert_eq!(env.get("TMPDIR").map(String::as_str), Some("/tmp"));
+        assert_eq!(env.get("GODEBUG").map(String::as_str), Some("netdns=go"));
+        assert!(agent_home.is_dir(), "agent home must be created");
+        assert!(
+            !plan.user_namespace,
+            "PTY sessions must disable user namespaces"
+        );
+        assert!(
+            plan.landlock_rules
+                .iter()
+                .any(|rule| rule.path == PathBuf::from("/run")),
+            "PTY sessions must allow reading /run for DNS resolution"
+        );
     }
 }
 

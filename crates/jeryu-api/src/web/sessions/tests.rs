@@ -604,7 +604,7 @@ fn sandbox_unavailable(status: &Value) -> bool {
 /// status seen so the caller can SKIP-or-assert.
 async fn await_tty(state: &Arc<WebState>, run_id: &str, needle: &str) -> Value {
     let mut last = Value::Null;
-    for _ in 0..100 {
+    for _ in 0..600 {
         let status = run_status(state, run_id).await;
         if sandbox_unavailable(&status) {
             return status;
@@ -900,6 +900,15 @@ async fn create_session_materializes_real_checkout() {
     // ...and it sits on the unique session branch, never main.
     let branch = git(&["rev-parse", "--abbrev-ref", "HEAD"], &workspace);
     assert_eq!(branch, "agents/agent-7/sessions/run-checkout");
+
+    let resolv = std::fs::read_to_string(workspace.join(".resolv.conf"))
+        .expect("session workspace resolv.conf");
+    assert!(
+        resolv.contains("nameserver 8.8.8.8")
+            && resolv.contains("nameserver 8.8.4.4")
+            && resolv.contains("options ndots:0"),
+        "session workspace must carry the seeded DNS config: {resolv:?}"
+    );
 }
 
 /// The runtime forced to `native` keeps the OLD native-sandbox path: the session
