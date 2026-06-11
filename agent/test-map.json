@@ -1,0 +1,130 @@
+{
+  "tests": {
+    ".cargo/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify cargo configuration is parseable and local"
+    },
+    ".config/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local tool configuration remains parseable"
+    },
+    ".dockerignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".github/": {
+      "command": "just fast && just check",
+      "lane": "ci",
+      "purpose": "verify hosted workflows stay thin and local-reproducible"
+    },
+    ".github/**": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify hosted workflows stay thin, pinned, and audit-visible"
+    },
+    ".gitignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".jankurai/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify committed audit evidence matches the pinned Jankurai lane"
+    },
+    ".jankurai/**": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify committed audit evidence matches the pinned Jankurai lane"
+    },
+    "AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify split metadata and agent maps"
+    },
+    "CHANGELOG.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify release notes stay routed through the score lane"
+    },
+    "Cargo.lock": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify lockfile remains workspace-addressable"
+    },
+    "Cargo.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace manifest shape"
+    },
+    "Justfile": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local command wrappers remain canonical"
+    },
+    "LICENSE": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    "README.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify root navigation remains current"
+    },
+    "VERSION": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify version source remains aligned with release evidence"
+    },
+    "agent/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify agent metadata parses and routes proof lanes"
+    },
+    "deny.toml": {
+      "command": "just security",
+      "lane": "security",
+      "purpose": "verify security policy metadata remains parseable"
+    },
+    "docs/": {
+      "command": "just check && just score",
+      "lane": "docs",
+      "purpose": "verify agent-readable docs remain routed and auditable"
+    },
+    "ops/ci/**": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local CI wrappers are reproducible and audit-visible"
+    },
+    "ops/git-hooks/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify pre-push gates delegate to local CI lanes"
+    },
+    "repos.manifest.toml": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify split manifest remains parseable and routed"
+    },
+    "rust-toolchain.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local Rust toolchain metadata remains pinned"
+    },
+    "scripts/**": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify helper scripts parse and stay locally reproducible"
+    },
+    "tests/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify negative proof evidence remains routed"
+    }
+  },
+  "workspace": "jeryu"
+}

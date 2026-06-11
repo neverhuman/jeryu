@@ -1,0 +1,4 @@
+[[zones]]
+path = ".jankurai/**"
+generator = "just score"
+manual_edits = false

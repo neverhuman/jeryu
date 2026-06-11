@@ -1,0 +1,490 @@
+# repos.manifest.toml - Jeryu split-family repository manifest.
+
+schema_version = "1"
+workers = 40
+source_root = "/home/ubuntu/jeryu"
+source_sha = "cbecf7caa0e932c76a341b2521e66e911233860d"
+split_root = "/home/ubuntu/jeryu-split"
+repo_family = "jeryu-split"
+dependency_tag_suffix = "v4.0.0-split.0"
+
+required_repos = [
+  "jeryu",
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-web",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+
+shared_source_paths = [
+  ".cargo/**",
+  ".config/**",
+  ".dockerignore",
+  ".gitignore",
+  "AGENTS.md",
+  "AGENT_CHAT.md",
+  "CHANGELOG.md",
+  "CI_TRACKER.md",
+  "ci-fast-push.sh",
+  "LICENSE",
+  "README.md",
+  "rust-toolchain.toml",
+  "deny.toml",
+  "docs/**",
+  "tips/**",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu"
+name = "jeryu"
+github_slug = "neverhuman/jeryu"
+jeryu_slug = "jeryu/jeryu"
+profile = "public-portal"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-v4.0.0-split.0"
+required_check = "jeryu/required"
+note = "Public portal, installer, and split-family clone entrypoint."
+cargo_members = []
+copy_paths = []
+source_paths = []
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-core"
+name = "jeryu-core"
+github_slug = "neverhuman/jeryu-core"
+jeryu_slug = "jeryu/jeryu-core"
+profile = "rust-workspace"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-core-v4.0.0-split.0"
+required_check = "jeryu-core/required"
+note = "Forge/domain truth, git storage, read models, TUI, durable DB migrations."
+cargo_members = [
+  "crates/jeryu-core",
+  "crates/domain",
+  "crates/jeryu-gitd",
+  "crates/jeryu-mirror",
+  "crates/jeryu-mirror-cli",
+  "crates/jeryu-readmodel",
+  "crates/jeryu-tui",
+  "crates/jeryu-bugtracker",
+  "crates/jeryu-enterprise",
+  "crates/jeryu-proof",
+]
+copy_paths = [
+  "crates/jeryu-core",
+  "crates/domain",
+  "crates/jeryu-gitd",
+  "crates/jeryu-mirror",
+  "crates/jeryu-mirror-cli",
+  "crates/jeryu-readmodel",
+  "crates/jeryu-tui",
+  "crates/jeryu-bugtracker",
+  "crates/jeryu-enterprise",
+  "crates/jeryu-proof",
+  "db",
+  "contracts/generated",
+  "contracts/AGENTS.md",
+  "docs",
+]
+source_paths = [
+  "crates/jeryu-core/**",
+  "crates/domain/**",
+  "crates/jeryu-gitd/**",
+  "crates/jeryu-mirror/**",
+  "crates/jeryu-mirror-cli/**",
+  "crates/jeryu-readmodel/**",
+  "crates/jeryu-tui/**",
+  "crates/jeryu-bugtracker/**",
+  "crates/jeryu-enterprise/**",
+  "crates/jeryu-proof/**",
+  "db/**",
+  "contracts/generated/**",
+  "contracts/AGENTS.md",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-ci-runner"
+name = "jeryu-ci-runner"
+github_slug = "neverhuman/jeryu-ci-runner"
+jeryu_slug = "jeryu/jeryu-ci-runner"
+profile = "rust-workspace"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-ci-runner-v4.0.0-split.0"
+required_check = "jeryu-ci-runner/required"
+note = "CI IR, scheduler, runner fabric, workcells, sandboxing, agent execution substrate."
+cargo_members = [
+  "crates/jeryu-ci-ir",
+  "crates/jeryu-ci-compiler",
+  "crates/jeryu-ci-scheduler",
+  "crates/jeryu-runner-core",
+  "crates/jeryu-runner-native",
+  "crates/jeryu-runner-microvm",
+  "crates/jeryu-runner-oci",
+  "crates/jeryu-runner-protocol",
+  "crates/jeryu-runner-registry",
+  "crates/jeryu-runnerd",
+  "crates/jeryu-sandbox-linux",
+  "crates/jeryu-agentbridge",
+  "crates/jeryu-agent-auth",
+  "crates/jeryu-agent-stream",
+  "crates/jeryu-egress",
+  "crates/jeryu-artifact-metadata",
+  "crates/jeryu-cache-policy",
+  "crates/jeryu-ci-governor",
+  "crates/jeryu-phase7-cli",
+  "bins/jeryu-ci-bin",
+]
+copy_paths = [
+  "crates/jeryu-ci-ir",
+  "crates/jeryu-ci-compiler",
+  "crates/jeryu-ci-scheduler",
+  "crates/jeryu-runner-core",
+  "crates/jeryu-runner-native",
+  "crates/jeryu-runner-microvm",
+  "crates/jeryu-runner-oci",
+  "crates/jeryu-runner-protocol",
+  "crates/jeryu-runner-registry",
+  "crates/jeryu-runnerd",
+  "crates/jeryu-sandbox-linux",
+  "crates/jeryu-agentbridge",
+  "crates/jeryu-agent-auth",
+  "crates/jeryu-agent-stream",
+  "crates/jeryu-egress",
+  "crates/jeryu-artifact-metadata",
+  "crates/jeryu-cache-policy",
+  "crates/jeryu-ci-governor",
+  "crates/jeryu-phase7-cli",
+  "bins/jeryu-ci-bin",
+  "tests/fixtures/github",
+  "tests/fixtures/native",
+  "tests/sandbox_escape_matrix.sh",
+  "examples/jobs",
+  "ops/agent-sandbox",
+  "images/agent-sandbox",
+  "policies",
+  "configs/runnerd.toml",
+]
+source_paths = [
+  "crates/jeryu-ci-ir/**",
+  "crates/jeryu-ci-compiler/**",
+  "crates/jeryu-ci-scheduler/**",
+  "crates/jeryu-runner-core/**",
+  "crates/jeryu-runner-native/**",
+  "crates/jeryu-runner-microvm/**",
+  "crates/jeryu-runner-oci/**",
+  "crates/jeryu-runner-protocol/**",
+  "crates/jeryu-runner-registry/**",
+  "crates/jeryu-runnerd/**",
+  "crates/jeryu-sandbox-linux/**",
+  "crates/jeryu-agentbridge/**",
+  "crates/jeryu-agent-auth/**",
+  "crates/jeryu-agent-stream/**",
+  "crates/jeryu-egress/**",
+  "crates/jeryu-artifact-metadata/**",
+  "crates/jeryu-cache-policy/**",
+  "crates/jeryu-ci-governor/**",
+  "crates/jeryu-phase7-cli/**",
+  "bins/jeryu-ci-bin/**",
+  "tests/fixtures/github/**",
+  "tests/fixtures/native/**",
+  "tests/sandbox_escape_matrix.sh",
+  "examples/jobs/**",
+  "ops/agent-sandbox/**",
+  "images/agent-sandbox/**",
+  "policies/**",
+  "configs/runnerd.toml",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-cache"
+name = "jeryu-cache"
+github_slug = "neverhuman/jeryu-cache"
+jeryu_slug = "jeryu/jeryu-cache"
+profile = "rust-workspace"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-cache-v4.0.0-split.0"
+required_check = "jeryu-cache/required"
+note = "JeryuCache policy, CAS, receipts, and adversarial poisoning tests."
+cargo_members = [
+  "crates/jeryu-cache-core",
+  "crates/jeryu-cache-service",
+  "crates/jeryu-cache-cli",
+  "crates/jeryu-cache-adversary",
+  "crates/jeryu-cache",
+]
+copy_paths = [
+  "crates/jeryu-cache-core",
+  "crates/jeryu-cache-service",
+  "crates/jeryu-cache-cli",
+  "crates/jeryu-cache-adversary",
+  "crates/jeryu-cache",
+  "tests/cache_poisoning_matrix.sh",
+  "fixtures/cache-poisoning",
+  "config/jeryu-cache-policy.toml",
+  "policies/cache-laws.toml",
+  "examples/cache-key-material.json",
+]
+source_paths = [
+  "crates/jeryu-cache-core/**",
+  "crates/jeryu-cache-service/**",
+  "crates/jeryu-cache-cli/**",
+  "crates/jeryu-cache-adversary/**",
+  "crates/jeryu-cache/**",
+  "tests/cache_poisoning_matrix.sh",
+  "fixtures/cache-poisoning/**",
+  "config/jeryu-cache-policy.toml",
+  "policies/cache-laws.toml",
+  "examples/cache-key-material.json",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-intelligence"
+name = "jeryu-intelligence"
+github_slug = "neverhuman/jeryu-intelligence"
+jeryu_slug = "jeryu/jeryu-intelligence"
+profile = "rust-workspace"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-intelligence-v4.0.0-split.0"
+required_check = "jeryu-intelligence/required"
+note = "Codegraph, RustJet, MCP intelligence, review, and autonomy analysis."
+cargo_members = [
+  "crates/jeryu-codegraph",
+  "crates/jeryu-rustjet",
+  "crates/jeryu-rustjet-cli",
+  "crates/jeryu-mcp",
+  "crates/jeryu-review",
+  "crates/jeryu-autonomy",
+]
+copy_paths = [
+  "crates/jeryu-codegraph",
+  "crates/jeryu-rustjet",
+  "crates/jeryu-rustjet-cli",
+  "crates/jeryu-mcp",
+  "crates/jeryu-review",
+  "crates/jeryu-autonomy",
+  "fixtures/rust-small",
+  "docs/codegraph-oracle.md",
+  "docs/codegraph-tool-build.md",
+  "ops/ci/codegraph-oracle.sh",
+  "ops/ci/codegraph-tool-build.sh",
+]
+source_paths = [
+  "crates/jeryu-codegraph/**",
+  "crates/jeryu-rustjet/**",
+  "crates/jeryu-rustjet-cli/**",
+  "crates/jeryu-mcp/**",
+  "crates/jeryu-review/**",
+  "crates/jeryu-autonomy/**",
+  "fixtures/rust-small/**",
+  "docs/codegraph-oracle.md",
+  "docs/codegraph-tool-build.md",
+  "ops/ci/codegraph-oracle.sh",
+  "ops/ci/codegraph-tool-build.sh",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-web"
+name = "jeryu-web"
+github_slug = "neverhuman/jeryu-web"
+jeryu_slug = "jeryu/jeryu-web"
+profile = "node-frontend"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-web-v4.0.0-split.0"
+required_check = "jeryu-web/required"
+note = "Vite/React/TypeScript app, rendered UX QA, and generated contract mirror."
+cargo_members = []
+copy_paths = [
+  "apps/web",
+  "ux-qa",
+  "packages/ux-qa",
+  "contracts/generated",
+  "contracts/AGENTS.md",
+  "package.json",
+  "tsconfig.json",
+]
+source_paths = [
+  "apps/web/**",
+  "ux-qa/**",
+  "packages/ux-qa/**",
+  "contracts/generated/**",
+  "contracts/AGENTS.md",
+  "package.json",
+  "tsconfig.json",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-release-ops"
+name = "jeryu-release-ops"
+github_slug = "neverhuman/jeryu-release-ops"
+jeryu_slug = "jeryu/jeryu-release-ops"
+profile = "rust-workspace"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-release-ops-v4.0.0-split.0"
+required_check = "jeryu-release-ops/required"
+note = "Release, signing, governance, observability, and compliance tooling."
+cargo_members = [
+  "crates/jeryu-signing",
+  "crates/jeryu-signrail",
+  "crates/jeryu-wsversion",
+  "crates/jeryu-repogate",
+  "crates/jeryu-mapcheck",
+  "crates/jeryu-evidence",
+  "crates/jeryu-obs",
+  "crates/jeryu-bench",
+  "crates/jeryu-ops",
+  "crates/jeryu-phase11-core",
+  "crates/jeryu-phase11-audit",
+  "crates/jeryu-compliance-export",
+  "crates/jeryu-lifecycle",
+  "crates/jeryu-tenant",
+  "crates/jeryu-kernel",
+  "crates/jeryu-replay-verifier",
+  "crates/jeryu-git-guard",
+  "bins/jeryu-phase11-bin",
+]
+copy_paths = [
+  "crates/jeryu-signing",
+  "crates/jeryu-signrail",
+  "crates/jeryu-wsversion",
+  "crates/jeryu-repogate",
+  "crates/jeryu-mapcheck",
+  "crates/jeryu-evidence",
+  "crates/jeryu-obs",
+  "crates/jeryu-bench",
+  "crates/jeryu-ops",
+  "crates/jeryu-phase11-core",
+  "crates/jeryu-phase11-audit",
+  "crates/jeryu-compliance-export",
+  "crates/jeryu-lifecycle",
+  "crates/jeryu-tenant",
+  "crates/jeryu-kernel",
+  "crates/jeryu-replay-verifier",
+  "crates/jeryu-git-guard",
+  "bins/jeryu-phase11-bin",
+  "bench",
+  "dashboards",
+  "ops/signrail-verify",
+  "ops/upgrade",
+  "ops/bench",
+  "ops/security",
+  "ops/chaos",
+  "tools",
+  "fixtures/upgrade",
+  "fixtures/security",
+  "fixtures/chaos",
+  "fixtures/sso",
+  "fixtures/benchmarks",
+  "configs/signrail.example.toml",
+]
+source_paths = [
+  "crates/jeryu-signing/**",
+  "crates/jeryu-signrail/**",
+  "crates/jeryu-wsversion/**",
+  "crates/jeryu-repogate/**",
+  "crates/jeryu-mapcheck/**",
+  "crates/jeryu-evidence/**",
+  "crates/jeryu-obs/**",
+  "crates/jeryu-bench/**",
+  "crates/jeryu-ops/**",
+  "crates/jeryu-phase11-core/**",
+  "crates/jeryu-phase11-audit/**",
+  "crates/jeryu-compliance-export/**",
+  "crates/jeryu-lifecycle/**",
+  "crates/jeryu-tenant/**",
+  "crates/jeryu-kernel/**",
+  "crates/jeryu-replay-verifier/**",
+  "crates/jeryu-git-guard/**",
+  "bins/jeryu-phase11-bin/**",
+  "bench/**",
+  "dashboards/**",
+  "ops/signrail-verify/**",
+  "ops/upgrade/**",
+  "ops/bench/**",
+  "ops/security/**",
+  "ops/chaos/**",
+  "tools/**",
+  "fixtures/upgrade/**",
+  "fixtures/security/**",
+  "fixtures/chaos/**",
+  "fixtures/sso/**",
+  "fixtures/benchmarks/**",
+  "configs/signrail.example.toml",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-deploy"
+name = "jeryu-deploy"
+github_slug = "neverhuman/jeryu-deploy"
+jeryu_slug = "jeryu/jeryu-deploy"
+profile = "deploy"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = false
+current_tag = "jeryu-deploy-v4.0.0-split.0"
+required_check = "jeryu-deploy/required"
+note = "Integration, end-user binary build, split lock, and release bundle logic."
+cargo_members = [
+  "crates/jeryu-api",
+  "crates/jeryu-cli",
+]
+copy_paths = [
+  "crates/jeryu-api",
+  "crates/jeryu-cli",
+  ".github",
+  "ci-fast-push.sh",
+  "ops",
+  "scripts",
+  "tests",
+  "examples",
+  "config",
+  "configs",
+  "policies",
+  "images",
+  "docs",
+  "agent",
+  "apps/web/dist",
+]
+source_paths = [
+  "crates/jeryu-api/**",
+  "crates/jeryu-cli/**",
+  ".github/**",
+  "ci-fast-push.sh",
+  "ops/**",
+  "scripts/**",
+  "tests/**",
+  "examples/**",
+  "config/**",
+  "configs/**",
+  "policies/**",
+  "images/**",
+  "docs/**",
+  "agent/**",
+  "Cargo.toml",
+  "Cargo.lock",
+  "Justfile",
+]

@@ -1,0 +1,6 @@
+schema_version = "1.0.0"
+workspace = "jeryu"
+minimum_score = 85
+hard_findings_allowed = 0
+required_tool = "jankurai"
+required_tool_version = "1.6.10"

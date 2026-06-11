@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+workspace = "jeryu"
+profile = "public-portal"
+required_check = "jeryu/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+
+]
+
+[python]
+allowed_non_product_paths = ["ops/split/"]

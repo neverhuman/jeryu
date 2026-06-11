@@ -1,0 +1,32 @@
+{
+  "owners": {
+    ".cargo/": "workspace",
+    ".config/": "workspace",
+    ".dockerignore": "workspace",
+    ".github/": "ops",
+    ".github/**": "ops",
+    ".gitignore": "workspace",
+    ".jankurai/": "audit",
+    ".jankurai/**": "audit",
+    "AGENTS.md": "split",
+    "CHANGELOG.md": "release",
+    "Cargo.lock": "workspace",
+    "Cargo.toml": "workspace",
+    "Justfile": "workspace",
+    "LICENSE": "workspace",
+    "README.md": "docs",
+    "VERSION": "release",
+    "agent/": "agent",
+    "deny.toml": "workspace",
+    "docs/": "docs",
+    "ops/": "ops",
+    "ops/ci/**": "ops",
+    "ops/git-hooks/": "ops",
+    "repos.manifest.toml": "split",
+    "rust-toolchain.toml": "workspace",
+    "scripts/": "ops",
+    "scripts/**": "ops",
+    "tests/": "tests"
+  },
+  "workspace": "jeryu"
+}
