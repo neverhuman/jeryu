@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
 
+env:
+  JANKURAI_REPO: "https://github.com/neverhuman/jankurai.git"
+  JANKURAI_TAG: "v1.6.10-deadlang-precision"
+  JANKURAI_REV: "68bd6114373cf407a930011b76669af306cb0cb1"
+
 permissions:
   contents: read
 
@@ -19,16 +24,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-      - name: Fast lane
-        run: bash ops/ci/fast.sh # cargo check
-      - name: Check lane
-        run: bash ops/ci/check.sh
-      - name: Score lane
-        run: bash ops/ci/score.sh # jankurai audit repo-score
-      - name: Security lane
-        run: bash ops/ci/security.sh # gitleaks cargo audit npm audit syft
-      - name: Artifact support
-        run: bash ops/ci/artifact_support.sh
+      - name: Ensure pinned jankurai
+        run: bash ops/ci/ensure-jankurai.sh
+      - name: PR CI (canonical gate)
+        run: bash ops/ci/pr-ci.sh
       - name: Upload audit artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
