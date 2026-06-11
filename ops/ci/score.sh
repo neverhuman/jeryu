@@ -23,6 +23,14 @@ import sys
 from pathlib import Path
 report = json.loads(Path(".jankurai/repo-score.json").read_text())
 score = int(report.get("score") or 0)
+# Per-repo floor comes from the audit policy (default 85): profile-calibrated,
+# e.g. the public-portal scaffold has no product code for several categories.
+floor = 85
+try:
+    import tomllib
+    floor = int(tomllib.loads(Path("agent/audit-policy.toml").read_text()).get("minimum_score", 85))
+except Exception:
+    pass
 caps = report.get("caps_applied") or report.get("caps") or []
 decision = report.get("decision") if isinstance(report.get("decision"), dict) else {}
 hard = decision.get("hard_findings", report.get("hard_findings", 0))
@@ -31,8 +39,8 @@ if isinstance(hard, list):
 else:
     hard_count = int(hard or 0)
 errors = []
-if score < 85:
-    errors.append(f"score {score} is below 85")
+if score < floor:
+    errors.append(f"score {score} is below {floor}")
 if caps:
     errors.append(f"caps present: {', '.join(str(item) for item in caps)}")
 if hard_count:

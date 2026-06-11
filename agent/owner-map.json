@@ -26,7 +26,10 @@
     "rust-toolchain.toml": "workspace",
     "scripts/": "ops",
     "scripts/**": "ops",
-    "tests/": "tests"
+    "tests/": "tests",
+    "ops/ci/": "ops",
+    "ops/split/": "split",
+    "ops/AGENTS.md": "ops"
   },
   "workspace": "jeryu"
 }

@@ -124,6 +124,31 @@
       "command": "just check && just score",
       "lane": "check",
       "purpose": "verify negative proof evidence remains routed"
+    },
+    "ops/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify ops wrappers parse and stay locally reproducible"
+    },
+    "ops/ci/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local CI wrappers are reproducible and audit-visible"
+    },
+    "ops/split/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify split-family tooling parses and stays routed"
+    },
+    "scripts/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify installer and clone-family scripts parse and stay local"
+    },
+    "ops/AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify ops guidance stays routed through the score lane"
     }
   },
   "workspace": "jeryu"

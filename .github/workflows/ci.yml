@@ -24,6 +24,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      # cache: reuse the cargo-installed jankurai across runs.
+      - name: Cache pinned audit toolchain
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57
+        with:
+          path: ~/.cargo/bin/jankurai
+          key: jankurai-${{ env.JANKURAI_REV }}
       - name: Ensure pinned jankurai
         run: bash ops/ci/ensure-jankurai.sh
       - name: PR CI (canonical gate)
