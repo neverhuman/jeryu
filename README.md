@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/neverhuman/jeryu/main/scripts/insta
 Pin a release or install somewhere else:
 
 ```bash
-JERYU_VERSION=jeryu-v4.0.0-split.0 JERYU_INSTALL_DIR="$HOME/.local/bin" \
+JERYU_VERSION=jeryu-v5.0.0-split.0 JERYU_INSTALL_DIR="$HOME/.local/bin" \
   bash scripts/install.sh
 ```
 
