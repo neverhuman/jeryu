@@ -17,6 +17,8 @@ required_repos = [
   "jeryu-web",
   "jeryu-release-ops",
   "jeryu-deploy",
+  "jeryu-tool",
+  "jeryu-tool-finder",
 ]
 
 shared_source_paths = [
@@ -496,3 +498,39 @@ source_paths = [
   "Cargo.lock",
   "Justfile",
 ]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-tool"
+name = "jeryu-tool"
+github_slug = "neverhuman/jeryu-tool"
+jeryu_slug = "jeryu/jeryu-tool"
+profile = "public-portal"
+default_branch = "main"
+rollout_wave = 1
+has_jeryu_std = true
+onboarded = false
+mirror_github_main = true
+current_tag = "jeryu-tool-v5.1.0-split.0"
+required_check = "jeryu-tool/required"
+note = "Audit control plane: jankurai pin manifest, generator, host installer, default policy, tool catalog."
+cargo_members = []
+copy_paths = []
+source_paths = []
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-tool-finder"
+name = "jeryu-tool-finder"
+github_slug = "neverhuman/jeryu-tool-finder"
+jeryu_slug = "jeryu/jeryu-tool-finder"
+profile = "public-portal"
+default_branch = "main"
+rollout_wave = 1
+has_jeryu_std = true
+onboarded = false
+mirror_github_main = true
+current_tag = "jeryu-tool-finder-v5.1.0-split.0"
+required_check = "jeryu-tool-finder/required"
+note = "Cross-repo tool-discovery: scans all repos for duplicated code, proposes tools into jeryu-tool."
+cargo_members = []
+copy_paths = []
+source_paths = []
