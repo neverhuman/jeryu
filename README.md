@@ -79,6 +79,7 @@ already-cloned portal checkout.
 | `jeryu-ci-runner` | Split member | `neverhuman/jeryu-ci-runner` | CI IR, scheduler, runner fabric, workcells, sandboxing, agent execution substrate. |
 | `jeryu-cache` | Split member | `neverhuman/jeryu-cache` | JeryuCache policy, CAS, receipts, and adversarial poisoning tests. |
 | `jeryu-intelligence` | Split member | `neverhuman/jeryu-intelligence` | Codegraph, RustJet, MCP intelligence, review, and autonomy analysis. |
+| `jeryu-jira` | Split member | `neverhuman/jeryu-jira` | Work Tracker model, SQLite store, generated contracts, and issue bridge DTOs. |
 | `jeryu-web` | Split member | `neverhuman/jeryu-web` | Vite/React/TypeScript app, rendered UX QA, and generated contract mirror. |
 | `jeryu-release-ops` | Split member | `neverhuman/jeryu-release-ops` | Release, signing, governance, observability, and compliance tooling. |
 | `jeryu-deploy` | Split member | `neverhuman/jeryu-deploy` | Integration, end-user binary build, split lock, and release bundle logic. |

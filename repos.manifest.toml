@@ -14,6 +14,7 @@ required_repos = [
   "jeryu-ci-runner",
   "jeryu-cache",
   "jeryu-intelligence",
+  "jeryu-jira",
   "jeryu-web",
   "jeryu-release-ops",
   "jeryu-deploy",
@@ -305,6 +306,36 @@ source_paths = [
   "docs/codegraph-tool-build.md",
   "ops/ci/codegraph-oracle.sh",
   "ops/ci/codegraph-tool-build.sh",
+]
+
+[[repo]]
+path = "/home/ubuntu/jeryu-split/jeryu-jira"
+name = "jeryu-jira"
+github_slug = "neverhuman/jeryu-jira"
+jeryu_slug = "jeryu/jeryu-jira"
+profile = "rust-workspace"
+default_branch = "main"
+rollout_wave = 0
+has_jeryu_std = true
+onboarded = true
+mirror_github_main = true
+current_tag = "jeryu-jira-v5.0.0-split.0"
+required_check = "jeryu-jira/required"
+note = "Work Tracker model, SQLite store, generated contracts, and issue bridge DTOs."
+cargo_members = [
+  "crates/jeryu-jira",
+]
+copy_paths = [
+  "crates/jeryu-jira",
+  "contracts/generated",
+  "contracts/AGENTS.md",
+  "db",
+]
+source_paths = [
+  "crates/jeryu-jira/**",
+  "contracts/generated/**",
+  "contracts/AGENTS.md",
+  "db/**",
 ]
 
 [[repo]]
