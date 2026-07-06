@@ -19,8 +19,6 @@ required_repos = [
   "jeryu-web",
   "jeryu-release-ops",
   "jeryu-deploy",
-  "jeryu-tool",
-  "jeryu-tool-finder",
 ]
 
 shared_source_paths = [
@@ -70,7 +68,7 @@ rollout_wave = 0
 has_jeryu_std = true
 onboarded = true
 mirror_github_main = true
-current_tag = "jeryu-core-v5.0.0-split.0"
+current_tag = "jeryu-core-v5.0.0-split.1"
 required_check = "jeryu-core/required"
 note = "Forge/domain truth, git storage, read models, TUI, durable DB migrations."
 cargo_members = [
