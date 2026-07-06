@@ -3,6 +3,7 @@
 schema_version = "1"
 workers = 40
 source_root = "/home/ubuntu/jeryu"
+source_git_dir = "/home/ubuntu/.local/share/jeryu/git/jeryu/jeryu-monorepo.git"
 source_sha = "cbecf7caa0e932c76a341b2521e66e911233860d"
 split_root = "/home/ubuntu/jeryu-split"
 repo_family = "jeryu-split"
