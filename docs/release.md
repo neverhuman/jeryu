@@ -21,3 +21,12 @@ Before a release or split tag is promoted:
 Rollback uses the previous known-good split tag and its artifact evidence. Do
 not overwrite tags; publish a new repair tag or restore consumers to the last
 verified tag.
+
+## Auditor-only CI cutovers
+
+Changing the governed auditor is not a product release and leaves `VERSION`,
+split tags, and product artifacts unchanged. Its release gate requires the
+exact protected `jeryu-tool` source/tag/binary receipt, clean exact-head CI,
+and independent approval before protected merge. The backup, monitoring,
+rate-limit or abuse, checksum, SBOM, provenance, and rollback controls above
+remain mandatory for any later product promotion.
