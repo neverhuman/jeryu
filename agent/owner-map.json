@@ -26,6 +26,7 @@
     "rust-toolchain.toml": "workspace",
     "scripts/": "ops",
     "scripts/**": "ops",
+    "tools/": "ops",
     "tests/": "tests",
     "ops/ci/": "ops",
     "ops/split/": "split",

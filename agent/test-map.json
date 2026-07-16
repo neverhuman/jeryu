@@ -145,6 +145,11 @@
       "lane": "check",
       "purpose": "verify installer and clone-family scripts parse and stay local"
     },
+    "tools/": {
+      "command": "just security && just score",
+      "lane": "security",
+      "purpose": "verify the canonical supply-chain wrapper and its receipt stay fail-closed"
+    },
     "ops/AGENTS.md": {
       "command": "just score",
       "lane": "score",
