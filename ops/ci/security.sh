@@ -30,7 +30,24 @@ if find . -path './.git' -prune -o -name '.env' -type f -print | grep -q .; then
   printf 'security check failed: committed .env file found\n' >&2
   exit 1
 fi
-cat > target/security/evidence.json <<'JSON'
-{"schema_version":"jeryu.split.security/v1","checks":["gitleaks","actionlint","env-file"]}
+cargo_audit_status="skipped-no-lock"
+if [[ -f Cargo.lock ]] && command -v cargo-audit >/dev/null 2>&1; then
+  if cargo audit --no-fetch --format json > target/security/cargo-audit.json 2>/dev/null; then
+    cargo_audit_status="clean"
+  else
+    cargo_audit_status="findings-or-offline-db-unavailable"
+  fi
+fi
+sbom_status="skipped-tool-unavailable"
+if command -v syft >/dev/null 2>&1; then
+  if syft dir:. --exclude './target/**' --exclude './.git/**' \
+    -o spdx-json=target/security/jeryu.spdx.json >/dev/null 2>&1; then
+    sbom_status="generated"
+  else
+    sbom_status="generation-failed"
+  fi
+fi
+cat > target/security/evidence.json <<JSON
+{"schema_version":"jeryu.split.security/v1","checks":["gitleaks-detect","actionlint","env-file","cargo-audit-no-fetch","syft-sbom"],"cargo_audit":"${cargo_audit_status}","sbom":"${sbom_status}"}
 JSON
 printf 'security ok\n'
