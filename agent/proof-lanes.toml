@@ -1,19 +1,71 @@
-[lanes.fast]
-required = ["just fast"]
-blocks_merge = true
+[[lane]]
+name = "fast"
+command = "just fast"
+purpose = "portal metadata and workspace smoke check"
+requires_network = false
 
-[lanes.check]
-required = ["just check"]
-blocks_merge = true
+[[lane]]
+name = "check"
+command = "just check"
+purpose = "manifest, shell, hosted-source, and security hostile checks"
+requires_network = false
 
-[lanes.score]
-required = ["just score"]
-blocks_merge = true
+[[lane]]
+name = "score"
+command = "just score"
+purpose = "pinned Jankurai repository score and hard-finding gate"
+requires_network = false
 
-[lanes.security]
-required = ["just security"]
-blocks_merge = true
+[[lane]]
+name = "security"
+command = "just security"
+purpose = "required secret, workflow, tool-custody, advisory, and SBOM checks"
+requires_network = false
 
-[lanes.artifact-support]
-required = ["just artifact-support"]
-blocks_merge = false
+[[lane]]
+name = "artifact-support"
+command = "just artifact-support"
+purpose = "source artifact support metadata"
+requires_network = false
+
+[[lane]]
+name = "hostile-checks"
+command = "bash tests/clone-family-hostiles.sh && bash tests/security-lane-hostiles.sh"
+purpose = "hosted-origin and fail-closed scanner negative-path coverage"
+requires_network = false
+
+[[lane]]
+name = "fast-check"
+command = "just fast && just check"
+purpose = "workflow and metadata smoke-check routing"
+requires_network = false
+
+[[lane]]
+name = "fast-check-score"
+command = "just fast && just check && just score"
+purpose = "CI and command-wrapper audit routing"
+requires_network = false
+
+[[lane]]
+name = "check-score"
+command = "just check && just score"
+purpose = "documentation and hostile-test audit routing"
+requires_network = false
+
+[[lane]]
+name = "security-score"
+command = "just security && just score"
+purpose = "supply-chain implementation and audit routing"
+requires_network = false
+
+[[lane]]
+name = "ci"
+command = "bash ops/ci/pr-ci.sh"
+purpose = "canonical hosted required-check surface"
+requires_network = false
+
+[[lane]]
+name = "ci-local"
+command = "bash scripts/ci-local.sh"
+purpose = "complete local parity wrapper for the hosted gate"
+requires_network = false

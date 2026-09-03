@@ -12,7 +12,7 @@ score:
   ./ops/ci/score.sh # jankurai audit repo-score
 
 security:
-  ./ops/ci/security.sh # gitleaks cargo audit npm audit syft
+  ./ops/ci/security.sh # required gitleaks/actionlint, optional-by-shape cargo audit, required syft
 
 artifact-support:
   ./ops/ci/artifact_support.sh

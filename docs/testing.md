@@ -8,8 +8,19 @@ Use the local CI entrypoints before pushing changes:
 - `just security`
 - `just artifact-support`
 
-`scripts/ci-local.sh` delegates to the same `ops/ci/*.sh` lanes used by the
-GitHub workflow. `scripts/ci-doctor.sh` checks the required local tools.
+`scripts/ci-local.sh` executes the canonical `ops/ci/pr-ci.sh` gate used for
+the hosted `jeryu/required` check. `scripts/ci-doctor.sh` checks the governed
+Jankurai identity. `just check` also runs hostile tests that prove family
+cloning rejects malformed hosted slugs, wrong origins, dirty or symlinked
+checkouts, and that required security scanners cannot fail or disappear while
+the lane reports green.
+
+Security repair evidence is written as `jeryu.split.security/v2` JSON to both
+`target/jankurai/security/evidence.json` and `target/security/evidence.json`.
+Each check records `name`, `status`, `policy`, and a bounded `detail`; the
+top-level `conclusion` is `failure` whenever any check fails. After repairing a
+failure, rerun `bash tests/security-lane-hostiles.sh`, then `just security`, and
+compare the exact evidence file before running the canonical PR gate.
 
 Agent-readable exception guidance:
 
