@@ -1,0 +1,1160 @@
+use std::fs;
+use std::os::unix::fs::PermissionsExt;
+
+use chrono::Duration;
+use jeryu_core::{
+    CheckConclusion, CheckRunStatus, CommitStatusState, CreateCheckRunRequest,
+    CreateCommentRequest, CreateCommitStatusRequest, CreateIssueRequest, CreateLabelRequest,
+    CreateOrganizationRequest, CreatePullRequestRequest, CreateRepositoryRequest,
+    CreateReviewRequest, CreateTeamRequest, CreateUserRequest, CreateWebhookRequest, ForgeCore,
+    ForgeError, PullRequestCommit, RepoAccessLevel, ReviewCommentInput, ReviewState,
+    SetBranchProtectionRequest, UserRole, WebhookConfig, effective_reviews_for_head,
+};
+use rusqlite::Connection;
+
+#[test]
+fn auth_accounts_sessions_tokens_and_grants_round_trip_sqlite() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let session_token;
+    let pat_secret;
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: "jeryu-core".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let account = core
+            .create_account("jordanh", "correct horse battery", UserRole::User)
+            .unwrap();
+        assert_eq!(account.login, "jordanh");
+        assert_eq!(account.role, UserRole::User);
+        assert!(!account.must_change_password);
+        assert!(
+            matches!(
+                core.authenticate_password("jordanh", "bad password"),
+                Err(ForgeError::Validation(_))
+            ),
+            "wrong passwords must not authenticate"
+        );
+        assert!(
+            core.authenticate_password("jordanh", "correct horse battery")
+                .is_ok()
+        );
+        let session = core.create_session("jordanh").unwrap();
+        assert!(
+            core.session_csrf_matches(&session.token, &session.session.csrf_token),
+            "session carries a per-session CSRF token"
+        );
+        session_token = session.token;
+        let pat = core
+            .create_personal_access_token("jordanh", "cli", None)
+            .unwrap();
+        assert!(pat.token.expires_at.is_some(), "PATs default to an expiry");
+        pat_secret = pat.secret;
+        core.grant_repo_access(
+            "jeryu-admin",
+            "jordanh",
+            "jeryu",
+            "jeryu-core",
+            RepoAccessLevel::Write,
+        )
+        .unwrap();
+    }
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    let session_account = reopened
+        .authenticate_session(&session_token)
+        .expect("session survives reopen");
+    assert_eq!(session_account.login, "jordanh");
+    let token_account = reopened
+        .authenticate_personal_access_token(&pat_secret)
+        .expect("PAT survives reopen");
+    assert_eq!(token_account.login, "jordanh");
+    assert!(reopened.user_can_read_repo("jordanh", "jeryu", "jeryu-core"));
+    assert!(reopened.user_can_write_repo("jordanh", "jeryu", "jeryu-core"));
+    assert!(!reopened.user_can_admin_repo("jordanh", "jeryu", "jeryu-core"));
+    let grants = reopened.list_repo_access("jeryu", "jeryu-core");
+    assert_eq!(grants.len(), 1);
+    assert_eq!(grants[0].access, RepoAccessLevel::Write);
+    let tokens = reopened.list_personal_access_tokens("jordanh").unwrap();
+    assert_eq!(tokens.len(), 1);
+    assert_eq!(tokens[0].name, "cli");
+}
+
+#[test]
+fn session_ttls_use_defaults_custom_values_and_reject_invalid_values() {
+    let core = ForgeCore::new();
+    core.create_account("jordanh", "correct horse battery", UserRole::User)
+        .unwrap();
+
+    let default_session = core.create_session("jordanh").unwrap();
+    assert_eq!(
+        default_session.session.expires_at - default_session.session.created_at,
+        Duration::days(14)
+    );
+
+    let remembered_session = core
+        .create_session_with_ttl("jordanh", Duration::days(30))
+        .unwrap();
+    assert_eq!(
+        remembered_session.session.expires_at - remembered_session.session.created_at,
+        Duration::days(30)
+    );
+
+    assert!(matches!(
+        core.create_session_with_ttl("jordanh", Duration::zero()),
+        Err(ForgeError::Validation(_))
+    ));
+    assert!(matches!(
+        core.create_session_with_ttl("jordanh", Duration::seconds(-1)),
+        Err(ForgeError::Validation(_))
+    ));
+}
+
+#[test]
+fn new_user_has_no_repo_access_until_granted() {
+    let core = ForgeCore::new();
+    core.create_repository(
+        "jeryu",
+        CreateRepositoryRequest {
+            name: "jeryu-web".to_string(),
+            private: true,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    core.create_account("jepsont", "correct horse battery", UserRole::User)
+        .unwrap();
+    assert!(!core.user_can_read_repo("jepsont", "jeryu", "jeryu-web"));
+    core.grant_repo_access(
+        "jeryu-admin",
+        "jepsont",
+        "jeryu",
+        "jeryu-web",
+        RepoAccessLevel::Read,
+    )
+    .unwrap();
+    assert!(core.user_can_read_repo("jepsont", "jeryu", "jeryu-web"));
+    assert!(!core.user_can_write_repo("jepsont", "jeryu", "jeryu-web"));
+}
+
+#[test]
+fn reset_password_forces_change_and_revokes_sessions_and_pats() {
+    let core = ForgeCore::new();
+    core.create_account("jordanh", "correct horse battery", UserRole::User)
+        .unwrap();
+    let session = core.create_session("jordanh").unwrap().token;
+    let pat = core
+        .create_personal_access_token("jordanh", "cli", None)
+        .unwrap()
+        .secret;
+    let reset = core
+        .reset_account_password("jordanh", "new temporary password")
+        .unwrap();
+    assert!(reset.must_change_password);
+    assert!(core.authenticate_session(&session).is_none());
+    assert!(core.authenticate_personal_access_token(&pat).is_none());
+
+    let logged_in = core
+        .authenticate_password("jordanh", "new temporary password")
+        .unwrap();
+    assert!(logged_in.must_change_password);
+    let changed = core
+        .change_account_password(
+            "jordanh",
+            "new temporary password",
+            "permanent password value",
+        )
+        .unwrap();
+    assert!(!changed.must_change_password);
+}
+
+#[test]
+fn checked_repo_grants_require_repo_admin_access() {
+    let core = ForgeCore::new();
+    core.create_repository(
+        "jeryu",
+        CreateRepositoryRequest {
+            name: "jeryu-core".to_string(),
+            private: true,
+            description: None,
+            default_branch: Some("main".to_string()),
+        },
+    )
+    .unwrap();
+    core.create_account("jeryu-admin", "correct horse battery", UserRole::Admin)
+        .unwrap();
+    core.create_account("jordanh", "correct horse battery", UserRole::User)
+        .unwrap();
+    core.create_account("jepsont", "correct horse battery", UserRole::User)
+        .unwrap();
+    assert!(matches!(
+        core.grant_repo_access_checked(
+            "jordanh",
+            "jepsont",
+            "jeryu",
+            "jeryu-core",
+            RepoAccessLevel::Read,
+        ),
+        Err(ForgeError::BranchProtection(_))
+    ));
+    core.grant_repo_access_checked(
+        "jeryu-admin",
+        "jepsont",
+        "jeryu",
+        "jeryu-core",
+        RepoAccessLevel::Read,
+    )
+    .unwrap();
+    assert!(core.user_can_read_repo("jepsont", "jeryu", "jeryu-core"));
+}
+
+#[test]
+fn sqlite_store_round_trips_core_forge_resources() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let pr_number;
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_user(CreateUserRequest {
+            login: "alice".to_string(),
+            name: Some("Alice".to_string()),
+            email: Some("alice@example.invalid".to_string()),
+        })
+        .unwrap();
+        core.create_organization(CreateOrganizationRequest {
+            login: "neverhuman".to_string(),
+            display_name: Some("Neverhuman".to_string()),
+        })
+        .unwrap();
+        core.create_team(
+            "neverhuman",
+            CreateTeamRequest {
+                name: "Core Team".to_string(),
+                slug: Some("core".to_string()),
+                members: vec!["alice".to_string()],
+            },
+        )
+        .unwrap();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: true,
+                description: Some("local forge".to_string()),
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        core.create_label(
+            "alice",
+            "jeryu",
+            CreateLabelRequest {
+                name: "bug".to_string(),
+                color: "ff0000".to_string(),
+                description: Some("defect".to_string()),
+            },
+        )
+        .unwrap();
+        core.create_webhook(
+            "alice",
+            "jeryu",
+            CreateWebhookRequest {
+                name: "events".to_string(),
+                active: true,
+                events: vec![
+                    "issues".to_string(),
+                    "issue_comment".to_string(),
+                    "pull_request".to_string(),
+                    "pull_request_review".to_string(),
+                    "status".to_string(),
+                    "check_run".to_string(),
+                ],
+                config: WebhookConfig {
+                    url: "https://hooks.invalid/jeryu".to_string(),
+                    content_type: "json".to_string(),
+                    secret: Some("secret".to_string()),
+                },
+            },
+        )
+        .unwrap();
+        let issue = core
+            .create_issue(
+                "alice",
+                "jeryu",
+                "alice",
+                CreateIssueRequest {
+                    title: "persist issue".to_string(),
+                    body: Some("body".to_string()),
+                    labels: vec!["bug".to_string()],
+                    assignees: vec!["alice".to_string()],
+                    milestone: Some("v1".to_string()),
+                },
+            )
+            .unwrap();
+        core.add_issue_comment(
+            "alice",
+            "jeryu",
+            issue.number,
+            "alice",
+            CreateCommentRequest {
+                body: "confirmed".to_string(),
+            },
+        )
+        .unwrap();
+        core.set_branch_protection(
+            "alice",
+            "jeryu",
+            "main",
+            SetBranchProtectionRequest {
+                required_status_checks: vec!["ci/fast".to_string()],
+                required_approving_review_count: 1,
+                enforce_admins: true,
+                required_linear_history: true,
+                allow_force_pushes: false,
+                allow_deletions: false,
+                require_signed_commits: true,
+                require_jankurai_proof: true,
+            },
+        )
+        .unwrap();
+        core.set_codeowners("alice", "jeryu", "*.rs @alice")
+            .unwrap();
+        let pr = core
+            .create_pull_request(
+                "alice",
+                "jeryu",
+                "alice",
+                CreatePullRequestRequest {
+                    title: "persist pr".to_string(),
+                    body: Some("change".to_string()),
+                    head: "feature".to_string(),
+                    base: "main".to_string(),
+                    head_sha: Some("abc123".to_string()),
+                    base_sha: Some("base123".to_string()),
+                    source_repository: Some("fork-owner/jeryu".to_string()),
+                    draft: false,
+                    commits: vec![PullRequestCommit {
+                        sha: "abc123".to_string(),
+                        verified: true,
+                        parents: 1,
+                    }],
+                    changed_files: vec!["src/lib.rs".to_string()],
+                },
+            )
+            .unwrap();
+        pr_number = pr.number;
+        core.create_review(
+            "alice",
+            "jeryu",
+            pr.number,
+            "alice",
+            CreateReviewRequest {
+                body: Some("approval receipt recorded".to_string()),
+                event: ReviewState::Approved,
+                comments: vec![ReviewCommentInput {
+                    path: "src/lib.rs".to_string(),
+                    line: Some(7),
+                    body: "nice".to_string(),
+                }],
+                expected_head_sha: None,
+            },
+        )
+        .unwrap();
+        core.create_commit_status(
+            "alice",
+            "jeryu",
+            "abc123",
+            "alice",
+            CreateCommitStatusRequest {
+                state: CommitStatusState::Success,
+                context: "ci/fast".to_string(),
+                description: Some("green".to_string()),
+                target_url: Some("https://ci.invalid/build/1".to_string()),
+            },
+        )
+        .unwrap();
+        core.create_check_run(
+            "alice",
+            "jeryu",
+            CreateCheckRunRequest {
+                name: "ci/fast".to_string(),
+                head_sha: "abc123".to_string(),
+                status: Some(CheckRunStatus::Completed),
+                conclusion: Some(CheckConclusion::Success),
+                details_url: Some("https://ci.invalid/check/1".to_string()),
+                output: None,
+            },
+        )
+        .unwrap();
+    }
+
+    let raw = Connection::open(&db).unwrap();
+    let stored_head: String = raw
+        .query_row(
+            "SELECT head_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_head,
+        serde_json::to_string(&jeryu_core::GitBranchRef::new("feature", "abc123")).unwrap()
+    );
+    let stored_base: String = raw
+        .query_row(
+            "SELECT base_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_base,
+        serde_json::to_string(&jeryu_core::GitBranchRef::new("main", "base123")).unwrap()
+    );
+    let stored_commits: String = raw
+        .query_row(
+            "SELECT commits_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_commits,
+        serde_json::to_string(&vec![PullRequestCommit {
+            sha: "abc123".to_string(),
+            verified: true,
+            parents: 1,
+        }])
+        .unwrap()
+    );
+    let stored_changes: String = raw
+        .query_row(
+            "SELECT changed_files_json FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        stored_changes,
+        serde_json::to_string(&vec!["src/lib.rs".to_string()]).unwrap()
+    );
+    let issue_pull_request_json: Option<String> = raw
+        .query_row(
+            "SELECT pull_request_json FROM issues WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(issue_pull_request_json.is_none());
+    let stored_review_head: Option<String> = raw
+        .query_row(
+            "SELECT head_sha FROM reviews WHERE pull_number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored_review_head.as_deref(), Some("abc123"));
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    assert_eq!(
+        reopened.get_user("alice").unwrap().name.as_deref(),
+        Some("Alice")
+    );
+    assert_eq!(reopened.list_teams("neverhuman").unwrap().len(), 1);
+    assert_eq!(reopened.list_repositories(None).len(), 1);
+    assert_eq!(
+        reopened.list_labels("alice", "jeryu").unwrap()[0].name,
+        "bug"
+    );
+    assert_eq!(
+        reopened.list_issues("alice", "jeryu", None).unwrap().len(),
+        2
+    );
+    assert_eq!(
+        reopened.list_issue_comments("alice", "jeryu", 1).unwrap()[0].body,
+        "confirmed"
+    );
+    assert_eq!(
+        reopened
+            .list_pull_requests("alice", "jeryu", None)
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        reopened
+            .get_pull_request("alice", "jeryu", pr_number)
+            .unwrap()
+            .source_repository,
+        "fork-owner/jeryu"
+    );
+    let reopened_reviews = reopened.list_reviews("alice", "jeryu", 1).unwrap();
+    assert_eq!(reopened_reviews.len(), 1);
+    assert_eq!(reopened_reviews[0].head_sha.as_deref(), Some("abc123"));
+    assert_eq!(
+        reopened.list_review_comments("alice", "jeryu", 1).unwrap()[0].path,
+        "src/lib.rs"
+    );
+    assert_eq!(
+        reopened
+            .get_branch_protection("alice", "jeryu", "main")
+            .unwrap()
+            .required_status_checks,
+        vec!["ci/fast".to_string()]
+    );
+    assert_eq!(
+        reopened.get_codeowners("alice", "jeryu").unwrap(),
+        "*.rs @alice"
+    );
+    assert_eq!(
+        reopened
+            .combined_status("alice", "jeryu", "abc123")
+            .unwrap()
+            .state,
+        CommitStatusState::Success
+    );
+    assert_eq!(
+        reopened
+            .list_check_runs("alice", "jeryu", Some("abc123"))
+            .unwrap()
+            .total_count,
+        1
+    );
+    assert_eq!(
+        reopened.list_webhooks("alice", "jeryu").unwrap()[0].name,
+        "events"
+    );
+    assert!(
+        reopened
+            .list_webhook_deliveries("alice", "jeryu")
+            .unwrap()
+            .iter()
+            .any(|delivery| delivery.event == "issues")
+    );
+
+    let next_issue = reopened
+        .create_issue(
+            "alice",
+            "jeryu",
+            "alice",
+            CreateIssueRequest {
+                title: "next".to_string(),
+                body: None,
+                labels: Vec::new(),
+                assignees: Vec::new(),
+                milestone: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(next_issue.number, 3);
+    let next_pr = reopened
+        .create_pull_request(
+            "alice",
+            "jeryu",
+            "alice",
+            CreatePullRequestRequest {
+                title: "next pr".to_string(),
+                body: None,
+                head: "feature-2".to_string(),
+                base: "main".to_string(),
+                head_sha: Some("def456".to_string()),
+                base_sha: None,
+                source_repository: Some("fork-owner/jeryu".to_string()),
+                draft: true,
+                commits: Vec::new(),
+                changed_files: Vec::new(),
+            },
+        )
+        .unwrap();
+    assert_eq!(next_pr.number, 2);
+    assert_eq!(next_pr.source_repository, "fork-owner/jeryu");
+}
+
+#[test]
+fn review_head_and_latest_reviewer_state_survive_sqlite_reopen() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let number;
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "demo".to_string(),
+                default_branch: Some("main".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        core.set_branch_protection(
+            "alice",
+            "demo",
+            "main",
+            SetBranchProtectionRequest {
+                required_approving_review_count: 1,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        number = core
+            .create_pull_request(
+                "alice",
+                "demo",
+                "author",
+                CreatePullRequestRequest {
+                    title: "change".to_string(),
+                    head: "feature".to_string(),
+                    base: "main".to_string(),
+                    head_sha: Some("exact-head".to_string()),
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+            .number;
+        for event in [ReviewState::ChangesRequested, ReviewState::Approved] {
+            core.create_review(
+                "alice",
+                "demo",
+                number,
+                "reviewer",
+                CreateReviewRequest {
+                    body: None,
+                    event,
+                    comments: vec![],
+                    expected_head_sha: Some("exact-head".to_string()),
+                },
+            )
+            .unwrap();
+        }
+    }
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    let reviews = reopened.list_reviews("alice", "demo", number).unwrap();
+    assert_eq!(reviews.len(), 2);
+    assert!(
+        reviews
+            .iter()
+            .all(|review| review.head_sha.as_deref() == Some("exact-head"))
+    );
+    let effective = effective_reviews_for_head(&reviews, "exact-head");
+    assert_eq!(effective.len(), 1);
+    assert_eq!(effective[0].state, ReviewState::Approved);
+    assert!(
+        reopened
+            .get_pull_request("alice", "demo", number)
+            .unwrap()
+            .mergeable
+    );
+}
+
+#[test]
+fn failed_sqlite_write_rolls_back_memory_state() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "stable".to_string(),
+            private: false,
+            description: None,
+            default_branch: None,
+        },
+    )
+    .unwrap();
+
+    fs::set_permissions(&db, fs::Permissions::from_mode(0o400)).unwrap();
+    let err = core
+        .create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "rolled-back".to_string(),
+                private: false,
+                description: None,
+                default_branch: None,
+            },
+        )
+        .unwrap_err();
+    assert!(matches!(err, ForgeError::Storage(_)));
+    assert!(matches!(
+        core.get_repository("alice", "rolled-back").unwrap_err(),
+        ForgeError::NotFound(_)
+    ));
+    fs::set_permissions(&db, fs::Permissions::from_mode(0o600)).unwrap();
+}
+
+#[test]
+fn repository_visibility_persists_across_sqlite_reopen() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "visibility".to_string(),
+                private: false,
+                description: None,
+                default_branch: None,
+            },
+        )
+        .unwrap();
+        assert!(
+            core.set_repository_visibility("alice", "visibility", true)
+                .unwrap()
+                .private
+        );
+    }
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    assert!(
+        reopened
+            .get_repository("alice", "visibility")
+            .unwrap()
+            .private
+    );
+}
+
+#[test]
+fn failed_visibility_write_rolls_back_memory_state() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "stable-visibility".to_string(),
+            private: false,
+            description: None,
+            default_branch: None,
+        },
+    )
+    .unwrap();
+
+    fs::set_permissions(&db, fs::Permissions::from_mode(0o400)).unwrap();
+    let error = core
+        .set_repository_visibility("alice", "stable-visibility", true)
+        .unwrap_err();
+    assert!(matches!(error, ForgeError::Storage(_)));
+    assert!(
+        !core
+            .get_repository("alice", "stable-visibility")
+            .unwrap()
+            .private
+    );
+    fs::set_permissions(&db, fs::Permissions::from_mode(0o600)).unwrap();
+}
+
+#[test]
+fn unchanged_visibility_does_not_require_a_sqlite_write() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    core.create_repository(
+        "alice",
+        CreateRepositoryRequest {
+            name: "stable-visibility".to_string(),
+            private: false,
+            description: None,
+            default_branch: None,
+        },
+    )
+    .unwrap();
+    let before = core.get_repository("alice", "stable-visibility").unwrap();
+
+    fs::set_permissions(&db, fs::Permissions::from_mode(0o400)).unwrap();
+    let unchanged = core
+        .set_repository_visibility("alice", "stable-visibility", false)
+        .unwrap();
+    fs::set_permissions(&db, fs::Permissions::from_mode(0o600)).unwrap();
+
+    assert_eq!(unchanged, before);
+    assert_eq!(
+        core.get_repository("alice", "stable-visibility").unwrap(),
+        before
+    );
+}
+
+#[test]
+fn sqlite_open_backfills_missing_default_branch_protection() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "alice",
+            CreateRepositoryRequest {
+                name: "trunky".to_string(),
+                private: false,
+                description: None,
+                default_branch: Some("trunk".to_string()),
+            },
+        )
+        .unwrap();
+    }
+
+    let raw = Connection::open(&db).unwrap();
+    raw.execute("DELETE FROM branch_protection_rules", [])
+        .unwrap();
+    drop(raw);
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    let rule = reopened
+        .get_branch_protection("alice", "trunky", "trunk")
+        .unwrap();
+    assert!(rule.required_linear_history);
+    assert_eq!(rule.branch, "trunk");
+
+    let raw = Connection::open(&db).unwrap();
+    let persisted: i64 = raw
+        .query_row("SELECT COUNT(*) FROM branch_protection_rules", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(persisted, 1);
+}
+
+#[test]
+fn sqlite_open_backfills_pull_request_source_repository() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let created_at = "2026-06-03T00:00:00Z";
+    let repo_id = "11111111-1111-1111-1111-111111111111";
+    let issue_id = "22222222-2222-2222-2222-222222222222";
+    let pull_request_id = "33333333-3333-3333-3333-333333333333";
+
+    {
+        let raw = Connection::open(&db).unwrap();
+        raw.execute_batch(include_str!("../../../db/migrations/0001_core_forge.sql"))
+            .unwrap();
+        raw.execute_batch(include_str!(
+            "../../../db/migrations/0002_core_forge_aux.sql"
+        ))
+        .unwrap();
+        raw.execute_batch(include_str!(
+            "../../../db/migrations/0003_core_forge_readmes.sql"
+        ))
+        .unwrap();
+        raw.execute(
+            r#"
+            INSERT INTO repositories (
+              id, owner, name, full_name, private, description, default_branch,
+              archived, disabled, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, 0, NULL, ?5, 0, 0, ?6, ?6)
+            "#,
+            rusqlite::params![repo_id, "alice", "jeryu", "alice/jeryu", "main", created_at,],
+        )
+        .unwrap();
+        raw.execute(
+            r#"
+            INSERT INTO issues (
+              id, repo_id, number, title, body, state, author, labels_json,
+              assignees_json, milestone, comments, pull_request_json,
+              created_at, updated_at, closed_at
+            ) VALUES (?1, ?2, 1, ?3, NULL, 'open', ?4, '[]', '[]', NULL, 0, NULL, ?5, ?5, NULL)
+            "#,
+            rusqlite::params![issue_id, repo_id, "backfill pr", "alice", created_at],
+        )
+        .unwrap();
+        raw.execute(
+            r#"
+            INSERT INTO pull_requests (
+              id, repo_id, number, issue_number, title, body, state, draft,
+              author, head_json, base_json, mergeable, mergeable_state, merged,
+              merged_at, merge_commit_sha, commits_json, changed_files_json,
+              created_at, updated_at
+            ) VALUES (?1, ?2, 1, 1, ?3, NULL, 'open', 0, ?4, ?5, ?6, 0, 'unknown', 0,
+                     NULL, NULL, '[]', '[]', ?7, ?7)
+            "#,
+            rusqlite::params![
+                pull_request_id,
+                repo_id,
+                "backfill pr",
+                "alice",
+                serde_json::to_string(&jeryu_core::GitBranchRef::new("feature", "abc")).unwrap(),
+                serde_json::to_string(&jeryu_core::GitBranchRef::new("main", "base")).unwrap(),
+                created_at,
+            ],
+        )
+        .unwrap();
+        raw.execute_batch(
+            r#"
+            INSERT INTO repo_counters (repo_id, issue_next, pull_next)
+            VALUES ('11111111-1111-1111-1111-111111111111', 2, 2);
+            "#,
+        )
+        .unwrap();
+    }
+
+    let reopened = ForgeCore::open_sqlite(&db).unwrap();
+    let pr = reopened.get_pull_request("alice", "jeryu", 1).unwrap();
+    assert_eq!(pr.source_repository, "alice/jeryu");
+
+    let raw = Connection::open(&db).unwrap();
+    let persisted: String = raw
+        .query_row(
+            "SELECT source_repository FROM pull_requests WHERE number = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(persisted, "alice/jeryu");
+
+    drop(reopened);
+    let reopened_again = ForgeCore::open_sqlite(&db).unwrap();
+    assert_eq!(
+        reopened_again
+            .get_pull_request("alice", "jeryu", 1)
+            .unwrap()
+            .source_repository,
+        "alice/jeryu"
+    );
+}
+
+/// `family` must survive the full-rewrite persist: every mutation rewrites the
+/// whole repositories table, so a field missed in persist/load silently wipes.
+#[test]
+fn sqlite_store_round_trips_repository_family() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: "veox-nht".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let updated = core
+            .set_repository_family("jeryu", "veox-nht", Some("veox-split".to_string()))
+            .unwrap();
+        assert_eq!(updated.family.as_deref(), Some("veox-split"));
+        // Blank family is a validation error, not a silent clear.
+        let blank = core.set_repository_family("jeryu", "veox-nht", Some("  ".to_string()));
+        assert!(matches!(blank, Err(ForgeError::Validation(_))));
+        // A later unrelated mutation re-persists everything; family must ride along.
+        core.create_label(
+            "jeryu",
+            "veox-nht",
+            CreateLabelRequest {
+                name: "ops".to_string(),
+                color: "00ff00".to_string(),
+                description: None,
+            },
+        )
+        .unwrap();
+    }
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        let repo = core.get_repository("jeryu", "veox-nht").unwrap();
+        assert_eq!(repo.family.as_deref(), Some("veox-split"));
+        // Clearing also persists.
+        let cleared = core
+            .set_repository_family("jeryu", "veox-nht", None)
+            .unwrap();
+        assert_eq!(cleared.family, None);
+    }
+
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    assert_eq!(
+        core.get_repository("jeryu", "veox-nht").unwrap().family,
+        None
+    );
+    assert!(matches!(
+        core.set_repository_family("jeryu", "missing", None),
+        Err(ForgeError::NotFound(_))
+    ));
+}
+
+/// Jankurai scores must survive the full-rewrite persist, replace records for
+/// a re-ingested (branch, commit_sha), and vanish with their repository.
+#[test]
+fn sqlite_store_round_trips_jankurai_scores() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+
+    {
+        let core = ForgeCore::open_sqlite(&db).unwrap();
+        core.create_repository(
+            "jeryu",
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+        let scored = core
+            .record_jankurai_score(
+                "jeryu",
+                "jeryu",
+                jeryu_core::RecordJankuraiScoreRequest {
+                    branch: "main".to_string(),
+                    commit_sha: "abc123".to_string(),
+                    score: Some(92),
+                    hard_findings: Some(0),
+                    decision: "scored".to_string(),
+                    caps_applied: Vec::new(),
+                    report: Some(serde_json::json!({"score": 92})),
+                    tool_exit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(scored.score, Some(92));
+        // Re-ingesting the same commit replaces, not appends.
+        core.record_jankurai_score(
+            "jeryu",
+            "jeryu",
+            jeryu_core::RecordJankuraiScoreRequest {
+                branch: "main".to_string(),
+                commit_sha: "abc123".to_string(),
+                score: Some(95),
+                decision: "scored".to_string(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // A tool-failed audit records a null score without erroring.
+        core.record_jankurai_score(
+            "jeryu",
+            "jeryu",
+            jeryu_core::RecordJankuraiScoreRequest {
+                branch: "main".to_string(),
+                commit_sha: "def456".to_string(),
+                score: None,
+                decision: "tool-failed".to_string(),
+                tool_exit: Some(2),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // Out-of-range scores are rejected.
+        assert!(matches!(
+            core.record_jankurai_score(
+                "jeryu",
+                "jeryu",
+                jeryu_core::RecordJankuraiScoreRequest {
+                    branch: "main".to_string(),
+                    commit_sha: "ggg".to_string(),
+                    score: Some(101),
+                    decision: "scored".to_string(),
+                    ..Default::default()
+                },
+            ),
+            Err(ForgeError::Validation(_))
+        ));
+    }
+
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    let scores = core
+        .list_jankurai_scores("jeryu", "jeryu", Some("main"), None)
+        .unwrap();
+    assert_eq!(scores.len(), 2, "replacement kept one record per commit");
+    let latest = core
+        .latest_jankurai_score("jeryu", "jeryu", "main")
+        .unwrap();
+    assert_eq!(latest.decision, "tool-failed");
+    assert_eq!(latest.score, None);
+    assert_eq!(
+        latest.report_json.as_deref(),
+        Some(r#"{"tool_exit":2}"#),
+        "tool exit folded into the stored report"
+    );
+    let by_sha = core
+        .list_jankurai_scores("jeryu", "jeryu", None, Some("abc123"))
+        .unwrap();
+    assert_eq!(by_sha.len(), 1);
+    assert_eq!(by_sha[0].score, Some(95), "re-ingest replaced the record");
+}
+
+/// Negative authorization proof for the score boundary: scores are keyed by
+/// (owner, repo) and one owner's records must never leak through another
+/// owner's same-named repository, nor through unknown repositories.
+#[test]
+fn jankurai_scores_are_isolated_per_repository_owner() {
+    let temp = tempfile::tempdir().unwrap();
+    let db = temp.path().join("forge.sqlite");
+    let core = ForgeCore::open_sqlite(&db).unwrap();
+    for owner in ["alice", "mallory"] {
+        core.create_repository(
+            owner,
+            CreateRepositoryRequest {
+                name: "jeryu".to_string(),
+                private: true,
+                description: None,
+                default_branch: Some("main".to_string()),
+            },
+        )
+        .unwrap();
+    }
+    core.record_jankurai_score(
+        "alice",
+        "jeryu",
+        jeryu_core::RecordJankuraiScoreRequest {
+            branch: "main".to_string(),
+            commit_sha: "abc".to_string(),
+            score: Some(92),
+            decision: "scored".to_string(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    // Same repo NAME under a different owner sees nothing.
+    assert!(
+        core.list_jankurai_scores("mallory", "jeryu", None, None)
+            .unwrap()
+            .is_empty(),
+        "scores must not leak across owners"
+    );
+    assert!(
+        core.latest_jankurai_score("mallory", "jeryu", "main")
+            .is_none()
+    );
+
+    // Unknown owner/repo cannot read or write the boundary at all.
+    assert!(matches!(
+        core.list_jankurai_scores("nobody", "jeryu", None, None),
+        Err(ForgeError::NotFound(_))
+    ));
+    assert!(matches!(
+        core.record_jankurai_score(
+            "nobody",
+            "jeryu",
+            jeryu_core::RecordJankuraiScoreRequest {
+                branch: "main".to_string(),
+                commit_sha: "abc".to_string(),
+                decision: "scored".to_string(),
+                ..Default::default()
+            },
+        ),
+        Err(ForgeError::NotFound(_))
+    ));
+
+    // The owner's own records are intact and scoped.
+    let own = core
+        .list_jankurai_scores("alice", "jeryu", None, None)
+        .unwrap();
+    assert_eq!(own.len(), 1);
+    assert_eq!(own[0].owner, "alice");
+}

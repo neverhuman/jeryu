@@ -1,0 +1,23 @@
+[package]
+name = "jeryu-tui"
+version.workspace = true
+edition = "2024"
+description = "Ratatui Flight Deck for the jeryu control plane — pure projections of the jeryu-readmodel contract."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+jeryu-readmodel = { path = "../jeryu-readmodel" }
+clap = { workspace = true }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+ratatui = { version = "0.30.0", default-features = false, features = ["crossterm_0_29", "underline-color", "all-widgets", "macros", "layout-cache"] }
+crossterm = "0.29.0"
+# vt100 parses raw agent-terminal bytes into a screen grid for the live TTY pane.
+vt100.workspace = true
+# tuiwright UX-QA receipt emission (`tuiwright` module): serialize the
+# per-{tab,size,fixture} frame ledger into a deterministic JSON receipt.
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { version = "0.4" }
+
+[dev-dependencies]
+# (tests render through ratatui's TestBackend; no extra deps required)

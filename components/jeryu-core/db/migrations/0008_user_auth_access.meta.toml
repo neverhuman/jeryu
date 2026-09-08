@@ -1,0 +1,11 @@
+id = "0008_user_auth_access"
+description = "durable public portal accounts, sessions, personal access tokens, and repo grants"
+requires = ["0007_jankurai_scores"]
+rollback = "db/rollbacks/0008_user_auth_access.sql"
+backfill = "existing 0008 stores add must_change_password=0 and csrf_token='' idempotently; existing forge users are profile rows only and do not receive credentials"
+tests = [
+  "auth_accounts_sessions_tokens_and_grants_round_trip_sqlite",
+  "new_user_has_no_repo_access_until_granted",
+  "reset_password_forces_change_and_revokes_sessions_and_pats",
+  "checked_repo_grants_require_repo_admin_access",
+]

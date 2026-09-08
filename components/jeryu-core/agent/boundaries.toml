@@ -1,0 +1,29 @@
+schema_version = "1.0.0"
+workspace = "jeryu-core"
+profile = "rust-workspace"
+required_check = "jeryu-core/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+  "crates/jeryu-core",
+  "crates/domain",
+  "crates/jeryu-gitd",
+  "crates/jeryu-mirror",
+  "crates/jeryu-mirror-cli",
+  "crates/jeryu-readmodel",
+  "crates/jeryu-tui",
+  "crates/jeryu-bugtracker",
+  "crates/jeryu-enterprise",
+  "crates/jeryu-proof",
+]
+
+[python]
+allowed_non_product_paths = ["ops/split/"]
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

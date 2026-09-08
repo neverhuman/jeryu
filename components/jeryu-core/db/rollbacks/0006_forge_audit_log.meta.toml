@@ -1,0 +1,23 @@
+# jankurai:migration v1
+id = "0006_forge_audit_log_rollback"
+owner = "forge-api"
+reviewer = "forge-api"
+approval = "forge-api"
+change_type = "contract"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "contract"
+app_compatibility = "old_app_new_db"
+rollback = "db/migrations/0006_forge_audit_log.sql"
+roll_forward = "db/migrations/0006_forge_audit_log.sql"
+backup = "sqlite .backup of forge.sqlite before apply (ops runbook: ~/.jeryu/backups/)"
+restore = "restore the pre-apply .backup snapshot; the audit trail has no derived state to rebuild"
+irreversible = true
+backfill = "none; drops the append-only audit table — recorded receipts are lost"
+data_classification = "internal"
+tenant_impact = "none"
+verify = "sqlite_master no longer lists forge_audit_log; app still serves /api/v1/repos"
+tests = ["db-migration-analyze", "forge_audit_log_survives_full_state_rewrites"]

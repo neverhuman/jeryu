@@ -1,0 +1,6 @@
+id = "0009_repository_transfers_rollback"
+description = "staged non-destructive rollback for durable repository-transfer journals and aliases"
+rolls_back = "0009_repository_transfers"
+roll_forward = "db/migrations/0009_repository_transfers.sql"
+data_loss = "none; transfer journals and old-slug aliases are retained"
+verify = "rollback emits a notice; repository_transfer_journal and repository_aliases remain readable before roll-forward repair"

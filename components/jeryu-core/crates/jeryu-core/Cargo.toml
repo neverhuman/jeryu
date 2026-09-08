@@ -1,0 +1,23 @@
+[package]
+name = "jeryu-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+argon2 = { version = "0.5", features = ["std"] }
+chrono.workspace = true
+hex.workspace = true
+hmac.workspace = true
+parking_lot.workspace = true
+rand_core = { version = "0.6", features = ["getrandom"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

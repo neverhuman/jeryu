@@ -1,0 +1,22 @@
+# jankurai:migration v1
+id = "0011_review_head_sha"
+owner = "forge-api"
+reviewer = "forge-api"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "old_app_new_db,new_app_old_db"
+requires = ["0010_account_lifecycle"]
+rollback = "db/rollbacks/0011_review_head_sha.sql"
+backfill = "none; historical review rows remain NULL audit history and never satisfy current-head protection"
+data_classification = "internal"
+tenant_impact = "all open pull requests require a fresh exact-head review after application activation"
+tests = [
+  "db-migration-analyze",
+  "migration_0011_preserves_historical_reviews_as_stale",
+  "review_head_and_latest_reviewer_state_survive_sqlite_reopen",
+]

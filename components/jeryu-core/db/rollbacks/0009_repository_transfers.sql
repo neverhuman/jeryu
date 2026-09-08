@@ -1,0 +1,12 @@
+-- Rollback for 0009_repository_transfers is intentionally non-destructive.
+--
+-- Transfer journals and aliases are durable recovery and routing records.
+-- Dropping either table could erase a terminal transaction or make an old
+-- repository slug resolve incorrectly. A rollback therefore disables new
+-- transfer operations at the application layer, retains both tables, and
+-- rolls forward with db/migrations/0009_repository_transfers.sql after repair.
+--
+-- timeout-guard:
+--   lock_timeout = '5s'
+--   statement_timeout = '60s'
+SELECT '0009_repository_transfers rollback is non-destructive; retain journals and aliases and roll forward after repair' AS rollback_notice;

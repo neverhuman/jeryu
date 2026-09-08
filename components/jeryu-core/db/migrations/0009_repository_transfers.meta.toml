@@ -1,0 +1,22 @@
+# jankurai:migration v1
+id = "0009_repository_transfers"
+owner = "forge-api"
+reviewer = "forge-api"
+change_type = "expand"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "expand"
+app_compatibility = "old_app_new_db,new_app_old_db"
+requires = ["0008_user_auth_access"]
+rollback = "db/rollbacks/0009_repository_transfers.sql"
+backfill = "none; the additive journal and alias tables start empty and are populated only by explicit repository-transfer operations"
+data_classification = "internal"
+tenant_impact = "none"
+tests = [
+  "db-migration-analyze",
+  "transfer_preserves_uuid_scoped_state_alias_and_journal_across_reopen",
+  "failed_transfer_is_terminal_across_sqlite_reopen",
+]

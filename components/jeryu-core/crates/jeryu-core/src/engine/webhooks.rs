@@ -1,0 +1,77 @@
+//! Webhooks, delivery outbox, and app installations.
+
+use chrono::Utc;
+use uuid::Uuid;
+
+use super::{ForgeCore, require_name};
+use crate::errors::Result;
+use crate::model::*;
+
+impl ForgeCore {
+    pub fn create_webhook(
+        &self,
+        owner: &str,
+        repo: &str,
+        request: CreateWebhookRequest,
+    ) -> Result<Webhook> {
+        self.ensure_repo_exists(owner, repo)?;
+        require_name("webhook url", &request.config.url)?;
+        let now = Utc::now();
+        let hook = Webhook {
+            id: Uuid::new_v4(),
+            owner: owner.to_string(),
+            repo: repo.to_string(),
+            name: request.name,
+            active: request.active,
+            events: request.events,
+            config: request.config,
+            created_at: now,
+            updated_at: now,
+        };
+        let mut state = self.state.write();
+        let previous = state.clone();
+        state
+            .webhooks
+            .entry((owner.to_string(), repo.to_string()))
+            .or_default()
+            .push(hook.clone());
+        self.persist_after_mutation(&mut state, previous)?;
+        Ok(hook)
+    }
+
+    pub fn list_webhooks(&self, owner: &str, repo: &str) -> Result<Vec<Webhook>> {
+        self.ensure_repo_exists(owner, repo)?;
+        // No webhooks entry for the repo means none are registered; an empty
+        // list is the intended value.
+        Ok(
+            match self
+                .state
+                .read()
+                .webhooks
+                .get(&(owner.to_string(), repo.to_string()))
+            {
+                Some(webhooks) => webhooks.clone(),
+                None => Vec::new(),
+            },
+        )
+    }
+
+    pub fn list_webhook_deliveries(&self, owner: &str, repo: &str) -> Result<Vec<WebhookDelivery>> {
+        self.ensure_repo_exists(owner, repo)?;
+        Ok(self
+            .state
+            .read()
+            .webhook_deliveries
+            .iter()
+            .filter(|delivery| delivery.owner == owner && delivery.repo == repo)
+            .cloned()
+            .collect())
+    }
+
+    pub fn app_installations(&self) -> InstallationList {
+        InstallationList {
+            total_count: 0,
+            installations: Vec::new(),
+        }
+    }
+}

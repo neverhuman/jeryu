@@ -1,0 +1,13 @@
+[package]
+name = "jeryu-proof"
+description = "Jankurai proof planning and witness engine for Jeryu Phase 7"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-core = { path = "../jeryu-core" }
+
+[lints]
+workspace = true

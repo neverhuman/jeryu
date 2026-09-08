@@ -1,0 +1,376 @@
+//! The in-memory ForgeCore store.
+//!
+//! `ForgeCore` is the typed Phase 2 forge store. Its methods are grouped by the
+//! resource they operate on into the submodules below; every `impl ForgeCore`
+//! block extends the same type, so `crate::core::ForgeCore` and every public
+//! method signature resolve exactly as before this file was split out of a
+//! single `core.rs`.
+
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+
+use chrono::Utc;
+use parking_lot::{RwLock, RwLockWriteGuard};
+use serde_json::Value;
+use uuid::Uuid;
+
+use crate::branch_protection::{BranchProtectionEvaluation, EvaluationContext};
+use crate::errors::{ForgeError, Result};
+use crate::model::*;
+use crate::webhooks::{should_deliver, sign_webhook_payload};
+
+mod accounts;
+mod audit;
+mod auth;
+mod branch_protection;
+mod check_runs;
+mod commit_status;
+mod issues;
+mod jankurai;
+mod pull_requests;
+mod readmes;
+mod repositories;
+mod repository_transfer;
+mod repository_transfer_state;
+mod reviews;
+mod storage;
+mod webhooks;
+
+#[cfg(test)]
+mod tests;
+
+pub use audit::AuditEntry;
+pub use pull_requests::MergeReadiness;
+pub use repositories::RepositoryDeletion;
+
+#[derive(Debug, Clone, Default)]
+struct Counters {
+    issue: u64,
+    pull: u64,
+}
+
+#[derive(Debug, Clone, Default)]
+struct State {
+    users: HashMap<String, User>,
+    accounts: HashMap<String, UserAccount>,
+    sessions: HashMap<String, WebSession>,
+    personal_tokens: HashMap<Uuid, PersonalAccessToken>,
+    invitations: HashMap<Uuid, AccountInvitation>,
+    activation_challenges: HashMap<String, ActivationChallenge>,
+    bootstrap_owner_consumed: bool,
+    repo_grants: HashMap<(String, String, String), RepoAccessGrant>,
+    organizations: HashMap<String, Organization>,
+    teams: HashMap<(String, String), Team>,
+    repos: HashMap<(String, String), Repository>,
+    labels: HashMap<(String, String, String), Label>,
+    issues: HashMap<(String, String, u64), Issue>,
+    issue_comments: HashMap<(String, String, u64), Vec<IssueComment>>,
+    pulls: HashMap<(String, String, u64), PullRequest>,
+    reviews: HashMap<(String, String, u64), Vec<Review>>,
+    review_comments: HashMap<(String, String, u64), Vec<ReviewComment>>,
+    branch_protections: HashMap<(String, String, String), BranchProtectionRule>,
+    codeowners: HashMap<(String, String), String>,
+    readmes: HashMap<(String, String), String>,
+    statuses: HashMap<(String, String, String), Vec<CommitStatus>>,
+    check_runs: HashMap<(String, String), Vec<CheckRun>>,
+    webhooks: HashMap<(String, String), Vec<Webhook>>,
+    webhook_deliveries: Vec<WebhookDelivery>,
+    counters: HashMap<(String, String), Counters>,
+    jankurai_scores: HashMap<(String, String), Vec<JankuraiScore>>,
+    repository_aliases: HashMap<(String, String), RepositoryAlias>,
+    repository_transfers: HashMap<String, RepositoryTransferJournal>,
+}
+
+fn default_branch_protection_rule(owner: &str, repo: &str, branch: &str) -> BranchProtectionRule {
+    BranchProtectionRule {
+        owner: owner.to_string(),
+        repo: repo.to_string(),
+        branch: branch.to_string(),
+        required_status_checks: Vec::new(),
+        required_approving_review_count: 0,
+        enforce_admins: false,
+        required_linear_history: true,
+        allow_force_pushes: false,
+        allow_deletions: false,
+        require_signed_commits: false,
+        require_jankurai_proof: false,
+        updated_at: Utc::now(),
+    }
+}
+
+fn ensure_default_branch_protection(state: &mut State, repo: &Repository) -> bool {
+    let key = (
+        repo.owner.clone(),
+        repo.name.clone(),
+        repo.default_branch.clone(),
+    );
+    if state.branch_protections.contains_key(&key) {
+        return false;
+    }
+    state.branch_protections.insert(
+        key,
+        default_branch_protection_rule(&repo.owner, &repo.name, &repo.default_branch),
+    );
+    true
+}
+
+fn backfill_default_branch_protections(state: &mut State) -> usize {
+    let repos: Vec<_> = state.repos.values().cloned().collect();
+    repos
+        .into_iter()
+        .filter(|repo| ensure_default_branch_protection(state, repo))
+        .count()
+}
+
+/// Materializes a newly created repository's bare git directory on disk.
+///
+/// Defined in the pure forge core so `create_repository` can trigger on-disk
+/// creation without `jeryu-core` depending on the git-daemon crate: the unified
+/// `jeryu serve` injects a `jeryu-gitd`-backed implementation via
+/// [`ForgeCore::with_repo_materializer`]. With no materializer set (the default,
+/// e.g. in unit tests) repository creation stays metadata-only.
+pub trait RepoMaterializer: std::fmt::Debug + Send + Sync {
+    /// Create the bare repository for `owner/name` with `default_branch` as its
+    /// initial `HEAD`. Implementations MUST be idempotent: an already-present
+    /// repository is success, not an error.
+    fn materialize(&self, owner: &str, name: &str, default_branch: &str) -> Result<()>;
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ForgeCore {
+    state: Arc<RwLock<State>>,
+    storage: Option<Arc<storage::SqliteStore>>,
+    repo_materializer: Option<Arc<dyn RepoMaterializer>>,
+}
+
+impl ForgeCore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Inject a [`RepoMaterializer`] so repository creation also writes a bare
+    /// git repository to disk (used by the unified `jeryu serve`).
+    #[must_use]
+    pub fn with_repo_materializer(mut self, materializer: Arc<dyn RepoMaterializer>) -> Self {
+        self.repo_materializer = Some(materializer);
+        self
+    }
+
+    pub fn open_sqlite(path: impl AsRef<Path>) -> Result<Self> {
+        let (storage, state) = storage::SqliteStore::open(path)?;
+        Ok(Self {
+            state: Arc::new(RwLock::new(state)),
+            storage: Some(Arc::new(storage)),
+            repo_materializer: None,
+        })
+    }
+
+    fn ensure_repo_exists(&self, owner: &str, repo: &str) -> Result<()> {
+        self.get_repository(owner, repo).map(|_| ())
+    }
+
+    fn persist_after_mutation(
+        &self,
+        state: &mut RwLockWriteGuard<'_, State>,
+        previous: State,
+    ) -> Result<()> {
+        let Some(storage) = &self.storage else {
+            return Ok(());
+        };
+        if let Err(error) = storage.persist(state) {
+            **state = previous;
+            return Err(error);
+        }
+        Ok(())
+    }
+}
+
+fn require_name(field: &str, value: &str) -> Result<()> {
+    if value.trim().is_empty() {
+        Err(ForgeError::Validation(format!("{field} cannot be empty")))
+    } else {
+        Ok(())
+    }
+}
+
+fn slugify(value: &str) -> String {
+    value
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+fn next_issue_number(state: &mut State, owner: &str, repo: &str) -> u64 {
+    let counters = state
+        .counters
+        .entry((owner.to_string(), repo.to_string()))
+        .or_default();
+    counters.issue += 1;
+    counters.issue
+}
+
+fn next_pull_number(state: &mut State, owner: &str, repo: &str) -> u64 {
+    let counters = state
+        .counters
+        .entry((owner.to_string(), repo.to_string()))
+        .or_default();
+    counters.pull += 1;
+    counters.pull
+}
+
+/// Whether jeryu enforces a passing `jankurai/proof` check on every merge,
+/// family-wide. Driven by the `[audit].enforce_merge` setting, surfaced to this
+/// domain layer via `JERYU_AUDIT_ENFORCE_MERGE`. Default `false` (the shadow
+/// phase: scores are still recorded and the proof check published, but the merge
+/// stays advisory). Flip to a truthy value once the fleet is green.
+fn audit_merge_enforced() -> bool {
+    matches!(
+        std::env::var("JERYU_AUDIT_ENFORCE_MERGE")
+            .ok()
+            .as_deref()
+            .map(str::trim),
+        Some("1") | Some("true") | Some("yes") | Some("on")
+    )
+}
+
+fn evaluate_locked(
+    state: &State,
+    pr: &PullRequest,
+    requested_sha: Option<&str>,
+) -> BranchProtectionEvaluation {
+    use crate::branch_protection::evaluate_branch_protection_with;
+
+    let protection = state.branch_protections.get(&(
+        pr.owner.clone(),
+        pr.repo.clone(),
+        pr.base.ref_name.clone(),
+    ));
+    let reviews = match state
+        .reviews
+        .get(&(pr.owner.clone(), pr.repo.clone(), pr.number))
+    {
+        Some(reviews) => reviews.clone(),
+        None => Vec::new(),
+    };
+    let statuses =
+        match state
+            .statuses
+            .get(&(pr.owner.clone(), pr.repo.clone(), pr.head.sha.clone()))
+        {
+            Some(statuses) => statuses.clone(),
+            None => Vec::new(),
+        };
+    let check_runs = match state.check_runs.get(&(pr.owner.clone(), pr.repo.clone())) {
+        Some(check_runs) => check_runs
+            .iter()
+            .filter(|check| check.head_sha == pr.head.sha)
+            .cloned()
+            .collect::<Vec<_>>(),
+        None => Vec::new(),
+    };
+    let codeowners = state.codeowners.get(&(pr.owner.clone(), pr.repo.clone()));
+    let context = EvaluationContext {
+        codeowners: codeowners.map(String::as_str),
+        actor_is_admin: false,
+        jankurai_proof_mandatory: audit_merge_enforced(),
+    };
+    evaluate_branch_protection_with(
+        pr,
+        protection,
+        &reviews,
+        &statuses,
+        &check_runs,
+        requested_sha,
+        context,
+    )
+}
+
+fn apply_evaluation(pr: &mut PullRequest, evaluation: BranchProtectionEvaluation) {
+    // Terminal states are sticky. GitHub never resurrects a Merged or Closed PR
+    // by recomputing mergeability on read: a merged PR stays merged, and a
+    // closed PR stays closed until it is explicitly reopened. Previously only
+    // `merged` was sticky, so a Closed PR with no blocking protection was
+    // silently reverted to Mergeable on the next read (pinned by the former
+    // `closing_a_mergeable_pr_does_not_stick`). This is the deliberate
+    // correctness fix.
+    if pr.merged || pr.state == PullRequestState::Merged {
+        pr.mergeable = false;
+        pr.mergeable_state = "merged".to_string();
+        return;
+    }
+    if pr.state == PullRequestState::Closed {
+        pr.mergeable = false;
+        pr.mergeable_state = "closed".to_string();
+        return;
+    }
+    pr.mergeable = evaluation.mergeable;
+    pr.mergeable_state = evaluation.state;
+    if pr.draft {
+        pr.state = PullRequestState::Draft;
+    } else if evaluation.mergeable {
+        pr.state = PullRequestState::Mergeable;
+    } else {
+        pr.state = PullRequestState::BlockedByChecks;
+    }
+}
+
+fn refresh_pull_mergeability_for_sha(state: &mut State, owner: &str, repo: &str, sha: &str) {
+    let keys: Vec<_> = state
+        .pulls
+        .iter()
+        .filter(|((pull_owner, pull_repo, _), pr)| {
+            pull_owner == owner && pull_repo == repo && pr.head.sha == sha
+        })
+        .map(|(key, _)| key.clone())
+        .collect();
+
+    for key in keys {
+        if let Some(snapshot) = state.pulls.get(&key).cloned() {
+            let mut updated = snapshot;
+            let evaluation = evaluate_locked(state, &updated, None);
+            apply_evaluation(&mut updated, evaluation);
+            state.pulls.insert(key, updated);
+        }
+    }
+}
+
+fn emit_event_locked(state: &mut State, owner: &str, repo: &str, event: &str, payload: Value) {
+    let hooks = match state.webhooks.get(&(owner.to_string(), repo.to_string())) {
+        Some(hooks) => hooks.clone(),
+        None => Vec::new(),
+    };
+    for hook in hooks.iter().filter(|hook| should_deliver(hook, event)) {
+        // A delivery's payload is always an internal `json!(domain_struct)`
+        // value, which cannot fail to serialize; encode it explicitly so a
+        // hypothetical failure surfaces as a panic at the bug site rather than
+        // being silently signed as an empty body.
+        let payload_bytes = match serde_json::to_vec(&payload) {
+            Ok(bytes) => bytes,
+            Err(error) => unreachable!("forge webhook payload is always serializable: {error}"),
+        };
+        let signature_256 = hook
+            .config
+            .secret
+            .as_ref()
+            .map(|secret| sign_webhook_payload(secret, &payload_bytes));
+        state.webhook_deliveries.push(WebhookDelivery {
+            id: Uuid::new_v4(),
+            hook_id: hook.id,
+            owner: owner.to_string(),
+            repo: repo.to_string(),
+            event: event.to_string(),
+            target_url: hook.config.url.clone(),
+            payload: payload.clone(),
+            signature_256,
+            delivered: false,
+            created_at: Utc::now(),
+        });
+    }
+}
