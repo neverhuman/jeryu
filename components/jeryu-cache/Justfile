@@ -1,0 +1,27 @@
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+
+jobs := env_var_or_default("JERYU_CI_JOBS", "40")
+
+fast:
+  ./ops/ci/fast.sh # cargo check
+
+check:
+  ./ops/ci/check.sh
+
+score:
+  ./ops/ci/score.sh # jankurai audit repo-score
+
+security:
+  ./tools/security-lane.sh # governed gitleaks, advisory, and SBOM proof
+
+artifact-support:
+  ./ops/ci/artifact_support.sh
+
+contract-drift:
+  ./ops/ci/contract-drift.sh
+
+contract-schema:
+  cargo test --locked --offline -p jeryu-cache-core receipt_schema_matches_serialized_contract
+
+profile:
+  printf '%s\n' "rust-workspace"

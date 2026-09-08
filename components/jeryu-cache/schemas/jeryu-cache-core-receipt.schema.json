@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:jeryu-cache:contract:core-receipt:v1",
+  "title": "jeryu-cache-core CacheReceipt v1",
+  "description": "Stable serialized receipt emitted by jeryu_cache_core.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_id",
+    "event",
+    "action",
+    "layer",
+    "actor_tier",
+    "decision",
+    "timestamp_ms"
+  ],
+  "properties": {
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "event": {
+      "type": "string",
+      "enum": [
+        "restore",
+        "read",
+        "write",
+        "quarantine-write",
+        "promote",
+        "verify",
+        "deny",
+        "safe-miss"
+      ]
+    },
+    "key_digest": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "object_digest": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "read",
+        "write",
+        "restore",
+        "promote",
+        "quarantine-write"
+      ]
+    },
+    "layer": {
+      "type": "string",
+      "enum": [
+        "l0-job-tmpfs",
+        "l1-runner-local-project",
+        "l2-runner-local-source-blob",
+        "l3-repo-compiled-cas",
+        "l4-tenant-source-cas",
+        "l5-explicit-shared-compiled-cas",
+        "l6-release-hermetic-vendor-snapshot"
+      ]
+    },
+    "actor_tier": {
+      "type": "string",
+      "enum": [
+        "t0-release-hermetic",
+        "t1-protected-internal",
+        "t2-internal-branch",
+        "t3-agent-authored",
+        "t4-fork-pr",
+        "t5-public-untrusted"
+      ]
+    },
+    "decision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["decision", "reasons"],
+          "properties": {
+            "decision": {
+              "const": "allow"
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["decision", "reasons"],
+          "properties": {
+            "decision": {
+              "const": "deny"
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "parent_receipt": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
