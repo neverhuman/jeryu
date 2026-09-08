@@ -1,0 +1,25 @@
+# default-audit-policy.toml — jeryu-managed fallback policy.
+#
+# The forge integration scorer (jeryu-deploy ci_bridge::on_push) writes this to a
+# TEMP path OUTSIDE the worktree and passes it as `--policy` whenever a repo carries
+# no agent/audit-policy.toml of its own. It guarantees that even a repo with ZERO
+# jankurai setup still gets a real diff score and a real floor — "forced scoring for
+# unconfigured repos" (Part D). A repo that DOES carry its own policy keeps it; this
+# file is never written into a worktree and never tracked.
+#
+# `required_tool_version` is kept in lockstep with tool-manifest.toml by
+# ops/render-tool-manifest.sh (audit-policy.toml rewrite rule).
+
+schema_version = "1.0.0"
+workspace = "unconfigured"
+minimum_score = 85          # [floors].default; the merge-gate floor for unconfigured repos
+hard_findings_allowed = 0
+required_tool = "jankurai"
+required_tool_version = "1.6.11"
+
+[scan]
+# The auditor's own output is circular; the built SPA bundle is generated, not authored.
+excluded_paths = [
+  ".jankurai/",
+  "apps/web/dist/",
+]

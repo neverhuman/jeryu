@@ -1,0 +1,641 @@
+# tools-registry.toml — the reusable-code-tool registry for the jeryu family.
+#
+# jeryu-tool's second pillar (see docs/tools-registry.md). tool-manifest.toml
+# governs the jankurai AUDIT toolchain; THIS file is the catalogue of reusable
+# code tools the family ships and shares. The forge "golden box" on /repos reads
+# it via GET /api/v1/tools/registry/summary; ops/registry-summary.sh validates it.
+#
+# PROVENANCE OF LOC FIGURES: entries below are PREPOPULATED from the real
+# jankurai ecosystem (crates: tuiwright, jankurai-guard, ...) and the jankurai
+# tool catalog. Their loc_saved values are CONSERVATIVE OPERATOR ESTIMATES of the
+# per-repo duplication each centralized tool/crate prevents — they are not yet
+# finder-measured. jeryu-tool-finder refines them with measured cross-repo
+# duplication; new proposals it files (status=proposed) start at loc_saved = 0.
+
+schema_version = "1"
+
+# --- jankurai ecosystem crates -----------------------------------------------
+[[tool]]
+id = "tuiwright"
+name = "tuiwright"
+kind = "rust-crate"
+status = "published"
+source = "neverhuman/jankurai/crates/tuiwright"
+description = "Playwright-style black-box testing framework for terminal user interfaces."
+adopting_repos = [
+  "jeryu-core",
+]
+candidate_repos = []
+loc_saved = 420
+loc_saved_estimate = 0
+
+[[tool]]
+id = "tuiwright-cli"
+name = "tuiwright-cli"
+kind = "rust-crate"
+status = "published"
+source = "neverhuman/jankurai/crates/tuiwright-cli"
+description = "CLI for Tuiwright TUI testing: screenshots, recordings, traces."
+adopting_repos = [
+  "jeryu-core",
+]
+candidate_repos = []
+loc_saved = 90
+loc_saved_estimate = 0
+
+[[tool]]
+id = "jankurai"
+name = "jankurai"
+kind = "rust-crate"
+status = "published"
+source = "neverhuman/jankurai"
+description = "Agent-native repository audit CLI and standard (the family auditor)."
+adopting_repos = [
+  "jeryu",
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-web",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+candidate_repos = []
+loc_saved = 1800
+loc_saved_estimate = 0
+
+[[tool]]
+id = "jankurai-guard"
+name = "jankurai-guard"
+kind = "rust-crate"
+status = "published"
+source = "neverhuman/jankurai/crates/jankurai-guard"
+description = "Guarded filesystem that audits every agent file write as a single-file jankurai candidate."
+adopting_repos = [
+  "jeryu-ci-runner",
+]
+candidate_repos = [
+  "jeryu-deploy",
+]
+loc_saved = 300
+loc_saved_estimate = 120
+
+[[tool]]
+id = "jankurai-proofbind"
+name = "jankurai-proofbind"
+kind = "rust-crate"
+status = "published"
+source = "neverhuman/jankurai/crates/jankurai-proofbind"
+description = "Semantic surface routing and proof-obligation binding for jankurai."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = []
+loc_saved = 240
+loc_saved_estimate = 0
+
+[[tool]]
+id = "jankurai-proofmark"
+name = "jankurai-proofmark"
+kind = "rust-crate"
+status = "published"
+source = "neverhuman/jankurai/crates/jankurai-proofmark"
+description = "Changed-behavior proof receipt engine for jankurai."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = []
+loc_saved = 260
+loc_saved_estimate = 0
+
+# --- jankurai audit tools (family-wide via the tool control plane) -----------
+[[tool]]
+id = "audit-ci"
+name = "audit-ci"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#audit-ci"
+description = "CI lane audit and proof routing."
+adopting_repos = [
+  "jeryu",
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-web",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+candidate_repos = []
+loc_saved = 360
+loc_saved_estimate = 0
+
+[[tool]]
+id = "security"
+name = "security"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#security"
+description = "Secret, dependency, and supply-chain scanning lane."
+adopting_repos = [
+  "jeryu",
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-web",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+candidate_repos = []
+loc_saved = 360
+loc_saved_estimate = 0
+
+[[tool]]
+id = "git-bad-behavior"
+name = "git-bad-behavior"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#git-bad-behavior"
+description = "Detect risky git behaviors in agent commits."
+adopting_repos = [
+  "jeryu",
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-web",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+candidate_repos = []
+loc_saved = 360
+loc_saved_estimate = 0
+
+[[tool]]
+id = "ci-bad-behavior"
+name = "ci-bad-behavior"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#ci-bad-behavior"
+description = "Detect CI/local parity drift and bad CI behaviors."
+adopting_repos = [
+  "jeryu",
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-web",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+candidate_repos = []
+loc_saved = 360
+loc_saved_estimate = 0
+
+[[tool]]
+id = "release-bad-behavior"
+name = "release-bad-behavior"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#release-bad-behavior"
+description = "Release-readiness and bad-release-behavior checks."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "proof-routing"
+name = "proof-routing"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#proof-routing"
+description = "Route changed paths to their proof lanes."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "proofbind"
+name = "proofbind"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#proofbind"
+description = "Bind proof obligations to semantic surfaces."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "proofmark-rust"
+name = "proofmark-rust"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#proofmark-rust"
+description = "Rust changed-behavior proof receipts."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "copy-code"
+name = "copy-code"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#copy-code"
+description = "Normalized copy-paste / duplication detection."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "contract-drift"
+name = "contract-drift"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#contract-drift"
+description = "Generated-contract drift detection."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "rust-witness"
+name = "rust-witness"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#rust-witness"
+description = "Rust public-API and witness checks."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "ux-qa"
+name = "ux-qa"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#ux-qa"
+description = "Rendered UX-QA evidence (accessibility, visual)."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "db-migration-analyze"
+name = "db-migration-analyze"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#db-migration-analyze"
+description = "Database migration safety analysis."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "coverage-evidence"
+name = "coverage-evidence"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#coverage-evidence"
+description = "Test coverage evidence."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "vibe-coverage"
+name = "vibe-coverage"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#vibe-coverage"
+description = "Behavioral coverage signals."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "authz-matrix"
+name = "authz-matrix"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#authz-matrix"
+description = "Authorization-matrix checks."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "input-boundary"
+name = "input-boundary"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#input-boundary"
+description = "Input and boundary validation checks."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "agent-tool-supply"
+name = "agent-tool-supply"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#agent-tool-supply"
+description = "Agent tool supply-chain checks."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "release-readiness"
+name = "release-readiness"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#release-readiness"
+description = "Release control-surface readiness checks."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+[[tool]]
+id = "cost-budget"
+name = "cost-budget"
+kind = "jankurai-tool"
+status = "published"
+source = "neverhuman/jankurai#cost-budget"
+description = "Cost, budget, and stop-condition checks."
+adopting_repos = [
+  "jeryu-core",
+  "jeryu-ci-runner",
+  "jeryu-cache",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-deploy",
+]
+candidate_repos = [
+  "jeryu",
+  "jeryu-web",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+]
+loc_saved = 200
+loc_saved_estimate = 160
+
+# --- jeryu-tool-finder discoveries -------------------------------------------
+# Filed by the cross-repo finder (status=proposed); loc_saved stays 0 until a
+# repo migrates. (cluster toolbuild-e15f611608e57a22: ops/ci gate scripts copied
+# verbatim into every family repo.)
+[[tool]]
+id = "jeryu-ci-shell-lib"
+name = "Shared jeryu CI shell library"
+kind = "shell-lib"
+status = "proposed"
+source = ""
+description = "The ops/ci gate scripts (score.sh, security.sh, ...) are copied verbatim into every family repo. A single sourced shell library would replace the duplicated gate blocks."
+origin_cluster = "toolbuild-e15f611608e57a22"
+adopting_repos = []
+candidate_repos = [
+  "jeryu",
+  "jeryu-cache",
+  "jeryu-ci-runner",
+  "jeryu-core",
+  "jeryu-deploy",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-web",
+]
+loc_saved = 0
+loc_saved_estimate = 56
+
+# Proposed by jeryu-tool-finder from cluster toolbuild-fa31ae385974e484.
+[[tool]]
+id = "shared-python-helper-sha256-hash-pandas-object-tobytes"
+name = "Shared python helper (sha256, hash_pandas_object, tobytes)"
+kind = "rust-crate"
+status = "proposed"
+source = ""
+description = "python normalized window repeats 46 times across 46 file(s), covering 598 lines; anchors: call:dump, call:hash_pandas_object, call:hexdigest, call:open, call:print, call:sha256, call:tobytes."
+origin_cluster = "toolbuild-fa31ae385974e484"
+adopting_repos = []
+candidate_repos = [
+  "veox-deploy",
+  "veox-warp",
+]
+loc_saved = 0
+loc_saved_estimate = 585

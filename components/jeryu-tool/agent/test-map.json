@@ -1,0 +1,165 @@
+{
+  "tests": {
+    ".github/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify hosted workflow runs the same lanes as local (parity)"
+    },
+    ".gitignore": {
+      "command": "just security",
+      "lane": "security",
+      "purpose": "verify ignored boundaries and secret scanning remain fail-closed"
+    },
+    "AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify split metadata and agent maps"
+    },
+    "CLAUDE.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify the thin cross-agent pointer stays canonical"
+    },
+    "CHANGELOG.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify release notes stay routed through the score lane"
+    },
+    "Cargo.lock": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the Rust control dependency graph is locked and offline-buildable"
+    },
+    "Cargo.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the Rust registry and renderer compile and test"
+    },
+    "Justfile": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify the canonical local command wrappers stay reproducible"
+    },
+    "README.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify root navigation remains current"
+    },
+    "VERSION": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify version source stays aligned with release evidence"
+    },
+    "agent/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify agent metadata parses and routes proof lanes"
+    },
+    "contracts/": {
+      "command": "just contract-drift",
+      "lane": "contract-drift",
+      "purpose": "verify the public control contracts stay bound to their exact authorities and generated consumers"
+    },
+    "docs/": {
+      "command": "just check && just score",
+      "lane": "docs",
+      "purpose": "verify agent-readable docs remain routed and auditable"
+    },
+    "generated/": {
+      "command": "just fast",
+      "lane": "fast",
+      "purpose": "verify the generated pin env matches tool-manifest.toml"
+    },
+    "ops/": {
+      "command": "just required",
+      "lane": "required",
+      "purpose": "verify control scripts, custody hostiles, generated identity, and exact evidence"
+    },
+    "ops/ci/repair-receipt.sh": {
+      "command": "just repair-receipt-contract",
+      "lane": "repair-receipt-contract",
+      "purpose": "prove create-once exact-source evidence and pathname custody"
+    },
+    "ops/ci/proof-routing.sh": {
+      "command": "just proof-routing",
+      "lane": "proof-routing",
+      "purpose": "prove every changed path is routed and hostile plans fail closed"
+    },
+    "ops/install-jankurai.sh": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "prove descriptor-retained physical install custody and unpredictable exclusive transaction leaves"
+    },
+    "ops/bootstrap-jankurai-root-seal.sh": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "prove the exact PR candidate can serve one receipt-bound root seal and the protected predecessor is always restored"
+    },
+    "ops/test-bootstrap-jankurai-root-seal.sh": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "exercise digest, ref, head, receipt, expiry, reuse, command, pathname replacement, same-inode content drift, held-only execution, interruption, and recovery hostiles"
+    },
+    "ops/test-install-jankurai.sh": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "exercise symlink, hard-link, replacement-race, sentinel, rollback, and concurrency installer hostiles"
+    },
+    "ops/git-hooks/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify the pre-push hook delegates to the local lanes"
+    },
+    "policy/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify the default fallback policy parses and stays routed"
+    },
+    "scripts/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the local CI helper scripts parse and stay reproducible"
+    },
+    "schemas/": {
+      "command": "just repair-proof",
+      "lane": "repair-proof",
+      "purpose": "verify closed evidence schemas and hostile receipt validation"
+    },
+    "crates/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify Rust registry aggregation, rendering, and custody behavior"
+    },
+    "tests/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "exercise the Rust control CLI as an external process"
+    },
+    "rust-toolchain.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the pinned Rust control toolchain"
+    },
+    "tool-manifest.toml": {
+      "command": "just fast",
+      "lane": "fast",
+      "purpose": "verify every family consumer matches the single source of truth"
+    },
+    "tools/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "prove the canonical security wrapper passes and propagates hostile failure"
+    },
+    "tools-registry.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the reusable-tool registry parses and aggregates for the golden box"
+    },
+    "tasks/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify build-queue tasks parse and reference registered tools"
+    }
+  },
+  "workspace": "jeryu-tool"
+}

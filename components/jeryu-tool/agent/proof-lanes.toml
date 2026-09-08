@@ -1,0 +1,84 @@
+[[lane]]
+name = "fast"
+command = "just fast"
+purpose = "verify generated Jankurai consumers match the governed manifest"
+
+[[lane]]
+name = "check"
+command = "just check"
+purpose = "run deterministic registry, installer, renderer, and metadata checks"
+
+[[lane]]
+name = "required"
+command = "just required"
+purpose = "run the complete merge-blocking verification contract"
+
+[[lane]]
+name = "fast-proof"
+command = "just fast-proof"
+purpose = "run a bounded locked package-only compile with the governed cache"
+
+[[lane]]
+name = "fast-test"
+command = "just fast-test"
+purpose = "run bounded locked package-only tests with the governed cache"
+
+[[lane]]
+name = "fast-coverage"
+command = "just fast-coverage"
+purpose = "produce and audit Rust LCOV evidence"
+
+[[lane]]
+name = "score"
+command = "just score"
+purpose = "audit repository conformance at the governed floor and ratchet"
+
+[[lane]]
+name = "security"
+command = "just security"
+purpose = "run workflow, secret, and repository security checks"
+
+[[lane]]
+name = "artifact-support"
+command = "just artifact-support"
+purpose = "verify artifact-support bootstrap inputs"
+
+[[lane]]
+name = "tool-adoption"
+command = "just tool-adoption"
+purpose = "produce exact proof, security, coverage, contract, and audit evidence"
+
+[[lane]]
+name = "proof-routing"
+command = "just proof-routing"
+purpose = "route every changed path and reject malformed or blocked plans"
+
+[[lane]]
+name = "contract-drift"
+command = "just contract-drift"
+purpose = "validate closed schemas, the generated pin, and registry contracts"
+
+[[lane]]
+name = "repair-receipt-contract"
+command = "just repair-receipt-contract"
+purpose = "prove create-once exact-source repair evidence custody"
+
+[[lane]]
+name = "repair-proof"
+command = "just repair-proof"
+purpose = "rerun contract diagnostics and repair-receipt hostiles"
+
+[[lane]]
+name = "ci"
+command = "just fast && just check && just score"
+purpose = "run the canonical generated-consumer, behavior, and conformance gates"
+
+[[lane]]
+name = "docs"
+command = "just check && just score"
+purpose = "verify agent-readable documentation and its conformance routing"
+
+[[lane]]
+name = "ci-check"
+command = "just fast && just check"
+purpose = "verify generated consumers and control-plane behavior together"

@@ -1,0 +1,18 @@
+# tasks/0002-shared-python-helper-sha256-hash-pandas-object-tobytes.toml — filed by jeryu-tool-finder.
+
+id = "0002"
+tool_id = "shared-python-helper-sha256-hash-pandas-object-tobytes"
+title = "Extract Shared python helper (sha256, hash_pandas_object, tobytes) into a shared rust-crate"
+status = "open"
+origin_cluster = "toolbuild-fa31ae385974e484"
+anticipated_loc_saved = 585
+target_repos = [
+  "veox-deploy",
+  "veox-warp",
+]
+rollout = [
+  "Build the tool in its canonical home and tag it.",
+  "Replace each target repo's local copy with the shared tool.",
+  "Move migrated repos from candidate_repos to adopting_repos and grow loc_saved.",
+  "Confirm each repo's gate lanes stay green after the swap.",
+]

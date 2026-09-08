@@ -1,0 +1,78 @@
+# tool-manifest.toml — the SINGLE source of truth for the jankurai audit toolchain
+# across the whole jeryu family.
+#
+# Nothing else in the family should hardcode a jankurai rev/tag/version. Every
+# consumer (the host installer, the sandbox image, each repo's CI pin, the
+# default policy floor) is GENERATED from this file by `ops/render-tool-manifest.sh`.
+# A `--check` drift lane fails CI if any consumer has drifted from this manifest.
+#
+# To upgrade jankurai: edit [jankurai] below, render each claimed canonical
+# checkout with `ops/render-tool-manifest.sh --repo NAME --repo-root NAME=/absolute/path
+# --expected-head NAME=40_HEX_SHA`,
+# merge those protected PRs, then run `ops/install-jankurai.sh` from exact clean
+# protected jeryu-tool main and rebuild the agent-sandbox image.
+
+schema_version = "1"
+
+[jankurai]
+repo                  = "http://127.0.0.1:8787/git/jeryu/jankurai.git"
+rev                   = "b88562fdb124aa86dedd70ab972e7d0d87e58be1"
+tag                   = "v1.6.11-deadlang-precision-split.3"
+version               = "jankurai 1.6.11"
+semver                = "1.6.11"
+source_tree           = "611229e54938c0e8808896e369fd54d095d258f7"
+source_archive_sha256 = "903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa"
+cargo_lock_sha256     = "b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a"
+binary_sha256         = "9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c"
+rust_toolchain        = "1.95.0"
+rustc_version         = "rustc 1.95.0 (59807616e 2026-04-14)"
+cargo_version         = "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+target_triple         = "x86_64-unknown-linux-gnu"
+build_mode            = "oci-vendor-locked-offline-workspace-member-v2"
+package_path          = "crates/jankurai"
+builder_image         = "rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082"
+builder_image_id      = "sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082"
+linker_version        = "GNU ld (GNU Binutils for Debian) 2.40"
+glibc_version         = "ldd (Debian GLIBC 2.36-9+deb12u14) 2.36"
+vendor_files_sha256   = "a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99"
+vendor_file_count     = "14889"
+cargo_config_sha256   = "b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6"
+build_environment     = "CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC"
+rustflags             = "--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo"
+build_command         = "cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai"
+build_context_sha256  = "889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6"
+
+[floors]
+# Per-profile minimum_score. Consumed by the jeryu-managed default policy
+# (policy/default-audit-policy.toml) and the merge-gate floor for repos that
+# carry no policy of their own.
+default        = 85
+"public-portal" = 75   # scripts/docs-only scaffold: product categories don't apply
+"jeryu-ci-runner" = 80 # calibrated for its size (documented in the cutover state)
+"jeryu-tool"   = 65    # the most minimal repo: manifest+scripts+docs, no product code (clean tops out at 66)
+
+[tools]
+# Default adoption mode per jankurai tool id (from TOOL_ADOPTION_CATALOG):
+#   required | advisory | disabled
+# This is the jeryu-level overlay; a repo's own agent/tool-adoption.toml may
+# raise (never silently lower) a mode. Surfaced in ~/.jeryu/settings.json [audit].
+audit-ci             = "required"
+security             = "required"
+git-bad-behavior     = "required"
+ci-bad-behavior      = "required"
+release-bad-behavior = "advisory"
+proof-routing        = "advisory"
+proofbind            = "advisory"
+proofmark-rust       = "advisory"
+copy-code            = "advisory"
+contract-drift       = "advisory"
+rust-witness         = "advisory"
+ux-qa                = "advisory"
+db-migration-analyze = "advisory"
+coverage-evidence    = "advisory"
+vibe-coverage        = "advisory"
+authz-matrix         = "advisory"
+input-boundary       = "advisory"
+agent-tool-supply    = "advisory"
+release-readiness    = "advisory"
+cost-budget          = "advisory"

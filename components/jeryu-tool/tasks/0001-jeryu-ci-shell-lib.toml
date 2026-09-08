@@ -1,0 +1,28 @@
+# tasks/0001-jeryu-ci-shell-lib.toml — a reusable-tool BUILD task.
+#
+# One file per task. A jeryu-tool-finder dossier (origin_cluster) motivated this;
+# an agent decided the cluster is worth extracting and filed the work here. The
+# rollout list is the per-repo migration plan from "local copy" to "uses tool".
+
+id = "0001"
+tool_id = "jeryu-ci-shell-lib"
+title = "Extract the duplicated ops/ci gate blocks into a shared shell library"
+status = "open"                          # open | in-progress | done
+origin_cluster = "toolbuild-e15f611608e57a22"
+anticipated_loc_saved = 56
+target_repos = [
+  "jeryu",
+  "jeryu-cache",
+  "jeryu-ci-runner",
+  "jeryu-core",
+  "jeryu-deploy",
+  "jeryu-intelligence",
+  "jeryu-release-ops",
+  "jeryu-web",
+]
+rollout = [
+  "Build the shared library (a sourced ops/ci/lib.sh equivalent) in its canonical home and tag it.",
+  "Replace the duplicated block in each target repo's ops/ci/*.sh with a source of the shared library.",
+  "Move each migrated repo from candidate_repos to adopting_repos in tools-registry.toml and grow loc_saved.",
+  "Confirm each repo's score/security lanes stay green after the swap.",
+]
