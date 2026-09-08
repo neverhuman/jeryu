@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+workspace = "jeryu-tool-finder"
+profile = "public-portal"
+required_check = "jeryu-tool-finder/required"
+
+[split]
+# The engine (jeryu-codegraph) is consumed only from the immutable Intelligence
+# source coordinate, transported through the governed hosted rewrite. Builds
+# never read an ambient sibling checkout.
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+  "jeryu-tool-finder",
+]
+
+[rust]
+binary = "jeryu-tool-finder"
+contract = "contracts/cli-help.txt"

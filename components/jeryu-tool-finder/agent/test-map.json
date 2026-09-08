@@ -1,0 +1,185 @@
+{
+  "tests": {
+    ".github/": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the non-authoritative workflow encodes the full product lane order"
+    },
+    ".github/**": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the non-authoritative workflow encodes the full product lane order"
+    },
+    ".github/workflows/": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the non-authoritative workflow encodes the full product lane order"
+    },
+    ".gitignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the generated-zone exclusions stay consistent with agent/generated-zones.toml"
+    },
+    "AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify split metadata and agent maps"
+    },
+    "CHANGELOG.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify release notes stay routed through the score lane"
+    },
+    "Cargo.lock": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the locked graph builds and is bound into exact-head release evidence"
+    },
+    "Cargo.toml": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the package version, immutable engine pin, and artifact receipt stay aligned"
+    },
+    "contracts/": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the public CLI contract matches the binary and is bound into release evidence"
+    },
+    "contracts/**": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the public CLI contract matches the binary and is bound into release evidence"
+    },
+    "Justfile": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the canonical full-product command and focused lane wrappers"
+    },
+    "README.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify root navigation remains current"
+    },
+    "VERSION": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify VERSION, Cargo semver, binary --version, and release evidence stay aligned"
+    },
+    "agent/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify agent metadata parses and routes proof lanes"
+    },
+    "deny.toml": {
+      "command": "just security",
+      "lane": "security",
+      "purpose": "verify the dependency-review policy stays parseable and enforced in CI"
+    },
+    "docs/": {
+      "command": "just check && just score",
+      "lane": "docs",
+      "purpose": "verify agent-readable docs remain routed and auditable"
+    },
+    "fixtures/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the dossier selftest fixture stays valid"
+    },
+    "fixtures/**": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the dossier selftest fixture stays valid"
+    },
+    "ops/": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the CI gate scripts parse and stay reproducible"
+    },
+    "ops/**": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the CI gate scripts parse and stay reproducible"
+    },
+    "ops/ci/": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify each CI lane script parses and runs at local/CI parity"
+    },
+    "ops/ci/artifact-support.sh": {
+      "command": "just score && just security && just artifact-support",
+      "lane": "artifact-support",
+      "purpose": "reject stale, malformed, linked, substituted, or non-ready product evidence"
+    },
+    "ops/ci/contract-drift.sh": {
+      "command": "just contract-drift",
+      "lane": "contract-drift",
+      "purpose": "run the compiled CLI against the tracked help contract"
+    },
+    "ops/ci/score.sh": {
+      "command": "just",
+      "lane": "artifact-support",
+      "purpose": "bind a passing exact-head score sidecar into product readiness"
+    },
+    "ops/ci/security.sh": {
+      "command": "just",
+      "lane": "artifact-support",
+      "purpose": "bind clean cargo-audit and generated SPDX evidence into product readiness"
+    },
+    "ops/git-hooks/": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the pre-push hook delegates to the full required product gate"
+    },
+    "rust-toolchain.toml": {
+      "command": "just",
+      "lane": "ci",
+      "purpose": "verify the pinned toolchain builds clean and is digest-bound in release evidence"
+    },
+    "scripts/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the gate wrapper shells parse and route the same lanes"
+    },
+    "scripts/**": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the gate wrapper shells parse and route the same lanes"
+    },
+    "tools/": {
+      "command": "just security && just score",
+      "lane": "security",
+      "purpose": "verify the canonical supply-chain wrapper and its receipt stay fail-closed"
+    },
+    "src/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the Rust finder builds clean (fmt/clippy/test) and the pipeline tests stay green"
+    },
+    "src/**": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the Rust finder builds clean (fmt/clippy/test) and the pipeline tests stay green"
+    },
+    "tests/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the Rust finder builds clean (fmt/clippy/test) and the pipeline tests stay green"
+    },
+    "tests/artifact_support_test.sh": {
+      "command": "just score && just security && just artifact-support",
+      "lane": "artifact-support",
+      "purpose": "reject hard-linked, symlinked, missing, and non-ready evidence custody"
+    },
+    "tests/cli_contract.rs": {
+      "command": "just contract-drift",
+      "lane": "contract-drift",
+      "purpose": "compare compiled top-level CLI help byte-for-byte with its tracked snapshot"
+    },
+    "tests/**": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify the Rust finder builds clean (fmt/clippy/test) and the pipeline tests stay green"
+    }
+  },
+  "workspace": "jeryu-tool-finder"
+}

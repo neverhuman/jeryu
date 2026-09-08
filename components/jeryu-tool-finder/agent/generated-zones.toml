@@ -1,0 +1,9 @@
+[[zones]]
+path = ".jankurai/**"
+generator = "just score"
+manual_edits = false
+
+[[zones]]
+path = "dossiers/**"
+generator = "just scan && just dossier"
+manual_edits = false

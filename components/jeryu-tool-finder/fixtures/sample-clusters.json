@@ -1,0 +1,69 @@
+{
+  "repo_id": "family/jeryu-split",
+  "commit_sha": "working-tree",
+  "root": "repo-a,repo-b",
+  "scanned_at": "0",
+  "scanned_files": 2,
+  "skipped_files": 0,
+  "clusters": [
+    {
+      "cluster_id": "toolbuild-fixture0000000",
+      "repo_id": "family/jeryu-split",
+      "commit_sha": "working-tree",
+      "fingerprint": "fixture",
+      "score": 9000,
+      "occurrence_count": 4,
+      "repo_count": 2,
+      "file_count": 2,
+      "total_lines": 32,
+      "language": "rust",
+      "insight": "rust normalized window repeats 4 times across 2 file(s), covering 32 lines; anchors: call:retry.",
+      "normalized_preview": "kw:let id op:= call:retry id\nkw:if id call:is_ok op:( op:)",
+      "occurrences": [
+        {
+          "repo_id": "repo-a",
+          "commit_sha": "working-tree",
+          "path": "crates/a/src/lib.rs",
+          "start_line": 10,
+          "end_line": 17,
+          "language": "rust",
+          "normalized_token_count": 40
+        },
+        {
+          "repo_id": "repo-b",
+          "commit_sha": "working-tree",
+          "path": "crates/b/src/lib.rs",
+          "start_line": 22,
+          "end_line": 29,
+          "language": "rust",
+          "normalized_token_count": 40
+        }
+      ]
+    },
+    {
+      "cluster_id": "toolbuild-singlerepo0000",
+      "repo_id": "family/jeryu-split",
+      "commit_sha": "working-tree",
+      "fingerprint": "fixture-single",
+      "score": 100,
+      "occurrence_count": 2,
+      "repo_count": 1,
+      "file_count": 2,
+      "total_lines": 16,
+      "language": "rust",
+      "insight": "single-repo window; must be dropped by the min_repos filter.",
+      "normalized_preview": "kw:fn id op:( op:)",
+      "occurrences": [
+        {
+          "repo_id": "repo-a",
+          "commit_sha": "working-tree",
+          "path": "crates/a/src/only.rs",
+          "start_line": 1,
+          "end_line": 8,
+          "language": "rust",
+          "normalized_token_count": 40
+        }
+      ]
+    }
+  ]
+}
