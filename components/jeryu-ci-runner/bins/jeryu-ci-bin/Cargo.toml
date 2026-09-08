@@ -1,0 +1,18 @@
+[package]
+name = "jeryu-ci-bin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-ci-ir = { path = "../../crates/jeryu-ci-ir" }
+jeryu-ci-compiler = { path = "../../crates/jeryu-ci-compiler" }
+jeryu-ci-scheduler = { path = "../../crates/jeryu-ci-scheduler" }
+jeryu-artifact-metadata = { path = "../../crates/jeryu-artifact-metadata" }
+jeryu-cache-policy = { path = "../../crates/jeryu-cache-policy" }
+jeryu-runner-protocol = { path = "../../crates/jeryu-runner-protocol" }
+
+[lints]
+workspace = true

@@ -1,0 +1,39 @@
+schema_version = "1.0.0"
+workspace = "jeryu-ci-runner"
+profile = "rust-workspace"
+required_check = "jeryu-ci-runner/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-immutable-tags-hosted-transport"
+local_path_patches = false
+
+cargo_members = [
+  "crates/jeryu-ci-ir",
+  "crates/jeryu-ci-compiler",
+  "crates/jeryu-ci-scheduler",
+  "crates/jeryu-runner-core",
+  "crates/jeryu-runner-native",
+  "crates/jeryu-runner-microvm",
+  "crates/jeryu-runner-oci",
+  "crates/jeryu-runner-protocol",
+  "crates/jeryu-runner-registry",
+  "crates/jeryu-runnerd",
+  "crates/jeryu-sandbox-linux",
+  "crates/jeryu-agentbridge",
+  "crates/jeryu-agent-auth",
+  "crates/jeryu-agent-stream",
+  "crates/jeryu-egress",
+  "crates/jeryu-artifact-metadata",
+  "crates/jeryu-cache-policy",
+  "crates/jeryu-ci-governor",
+  "crates/jeryu-phase7-cli",
+  "bins/jeryu-ci-bin",
+]
+
+[python]
+allowed_non_product_paths = ["ops/split/"]
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

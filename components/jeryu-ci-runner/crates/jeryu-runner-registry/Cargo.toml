@@ -1,0 +1,16 @@
+[package]
+name = "jeryu-runner-registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-runner-protocol = { path = "../jeryu-runner-protocol" }
+jeryu-ci-ir = { path = "../jeryu-ci-ir" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

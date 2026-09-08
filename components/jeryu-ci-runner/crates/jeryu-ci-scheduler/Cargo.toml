@@ -1,0 +1,16 @@
+[package]
+name = "jeryu-ci-scheduler"
+description = "Merge queue and speculative validation for Jeryu Phase 7"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-ci-ir = { path = "../jeryu-ci-ir" }
+jeryu-core = { git = "https://github.com/neverhuman/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.0", package = "jeryu-core" }
+jeryu-proof = { git = "https://github.com/neverhuman/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.0", package = "jeryu-proof" }
+jeryu-runner-protocol = { path = "../jeryu-runner-protocol" }
+
+[lints]
+workspace = true

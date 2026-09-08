@@ -1,0 +1,10 @@
+allow /workspace read write execute
+allow /usr read execute
+allow /bin read execute
+allow /lib read execute
+allow /lib64 read execute
+deny /var/run/docker.sock all
+deny /run/docker.sock all
+deny /root/.ssh all
+deny $SSH_AUTH_SOCK all
+deny /var/lib/jeryu/trusted-cache write

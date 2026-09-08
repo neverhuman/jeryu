@@ -1,0 +1,16 @@
+# Cargo Git transport overlay. The Cargo source identity remains the historical
+# immutable URL; this exact rewrite moves only the network destination to the
+# private hosted forge without creating a second crate identity.
+[credential]
+	helper =
+
+[credential "https://git.neverhuman.org"]
+	helper = /home/ubuntu/.config/jeryu/bin/git-credential-neverhuman-org
+
+# The current hosted smart-HTTP service rejects Git's compressed upload-pack
+# request body. Keep this setting host-scoped until the service is repaired.
+[http "https://git.neverhuman.org"]
+	postBuffer = 1
+
+[url "https://git.neverhuman.org/git/jeryu/jeryu-core.git"]
+	insteadOf = https://github.com/neverhuman/jeryu-core.git
