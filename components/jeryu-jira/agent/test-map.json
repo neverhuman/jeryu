@@ -1,0 +1,110 @@
+{
+  "tests": {
+    ".github/": {
+      "command": "just fast && just check && just property-tests && just migration-drift && just contract-drift && just score && just security && just release-readiness",
+      "lane": "ci",
+      "purpose": "verify hosted workflows delegate to local lanes"
+    },
+    ".gitignore": {
+      "command": "just fast",
+      "lane": "fast",
+      "purpose": "verify ignored generated output does not affect the fast lane"
+    },
+    "AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify split guidance stays routed"
+    },
+    "CHANGELOG.md": {
+      "command": "just release-readiness && just score",
+      "lane": "release",
+      "purpose": "verify release notes stay routed through the score lane"
+    },
+    "Cargo.lock": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify lockfile remains workspace-addressable"
+    },
+    "Cargo.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace manifest shape"
+    },
+    "Justfile": {
+      "command": "just fast && just check && just property-tests && just migration-drift && just contract-drift && just score",
+      "lane": "ci",
+      "purpose": "verify local command wrappers remain canonical"
+    },
+    "README.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify root navigation remains current"
+    },
+    "VERSION": {
+      "command": "just release-readiness && just score",
+      "lane": "release",
+      "purpose": "verify version source remains aligned with release evidence"
+    },
+    "agent/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify agent metadata parses and routes proof lanes"
+    },
+    "agent/tool-adoption.toml": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify Jankurai tool-adoption catalog coverage"
+    },
+    "contracts/AGENTS.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify Work contract boundary guidance remains current"
+    },
+    "contracts/generated/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify Work TypeScript contracts match ts-rs output"
+    },
+    "crates/jeryu-jira/": {
+      "command": "just check && just property-tests",
+      "lane": "check",
+      "purpose": "verify Work Tracker model, SQLite store, and contract tests"
+    },
+    "db/": {
+      "command": "just migration-drift && just score",
+      "lane": "check",
+      "purpose": "verify SQLite migration catalog remains routed"
+    },
+    "docs/": {
+      "command": "just release-readiness && just score",
+      "lane": "release",
+      "purpose": "verify release and rollback docs remain routed"
+    },
+    "ops/": {
+      "command": "just fast && just check && just property-tests && just migration-drift && just contract-drift && just score",
+      "lane": "ci",
+      "purpose": "verify local CI wrappers are reproducible"
+    },
+    "ops/git-hooks/": {
+      "command": "bash ops/ci/quality-gates.sh",
+      "lane": "ci",
+      "purpose": "verify pre-push gates delegate to local CI lanes"
+    },
+    "rust-toolchain.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local Rust toolchain metadata remains pinned"
+    },
+    "scripts/": {
+      "command": "just ci-local",
+      "lane": "ci",
+      "purpose": "verify local parity scripts execute hosted proof lanes"
+    },
+    "tools/": {
+      "command": "just security",
+      "lane": "security",
+      "purpose": "verify canonical strict security entrypoints"
+    }
+  },
+  "workspace": "jeryu-jira"
+}

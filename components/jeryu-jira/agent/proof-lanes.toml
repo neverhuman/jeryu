@@ -1,0 +1,95 @@
+[[lane]]
+name = "fast"
+command = "just fast"
+purpose = "deterministic format and workspace compile check"
+requires_network = false
+
+[[lane]]
+name = "check"
+command = "just check"
+purpose = "governed tool hostiles plus workspace unit tests"
+requires_network = false
+
+[[lane]]
+name = "property-tests"
+command = "just property-tests"
+purpose = "Work model invariant property tests"
+requires_network = false
+
+[[lane]]
+name = "migration-drift"
+command = "just migration-drift"
+purpose = "SQLite schema, constraint, and idempotence tests"
+requires_network = false
+
+[[lane]]
+name = "contract-drift"
+command = "just contract-drift"
+purpose = "Rust-to-TypeScript contract regeneration check"
+requires_network = false
+
+[[lane]]
+name = "score"
+command = "just score"
+purpose = "pinned Jankurai repository score and hard-finding gate"
+requires_network = false
+
+[[lane]]
+name = "security"
+command = "just security"
+purpose = "required secret, dependency, provenance, and workflow checks"
+requires_network = true
+
+[[lane]]
+name = "release-readiness"
+command = "just release-readiness"
+purpose = "candidate release and rollback evidence validation"
+requires_network = false
+
+[[lane]]
+name = "artifact-support"
+command = "just artifact-support"
+purpose = "non-blocking source artifact support metadata"
+requires_network = false
+
+[[lane]]
+name = "release-score"
+command = "just release-readiness && just score"
+purpose = "release documentation and score routing"
+requires_network = false
+
+[[lane]]
+name = "check-property"
+command = "just check && just property-tests"
+purpose = "Work implementation unit and property proof"
+requires_network = false
+
+[[lane]]
+name = "migration-score"
+command = "just migration-drift && just score"
+purpose = "database migration behavior and audit routing"
+requires_network = false
+
+[[lane]]
+name = "ci"
+command = "just fast && just check && just property-tests && just migration-drift && just contract-drift && just score && just security && just release-readiness"
+purpose = "hosted workflow parity including strict security"
+requires_network = true
+
+[[lane]]
+name = "ci-without-security"
+command = "just fast && just check && just property-tests && just migration-drift && just contract-drift && just score"
+purpose = "local deterministic CI subset for operations changes"
+requires_network = false
+
+[[lane]]
+name = "quality-gates"
+command = "bash ops/ci/quality-gates.sh"
+purpose = "pre-push quality, security, release, and artifact gates"
+requires_network = true
+
+[[lane]]
+name = "ci-local"
+command = "just ci-local"
+purpose = "complete local parity wrapper for hosted lanes"
+requires_network = true

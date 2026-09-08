@@ -1,0 +1,46 @@
+name: jankurai
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jankurai-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - name: Ensure pinned jankurai
+        run: bash ops/ci/ensure-jankurai.sh
+      - name: Jankurai audit lane
+        run: |
+          source ops/ci/lib.sh
+          require_jankurai
+          jankurai audit . --full --mode advisory --policy agent/audit-policy.toml --json .jankurai/repo-score.json --md .jankurai/repo-score.md
+          bash ops/ci/score.sh
+      - name: Security scan evidence (gitleaks, cargo audit, actionlint)
+        run: |
+          gitleaks detect --source . --redact --verbose
+          cargo audit --deny warnings
+          actionlint .github/workflows/*.yml
+          syft version -o json | jq -e '.version == "1.40.0"'
+          bash ops/ci/security-hosted.sh
+      - name: Upload jankurai artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jankurai-audit-artifacts
+          path: |
+            .jankurai/repo-score.json
+            .jankurai/repo-score.md
+            target/jankurai/
+          if-no-files-found: error
