@@ -1,0 +1,23 @@
+# jankurai:migration v1
+id = "0001_fixture_model_rollback"
+owner = "jeryu-web"
+reviewer = "jeryu-web"
+approval = "jeryu-web"
+change_type = "contract"
+safety = "online"
+transaction = "required"
+lock_timeout = "5s"
+statement_timeout = "60s"
+estimated_rows = 0
+deploy_phase = "contract"
+app_compatibility = "old_app_new_db"
+rollback = "db/migrations/0001_fixture_model.sql"
+roll_forward = "db/migrations/0001_fixture_model.sql"
+backup = "none required; the store is synthetic and regenerable via db/seed/build-fixtures.mjs"
+restore = "re-run `npm run fixtures:build` to rebuild the schema and reseed"
+irreversible = false
+backfill = "none; drops synthetic fixture tables only"
+data_classification = "synthetic-fixture"
+tenant_impact = "none"
+verify = "sqlite_master no longer lists the fixture tables; `npm run fixtures:build` rebuilds them from source"
+tests = ["db-migration-analyze", "sqlite_store_round_trips_fixtures"]

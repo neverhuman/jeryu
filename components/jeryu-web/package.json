@@ -1,0 +1,22 @@
+{
+  "name": "jeryu-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "ux-qa",
+    "apps/web"
+  ],
+  "scripts": {
+    "fixtures:build": "node db/seed/build-fixtures.mjs",
+    "fixtures:test": "node --test \"db/seed/__tests__/**/*.test.mjs\"",
+    "ux-qa": "npm --workspace @jeryu/web run ux-qa",
+    "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",
+    "ux-qa:test": "npm --workspace @jankurai/ux-qa run test",
+    "security": "bash tools/security-lane.sh",
+    "security:audit": "npm audit --prefix apps/web --audit-level=high",
+    "security:sbom": "syft dir:. -o spdx-json=target/security/jeryu-web.spdx.json"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^12.11.1"
+  }
+}

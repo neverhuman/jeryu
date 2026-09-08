@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+workspace = "jeryu-web"
+profile = "node-frontend"
+required_check = "jeryu-web/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+
+]
+
+[python]
+allowed_non_product_paths = ["ops/split/"]
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

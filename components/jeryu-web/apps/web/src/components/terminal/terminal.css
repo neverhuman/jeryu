@@ -1,0 +1,137 @@
+/* terminal.css — live agent terminal surface + toolbar. */
+
+/* xterm core stylesheet. */
+@import '@xterm/xterm/css/xterm.css';
+
+.agent-terminal {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-0);
+  overflow: hidden;
+  /* Fill the entire parent container */
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.agent-terminal__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--color-bg-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex: 0 0 auto;
+}
+
+.agent-terminal__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-fg-primary);
+  margin-right: auto;
+}
+
+.agent-terminal__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  text-transform: capitalize;
+  background: var(--color-bg-3);
+  color: var(--color-fg-secondary);
+}
+
+.agent-terminal__pill--success {
+  background: var(--color-accent-success-bg);
+  color: var(--color-accent-success);
+}
+
+.agent-terminal__pill--warning {
+  background: var(--color-accent-warning-bg);
+  color: var(--color-accent-warning);
+}
+
+.agent-terminal__pill--danger {
+  background: var(--color-accent-danger-bg);
+  color: var(--color-accent-danger);
+}
+
+.agent-terminal__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-fg-muted);
+}
+
+.agent-terminal__dot.is-live {
+  background: var(--color-accent-success);
+  box-shadow: 0 0 0 3px var(--color-accent-success-bg);
+}
+
+.agent-terminal__budget {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+}
+
+.agent-terminal__interrupt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-accent-danger);
+  background: var(--color-accent-danger-bg);
+  color: var(--color-accent-danger);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.agent-terminal__interrupt:hover {
+  filter: brightness(1.1);
+}
+
+.agent-terminal__surface {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px;
+  /* Critical: xterm needs an explicit height to render properly. */
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Make xterm fill the surface container */
+.agent-terminal__surface .xterm {
+  height: 100%;
+}
+
+.agent-terminal__surface .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+.agent-terminal__loading {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  min-height: 200px;
+}
+
+/* Spinner animation for loading state */
+.agent-terminal__spinner {
+  animation: terminal-spin 1s linear infinite;
+  margin-right: 0.4rem;
+}
+
+@keyframes terminal-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
