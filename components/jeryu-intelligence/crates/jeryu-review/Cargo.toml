@@ -1,0 +1,20 @@
+[package]
+name = "jeryu-review"
+version.workspace = true
+edition = "2024"
+description = "Multi-reviewer orchestrator, prompt-sha replay, quorum + SHA-bind approval, and pure judge policy-fusion for the jeryu autonomy gate."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+jeryu-signing = { git = "https://github.com/neverhuman/jeryu-release-ops.git", tag = "jeryu-release-ops-v5.0.0-split.0", package = "jeryu-signing" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "1"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time", "sync"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

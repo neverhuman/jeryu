@@ -1,0 +1,76 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT
+  JANKURAI_REPO: "http://127.0.0.1:8787/git/jeryu/jankurai.git"
+  JANKURAI_TAG: "v1.6.11-deadlang-precision-split.2"
+  JANKURAI_REV: "4dfbdfa3585f1928d5f996d7b5e14608dff14a03"
+  JANKURAI_VERSION: "jankurai 1.6.11"
+  JANKURAI_SEMVER: "1.6.11"
+  JANKURAI_SOURCE_TREE: "7e5d501aa6f0ee6ced9a48c6288a9943d0b9573c"
+  JANKURAI_SOURCE_ARCHIVE_SHA256: "1aa3d178dec0fbb8d0657dd465ea6fda830ffc4ec1f65560b7b7d1682fd87e69"
+  JANKURAI_CARGO_LOCK_SHA256: "b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a"
+  JANKURAI_BINARY_SHA256: "96d99e6e7d8dc9cf23df1081edd1f975231456592f81d9405385219a2c7298aa"
+  JANKURAI_RUST_TOOLCHAIN: "1.95.0"
+  JANKURAI_RUSTC_VERSION: "rustc 1.95.0 (59807616e 2026-04-14)"
+  JANKURAI_CARGO_VERSION: "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+  JANKURAI_TARGET_TRIPLE: "x86_64-unknown-linux-gnu"
+  JANKURAI_BUILD_MODE: "cargo-install-locked-offline-path-v1"
+  # END GENERATED JANKURAI WORKFLOW PIN
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      # cache: Cargo and npm dependency caches are provided by the runner image when available.
+      - name: Ensure pinned jankurai
+        run: bash ops/ci/ensure-jankurai.sh
+      - name: PR CI (canonical gate)
+        run: bash ops/ci/pr-ci.sh
+      - name: Proof evidence lane
+        run: bash ops/ci/proof_evidence.sh
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ci-audit-artifacts
+          path: |
+            .jankurai/
+            target/jankurai/
+            target/jankurai/coverage/coverage-audit.md
+            target/jankurai/coverage/coverage-audit.json
+            target/jankurai/vibe-coverage.md
+            target/jankurai/vibe-coverage.json
+            target/jankurai/migration-report.json
+            target/jankurai/ux-qa.json
+            target/jankurai/rust/witness-graph.json
+            target/jankurai/language-bad-behavior.log
+            target/jankurai/copy-code.md
+            target/jankurai/copy-code.json
+            target/jankurai/proofmark/proof-receipt.json
+            target/jankurai/proofmark/proofmark-receipt.json
+            target/jankurai/proofbind/obligations.json
+            target/jankurai/proofbind/surface-witness.json
+            target/jankurai/security/evidence.json
+            target/jankurai/repair-queue.jsonl
+            target/jankurai/repo-score.md
+            target/jankurai/repo-score.json
+            .jankurai/repo-score.md
+            .jankurai/repo-score.json
+            target/artifact-support/
+          if-no-files-found: ignore

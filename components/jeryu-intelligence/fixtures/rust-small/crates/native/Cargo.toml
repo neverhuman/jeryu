@@ -1,0 +1,6 @@
+[package]
+name = "native"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+links = "jeryu_fixture_native"
