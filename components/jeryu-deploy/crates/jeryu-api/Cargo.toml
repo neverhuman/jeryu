@@ -1,0 +1,54 @@
+[package]
+name = "jeryu-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[dependencies]
+anyhow.workspace = true
+base64 = { version = "0.22", optional = true }
+chrono.workspace = true
+jeryu-bench = { git = "https://github.com/neverhuman/jeryu-release-ops.git", tag = "jeryu-release-ops-v5.0.0-split.0", package = "jeryu-bench" }
+jeryu-obs = { git = "https://github.com/neverhuman/jeryu-release-ops.git", tag = "jeryu-release-ops-v5.0.0-split.0", package = "jeryu-obs" }
+jeryu-enterprise = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.5", package = "jeryu-enterprise" }
+jeryu-ci-compiler = { git = "https://github.com/neverhuman/jeryu-ci-runner.git", tag = "jeryu-ci-runner-v5.0.0-split.0", package = "jeryu-ci-compiler", optional = true }
+jeryu-ci-ir = { git = "https://github.com/neverhuman/jeryu-ci-runner.git", tag = "jeryu-ci-runner-v5.0.0-split.0", package = "jeryu-ci-ir", optional = true }
+jeryu-core = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.5", package = "jeryu-core" }
+jeryu-codegraph = { git = "https://github.com/neverhuman/jeryu-intelligence.git", tag = "jeryu-intelligence-v5.0.0-split.1", package = "jeryu-codegraph", optional = true }
+jeryu-agent-stream = { git = "https://github.com/neverhuman/jeryu-ci-runner.git", tag = "jeryu-ci-runner-v5.0.0-split.0", package = "jeryu-agent-stream", optional = true }
+jeryu-agentbridge = { git = "https://github.com/neverhuman/jeryu-ci-runner.git", tag = "jeryu-ci-runner-v5.0.0-split.0", package = "jeryu-agentbridge", optional = true }
+jeryu-autonomy = { git = "https://github.com/neverhuman/jeryu-intelligence.git", tag = "jeryu-intelligence-v5.0.0-split.1", package = "jeryu-autonomy", optional = true }
+jeryu-gitd = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.5", package = "jeryu-gitd", optional = true }
+jeryu-jira = { git = "https://github.com/neverhuman/jeryu-jira.git", tag = "jeryu-jira-v5.0.0-split.0", package = "jeryu-jira" }
+jeryu-mcp = { git = "https://github.com/neverhuman/jeryu-intelligence.git", tag = "jeryu-intelligence-v5.0.0-split.1", package = "jeryu-mcp", optional = true }
+jeryu-readmodel = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.5", package = "jeryu-readmodel" }
+jeryu-runner-core = { git = "https://github.com/neverhuman/jeryu-ci-runner.git", tag = "jeryu-ci-runner-v5.0.0-split.0", package = "jeryu-runner-core", optional = true }
+jeryu-runner-oci = { git = "https://github.com/neverhuman/jeryu-ci-runner.git", tag = "jeryu-ci-runner-v5.0.0-split.0", package = "jeryu-runner-oci", optional = true }
+jeryu-runnerd = { git = "https://github.com/neverhuman/jeryu-ci-runner.git", tag = "jeryu-ci-runner-v5.0.0-split.0", package = "jeryu-runnerd", optional = true }
+jeryu-wsversion = { git = "https://github.com/neverhuman/jeryu-release-ops.git", tag = "jeryu-release-ops-v5.0.0-split.0", package = "jeryu-wsversion", optional = true }
+axum = { version = "0.7", features = ["ws"], optional = true }
+clap = { workspace = true }
+futures-util = { version = "0.3", optional = true }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"], optional = true }
+hex = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true, optional = true }
+toml = { workspace = true }
+uuid = { workspace = true, optional = true }
+tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread", "sync", "time"], optional = true }
+
+[dev-dependencies]
+base64 = "0.22"
+reqwest = { version = "0.12", features = ["json"] }
+tempfile = { workspace = true }
+tower = "0.5"
+
+[features]
+default = []
+web = ["dep:axum", "dep:base64", "dep:flate2", "dep:futures-util", "dep:hex", "dep:jeryu-agent-stream", "dep:jeryu-agentbridge", "dep:jeryu-autonomy", "dep:jeryu-ci-compiler", "dep:jeryu-ci-ir", "dep:jeryu-codegraph", "dep:jeryu-gitd", "dep:jeryu-mcp", "dep:jeryu-runner-core", "dep:jeryu-runner-oci", "dep:jeryu-runnerd", "dep:jeryu-wsversion", "dep:sha2", "dep:tokio", "dep:uuid"]
+
+[lints]
+workspace = true

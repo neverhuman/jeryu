@@ -1,0 +1,39 @@
+# cargo-nextest configuration for the Jeryu workspace.
+#
+# The `ci` profile is the canonical profile used by hosted and local CI lanes
+# (see ops/ci/shard.sh). It is tuned for deterministic, non-flaky, fully
+# reported runs and JUnit emission for downstream dashboards.
+#
+# Run thread count: by default nextest uses all logical CPUs. CI shard lanes pass
+# `--test-threads "$JERYU_CI_SHARD_JOBS"` through ops/ci/shard.sh, defaulting to
+# 2 and clamping by JERYU_CI_JOBS, nproc, and the 40-worker ceiling.
+
+[profile.ci]
+# Use every available core by default; ops/ci/shard.sh narrows this via
+# --test-threads for hosted fanout shards.
+test-threads = "num-cpus"
+
+# CI must report every failure rather than stopping at the first one, so that a
+# single run surfaces the complete failure set.
+fail-fast = false
+
+# No flaky-retry masking in CI: a failure is a failure.
+retries = 0
+
+# Stream failure output as it happens and repeat the full list at the end, so
+# the run is greppable both live and in the final summary.
+failure-output = "immediate-final"
+
+# Keep success output quiet to keep logs small; failures are always shown.
+success-output = "never"
+
+# Emit a machine-readable final status line for log scrapers.
+status-level = "fail"
+final-status-level = "fail"
+
+# JUnit report for CI dashboards / artifact upload. The file lands under
+# target/nextest/ci/junit.xml.
+[profile.ci.junit]
+path = "junit.xml"
+store-success-output = false
+store-failure-output = true

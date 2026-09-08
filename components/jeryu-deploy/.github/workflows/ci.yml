@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          persist-credentials: false
+      - name: Verify governed Jankurai
+        run: bash ops/ci/ensure-jankurai.sh
+      - name: Install open security tools
+        run: bash ops/ci/security-tools.sh
+      # Cargo dependency caches are supplied by the governed runner when available.
+      - name: Fast lane
+        run: bash ops/ci/fast.sh # cargo check
+      - name: Check lane
+        run: bash ops/ci/check.sh
+      - name: Score lane
+        run: bash ops/ci/score.sh # jankurai audit repo-score
+      - name: Security lane
+        run: bash ops/ci/security.sh # gitleaks actionlint env-file locked-cargo-metadata
+      - name: Proof evidence lane
+        run: bash ops/ci/proof-evidence.sh
+      - name: Artifact support
+        run: bash ops/ci/artifact_support.sh
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ci-audit-artifacts
+          path: |
+            .jankurai/
+            target/jankurai/
+            target/security/evidence.json
+            target/artifact-support/
+          if-no-files-found: error

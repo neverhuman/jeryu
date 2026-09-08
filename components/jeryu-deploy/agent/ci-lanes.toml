@@ -1,0 +1,164 @@
+schema_version = 1
+worker_count = 40
+jankurai_version = "jankurai 1.6.11"
+
+# Setup commands may appear in hosted workflows because they only prepare the
+# same local scripts that developers run. Every substantive test command belongs
+# in a lane below.
+allowed_setup_commands = [
+  '''git init .
+git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+git fetch --no-tags --depth 64 origin "$GITHUB_REF"
+git checkout --detach FETCH_HEAD
+git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main''',
+  '''git init .
+git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+git fetch --depth 1 origin "$GITHUB_SHA"
+git checkout --detach FETCH_HEAD''',
+  '''git init .
+git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+git fetch --depth 1 origin "$GITHUB_SHA"
+git checkout --detach FETCH_HEAD
+git fetch --depth 128 origin main:refs/remotes/origin/main''',
+  "rustup toolchain install 1.95.0 --profile minimal",
+  "bash ops/ci/ensure-jankurai.sh",
+  "bash ops/ci/security-tools.sh",
+  'curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C "${CARGO_HOME:-$HOME/.cargo}"/bin',
+]
+
+[[lanes]]
+id = "ci-fast"
+workflow = ".github/workflows/ci-fast.yml"
+job = "affected-fast"
+command = "bash ops/ci/ci-fast.sh"
+full = true
+
+[[lanes]]
+id = "ci-local-fast"
+workflow = ".github/workflows/ci.yml"
+job = "local"
+command = "bash ops/ci/fast.sh # cargo check"
+full = true
+
+[[lanes]]
+id = "ci-local-check"
+workflow = ".github/workflows/ci.yml"
+job = "local"
+command = "bash ops/ci/check.sh"
+full = true
+
+[[lanes]]
+id = "ci-local-score"
+workflow = ".github/workflows/ci.yml"
+job = "local"
+command = "bash ops/ci/score.sh # jankurai audit repo-score"
+full = true
+
+[[lanes]]
+id = "ci-local-security"
+workflow = ".github/workflows/ci.yml"
+job = "local"
+command = "bash ops/ci/security.sh # gitleaks actionlint env-file locked-cargo-metadata"
+full = true
+
+[[lanes]]
+id = "ci-local-proof-evidence"
+workflow = ".github/workflows/ci.yml"
+job = "local"
+command = "bash ops/ci/proof-evidence.sh"
+full = true
+
+[[lanes]]
+id = "ci-local-artifact-support"
+workflow = ".github/workflows/ci.yml"
+job = "local"
+command = "bash ops/ci/artifact_support.sh"
+full = true
+
+[[lanes]]
+id = "rust-shards"
+workflow = ".github/workflows/ci-fast.yml"
+job = "rust-test-shards"
+command = '''bash ops/ci/shard.sh "$JERYU_CI_SHARD_INDEX" "$JERYU_CI_SHARD_TOTAL"'''
+full = false
+
+[[lanes]]
+id = "jankurai"
+workflow = ".github/workflows/jankurai.yml"
+job = "jankurai-audit"
+command = "bash ops/ci/jankurai.sh"
+full = true
+
+[[lanes]]
+id = "jankurai-identity-hostiles"
+workflow = ".github/workflows/jankurai.yml"
+job = "jankurai-audit"
+command = "bash ops/ci/test-governed-jankurai.sh"
+full = true
+
+[[lanes]]
+id = "security-gitleaks"
+workflow = ".github/workflows/security.yml"
+job = "security"
+command = "gitleaks detect --source . --log-opts=-1 --redact --verbose"
+full = true
+
+[[lanes]]
+id = "security"
+workflow = ".github/workflows/security.yml"
+job = "security"
+command = "bash ops/ci/security.sh"
+full = true
+
+[[lanes]]
+id = "security-dependency-sources"
+workflow = ".github/workflows/security.yml"
+job = "security"
+command = "bash ops/ci/dependency-sources.sh"
+full = true
+
+[[lanes]]
+id = "security-dependency-audit"
+workflow = ".github/workflows/security.yml"
+job = "security"
+command = '''set -o pipefail
+source ops/ci/hosted-git-env.sh
+mkdir -p target/security
+cargo audit --deny warnings --json > target/security/cargo-audit.json
+cargo deny check advisories bans licenses sources 2>&1 | tee target/security/cargo-deny.log'''
+full = true
+
+[[lanes]]
+id = "security-sbom-provenance"
+workflow = ".github/workflows/security.yml"
+job = "security"
+command = "bash ops/ci/sbom-provenance.sh"
+full = true
+
+[[lanes]]
+id = "proof-evidence"
+workflow = ".github/workflows/proof-evidence.yml"
+job = "tool-adoption-evidence"
+command = "bash ops/ci/proof-evidence.sh"
+full = true
+
+[[lanes]]
+id = "proof-evidence-coverage"
+workflow = ".github/workflows/proof-evidence.yml"
+job = "tool-adoption-evidence"
+command = "bash ops/ci/coverage.sh"
+full = false
+
+[[lanes]]
+id = "release"
+workflow = ".github/workflows/release.yml"
+job = "release"
+command = "bash ops/ci/release.sh"
+full = false
+
+[[lanes]]
+id = "web"
+workflow = ".github/workflows/web.yml"
+job = "web"
+command = "bash ops/ci/web.sh"
+full = false

@@ -1,0 +1,103 @@
+name: security-and-supply-chain
+
+# Standalone security and supply-chain lane. Each step calls the same checked-in
+# wrapper used locally: source scanning, dependency policy, then unsigned
+# non-release SBOM/vulnerability/provenance evidence. Release signing remains in
+# the separately authorized tag lane and is not claimed here.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-and-supply-chain-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JERYU_CI_JOBS: "40"
+  CARGO_BUILD_JOBS: "40"
+  CARGO_TERM_COLOR: always
+  SYFT_VERSION: "1.40.0"
+  GRYPE_VERSION: "0.99.0"
+  COSIGN_VERSION: "2.4.3"
+  # Generated from local Jeryu release authority; consumer jobs verify only.
+  JERYU_JANKURAI_BIN: "/home/ubuntu/.jeryu/bin/jankurai"
+  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT
+  JANKURAI_REPO: "http://127.0.0.1:8787/git/jeryu/jankurai.git"
+  JANKURAI_TAG: "v1.6.11-deadlang-precision-split.3"
+  JANKURAI_REV: "b88562fdb124aa86dedd70ab972e7d0d87e58be1"
+  JANKURAI_VERSION: "jankurai 1.6.11"
+  JANKURAI_SEMVER: "1.6.11"
+  JANKURAI_SOURCE_TREE: "611229e54938c0e8808896e369fd54d095d258f7"
+  JANKURAI_SOURCE_ARCHIVE_SHA256: "903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa"
+  JANKURAI_CARGO_LOCK_SHA256: "b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a"
+  JANKURAI_BINARY_SHA256: "9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c"
+  JANKURAI_RUST_TOOLCHAIN: "1.95.0"
+  JANKURAI_RUSTC_VERSION: "rustc 1.95.0 (59807616e 2026-04-14)"
+  JANKURAI_CARGO_VERSION: "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"
+  JANKURAI_TARGET_TRIPLE: "x86_64-unknown-linux-gnu"
+  JANKURAI_BUILD_MODE: "oci-vendor-locked-offline-workspace-member-v2"
+  JANKURAI_PACKAGE_PATH: "crates/jankurai"
+  JANKURAI_BUILDER_IMAGE: "rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082"
+  JANKURAI_BUILDER_IMAGE_ID: "sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082"
+  JANKURAI_LINKER_VERSION: "GNU ld (GNU Binutils for Debian) 2.40"
+  JANKURAI_GLIBC_VERSION: "ldd (Debian GLIBC 2.36-9+deb12u14) 2.36"
+  JANKURAI_VENDOR_FILES_SHA256: "a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99"
+  JANKURAI_VENDOR_FILE_COUNT: "14889"
+  JANKURAI_CARGO_CONFIG_SHA256: "b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6"
+  JANKURAI_BUILD_ENVIRONMENT: "CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC"
+  JANKURAI_RUSTFLAGS: "--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo"
+  JANKURAI_BUILD_COMMAND: "cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai"
+  JANKURAI_BUILD_CONTEXT_SHA256: "889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6"
+  # END GENERATED JANKURAI WORKFLOW PIN
+
+jobs:
+  security:
+    name: security lane
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout without marketplace actions
+        run: |
+          git init .
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          git fetch --depth 1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+      - name: Toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal
+      - name: Install open security tools
+        run: bash ops/ci/security-tools.sh
+      - name: Direct pinned gitleaks scan
+        # Scan the candidate commit, not immutable repository history. The next
+        # step separately scans tracked and untracked files in the current tree.
+        run: gitleaks detect --source . --log-opts=-1 --redact --verbose
+      - name: Source-security receipt lane
+        run: bash ops/ci/security.sh
+      - name: Hosted dependency-source lane
+        run: bash ops/ci/dependency-sources.sh
+      - name: Cargo dependency policy lane
+        run: |
+          set -o pipefail
+          source ops/ci/hosted-git-env.sh
+          mkdir -p target/security
+          cargo audit --deny warnings --json > target/security/cargo-audit.json
+          cargo deny check advisories bans licenses sources 2>&1 | tee target/security/cargo-deny.log
+      - name: SBOM and provenance lane
+        run: bash ops/ci/sbom-provenance.sh
+      - name: Upload security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: security-and-supply-chain-evidence
+          path: |
+            target/security/evidence.json
+            target/security/dependency-sources.json
+            target/security/cargo-audit.json
+            target/security/cargo-deny.log
+            target/jankurai/security/evidence.json
+            target/jankurai/security/sbom/
+          if-no-files-found: error

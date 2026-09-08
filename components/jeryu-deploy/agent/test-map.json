@@ -1,0 +1,245 @@
+{
+  "tests": {
+    ".cargo/": {
+      "command": "bash ops/ci/dependency-sources.sh && just check",
+      "lane": "security",
+      "purpose": "verify immutable Cargo identities transport only through exact hosted mappings"
+    },
+    ".config/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local tool configuration remains parseable"
+    },
+    ".dockerignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".github/": {
+      "command": "bash ops/ci/workflow-lint.sh && just check",
+      "lane": "ci",
+      "purpose": "verify hosted workflows match the standalone lane manifest"
+    },
+    ".gitignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".jankurai/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify committed audit evidence matches the pinned Jankurai lane"
+    },
+    "AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify split metadata and agent maps"
+    },
+    "CLAUDE.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify the concise agent entrypoint routes to canonical instructions"
+    },
+    "CHANGELOG.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify release notes stay routed through the score lane"
+    },
+    "Cargo.lock": {
+      "command": "bash ops/ci/dependency-sources.sh && just check",
+      "lane": "security",
+      "purpose": "verify every immutable Cargo identity resolves through the exact hosted transport policy"
+    },
+    "Cargo.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "Justfile": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "LICENSE": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    "README.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify root navigation remains current"
+    },
+    "VERSION": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify version source remains aligned with release evidence"
+    },
+    "agent/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "agent/ci-lanes.toml": {
+      "command": "bash ops/ci/workflow-lint.sh && just check",
+      "lane": "ci",
+      "purpose": "verify the standalone lane manifest matches every hosted workflow command"
+    },
+    "apps/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify application sources remain build-addressable"
+    },
+    "ci-fast-push.sh": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "config/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "configs/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "crates/jeryu-api/tests/jankurai_governance.rs": {
+      "command": "cargo test --locked --offline -p jeryu-api --features web --test jankurai_governance",
+      "lane": "check",
+      "purpose": "prove every generated Jankurai consumer, receipt, and release-broker verifier shares one closed governed identity"
+    },
+    "crates/jeryu-api/tests/hosted_dependency_transport.rs": {
+      "command": "bash ops/ci/dependency-sources.sh",
+      "lane": "security",
+      "purpose": "reject missing, extra, or misrouted Cargo Git source mappings"
+    },
+    "crates/jeryu-api/src/web/agent_runs/": {
+      "command": "just agent-runs",
+      "lane": "check",
+      "purpose": "verify agent-run handlers, bounded storage, PR export, and raw TTY behavior"
+    },
+    "crates/jeryu-api/src/web/request_id.rs": {
+      "command": "just request-id",
+      "lane": "check",
+      "purpose": "verify bounded caller request ids and response correlation propagation"
+    },
+    "crates/jeryu-api/src/web/sessions/": {
+      "command": "just test-api",
+      "lane": "check",
+      "purpose": "verify workspace materialization, credential seeding, and runtime selection"
+    },
+    "crates/jeryu-api/src/web/pulls/": {
+      "command": "just test-api",
+      "lane": "check",
+      "purpose": "verify required-check, review, and merge-passport posture"
+    },
+    "crates/jeryu-api/src/web/repositories/": {
+      "command": "just test-api",
+      "lane": "check",
+      "purpose": "verify bounded Git source browsing and README mutation behavior"
+    },
+    "crates/jeryu-api/src/ci_bridge/": {
+      "command": "just test-api",
+      "lane": "check",
+      "purpose": "verify installed Jankurai identity and authoritative score ingestion"
+    },
+    "crates/jeryu-api/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "crates/jeryu-cli/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "crates/jeryu-split-tool/": {
+      "command": "cargo test --locked --offline -p jeryu-split-tool && bash ops/ci/workflow-lint.sh && just check",
+      "lane": "ci",
+      "purpose": "verify Rust-native split transition behavior, workflow parity, and failure propagation"
+    },
+    "deny.toml": {
+      "command": "bash ops/ci/dependency-sources.sh && just security",
+      "lane": "security",
+      "purpose": "verify the explicit Git-source allowlist remains exact and default-deny"
+    },
+    "docs/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "examples/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "images/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "ops/": {
+      "command": "bash ops/ci/workflow-lint.sh && just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local ops guidance and CI wrappers stay reproducible"
+    },
+    "ops/ci/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local CI wrappers are reproducible and audit-visible"
+    },
+    "ops/git-hooks/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify pre-push gates delegate to local CI lanes"
+    },
+    "policies/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "repos.manifest.toml": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify split manifest remains parseable and routed"
+    },
+    "rust-toolchain.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local Rust toolchain metadata remains pinned"
+    },
+    "scripts/": {
+      "command": "bash ops/ci/workflow-lint.sh && just check",
+      "lane": "ci",
+      "purpose": "verify standalone CI scripts remain syntax-valid and workflow-aligned"
+    },
+    "tests/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-deploy owned source remains build-addressable"
+    },
+    "tools/": {
+      "command": "bash ops/ci/workflow-lint.sh && just security-network",
+      "lane": "security",
+      "purpose": "verify canonical tool entrypoints remain mapped to real standalone implementations"
+    },
+    "agent/tool-adoption.toml": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify Jankurai tool-adoption catalog coverage"
+    },
+    "db/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify documented data boundary policy remains routed"
+    },
+    "jeryu-split.lock.toml": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify split release lock remains routed and auditable"
+    }
+  },
+  "workspace": "jeryu-deploy"
+}

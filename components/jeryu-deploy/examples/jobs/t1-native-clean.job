@@ -1,0 +1,11 @@
+job_id=phase4_t1_clean
+repo_id=jeryu/jeryu
+commit_sha=abc123
+workspace=/tmp/jeryu-phase4-t1-clean
+command=/bin/echo
+args=hello,native-clean
+trust_tier=T2
+requested_runner=native-rust-clean
+network_policy=deny
+secret_policy=default
+token_policy=read-only

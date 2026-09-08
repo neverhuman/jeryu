@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+workspace = "jeryu-deploy"
+profile = "deploy"
+required_check = "jeryu-deploy/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+  "crates/jeryu-api",
+  "crates/jeryu-cli",
+  "crates/jeryu-split-tool",
+]
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

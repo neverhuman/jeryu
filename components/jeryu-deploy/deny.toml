@@ -1,0 +1,41 @@
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+allow = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "MIT",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+confidence-threshold = 0.8
+exceptions = []
+
+[bans]
+multiple-versions = "allow"
+wildcards = "allow"
+highlight = "all"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# These are the six source identities present in Cargo.lock. They remain exact
+# because changing historical pin spellings can create duplicate crate
+# identities. `.cargo/hosted-gitconfig` and `ops/ci/dependency-sources.sh`
+# independently require their effective transport to git.neverhuman.org.
+allow-git = [
+  "http://127.0.0.1:8787/git/jeryu/jeryu-core.git",
+  "http://127.0.0.1:8787/git/jeryu/jeryu-intelligence.git",
+  "https://github.com/neverhuman/jeryu-ci-runner.git",
+  "https://github.com/neverhuman/jeryu-intelligence.git",
+  "https://github.com/neverhuman/jeryu-jira.git",
+  "https://github.com/neverhuman/jeryu-release-ops.git",
+]

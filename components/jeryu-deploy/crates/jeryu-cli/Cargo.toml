@@ -1,0 +1,39 @@
+[package]
+name = "jeryu-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "jeryu"
+path = "src/main.rs"
+
+[[bin]]
+name = "jeryu-release-smoke"
+path = "src/release_smoke.rs"
+
+[[bin]]
+name = "jeryu-artifact-support"
+path = "src/artifact_support.rs"
+
+[lib]
+name = "jeryu_cli"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+hex.workspace = true
+jeryu-api = { path = "../jeryu-api", features = ["web"] }
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

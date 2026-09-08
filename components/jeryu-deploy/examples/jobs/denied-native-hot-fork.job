@@ -1,0 +1,12 @@
+job_id=phase4_denied_hot_fork
+repo_id=jeryu/jeryu
+commit_sha=badbad
+workspace=/tmp/jeryu-phase4-denied
+command=/bin/echo
+args=should,not,run
+trust_tier=T4
+requested_runner=native-rust-hot
+fork=true
+network_policy=deny
+secret_policy=default
+token_policy=read-only

@@ -1,0 +1,35 @@
+pub(super) fn permissions() -> Vec<String> {
+    [
+        "audit.read",
+        "agents.grant",
+        "agents.read",
+        "agents.write",
+        "agents.manage",
+        "branch.create",
+        "branch.delete",
+        "ci.read",
+        "ci.write",
+        "code.read",
+        "code.write",
+        "issue.read",
+        "issue.write",
+        "pr.approve",
+        "pr.comment",
+        "pr.merge",
+        "pr.read",
+        "pr.review",
+        "pr.write",
+        "repo.create",
+        "repo.delete",
+        "repo.manage",
+        "repo.read",
+        "repo.write",
+        "secrets.metadata",
+        "secrets.write",
+        "settings.read",
+        "settings.write",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect()
+}
