@@ -1,0 +1,38 @@
+{
+  "devDependencies": {
+    "@lhci/cli": "0.15.1",
+    "better-sqlite3": "^12.11.1"
+  },
+  "name": "jeryu",
+  "private": true,
+  "overrides": {
+    "@lhci/cli": {
+      "lighthouse": "13.4.1",
+      "tmp": "0.2.7",
+      "uuid": "11.1.1"
+    },
+    "@lhci/utils": {
+      "lighthouse": "13.4.1"
+    },
+    "tmp": "0.2.7"
+  },
+  "scripts": {
+    "build": "npm --workspace @jeryu/web run build",
+    "fixtures:build": "node components/jeryu-web/db/seed/build-fixtures.mjs",
+    "fixtures:test": "node --test \"components/jeryu-web/db/seed/__tests__/**/*.test.mjs\"",
+    "lint": "npm --workspace @jeryu/web run lint",
+    "security": "bash scripts/ci.sh security",
+    "security:audit": "npm audit --workspace @jeryu/web --audit-level=high",
+    "security:sbom": "syft dir:. -o spdx-json=target/security/jeryu-web.spdx.json",
+    "test": "npm --workspace @jeryu/web run test",
+    "typecheck": "npm --workspace @jeryu/web run typecheck",
+    "ux-qa": "npm --workspace @jeryu/web run ux-qa",
+    "ux-qa:build": "npm --workspace @jankurai/ux-qa run build",
+    "ux-qa:test": "npm --workspace @jankurai/ux-qa run test"
+  },
+  "type": "module",
+  "workspaces": [
+    "components/jeryu-web/apps/web",
+    "components/jeryu-web/ux-qa"
+  ]
+}

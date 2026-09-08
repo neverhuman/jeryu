@@ -11,10 +11,10 @@ name = "jeryu-mirror"
 path = "src/main.rs"
 
 [dependencies]
-anyhow.workspace = true
+anyhow = { version = "1" }
 clap.workspace = true
-jeryu-core = { path = "../jeryu-core" }
-jeryu-gitd = { path = "../jeryu-gitd" }
-jeryu-mirror = { path = "../jeryu-mirror" }
+jeryu-core = { workspace = true }
+jeryu-gitd = { workspace = true }
+jeryu-mirror = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true

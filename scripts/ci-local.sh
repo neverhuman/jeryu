@@ -2,4 +2,4 @@
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
-exec bash ops/ci/pr-ci.sh
+exec bash scripts/ci.sh "${1:-all}"

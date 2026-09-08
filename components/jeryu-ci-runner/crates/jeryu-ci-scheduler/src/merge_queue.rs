@@ -220,8 +220,8 @@ fn synthetic_sha(pr: &PullRequest) -> String {
     format!(
         "synthetic-{}-{}-{}",
         pr.target_branch.replace('/', "_"),
-        &pr.base_sha,
-        &pr.head_sha
+        pr.base_sha,
+        pr.head_sha
     )
 }
 

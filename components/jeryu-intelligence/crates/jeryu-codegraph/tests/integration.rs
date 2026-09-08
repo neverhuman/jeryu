@@ -412,9 +412,11 @@ fn oracle_query_pack_includes_provenance_refs_and_lanes() {
 
 #[test]
 fn index_real_workspace_root_and_impact() {
-    // The worktree root is two levels up from this crate dir.
     let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let root = crate_dir.parent().unwrap().parent().unwrap();
+    let root = crate_dir
+        .ancestors()
+        .find(|path| path.join("Cargo.lock").is_file())
+        .expect("workspace lockfile");
 
     let workspace = jeryu_rustjet::WorkspaceGraph::load(root).unwrap();
     let graph = CodeGraph::index_workspace(&workspace).unwrap();
@@ -440,9 +442,18 @@ fn index_real_workspace_root_and_impact() {
 
     // Changing a rustjet file affects rustjet itself and its reverse-deps,
     // which include jeryu-codegraph.
+    let changed = crate_dir
+        .parent()
+        .unwrap()
+        .join("jeryu-rustjet/src/graph.rs");
     let report = graph.impact_of(
         &workspace,
-        &["crates/jeryu-rustjet/src/graph.rs".to_string()],
+        &[changed
+            .strip_prefix(root)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned()],
     );
     assert!(report.changed_crates.contains("jeryu-rustjet"));
     assert!(report.affected_crates.contains("jeryu-rustjet"));

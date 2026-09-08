@@ -13,6 +13,9 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 use toml::Value;
 
+mod monorepo;
+mod proof_inventory;
+
 #[derive(Debug, Parser)]
 #[command(name = "jeryu-split")]
 struct Cli {
@@ -22,6 +25,22 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Validate one local identity for every Jeryu package in the monorepo.
+    MonorepoCheck,
+    /// Fail unless every external Git dependency uses a public immutable source.
+    PublicPreflight,
+    /// Inventory all retained workflows, proof declarations and CI entrypoints.
+    ProofInventory {
+        #[arg(long)]
+        check: bool,
+    },
+    /// Preview a deterministic standalone component tree without publishing refs.
+    ExportTree {
+        #[arg(long)]
+        component: String,
+        #[arg(long)]
+        source: String,
+    },
     /// Validate and render the split-family manifest.
     Manifest {
         #[arg(long, default_value = "repos.manifest.toml")]
@@ -191,6 +210,12 @@ fn parse_manifest_compat(args: &[OsString]) -> std::result::Result<Cli, Manifest
 
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Command::MonorepoCheck => monorepo::check(Path::new(".")),
+        Command::PublicPreflight => monorepo::public_preflight(Path::new(".")),
+        Command::ProofInventory { check } => proof_inventory::run(Path::new("."), check),
+        Command::ExportTree { component, source } => {
+            monorepo::export_tree(Path::new("."), &component, &source)
+        }
         Command::Manifest {
             manifest,
             json,
@@ -276,6 +301,9 @@ fn repositories(value: &Value) -> Result<&Vec<Value>> {
 
 fn validate_manifest_value(value: &Value, check_paths: bool) -> Result<()> {
     let root = table(value, "manifest")?;
+    if root.get("schema_version").and_then(Value::as_str) == Some("jeryu.monorepo/v1") {
+        return monorepo::validate_manifest(value, check_paths);
+    }
     let repos = repositories(value)?;
     let mut seen = BTreeSet::new();
 

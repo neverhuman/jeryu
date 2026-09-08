@@ -13,6 +13,7 @@ mod permissions;
 mod pulls;
 mod repo_admin;
 mod repositories;
+mod repository_create;
 mod request_id;
 mod sessions;
 mod surface;
@@ -488,6 +489,8 @@ pub async fn serve(config: WebServerConfig) -> Result<(), Box<dyn std::error::Er
 }
 
 mod bootstrap;
+#[cfg(test)]
+mod bootstrap_tests;
 
 use bootstrap::bootstrap_public_accounts;
 #[cfg(test)]
@@ -585,7 +588,8 @@ fn app(state: WebState, spa_dir: &Path) -> AxumRouter {
             "/api/v1/workcells/:id/export_pr",
             post(workcells::export_pr),
         )
-        .route("/api/v1/repos", get(repos))
+        .route("/api/v1/repos", get(repos).post(repository_create::create))
+        .route("/api/v1/repos/preview", post(repository_create::preview))
         .route(
             "/api/v1/repos/:id",
             get(repo_detail)

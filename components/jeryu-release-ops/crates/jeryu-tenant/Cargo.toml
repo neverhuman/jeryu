@@ -6,8 +6,8 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-phase11-core = { path = "../jeryu-phase11-core" }
-jeryu-phase11-audit = { path = "../jeryu-phase11-audit" }
+jeryu-phase11-core = { workspace = true }
+jeryu-phase11-audit = { workspace = true }
 
 [lib]
 path = "src/lib.rs"

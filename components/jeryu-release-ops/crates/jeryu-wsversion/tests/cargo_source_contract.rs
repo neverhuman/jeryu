@@ -9,7 +9,7 @@ const COMMIT: &str = "de5b22d50e21b9cac3efd239ea2ec2eda1df6327";
 fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(2)
+        .find(|path| path.join("Cargo.lock").is_file())
         .expect("crate must be nested beneath the workspace root")
         .to_owned()
 }
@@ -95,12 +95,34 @@ fn valid_lock() -> String {
 }
 
 #[test]
-fn repository_manifest_and_lock_use_exact_local_forge_identity() {
+fn repository_manifest_and_lock_use_one_workspace_identity() {
     let root = workspace_root();
-    let manifest = std::fs::read_to_string(root.join("crates/jeryu-wsversion/Cargo.toml"))
-        .expect("read jeryu-wsversion manifest");
+    let manifest =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"))
+            .expect("read jeryu-wsversion manifest");
     let lock = std::fs::read_to_string(root.join("Cargo.lock")).expect("read workspace lock");
-    validate_source_contract(&manifest, &lock).expect("validate governed Cargo source identity");
+    let manifest: toml::Value = toml::from_str(&manifest).unwrap();
+    assert_eq!(
+        manifest["dependencies"][PACKAGE]["workspace"].as_bool(),
+        Some(true)
+    );
+    assert_eq!(
+        manifest["dependencies"][PACKAGE].as_table().unwrap().len(),
+        1
+    );
+    let lock: toml::Value = toml::from_str(&lock).unwrap();
+    let packages: Vec<_> = lock["package"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|package| package["name"].as_str() == Some(PACKAGE))
+        .collect();
+    assert_eq!(packages.len(), 1, "duplicate rustjet identity");
+    assert_eq!(packages[0]["version"].as_str(), Some(VERSION));
+    assert!(
+        packages[0].get("source").is_none(),
+        "rustjet must resolve from the checked-out workspace"
+    );
 }
 
 #[test]

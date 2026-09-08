@@ -1,13 +1,13 @@
 [[lane]]
 name = "fast"
 command = "just fast"
-purpose = "portal metadata and workspace smoke check"
+purpose = "monorepo identity, authority shape and proof inventory smoke check"
 requires_network = false
 
 [[lane]]
 name = "check"
 command = "just check"
-purpose = "manifest, shell, hosted-source, and security hostile checks"
+purpose = "root workspace metadata and Rust formatting"
 requires_network = false
 
 [[lane]]
@@ -20,7 +20,7 @@ requires_network = false
 name = "security"
 command = "just security"
 purpose = "required secret, workflow, tool-custody, advisory, and SBOM checks"
-requires_network = false
+requires_network = true
 
 [[lane]]
 name = "artifact-support"
@@ -60,12 +60,54 @@ requires_network = false
 
 [[lane]]
 name = "ci"
-command = "bash ops/ci/pr-ci.sh"
-purpose = "canonical hosted required-check surface"
-requires_network = false
+command = "bash scripts/ci.sh all"
+purpose = "all root lanes, including public prerequisites and required sandbox capabilities"
+requires_network = true
 
 [[lane]]
 name = "ci-local"
 command = "bash scripts/ci-local.sh"
-purpose = "complete local parity wrapper for the hosted gate"
-requires_network = false
+purpose = "the same complete matrix as GitHub"
+requires_network = true
+
+[[lane]]
+name = "rust"
+command = "just rust"
+purpose = "warning-denied Clippy, unit, integration, property and documentation tests"
+requires_network = true
+
+[[lane]]
+name = "web"
+command = "just web"
+purpose = "locked web, contracts, browser, accessibility, performance and UX checks"
+requires_network = true
+
+[[lane]]
+name = "runtime"
+command = "just runtime"
+purpose = "source build, verified installation, real CLI and restart persistence"
+requires_network = true
+
+[[lane]]
+name = "contracts"
+command = "just contracts"
+purpose = "regenerate contracts from both Rust owners and compare every browser consumer"
+requires_network = true
+
+[[lane]]
+name = "public"
+command = "just public"
+purpose = "reject private dependency and tool prerequisites"
+requires_network = true
+
+[[lane]]
+name = "sandbox"
+command = "just sandbox"
+purpose = "execute every sandbox isolation case on a capable disposable Linux environment"
+requires_network = true
+
+[[lane]]
+name = "legacy"
+command = "just legacy"
+purpose = "retain original proof entrypoints until replacement equivalence is verified"
+requires_network = true

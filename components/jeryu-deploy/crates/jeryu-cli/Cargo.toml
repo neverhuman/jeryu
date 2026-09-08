@@ -22,10 +22,10 @@ name = "jeryu_cli"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow.workspace = true
+anyhow = { version = "1" }
 clap.workspace = true
 hex.workspace = true
-jeryu-api = { path = "../jeryu-api", features = ["web"] }
+jeryu-api = { workspace = true, features = ["web"] }
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 serde.workspace = true
 serde_json.workspace = true

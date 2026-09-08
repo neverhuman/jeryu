@@ -1,0 +1,72 @@
+[
+  {
+    "component": "jeryu-core",
+    "import_commit": "31788f91121cfefdb6adac8cdda3e60a83ec4794",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "79dcad77a1bfa792614cd6e6b20cf98d321a877f",
+    "source_tree": "393397156a0d1c8f3c8f78494659eb1d2eb52665"
+  },
+  {
+    "component": "jeryu-cache",
+    "import_commit": "c76f7a1e243f786e805888ede2bd853c63eb0146",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "f12af2dc10d54d43d8b251587c6c595bf3d556fa",
+    "source_tree": "c25ea10150547bb44af5ca2fd09e7ee8b7d32f9c"
+  },
+  {
+    "component": "jeryu-ci-runner",
+    "import_commit": "1f340331223d1e246b81bd99412791432feeddfc",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "cac34eee0981cd51227d0f0aba4b4fdd3b0fa429",
+    "source_tree": "7b71364d2360191b14643af659a1a521ccb4412c"
+  },
+  {
+    "component": "jeryu-intelligence",
+    "import_commit": "39a863133e7bd93ccc75f8c4b9e2ebb45d4fd1f3",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "6fb845c594c3e5e9ffea8047d8a3f814fa9ba4da",
+    "source_tree": "65e78ec7298171aca20bc9c5a2da2a2ff87d98ef"
+  },
+  {
+    "component": "jeryu-jira",
+    "import_commit": "8bf755606c01ad3d4bdd073661e1d6b524e5097e",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "1e89e09c5bfb71157a059fcfa3f85540df1d61b7",
+    "source_tree": "5b79b7e43131ed85db877bac212a3a851f1b1d16"
+  },
+  {
+    "component": "jeryu-web",
+    "import_commit": "e1d479ade71d61cc62de5601809b6d4b5253e398",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "37f0ca57c02f56c3cbc6f868bfee65a56069d8e7",
+    "source_tree": "6038183daa603b7e1f737f38e63dbdc78ad57371"
+  },
+  {
+    "component": "jeryu-tool",
+    "import_commit": "761728b27719dd001737300dae47de28d1886e72",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "6be9c4a5345fc80fc69e9560578b539540e7edfd",
+    "source_tree": "cacec5c5ee7763289a2a9512cf24ba654f0b76fc"
+  },
+  {
+    "component": "jeryu-tool-finder",
+    "import_commit": "15fb8ea75fe0a4016ee16e21e1512acd5a4b1d30",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "66980b33bc2115c7cfe269e88c54ed5e41a0ad15",
+    "source_tree": "df30e6c4547239dcd9a3e7bfb545ba165c98ffcc"
+  },
+  {
+    "component": "jeryu-deploy",
+    "import_commit": "01766cb8db3e8244ed3033a43511c42c8c3c6241",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "a6a76519c623d43b13ab4389fedc41d3fba4a610",
+    "source_tree": "79cdba2ee05786553ef5c78ba39d9e86aeb98266"
+  },
+  {
+    "component": "jeryu-release-ops",
+    "import_commit": "e71b55c4e485b88fb3f67c74a607e59a59fb646b",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "7cb0782601b11134e4005fc891dd018dd4e6367b",
+    "source_tree": "32e59a936e8eab7cfbc41643a6ddded8a572803e"
+  }
+]

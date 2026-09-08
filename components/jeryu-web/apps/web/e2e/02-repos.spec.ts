@@ -7,6 +7,7 @@
 // `/api/v1/repos` to a deterministic list so the cards render every run.
 
 import { expect, test } from '@playwright/test';
+import { loginBff } from './bff-auth';
 
 import { AppShellPage } from './pages/AppShellPage';
 import { RepositoriesPage } from './pages/RepositoriesPage';
@@ -34,19 +35,12 @@ const REPOS = [
 ];
 
 test.describe('Repositories list (W-T-10)', () => {
-  test('BFF /api/v1/repos surface responds (200 / 404 / 502) @bff', async ({
+  test('BFF /api/v1/repos returns the durable repository list @bff', async ({
     request,
   }) => {
-    // Phase 2/3: `/api/v1/repos` is wired but the local API has no forge backend,
-    // so 502 `upstream_unavailable` is the canonical no-creds response. The
-    // 200 / 404 alternatives are accepted so the spec stays green when the
-    // CI environment configures a working upstream or seeded mock profile.
+    await loginBff(request);
     const res = await request.get('/api/v1/repos', { failOnStatusCode: false });
-    const accepted = [200, 404, 502, 503];
-    expect(
-      accepted,
-      `/api/v1/repos returned ${res.status()} (must be one of ${accepted.join(',')})`
-    ).toContain(res.status());
+    expect(res.status()).toBe(200);
 
     if (res.status() === 200) {
       const body = await res.json();

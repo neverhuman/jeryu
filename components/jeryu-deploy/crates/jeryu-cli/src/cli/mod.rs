@@ -48,7 +48,7 @@ pub struct Cli {
     #[arg(long, global = true, default_value_t = false)]
     pub json: bool,
 
-    /// Live Jeryu API base URL for agent commands. Defaults to JERYU_API_URL.
+    /// API base URL. Defaults to JERYU_API_URL, then http://127.0.0.1:8787.
     #[arg(long, global = true)]
     pub api_url: Option<String>,
 
@@ -124,12 +124,12 @@ pub enum Commands {
         bind: SocketAddr,
 
         /// Web asset directory. Release builds embed/pin this artifact; dev can override it.
-        #[arg(long, default_value = "apps/web/dist")]
-        spa_dir: PathBuf,
+        #[arg(long)]
+        spa_dir: Option<PathBuf>,
 
         /// Durable Jeryu data directory.
-        #[arg(long, default_value = "~/.local/share/jeryu")]
-        data_dir: PathBuf,
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
 
         /// Split-family manifest used to classify portal and member repositories.
         ///

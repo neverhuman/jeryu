@@ -8,8 +8,8 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
-jeryu-cache-core = { path = "../jeryu-cache-core" }
-jeryu-cache-service = { path = "../jeryu-cache-service" }
+jeryu-cache-core = { workspace = true }
+jeryu-cache-service = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 

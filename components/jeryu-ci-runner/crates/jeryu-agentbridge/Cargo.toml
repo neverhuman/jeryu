@@ -11,14 +11,14 @@ name = "jeryu-editbot"
 path = "src/bin/jeryu-editbot.rs"
 
 [dependencies]
-jeryu-core = { git = "https://github.com/neverhuman/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.0", package = "jeryu-core" }
-jeryu-proof = { git = "https://github.com/neverhuman/jeryu-core.git", tag = "jeryu-core-v5.0.0-split.0", package = "jeryu-proof" }
-jeryu-ci-scheduler = { path = "../jeryu-ci-scheduler" }
+jeryu-core = { workspace = true }
+jeryu-proof = { workspace = true }
+jeryu-ci-scheduler = { workspace = true }
 # The in-cell agent driver reuses the runner-core policy/sandbox model and the
 # real kernel sandbox launch path. All unsafe stays in jeryu-sandbox-linux; this
 # crate inherits the workspace `forbid(unsafe_code)` lint below.
-jeryu-runner-core = { path = "../jeryu-runner-core" }
-jeryu-sandbox-linux = { path = "../jeryu-sandbox-linux" }
+jeryu-runner-core = { workspace = true }
+jeryu-sandbox-linux = { workspace = true }
 
 [dev-dependencies]
 tempfile.workspace = true

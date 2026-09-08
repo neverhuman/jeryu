@@ -6,10 +6,10 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-runner-core = { path = "../jeryu-runner-core" }
+jeryu-runner-core = { workspace = true }
 # The native runner stays SAFE (no unsafe); it delegates ALL unsafe sandbox
 # primitives to jeryu-sandbox-linux, the single unsafe island.
-jeryu-sandbox-linux = { path = "../jeryu-sandbox-linux" }
+jeryu-sandbox-linux = { workspace = true }
 
 [lints]
 workspace = true

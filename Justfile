@@ -1,21 +1,44 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
-jobs := env_var_or_default("JERYU_CI_JOBS", "40")
-
 fast:
-  ./ops/ci/fast.sh # cargo check
+  bash scripts/ci.sh source
 
 check:
-  ./ops/ci/check.sh
+  bash scripts/ci.sh source
+  cargo fmt --all -- --check
+
+rust:
+  bash scripts/ci.sh rust
+
+web:
+  bash scripts/ci.sh web
+
+contracts:
+  bash scripts/contracts.sh --check
+
+runtime:
+  bash scripts/ci.sh runtime
+
+public:
+  bash scripts/ci.sh public
+
+sandbox:
+  bash scripts/ci.sh sandbox
+
+legacy:
+  bash scripts/ci.sh legacy
+
+ci:
+  bash scripts/ci.sh all
 
 score:
   ./ops/ci/score.sh # jankurai audit repo-score
 
 security:
-  ./ops/ci/security.sh # required gitleaks/actionlint, optional-by-shape cargo audit, required syft
+  bash scripts/ci.sh security
 
 artifact-support:
   ./ops/ci/artifact_support.sh
 
 profile:
-  printf '%s\n' "public-portal"
+  printf '%s\n' "rust-workspace"

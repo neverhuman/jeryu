@@ -27,8 +27,7 @@
 //   8. Bundle size budget           gzip(dist/assets/index-*.js) < 350 KB
 //   9. Lighthouse perf score        target/jankurai/ux-qa/lighthouse/*.report.json
 //                                     OR target/jankurai/ux-qa/lighthouse.json
-//                                     (soft-pass if no artifacts; fails only
-//                                     when score < 0.7 in collected runs)
+//                                     (required; every collected score >= 0.7)
 //  10. Receipt                      target/jankurai/ux-qa/web-forge.<ISO>.json
 //
 // Output: a top-level `pass: bool` plus per-check `pass: bool` and
@@ -375,8 +374,7 @@ async function checkBundleSize() {
 // names artifacts `<host>--<timestamp>.report.json`, older docs reference
 // `lhr-*.json`) or a hand-minted `target/jankurai/ux-qa/lighthouse.json`
 // receipt. Pass if any LHR exists with `categories.performance.score >= 0.7`.
-// If `@lhci/cli` is not installed we degrade to a soft pass with a hint
-// rather than failing the harness.
+// Missing or malformed performance evidence fails the required proof.
 const LIGHTHOUSE_PERF_THRESHOLD = 0.7;
 
 function checkLighthouse() {
@@ -401,9 +399,7 @@ function checkLighthouse() {
 
   if (lhrFiles.length === 0) {
     // No artifacts. Check whether @lhci/cli is available so we can give a
-    // useful hint; either way, this is a soft pass — the bundle_size check
-    // already covers the size budget, and CI environments without Chrome
-    // shouldn't fail the whole harness here.
+    // useful hint. Bundle-size evidence cannot replace the browser measurement.
     const lhciInstalled = existsSync(
       join(repoRoot, 'node_modules', '@lhci', 'cli', 'src', 'cli.js'),
     );
@@ -411,9 +407,9 @@ function checkLighthouse() {
       ? 'Run `JERYU_WEB_TRUST_LOCAL=1 ./target/release/jeryu web serve --bind 127.0.0.1:8787 --spa-dir apps/web/dist &` then `npm --workspace @jeryu/web run perf`'
       : 'Install with `npm install --workspace @jeryu/web @lhci/cli@latest` then run `npm --workspace @jeryu/web run perf`';
     return {
-      pass: true,
+      pass: false,
       details: {
-        reason: 'no lighthouse artifacts; treating as soft pass',
+        reason: 'required lighthouse artifacts are missing',
         lhci_installed: lhciInstalled,
         hint,
       },
@@ -465,9 +461,9 @@ function checkLighthouse() {
 
   if (minScore === Infinity) {
     return {
-      pass: true,
+      pass: false,
       details: {
-        reason: 'lighthouse artifacts present but no perf score extracted; soft pass',
+        reason: 'lighthouse artifacts contain no usable performance score',
         reports,
       },
     };

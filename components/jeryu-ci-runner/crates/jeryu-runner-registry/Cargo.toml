@@ -7,8 +7,8 @@ authors.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-runner-protocol = { path = "../jeryu-runner-protocol" }
-jeryu-ci-ir = { path = "../jeryu-ci-ir" }
+jeryu-runner-protocol = { workspace = true }
+jeryu-ci-ir = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

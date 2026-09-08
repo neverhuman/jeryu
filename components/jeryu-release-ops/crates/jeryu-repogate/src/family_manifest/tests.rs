@@ -1,9 +1,8 @@
 use super::*;
 
-const RAW: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../repos.manifest.toml"
-));
+// Preserve the released split-authority validator and its hostile cases during
+// handover. The candidate monorepo schema is validated by jeryu-split.
+const RAW: &str = include_str!("fixtures/split-v5.toml");
 
 fn canonical() -> Manifest {
     toml::from_str(RAW).expect("canonical manifest parses")

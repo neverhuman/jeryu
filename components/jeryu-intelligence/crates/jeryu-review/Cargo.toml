@@ -6,7 +6,7 @@ description = "Multi-reviewer orchestrator, prompt-sha replay, quorum + SHA-bind
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-jeryu-signing = { git = "https://github.com/neverhuman/jeryu-release-ops.git", tag = "jeryu-release-ops-v5.0.0-split.0", package = "jeryu-signing" }
+jeryu-signing = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"

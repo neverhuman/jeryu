@@ -13,6 +13,7 @@
 // the WebSocket handshake succeed without a session cookie.
 
 import { expect, test } from '@playwright/test';
+import { loginBff } from './bff-auth';
 
 import { AppShellPage } from './pages/AppShellPage';
 import {
@@ -27,6 +28,7 @@ test.describe.configure({ retries: 1 });
 
 test.describe('Bootstrap + Dashboard (W-T-09)', () => {
   test('BFF bootstrap endpoint returns a valid envelope @bff', async ({ request }) => {
+    await loginBff(request);
     // Hit the BFF directly so this tier passes even when the SPA shell
     // is broken. This is the Phase 1 contract the SPA depends on.
     const res = await request.get('/api/v1/bootstrap');

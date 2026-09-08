@@ -48,21 +48,6 @@ pub(super) fn bootstrap_public_accounts_with_admin_password(
         });
     }
 
-    for (login, role) in [("jordanh", UserRole::User), ("jepsont", UserRole::User)] {
-        if state.core.get_account(login).is_ok() {
-            continue;
-        }
-        let password = state.core.generate_one_time_password()?;
-        state
-            .core
-            .create_temporary_account(login, &password, role.clone())?;
-        credentials.push(BootstrapCredential {
-            login: login.to_string(),
-            role: bootstrap_role_name(&role).to_string(),
-            password,
-        });
-    }
-
     for repo in state.core.list_repositories(Some("jeryu")) {
         let split = state
             .split_catalog

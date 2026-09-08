@@ -24,6 +24,7 @@ const ETX = 0x03;
 // Strip terminal escape sequences unsupported by xterm.js that can corrupt
 // rendering. Specifically: Kitty keyboard protocol (CSI >Pm, CSI =Ps;Ps u,
 // CSI ?u) and DECRQM mode queries (CSI ?Pd $p).
+// eslint-disable-next-line no-control-regex -- Match the terminal protocol's literal ESC byte.
 const UNSUPPORTED_SEQS = /\x1b\[(?:[>=][0-9;]*[mu]|\?[0-9]*\$p|\?u)/g;
 const TCMALLOC_NOISE = /^\d+ third_party\/tcmalloc\/.*\n?/gm;
 function sanitizeTty(text: string): string {

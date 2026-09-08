@@ -6,13 +6,13 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-phase11-core = { path = "../jeryu-phase11-core" }
-jeryu-phase11-audit = { path = "../jeryu-phase11-audit" }
-jeryu-ops = { path = "../jeryu-ops" }
-jeryu-compliance-export = { path = "../jeryu-compliance-export" }
-jeryu-lifecycle = { path = "../jeryu-lifecycle" }
-jeryu-tenant = { path = "../jeryu-tenant" }
-jeryu-replay-verifier = { path = "../jeryu-replay-verifier" }
+jeryu-phase11-core = { workspace = true }
+jeryu-phase11-audit = { workspace = true }
+jeryu-ops = { workspace = true }
+jeryu-compliance-export = { workspace = true }
+jeryu-lifecycle = { workspace = true }
+jeryu-tenant = { workspace = true }
+jeryu-replay-verifier = { workspace = true }
 
 [lib]
 path = "src/lib.rs"

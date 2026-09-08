@@ -10,5 +10,5 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
-jeryu-signing = { path = "../jeryu-signing" }
+jeryu-signing = { workspace = true }
 serde_json = { workspace = true }

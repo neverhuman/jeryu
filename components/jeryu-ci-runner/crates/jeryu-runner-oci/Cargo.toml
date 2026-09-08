@@ -6,7 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-runner-core = { path = "../jeryu-runner-core" }
+jeryu-runner-core = { workspace = true }
 
 [lints]
 workspace = true

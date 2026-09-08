@@ -19,6 +19,7 @@
 //      metadata (server-side contract).
 
 import { expect, test } from '@playwright/test';
+import { loginBff } from './bff-auth';
 
 import { mockBootstrap, mockReadme, mockRepoList } from './fixtures/mocks';
 import type { RenderedMarkdown } from '../src/api/types';
@@ -95,40 +96,23 @@ test.describe('README rendering (W-T-11)', () => {
   test('markdown render endpoint returns the RenderedMarkdown contract @bff', async ({
     request,
   }) => {
-    // The W-B-08 markdown service is exposed at `/api/v1/markdown/render`
-    // in Phase 2. The BFF enforces double-submit CSRF on POST so we
-    // forge a matching cookie+header pair manually. Note we cannot
-    // `context.addCookies` a `__Host-` cookie over plain HTTP — Chromium
-    // rejects `__Host-` without `Secure=true`, which 127.0.0.1 cannot
-    // satisfy. Passing the cookie as a raw `Cookie` header sidesteps
-    // that restriction (the BFF only reads the header). We tolerate
-    // `404/405/501` (endpoint not yet wired) and `4xx CSRF`
-    // (the BFF rejects the cookie shape) — the contract under test is
-    // the sanitization behaviour, only asserted when the endpoint
-    // succeeds.
-    const CSRF = 'e2e-csrf-token';
-    const bffBaseURL =
-      process.env.JERYU_PLAYWRIGHT_BFF_URL ?? 'http://127.0.0.1:8787';
+    const csrf = await loginBff(request);
     const res = await request.post(
-      `${bffBaseURL.replace(/\/$/, '')}/api/v1/markdown/render`,
+      '/api/v1/markdown/render',
       {
         data: {
           markdown:
             '# Title\n\n<script>alert(1)</script>\n\n<img src=x onerror=alert(2)>',
         },
         headers: {
-          'X-CSRF-Token': CSRF,
-          Cookie: `__Host-jeryu-csrf=${CSRF}`,
+          'X-Jeryu-CSRF': csrf,
         },
         failOnStatusCode: false,
       }
     );
 
-    // The markdown render endpoint may be pending (W-B-08, status 404/405/501)
-    // or sit behind auth/CSRF the e2e harness can't satisfy on 127.0.0.1
-    // (401/403). Only the success path carries the typed `RenderedMarkdown`
-    // contract, so we validate that envelope instead of scraping raw bytes.
     const status = res.status();
+    expect(status).toBe(200);
     if (status < 400) {
       const body = (await res.json()) as RenderedMarkdown;
       expect(body.renderer_version).toBe('jeryu-md-renderer.v1');

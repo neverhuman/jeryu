@@ -225,18 +225,26 @@ fn cargo_identity_and_effective_transport_are_exact() {
     )]);
     assert_eq!(parse_pins(&pin_policy), expected_pin);
 
-    let lock = fs::read_to_string(root.join("Cargo.lock")).expect("Cargo lock");
-    let expected_lock_source = format!("git+{SOURCE}?tag={TAG}#{COMMIT}");
-    let locked_git_rows = lock
-        .lines()
-        .filter_map(|line| {
-            line.trim()
-                .strip_prefix("source = \"")
-                .and_then(|value| value.strip_suffix('"'))
-                .filter(|value| value.starts_with("git+"))
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(locked_git_rows, vec![expected_lock_source.as_str(); 2]);
+    let workspace = root
+        .ancestors()
+        .find(|path| path.join("Cargo.lock").is_file())
+        .expect("workspace lock");
+    let lock = fs::read_to_string(workspace.join("Cargo.lock")).expect("Cargo lock");
+    for name in ["jeryu-core", "jeryu-gitd"] {
+        let packages: Vec<_> = lock
+            .split("[[package]]")
+            .filter(|record| {
+                record
+                    .lines()
+                    .any(|line| line == format!("name = \"{name}\""))
+            })
+            .collect();
+        assert_eq!(packages.len(), 1, "duplicate workspace package identity");
+        assert!(
+            !packages[0].lines().any(|line| line.starts_with("source =")),
+            "internal package must use checked-out source"
+        );
+    }
 
     let deny = fs::read_to_string(root.join("deny.toml")).expect("Cargo Deny policy");
     assert!(deny.contains("unknown-git = \"deny\""));

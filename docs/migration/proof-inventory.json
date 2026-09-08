@@ -1,0 +1,1660 @@
+{
+  "note": "The legacy lane preserves existing entrypoints. Every declaration and threshold below remains required until a portable replacement has an exact-source equivalence proof; this inventory does not claim that the legacy wrapper executes every auxiliary workflow.",
+  "portable_parity_qualified": false,
+  "retirement_allowed": false,
+  "schema_version": "jeryu.proof-inventory/v1",
+  "sources": [
+    {
+      "component": "jeryu-cache",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\nenv:\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\n# Diagnostic mirror only. git.neverhuman.org is source and merge authority;\n# this workflow does not create the protected jeryu-cache/required check.\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      # cache: Cargo and npm dependency caches are provided by the runner image when available.\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: PR CI (canonical gate)\n        run: bash ops/ci/pr-ci.sh\n      - name: Proof evidence lane\n        run: bash ops/ci/proof_evidence.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/jankurai/coverage/coverage-audit.md\n            target/jankurai/coverage/coverage-audit.json\n            target/jankurai/vibe-coverage.md\n            target/jankurai/vibe-coverage.json\n            target/jankurai/migration-report.json\n            target/jankurai/ux-qa.json\n            target/jankurai/rust/witness-graph.json\n            target/jankurai/language-bad-behavior.log\n            target/jankurai/copy-code.md\n            target/jankurai/copy-code.json\n            target/jankurai/proofmark/proof-receipt.json\n            target/jankurai/proofmark/proofmark-receipt.json\n            target/jankurai/proofbind/obligations.json\n            target/jankurai/proofbind/surface-witness.json\n            target/jankurai/security/evidence.json\n            target/jankurai/repair-queue.jsonl\n            target/jankurai/repo-score.md\n            target/jankurai/repo-score.json\n            .jankurai/repo-score.md\n            .jankurai/repo-score.json\n            target/artifact-support/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-cache/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "cc3879b9bc7307bab95f69e965f1bbc1b6600ed6d2ffa58c93d86464d3a9c93e",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-cache",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\n\nfast:\n  ./ops/ci/fast.sh # cargo check\n\ncheck:\n  ./ops/ci/check.sh\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  ./tools/security-lane.sh # governed gitleaks, advisory, and SBOM proof\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\ncontract-drift:\n  ./ops/ci/contract-drift.sh\n\ncontract-schema:\n  cargo test --locked --offline -p jeryu-cache-core receipt_schema_matches_serialized_contract\n\nprofile:\n  printf '%s\\n' \"rust-workspace\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-cache/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a6d1b72ce1d13bd9977621027b736ceec531b03063713eb52a9dd05fd5a530f0",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-cache",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "stale",
+            "placeholder",
+            "fallback",
+            "old"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 85,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-cache"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-cache/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "be36e976de232edad062c49692aae5e485b21297b835d15aed620797969f3187",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-cache",
+      "declaration": {
+        "lane": [
+          {
+            "command": "just fast",
+            "name": "fast",
+            "purpose": "run the locked offline workspace compile check",
+            "requires_network": false
+          },
+          {
+            "command": "just check",
+            "name": "check",
+            "purpose": "validate metadata, scripts, and the locked workspace",
+            "requires_network": false
+          },
+          {
+            "command": "just score",
+            "name": "score",
+            "purpose": "run the governed exact-head Jankurai score gate",
+            "requires_network": false
+          },
+          {
+            "command": "just security",
+            "name": "security",
+            "purpose": "run required secret, workflow, dependency, advisory, and SBOM checks",
+            "requires_network": false
+          },
+          {
+            "command": "just artifact-support",
+            "name": "artifact-support",
+            "purpose": "bind exact source, locked metadata, tool identity, and SBOM evidence",
+            "requires_network": false
+          },
+          {
+            "command": "just contract-drift",
+            "name": "contract-drift",
+            "purpose": "compare every public library API with the immutable split.1 baseline",
+            "requires_network": false
+          },
+          {
+            "command": "just contract-schema",
+            "name": "contract-schema",
+            "purpose": "bind the public Cache receipt schema to real Serde output",
+            "requires_network": false
+          },
+          {
+            "command": "bash scripts/ci-local.sh required",
+            "name": "required",
+            "purpose": "run the complete Cache required-check surface",
+            "requires_network": false
+          },
+          {
+            "command": "just fast && just check && just score",
+            "name": "ci-metadata",
+            "purpose": "verify CI and workspace metadata with compile and audit gates",
+            "requires_network": false
+          },
+          {
+            "command": "just check && just score",
+            "name": "docs",
+            "purpose": "verify documentation against executable metadata and conformance",
+            "requires_network": false
+          },
+          {
+            "command": "just security && just score",
+            "name": "security-score",
+            "purpose": "verify supply-chain implementation and audit routing together",
+            "requires_network": false
+          },
+          {
+            "command": "bash tests/cache_poisoning_matrix.sh",
+            "name": "cache-poisoning",
+            "purpose": "exercise the adversarial cache-poisoning matrix",
+            "requires_network": false
+          },
+          {
+            "command": "bash tests/ci_local_dispatch_test.sh",
+            "name": "ci-dispatch-hostiles",
+            "purpose": "reject malformed or injected local CI lane arguments",
+            "requires_network": false
+          },
+          {
+            "command": "bash tests/pr_ci_order_test.sh",
+            "name": "pr-ci-order-hostiles",
+            "purpose": "bind product execution, evidence generation, and final validation order",
+            "requires_network": false
+          },
+          {
+            "command": "bash tests/security_lane_test.sh",
+            "name": "security-tool-hostiles",
+            "purpose": "reject shell-function, PATH, release-root, and tool-custody substitution",
+            "requires_network": false
+          },
+          {
+            "command": "bash tests/contract_drift_test.sh",
+            "name": "contract-hostiles",
+            "purpose": "reject public API, tool, source, and receipt substitution",
+            "requires_network": false
+          },
+          {
+            "command": "bash tests/artifact_support_test.sh",
+            "name": "artifact-hostiles",
+            "purpose": "reject artifact, tool, source, and physical custody substitution",
+            "requires_network": false
+          }
+        ]
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-cache/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "6b5b9bdbea62c9b8ed4c4d126490a0ae5727b2f8b818230702e37f293d399470",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-cache",
+      "declaration": "#!/usr/bin/env bash\n# Canonical exact-head gate for jeryu-cache. Hosted proof and the protected\n# `jeryu-cache/required` producer must execute this composition without waivers.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# jeryu governs the worker count from live load; never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport JERYU_CI_JOBS=\"$JOBS\"\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\n\n# Resolve and verify the absolute governed auditor before any lane runs.\nsource ops/ci/lib.sh\nrequire_jankurai\n\n# jankurai pin: jeryu-tool/tool-manifest.toml is the family-wide source of truth.\n# When the control-plane repo is reachable (on-host family layout), fail fast if\n# this repo's pinned consumers drifted from it. In an isolated single-repo CI\n# checkout it is absent — skip rather than fail.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  echo \"[pr-ci] jankurai pin drift check\" >&2\n  consumer_repo=\"$(awk -F'\\\"' '/^workspace =/ {print $2; exit}' agent/audit-policy.toml)\"\n  bash \"$JERYU_TOOL_RENDER\" --check --repo \"$consumer_repo\" \\\n    --repo-root \"$consumer_repo=$repo_root\"\nfi\n\necho \"[pr-ci] local lane dispatch contract\" >&2\ntests/ci_local_dispatch_test.sh\ntests/pr_ci_order_test.sh\n\necho \"[pr-ci] (jobs=$JOBS) standard lanes\" >&2\nbash ops/ci/fast.sh\nJERYU_SPLIT_FULL_CHECK=1 bash ops/ci/check.sh\nbash ops/ci/score.sh\nbash tools/security-lane.sh\n\necho \"[pr-ci] workspace test suite\" >&2\ncargo nextest run --locked --offline --workspace \\\n  --build-jobs \"$JOBS\" --test-threads \"$JOBS\"\necho \"[pr-ci] cache poisoning matrix\" >&2\nbash tests/cache_poisoning_matrix.sh\n\n# Release evidence is meaningful only after every product command has passed.\necho \"[pr-ci] exact-tree release evidence\" >&2\nbash ops/ci/contract-drift.sh\nbash ops/ci/artifact_support.sh\n\necho \"[pr-ci] hostile evidence validation\" >&2\nbash tests/security_lane_test.sh\nbash tests/contract_drift_test.sh\nbash tests/artifact_support_test.sh\n\n# Re-open and re-hash both canonical evidence sets after every producer and\n# hostile test. These are the final product-repository commands in this gate.\necho \"[pr-ci] final release evidence revalidation\" >&2\nbash ops/ci/contract-drift.sh --validate-receipt \\\n  target/contract-drift/receipt.json\nbash ops/ci/artifact_support.sh --validate-receipt \\\n  target/artifact-support/jeryu-cache.json\necho \"[pr-ci] jeryu-cache OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-cache/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "798a2de5edcb169bf8ae47d9b88f4b92516bcbc31337aa39fed5e5ce5280a5f0",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-cache",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\n\nusage='usage: ci-local.sh {required|security|score|contract-drift|artifact-support}'\n\nif [ \"$#\" -ne 1 ]; then\n  printf '%s\\n' \"$usage\" >&2\n  exit 2\nfi\n\ncase \"$1\" in\n  required)\n    lane_script='ops/ci/pr-ci.sh'\n    ;;\n  security)\n    lane_script='tools/security-lane.sh'\n    ;;\n  score)\n    lane_script='ops/ci/score.sh'\n    ;;\n  contract-drift)\n    lane_script='ops/ci/contract-drift.sh'\n    ;;\n  artifact-support)\n    lane_script='ops/ci/artifact_support.sh'\n    ;;\n  *)\n    printf 'unsupported CI lane: %s\\n' \"$1\" >&2\n    exit 2\n    ;;\nesac\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/..\" && pwd)\"\ncd \"$repo_root\"\n\nexec bash \"$lane_script\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-cache/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "392d5c607ff638337a45b811a2618e55ebb94e4924978577b389fa4943b6eada",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\nenv:\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      # cache: Cargo and npm dependency caches are provided by the runner image when available.\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: PR CI (canonical gate)\n        run: bash ops/ci/pr-ci.sh\n      - name: Proof evidence lane\n        run: bash ops/ci/proof_evidence.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/jankurai/coverage/coverage-audit.md\n            target/jankurai/coverage/coverage-audit.json\n            target/jankurai/vibe-coverage.md\n            target/jankurai/vibe-coverage.json\n            target/jankurai/migration-report.json\n            target/jankurai/ux-qa.json\n            target/jankurai/rust/witness-graph.json\n            target/jankurai/language-bad-behavior.log\n            target/jankurai/copy-code.md\n            target/jankurai/copy-code.json\n            target/jankurai/proofmark/proof-receipt.json\n            target/jankurai/proofmark/proofmark-receipt.json\n            target/jankurai/proofbind/obligations.json\n            target/jankurai/proofbind/surface-witness.json\n            target/jankurai/security/evidence.json\n            target/jankurai/repair-queue.jsonl\n            target/jankurai/repo-score.md\n            target/jankurai/repo-score.json\n            .jankurai/repo-score.md\n            .jankurai/repo-score.json\n            target/artifact-support/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-ci-runner/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f07cb847120861147fe5ce268a1057d47086ac0141db4cd96379350bca0c1f08",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\n\nfast:\n  ./ops/ci/fast.sh # cargo check\n\ncheck:\n  ./ops/ci/check.sh\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  JERYU_SECURITY_NETWORK=1 ./tools/security-lane.sh\n\ncontract-drift:\n  cargo test -p jeryu-runner-protocol --locked --test schema_contract_drift\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\nprofile:\n  printf '%s\\n' \"rust-workspace\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-ci-runner/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f1e49de4a92dc524a27abfe4d61ef417fda5ee0f919707cf73e9876e546da9a8",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "stale",
+            "placeholder",
+            "fallback",
+            "old"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 80,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-ci-runner"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-ci-runner/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "8badf78e56f8826eac2912ff8e9297b40d2151ba2ba3e2c8f4bbf9df2f33d904",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": {
+        "lane": [
+          {
+            "command": "just fast",
+            "name": "fast",
+            "purpose": "locked deterministic workspace compile check",
+            "requires_network": false
+          },
+          {
+            "command": "just check",
+            "name": "check",
+            "purpose": "full locked workspace format, lint, metadata, and test gate",
+            "requires_network": false
+          },
+          {
+            "command": "just score",
+            "name": "score",
+            "purpose": "pinned full Jankurai repository score and hard-finding gate",
+            "requires_network": false
+          },
+          {
+            "command": "just security",
+            "name": "security",
+            "purpose": "fixed-version secret, workflow, advisory, source, and SBOM checks",
+            "requires_network": true
+          },
+          {
+            "command": "just contract-drift",
+            "name": "contract",
+            "purpose": "runner wire Rust-to-schema drift and hostile mutation checks",
+            "requires_network": false
+          },
+          {
+            "command": "just artifact-support",
+            "name": "artifact-support",
+            "purpose": "source-repository artifact support metadata check",
+            "requires_network": false
+          },
+          {
+            "command": "just security && just check",
+            "name": "security-check",
+            "purpose": "hosted dependency policy followed by local metadata validation",
+            "requires_network": true
+          },
+          {
+            "command": "just fast && just check && just score",
+            "name": "ci-basic",
+            "purpose": "compatibility CI metadata and score route",
+            "requires_network": false
+          },
+          {
+            "command": "just contract-drift && cargo test --locked -p jeryu-runner-protocol",
+            "name": "protocol-contract",
+            "purpose": "runner protocol schema drift plus complete protocol crate tests",
+            "requires_network": false
+          },
+          {
+            "command": "cargo test --locked -p jeryu-runnerd",
+            "name": "runnerd",
+            "purpose": "complete runner daemon and hosted transport hostile tests",
+            "requires_network": false
+          },
+          {
+            "command": "just check && just score",
+            "name": "docs",
+            "purpose": "documentation navigation and audit routing",
+            "requires_network": false
+          },
+          {
+            "command": "just fast && just check && just security && just score",
+            "name": "ci",
+            "purpose": "host CI wrapper compile, metadata, security, and score parity",
+            "requires_network": true
+          }
+        ]
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-ci-runner/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "375ad07ce1a9bea54442239d964c01aa6b1d50910be07346498680bf4e49dfff",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": "#!/usr/bin/env bash\n# Canonical local PR gate for jeryu-ci-runner. host-ci prefers this script and posts the\n# `jeryu-ci-runner/required` check-run from its exit status; .github/workflows/ci.yml runs\n# the same lanes on the GitHub mirror so the two surfaces cannot diverge.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# Resolve and verify the absolute governed auditor before any lane runs.\nsource ops/ci/lib.sh\nrequire_jankurai\n# shellcheck source=ops/ci/hosted-git-env.sh\nsource \"${repo_root}/ops/ci/hosted-git-env.sh\"\n\n# jeryu governs the worker count from live load; never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport JERYU_CI_JOBS=\"$JOBS\"\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\n\n# The pinned Jankurai 1.6.11 lives in ~/.cargo/bin. Other host installations\n# may appear earlier on PATH, so resolve the pinned auditor first; scripts that\n# source lib.sh additionally invoke its physical path so login-shell proof\n# replay cannot change audit semantics (see ops/ci/ensure-jankurai.sh).\n\n# jankurai pin: jeryu-tool/tool-manifest.toml is the family-wide source of truth.\n# When the control-plane repo is reachable (on-host family layout), fail fast if\n# this repo's pinned consumers drifted from it. In an isolated single-repo CI\n# checkout it is absent — skip rather than fail.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  echo \"[pr-ci] jankurai pin drift check\" >&2\n  consumer_repo=\"$(awk -F'\\\"' '/^workspace =/ {print $2; exit}' agent/audit-policy.toml)\"\nbash \"$JERYU_TOOL_RENDER\" --check --repo \"$consumer_repo\" \\\n--repo-root \"$consumer_repo=$repo_root\"\nfi\n\necho \"[pr-ci] (jobs=$JOBS) standard lanes\" >&2\nbash ops/ci/fast.sh\nJERYU_SPLIT_FULL_CHECK=1 bash ops/ci/check.sh\njust contract-drift\nbash ops/ci/score.sh\nJERYU_SECURITY_NETWORK=1 bash ops/ci/security.sh\nbash ops/ci/artifact_support.sh\n\necho \"[pr-ci] workspace test suite (sandbox runtime tests need real namespaces; see deploy pr-ci precedent)\" >&2\ncargo nextest run --locked --workspace --exclude jeryu-sandbox-linux --build-jobs \"$JOBS\" --test-threads \"$JOBS\"\nif [ \"${JERYU_SKIP_SANDBOX_MATRIX:-0}\" != \"1\" ]; then\n  echo \"[pr-ci] sandbox escape matrix (docker)\" >&2\n  bash tests/sandbox_escape_matrix.sh\nfi\necho \"[pr-ci] jeryu-ci-runner OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-ci-runner/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a5f9614c5c9094bd31d365c7d4dbe4a5c4f0a9bb489b0cc41d7c990a215a62c2",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-ci-runner",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\njust fast\njust check\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-ci-runner/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "952a0882b7643a1286433ea0db7b6c759640e28c7776172781e320c11afe694d",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\nenv:\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      # cache: Cargo and npm dependency caches are provided by the runner image when available.\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: PR CI (canonical gate)\n        run: bash ops/ci/pr-ci.sh\n      - name: Proof evidence lane\n        run: bash ops/ci/proof_evidence.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/jankurai/coverage/coverage-audit.md\n            target/jankurai/coverage/coverage-audit.json\n            target/jankurai/vibe-coverage.md\n            target/jankurai/vibe-coverage.json\n            target/jankurai/migration-report.json\n            target/jankurai/ux-qa.json\n            target/jankurai/rust/witness-graph.json\n            target/jankurai/language-bad-behavior.log\n            target/jankurai/copy-code.md\n            target/jankurai/copy-code.json\n            target/jankurai/proofmark/proof-receipt.json\n            target/jankurai/proofmark/proofmark-receipt.json\n            target/jankurai/proofbind/obligations.json\n            target/jankurai/proofbind/surface-witness.json\n            target/jankurai/security/evidence.json\n            target/jankurai/repair-queue.jsonl\n            target/jankurai/repo-score.md\n            target/jankurai/repo-score.json\n            .jankurai/repo-score.md\n            .jankurai/repo-score.json\n            target/artifact-support/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-core/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f07cb847120861147fe5ce268a1057d47086ac0141db4cd96379350bca0c1f08",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\n\nfast:\n  ./ops/ci/fast.sh # cargo check\n\nfocused:\n  cargo check -p jeryu-core --locked --all-targets --jobs {{jobs}}\n  cargo nextest run -p jeryu-core --build-jobs {{jobs}} --test-threads {{jobs}}\n\ncheck:\n  ./ops/ci/check.sh\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  ./ops/ci/security.sh # gitleaks cargo audit npm audit syft\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\nprofile:\n  printf '%s\\n' \"rust-workspace\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-core/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "af0049f6917c1d34271d9402ab96c355677929e12b43ca76c9c6ee9cec9dd863",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "stale",
+            "placeholder",
+            "fallback",
+            "old"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 85,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-core"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-core/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "1e933b8fe886dc8077eadf25d79105f4a48acb05a5db0b2d7ddd57359dab475c",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": {
+        "lanes": {
+          "artifact-support": {
+            "blocks_merge": false,
+            "required": [
+              "just artifact-support"
+            ]
+          },
+          "check": {
+            "blocks_merge": true,
+            "required": [
+              "just check"
+            ]
+          },
+          "fast": {
+            "blocks_merge": true,
+            "required": [
+              "just fast"
+            ]
+          },
+          "score": {
+            "blocks_merge": true,
+            "required": [
+              "just score"
+            ]
+          },
+          "security": {
+            "blocks_merge": true,
+            "required": [
+              "just security"
+            ]
+          }
+        }
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-core/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "56ac808a36c90601cf92c4f18daca66d5cf736b4a1f7f9bdf01c78761780b3c1",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": "#!/usr/bin/env bash\n# Canonical local PR gate for jeryu-core. host-ci prefers this script and posts the\n# `jeryu-core/required` check-run from its exit status; .github/workflows/ci.yml runs\n# the same lanes on the GitHub mirror so the two surfaces cannot diverge.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# jeryu governs the worker count from live load; never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport JERYU_CI_JOBS=\"$JOBS\"\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\n\n# Resolve and verify the absolute governed auditor before any lane runs.\nsource ops/ci/lib.sh\nrequire_jankurai\n\n# jankurai pin: jeryu-tool/tool-manifest.toml is the family-wide source of truth.\n# When the control-plane repo is reachable (on-host family layout), fail fast if\n# this repo's pinned consumers drifted from it. In an isolated single-repo CI\n# checkout it is absent — skip rather than fail.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  echo \"[pr-ci] jankurai pin drift check\" >&2\n  consumer_repo=\"$(awk -F'\\\"' '/^workspace =/ {print $2; exit}' agent/audit-policy.toml)\"\n  bash \"$JERYU_TOOL_RENDER\" --check --repo \"$consumer_repo\" \\\n    --repo-root \"$consumer_repo=$repo_root\"\nfi\n\necho \"[pr-ci] (jobs=$JOBS) standard lanes\" >&2\nbash ops/ci/fast.sh\nJERYU_SPLIT_FULL_CHECK=1 bash ops/ci/check.sh\nbash ops/ci/score.sh\nJERYU_SECURITY_NETWORK=1 bash ops/ci/security.sh\nbash ops/ci/artifact_support.sh\n\necho \"[pr-ci] workspace test suite\" >&2\ncargo nextest run --workspace --build-jobs \"$JOBS\" --test-threads \"$JOBS\"\necho \"[pr-ci] jeryu-core OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-core/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "3d5a8097e5f353588aa64d1a1c6cff6e1c8375eda3587ee536d3b3610a7c53d7",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-core",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\njust fast\njust check\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-core/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "952a0882b7643a1286433ea0db7b6c759640e28c7776172781e320c11afe694d",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "name: ci-fast\n\non:\n  push:\n  pull_request:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-fast-${{ github.ref }}\n  cancel-in-progress: true\n\nenv:\n  JERYU_CI_JOBS: \"40\"\n  CARGO_BUILD_JOBS: \"40\"\n  # Generated from local Jeryu release authority; consumer jobs verify only.\n  JERYU_JANKURAI_BIN: \"/home/ubuntu/.jeryu/bin/jankurai\"\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\njobs:\n  affected-fast:\n    runs-on: ubuntu-latest\n    timeout-minutes: 30\n    steps:\n      - name: Checkout without marketplace actions\n        run: |\n          git init .\n          git remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\n          git fetch --no-tags --depth 64 origin \"$GITHUB_REF\"\n          git checkout --detach FETCH_HEAD\n          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main\n      - name: Toolchain\n        run: rustup toolchain install 1.95.0 --profile minimal\n      - name: Pinned Jankurai bootstrap\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: Fast affected lane\n        run: bash ops/ci/ci-fast.sh\n\n  rust-test-shards:\n    runs-on: ubuntu-latest\n    timeout-minutes: 30\n    strategy:\n      fail-fast: false\n      matrix:\n        shard:\n          - 0\n          - 1\n          - 2\n          - 3\n          - 4\n          - 5\n          - 6\n          - 7\n          - 8\n          - 9\n          - 10\n          - 11\n          - 12\n          - 13\n          - 14\n          - 15\n          - 16\n          - 17\n          - 18\n          - 19\n          - 20\n          - 21\n          - 22\n          - 23\n          - 24\n          - 25\n          - 26\n          - 27\n          - 28\n          - 29\n          - 30\n          - 31\n          - 32\n          - 33\n          - 34\n          - 35\n          - 36\n          - 37\n          - 38\n          - 39\n    env:\n      JERYU_CI_SHARD_INDEX: ${{ matrix.shard }}\n      JERYU_CI_SHARD_TOTAL: \"40\"\n      JERYU_CI_SHARD_JOBS: \"2\"\n      JERYU_RUNNER_EXECUTOR: native\n      JERYU_RUNNER_CLASS: native-rust-clean\n      JERYU_CI_DOCKER: \"0\"\n    steps:\n      - name: Checkout without marketplace actions\n        run: |\n          git init .\n          git remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\n          git fetch --no-tags --depth 64 origin \"$GITHUB_REF\"\n          git checkout --detach FETCH_HEAD\n          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main\n      - name: Toolchain\n        run: rustup toolchain install 1.95.0 --profile minimal\n      - name: Install cargo-nextest\n        run: |\n          curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C \"${CARGO_HOME:-$HOME/.cargo}\"/bin\n      - name: Rust nextest shard\n        run: bash ops/ci/shard.sh \"$JERYU_CI_SHARD_INDEX\" \"$JERYU_CI_SHARD_TOTAL\"\n",
+      "kind": "workflow",
+      "path": "components/jeryu-deploy/.github/workflows/ci-fast.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "d54904a4562a2567a85fae3eb699885acbcd0a7fb18f2376748fee08ce625a70",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n        with:\n          persist-credentials: false\n      - name: Verify governed Jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: Install open security tools\n        run: bash ops/ci/security-tools.sh\n      # Cargo dependency caches are supplied by the governed runner when available.\n      - name: Fast lane\n        run: bash ops/ci/fast.sh # cargo check\n      - name: Check lane\n        run: bash ops/ci/check.sh\n      - name: Score lane\n        run: bash ops/ci/score.sh # jankurai audit repo-score\n      - name: Security lane\n        run: bash ops/ci/security.sh # gitleaks actionlint env-file locked-cargo-metadata\n      - name: Proof evidence lane\n        run: bash ops/ci/proof-evidence.sh\n      - name: Artifact support\n        run: bash ops/ci/artifact_support.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/security/evidence.json\n            target/artifact-support/\n          if-no-files-found: error\n",
+      "kind": "workflow",
+      "path": "components/jeryu-deploy/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "ec371c52f173ab06703093f61a682449ed52e48055935363a43b7034ef71b98a",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "name: local-ci-parity\n\non:\n  push:\n  pull_request:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: local-ci-parity-${{ github.ref }}\n  cancel-in-progress: true\n\nenv:\n  JERYU_CI_JOBS: \"40\"\n  CARGO_BUILD_JOBS: \"40\"\n  # Generated from local Jeryu release authority; consumer jobs verify only.\n  JERYU_JANKURAI_BIN: \"/home/ubuntu/.jeryu/bin/jankurai\"\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\njobs:\n  jankurai-audit:\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    steps:\n      - name: Checkout without marketplace actions\n        run: |\n          git init .\n          git remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\n          git fetch --no-tags --depth 64 origin \"$GITHUB_REF\"\n          git checkout --detach FETCH_HEAD\n          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main\n      - name: Toolchain\n        run: rustup toolchain install 1.95.0 --profile minimal\n      - name: Verify governed Jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: Refute hostile auditor substitution\n        run: bash ops/ci/test-governed-jankurai.sh\n      - name: Install open security tools\n        run: bash ops/ci/security-tools.sh\n      - name: Jankurai security and audit lane\n        run: bash ops/ci/jankurai.sh\n      - name: Upload Jankurai audit evidence\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2\n        with:\n          name: jankurai-audit-evidence\n          path: |\n            .jankurai/repo-score.json\n            .jankurai/repo-score.md\n            target/jankurai/security/evidence.json\n            target/jankurai/security/sbom/**\n          if-no-files-found: error\n",
+      "kind": "workflow",
+      "path": "components/jeryu-deploy/.github/workflows/jankurai.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "710c3ca3872da206230ebca3e3f198aab71d5d5d962f1b8f9b05c9ffaba5fd15",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "name: proof-evidence\n\n# Jankurai tool-adoption CI lane: runs the standalone evidence lane and uploads\n# only artifacts its two explicit steps genuinely produce. Coverage and\n# mutation evidence are owned and produced by ops/ci/coverage.sh; web-source and\n# migration tools do not apply to this repository's immutable web bundle and\n# documentation-only DB boundary.\n#\n# The job is THIN: the real command sequence lives in ops/ci/proof-evidence.sh\n# so CI and local runs share a single source of truth (local/CI parity).\n\non:\n  push:\n  pull_request:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: proof-evidence-${{ github.ref }}\n  cancel-in-progress: true\n\nenv:\n  JERYU_JANKURAI_BASE_REF: \"origin/main\"\n  # Generated from local Jeryu release authority; consumer jobs verify only.\n  JERYU_JANKURAI_BIN: \"/home/ubuntu/.jeryu/bin/jankurai\"\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\njobs:\n  tool-adoption-evidence:\n    runs-on: ubuntu-latest\n    timeout-minutes: 30\n    steps:\n      - name: Checkout without marketplace actions\n        run: |\n          git init .\n          git remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\n          git fetch --no-tags --depth 64 origin \"$GITHUB_REF\"\n          git checkout --detach FETCH_HEAD\n          git fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main\n\n      - name: Toolchain\n        run: rustup toolchain install 1.95.0 --profile minimal\n\n      - name: Verify governed Jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n\n      - name: Tool-adoption evidence lane (local/CI parity)\n        run: bash ops/ci/proof-evidence.sh\n\n      - name: Coverage and mutation evidence lane\n        run: bash ops/ci/coverage.sh\n\n      # Capture partial real evidence on failure without manufacturing absent\n      # artifacts. A wholly empty artifact set is itself an upload failure.\n      - name: Upload tool-adoption evidence\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2\n        with:\n          name: jankurai-tool-adoption-evidence\n          path: |\n            .jankurai/repo-score.json\n            .jankurai/repo-score.md\n            target/jankurai/repo-score.json\n            target/jankurai/repo-score.md\n            target/jankurai/repair-queue.jsonl\n            target/jankurai/security/evidence.json\n            target/jankurai/proofbind/surface-witness.json\n            target/jankurai/proofbind/obligations.json\n            target/jankurai/proofmark/proofmark-receipt.json\n            target/jankurai/proofmark/proof-receipt.json\n            target/jankurai/copy-code.json\n            target/jankurai/copy-code.md\n            target/jankurai/language-bad-behavior.log\n            target/jankurai/proof-plan.json\n            target/jankurai/proof-plan.md\n            target/jankurai/rust/witness-graph.json\n            target/jankurai/rust/compile-packets.json\n            target/jankurai/coverage/coverage-audit.json\n            target/jankurai/coverage/coverage-audit.md\n            target/llvm-cov/lcov.info\n            target/mutants/mutants.out/outcomes.json\n            target/security/evidence.json\n          if-no-files-found: error\n",
+      "kind": "workflow",
+      "path": "components/jeryu-deploy/.github/workflows/proof-evidence.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "29ade7f6450c1881eec3e07c0be9acd0a7db02ea9cf4513a18f45fa673905c32",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "name: release\n\non:\n  push:\n    tags: ['jeryu-deploy-v*']\n  workflow_dispatch:\n\npermissions:\n  contents: write\n  id-token: write\n\nconcurrency:\n  group: release-${{ github.ref }}\n  cancel-in-progress: false\n\nenv:\n  JERYU_CI_JOBS: \"40\"\n  CARGO_BUILD_JOBS: \"40\"\n  JERYU_CI_USE_SCCACHE: \"0\"\n  # Generated from local Jeryu release authority; consumer jobs verify only.\n  JERYU_JANKURAI_BIN: \"/home/ubuntu/.jeryu/bin/jankurai\"\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\njobs:\n  release:\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    steps:\n      - name: Checkout without marketplace actions\n        run: |\n          git init .\n          git remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\n          git fetch --depth 1 origin \"$GITHUB_SHA\"\n          git checkout --detach FETCH_HEAD\n      - name: Toolchain\n        run: rustup toolchain install 1.95.0 --profile minimal\n      - name: Verify governed Jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: Security toolchain (syft/grype/cosign)\n        run: bash ops/ci/security-tools.sh\n      - name: Release build + SBOM + cosign sign + publish\n        env:\n          GH_TOKEN: ${{ github.token }}\n        run: bash ops/ci/release.sh\n",
+      "kind": "workflow",
+      "path": "components/jeryu-deploy/.github/workflows/release.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "8cbbb0b566b76ed291c200ad36b789070ec0636ab1cc5717e1cd74e63e1689cf",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "name: security-and-supply-chain\n\n# Standalone security and supply-chain lane. Each step calls the same checked-in\n# wrapper used locally: source scanning, dependency policy, then unsigned\n# non-release SBOM/vulnerability/provenance evidence. Release signing remains in\n# the separately authorized tag lane and is not claimed here.\n\non:\n  push:\n  pull_request:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: security-and-supply-chain-${{ github.ref }}\n  cancel-in-progress: true\n\nenv:\n  JERYU_CI_JOBS: \"40\"\n  CARGO_BUILD_JOBS: \"40\"\n  CARGO_TERM_COLOR: always\n  SYFT_VERSION: \"1.40.0\"\n  GRYPE_VERSION: \"0.99.0\"\n  COSIGN_VERSION: \"2.4.3\"\n  # Generated from local Jeryu release authority; consumer jobs verify only.\n  JERYU_JANKURAI_BIN: \"/home/ubuntu/.jeryu/bin/jankurai\"\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\njobs:\n  security:\n    name: security lane\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout without marketplace actions\n        run: |\n          git init .\n          git remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\n          git fetch --depth 1 origin \"$GITHUB_SHA\"\n          git checkout --detach FETCH_HEAD\n      - name: Toolchain\n        run: rustup toolchain install 1.95.0 --profile minimal\n      - name: Install open security tools\n        run: bash ops/ci/security-tools.sh\n      - name: Direct pinned gitleaks scan\n        # Scan the candidate commit, not immutable repository history. The next\n        # step separately scans tracked and untracked files in the current tree.\n        run: gitleaks detect --source . --log-opts=-1 --redact --verbose\n      - name: Source-security receipt lane\n        run: bash ops/ci/security.sh\n      - name: Hosted dependency-source lane\n        run: bash ops/ci/dependency-sources.sh\n      - name: Cargo dependency policy lane\n        run: |\n          set -o pipefail\n          source ops/ci/hosted-git-env.sh\n          mkdir -p target/security\n          cargo audit --deny warnings --json > target/security/cargo-audit.json\n          cargo deny check advisories bans licenses sources 2>&1 | tee target/security/cargo-deny.log\n      - name: SBOM and provenance lane\n        run: bash ops/ci/sbom-provenance.sh\n      - name: Upload security evidence\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2\n        with:\n          name: security-and-supply-chain-evidence\n          path: |\n            target/security/evidence.json\n            target/security/dependency-sources.json\n            target/security/cargo-audit.json\n            target/security/cargo-deny.log\n            target/jankurai/security/evidence.json\n            target/jankurai/security/sbom/\n          if-no-files-found: error\n",
+      "kind": "workflow",
+      "path": "components/jeryu-deploy/.github/workflows/security.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a9593b95d41bbcb4146b99c90e0115dc275f21ee8861814a937f7bb6f3c8ab2d",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "name: web\n\non:\n  push:\n    branches:\n      - main\n  pull_request:\n\nconcurrency:\n  group: web-${{ github.ref }}\n  cancel-in-progress: true\n\npermissions:\n  contents: read\n\njobs:\n  web:\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    steps:\n      - name: Checkout without marketplace actions\n        run: |\n          git init .\n          git remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\n          git fetch --depth 1 origin \"$GITHUB_SHA\"\n          git checkout --detach FETCH_HEAD\n      - name: Run web lane\n        run: bash ops/ci/web.sh\n",
+      "kind": "workflow",
+      "path": "components/jeryu-deploy/.github/workflows/web.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "25c6e8e82030de8ec923eaccfe3f04c74829f417203dac9bdc7dad2a03fba7c0",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\ntest_threads := env_var_or_default(\"JERYU_CI_TEST_THREADS\", \"8\")\n\nfast:\n  ./ops/ci/fast.sh # cargo check\n\ncheck:\n  ./ops/ci/check.sh\n\n# Narrow deterministic loop for Deploy's owned API surface.\ncheck-api:\n  source ops/ci/hosted-git-env.sh; cargo check -p jeryu-api --locked --features web --all-targets --jobs {{jobs}}\n\ntest-api:\n  source ops/ci/hosted-git-env.sh; cargo test -p jeryu-api --locked --features web --jobs {{jobs}} -- --test-threads {{test_threads}}\n\n# Focused agent-run REST/MCP/session/TTY control-surface regression loop.\nagent-runs:\n  source ops/ci/hosted-git-env.sh; cargo test -p jeryu-api --locked --features web --jobs {{jobs}} agent_runs -- --test-threads {{test_threads}}\n\n# Focused correlation-header boundary tests for the HTTP and MCP edges.\nrequest-id:\n  source ops/ci/hosted-git-env.sh; cargo test -p jeryu-api --locked --features web --lib web::request_id::tests --jobs {{jobs}} -- --test-threads {{test_threads}}\n\ncache-status:\n  sccache --show-stats\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  ./tools/security-lane.sh # gitleaks actionlint env-file locked-cargo-metadata\n\nsecurity-network:\n  JERYU_SECURITY_NETWORK=1 ./tools/security-lane.sh # cargo-audit cargo-deny hosted-dependency-sources npm-audit\n\naudit:\n  ./ops/ci/audit.sh # canonical Jankurai proof plus cargo-audit/cargo-deny\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\nprofile:\n  printf '%s\\n' \"deploy\"\n\n# Canonical end-user binary build: stage the SPA from the sibling jeryu-web\n# checkout (or keep the vendored copy), then build the fused `jeryu` binary.\nbuild-release:\n  ./scripts/stage-web-dist.sh\n  source ops/ci/hosted-git-env.sh; cargo build --locked --release -p jeryu-cli --jobs {{jobs}}\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-deploy/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "46e8dfa5a78b4a00dccae7ed5a165d99a8de106fd321b8a6ee5c1c98bff85b30",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "stale",
+            "placeholder",
+            "fallback",
+            "old"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 85,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/",
+            "apps/web/dist/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-deploy"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-deploy/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f08c38448d92e3afdb8cd457ad1f8648fe6e0eca2f764f3568868143de911050",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": {
+        "allowed_setup_commands": [
+          "git init .\ngit remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\ngit fetch --no-tags --depth 64 origin \"$GITHUB_REF\"\ngit checkout --detach FETCH_HEAD\ngit fetch --no-tags --depth 64 origin refs/heads/main:refs/remotes/origin/main",
+          "git init .\ngit remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\ngit fetch --depth 1 origin \"$GITHUB_SHA\"\ngit checkout --detach FETCH_HEAD",
+          "git init .\ngit remote add origin \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY\"\ngit fetch --depth 1 origin \"$GITHUB_SHA\"\ngit checkout --detach FETCH_HEAD\ngit fetch --depth 128 origin main:refs/remotes/origin/main",
+          "rustup toolchain install 1.95.0 --profile minimal",
+          "bash ops/ci/ensure-jankurai.sh",
+          "bash ops/ci/security-tools.sh",
+          "curl -LsSf https://get.nexte.st/latest/linux | tar zxf - -C \"${CARGO_HOME:-$HOME/.cargo}\"/bin"
+        ],
+        "jankurai_version": "jankurai 1.6.11",
+        "lanes": [
+          {
+            "command": "bash ops/ci/ci-fast.sh",
+            "full": true,
+            "id": "ci-fast",
+            "job": "affected-fast",
+            "workflow": ".github/workflows/ci-fast.yml"
+          },
+          {
+            "command": "bash ops/ci/fast.sh # cargo check",
+            "full": true,
+            "id": "ci-local-fast",
+            "job": "local",
+            "workflow": ".github/workflows/ci.yml"
+          },
+          {
+            "command": "bash ops/ci/check.sh",
+            "full": true,
+            "id": "ci-local-check",
+            "job": "local",
+            "workflow": ".github/workflows/ci.yml"
+          },
+          {
+            "command": "bash ops/ci/score.sh # jankurai audit repo-score",
+            "full": true,
+            "id": "ci-local-score",
+            "job": "local",
+            "workflow": ".github/workflows/ci.yml"
+          },
+          {
+            "command": "bash ops/ci/security.sh # gitleaks actionlint env-file locked-cargo-metadata",
+            "full": true,
+            "id": "ci-local-security",
+            "job": "local",
+            "workflow": ".github/workflows/ci.yml"
+          },
+          {
+            "command": "bash ops/ci/proof-evidence.sh",
+            "full": true,
+            "id": "ci-local-proof-evidence",
+            "job": "local",
+            "workflow": ".github/workflows/ci.yml"
+          },
+          {
+            "command": "bash ops/ci/artifact_support.sh",
+            "full": true,
+            "id": "ci-local-artifact-support",
+            "job": "local",
+            "workflow": ".github/workflows/ci.yml"
+          },
+          {
+            "command": "bash ops/ci/shard.sh \"$JERYU_CI_SHARD_INDEX\" \"$JERYU_CI_SHARD_TOTAL\"",
+            "full": false,
+            "id": "rust-shards",
+            "job": "rust-test-shards",
+            "workflow": ".github/workflows/ci-fast.yml"
+          },
+          {
+            "command": "bash ops/ci/jankurai.sh",
+            "full": true,
+            "id": "jankurai",
+            "job": "jankurai-audit",
+            "workflow": ".github/workflows/jankurai.yml"
+          },
+          {
+            "command": "bash ops/ci/test-governed-jankurai.sh",
+            "full": true,
+            "id": "jankurai-identity-hostiles",
+            "job": "jankurai-audit",
+            "workflow": ".github/workflows/jankurai.yml"
+          },
+          {
+            "command": "gitleaks detect --source . --log-opts=-1 --redact --verbose",
+            "full": true,
+            "id": "security-gitleaks",
+            "job": "security",
+            "workflow": ".github/workflows/security.yml"
+          },
+          {
+            "command": "bash ops/ci/security.sh",
+            "full": true,
+            "id": "security",
+            "job": "security",
+            "workflow": ".github/workflows/security.yml"
+          },
+          {
+            "command": "bash ops/ci/dependency-sources.sh",
+            "full": true,
+            "id": "security-dependency-sources",
+            "job": "security",
+            "workflow": ".github/workflows/security.yml"
+          },
+          {
+            "command": "set -o pipefail\nsource ops/ci/hosted-git-env.sh\nmkdir -p target/security\ncargo audit --deny warnings --json > target/security/cargo-audit.json\ncargo deny check advisories bans licenses sources 2>&1 | tee target/security/cargo-deny.log",
+            "full": true,
+            "id": "security-dependency-audit",
+            "job": "security",
+            "workflow": ".github/workflows/security.yml"
+          },
+          {
+            "command": "bash ops/ci/sbom-provenance.sh",
+            "full": true,
+            "id": "security-sbom-provenance",
+            "job": "security",
+            "workflow": ".github/workflows/security.yml"
+          },
+          {
+            "command": "bash ops/ci/proof-evidence.sh",
+            "full": true,
+            "id": "proof-evidence",
+            "job": "tool-adoption-evidence",
+            "workflow": ".github/workflows/proof-evidence.yml"
+          },
+          {
+            "command": "bash ops/ci/coverage.sh",
+            "full": false,
+            "id": "proof-evidence-coverage",
+            "job": "tool-adoption-evidence",
+            "workflow": ".github/workflows/proof-evidence.yml"
+          },
+          {
+            "command": "bash ops/ci/release.sh",
+            "full": false,
+            "id": "release",
+            "job": "release",
+            "workflow": ".github/workflows/release.yml"
+          },
+          {
+            "command": "bash ops/ci/web.sh",
+            "full": false,
+            "id": "web",
+            "job": "web",
+            "workflow": ".github/workflows/web.yml"
+          }
+        ],
+        "schema_version": 1,
+        "worker_count": 40
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-deploy/agent/ci-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "1c7b9c6f7ab6fd953f771dc414fd09f7fab57eaefc06b3ae7d8da40adde1945b",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": {
+        "source": [
+          {
+            "applies_to": [
+              "crates/**/*.rs"
+            ],
+            "artifacts": [
+              "target/llvm-cov/lcov.info",
+              "target/jankurai/coverage/rust-lcov.info"
+            ],
+            "format": "lcov",
+            "hard_changed_line_coverage": 0.9,
+            "id": "rust-lcov",
+            "kind": "line_coverage",
+            "lane": "coverage-audit",
+            "mode": "auto",
+            "owner": "tools",
+            "rules": [
+              "HLT-008-FALSE-GREEN-RISK"
+            ],
+            "soft_total_line_coverage": 0.75
+          },
+          {
+            "applies_to": [
+              "crates/**/*.rs"
+            ],
+            "artifacts": [
+              "target/mutants/mutants.out/outcomes.json",
+              "target/mutants/outcomes.json"
+            ],
+            "format": "cargo-mutants-json",
+            "hard_survivors_on_changed_paths": 1,
+            "id": "rust-mutation",
+            "kind": "mutation",
+            "lane": "coverage-audit",
+            "mode": "auto",
+            "owner": "tools",
+            "rules": [
+              "HLT-008-FALSE-GREEN-RISK"
+            ]
+          }
+        ],
+        "version": 1
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-deploy/agent/coverage-sources.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "3ea0b2923ab02a6c7ef024e12cd392ab0c060b5476d80ffb2c2b71ea7125c23e",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": {
+        "lanes": {
+          "artifact-support": {
+            "blocks_merge": false,
+            "required": [
+              "just artifact-support"
+            ]
+          },
+          "check": {
+            "blocks_merge": true,
+            "required": [
+              "just check"
+            ]
+          },
+          "fast": {
+            "blocks_merge": true,
+            "required": [
+              "just fast"
+            ]
+          },
+          "score": {
+            "blocks_merge": true,
+            "required": [
+              "just score"
+            ]
+          },
+          "security": {
+            "blocks_merge": true,
+            "required": [
+              "just security"
+            ]
+          }
+        }
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-deploy/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "56ac808a36c90601cf92c4f18daca66d5cf736b4a1f7f9bdf01c78761780b3c1",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "jeryu-api\t0.8044\n",
+      "kind": "threshold-policy",
+      "path": "components/jeryu-deploy/ops/ci/coverage-baseline.tsv",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "05fd0a626374f61b0c4e7013e9b7bff81851d2c8c8ea15d2ba20832b4123246b",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "#!/usr/bin/env bash\n# Comprehensive local PR gate. Native host CI runs this to produce the required\n# exact-head check, and a trusted hosted runner uses the same entrypoint. It carries\n# format + clippy (deny warnings) + the FULL workspace test suite + the Jankurai\n# audit (>= 85) + immutable web-bundle validation + the local security lane.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"${repo_root}\"\nsource ops/ci/lib.sh\nrequire_jankurai\nbash \"${repo_root}/ops/ci/test-governed-jankurai.sh\"\n\n# jankurai pin: jeryu-tool/tool-manifest.toml is the family-wide source of truth.\n# When the control-plane repo is reachable (on-host family layout), fail fast if\n# this repo's pinned consumers drifted from it. In an isolated single-repo CI\n# checkout it is absent — skip rather than fail.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  echo \"[pr-ci] jankurai pin drift check\" >&2\n  bash \"$JERYU_TOOL_RENDER\" --check --repo jeryu-deploy \\\n    --repo-root \"jeryu-deploy=$repo_root\"\nfi\n\n# jeryu governs the worker count from live load (overrides any request). host-ci\n# already exports a governed JERYU_CI_JOBS; honor it, else ask the governor, else a\n# conservative default. An unbounded fan-out once wedged the host — never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\nTEST_THREADS=\"${JERYU_CI_TEST_THREADS:-8}\"\n\ncargo_lock_before=\"$(git hash-object Cargo.lock)\"\nassert_cargo_lock_unchanged() {\n  local cargo_lock_after\n  cargo_lock_after=\"$(git hash-object Cargo.lock)\"\n  if [ \"${cargo_lock_after}\" != \"${cargo_lock_before}\" ]; then\n    echo \"[pr-ci] Cargo.lock changed during validation; refusing to discard it\" >&2\n    return 1\n  fi\n}\n\necho \"[pr-ci] (jobs=$JOBS) cargo fmt --all --check\" >&2\ncargo fmt --all --check\n\necho \"[pr-ci] cargo clippy --workspace --all-targets -- -D warnings\" >&2\ncargo clippy --locked --workspace --all-targets --jobs \"$JOBS\" -- -D warnings\n\n# The kernel-sandbox-runtime integration tests spawn REAL sandboxes (user/mount/pid\n# namespaces + cgroup-v2 + landlock/seccomp). They require an UNMANAGED cgroup\n# environment and fail under host-ci's systemd-managed poll cgroup\n# (cgroup_create EEXIST / clone EOPNOTSUPP). They run on the dedicated GitHub-mirror\n# runners (full caps). Exclude exactly those here; the remaining workspace tests run.\necho \"[pr-ci] cargo test (excl. jeryu-sandbox-linux + agentbridge sandbox-runtime tests)\" >&2\n# --test-threads uses the separately governed process cap: libtest defaults to\n# ncpu, and an oversubscribed host starves the live agent-stream tests'\n# 30s polling deadlines (await_tty) into false failures. The web::sessions\n# live-stream proofs (create_session_*: spawn a real native/docker-seam PTY and\n# poll await_tty for the agent's marker) are the same class: under host-ci load\n# the sandboxed process does not stream its marker inside the 30s window and the\n# proof flakes. They run green on the dedicated GitHub-mirror runners (full caps,\n# unloaded); skip them here exactly like the agent-stream/sandbox live tests.\ncargo test --locked --workspace --exclude jeryu-sandbox-linux --jobs \"$JOBS\" --no-fail-fast -- \\\n  --test-threads \"$TEST_THREADS\" \\\n  --skip same_write_path_succeeds_inside_and_is_blocked_outside \\\n  --skip unsandboxed_control_can_write_outside_proving_landlock_is_the_blocker \\\n  --skip budget_kill_is_live_and_truncates \\\n  --skip watchdog_kill_is_live \\\n  --skip require_cgroup_driver_fails_closed_without_delegated_subtree \\\n  --skip opt_out_driver_runs_on_this_no_delegation_host \\\n  --skip editbot_writes_inside_the_cell \\\n  --skip editbot_writing_outside_the_cell_is_denied_by_landlock \\\n  --skip watchdog_kills_a_runaway_editbot \\\n  --skip output_budget_exceeded_kills_the_child \\\n  --skip streams_terminal_output_to_the_sink \\\n  --skip control_input_reaches_the_agent_stdin \\\n  --skip terminate_stops_a_runaway_agent \\\n  --skip create_session_spawns_agent_and_streams_its_tty_output \\\n  --skip create_session_agent_runs_in_workspace_with_branch_env \\\n  --skip create_session_docker_runtime_streams_live_and_carries_hardened_flags \\\n  --skip create_session_native_runtime_uses_native_path\n\necho \"[pr-ci] immutable web-bundle integration\" >&2\nbash \"${repo_root}/ops/ci/web.sh\"\n\nassert_cargo_lock_unchanged\necho \"[pr-ci] jankurai audit (>= 85)\" >&2\nrun_governed_jankurai audit . --full --mode advisory --policy agent/audit-policy.toml \\\n  --json .jankurai/repo-score.json --md .jankurai/repo-score.md\nscore=\"$(jq -r '.score // 0' .jankurai/repo-score.json)\"\ncaps=\"$(jq -c '.caps_applied // []' .jankurai/repo-score.json)\"\necho \"[pr-ci] jankurai score=${score} caps=${caps}\" >&2\njq -e '(.score // 0) >= 85 and ((.caps_applied // []) | length == 0)' \\\n  .jankurai/repo-score.json >/dev/null\n\necho \"[pr-ci] security lane\"\nJERYU_SECURITY_NETWORK=1 bash \"${repo_root}/ops/ci/security.sh\"\nassert_cargo_lock_unchanged\n\necho \"[pr-ci] PASS — fmt + clippy + workspace tests + web bundle + jankurai + security all green\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-deploy/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "d09d895a6516dac7b06568be105a460b8f2fd24e2cba92c2831bb572473255ee",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-deploy",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\njust fast\njust check\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-deploy/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "952a0882b7643a1286433ea0db7b6c759640e28c7776172781e320c11afe694d",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-intelligence",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\nenv:\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.2\"\n  JANKURAI_REV: \"4dfbdfa3585f1928d5f996d7b5e14608dff14a03\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"7e5d501aa6f0ee6ced9a48c6288a9943d0b9573c\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"1aa3d178dec0fbb8d0657dd465ea6fda830ffc4ec1f65560b7b7d1682fd87e69\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"96d99e6e7d8dc9cf23df1081edd1f975231456592f81d9405385219a2c7298aa\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"cargo-install-locked-offline-path-v1\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      # cache: Cargo and npm dependency caches are provided by the runner image when available.\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: PR CI (canonical gate)\n        run: bash ops/ci/pr-ci.sh\n      - name: Proof evidence lane\n        run: bash ops/ci/proof_evidence.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/jankurai/coverage/coverage-audit.md\n            target/jankurai/coverage/coverage-audit.json\n            target/jankurai/vibe-coverage.md\n            target/jankurai/vibe-coverage.json\n            target/jankurai/migration-report.json\n            target/jankurai/ux-qa.json\n            target/jankurai/rust/witness-graph.json\n            target/jankurai/language-bad-behavior.log\n            target/jankurai/copy-code.md\n            target/jankurai/copy-code.json\n            target/jankurai/proofmark/proof-receipt.json\n            target/jankurai/proofmark/proofmark-receipt.json\n            target/jankurai/proofbind/obligations.json\n            target/jankurai/proofbind/surface-witness.json\n            target/jankurai/security/evidence.json\n            target/jankurai/repair-queue.jsonl\n            target/jankurai/repo-score.md\n            target/jankurai/repo-score.json\n            .jankurai/repo-score.md\n            .jankurai/repo-score.json\n            target/artifact-support/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-intelligence/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c4e00c8f938c8b4636180987f0ffe8c565b6405323d37dabc51b6894a09eb9a6",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-intelligence",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\n\nfast:\n  ./ops/ci/fast.sh # cargo check\n\ncheck:\n  ./ops/ci/check.sh\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  ./ops/ci/security.sh # gitleaks cargo audit npm audit syft\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\nrelease-readiness: fast check score security artifact-support\n\nprofile:\n  printf '%s\\n' \"rust-workspace\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-intelligence/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b959c15f5cf7068e461c972abe5efc1113ecd8ba3acd1ba0442152baedf34501",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-intelligence",
+      "declaration": {
+        "hard_findings_allowed": 0,
+        "minimum_score": 82,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/",
+            "dossiers/",
+            "target/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-intelligence"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-intelligence/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "5c8a2df12f9240af8694872f868b5aa152babf4e5df3cb6d1113b42b7f3373a6",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-intelligence",
+      "declaration": {
+        "lanes": {
+          "artifact-support": {
+            "blocks_merge": false,
+            "required": [
+              "just artifact-support"
+            ]
+          },
+          "check": {
+            "blocks_merge": true,
+            "required": [
+              "just check"
+            ]
+          },
+          "fast": {
+            "blocks_merge": true,
+            "required": [
+              "just fast"
+            ]
+          },
+          "score": {
+            "blocks_merge": true,
+            "required": [
+              "just score"
+            ]
+          },
+          "security": {
+            "blocks_merge": true,
+            "required": [
+              "just security"
+            ]
+          }
+        }
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-intelligence/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "56ac808a36c90601cf92c4f18daca66d5cf736b4a1f7f9bdf01c78761780b3c1",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-intelligence",
+      "declaration": "#!/usr/bin/env bash\n# Canonical local PR gate for jeryu-intelligence. host-ci prefers this script and posts the\n# `jeryu-intelligence/required` check-run from its exit status; .github/workflows/ci.yml runs\n# the same lanes on the GitHub mirror so the two surfaces cannot diverge.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"96d99e6e7d8dc9cf23df1081edd1f975231456592f81d9405385219a2c7298aa\"\nexport JERYU_JANKURAI_SOURCE_REV=\"4dfbdfa3585f1928d5f996d7b5e14608dff14a03\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.2\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"7e5d501aa6f0ee6ced9a48c6288a9943d0b9573c\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"1aa3d178dec0fbb8d0657dd465ea6fda830ffc4ec1f65560b7b7d1682fd87e69\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"cargo-install-locked-offline-path-v1\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# jeryu governs the worker count from live load; never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport JERYU_CI_JOBS=\"$JOBS\"\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\n\n# Resolve and verify the absolute governed auditor before any lane runs.\nsource ops/ci/lib.sh\nrequire_jankurai\n\n# jankurai pin: jeryu-tool/tool-manifest.toml is the family-wide source of truth.\n# When the control-plane repo is reachable (on-host family layout), fail fast if\n# this repo's pinned consumers drifted from it. In an isolated single-repo CI\n# checkout it is absent — skip rather than fail.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  echo \"[pr-ci] jankurai pin drift check\" >&2\n  consumer_repo=\"$(awk -F'\\\"' '/^workspace =/ {print $2; exit}' agent/audit-policy.toml)\"\n  bash \"$JERYU_TOOL_RENDER\" --check --repo \"$consumer_repo\" \\\n    --repo-root \"$consumer_repo=$repo_root\"\nfi\n\necho \"[pr-ci] (jobs=$JOBS) standard lanes\" >&2\nbash ops/ci/fast.sh\nJERYU_SPLIT_FULL_CHECK=1 bash ops/ci/check.sh\nbash ops/ci/score.sh\nbash ops/ci/security.sh\nbash ops/ci/artifact_support.sh\n\necho \"[pr-ci] workspace test suite\" >&2\ncargo nextest run --workspace --build-jobs \"$JOBS\" --test-threads \"$JOBS\"\necho \"[pr-ci] codegraph oracle + tool-build lanes\" >&2\nbash ops/ci/codegraph-oracle.sh\nbash ops/ci/codegraph-tool-build.sh\necho \"[pr-ci] jeryu-intelligence OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-intelligence/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "5dbb3b45c65f7ec219ab475e4d03ac3754ef77b2fa28cd037673a831685a9327",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-intelligence",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\njust fast\njust check\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-intelligence/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "952a0882b7643a1286433ea0db7b6c759640e28c7776172781e320c11afe694d",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: Doctor lane\n        run: bash scripts/ci-doctor.sh\n      - name: Fast lane\n        run: bash ops/ci/fast.sh\n      - name: Check lane\n        run: bash ops/ci/check.sh\n      - name: Property test lane\n        run: bash ops/ci/property_tests.sh\n      - name: Migration drift lane\n        run: bash ops/ci/migration_drift.sh\n      - name: Contract drift lane\n        run: bash ops/ci/contract_drift.sh\n      - name: Jankurai audit lane\n        run: |\n          source ops/ci/lib.sh\n          require_jankurai\n          jankurai audit . --full --mode advisory --policy agent/audit-policy.toml --json .jankurai/repo-score.json --md .jankurai/repo-score.md\n          bash ops/ci/score.sh\n      - name: Security lane\n        run: bash ops/ci/security-hosted.sh\n      - name: Release readiness lane\n        run: bash ops/ci/release.sh\n      - name: Artifact support lane\n        run: bash ops/ci/artifact_support.sh\n      - name: Proof evidence lane\n        run: bash ops/ci/proof_evidence.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/security/\n            target/artifact-support/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-jira/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "7066715135602d3a10b11a357d9d614f43dd3ee3dc66193d5e39483d73641121",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": "name: jankurai\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: jankurai-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  audit:\n    runs-on: ubuntu-latest\n    timeout-minutes: 30\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: Jankurai audit lane\n        run: |\n          source ops/ci/lib.sh\n          require_jankurai\n          jankurai audit . --full --mode advisory --policy agent/audit-policy.toml --json .jankurai/repo-score.json --md .jankurai/repo-score.md\n          bash ops/ci/score.sh\n      - name: Security scan evidence (gitleaks, cargo audit, actionlint)\n        run: |\n          gitleaks detect --source . --redact --verbose\n          cargo audit --deny warnings\n          actionlint .github/workflows/*.yml\n          syft version -o json | jq -e '.version == \"1.40.0\"'\n          bash ops/ci/security-hosted.sh\n      - name: Upload jankurai artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: jankurai-audit-artifacts\n          path: |\n            .jankurai/repo-score.json\n            .jankurai/repo-score.md\n            target/jankurai/\n          if-no-files-found: error\n",
+      "kind": "workflow",
+      "path": "components/jeryu-jira/.github/workflows/jankurai.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "53c7ace864e1180ac2d26f595d7fb4f1a6f0c488206ae2ec1415f0b17f4a69b2",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": "name: security\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: security-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  security:\n    runs-on: ubuntu-latest\n    timeout-minutes: 30\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      - name: Secret scan and dependency review\n        run: bash ops/ci/security-hosted.sh\n      - name: Upload security evidence\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: security-evidence\n          path: |\n            target/jankurai/security/evidence.json\n            target/jankurai/security/Cargo.lock.sha256\n            target/security/sbom.cdx.json\n          if-no-files-found: error\n",
+      "kind": "workflow",
+      "path": "components/jeryu-jira/.github/workflows/security.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b3eeda7051dac9aac80bba85b16ec410dd54148e083e907c1e1448a0d89285a4",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\n\nfast:\n  ./ops/ci/fast.sh\n\ncheck:\n  ./ops/ci/check.sh\n\ntest:\n  cargo test --workspace --all-targets --jobs \"{{jobs}}\"\n\nproperty-tests:\n  ./ops/ci/property_tests.sh\n\nmigration-drift:\n  ./ops/ci/migration_drift.sh\n\ncontract-drift:\n  ./ops/ci/contract_drift.sh\n\nscore:\n  ./ops/ci/score.sh\n\nsecurity:\n  ./tools/security-lane.sh\n\nrelease-readiness:\n  ./ops/ci/release.sh\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\ndoctor:\n  ./scripts/ci-doctor.sh\n\nci-local:\n  ./scripts/ci-local.sh\n\nprofile:\n  printf '%s\\n' \"rust-workspace\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-jira/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "299c9f1471ee4c93b6ce433855430aa0d492920078b185a353eef423ecf042ed",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "stale",
+            "placeholder",
+            "fallback",
+            "old"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 85,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/",
+            "contracts/generated/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-jira"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-jira/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "4b5bbb3f36c480cff10a17def8d03e4276f4cf409b5067e9bb48a05f362506a0",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": {
+        "lane": [
+          {
+            "command": "just fast",
+            "name": "fast",
+            "purpose": "deterministic format and workspace compile check",
+            "requires_network": false
+          },
+          {
+            "command": "just check",
+            "name": "check",
+            "purpose": "governed tool hostiles plus workspace unit tests",
+            "requires_network": false
+          },
+          {
+            "command": "just property-tests",
+            "name": "property-tests",
+            "purpose": "Work model invariant property tests",
+            "requires_network": false
+          },
+          {
+            "command": "just migration-drift",
+            "name": "migration-drift",
+            "purpose": "SQLite schema, constraint, and idempotence tests",
+            "requires_network": false
+          },
+          {
+            "command": "just contract-drift",
+            "name": "contract-drift",
+            "purpose": "Rust-to-TypeScript contract regeneration check",
+            "requires_network": false
+          },
+          {
+            "command": "just score",
+            "name": "score",
+            "purpose": "pinned Jankurai repository score and hard-finding gate",
+            "requires_network": false
+          },
+          {
+            "command": "just security",
+            "name": "security",
+            "purpose": "required secret, dependency, provenance, and workflow checks",
+            "requires_network": true
+          },
+          {
+            "command": "just release-readiness",
+            "name": "release-readiness",
+            "purpose": "candidate release and rollback evidence validation",
+            "requires_network": false
+          },
+          {
+            "command": "just artifact-support",
+            "name": "artifact-support",
+            "purpose": "non-blocking source artifact support metadata",
+            "requires_network": false
+          },
+          {
+            "command": "just release-readiness && just score",
+            "name": "release-score",
+            "purpose": "release documentation and score routing",
+            "requires_network": false
+          },
+          {
+            "command": "just check && just property-tests",
+            "name": "check-property",
+            "purpose": "Work implementation unit and property proof",
+            "requires_network": false
+          },
+          {
+            "command": "just migration-drift && just score",
+            "name": "migration-score",
+            "purpose": "database migration behavior and audit routing",
+            "requires_network": false
+          },
+          {
+            "command": "just fast && just check && just property-tests && just migration-drift && just contract-drift && just score && just security && just release-readiness",
+            "name": "ci",
+            "purpose": "hosted workflow parity including strict security",
+            "requires_network": true
+          },
+          {
+            "command": "just fast && just check && just property-tests && just migration-drift && just contract-drift && just score",
+            "name": "ci-without-security",
+            "purpose": "local deterministic CI subset for operations changes",
+            "requires_network": false
+          },
+          {
+            "command": "bash ops/ci/quality-gates.sh",
+            "name": "quality-gates",
+            "purpose": "pre-push quality, security, release, and artifact gates",
+            "requires_network": true
+          },
+          {
+            "command": "just ci-local",
+            "name": "ci-local",
+            "purpose": "complete local parity wrapper for hosted lanes",
+            "requires_network": true
+          }
+        ]
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-jira/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "1c51d41a00216afcde8c61052a05f359d449734661cb362b87281f7b0971e6a1",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n./scripts/ci-doctor.sh\n./ops/ci/fast.sh\n./ops/ci/check.sh\n./ops/ci/property_tests.sh\n./ops/ci/migration_drift.sh\n./ops/ci/contract_drift.sh\n./ops/ci/score.sh\n./ops/ci/security.sh\n./ops/ci/release.sh\n./ops/ci/artifact_support.sh\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-jira/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2282dd04b9cc2edce9b229c98fb57b33877e50e3cb26fbcef6d6efbb2dbbfdb9",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-jira",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\n\n./scripts/ci-doctor.sh\n./ops/ci/fast.sh\n./ops/ci/check.sh\n./ops/ci/property_tests.sh\n./ops/ci/migration_drift.sh\n./ops/ci/contract_drift.sh\n./ops/ci/score.sh\n./ops/ci/security.sh\n./ops/ci/release.sh\n./ops/ci/artifact_support.sh\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-jira/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "8ec6f0c0339e8ac334514f68626472c30ecdd14958be9751846ee9b6faf172d6",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\nenv:\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      # cache: Cargo and npm dependency caches are provided by the runner image when available.\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: PR CI (canonical gate)\n        run: bash ops/ci/pr-ci.sh\n      - name: Proof evidence lane\n        run: bash ops/ci/proof_evidence.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/jankurai/coverage/coverage-audit.md\n            target/jankurai/coverage/coverage-audit.json\n            target/jankurai/vibe-coverage.md\n            target/jankurai/vibe-coverage.json\n            target/jankurai/migration-report.json\n            target/jankurai/ux-qa.json\n            target/jankurai/rust/witness-graph.json\n            target/jankurai/language-bad-behavior.log\n            target/jankurai/copy-code.md\n            target/jankurai/copy-code.json\n            target/jankurai/proofmark/proof-receipt.json\n            target/jankurai/proofmark/proofmark-receipt.json\n            target/jankurai/proofbind/obligations.json\n            target/jankurai/proofbind/surface-witness.json\n            target/jankurai/security/evidence.json\n            target/jankurai/repair-queue.jsonl\n            target/jankurai/repo-score.md\n            target/jankurai/repo-score.json\n            .jankurai/repo-score.md\n            .jankurai/repo-score.json\n            target/artifact-support/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-release-ops/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f07cb847120861147fe5ce268a1057d47086ac0141db4cd96379350bca0c1f08",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\n\nfast:\n  ./ops/ci/fast.sh # cargo check\n\ncheck:\n  ./ops/ci/check.sh\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  ./ops/ci/security.sh # gitleaks cargo audit npm audit syft\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\nredline-consumer-test:\n  cargo test --locked -p jeryu-obs --test redline_consumer_contract\n  bash ops/ci/redline-consumer-authority-test.sh\n\nrelease-readiness: fast check score security artifact-support redline-consumer-test\n\nprofile:\n  printf '%s\\n' \"rust-workspace\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-release-ops/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "139676360c2918b70fc3657b21ae26a46d1e00c390b1c691c32c612fd301d6cf",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "stale",
+            "placeholder",
+            "fallback",
+            "old"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 85,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-release-ops"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-release-ops/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "b0977dd883a55b4f203c88e288850ff75f76e96695abd6b376a582c426740b40",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": {
+        "lanes": {
+          "artifact-support": {
+            "blocks_merge": false,
+            "required": [
+              "just artifact-support"
+            ]
+          },
+          "check": {
+            "blocks_merge": true,
+            "required": [
+              "just check"
+            ]
+          },
+          "fast": {
+            "blocks_merge": true,
+            "required": [
+              "just fast"
+            ]
+          },
+          "score": {
+            "blocks_merge": true,
+            "required": [
+              "just score"
+            ]
+          },
+          "security": {
+            "blocks_merge": true,
+            "required": [
+              "just security"
+            ]
+          }
+        }
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-release-ops/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "56ac808a36c90601cf92c4f18daca66d5cf736b4a1f7f9bdf01c78761780b3c1",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": "#!/usr/bin/env bash\n# Canonical local PR gate for jeryu-release-ops. host-ci prefers this script and posts the\n# `jeryu-release-ops/required` check-run from its exit status; .github/workflows/ci.yml runs\n# the same lanes on the GitHub mirror so the two surfaces cannot diverge.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# jeryu governs the worker count from live load; never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport JERYU_CI_JOBS=\"$JOBS\"\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\n\n# Resolve and verify the absolute governed auditor before any lane runs.\nsource ops/ci/lib.sh\nrequire_jankurai\n\n# jankurai pin: jeryu-tool/tool-manifest.toml is the family-wide source of truth.\n# When the control-plane repo is reachable (on-host family layout), fail fast if\n# this repo's pinned consumers drifted from it. In an isolated single-repo CI\n# checkout it is absent — skip rather than fail.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  echo \"[pr-ci] jankurai pin drift check\" >&2\n  consumer_repo=\"$(awk -F'\\\"' '/^workspace =/ {print $2; exit}' agent/audit-policy.toml)\"\n  bash \"$JERYU_TOOL_RENDER\" --check --repo \"$consumer_repo\" \\\n    --repo-root \"$consumer_repo=$repo_root\"\nfi\n\necho \"[pr-ci] (jobs=$JOBS) standard lanes\" >&2\nbash ops/ci/fast.sh\nJERYU_SPLIT_FULL_CHECK=1 bash ops/ci/check.sh\nbash ops/ci/score.sh\nbash ops/ci/security.sh\nbash ops/ci/artifact_support.sh\n\necho \"[pr-ci] workspace test suite\" >&2\ncargo nextest run --workspace --build-jobs \"$JOBS\" --test-threads \"$JOBS\"\necho \"[pr-ci] jeryu-release-ops OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-release-ops/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "5b52bfa452ca70e3dccb28b1f6d464fdc3ff181eb42d36959f1621b1f4c85b0d",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-release-ops",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\n\nlane=\"${1:-required}\"\ncase \"$lane\" in\n  required)\n    just release-readiness\n    ;;\n  fast)\n    just fast\n    ;;\n  check)\n    just check\n    ;;\n  score)\n    just score\n    ;;\n  security)\n    just security\n    ;;\n  artifact-support)\n    just artifact-support\n    ;;\n  contract-drift)\n    just redline-consumer-test\n    ;;\n  *)\n    printf 'unsupported CI lane: %s\\n' \"$lane\" >&2\n    exit 2\n    ;;\nesac\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-release-ops/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "50801da15cd52836c83b8013e5c0fe3a80a745c0106c852bebf6765546a9a483",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool-finder",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\n# The jankurai pin is owned by jeryu-tool's tool-manifest.toml; these defaults\n# mirror it (no local pin source lives in this repo, so there is no fast lane).\nenv:\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    timeout-minutes: 30\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      - name: Cache cargo (finder build)\n        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57\n        with:\n          path: |\n            ~/.cargo/registry\n            ~/.cargo/git\n            target\n          key: finder-cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}\n      - name: Verify governed jankurai\n        run: |\n          source ops/ci/lib.sh\n          require_jankurai\n      # Same lanes the proof-lanes / Justfile declare, so CI and local stay at parity.\n      - name: check\n        run: bash ops/ci/check.sh\n      - name: score (jankurai audit)\n        run: bash ops/ci/score.sh\n      - name: security\n        run: bash ops/ci/security.sh\n      - name: contract drift\n        run: bash ops/ci/contract-drift.sh\n      - name: artifact support\n        run: bash ops/ci/artifact-support.sh && bash tests/artifact_support_test.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/security/\n            target/artifact-support/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-tool-finder/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "5f85f4927b31a6361bb1a3096213908a1ddf0789124d71ddd0c7a5746e72c83e",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool-finder",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\n# Full product gate (no `fast`/pin lane — the jankurai pin is owned by jeryu-tool).\ndefault:\n  ./ops/ci/check.sh\n  ./ops/ci/score.sh\n  ./ops/ci/security.sh\n  ./ops/ci/contract-drift.sh\n  ./ops/ci/artifact-support.sh\n  ./tests/artifact_support_test.sh\n\ncheck:\n  ./ops/ci/check.sh   # cargo fmt/clippy/test + shell syntax\n\nscore:\n  ./ops/ci/score.sh   # jankurai audit repo-score\n\nsecurity:\n  ./ops/ci/security.sh # gitleaks actionlint env-file\n\ncontract-drift:\n  ./ops/ci/contract-drift.sh # tracked CLI help contract\n\nartifact-support:\n  ./ops/ci/artifact-support.sh # exact-head CLI + score/security receipt\n  ./tests/artifact_support_test.sh\n\n# Deterministic dependency policy subset; advisories are enforced by security.\nsecurity-deps:\n  cargo deny check bans licenses sources --disable-fetch\n\nbuild:\n  cargo build --release\n\n# Discovery surface (all-Rust; the engine is linked as a library).\nscan *ARGS:\n  cargo run --release -- scan {{ARGS}}\n\ndossier *ARGS:\n  cargo run --release -- dossier {{ARGS}}\n\npropose CLUSTER *ARGS:\n  cargo run --release -- propose {{CLUSTER}} {{ARGS}}\n\nsummary *ARGS:\n  cargo run --release -- summary {{ARGS}}\n\nprofile:\n  printf '%s\\n' \"public-portal\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-tool-finder/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "6bf31207ee332c4a29ee3eae4444355ad6f207bd2aaeab757a69677035b70586",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool-finder",
+      "declaration": {
+        "hard_findings_allowed": 0,
+        "minimum_score": 75,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/",
+            "dossiers/",
+            "target/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-tool-finder"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-tool-finder/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a7444e7d9b287659d8f2eb81ce9c7c52934e9b55f8fc749837f2bb13b9299a62",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool-finder",
+      "declaration": {
+        "lane": [
+          {
+            "command": "just",
+            "name": "ci",
+            "purpose": "run the complete Tool Finder required-check surface",
+            "requires_network": false
+          },
+          {
+            "command": "just check",
+            "name": "check",
+            "purpose": "run shell hostiles plus locked Rust format, lint, and tests",
+            "requires_network": false
+          },
+          {
+            "command": "just score",
+            "name": "score",
+            "purpose": "run the governed exact-head Jankurai score gate",
+            "requires_network": false
+          },
+          {
+            "command": "just security",
+            "name": "security",
+            "purpose": "run secret, workflow, dependency, advisory, and SBOM checks",
+            "requires_network": false
+          },
+          {
+            "command": "just contract-drift",
+            "name": "contract-drift",
+            "purpose": "compare the compiled CLI help with its tracked contract",
+            "requires_network": false
+          },
+          {
+            "command": "just check && just score",
+            "name": "docs",
+            "purpose": "verify documentation against behavior and conformance",
+            "requires_network": false
+          },
+          {
+            "command": "just score && just security && just artifact-support",
+            "name": "artifact-evidence",
+            "purpose": "bind passing source, score, security, and release artifact evidence",
+            "requires_network": false
+          }
+        ]
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-tool-finder/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "f99ef6785f83b7d3c99dacfa600894d1d2d654afd9dd64dda5a788c0961716de",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool-finder",
+      "declaration": "#!/usr/bin/env bash\n# Canonical local PR gate for jeryu-tool-finder. split-host-ci prefers this\n# script and posts the `jeryu-tool-finder/required` check-run from its exit\n# status. This script is the product-gate composition authority.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# Resolve and verify the absolute governed auditor before any lane runs.\nsource ops/ci/lib.sh\nrequire_jankurai\n\n# jeryu governs the worker count from live load; never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport JERYU_CI_JOBS=\"$JOBS\"\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\n\n# Verify only this PR worktree against the family manifest; the post-rollout\n# control-plane check verifies the complete canonical family.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  consumer_repo=\"$(awk -F'\\\"' '/^workspace =/ {print $2; exit}' agent/audit-policy.toml)\"\n  bash \"$JERYU_TOOL_RENDER\" --check --repo \"$consumer_repo\" \\\n    --repo-root \"$consumer_repo=$repo_root\"\nfi\n\necho \"[pr-ci] (jobs=$JOBS) standard lanes\" >&2\nbash ops/ci/check.sh\nbash ops/ci/score.sh\nbash tools/security-lane.sh\nbash ops/ci/contract-drift.sh\nbash ops/ci/artifact-support.sh\nbash tests/artifact_support_test.sh\necho \"[pr-ci] jeryu-tool-finder OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-tool-finder/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c698b45d150506434ce686cdc2a07bfb26c776151eec0f096da4ddc2fb770ab8",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool-finder",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\n\nusage='usage: ci-local.sh {required|security|score|contract-drift|artifact-support}'\n\nif [[ \"$#\" -ne 1 ]]; then\n  printf '%s\\n' \"$usage\" >&2\n  exit 2\nfi\n\ncase \"$1\" in\n  required)\n    lane_script='ops/ci/pr-ci.sh'\n    ;;\n  security)\n    lane_script='tools/security-lane.sh'\n    ;;\n  score)\n    lane_script='ops/ci/score.sh'\n    ;;\n  contract-drift)\n    lane_script='ops/ci/contract-drift.sh'\n    ;;\n  artifact-support)\n    lane_script='ops/ci/artifact-support.sh'\n    ;;\n  *)\n    printf 'unsupported CI lane: %s\\n' \"$1\" >&2\n    exit 2\n    ;;\nesac\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/..\" && pwd -P)\"\ncd \"$repo_root\"\n\nexec bash \"$repo_root/$lane_script\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-tool-finder/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "07a52b7d71b686a9596edd43a27aeb1bf93b3e8f87835187992ad6cc65d3765e",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": "name: diagnostic-mirror\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\n# This public mirror cannot reach the local Jeryu forge and is never a release,\n# merge, or installation authority. It runs static drift/syntax checks only.\n# GENERATED identity is still kept in lockstep with tool-manifest.toml.\nenv:\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  static-diagnostic:\n    name: non-authoritative-static-diagnostic\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      - name: Static pin drift\n        run: bash ops/ci/fast.sh\n      - name: Shell syntax\n        run: >-\n          bash -n ops/install-jankurai.sh ops/qualify-jankurai-candidate.sh\n          ops/test-install-jankurai.sh ops/test-render-tool-manifest.sh\n          ops/ci/check.sh ops/ci/fast.sh ops/ci/lib.sh ops/ci/pr-ci.sh\n          scripts/ci-doctor.sh\n      - name: Locked Rust control tools\n        run: |\n          cargo test --locked --offline --all-targets\n          bash ops/registry-summary.sh --check\n      - name: Security lane\n        run: bash ops/ci/security.sh\n      - name: Jankurai audit lane\n        run: bash ops/ci/score.sh\n  security:\n    name: security-secret-dependency-workflow-lint\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      - name: Secret scan, dependency policy, and workflow lint\n        run: bash ops/ci/security.sh\n",
+      "kind": "workflow",
+      "path": "components/jeryu-tool/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "58e48be3d1e48a0e2339769c4ddf4e3815166cc540a4a59903dd2206ab3d45bb",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": "name: diagnostic-security\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: diagnostic-security-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  security:\n    name: gitleaks-dependency-review-actionlint\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      - name: Secret scan, dependency policy, and workflow lint\n        run: bash tools/security-lane.sh\n      - name: Canonical local parity\n        run: bash ops/ci/pr-ci.sh\n",
+      "kind": "workflow",
+      "path": "components/jeryu-tool/.github/workflows/security.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "15dc3136cd76b245e253b23a6b8698fa273190e9ada45f79ec145a3e17e578e4",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_TOOL_CI_JOBS\", \"4\")\n\n# One-command setup/validation: run the full local gate.\ndefault:\n  ./ops/ci/required.sh\n\nfast:\n  ./ops/ci/fast.sh # jankurai pin drift check\n\n# Bounded, locked, package-only feedback using the governed shared compiler cache.\nfast-proof:\n  RUSTC_WRAPPER=\"${RUSTC_WRAPPER:-sccache}\" CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR:-$PWD/target/fast-proof/cargo}\" cargo check -p jeryu-tool-control --locked --offline --jobs {{jobs}}\n\nfast-test:\n  RUSTC_WRAPPER=\"${RUSTC_WRAPPER:-sccache}\" CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR:-$PWD/target/fast-proof/cargo}\" cargo test -p jeryu-tool-control --locked --offline --all-targets --jobs {{jobs}}\n\nfast-coverage:\n  ./ops/ci/coverage.sh\n\ncheck:\n  ./ops/ci/check.sh\n\nrequired:\n  ./ops/ci/required.sh\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  ./tools/security-lane.sh # gitleaks actionlint dependency policy and source SBOM\n\ntool-adoption:\n  ./ops/ci/tool-adoption.sh\n\nproof-routing:\n  ./ops/ci/proof-routing.sh\n\ncontract-drift:\n  ./ops/ci/contract-drift.sh\n\nrepair-receipt-contract:\n  ./ops/ci/repair-receipt-test.sh\n\nrepair-proof:\n  ./ops/ci/contract-drift.sh\n  ./ops/ci/repair-receipt-test.sh\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\nprofile:\n  printf '%s\\n' \"public-portal\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-tool/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "2318aeb832c50f5e296a4447af7a26b779e3252c15cb59c2e3b758f0cee50eaa",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "deprecated"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 65,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/",
+            "generated/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-tool"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-tool/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "26086c1f939ddfdcafe16767b33b1051a2401c4b1103b6b3117229a9620e2c25",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": {
+        "source": [
+          {
+            "applies_to": [
+              "crates/**/*.rs"
+            ],
+            "artifacts": [
+              "target/llvm-cov/lcov.info",
+              "target/jankurai/coverage/rust-lcov.info"
+            ],
+            "format": "lcov",
+            "id": "rust-lcov",
+            "kind": "line_coverage",
+            "lane": "fast-coverage",
+            "mode": "advisory",
+            "owner": "ops",
+            "rules": [
+              "HLT-008-FALSE-GREEN-RISK"
+            ]
+          }
+        ],
+        "version": 1
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-tool/agent/coverage-sources.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "af337221718f6ae0118c5ed95133817cb24e31238f2461374ee7e4aa882f46f2",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": {
+        "lane": [
+          {
+            "command": "just fast",
+            "name": "fast",
+            "purpose": "verify generated Jankurai consumers match the governed manifest"
+          },
+          {
+            "command": "just check",
+            "name": "check",
+            "purpose": "run deterministic registry, installer, renderer, and metadata checks"
+          },
+          {
+            "command": "just required",
+            "name": "required",
+            "purpose": "run the complete merge-blocking verification contract"
+          },
+          {
+            "command": "just fast-proof",
+            "name": "fast-proof",
+            "purpose": "run a bounded locked package-only compile with the governed cache"
+          },
+          {
+            "command": "just fast-test",
+            "name": "fast-test",
+            "purpose": "run bounded locked package-only tests with the governed cache"
+          },
+          {
+            "command": "just fast-coverage",
+            "name": "fast-coverage",
+            "purpose": "produce and audit Rust LCOV evidence"
+          },
+          {
+            "command": "just score",
+            "name": "score",
+            "purpose": "audit repository conformance at the governed floor and ratchet"
+          },
+          {
+            "command": "just security",
+            "name": "security",
+            "purpose": "run workflow, secret, and repository security checks"
+          },
+          {
+            "command": "just artifact-support",
+            "name": "artifact-support",
+            "purpose": "verify artifact-support bootstrap inputs"
+          },
+          {
+            "command": "just tool-adoption",
+            "name": "tool-adoption",
+            "purpose": "produce exact proof, security, coverage, contract, and audit evidence"
+          },
+          {
+            "command": "just proof-routing",
+            "name": "proof-routing",
+            "purpose": "route every changed path and reject malformed or blocked plans"
+          },
+          {
+            "command": "just contract-drift",
+            "name": "contract-drift",
+            "purpose": "validate closed schemas, the generated pin, and registry contracts"
+          },
+          {
+            "command": "just repair-receipt-contract",
+            "name": "repair-receipt-contract",
+            "purpose": "prove create-once exact-source repair evidence custody"
+          },
+          {
+            "command": "just repair-proof",
+            "name": "repair-proof",
+            "purpose": "rerun contract diagnostics and repair-receipt hostiles"
+          },
+          {
+            "command": "just fast && just check && just score",
+            "name": "ci",
+            "purpose": "run the canonical generated-consumer, behavior, and conformance gates"
+          },
+          {
+            "command": "just check && just score",
+            "name": "docs",
+            "purpose": "verify agent-readable documentation and its conformance routing"
+          },
+          {
+            "command": "just fast && just check",
+            "name": "ci-check",
+            "purpose": "verify generated consumers and control-plane behavior together"
+          }
+        ]
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-tool/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "92690bcbaa7b83293e79cc96d42f05c702f3dae0f0563a05e85ac8d9e121eeb7",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": "#!/usr/bin/env bash\n# Canonical release-authoritative local PR gate for jeryu-tool. split-host-ci\n# posts `jeryu-tool/required` from this script. The GitHub workflow is an\n# explicitly non-authoritative static mirror because it cannot reach local Jeryu.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# Release-full CI accepts only the root broker's fixed, PATH-selected auditor.\n# A local premerge manifest PR may instead qualify its exact pinned candidate in\n# /tmp, with a content-addressed diagnostic receipt, without granting release\n# authority or mutating an installed auditor.\nunset JERYU_GOVERNED_JANKURAI_BIN JERYU_JANKURAI_BIN JERYU_JANKURAI_RECEIPT \\\n  JERYU_JANKURAI_RECEIPT_SHA256 JERYU_JANKURAI_ALLOW_TEST_RECEIPT\nhost_bin=\"$(command -v jankurai 2>/dev/null || true)\"\nhost_version=\"\"\nhost_sha=\"\"\nif [[ -f \"${host_bin}\" && ! -L \"${host_bin}\" ]]; then\n  host_version=\"$(\"${host_bin}\" --version 2>/dev/null || true)\"\n  host_sha=\"$(sha256sum \"${host_bin}\" 2>/dev/null | awk '{print $1}' || true)\"\nfi\ncandidate_root=\"\"\nif [[ \"${JAIN_RELEASE_CI:-0}\" == \"1\" ]]; then\n  source ops/ci/lib.sh\n  require_jankurai\n  qualification_mode=\"release-broker\"\nelif [[ \"${host_version}\" == \"${JERYU_JANKURAI_VERSION}\" &&\n        \"${host_sha}\" == \"${JERYU_JANKURAI_SHA256}\" ]]; then\n  source ops/ci/lib.sh\n  require_jankurai\n  qualification_mode=\"receipt-bound-host\"\nelse\n  if [[ \"${JERYU_TOOL_REQUIRE_GOVERNED_HOST:-0}\" == \"1\" ]]; then\n    printf 'governed-host Jankurai required: version=%s sha256=%s\\n' \\\n      \"${host_version:-missing}\" \"${host_sha:-missing}\" >&2\n    exit 1\n  fi\n  candidate_root=\"$(mktemp -d /tmp/jeryu-tool-premerge-candidate.XXXXXX)\"\n  trap 'rm -rf \"${candidate_root}\"' EXIT\n  evidence_dir=\"${repo_root}/target/jankurai/premerge-candidate\"\n  rm -rf \"${evidence_dir}\"\n  mkdir -p \"${evidence_dir}\"\n  \"${repo_root}/ops/qualify-jankurai-candidate.sh\" \"${candidate_root}\" \"${evidence_dir}\"\n  mapfile -t candidate_envs < <(find \"${evidence_dir}\" -maxdepth 1 -type f -name '*.env' -print)\n  [[ \"${#candidate_envs[@]}\" -eq 1 ]] || {\n    printf 'expected exactly one candidate qualification environment\\n' >&2\n    exit 1\n  }\n  # shellcheck source=/dev/null\n  source \"${candidate_envs[0]}\"\n  candidate_bin=\"${JERYU_JANKURAI_BIN:?candidate qualification did not select Jankurai}\"\n  candidate_bin_dir=\"$(dirname \"${candidate_bin}\")\"\n  export PATH=\"${candidate_bin_dir}:${PATH}\"\n  export JERYU_GOVERNED_JANKURAI_BIN=\"${candidate_bin}\"\n  source ops/ci/lib.sh\n  require_jankurai\n  qualification_mode=\"premerge-candidate\"\nfi\nprintf '[pr-ci] jankurai mode=%s bin=%s receipt=%s receipt_sha256=%s\\n' \\\n  \"${qualification_mode}\" \"${JERYU_GOVERNED_JANKURAI_BIN}\" \\\n  \"${JERYU_JANKURAI_RECEIPT:-not-product-visible}\" \\\n  \"${JERYU_JANKURAI_RECEIPT_SHA256:-not-product-visible}\" >&2\n\n# The manifest PR proves its own generated consumers first. After each protected\n# consumer lands, the release lane runs the unscoped family check over canonical mains.\necho \"[pr-ci] jankurai pin drift check (manifest-owner self scope)\" >&2\nbash ops/render-tool-manifest.sh --check --repo jeryu-tool\n\necho \"[pr-ci] standard lanes\" >&2\nbash ops/ci/fast.sh\nbash ops/ci/check.sh\nbash ops/ci/score.sh\nbash ops/ci/security.sh\nbash ops/ci/artifact_support.sh\necho \"[pr-ci] jeryu-tool OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-tool/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "c2b9dd11d0ef2741e3cee9ae7ddff99e3a788ae5febd94f26d044994c0b72743",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-tool",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\njust fast\njust check\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-tool/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "952a0882b7643a1286433ea0db7b6c759640e28c7776172781e320c11afe694d",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": "name: ci\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\nenv:\n  # Enable the network-dependent dependency-advisory scans (npm audit / cargo\n  # deny) in the security lane. The forge required-check runs them ungated too.\n  JERYU_SECURITY_NETWORK: \"1\"\n  # BEGIN GENERATED JANKURAI WORKFLOW PIN — DO NOT EDIT\n  JANKURAI_REPO: \"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\n  JANKURAI_TAG: \"v1.6.11-deadlang-precision-split.3\"\n  JANKURAI_REV: \"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\n  JANKURAI_VERSION: \"jankurai 1.6.11\"\n  JANKURAI_SEMVER: \"1.6.11\"\n  JANKURAI_SOURCE_TREE: \"611229e54938c0e8808896e369fd54d095d258f7\"\n  JANKURAI_SOURCE_ARCHIVE_SHA256: \"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\n  JANKURAI_CARGO_LOCK_SHA256: \"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\n  JANKURAI_BINARY_SHA256: \"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\n  JANKURAI_RUST_TOOLCHAIN: \"1.95.0\"\n  JANKURAI_RUSTC_VERSION: \"rustc 1.95.0 (59807616e 2026-04-14)\"\n  JANKURAI_CARGO_VERSION: \"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\n  JANKURAI_TARGET_TRIPLE: \"x86_64-unknown-linux-gnu\"\n  JANKURAI_BUILD_MODE: \"oci-vendor-locked-offline-workspace-member-v2\"\n  JANKURAI_PACKAGE_PATH: \"crates/jankurai\"\n  JANKURAI_BUILDER_IMAGE: \"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_BUILDER_IMAGE_ID: \"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\n  JANKURAI_LINKER_VERSION: \"GNU ld (GNU Binutils for Debian) 2.40\"\n  JANKURAI_GLIBC_VERSION: \"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\n  JANKURAI_VENDOR_FILES_SHA256: \"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\n  JANKURAI_VENDOR_FILE_COUNT: \"14889\"\n  JANKURAI_CARGO_CONFIG_SHA256: \"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\n  JANKURAI_BUILD_ENVIRONMENT: \"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\n  JANKURAI_RUSTFLAGS: \"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\n  JANKURAI_BUILD_COMMAND: \"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\n  JANKURAI_BUILD_CONTEXT_SHA256: \"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n  # END GENERATED JANKURAI WORKFLOW PIN\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  local:\n    runs-on: ubuntu-latest\n    timeout-minutes: 75\n    steps:\n      - name: Checkout\n        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955\n      # cache: Cargo and npm dependency caches are provided by the runner image when available.\n      - name: Ensure pinned jankurai\n        run: bash ops/ci/ensure-jankurai.sh\n      - name: PR CI (canonical gate)\n        run: bash ops/ci/pr-ci.sh\n      - name: Proof evidence lane\n        run: bash ops/ci/proof_evidence.sh\n      - name: Upload audit artifacts\n        if: always()\n        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: ci-audit-artifacts\n          path: |\n            .jankurai/\n            target/jankurai/\n            target/jankurai/coverage/coverage-audit.md\n            target/jankurai/coverage/coverage-audit.json\n            target/jankurai/vibe-coverage.md\n            target/jankurai/vibe-coverage.json\n            target/jankurai/migration-report.json\n            target/jankurai/ux-qa.json\n            target/jankurai/ux-qa/\n            target/jankurai/rust/witness-graph.json\n            target/jankurai/language-bad-behavior.log\n            target/jankurai/copy-code.md\n            target/jankurai/copy-code.json\n            target/jankurai/proofmark/proof-receipt.json\n            target/jankurai/proofmark/proofmark-receipt.json\n            target/jankurai/proofbind/obligations.json\n            target/jankurai/proofbind/surface-witness.json\n            target/jankurai/security/evidence.json\n            target/jankurai/e2e/\n            target/jankurai/repair-queue.jsonl\n            target/jankurai/repo-score.md\n            target/jankurai/repo-score.json\n            .jankurai/repo-score.md\n            .jankurai/repo-score.json\n            target/artifact-support/\n            apps/web/playwright-report/\n            apps/web/test-results/\n            apps/web/storybook-static/\n          if-no-files-found: ignore\n",
+      "kind": "workflow",
+      "path": "components/jeryu-web/.github/workflows/ci.yml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "cb00fa42dab228679d3cef64949bbcbfa47c7c9101ddfab05ffae7c5dbf760a9",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": "set shell := [\"bash\", \"-eu\", \"-o\", \"pipefail\", \"-c\"]\n\njobs := env_var_or_default(\"JERYU_CI_JOBS\", \"40\")\n\nfast:\n  ./ops/ci/fast.sh # cargo check\n\ncheck:\n  ./ops/ci/check.sh\n\nscore:\n  ./ops/ci/score.sh # jankurai audit repo-score\n\nsecurity:\n  bash tools/security-lane.sh # gitleaks detect · npm audit --audit-level=high · cargo audit · zizmor · syft SBOM · dependency-review\n\nartifact-support:\n  ./ops/ci/artifact_support.sh\n\ne2e:\n  ./ops/ci/e2e.sh\n\nprofile:\n  printf '%s\\n' \"node-frontend\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-web/Justfile",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "e6fe5d646d400d1bcbefdca35417b941d24efd70f22f978ab551d2d174cb16e1",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": {
+        "dead_language": {
+          "allow_terms": [
+            "stale",
+            "placeholder",
+            "fallback",
+            "old"
+          ]
+        },
+        "hard_findings_allowed": 0,
+        "minimum_score": 85,
+        "required_tool": "jankurai",
+        "required_tool_version": "1.6.11",
+        "scan": {
+          "excluded_paths": [
+            ".jankurai/",
+            "apps/web/eslint.config.js",
+            "apps/web/playwright-report/",
+            "apps/web/storybook-static/",
+            "apps/web/test-results/"
+          ]
+        },
+        "schema_version": "1.0.0",
+        "workspace": "jeryu-web"
+      },
+      "kind": "threshold-policy",
+      "path": "components/jeryu-web/agent/audit-policy.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "0ed87af577bbcfc1a1c57dccd0afd433ac9e1fe3bcc8b1d3d3b4fe3627eeed36",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": {
+        "lanes": {
+          "artifact-support": {
+            "blocks_merge": false,
+            "required": [
+              "just artifact-support"
+            ]
+          },
+          "check": {
+            "blocks_merge": true,
+            "required": [
+              "just check"
+            ]
+          },
+          "e2e": {
+            "blocks_merge": true,
+            "required": [
+              "just e2e"
+            ]
+          },
+          "fast": {
+            "blocks_merge": true,
+            "required": [
+              "just fast"
+            ]
+          },
+          "score": {
+            "blocks_merge": true,
+            "required": [
+              "just score"
+            ]
+          },
+          "security": {
+            "blocks_merge": true,
+            "required": [
+              "just security"
+            ]
+          },
+          "web-ui": {
+            "blocks_merge": true,
+            "required": [
+              "npm --workspace @jeryu/web run test:e2e:ci",
+              "npm --workspace @jeryu/web run ux-qa"
+            ]
+          }
+        }
+      },
+      "kind": "proof-declaration",
+      "path": "components/jeryu-web/agent/proof-lanes.toml",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "828a53d407389dc1241084c33e387359628559a7b282d777130db4e5f8338179",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": "#!/usr/bin/env bash\n# Canonical local PR gate for jeryu-web. host-ci prefers this script and posts the\n# `jeryu-web/required` check-run from its exit status; .github/workflows/ci.yml runs\n# the same lanes on the GitHub mirror so the two surfaces cannot diverge.\nset -euo pipefail\n\n# BEGIN GENERATED JANKURAI PIN — DO NOT EDIT\nexport JERYU_JANKURAI_SOURCE_REPO=\"http://127.0.0.1:8787/git/jeryu/jankurai.git\"\nexport JERYU_JANKURAI_VERSION=\"jankurai 1.6.11\"\nexport JERYU_JANKURAI_SHA256=\"9e6b8857a26f6004d4c74e510e13b06d880f2e2ae0c89502698889ed690c5d6c\"\nexport JERYU_JANKURAI_SOURCE_REV=\"b88562fdb124aa86dedd70ab972e7d0d87e58be1\"\nexport JERYU_JANKURAI_SOURCE_TAG=\"v1.6.11-deadlang-precision-split.3\"\nexport JERYU_JANKURAI_SOURCE_TREE=\"611229e54938c0e8808896e369fd54d095d258f7\"\nexport JERYU_JANKURAI_SOURCE_ARCHIVE_SHA256=\"903a231eca8f6a1f050953b603d5a278a1606abcdf47434eb1b45262d74068aa\"\nexport JERYU_JANKURAI_CARGO_LOCK_SHA256=\"b9acb981c326226a687d0b6703e4f7ee303148e9e1a6dda1aa03d77988820f6a\"\nexport JERYU_JANKURAI_RUST_TOOLCHAIN=\"1.95.0\"\nexport JERYU_JANKURAI_RUSTC_VERSION=\"rustc 1.95.0 (59807616e 2026-04-14)\"\nexport JERYU_JANKURAI_CARGO_VERSION=\"cargo 1.95.0 (f2d3ce0bd 2026-03-21)\"\nexport JERYU_JANKURAI_TARGET_TRIPLE=\"x86_64-unknown-linux-gnu\"\nexport JERYU_JANKURAI_BUILD_MODE=\"oci-vendor-locked-offline-workspace-member-v2\"\nexport JERYU_JANKURAI_PACKAGE_PATH=\"crates/jankurai\"\nexport JERYU_JANKURAI_BUILDER_IMAGE=\"rust@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_BUILDER_IMAGE_ID=\"sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082\"\nexport JERYU_JANKURAI_LINKER_VERSION=\"GNU ld (GNU Binutils for Debian) 2.40\"\nexport JERYU_JANKURAI_GLIBC_VERSION=\"ldd (Debian GLIBC 2.36-9+deb12u14) 2.36\"\nexport JERYU_JANKURAI_VENDOR_FILES_SHA256=\"a7e332f4495d9748ea020ae8ee37c4240f0f035059799bd3dc74497437143d99\"\nexport JERYU_JANKURAI_VENDOR_FILE_COUNT=\"14889\"\nexport JERYU_JANKURAI_CARGO_CONFIG_SHA256=\"b8982c761d62e447f2d1653c199d2d58e6b2de6c5a6f8ddba3d38e47b7f863d6\"\nexport JERYU_JANKURAI_BUILD_ENVIRONMENT=\"CARGO_NET_OFFLINE=true,HOME=/tmp,LANG=C,LC_ALL=C,SOURCE_DATE_EPOCH=0,TZ=UTC\"\nexport JERYU_JANKURAI_RUSTFLAGS=\"--remap-path-prefix=/opt/jeryu/jankurai=/jankurai-build/source --remap-path-prefix=/opt/jeryu/vendor=/jankurai-build/vendor --remap-path-prefix=/opt/jeryu/target=/jankurai-build/target --remap-path-prefix=/usr/local/cargo=/jankurai-build/cargo\"\nexport JERYU_JANKURAI_BUILD_COMMAND=\"cargo install --locked --offline --path /opt/jeryu/jankurai/crates/jankurai --root /opt/jeryu/out --bin jankurai\"\nexport JERYU_JANKURAI_BUILD_CONTEXT_SHA256=\"889d19f86fc390b0f0cf0bd6ecb4d451c51a2d6fb328e5520e4310e7ee5dedd6\"\n# END GENERATED JANKURAI PIN\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/../..\" && pwd)\"\ncd \"$repo_root\"\n\n# jeryu governs the worker count from live load; never default high.\nif [ -n \"${JERYU_CI_JOBS:-}\" ]; then\n  JOBS=\"${JERYU_CI_JOBS}\"\nelif command -v jeryu-ci-governor >/dev/null 2>&1; then\n  JOBS=\"$(jeryu-ci-governor 2>/dev/null || echo 8)\"\nelse\n  JOBS=8\nfi\nexport JERYU_CI_JOBS=\"$JOBS\"\nexport CARGO_BUILD_JOBS=\"${CARGO_BUILD_JOBS:-$JOBS}\"\n\n# Resolve and verify the absolute governed auditor before any lane runs.\nsource ops/ci/lib.sh\nrequire_jankurai\n\n# jankurai pin: jeryu-tool/tool-manifest.toml is the family-wide source of truth.\n# When the control-plane repo is reachable (on-host family layout), fail fast if\n# this repo's pinned consumers drifted from it. In an isolated single-repo CI\n# checkout it is absent — skip rather than fail.\nJERYU_TOOL_RENDER=\"${JERYU_TOOL_RENDER:-$repo_root/../jeryu-tool/ops/render-tool-manifest.sh}\"\nif [ -x \"$JERYU_TOOL_RENDER\" ]; then\n  echo \"[pr-ci] jankurai pin drift check\" >&2\n  consumer_repo=\"$(awk -F'\\\"' '/^workspace =/ {print $2; exit}' agent/audit-policy.toml)\"\n  bash \"$JERYU_TOOL_RENDER\" --check --repo \"$consumer_repo\" \\\n    --repo-root \"$consumer_repo=$repo_root\"\nfi\n\n# Install web deps FIRST: the check lane already typechecks the workspace.\nif [ ! -d apps/web/node_modules ]; then npm ci --prefix apps/web; fi\n\necho \"[pr-ci] (jobs=$JOBS) standard lanes\" >&2\nbash ops/ci/fast.sh\nJERYU_SPLIT_FULL_CHECK=1 bash ops/ci/check.sh\nbash ops/ci/score.sh\nbash ops/ci/security.sh\nbash ops/ci/artifact_support.sh\n\necho \"[pr-ci] web required checks\" >&2\nnpm --workspace @jeryu/web run typecheck\nnpm --workspace @jeryu/web run test\nnpm --workspace @jeryu/web run test:contracts\nnpm --workspace @jeryu/web run build\nnpm --workspace @jeryu/web run test:e2e:ci\nnpm --workspace @jeryu/web run build-storybook\nnpm --workspace @jeryu/web run ux-qa\necho \"[pr-ci] jeryu-web OK\" >&2\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-web/ops/ci/pr-ci.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "a11c5b9fbb102498e1ffaf75c64d1f0aae3b87594605820d54c8b42655239030",
+      "shared_root_command": "scripts/ci.sh legacy"
+    },
+    {
+      "component": "jeryu-web",
+      "declaration": "#!/usr/bin/env bash\nset -euo pipefail\n\nusage='usage: ci-local.sh {required|security|score|contract-drift|artifact-support}'\n\nif [[ \"$#\" -ne 1 ]]; then\n  printf '%s\\n' \"$usage\" >&2\n  exit 2\nfi\n\ncase \"$1\" in\n  required)\n    lane_script='ops/ci/pr-ci.sh'\n    ;;\n  security)\n    lane_script='tools/security-lane.sh'\n    ;;\n  score)\n    lane_script='ops/ci/score.sh'\n    ;;\n  contract-drift)\n    lane_script='ops/ci/contract-drift.sh'\n    ;;\n  artifact-support)\n    lane_script='ops/ci/artifact_support.sh'\n    ;;\n  *)\n    printf 'unsupported CI lane: %s\\n' \"$1\" >&2\n    exit 2\n    ;;\nesac\n\nrepo_root=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/..\" && pwd -P)\"\ncd \"$repo_root\"\n\nexec bash \"$repo_root/$lane_script\"\n",
+      "kind": "entrypoint",
+      "path": "components/jeryu-web/scripts/ci-local.sh",
+      "port_status": "pending-equivalence-proof",
+      "sha256": "06a8fb871d33d8d8a1b761f4f7007bf90d394458e20d319ce57ce3153d97c861",
+      "shared_root_command": "scripts/ci.sh legacy"
+    }
+  ]
+}

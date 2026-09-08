@@ -7,7 +7,7 @@ rust-version.workspace = true
 description = "CLI wrapper for Jeryu Phase 5 RustJet"
 
 [dependencies]
-jeryu-rustjet = { path = "../jeryu-rustjet" }
+jeryu-rustjet = { workspace = true }
 
 [lints]
 workspace = true

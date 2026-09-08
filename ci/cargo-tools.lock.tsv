@@ -1,0 +1,4 @@
+# crate version
+cargo-audit	0.22.1
+cargo-deny	0.19.8
+zizmor	1.25.2

@@ -175,7 +175,7 @@ test.describe('Settings preview (W-T-15)', () => {
   test('deep settings URL returns 200 (SPA fallback) @bff', async ({ request }) => {
     const res = await request.get(
       `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/settings/merge`,
-      { failOnStatusCode: false }
+      { failOnStatusCode: false, headers: { Accept: 'text/html' } }
     );
     expect(res.status()).toBe(200);
   });

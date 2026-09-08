@@ -6,13 +6,13 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-ci-ir = { path = "../jeryu-ci-ir" }
-jeryu-runner-core = { path = "../jeryu-runner-core" }
-jeryu-runner-native = { path = "../jeryu-runner-native" }
-jeryu-runner-microvm = { path = "../jeryu-runner-microvm" }
-jeryu-runner-oci = { path = "../jeryu-runner-oci" }
-jeryu-runner-protocol = { path = "../jeryu-runner-protocol" }
-jeryu-runner-registry = { path = "../jeryu-runner-registry" }
+jeryu-ci-ir = { workspace = true }
+jeryu-runner-core = { workspace = true }
+jeryu-runner-native = { workspace = true }
+jeryu-runner-microvm = { workspace = true }
+jeryu-runner-oci = { workspace = true }
+jeryu-runner-protocol = { workspace = true }
+jeryu-runner-registry = { workspace = true }
 serde = { workspace = true }
 
 [lints]

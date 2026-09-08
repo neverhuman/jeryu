@@ -17,7 +17,7 @@ rust-version = "1.95"
 description = "Cross-repo duplicate-code discovery: scan, dossier, and propose shared tools"
 
 [dependencies]
-jeryu-codegraph = { git = "http://127.0.0.1:8787/git/jeryu/jeryu-intelligence.git", tag = "jeryu-intelligence-v5.0.0-split.1", package = "jeryu-codegraph" }
+jeryu-codegraph = { workspace = true }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }

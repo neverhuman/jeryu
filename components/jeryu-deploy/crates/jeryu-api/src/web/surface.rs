@@ -363,7 +363,8 @@ async fn spa_response(spa_dir: &Path, request_path: &str) -> AxumResponse {
         && !relative_path.as_os_str().is_empty()
     {
         let disk_path = spa_dir.join(&relative_path);
-        if disk_path.is_file()
+        if !spa_dir.as_os_str().is_empty()
+            && disk_path.is_file()
             && let Ok(bytes) = fs::read(&disk_path).await
         {
             return (
@@ -379,20 +380,22 @@ async fn spa_response(spa_dir: &Path, request_path: &str) -> AxumResponse {
         }
     }
 
-    match fs::read_to_string(spa_dir.join("index.html")).await {
-        Ok(html) => Html(html).into_response(),
-        Err(_) => match super::embedded_web::index() {
-            Some(asset) => embedded_asset_response(asset),
-            None => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-                format!(
-                    "failed to load SPA shell from {} and no embedded web assets were compiled",
-                    spa_dir.display()
-                ),
-            )
-                .into_response(),
-        },
+    if !spa_dir.as_os_str().is_empty()
+        && let Ok(html) = fs::read_to_string(spa_dir.join("index.html")).await
+    {
+        return Html(html).into_response();
+    }
+    match super::embedded_web::index() {
+        Some(asset) => embedded_asset_response(asset),
+        None => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            format!(
+                "failed to load SPA shell from {} and no embedded web assets were compiled",
+                spa_dir.display()
+            ),
+        )
+            .into_response(),
     }
 }
 

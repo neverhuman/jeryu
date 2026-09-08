@@ -13,6 +13,7 @@
 pub mod cli;
 pub mod client;
 pub mod commands;
+pub mod data_dir;
 pub mod dispatch;
 
 pub use cli::Cli;

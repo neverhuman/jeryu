@@ -9,5 +9,5 @@ rust-version.workspace = true
 workspace = true
 
 [dev-dependencies]
-redlinedb = { git = "http://127.0.0.1:8787/git/jeryu/redline-core.git", tag = "redline-core-v4.1.0-jain.6" }
+redlinedb.workspace = true
 tempfile.workspace = true

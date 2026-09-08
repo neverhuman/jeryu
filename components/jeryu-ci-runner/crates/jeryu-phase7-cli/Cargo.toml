@@ -7,7 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-ci-scheduler = { path = "../jeryu-ci-scheduler" }
+jeryu-ci-scheduler = { workspace = true }
 
 [lints]
 workspace = true

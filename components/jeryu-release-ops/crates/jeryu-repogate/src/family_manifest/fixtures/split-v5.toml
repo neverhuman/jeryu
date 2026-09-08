@@ -1,0 +1,198 @@
+schema_version = "1"
+repo_family = "jeryu-split"
+release_identity = "jeryu-split"
+release_lineage = "v5"
+status = "candidate"
+formal_ga = false
+split_root = "/home/ubuntu/jain-split/jeryu-split"
+manifest_authority = "/home/ubuntu/jain-split/jeryu-split/jeryu-release-ops/repos.manifest.toml"
+compliance_state = "inventory"
+required_repos = [
+  "jeryu",
+  "jeryu-cache",
+  "jeryu-ci-runner",
+  "jeryu-core",
+  "jeryu-deploy",
+  "jeryu-intelligence",
+  "jeryu-jira",
+  "jeryu-release-ops",
+  "jeryu-tool",
+  "jeryu-tool-finder",
+  "jeryu-web",
+]
+retired_histories = []
+
+[forges.local_transition]
+provider = "jeryu"
+base_url = "http://127.0.0.1:8787"
+git_url_template = "http://127.0.0.1:8787/git/{owner}/{repo}.git"
+
+[forges.hosted]
+provider = "jeryu"
+base_url = "https://git.neverhuman.org"
+git_url_template = "https://git.neverhuman.org/git/{owner}/{repo}.git"
+
+[compliance]
+minimum_jankurai_score = 85
+max_authored_lines = 500
+target_authored_lines = 300
+max_raw_git_blob_bytes = 1048576
+max_caps = 0
+max_hard_findings = 0
+max_soft_findings = 0
+max_disabled_rules = 0
+allowed_score_drop = 0
+
+[control_plane]
+authority_forge = "hosted"
+name = "jeryu-release-ops"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-release-ops"
+jeryu_slug = "jeryu/jeryu-release-ops"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-release-ops.git"
+required_check = "jeryu-release-ops/required"
+default_branch = "main"
+identity_status = "bound"
+predecessor_tag = "jeryu-release-ops-v5.0.0-split.6"
+inventory_status = "active"
+runtime_authority = "control-plane"
+lfs_required = false
+
+[nested_families.redline]
+family = "redline-split"
+consumer = "jeryu-split"
+source_authority = "jain-redline"
+container_path = "/home/ubuntu/jain-split/jain-redline"
+control_plane = "/home/ubuntu/jain-split/jain-redline/redline-split-ops"
+manifest_path = "/home/ubuntu/jain-split/jain-redline/redline-split-ops/repos.manifest.toml"
+dependency_resolution = "immutable-tags-via-hosted-transport"
+required = true
+
+[[repo]]
+name = "jeryu"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu"
+jeryu_slug = "jeryu/jeryu"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu.git"
+required_check = "jeryu/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-v5.0.0-split.0"
+inventory_status = "active"
+runtime_authority = "library"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-cache"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-cache"
+jeryu_slug = "jeryu/jeryu-cache"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-cache.git"
+required_check = "jeryu-cache/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-cache-v5.0.0-split.1"
+inventory_status = "active"
+runtime_authority = "library"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-ci-runner"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-ci-runner"
+jeryu_slug = "jeryu/jeryu-ci-runner"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-ci-runner.git"
+required_check = "jeryu-ci-runner/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-ci-runner-v5.0.0-split.0"
+inventory_status = "active"
+runtime_authority = "shadow-only"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-core"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-core"
+jeryu_slug = "jeryu/jeryu-core"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-core.git"
+required_check = "jeryu-core/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-core-v5.0.0-split.5"
+inventory_status = "active"
+runtime_authority = "library"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-deploy"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-deploy"
+jeryu_slug = "jeryu/jeryu-deploy"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-deploy.git"
+required_check = "jeryu-deploy/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-deploy-v5.0.0-split.3"
+inventory_status = "active"
+runtime_authority = "shadow-only"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-intelligence"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-intelligence"
+jeryu_slug = "jeryu/jeryu-intelligence"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-intelligence.git"
+required_check = "jeryu-intelligence/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-intelligence-v5.0.0-split.1"
+inventory_status = "active"
+runtime_authority = "library"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-jira"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-jira"
+jeryu_slug = "jeryu/jeryu-jira"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-jira.git"
+required_check = "jeryu-jira/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-jira-v5.0.0-split.1"
+inventory_status = "active"
+runtime_authority = "library"
+product_name = "Work"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-tool"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-tool"
+jeryu_slug = "jeryu/jeryu-tool"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-tool.git"
+required_check = "jeryu-tool/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-tool-v5.1.0-split.7"
+inventory_status = "active"
+runtime_authority = "library"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-tool-finder"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-tool-finder"
+jeryu_slug = "jeryu/jeryu-tool-finder"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-tool-finder.git"
+required_check = "jeryu-tool-finder/required"
+default_branch = "main"
+identity_status = "pending"
+inventory_status = "active"
+runtime_authority = "library"
+lfs_required = false
+
+[[repo]]
+name = "jeryu-web"
+path = "/home/ubuntu/jain-split/jeryu-split/jeryu-web"
+jeryu_slug = "jeryu/jeryu-web"
+remote = "https://git.neverhuman.org/git/jeryu/jeryu-web.git"
+required_check = "jeryu-web/required"
+default_branch = "main"
+identity_status = "bound"
+current_tag = "jeryu-web-v5.0.0-split.1"
+inventory_status = "active"
+runtime_authority = "retirement-pending"
+lfs_required = false

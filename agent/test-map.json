@@ -1,5 +1,35 @@
 {
   "tests": {
+    "components/": {
+      "command": "bash scripts/ci.sh rust && bash scripts/ci.sh legacy",
+      "lane": "components",
+      "purpose": "workspace tests plus retained component proof declarations and thresholds"
+    },
+    "components/jeryu-web/": {
+      "command": "bash scripts/ci.sh web",
+      "lane": "web",
+      "purpose": "web unit, contract, browser, accessibility, performance and rendered UX proof"
+    },
+    "components/jeryu-deploy/": {
+      "command": "bash scripts/ci.sh rust && bash scripts/ci.sh runtime",
+      "lane": "runtime",
+      "purpose": "server and CLI contracts, installation and durable standalone runtime"
+    },
+    "ci/": {
+      "command": "bash scripts/ci.sh security",
+      "lane": "security",
+      "purpose": "verified portable tool bootstrap and dependency policy"
+    },
+    "package.json": {
+      "command": "bash scripts/ci.sh web && npm audit --audit-level=high",
+      "lane": "web",
+      "purpose": "locked web workspace and audited performance tool compatibility"
+    },
+    "package-lock.json": {
+      "command": "bash scripts/ci.sh web && npm audit --audit-level=high",
+      "lane": "web",
+      "purpose": "locked web workspace and audited performance tool compatibility"
+    },
     ".cargo/": {
       "command": "just check",
       "lane": "check",

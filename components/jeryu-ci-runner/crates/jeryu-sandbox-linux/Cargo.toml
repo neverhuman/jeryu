@@ -17,7 +17,7 @@ missing_docs = "allow"
 pedantic = { level = "allow", priority = -1 }
 
 [dependencies]
-jeryu-runner-core = { path = "../jeryu-runner-core" }
+jeryu-runner-core = { workspace = true }
 libc = "0.2"
 nix = { version = "0.29", features = ["sched", "mount", "user", "process", "signal"] }
 landlock = "0.4"

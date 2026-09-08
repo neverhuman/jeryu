@@ -6,8 +6,8 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-phase11-core = { path = "../../crates/jeryu-phase11-core" }
-jeryu-kernel = { path = "../../crates/jeryu-kernel" }
+jeryu-phase11-core = { workspace = true }
+jeryu-kernel = { workspace = true }
 
 [[bin]]
 name = "jeryu-phase11-bin"

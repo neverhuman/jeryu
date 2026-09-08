@@ -2,10 +2,9 @@
 //!
 //! Every CLI command is backed by a single trait, [`ForgeClient`], so the
 //! command layer never reaches for a concrete backend. The current
-//! implementation is the in-memory [`InMemoryClient`] used by tests and local
-//! rehearsals; an implementation over the `jeryu-api` HTTP/`jeryu-core`
-//! in-process handles can be added behind the same trait without touching the
-//! command layer.
+//! production binary uses live HTTP command adapters and [`RemoteOnlyClient`]
+//! rejects operations without a server transport. [`InMemoryClient`] is test
+//! infrastructure and is never constructed by the production entrypoint.
 //!
 //! The vocabulary here is deliberately GitHub-shaped: pull requests carry a
 //! per-repo `number` (not a per-project IID), CI work is a `run`, build
@@ -26,7 +25,10 @@ mod forge;
 mod inmemory;
 mod proof;
 mod release;
+mod remote_only;
 mod runner;
+
+pub use remote_only::RemoteOnlyClient;
 
 pub use agent::{
     AgentAuthDoctor, AgentAuthImportReceipt, AgentControl, AgentExportPr, AgentExportPrRequest,
@@ -81,7 +83,7 @@ pub type ClientResult<T> = Result<T, ClientError>;
 /// The single trait every CLI command is backed by.
 ///
 /// Implementations map each method onto a `jeryu-api` route or `jeryu-core`
-/// call. The in-memory [`InMemoryClient`] is the current implementation.
+/// call. The in-memory [`InMemoryClient`] supplies deterministic test fixtures.
 pub trait ForgeClient {
     // forge repo
     /// Create a repository. Backs `jeryu forge repo create`.

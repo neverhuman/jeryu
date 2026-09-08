@@ -6,8 +6,8 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jeryu-cache-core = { path = "../jeryu-cache-core" }
-jeryu-cache-service = { path = "../jeryu-cache-service" }
+jeryu-cache-core = { workspace = true }
+jeryu-cache-service = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
 

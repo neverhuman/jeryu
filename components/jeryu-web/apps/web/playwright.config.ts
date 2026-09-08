@@ -13,6 +13,7 @@
 // same trace artifacts.
 
 import { defineConfig, devices } from '@playwright/test';
+import { randomBytes } from 'node:crypto';
 
 // `JERYU_PLAYWRIGHT_E2E_MODE` toggles the test target:
 //   - `ui-only` (default): launch Vite on a dedicated strict port.
@@ -27,7 +28,8 @@ const E2E_MODE = process.env.JERYU_PLAYWRIGHT_E2E_MODE ?? 'ui-only';
 const useUiOnly = E2E_MODE === 'ui-only';
 const useViteDev = E2E_MODE === 'with-vite';
 const useUiMocked = E2E_MODE === 'ui-mocked';
-const bffBaseURL = process.env.JERYU_PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:8787';
+const bffBaseURL = process.env.JERYU_PLAYWRIGHT_API_URL ?? 'http://127.0.0.1:18787';
+process.env.JERYU_BROWSER_PASSWORD ??= randomBytes(32).toString('hex');
 const bffHealthURL = `${bffBaseURL.replace(/\/$/, '')}/health`;
 const bffBind = new URL(bffBaseURL).host;
 const externalApi = process.env.JERYU_PLAYWRIGHT_EXTERNAL_API === '1';
@@ -39,19 +41,16 @@ const baseURL = useUiOnly || useViteDev
   : useUiMocked
     ? previewBaseURL
     : bffBaseURL;
-const apiCwd = process.env.JERYU_PLAYWRIGHT_API_CWD ?? '../../../jeryu-deploy';
-const spaDir =
-  process.env.JERYU_PLAYWRIGHT_SPA_DIR ?? '../jeryu-web/apps/web/dist';
+const apiCwd = process.env.JERYU_PLAYWRIGHT_API_CWD ?? '../../../..';
 
 const apiWebServer = {
-  // Axum HTTP edge (jeryu-api web edge). `JERYU_WEB_TRUST_LOCAL=1`
-  // short-circuits the cookie session check so the SPA can fetch
-  // `/api/v1/bootstrap` without provisioning a session.
+  // Real standalone server with a disposable administrator and normal auth.
   command:
-    `JERYU_WEB_TRUST_LOCAL=1 cargo run --features web -p jeryu-api -- web serve --bind ${bffBind} --spa-dir ${spaDir}`,
+    'bash scripts/ci-browser-server.sh',
+  env: { JERYU_BROWSER_BIND: bffBind, JERYU_BROWSER_PASSWORD: process.env.JERYU_BROWSER_PASSWORD },
   url: bffHealthURL,
   timeout: 180_000,
-  reuseExistingServer: !process.env.CI,
+  reuseExistingServer: false,
   cwd: apiCwd,
 };
 

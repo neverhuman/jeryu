@@ -62,7 +62,7 @@ test.describe('PR cockpit (W-T-13)', () => {
   test('deep PR route returns 200 (SPA fallback) @bff', async ({ request }) => {
     const res = await request.get(
       `/repos/${REPO.host}/${REPO.owner}%2F${REPO.name}/pulls/${PR_NUMBER}`,
-      { failOnStatusCode: false }
+      { failOnStatusCode: false, headers: { Accept: 'text/html' } }
     );
     expect(res.status()).toBe(200);
   });

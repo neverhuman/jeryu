@@ -3417,18 +3417,9 @@ fn bootstrap_admin_password_creates_and_resets_admin_without_receipt_secret() {
     assert_eq!(admin.role, UserRole::Admin);
     assert!(!admin.must_change_password);
 
-    let receipt: Value = serde_json::from_slice(
-        &std::fs::read(data_dir.path().join("bootstrap-credentials.json"))
-            .expect("bootstrap receipt exists for non-admin users"),
-    )
-    .expect("bootstrap receipt is json");
-    let logins: Vec<_> = receipt["credentials"]
-        .as_array()
-        .expect("credentials array")
-        .iter()
-        .filter_map(|credential| credential["login"].as_str())
-        .collect();
-    assert_eq!(logins, vec!["jordanh", "jepsont"]);
+    assert!(!data_dir.path().join("bootstrap-credentials.json").exists());
+    assert!(state.core.get_account("jordanh").is_err());
+    assert!(state.core.get_account("jepsont").is_err());
 
     bootstrap_public_accounts_with_admin_password(
         &state,

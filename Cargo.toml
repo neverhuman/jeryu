@@ -1,0 +1,107 @@
+[workspace]
+resolver = "3"
+members = ["components/jeryu-ci-runner/crates/jeryu-agent-auth", "components/jeryu-ci-runner/crates/jeryu-agent-stream", "components/jeryu-ci-runner/crates/jeryu-agentbridge", "components/jeryu-deploy/crates/jeryu-api", "components/jeryu-ci-runner/crates/jeryu-artifact-metadata", "components/jeryu-intelligence/crates/jeryu-autonomy", "components/jeryu-release-ops/crates/jeryu-bench", "components/jeryu-core/crates/jeryu-bugtracker", "components/jeryu-cache/crates/jeryu-cache", "components/jeryu-cache/crates/jeryu-cache-adversary", "components/jeryu-cache/crates/jeryu-cache-cli", "components/jeryu-cache/crates/jeryu-cache-core", "components/jeryu-ci-runner/crates/jeryu-cache-policy", "components/jeryu-cache/crates/jeryu-cache-service", "components/jeryu-ci-runner/bins/jeryu-ci-bin", "components/jeryu-ci-runner/crates/jeryu-ci-compiler", "components/jeryu-ci-runner/crates/jeryu-ci-governor", "components/jeryu-ci-runner/crates/jeryu-ci-ir", "components/jeryu-ci-runner/crates/jeryu-ci-scheduler", "components/jeryu-deploy/crates/jeryu-cli", "components/jeryu-intelligence/crates/jeryu-codegraph", "components/jeryu-release-ops/crates/jeryu-compliance-export", "components/jeryu-core/crates/jeryu-core", "components/jeryu-core/crates/domain", "components/jeryu-ci-runner/crates/jeryu-egress", "components/jeryu-core/crates/jeryu-enterprise", "components/jeryu-release-ops/crates/jeryu-evidence", "components/jeryu-release-ops/crates/jeryu-git-guard", "components/jeryu-core/crates/jeryu-gitd", "components/jeryu-jira/crates/jeryu-jira", "components/jeryu-release-ops/crates/jeryu-kernel", "components/jeryu-release-ops/crates/jeryu-lifecycle", "components/jeryu-release-ops/crates/jeryu-mapcheck", "components/jeryu-intelligence/crates/jeryu-mcp", "components/jeryu-core/crates/jeryu-mirror", "components/jeryu-core/crates/jeryu-mirror-cli", "components/jeryu-release-ops/crates/jeryu-obs", "components/jeryu-release-ops/crates/jeryu-ops", "components/jeryu-release-ops/crates/jeryu-phase11-audit", "components/jeryu-release-ops/bins/jeryu-phase11-bin", "components/jeryu-release-ops/crates/jeryu-phase11-core", "components/jeryu-ci-runner/crates/jeryu-phase7-cli", "components/jeryu-core/crates/jeryu-proof", "components/jeryu-core/crates/jeryu-readmodel", "components/jeryu-release-ops/crates/jeryu-replay-verifier", "components/jeryu-release-ops/crates/jeryu-repogate", "components/jeryu-intelligence/crates/jeryu-review", "components/jeryu-ci-runner/crates/jeryu-runner-core", "components/jeryu-ci-runner/crates/jeryu-runner-microvm", "components/jeryu-ci-runner/crates/jeryu-runner-native", "components/jeryu-ci-runner/crates/jeryu-runner-oci", "components/jeryu-ci-runner/crates/jeryu-runner-protocol", "components/jeryu-ci-runner/crates/jeryu-runner-registry", "components/jeryu-ci-runner/crates/jeryu-runnerd", "components/jeryu-intelligence/crates/jeryu-rustjet", "components/jeryu-intelligence/crates/jeryu-rustjet-cli", "components/jeryu-ci-runner/crates/jeryu-sandbox-linux", "components/jeryu-release-ops/crates/jeryu-signing", "components/jeryu-release-ops/crates/jeryu-signrail", "components/jeryu-deploy/crates/jeryu-split-tool", "components/jeryu-release-ops/crates/jeryu-tenant", "components/jeryu-tool/crates/jeryu-tool-control", "components/jeryu-tool-finder", "components/jeryu-core/crates/jeryu-tui", "components/jeryu-release-ops/crates/jeryu-wsversion"]
+default-members = ["components/jeryu-deploy/crates/jeryu-cli"]
+exclude = ["components/jeryu-cache/fixtures/rust-small", "components/jeryu-ci-runner/fixtures/rust-small", "components/jeryu-core/fixtures/rust-small", "components/jeryu-deploy/fixtures/rust-small", "components/jeryu-intelligence/fixtures/rust-small", "components/jeryu-jira/fixtures/rust-small", "components/jeryu-release-ops/fixtures/rust-small"]
+
+[workspace.package]
+version = "5.0.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/neverhuman/jeryu"
+authors = ["Jeryu"]
+rust-version = "1.95"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "allow"
+
+[workspace.lints.clippy]
+pedantic = { level = "allow", priority = -1 }
+
+[workspace.dependencies]
+redlinedb = { git = "https://github.com/neverhuman/redline-core.git", tag = "redline-core-v4.1.0-jain.6" }
+anyhow = "1.0.103"
+blake3 = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+hmac = "0.12"
+parking_lot = "0.12"
+proptest = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "1"
+toml = "0.8"
+uuid = { version = "1", features = ["v4", "serde"] }
+vt100 = "0.16"
+jeryu-repogate = { path = "components/jeryu-release-ops/crates/jeryu-repogate" }
+rusqlite = { version = "0.32", features = ["bundled"] }
+ts-rs = { version = "12", features = ["serde-compat", "uuid-impl"] }
+regex = "1"
+jeryu-agent-auth = { path = "components/jeryu-ci-runner/crates/jeryu-agent-auth" }
+jeryu-agent-stream = { path = "components/jeryu-ci-runner/crates/jeryu-agent-stream" }
+jeryu-agentbridge = { path = "components/jeryu-ci-runner/crates/jeryu-agentbridge" }
+jeryu-api = { path = "components/jeryu-deploy/crates/jeryu-api" }
+jeryu-artifact-metadata = { path = "components/jeryu-ci-runner/crates/jeryu-artifact-metadata" }
+jeryu-autonomy = { path = "components/jeryu-intelligence/crates/jeryu-autonomy" }
+jeryu-bench = { path = "components/jeryu-release-ops/crates/jeryu-bench" }
+jeryu-bugtracker = { path = "components/jeryu-core/crates/jeryu-bugtracker" }
+jeryu-cache = { path = "components/jeryu-cache/crates/jeryu-cache" }
+jeryu-cache-adversary = { path = "components/jeryu-cache/crates/jeryu-cache-adversary" }
+jeryu-cache-cli = { path = "components/jeryu-cache/crates/jeryu-cache-cli" }
+jeryu-cache-core = { path = "components/jeryu-cache/crates/jeryu-cache-core" }
+jeryu-cache-policy = { path = "components/jeryu-ci-runner/crates/jeryu-cache-policy" }
+jeryu-cache-service = { path = "components/jeryu-cache/crates/jeryu-cache-service" }
+jeryu-ci-bin = { path = "components/jeryu-ci-runner/bins/jeryu-ci-bin" }
+jeryu-ci-compiler = { path = "components/jeryu-ci-runner/crates/jeryu-ci-compiler" }
+jeryu-ci-governor = { path = "components/jeryu-ci-runner/crates/jeryu-ci-governor" }
+jeryu-ci-ir = { path = "components/jeryu-ci-runner/crates/jeryu-ci-ir" }
+jeryu-ci-scheduler = { path = "components/jeryu-ci-runner/crates/jeryu-ci-scheduler" }
+jeryu-cli = { path = "components/jeryu-deploy/crates/jeryu-cli" }
+jeryu-codegraph = { path = "components/jeryu-intelligence/crates/jeryu-codegraph" }
+jeryu-compliance-export = { path = "components/jeryu-release-ops/crates/jeryu-compliance-export" }
+jeryu-core = { path = "components/jeryu-core/crates/jeryu-core" }
+jeryu-domain = { path = "components/jeryu-core/crates/domain" }
+jeryu-egress = { path = "components/jeryu-ci-runner/crates/jeryu-egress" }
+jeryu-enterprise = { path = "components/jeryu-core/crates/jeryu-enterprise" }
+jeryu-evidence = { path = "components/jeryu-release-ops/crates/jeryu-evidence" }
+jeryu-git-guard = { path = "components/jeryu-release-ops/crates/jeryu-git-guard" }
+jeryu-gitd = { path = "components/jeryu-core/crates/jeryu-gitd" }
+jeryu-jira = { path = "components/jeryu-jira/crates/jeryu-jira" }
+jeryu-kernel = { path = "components/jeryu-release-ops/crates/jeryu-kernel" }
+jeryu-lifecycle = { path = "components/jeryu-release-ops/crates/jeryu-lifecycle" }
+jeryu-mapcheck = { path = "components/jeryu-release-ops/crates/jeryu-mapcheck" }
+jeryu-mcp = { path = "components/jeryu-intelligence/crates/jeryu-mcp" }
+jeryu-mirror = { path = "components/jeryu-core/crates/jeryu-mirror" }
+jeryu-mirror-cli = { path = "components/jeryu-core/crates/jeryu-mirror-cli" }
+jeryu-obs = { path = "components/jeryu-release-ops/crates/jeryu-obs" }
+jeryu-ops = { path = "components/jeryu-release-ops/crates/jeryu-ops" }
+jeryu-phase11-audit = { path = "components/jeryu-release-ops/crates/jeryu-phase11-audit" }
+jeryu-phase11-bin = { path = "components/jeryu-release-ops/bins/jeryu-phase11-bin" }
+jeryu-phase11-core = { path = "components/jeryu-release-ops/crates/jeryu-phase11-core" }
+jeryu-phase7-cli = { path = "components/jeryu-ci-runner/crates/jeryu-phase7-cli" }
+jeryu-proof = { path = "components/jeryu-core/crates/jeryu-proof" }
+jeryu-readmodel = { path = "components/jeryu-core/crates/jeryu-readmodel" }
+jeryu-replay-verifier = { path = "components/jeryu-release-ops/crates/jeryu-replay-verifier" }
+jeryu-review = { path = "components/jeryu-intelligence/crates/jeryu-review" }
+jeryu-runner-core = { path = "components/jeryu-ci-runner/crates/jeryu-runner-core" }
+jeryu-runner-microvm = { path = "components/jeryu-ci-runner/crates/jeryu-runner-microvm" }
+jeryu-runner-native = { path = "components/jeryu-ci-runner/crates/jeryu-runner-native" }
+jeryu-runner-oci = { path = "components/jeryu-ci-runner/crates/jeryu-runner-oci" }
+jeryu-runner-protocol = { path = "components/jeryu-ci-runner/crates/jeryu-runner-protocol" }
+jeryu-runner-registry = { path = "components/jeryu-ci-runner/crates/jeryu-runner-registry" }
+jeryu-runnerd = { path = "components/jeryu-ci-runner/crates/jeryu-runnerd" }
+jeryu-rustjet = { path = "components/jeryu-intelligence/crates/jeryu-rustjet" }
+jeryu-rustjet-cli = { path = "components/jeryu-intelligence/crates/jeryu-rustjet-cli" }
+jeryu-sandbox-linux = { path = "components/jeryu-ci-runner/crates/jeryu-sandbox-linux" }
+jeryu-signing = { path = "components/jeryu-release-ops/crates/jeryu-signing" }
+jeryu-signrail = { path = "components/jeryu-release-ops/crates/jeryu-signrail" }
+jeryu-split-tool = { path = "components/jeryu-deploy/crates/jeryu-split-tool" }
+jeryu-tenant = { path = "components/jeryu-release-ops/crates/jeryu-tenant" }
+jeryu-tool-control = { path = "components/jeryu-tool/crates/jeryu-tool-control" }
+jeryu-tool-finder = { path = "components/jeryu-tool-finder" }
+jeryu-tui = { path = "components/jeryu-core/crates/jeryu-tui" }
+jeryu-wsversion = { path = "components/jeryu-release-ops/crates/jeryu-wsversion" }

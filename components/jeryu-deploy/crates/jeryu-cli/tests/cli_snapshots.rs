@@ -456,7 +456,9 @@ fn spawn_http_fixture(
             if line == "\r\n" || line == "\n" || line.is_empty() {
                 break;
             }
-            if let Some(value) = line.strip_prefix("Content-Length:") {
+            if let Some((name, value)) = line.split_once(':')
+                && name.eq_ignore_ascii_case("content-length")
+            {
                 content_length = value.trim().parse().expect("content length");
             }
         }

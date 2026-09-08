@@ -4,8 +4,20 @@ use std::path::{Path, PathBuf};
 
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
-    let dist = manifest_dir.join("../../apps/web/dist");
+    println!("cargo:rerun-if-env-changed=JERYU_WEB_DIST");
+    println!("cargo:rerun-if-env-changed=JERYU_REQUIRE_WEB");
+    let dist = env::var_os("JERYU_WEB_DIST").map_or_else(
+        || manifest_dir.join("../../../jeryu-web/apps/web/dist"),
+        PathBuf::from,
+    );
     println!("cargo:rerun-if-changed={}", dist.display());
+    let web = env::var_os("CARGO_FEATURE_WEB").is_some();
+    let required = env::var("PROFILE").as_deref() == Ok("release")
+        || env::var("JERYU_REQUIRE_WEB").as_deref() == Ok("1");
+    assert!(
+        !web || !required || dist.join("index.html").is_file(),
+        "release web assets are missing; run scripts/build.sh first"
+    );
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let out = out_dir.join("embedded_web.rs");
