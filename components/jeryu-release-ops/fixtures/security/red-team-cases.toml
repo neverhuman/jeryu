@@ -1,0 +1,19 @@
+[[case]]
+id = "tenant-cross-read"
+severity = "critical"
+expected = "blocked"
+
+[[case]]
+id = "sso-http-redirect"
+severity = "high"
+expected = "blocked"
+
+[[case]]
+id = "audit-tamper"
+severity = "critical"
+expected = "blocked"
+
+[[case]]
+id = "rollback-without-backup"
+severity = "high"
+expected = "blocked"

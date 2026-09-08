@@ -1,0 +1,14 @@
+[package]
+name = "jeryu-signrail"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+jeryu-signing = { path = "../jeryu-signing" }
+serde_json = { workspace = true }

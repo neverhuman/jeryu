@@ -1,0 +1,21 @@
+[jeryu-signrail]
+policy_version = "phase8.1"
+artifact_store = "/srv/jeryu/artifacts"
+receipt_store = "/srv/jeryu/receipts"
+required_signature_coverage_percent = 100
+block_mutable_latest_assets = true
+require_sbom = true
+require_rollback = true
+
+[identity]
+issuer = "https://jeryu.example.invalid"
+audience = "jeryu-signrail"
+
+[signing]
+algorithm = "JFSIG-HMAC-SHA256"
+key_id = "local-dev-only"
+# Production deployments should replace the local signer with KMS/HSM-backed signing.
+
+[release]
+allowed_runner_classes = ["release-hermetic"]
+require_no_network = true

@@ -1,0 +1,34 @@
+schema_version = "1.0.0"
+workspace = "jeryu-release-ops"
+profile = "rust-workspace"
+required_check = "jeryu-release-ops/required"
+
+[split]
+cross_repo_dependency_policy = "pinned-public-git-tags"
+local_path_patches = false
+
+cargo_members = [
+  "crates/jeryu-signing",
+  "crates/jeryu-signrail",
+  "crates/jeryu-wsversion",
+  "crates/jeryu-repogate",
+  "crates/jeryu-mapcheck",
+  "crates/jeryu-evidence",
+  "crates/jeryu-obs",
+  "crates/jeryu-bench",
+  "crates/jeryu-ops",
+  "crates/jeryu-phase11-core",
+  "crates/jeryu-phase11-audit",
+  "crates/jeryu-compliance-export",
+  "crates/jeryu-lifecycle",
+  "crates/jeryu-tenant",
+  "crates/jeryu-kernel",
+  "crates/jeryu-replay-verifier",
+  "crates/jeryu-git-guard",
+  "bins/jeryu-phase11-bin",
+]
+
+[db]
+root_paths = ["db"]
+migration_paths = ["db/migrations"]
+constraint_paths = ["db/constraints"]

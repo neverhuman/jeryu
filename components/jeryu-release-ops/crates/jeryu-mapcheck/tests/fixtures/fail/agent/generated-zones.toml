@@ -1,0 +1,9 @@
+[[zones]]
+path = "docs/generated/**"
+generator = "scripts/render-policy-docs.sh"
+manual_edits = true
+
+[[zones]]
+path = "receipts/generated/**"
+generator = "wrong-generator"
+manual_edits = false

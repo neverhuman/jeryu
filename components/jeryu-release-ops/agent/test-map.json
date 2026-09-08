@@ -1,0 +1,310 @@
+{
+  "tests": {
+    ".cargo/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify cargo configuration is parseable and local"
+    },
+    ".config/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local tool configuration remains parseable"
+    },
+    ".dockerignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".github/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify hosted workflows stay thin, pinned, and audit-visible"
+    },
+    ".gitignore": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    ".jankurai/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify committed audit evidence matches the pinned Jankurai lane"
+    },
+    "AGENTS.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify split metadata and agent maps"
+    },
+    "CHANGELOG.md": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify release notes stay routed through the score lane"
+    },
+    "Cargo.lock": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify lockfile remains workspace-addressable"
+    },
+    "Cargo.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace manifest shape"
+    },
+    "Justfile": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local command wrappers remain canonical"
+    },
+    "LICENSE": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify workspace metadata remains parseable"
+    },
+    "README.md": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify root navigation remains current"
+    },
+    "RELEASE_PROCESS.md": {
+      "command": "just release-readiness",
+      "lane": "release",
+      "purpose": "verify release gates and immutable Redline evidence policy"
+    },
+    "ROLLBACK.md": {
+      "command": "just release-readiness",
+      "lane": "release",
+      "purpose": "verify rollback preserves immutable refs and fail-closed proof state"
+    },
+    "VERSION": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify version source remains aligned with release evidence"
+    },
+    "agent/": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify agent metadata parses and routes proof lanes"
+    },
+    "bench/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "bins/jeryu-phase11-bin/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "configs/signrail.example.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-bench/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-compliance-export/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-evidence/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-git-guard/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-kernel/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-lifecycle/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-mapcheck/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-obs/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-ops/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-phase11-audit/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-phase11-core/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-replay-verifier/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-repogate/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-signing/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-signrail/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-tenant/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "crates/jeryu-wsversion/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "dashboards/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "deny.toml": {
+      "command": "just security",
+      "lane": "security",
+      "purpose": "verify security policy metadata remains parseable"
+    },
+    "docs/": {
+      "command": "just check && just score",
+      "lane": "docs",
+      "purpose": "verify agent-readable docs remain routed and auditable"
+    },
+    "fixtures/benchmarks/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "fixtures/chaos/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "fixtures/security/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "fixtures/sso/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "fixtures/upgrade/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "ops/bench/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "ops/chaos/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "ops/ci/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local CI wrappers are reproducible and audit-visible"
+    },
+    "ops/git-hooks/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify pre-push gates delegate to local CI lanes"
+    },
+    "ops/security/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "ops/signrail-verify/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "ops/upgrade/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "repos.manifest.toml": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify split manifest remains parseable and routed"
+    },
+    "rust-toolchain.toml": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify local Rust toolchain metadata remains pinned"
+    },
+    "scripts/": {
+      "command": "scripts/ci-local.sh required",
+      "lane": "required",
+      "purpose": "verify the host-required entrypoint executes complete release readiness"
+    },
+    "tests/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify negative proof evidence remains routed"
+    },
+    "tools/": {
+      "command": "just check",
+      "lane": "check",
+      "purpose": "verify jeryu-release-ops owned source remains build-addressable"
+    },
+    "agent/tool-adoption.toml": {
+      "command": "just score",
+      "lane": "score",
+      "purpose": "verify Jankurai tool-adoption catalog coverage"
+    },
+    "db/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify documented data boundary policy remains routed"
+    },
+    "ops/": {
+      "command": "just fast && just check && just score",
+      "lane": "ci",
+      "purpose": "verify local ops guidance and CI wrappers stay reproducible"
+    },
+    "schemas/": {
+      "command": "just check && just score",
+      "lane": "check",
+      "purpose": "verify closed release-receipt schemas are parseable and audit-visible"
+    }
+  },
+  "workspace": "jeryu-release-ops"
+}

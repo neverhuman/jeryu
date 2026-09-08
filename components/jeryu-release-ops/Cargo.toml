@@ -1,0 +1,58 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/jeryu-signing",
+  "crates/jeryu-signrail",
+  "crates/jeryu-wsversion",
+  "crates/jeryu-repogate",
+  "crates/jeryu-mapcheck",
+  "crates/jeryu-evidence",
+  "crates/jeryu-obs",
+  "crates/jeryu-bench",
+  "crates/jeryu-ops",
+  "crates/jeryu-phase11-core",
+  "crates/jeryu-phase11-audit",
+  "crates/jeryu-compliance-export",
+  "crates/jeryu-lifecycle",
+  "crates/jeryu-tenant",
+  "crates/jeryu-kernel",
+  "crates/jeryu-replay-verifier",
+  "crates/jeryu-git-guard",
+  "bins/jeryu-phase11-bin",
+]
+exclude = [
+  "fixtures/rust-small",
+]
+
+[workspace.package]
+version = "5.0.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/neverhuman/jeryu"
+authors = ["Jeryu"]
+rust-version = "1.95"
+
+[workspace.dependencies]
+anyhow = "1"
+blake3 = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+clap = { version = "4", features = ["derive"] }
+hex = "0.4"
+hmac = "0.12"
+parking_lot = "0.12"
+proptest = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "1"
+toml = "0.8"
+uuid = { version = "1", features = ["v4", "serde"] }
+vt100 = "0.16"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "allow"
+
+[workspace.lints.clippy]
+pedantic = { level = "allow", priority = -1 }

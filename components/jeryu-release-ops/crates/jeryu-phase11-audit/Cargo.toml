@@ -1,0 +1,15 @@
+[package]
+name = "jeryu-phase11-audit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-phase11-core = { path = "../jeryu-phase11-core" }
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true

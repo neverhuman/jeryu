@@ -1,0 +1,17 @@
+[package]
+name = "jeryu-phase11-bin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+jeryu-phase11-core = { path = "../../crates/jeryu-phase11-core" }
+jeryu-kernel = { path = "../../crates/jeryu-kernel" }
+
+[[bin]]
+name = "jeryu-phase11-bin"
+path = "src/main.rs"
+
+[lints]
+workspace = true

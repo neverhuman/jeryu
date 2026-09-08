@@ -1,0 +1,4 @@
+name = "db-failover"
+blast_radius = "primary-postgres"
+expected_recovery_ms = 30000
+data_loss_allowed = false
