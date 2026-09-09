@@ -19,6 +19,13 @@ actual executable digest. All 13 bridge tests and 11 activation scenarios
 passed locally, as did warning-denied Clippy. Importing candidate source does
 not claim the original protected PR has merged or that a service was restarted.
 
+Runner's handed-off scheduler correction through `d645d07f` was privately
+bundled/restored, reviewed, scanned and imported at `1c732b7a`, preserving its
+author. Lease transitions now require the full lease identity and current
+scheduler time; expiration consumes attempts and cancellation is terminal.
+The scheduler tests and full workspace Clippy passed. Durable queue/transport
+integration and operator cancellation remain separate runtime work.
+
 The duplicate Redline repositories remain in private custody at their original
 locations. Their shallow bundles require the preserved shallow-boundary files
 for restoration; a bundle alone is insufficient. All six restore with those

@@ -7,5 +7,14 @@
     "publication_audit": "pending-complete-qualification",
     "source_commit": "b388edc512bb29eb67709efd63c7f557b97df305",
     "source_tree": "040424101f2407df59050221318593ed3fe4a9da"
+  },
+  {
+    "component": "jeryu-ci-runner",
+    "integration_commit": "1c732b7ab0013926424ed1a2548394ba4b32da78",
+    "integration_method": "linear-git-format-patch-preserving-author",
+    "previous_source_commit": "cac34eee0981cd51227d0f0aba4b4fdd3b0fa429",
+    "publication_audit": "pending-complete-qualification",
+    "source_commit": "d645d07f01e271390716473f4656d2b3956f1382",
+    "source_tree": "29055f2675c30c00ad8eb223943a5325ef98eb90"
   }
 ]
