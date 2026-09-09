@@ -111,7 +111,7 @@ pub(super) fn run(root: &Path, check: bool) -> Result<()> {
         "note": "Implementation/input hashes include root commands, transitive shell tools, hostile tests, policies and release validators. See CI-COVERAGE.md for explicit command mappings and unported gates. Hash agreement is not execution or equivalence evidence; the legacy wrapper does not execute every auxiliary workflow.",
         "sources": inventory,
     });
-    let rendered = format!("{}\n", serde_json::to_string_pretty(&report)?);
+    let rendered = format!("{}\n", crate::canonical_json::pretty(report)?);
     if check {
         ensure!(
             fs::read_to_string(root.join("docs/migration/proof-inventory.json"))? == rendered,

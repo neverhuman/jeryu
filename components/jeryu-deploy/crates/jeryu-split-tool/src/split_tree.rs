@@ -172,12 +172,12 @@ pub(super) fn export_tree(
             lock.as_bytes(),
         )?;
     }
-    let provenance = serde_json::to_vec_pretty(&serde_json::json!({
+    let provenance = crate::canonical_json::pretty(serde_json::json!({
         "schema_version": "jeryu.split-provenance/v1", "source_commit": source,
         "component": component, "original_component_tree": source_tree.trim(),
         "lock_regeneration_required": !resolve_lock, "publication_qualified": false,
     }))?;
-    put_file(root, &index, ".jeryu-source.json", &provenance)?;
+    put_file(root, &index, ".jeryu-source.json", provenance.as_bytes())?;
     let tree = git(root, &["write-tree"], Some(&index))?;
     println!(
         "{}",

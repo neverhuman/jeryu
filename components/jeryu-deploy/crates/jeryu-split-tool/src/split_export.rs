@@ -45,11 +45,11 @@ pub(super) fn npm_files(
     Ok(BTreeMap::from([
         (
             "package.json".into(),
-            format!("{}\n", serde_json::to_string_pretty(&package)?),
+            format!("{}\n", crate::canonical_json::pretty(package)?),
         ),
         (
             "package-lock.json".into(),
-            format!("{}\n", serde_json::to_string_pretty(&lock)?),
+            format!("{}\n", crate::canonical_json::pretty(lock)?),
         ),
     ]))
 }

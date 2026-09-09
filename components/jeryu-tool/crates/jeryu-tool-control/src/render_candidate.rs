@@ -359,7 +359,7 @@ fn execute(tool_root: &Path, raw_args: &[String]) -> Result<(i32, String), Strin
         &args.root,
         &["rev-parse", &format!("{}:{MANIFEST_PATH}", initial.head)],
     )?;
-    let provenance = serde_json::json!({
+    let mut provenance = serde_json::json!({
         "schema": "jeryu.jankurai-candidate-render/v1",
         "mode": if args.write { "write" } else { "check" },
         "scope": {
@@ -401,6 +401,9 @@ fn execute(tool_root: &Path, raw_args: &[String]) -> Result<(i32, String), Strin
     if snapshot(&args.root, Some(&initial.head), true)? != initial {
         return Err("candidate source changed while planning render".to_owned());
     }
+    // The receipt binds these bytes, including when workspace dependencies
+    // enable serde_json's insertion-order representation.
+    provenance.sort_all_objects();
     let output = serde_json::to_string_pretty(&provenance).map_err(|error| error.to_string())?;
     if args.write {
         write_changes(&args.root, &initial, &changes)?;

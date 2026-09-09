@@ -13,6 +13,7 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 use toml::Value;
 
+mod canonical_json;
 mod monorepo;
 mod proof_inventory;
 mod split_export;

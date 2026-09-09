@@ -33,7 +33,7 @@ pub(crate) struct RenderContext {
 }
 
 pub(crate) fn sandbox_receipt(pin: &Pin, authority: &ManifestAuthority) -> Result<String, String> {
-    let receipt = serde_json::json!({
+    let mut receipt = serde_json::json!({
         "binary": {
             "sha256": pin.get("binary_sha256"),
             "version_output": pin.get("version"),
@@ -99,6 +99,7 @@ pub(crate) fn sandbox_receipt(pin: &Pin, authority: &ManifestAuthority) -> Resul
         },
         "test_mode": false,
     });
+    receipt.sort_all_objects();
     serde_json::to_string_pretty(&receipt)
         .map(|text| format!("{text}\n"))
         .map_err(|error| format!("failed to render sandbox Jankurai receipt: {error}"))

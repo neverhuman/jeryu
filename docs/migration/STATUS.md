@@ -118,8 +118,18 @@ their shared output collision while preserving package identities and all
 19 Work tests including properties/doc-tests, and scratch guards passed.
 Root contract and product commands use the shared scratch cleanup guard.
 Product proof now requires readable clean source state and a fresh evidence
-directory, and reports success only after cleanup. Its actual next-commit
-execution remains pending; dirty-source and failed Git-read refusals passed.
+directory, and reports success only after cleanup. At exact `089b4629`, all
+seven Cache scenarios and Codegraph persistence across separate processes
+passed, with clean source and verified scratch cleanup. Dirty-source and
+failed Git-read refusals also passed.
+
+The same checkpoint exposed JSON ordering drift between package-only and
+workspace builds. Inventory, split npm manifests/locks, split provenance and
+candidate auditor provenance now recursively sort object keys before rendering,
+preserving array order and existing newline conventions. Split-tool tests and
+the actual candidate renderer regression pass with both default and
+`serde_json/preserve_order` features; warning-denied Clippy passes. Generated
+inventory agreement remains source accounting, not execution evidence.
 
 The real installed auditor ran against exact `5fab2aea` and failed the root
 gate at 64 against 85, with eight caps and 32 high/critical findings. Root/Core

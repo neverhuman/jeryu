@@ -205,6 +205,8 @@ fn candidate_rendering_updates_consumers_and_emits_unendorsed_deterministic_prov
     let (code, before) =
         execute(&fixture.tool, &fixture.args("--check")).expect("candidate drift report");
     assert_eq!(code, 1);
+    assert!(before.starts_with("{\n  \"consumers\": "));
+    assert!(before.contains("\"source\": {\n    \"clean_at_start\": true,\n    \"commit\": "));
     let report: serde_json::Value = serde_json::from_str(&before).expect("candidate JSON");
     assert_eq!(report["schema"], "jeryu.jankurai-candidate-render/v1");
     assert_eq!(report["scope"]["complete"], false);
