@@ -41,6 +41,16 @@ require_tool() {
 }
 
 require_jankurai() {
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" != "0" ]]; then
+    local candidate_root
+    candidate_root="$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null \
+      GIT_CONFIG_NOSYSTEM=1 /usr/bin/git -C "$(dirname -- "${BASH_SOURCE[0]}")" \
+      rev-parse --show-toplevel)" || return 1
+    # shellcheck source=/dev/null
+    source "${candidate_root}/components/jeryu-tool/ops/verify-public-candidate.sh"
+    require_public_candidate_jankurai
+    return
+  fi
   local mode=receipt-bound
   local expected_broker="/opt/jain-ci/authority/release-bin/jankurai"
   local expected_governed="/home/ubuntu/.jeryu/bin/jankurai"
@@ -51,7 +61,7 @@ require_jankurai() {
   local -a receipt_candidates=()
   if [[ "${JAIN_RELEASE_CI:-0}" == "1" ]]; then
     mode=release-broker
-    resolved="$(command -v jankurai 2>/dev/null || true)"
+    resolved="$(type -P -- jankurai 2>/dev/null || true)"
     if [[ "${resolved}" != "${expected_broker}" ]]; then
       printf 'release broker Jankurai path mismatch: expected %s, resolved %s\n' \
         "${expected_broker}" "${resolved:-missing}" >&2
@@ -75,11 +85,16 @@ require_jankurai() {
     printf 'release broker Jankurai custody mismatch: expected mode 0555 and one link at %s\n' \
       "${bin}" >&2
     exit 1
+  elif [[ "${mode}" != "release-broker" &&
+          "$(stat -c '%h' -- "${bin}" 2>/dev/null || true)" != "1" ]]; then
+    printf 'governed jankurai custody mismatch: expected one link at %s\n' \
+      "${bin}" >&2
+    exit 1
   fi
   if [[ "${mode}" != "release-broker" ]]; then
     bin_dir="$(dirname "${bin}")"
     export PATH="${bin_dir}:${PATH}"
-    resolved="$(command -v jankurai 2>/dev/null || true)"
+    resolved="$(type -P -- jankurai 2>/dev/null || true)"
     if [[ "${resolved}" != "${bin}" ]]; then
       printf 'governed jankurai shadowed: expected %s, resolved %s\n' \
         "${bin}" "${resolved:-missing}" >&2
@@ -213,4 +228,13 @@ require_jankurai() {
 run_governed_jankurai() {
   require_jankurai
   "${JERYU_GOVERNED_JANKURAI_BIN}" "$@"
+}
+
+jankurai() {
+  require_jankurai || return 1
+  if [[ "${JERYU_MONOREPO_CANDIDATE:-0}" == "1" ]]; then
+    command "${JERYU_CANDIDATE_JANKURAI_DESCRIPTOR:?candidate descriptor is missing}" "$@"
+    return
+  fi
+  command "${JERYU_GOVERNED_JANKURAI_BIN}" "$@"
 }
