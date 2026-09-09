@@ -21,6 +21,14 @@ after verified preservation and link/mount/identity checks. Raw patches and
 reports remain in owner-only archives. This source accounting does not replace
 execution or release qualification; original canonical repositories remain.
 
+All 343 retained session checkouts now have private archives covering
+45,598 files and 36,811,805,404 bytes, including their complete Git state.
+Every archive was restored and independently rehashed; original/restored
+inventories, refs, indexes, working state and strict Git integrity checks
+matched. Restoration scratch was removed after inspection. Every original
+remains because complete exclusion of live workcell-pool references is still
+unresolved. Preservation does not authorize retirement.
+
 A later census found 18 empty Native/phase4 test roots and seven Cache scenario
 roots left by completed tests. All 25 were archived, restored and compared,
 then removed after repeated identity, link, mount and privileged read-only
@@ -130,6 +138,21 @@ preserving array order and existing newline conventions. Split-tool tests and
 the actual candidate renderer regression pass with both default and
 `serde_json/preserve_order` features; warning-denied Clippy passes. Generated
 inventory agreement remains source accounting, not execution evidence.
+At clean `c928f3aa`, all ten actual split export trees matched across those
+feature builds, and the full 83-target candidate renderer emitted identical
+bytes with no drift. These unresolved-lock exports prove reproducibility;
+independent builds and publication qualification remain separate requirements.
+
+Four auxiliary proof wrappers now share actual copy-code and migration
+producers, with one root command for the complete 65-package default-feature
+Rust map/witness graph. They preserve failed producer exits and reject missing,
+malformed or contradictory reports. All 75 synthetic cases, shell checks and
+root check suites pass. This preliminary command remains outside `all` and
+the hosted matrix until actual producer qualification and the missing full
+proof adapters pass. Default/full execution must fail for unavailable protected
+baseline, changed-hunk, proofbind/proofmark, configuration and conformance
+admission. Standalone wrappers also refuse pending an authenticated export
+adapter. See [auxiliary command scope](AUXILIARY-PROOFS.md).
 
 The real installed auditor ran against exact `5fab2aea` and failed the root
 gate at 64 against 85, with eight caps and 32 high/critical findings. Root/Core

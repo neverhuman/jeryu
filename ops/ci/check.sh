@@ -40,6 +40,7 @@ for script in scripts/*.sh ops/ci/*.sh tools/*.sh tests/*.sh; do
 done
 bash tests/score-policy-hostiles.sh
 bash tests/scratch-hostiles.sh
+bash tests/auxiliary-proofs.sh
 bash tests/clone-family-hostiles.sh
 bash tests/security-lane-hostiles.sh
 printf 'check ok: %s\n' "$(pwd)"

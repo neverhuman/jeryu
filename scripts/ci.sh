@@ -24,6 +24,11 @@ case ${1:-all} in
     source scripts/bootstrap-jankurai.sh
     bootstrap_public_jankurai
     ;;
+  auxiliary)
+    source scripts/bootstrap-jankurai.sh
+    bootstrap_public_jankurai
+    bash scripts/auxiliary-proofs.sh "${@:2}"
+    ;;
   rust)
     web_build
     cargo fmt --all -- --check
@@ -104,5 +109,5 @@ case ${1:-all} in
   all)
     for lane in source public rust web runtime product security sandbox oci splits legacy; do "$0" "$lane"; done
     ;;
-  *) printf 'usage: scripts/ci.sh {source|public|auditor|rust|web|runtime|product|security|sandbox|oci|splits|legacy|all}\n' >&2; exit 2 ;;
+  *) printf 'usage: scripts/ci.sh {source|public|auditor|auxiliary|rust|web|runtime|product|security|sandbox|oci|splits|legacy|all}\n' >&2; exit 2 ;;
 esac

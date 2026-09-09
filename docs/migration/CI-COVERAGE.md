@@ -21,6 +21,7 @@ commit results do not qualify later changes.
 | Supply-chain baseline | `bash scripts/ci.sh security` | Verified tool downloads, npm high/critical rejection, `cargo audit --deny warnings`, license/source bans, history secrets, workflow checks and SPDX. Source/tool-bound CycloneDX receipts and Cache's closed eight-check/eight-tool custody remain pending. |
 | Split exports | `bash scripts/ci.sh splits` | Generate twice with identical results, standalone locks/dependency identity, independently build/test from the provenance commit. Public source availability and privileged Runner proofs remain separate prerequisites. |
 | Public candidate auditor | `bash scripts/ci.sh auditor` (also bootstrapped by `legacy`) | All eleven consumer scopes and 83 generated targets; exact committed pin/builder inputs; anonymous immutable source and locked dependencies; unchanged vendor/image/compiler/context/binary pins; actual offline nonroot build; atomic installation, rollback, closed candidate receipt and held-descriptor execution. Eight transaction failure tests and retained installer/root-seal/verifier suites pass. Exact `5fab2aea` passed actual installation, same-head reuse, bootstrap locking and source/path refusals. Candidate evidence keeps protected authority pending; final source requires renewed qualification. |
+| Independent auxiliary producers | `bash scripts/ci.sh auxiliary independent` | Preliminary callable subset, outside `all` and the hosted matrix: strict owned copy-code, actual migration analysis, one complete 65-package default-feature Rust map/witness with owning manifests and cross-component edges. The four owning wrappers delegate to one implementation. Full/default admission remains nonzero for the concrete missing protected baseline, changed-set/hunk, proofbind/proofmark, configuration and conformance gates; standalone export admission is pending. See [command scope](AUXILIARY-PROOFS.md). |
 | Governed score | **Pending portable command** | Zero hard findings and caps. Floors: root/Core/Cache/Deploy/Work/Release Ops/Web 85; Intelligence 82; Finder 75; Tool 65; Runner effective floor 91 (its shared implementation strengthens the policy's 80). Public governed auditor and verified identity/receipt are prerequisites. |
 | Protected-base execution/ratchets | **Pending portable command** | Cache/Work candidate at least 91 and protected baseline at least 85; Runner at least 91; Deploy at least 85. Nonnegative score delta where asserted; no new caps/hard findings; unchanged policy; exact changed-path set and clean source. Positive command/receipt count; every command exit zero; zero failed receipts; verification passes with zero issues. Copy-code hard classes/instances both zero. Baselines must come from authenticated protected source. |
 | Coverage/mutation | **Pending portable command** | Deploy API baseline 0.8044, epsilon 0.005, effective lower bound 0.7994 with upward-only ratchet; changed-line coverage 0.90; total 0.75 advisory. Retain mutation policy `hard_survivors_on_changed_paths=1`; final audit hard findings zero and both evidence sources present. Tool requires real LCOV and passing coverage audit with zero hard findings. Missing coverage tools fail. |
@@ -34,10 +35,11 @@ Intelligence and Tool compatibility `ci-local.sh` scripts ignore `required`
 and execute only their smaller `just` subsets. Separate proof/release
 workflows must each receive a root command.
 
-Do not port false success behavior. Core/Intelligence/Release Ops/Web carry
-identical auxiliary proof templates that swallow producer failures and
-generate substitute artifacts. Tool creates a ratchet baseline from its own
-candidate. Deploy's phase wrapper now preserves missing-tool exit 3 as failure;
+Do not port false success behavior. Core/Intelligence/Release Ops/Web now
+delegate independent auxiliary producers to one root implementation; their
+candidate-to-baseline copy and substitute outputs were removed. The default
+full command executes useful producers and remains nonzero for unavailable
+proof admission. Tool still creates a ratchet baseline from its own candidate. Deploy's phase wrapper now preserves missing-tool exit 3 as failure;
 its aggregate rejects pending results, nonzero exits and mismatched or nonfinal
 PASS lines. Nineteen isolated shell cases cover these reporting failures;
 actual coverage and mutation execution remains required. The stricter
