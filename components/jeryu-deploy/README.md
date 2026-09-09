@@ -67,6 +67,12 @@ standalone Deploy proof.
 - `just security-network`
 - `just artifact-support`
 
+For an approved atomicsoul deployment, follow
+[`docs/release-process.md`](docs/release-process.md#atomicsoul-autonomous-deploy-handoff).
+The deploy helper stages artifacts by default. `--restart` explicitly restarts
+the service and verifies the active process against the signed binary digest;
+application and data-preservation checks remain part of the release gate.
+
 Rust-native split transition checks are available through
 `cargo run --locked --offline -p jeryu-split-tool --bin jeryu-split --
 <manifest|source-coverage|fleet-ci|verify-lock|product-pipeline>`. The

@@ -49,3 +49,4 @@ jq -e \
   "${tmp}/bundle/atomicsoul-deploy/deploy-manifest.json" >/dev/null
 
 printf 'atomicsoul deploy helper smoke ok\n'
+bash ops/deploy/test-atomicsoul-activation.sh

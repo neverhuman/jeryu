@@ -366,7 +366,7 @@ fn init_version_repo(root: &Path) -> (String, String) {
 
 fn clone_bare(work: &Path, bare: &Path) {
     let bare_str = bare.to_string_lossy().to_string();
-    git(work, &["clone", "--bare", ".", &bare_str]);
+    git(work, &["clone", "--bare", "--no-local", ".", &bare_str]);
 }
 
 fn install_main_blocking_hook(bare: &Path) {
@@ -712,126 +712,182 @@ fn ref_updates_track_ref_name_and_previous_oid() {
     assert_eq!(updates[0].new_oid, "ccc");
 }
 
-#[test]
-fn main_push_writes_single_skip_version_bump_commit() {
-    let work = tempfile::tempdir().unwrap();
-    let bare = tempfile::tempdir().unwrap();
-    let (base, head) = init_version_repo(work.path());
-    clone_bare(work.path(), bare.path());
-    install_main_blocking_hook(bare.path());
+fn assert_reviewed_main_preserved(explicit_version: bool) {
+    use jeryu_core::{CreateReviewRequest, ReviewState};
+    use jeryu_gitd::GitdConfig;
+    use std::sync::Arc;
 
-    maybe_bump_main_version(
-        "git",
-        bare.path(),
+    let work = tempfile::tempdir().unwrap();
+    let storage = tempfile::tempdir().unwrap();
+    let (base, mut head) = init_version_repo(work.path());
+    if explicit_version {
+        let manifest = fs::read_to_string(work.path().join("Cargo.toml")).unwrap();
+        write(
+            work.path(),
+            "Cargo.toml",
+            &manifest.replace("4.0.0", "4.1.0"),
+        );
+        write(
+            work.path(),
+            "CHANGELOG.md",
+            "# Changelog\n\n## v4.1.0\n\n- Reviewed feature.\n",
+        );
+        git(work.path(), &["add", "Cargo.toml", "CHANGELOG.md"]);
+        git(
+            work.path(),
+            &["commit", "-q", "-m", "chore(release): prepare v4.1.0"],
+        );
+        head = git_out(work.path(), &["rev-parse", "HEAD"]);
+    }
+    // Neither candidate uses the legacy recursion marker: preservation must
+    // follow from the bridge's behavior, including an explicit version update.
+    assert!(!git_out(work.path(), &["log", "-1", "--format=%s"]).contains("[skip-version]"));
+    git(work.path(), &["tag", "demo-v4.0.0-split.0", &base]);
+    let manager = Arc::new(RepoManager::new(GitdConfig::new(storage.path())));
+    let bare = storage.path().join("jeryu/demo.git");
+    fs::create_dir_all(bare.parent().unwrap()).unwrap();
+    clone_bare(work.path(), &bare);
+    git(&bare, &["update-ref", "refs/heads/feature", &head]);
+    git(&bare, &["update-ref", "refs/heads/main", &base, &head]);
+    install_main_blocking_hook(&bare);
+    let direct = Command::new("git")
+        .current_dir(work.path())
+        .args(["push", bare.to_str().unwrap(), "HEAD:refs/heads/main"])
+        .output()
+        .unwrap();
+    assert!(
+        !direct.status.success(),
+        "direct main push must be rejected"
+    );
+    assert!(String::from_utf8_lossy(&direct.stderr).contains("direct main push blocked"));
+
+    let router =
+        crate::GithubRouter::with_core(ForgeCore::new()).with_repo_manager(manager.clone());
+    let created = router.post(
+        "/repos",
+        r#"{"owner":"jeryu","name":"demo","default_branch":"main"}"#,
+    );
+    assert_eq!(created.status, 201, "{}", created.body);
+    let opened = router.post(
+        "/repos/jeryu/demo/pulls",
+        &serde_json::json!({
+            "title": "Reviewed feature", "head": "feature", "base": "main",
+            "head_sha": head, "base_sha": base, "actor": "author"
+        })
+        .to_string(),
+    );
+    assert_eq!(opened.status, 201, "{}", opened.body);
+    let number = serde_json::from_str::<serde_json::Value>(&opened.body).unwrap()["number"]
+        .as_u64()
+        .unwrap();
+    let protected = router.put("/repos/jeryu/demo/branches/main/protection",
+        r#"{"required_approving_review_count":1,"required_status_checks":["demo/required"],"enforce_admins":true,"required_linear_history":true}"#);
+    assert_eq!(protected.status, 200, "{}", protected.body);
+    let policy: serde_json::Value = serde_json::from_str(&protected.body).unwrap();
+    assert_eq!(
+        policy["required_pull_request_reviews"]["required_approving_review_count"],
+        1
+    );
+    assert_eq!(
+        policy["required_status_checks"]["contexts"],
+        serde_json::json!(["demo/required"])
+    );
+    assert_eq!(policy["enforce_admins"]["enabled"], true);
+    assert_eq!(policy["required_linear_history"]["enabled"], true);
+    let merge_path = format!("/repos/jeryu/demo/pulls/{number}/merge");
+    let unapproved = router.put(&merge_path, "{}");
+    assert_ne!(
+        unapproved.status, 200,
+        "unapproved candidate must be blocked"
+    );
+    assert_eq!(git_out(&bare, &["rev-parse", "refs/heads/main"]), base);
+    router
+        .core()
+        .create_review(
+            "jeryu",
+            "demo",
+            number,
+            "reviewer",
+            CreateReviewRequest {
+                body: None,
+                event: ReviewState::Approved,
+                comments: vec![],
+                expected_head_sha: Some(head.clone()),
+            },
+        )
+        .unwrap();
+    let unchecked = router.put(&merge_path, "{}");
+    assert_ne!(
+        unchecked.status, 200,
+        "candidate without its required check must be blocked"
+    );
+    assert_eq!(git_out(&bare, &["rev-parse", "refs/heads/main"]), base);
+    // In-process fixture evidence exercises the real protection decision; it is
+    // never published to a forge or reported as a production required check.
+    router
+        .core()
+        .create_check_run(
+            "jeryu",
+            "demo",
+            CreateCheckRunRequest {
+                name: "demo/required".to_string(),
+                head_sha: head.clone(),
+                status: Some(CheckRunStatus::Completed),
+                conclusion: Some(CheckConclusion::Success),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let merged = router.put(&merge_path, "{}");
+    assert_eq!(merged.status, 200, "{}", merged.body);
+    let response: serde_json::Value = serde_json::from_str(&merged.body).unwrap();
+    assert_eq!(response["sha"], head);
+    assert_eq!(
+        git_out(&bare, &["rev-parse", "refs/heads/main"]),
+        head,
+        "the post-merge push bridge must not append an unreviewed version commit"
+    );
+    assert_eq!(
+        git_out(&bare, &["rev-parse", "refs/heads/main^{tree}"]),
+        git_out(work.path(), &["rev-parse", "HEAD^{tree}"])
+    );
+    for path in ["Cargo.toml", "CHANGELOG.md"] {
+        assert_eq!(
+            git_out(&bare, &["show", &format!("refs/heads/main:{path}")]),
+            fs::read_to_string(work.path().join(path)).unwrap().trim()
+        );
+    }
+    let final_pr = router.get(&format!("/repos/jeryu/demo/pulls/{number}"));
+    assert_eq!(final_pr.status, 200, "{}", final_pr.body);
+    let final_pr: serde_json::Value = serde_json::from_str(&final_pr.body).unwrap();
+    assert_eq!(final_pr["merged"], true);
+    assert_eq!(final_pr["merge_commit_sha"], head);
+    let refs = git_out(&bare, &["show-ref"]);
+    // A duplicate callback must also leave every branch and immutable tag at
+    // the same objects, even though advisory check recording may repeat.
+    on_push(
+        router.core(),
+        &manager,
         "jeryu",
         "demo",
-        &ref_update("refs/heads/main", &base, &head),
+        &[ref_update("refs/heads/main", &base, &head)],
+        "http://127.0.0.1:8787",
     );
-
-    let main = git_out(bare.path(), &["rev-parse", "refs/heads/main"]);
-    assert_ne!(main, head);
+    assert_eq!(git_out(&bare, &["show-ref"]), refs);
     assert_eq!(
-        git_out(
-            bare.path(),
-            &["log", "-1", "--format=%s", "refs/heads/main"]
-        ),
-        "chore(release): v4.1.0 [skip-version]"
+        git_out(&bare, &["rev-parse", "refs/tags/demo-v4.0.0-split.0"]),
+        base
     );
-    let manifest = git_out(bare.path(), &["show", "refs/heads/main:Cargo.toml"]);
-    assert!(manifest.contains("version = \"4.1.0\""));
-    let changelog = git_out(bare.path(), &["show", "refs/heads/main:CHANGELOG.md"]);
-    assert!(changelog.contains("## v4.1.0 - "));
 }
 
 #[test]
-fn skip_version_bump_commit_does_not_recurse() {
-    let work = tempfile::tempdir().unwrap();
-    let bare = tempfile::tempdir().unwrap();
-    let (base, head) = init_version_repo(work.path());
-    clone_bare(work.path(), bare.path());
-
-    maybe_bump_main_version(
-        "git",
-        bare.path(),
-        "jeryu",
-        "demo",
-        &ref_update("refs/heads/main", &base, &head),
-    );
-    let bump = git_out(bare.path(), &["rev-parse", "refs/heads/main"]);
-
-    maybe_bump_main_version(
-        "git",
-        bare.path(),
-        "jeryu",
-        "demo",
-        &ref_update("refs/heads/main", &head, &bump),
-    );
-
-    assert_eq!(
-        git_out(bare.path(), &["rev-parse", "refs/heads/main"]),
-        bump
-    );
-    let subjects = git_out(
-        bare.path(),
-        &["log", "--format=%s", &format!("{base}..refs/heads/main")],
-    );
-    assert_eq!(subjects.matches("[skip-version]").count(), 1);
+fn reviewed_main_feature_stays_at_exact_approved_head() {
+    assert_reviewed_main_preserved(false);
 }
 
 #[test]
-fn non_main_update_does_not_bump_version() {
-    let work = tempfile::tempdir().unwrap();
-    let bare = tempfile::tempdir().unwrap();
-    let (base, head) = init_version_repo(work.path());
-    clone_bare(work.path(), bare.path());
-
-    maybe_bump_main_version(
-        "git",
-        bare.path(),
-        "jeryu",
-        "demo",
-        &ref_update("refs/heads/feature", &base, &head),
-    );
-
-    assert_eq!(
-        git_out(bare.path(), &["rev-parse", "refs/heads/main"]),
-        head
-    );
-    let manifest = git_out(bare.path(), &["show", "refs/heads/main:Cargo.toml"]);
-    assert!(manifest.contains("version = \"4.0.0\""));
-}
-
-#[test]
-fn concurrent_main_updates_leave_one_release_commit() {
-    let work = tempfile::tempdir().unwrap();
-    let bare = tempfile::tempdir().unwrap();
-    let (base, head) = init_version_repo(work.path());
-    clone_bare(work.path(), bare.path());
-    let bare_path = bare.path().to_path_buf();
-
-    std::thread::scope(|scope| {
-        for _ in 0..4 {
-            let base = base.clone();
-            let head = head.clone();
-            let bare_path = bare_path.clone();
-            scope.spawn(move || {
-                maybe_bump_main_version(
-                    "git",
-                    &bare_path,
-                    "jeryu",
-                    "demo",
-                    &ref_update("refs/heads/main", &base, &head),
-                );
-            });
-        }
-    });
-
-    let subjects = git_out(
-        bare.path(),
-        &["log", "--format=%s", &format!("{base}..refs/heads/main")],
-    );
-    assert_eq!(subjects.matches("[skip-version]").count(), 1);
-    assert!(subjects.contains("feat: add dashboard signal"));
+fn reviewed_main_explicit_version_stays_at_exact_approved_head() {
+    assert_reviewed_main_preserved(true);
 }
 
 #[test]

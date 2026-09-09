@@ -77,7 +77,7 @@ merge; candidate output can never replace its own baseline.
 - SignRail artifact-support evidence uses the Git commit SHA as its release
   version unless the caller sets `SIGNRAIL_RELEASE_VERSION`.
 
-### Main Ref Authority And Version Bridge
+### Main Ref Authority And Reviewed Versions
 
 Local and external Git clients cannot push directly to `refs/heads/main`.
 They must publish a branch and merge through Jeryu's PR path. After the merge
@@ -85,19 +85,21 @@ passport, CI, head-SHA, and branch-protection checks pass, Jeryu may advance
 `main` server-side through the protected ref service; this is not a receive-pack
 bypass, direct push, or force update.
 
-When an authorized server-side update advances `refs/heads/main`, the API bridge
-runs `jeryu-wsversion` in a temporary clone of the bare repo. It decides the
-bump from the landed range, applies the root workspace version and changelog
-update, and commits `chore(release): vX [skip-version]`. The bridge advances
-local `main` with a compare-and-swap `update-ref` from the exact main SHA that
-triggered the bridge to the generated bump commit. If `main` moved meanwhile,
-the CAS fails and the duplicate bump is discarded.
+The API push bridge records evidence for the accepted commit and preserves Git
+refs. It never generates or appends a version commit after a merge. The merged
+`main` SHA must remain the exact head approved and tested by the PR lifecycle.
 
-This bridge does not tag, sign, publish artifacts, or bypass the PR-backed
-release process. It only keeps the workspace version source aligned after local
-`main` advances. The `[skip-version]` marker is the recursion guard: the
-generated release commit is evidence for the next release receipt, but it does
-not trigger another version bump.
+When a release needs a version change, run `jeryu-wsversion` explicitly while
+preparing the candidate. Include its workspace version and changelog changes,
+and the Cargo-generated lockfile, in that candidate before running the final
+checks and independent review. Keep the family's existing version and immutable
+tag conventions; tagging, signing and artifact publication retain their separate
+governed steps.
+
+`[skip-version]` remains useful when bootstrapping this correction through an
+older forge that still has the automatic version bridge. The corrected bridge
+preserves reviewed heads regardless of commit-message markers; no runtime flag
+can enable an unreviewed version commit.
 
 ## Required Gates
 

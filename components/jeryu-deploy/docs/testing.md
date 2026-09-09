@@ -71,6 +71,13 @@ Primary lanes:
   and changelog roll-forward proof lane. Add
   `cargo run -q -p jeryu-wsversion -- decide --range origin/main..HEAD --json`
   for release-candidate evidence.
+- `cargo test --locked -p jeryu-api --features web --lib reviewed_main_`:
+  real Git fixtures reject direct main pushes, require an exact-head review and
+  check, and verify that the protected merge plus repeated push callback keeps
+  the reviewed head, tree, version, changelog and existing tag. Both ordinary
+  features and explicitly prepared version changes are covered without a
+  `[skip-version]` marker. Fixture reviews and checks stay in memory; this test
+  does not publish release evidence or replace the sealed required lane.
 
 This checkout has source for only `jeryu-api`, `jeryu-cli`, and
 `jeryu-split-tool`. Commands below that name another package exercise a pinned

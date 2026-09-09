@@ -27,7 +27,7 @@ Options:
   --split-manifest TOML split manifest to install (default: repos.manifest.toml)
   --dry-run             sign and validate locally, but do not contact atomicsoul
   --force               replace an existing remote release directory
-  --restart             run systemctl --user enable --now jeryu.service after install
+  --restart             restart the service and verify its active executable digest
 
 The script expects a production.env from make-production-env.sh. It signs
 bundle/atomicsoul-deploy/SHA256SUMS with the per-release Ed25519 key, pushes
@@ -364,15 +364,38 @@ install -m 0600 "$release_dir/secrets/production.env" "$home/.jeryu/secrets/prod
 install -m 0600 "$release_dir/secrets/bootstrap-admin-password" "$home/.jeryu/secrets/bootstrap-admin-password"
 install -m 0644 "$release_dir/systemd/jeryu.service" "$home/.config/systemd/user/jeryu.service"
 
+# BEGIN VERIFIED SERVICE ACTIVATION
 if command -v systemctl >/dev/null 2>&1; then
-  systemctl --user daemon-reload >/dev/null 2>&1 || true
+  systemctl --user daemon-reload
   if [ "$restart" = "1" ]; then
-    systemctl --user enable --now jeryu.service
+    # enable --now leaves an already-running process on the previous release.
+    systemctl --user enable jeryu.service
+    systemctl --user restart jeryu.service
+    systemctl --user is-active --quiet jeryu.service
+    running_pid="$(systemctl --user show jeryu.service --property=MainPID --value)"
+    if [[ ! "$running_pid" =~ ^[1-9][0-9]*$ ]]; then
+      echo "jeryu.service has no running MainPID after restart" >&2
+      exit 1
+    fi
+    expected_sha="$(awk '$2 == "jeryu" {print $1; found=1} END {if (!found) exit 1}' \
+      "$release_dir/bundle/atomicsoul-deploy/SHA256SUMS")"
+    running_sha="$(sha256sum "/proc/$running_pid/exe" | awk '{print $1}')"
+    if [ "$running_sha" != "$expected_sha" ]; then
+      echo "jeryu.service executable does not match the verified release" >&2
+      exit 1
+    fi
+    systemctl --user is-active --quiet jeryu.service
+    if [ "$(systemctl --user show jeryu.service --property=MainPID --value)" != "$running_pid" ]; then
+      echo "jeryu.service MainPID changed during activation verification" >&2
+      exit 1
+    fi
+    printf '[atomicsoul] verified active process pid=%s sha256=%s\n' "$running_pid" "$running_sha"
   fi
 elif [ "$restart" = "1" ]; then
   echo "systemctl not available on remote host" >&2
   exit 1
 fi
+# END VERIFIED SERVICE ACTIVATION
 
 printf '[atomicsoul] installed release %s at %s\n' "$release" "$release_dir"
 printf '[atomicsoul] active binary symlink: %s\n' "$(readlink "$home/.jeryu/bin/jeryu")"

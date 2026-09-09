@@ -147,6 +147,23 @@ SignRail seed, or deploy signing key.
    `~/.jeryu/share/repos.manifest.toml`, but does not restart the service.
    Pass `--restart` only when the release is approved for live activation.
 
+   With `--restart`, the helper reloads systemd, enables the unit, explicitly
+   restarts it, and checks that the stable active MainPID's `/proc/<pid>/exe`
+   digest equals the signed release binary. A running service is restarted as
+   well; `enable --now` alone would leave its previous process alive. Reload,
+   enable, restart, inactive service, missing PID, digest mismatch, or a PID
+   change during verification makes activation fail. This verifies executable
+   activation, not database compatibility or application readiness: complete
+   the API/Git/metadata and runner checks before reopening write traffic.
+
+   Without `--restart`, installation stages the updated paths and reloads the
+   unit but does not claim that the running process changed. Keep a verified
+   backup of the complete data/configuration and previous release before any
+   approved activation. A failed activation can leave updated paths installed;
+   it does not automatically restore a pre-migration database. Never restore
+   an older snapshot after accepting new writes without a lossless recovery
+   plan.
+
 ## Rollback
 
 Rollback restores the previous signed artifact, restores the pre-migration

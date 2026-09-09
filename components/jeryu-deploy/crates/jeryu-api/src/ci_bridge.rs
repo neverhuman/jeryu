@@ -16,9 +16,8 @@ use jeryu_ci_compiler::{CiKind, CompileContext, Compiler};
 use jeryu_core::{
     CheckConclusion, CheckRunStatus, CreateCheckRunRequest, ForgeCore, RecordJankuraiScoreRequest,
 };
-use jeryu_gitd::refs::{GitRef, RefService};
-use jeryu_gitd::repo::Repository;
-use jeryu_gitd::{GitdConfig, RepoId, RepoManager};
+use jeryu_gitd::RepoManager;
+use jeryu_gitd::refs::GitRef;
 use jeryu_runner_core::JobRequest as CoreJobRequest;
 use jeryu_runner_core::job::{NetworkPolicy, SecretPolicy, TokenPolicy};
 use jeryu_runner_core::receipt::ReceiptStatus;
@@ -62,6 +61,8 @@ pub(crate) fn ref_updates(before: &[GitRef], after: &[GitRef]) -> Vec<RefUpdate>
 
 /// For each updated commit, compile its workflows, run each job in the sandbox,
 /// and record a completed check-run with the real conclusion.
+/// The bridge must preserve Git refs: version and changelog changes belong in
+/// the reviewed candidate, before its checks and approval bind the exact head.
 pub(crate) fn on_push(
     core: &ForgeCore,
     manager: &RepoManager,
@@ -78,7 +79,6 @@ pub(crate) fn on_push(
     let git_bin = manager.config().git_bin.clone();
     let origin_url = resolved.path.to_string_lossy().to_string();
     for update in updates {
-        maybe_bump_main_version(&git_bin, &resolved.path, owner, repo, update);
         if let Some(branch) = update.ref_name.strip_prefix("refs/heads/") {
             let _ = core.refresh_pull_request_heads_for_ref(owner, repo, branch, &update.new_oid);
         }
@@ -178,114 +178,6 @@ pub(crate) fn seed_pull_request_head(
     on_push(core, manager, owner, repo, &[update], origin_base_url);
 }
 
-fn maybe_bump_main_version(
-    git_bin: &str,
-    bare: &Path,
-    owner: &str,
-    repo: &str,
-    update: &RefUpdate,
-) {
-    if update.ref_name != "refs/heads/main"
-        || update.old_oid == ZERO_OID
-        || update.new_oid == ZERO_OID
-    {
-        return;
-    }
-    let suffix = match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(duration) => duration.as_nanos(),
-        Err(_) => 0,
-    };
-    let worktree = std::env::temp_dir().join(format!(
-        "jeryu-wsversion-{owner}-{repo}-{}-{suffix}-{}",
-        std::process::id(),
-        update.new_oid
-    ));
-    let _ = std::fs::remove_dir_all(&worktree);
-    let bare_str = bare.to_string_lossy().to_string();
-    let worktree_str = worktree.to_string_lossy().to_string();
-    if !run_git_status(
-        git_bin,
-        None,
-        &[
-            "clone",
-            "--quiet",
-            "--no-hardlinks",
-            &bare_str,
-            &worktree_str,
-        ],
-    ) {
-        return;
-    }
-    if !run_git_status(
-        git_bin,
-        Some(&worktree),
-        &["checkout", "--quiet", "--detach", &update.new_oid],
-    ) {
-        let _ = std::fs::remove_dir_all(&worktree);
-        return;
-    }
-    let range = format!("{}..{}", update.old_oid, update.new_oid);
-    let decision = match jeryu_wsversion::decide(&worktree, &range) {
-        Ok(decision) => decision,
-        Err(_) => {
-            let _ = std::fs::remove_dir_all(&worktree);
-            return;
-        }
-    };
-    if decision.skipped || decision.to == decision.from {
-        let _ = std::fs::remove_dir_all(&worktree);
-        return;
-    }
-    let commits = match jeryu_wsversion::commits_in_range(&worktree, &range) {
-        Ok(commits) => commits,
-        Err(_) => {
-            let _ = std::fs::remove_dir_all(&worktree);
-            return;
-        }
-    };
-    if jeryu_wsversion::apply(&worktree, &decision, &commits).is_err() {
-        let _ = std::fs::remove_dir_all(&worktree);
-        return;
-    }
-    let _ = run_git_status(
-        git_bin,
-        Some(&worktree),
-        &["add", "Cargo.toml", "CHANGELOG.md"],
-    );
-    let msg = format!("chore(release): v{} [skip-version]", decision.to);
-    if !run_git_status(
-        git_bin,
-        Some(&worktree),
-        &[
-            "-c",
-            "user.email=forge@jeryu",
-            "-c",
-            "user.name=jeryu-forge",
-            "commit",
-            "--quiet",
-            "-m",
-            &msg,
-        ],
-    ) {
-        let _ = std::fs::remove_dir_all(&worktree);
-        return;
-    }
-    let Some(bump_oid) = run_git_stdout(git_bin, Some(&worktree), &["rev-parse", "HEAD"]) else {
-        let _ = std::fs::remove_dir_all(&worktree);
-        return;
-    };
-    if !run_git_status(
-        git_bin,
-        Some(bare),
-        &["fetch", "--quiet", &worktree_str, "HEAD"],
-    ) {
-        let _ = std::fs::remove_dir_all(&worktree);
-        return;
-    }
-    let _ = advance_main_with_cas(git_bin, bare, owner, repo, &update.new_oid, bump_oid.trim());
-    let _ = std::fs::remove_dir_all(&worktree);
-}
-
 pub(crate) fn default_origin_base_url() -> String {
     std::env::var("JERYU_BASE")
         .ok()
@@ -331,38 +223,6 @@ fn write_empty_tree(git_bin: &str, repo: &Path) -> Option<String> {
     }
     let oid = String::from_utf8(output.stdout).ok()?.trim().to_string();
     (!oid.is_empty()).then_some(oid)
-}
-
-fn advance_main_with_cas(
-    git_bin: &str,
-    bare: &Path,
-    owner: &str,
-    repo: &str,
-    expected_old_oid: &str,
-    new_oid: &str,
-) -> bool {
-    let Ok(id) = RepoId::new(owner, repo) else {
-        return false;
-    };
-    let storage_root = bare
-        .parent()
-        .and_then(Path::parent)
-        .unwrap_or_else(|| bare.parent().unwrap_or(bare));
-    let mut config = GitdConfig::new(storage_root);
-    config.git_bin = git_bin.to_string();
-    let refs = RefService::new(RepoManager::new(config));
-    let repo = Repository {
-        id,
-        path: bare.to_path_buf(),
-    };
-    refs.update_ref(
-        &repo,
-        "system:version-bridge",
-        "refs/heads/main",
-        new_oid,
-        Some(expected_old_oid),
-    )
-    .is_ok()
 }
 
 /// Files changed by `oid` relative to its first parent (root commit → all

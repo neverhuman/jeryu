@@ -4,8 +4,8 @@ Owns:
 - GitHub-compatible REST response shapes.
 - Guided GraphQL repair responses.
 - Local Axum web/API edge under the `web` feature.
-- Push-to-CI bridge behavior, including the local `main` handoff to
-  `jeryu-wsversion` for workspace version bump commits.
+- Push-to-CI bridge behavior, preserving the exact reviewed `main` commit.
+  Workspace version changes are prepared explicitly before PR review and checks.
 - Workcell export PR gates, including frozen-diff changed-file evidence and
   typed no-PR denial for out-of-slice workcell repairs.
 - Workcell run-agent route behavior, including epoch fencing, claimed-repo-root
