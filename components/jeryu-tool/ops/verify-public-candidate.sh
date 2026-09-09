@@ -66,11 +66,21 @@ require_public_candidate_jankurai() {
   done
   JERYU_CANDIDATE_HELD_FDS=()
   local -a candidate_paths=() candidate_identities=()
-  local here root expected metadata metadata_sha binary receipt install_root
+  local here monorepo_root tool_root expected metadata metadata_sha binary receipt install_root
+  local monorepo_prefix pin_input builder_input
   here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-  root=$(cd -- "$here/../../.." && pwd -P)
-  [[ $here == "$root/components/jeryu-tool/ops" ]] ||
-    jeryu_candidate_die "verifier requires the monorepo Tool component"
+  monorepo_root=$(git -C "$here" rev-parse --show-toplevel 2>/dev/null) || \
+    jeryu_candidate_die "verifier requires a git checkout"
+  monorepo_root=$(cd -- "$monorepo_root" && pwd -P)
+  if [[ $here == "$monorepo_root/components/jeryu-tool/ops" ]]; then
+    tool_root="$monorepo_root/components/jeryu-tool"
+    monorepo_prefix="components/jeryu-tool/"
+  elif [[ $here == "$monorepo_root/ops" ]]; then
+    tool_root="$monorepo_root"
+    monorepo_prefix=""
+  else
+    jeryu_candidate_die "verifier requires the Tool component"
+  fi
   expected=${JERYU_MONOREPO_EXPECTED_HEAD:-}
   [[ $expected =~ ^[0-9a-f]{40}$ ]] || jeryu_candidate_die "exact candidate source commit is required"
   binary=${JERYU_GOVERNED_JANKURAI_BIN:-}
@@ -87,7 +97,7 @@ require_public_candidate_jankurai() {
   [[ $receipt_sha =~ ^[0-9a-f]{64}$ && $receipt == "$install_root/receipts/jankurai/sha256/$receipt_sha.json" ]] ||
     jeryu_candidate_die "receipt must have its exact content address"
 
-  metadata=$(bash "$here/render-monorepo-candidate.sh" --monorepo-root "$root" \
+  metadata=$(bash "$here/render-monorepo-candidate.sh" --monorepo-root "$monorepo_root" \
     --check --expected-head "$expected") || jeryu_candidate_die "current candidate renderer failed"
   metadata_sha=$(printf '%s\n' "$metadata" | sha256sum | cut -d' ' -f1)
   jq -e --arg head "$expected" '
@@ -109,8 +119,10 @@ require_public_candidate_jankurai() {
   flock -s -w 30 "$lock_fd" || jeryu_candidate_die "installation transaction is busy"
   jeryu_candidate_open_file "$binary" binary_fd
   jeryu_candidate_open_file "$receipt" receipt_fd
-  jeryu_candidate_open_file "$root/components/jeryu-tool/generated/jankurai-pin.env" pin_fd
-  jeryu_candidate_open_file "$here/build-jankurai-hermetic.sh" builder_fd
+  pin_input="$tool_root/generated/jankurai-pin.env"
+  builder_input="$tool_root/ops/build-jankurai-hermetic.sh"
+  jeryu_candidate_open_file "$pin_input" pin_fd
+  jeryu_candidate_open_file "$builder_input" builder_fd
   local process=$BASHPID
   local binary_held="/proc/$process/fd/$binary_fd" receipt_held="/proc/$process/fd/$receipt_fd"
   local pin_held="/proc/$process/fd/$pin_fd" builder_held="/proc/$process/fd/$builder_fd"
@@ -122,9 +134,9 @@ require_public_candidate_jankurai() {
   builder_sha=$(sha256sum "$builder_held" | cut -d' ' -f1)
   [[ $pin_sha == "$(jq -r .generated_pin_sha256 <<< "$metadata")" ]] || jeryu_candidate_die "generated pin changed"
   pin_blob=$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
-    git -C "$root" rev-parse "$expected:components/jeryu-tool/generated/jankurai-pin.env")
+    git -C "$monorepo_root" rev-parse "$expected:${monorepo_prefix}generated/jankurai-pin.env")
   builder_blob=$(env -i PATH=/usr/bin:/bin GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
-    git -C "$root" rev-parse "$expected:components/jeryu-tool/ops/build-jankurai-hermetic.sh")
+    git -C "$monorepo_root" rev-parse "$expected:${monorepo_prefix}ops/build-jankurai-hermetic.sh")
   lock_identity=$(stat -Lc '%d:%i:%u:%g:%a:%h' -- "/proc/$process/fd/$lock_fd")
 
   # Parse the generated assignments as data; never execute a pin file.
@@ -153,7 +165,7 @@ require_public_candidate_jankurai() {
     jeryu_candidate_die "candidate binary version mismatch"
 
   local final_metadata
-  final_metadata=$(bash "$here/render-monorepo-candidate.sh" --monorepo-root "$root" \
+  final_metadata=$(bash "$here/render-monorepo-candidate.sh" --monorepo-root "$monorepo_root" \
     --check --expected-head "$expected") || jeryu_candidate_die "candidate source changed during verification"
   [[ $final_metadata == "$metadata" ]] || jeryu_candidate_die "candidate metadata changed during verification"
   jeryu_candidate_recheck_files

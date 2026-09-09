@@ -9,8 +9,14 @@ fi
 [[ ${JERYU_MONOREPO_CANDIDATE} == 1 && ${JAIN_RELEASE_CI:-0} != 1 ]] || {
   printf 'candidate rendering cannot satisfy protected release authority\n' >&2; exit 1;
 }
-root=$(cd -- "$tool_root/../.." && pwd -P)
-[[ $tool_root == "$root/components/jeryu-tool" ]]
+monorepo_root=$(git -C "$tool_root" rev-parse --show-toplevel 2>/dev/null) || {
+  printf 'candidate rendering cannot run without a git checkout\n' >&2; exit 1;
+}
+monorepo_root=$(cd -- "$monorepo_root" && pwd -P)
+if [[ $tool_root != "$monorepo_root/components/jeryu-tool" && $tool_root != "$monorepo_root" ]]; then
+  printf 'candidate rendering requires the Tool component checkout\n' >&2; exit 1;
+fi
+[[ $tool_root == "$monorepo_root/components/jeryu-tool" ]] || [[ $tool_root == "$monorepo_root" ]]
 declare -A selected=() overrides=()
 check=0
 while [[ $# -gt 0 ]]; do
