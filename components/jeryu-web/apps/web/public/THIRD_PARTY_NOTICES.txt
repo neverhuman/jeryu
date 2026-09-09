@@ -32,3 +32,7 @@ SHA-256: b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d
 
 These delivery-byte matches do not identify the original download date or
 the upstream source revision used to generate the subsets.
+
+Other covered Web dependencies have accompanying notices in
+DEPENDENCY_NOTICES.txt, served at /DEPENDENCY_NOTICES.txt. Exact versions
+and source provenance are documented in docs/notices/web-bundles.json.

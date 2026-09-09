@@ -405,6 +405,11 @@ fn startup_cli_and_restart_use_durable_state_from_any_directory() {
             "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d",
         ),
         (
+            "DEPENDENCY_NOTICES.txt",
+            "text/plain; charset=utf-8",
+            "a192a8107d222d6c85f8f027edfa40fd4b1275c7be31852eb89be70d9dcd2acc",
+        ),
+        (
             "fonts/JetBrainsMono-400.woff2",
             "application/octet-stream",
             "14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb",

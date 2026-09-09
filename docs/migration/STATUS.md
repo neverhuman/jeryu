@@ -31,6 +31,16 @@ the original transaction/reopen test and immutable four-package identity test.
 An empty-cache build and installed runtime at the committed successor remain
 the next proof; these local checks do not qualify publication or all CI.
 
+At exact `7b9781b1`, the complete ordinary Rust lane passed formatting,
+warning-denied Clippy and 2,202 tests with zero failures. Two ignored cases
+belong to the optional paid-model check and the separate required OCI lane;
+the required native sandbox lane also runs separately. The security baseline
+passed dependency, license/source, history and workflow checks. npm retains
+two low and three moderate advisories below its high-severity gate. A fresh
+SQLite installation attempt stopped during namespace setup before Cargo ran;
+its source and diagnostics remain preserved. These results do not establish
+the complete CI matrix or a public release.
+
 At exact `d74049f3`, the complete web lane passed: 97 generated contracts,
 180 unit tests, production/Storybook, seven real-backend browser tests,
 70 UI/accessibility browser tests, 110 action entries, Lighthouse and nine UX
@@ -53,8 +63,13 @@ has not yet been rerun on this successor.
 Bundled JetBrains Mono fonts now carry their unchanged upstream OFL and a
 notice binding the exact delivery hashes. The production web build and all
 three standalone process tests pass, including HTTP hashes for the served
-license/fonts and the notice content. Historical JavaScript/source-map notice
-closure remains under review; the font correction is not publication approval.
+license/fonts and the notice content. The subsequent dependency-notice record
+accounts for all 405 historical/current third-party source-map entries and
+their exact locked archives. It distributes 24 upstream notice texts, with
+explicit provenance for packages whose archives omit licenses and separate
+build-producer attribution. See [the record and its limits](../notices/web-bundles.md).
+The added served notice has an HTTP MIME/hash assertion; its production build
+and runtime verification remain pending. Publication review remains separate.
 
 Split qualification now rejects unreadable/empty component inventories,
 requires exact clean source and exports before/after execution, and uses fresh

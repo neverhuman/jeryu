@@ -5,6 +5,8 @@ protected merges, checks, a browser interface, and optional CI runners.
 Jeryu source is licensed under Apache-2.0. Bundled JetBrains Mono fonts retain
 the SIL Open Font License 1.1; see the
 [bundled font notice](components/jeryu-web/apps/web/public/THIRD_PARTY_NOTICES.txt).
+[Web dependency notices](docs/notices/web-bundles.md) accompany the current
+application and preserved historical bundles.
 
 **This branch is a monorepo migration candidate. Anonymous installation and
 release qualification are incomplete.** See
