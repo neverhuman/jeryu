@@ -6,7 +6,7 @@ use crate::model::{
 };
 
 use super::codeowners::CodeOwners;
-use super::reviews::effective_reviews_for_head;
+use super::reviews::effective_reviews_for_pull_request;
 use super::types::{
     BranchProtectionEvaluation, EvaluationContext, MergeBlocker, RefOperation, RefOperationBlocker,
     RefOperationEvaluation,
@@ -23,7 +23,7 @@ pub fn evaluate_branch_protection_with(
     context: EvaluationContext<'_>,
 ) -> BranchProtectionEvaluation {
     let mut blockers = Vec::new();
-    let effective_reviews = effective_reviews_for_head(reviews, &pr.head.sha);
+    let effective_reviews = effective_reviews_for_pull_request(reviews, pr);
 
     // Intrinsic gates apply regardless of any protection rule (and even to
     // admins): a drifted SHA and a draft PR are never mergeable on GitHub.

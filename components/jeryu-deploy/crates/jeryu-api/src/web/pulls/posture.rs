@@ -414,7 +414,7 @@ pub(super) fn review_posture(state: &WebState, pr: &PullRequest) -> ReviewPostur
         .get_branch_protection(&pr.owner, &pr.repo, &pr.base.ref_name)
         .map(|rule| u32::try_from(rule.required_approving_review_count).unwrap_or(u32::MAX))
         .unwrap_or(0);
-    let effective = effective_reviews_for_head(&reviews, &pr.head.sha);
+    let effective = effective_reviews_for_pull_request(&reviews, pr);
     ReviewPosture {
         required_approvals,
         approvals: effective
@@ -436,7 +436,14 @@ pub(super) fn reviews_for_pr(state: &WebState, pr: &PullRequest) -> Vec<PullRequ
         .core()
         .list_reviews(&pr.owner, &pr.repo, pr.number)
         .unwrap_or_default();
-    let effective_ids = effective_reviews_for_head(&reviews, &pr.head.sha)
+    project_reviews(pr, reviews)
+}
+
+pub(super) fn project_reviews(
+    pr: &PullRequest,
+    reviews: Vec<jeryu_core::Review>,
+) -> Vec<PullRequestReview> {
+    let effective_ids = effective_reviews_for_pull_request(&reviews, pr)
         .into_iter()
         .map(|review| review.id)
         .collect::<BTreeSet<_>>();
@@ -452,6 +459,7 @@ pub(super) fn reviews_for_pr(state: &WebState, pr: &PullRequest) -> Vec<PullRequ
                 submitted_at: review.submitted_at.to_rfc3339(),
                 stale: review.head_sha.as_deref() != Some(pr.head.sha.as_str()),
                 head_sha: review.head_sha,
+                dismissed_review_id: review.dismissed_review_id.map(|id| id.to_string()),
                 effective,
             }
         })

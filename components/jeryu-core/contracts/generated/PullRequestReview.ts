@@ -3,4 +3,4 @@
 /**
  * One immutable review audit row annotated for the PR's current head.
  */
-export type PullRequestReview = { id: string, author: string, state: string, body_markdown: string | null, submitted_at: string, head_sha: string | null, effective: boolean, stale: boolean, };
+export type PullRequestReview = { id: string, author: string, state: string, body_markdown: string | null, submitted_at: string, head_sha: string | null, dismissed_review_id: string | null, effective: boolean, stale: boolean, };

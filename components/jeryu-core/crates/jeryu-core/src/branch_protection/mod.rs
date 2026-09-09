@@ -6,7 +6,7 @@ mod reviews;
 mod types;
 
 pub use evaluate::{evaluate_branch_protection_with, evaluate_ref_operation};
-pub use reviews::effective_reviews_for_head;
+pub use reviews::{effective_reviews_for_head, effective_reviews_for_pull_request};
 pub use types::{
     BranchProtectionEvaluation, EvaluationContext, MergeBlocker, RefOperation, RefOperationBlocker,
     RefOperationEvaluation,

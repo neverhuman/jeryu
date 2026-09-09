@@ -17,14 +17,14 @@ use jeryu_core::{
     AccountSummary, CheckConclusion, CheckRun, CheckRunStatus, CommitStatusState,
     CreateReviewRequest, ForgeError, MergeBlocker,
     MergePullRequestRequest as CoreMergePullRequestRequest, PullRequest, ReviewCommentInput,
-    ReviewState, check_conclusion_wire_value, effective_reviews_for_head,
+    ReviewState, check_conclusion_wire_value, effective_reviews_for_pull_request,
 };
 use jeryu_readmodel::contracts::{
-    AgentPosture, AvailableAction, CheckPosture, CreateReviewCommentRequest, EntityHandle,
-    MergePassport, MergePassportBlocker, MergePassportStatus, Mergeability, PullRequestDetail,
-    PullRequestReview, PullRequestState as WebPullRequestState, PullRequestSummary,
-    ReviewComment as WebReviewComment, ReviewPosture, ReviewThread, ReviewVerdict,
-    SubmitReviewRequest,
+    AgentPosture, AvailableAction, CheckPosture, CreateReviewCommentRequest,
+    DismissPullReviewRequest, EntityHandle, MergePassport, MergePassportBlocker,
+    MergePassportStatus, Mergeability, PullRequestDetail, PullRequestReview,
+    PullRequestState as WebPullRequestState, PullRequestSummary, ReviewComment as WebReviewComment,
+    ReviewPosture, ReviewThread, ReviewVerdict, SubmitReviewRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -246,6 +246,93 @@ pub(super) async fn threads(
         threads: threads_for_pr(&state, &pr),
     })
     .into_response()
+}
+
+/// Authenticated audit history uses the same projection as pull-request detail.
+pub(super) async fn review_history(
+    State(state): State<Arc<WebState>>,
+    Extension(_account): Extension<AccountSummary>,
+    AxumPath((id, number)): AxumPath<(String, u64)>,
+) -> AxumResponse {
+    let Some((repo, pr)) = resolve_pr(&state, &id, number) else {
+        return not_found("load pull request review history", "pull request not found");
+    };
+    match state
+        .github
+        .core()
+        .list_reviews(&repo.owner, &repo.name, pr.number)
+    {
+        Ok(reviews) => Json(posture::project_reviews(&pr, reviews)).into_response(),
+        Err(error) => core_error(error, "load pull request review history"),
+    }
+}
+
+pub(super) async fn dismiss_review(
+    State(state): State<Arc<WebState>>,
+    Extension(account): Extension<AccountSummary>,
+    AxumPath((id, number, review_id)): AxumPath<(String, u64, String)>,
+    body: Bytes,
+) -> AxumResponse {
+    let request: DismissPullReviewRequest = match serde_json::from_slice(&body) {
+        Ok(request) => request,
+        Err(error) => {
+            return repair_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "pull_dismissal_invalid_request",
+                "dismiss pull request review",
+                &format!("dismissal body failed validation: {error}"),
+                &[
+                    "send DismissPullReviewRequest JSON with expected_head_sha and reason",
+                    "refresh the review history before withdrawing your current verdict",
+                ],
+                PROOF_LANE,
+                None,
+            );
+        }
+    };
+    let review_id = match uuid::Uuid::parse_str(&review_id) {
+        Ok(review_id) => review_id,
+        Err(_) => {
+            return repair_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "pull_dismissal_invalid_target",
+                "dismiss pull request review",
+                "review target must be a UUID from the pull request review history",
+                &["use the id of your current explicit review verdict"],
+                PROOF_LANE,
+                None,
+            );
+        }
+    };
+    let Some((repo, pr)) = resolve_pr(&state, &id, number) else {
+        return not_found("dismiss pull request review", "pull request not found");
+    };
+    // The auth gate has enforced repository write access. Core validates the
+    // exact head and current target under its write lock, without an admin
+    // override. Neither the actor nor the target comes from the request body.
+    match state.github.core().dismiss_review(
+        &repo.owner,
+        &repo.name,
+        pr.number,
+        &account.login,
+        jeryu_core::DismissReviewRequest {
+            review_id,
+            expected_head_sha: request.expected_head_sha,
+            reason: request.reason,
+        },
+    ) {
+        Ok(_) => match state
+            .github
+            .core()
+            .get_pull_request(&repo.owner, &repo.name, pr.number)
+        {
+            Ok(updated) => {
+                Json(detail_for_pr(&state, &updated, Some(&account.login))).into_response()
+            }
+            Err(error) => core_error(error, "reload pull request after review dismissal"),
+        },
+        Err(error) => core_error(error, "dismiss pull request review"),
+    }
 }
 
 pub(super) async fn review(
@@ -835,6 +922,30 @@ fn core_error(error: ForgeError, purpose: &'static str) -> AxumResponse {
             &[
                 "refresh the pull request before retrying",
                 "recompute merge evidence for the current head",
+            ],
+            PROOF_LANE,
+            None,
+        ),
+        ForgeError::Forbidden(reason) => repair_error(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            purpose,
+            &reason,
+            &[
+                "authenticate as the permitted review actor",
+                "preserve author and reviewer ownership rules",
+            ],
+            PROOF_LANE,
+            None,
+        ),
+        ForgeError::WriterUnavailable(reason) => repair_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "writer_unavailable",
+            purpose,
+            &reason,
+            &[
+                "inspect the current writer and backing resource custody",
+                "retry after writer ownership and storage identity are restored",
             ],
             PROOF_LANE,
             None,

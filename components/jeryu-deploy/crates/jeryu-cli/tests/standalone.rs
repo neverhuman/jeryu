@@ -4,10 +4,12 @@ use reqwest::{Method, blocking::Client};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
+    io::Read,
     net::TcpListener,
+    os::unix::fs::OpenOptionsExt,
     path::Path,
     process::{Child, Command, Stdio},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tempfile::TempDir;
 
@@ -34,7 +36,7 @@ fn isolated_command(home: &Path) -> Command {
     command
 }
 
-fn start(home: &Path, data: &Path, address: &str, initialize: bool) -> Server {
+fn server_command(home: &Path, data: &Path, address: &str, initialize: bool) -> Command {
     let mut command = isolated_command(home);
     command
         .args(["serve", "--bind", address])
@@ -47,6 +49,14 @@ fn start(home: &Path, data: &Path, address: &str, initialize: bool) -> Server {
             "standalone-fixture-password",
         );
     }
+    command
+}
+
+fn start(home: &Path, data: &Path, address: &str, initialize: bool) -> Server {
+    wait_until_ready(server_command(home, data, address, initialize), address)
+}
+
+fn wait_until_ready(mut command: Command, address: &str) -> Server {
     let mut server = Server(command.spawn().unwrap());
     let client = Client::builder()
         .timeout(Duration::from_millis(300))
@@ -584,4 +594,188 @@ fn unreachable_api_and_unimplemented_operations_cannot_report_success() {
         .unwrap();
     assert!(!result.status.success());
     assert!(result.stdout.is_empty());
+}
+
+#[test]
+fn store_selectors_use_sqlite_and_preserve_cli_state_across_restarts() {
+    let temp = TempDir::new().unwrap();
+    let home = temp.path().join("home");
+    let data = temp.path().join("durable");
+    std::fs::create_dir(&home).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap().to_string();
+    drop(listener);
+    let url = format!("http://{address}");
+    let http = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let mut token = None;
+    // Each process reopens the preceding process's database. The final default
+    // invocation verifies the last Redline alias write survived too.
+    let cases = [
+        (None, None, false),
+        (None, Some("sqlite"), false),
+        (Some("sqlite"), Some("redline"), false),
+        (Some("sqlite"), Some("unknown-env-store"), false),
+        (Some("redline"), Some("sqlite"), true),
+        (None, Some("redlinedb"), true),
+        (Some("redlinedb"), None, true),
+        (None, None, false),
+    ];
+    for (index, (flag, environment, notice_expected)) in cases.into_iter().enumerate() {
+        let log_path = temp.path().join(format!("serve-{index}.stderr"));
+        let log = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&log_path)
+            .unwrap();
+        let mut command = server_command(&home, &data, &address, index == 0);
+        command.stderr(log);
+        if let Some(flag) = flag {
+            command.args(["--store", flag]);
+        }
+        if let Some(environment) = environment {
+            command.env("JERYU_STORE", environment);
+        }
+        let server = wait_until_ready(command, &address);
+        let mut header = [0; 16];
+        std::fs::File::open(data.join("forge.sqlite"))
+            .unwrap()
+            .read_exact(&mut header)
+            .unwrap();
+        assert_eq!(&header, b"SQLite format 3\0");
+        let stderr = std::fs::read_to_string(&log_path).unwrap();
+        let notices: Vec<_> = stderr
+            .lines()
+            .filter(|line| line.contains("store=redline"))
+            .collect();
+        assert_eq!(
+            notices.len(),
+            usize::from(notice_expected),
+            "flag={flag:?}, env={environment:?}"
+        );
+        if notice_expected {
+            assert!(notices[0].contains("bundled SQLite"));
+            assert!(notices[0].contains("continues"));
+        }
+        if index == 0 {
+            token = Some(account_token(&http, &url, "jeryu-admin", false));
+            let repo = cli(
+                &home,
+                &url,
+                token.as_deref().unwrap(),
+                &["forge", "repo", "create", "store-proof"],
+            );
+            assert_eq!(repo["name"], "store-proof");
+        }
+        let token = token.as_deref().unwrap();
+        let issues = cli(
+            &home,
+            &url,
+            token,
+            &["forge", "issue", "list", "--repo", "store-proof"],
+        );
+        let mut titles: Vec<_> = issues
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|issue| issue["title"].as_str().unwrap().to_string())
+            .collect();
+        titles.sort();
+        assert_eq!(
+            titles,
+            (0..index)
+                .map(|previous| format!("store restart {previous}"))
+                .collect::<Vec<_>>()
+        );
+        if index + 1 < cases.len() {
+            let title = format!("store restart {index}");
+            let issue = cli(
+                &home,
+                &url,
+                token,
+                &[
+                    "forge",
+                    "issue",
+                    "create",
+                    "--repo",
+                    "store-proof",
+                    "--title",
+                    &title,
+                ],
+            );
+            assert_eq!(issue["title"], title);
+        }
+        assert!(!home.join("forge.sqlite").exists());
+        drop(server);
+    }
+}
+
+#[test]
+fn unknown_store_exits_before_creating_any_state() {
+    let temp = TempDir::new().unwrap();
+    for (index, (flag, environment)) in [
+        (Some("postgres"), None),
+        (None, Some("postgres")),
+        (Some("postgres"), Some("sqlite")),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let home = temp.path().join(format!("home-{index}"));
+        std::fs::create_dir(&home).unwrap();
+        let stdout_path = temp.path().join(format!("invalid-{index}.stdout"));
+        let stderr_path = temp.path().join(format!("invalid-{index}.stderr"));
+        let stdout = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&stdout_path)
+            .unwrap();
+        let stderr = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&stderr_path)
+            .unwrap();
+        let mut command = isolated_command(&home);
+        command
+            .args(["serve", "--bind", "127.0.0.1:0", "--data-dir"])
+            .arg(home.join("explicit-data"))
+            .env("JERYU_DATA_DIR", home.join("env-data"))
+            .env("XDG_DATA_HOME", home.join("xdg-data"))
+            .stdout(stdout)
+            .stderr(stderr);
+        if let Some(flag) = flag {
+            command.args(["--store", flag]);
+        }
+        if let Some(environment) = environment {
+            command.env("JERYU_STORE", environment);
+        }
+        let mut child = Server(command.spawn().unwrap());
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let status = loop {
+            if let Some(status) = child.0.try_wait().unwrap() {
+                break status;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "invalid store started a long-lived process"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        assert_eq!(status.code(), Some(1));
+        assert!(std::fs::read(stdout_path).unwrap().is_empty());
+        let stderr = std::fs::read_to_string(stderr_path).unwrap();
+        assert!(stderr.contains("unknown store"));
+        assert!(stderr.contains("postgres"));
+        assert!(!stderr.contains("store=redline"));
+        assert_eq!(
+            std::fs::read_dir(&home).unwrap().count(),
+            0,
+            "store rejection created state"
+        );
+    }
 }

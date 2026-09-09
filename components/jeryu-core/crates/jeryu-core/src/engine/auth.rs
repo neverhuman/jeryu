@@ -34,7 +34,7 @@ impl ForgeCore {
     ) -> Result<AccountSummary> {
         require_login(login)?;
         require_password(password)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if state.accounts.contains_key(login) {
             return Err(ForgeError::Conflict(format!("account {login}")));
         }
@@ -79,6 +79,7 @@ impl ForgeCore {
 
     pub fn list_accounts(&self) -> Vec<AccountSummary> {
         let mut accounts: Vec<_> = self
+            .runtime
             .state
             .read()
             .accounts
@@ -91,7 +92,8 @@ impl ForgeCore {
     }
 
     pub fn get_account(&self, login: &str) -> Result<AccountSummary> {
-        self.state
+        self.runtime
+            .state
             .read()
             .accounts
             .get(login)
@@ -102,6 +104,7 @@ impl ForgeCore {
 
     pub fn authenticate_password(&self, login: &str, password: &str) -> Result<AccountSummary> {
         let account = self
+            .runtime
             .state
             .read()
             .accounts
@@ -123,7 +126,7 @@ impl ForgeCore {
         new_password: &str,
     ) -> Result<AccountSummary> {
         require_password(new_password)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if !state.accounts.contains_key(login) {
             return Err(ForgeError::NotFound(format!("account {login}")));
         }
@@ -153,6 +156,7 @@ impl ForgeCore {
     ) -> Result<AccountSummary> {
         require_password(new_password)?;
         let account = self
+            .runtime
             .state
             .read()
             .accounts
@@ -165,7 +169,7 @@ impl ForgeCore {
             ));
         }
         verify_password(current_password, &account.password_hash)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let account = state
             .accounts
@@ -185,7 +189,7 @@ impl ForgeCore {
     }
 
     pub fn force_password_change(&self, login: &str, forced: bool) -> Result<AccountSummary> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if !state.accounts.contains_key(login) {
             return Err(ForgeError::NotFound(format!("account {login}")));
         }
@@ -240,7 +244,7 @@ impl ForgeCore {
             created_at,
             expires_at,
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state
             .sessions
@@ -255,7 +259,7 @@ impl ForgeCore {
 
     pub fn session_for_token(&self, token: &str) -> Option<(AccountSummary, WebSession)> {
         let hash = token_hash(token);
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let session = state.sessions.get(&hash)?;
         if session.expires_at <= Utc::now() {
             return None;
@@ -276,7 +280,7 @@ impl ForgeCore {
 
     pub fn revoke_session(&self, token: &str) -> Result<()> {
         let hash = token_hash(token);
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state.sessions.remove(&hash);
         self.persist_after_mutation(&mut state, previous)
@@ -301,7 +305,7 @@ impl ForgeCore {
             created_at: Utc::now(),
             expires_at,
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state.personal_tokens.insert(token.id, token.clone());
         self.persist_after_mutation(&mut state, previous)?;
@@ -314,6 +318,7 @@ impl ForgeCore {
     ) -> Result<Vec<PersonalAccessTokenSummary>> {
         self.get_account(login)?;
         let mut tokens: Vec<_> = self
+            .runtime
             .state
             .read()
             .personal_tokens
@@ -332,7 +337,7 @@ impl ForgeCore {
 
     pub fn revoke_personal_access_token(&self, login: &str, id: Uuid) -> Result<bool> {
         self.get_account(login)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let removed = state
             .personal_tokens
@@ -348,7 +353,7 @@ impl ForgeCore {
     pub fn authenticate_personal_access_token(&self, token: &str) -> Option<AccountSummary> {
         let hash = token_hash(token);
         let now = Utc::now();
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let token = state.personal_tokens.values().find(|record| {
             record.token_hash == hash && record.expires_at.is_none_or(|expires| expires > now)
         })?;
@@ -423,7 +428,7 @@ impl ForgeCore {
             )));
         }
         let activation_secret = random_secret()?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if state.accounts.contains_key(canonical_login) {
             return Err(ForgeError::Conflict(format!("account {canonical_login}")));
         }
@@ -511,6 +516,7 @@ impl ForgeCore {
 
     pub fn list_account_invitations(&self) -> Vec<AccountInvitationSummary> {
         let mut invitations: Vec<_> = self
+            .runtime
             .state
             .read()
             .invitations
@@ -528,7 +534,7 @@ impl ForgeCore {
     }
 
     pub fn revoke_account_invitation(&self, id: Uuid) -> Result<bool> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let revoked = if let Some(invitation) = state.invitations.get_mut(&id) {
             if invitation.consumed_at.is_none() && invitation.revoked_at.is_none() {
@@ -555,7 +561,7 @@ impl ForgeCore {
         }
         let challenge = random_secret()?;
         let now = Utc::now();
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let invitation_id = state
             .invitations
             .values()
@@ -613,7 +619,7 @@ impl ForgeCore {
         let password_hash = hash_password(password)?;
         let challenge_hash = token_hash(challenge);
         let now = Utc::now();
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let challenge_record = state
             .activation_challenges
             .get(&challenge_hash)
@@ -734,7 +740,7 @@ impl ForgeCore {
 
     #[must_use]
     pub fn bootstrap_owner_consumed(&self) -> bool {
-        self.state.read().bootstrap_owner_consumed
+        self.runtime.state.read().bootstrap_owner_consumed
     }
 
     fn transition_account_status(
@@ -743,7 +749,7 @@ impl ForgeCore {
         status: AccountStatus,
         allowed_current: Option<&[AccountStatus]>,
     ) -> Result<AccountSummary> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if !state.accounts.contains_key(login) {
             return Err(ForgeError::NotFound(format!("account {login}")));
         }
@@ -796,7 +802,7 @@ impl ForgeCore {
     ) -> Result<RepoAccessGrant> {
         self.get_account(login)?;
         self.get_repository(owner, repo)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let grant = RepoAccessGrant {
             login: login.to_string(),
@@ -832,7 +838,7 @@ impl ForgeCore {
     }
 
     pub fn revoke_repo_access(&self, login: &str, owner: &str, repo: &str) -> Result<bool> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let removed = state
             .repo_grants
@@ -860,6 +866,7 @@ impl ForgeCore {
 
     pub fn list_repo_access(&self, owner: &str, repo: &str) -> Vec<RepoAccessGrant> {
         let mut grants: Vec<_> = self
+            .runtime
             .state
             .read()
             .repo_grants
@@ -887,7 +894,7 @@ impl ForgeCore {
     }
 
     pub fn repo_access_for(&self, login: &str, owner: &str, repo: &str) -> Option<RepoAccessLevel> {
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let account = state.accounts.get(login)?;
         if !account.status.permits_authentication() {
             return None;
@@ -917,7 +924,7 @@ impl ForgeCore {
     }
 }
 
-fn require_login(login: &str) -> Result<()> {
+pub(super) fn require_login(login: &str) -> Result<()> {
     require_name("login", login)?;
     if login.trim() != login
         || !login.bytes().all(|byte| {

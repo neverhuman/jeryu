@@ -146,6 +146,9 @@ pub struct PullRequestReview {
     pub body_markdown: Option<String>,
     pub submitted_at: String,
     pub head_sha: Option<String>,
+    // UUID of the verdict removed by this dismissal; absent on other events
+    // and historical target-less dismissals.
+    pub dismissed_review_id: Option<String>,
     pub effective: bool,
     pub stale: bool,
 }

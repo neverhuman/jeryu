@@ -1,5 +1,10 @@
 use super::*;
 
+#[path = "../../tests/support/mod.rs"]
+mod support;
+
+use support::private_directory;
+
 fn core_with_repo() -> ForgeCore {
     let core = ForgeCore::new();
     core.create_user(CreateUserRequest {
@@ -111,7 +116,7 @@ fn branch_protection_blocks_merge_until_review_and_status_pass() {
         "alice",
         "jeryu",
         pr.number,
-        "alice",
+        "reviewer",
         CreateReviewRequest {
             body: None,
             event: ReviewState::Approved,
@@ -239,7 +244,7 @@ fn webhook_outbox_records_matching_events() {
 
 #[test]
 fn readme_round_trips_through_sqlite_storage() {
-    let tempdir = tempfile::tempdir().unwrap();
+    let tempdir = private_directory();
     let db_path = tempdir.path().join("forge.sqlite");
     let core = ForgeCore::open_sqlite(&db_path).unwrap();
     core.create_repository(

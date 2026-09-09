@@ -103,7 +103,7 @@ impl ForgeCore {
         request: CreateRepositoryRequest,
     ) -> Result<Repository> {
         require_name("repository name", &request.name)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let key = (owner.to_string(), request.name.clone());
         if state.repos.contains_key(&key) {
             return Err(ForgeError::Conflict(format!(
@@ -140,6 +140,7 @@ impl ForgeCore {
 
     pub fn list_repositories(&self, owner: Option<&str>) -> Vec<Repository> {
         let mut repos: Vec<_> = self
+            .runtime
             .state
             .read()
             .repos
@@ -152,7 +153,8 @@ impl ForgeCore {
     }
 
     pub fn get_repository(&self, owner: &str, repo: &str) -> Result<Repository> {
-        self.state
+        self.runtime
+            .state
             .read()
             .repos
             .get(&(owner.to_string(), repo.to_string()))
@@ -167,7 +169,7 @@ impl ForgeCore {
         repo: &str,
         private: bool,
     ) -> Result<Repository> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let key = (owner.to_string(), repo.to_string());
         let Some(current) = state.repos.get(&key) else {
             return Err(ForgeError::NotFound(format!("repository {owner}/{repo}")));
@@ -216,7 +218,7 @@ impl ForgeCore {
             }
             None => None,
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let key = (owner.to_string(), repo.to_string());
         if !state.repos.contains_key(&key) {
             return Err(ForgeError::NotFound(format!("repository {owner}/{repo}")));
@@ -240,7 +242,7 @@ impl ForgeCore {
     /// the `forge_audit_log` table lives outside the rewrite by design and
     /// keeps its trail for the deleted subject.
     pub fn delete_repository(&self, owner: &str, repo: &str) -> Result<RepositoryDeletion> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let key = (owner.to_string(), repo.to_string());
         let Some(removed_repo) = state.repos.get(&key).cloned() else {
             return Err(ForgeError::NotFound(format!("repository {owner}/{repo}")));
@@ -317,7 +319,7 @@ impl ForgeCore {
     ) -> Result<Label> {
         require_name("label name", &request.name)?;
         self.ensure_repo_exists(owner, repo)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let key = (owner.to_string(), repo.to_string(), request.name.clone());
         if state.labels.contains_key(&key) {
             return Err(ForgeError::Conflict(format!(
@@ -339,7 +341,7 @@ impl ForgeCore {
 
     pub fn list_labels(&self, owner: &str, repo: &str) -> Result<Vec<Label>> {
         self.ensure_repo_exists(owner, repo)?;
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let mut labels: Vec<_> = state
             .labels
             .iter()

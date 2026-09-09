@@ -40,7 +40,7 @@ impl ForgeCore {
             started_at: Utc::now(),
             completed_at: if completed { Some(Utc::now()) } else { None },
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state
             .check_runs
@@ -69,6 +69,7 @@ impl ForgeCore {
         // No check-runs entry for the repo means none have been created; an
         // empty list is the intended value.
         let runs: Vec<_> = match self
+            .runtime
             .state
             .read()
             .check_runs

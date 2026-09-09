@@ -17,8 +17,11 @@ fn jeryu_packages_have_one_workspace_identity_and_sqlite_needs_no_redline() {
         .args([
             "metadata",
             "--manifest-path",
-            root.join("Cargo.toml").to_str().expect("utf8 root"),
+            root.join("Cargo.toml")
+                .to_str()
+                .expect("UTF-8 workspace root"),
             "--locked",
+            "--offline",
             "--all-features",
             "--format-version",
             "1",
@@ -27,9 +30,9 @@ fn jeryu_packages_have_one_workspace_identity_and_sqlite_needs_no_redline() {
         .expect("cargo metadata");
     assert!(
         output.status.success(),
-        "locked metadata failed: {}\n{}",
-        String::from_utf8_lossy(&output.stderr),
-        String::from_utf8_lossy(&output.stdout)
+        "locked metadata failed with {}:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
     );
     let metadata: Value = serde_json::from_slice(&output.stdout).unwrap();
     let packages = metadata["packages"].as_array().unwrap();

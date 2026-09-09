@@ -8,6 +8,7 @@ impl ForgeCore {
     pub fn get_repository_readme(&self, owner: &str, repo: &str) -> Result<Option<String>> {
         self.ensure_repo_exists(owner, repo)?;
         Ok(self
+            .runtime
             .state
             .read()
             .readmes
@@ -24,7 +25,7 @@ impl ForgeCore {
         markdown: String,
     ) -> Result<String> {
         self.ensure_repo_exists(owner, repo)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state
             .readmes

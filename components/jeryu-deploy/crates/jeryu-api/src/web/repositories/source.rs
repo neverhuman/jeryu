@@ -525,6 +525,36 @@ pub(in crate::web) async fn repo_readme_update(
             Json(readme_response_with_markdown(&state, &repo, markdown)).into_response()
         }
         Err(ForgeError::NotFound(_)) => readme_not_found_error(),
+        Err(ForgeError::Forbidden(err)) => api_error_with_hint(
+            axum::http::StatusCode::FORBIDDEN,
+            "forbidden",
+            "repository README update was forbidden",
+            ApiErrorHint {
+                purpose: "persist repository README",
+                reason: "forbidden",
+                common_fixes: &[
+                    "authenticate as an actor permitted to update this repository",
+                    "preserve repository ownership and policy requirements",
+                ],
+                docs_url: "docs/errors.md#policy-denied",
+                repair_hint: &format!("verify the authenticated actor before retrying ({err})"),
+            },
+        ),
+        Err(ForgeError::WriterUnavailable(err)) => api_error_with_hint(
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            "writer_unavailable",
+            "repository README writer is unavailable",
+            ApiErrorHint {
+                purpose: "persist repository README",
+                reason: "writer_unavailable",
+                common_fixes: &[
+                    "inspect the current writer and backing resource custody",
+                    "retry after writer ownership and storage identity are restored",
+                ],
+                docs_url: "docs/release-process.md#required-local-gates",
+                repair_hint: &format!("verify writer custody before retrying ({err})"),
+            },
+        ),
         Err(ForgeError::Storage(err)) => api_error_with_hint(
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             "storage_failed",

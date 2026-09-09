@@ -52,7 +52,7 @@ impl ForgeCore {
             report_json,
             created_at: Utc::now(),
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let scores = state
             .jankurai_scores
@@ -91,7 +91,7 @@ impl ForgeCore {
         commit_sha: Option<&str>,
     ) -> Result<Vec<JankuraiScore>> {
         self.ensure_repo_exists(owner, repo)?;
-        let state = self.state.read();
+        let state = self.runtime.state.read();
         let mut scores: Vec<JankuraiScore> = state
             .jankurai_scores
             .get(&(owner.to_string(), repo.to_string()))
@@ -115,7 +115,8 @@ impl ForgeCore {
         repo: &str,
         branch: &str,
     ) -> Option<JankuraiScore> {
-        self.state
+        self.runtime
+            .state
             .read()
             .jankurai_scores
             .get(&(owner.to_string(), repo.to_string()))

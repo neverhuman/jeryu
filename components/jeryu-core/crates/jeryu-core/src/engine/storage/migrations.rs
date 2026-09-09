@@ -37,10 +37,13 @@ const MIGRATION_0009: &str =
 const MIGRATION_0010: &str =
     include_str!("../../../../../db/migrations/0010_account_lifecycle.sql");
 const MIGRATION_0011: &str = include_str!("../../../../../db/migrations/0011_review_head_sha.sql");
+const MIGRATION_0012: &str =
+    include_str!("../../../../../db/migrations/0012_review_dismissal_target.sql");
 
 pub(super) fn apply_migrations(conn: &Connection) -> Result<()> {
     apply_migrations_through_0010(conn)?;
     apply_migration_0011(conn)?;
+    add_column_if_missing(conn, "reviews", "dismissed_review_id", MIGRATION_0012)?;
     Ok(())
 }
 
@@ -259,8 +262,7 @@ mod tests {
         conn
     }
 
-    #[test]
-    fn migration_0011_preserves_historical_reviews_as_stale() {
+    fn historical_review_connection() -> Connection {
         let conn = Connection::open_in_memory().expect("open in-memory db");
         apply_migrations_through_0010(&conn).expect("migrate through 0010");
         assert!(!column_exists(&conn, "reviews", "head_sha").expect("inspect old shape"));
@@ -303,7 +305,12 @@ mod tests {
             "#,
         )
         .expect("insert production-shape historical review");
+        conn
+    }
 
+    #[test]
+    fn migration_0011_preserves_historical_reviews_as_stale() {
+        let conn = historical_review_connection();
         apply_migration_0011(&conn).expect("apply 0011");
         apply_migration_0011(&conn).expect("reapply 0011");
         let head_sha: Option<String> = conn
@@ -314,6 +321,7 @@ mod tests {
             )
             .expect("read migrated review");
         assert_eq!(head_sha, None);
+        apply_migrations(&conn).expect("apply subsequent additive migrations before loading");
         let state = super::super::load_state(&conn).expect("load migrated production shape");
         let reviews = state
             .reviews
@@ -325,6 +333,61 @@ mod tests {
             crate::effective_reviews_for_head(reviews, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn migration_0012_preserves_unbound_dismissals() {
+        let conn = historical_review_connection();
+        apply_migration_0011(&conn).expect("apply predecessor");
+        assert!(!column_exists(&conn, "reviews", "dismissed_review_id").unwrap());
+        conn.execute_batch(
+            r#"
+            UPDATE reviews SET head_sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+            INSERT INTO reviews (id, repo_id, pull_number, author, state, body, submitted_at, head_sha)
+            SELECT '00000000-0000-0000-0000-000000000005', repo_id, pull_number,
+                   author, 'DISMISSED', 'historical approval withdrawal', submitted_at, head_sha
+            FROM reviews WHERE id = '00000000-0000-0000-0000-000000000004';
+            INSERT INTO reviews (id, repo_id, pull_number, author, state, body, submitted_at, head_sha)
+            SELECT '00000000-0000-0000-0000-000000000006', repo_id, pull_number,
+                   'second-reviewer', 'CHANGES_REQUESTED', 'unresolved objection', submitted_at, head_sha
+            FROM reviews WHERE id = '00000000-0000-0000-0000-000000000004';
+            INSERT INTO reviews (id, repo_id, pull_number, author, state, body, submitted_at, head_sha)
+            SELECT '00000000-0000-0000-0000-000000000007', repo_id, pull_number,
+                   'second-reviewer', 'DISMISSED', 'unbound rejection withdrawal', submitted_at, head_sha
+            FROM reviews WHERE id = '00000000-0000-0000-0000-000000000004';
+            "#,
+        ).expect("record historical target-less events");
+        let preserved_fields = "SELECT json_group_array(json_array(id, author, state, body, head_sha, submitted_at)) FROM (SELECT * FROM reviews ORDER BY rowid)";
+        let before: String = conn
+            .query_row(preserved_fields, [], |row| row.get(0))
+            .unwrap();
+        apply_migrations(&conn).expect("apply 0012");
+        apply_migrations(&conn).expect("reapply idempotently");
+        let after: String = conn
+            .query_row(preserved_fields, [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(before, after);
+        let bound: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM reviews WHERE dismissed_review_id IS NOT NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(bound, 0);
+        let state = super::super::load_state(&conn).unwrap();
+        let reviews = &state.reviews[&("alice".to_string(), "demo".to_string(), 1)];
+        assert_eq!(reviews.len(), 4);
+        assert!(
+            reviews
+                .iter()
+                .all(|review| review.dismissed_review_id.is_none())
+        );
+        let effective =
+            crate::effective_reviews_for_head(reviews, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        assert_eq!(effective.len(), 1);
+        assert_eq!(effective[0].author, "second-reviewer");
+        assert_eq!(effective[0].state, crate::ReviewState::ChangesRequested);
     }
 
     fn insert_repo(conn: &Connection, id: &str, name: &str, description: Option<&str>) {

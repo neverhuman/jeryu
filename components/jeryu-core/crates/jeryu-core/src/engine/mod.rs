@@ -11,7 +11,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use chrono::Utc;
-use parking_lot::{RwLock, RwLockWriteGuard};
+use parking_lot::RwLockWriteGuard;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -26,6 +26,7 @@ mod auth;
 mod branch_protection;
 mod check_runs;
 mod commit_status;
+mod coordinator;
 mod issues;
 mod jankurai;
 mod pull_requests;
@@ -34,13 +35,16 @@ mod repositories;
 mod repository_transfer;
 mod repository_transfer_state;
 mod reviews;
+mod runtime;
 mod storage;
 mod webhooks;
+mod writer;
 
 #[cfg(test)]
 mod tests;
 
 pub use audit::AuditEntry;
+pub use coordinator::MutationCoordinator;
 pub use pull_requests::MergeReadiness;
 pub use repositories::RepositoryDeletion;
 
@@ -139,8 +143,7 @@ pub trait RepoMaterializer: std::fmt::Debug + Send + Sync {
 
 #[derive(Debug, Clone, Default)]
 pub struct ForgeCore {
-    state: Arc<RwLock<State>>,
-    storage: Option<Arc<storage::SqliteStore>>,
+    runtime: Arc<runtime::SharedRuntime>,
     repo_materializer: Option<Arc<dyn RepoMaterializer>>,
 }
 
@@ -158,12 +161,28 @@ impl ForgeCore {
     }
 
     pub fn open_sqlite(path: impl AsRef<Path>) -> Result<Self> {
-        let (storage, state) = storage::SqliteStore::open(path)?;
         Ok(Self {
-            state: Arc::new(RwLock::new(state)),
-            storage: Some(Arc::new(storage)),
+            runtime: runtime::open(path.as_ref(), None)?,
             repo_materializer: None,
         })
+    }
+
+    /// Open one database and Git storage root under cooperative writer custody.
+    /// This does not authorize Gitd writers or install a storage permission boundary.
+    pub fn open_managed(
+        database: impl AsRef<Path>,
+        git_storage_root: impl AsRef<Path>,
+    ) -> Result<Self> {
+        Ok(Self {
+            runtime: runtime::open(database.as_ref(), Some(git_storage_root.as_ref()))?,
+            repo_materializer: None,
+        })
+    }
+
+    /// Shared coordination primitives. Existing mutation methods do not yet acquire
+    /// these guards; callers must not infer complete mutation exclusion from them.
+    pub fn coordinator(&self) -> &MutationCoordinator {
+        &self.runtime.coordinator
     }
 
     fn ensure_repo_exists(&self, owner: &str, repo: &str) -> Result<()> {
@@ -175,7 +194,7 @@ impl ForgeCore {
         state: &mut RwLockWriteGuard<'_, State>,
         previous: State,
     ) -> Result<()> {
-        let Some(storage) = &self.storage else {
+        let Some(storage) = &self.runtime.storage else {
             return Ok(());
         };
         if let Err(error) = storage.persist(state) {

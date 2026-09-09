@@ -13,7 +13,8 @@ use crate::{
 impl ForgeCore {
     /// Return a repository by its immutable UUID.
     pub fn get_repository_by_id(&self, repository_id: Uuid) -> Result<Repository> {
-        self.state
+        self.runtime
+            .state
             .read()
             .repos
             .values()
@@ -27,7 +28,8 @@ impl ForgeCore {
         &self,
         idempotency_key: &str,
     ) -> Option<RepositoryTransferJournal> {
-        self.state
+        self.runtime
+            .state
             .read()
             .repository_transfers
             .get(idempotency_key)
@@ -36,7 +38,8 @@ impl ForgeCore {
 
     /// Resolve one old read-only slug to its canonical repository identity.
     pub fn get_repository_alias(&self, owner: &str, name: &str) -> Option<RepositoryAlias> {
-        self.state
+        self.runtime
+            .state
             .read()
             .repository_aliases
             .get(&(owner.to_string(), name.to_string()))
@@ -54,7 +57,7 @@ impl ForgeCore {
         require_name("request fingerprint", &request.request_fingerprint)?;
         require_name("idempotency key", &request.idempotency_key)?;
 
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         if let Some(existing) = state
             .repository_transfers
             .get(&request.idempotency_key)
@@ -131,7 +134,7 @@ impl ForgeCore {
         transaction_id: Uuid,
         receipt: Value,
     ) -> Result<RepositoryTransferJournal> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let idempotency_key = transfer_key_for_id(&state, transaction_id)?;
         let journal = state
             .repository_transfers
@@ -191,7 +194,7 @@ impl ForgeCore {
         reason: &str,
     ) -> Result<RepositoryTransferJournal> {
         require_name("transfer failure reason", reason)?;
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let idempotency_key = transfer_key_for_id(&state, transaction_id)?;
         let existing = state
             .repository_transfers

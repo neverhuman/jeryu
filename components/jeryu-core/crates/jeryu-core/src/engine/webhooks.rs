@@ -28,7 +28,7 @@ impl ForgeCore {
             created_at: now,
             updated_at: now,
         };
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         state
             .webhooks
@@ -45,6 +45,7 @@ impl ForgeCore {
         // list is the intended value.
         Ok(
             match self
+                .runtime
                 .state
                 .read()
                 .webhooks
@@ -59,6 +60,7 @@ impl ForgeCore {
     pub fn list_webhook_deliveries(&self, owner: &str, repo: &str) -> Result<Vec<WebhookDelivery>> {
         self.ensure_repo_exists(owner, repo)?;
         Ok(self
+            .runtime
             .state
             .read()
             .webhook_deliveries

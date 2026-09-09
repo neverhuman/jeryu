@@ -18,7 +18,13 @@ except ModuleNotFoundError:
 
 class ScorePolicyTests(unittest.TestCase):
     def test_score_gates(self):
-        scripts = ["ops/ci/score.sh", "components/jeryu-core/ops/ci/score.sh"]
+        scripts = [("ops/ci/score.sh", 85), ("components/jeryu-core/ops/ci/score.sh", 85),
+                   ("components/jeryu-deploy/ops/ci/score.sh", 85),
+                   ("components/jeryu-jira/ops/ci/score.sh", 85),
+                   ("components/jeryu-intelligence/ops/ci/score.sh", 82),
+                   ("components/jeryu-release-ops/ops/ci/score.sh", 85),
+                   ("components/jeryu-tool/ops/ci/score.sh", 65),
+                   ("components/jeryu-web/ops/ci/score.sh", 85)]
         policies = [
             ("minimum_score = 85\n", {"score": 85}, True),
             ("minimum_score = 85\n", {"score": 84}, False),
@@ -46,13 +52,20 @@ class ScorePolicyTests(unittest.TestCase):
             policies.append(("minimum_score = 85\n", invalid_report, False))
         for invalid in ["", "minimum_score = [", "minimum_score = true",
                         'minimum_score = "85"', "minimum_score = 85.0",
-                        "minimum_score = 84", "minimum_score = 101"]:
+                        "minimum_score = 101"]:
             policies.append((invalid, {"score": 100}, False))
-        for script in scripts:
+        cases = 0
+        for script, minimum in scripts:
             source = Path(script).read_text()
             body = source.split("python3 - <<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
             code = compile(body, script, "exec")
-            for policy, report, expected in policies:
+            owner_cases = policies + [
+                (f"minimum_score = {minimum - 1}", {"score": 100}, False),
+                (f"minimum_score = {minimum}", {"score": minimum}, True),
+                (f"minimum_score = {minimum}", {"score": minimum - 1}, False),
+            ]
+            for policy, report, expected in owner_cases:
+                cases += 1
                 with self.subTest(script=script, policy=policy, report=report):
                     documents = {
                         "agent/audit-policy.toml": policy,
@@ -72,7 +85,7 @@ class ScorePolicyTests(unittest.TestCase):
                         else:
                             passed = True
                     self.assertEqual(passed, expected)
-        print(f"{len(scripts) * len(policies)} score policy/report cases passed")
+        print(f"{cases} score policy/report cases exercised")
 
 
 unittest.main()

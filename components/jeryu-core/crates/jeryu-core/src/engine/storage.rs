@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, DatabaseName, OpenFlags, params};
 
 use super::audit::AuditEntry;
+use super::writer::WriterLease;
 use super::{Counters, State};
 use crate::errors::{ForgeError, Result};
 use crate::model::*;
@@ -17,17 +19,13 @@ use self::migrations::apply_migrations;
 #[derive(Debug, Clone)]
 pub(super) struct SqliteStore {
     path: PathBuf,
+    writer: Arc<WriterLease>,
 }
 
 impl SqliteStore {
-    pub(super) fn open(path: impl AsRef<Path>) -> Result<(Self, State)> {
+    pub(super) fn open(path: impl AsRef<Path>, writer: Arc<WriterLease>) -> Result<(Self, State)> {
         let path = path.as_ref().to_path_buf();
-        if let Some(parent) = path.parent()
-            && !parent.as_os_str().is_empty()
-        {
-            std::fs::create_dir_all(parent).map_err(storage_error)?;
-        }
-        let store = Self { path };
+        let store = Self { path, writer };
         let conn = store.connect()?;
         apply_migrations(&conn)?;
         let mut state = load_state(&conn)?;
@@ -106,10 +104,28 @@ impl SqliteStore {
     }
 
     fn connect(&self) -> Result<Connection> {
-        let conn = Connection::open(&self.path).map_err(storage_error)?;
+        self.writer.validate()?;
+        let conn = Connection::open_with_flags(
+            &self.path,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NOFOLLOW,
+        )
+        .map_err(storage_error)?;
+        self.writer.validate()?;
+        if conn
+            .is_readonly(DatabaseName::Main)
+            .map_err(storage_error)?
+        {
+            return Err(ForgeError::WriterUnavailable(
+                "the admitted database connection is read-only".to_string(),
+            ));
+        }
         conn.execute_batch("PRAGMA foreign_keys = ON;")
             .map_err(storage_error)?;
         Ok(conn)
+    }
+
+    pub(super) fn validate_writer(&self) -> Result<()> {
+        self.writer.validate()
     }
 }
 
@@ -475,8 +491,8 @@ fn persist_state(conn: &Connection, state: &State) -> Result<()> {
                 r#"
                 INSERT INTO reviews (
                   id, repo_id, pull_number, author, state, body, submitted_at,
-                  head_sha
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                  head_sha, dismissed_review_id
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
                 "#,
                 params![
                     review.id.to_string(),
@@ -487,6 +503,7 @@ fn persist_state(conn: &Connection, state: &State) -> Result<()> {
                     review.body,
                     time(review.submitted_at),
                     review.head_sha,
+                    review.dismissed_review_id.map(|id| id.to_string()),
                 ],
             )
             .map_err(storage_error)?;
@@ -1167,7 +1184,7 @@ fn load_reviews(conn: &Connection, state: &mut State) -> Result<()> {
         .prepare(
             r#"
             SELECT r.owner, r.name, v.id, v.pull_number, v.author, v.state,
-                   v.body, v.submitted_at, v.head_sha
+                   v.body, v.submitted_at, v.head_sha, v.dismissed_review_id
             FROM reviews v
             JOIN repositories r ON r.id = v.repo_id
             ORDER BY v.rowid
@@ -1188,6 +1205,11 @@ fn load_reviews(conn: &Connection, state: &mut State) -> Result<()> {
             state: from_text(row.get(5).map_err(storage_error)?)?,
             body: row.get(6).map_err(storage_error)?,
             head_sha: row.get(8).map_err(storage_error)?,
+            dismissed_review_id: row
+                .get::<_, Option<String>>(9)
+                .map_err(storage_error)?
+                .map(parse_uuid)
+                .transpose()?,
             submitted_at: parse_time(row.get(7).map_err(storage_error)?)?,
         };
         state

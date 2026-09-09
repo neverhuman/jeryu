@@ -31,6 +31,7 @@ bash tests/score-policy-hostiles.sh
 bash tests/score-report-hostiles.sh
 bash tests/scratch-hostiles.sh
 bash tests/auxiliary-proofs.sh
+bash tests/ci-matrix.sh
 bash tests/component-ci-dispatch.sh
 bash tests/clone-family-hostiles.sh
 bash tests/security-lane-hostiles.sh

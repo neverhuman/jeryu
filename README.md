@@ -48,6 +48,11 @@ SQLite and Git repositories persist there across restarts. `--spa-dir PATH`
 explicitly serves a development bundle. Without it, the server uses embedded
 assets and does not trust files in the current directory.
 
+`jeryu serve --store sqlite` makes the default engine explicit. `--store` takes
+precedence over `JERYU_STORE`. The compatibility values `redline` and `redlinedb`
+currently use the same durable SQLite engine and print a fallback notice;
+they do not load RedlineDB. Unknown values fail before creating runtime state.
+
 The first start creates only `jeryu-admin`. Its one-time password is written
 to `bootstrap-credentials.json` in the data directory with owner-only access;
 log in, change the password, and remove that credential receipt. An explicit
@@ -68,6 +73,15 @@ and UX tooling use the root npm workspace. Component ownership remains under
 `jeryu-tool-finder`, `jeryu-deploy`, and `jeryu-release-ops`.
 Original manifests and locks are archived as provenance; their paths are not
 active workspace configuration.
+
+The root `rust-toolchain.toml` and `.cargo/config.toml` own the product build
+configuration. Component copies are generated compatibility projections; absent
+component Cargo configuration inherits the root file. After changing a root
+file, run `cargo run --locked -p jeryu-split-tool --bin jeryu-split -- build-config
+--write` from the monorepo root. The command checks all inputs before refreshing
+existing projections and preserves their permissions; `build-config` without
+`--write` and `monorepo-check` reject drift. Split exports use those same root
+files. Jankurai retains its separately governed compiler and hermetic builder.
 
 RedlineDB compatibility is an explicit optional proof:
 `bash scripts/ci.sh redline`. Its isolated test harness and lockfile keep

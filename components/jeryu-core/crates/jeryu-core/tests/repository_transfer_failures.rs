@@ -1,5 +1,9 @@
 //! Repository-transfer collision and terminal-failure coverage.
 
+mod support;
+
+use support::private_directory;
+
 use jeryu_core::{CreateRepositoryRequest, ForgeCore, ForgeError, PrepareRepositoryTransfer};
 use serde_json::json;
 
@@ -80,7 +84,7 @@ fn commit_rechecks_destination_without_losing_either_repository() {
 
 #[test]
 fn failed_transfer_is_terminal_across_sqlite_reopen() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = private_directory();
     let database = temp.path().join("forge.sqlite");
 
     let first_failure = {

@@ -38,3 +38,11 @@ Migration 0005-0007 notes:
 Live-readiness note:
 - When migrations or constraints change, include this guidance file in the
   changed-fast audit so Jankurai can detect the local DB owner and proof lane.
+
+Migration 0012 review dismissal notes:
+- Preserve every nullable historical target; never infer a verdict UUID.
+- Persist and reload new dismissal targets through every full-state rewrite.
+- Keep incompatible older writers stopped: their rewrite loses target bindings.
+- Exercise migration_0012_preserves_unbound_dismissals and
+  review_dismissal_survives_sqlite_reopen_and_unrelated_write with two Cargo jobs
+  in the allocated CI window, then run the migration analysis lane above.

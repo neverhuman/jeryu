@@ -20,7 +20,7 @@ impl ForgeCore {
         require_name("issue title", &request.title)?;
         self.ensure_repo_exists(owner, repo)?;
         self.ensure_user(author);
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let number = next_issue_number(&mut state, owner, repo);
         let now = Utc::now();
@@ -64,6 +64,7 @@ impl ForgeCore {
     ) -> Result<Vec<Issue>> {
         self.ensure_repo_exists(owner, repo)?;
         let mut issues: Vec<_> = self
+            .runtime
             .state
             .read()
             .issues
@@ -81,7 +82,8 @@ impl ForgeCore {
     }
 
     pub fn get_issue(&self, owner: &str, repo: &str, number: u64) -> Result<Issue> {
-        self.state
+        self.runtime
+            .state
             .read()
             .issues
             .get(&(owner.to_string(), repo.to_string(), number))
@@ -96,7 +98,7 @@ impl ForgeCore {
         number: u64,
         request: UpdateIssueRequest,
     ) -> Result<Issue> {
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let key = (owner.to_string(), repo.to_string(), number);
         let issue = state
@@ -156,7 +158,7 @@ impl ForgeCore {
     ) -> Result<IssueComment> {
         require_name("comment body", &request.body)?;
         self.ensure_user(author);
-        let mut state = self.state.write();
+        let mut state = self.runtime.state.write();
         let previous = state.clone();
         let issue_key = (owner.to_string(), repo.to_string(), number);
         let issue = state
@@ -201,7 +203,7 @@ impl ForgeCore {
         // The issue exists (checked above); a missing comments entry just means
         // it has no comments yet, so an empty list is the intended value.
         Ok(
-            match self.state.read().issue_comments.get(&(
+            match self.runtime.state.read().issue_comments.get(&(
                 owner.to_string(),
                 repo.to_string(),
                 number,

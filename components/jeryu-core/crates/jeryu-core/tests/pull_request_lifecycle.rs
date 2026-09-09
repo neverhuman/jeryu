@@ -404,7 +404,7 @@ fn protection_blocks_then_review_plus_status_unblocks() {
     assert!(!pr.mergeable);
 
     // Add the approving review -- still blocked on the status check.
-    approve(&core, number, "alice");
+    approve(&core, number, "reviewer");
     let pr = core.get_pull_request("alice", "jeryu", number).unwrap();
     assert!(!pr.mergeable);
 
@@ -611,7 +611,7 @@ fn full_lifecycle_to_merged_closes_backing_issue() {
     let core = core_with_repo();
     protect_main(&core, 1, &["ci/fast"]);
     let number = open_pr(&core, "abc", false);
-    approve(&core, number, "alice");
+    approve(&core, number, "reviewer");
     pass_status(&core, "abc", "ci/fast");
 
     let result = core
@@ -911,7 +911,7 @@ fn multiple_approvals_count_toward_threshold() {
     protect_main(&core, 2, &[]);
     let number = open_pr(&core, "abc", false);
 
-    approve(&core, number, "alice");
+    approve(&core, number, "reviewer");
     assert!(
         !core
             .get_pull_request("alice", "jeryu", number)

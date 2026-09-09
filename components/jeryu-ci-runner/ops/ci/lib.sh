@@ -66,6 +66,10 @@ audit_effective_floor() {
       "${policy_path}" >&2
     return 1
   }
+  [[ "$configured_floor" =~ ^([0-9]|[1-9][0-9]|100)$ ]] || {
+    printf 'audit policy minimum_score must be an integer from 0 through 100\n' >&2
+    return 1
+  }
   if (( configured_floor > JERYU_FLEET_MINIMUM_SCORE )); then
     printf '%s\n' "${configured_floor}"
   else
